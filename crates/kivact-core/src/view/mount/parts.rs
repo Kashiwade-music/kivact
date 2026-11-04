@@ -3,8 +3,8 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_reactive::Owner;
-use kivact_reactive::Prop as InputProp;
+use kivact_runtime::Owner;
+use kivact_runtime::Prop as InputProp;
 
 use crate::view::common::SemanticSources;
 use crate::view::common::{Common, Constraints};
@@ -86,8 +86,8 @@ impl Common {
 pub(super) fn report_modal_unsupported(cx: &Mcx<'_>, at: &'static Location<'static>) {
     cx.rt.report(
         Some(cx.owner),
-        kivact_reactive::UiError::new(
-            kivact_reactive::ErrorKind::Unsupported,
+        kivact_runtime::UiError::new(
+            kivact_runtime::ErrorKind::Unsupported,
             "Part.modal(true) requires an Overlay attachment; requirement dropped",
             Some(at),
         ),
@@ -144,8 +144,8 @@ pub(super) fn constraints(
         required,
     } = sources;
     let value = |source: InputProp<bool>| source.into_value(cx.owner, at);
-    let caller_disabled = value(disabled.unwrap_or_else(|| kivact_reactive::Prop::constant(false)));
-    let caller_hidden = value(hidden.unwrap_or_else(|| kivact_reactive::Prop::constant(false)));
+    let caller_disabled = value(disabled.unwrap_or_else(|| kivact_runtime::Prop::constant(false)));
+    let caller_hidden = value(hidden.unwrap_or_else(|| kivact_runtime::Prop::constant(false)));
     let caller_focus = focusable.map(value);
     let PartConstraints {
         disabled: mut required_disabled,
@@ -153,21 +153,21 @@ pub(super) fn constraints(
         focusable: required_focus,
     } = required;
     if let Some(parent) = parent {
-        required_disabled.push(kivact_reactive::Prop::value(parent.disabled));
-        required_hidden.push(kivact_reactive::Prop::value(parent.hidden));
+        required_disabled.push(kivact_runtime::Prop::value(parent.disabled));
+        required_hidden.push(kivact_runtime::Prop::value(parent.hidden));
     }
     let focus_default = !required_focus.is_empty();
-    let disabled = value(kivact_reactive::Prop::computed(Rc::new(move || {
-        caller_disabled.get() || required_disabled.iter().any(kivact_reactive::Prop::get)
+    let disabled = value(kivact_runtime::Prop::computed(Rc::new(move || {
+        caller_disabled.get() || required_disabled.iter().any(kivact_runtime::Prop::get)
     })));
-    let hidden = value(kivact_reactive::Prop::computed(Rc::new(move || {
-        caller_hidden.get() || required_hidden.iter().any(kivact_reactive::Prop::get)
+    let hidden = value(kivact_runtime::Prop::computed(Rc::new(move || {
+        caller_hidden.get() || required_hidden.iter().any(kivact_runtime::Prop::get)
     })));
-    let focusable = value(kivact_reactive::Prop::computed(Rc::new(move || {
+    let focusable = value(kivact_runtime::Prop::computed(Rc::new(move || {
         caller_focus.map_or(focus_default, |v| v.get())
-            && required_focus.iter().all(kivact_reactive::Prop::get)
+            && required_focus.iter().all(kivact_runtime::Prop::get)
     })));
-    let eligible = value(kivact_reactive::Prop::computed(Rc::new(move || {
+    let eligible = value(kivact_runtime::Prop::computed(Rc::new(move || {
         !caller_disabled.get()
             && !caller_hidden.get()
             && caller_focus.is_none_or(|v| v.get())

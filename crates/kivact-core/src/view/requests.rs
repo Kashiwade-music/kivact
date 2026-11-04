@@ -32,8 +32,8 @@ use std::panic::Location;
 use kivact_types::{PlatformRequest, PlatformResult, RequestId};
 
 use super::state::{EffectWaiter, FocusWaiter, QueuedFocus, ViewState};
-use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owner, Runtime};
+use kivact_runtime::{ErrorKind, UiError};
+use kivact_runtime::{Owner, Runtime};
 use kivact_style::asset::Asset;
 
 /// Ask the host to focus `node` (written with the next revision); an unmounted

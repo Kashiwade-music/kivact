@@ -23,20 +23,20 @@ use std::rc::Rc;
 
 use super::NodeRef;
 use super::state::ViewState;
-use kivact_reactive::{ErrorKind, Owned, Runtime, UiError, raise, require_effectful};
+use kivact_runtime::{ErrorKind, Owned, Runtime, UiError, raise, require_effectful};
 
 /// The identity of a component resource owner, without retaining its App.
 /// Equality compares identities: every owner of an App has the same
 /// [`Owner::root`], and roots of different Apps differ.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct Owner(pub(crate) kivact_reactive::Owner);
+pub struct Owner(pub(crate) kivact_runtime::Owner);
 
 impl Owner {
     /// Capture the current setup owner. A located `SetupOnly` naming `api`
     /// outside component setup.
     #[track_caller]
     pub fn current(api: &'static str) -> Self {
-        Self(kivact_reactive::Owner::current(api, Location::caller()))
+        Self(kivact_runtime::Owner::current(api, Location::caller()))
     }
 
     /// Capture the live root of the running App. A located `WrongApp`

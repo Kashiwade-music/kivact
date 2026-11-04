@@ -4,8 +4,8 @@ use std::cell::Cell;
 use std::panic::Location;
 
 use kivact_engine::api::PropValue;
-use kivact_reactive::EffectKind;
-use kivact_reactive::Prop as InputProp;
+use kivact_runtime::EffectKind;
+use kivact_runtime::Prop as InputProp;
 use kivact_types::NodeId;
 
 use crate::view::descriptor::Mcx;
@@ -40,8 +40,8 @@ pub(super) fn bind_rich(
         if dropped > 0 && !reported.replace(true) {
             rt.report(
                 Some(owner),
-                kivact_reactive::UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                kivact_runtime::UiError::new(
+                    kivact_runtime::ErrorKind::Unsupported,
                     format!(
                         "{dropped} font feature tag(s) that are not four ASCII characters; dropped"
                     ),

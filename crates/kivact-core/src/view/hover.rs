@@ -21,8 +21,8 @@
 use std::panic::Location;
 
 use crate::draw::Point;
-use kivact_reactive::Runtime;
-use kivact_reactive::{Signal, Value, require_setup};
+use kivact_runtime::Runtime;
+use kivact_runtime::{Signal, Value, require_setup};
 use kivact_types::NodeId;
 
 use crate::view::state::{PointerObservation, ViewState};

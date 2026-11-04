@@ -84,7 +84,7 @@ pub(super) fn bind_session(
 ) {
     use kivact_engine::contract::ImeSessionProps;
     let weak = cx.weak();
-    cx.effect(kivact_reactive::EffectKind::Render, at, move || {
+    cx.effect(kivact_runtime::EffectKind::Render, at, move || {
         let value = ImeSessionProps {
             text: session.text.get(),
             selection: session.selection.get(),

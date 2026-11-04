@@ -31,8 +31,8 @@ use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
-use kivact_reactive::keyed::{self, Diff, Plan, Rows};
-use kivact_reactive::{EffectKind, ErrorKind, IntoValue, Owner, Runtime, Signal, UiError, Value};
+use kivact_runtime::keyed::{self, Diff, Plan, Rows};
+use kivact_runtime::{EffectKind, ErrorKind, IntoValue, Owner, Runtime, Signal, UiError, Value};
 
 /// A row builder of a keyed list.
 pub(crate) type RowFn<K, T> = Rc<dyn Fn(K, Value<T>) -> View>;
@@ -49,7 +49,7 @@ impl<K, T: 'static> AsRef<keyed::Row<K, T>> for Row<K, T> {
     }
 }
 
-pub(crate) use kivact_reactive::keyed::key_hash;
+pub(crate) use kivact_runtime::keyed::key_hash;
 
 /// Indices (into `seq`) of one longest strictly increasing subsequence.
 pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
@@ -107,7 +107,7 @@ where
         cx.effect(EffectKind::Internal, at, move || {
             let Some(rt) = weak.upgrade() else { return };
             // Items and keys only compute values: pure.
-            let diff = kivact_reactive::pure(|| {
+            let diff = kivact_runtime::pure(|| {
                 items.with(|list| keyed::diff(&state.borrow(), list, &key))
             });
             match diff {
@@ -265,7 +265,7 @@ where
         let rows: RefCell<Vec<(Branch, Signal<T>)>> = RefCell::new(Vec::new());
         cx.effect(EffectKind::Internal, at, move || {
             let Some(rt) = weak.upgrade() else { return };
-            let (updates, appended, len) = kivact_reactive::pure(|| {
+            let (updates, appended, len) = kivact_runtime::pure(|| {
                 items.with(|list| {
                     let rows = rows.borrow();
                     let mut updates = Vec::new();

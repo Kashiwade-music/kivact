@@ -81,7 +81,7 @@ impl GpuFrame {
 }
 
 #[cfg(feature = "gpu-interop")]
-kivact_reactive::constant_value!(GpuFrame);
+kivact_runtime::constant_value!(GpuFrame);
 
 impl Draw {
     /// Draw `source` stretched to `rect` (`ImageFit::Fill`). The image is

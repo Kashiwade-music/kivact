@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
-use kivact_reactive::Trigger;
+use kivact_runtime::Trigger;
 use kivact_style::CompiledStyle;
 
 /// What a node's first write decided, for the style and draw stages.

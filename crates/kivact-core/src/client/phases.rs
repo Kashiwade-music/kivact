@@ -20,8 +20,8 @@
 //! a phase only decides when they are drained.
 
 use kivact_engine::api::Writer;
-use kivact_motion::MotionState;
-use kivact_reactive::{Runtime, TurnRecorder};
+use kivact_runtime::MotionState;
+use kivact_runtime::{Runtime, TurnRecorder};
 
 use crate::client::settle::settle_async;
 use crate::client::state::HostState;

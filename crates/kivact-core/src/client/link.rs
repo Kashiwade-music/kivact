@@ -1,6 +1,6 @@
 //! Role: Host clock and waker driving the reactive runtime.
 //!
-//! The client as the driver of its runtime (`kivact_reactive::Driver`): it
+//! The client as the driver of its runtime (`kivact_runtime::Driver`): it
 //! owns the host clock and the host waker, and lends the runtime the
 //! clock reading and the turn request.
 //!
@@ -19,7 +19,7 @@
 use std::cell::{Cell, OnceCell};
 
 use kivact_engine::api::HostWaker;
-use kivact_reactive::Driver;
+use kivact_runtime::Driver;
 
 /// The host clock and waker of one App.
 #[derive(Default)]

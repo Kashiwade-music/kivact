@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_reactive::{Callback, HandlerResult, Owner, Runtime};
+use kivact_runtime::{Callback, HandlerResult, Owner, Runtime};
 pub use kivact_types::LifecycleEvent;
 
 #[derive(Default)]
@@ -36,7 +36,7 @@ pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static)
     state
         .registrations
         .borrow_mut()
-        .insert(id, (owner, kivact_reactive::callback(f)));
+        .insert(id, (owner, kivact_runtime::callback(f)));
     let weak = Rc::downgrade(&rt);
     owner.on_cleanup(move || {
         if let Some(rt) = weak.upgrade() {

@@ -41,7 +41,7 @@ use kivact_types::{DrawList, IdMap, NodeId, Rect, Size};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
-use kivact_reactive::{NodeId as EffectId, Owner, Signal, Trigger, UiError};
+use kivact_runtime::{NodeId as EffectId, Owner, Signal, Trigger, UiError};
 use kivact_types::A11yAction;
 
 /// Scroll position report of a scroll container.
@@ -245,7 +245,7 @@ pub(crate) struct TNode {
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
-    pub(crate) exit_complete: Option<kivact_reactive::Callback<()>>,
+    pub(crate) exit_complete: Option<kivact_runtime::Callback<()>>,
     /// The graph sources node references read (`Tree::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
     /// The effect that last set each dynamic prop (diagnostics::why).
@@ -284,7 +284,7 @@ pub(crate) struct Tree {
     pub root: NodeId,
     engine: Writer,
     future_text_edits: IdMap<usize>,
-    exit_callbacks: IdMap<kivact_reactive::Callback<()>>,
+    exit_callbacks: IdMap<kivact_runtime::Callback<()>>,
     removes: bool,
     /// Lazily installed for choice candidates; only Hidden changes notify it.
     visibility_revision: Option<Trigger>,
@@ -848,7 +848,7 @@ impl Tree {
     pub(crate) fn take_exit_callback(
         &mut self,
         id: NodeId,
-    ) -> Option<kivact_reactive::Callback<()>> {
+    ) -> Option<kivact_runtime::Callback<()>> {
         self.exit_callbacks.remove(&id)
     }
 

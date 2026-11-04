@@ -1,6 +1,6 @@
 //! Role: Region registries retain keyed attachments across geometry updates.
 
-use kivact_reactive::IntoValue;
+use kivact_runtime::IntoValue;
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::panic::Location;
@@ -11,7 +11,7 @@ use crate::view::common::{
     Adopted, Common, Declaration, Entry, Gestures, Registry, RegistryPhase, State, Target, TargetId,
 };
 use crate::view::descriptor::Mcx;
-use kivact_reactive::{EffectKind, ErrorKind, Owner, Runtime, UiError};
+use kivact_runtime::{EffectKind, ErrorKind, Owner, Runtime, UiError};
 use kivact_style::draw::{RegionId, RegionSemantics};
 use kivact_types::NodeId;
 
@@ -78,7 +78,7 @@ impl Registry {
         let Some(rt) = self.root.runtime.upgrade() else {
             return;
         };
-        kivact_reactive::untrack(|| {
+        kivact_runtime::untrack(|| {
             let (wanted, old, duplicates) = {
                 let state = self.state.borrow();
                 let mut seen = HashSet::new();
@@ -273,25 +273,19 @@ impl Registry {
                             name: common
                                 .name
                                 .as_ref()
-                                .map(kivact_reactive::Prop::get)
+                                .map(kivact_runtime::Prop::get)
                                 .map(Some)
                                 .unwrap_or_default(),
-                            description: common
-                                .description
-                                .as_ref()
-                                .map(kivact_reactive::Prop::get),
-                            value_text: common.value.as_ref().map(kivact_reactive::Prop::get),
+                            description: common.description.as_ref().map(kivact_runtime::Prop::get),
+                            value_text: common.value.as_ref().map(kivact_runtime::Prop::get),
                             actions: Some(adopted.target.actions.actions()),
                             checked: super::semantics::checked_state(
-                                common.checked.as_ref().map(kivact_reactive::Prop::get),
-                                common
-                                    .indeterminate
-                                    .as_ref()
-                                    .map(kivact_reactive::Prop::get),
+                                common.checked.as_ref().map(kivact_runtime::Prop::get),
+                                common.indeterminate.as_ref().map(kivact_runtime::Prop::get),
                             ),
-                            selected: common.selected.as_ref().map(kivact_reactive::Prop::get),
-                            expanded: common.expanded.as_ref().map(kivact_reactive::Prop::get),
-                            invalid: common.invalid.as_ref().map(kivact_reactive::Prop::get),
+                            selected: common.selected.as_ref().map(kivact_runtime::Prop::get),
+                            expanded: common.expanded.as_ref().map(kivact_runtime::Prop::get),
+                            invalid: common.invalid.as_ref().map(kivact_runtime::Prop::get),
                             disabled: adopted.target.constraints.disabled.get(),
                             hidden: adopted.target.constraints.hidden.get(),
                             focusable: adopted.target.constraints.focusable.get(),

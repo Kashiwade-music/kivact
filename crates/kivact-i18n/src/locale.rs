@@ -139,7 +139,7 @@ impl Default for Locale {
     }
 }
 
-kivact_reactive::constant_value!(Locale, Weekday);
+kivact_runtime::constant_value!(Locale, Weekday);
 
 /// Regions whose weeks start on Sunday (CLDR `weekData`, `firstDay`).
 const SUNDAY_START: &[&str] = &[

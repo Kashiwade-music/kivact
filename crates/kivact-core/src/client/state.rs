@@ -12,7 +12,7 @@ use std::rc::Rc;
 use kivact_types::NodeId;
 
 use crate::client::link::HostLink;
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 
 /// Where the App stands toward its exit.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -21,7 +21,7 @@ pub(super) enum ExitPhase {
     #[default]
     Running,
     /// The host asked to close: queued actions drain until `deadline_ns`
-    /// (the first request's time plus `kivact_task::DEFAULT_DRAIN_NS`); a
+    /// (the first request's time plus `kivact_runtime::DEFAULT_DRAIN_NS`); a
     /// later request keeps it.
     Draining { deadline_ns: u64 },
     /// The App told the host to exit.
@@ -62,7 +62,7 @@ impl HostState {
     pub(super) fn request_close(&self, now_ns: u64) {
         if self.exit.get() == ExitPhase::Running {
             self.exit.set(ExitPhase::Draining {
-                deadline_ns: now_ns.saturating_add(kivact_task::DEFAULT_DRAIN_NS),
+                deadline_ns: now_ns.saturating_add(kivact_runtime::DEFAULT_DRAIN_NS),
             });
         }
     }

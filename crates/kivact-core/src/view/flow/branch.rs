@@ -23,10 +23,10 @@ use kivact_types::NodeId;
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::state::ViewState;
-use kivact_reactive::EffectKind;
-use kivact_reactive::{IntoReactive, IntoValue, Prop as InputProp};
-use kivact_reactive::{Owner, Runtime};
-use kivact_reactive::{Signal, Value};
+use kivact_runtime::EffectKind;
+use kivact_runtime::{IntoReactive, IntoValue, Prop as InputProp};
+use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::{Signal, Value};
 
 /// A branch builder: runs in the setup frame of the branch's owner.
 pub(crate) type Build = Rc<dyn Fn() -> View>;
@@ -134,7 +134,7 @@ impl IntoView for Show {
             cx.effect(EffectKind::Internal, at, move || {
                 let Some(rt) = rt.upgrade() else { return };
                 // The condition only computes a value: pure.
-                let when = kivact_reactive::pure(|| when.get());
+                let when = kivact_runtime::pure(|| when.get());
                 if matches!(
                     (when, &*state.borrow()),
                     (true, ShowArm::Child(_)) | (false, ShowArm::Fallback(_))
@@ -235,7 +235,7 @@ impl<T: Clone + 'static> IntoView for ShowSome<T> {
             let state: RefCell<SomeArm<T>> = RefCell::new(SomeArm::Pending);
             cx.effect(EffectKind::Internal, at, move || {
                 let Some(rt) = rt.upgrade() else { return };
-                let v = kivact_reactive::pure(|| value.get());
+                let v = kivact_runtime::pure(|| value.get());
                 let child_value = match &*state.borrow() {
                     SomeArm::Child { value, .. } => Some(*value),
                     _ => None,
@@ -308,7 +308,7 @@ pub fn dynamic<T: Clone + PartialEq + 'static, V: IntoView>(
         let current: RefCell<Option<(T, Branch)>> = RefCell::new(None);
         cx.effect(EffectKind::Internal, at, move || {
             let Some(rt) = rt.upgrade() else { return };
-            let value = kivact_reactive::pure(|| source.get());
+            let value = kivact_runtime::pure(|| source.get());
             if current.borrow().as_ref().is_some_and(|(v, _)| *v == value) {
                 return;
             }

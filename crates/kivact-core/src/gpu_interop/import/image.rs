@@ -3,10 +3,10 @@
 use super::inbox::Inbox;
 use super::registry::{ImportPhase, ImportStatus, State};
 use crate::view::state::ViewState;
-use kivact_reactive::Signal;
-use kivact_reactive::{Owner, Runtime, require_effectful};
+use kivact_runtime::Signal;
+use kivact_runtime::spawn_in;
+use kivact_runtime::{Owner, Runtime, require_effectful};
 use kivact_style::draw::GpuFrame;
-use kivact_task::spawn_in;
 use kivact_types::{ExternalFrame, ExternalImageId, SharedTextures};
 use std::fmt;
 use std::panic::Location;
@@ -171,7 +171,7 @@ impl fmt::Debug for ExternalImage {
 )]
 pub unsafe fn import(textures: SharedTextures) -> ExternalImage {
     let at = Location::caller();
-    let owner = kivact_reactive::Owner::ambient("import", at);
+    let owner = kivact_runtime::Owner::ambient("import", at);
     let rt = owner.runtime();
     require_effectful("import");
     import_in(&rt, owner, textures, at)

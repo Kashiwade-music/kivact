@@ -163,30 +163,30 @@ impl<T: Into<Length>> Sub<T> for Length {
     }
 }
 
-kivact_reactive::constant_value!(Length);
+kivact_runtime::constant_value!(Length);
 
 // A number is a constant length in logical px wherever a reactive length
 // is taken (`dialog(..).width(640)`), as it is in `style()`.
-impl kivact_reactive::IntoValue<Length> for i32 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for i32 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }
 
-impl kivact_reactive::IntoValue<Length> for u32 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for u32 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }
 
-impl kivact_reactive::IntoValue<Length> for f64 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for f64 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }
 
-impl kivact_reactive::IntoValue<Length> for f32 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for f32 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }

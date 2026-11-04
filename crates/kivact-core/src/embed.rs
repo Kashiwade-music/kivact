@@ -20,7 +20,7 @@
 use crate::app::check_window_sizes;
 use crate::view::IntoView;
 use crate::{App, Result, UiError};
-use kivact_reactive::ErrorKind;
+use kivact_runtime::ErrorKind;
 use kivact_types::ParentWindow;
 use std::ffi::c_void;
 use std::num::{NonZeroIsize, NonZeroU32};

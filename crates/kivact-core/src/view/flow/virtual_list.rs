@@ -42,7 +42,7 @@ use crate::view::flow::list::{RowFn, key_hash, lis};
 use crate::view::mount::mount_host_with;
 use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::state::ViewState;
-use kivact_reactive::{
+use kivact_runtime::{
     EffectKind, ErrorKind, IntoValue, Owner, Prop as InputProp, Runtime, Signal, Trigger, UiError,
     Value, untrack,
 };
@@ -95,7 +95,7 @@ where
         row: Rc::new(move |k, v| row(k, v).into_view()),
         height: RowHeight::Fixed(24.0),
         overscan: 200.0,
-        scroll_to: kivact_reactive::Prop::constant(None),
+        scroll_to: kivact_runtime::Prop::constant(None),
         keep_focused: true,
         root: Node::new(Content::Box, None).role(Role::List),
         at: Location::caller(),
@@ -321,7 +321,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                 let mut visible: Vec<(K, Option<T>, f64, Option<f64>)> = Vec::new();
                 let mut dups = Vec::new();
                 // Items and keys only compute values: pure.
-                let total = kivact_reactive::pure(|| items.with(|list| {
+                let total = kivact_runtime::pure(|| items.with(|list| {
                     let s = st.borrow();
                     match height {
                         RowHeight::Fixed(h) => {
@@ -551,7 +551,7 @@ impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seeker<K, T> {
                 return;
             }
         }
-        let place = kivact_reactive::pure(|| {
+        let place = kivact_runtime::pure(|| {
             self.items.with(|list| {
                 let s = self.state.borrow();
                 let mut found = None;

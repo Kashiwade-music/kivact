@@ -2,7 +2,7 @@
 //! through the node's `a11y` handlers.
 
 use kivact_engine::contract::HostEvent;
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 use kivact_style::draw::RegionId;
 use kivact_types::{A11yRequest, NodeId};
 

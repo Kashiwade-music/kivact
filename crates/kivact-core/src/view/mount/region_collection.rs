@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use crate::Value;
 use crate::view::common::{Common, Declaration, Entry};
-use kivact_reactive::EffectKind;
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::keyed::{self, Diff, Plan, Rows};
+use kivact_runtime::EffectKind;
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::keyed::{self, Diff, Plan, Rows};
 use kivact_style::draw::RegionId;
 
 /// A keyed row and the attachment entry its setup declared.
@@ -38,7 +38,7 @@ pub(crate) fn declaration<T: Clone + PartialEq + 'static>(
             let (Some(_), Some(registry)) = (runtime.upgrade(), weak_registry.upgrade()) else {
                 return;
             };
-            let diff = kivact_reactive::pure(|| {
+            let diff = kivact_runtime::pure(|| {
                 items.with(|items| keyed::diff(&state.borrow(), items, &key))
             });
             match diff {

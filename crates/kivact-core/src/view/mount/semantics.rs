@@ -7,8 +7,8 @@ use crate::view::common::SemanticSources;
 use crate::view::descriptor::Mcx;
 use crate::view::state::ViewState;
 use kivact_engine::api::PropValue;
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{EffectKind, ErrorKind, UiError};
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::{EffectKind, ErrorKind, UiError};
 use kivact_style::asset::ImageFit;
 use kivact_types::{CheckedState, NodeId};
 
@@ -134,17 +134,17 @@ pub(super) fn resolve(
         value_min: sources
             .value_min
             .as_ref()
-            .map(kivact_reactive::Prop::get)
+            .map(kivact_runtime::Prop::get)
             .and_then(Finite::new),
         value_max: sources
             .value_max
             .as_ref()
-            .map(kivact_reactive::Prop::get)
+            .map(kivact_runtime::Prop::get)
             .and_then(Finite::new),
         value_now: sources
             .value_now
             .as_ref()
-            .map(kivact_reactive::Prop::get)
+            .map(kivact_runtime::Prop::get)
             .and_then(Finite::new),
         live_region: sources.live_region.as_ref().map(|s| s.get()),
         sort: sources.sort.as_ref().map(|s| s.get()).unwrap_or_default(),
@@ -156,30 +156,30 @@ pub(super) fn resolve(
         active_descendant: sources
             .active_descendant
             .as_ref()
-            .and_then(kivact_reactive::Prop::get)
+            .and_then(kivact_runtime::Prop::get)
             .and_then(|r| r.target_value(at)),
-        level: sources.level.as_ref().map(kivact_reactive::Prop::get),
-        set_size: sources.set_size.as_ref().map(kivact_reactive::Prop::get),
-        pos_in_set: sources.pos_in_set.as_ref().map(kivact_reactive::Prop::get),
+        level: sources.level.as_ref().map(kivact_runtime::Prop::get),
+        set_size: sources.set_size.as_ref().map(kivact_runtime::Prop::get),
+        pos_in_set: sources.pos_in_set.as_ref().map(kivact_runtime::Prop::get),
         multiselectable: sources
             .multiselectable
             .as_ref()
-            .map(kivact_reactive::Prop::get),
-        busy: sources.busy.as_ref().map(kivact_reactive::Prop::get),
-        required: sources.required.as_ref().map(kivact_reactive::Prop::get),
-        read_only: sources.read_only.as_ref().map(kivact_reactive::Prop::get),
+            .map(kivact_runtime::Prop::get),
+        busy: sources.busy.as_ref().map(kivact_runtime::Prop::get),
+        required: sources.required.as_ref().map(kivact_runtime::Prop::get),
+        read_only: sources.read_only.as_ref().map(kivact_runtime::Prop::get),
         has_popup: sources
             .has_popup
             .as_ref()
-            .and_then(kivact_reactive::Prop::get),
+            .and_then(kivact_runtime::Prop::get),
         current_item: sources
             .current_item
             .as_ref()
-            .and_then(kivact_reactive::Prop::get),
+            .and_then(kivact_runtime::Prop::get),
         described_by: bound(&sources.described_by, at),
         controls: bound(&sources.controls, at),
         labelled_by: bound(&sources.labelled_by, at),
-        text: sources.text.as_ref().map(kivact_reactive::Prop::get),
+        text: sources.text.as_ref().map(kivact_runtime::Prop::get),
         ..Semantics::default()
     }
 }
@@ -247,8 +247,8 @@ pub(super) fn bind_props(
         let weak = cx.weak();
         cx.effect(EffectKind::Render, at, move || {
             let state = checked_state(
-                checked.as_ref().map(kivact_reactive::Prop::get),
-                indeterminate.as_ref().map(kivact_reactive::Prop::get),
+                checked.as_ref().map(kivact_runtime::Prop::get),
+                indeterminate.as_ref().map(kivact_runtime::Prop::get),
             );
             if let Some(rt) = weak.upgrade() {
                 ViewState::tree_mut(&rt).update(id, PropValue::Checked(state), rt.running_effect());

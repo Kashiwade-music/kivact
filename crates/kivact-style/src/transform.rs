@@ -356,7 +356,7 @@ impl Transform {
     }
 }
 
-impl kivact_motion::Animatable for Transform {
+impl kivact_runtime::Animatable for Transform {
     const COMPONENTS: usize = 10;
     fn to_components(&self, out: &mut Vec<f64>) {
         out.extend_from_slice(&self.components());

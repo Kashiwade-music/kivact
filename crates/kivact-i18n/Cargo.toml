@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Kivact internal crate: locale and messages (use the `kivact` facade)"
 
 [dependencies]
-kivact-reactive = { path = "../kivact-reactive", version = "0.1.0" }
+kivact-runtime = { path = "../kivact-runtime", version = "0.1.0" }
 
 [dev-dependencies]
 # Doctests show what users write (`use kivact::prelude::*`). Dev-dependency

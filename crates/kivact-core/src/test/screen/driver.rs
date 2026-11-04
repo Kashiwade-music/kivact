@@ -18,8 +18,8 @@ use super::model::{FIND_TIMEOUT, Record, Screen};
 use crate::client::{AppClient, AppConfig};
 use crate::test::options::{RenderOptions, TestFonts, WindowMode};
 use crate::view::View;
+use kivact_runtime::TaskState;
 use kivact_style::asset::Asset;
-use kivact_task::TaskState;
 
 /// Turns a settle may run before the App is declared never settling.
 const SETTLE_LIMIT: usize = 100_000;

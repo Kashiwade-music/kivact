@@ -1,7 +1,7 @@
 //! Role: Passive native editing settings and edit notifications.
 
 use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState};
-use kivact_reactive::Prop as InputProp;
+use kivact_runtime::Prop as InputProp;
 use std::ops::Range;
 use std::panic::Location;
 use std::rc::Rc;
@@ -63,9 +63,9 @@ pub(crate) type Behavior = dyn Fn(&mut EditState, EditRequest<'_>, &EditContext<
 /// Where the line colors of a mounted editor are bound: its runtime,
 /// owner and theme, the node and the author's call site.
 pub(crate) struct HighlightAt {
-    pub(crate) rt: Rc<kivact_reactive::Runtime>,
-    pub(crate) owner: kivact_reactive::Owner,
-    pub(crate) theme: Option<kivact_reactive::Value<kivact_style::Theme>>,
+    pub(crate) rt: Rc<kivact_runtime::Runtime>,
+    pub(crate) owner: kivact_runtime::Owner,
+    pub(crate) theme: Option<kivact_runtime::Value<kivact_style::Theme>>,
     pub(crate) id: kivact_types::NodeId,
     pub(crate) at: &'static Location<'static>,
 }
@@ -81,7 +81,7 @@ pub(crate) type BindHighlight = Box<dyn FnOnce(HighlightAt)>;
 /// unsupported. Canvas regions cannot carry an editing attachment.
 pub struct TextEditing {
     pub(crate) props: EditorProps,
-    pub(crate) on_edit: Option<Rc<dyn Fn(TextEditEvent) -> kivact_reactive::Result<()>>>,
+    pub(crate) on_edit: Option<Rc<dyn Fn(TextEditEvent) -> kivact_runtime::Result<()>>>,
     pub(crate) on_selection: Option<SessionHandler>,
 }
 
@@ -102,4 +102,4 @@ pub(crate) struct EditorProps {
 }
 
 /// What [`TextEditing::on_selection`] runs.
-pub(crate) type SessionHandler = Rc<dyn Fn(TextSession) -> kivact_reactive::Result<()>>;
+pub(crate) type SessionHandler = Rc<dyn Fn(TextSession) -> kivact_runtime::Result<()>>;

@@ -5,7 +5,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::contract::SceneLayer;
-use kivact_reactive::{EffectKind, Signal, UiError};
+use kivact_runtime::{EffectKind, Signal, UiError};
 use kivact_style::draw::{Draw, Recording, Size};
 use kivact_types::NodeId;
 
@@ -83,7 +83,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 for message in region_errors {
                     if region_reported.borrow_mut().insert(message.clone()) {
                         rt.report(Some(owner), UiError::new(
-                            kivact_reactive::ErrorKind::Message, message, Some(at)));
+                            kivact_runtime::ErrorKind::Message, message, Some(at)));
                     }
                 }
                 if issues > 0 && !reported.replace(true) {
@@ -91,7 +91,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                     rt.report(
                         Some(owner),
                         UiError::new(
-                            kivact_reactive::ErrorKind::Unsupported,
+                            kivact_runtime::ErrorKind::Unsupported,
                             format!("{issues} draw command(s) contain invalid RGBA pixels or a canvas shadow with spread/inset; unsupported values dropped"),
                             Some(at),
                         ),

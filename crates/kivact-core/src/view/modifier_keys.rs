@@ -24,6 +24,6 @@ use crate::view::state::ViewState;
 /// ```
 #[track_caller]
 pub fn current_modifiers() -> Modifiers {
-    let rt = kivact_reactive::Owner::ambient("current_modifiers", Location::caller()).runtime();
+    let rt = kivact_runtime::Owner::ambient("current_modifiers", Location::caller()).runtime();
     ViewState::of(&rt).modifiers()
 }

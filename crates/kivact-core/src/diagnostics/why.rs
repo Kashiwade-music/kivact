@@ -7,13 +7,13 @@
 use std::fmt;
 use std::panic::Location;
 
-use kivact_reactive::Turn;
+use kivact_runtime::Turn;
 use kivact_types::NodeId;
 
 use crate::view::NodeRef;
 use crate::view::state::ViewState;
-use kivact_reactive::Kind;
-use kivact_reactive::{NodeId as GraphNode, Runtime};
+use kivact_runtime::Kind;
+use kivact_runtime::{NodeId as GraphNode, Runtime};
 
 const DEPTH: usize = 8;
 

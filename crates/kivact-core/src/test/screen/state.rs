@@ -14,10 +14,10 @@ use super::results::SemanticNode;
 use crate::client::HostState;
 use crate::diagnostics::Stats;
 use crate::view::state::ViewState;
-use kivact_motion::MotionState;
-use kivact_reactive::TurnRecord;
-use kivact_reactive::UiError;
-use kivact_task::TaskState;
+use kivact_runtime::MotionState;
+use kivact_runtime::TaskState;
+use kivact_runtime::TurnRecord;
+use kivact_runtime::UiError;
 
 impl Screen {
     /// Errors that reached the App's default sink (no `on_error` handled them).

@@ -1,7 +1,7 @@
 //! Role: Text-editing and focus events.
 
 use kivact_engine::contract::HostEvent;
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 use kivact_style::draw::RegionId;
 use kivact_types::{NodeId, RequestId};
 

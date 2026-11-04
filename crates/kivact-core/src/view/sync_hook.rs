@@ -22,7 +22,7 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-use kivact_reactive::{Owner, pure, untrack};
+use kivact_runtime::{Owner, pure, untrack};
 
 /// One content of a hook and its function, kept alive by the provider.
 pub(crate) struct Hooked<C, F> {

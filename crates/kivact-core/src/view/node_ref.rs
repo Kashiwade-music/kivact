@@ -10,7 +10,7 @@ use std::rc::Rc;
 use kivact_types::{FocusTarget, NodeId};
 
 use crate::view::state::{Bound, NodeRefState, ViewState};
-use kivact_reactive::{
+use kivact_runtime::{
     AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
     require_setup,
 };
@@ -447,7 +447,7 @@ impl NodeRef {
         let _ = self.rect();
         let app = self.app;
         let binding = self.state(Location::caller()).1.bound;
-        kivact_reactive::memo(move || {
+        kivact_runtime::memo(move || {
             binding
                 .try_get()
                 .flatten()
@@ -499,7 +499,7 @@ impl NodeRef {
         let app = rt.id();
         let node = s.bound;
         drop(rt);
-        kivact_reactive::memo(move || {
+        kivact_runtime::memo(move || {
             let Some(bound) = node.get() else {
                 return false;
             };
@@ -526,7 +526,7 @@ impl NodeRef {
         let (rt, _) = self.state(at);
         let focused = self.focused();
         let keys = ViewState::of(&rt).focus_keys();
-        kivact_reactive::memo(move || focused.get() && keys.visible.get())
+        kivact_runtime::memo(move || focused.get() && keys.visible.get())
     }
 
     /// Whether the keyboard focus is on the bound node or on a node inside
@@ -549,7 +549,7 @@ impl NodeRef {
         let app = rt.id();
         let node = s.bound;
         drop(rt);
-        kivact_reactive::memo(move || {
+        kivact_runtime::memo(move || {
             let Some(me) = bound_node(app, node) else {
                 return false;
             };
@@ -596,7 +596,7 @@ impl NodeRef {
         let node = s.bound;
         drop(rt);
         let owner_hover = within(app, node, hover);
-        kivact_reactive::memo(move || {
+        kivact_runtime::memo(move || {
             if !owner_hover.get() {
                 return false;
             }
@@ -618,7 +618,7 @@ fn observation(app: AppId, target: FocusTarget) -> Option<crate::view::tree::Nod
 /// Resolve exact transformed region bounds without allocating during a read.
 #[track_caller]
 fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rect>> {
-    kivact_reactive::memo(move || {
+    kivact_runtime::memo(move || {
         let target = binding.try_get().flatten()?.target();
         let observation = observation(app, target)?;
         let owner_rect = observation.rect.try_get().flatten();
@@ -642,7 +642,7 @@ fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rec
 
 #[track_caller]
 fn resolved_scroll(app: AppId, binding: Signal<Option<Bound>>) -> Value<crate::draw::Point> {
-    kivact_reactive::memo(move || {
+    kivact_runtime::memo(move || {
         binding
             .try_get()
             .flatten()
@@ -655,7 +655,7 @@ fn resolved_scroll(app: AppId, binding: Signal<Option<Bound>>) -> Value<crate::d
 /// Whether the node `source` holds is the node a ref is bound to (through
 /// its node source `node`) or lies in its subtree, as a memo.
 fn within(app: AppId, node: Signal<Option<Bound>>, source: Signal<Option<NodeId>>) -> Value<bool> {
-    kivact_reactive::memo(move || {
+    kivact_runtime::memo(move || {
         let Some(me) = bound_node(app, node) else {
             return false;
         };

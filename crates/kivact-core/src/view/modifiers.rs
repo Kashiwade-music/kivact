@@ -114,12 +114,12 @@ impl Common {
     {
         if action == A11yAction::Activate {
             let at = std::panic::Location::caller();
-            let owner = kivact_reactive::Owner::ambient("on_a11y", at);
+            let owner = kivact_runtime::Owner::ambient("on_a11y", at);
             let rt = owner.runtime();
             rt.report(
                 Some(owner),
-                kivact_reactive::UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                kivact_runtime::UiError::new(
+                    kivact_runtime::ErrorKind::Unsupported,
                     "on_a11y(Activate, ..) is ignored; use on_press(..)",
                     Some(at),
                 ),

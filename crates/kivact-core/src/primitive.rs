@@ -73,7 +73,7 @@
 //! - It makes no new node kind: the engine's Box leaf gets a
 //!   `BoxData::measure`. The public types are Kivact's `Size`,
 //!   [`Constraints`] and `AvailableSpace`; no engine, Arvane or taffy type
-//!   shows. The engine knows nothing of `kivact-reactive` and takes a plain
+//!   shows. The engine knows nothing of `kivact-runtime` and takes a plain
 //!   closure, `Fn(MeasureRequest, LeafTextMeasurer) -> LeafSize` (a `Size`
 //!   and an optional `Baseline`).
 //! - One closure is made per content, and the engine compares
@@ -152,8 +152,8 @@ pub use crate::view::part::{Part, PartState, part};
 pub use crate::view::part_data::PartMount;
 /// The `!Send + !Sync` marker of Kivact's handles, for a component's own
 /// Copy handle type (`PhantomData<UiThreadOnly>`).
-pub use kivact_reactive::UiThreadOnly;
-pub use kivact_reactive::{Owned, clock_now, raise, require_effectful, require_setup};
+pub use kivact_runtime::UiThreadOnly;
+pub use kivact_runtime::{Owned, clock_now, raise, require_effectful, require_setup};
 pub use measured_leaf::{Primitive, primitive};
 pub use measurement::{AvailableSpace, Constraints, Measurement};
 pub use node::{NodeRefExt, NodeToken, focused_node};

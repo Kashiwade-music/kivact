@@ -32,7 +32,7 @@
 //!   artwork's time and cancelling between frames are the caller's.
 use super::{Draw, Size};
 use crate::{Result, UiError};
-use kivact_reactive::ErrorKind;
+use kivact_runtime::ErrorKind;
 use kivact_style::Theme;
 use kivact_style::asset::Asset;
 use kivact_style::draw::Recording;

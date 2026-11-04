@@ -1,6 +1,6 @@
 //! Role: The errors of the running App that reached its default sink.
 
-use kivact_reactive::{Runtime, UiError};
+use kivact_runtime::{Runtime, UiError};
 
 /// The errors of the running App that reached its default sink (no
 /// `error_boundary` handled them), oldest first.

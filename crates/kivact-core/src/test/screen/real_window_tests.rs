@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 use crate::motion::{FrameInfo, FrameLoop, frame_loop};
 use crate::platform;
 use kivact_engine::testing::display_stats;
-use kivact_reactive::signal;
+use kivact_runtime::signal;
 
 use super::artifacts::failure_dir;
 use super::model::Screen;

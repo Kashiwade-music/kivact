@@ -26,7 +26,7 @@ use kivact_types::NodeId;
 use super::model::{Element, FIND_TIMEOUT, Query, Screen, Within};
 use crate::view::Role;
 use crate::view::state::ViewState;
-use kivact_reactive::TurnRecord;
+use kivact_runtime::TurnRecord;
 use kivact_style::draw::RegionId;
 
 impl Screen {

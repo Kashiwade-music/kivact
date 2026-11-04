@@ -5,8 +5,8 @@ use std::collections::{HashMap, HashSet};
 use std::panic::Location;
 use std::rc::{Rc, Weak};
 
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{Owner, Runtime};
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::{Owner, Runtime};
 use kivact_types::{IntrinsicSize, NodeId};
 
 use crate::view::descriptor::Mcx;
@@ -25,7 +25,7 @@ pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 #[derive(Default)]
 pub(crate) struct Common {
     pub(crate) exit_layout: super::exit_layout::ExitLayout,
-    pub(crate) exit_complete: Option<kivact_reactive::Callback<()>>,
+    pub(crate) exit_complete: Option<kivact_runtime::Callback<()>>,
     /// Test identifier.
     pub test_id: Option<Rc<str>>,
     /// NodeRefs bound at mount (each once, in order).

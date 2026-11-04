@@ -18,7 +18,7 @@
 
 use std::ops::Range;
 
-use kivact_reactive::{IntoValue, Value};
+use kivact_runtime::{IntoValue, Value};
 use kivact_style::draw::Rect;
 
 pub use kivact_types::ImeInput;

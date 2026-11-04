@@ -13,10 +13,8 @@ kivact-editing = { path = "../kivact-editing", version = "0.1.0" }
 # The engine: the retained tree, layout, input, painting and accessibility
 # in Arvane windows.
 kivact-engine = { path = "../kivact-engine", version = "0.1.0" }
-kivact-reactive = { path = "../kivact-reactive", version = "0.1.0" }
+kivact-runtime = { path = "../kivact-runtime", version = "0.1.0" }
 kivact-i18n = { path = "../kivact-i18n", version = "0.1.0" }
-kivact-task = { path = "../kivact-task", version = "0.1.0" }
-kivact-motion = { path = "../kivact-motion", version = "0.1.0" }
 kivact-style = { path = "../kivact-style", version = "0.1.0" }
 # The `kivact` and `kivact::layout` tracing targets of the host side.
 tracing = { workspace = true }

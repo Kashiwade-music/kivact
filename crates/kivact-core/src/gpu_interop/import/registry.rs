@@ -1,8 +1,8 @@
 //! Role: The App's record of its imports and the adapter signal.
 
-use kivact_reactive::Runtime;
-use kivact_reactive::Signal;
-use kivact_reactive::{ErrorKind, UiError};
+use kivact_runtime::Runtime;
+use kivact_runtime::Signal;
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -133,7 +133,7 @@ pub enum ImportStatus {
 /// outside every owner.
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
-    let rt = kivact_reactive::Owner::ambient("adapter", Location::caller()).runtime();
+    let rt = kivact_runtime::Owner::ambient("adapter", Location::caller()).runtime();
     let signal = ViewState::of(&rt).adapter();
     drop(rt);
     signal.get()

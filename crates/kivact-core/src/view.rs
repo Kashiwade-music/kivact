@@ -59,11 +59,11 @@ pub use input::{
     PointerPhase, WheelEvent,
 };
 #[doc(inline)]
-pub use kivact_reactive::HandlerResult;
+pub use kivact_runtime::HandlerResult;
 #[doc(inline)]
-pub use kivact_reactive::{IntoReactive, IntoText, IntoValue, Reactive};
+pub use kivact_runtime::{IntoReactive, IntoText, IntoValue, Reactive};
 #[doc(inline)]
-pub use kivact_reactive::{callback, constant, selector};
+pub use kivact_runtime::{callback, constant, selector};
 #[doc(inline)]
 pub use modifier_keys::current_modifiers;
 
@@ -111,12 +111,12 @@ pub use modifier_keys::current_modifiers;
 /// );
 /// ```
 #[doc(inline)]
-pub use kivact_reactive::constant_value;
+pub use kivact_runtime::constant_value;
 
 #[doc(inline)]
 pub use exit_layout::ExitLayout;
 #[doc(inline)]
-pub use kivact_reactive::{context, try_context};
+pub use kivact_runtime::{context, try_context};
 #[doc(inline)]
 pub use kivact_types::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,

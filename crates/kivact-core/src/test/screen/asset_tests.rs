@@ -9,7 +9,7 @@
 
 use std::panic::Location;
 
-use kivact_reactive::{ErrorKind, UiError};
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::asset::Asset;
 
 use super::model::Screen;
