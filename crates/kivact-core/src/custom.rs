@@ -130,7 +130,7 @@
 //!                 d.rounded_rect(Rect::new(x + 2.0, 2.0, 8.0, size.height - 4.0), 4.0, ColorToken::Accent);
 //!             }
 //!         })
-//!         .role(Role::Status)
+//!         .with_node(|node| node.role(Role::Status))
 //!         .name(move || format!("{} dots", n.get()))
 //!         .test_id("dots")
 //! }
@@ -173,8 +173,5 @@ pub use inline_view::inline_view;
 #[doc(inline)]
 pub use kivact_runtime::Reactive;
 
-/// Raise a component misuse at the caller.
-#[track_caller]
-pub fn raise(kind: crate::ErrorKind, message: impl Into<String>) -> ! {
-    kivact_runtime::raise(kind, message, std::panic::Location::caller())
-}
+mod misuse;
+pub use misuse::raise;

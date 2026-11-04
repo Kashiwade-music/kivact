@@ -6,11 +6,11 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::{parts, region_template};
-use crate::view::common::{
+use crate::view::descriptor::Mcx;
+use crate::view::node::{
     Adopted, Common, Declaration, Entry, Gestures, RegionBinding, RegionEntry, RegionKey, Registry,
     RegistryPhase, State, Target, TargetId,
 };
-use crate::view::descriptor::Mcx;
 use kivact_runtime::{EffectKind, ErrorKind, Owner, Runtime, UiError};
 use kivact_style::draw::{RegionId, RegionSemantics};
 use kivact_types::NodeId;

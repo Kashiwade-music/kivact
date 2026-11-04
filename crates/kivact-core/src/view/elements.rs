@@ -20,8 +20,8 @@
 // Invariant: only primitives live here. Components built from them live in
 // `kivact::ui` and in UI kits, which use the public API only.
 
+pub(crate) mod builders;
 mod container;
-mod node;
 mod text;
 mod text_binding;
 
@@ -29,10 +29,10 @@ mod text_binding;
 pub use crate::view::node::{Node, NodeBuilder};
 #[doc(inline)]
 pub use crate::view::span::{Span, span};
+pub use builders::{canvas, icon, image, node};
 pub use container::{Scroll, column, grid, row, scroll, spacer, stack};
 #[doc(inline)]
 pub use kivact_types::ScrollAxes;
-pub use node::{canvas, icon, image, node};
 pub use text::{rich_text, text};
 
 #[doc(inline)]

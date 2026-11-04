@@ -101,7 +101,7 @@ pub fn provide_theme<V: IntoView>(
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::i18n::{Locale, use_locale};
-/// use kivact::view::{provide_locale};
+/// use kivact::i18n::provide_locale;
 /// use kivact::{App};
 /// use kivact::view::{IntoView, NodeBuilder, text};
 ///
@@ -141,7 +141,7 @@ pub fn provide_locale<V: IntoView>(
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::i18n::{Messages, message};
-/// use kivact::view::{provide_messages};
+/// use kivact::i18n::provide_messages;
 /// use kivact::view::{IntoView, NodeBuilder, text};
 ///
 /// fn confirm() -> impl IntoView {

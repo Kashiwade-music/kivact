@@ -81,17 +81,17 @@ pub trait NodeRefExt {
     /// [`NodeRefExt::set_edit_state`] before the editor's text changes,
     /// only they are applied. Returns `None` for an unbound reference, a
     /// region or a non-editor.
-    fn edit_state(&self) -> Option<super::EditState>;
+    fn edit_state(&self) -> Option<kivact_editing::EditState>;
     /// Read the mounted editor's selection and composition without copying
     /// its text or subscribing. Returns `None` like [`NodeRefExt::edit_state`].
-    fn edit_session(&self) -> Option<super::TextSession>;
+    fn edit_session(&self) -> Option<crate::view::editing_data::TextSession>;
     /// Read the shaped lines `lines` (clamped to the editor's lines) and
     /// their carets in logical window coordinates, after scrolling and
     /// transforms, with the caret and the number of lines. Only those
     /// lines are shaped and read: ask for the lines needed (`0..0` for the
     /// caret alone), not every line of a long document. Returns `None` if
     /// no editor can be shaped.
-    fn text_layout(&self, lines: std::ops::Range<usize>) -> Option<super::TextLayout>;
+    fn text_layout(&self, lines: std::ops::Range<usize>) -> Option<kivact_editing::TextLayout>;
     /// Replace the mounted editor's state outside pure computations.
     ///
     /// Disabled editors reject the update; read-only editors allow selection
@@ -99,7 +99,7 @@ pub trait NodeRefExt {
     /// Value and composition changes notify edit handlers; caret-only moves do
     /// not. Unbound references and regions have no effect.
     #[track_caller]
-    fn set_edit_state(&self, state: super::EditState);
+    fn set_edit_state(&self, state: kivact_editing::EditState);
     /// Replace the mounted editor's selection and composition outside
     /// pure computations, without reading or copying its text.
     ///
@@ -111,7 +111,7 @@ pub trait NodeRefExt {
     ///
     /// [`TextEditing::on_selection_change`]: super::TextEditing::on_selection_change
     #[track_caller]
-    fn set_edit_session(&self, session: super::TextSession);
+    fn set_edit_session(&self, session: crate::view::editing_data::TextSession);
 
     /// The currently mounted node without subscribing.
     #[track_caller]
@@ -171,7 +171,7 @@ impl NodeRefExt for NodeRef {
         }
     }
 
-    fn edit_state(&self) -> Option<super::EditState> {
+    fn edit_state(&self) -> Option<kivact_editing::EditState> {
         let target = self.mounted_node()?;
         if target.node.region.is_some() {
             return None;
@@ -179,7 +179,7 @@ impl NodeRefExt for NodeRef {
         let rt = Runtime::get(target.app)?;
         ViewState::tree(&rt).reader().edit_state(target.node.node)
     }
-    fn edit_session(&self) -> Option<super::TextSession> {
+    fn edit_session(&self) -> Option<crate::view::editing_data::TextSession> {
         let target = self.mounted_node()?;
         if target.node.region.is_some() {
             return None;
@@ -187,7 +187,7 @@ impl NodeRefExt for NodeRef {
         let rt = Runtime::get(target.app)?;
         ViewState::tree(&rt).reader().edit_session(target.node.node)
     }
-    fn text_layout(&self, lines: std::ops::Range<usize>) -> Option<super::TextLayout> {
+    fn text_layout(&self, lines: std::ops::Range<usize>) -> Option<kivact_editing::TextLayout> {
         let target = self.mounted_node()?;
         if target.node.region.is_some() {
             return None;
@@ -198,7 +198,7 @@ impl NodeRefExt for NodeRef {
             .text_layout(target.node.node, lines)
     }
     #[track_caller]
-    fn set_edit_state(&self, state: super::EditState) {
+    fn set_edit_state(&self, state: kivact_editing::EditState) {
         let Some(rt) = Runtime::get(self.app) else {
             return;
         };
@@ -219,7 +219,7 @@ impl NodeRefExt for NodeRef {
         }
     }
     #[track_caller]
-    fn set_edit_session(&self, session: super::TextSession) {
+    fn set_edit_session(&self, session: crate::view::editing_data::TextSession) {
         let Some(rt) = Runtime::get(self.app) else {
             return;
         };
@@ -288,7 +288,7 @@ impl NodeRefExt for NodeRef {
     #[track_caller]
     fn focus_was_in(&self, panel: NodeToken) -> bool {
         if self.app != panel.app {
-            super::raise(
+            super::misuse::raise(
                 kivact_runtime::ErrorKind::WrongApp,
                 "focus panel belongs to another App",
             );

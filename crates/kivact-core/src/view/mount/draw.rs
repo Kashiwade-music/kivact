@@ -9,8 +9,8 @@ use kivact_style::draw::{Recording, Size};
 use kivact_types::NodeId;
 
 use super::facts::LocalPaintSource;
-use crate::view::common::{DrawFn, Registry};
 use crate::view::descriptor::Mcx;
+use crate::view::node::{DrawFn, Registry};
 use crate::view::state::ViewState;
 
 /// Stage 5's input: the draw layers, the style's local paint and the canvas regions.

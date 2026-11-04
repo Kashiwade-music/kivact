@@ -14,32 +14,13 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::state::{Value, memo, on_cleanup, signal};
-use crate::view::common::Common;
+use crate::view::node::Common;
 use crate::view::owner::Owner;
 use crate::view::part_data::{PartBinding, PartMount};
 use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
 use kivact_runtime::EffectKind;
 
-// xtask-allow(state-fields): Public observation snapshot of independent input and availability facts.
-/// Actual input and availability state of an attached node or canvas region.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PartState {
-    /// A primary pointer or focused activation key is held down. Always
-    /// `false` while the target is disabled or hidden.
-    pub pressed: bool,
-    /// The pointer is over this exact target. Always `false` while the
-    /// target is disabled or hidden.
-    pub hovered: bool,
-    /// This exact target has keyboard focus.
-    pub focused: bool,
-    /// The host requests a visible focus indication for this exact target.
-    /// Implies `focused`.
-    pub focus_visible: bool,
-    /// A caller or attached behavior disables this target.
-    pub disabled: bool,
-    /// A caller or attached behavior hides this target.
-    pub hidden: bool,
-}
+pub use super::part_data::PartState;
 
 /// A move-only node transformation with an exposed reactive state.
 /// Read the state before consuming this attachment with `Node::part` or `Node::region`.

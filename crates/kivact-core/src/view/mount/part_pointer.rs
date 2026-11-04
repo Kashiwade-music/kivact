@@ -7,10 +7,10 @@
 
 use std::rc::Rc;
 
-use crate::view::common::{
+use crate::view::handler_layers::{EventHandlers, Layer, Source, deliver};
+use crate::view::node::{
     Capture, CaptureTarget, Gestures, PartCapture, PrimaryHover, Registry, Target, TargetId,
 };
-use crate::view::handler_layers::{EventHandlers, Layer, Source, deliver};
 use crate::view::state::ViewState;
 use crate::view::{Handled, MouseButton, PointerButtons, PointerEvent, PointerId, PointerPhase};
 

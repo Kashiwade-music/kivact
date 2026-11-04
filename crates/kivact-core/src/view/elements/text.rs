@@ -85,3 +85,13 @@ impl IntoView for &'static str {
         string_child(self).into_view()
     }
 }
+
+impl<F, R> IntoView for F
+where
+    F: Fn() -> R + 'static,
+    R: Into<String>,
+{
+    fn into_view(self) -> View {
+        text(self).into_view()
+    }
+}

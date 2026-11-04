@@ -24,10 +24,10 @@ use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 
 use crate::state::IntoValue;
-use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
 use crate::view::mount::mount_host;
+use crate::view::node::Common;
 use crate::view::node::{Content, Node};
 use crate::view::state::ViewState;
 use crate::view::{IntoView, Role, View};
@@ -51,7 +51,7 @@ impl Node {
             .modifiers
             .iter()
             .filter_map(|m| match m {
-                crate::view::semantics_data::Modifier::Caller(c) => Some(c.semantics.iter()),
+                crate::view::node::Modifier::Caller(c) => Some(c.semantics.iter()),
                 _ => None,
             })
             .flatten()
@@ -152,10 +152,7 @@ impl Node {
         let region = part.into_common();
         self.common
             .regions
-            .push(crate::view::common::Declaration::Static(
-                id,
-                Box::new(region),
-            ));
+            .push(crate::view::node::Declaration::Static(id, Box::new(region)));
         self
     }
 

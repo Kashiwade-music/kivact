@@ -6,7 +6,7 @@ use kivact_runtime::{ErrorKind, Prop as InputProp, UiError};
 use kivact_types::{Dimension, Edges, LayoutProps, Position, ScrollAxes};
 use std::rc::Rc;
 
-use super::node::node;
+use super::builders::node;
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
@@ -42,7 +42,7 @@ pub fn row(children: impl IntoView) -> Node {
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::style::{auto};
+/// use kivact::style::{auto, style};
 /// use kivact::view::{NodeBuilder, grid, span, text};
 /// use kivact::style::{GridPlacement, Track};
 /// // .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px }
@@ -70,7 +70,7 @@ pub fn grid(children: impl IntoView) -> Node {
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::style::{style};
-/// use kivact::view::{NodeBuilder, column, row, scroll, text};
+/// use kivact::view::{NodeBuilder, ScrollAxes, column, row, scroll, text};
 ///
 /// let list = scroll(column((text("A"), text("B")))).style(style().height(120));
 /// let strip = scroll(row((text("A"), text("B")))).axes(ScrollAxes::Horizontal);

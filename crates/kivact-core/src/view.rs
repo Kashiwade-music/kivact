@@ -13,7 +13,6 @@
 )]
 
 pub(crate) mod boundary;
-pub(crate) mod common;
 pub(crate) mod descriptor;
 mod exit_layout;
 pub(crate) mod flow;
@@ -31,6 +30,7 @@ pub(crate) mod overlays;
 pub(crate) mod owner;
 pub(crate) mod part;
 pub(crate) mod part_data;
+pub(crate) mod ref_data;
 pub(crate) mod requests;
 pub(crate) mod root;
 pub(crate) mod semantics_data;
@@ -48,7 +48,7 @@ pub use crate::view::flow::{
 #[doc(inline)]
 pub use boundary::{ReadingDirection, provide_direction, use_direction};
 #[doc(inline)]
-pub use descriptor::{Component, IntoView, IntoViewFn, View, ViewFn};
+pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
 #[doc(inline)]
 pub use hover::pointer_position;
 #[doc(inline)]
@@ -62,6 +62,7 @@ pub use kivact_runtime::HandlerResult;
 pub use kivact_types::Presence;
 #[doc(inline)]
 pub use modifier_keys::modifiers;
+pub use node::Component;
 
 #[doc(inline)]
 pub use exit_layout::ExitLayout;
@@ -82,7 +83,7 @@ pub(crate) mod ime_session;
 
 mod children;
 mod edit_phase;
-mod elements;
+pub(crate) mod elements;
 
 pub use children::IntoChildren;
 pub use edit_phase::EditPhase;

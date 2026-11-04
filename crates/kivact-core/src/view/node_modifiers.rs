@@ -1,14 +1,14 @@
 //! Role: Inherent node modifiers and ordered deferred part transformations.
 
 use crate::state::{IntoText, IntoValue};
-use crate::view::common::Common;
 use crate::view::ime_session::{ImeInput, ImeSession};
 use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
+use crate::view::node::Common;
+use crate::view::node::Modifier;
 use crate::view::node::Node;
 use crate::view::node_ref::NodeRef;
 use crate::view::part::Part;
 use crate::view::part_data::PartMount;
-use crate::view::semantics_data::Modifier;
 use crate::view::{
     A11yAction, A11yEvent, ExitLayout, HandlerResult, LiveRegion, Orientation, Role, SortDirection,
 };

@@ -27,15 +27,9 @@
 /// `Begin`, the write, `Commit`.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{view, state, style};
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
-/// use kivact::interaction::{EditPhase, ScalarRange, use_splitter};
-/// use kivact::custom::{part};
-/// use kivact::state::{signal};
-/// use kivact::view::{NodeBuilder, Role, node};
+/// # use kivact_core as kivact;
+/// use kivact::state::signal;
+/// use kivact::view::EditPhase;
 /// let width = signal(240.0);
 /// let started_at = signal(240.0);
 /// let undo = signal(Vec::<(f64, f64)>::new());
@@ -46,12 +40,10 @@
 ///     }
 ///     EditPhase::Cancel => {}
 /// };
-/// let range = ScalarRange::new(120.0, 480.0).unwrap();
-/// let handle = use_splitter(width, range, Orientation::Horizontal)
-///     .on_edit(on_edit)
-///     .handle();
-/// let view = node().part(handle).name("Sidebar width");
-/// # let _ = view;
+/// // A continuous editor sends Begin before writing and Commit afterward.
+/// on_edit(EditPhase::Begin);
+/// width.set(320.0);
+/// on_edit(EditPhase::Commit);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EditPhase {
