@@ -1,7 +1,7 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
 use super::native::Native;
 use super::state::{CpuFrame, Hold, Phase, ScaleSource, State};
-use crate::embed::child::{Backend, Command, Shared};
+use crate::embed::child::{ChildPort, Command, Shared};
 use crate::embed::session::{Session, negotiate};
 use arvane_shell::{AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};

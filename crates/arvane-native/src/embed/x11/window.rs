@@ -3,7 +3,7 @@
 use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use crate::cpu::CpuSurface;
-use crate::embed::child::{Backend as _, Shared};
+use crate::embed::child::{ChildPort as _, Shared};
 use crate::embed::session::negotiate;
 use arvane_shell::{ShellError, ShellWindow};
 use kivact_types::Environment;

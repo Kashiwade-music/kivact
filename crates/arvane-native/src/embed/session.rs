@@ -24,12 +24,14 @@ enum HandlerState {
 pub(super) struct Session {
     state: HandlerState,
     shared: Arc<Shared>,
+    retention: ModuleRetention,
 }
 impl Session {
     pub(super) fn new(shared: Arc<Shared>) -> Self {
         Self {
             state: HandlerState::Unstarted,
             shared,
+            retention: ModuleRetention,
         }
     }
     pub(super) fn start(
@@ -42,15 +44,17 @@ impl Session {
         if self.shared.stopped() {
             return;
         }
-        let mut handler = make();
+        self.state = HandlerState::Running {
+            handler: make(),
+            control: ShellControl::Wait,
+        };
+        let HandlerState::Running { handler, .. } = &mut self.state else {
+            unreachable!("invariant: the handler was just installed");
+        };
         let result = if self.shared.stopped() {
             Ok(ShellControl::Wait)
         } else {
             handler.start(window, waker)
-        };
-        self.state = HandlerState::Running {
-            handler,
-            control: ShellControl::Wait,
         };
         self.accept(result);
     }
@@ -102,6 +106,7 @@ impl Session {
                 }
                 handler.close(window);
                 drop(handler);
+                self.retention.retain();
                 true
             }
         }
@@ -136,4 +141,19 @@ pub(super) fn negotiate(
     });
     wake();
     Ok(())
+}
+
+// Fields drop in declaration order: Session releases its handler and presenter first.
+struct ModuleRetention;
+impl ModuleRetention {
+    fn retain(&self) {
+        if kivact_types::process::DetachedThreads::any() {
+            crate::module::retain_module();
+        }
+    }
+}
+impl Drop for ModuleRetention {
+    fn drop(&mut self) {
+        self.retain();
+    }
 }

@@ -6,7 +6,7 @@ use crate::{FrameLog, host};
 pub use arvane::embed::ChildHooks;
 pub use arvane::embed::PanicSlot;
 use arvane::embed::{Embedded, Embedder};
-pub use arvane::retain_module;
+pub use arvane_native::retain_module;
 use kivact_types::EmbedOptions;
 use kivact_types::ParentWindow;
 use std::cell::RefCell;
@@ -61,7 +61,7 @@ pub fn embed_native(
     let size = options.size;
     let closing = Arc::new(AtomicBool::new(false));
     let ui_closing = closing.clone();
-    arvane::embed::open(parent, options, hooks, move || {
+    let make = arvane::embed::driver(&options, move || {
         let client = client(ui_closing.clone());
         let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
         let log = frame_log.clone();
@@ -74,7 +74,9 @@ pub fn embed_native(
                 _ => log.note(&change.to_string()),
             }
         })
-    })
-    .map(|host| EmbeddedHost { host, closing })
-    .map_err(|e| HostError::new(e.to_string()))
+    });
+    arvane_native::embed::open(parent, options, hooks, make)
+        .map(Embedded::new)
+        .map(|host| EmbeddedHost { host, closing })
+        .map_err(|e| HostError::new(e.to_string()))
 }

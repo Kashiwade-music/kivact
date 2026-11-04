@@ -94,21 +94,20 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     let parent = TestParent::open(640, 480).unwrap();
     let seen = Arc::new(Mutex::new(Seen::default()));
     let output = seen.clone();
-    let child = embed::open(
-        parent.parent(),
-        EmbedOptions {
-            size: Size {
-                width: 160.,
-                height: 100.,
-            },
-            scale: Some(1.),
-            prefer_gpu: false,
-            ..Default::default()
+    let options = EmbedOptions {
+        size: Size {
+            width: 160.,
+            height: 100.,
         },
-        embed::ChildHooks::default(),
-        move || Embedder::new(Host(output)),
-    )
-    .unwrap();
+        scale: Some(1.),
+        prefer_gpu: false,
+        ..Default::default()
+    };
+    let make = embed::driver(&options, move || Embedder::new(Host(output)));
+    let child =
+        arvane_native::embed::open(parent.parent(), options, embed::ChildHooks::default(), make)
+            .map(embed::Embedded::new)
+            .unwrap();
     wait(&parent, || {
         seen.lock().unwrap().timer && parent.capture().is_ok()
     });
@@ -154,21 +153,20 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
     let parent = TestParent::open(640, 480).unwrap();
     let seen = Arc::new(Mutex::new(Seen::default()));
     let output = seen.clone();
-    let child = embed::open(
-        parent.parent(),
-        EmbedOptions {
-            size: Size {
-                width: 160.,
-                height: 100.,
-            },
-            scale: Some(1.),
-            prefer_gpu: false,
-            ..Default::default()
+    let options = EmbedOptions {
+        size: Size {
+            width: 160.,
+            height: 100.,
         },
-        embed::ChildHooks::default(),
-        move || Embedder::new(Host(output)),
-    )
-    .unwrap();
+        scale: Some(1.),
+        prefer_gpu: false,
+        ..Default::default()
+    };
+    let make = embed::driver(&options, move || Embedder::new(Host(output)));
+    let child =
+        arvane_native::embed::open(parent.parent(), options, embed::ChildHooks::default(), make)
+            .map(embed::Embedded::new)
+            .unwrap();
     wait(&parent, || seen.lock().unwrap().wheel_settings.is_some());
     parent.move_to(23., 31.).unwrap();
     wait(&parent, || {

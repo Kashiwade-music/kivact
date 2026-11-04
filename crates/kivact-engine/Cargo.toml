@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Kivact internal engine: retained UI state, interaction, scene generation and the Arvane window bridge"
 
 [dependencies]
+arvane-native = { path = "../arvane-native", version = "0.1.0" }
 kivact-text = { path = "../kivact-text", version = "0.1.0" }
 kivact-layout = { path = "../kivact-layout", version = "0.1.0" }
 kivact-lower = { path = "../kivact-lower", version = "0.1.0" }
@@ -21,7 +22,7 @@ png = { workspace = true, optional = true }
 doctest = false
 
 [features]
-embed = ["arvane/embed"]
+embed = ["arvane/embed", "arvane-native/embed"]
 default = []
 # The GPU renderer (kivact's default `gpu` feature turns it on).
 gpu = ["arvane/gpu"]

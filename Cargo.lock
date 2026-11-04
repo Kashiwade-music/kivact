@@ -1845,6 +1845,7 @@ name = "kivact-engine"
 version = "0.1.0"
 dependencies = [
  "arvane",
+ "arvane-native",
  "kivact-editing",
  "kivact-layout",
  "kivact-lower",

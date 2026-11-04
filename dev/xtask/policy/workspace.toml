@@ -41,10 +41,10 @@ kivact-layout = ["kivact-engine"]
 arvane = ["kivact-lower", "kivact-text", "kivact-engine"]
 # GPU texture 共有の中立な kivact-gpu-share は UI を知らず、import と export の契約を共有する
 # （visible_to は書かない。誰でも依存できる）。
-arvane-shell = ["arvane", "arvane-native"]
+arvane-shell = ["arvane", "arvane-native", "kivact-engine", "arvane-virtual"]
 # Linux embedded native services own XCB/XIM, AT-SPI and desktop services;
 # callbacks queue through arvane-shell and never depend back on the engine.
-arvane-native = ["arvane"]
+arvane-native = ["arvane", "kivact-engine"]
 arvane-text = ["arvane"]
 arvane-render = ["arvane"]
 arvane-asset = ["arvane"]
