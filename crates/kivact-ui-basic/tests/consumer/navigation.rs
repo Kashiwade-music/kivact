@@ -67,7 +67,15 @@ type Rig = (
 );
 
 fn mount_dropdown() -> (Screen, Rig) {
-    kivact::test::render_with_handle(light(), || {
+    let policy = kivact::interaction::InteractionPolicy {
+        menu: kivact::interaction::MenuPolicy {
+            disabled_focus: kivact::interaction::DisabledMenuFocus::Skip,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let options = light().theme(basic::theme(kivact::style::ThemeMode::Light).with(policy));
+    kivact::test::render_with_handle(options, || {
         let chosen = signal(Vec::new());
         let check = signal(true);
         let radio = signal("top");
