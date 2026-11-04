@@ -72,5 +72,5 @@ pub(crate) use windows::ime_request;
 
 pub(crate) use system::{file_position, pointer_settings, reduced_motion, track_files};
 
-#[cfg(windows)]
+#[cfg(all(windows, feature = "embed"))]
 pub(crate) use windows::theme_hint;

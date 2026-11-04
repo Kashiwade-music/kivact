@@ -637,6 +637,7 @@ pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
 }
 
 /// Read the documented per-user app color mode; missing settings use light.
+#[cfg(feature = "embed")]
 pub(crate) fn theme_hint() -> kivact_types::ThemeHint {
     use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
     let key = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"
