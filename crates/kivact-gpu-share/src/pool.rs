@@ -112,7 +112,7 @@ pub(crate) struct Acquired {
 #[derive(Debug)]
 pub(crate) struct Slots {
     /// The value of the last frame drawn into each texture.
-    drawn: Vec<Option<NonZeroU64>>,
+    drawn: Vec<SlotState>,
     /// The texture of the next frame.
     next: usize,
     /// The last value given out.
@@ -126,7 +126,7 @@ pub(crate) struct Slots {
 impl Slots {
     pub(crate) fn new(slots: u32) -> Self {
         Self {
-            drawn: vec![None; slots as usize],
+            drawn: vec![SlotState::Fresh; slots as usize],
             next: 0,
             last: None,
         }
@@ -136,7 +136,7 @@ impl Slots {
     pub(crate) fn next(&self) -> Acquired {
         Acquired {
             slot: self.next as u32,
-            wait: self.drawn[self.next],
+            wait: self.drawn[self.next].value(),
         }
     }
 
@@ -159,7 +159,7 @@ impl Slots {
         );
         let value = self.next_value();
         self.last = Some(value);
-        self.drawn[self.next] = Some(value);
+        self.drawn[self.next] = SlotState::Drawn(value);
         self.next = (self.next + 1) % self.drawn.len();
         FrameReady {
             slot: acquired.slot,
@@ -169,16 +169,34 @@ impl Slots {
 
     /// The value of the last frame drawn into `slot`.
     pub(crate) fn drawn(&self, slot: u32) -> Result<Option<NonZeroU64>, Error> {
-        self.drawn.get(slot as usize).copied().ok_or_else(|| {
-            Error::Mismatch(format!(
-                "no texture {slot} in a pool of {}",
-                self.drawn.len()
-            ))
-        })
+        self.drawn
+            .get(slot as usize)
+            .copied()
+            .map(SlotState::value)
+            .ok_or_else(|| {
+                Error::Mismatch(format!(
+                    "no texture {slot} in a pool of {}",
+                    self.drawn.len()
+                ))
+            })
     }
 
     /// The last value given out.
     pub(crate) fn last(&self) -> Option<NonZeroU64> {
         self.last
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum SlotState {
+    Fresh,
+    Drawn(NonZeroU64),
+}
+impl SlotState {
+    fn value(self) -> Option<NonZeroU64> {
+        match self {
+            Self::Fresh => None,
+            Self::Drawn(value) => Some(value),
+        }
     }
 }
