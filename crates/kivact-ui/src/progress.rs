@@ -54,7 +54,7 @@ pub struct Progress {
     root: Node,
     value: Value<Option<f64>>,
     fixed_indeterminate: bool,
-    size: ControlSize,
+    size: Value<ControlSize>,
     moving: Value<bool>,
     variants: Variants,
 }
@@ -91,7 +91,7 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
         root: node().role(Role::ProgressBar),
         value,
         fixed_indeterminate,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         moving: false.into_value(),
         variants: Variants::default(),
     }
@@ -100,8 +100,8 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
 impl Progress {
     /// The size (default [`ControlSize::Medium`]), given to the recipes in
     /// their state; the recipes size the bar by it.
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -197,7 +197,7 @@ impl IntoView for Progress {
         let phase = phase.into_value();
         let state = memo(move || ProgressState {
             value: target.get(),
-            size,
+            size: size.get(),
             shown,
             phase,
         });
