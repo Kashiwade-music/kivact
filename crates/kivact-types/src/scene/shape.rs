@@ -86,7 +86,7 @@ impl Radius {
 ///
 /// ```
 /// use kivact_types::{Point, Rect};
-/// use kivact_types::protocol::{Radius, RoundedRect};
+/// use kivact_types::scene::{Radius, RoundedRect};
 /// // `border-radius: 50%` on a 100 × 40 box: an ellipse.
 /// let ellipse = RoundedRect::ellipse(Rect { x: 0.0, y: 0.0, width: 100.0, height: 40.0 });
 /// assert_eq!(ellipse.radii[0], Radius { x: 50.0, y: 20.0 });

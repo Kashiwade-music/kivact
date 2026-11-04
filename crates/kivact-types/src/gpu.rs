@@ -3,7 +3,7 @@
 //! The vocabulary of GPU texture sharing: an application's render engine
 //! (its own device, not Arvane's) draws frames into a pool of textures and
 //! hands their OS handles to a window ([`SharedTextures`]); a scene draws
-//! one of its frames with `DrawCommand::External`. The types exist
+//! one of its frames with `RenderCmd::External`. The types exist
 //! on every platform; only Windows and Linux can make a [`SharedHandle`].
 //!
 //! The adapter is negotiated: the application states a wish

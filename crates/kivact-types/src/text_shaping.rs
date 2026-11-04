@@ -7,7 +7,7 @@ use std::sync::Arc;
 /// the callback belongs to (a run without a family takes the node's
 /// inherited one).
 pub trait TextShaper {
-    /// The extent of `run` on one line (`SceneCmd::Text`, its `origin` and
+    /// The extent of `run` on one line (`DrawCmd::Text`, its `origin` and
     /// `color` aside); zero when it cannot be shaped.
     fn measure(&self, run: &TextRun) -> TextMetrics;
 

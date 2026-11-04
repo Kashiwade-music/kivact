@@ -1,4 +1,4 @@
-//! Role: Adapter-neutral color values (text styles are in `protocol::text`).
+//! Role: Adapter-neutral color values (text styles are in `text`).
 //! This module contains plain data usable on any thread.
 
 /// Straight-alpha color, components in `0.0..=1.0`.
@@ -39,6 +39,25 @@ impl Rgba {
         Rgba {
             a: (self.a * factor).clamp(0.0, 1.0),
             ..self
+        }
+    }
+}
+
+impl Rgba {
+    /// Clamp straight-alpha components to zero through one; non-finite is zero.
+    pub fn sanitize(self) -> Self {
+        let unit = |v: f32| {
+            if v.is_finite() {
+                v.clamp(0.0, 1.0)
+            } else {
+                0.0
+            }
+        };
+        Self {
+            r: unit(self.r),
+            g: unit(self.g),
+            b: unit(self.b),
+            a: unit(self.a),
         }
     }
 }

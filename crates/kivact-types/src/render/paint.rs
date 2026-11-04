@@ -2,20 +2,20 @@
 //! Plain data usable on any thread.
 
 use super::color::ColorMatrix;
-use super::image::ImageData;
 use crate::color::Rgba;
 use crate::geometry::{Point, Rect};
 use crate::paint::Extend;
+use crate::scene::Pixels;
 
 /// A paint for fills and strokes.
 ///
 /// Coordinates are in the drawing command's coordinates (so they follow
-/// [`crate::protocol::DrawCommand::PushTransform`] like the geometry), except
+/// [`crate::render::RenderCmd::PushTransform`] like the geometry), except
 /// [`Paint::LinearGradient`], which spans the bounds of what it fills.
 ///
 /// ```
 /// use kivact_types::{Extend, Point, Rgba};
-/// use kivact_types::protocol::{Gradient, GradientShape, Paint};
+/// use kivact_types::render::{Gradient, GradientShape, Paint};
 /// let black = Rgba { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
 /// let clear = Rgba { a: 0.0, ..black };
 /// // CSS `repeating-linear-gradient(90deg, black 0 1px, transparent 1px 24px)`
@@ -217,10 +217,10 @@ pub struct Pattern {
 #[derive(Clone, Debug, PartialEq)]
 pub enum PatternSource {
     /// An image, through an optional color matrix (the converted pixels
-    /// are cached like [`crate::protocol::DrawCommand::Image`]'s).
+    /// are cached like [`crate::render::RenderCmd::Image`]'s).
     Image {
         /// Pixels.
-        image: ImageData,
+        image: Pixels,
         /// Color matrix applied to the pixels.
         color_matrix: Option<ColorMatrix>,
     },
