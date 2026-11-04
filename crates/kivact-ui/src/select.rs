@@ -300,14 +300,11 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
                     .on_press(move || {
                         let choice = released.get();
                         released.set(None);
-                        match choice {
-                            Some(true) if eligible() => {
-                                sheet_open.set(true);
-                                open.set(true);
-                            }
-                            Some(false) => {}
-                            _ => behavior.toggle(),
+                        if choice == Some(true) && eligible() {
+                            sheet_open.set(true);
                         }
+                        // The trigger part owns activation. It opens after this
+                        // caller action has chosen the touch presentation.
                     })
                     .has_popup(move || {
                         Some(if sheet_open.get() {

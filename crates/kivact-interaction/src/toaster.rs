@@ -49,6 +49,7 @@ const DEFAULT_DURATION: Duration = Duration::from_secs(5);
 const DEFAULT_MAX_VISIBLE: usize = 3;
 
 type Entries = Vec<(ToastId, Toast)>;
+type DismissHandler = Rc<dyn Fn(kivact_core::view::DismissReason) -> Result<(), UiError>>;
 
 struct QueuedToast {
     id: ToastId,
@@ -67,7 +68,7 @@ struct ToastFocus {
 #[derive(Clone, Default)]
 pub struct ToastOptions {
     key: Option<String>,
-    on_dismiss: Option<kivact_core::state::Callback<kivact_core::view::DismissReason>>,
+    on_dismiss: Option<DismissHandler>,
 }
 
 impl ToastOptions {
@@ -78,12 +79,16 @@ impl ToastOptions {
     }
 
     /// Run `on_dismiss` once after a shown toast is removed from the queue.
-    /// Removing a waiting toast does not run this callback.
+    /// Removing a waiting toast does not run this callback. The closure belongs
+    /// to the toast, so it can be set from a handler. Errors are reported
+    /// through the App queue owner.
     pub fn on_dismiss<R: HandlerResult>(
         mut self,
         on_dismiss: impl Fn(kivact_core::view::DismissReason) -> R + 'static,
     ) -> Self {
-        self.on_dismiss = Some(kivact_core::state::callback(on_dismiss));
+        self.on_dismiss = Some(Rc::new(move |reason| {
+            on_dismiss(reason).into_outcome().map(|_| ())
+        }));
         self
     }
 }
@@ -384,7 +389,9 @@ impl Toaster {
             previous.restore_focus();
         }
         if shown && let Some(on_dismiss) = entry.options.on_dismiss {
-            on_dismiss.call(reason);
+            if let Err(error) = on_dismiss(reason) {
+                Owner::root().report(error.kind().clone(), error.to_string());
+            }
         }
     }
 
