@@ -247,7 +247,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
         let rows = grid.row_metadata;
         let columns = grid.column_metadata;
         let cell = cell
-            .on_key(move |event| navigation.from_group(&navigation_label, &event, rows, columns));
+            .on_key(move |event| navigation.navigate_from_group(&navigation_label, &event, rows, columns));
         rows::content_navigation(cell, disclosure.into_view(), true)
     } else {
         cell.child(disclosure)

@@ -201,7 +201,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             .bind(root, super::navigation::Target::Cell(key.clone(), column));
         let navigation = self.navigation.clone();
         let rows = self.row_metadata;
-        root.on_key(move |event| navigation.from_cell(&key, &event, rows))
+        root.on_key(move |event| navigation.navigate_from_cell(&key, &event, rows))
     }
     fn navigation_header(&self, root: Node, column: usize) -> Node {
         if matches!(self.focus, TableFocus::Cells(_)) {
