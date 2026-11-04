@@ -70,7 +70,7 @@ impl Window {
             redraw: Cell::new(ChildRedraw::Needed),
             started: Instant::now(),
             cpu: CpuSurface::Released,
-            accessibility: super::a11y::Bridge::new(f64::from(scale), waker),
+            accessibility: super::a11y::Bridge::new(scale, waker),
             services: super::services::Services::default(),
             ime,
             ime_driver: RefCell::default(),
@@ -325,8 +325,4 @@ impl Drop for Window {
     fn drop(&mut self) {
         self.cursors.release(&self.native);
     }
-}
-
-fn unsupported(service: &str) -> ShellError {
-    ShellError::unsupported(format!("{service} is unavailable for embedded X11 windows"))
 }

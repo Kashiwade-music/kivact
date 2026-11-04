@@ -58,7 +58,7 @@ impl Bridge {
         height: u32,
         scale: f64,
     ) -> Result<(), ShellError> {
-        self.tree.rescale(f64::from(scale));
+        self.tree.rescale(scale);
         // Without an assistive client nothing is published, so the round trip
         // for the window origin is skipped. Activation wakes the loop, and the
         // next pass sets the bounds before its first publication.
