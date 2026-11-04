@@ -163,7 +163,7 @@ impl Drop for Worker {
                     std::panic::resume_unwind(payload);
                 }
             } else {
-                crate::detached::DETACHED.store(true, Ordering::Release);
+                kivact_types::process::DetachedThreads::note();
                 tracing::warn!(target: "kivact", "asset job still running after the host closed; its thread is detached");
             }
         }

@@ -53,7 +53,6 @@
 //! - The store lives on its host's UI thread; only its worker thread runs
 //!   loads, decodes and rasterizations.
 
-mod detached;
 mod error;
 mod fit;
 mod font;
@@ -66,7 +65,6 @@ mod source;
 mod store;
 mod svg;
 
-pub use detached::detached_threads;
 pub use error::{AssetError, AssetErrorKind};
 pub use fit::{FitRect, ImageFit, Region, fit_image};
 pub use font::{
