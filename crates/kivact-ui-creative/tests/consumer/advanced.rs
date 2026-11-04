@@ -323,8 +323,14 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
                     }
                 })
                 .on_key_up(move |event| {
-                    if event.key() == Key::Char('z') && state.get_untracked().held {
-                        chosen.set(state.get_untracked().hot);
+                    if event.key() == Key::Char('z')
+                        && let ui::PieState::Open {
+                            mode: ui::PieMode::Held,
+                            hot,
+                            ..
+                        } = state.get_untracked()
+                    {
+                        chosen.set(hot);
                         state.set(ui::PieState::default());
                         Handled::Yes
                     } else {
@@ -335,27 +341,36 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
         });
     screen.get_by_role(Role::Group, "Pie host").focus();
     screen.key_down(Key::Char('z'), KeyCode::KeyZ, Modifiers::default());
-    assert!(state.get_untracked().open);
+    assert!(matches!(state.get_untracked(), ui::PieState::Open { .. }));
     screen.mouse_move(196.0, 200.0);
-    assert_eq!(state.get_untracked().hot, Some(0));
+    assert!(matches!(
+        state.get_untracked(),
+        ui::PieState::Open { hot: Some(0), .. }
+    ));
     screen.key_up(Key::Char('z'), KeyCode::KeyZ, Modifiers::default());
     assert_eq!(chosen.get_untracked(), Some(0));
-    assert!(!state.get_untracked().open);
+    assert_eq!(state.get_untracked(), ui::PieState::Closed);
     state.set(ui::PieState::open_at(Point::new(300.0, 200.0), false));
     screen.advance(Duration::ZERO);
     screen
         .get_by_role(Role::Menu, "Shading pie")
         .press_key(Key::Char('2'));
     assert_eq!(chosen.get_untracked(), Some(1));
-    assert!(!state.get_untracked().open);
+    assert_eq!(state.get_untracked(), ui::PieState::Closed);
     state.set(ui::PieState::open_at(Point::new(300.0, 200.0), true));
     screen.run_until_idle();
     screen
         .get_by_role(Role::Menu, "Shading pie")
         .press_key(Key::Escape);
-    assert!(!state.get_untracked().open);
+    assert_eq!(state.get_untracked(), ui::PieState::Closed);
     assert!(
-        !state.get_untracked().held,
+        !matches!(
+            state.get_untracked(),
+            ui::PieState::Open {
+                mode: ui::PieMode::Held,
+                ..
+            }
+        ),
         "shared dismissal cancels the held transaction"
     );
     clean(&screen);
