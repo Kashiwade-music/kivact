@@ -2,7 +2,7 @@
 
 ## P-1 状態の全数調査（2026-11-04）
 
-対象は `crates/`、`examples/`、`templates/` の Rust source（test と doctest も検索に含む）。付録 A の既存 169 件のうち SM-C27 の解消後だけを現契約に合わせて主担当判断で訂正し、新規 32 件を SM-I901〜904、SM-U901〜905、SM-K901〜923 として追加した。コードは変更しない。この時点は検索調査の記録で、P-0 checker の全 crate report と clippy の結果は後段へ追記する。
+対象は `crates/`、`examples/`、`templates/` の Rust source（test と doctest も検索に含む）。付録 A の既存 169 件のうち SM-C27 の解消後だけを現契約に合わせて主担当判断で訂正し、新規 34 件を SM-R901、SM-A901、SM-I901〜904、SM-U901〜905、SM-K901〜923 として追加した。コードは変更しない。P-0 checker の全 crate report と clippy の最終結果は後段に記録する。
 
 判定は 13.1 の 8 種類と、単独 bool を認める 18.14 を併用する。二つ以上の field があるだけで option の束・入力の record を状態機械と扱わず、更新する場所と利用する場所で依存を確認する。既存項目と同じ field/遷移は追加件数に含めない。unit は同 module の既存項目を優先し、該当しなければ同 crate が主な crate になる最初の状態機械 unit（kit は K-1、ui は U-1）へ割り当てる。後の unit が必要なら主担当が担当移管を記録する。
 
@@ -237,7 +237,7 @@
 | `crates/kivact-motion/src/state.rs:41` `MotionEnv` | `reduced_motion`, `surface_active` | 対応: SM-R22、SM-R23、SM-R24、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
 | `crates/kivact-motion/src/state.rs:60` `MotionState` | `env`, `applied_offset_ns` | 対応: SM-R22、SM-R23、SM-R24、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
 | `crates/kivact-motion/src/state.rs:294` `LoopCell` | `rate`, `run`, `frames` | 対応: SM-R22、SM-R23、SM-R24、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
-| `crates/kivact-reactive/src/arena.rs:33` `Entry` | `value`, `tomb` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `crates/kivact-reactive/src/arena.rs:33` `Entry` | `value`, `tomb` | 対応: SM-R901。value/tomb の排他と free/retired を明示する |
 | `crates/kivact-reactive/src/data.rs:47` `Runtime` | `seq`, `write_epoch`, `root_owner`, `later`, `turn_requested`, `writer`, `stab_epoch` | 対応: SM-R01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
 | `crates/kivact-reactive/src/data.rs:127` `MemoCell` | `value`, `f`, `eq` | 対応: SM-R01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
 | `crates/kivact-reactive/src/data.rs:274` `OwnerEntry` | `parent`, `on_error`, `disposing` | 対応: SM-R01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
@@ -1717,9 +1717,658 @@ call の括弧の範囲を追い、内部の `.set/.update/.replace` も補助�
 
 ### helper 経由の書込みと SM-C27 の訂正
 
-- effect の直接 `.set` だけでなく全 kit の effect を列挙して helper を追った結果、SM-I904（palette.reset）と SM-K920〜923（cancel/commit/open）を追加した。全追加は 32 件、付録 A は計 201 件。
+- effect の直接 `.set` だけでなく全 kit の effect を列挙して helper を追った結果、SM-I904（palette.reset）と SM-K920〜923（cancel/commit/open）を追加した。この補助照合時点では32件を追加。後述のcheckerでSM-R901を足し、さらに NativeInput の構築を SM-A901 として追加し、最終の追加は34件、付録Aは計203件。
 - `editors/{arrangement,time,graph}/view.rs` の `state.cancel()` は SM-K906 の同じ focus/data の取消しに含める。drag origin と CanvasGesture 自体は既存 SM-K30。
 - `combobox.rs:488` の row.scroll_into_view、`tab_list.rs:425` の scroll_into_view は外部の node への effect で内部 signal の派生状態を複製しないため除外。
 - `picker.rs:586` の outcomes.preview はすでに PickerPhase::Open { previewed } / Settled の明示状態で重複除去し、追加の bool/Option の組合せを作らないため除外。
 - `calendar/state.rs:131` と `table/state.rs:144` の reconcile は Roving::reconcile に入り、requested/observed/restore_from の処理は既存 SM-I16。新規機械として重複登録しない。
 - **SM-C27 の訂正（主担当決定）**: `gpu_interop/share/link.rs:124-127` は pixels を whatever the request の新しい CPU picture と明記する。公開 publish_pixels の GPU request 中の受理を保存するため、Phase::Pixels(Pixels) 案をやめ、Open が phase と独立した Mailbox<Pixels> を持つ形へ訂正する。Mailbox は V-4/S-9 の共通型。C-3 は振る舞い不変の unit なので、phase に閉じ込めて受理を制限する変更は行わない。
+
+### clippy `disallowed_types` の全 crate 調査
+
+実行: `CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_BUILD_JOBS=2 cargo clippy --workspace --all-targets --all-features --locked --message-format=json -- -W clippy::disallowed_types`。exit **0**、2m33s。warning は全 target/feature の重複込み **194** 行、source location と内容でまとめた **43** 件を下表ですべて判定した。未処理 **0**。これは Windows host で有効な cfg の型検査であり、X11 など host で無効な cfg は前段の全文検索で照合する。
+
+生ログ: `C:\Users\030009~1\AppData\Local\Temp\kivact-p1-clippy.jsonl`（compiler-message JSON）、`C:\Users\030009~1\AppData\Local\Temp\kivact-p1-clippy.stderr`（cargo進行と終了）。scratch log なので削除後も下表に判定が残る。
+
+| 場所 | 重複込み件数 | 判断と理由 |
+|---|---:|---|
+| `crates/arvane-native/src/module.rs:14` | 2 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/arvane-native/src/module.rs:18` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/arvane-native/src/native_input/windows.rs:516` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/arvane-native/src/test_display.rs:47` | 2 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/arvane-native/src/test_display.rs:169` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-core/src/client/link.rs:19` | 2 | 対応: SM-C05/SM-R19（host waker の後付け） |
+| `crates/kivact-core/src/client/link.rs:30` | 2 | 対応: SM-C05/SM-R19（host waker の後付け） |
+| `crates/kivact-core/src/test/screen/driver.rs:113` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-core/src/view/state.rs:10` | 2 | 対応: SM-C08（Started の後付け） |
+| `crates/kivact-core/src/view/state.rs:225` | 2 | 対応: SM-C08（Started の後付け） |
+| `crates/kivact-core/src/view/state.rs:250` | 2 | 対応: SM-C08（Started の後付け） |
+| `crates/kivact-engine/src/measure/leaf.rs:319` | 2 | 除外: LeafText の一測定に閉じた inherited computed-text cache（S-9、上記の型別判断） |
+| `crates/kivact-engine/src/measure/leaf.rs:404` | 2 | 除外: LeafText の一測定に閉じた inherited computed-text cache（S-9、上記の型別判断） |
+| `crates/kivact-reactive/src/data.rs:20` | 2 | 対応: SM-R09（driver の後付け） |
+| `crates/kivact-reactive/src/data.rs:68` | 2 | 対応: SM-R09（driver の後付け） |
+| `crates/kivact-reactive/src/runtime.rs:4` | 2 | 対応: SM-R09（driver の後付け） |
+| `crates/kivact-reactive/src/runtime.rs:28` | 2 | 対応: SM-R09（driver の後付け） |
+| `crates/kivact-task/src/spawn.rs:3` | 2 | 対応: SM-R17（TaskCell の後付け） |
+| `crates/kivact-task/src/spawn.rs:50` | 2 | 対応: SM-R17（TaskCell の後付け） |
+| `crates/kivact-task/src/state.rs:8` | 2 | 対応: SM-R17（TaskCell の後付け） |
+| `crates/kivact-task/src/state.rs:50` | 2 | 対応: SM-R17（TaskCell の後付け） |
+| `crates/kivact-ui-basic/src/icons.rs:278` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-basic/src/recipes.rs:24` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-creative/src/icons.rs:310` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-creative/src/recipes.rs:23` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-game/src/icons.rs:143` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-game/src/recipes.rs:20` | 2 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-game/src/recipes.rs:49` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-pop/src/icons.rs:225` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-pop/src/recipes.rs:34` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-soft/src/icons.rs:3` | 2 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-soft/src/icons.rs:104` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-soft/src/recipes.rs:3` | 2 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui-soft/src/recipes.rs:6` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui/src/recipes.rs:62` | 2 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui/src/recipes.rs:99` | 80 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `crates/kivact-ui/src/text_input.rs:13` | 2 | 対応: SM-U901（instance の callback の後付け） |
+| `crates/kivact-ui/src/text_input.rs:36` | 2 | 対応: SM-U901（instance の callback の後付け） |
+| `crates/kivact-ui/src/text_input.rs:46` | 2 | 対応: SM-U901（instance の callback の後付け） |
+| `crates/kivact-ui/src/text_input.rs:84` | 2 | 対応: SM-U901（instance の callback の後付け） |
+| `crates/kivact-ui/src/text_input.rs:86` | 2 | 対応: SM-U901（instance の callback の後付け） |
+| `examples/kivact-ui-basic/src/docs.rs:11` | 2 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+| `examples/kivact-ui-basic/src/docs.rs:81` | 4 | 除外: static の process cache / recipe / icons / message id / test display（18.20）。import と構築の指摘も同じ利用場所に対応 |
+
+- NativeInput.waker の照合: `runtime.rs:653-664` は default 後に Some を埋め、`embed/windows/window.rs:295` は default の None のまま使う。これは take mailbox ではないので既存 SM-A08 とは別に SM-A901 を追加した。Direct と EventLoop の構造の option を構築時に選ぶことで、embed に不要な waker を強制せず native の未設定状態をなくす。
+
+### P-0 checker の最終 report（d76f849 取込み後）
+
+P-0 の lib/bin root の補正を取り込み、専用の `target/p1-checker` で xtask を build（exit0）し直してから実行。各 workspace package を `--crate` で明示して policy の skip を上書きした。43 crate × 2 rules = **86** 呼出すべて exit **0**。`--report` なので、これは違反0という意味ではなく、調査出力の完了を意味する。state-fields **431** 行、effect-writes **90** 行、計 **521** 行を以下で一行ずつ分類し、未処理 **0**。所要173秒。
+
+コマンドの形: `target/p1-checker/debug/xtask.exe check --only <state-fields|effect-writes> --crate <package> --report --no-write`。二つの read-only process までで実行。P-0 修正前の予備版も86呼出を完走したが、以下は修正後の結果だけを採用する。
+
+生ログ: `C:\Users\030009~1\AppData\Local\Temp\kivact-p1-reports-final.json`（全出力行、全終了コード、expected=86、checker_commit=d76f849）。旧予備ログ `C:\Users\030009~1\AppData\Local\Temp\kivact-p1-reports.json` は最終の根拠に使わない。scratch log がなくても下表で全行を追える。
+
+| package | state-fields | effect-writes | exit |
+|---|---:|---:|---:|
+| `arvane` | 3 | 0 | 0 / 0 |
+| `arvane-asset` | 2 | 0 | 0 / 0 |
+| `arvane-native` | 9 | 0 | 0 / 0 |
+| `arvane-render` | 5 | 0 | 0 / 0 |
+| `arvane-shell` | 3 | 0 | 0 / 0 |
+| `arvane-text` | 6 | 0 | 0 / 0 |
+| `gpu-interop-producer` | 1 | 0 | 0 / 0 |
+| `kivact` | 0 | 0 | 0 / 0 |
+| `kivact-core` | 43 | 0 | 0 / 0 |
+| `kivact-docs` | 0 | 0 | 0 / 0 |
+| `kivact-editing` | 2 | 0 | 0 / 0 |
+| `kivact-engine` | 29 | 0 | 0 / 0 |
+| `kivact-example-async` | 0 | 0 | 0 / 0 |
+| `kivact-example-component` | 0 | 0 | 0 / 0 |
+| `kivact-example-counter` | 0 | 0 | 0 / 0 |
+| `kivact-example-form` | 0 | 0 | 0 / 0 |
+| `kivact-example-list` | 0 | 0 | 0 / 0 |
+| `kivact-gpu-share` | 2 | 0 | 0 / 0 |
+| `kivact-i18n` | 0 | 0 | 0 / 0 |
+| `kivact-interaction` | 50 | 22 | 0 / 0 |
+| `kivact-layout` | 5 | 0 | 0 / 0 |
+| `kivact-lower` | 2 | 0 | 0 / 0 |
+| `kivact-motion` | 5 | 0 | 0 / 0 |
+| `kivact-public-api-tests` | 0 | 0 | 0 / 0 |
+| `kivact-reactive` | 7 | 0 | 0 / 0 |
+| `kivact-style` | 13 | 0 | 0 / 0 |
+| `kivact-task` | 3 | 0 | 0 / 0 |
+| `kivact-template-basic` | 0 | 0 | 0 / 0 |
+| `kivact-text` | 3 | 0 | 0 / 0 |
+| `kivact-types` | 12 | 0 | 0 / 0 |
+| `kivact-ui` | 37 | 13 | 0 / 0 |
+| `kivact-ui-basic` | 33 | 2 | 0 / 0 |
+| `kivact-ui-basic-catalog` | 0 | 0 | 0 / 0 |
+| `kivact-ui-creative` | 34 | 11 | 0 / 0 |
+| `kivact-ui-creative-catalog` | 1 | 0 | 0 / 0 |
+| `kivact-ui-game` | 1 | 2 | 0 / 0 |
+| `kivact-ui-game-catalog` | 1 | 0 | 0 / 0 |
+| `kivact-ui-pop` | 2 | 1 | 0 / 0 |
+| `kivact-ui-pop-catalog` | 2 | 0 | 0 / 0 |
+| `kivact-ui-soft` | 83 | 39 | 0 / 0 |
+| `kivact-ui-soft-catalog` | 1 | 0 | 0 / 0 |
+| `kivact-wire` | 30 | 0 | 0 / 0 |
+| `xtask` | 1 | 0 | 0 / 0 |
+
+| checker | 場所・対象（実出力） | 判断と理由 |
+|---|---|---|
+| `state-fields` | `crates/arvane-asset/src/store/entry.rs:114` `arvane-asset::store::entry`: VariantKey combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/arvane-asset/src/store/worker.rs:73` `arvane-asset::store::worker`: Worker combines state fields | 除外: 上記の型別判断（所有権移動、履歴、cache、topology） |
+| `state-fields` | `crates/arvane-native/src/embed/windows/state.rs:59` `arvane-native::embed::windows::state`: State combines state fields | 対応: SM-A01、SM-A02、SM-A03。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/arvane-native/src/embed/x11/ime.rs:49` `arvane-native::embed::x11::ime`: App combines state fields | 対応: SM-A06。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/arvane-native/src/embed/x11/ime.rs:65` `arvane-native::embed::x11::ime`: Connection combines state fields | 対応: SM-A06。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/arvane-native/src/embed/x11/window.rs:18` `arvane-native::embed::x11::window`: Window combines state fields | 対応: SM-A01、SM-A05。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/arvane-native/src/native_input/state.rs:68` `arvane-native::native_input::state`: ContactNote combines state fields | 対応: SM-A08（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-native/src/runtime.rs:513` `arvane-native::runtime`: Runner combines state fields | 対応: SM-A07、SM-A10（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-native/src/runtime.rs:85` `arvane-native::runtime`: WinitWindow combines state fields | 対応: SM-A07、SM-A10（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-native/src/test_display.rs:110` `arvane-native::test_display`: Pending combines state fields | 対応: SM-A15（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-native/src/test_display.rs:376` `arvane-native::test_display`: Entry combines state fields | 対応: SM-A15（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-render/src/draw/canvas.rs:57` `arvane-render::draw::canvas`: GlyphRun combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/arvane-render/src/gpu/state.rs:145` `arvane-render::gpu::state`: GpuSurface combines state fields | 対応: SM-A12（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-render/src/gpu/state.rs:19` `arvane-render::gpu::state`: GpuEnv combines state fields | 対応: SM-A12（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-render/src/gpu/state.rs:67` `arvane-render::gpu::state`: GpuContext combines state fields | 対応: SM-A12（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane-render/src/paint.rs:43` `arvane-render::paint`: PatternFill combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/arvane-shell/src/clicks.rs:43` `arvane-shell::clicks`: ClickCounter combines state fields | 除外: 上記の型別判断（所有権移動、履歴、cache、topology） |
+| `state-fields` | `crates/arvane-shell/src/ime.rs:5` `arvane-shell::ime`: ShellImeText combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/arvane-shell/src/services.rs:5` `arvane-shell::services`: ShellFileDialog combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/arvane-text/src/cache.rs:115` `arvane-text::cache`: TextKey combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/arvane-text/src/cache.rs:232` `arvane-text::cache`: Cache combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/arvane-text/src/cache.rs:79` `arvane-text::cache`: SpanBits combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/arvane-text/src/cache.rs:98` `arvane-text::cache`: RichKey combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/arvane-text/src/layouts.rs:27` `arvane-text::layouts`: SpanKey combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/arvane-text/src/layouts.rs:83` `arvane-text::layouts`: Key combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/arvane/src/env.rs:28` `arvane::env`: Env combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/arvane/src/test_display/shell.rs:18` `arvane::test_display::shell`: VirtualShell combines state fields | 対応: SM-A15（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/arvane/src/window.rs:336` `arvane::window`: Shell combines state fields | 対応: SM-A10（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `dev/tests/gpu-interop-producer/src/vulkan.rs:38` `gpu-interop-producer::vulkan`: Vulkan combines state fields | 除外: 試験producerのGPU resource。device/poolのOptionは失敗した構築とDropの所有権移動で、公開中の操作phaseではない |
+| `state-fields` | `crates/kivact-core/src/app.rs:11` `kivact-core::app`: App combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/client/link.rs:24` `kivact-core::client::link`: HostLink combines state fields | 対応: SM-R04（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-core/src/client/state.rs:31` `kivact-core::client::state`: HostState combines state fields | 対応: SM-C02、SM-C25。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/embed.rs:29` `kivact-core::embed`: Parent combines state fields | 対応: SM-C04、SM-C28。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/gpu_interop/share/app_side.rs:18` `kivact-core::gpu_interop::share::app_side`: SharedImage combines state fields | 対応: SM-C26。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/gpu_interop/share/link.rs:118` `kivact-core::gpu_interop::share::link`: Open combines state fields | 対応: SM-C27（独立したCPU pictureのMailbox、主担当訂正） |
+| `state-fields` | `crates/kivact-core/src/platform/services.rs:37` `kivact-core::platform::services`: FileDialog combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/primitive/measurement.rs:17` `kivact-core::primitive::measurement`: Constraints combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/test/screen/model.rs:16` `kivact-core::test::screen::model`: Screen combines state fields | 除外: 試験の入力・結果/handle の受け渡し。製品の phase を複製しない |
+| `state-fields` | `crates/kivact-core/src/test/screen/results.rs:226` `kivact-core::test::screen::results`: LayoutViolation combines state fields | 除外: 試験の入力・結果/handle の受け渡し。製品の phase を複製しない |
+| `state-fields` | `crates/kivact-core/src/test/screen/results.rs:294` `kivact-core::test::screen::results`: SemanticNode combines state fields | 除外: 試験の入力・結果/handle の受け渡し。製品の phase を複製しない |
+| `state-fields` | `crates/kivact-core/src/view/common.rs:209` `kivact-core::view::common`: Registry combines state fields | 対応: SM-C16、SM-C17。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/common.rs:24` `kivact-core::view::common`: Common combines state fields | 対応: SM-C16、SM-C17。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/common.rs:242` `kivact-core::view::common`: Capture combines state fields | 対応: SM-C16、SM-C17。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/common.rs:255` `kivact-core::view::common`: Constraints combines state fields | 対応: SM-C16、SM-C17。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/common.rs:266` `kivact-core::view::common`: SemanticSources combines state fields | 対応: SM-C16、SM-C17。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/editing_data.rs:76` `kivact-core::view::editing_data`: TextEditing combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/editing_data.rs:88` `kivact-core::view::editing_data`: EditorProps combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/flow/branch.rs:167` `kivact-core::view::flow::branch`: ShowSome combines state fields | 対応: SM-C19。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/flow/branch.rs:68` `kivact-core::view::flow::branch`: Show combines state fields | 対応: SM-C19。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/flow/error_boundary.rs:33` `kivact-core::view::flow::error_boundary`: ErrorBoundary combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/flow/virtual_list.rs:60` `kivact-core::view::flow::virtual_list`: VirtualList combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-core/src/view/mount/create.rs:16` `kivact-core::view::mount::create`: FirstWrite combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/mount/facts.rs:10` `kivact-core::view::mount::facts`: NodeFacts combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/mount/part_input.rs:36` `kivact-core::view::mount::part_input`: Selected combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/mount/parts.rs:125` `kivact-core::view::mount::parts`: ConstraintSources combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/mount/resolve.rs:31` `kivact-core::view::mount::resolve`: Resolved combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/mount/semantics.rs:168` `kivact-core::view::mount::semantics`: SemanticProps combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/mount/style.rs:24` `kivact-core::view::mount::style`: States combines state fields | 対応: SM-C18。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/mount/style.rs:68` `kivact-core::view::mount::style`: NodeStyle combines state fields | 対応: SM-C18。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/overlays.rs:500` `kivact-core::view::overlays`: KeyRoute combines state fields | 対応: SM-C22。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/part.rs:110` `kivact-core::view::part`: InputState combines state fields | 対応: SM-C15。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/part.rs:73` `kivact-core::view::part`: PartState combines state fields | 対応: SM-C15。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/part_data.rs:11` `kivact-core::view::part_data`: PartMount combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/part_data.rs:29` `kivact-core::view::part_data`: PartConstraints combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-core/src/view/state.rs:141` `kivact-core::view::state`: FocusKeys combines state fields | 対応: SM-C08、SM-C09、SM-C10、SM-C14、SM-C18。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/state.rs:202` `kivact-core::view::state`: Started combines state fields | 対応: SM-C08、SM-C09、SM-C10、SM-C14、SM-C18。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/state.rs:59` `kivact-core::view::state`: NodeRefState combines state fields | 対応: SM-C08、SM-C09、SM-C10、SM-C14、SM-C18。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/tree.rs:140` `kivact-core::view::tree`: PartActions combines state fields | 対応: SM-C07、SM-C11、SM-C12、SM-C13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/tree.rs:207` `kivact-core::view::tree`: NodeObservation combines state fields | 対応: SM-C07、SM-C11、SM-C12、SM-C13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/tree.rs:222` `kivact-core::view::tree`: TNode combines state fields | 対応: SM-C07、SM-C11、SM-C12、SM-C13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/tree.rs:280` `kivact-core::view::tree`: Tree combines state fields | 対応: SM-C07、SM-C11、SM-C12、SM-C13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-core/src/view/tree.rs:59` `kivact-core::view::tree`: Handlers combines state fields | 対応: SM-C07、SM-C11、SM-C12、SM-C13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-editing/src/behavior.rs:30` `kivact-editing::behavior`: EditContext combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-editing/src/edit_state.rs:38` `kivact-editing::edit_state`: EditState combines state fields | 対応: SM-E32（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-engine/src/a11y/state.rs:41` `kivact-engine::a11y::state`: A11yState combines state fields | 対応: SM-E23、SM-E25。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/a11y/state.rs:9` `kivact-engine::a11y::state`: Metadata combines state fields | 対応: SM-E23、SM-E25。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/check/boxes.rs:66` `kivact-engine::check::boxes`: Axes combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-engine/src/host/pump.rs:45` `kivact-engine::host::pump`: Host combines state fields | 対応: SM-E01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-engine/src/host/testing/test_host.rs:21` `kivact-engine::host::testing::test_host`: Counts combines state fields | 対応: SM-A15（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-engine/src/host/testing/test_host.rs:46` `kivact-engine::host::testing::test_host`: ArvaneTestHost combines state fields | 対応: SM-A15（test hostのwoken mailbox）。failureは最後のerrorを渡す独立した値 |
+| `state-fields` | `crates/kivact-engine/src/measure/editor.rs:5` `kivact-engine::measure::editor`: EditorNode combines state fields | 対応: SM-E19（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-engine/src/measure/state.rs:13` `kivact-engine::measure::state`: MeasureColumns combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-engine/src/measure/state.rs:46` `kivact-engine::measure::state`: TextExtents combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-engine/src/model/aggregate.rs:11` `kivact-engine::model::aggregate`: Model combines state fields | 対応: SM-E32（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-engine/src/model/changes.rs:110` `kivact-engine::model::changes`: Changes combines state fields | 対応: SM-E24、SM-E27。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/model/changes.rs:131` `kivact-engine::model::changes`: Dispatched combines state fields | 対応: SM-E24、SM-E27。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/model/edit/state.rs:23` `kivact-engine::model::edit::state`: SessionSource combines state fields | 対応: SM-E20、SM-E32。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/model/edit/state.rs:8` `kivact-engine::model::edit::state`: InputSource combines state fields | 対応: SM-E20、SM-E32。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/model/focus/state.rs:7` `kivact-engine::model::focus::state`: Focused combines state fields | 対応: SM-E23。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/model/lifecycle.rs:47` `kivact-engine::model::lifecycle`: RemovedPayload combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-engine/src/model/pointer/state.rs:112` `kivact-engine::model::pointer::state`: Route combines state fields | 対応: SM-E10、SM-E11、SM-E12、SM-E13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/model/pointer/state.rs:203` `kivact-engine::model::pointer::state`: PointerSource combines state fields | 対応: SM-E10、SM-E11、SM-E12、SM-E13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/model/state_motion/state.rs:49` `kivact-engine::model::state_motion::state`: StateAnimation combines state fields | 対応: SM-E31。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/mutation.rs:95` `kivact-engine::mutation`: Mutation combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-engine/src/paint/state.rs:113` `kivact-engine::paint::state`: Step combines state fields | 対応: SM-E08、SM-E09。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/paint/state.rs:158` `kivact-engine::paint::state`: PaintList combines state fields | 対応: SM-E08、SM-E09。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/paint/state.rs:19` `kivact-engine::paint::state`: PaintState combines state fields | 対応: SM-E08、SM-E09。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/paint/state.rs:75` `kivact-engine::paint::state`: Look combines state fields | 対応: SM-E08、SM-E09。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/tree/child_order.rs:12` `kivact-engine::tree::child_order`: Editing combines state fields | 除外: 上記の型別判断（所有権移動、履歴、cache、topology） |
+| `state-fields` | `crates/kivact-engine/src/tree/child_order.rs:187` `kivact-engine::tree::child_order`: Children combines state fields | 除外: 上記の型別判断（所有権移動、履歴、cache、topology） |
+| `state-fields` | `crates/kivact-engine/src/tree/child_order.rs:6` `kivact-engine::tree::child_order`: Link combines state fields | 除外: 上記の型別判断（所有権移動、履歴、cache、topology） |
+| `state-fields` | `crates/kivact-engine/src/tree/node.rs:20` `kivact-engine::tree::node`: HostNode combines state fields | 対応: SM-E30、SM-E31。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-engine/src/tree/node.rs:51` `kivact-engine::tree::node`: Place combines state fields | 対応: SM-E30、SM-E31。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-gpu-share/src/common.rs:8` `kivact-gpu-share::common`: Identity combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-gpu-share/src/pool.rs:104` `kivact-gpu-share::pool`: Slots combines state fields | 対応: SM-A14（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `effect-writes` | `crates/kivact-interaction/src/calendar/state.rs:76` `kivact-interaction::calendar::state`: Signal/Var write inside an effect closure | 対応: SM-I26、SM-I903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/combobox.rs:159` `kivact-interaction::combobox`: Signal/Var write inside an effect closure | 対応: SM-I06（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/combobox.rs:174` `kivact-interaction::combobox`: Signal/Var write inside an effect closure | 対応: SM-I06（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/hover_corridor.rs:110` `kivact-interaction::hover_corridor`: Signal/Var write inside an effect closure | 対応: SM-I21（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/hover_corridor.rs:112` `kivact-interaction::hover_corridor`: Signal/Var write inside an effect closure | 対応: SM-I21（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/hover_corridor.rs:119` `kivact-interaction::hover_corridor`: Signal/Var write inside an effect closure | 対応: SM-I21（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/menu/level.rs:496` `kivact-interaction::menu::level`: Signal/Var write inside an effect closure | 除外: surface rects のgeometry cache更新（S-9）。sessionの開閉状態はSM-I08/I10 |
+| `effect-writes` | `crates/kivact-interaction/src/menu/session.rs:61` `kivact-interaction::menu::session`: Signal/Var write inside an effect closure | 対応: SM-I08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/menu/session.rs:62` `kivact-interaction::menu::session`: Signal/Var write inside an effect closure | 対応: SM-I08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/menu/session.rs:63` `kivact-interaction::menu::session`: Signal/Var write inside an effect closure | 対応: SM-I08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/menu/session.rs:64` `kivact-interaction::menu::session`: Signal/Var write inside an effect closure | 対応: SM-I08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/menu/session.rs:74` `kivact-interaction::menu::session`: Signal/Var write inside an effect closure | 対応: SM-I08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/menu/session.rs:97` `kivact-interaction::menu::session`: Signal/Var write inside an effect closure | 対応: SM-I08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/menu/session.rs:98` `kivact-interaction::menu::session`: Signal/Var write inside an effect closure | 対応: SM-I08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/popup.rs:409` `kivact-interaction::popup`: Signal/Var write inside an effect closure | 対応: SM-I02（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/popup.rs:415` `kivact-interaction::popup`: Signal/Var write inside an effect closure | 対応: SM-I02（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/select.rs:149` `kivact-interaction::select`: Signal/Var write inside an effect closure | 対応: SM-I07（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/select.rs:594` `kivact-interaction::select`: Signal/Var write inside an effect closure | 対応: SM-I07（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/toaster.rs:419` `kivact-interaction::toaster`: Signal/Var write inside an effect closure | 対応: SM-I22（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/toaster.rs:420` `kivact-interaction::toaster`: Signal/Var write inside an effect closure | 対応: SM-I22（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/toaster.rs:451` `kivact-interaction::toaster`: Signal/Var write inside an effect closure | 対応: SM-I22（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-interaction/src/toaster.rs:565` `kivact-interaction::toaster`: Signal/Var write inside an effect closure | 対応: SM-I22（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `state-fields` | `crates/kivact-interaction/src/calendar/handle.rs:32` `kivact-interaction::calendar::handle`: CalendarDayState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/calendar/policy.rs:17` `kivact-interaction::calendar::policy`: CalendarPolicy combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/combobox.rs:39` `kivact-interaction::combobox`: Combobox combines state fields | 対応: SM-I06。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/delayed.rs:48` `kivact-interaction::delayed`: Delayed combines state fields | 対応: SM-I03。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/dialog.rs:72` `kivact-interaction::dialog`: Dismiss combines state fields | 対応: SM-I05。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/dialog.rs:91` `kivact-interaction::dialog`: DialogSettings combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-interaction/src/disclosure.rs:27` `kivact-interaction::disclosure`: Disclosure combines state fields | 対応: SM-I01。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/disclosure.rs:59` `kivact-interaction::disclosure`: DisclosureSettings combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-interaction/src/drag.rs:179` `kivact-interaction::drag`: DragSettings combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-interaction/src/drag.rs:225` `kivact-interaction::drag`: Drag combines state fields | 対応: SM-I12。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/edit.rs:85` `kivact-interaction::edit`: EditSession combines state fields | 対応: SM-I11。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/follow_end.rs:91` `kivact-interaction::follow_end`: FollowState combines state fields | 対応: SM-I23。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/list/data.rs:236` `kivact-interaction::list::data`: ListPolicy combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/list/data.rs:299` `kivact-interaction::list::data`: ListItemState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/list/state.rs:20` `kivact-interaction::list::state`: Pending combines state fields | 対応: SM-I14、SM-I26。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/list/state.rs:41` `kivact-interaction::list::state`: State combines state fields | 対応: SM-I14、SM-I26。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/menu/level.rs:50` `kivact-interaction::menu::level`: Level combines state fields | 対応: SM-I10。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/menu/press_state.rs:45` `kivact-interaction::menu::press_state`: Press combines state fields | 対応: SM-I09。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/menu/state.rs:140` `kivact-interaction::menu::state`: ItemEntry combines state fields | 対応: SM-I08。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/menu/state.rs:53` `kivact-interaction::menu::state`: MenuItemState combines state fields | 対応: SM-I08。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/menu/state.rs:618` `kivact-interaction::menu::state`: Session combines state fields | 対応: SM-I08。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/palette.rs:197` `kivact-interaction::palette`: CommandPalette combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/popup.rs:110` `kivact-interaction::popup`: PopupSettings combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-interaction/src/popup.rs:119` `kivact-interaction::popup`: Opening combines state fields | 対応: SM-I02。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/roving.rs:23` `kivact-interaction::roving`: Member combines state fields | 対応: SM-I16。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/roving.rs:43` `kivact-interaction::roving`: Observation combines state fields | 対応: SM-I16。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/roving.rs:58` `kivact-interaction::roving`: Roving combines state fields | 対応: SM-I16。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/scalar/edit_state.rs:111` `kivact-interaction::scalar::edit_state`: Edit combines state fields | 対応: SM-I17。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/scalar/edit_state.rs:12` `kivact-interaction::scalar::edit_state`: Shared combines state fields | 対応: SM-I17。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/scalar/touch.rs:24` `kivact-interaction::scalar::touch`: Contact combines state fields | 対応: SM-I18。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/scalar/touch.rs:44` `kivact-interaction::scalar::touch`: Touch combines state fields | 対応: SM-I18。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/scalar/track.rs:12` `kivact-interaction::scalar::track`: Target combines state fields | 対応: SM-I901（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-interaction/src/scalar/track.rs:128` `kivact-interaction::scalar::track`: Pointer combines state fields | 対応: SM-I901（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-interaction/src/scalar/track.rs:80` `kivact-interaction::scalar::track`: Geometry combines state fields | 対応: SM-I901（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-interaction/src/splitter.rs:119` `kivact-interaction::splitter`: SplitterSettings combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-interaction/src/table/data.rs:7` `kivact-interaction::table::data`: Header combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/table/data.rs:77` `kivact-interaction::table::data`: TableHeaderState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/table/data.rs:88` `kivact-interaction::table::data`: TableRowState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/table/data.rs:98` `kivact-interaction::table::data`: TableCellState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/table/model.rs:241` `kivact-interaction::table::model`: TableModel combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/table/model.rs:53` `kivact-interaction::table::model`: ColumnDef combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/table/state.rs:19` `kivact-interaction::table::state`: State combines state fields | 対応: SM-I26、SM-I27。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/text_edit/handle.rs:315` `kivact-interaction::text_edit::handle`: Data combines state fields | 対応: SM-I13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/toaster.rs:232` `kivact-interaction::toaster`: Toaster combines state fields | 対応: SM-I22。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/toaster.rs:59` `kivact-interaction::toaster`: ToastFocus combines state fields | 対応: SM-I22。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/toaster.rs:92` `kivact-interaction::toaster`: Toast combines state fields | 対応: SM-I22。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/toggle.rs:90` `kivact-interaction::toggle`: Core combines state fields | 対応: SM-I24。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/tooltip.rs:69` `kivact-interaction::tooltip`: Hub combines state fields | 対応: SM-I04。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-interaction/src/tree.rs:322` `kivact-interaction::tree`: TreeItemState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-interaction/src/zoom_pan.rs:139` `kivact-interaction::zoom_pan`: ZoomPan combines state fields | 対応: SM-I19、SM-I28。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-layout/src/columns.rs:39` `kivact-layout::columns`: Counted combines state fields | 対応: SM-E28。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-layout/src/columns.rs:90` `kivact-layout::columns`: NodeLayoutValues combines state fields | 対応: SM-E28。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-layout/src/pass_state.rs:21` `kivact-layout::pass_state`: LayoutState combines state fields | 対応: SM-E28。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-layout/src/style/node.rs:32` `kivact-layout::style::node`: NodeStyle combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-layout/src/tree.rs:51` `kivact-layout::tree`: LayoutPass combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-lower/src/context.rs:44` `kivact-lower::context`: Context combines state fields | 対応: SM-E33（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-lower/src/glyphs.rs:25` `kivact-lower::glyphs`: Colors combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-motion/src/animated.rs:19` `kivact-motion::animated`: AnimCell combines state fields | 対応: SM-R25（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-motion/src/state.rs:16` `kivact-motion::state`: Frames combines state fields | 対応: SM-R22、SM-R23、SM-R24、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-motion/src/state.rs:294` `kivact-motion::state`: LoopCell combines state fields | 対応: SM-R22、SM-R23、SM-R24、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-motion/src/state.rs:38` `kivact-motion::state`: MotionEnv combines state fields | 対応: SM-R22、SM-R23、SM-R24、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-motion/src/state.rs:50` `kivact-motion::state`: MotionState combines state fields | 対応: SM-R22、SM-R23、SM-R24、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-reactive/src/arena.rs:33` `kivact-reactive::arena`: Entry combines state fields | 対応: SM-R901。value/tomb の排他と free/retired を明示する |
+| `state-fields` | `crates/kivact-reactive/src/data.rs:127` `kivact-reactive::data`: MemoCell combines state fields | 対応: SM-R01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-reactive/src/data.rs:274` `kivact-reactive::data`: OwnerEntry combines state fields | 対応: SM-R01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-reactive/src/data.rs:309` `kivact-reactive::data`: Ctx combines state fields | 対応: SM-R01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-reactive/src/data.rs:45` `kivact-reactive::data`: Runtime combines state fields | 対応: SM-R01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-reactive/src/error.rs:87` `kivact-reactive::error`: Inner combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-reactive/src/host.rs:16` `kivact-reactive::host`: Pending combines state fields | 対応: SM-R10。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-style/src/draw/layer.rs:9` `kivact-style::draw::layer`: Layer combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/draw/recorder.rs:145` `kivact-style::draw::recorder`: RegionSemantics combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/draw/text_run.rs:11` `kivact-style::draw::text_run`: TextStyle combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/grid.rs:260` `kivact-style::grid`: GridStyle combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/paint/gradient.rs:40` `kivact-style::paint::gradient`: Gradient combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/path/trim.rs:14` `kivact-style::path::trim`: Contour combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/resolve.rs:191` `kivact-style::resolve`: Interactive combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/resolve.rs:46` `kivact-style::resolve`: CompiledStyle combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/sheet.rs:1097` `kivact-style::sheet`: ScrollbarStyle combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/sheet.rs:160` `kivact-style::sheet`: Sides combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/sheet.rs:177` `kivact-style::sheet`: Style combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/text.rs:213` `kivact-style::text`: TextExtras combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-style/src/text.rs:350` `kivact-style::text`: SpanStyle combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-task/src/action.rs:189` `kivact-task::action`: ActionCell combines state fields | 対応: SM-R13（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-task/src/latest.rs:18` `kivact-task::latest`: LatestRun combines state fields | 対応: SM-R14（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-task/src/state.rs:53` `kivact-task::state`: TaskState combines state fields | 対応: SM-R17、SM-R18、SM-R21、SM-C23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-text/src/records.rs:19` `kivact-text::records`: Key combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-text/src/records.rs:66` `kivact-text::records`: Kept combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-text/src/source.rs:5` `kivact-text::source`: Source combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-types/src/geometry.rs:153` `kivact-types::geometry`: IntrinsicSize combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/gpu_interop.rs:48` `kivact-types::gpu_interop`: GpuPreference combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/gpu_interop.rs:67` `kivact-types::gpu_interop`: GpuAdapter combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/effect.rs:44` `kivact-types::protocol::effect`: Layer combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/effect.rs:83` `kivact-types::protocol::effect`: BoxShadow combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/paint.rs:196` `kivact-types::protocol::paint`: Pattern combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/semantics.rs:115` `kivact-types::protocol::semantics`: SemanticsProperties combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/semantics.rs:18` `kivact-types::protocol::semantics`: SemanticsNode combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/text.rs:134` `kivact-types::protocol::text`: SpanStyle combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/text.rs:38` `kivact-types::protocol::text`: TextDecoration combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/text.rs:53` `kivact-types::protocol::text`: TextStyle combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-types/src/protocol/window.rs:61` `kivact-types::protocol::window`: Environment combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `effect-writes` | `crates/kivact-ui-basic/src/navigation_menu.rs:263` `kivact-ui-basic::navigation_menu`: Signal/Var write inside an effect closure | 対応: SM-K12（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-basic/src/questionnaire.rs:458` `kivact-ui-basic::questionnaire`: Signal/Var write inside an effect closure | 対応: SM-K914（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `state-fields` | `crates/kivact-ui-basic/src/alert.rs:20` `kivact-ui-basic::alert`: Alert combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/attachment.rs:53` `kivact-ui-basic::attachment`: Attachment combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/attachment.rs:69` `kivact-ui-basic::attachment`: Cfg combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/avatar.rs:43` `kivact-ui-basic::avatar`: Avatar combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/badge.rs:32` `kivact-ui-basic::badge`: Badge combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/button_group.rs:11` `kivact-ui-basic::button_group`: ButtonGroup combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/calendar/view.rs:15` `kivact-ui-basic::calendar::view`: Calendar combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/card.rs:31` `kivact-ui-basic::card`: CardHeader combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/card.rs:96` `kivact-ui-basic::card`: Card combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/chart/model.rs:99` `kivact-ui-basic::chart::model`: Frame combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/chart/view.rs:32` `kivact-ui-basic::chart::view`: Chart combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/code_block/view.rs:55` `kivact-ui-basic::code_block::view`: CodeBlock combines state fields | 対応: SM-K24（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-basic/src/combobox.rs:39` `kivact-ui-basic::combobox`: Combobox combines state fields | 対応: SM-K16（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-basic/src/date_picker.rs:112` `kivact-ui-basic::date_picker`: DatePicker combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/date_picker.rs:18` `kivact-ui-basic::date_picker`: Picker combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/date_picker.rs:198` `kivact-ui-basic::date_picker`: DateRangePicker combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/disclosure.rs:10` `kivact-ui-basic::disclosure`: Collapsible combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/drawer.rs:24` `kivact-ui-basic::drawer`: Drawer combines state fields | 対応: SM-K28（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-basic/src/input_group.rs:29` `kivact-ui-basic::input_group`: Around combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/input_group.rs:54` `kivact-ui-basic::input_group`: InputGroup combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/item.rs:49` `kivact-ui-basic::item`: Item combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/native_select.rs:26` `kivact-ui-basic::native_select`: NativeSelect combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/navigation_menu.rs:350` `kivact-ui-basic::navigation_menu`: NavLink combines state fields | 対応: SM-K12（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-basic/src/pagination.rs:80` `kivact-ui-basic::pagination`: PaginationLink combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/questionnaire.rs:67` `kivact-ui-basic::questionnaire`: QuestionnaireStep combines state fields | 対応: SM-K914（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-basic/src/sidebar/menu.rs:164` `kivact-ui-basic::sidebar::menu`: SidebarMenuButton combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/sidebar/menu.rs:178` `kivact-ui-basic::sidebar::menu`: ButtonCfg combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/sidebar/menu.rs:27` `kivact-ui-basic::sidebar::menu`: SidebarGroup combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/sidebar/menu.rs:477` `kivact-ui-basic::sidebar::menu`: SidebarMenuSubButton combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/sidebar/panel.rs:16` `kivact-ui-basic::sidebar::panel`: Sidebar combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/sidebar/state.rs:53` `kivact-ui-basic::sidebar::state`: SidebarCx combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-basic/src/table.rs:139` `kivact-ui-basic::table`: TableCell combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-basic/src/trace.rs:20` `kivact-ui-basic::trace`: TraceLine combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `examples/kivact-ui-creative/src/creative/audio_values.rs:10` `kivact-ui-creative-catalog::creative::audio_values`: TransportState combines state fields | 除外: 利用者の demo の値/入力。独立した表示・操作の事実 |
+| `effect-writes` | `crates/kivact-ui-creative/src/audio/meter.rs:91` `kivact-ui-creative::audio::meter`: Signal/Var write inside an effect closure | 対応: SM-K908（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/color_wheel/fields.rs:177` `kivact-ui-creative::color_wheel::fields`: Signal/Var write inside an effect closure | 対応: SM-K903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/color_wheel/view.rs:203` `kivact-ui-creative::color_wheel::view`: Signal/Var write inside an effect closure | 対応: SM-K902、SM-K903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/outliner/view.rs:249` `kivact-ui-creative::outliner::view`: Signal/Var write inside an effect closure | 対応: SM-K11、SM-K917（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/outliner/view.rs:276` `kivact-ui-creative::outliner::view`: Signal/Var write inside an effect closure | 対応: SM-K11、SM-K917（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/picker.rs:560` `kivact-ui-creative::picker`: Signal/Var write inside an effect closure | 対応: SM-K905（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/range.rs:209` `kivact-ui-creative::range`: Signal/Var write inside an effect closure | 対応: SM-K30、SM-K904（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/range.rs:218` `kivact-ui-creative::range`: Signal/Var write inside an effect closure | 対応: SM-K30、SM-K904（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/range.rs:221` `kivact-ui-creative::range`: Signal/Var write inside an effect closure | 対応: SM-K30、SM-K904（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/range.rs:225` `kivact-ui-creative::range`: Signal/Var write inside an effect closure | 対応: SM-K30、SM-K904（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-creative/src/viewport_surface.rs:259` `kivact-ui-creative::viewport_surface`: Signal/Var write inside an effect closure | 対応: SM-K918（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `state-fields` | `crates/kivact-ui-creative/src/audio/meter.rs:10` `kivact-ui-creative::audio::meter`: Meter combines state fields | 対応: SM-K908（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/audio/transport.rs:11` `kivact-ui-creative::audio::transport`: TransportState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/audio/view_state.rs:3` `kivact-ui-creative::audio::view_state`: ChannelState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/color_wheel/state.rs:19` `kivact-ui-creative::color_wheel::state`: State combines state fields | 対応: SM-K902（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/color_wheel/view.rs:21` `kivact-ui-creative::color_wheel::view`: ColorWheel combines state fields | 対応: SM-K903（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/dock/data.rs:23` `kivact-ui-creative::dock::data`: Shared combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/dock/data.rs:52` `kivact-ui-creative::dock::data`: DockCx combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/dock/model.rs:47` `kivact-ui-creative::dock::model`: DockTab combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/dock/view.rs:27` `kivact-ui-creative::dock::view`: Dock combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/arrangement/gesture.rs:40` `kivact-ui-creative::editors::arrangement::gesture`: State combines state fields | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/arrangement/model.rs:51` `kivact-ui-creative::editors::arrangement::model`: TimelineTrack combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/graph/gesture.rs:71` `kivact-ui-creative::editors::graph::gesture`: State combines state fields | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/node/gesture.rs:111` `kivact-ui-creative::editors::node::gesture`: State combines state fields | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/node/gesture.rs:49` `kivact-ui-creative::editors::node::gesture`: Info combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/node/model.rs:32` `kivact-ui-creative::editors::node::model`: NodeData combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/shared/gesture.rs:12` `kivact-ui-creative::editors::shared::gesture`: Pressed combines state fields | 対応: SM-K30。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/shared/lane.rs:11` `kivact-ui-creative::editors::shared::lane`: LaneExtensions combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/shared/model.rs:18` `kivact-ui-creative::editors::shared::model`: EditorContext combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/shared/region_parts.rs:19` `kivact-ui-creative::editors::shared::region_parts`: RegionInfo combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/time/gesture.rs:30` `kivact-ui-creative::editors::time::gesture`: State combines state fields | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
+| `state-fields` | `crates/kivact-ui-creative/src/editors/time/view.rs:22` `kivact-ui-creative::editors::time::view`: TimeEditor combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/gradient/state.rs:22` `kivact-ui-creative::gradient::state`: State combines state fields | 対応: SM-K902。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-creative/src/outliner/view.rs:29` `kivact-ui-creative::outliner::view`: Outliner combines state fields | 対応: SM-K11、SM-K917（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/outliner_data.rs:57` `kivact-ui-creative::outliner_data`: TreeDrop combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/outliner_data.rs:6` `kivact-ui-creative::outliner_data`: TreeItem combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-creative/src/picker.rs:173` `kivact-ui-creative::picker`: Parts combines state fields | 対応: SM-K905（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/picker.rs:28` `kivact-ui-creative::picker`: PickerItem combines state fields | 対応: SM-K905（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/picker.rs:415` `kivact-ui-creative::picker`: Outcomes combines state fields | 対応: SM-K905（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/picker.rs:473` `kivact-ui-creative::picker`: Session combines state fields | 対応: SM-K905（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/pie.rs:34` `kivact-ui-creative::pie`: PieState combines state fields | 対応: SM-K901（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/property_row.rs:15` `kivact-ui-creative::property_row`: PropertyRow combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-creative/src/range.rs:38` `kivact-ui-creative::range`: Range combines state fields | 対応: SM-K904（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-creative/src/viewport_surface.rs:29` `kivact-ui-creative::viewport_surface`: SurfacePointer combines state fields | 除外: pointer の入力 record。PointerPhase と optional region は caller に渡す値（18.14） |
+| `state-fields` | `crates/kivact-ui-creative/src/viewport_surface.rs:60` `kivact-ui-creative::viewport_surface`: ViewportSurface combines state fields | 対応: SM-K918（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `examples/kivact-ui-game/src/game/state.rs:5` `kivact-ui-game-catalog::game::state`: Demo combines state fields | 除外: 利用者の demo の値/入力。独立した表示・操作の事実 |
+| `effect-writes` | `crates/kivact-ui-game/src/display.rs:469` `kivact-ui-game::display`: Signal/Var write inside an effect closure | 対応: SM-K33（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-game/src/surface.rs:132` `kivact-ui-game::surface`: Signal/Var write inside an effect closure | 対応: SM-K33（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `state-fields` | `crates/kivact-ui-game/src/layout.rs:12` `kivact-ui-game::layout`: TreeEntry combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `examples/kivact-ui-pop/src/pop/messaging.rs:18` `kivact-ui-pop-catalog::pop::messaging`: ChatEntry combines state fields | 除外: 利用者の demo の値/入力。独立した表示・操作の事実 |
+| `state-fields` | `examples/kivact-ui-pop/src/pop/mission.rs:7` `kivact-ui-pop-catalog::pop::mission`: Mission combines state fields | 除外: 利用者の demo の値/入力。独立した表示・操作の事実 |
+| `effect-writes` | `crates/kivact-ui-pop/src/date/calendar.rs:197` `kivact-ui-pop::date::calendar`: Signal/Var write inside an effect closure | 対応: SM-K912（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `state-fields` | `crates/kivact-ui-pop/src/date/calendar.rs:32` `kivact-ui-pop::date::calendar`: Calendar combines state fields | 対応: SM-K912（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-pop/src/date/text.rs:65` `kivact-ui-pop::date::text`: DateText combines state fields | 対応: SM-K913。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `examples/kivact-ui-soft/src/model.rs:6` `kivact-ui-soft-catalog::model`: CatalogState combines state fields | 除外: 利用者の demo の値/入力。独立した表示・操作の事実 |
+| `effect-writes` | `crates/kivact-ui-soft/src/app_shell.rs:248` `kivact-ui-soft::app_shell`: Signal/Var write inside an effect closure | 対応: SM-K915（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/banner.rs:146` `kivact-ui-soft::banner`: Signal/Var write inside an effect closure | 対応: SM-K22（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/calendar.rs:318` `kivact-ui-soft::calendar`: Signal/Var write inside an effect closure | 対応: SM-K912（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/calendar.rs:351` `kivact-ui-soft::calendar`: Signal/Var write inside an effect closure | 対応: SM-K912（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/calendar.rs:352` `kivact-ui-soft::calendar`: Signal/Var write inside an effect closure | 対応: SM-K912（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/date_input.rs:125` `kivact-ui-soft::date_input`: Signal/Var write inside an effect closure | 対応: SM-K18（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/date_input.rs:126` `kivact-ui-soft::date_input`: Signal/Var write inside an effect closure | 対応: SM-K18（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/empty_state.rs:108` `kivact-ui-soft::empty_state`: Signal/Var write inside an effect closure | 対応: SM-K23（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/empty_state.rs:112` `kivact-ui-soft::empty_state`: Signal/Var write inside an effect closure | 対応: SM-K23（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/empty_state.rs:115` `kivact-ui-soft::empty_state`: Signal/Var write inside an effect closure | 対応: SM-K23（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/empty_state.rs:96` `kivact-ui-soft::empty_state`: Signal/Var write inside an effect closure | 対応: SM-K23（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/empty_state.rs:99` `kivact-ui-soft::empty_state`: Signal/Var write inside an effect closure | 対応: SM-K23（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/hover_card.rs:119` `kivact-ui-soft::hover_card`: Signal/Var write inside an effect closure | 対応: SM-K14（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/hover_card.rs:121` `kivact-ui-soft::hover_card`: Signal/Var write inside an effect closure | 対応: SM-K14（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/hover_card.rs:157` `kivact-ui-soft::hover_card`: Signal/Var write inside an effect closure | 対応: SM-K14（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/hover_card.rs:204` `kivact-ui-soft::hover_card`: Signal/Var write inside an effect closure | 対応: SM-K14（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/pagination.rs:637` `kivact-ui-soft::pagination`: Signal/Var write inside an effect closure | 対応: SM-K922（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/rich_blocks.rs:107` `kivact-ui-soft::rich_blocks`: Signal/Var write inside an effect closure | 対応: SM-K909（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/rich_blocks.rs:108` `kivact-ui-soft::rich_blocks`: Signal/Var write inside an effect closure | 対応: SM-K909（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/rich_blocks.rs:50` `kivact-ui-soft::rich_blocks`: Signal/Var write inside an effect closure | 対応: SM-K909（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/segmented_control.rs:119` `kivact-ui-soft::segmented_control`: Signal/Var write inside an effect closure | 対応: SM-K25、SM-K27（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/segmented_control.rs:121` `kivact-ui-soft::segmented_control`: Signal/Var write inside an effect closure | 対応: SM-K25、SM-K27（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/soft_chat_tools.rs:518` `kivact-ui-soft::soft_chat_tools`: Signal/Var write inside an effect closure | 対応: SM-K08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/soft_chat_tools.rs:522` `kivact-ui-soft::soft_chat_tools`: Signal/Var write inside an effect closure | 対応: SM-K08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/soft_chat_tools.rs:540` `kivact-ui-soft::soft_chat_tools`: Signal/Var write inside an effect closure | 対応: SM-K08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/soft_chat_tools.rs:562` `kivact-ui-soft::soft_chat_tools`: Signal/Var write inside an effect closure | 対応: SM-K08（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/soft_overflow.rs:282` `kivact-ui-soft::soft_overflow`: Signal/Var write inside an effect closure | 除外: 測定widthのcache更新（S-9）。fitのphaseは既存SM-K07 |
+| `effect-writes` | `crates/kivact-ui-soft/src/soft_overflow.rs:296` `kivact-ui-soft::soft_overflow`: Signal/Var write inside an effect closure | 除外: 測定widthのcache更新（S-9）。fitのphaseは既存SM-K07 |
+| `effect-writes` | `crates/kivact-ui-soft/src/time_input.rs:132` `kivact-ui-soft::time_input`: Signal/Var write inside an effect closure | 対応: SM-K911（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/time_input.rs:133` `kivact-ui-soft::time_input`: Signal/Var write inside an effect closure | 対応: SM-K911（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/toolbar.rs:276` `kivact-ui-soft::toolbar`: Signal/Var write inside an effect closure | 対応: SM-K25（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/toolbar.rs:277` `kivact-ui-soft::toolbar`: Signal/Var write inside an effect closure | 対応: SM-K25（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/toolbar.rs:280` `kivact-ui-soft::toolbar`: Signal/Var write inside an effect closure | 対応: SM-K25（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/toolbar.rs:284` `kivact-ui-soft::toolbar`: Signal/Var write inside an effect closure | 対応: SM-K25（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:198` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:236` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:237` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:248` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:514` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 除外: token_notices の翻訳messageへのcallback内の引数。独立した表示stateを後追いで保持しない（上記判断） |
+| `state-fields` | `crates/kivact-ui-soft/src/alert_dialog.rs:11` `kivact-ui-soft::alert_dialog`: AlertDialog combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/app_shell.rs:111` `kivact-ui-soft::app_shell`: AppShell combines state fields | 対応: SM-K915（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/app_shell.rs:47` `kivact-ui-soft::app_shell`: MobileNavConfig combines state fields | 対応: SM-K915（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/avatar.rs:39` `kivact-ui-soft::avatar`: Avatar combines state fields | 対応: SM-K32（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/avatar_group.rs:14` `kivact-ui-soft::avatar_group`: AvatarGroupContext combines state fields | 対応: SM-K10。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/avatar_group_overflow.rs:15` `kivact-ui-soft::avatar_group_overflow`: AvatarGroupOverflow combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/avatar_status_dot.rs:60` `kivact-ui-soft::avatar_status_dot`: AvatarStatusDot combines state fields | 対応: SM-K916（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/banner.rs:34` `kivact-ui-soft::banner`: Banner combines state fields | 対応: SM-K22（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/bottom_sheet.rs:53` `kivact-ui-soft::bottom_sheet`: BottomSheet combines state fields | 対応: SM-K28（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/breadcrumbs.rs:115` `kivact-ui-soft::breadcrumbs`: BreadcrumbItem combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/button_group.rs:16` `kivact-ui-soft::button_group`: GroupMember combines state fields | 対応: SM-K10（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/calendar.rs:16` `kivact-ui-soft::calendar`: Calendar combines state fields | 対応: SM-K912（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/card.rs:32` `kivact-ui-soft::card`: Card combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/carousel.rs:177` `kivact-ui-soft::carousel`: Carousel combines state fields | 対応: SM-K01（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/citation.rs:11` `kivact-ui-soft::citation`: CitationSource combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/code_block.rs:130` `kivact-ui-soft::code_block`: CodeBlock combines state fields | 対応: SM-K24（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/collapsible.rs:35` `kivact-ui-soft::collapsible`: CollapsibleConfig combines state fields | 対応: SM-K03、SM-K04（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/collapsible.rs:53` `kivact-ui-soft::collapsible`: CollapsibleState combines state fields | 対応: SM-K03、SM-K04（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/collapsible.rs:83` `kivact-ui-soft::collapsible`: Collapsible combines state fields | 対応: SM-K03、SM-K04（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/container_reveal.rs:22` `kivact-ui-soft::container_reveal`: RevealContent combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/dialog_header.rs:18` `kivact-ui-soft::dialog_header`: DialogHeader combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/divider.rs:16` `kivact-ui-soft::divider`: Divider combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/empty_state.rs:13` `kivact-ui-soft::empty_state`: EmptyState combines state fields | 対応: SM-K23（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/grid.rs:25` `kivact-ui-soft::grid`: Grid combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/hover_card.rs:22` `kivact-ui-soft::hover_card`: HoverCard combines state fields | 対応: SM-K14（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/layout.rs:132` `kivact-ui-soft::layout`: LayoutSlots combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/layout.rs:262` `kivact-ui-soft::layout`: LayoutRegion combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/layout.rs:4` `kivact-ui-soft::layout`: LayoutInset combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/layout.rs:46` `kivact-ui-soft::layout`: Layout combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/lightbox.rs:32` `kivact-ui-soft::lightbox`: Lightbox combines state fields | 対応: SM-K05（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/lightbox.rs:63` `kivact-ui-soft::lightbox`: LightboxHandle combines state fields | 対応: SM-K05（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/link.rs:27` `kivact-ui-soft::link`: Link combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/markdown.rs:729` `kivact-ui-soft::markdown`: Marks combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/markdown_parser.rs:14` `kivact-ui-soft::markdown_parser`: ListEntry combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/mobile_nav.rs:17` `kivact-ui-soft::mobile_nav`: AppShellMobile combines state fields | 対応: SM-K09（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/mobile_nav.rs:276` `kivact-ui-soft::mobile_nav`: MobileNavToggle combines state fields | 対応: SM-K09（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/mobile_nav.rs:71` `kivact-ui-soft::mobile_nav`: MobileNav combines state fields | 対応: SM-K09（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/month_swipe.rs:24` `kivact-ui-soft::month_swipe`: MonthSwipe combines state fields | 対応: SM-K28。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/more_menu.rs:10` `kivact-ui-soft::more_menu`: MoreMenu combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/nav_heading.rs:22` `kivact-ui-soft::nav_heading`: NavHeadingMenuItem combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/outline.rs:143` `kivact-ui-soft::outline`: Navigation combines state fields | 対応: SM-K26（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/outline.rs:50` `kivact-ui-soft::outline`: Outline combines state fields | 対応: SM-K26（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/pagination.rs:129` `kivact-ui-soft::pagination`: Model combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/pagination.rs:28` `kivact-ui-soft::pagination`: Pagination combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/resizable.rs:38` `kivact-ui-soft::resizable`: ResizableConfig combines state fields | 対応: SM-K06（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/rich_blocks.rs:19` `kivact-ui-soft::rich_blocks`: Editor combines state fields | 対応: SM-K909（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/scrollable_area.rs:159` `kivact-ui-soft::scrollable_area`: AxisScroll combines state fields | 対応: SM-K07（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/scrollable_area.rs:215` `kivact-ui-soft::scrollable_area`: ScrollOverflow combines state fields | 対応: SM-K07（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/scrollable_area.rs:31` `kivact-ui-soft::scrollable_area`: ScrollableArea combines state fields | 対応: SM-K07（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/section.rs:44` `kivact-ui-soft::section`: Section combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/segmented_control.rs:33` `kivact-ui-soft::segmented_control`: SegmentedControl combines state fields | 対応: SM-K27（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/side_nav.rs:28` `kivact-ui-soft::side_nav`: SideNavCx combines state fields | 対応: SM-K13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/side_nav.rs:341` `kivact-ui-soft::side_nav`: SideNavCollapseButton combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/side_nav.rs:427` `kivact-ui-soft::side_nav`: SideNavItem combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/side_nav.rs:50` `kivact-ui-soft::side_nav`: SideNavResize combines state fields | 対応: SM-K13。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/side_nav.rs:70` `kivact-ui-soft::side_nav`: SideNav combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/side_nav.rs:878` `kivact-ui-soft::side_nav`: SideNavSection combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/soft_chat_composer.rs:590` `kivact-ui-soft::soft_chat_composer`: DictationState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/soft_chat_tools.rs:30` `kivact-ui-soft::soft_chat_tools`: ToolCall combines state fields | 対応: SM-K08（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/spinner.rs:32` `kivact-ui-soft::spinner`: Spinner combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/stack.rs:218` `kivact-ui-soft::stack`: Stack combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/stack.rs:50` `kivact-ui-soft::stack`: Padding combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/stepper.rs:206` `kivact-ui-soft::stepper`: StepperCx combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/stepper.rs:346` `kivact-ui-soft::stepper`: Summary combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui-soft/src/stepper.rs:66` `kivact-ui-soft::stepper`: Step combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/tab_list.rs:107` `kivact-ui-soft::tab_list`: TabMenuOption combines state fields | 対応: SM-K10。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/tab_list.rs:178` `kivact-ui-soft::tab_list`: TabList combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/tab_list.rs:260` `kivact-ui-soft::tab_list`: FocusMember combines state fields | 対応: SM-K10。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/tab_list.rs:266` `kivact-ui-soft::tab_list`: FocusTrack combines state fields | 対応: SM-K10。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/tab_list.rs:48` `kivact-ui-soft::tab_list`: Tab combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/text.rs:101` `kivact-ui-soft::text`: Text combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/thumbnail.rs:27` `kivact-ui-soft::thumbnail`: Thumbnail combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/timestamp.rs:143` `kivact-ui-soft::timestamp`: TimestampEntry combines state fields | 対応: SM-K910。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui-soft/src/timestamp.rs:170` `kivact-ui-soft::timestamp`: Timestamp combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/toggle_button_group.rs:82` `kivact-ui-soft::toggle_button_group`: ToggleButtonGroup combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/token.rs:51` `kivact-ui-soft::token`: Token combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui-soft/src/toolbar.rs:31` `kivact-ui-soft::toolbar`: Toolbar combines state fields | 対応: SM-K25（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/top_nav.rs:175` `kivact-ui-soft::top_nav`: TopNavItem combines state fields | 対応: SM-K13（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/top_nav.rs:33` `kivact-ui-soft::top_nav`: Slots combines state fields | 対応: SM-K13（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/top_nav.rs:436` `kivact-ui-soft::top_nav`: TopNavMegaMenu combines state fields | 対応: SM-K13（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/top_nav.rs:590` `kivact-ui-soft::top_nav`: TopNavMegaMenuItem combines state fields | 対応: SM-K13（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/top_nav.rs:724` `kivact-ui-soft::top_nav`: TopNavMegaMenuFeaturedCard combines state fields | 対応: SM-K13（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui-soft/src/typeahead.rs:26` `kivact-ui-soft::typeahead`: Typeahead combines state fields | 対応: SM-K16、SM-K919（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `effect-writes` | `crates/kivact-ui/src/data_table/filters.rs:252` `kivact-ui::data_table::filters`: Signal/Var write inside an effect closure | 対応: SM-U904（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/data_table/filters.rs:253` `kivact-ui::data_table::filters`: Signal/Var write inside an effect closure | 対応: SM-U904（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/data_table/filters.rs:254` `kivact-ui::data_table::filters`: Signal/Var write inside an effect closure | 対応: SM-U904（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/number_input.rs:206` `kivact-ui::number_input`: Signal/Var write inside an effect closure | 対応: SM-U902（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/number_input.rs:235` `kivact-ui::number_input`: Signal/Var write inside an effect closure | 対応: SM-U902（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/progress.rs:194` `kivact-ui::progress`: Signal/Var write inside an effect closure | 対応: SM-U905（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/select.rs:236` `kivact-ui::select`: Signal/Var write inside an effect closure | 対応: SM-U03（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/toast_rows.rs:36` `kivact-ui::toast_rows`: Signal/Var write inside an effect closure | 対応: SM-U903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/toast_rows.rs:44` `kivact-ui::toast_rows`: Signal/Var write inside an effect closure | 対応: SM-U903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/toast_rows.rs:46` `kivact-ui::toast_rows`: Signal/Var write inside an effect closure | 対応: SM-U903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/toast_rows.rs:81` `kivact-ui::toast_rows`: Signal/Var write inside an effect closure | 対応: SM-U903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/toast_rows.rs:86` `kivact-ui::toast_rows`: Signal/Var write inside an effect closure | 対応: SM-U903（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui/src/tree.rs:184` `kivact-ui::tree`: Signal/Var write inside an effect closure | 対応: SM-U04（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `state-fields` | `crates/kivact-ui/src/button.rs:79` `kivact-ui::button`: Button combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/button.rs:92` `kivact-ui::button`: Settings combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/command_palette.rs:20` `kivact-ui::command_palette`: CommandPalette combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/data_table/row_status.rs:11` `kivact-ui::data_table::row_status`: RowStatus combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/data_table/rows.rs:30` `kivact-ui::data_table::rows`: Grid combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/data_table/rows.rs:62` `kivact-ui::data_table::rows`: StickyColumns combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/data_table/sticky_paint.rs:7` `kivact-ui::data_table::sticky_paint`: DataTableStickyPaint combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/data_table/types.rs:31` `kivact-ui::data_table::types`: DataTableContext combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/data_table/types.rs:97` `kivact-ui::data_table::types`: DataTable combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/dialog.rs:46` `kivact-ui::dialog`: Dialog combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/disclosure.rs:20` `kivact-ui::disclosure`: Disclosure combines state fields | 対応: SM-U06（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui/src/field.rs:18` `kivact-ui::field`: Field combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/list.rs:16` `kivact-ui::list`: List combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/menu.rs:255` `kivact-ui::menu`: Level combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/menu.rs:38` `kivact-ui::menu`: Menu combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/progress.rs:19` `kivact-ui::progress`: ProgressMotion combines state fields | 対応: SM-U905（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui/src/progress.rs:52` `kivact-ui::progress`: Progress combines state fields | 対応: SM-U905（同じ file の状態。option/input の field 自体は依存のない record と区別） |
+| `state-fields` | `crates/kivact-ui/src/radio_group.rs:21` `kivact-ui::radio_group`: RadioGroup combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/select.rs:31` `kivact-ui::select`: Select combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/slider.rs:196` `kivact-ui::slider`: Geometry combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/slider.rs:49` `kivact-ui::slider`: Slider combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/split.rs:159` `kivact-ui::split`: Group combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/split.rs:28` `kivact-ui::split`: Split combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/splitter.rs:15` `kivact-ui::splitter`: Splitter combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/switch_drag.rs:24` `kivact-ui::switch_drag`: Contact combines state fields | 対応: SM-U01。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui/src/switch_drag.rs:91` `kivact-ui::switch_drag`: Gesture combines state fields | 対応: SM-U01。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui/src/tabs.rs:29` `kivact-ui::tabs`: Tabs combines state fields | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
+| `state-fields` | `crates/kivact-ui/src/text_draft.rs:13` `kivact-ui::text_draft`: Draft combines state fields | 対応: SM-U05。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui/src/toast_swipe.rs:66` `kivact-ui::toast_swipe`: Swipe combines state fields | 対応: SM-U02。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
+| `state-fields` | `crates/kivact-ui/src/tooltip.rs:14` `kivact-ui::tooltip`: Tooltip combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/values.rs:147` `kivact-ui::values`: ToggleButtonState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/values.rs:227` `kivact-ui::values`: SwitchDragState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/values.rs:240` `kivact-ui::values`: CheckState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/values.rs:272` `kivact-ui::values`: DialogState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/values.rs:296` `kivact-ui::values`: SelectTriggerState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/values.rs:342` `kivact-ui::values`: DataTableRowState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-ui/src/values.rs:98` `kivact-ui::values`: ButtonState combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `state-fields` | `crates/kivact-wire/src/drawing.rs:15` `kivact-wire::drawing`: DrawingLayer combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/events.rs:58` `kivact-wire::events`: HostEnv combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/grid.rs:10` `kivact-wire::grid`: GridProps combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/host.rs:26` `kivact-wire::host`: TurnOutput combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/measure.rs:32` `kivact-wire::measure`: MeasureRequest combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:117` `kivact-wire::node`: NodeSemantics combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:144` `kivact-wire::node`: BoxData combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:153` `kivact-wire::node`: TextData combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:162` `kivact-wire::node`: EditingData combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:191` `kivact-wire::node`: EditLineLayout combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:198` `kivact-wire::node`: ImageData combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:274` `kivact-wire::node`: OverlayFit combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:301` `kivact-wire::node`: OverlayProps combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:343` `kivact-wire::node`: FileDialogRequest combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/node.rs:40` `kivact-wire::node`: NodeProperties combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/paint.rs:311` `kivact-wire::paint`: Effects combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/paint.rs:45` `kivact-wire::paint`: FillLayer combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/scene.rs:111` `kivact-wire::scene`: Region combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/scene.rs:15` `kivact-wire::scene`: TextRun combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/semantics.rs:7` `kivact-wire::semantics`: SemanticsProperties combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/style.rs:11` `kivact-wire::style`: LayoutProps combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/style.rs:170` `kivact-wire::style`: PaintProps combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/style.rs:215` `kivact-wire::style`: PaintDelta combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/style.rs:234` `kivact-wire::style`: StateStyles combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/style.rs:295` `kivact-wire::style`: ScrollbarDelta combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/text.rs:223` `kivact-wire::text`: ComputedText combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/text.rs:253` `kivact-wire::text`: TextMore combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/text.rs:327` `kivact-wire::text`: SpanProps combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/text.rs:52` `kivact-wire::text`: TextDecoration combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `crates/kivact-wire/src/text.rs:82` `kivact-wire::text`: TextProps combines state fields | 除外: 公開/内部の値・geometry・style の record、または名前付き text cache（18.14/S-9） |
+| `state-fields` | `dev/xtask/src/check_source.rs:12` `xtask::check_source`: Source combines state fields | 除外: source targetの解析結果record。libraryはtargetの分類、Option targetはfixtureの匿名identityで、実行phaseではない |
+
+### P-1 の結論と状態の点検表
+
+- 指定検索の未処理 **0**、checker の未処理 **0/521**、clippy の未処理 **0/43**。新規 **34**（SM-R901、SM-A901、SM-I901〜904、SM-U901〜905、SM-K901〜923）で付録 A は **203** 件。既存では主担当が決定した SM-C27 の訂正だけを行った。
+- NativeInput は接尾辞 Input のため checker のrole除外に当たるが、全文検索と構築側の照合で SM-A901 を発見した。checker だけを全数の根拠にしない。
+- 1: bool は独立した事実/入力と、複数fieldでphaseを推定するものを区別し、後者を付録に対応。
+- 2: Option の依存を型ごとに照合。arena の value/tomb の依存を SM-R901 に追加。
+- 3: 派生値の保存/複製を列挙し、signalをmemoにするか単一snapshotへ移す形を記載。
+- 4: effect の直接書込み90行とhelper経由のcancel/reset/commit/openを照合。Machineの遷移へ集める形を記載。
+- 5: doc指定語2089行をpath/lineで記録し、既存Stage/型状態・callback順・geometryの説明に分類。
+- 6: OnceCell/OnceLock/LazyLockとCell/RefCell Optionを照合。instanceの後付けは既存項目またはSM-U901/SM-A901へ、static/cacheは理由を記録。
+- 7: event counterとgeneration/統計/深さを区別し、eventはTrigger、識別はGenerationの既存項目に対応。
+- 8: S-9の除外はcache/counter/mailbox/統計の役割と更新箇所を記録。SM-C27はMailbox、SM-K918はSentとして明示する。
+- 9: P-1は調査unitなのでコードの解消は未実装。追加の解消後は13.2/18.13に沿う型、unitを全件に指定。
+- 10: 付録にない34項目を追記。公開PieStateは主担当判断を記録し、SM-C27の現契約との不一致を主担当決定で訂正。
+
+P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しいE2Eは追加しない。P-0 checkerの実装テスト28件はP-0担当が実施済み。本unitの確認は検索・report・clippyと文書の整合検査である。PROGRESS.mdへの追加件数/完了記録は主担当の所有範囲で行う。

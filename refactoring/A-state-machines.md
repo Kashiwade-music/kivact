@@ -1291,3 +1291,17 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **不正**: hover surface が開いて menu が閉じた組合せを effect で直す（S-4/S-5）。SM-K13 の top/side nav とは別の heading の adapter。
 - **解消後**: `use_navigation_menu` の一つの開閉 machine を使い、hover の timing と menu の session を同じ遷移で決める。表示の shown はその snapshot からの memo。
 - **unit**: K-1
+
+### SM-R901 generational arena の slot
+- **場所**: `kivact-reactive/src/arena.rs:33-37,57-68,96-122`
+- **現在**: `Entry { generation, value: Option<T>, tomb: Option<Tomb> }`。free list への所属と generation の飽和から reusable/retired を推定する。
+- **不正**: value と tomb が同時に Some、occupied slot が free list にある組合せを表せる。tomb 自体が None の削除も現在の API が認める。
+- **解消後**: `enum SlotState<T> { Occupied(T), Vacant { tomb: Option<Tomb> }, Retired { tomb: Option<Tomb> } }`。slot の generation は `SlotGeneration(u32)` に閉じ、remove/insert の遷移だけが SlotState と free list を更新する。飽和時の再利用禁止と tomb の診断の現在の規則を保存。
+- **unit**: R-2
+
+### SM-A901 native input の wake と環境の後付け
+- **場所**: `arvane-native/src/native_input/state.rs:33-60`、`runtime.rs:653-664`、`embed/windows/window.rs:295`
+- **現在**: NativeInput::default の後に scale/reduced_motion/mouse/locale と waker を埋める。native runner は Some(waker)、embed は既定の None のままで直接 event を届ける。
+- **不正**: native input が未設定の環境と None の waker で存在でき、subclass の設定通知は waker がないと wake しない。SM-A08 の take mailbox と異なり、waker は一度だけの構築情報。
+- **解消後**: `NativeInput::new(environment, wake)` の構築引数にし、`enum InputWake { Direct, EventLoop(ShellWaker) }` を保存する。embed の Direct と native の EventLoop を明示し、後付けの RefCell<Option<ShellWaker>> を消す。環境のその後の変更は現在と同じ event で更新する。
+- **unit**: A-3
