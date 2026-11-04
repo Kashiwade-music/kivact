@@ -1,5 +1,6 @@
 //! Role: The texts components show, by key.
 
+use crate::{PluralCategory, PluralForms};
 use std::collections::BTreeMap;
 
 /// The texts components show, by key: the App's replacements for the
@@ -21,7 +22,7 @@ use std::collections::BTreeMap;
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Messages {
-    texts: BTreeMap<&'static str, String>,
+    texts: BTreeMap<&'static str, MessageText>,
 }
 
 impl Messages {
@@ -33,13 +34,37 @@ impl Messages {
     /// These messages with `key` set to `text` (replacing an earlier
     /// text of the same key).
     pub fn with(mut self, key: &'static str, text: impl Into<String>) -> Self {
-        self.texts.insert(key, text.into());
+        self.texts.insert(key, MessageText::Plain(text.into()));
         self
     }
 
+    /// Set the cardinal plural forms for a message key.
+    pub fn with_plural(mut self, key: &'static str, forms: PluralForms) -> Self {
+        self.texts.insert(key, MessageText::Plural(forms));
+        self
+    }
+
+    /// Read the requested plural form, falling back to `other`.
+    pub fn get_plural(&self, key: &str, category: PluralCategory) -> Option<&str> {
+        let MessageText::Plural(forms) = self.texts.get(key)? else {
+            return None;
+        };
+        let text = match category {
+            PluralCategory::Zero => &forms.zero,
+            PluralCategory::One => &forms.one,
+            PluralCategory::Two => &forms.two,
+            PluralCategory::Few => &forms.few,
+            PluralCategory::Many => &forms.many,
+            PluralCategory::Other => return Some(&forms.other),
+        };
+        Some(text.as_deref().unwrap_or(&forms.other))
+    }
     /// The text of `key`, if these messages hold one.
     pub fn get(&self, key: &str) -> Option<&str> {
-        self.texts.get(key).map(String::as_str)
+        self.texts.get(key).map(|text| match text {
+            MessageText::Plain(text) => text.as_str(),
+            MessageText::Plural(forms) => forms.other.as_str(),
+        })
     }
 
     /// Whether these messages hold no text.
@@ -67,3 +92,9 @@ impl Messages {
 }
 
 kivact_runtime::constant_value!(Messages);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum MessageText {
+    Plain(String),
+    Plural(PluralForms),
+}

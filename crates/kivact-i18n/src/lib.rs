@@ -53,14 +53,12 @@
 //! A component passes the `Value<String>` it read to `name`, `text` or
 //! `placeholder` as it is and makes no effect of its own for the text. A
 //! component with texts lists their keys and defaults in its rustdoc. The core holds no
-//! translation resources and no plural rules: the App builds its
-//! [`Messages`] (the part i18next or solid-i18n would play), and a text
-//! that needs plural forms gets one key per form. Of the regional
-//! formats, only [`Locale::first_day_of_week`] exists so far, beside the
-//! [`CalendarDate`] a calendar works on; date and number formats are later
-//! work.
-//!
-//! Invariants:
+//! translation resources: the App builds its [`Messages`]. A template registered
+//! with [`Messages::with_plural`] selects its cardinal form from `count` and
+//! the nearest locale. Regional numbers, Gregorian dates, wall-clock times,
+//! names, week conventions, plural rules and collation use ICU4X compiled data
+//! for all supported locales. ICU implementation types stay behind this API.
+//!//! Invariants:
 //! - The App's root always provides a locale and messages; `locale` and
 //!   `message` read the nearest one above the caller, so a subtree
 //!   provided by `kivact::view::provide_locale` or `kivact::view::provide_messages` sees its own
@@ -82,8 +80,11 @@
 
 mod context;
 mod date;
+mod format;
 mod locale;
 mod messages;
+mod numbers;
+mod regional;
 
 pub use date::{CalendarDate, CalendarMonth, DateRange};
 pub use locale::{Locale, Weekday};
@@ -92,4 +93,9 @@ pub use messages::Messages;
 pub use context::{
     install_layered_messages, install_locale, install_messages, interpolate, locale, message,
     message_with,
+};
+
+pub use format::{
+    DateStyle, DateTime, FractionDigits, Grouping, HourCycle, NameWidth, NumberStyle,
+    PluralCategory, PluralForms, TimeOfDay, TimeStyle,
 };
