@@ -107,6 +107,10 @@ impl Generation {
     ///
     /// Panics if all u64 generation identities have been exhausted; identities
     /// must never wrap and make an old result current again.
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "generation allocation returns a token, not an optional iterator item"
+    )]
     pub fn next(&mut self) -> Self {
         self.0 = self
             .0

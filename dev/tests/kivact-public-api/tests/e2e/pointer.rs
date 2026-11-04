@@ -224,7 +224,7 @@ fn the_cursor_shows_text_fields_and_what_a_click_activates() {
 /// is the mouse (a press's button and click count are in the phase).
 fn contact_log(out: Log) -> impl Fn(PointerEvent) -> Handled + 'static {
     move |e: PointerEvent| {
-        let mouse = if e.id == PointerId(1) {
+        let mouse = if e.id() == PointerId(1) {
             "mouse"
         } else {
             "own id"

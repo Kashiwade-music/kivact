@@ -36,11 +36,6 @@ impl TextLen {
     }
 }
 
-/// The distance between the baselines of a text's lines (CSS
-/// `line-height`).
-
-/// An OpenType feature setting: a four byte tag and its value.
-
 /// Lines drawn with text (CSS `text-decoration`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextDecoration {
@@ -54,10 +49,6 @@ pub struct TextDecoration {
     /// position.
     pub underline_offset: TextLen,
 }
-
-/// What text that does not fit shows (CSS `text-overflow`).
-
-/// Case conversion when shaping (CSS `text-transform`).
 
 /// A shadow of text (CSS `text-shadow`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]

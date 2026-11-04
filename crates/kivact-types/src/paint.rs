@@ -130,8 +130,6 @@ pub enum CoordinateShape {
     Conic { center: Point, start_deg: f64 },
 }
 
-/// What a [`CoordinateGradient`] paints beyond its offsets 0 and 1.
-
 /// The size of one tile (CSS `background-size`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum FillSize {
@@ -387,8 +385,6 @@ pub enum FilterOp {
         color: Rgba,
     },
 }
-
-/// CSS `mix-blend-mode`.
 
 /// A CSS basic shape in the border box (`clip-path`): x against the box
 /// width, y against its height.
