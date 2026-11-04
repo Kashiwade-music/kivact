@@ -17,17 +17,48 @@ fn menu_disabled_items_receive_focus_without_activation() {
         .on_activate(move |_| chosen.update(|count| *count += 1));
         (chosen, menu_button("Actions", menu))
     });
-    screen
-        .get_by_role(Role::Button, "Actions")
-        .press_key(Key::Enter);
+    let trigger = screen.get_by_role(Role::Button, "Actions");
+    trigger.press_key(Key::Enter);
     let disabled = screen.get_by_role(Role::MenuItem, "Disabled");
     assert!(disabled.is_focused());
+    assert!(disabled.is_disabled());
+    assert_eq!(trigger.is_expanded(), Some(true));
+    let disabled_focus = screen
+        .accessibility_tree()
+        .lines()
+        .find(|line| line.starts_with("focus:"))
+        .map(str::to_owned);
+    assert!(
+        disabled_focus.is_some(),
+        "the host publishes focus for the disabled menu item"
+    );
     screen.press_key(Key::Enter);
     screen.press_key(Key::Space);
     disabled.a11y(A11yAction::Activate);
     assert_eq!(chosen.get_untracked(), 0);
     screen.press_key(Key::ArrowDown);
     assert!(screen.get_by_role(Role::MenuItem, "Enabled").is_focused());
+    let enabled_focus = screen
+        .accessibility_tree()
+        .lines()
+        .find(|line| line.starts_with("focus:"))
+        .map(str::to_owned);
+    assert_ne!(
+        disabled_focus, enabled_focus,
+        "published focus follows menu navigation"
+    );
+    disabled.a11y(A11yAction::Focus);
+    assert!(
+        disabled.is_focused(),
+        "a focusable disabled item accepts the host Focus action"
+    );
+    let focused_again = screen
+        .accessibility_tree()
+        .lines()
+        .find(|line| line.starts_with("focus:"))
+        .map(str::to_owned);
+    assert_eq!(disabled_focus, focused_again);
+    screen.press_key(Key::ArrowDown);
     screen.press_key(Key::Enter);
     assert_eq!(chosen.get_untracked(), 1);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());

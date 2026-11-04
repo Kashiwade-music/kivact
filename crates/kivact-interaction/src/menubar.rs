@@ -191,8 +191,8 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
     /// The trigger of the menu `at`: a `Role::MenuItem` and an item of the
     /// bar's list. Resting the pointer on it while another menu is open moves
     /// that menu here. Attach the menu's own `trigger` to the same node
-    /// before this part, so that the item's role is the one the node has (a
-    /// trigger is a `Role::Button`); the caller names it. Setup only.
+    /// in either order; the trigger keeps `Role::MenuItem`. The caller names it.
+    /// Setup only.
     #[track_caller]
     pub fn item(self, at: usize) -> Part<ListItemState> {
         let MenubarApi { list, menus, .. } = self;

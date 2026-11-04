@@ -251,6 +251,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     }
 
     /// The menu button: a `Role::Button` publishing `expanded` and `controls`.
+    /// A trigger belonging to a menubar has `Role::MenuItem` in either attachment order.
     ///
     /// Enter, Space, a click and an assistive technology's Activate open the
     /// menu on its first enabled item (and close it again); ArrowDown does the
@@ -266,7 +267,12 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         let base = trigger;
         let part_state = base.state();
         Part::new(part_state, move |host| {
-            let trigger = host.part(base);
+            let role = if session.options.get().menubar.is_some() {
+                kivact_core::view::Role::MenuItem
+            } else {
+                kivact_core::view::Role::Button
+            };
+            let trigger = host.part(base).role(role);
             let trigger = if let Some(press) = session.press {
                 trigger.on_pointer(move |event| {
                     press.event(session, super::press_state::Source::Trigger, event)
@@ -282,11 +288,6 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                         return Handled::No;
                     }
                     match event.key() {
-                        Key::Enter | Key::Space if !event.repeat() => {
-                            session.open_from_button();
-                            session.request(0, Edge::First);
-                        }
-                        Key::Enter | Key::Space => return Handled::Yes,
                         Key::ArrowDown => {
                             session.open_from_button();
                             session.request(0, Edge::First);

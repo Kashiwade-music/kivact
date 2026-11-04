@@ -71,3 +71,35 @@ fn menubar_leaf_arrows_move_between_open_menus() {
     assert!(screen.get_by_role(Role::MenuItem, "Edit").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn menubar_trigger_part_order_keeps_menuitem_role() {
+    let (screen, ()) = mount_with(RenderOptions::from_env(), || {
+        let file = use_menu(vec![MenuEntry::item("new", "New")]);
+        let edit = use_menu(vec![MenuEntry::item("copy", "Copy")]);
+        let bar = use_menubar(
+            vec!["File".to_string(), "Edit".to_string()],
+            vec![file, edit],
+        );
+        (
+            (),
+            row((
+                node()
+                    .part(file.trigger())
+                    .part(bar.item(0))
+                    .name("File")
+                    .child(text("File")),
+                node()
+                    .part(bar.item(1))
+                    .part(edit.trigger())
+                    .name("Edit")
+                    .child(text("Edit")),
+            ))
+            .part(bar.bar()),
+        )
+    });
+    assert!(screen.get_by_role(Role::MenuItem, "File").exists());
+    assert!(screen.get_by_role(Role::MenuItem, "Edit").exists());
+    assert!(screen.query_by_role(Role::Button, "Edit").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

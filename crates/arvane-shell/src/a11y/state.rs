@@ -150,7 +150,7 @@ impl AcceptedTree {
         if let Some(focus) = update.focus {
             let get = |id: SemanticsId| incoming.get(&id).copied().or_else(|| self.nodes.get(&id));
             let node = get(focus).ok_or(AccessibilityError::InvalidFocus(focus))?;
-            if node.semantics.disabled || (focus != update.root && !node.semantics.focusable) {
+            if !node.semantics.focusable && (node.semantics.disabled || focus != update.root) {
                 return Err(AccessibilityError::InvalidFocus(focus));
             }
             // Shown up to the root, through the parents after the update:
