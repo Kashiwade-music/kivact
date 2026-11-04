@@ -1,6 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
-use kivact::draw::Point;
-use kivact::{Binding, signal};
+use kivact::geometry::Point;
+use kivact::state::{Binding, signal};
 /// The view state of a [`timeline`](crate::timeline) or a
 /// [`dope_sheet`](crate::dope_sheet).
 #[derive(Clone, Copy)]

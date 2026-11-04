@@ -1,7 +1,7 @@
 //! Role: The two-endpoint range on the range scalar's track, thumbs and body.
 
 use crate::support::clean;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
@@ -12,8 +12,11 @@ fn a_range_track_press_moves_the_nearer_end_which_the_keys_then_edit() {
         (
             span,
             ui::range("Selection", span)
-                .limits(0.0, 100.0)
-                .test_id("range"),
+                .limits(
+                    kivact::interaction::ScalarRange::new(0.0, 100.0)
+                        .expect("invariant: finite ordered control range"),
+                )
+                .with_node(move |node| node.test_id("range")),
         )
     });
     let range = screen.get_by_test_id("range");

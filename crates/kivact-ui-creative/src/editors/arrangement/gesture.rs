@@ -6,10 +6,10 @@ use crate::editors::arrangement::model::{
     AutomationPoint, TimelineMarker, TimelineTool, TimelineTrack,
 };
 use crate::editors::shared::metrics::ARRANGEMENT_SIDEBAR;
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::interaction::EditSession;
-use kivact::interaction::{List, ListGesture};
-use kivact::{Binding, Callback, Signal, Value};
+use kivact::interaction::{ListApi, ListGesture};
+use kivact::state::{Binding, Callback, Signal, Value};
 #[derive(Clone)]
 pub(crate) enum Snapshot {
     Clips(Vec<(u64, f64, f64)>),
@@ -42,9 +42,9 @@ pub(crate) struct State {
     pub(crate) size: Value<Size>,
     pub(crate) data: Value<Vec<Clip>>,
     pub(crate) length: Value<f64>,
-    pub(crate) bounds: (f64, f64),
-    pub(crate) min_duration: f64,
-    pub(crate) loop_min_duration: f64,
+    pub(crate) bounds: Value<kivact::interaction::ScalarRange>,
+    pub(crate) min_duration: Value<f64>,
+    pub(crate) loop_min_duration: Value<f64>,
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<
@@ -77,18 +77,18 @@ pub(crate) struct State {
     >,
     /// The arrangement's drag, without the callbacks its sources carry
     /// (`input::drag`).
-    pub(crate) gesture: kivact::interaction::Drag<()>,
+    pub(crate) gesture: kivact::interaction::DragApi<()>,
     pub(crate) edit: EditSession<Snapshot>,
     pub(crate) regions: Value<Regions>,
     pub(crate) texts: ArrangementTexts,
-    pub(crate) choose: List<u64>,
+    pub(crate) choose: ListApi<u64>,
 }
 impl State {
     /// Logical pixels per beat within the zoom bounds.
     pub(crate) fn scale(self) -> f64 {
         self.pixels
             .get_untracked()
-            .clamp(self.bounds.0, self.bounds.1)
+            .clamp(self.bounds.get().min(), self.bounds.get().max())
     }
     pub(crate) fn beat(self, x: f64) -> f64 {
         ((x - ARRANGEMENT_SIDEBAR - self.offset.get().x) / self.scale())

@@ -1,7 +1,8 @@
 //! Role: Shared color picker painting and hit geometry.
 use super::{color_from_hsv, color_to_hsv};
 use crate::editors::shared::metrics::{PICKER_ALPHA, PICKER_GAP};
-use kivact::draw::{Draw, Path, Point, Rect, Size};
+use kivact::draw::{Draw, Path};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::style::Color;
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Channel {

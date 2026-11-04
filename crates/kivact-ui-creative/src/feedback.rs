@@ -1,21 +1,23 @@
 //! Role: Banners, notices and toasts that give feedback in the Creative kit.
-use kivact::ui::{ButtonVariant, DialogKind, MenuEntry, Tone};
+use kivact::interaction::{DialogMode, MenuEntry, Tone};
+use kivact::state::IntoBinding;
+use kivact::ui::ButtonVariant;
 
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::draw::Shadow;
-use kivact::draw::{Point, Rect};
+use kivact::geometry::{Point, Rect};
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
 use kivact::platform;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+
+use kivact::state::{Binding, Value, signal, var};
+use kivact::state::{IntoText, IntoValue};
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, Icon, Position, rgba, style};
 use kivact::view::{
-    A11yAction, ButtonPress, Handled, HandlerResult, IntoText, IntoValue, IntoView, LiveRegion,
-    MouseButton, NodeRef, Placement, PointerPhase, Role, View, node_ref, overlay, show,
+    A11yAction, ButtonPress, Handled, HandlerResult, IntoView, LiveRegion, MouseButton, NodeRef,
+    Placement, PointerPhase, Role, View, node_ref, overlay, show,
 };
-use kivact::{Binding, Value, signal, var};
-use std::hash::Hash;
 
 /// The colors a Creative theme gives a semantic [`Tone`].
 pub(crate) trait ToneExt {
@@ -42,32 +44,43 @@ pub struct Notice {
 }
 /// Feedback banner with a visible title and body, exposed as a live region.
 #[track_caller]
-pub fn notice(tone: Tone, title: impl IntoText, message: impl IntoText) -> Notice {
+pub fn notice(tone: impl IntoValue<Tone>, title: impl IntoText, message: impl IntoText) -> Notice {
     let title = title.into_text_value();
+    let tone = tone.into_value();
     Notice {
         root: row((
-            icon(if tone.is_urgent() { "warning" } else { "info" }),
+            icon(move || {
+                kivact::style::Icon::named(if tone.get().is_urgent() {
+                    "warning"
+                } else {
+                    "info"
+                })
+            }),
             column((
                 text(title).style(style().weight(600)),
                 text(message).style(style().font_size(11.5)),
             ))
             .style(style().gap(3).grow(1)),
         ))
-        .role(if tone == Tone::Danger {
-            Role::Alert
-        } else {
-            Role::Status
+        .role(move || {
+            if tone.get() == Tone::Danger {
+                Role::Alert
+            } else {
+                Role::Status
+            }
         })
         .name(title)
-        .live_region(if tone == Tone::Danger {
-            LiveRegion::Assertive
-        } else {
-            LiveRegion::Polite
+        .live_region(move || {
+            if tone.get() == Tone::Danger {
+                LiveRegion::Assertive
+            } else {
+                LiveRegion::Polite
+            }
         })
         .style(move || {
-            let t = &current_theme();
-            let p = t.get::<crate::tokens::Tokens>();
-            let color = tone.color(&p);
+            let t = &use_theme().get();
+            let p = t.ext::<crate::tokens::Tokens>();
+            let color = tone.get().color(&p);
             style()
                 .padding(12)
                 .gap(10)
@@ -90,6 +103,7 @@ impl Notice {
     }
 }
 impl NodeBuilder for Notice {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -103,7 +117,7 @@ impl IntoView for Notice {
                 kivact::ui::button(message("creative.notice.dismiss", "Dismiss notification"))
                     .variant(ButtonVariant::Secondary)
                     .hide_label(true)
-                    .icon(kivact::control::icon("x"))
+                    .icon(kivact::view::icon("x"))
                     .on_press(move || hidden.set(true))
             }))
             .into_view()
@@ -116,7 +130,7 @@ pub(crate) fn glass_style(t: &kivact::style::Theme) -> kivact::style::Style {
         .gap(1)
         .min_width(220)
         .radius(12)
-        .color(t.get::<crate::tokens::Tokens>().text)
+        .color(t.ext::<crate::tokens::Tokens>().text)
         .background(rgba(0x1e1f26, 0.94))
         .backdrop_blur(22)
         .border(1, rgba(0xffffff, 0.1))
@@ -125,20 +139,23 @@ pub(crate) fn glass_style(t: &kivact::style::Theme) -> kivact::style::Style {
 
 /// A button that opens a nonmodal popover below it, and the popover.
 ///
-/// This is the core [`kivact::interaction::DialogApi`] as a `DialogKind::Popover`
+/// This is the core [`kivact::interaction::DialogApi`] as a `DialogMode::Popover`
 /// in Creative's look:
 /// a `Role::Dialog` named like the button, closed by Escape, an outside press,
 /// assistive technology's Dismiss and a Close button under the content (named
 /// by the message `dialog.close`). The button toggles it, and after Escape,
 /// Dismiss or Close the focus goes back to the button.
 #[track_caller]
-pub fn popup_button<V: IntoView>(label: impl IntoText, content: impl Fn() -> V + 'static) -> View {
+pub fn popup_button<V: IntoView>(
+    label: impl IntoText,
+    content: impl kivact::view::IntoViewFn<V>,
+) -> View {
     let label = label.into_text_value();
     let open = signal(false);
     let close = message("creative.dialog.close", "Close");
     kivact::ui::dialog(label, open)
         .closable(false)
-        .kind(DialogKind::Popover)
+        .mode(DialogMode::Popover)
         .content(content)
         .footer(move || {
             kivact::ui::button(close)
@@ -150,9 +167,8 @@ pub fn popup_button<V: IntoView>(label: impl IntoText, content: impl Fn() -> V +
 
 /// A primary command joined to a separately accessible options menu.
 #[track_caller]
-pub fn split_button<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
+pub fn split_button<K: kivact::state::ItemKey>(
     label: impl IntoText,
-    primary: impl Fn() -> R + 'static,
     entries: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> SplitButton<K> {
     SplitButton {
@@ -165,60 +181,69 @@ pub fn split_button<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
         ),
         primary: kivact::ui::button(label)
             .variant(ButtonVariant::Primary)
-            .on_press(primary)
-            .style(style().radius(0))
-            .into_node(),
+            .with_node(move |node| node.style(style().radius(0))),
         entries: entries.into_value(),
-        choose: kivact::view::callback(|_| ()),
+        choose: kivact::state::callback(|_| ()),
     }
 }
 /// Primary action with a menu and an optional selection callback.
 pub struct SplitButton<K: 'static> {
     root: Node,
-    primary: Node,
+    primary: kivact::ui::Button,
     entries: Value<Vec<MenuEntry<K>>>,
-    choose: kivact::Callback<K>,
+    choose: kivact::state::Callback<K>,
 }
 impl<K: 'static> SplitButton<K> {
+    /// Run the primary command.
+    pub fn on_press(mut self, primary: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.primary = self.primary.on_press(primary);
+        self
+    }
+
     /// Selection callback; no action by default.
     pub fn on_select<R: HandlerResult>(mut self, choose: impl Fn(K) -> R + 'static) -> Self {
-        self.choose = kivact::view::callback(choose);
+        self.choose = kivact::state::callback(choose);
         self
     }
 }
 impl<K: 'static> NodeBuilder for SplitButton<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
-impl<K: Clone + Eq + Hash + 'static> IntoView for SplitButton<K> {
+impl<K: kivact::state::ItemKey> IntoView for SplitButton<K> {
     fn into_view(mut self) -> View {
         let disabled = self
             .root
             .accessible_disabled()
-            .map(|read| (move || read()).into_value())
             .unwrap_or_else(|| false.into_value());
         let choose = self.choose;
         self.root
             .child((
-                self.primary.disabled(disabled),
-                kivact::ui::menu("", self.entries, move |key| {
-                    if disabled.get() {
-                        Ok(())
-                    } else {
-                        choose.try_call(key)
-                    }
-                })
-                .offset(0.)
-                .attach(
-                    kivact::ui::button(message("creative.split_button.options", "Command options"))
-                        .disabled(disabled)
+                self.primary.with_node(move |node| node.disabled(disabled)),
+                kivact::ui::menu("", self.entries)
+                    .on_activate(move |key| {
+                        if disabled.get() {
+                            Ok(())
+                        } else {
+                            choose.try_call(key)
+                        }
+                    })
+                    .offset(0.)
+                    .attach(
+                        kivact::ui::button(message(
+                            "creative.split_button.options",
+                            "Command options",
+                        ))
+                        .with_node(move |node| node.disabled(disabled))
                         .variant(ButtonVariant::Primary)
                         .hide_label(true)
                         .icon(icon("chevron-down"))
-                        .style(style().width(26).radius(0).padding_x(5))
-                        .into_node(),
-                ),
+                        .with_node(move |node| {
+                            node.style(style().width(26).radius(0).padding_x(5))
+                        }),
+                    ),
             ))
             .into_view()
     }
@@ -234,7 +259,7 @@ pub enum WindowPosition {
 }
 
 impl WindowPosition {
-    fn origin(self, viewport: kivact::draw::Size, bounds: Rect) -> Point {
+    fn origin(self, viewport: kivact::geometry::Size, bounds: Rect) -> Point {
         match self {
             Self::Center => Point::new(
                 (viewport.width - bounds.width) * 0.5,
@@ -375,7 +400,7 @@ pub fn window_button<V: IntoView>(
     label: impl IntoText,
     options: WindowOptions,
     content: impl Fn(ToolWindow) -> V + 'static,
-) -> Node {
+) -> impl kivact::view::Component {
     let label = label.into_text_value();
     let title = options.title.clone().map_or(label, IntoValue::into_value);
     let open = signal(false);
@@ -383,11 +408,11 @@ pub fn window_button<V: IntoView>(
     let opener = kivact::ui::button(label)
         .variant(kivact::ui::ButtonVariant::Secondary)
         .on_press(move || open.set(true))
-        .node_ref(anchor)
-        .expanded(open);
+        .with_node(move |node| node.node_ref(anchor))
+        .with_node(move |node| node.expanded(open));
     column((
         opener,
-        window_layer(anchor, open.into(), options, title, content),
+        window_layer(anchor, open.into_binding(), options, title, content),
     ))
     .style(style().gap(0))
 }
@@ -422,7 +447,7 @@ pub fn window_button<V: IntoView>(
 ///     let open = signal(false);
 ///     let anchor = node_ref();
 ///     column((
-///         kivact::ui::button("Tool").node_ref(anchor).on_press(move || open.set(true)),
+///         kivact::ui::button("Tool").with_node(move |node| node.node_ref(anchor)).on_press(move || open.set(true)),
 ///         ui::window(
 ///             anchor,
 ///             open,
@@ -436,15 +461,15 @@ pub fn window_button<V: IntoView>(
 #[track_caller]
 pub fn window(
     anchor: NodeRef,
-    open: impl Into<Binding<bool>>,
+    open: impl IntoBinding<bool>,
     options: WindowOptions,
 ) -> ToolWindowBuilder {
     ToolWindowBuilder {
         root: column(()),
         anchor,
-        open: open.into(),
+        open: open.into_binding(),
         options,
-        content: std::rc::Rc::new(|_| ().into_view()),
+        content: kivact::view::ViewFn::from(|_| ()),
     }
 }
 /// Tool-window description; content is rebuilt on every opening.
@@ -453,16 +478,17 @@ pub struct ToolWindowBuilder {
     anchor: NodeRef,
     open: Binding<bool>,
     options: WindowOptions,
-    content: std::rc::Rc<dyn Fn(ToolWindow) -> View>,
+    content: kivact::view::ViewFn<ToolWindow>,
 }
 impl ToolWindowBuilder {
     /// Content built on opening; empty by default.
     pub fn content<V: IntoView>(mut self, content: impl Fn(ToolWindow) -> V + 'static) -> Self {
-        self.content = std::rc::Rc::new(move |window| content(window).into_view());
+        self.content = kivact::view::ViewFn::from(content);
         self
     }
 }
 impl NodeBuilder for ToolWindowBuilder {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -480,7 +506,7 @@ impl IntoView for ToolWindowBuilder {
                 self.open,
                 self.options,
                 title,
-                move |window| content(window),
+                move |window| content.call(window),
             ))
             .into_view()
     }
@@ -495,7 +521,7 @@ fn window_layer<V: IntoView>(
     content: impl Fn(ToolWindow) -> V + 'static,
 ) -> Node {
     let value = open.into_value();
-    kivact::on_cleanup(move || {
+    kivact::state::on_cleanup(move || {
         if value.try_get() == Some(true) {
             open.set(false);
         }
@@ -503,19 +529,19 @@ fn window_layer<V: IntoView>(
     let reference = node_ref();
     let bounds = reference.rect();
     let kind = if options.modal {
-        DialogKind::Modal
+        DialogMode::Modal
     } else {
-        DialogKind::Popover
+        DialogMode::Popover
     };
     let mut dialog = kivact::interaction::use_dialog(open, kind).anchor(anchor);
     if options.modal {
-        dialog = dialog.dismiss(kivact::ui::Dismiss {
+        dialog = dialog.dismiss(kivact::interaction::DismissOn {
             escape: true,
             outside: false,
         });
     }
     let close = ToolWindow { open };
-    let layer = show(dialog.shown(), move || {
+    let layer = show(dialog.is_open(), move || {
         // Made again at each opening, so a window starts expanded and in place.
         let collapsed = signal(false);
         let offset = signal(Point::new(0.0, 0.0));
@@ -529,7 +555,7 @@ fn window_layer<V: IntoView>(
                 let Some((initial, rect)) = grabbed.get() else {
                     return;
                 };
-                let viewport = platform::window_size();
+                let viewport = platform::window_size().get();
                 let base = options.position.origin(viewport, rect);
                 let proposed = Point::new(
                     base.x + initial.x + update.delta.x,
@@ -559,26 +585,30 @@ fn window_layer<V: IntoView>(
                 kivact::ui::button(minimize_label)
                     .variant(ButtonVariant::Secondary)
                     .hide_label(true)
-                    .icon(kivact::control::icon("chevron-down"))
-                    .on_pointer_default(|event| {
-                        if matches!(event.phase(), PointerPhase::Down(_)) {
-                            Handled::Yes
-                        } else {
-                            Handled::No
-                        }
+                    .icon(kivact::view::icon("chevron-down"))
+                    .with_node(move |node| {
+                        node.on_pointer_default(|event| {
+                            if matches!(event.phase(), PointerPhase::Down(_)) {
+                                Handled::Yes
+                            } else {
+                                Handled::No
+                            }
+                        })
                     })
                     .on_press(move || collapsed.update(|value| *value = !*value))
             }),
             kivact::ui::button(close_label)
                 .variant(ButtonVariant::Secondary)
                 .hide_label(true)
-                .icon(kivact::control::icon("x"))
-                .on_pointer_default(|event| {
-                    if matches!(event.phase(), PointerPhase::Down(_)) {
-                        Handled::Yes
-                    } else {
-                        Handled::No
-                    }
+                .icon(kivact::view::icon("x"))
+                .with_node(move |node| {
+                    node.on_pointer_default(|event| {
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
+                            Handled::Yes
+                        } else {
+                            Handled::No
+                        }
+                    })
                 })
                 .on_press(move || close.close()),
         ))
@@ -588,14 +618,14 @@ fn window_layer<V: IntoView>(
             move || [("title", title.get())],
         ))
         .style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             style()
                 .height(options.titlebar_height)
                 .padding_left(options.titlebar_padding.0)
                 .padding_right(options.titlebar_padding.1)
                 .gap(8)
                 .align_items(Align::Center)
-                .background(t.get::<crate::tokens::Tokens>().header)
+                .background(t.ext::<crate::tokens::Tokens>().header)
                 .cursor(if options.modal {
                     kivact::style::Cursor::Default
                 } else {
@@ -607,7 +637,7 @@ fn window_layer<V: IntoView>(
                 .role(Role::Button)
                 .focusable(true)
                 .expanded(move || !collapsed.get())
-                .on_a11y(A11yAction::Toggle, move || collapsed.update(|v| *v = !*v))
+                .a11y_action(A11yAction::Toggle, move |_| collapsed.update(|v| *v = !*v))
                 .on_pointer_default(move |e| {
                     if matches!(
                         e.phase(),
@@ -643,7 +673,7 @@ fn window_layer<V: IntoView>(
             .node_ref(reference)
             .style(style().width(options.width))
             .style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 glass_style(t)
                     .padding(options.frame_padding)
                     .gap(options.gap)
@@ -654,7 +684,7 @@ fn window_layer<V: IntoView>(
         .role(Role::Dialog)
         .name(title)
         .style(move || {
-            let viewport = platform::window_size();
+            let viewport = platform::window_size().get();
             let rect = bounds
                 .get()
                 .unwrap_or(Rect::new(0.0, 0.0, options.width, 0.0));

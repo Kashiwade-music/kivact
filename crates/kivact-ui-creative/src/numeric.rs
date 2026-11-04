@@ -1,23 +1,26 @@
 //! Role: Numeric controls of the Creative kit: number, value_slider, knob and fader.
 
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::draw::{Draw, Path, Point, Rect, Size, TextStyle};
+use kivact::draw::{Draw, Path, TextFormat};
 use kivact::draw::{LineCap, LineJoin, Stroke, linear_gradient};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::i18n::message;
 use kivact::interaction::{
     DragCoordinates, DragPhase, DragUpdate, FocusReturn, use_drag, use_popup, use_scalar,
 };
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::state::IntoBinding;
+use kivact::view::{Node, NodeBuilder, node, row, text};
+
+use kivact::interaction::ScalarRange;
+use kivact::state::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::state::{IntoText, IntoValue, callback};
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Cursor, Justify, Style, Theme, style};
-use kivact::ui::{EditPhase, ScalarRange};
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, ButtonPress, Handled, IntoText, IntoValue, IntoView, Key,
-    MouseButton, Orientation, Placement, PointerPhase, Role, View, callback, node_ref, overlay,
-    show,
+    A11yAction, A11yEvent, A11yRequest, ButtonPress, Handled, IntoView, Key, MouseButton,
+    Orientation, Placement, PointerPhase, Role, View, node_ref, overlay, show,
 };
-use kivact::{Binding, Callback, Value, binding, memo, signal, var};
 use std::rc::Rc;
 
 type TextParser = Rc<dyn Fn(&str, f64) -> Result<f64, String>>;
@@ -40,7 +43,7 @@ pub enum PropertyState {
     Driven,
 }
 
-kivact::view::constant_value!(PropertyState);
+kivact::state::constant_value!(PropertyState);
 
 /// A range control supporting pointer scrubbing, keyboard, wheel and direct editing.
 pub struct Numeric {
@@ -48,15 +51,15 @@ pub struct Numeric {
     label: Value<String>,
     state: Binding<f64>,
     kind: NumericKind,
-    min: f64,
-    max: f64,
-    step: f64,
-    reset: f64,
-    precision: usize,
-    unit: String,
+    min: Value<f64>,
+    max: Value<f64>,
+    step: Value<f64>,
+    reset: Value<f64>,
+    precision: Value<usize>,
+    unit: Value<String>,
     tint: Value<PropertyState>,
     logarithmic: Value<bool>,
-    timecode: Option<u32>,
+    timecode: Option<Value<u32>>,
     label_visible: Value<bool>,
     accent: Option<Value<kivact::style::Color>>,
     bipolar: Value<bool>,
@@ -78,7 +81,7 @@ fn make(label: impl IntoText, value: Binding<f64>, kind: NumericKind) -> Numeric
             Role::Slider
         })
         .style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             numeric_style(t, kind)
         });
     Numeric {
@@ -86,12 +89,12 @@ fn make(label: impl IntoText, value: Binding<f64>, kind: NumericKind) -> Numeric
         label,
         state: value,
         kind,
-        min: 0.0,
-        max: 1.0,
-        step: 0.01,
-        reset: 0.0,
-        precision: 3,
-        unit: String::new(),
+        min: 0.0.into_value(),
+        max: 1.0.into_value(),
+        step: 0.01.into_value(),
+        reset: 0.0.into_value(),
+        precision: 3.into_value(),
+        unit: String::new().into_value(),
         tint: PropertyState::Plain.into_value(),
         logarithmic: false.into_value(),
         timecode: None,
@@ -111,31 +114,31 @@ fn make(label: impl IntoText, value: Binding<f64>, kind: NumericKind) -> Numeric
 /// and [`step`](Numeric::step): every write is normalized into the range and
 /// is an edit of that scalar ([`on_edit`](Numeric::on_edit)).
 #[track_caller]
-pub fn number(label: impl IntoText, value: impl Into<Binding<f64>>) -> Numeric {
-    make(label, value.into(), NumericKind::Number)
+pub fn number(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
+    make(label, value.into_binding(), NumericKind::Number)
 }
 /// A field with a tinted fill and an explicit value marker, editing `value`
 /// like [`number`]. A slider field scrubs and takes typed text; the plain
 /// track-and-thumb slider is `kivact::ui::slider`.
 #[track_caller]
-pub fn value_slider(label: impl IntoText, value: impl Into<Binding<f64>>) -> Numeric {
-    make(label, value.into(), NumericKind::Slider)
+pub fn value_slider(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
+    make(label, value.into_binding(), NumericKind::Slider)
 }
 /// A rotary control editing `value`: vertical drag, wheel, arrow keys and
 /// double-click reset.
 #[track_caller]
-pub fn knob(label: impl IntoText, value: impl Into<Binding<f64>>) -> Numeric {
-    make(label, value.into(), NumericKind::Knob)
+pub fn knob(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
+    make(label, value.into_binding(), NumericKind::Knob)
 }
 /// A channel fader editing `value`, with square-root normalization over the
 /// configured range.
 #[track_caller]
-pub fn fader(label: impl IntoText, value: impl Into<Binding<f64>>) -> Numeric {
-    make(label, value.into(), NumericKind::Fader)
+pub fn fader(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
+    make(label, value.into_binding(), NumericKind::Fader)
 }
 
 fn numeric_style(t: &Theme, kind: NumericKind) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     let s = style().radius(7).color(p.text).shrink(0);
     match kind {
         NumericKind::Number | NumericKind::Slider => s
@@ -233,10 +236,11 @@ impl Numeric {
         self
     }
     /// Display whole frames as HH:MM:SS:FF; accept one to four time fields or relative frames.
-    pub fn timecode(mut self, fps: u32) -> Self {
-        self.timecode = Some(fps.clamp(1, 240));
-        self.step = 1.0;
-        self.precision = 0;
+    pub fn timecode(mut self, fps: impl IntoValue<u32>) -> Self {
+        let fps = fps.into_value();
+        self.timecode = Some(memo(move || fps.get().clamp(1, 240)));
+        self.step = 1.0.into_value();
+        self.precision = 0.into_value();
         self
     }
     /// Keep the accessible name while showing only a centered value in the
@@ -247,36 +251,43 @@ impl Numeric {
         self
     }
     /// Inclusive finite bounds. Invalid ranges become 0..1.
-    pub fn range(mut self, min: f64, max: f64) -> Self {
-        if min.is_finite() && max.is_finite() && max > min {
-            self.min = min;
-            self.max = max;
-        }
+    pub fn range(mut self, range: impl IntoValue<ScalarRange>) -> Self {
+        let range = range.into_value();
+        self.min = memo(move || range.get().min());
+        self.max = memo(move || range.get().max());
         self
     }
     /// Positive keyboard and wheel step.
-    pub fn step(mut self, step: f64) -> Self {
-        if step.is_finite() && step > 0.0 {
-            self.step = step;
-        }
+    pub fn step(mut self, step: impl IntoValue<f64>) -> Self {
+        let step = step.into_value();
+        self.step = memo(move || {
+            let step = step.get();
+            if step.is_finite() && step > 0.0 {
+                step
+            } else {
+                0.01
+            }
+        });
         self
     }
-    /// The value Backspace and a double click reset to, clamped to the
-    /// configured range on use. The default is 0.
-    pub fn reset_to(mut self, value: f64) -> Self {
-        if value.is_finite() {
-            self.reset = value;
-        }
+    /// The value Backspace and a double click reset to.
+    pub fn reset_to(mut self, value: impl IntoValue<f64>) -> Self {
+        let value = value.into_value();
+        self.reset = memo(move || {
+            let value = value.get();
+            if value.is_finite() { value } else { 0.0 }
+        });
         self
     }
-    /// Display precision, limited to six places; the consumer value retains its precision.
-    pub fn precision(mut self, precision: usize) -> Self {
-        self.precision = precision.min(6);
+    /// Display precision, limited to six places.
+    pub fn precision(mut self, precision: impl IntoValue<usize>) -> Self {
+        let precision = precision.into_value();
+        self.precision = memo(move || precision.get().min(6));
         self
     }
     /// Visible unit suffix.
-    pub fn unit(mut self, unit: impl Into<String>) -> Self {
-        self.unit = unit.into();
+    pub fn unit(mut self, unit: impl IntoText) -> Self {
+        self.unit = unit.into_text_value();
         self
     }
     /// Show a keyed, animated or driven property tint.
@@ -296,6 +307,7 @@ impl Numeric {
     }
 }
 impl NodeBuilder for Numeric {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -328,15 +340,14 @@ impl IntoView for Numeric {
         let value = state.into_value();
         // Whether the text field is open. It ends itself on Enter, Escape
         // and when it is removed.
-        let typing = kivact::ui::use_inline_edit(signal(None::<()>));
+        let typing = kivact::interaction::use_inline_edit(signal(None::<()>));
         let text_open = move || typing.is_open(&());
         // The value a scrub's delta is measured from.
         let origin = var(0.0);
         let moved = signal(false);
-        let scalar = use_scalar(
-            state,
-            ScalarRange::new(min, max).expect("invariant: numeric bounds are finite"),
-        )
+        let scalar = use_scalar(state, move || {
+            ScalarRange::new(min.get(), max.get()).expect("invariant: numeric bounds are finite")
+        })
         .key_step(step)
         .expect("invariant: numeric step is finite and positive");
         let scalar = match edit_observer {
@@ -349,24 +360,26 @@ impl IntoView for Numeric {
         let pointer = scalar.scrub(use_drag::<()>(DragCoordinates::Local));
         let reference = node_ref();
         let rect = reference.rect();
-        let logarithmic = move || logarithmic.get() && min > 0.0;
+        let logarithmic = move || logarithmic.get() && min.get() > 0.0;
         let normalized = move |v: f64| {
             if kind == NumericKind::Fader {
-                ((v - min) / (max - min)).clamp(0.0, 1.0).sqrt()
+                ((v - min.get()) / (max.get() - min.get()))
+                    .clamp(0.0, 1.0)
+                    .sqrt()
             } else if logarithmic() {
-                ((v.max(min) / min).ln() / (max / min).ln()).clamp(0.0, 1.0)
+                ((v.max(min.get()) / min.get()).ln() / (max.get() / min.get()).ln()).clamp(0.0, 1.0)
             } else {
-                ((v - min) / (max - min)).clamp(0.0, 1.0)
+                ((v - min.get()) / (max.get() - min.get())).clamp(0.0, 1.0)
             }
         };
         let from_n = move |n: f64| {
             let n = n.clamp(0.0, 1.0);
             if kind == NumericKind::Fader {
-                min + (max - min) * n.powi(2)
+                min.get() + (max.get() - min.get()) * n.powi(2)
             } else if logarithmic() {
-                min * (max / min).powf(n)
+                min.get() * (max.get() / min.get()).powf(n)
             } else {
-                min + (max - min) * n
+                min.get() + (max.get() - min.get()) * n
             }
         };
         // A write that is not part of a scrub is an edit of its own.
@@ -387,16 +400,22 @@ impl IntoView for Numeric {
                         Err(not_finite.get())
                     }
                 }),
-                None => parse_scalar(s, timecode, from).ok_or_else(|| not_finite.get()),
+                None => parse_scalar(s, timecode.map(|fps| fps.get()), from)
+                    .ok_or_else(|| not_finite.get()),
             }
         };
         let begin_text = move || typing.open(());
-        let suffix = unit.clone();
+        let suffix = unit;
         let shown = (move || {
             if mixed.get() {
                 mixed_text.get()
             } else {
-                format_scalar(value.get().clamp(min, max), precision, &suffix, timecode)
+                format_scalar(
+                    value.get().clamp(min.get(), max.get()),
+                    precision.get(),
+                    &suffix.get(),
+                    timecode.map(|fps| fps.get()),
+                )
             }
         })
         .into_value();
@@ -413,8 +432,8 @@ impl IntoView for Numeric {
                         .style(style().color(crate::Color::Muted)),
                     text(shown)
                         .style(move || {
-                            let t = &current_theme();
-                            style().font_family(t.get::<crate::tokens::Tokens>().mono_font.as_str())
+                            let t = &use_theme().get();
+                            style().font_family(t.ext::<crate::tokens::Tokens>().mono_font.as_str())
                         })
                         .style(move || {
                             let visible = label_visible.get();
@@ -445,7 +464,7 @@ impl IntoView for Numeric {
         let edit = show(text_open, move || {
             let status = node_ref();
             let from = value.get_untracked();
-            let opened = format_scalar(from, precision, "", timecode);
+            let opened = format_scalar(from, precision.get(), "", timecode.map(|fps| fps.get()));
             let draft = signal(opened.clone());
             // Write the typed text when the draft commits: Enter, or leaving
             // the field with a changed text. A text left as it opened writes
@@ -470,17 +489,22 @@ impl IntoView for Numeric {
             (
                 // A draft that does not parse stays open after the focus
                 // leaves; Escape discards it.
-                typing
-                    .field((), label, draft, commit_text)
-                    .return_focus(reference)
+                node()
+                    .part(
+                        typing
+                            .field((), label, draft)
+                            .on_draft_commit(commit_text)
+                            .return_focus(reference)
+                            .control(),
+                    )
                     .style(move || {
-                        let t = &current_theme();
-                        style().font_family(t.get::<crate::tokens::Tokens>().mono_font.as_str())
+                        let t = &use_theme().get();
+                        style().font_family(t.ext::<crate::tokens::Tokens>().mono_font.as_str())
                     })
                     .style(style().width(kivact::style::pct(100)))
                     .invalid(move || reason.get().is_some())
                     .described_by(status),
-                show(hint.shown(), move || {
+                show(hint.is_open(), move || {
                     let text_reason = move || reason.get().unwrap_or_default();
                     overlay(
                         reference,
@@ -497,7 +521,8 @@ impl IntoView for Numeric {
                                 .border(1, crate::Color::HairStrong),
                         ),
                     )
-                    .part(hint.content().role(Role::Status))
+                    .part(hint.content())
+                    .role(Role::Status)
                     .name(text_reason)
                     .node_ref(status)
                     .offset(2)
@@ -527,7 +552,7 @@ impl IntoView for Numeric {
                     };
                     let start = origin.get();
                     if kind == NumericKind::Number {
-                        scalar.set(start + delta * step * factor);
+                        scalar.set(start + delta * step.get() * factor);
                     } else {
                         let extent = rect
                             .get()
@@ -558,7 +583,7 @@ impl IntoView for Numeric {
             .value_text(shown)
             .value_min(min)
             .value_max(max)
-            .value_now(move || value.get().clamp(min, max))
+            .value_now(move || value.get().clamp(min.get(), max.get()))
             .orientation(move || {
                 if matches!(kind, NumericKind::Knob | NumericKind::Fader) && !horizontal.get() {
                     Orientation::Vertical
@@ -568,7 +593,7 @@ impl IntoView for Numeric {
             })
             .draw(move |d, size| {
                 let (horizontal, bipolar) = (horizontal.get(), bipolar.get());
-                let p = d.theme().get::<crate::tokens::Tokens>();
+                let p = d.theme().ext::<crate::tokens::Tokens>();
                 let tint = tint.get();
                 let color = match tint {
                     PropertyState::Plain => accent.map_or(p.accent, |value| value.get()),
@@ -655,11 +680,11 @@ impl IntoView for Numeric {
                 match e.key() {
                     Key::Enter if e.repeat() => {}
                     Key::Enter => begin_text(),
-                    Key::ArrowRight | Key::ArrowUp => set(value.get() + step * factor),
-                    Key::ArrowLeft | Key::ArrowDown => set(value.get() - step * factor),
-                    Key::Home => set(min),
-                    Key::End => set(max),
-                    Key::Backspace => set(reset),
+                    Key::ArrowRight | Key::ArrowUp => set(value.get() + step.get() * factor),
+                    Key::ArrowLeft | Key::ArrowDown => set(value.get() - step.get() * factor),
+                    Key::Home => set(min.get()),
+                    Key::End => set(max.get()),
+                    Key::Backspace => set(reset.get()),
                     _ => return Handled::No,
                 }
                 Handled::Yes
@@ -672,7 +697,8 @@ impl IntoView for Numeric {
                     return Handled::Yes;
                 }
                 let direction = if e.delta().y > 0.0 { -1.0 } else { 1.0 };
-                set(value.get() + step * direction * if e.modifiers().ctrl { 0.1 } else { 1.0 });
+                set(value.get()
+                    + step.get() * direction * if e.modifiers().ctrl { 0.1 } else { 1.0 });
                 Handled::Yes
             })
             // Runs before the scrub source below; `Yes` keeps the press from it.
@@ -701,7 +727,7 @@ impl IntoView for Numeric {
                     })
                 ) {
                     pointer.cancel();
-                    set(reset);
+                    set(reset.get());
                     return Handled::Yes;
                 }
                 Handled::No
@@ -731,9 +757,9 @@ impl IntoView for Numeric {
                 });
             }
         };
-        root.on_a11y_event(A11yAction::Increment, act)
-            .on_a11y_event(A11yAction::Decrement, act)
-            .on_a11y_event(A11yAction::SetValue, act)
+        root.a11y_action(A11yAction::Increment, act)
+            .a11y_action(A11yAction::Decrement, act)
+            .a11y_action(A11yAction::SetValue, act)
             .value_text(shown)
             .into_view()
     }
@@ -748,7 +774,7 @@ fn draw_knob(
     value: &str,
     bipolar: bool,
 ) {
-    let p = d.theme().get::<crate::tokens::Tokens>();
+    let p = d.theme().ext::<crate::tokens::Tokens>();
     let scale = (size.width / 58.0).clamp(0.5, 1.0);
     let center = Point::new(size.width / 2.0, 24.0 * scale);
     let point = |a: f64, radius: f64| {
@@ -790,28 +816,28 @@ fn draw_knob(
         2.6,
         p.text_high,
     );
-    let label_style = TextStyle {
+    let label_style = TextFormat {
         size: 10.5,
         color: p.dim,
         align: kivact::style::TextAlign::Center,
-        ..TextStyle::default()
+        ..TextFormat::default()
     };
     d.text(label, Point::new(center.x, 48.0 * scale + 7.0), label_style);
     d.text(
         value,
         Point::new(center.x, 48.0 * scale + 22.0),
-        TextStyle {
+        TextFormat {
             size: 10.5,
             color: p.text,
             family: Some(p.mono_font.clone()),
             align: kivact::style::TextAlign::Center,
-            ..TextStyle::default()
+            ..TextFormat::default()
         },
     );
 }
 
 fn draw_fader(d: &mut Draw, size: Size, n: f64, color: kivact::style::Color, value: &str) {
-    let p = d.theme().get::<crate::tokens::Tokens>();
+    let p = d.theme().ext::<crate::tokens::Tokens>();
     let x = size.width / 2.0;
     let top = 8.0;
     let height = (size.height - 30.0).max(1.0);
@@ -845,12 +871,12 @@ fn draw_fader(d: &mut Draw, size: Size, n: f64, color: kivact::style::Color, val
     d.text(
         value,
         Point::new(x, size.height - 8.0),
-        TextStyle {
+        TextFormat {
             size: 10.0,
             color: p.text,
             align: kivact::style::TextAlign::Center,
             family: Some(p.mono_font.clone()),
-            ..TextStyle::default()
+            ..TextFormat::default()
         },
     );
 }

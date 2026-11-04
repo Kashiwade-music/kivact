@@ -2,9 +2,9 @@
 use crate::editors::shared::model::{EditorContext, Lane};
 use crate::editors::shared::targets;
 use crate::editors::time::model::TimeItem;
-use kivact::draw::Point;
-use kivact::interaction::{Drag as Gesture, EditSession, List};
-use kivact::{Binding, Callback, Signal, Value};
+use kivact::geometry::Point;
+use kivact::interaction::{DragApi as Gesture, EditSession, ListApi};
+use kivact::state::{Binding, Callback, Signal, Value};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Target {
     Item(u64),
@@ -13,7 +13,7 @@ pub(crate) enum Target {
     Lane(u64),
 }
 #[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Drag {
+pub(crate) enum DragApi {
     Items,
     Trim(u64, bool),
     Playhead,
@@ -42,18 +42,18 @@ pub(crate) struct State<T: TimeItem> {
     pub offset: Value<Point>,
     pub playhead: Binding<f64>,
     pub visible: Value<Vec<Lane>>,
-    pub choose: List<u64>,
+    pub choose: ListApi<u64>,
     pub scene: Value<Result<std::rc::Rc<targets::Scene<Target>>, kivact::UiError>>,
     pub press:
-        crate::editors::shared::gesture::CanvasGesture<Target, (Option<Drag>, Option<Snapshot>)>,
+        crate::editors::shared::gesture::CanvasGesture<Target, (Option<DragApi>, Option<Snapshot>)>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`input::drag`).
     pub gesture: Gesture<()>,
     pub edit: EditSession<Snapshot>,
     pub snap: Value<bool>,
     pub step: Value<f64>,
-    pub bounds: (f64, f64),
-    pub min_duration: f64,
+    pub bounds: Value<kivact::interaction::ScalarRange>,
+    pub min_duration: Value<f64>,
     pub lane_height: f64,
     pub active: Signal<Option<Target>>,
     pub child_focus: Value<bool>,
@@ -80,10 +80,10 @@ impl<T: TimeItem> State<T> {
 }
 
 impl<T: TimeItem> State<T> {
-    pub(crate) fn drag_state(self) -> Option<Drag> {
+    pub(crate) fn drag_state(self) -> Option<DragApi> {
         self.press.with_payload(|payload| payload.0).flatten()
     }
-    pub(crate) fn set_drag(self, drag: Option<Drag>) {
+    pub(crate) fn set_drag(self, drag: Option<DragApi>) {
         self.press.update_payload(|payload| payload.0 = drag);
     }
     pub(crate) fn initial(self) -> Option<Snapshot> {

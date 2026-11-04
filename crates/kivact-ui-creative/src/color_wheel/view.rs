@@ -4,19 +4,21 @@ use super::conversion::color_to_hsv;
 use super::data::ColorModel;
 use super::geometry::{Channel, Geometry};
 use super::state::{ColorOwner, State};
-use kivact::control::{Node, NodeBuilder, column, node};
-use kivact::draw::Size;
+use kivact::custom::part;
+use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
-use kivact::primitive::part;
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, Callback, Value, effect};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{Color, pct, style};
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, IntoView, Key, KeyEvent, Role, View,
-    callback, node_ref, show,
+    A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
+    show,
 };
-use kivact::{Binding, Callback, Value, effect};
+use kivact::view::{Node, NodeBuilder, column, node};
 
 /// A hue wheel, saturation/value square, optional alpha strip, model fields
 /// and optional swatches. NodeBuilder modifiers apply to the whole group.
@@ -47,15 +49,15 @@ pub struct ColorWheel {
 /// writes without changing the color.
 #[track_caller]
 pub fn color_wheel(
-    color: impl Into<Binding<Color>>,
-    model: impl Into<Binding<ColorModel>>,
+    color: impl IntoBinding<Color>,
+    model: impl IntoBinding<ColorModel>,
 ) -> ColorWheel {
     ColorWheel {
         root: column(())
             .role(Role::Group)
             .style(style().min_width(0).width(pct(100)).gap(8)),
-        color: color.into(),
-        model: model.into(),
+        color: color.into_binding(),
+        model: model.into_binding(),
         alpha: true.into_value(),
         fields: true.into_value(),
         swatches: None,
@@ -79,8 +81,8 @@ impl ColorWheel {
         self
     }
     /// Bind editable swatches. Local swatch selection is not an edit.
-    pub fn swatches(mut self, swatches: impl Into<Binding<Vec<Color>>>) -> Self {
-        self.swatches = Some(swatches.into());
+    pub fn swatches(mut self, swatches: impl IntoBinding<Vec<Color>>) -> Self {
+        self.swatches = Some(swatches.into_binding());
         self
     }
     /// Observe each continuous edit, including palette additions and removals.
@@ -96,6 +98,7 @@ impl ColorWheel {
 }
 
 impl NodeBuilder for ColorWheel {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -138,7 +141,7 @@ impl IntoView for ColorWheel {
             }
         });
         let alpha = self.alpha;
-        let size = kivact::memo(move || {
+        let size = kivact::state::memo(move || {
             let size = self.size.get();
             if size.is_finite() {
                 size.max(96.0)
@@ -167,7 +170,7 @@ impl IntoView for ColorWheel {
             state.hue.set(h);
             state.color.set(next);
         };
-        let active = kivact::signal(Channel::Hue);
+        let active = kivact::state::signal(Channel::Hue);
         // Each drag is one edit of the shared session; Escape on the wheel,
         // an engine Cancel and `cancel` write the color from the press back.
         let gesture = use_drag::<Channel>(DragCoordinates::Local)
@@ -196,7 +199,12 @@ impl IntoView for ColorWheel {
                 cancel();
             }
         });
-        let canvas_part = part(|input| input).focusable(true);
+        let canvas_part = {
+            let input_part = part(|input| input);
+            kivact::custom::Part::new(input_part.state(), move |node| {
+                node.part(input_part).focusable(true)
+            })
+        };
         effect(move || {
             if !alpha.get() && active.get_untracked() == Channel::Alpha {
                 cancel();
@@ -240,28 +248,36 @@ impl IntoView for ColorWheel {
                     Channel::Sv => ("creative.color.sv", "Saturation and value"),
                     Channel::Alpha => ("creative.color.alpha_slider", "Alpha"),
                 };
-                let part = part(|input| input)
-                    .role(Role::Slider)
-                    .focusable(true)
-                    .name(message(label, fallback))
-                    .value_text(move || {
-                        value.get();
-                        state.hue.get();
-                        let (x, y) = state.channel(channel);
-                        if channel == Channel::Sv {
-                            format!("{x},{y}")
-                        } else {
-                            x.to_string()
-                        }
+                let part = {
+                    let input_part = part(|input| input);
+                    kivact::custom::Part::new(input_part.state(), move |node| {
+                        node.part(input_part)
+                            .role(Role::Slider)
+                            .focusable(true)
+                            .name(message(label, fallback))
+                            .value_text(move || {
+                                value.get();
+                                state.hue.get();
+                                let (x, y) = state.channel(channel);
+                                if channel == Channel::Sv {
+                                    format!("{x},{y}")
+                                } else {
+                                    x.to_string()
+                                }
+                            })
+                            .value_min(0.0)
+                            .value_max(if channel == Channel::Hue { 360.0 } else { 1.0 })
+                            .value_now(move || {
+                                value.get();
+                                state.hue.get();
+                                state.channel(channel).0
+                            })
                     })
-                    .value_min(0.0)
-                    .value_max(if channel == Channel::Hue { 360.0 } else { 1.0 })
-                    .value_now(move || {
-                        value.get();
-                        state.hue.get();
-                        state.channel(channel).0
-                    });
-                let target = part.node_ref();
+                };
+                let target = kivact::view::node_ref();
+                let part = kivact::custom::Part::new(part.state(), move |node| {
+                    node.part(part).node_ref(target)
+                });
                 let action = move |event: A11yEvent| {
                     if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
                         active.set(channel);
@@ -285,16 +301,19 @@ impl IntoView for ColorWheel {
                         state.once(ColorOwner::Wheel, || state.set(channel, x, y));
                     }
                 };
-                part.with(gesture.source(channel))
-                    .on_key(move |event| {
-                        active.set(channel);
-                        key(state, channel, event)
-                    })
-                    .on_a11y_event(A11yAction::Select, action)
-                    .on_a11y_event(A11yAction::Activate, action)
-                    .on_a11y_event(A11yAction::SetValue, action)
-                    .on_a11y_event(A11yAction::Increment, action)
-                    .on_a11y_event(A11yAction::Decrement, action)
+                kivact::custom::Part::new(part.state(), move |node| {
+                    node.part(part)
+                        .part(gesture.source(channel))
+                        .on_key(move |event| {
+                            active.set(channel);
+                            key(state, channel, event)
+                        })
+                        .a11y_action(A11yAction::Select, action)
+                        .a11y_action(A11yAction::Activate, action)
+                        .a11y_action(A11yAction::SetValue, action)
+                        .a11y_action(A11yAction::Increment, action)
+                        .a11y_action(A11yAction::Decrement, action)
+                })
             },
         );
         let model = self.model;

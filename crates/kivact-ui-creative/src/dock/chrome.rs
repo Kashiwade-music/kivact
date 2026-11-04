@@ -1,24 +1,27 @@
 //! Role: Container chrome of a dock: the tab strip, inline rename and the container menu.
 use crate::Color;
-use kivact::ui::{ButtonVariant, ListItem, MenuEntry};
+use kivact::interaction::{ListItem, MenuEntry};
+use kivact::ui::ButtonVariant;
+use kivact::view::IntoView;
+use kivact::view::NodeBuilder;
 
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use std::hash::Hash;
 use std::rc::Rc;
 
-use kivact::control::{NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::message_with;
 use kivact::interaction::{
-    DragCoordinates, DragPhase, DragUpdate, List, ListPolicy, ListSelection, use_drag,
+    DragCoordinates, DragPhase, DragUpdate, ListApi, ListOptions, Selection, use_drag,
     use_list as make_list,
 };
+use kivact::state::callback;
+use kivact::state::{Callback, Value, binding, memo, signal, var};
 use kivact::style::{Align, Cursor, Direction, Overflow, style};
 use kivact::view::{
-    ButtonPress, Handled, IntoView, Key, MouseButton, PointerPhase, Role, View, callback, dynamic,
-    for_each, node_ref, show,
+    ButtonPress, Handled, Key, MouseButton, PointerPhase, Role, View, dynamic, for_each, node_ref,
+    show,
 };
-use kivact::{Callback, Value, binding, memo, signal, var};
+use kivact::view::{column, icon, node, row, text};
 
 use super::data::{DockCx, MenuInput, TabDrag, Texts};
 use super::geometry::{STRIP, drop_target};
@@ -46,10 +49,7 @@ impl<K: 'static, C: 'static> Clone for AppMenu<K, C> {
     }
 }
 
-pub(super) fn container<K: Clone + Eq + Hash + 'static>(
-    cx: DockCx<K>,
-    item: Value<Item<K>>,
-) -> View {
+pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<Item<K>>) -> View {
     let tabs = memo(move || match item.with(Clone::clone) {
         Item::Chrome { tabs, .. } => tabs,
         _ => DockTabs {
@@ -82,11 +82,12 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
                     .collect::<Vec<_>>()
             })
         },
-        ListSelection::Single(selected),
-        ListPolicy::tabs(),
+        Selection::Single(selected),
+        ListOptions::tabs(),
     );
     let strip = node()
-        .part(group.list().role(Role::TabList))
+        .part(group.list())
+        .role(Role::TabList)
         .child(for_each(
             list,
             |tab| tab.id.clone(),
@@ -106,7 +107,7 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
                 .align_items(Align::End)
                 .overflow(Overflow::Hidden),
         );
-    let menu = (cx.shared().menu)(MenuInput {
+    let menu = cx.shared().menu.call(MenuInput {
         cx,
         tabs,
         maximized,
@@ -138,8 +139,8 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
         None => Handled::No,
     })
     .style(move || {
-        let t = &current_theme();
-        let p = t.get::<crate::tokens::Tokens>();
+        let t = &use_theme().get();
+        let p = t.ext::<crate::tokens::Tokens>();
         style()
             .background(p.island)
             .border(1, if maximized.get() { p.accent } else { p.hair })
@@ -149,9 +150,9 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
     .into_view()
 }
 
-fn tab_view<K: Clone + Eq + Hash + 'static>(
+fn tab_view<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
-    group: List<K>,
+    group: ListApi<K>,
     id: K,
     tab: Value<DockTab<K>>,
 ) -> View {
@@ -159,7 +160,10 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
     let key = var(id.clone());
     let title = memo(move || tab.with(|tab| tab.title.clone()));
     let member = group.item(id.clone());
-    let member_ref = member.node_ref();
+    let member_ref = kivact::view::node_ref();
+    let member = kivact::custom::Part::new(member.state(), move |node| {
+        node.part(member).node_ref(member_ref)
+    });
     let member_state = member.state();
     cx.register_rect(id, member_ref.rect());
     let renaming = move || cx.rename.is_open(&key.get());
@@ -213,17 +217,17 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         move || text(title).style(style().shrink(1).min_width(0)),
     );
     let editor = show(renaming, move || {
-        cx.rename
-            .field(
-                key.get(),
-                texts.rename,
-                signal(title.get_untracked()),
-                move |name| {
-                    cx.edit(|layout| layout.rename(&key.get(), name));
-                },
+        node()
+            .part(
+                cx.rename
+                    .field(key.get(), texts.rename, signal(title.get_untracked()))
+                    .on_draft_commit(move |name| {
+                        cx.edit(|layout| layout.rename(&key.get(), name));
+                    })
+                    .return_focus(member_ref)
+                    .control(),
             )
             .style(style().width(120).height(22))
-            .return_focus(member_ref)
     });
     let close = kivact::ui::button(message_with(
         "creative.dock.close_tab",
@@ -233,8 +237,8 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
     .hide_label(true)
     .icon(icon("x"))
     .variant(ButtonVariant::Ghost)
-    .hidden(move || !tab.with(|tab| tab.closable))
-    .style(style().size(16, 16).padding(0).radius(4))
+    .with_node(move |node| node.hidden(move || !tab.with(|tab| tab.closable)))
+    .with_node(move |node| node.style(style().size(16, 16).padding(0).radius(4)))
     // Presses on the close button never start a tab drag or rename.
     .on_pointer_default(|event| {
         if matches!(event.phase(), PointerPhase::Down(_)) {
@@ -297,8 +301,8 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
             _ => cx.maximize_key(&key.get(), &event),
         })
         .style(move || {
-            let t = &current_theme();
-            let p = t.get::<crate::tokens::Tokens>();
+            let t = &use_theme().get();
+            let p = t.ext::<crate::tokens::Tokens>();
             style()
                 .direction(Direction::Row)
                 .height(STRIP - 6.0)
@@ -375,8 +379,8 @@ fn others<'a, K: Clone + Eq + Hash>(
 
 pub(super) fn container_menu<K, C>(input: MenuInput<K>, app: Option<AppMenu<K, C>>) -> View
 where
-    K: Clone + Eq + Hash + 'static,
-    C: Clone + Eq + Hash + 'static,
+    K: kivact::state::ItemKey,
+    C: kivact::state::ItemKey,
 {
     let MenuInput {
         cx,
@@ -428,10 +432,11 @@ where
     .hide_label(true)
     .icon(icon("menu"))
     .variant(ButtonVariant::Ghost)
-    .style(style().width(24).height(22).padding(0).shrink(0));
-    kivact::ui::menu("", entries, move |value| choose.try_call(value))
+    .with_node(move |node| node.style(style().width(24).height(22).padding(0).shrink(0)));
+    kivact::ui::menu("", entries)
+        .on_activate(move |value| choose.try_call(value))
         .offset(0.0)
-        .attach(trigger.into_node())
+        .attach(trigger)
         .into_view()
 }
 
@@ -519,7 +524,7 @@ fn builtin_entries<K: Clone + Eq + Hash, C>(
     );
 }
 
-fn run<K: Clone + Eq + Hash + 'static>(cx: DockCx<K>, id: K, tabs: &DockTabs<K>, command: Builtin) {
+fn run<K: kivact::state::ItemKey>(cx: DockCx<K>, id: K, tabs: &DockTabs<K>, command: Builtin) {
     match command {
         Builtin::Close => cx.close(|layout| layout.close(&id).into_iter().collect()),
         Builtin::CloseOthers => cx.close(|layout| layout.close_others(&id)),

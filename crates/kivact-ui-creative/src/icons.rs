@@ -1,6 +1,6 @@
 //! Role: Icon set of the Creative kit: Tabler outlines under their names.
 //!
-//! The kit draws every icon with `kivact::control::icon(name)`; its theme
+//! The kit draws every icon with `kivact::view::icon(name)`; its theme
 //! puts these images in the theme's [`IconSet`] over the standard marks.
 
 use kivact::style::IconSet;

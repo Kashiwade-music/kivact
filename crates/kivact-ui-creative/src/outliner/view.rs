@@ -4,29 +4,31 @@ use super::drop_plan::{Placement, Plan, plan_drop};
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
 use crate::{Color, LabelTone};
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::{
-    DragCoordinates, DragPhase, DragUpdate, EditSession, ListSelection, use_drag, use_tree,
+    DragCoordinates, DragPhase, DragUpdate, EditSession, Selection, use_drag, use_tree,
 };
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+
+use kivact::interaction::TreeNode;
+use kivact::state::{Callback, Value, memo, signal};
+use kivact::state::{IntoValue, callback};
+use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, Cursor, Overflow, Position, pct, style};
-use kivact::ui::{EditPhase, TreeNode, tree_rows};
+use kivact::ui::tree_rows;
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{
-    Handled, IntoValue, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
-    callback, node_ref, show,
+    Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View, node_ref, show,
 };
-use kivact::{Callback, Value, memo, signal};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-type CellRenderer = Rc<dyn Fn(Value<TreeItem>) -> View>;
+type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 
-/// A searchable hierarchy on [`Tree`](kivact::interaction::Tree).
+/// A searchable hierarchy on [`Tree`](kivact::interaction::TreeApi).
 /// It retains expansion, rename, restriction flags and drag and drop,
 /// and hosts the application's cells.
 ///
@@ -59,7 +61,7 @@ pub struct Outliner {
     item_drop: Option<Callback<TreeDrop>>,
     active: Value<Option<u64>>,
     reveal_active: Value<bool>,
-    cells: Vec<(f64, CellRenderer)>,
+    cells: Vec<(Value<f64>, CellRenderer)>,
     row_height: Option<Value<f64>>,
 }
 
@@ -158,16 +160,19 @@ impl Outliner {
     /// Non-finite or non-positive widths hide the cell.
     pub fn cell<V: IntoView>(
         mut self,
-        width: f64,
+        width: impl IntoValue<f64>,
         render: impl Fn(Value<TreeItem>) -> V + 'static,
     ) -> Self {
-        let width = if width.is_finite() && width > 0.0 {
-            width
-        } else {
-            0.0
-        };
-        self.cells
-            .push((width, Rc::new(move |item| render(item).into_view())));
+        let width = width.into_value();
+        let width = memo(move || {
+            let width = width.get();
+            if width.is_finite() && width > 0.0 {
+                width
+            } else {
+                0.0
+            }
+        });
+        self.cells.push((width, kivact::view::ViewFn::from(render)));
         self
     }
     /// The height of a row (at least 20). The default is the density's row.
@@ -178,6 +183,7 @@ impl Outliner {
 }
 
 impl NodeBuilder for Outliner {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -206,7 +212,7 @@ impl IntoView for Outliner {
             row_height,
         } = self;
         let data = items;
-        let rename_edit = kivact::ui::use_inline_edit(rename);
+        let rename_edit = kivact::interaction::use_inline_edit(rename);
         let by_id = memo(move || {
             data.with(|items| {
                 items
@@ -227,7 +233,7 @@ impl IntoView for Outliner {
             })
         });
         let has_activation = activation.is_some();
-        let mut tree = use_tree(nodes, expanded, ListSelection::Multiple(selected)).filter(filter);
+        let mut tree = use_tree(nodes, expanded, Selection::Multiple(selected)).filter(filter);
         if let Some(callback) = activation {
             tree = tree.on_activate(move |value| callback.try_call(value));
         }
@@ -242,7 +248,7 @@ impl IntoView for Outliner {
         {
             let mounted = mounted.clone();
             let pressed = pressed.clone();
-            kivact::effect_on(active, move |&target| {
+            kivact::state::effect_on(active, move |&target| {
                 if !reveal_active.get_untracked() {
                     return;
                 }
@@ -323,13 +329,13 @@ impl IntoView for Outliner {
                     },
                 );
                 let cleanup = mounted.clone();
-                kivact::on_cleanup(move || {
+                kivact::state::on_cleanup(move || {
                     let mut rows = cleanup.borrow_mut();
                     if rows.get(&id).is_some_and(|row| row.generation == mount) {
                         rows.remove(&id);
                     }
                 });
-                kivact::on_mount(move || {
+                kivact::state::on_mount(move || {
                     if pending.get() == Some(id) {
                         pending.set(None);
                         reference.scroll_into_view();
@@ -340,8 +346,8 @@ impl IntoView for Outliner {
                     move || !rename_edit.is_open(&id),
                     move || {
                         text(move || item.with(|n| n.label.clone())).style(move || {
-                            let theme = current_theme();
-                            let p = theme.get::<crate::tokens::Tokens>();
+                            let theme = use_theme().get();
+                            let p = theme.ext::<crate::tokens::Tokens>();
                             item.with(|item| {
                                 let color = if item.placeholder && item.tone == LabelTone::Normal {
                                     p.muted
@@ -362,19 +368,23 @@ impl IntoView for Outliner {
                 let edit = show(
                     move || rename_edit.is_open(&id),
                     move || {
-                        rename_edit
-                            .field(
-                                id,
-                                message("creative.outliner.rename", "Rename tree item"),
-                                signal(item.get_untracked().label),
-                                move |name| {
-                                    if let Some(callback) = on_rename {
-                                        callback.call((id, name));
-                                    }
-                                },
+                        node()
+                            .part(
+                                rename_edit
+                                    .field(
+                                        id,
+                                        message("creative.outliner.rename", "Rename tree item"),
+                                        signal(item.get_untracked().label),
+                                    )
+                                    .on_draft_commit(move |name| {
+                                        if let Some(callback) = on_rename {
+                                            callback.call((id, name));
+                                        }
+                                    })
+                                    .return_focus(reference)
+                                    .control(),
                             )
                             .style(style().grow(1).height(22))
-                            .return_focus(reference)
                     },
                 );
                 let context = super::controls::Context {
@@ -393,9 +403,9 @@ impl IntoView for Outliner {
                 };
                 let cells = cells
                     .iter()
-                    .filter(|(width, _)| *width > 0.0)
                     .map(|(width, render)| {
-                        row(render(item))
+                        let width = *width;
+                        row(render.call(item))
                             .on_pointer_default(|_| Handled::Yes)
                             .on_key_default(|event| {
                                 // Enter/Space activate the focused child only after
@@ -406,15 +416,16 @@ impl IntoView for Outliner {
                                     Handled::Yes
                                 }
                             })
-                            .style(
+                            .hidden(move || width.get() <= 0.0)
+                            .style(move || {
                                 style()
                                     .align_items(Align::Center)
                                     .gap(4)
-                                    .width(*width)
+                                    .width(width.get())
                                     .shrink(0)
                                     .min_width(0)
-                                    .overflow(Overflow::Hidden),
-                            )
+                                    .overflow(Overflow::Hidden)
+                            })
                             .into_view()
                     })
                     .collect::<Vec<_>>();
@@ -427,14 +438,14 @@ impl IntoView for Outliner {
                     column(())
                         .hidden(move || mark.get() != Some(at))
                         .style(move || {
-                            let t = &current_theme();
+                            let t = &use_theme().get();
                             let base = style()
                                 .position(Position::Absolute)
                                 .left(0)
                                 .right(0)
                                 .height(2)
                                 .z_index(5)
-                                .background(t.get::<crate::tokens::Tokens>().accent);
+                                .background(t.ext::<crate::tokens::Tokens>().accent);
                             if at == Placement::Before {
                                 base.top(0)
                             } else {
@@ -470,8 +481,8 @@ impl IntoView for Outliner {
                 .node_ref(reference)
                 .checked(move || active.get() == Some(id))
                 .style(move || {
-                    let t = &current_theme();
-                    let p = t.get::<crate::tokens::Tokens>();
+                    let t = &use_theme().get();
+                    let p = t.ext::<crate::tokens::Tokens>();
                     let rest = style()
                         .height(row_height.map_or(p.row, |height| {
                             let height = height.get();
@@ -572,25 +583,30 @@ impl IntoView for Outliner {
                             _ => Handled::No,
                         }
                     })
-                    .part(kivact::primitive::part(|input| input).on_pointer(
-                        move |e: PointerEvent| {
-                            if let PointerPhase::Down(press) = e.phase()
-                                && press.button == MouseButton::Primary
-                            {
-                                pressed.set(Some(id));
-                                if press.clicks == 2 && !has_activation && !rename_edit.is_open(&id)
+                    .part({
+                        let input_part = kivact::custom::part(|input| input);
+                        kivact::custom::Part::new(input_part.state(), move |node| {
+                            node.part(input_part).on_pointer(move |e: PointerEvent| {
+                                if let PointerPhase::Down(press) = e.phase()
+                                    && press.button == MouseButton::Primary
                                 {
-                                    dragger.cancel();
-                                    start_rename();
-                                    return Handled::Yes;
+                                    pressed.set(Some(id));
+                                    if press.clicks == 2
+                                        && !has_activation
+                                        && !rename_edit.is_open(&id)
+                                    {
+                                        dragger.cancel();
+                                        start_rename();
+                                        return Handled::Yes;
+                                    }
                                 }
-                            }
-                            if matches!(e.phase(), PointerPhase::Up(_) | PointerPhase::Cancel) {
-                                released.set(None);
-                            }
-                            Handled::No
-                        },
-                    ));
+                                if matches!(e.phase(), PointerPhase::Up(_) | PointerPhase::Cancel) {
+                                    released.set(None);
+                                }
+                                Handled::No
+                            })
+                        })
+                    });
                 if item_drop.is_some() {
                     body.part(dragger.source(id))
                 } else {

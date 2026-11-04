@@ -7,11 +7,12 @@ use crate::editors::shared::lane::{GRAPH_LANE_WIDTH, graph_lane_y};
 use crate::editors::shared::metrics::{RULER, SIDEBAR};
 use crate::editors::shared::model::Lane;
 use crate::editors::shared::text::label;
-use kivact::Value;
-use kivact::draw::{Draw, Layer, Path, Point, Rect, Size, Stroke};
+use kivact::draw::{Draw, Layer, Path, Stroke};
+use kivact::geometry::{Point, Rect, Size};
+use kivact::state::Value;
 
 fn axes(draw: &mut Draw, space: Space, settings: &Settings) {
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     for vertical in [false, true] {
         let range = if vertical {
             space.view.value
@@ -75,7 +76,7 @@ pub(crate) fn paint(
     lanes: Value<Vec<Lane>>,
 ) {
     let space = Space::new(state.view.get(), size);
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     axes(draw, space, settings);
     let Ok(scene) = state.scene.get() else { return };
     let keys = state.visible.get();
@@ -86,7 +87,7 @@ pub(crate) fn paint(
             Layer::new().clip_rect(Rect::new(
                 0.0,
                 y,
-                (GRAPH_LANE_WIDTH - settings.cells_width).max(0.0),
+                (GRAPH_LANE_WIDTH - settings.cells_width.get()).max(0.0),
                 crate::editors::shared::metrics::KEY_LANE,
             )),
             |draw| label(draw, &lane.label, 8.0, y, 11.0, p.text),

@@ -4,8 +4,8 @@ use crate::editors::graph::gesture::{Snapshot, State, Target};
 use crate::editors::graph::layout::{Space, fit, number, snapped};
 use crate::editors::graph::model::Interpolation;
 use crate::editors::graph::model::{CurveTangent, GraphRequest, GraphView, KeyMove};
-use kivact::Binding;
 use kivact::interaction::ListGesture;
+use kivact::state::Binding;
 
 pub(crate) fn restore(view: Binding<GraphView>, playhead: Binding<f64>, snapshot: Snapshot) {
     match snapshot {

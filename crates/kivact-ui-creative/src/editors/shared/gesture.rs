@@ -1,12 +1,12 @@
 //! Role: One canvas press state and shared drag update, selection and finish order.
 //!
-//! Interaction Drag owns pointer identity, capture and edit commit/cancel. This
+//! Interaction DragApi owns pointer identity, capture and edit commit/cancel. This
 //! state owns only the domain's press decision and opaque drag snapshot.
 use super::selection::merge_marquee;
-use kivact::draw::{Point, Rect};
-use kivact::interaction::{Drag, DragPhase, DragUpdate};
+use kivact::geometry::{Point, Rect};
+use kivact::interaction::{DragApi, DragPhase, DragUpdate};
+use kivact::state::{Signal, signal};
 use kivact::view::{ButtonPress, Modifiers, MouseButton, PointerEvent, PointerPhase};
-use kivact::{Signal, signal};
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -170,7 +170,7 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
     /// `reset(true)` finalizes domain-only work; `reset(false)` cancels it.
     pub(crate) fn install(
         self,
-        drag: Drag<()>,
+        drag: DragApi<()>,
         marquee: impl Fn() -> bool + 'static,
         selection: (
             impl Fn() -> Vec<u64> + 'static,
@@ -183,7 +183,7 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
             impl Fn(T) + 'static,
             impl Fn(bool) + 'static,
         ),
-    ) -> Drag<()> {
+    ) -> DragApi<()> {
         let hooks = Rc::new((marquee, selection, callbacks));
         let updates = hooks.clone();
         drag.on_update(move |update: DragUpdate<()>| self.update(update.pos, &updates.2.0))

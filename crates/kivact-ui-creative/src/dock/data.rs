@@ -2,10 +2,11 @@
 
 use super::geometry::DropTarget;
 use super::model::{DockLayout, DockTabs};
-use kivact::draw::Rect;
-use kivact::ui::{EditPhase, InlineEdit};
-use kivact::view::View;
-use kivact::{Binding, Callback, Signal, Value, Var};
+use kivact::geometry::Rect;
+use kivact::interaction::InlineEditApi;
+use kivact::state::{Binding, Callback, Signal, Value, Var};
+use kivact::view::EditPhase;
+
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -56,7 +57,7 @@ pub(super) struct DockCx<K: 'static> {
     /// The normalized layout.
     pub(super) current: Value<DockLayout<K>>,
     pub(super) drag: Signal<Option<TabDrag<K>>>,
-    pub(super) rename: InlineEdit<K>,
+    pub(super) rename: InlineEditApi<K>,
     pub(super) root: Value<Option<Rect>>,
     pub(super) shared: Var<Rc<Shared<K>>>,
 }
@@ -69,7 +70,7 @@ impl<K: 'static> Clone for DockCx<K> {
 impl<K: 'static> Copy for DockCx<K> {}
 
 /// Builds the menu button of one container.
-pub(super) type MenuBuilder<K> = Rc<dyn Fn(MenuInput<K>) -> View>;
+pub(super) type MenuBuilder<K> = kivact::view::ViewFn<MenuInput<K>>;
 
 /// What a container's menu button reads.
 pub(super) struct MenuInput<K: 'static> {

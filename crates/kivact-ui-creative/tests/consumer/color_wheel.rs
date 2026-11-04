@@ -1,9 +1,9 @@
 //! Role: Color wheel model inputs, accessible targets and edit cancellation.
 use crate::support::clean;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::style::Color;
-use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::EditPhase::{Begin, Commit};
 use kivact::view::{A11yAction, Modifiers};
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
@@ -75,8 +75,8 @@ fn hsv_picker_value_and_alpha_are_independent() {
             color,
             ui::color_wheel(color, signal(ui::ColorModel::Rgb))
                 .wheel_size(200.0)
-                .style(style().width(248))
-                .test_id("picker"),
+                .with_node(move |node| node.style(style().width(248)))
+                .with_node(move |node| node.test_id("picker")),
         )
     });
     let area = screen.get_by_role(Role::Slider, "Saturation and value");

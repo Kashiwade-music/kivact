@@ -3,7 +3,7 @@ use kivact::motion::{Easing, Transition};
 use kivact::style::{Align, Direction, Justify, Style, Theme, TransitionProp, rgba, style};
 
 pub(crate) fn button_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)

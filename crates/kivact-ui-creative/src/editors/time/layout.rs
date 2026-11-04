@@ -2,7 +2,7 @@
 use crate::editors::shared::metrics::{RULER, SIDEBAR};
 use crate::editors::shared::model::Lane;
 use crate::editors::time::model::TimeItem;
-use kivact::draw::{Point, Rect};
+use kivact::geometry::{Point, Rect};
 pub(crate) fn item_rect<T: TimeItem>(
     item: &T,
     lanes: &[Lane],

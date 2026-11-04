@@ -1,18 +1,20 @@
 //! Role: Pie menu of the Creative kit with pointer and keyboard selection.
+use kivact::state::IntoBinding;
 use kivact::ui::button;
 use kivact::view::HandlerResult;
 
-use kivact::draw::{Point, Rect};
+use kivact::geometry::{Point, Rect};
 use kivact::i18n::message;
 use kivact::interaction::use_popup;
-use kivact::prelude::{
-    ColorToken, IntoValue, IntoView, Key, Node, NodeBuilder, Role, column, node, style, text,
-};
-use kivact::primitive::NodeExt;
+use kivact::state::IntoValue;
+use kivact::style::{ColorToken, style};
+use kivact::view::{IntoView, Key, Node, NodeBuilder, Role, column, node, text};
+
+use kivact::state::binding;
+use kivact::state::callback;
 use kivact::style::{Icon, Position};
 use kivact::view::Handled;
-use kivact::view::{ButtonPress, MouseButton, Placement, PointerPhase, callback, overlay_at};
-use kivact::{Binding, binding};
+use kivact::view::{ButtonPress, MouseButton, Placement, PointerPhase, overlay_at};
 
 /// A directional command, in clockwise degrees from the positive horizontal axis.
 #[derive(Clone, Debug, PartialEq)]
@@ -73,14 +75,51 @@ impl PieState {
 /// To implement a held shortcut, open `PieState::open_at(point, true)` on key-down and
 /// commit its `hot` choice on key-up using the same application command callback.
 #[track_caller]
-pub fn pie_menu<R: HandlerResult>(
+pub fn pie_menu(
     entries: impl IntoValue<Vec<PieEntry>>,
-    state: impl Into<Binding<PieState>>,
+    state: impl IntoBinding<PieState>,
+) -> PieMenu {
+    let choose = kivact::state::var(None::<kivact::state::Callback<usize>>);
+    let root = pie_menu_view(entries, state, move |index| {
+        if let Some(choose) = choose.get() {
+            choose.call(index);
+        }
+    });
+    PieMenu { root, choose }
+}
+
+/// A directional popup with an application activation handler.
+pub struct PieMenu {
+    root: Node,
+    choose: kivact::state::Var<Option<kivact::state::Callback<usize>>>,
+}
+impl PieMenu {
+    /// Run the selected directional command.
+    pub fn on_activate<R: HandlerResult>(self, choose: impl Fn(usize) -> R + 'static) -> Self {
+        self.choose.set(Some(callback(choose)));
+        self
+    }
+}
+impl NodeBuilder for PieMenu {
+    #[doc(hidden)]
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+impl IntoView for PieMenu {
+    fn into_view(self) -> kivact::view::View {
+        self.root.into_view()
+    }
+}
+
+fn pie_menu_view<R: HandlerResult>(
+    entries: impl IntoValue<Vec<PieEntry>>,
+    state: impl IntoBinding<PieState>,
     choose: impl Fn(usize) -> R + 'static,
 ) -> Node {
     let choose = callback(choose);
     let entries = entries.into_value();
-    let state = state.into();
+    let state = state.into_binding();
     let current = state.into_value();
     let visible = binding(
         (move || current.get().open).into_value(),
@@ -101,7 +140,7 @@ pub fn pie_menu<R: HandlerResult>(
         value.held = false;
         state.set(value);
     };
-    let layer = kivact::view::show(popup.shown(), move || {
+    let layer = kivact::view::show(popup.is_open(), move || {
         let pointer_entries = entries;
         let key_entries = entries;
         let buttons = kivact::view::for_index(entries, move |index, entry| {
@@ -109,27 +148,31 @@ pub fn pie_menu<R: HandlerResult>(
             let angle = move || entry.with(|entry| entry.angle.to_radians());
             let button = button(move || entry.get().label)
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .icon(kivact::control::icon(move || entry.get().icon))
-                .selected(move || current.get().hot == Some(index));
+                .icon(kivact::view::icon(move || entry.get().icon))
+                .with_node(move |node| node.selected(move || current.get().hot == Some(index)));
             button
-                .style(move || {
-                    style()
-                        .position(Position::Absolute)
-                        .left(160.0 + angle().cos() * 104.0 - 48.0)
-                        .top(160.0 + angle().sin() * 104.0 - 18.0)
-                        .size(96, 36)
+                .with_node(move |node| {
+                    node.style(move || {
+                        style()
+                            .position(Position::Absolute)
+                            .left(160.0 + angle().cos() * 104.0 - 48.0)
+                            .top(160.0 + angle().sin() * 104.0 - 18.0)
+                            .size(96, 36)
+                    })
                 })
-                .on_pointer_default(move |event| {
-                    if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
-                        let mut next = current.get();
-                        next.pointer(event.window_pos(), &button_entries.get());
-                        state.set(next);
-                    }
-                    if matches!(event.phase(), PointerPhase::Down(_)) {
-                        Handled::Yes
-                    } else {
-                        Handled::No
-                    }
+                .with_node(move |node| {
+                    node.on_pointer_default(move |event| {
+                        if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
+                            let mut next = current.get();
+                            next.pointer(event.window_pos(), &button_entries.get());
+                            state.set(next);
+                        }
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
+                            Handled::Yes
+                        } else {
+                            Handled::No
+                        }
+                    })
                 })
                 .on_press(move || choose(index))
                 .into_view()
@@ -177,7 +220,8 @@ pub fn pie_menu<R: HandlerResult>(
                     Handled::No
                 }),
         )
-        .part(popup.content().role(Role::Menu))
+        .part(popup.content())
+        .role(Role::Menu)
         .name(message("creative.pie.name", "Shading pie"))
         .focusable(true)
         .on_key_default(move |event| {

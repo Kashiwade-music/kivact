@@ -1,5 +1,5 @@
 //! Role: Finite plot coordinates shared by curve painting and hit regions.
-use kivact::draw::{Point, Rect, Size};
+use kivact::geometry::{Point, Rect, Size};
 #[derive(Clone, Copy)]
 pub(crate) struct Plane {
     pub(crate) rect: Rect,

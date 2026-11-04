@@ -1,6 +1,7 @@
 //! Role: Data models of the node editor: sockets, nodes, controls and links.
 
-use kivact::draw::{Pixels, Point, Size};
+use kivact::draw::Pixels;
+use kivact::geometry::{Point, Size};
 use kivact::style::{Color, rgb};
 
 /// A labeled typed socket. Its index in the node's list is its identity.

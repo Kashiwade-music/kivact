@@ -2,11 +2,13 @@
 use crate::Color;
 use crate::editors::node::gesture::{NodeMode, State};
 use crate::editors::node::model::{NodeControlValue, NodeRequest};
-use kivact::binding;
-use kivact::control::{NodeBuilder, column, node};
-use kivact::primitive::NodeExt;
+use kivact::state::IntoValue;
+use kivact::state::binding;
+use kivact::view::NodeBuilder;
+use kivact::view::{column, node};
+
 use kivact::style::{ColorToken, style};
-use kivact::view::{IntoValue, IntoView, Placement, Role, overlay_at};
+use kivact::view::{IntoView, Placement, Role, overlay_at};
 
 pub(super) fn popup(state: State) -> impl IntoView {
     let data = state.data();
@@ -25,7 +27,7 @@ pub(super) fn popup(state: State) -> impl IntoView {
         },
     );
     let popup = kivact::interaction::use_popup(visible);
-    kivact::view::show(popup.shown(), move || {
+    kivact::view::show(popup.is_open(), move || {
         let (id, index, point) = state
             .mode
             .with_untracked(|mode| match mode {
@@ -66,12 +68,15 @@ pub(super) fn popup(state: State) -> impl IntoView {
                     },
                 ),
             )
-            .range(min, max)
+            .range(
+                kivact::interaction::ScalarRange::new(min, max)
+                    .expect("invariant: finite ordered control range"),
+            )
             .step(step)
             .precision(3)
             .on_edit(move |phase| state.control_phase(id, index, phase))
-            .disabled(state.blocked)
-            .style(style().width(190))
+            .with_node(move |node| node.disabled(state.blocked))
+            .with_node(move |node| node.style(style().width(190)))
             .into_view(),
             Some((_, NodeControlValue::Choice { options, selected })) => column(
                 options
@@ -80,9 +85,9 @@ pub(super) fn popup(state: State) -> impl IntoView {
                     .map(|(choice, label)| {
                         kivact::ui::button(label)
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .role(Role::Option)
-                            .selected(choice == selected)
-                            .disabled(state.blocked)
+                            .with_node(move |node| node.role(Role::Option))
+                            .with_node(move |node| node.selected(choice == selected))
+                            .with_node(move |node| node.disabled(state.blocked))
                             .on_press(move || {
                                 if state.busy() {
                                     return;

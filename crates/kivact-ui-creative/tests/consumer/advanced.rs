@@ -3,9 +3,9 @@
 use crate::arrangement_model::arrangement as app_arrangement;
 use crate::support::clean;
 use crate::table_rows::{line, lines};
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
+
 use kivact::view::{A11yAction, Handled, KeyCode, Modifiers, MouseButton};
 use kivact_ui_creative as ui;
 use std::time::Duration;
@@ -94,7 +94,7 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
                     column((
                         text("Retained settings"),
                         kivact::ui::text_input("Window text", signal(String::new()))
-                            .value_text("Settings"),
+                            .with_node(move |node| node.value_text("Settings")),
                     ))
                     .into_view()
                 }),
@@ -277,7 +277,7 @@ fn color_popup_escape_rolls_back_while_outside_and_accessibility_dismissal_commi
     let committed = color.get_untracked();
     screen
         .get_by_role(Role::Dialog, "Edit color")
-        .a11y(A11yAction::Dismiss);
+        .a11y(A11yAction::DismissOn);
     assert_eq!(color.get_untracked(), committed);
     let next = rgb(0x446688);
     color.set(next);
@@ -307,9 +307,9 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
             ];
             (
                 (state, chosen),
-                column((ui::pie_menu(entries, state, move |index| {
-                    chosen.set(Some(index))
-                }),))
+                column((
+                    ui::pie_menu(entries, state).on_activate(move |index| chosen.set(Some(index))),
+                ))
                 .role(Role::Group)
                 .name("Pie host")
                 .focusable(true)
@@ -372,7 +372,10 @@ fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_conten
             (
                 (panels, value),
                 ui::panel_group(panels, move |_| {
-                    ui::number("Retained", value).range(0.0, 10.0)
+                    ui::number("Retained", value).range(
+                        kivact::interaction::ScalarRange::new(0.0, 10.0)
+                            .expect("invariant: finite ordered control range"),
+                    )
                 }),
             )
         });
@@ -497,9 +500,11 @@ fn viewport_surface_forwards_application_image_coordinates() {
                     offset: Point::new(10.0, 20.0),
                     scale: 2.0,
                 }))
-                .on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
-                .style(style().size(300, 200))
-                .test_id("viewport"),
+                .with_node(move |node| {
+                    node.on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
+                })
+                .with_node(move |node| node.style(style().size(300, 200)))
+                .with_node(move |node| node.test_id("viewport")),
         )
     });
     screen.get_by_test_id("viewport").hover();

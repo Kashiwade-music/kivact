@@ -1,11 +1,12 @@
 //! Role: Gradient model writes and one shared edit transaction.
 use super::data::{GradientStop, position_value};
 use crate::editors::shared::owned_edit::OwnedEdit;
-use kivact::interaction::Drag;
+use kivact::interaction::DragApi;
+use kivact::state::IntoValue;
+
+use kivact::state::{Binding, Callback, Signal, Value, Var, signal, var};
 use kivact::style::Color;
-use kivact::ui::EditPhase;
-use kivact::view::IntoValue;
-use kivact::{Binding, Callback, Signal, Value, Var, signal, var};
+use kivact::view::EditPhase;
 /// Who began the active edit of the shared session.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum GradientOwner {
@@ -25,7 +26,7 @@ pub(super) struct State {
     pub(super) selection: Binding<Option<usize>>,
     pub(super) edit: OwnedEdit<GradientOwner, Snapshot>,
     /// The ramp's drag of a stop, once the ramp made it.
-    pub(super) drag: Var<Option<Drag<usize>>>,
+    pub(super) drag: Var<Option<DragApi<usize>>>,
     pub(super) blocked: Signal<bool>,
     pub(super) valid: Value<bool>,
 }

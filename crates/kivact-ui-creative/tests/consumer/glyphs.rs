@@ -2,7 +2,7 @@
 
 use crate::support::clean;
 use crate::time_support::app_dope_sheet;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact_ui_creative as ui;

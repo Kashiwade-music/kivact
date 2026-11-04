@@ -1,5 +1,5 @@
 //! Role: Cubic easing control-point values and their finite normalization.
-use kivact::draw::Point;
+use kivact::geometry::Point;
 /// A cubic easing curve with fixed endpoints (0, 0) and (1, 1).
 /// X controls are clamped to 0..=1; finite Y controls may overshoot that range.
 #[derive(Clone, Copy, Debug, PartialEq)]

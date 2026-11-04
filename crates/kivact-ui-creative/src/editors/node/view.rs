@@ -7,16 +7,16 @@ use crate::editors::node::input::{key, pointer};
 use crate::editors::node::model::{NodeData, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
 use crate::editors::shared::targets::{self};
-use kivact::control::{Node, NodeBuilder, node};
+use kivact::custom::part;
+use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_zoom_pan};
-use kivact::primitive::{NodeExt, NodeRefExt, part};
+use kivact::state::{Callback, Value, effect, memo, signal};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
-use kivact::ui::{EditPhase, ListItem};
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
-use kivact::view::{
-    A11yAction, A11yRequest, Handled, IntoValue, IntoView, Role, View, callback, node_ref,
-};
-use kivact::{Callback, Value, effect, memo, signal};
+use kivact::view::{A11yAction, A11yRequest, Handled, IntoView, Role, View, node_ref};
+use kivact::view::{Node, NodeBuilder, node};
 
 /// An editor for typed nodes, sockets, controls and links.
 pub struct NodeEditor {
@@ -85,6 +85,7 @@ impl NodeEditor {
 }
 
 impl NodeBuilder for NodeEditor {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -108,7 +109,7 @@ impl IntoView for NodeEditor {
         } = self;
         let data = nodes.into_value();
         let edges = links.into_value();
-        let order = kivact::memo(move || {
+        let order = kivact::state::memo(move || {
             data.get()
                 .into_iter()
                 .map(|n| ListItem::new(n.id, n.label))
@@ -134,7 +135,12 @@ impl IntoView for NodeEditor {
             DragMode,
         >::new();
         let bounds = memo(move || crate::editors::node::layout::bounds(&data.get()));
-        let root_part = part(|input| input).region_events();
+        let root_part = {
+            let input_part = part(|input| input);
+            kivact::custom::Part::new(input_part.state(), move |node| {
+                node.part(input_part).region_events()
+            })
+        };
         let input = root_part.state();
         let blocked = memo(move || {
             let input = input.get();
@@ -154,7 +160,7 @@ impl IntoView for NodeEditor {
         let zoom = use_zoom_pan(transform)
             .content(bounds)
             .on_edit(move |phase| pan_observer.try_call(phase));
-        let (armed, gesturing) = (zoom.space_armed(), zoom.is_gesturing());
+        let (armed, gesturing) = (zoom.is_space_armed(), zoom.is_gesturing());
         // A gesture begins its edit at its first change. The view pans
         // instead while Space is held or a pan runs.
         let gesture = use_drag::<()>(DragCoordinates::Local)
@@ -182,7 +188,7 @@ impl IntoView for NodeEditor {
             zoom,
         };
         let gesture = crate::editors::node::input::drag(state);
-        let infos = kivact::memo(move || {
+        let infos = kivact::state::memo(move || {
             semantic(
                 data.get(),
                 edges.get(),
@@ -240,62 +246,89 @@ impl IntoView for NodeEditor {
                     let initial = info.get_untracked();
                     let target = initial.target;
                     // A press on a region drags from there.
-                    let mut control = part(|input| input)
-                        .focusable(true)
-                        .role(initial.role)
-                        .name(move || info.get().name)
-                        .value_text(move || info.get().value)
-                        .with(gesture.source(()));
+                    let mut control = {
+                        let input_part = part(|input| input);
+                        kivact::custom::Part::new(input_part.state(), move |node| {
+                            node.part(input_part)
+                                .focusable(true)
+                                .role(initial.role)
+                                .name(move || info.get().name)
+                                .value_text(move || info.get().value)
+                                .part(gesture.source(()))
+                        })
+                    };
                     if initial.range.is_some() {
-                        control = control
-                            .value_min(move || info.get().range.map_or(0.0, |v| v.0))
-                            .value_max(move || info.get().range.map_or(0.0, |v| v.1))
-                            .value_now(move || info.get().range.map_or(0.0, |v| v.2));
+                        control = kivact::custom::Part::new(control.state(), move |node| {
+                            node.part(control)
+                                .value_min(move || info.get().range.map_or(0.0, |v| v.0))
+                                .value_max(move || info.get().range.map_or(0.0, |v| v.1))
+                                .value_now(move || info.get().range.map_or(0.0, |v| v.2))
+                        });
                     }
                     if initial.checked.is_some() {
-                        control = control.checked(move || info.get().checked.unwrap_or(false));
+                        control = kivact::custom::Part::new(control.state(), move |node| {
+                            node.part(control)
+                                .checked(move || info.get().checked.unwrap_or(false))
+                        });
                     }
                     if matches!(target, Target::Link(..)) {
-                        control = control.selected(move || info.get().selected);
+                        control = kivact::custom::Part::new(control.state(), move |node| {
+                            node.part(control).selected(move || info.get().selected)
+                        });
                     }
                     if matches!(
                         target,
                         Target::Socket(..) | Target::Control(_, _, ControlKind::Choice)
                     ) {
-                        return control.on_a11y_event(A11yAction::Activate, move |_| {
-                            state.invoke(target, false)
+                        return kivact::custom::Part::new(control.state(), move |node| {
+                            node.part(control)
+                                .a11y_action(A11yAction::Activate, move |_| {
+                                    state.invoke(target, false)
+                                })
                         });
                     }
                     match (initial.role, initial.checked.is_some()) {
-                        (Role::SpinButton, _) => control
-                            .on_a11y_event(A11yAction::SetValue, move |event| {
-                                if let Target::Control(id, index, _) = target
-                                    && let A11yRequest::SetValue(text) = event.request
-                                    && let Some(value) = text.parse().ok()
-                                {
-                                    state.change(id, index, Some(value), 0.0);
-                                }
+                        (Role::SpinButton, _) => {
+                            kivact::custom::Part::new(control.state(), move |node| {
+                                node.part(control)
+                                    .a11y_action(A11yAction::SetValue, move |event| {
+                                        if let Target::Control(id, index, _) = target
+                                            && let A11yRequest::SetValue(text) = event.request
+                                            && let Some(value) = text.parse().ok()
+                                        {
+                                            state.change(id, index, Some(value), 0.0);
+                                        }
+                                    })
+                                    .a11y_action(A11yAction::Increment, move |_| {
+                                        if let Target::Control(id, index, _) = target {
+                                            state.change(id, index, None, 1.0);
+                                        }
+                                    })
+                                    .a11y_action(A11yAction::Decrement, move |_| {
+                                        if let Target::Control(id, index, _) = target {
+                                            state.change(id, index, None, -1.0);
+                                        }
+                                    })
                             })
-                            .on_a11y_event(A11yAction::Increment, move |_| {
-                                if let Target::Control(id, index, _) = target {
-                                    state.change(id, index, None, 1.0);
-                                }
-                            })
-                            .on_a11y_event(A11yAction::Decrement, move |_| {
-                                if let Target::Control(id, index, _) = target {
-                                    state.change(id, index, None, -1.0);
-                                }
-                            }),
-                        (_, true) => control
-                            .on_a11y_event(A11yAction::Toggle, move |_| state.invoke(target, false))
-                            .on_a11y_event(A11yAction::Activate, move |_| {
-                                state.invoke(target, false)
-                            }),
-                        _ => control
-                            .on_a11y_event(A11yAction::Activate, move |_| {
-                                state.invoke(target, false)
-                            })
-                            .on_a11y_event(A11yAction::Select, move |_| state.invoke(target, true)),
+                        }
+                        (_, true) => kivact::custom::Part::new(control.state(), move |node| {
+                            node.part(control)
+                                .a11y_action(A11yAction::Toggle, move |_| {
+                                    state.invoke(target, false)
+                                })
+                                .a11y_action(A11yAction::Activate, move |_| {
+                                    state.invoke(target, false)
+                                })
+                        }),
+                        _ => kivact::custom::Part::new(control.state(), move |node| {
+                            node.part(control)
+                                .a11y_action(A11yAction::Activate, move |_| {
+                                    state.invoke(target, false)
+                                })
+                                .a11y_action(A11yAction::Select, move |_| {
+                                    state.invoke(target, true)
+                                })
+                        }),
                     }
                 },
             );
@@ -311,11 +344,14 @@ impl IntoView for NodeEditor {
             });
         root.part(gesture.source(()))
             // After the drag's sources, which take Escape during a drag.
-            .part(
-                part(|input| input)
-                    .region_events()
-                    .on_key(move |event| key(state, event)),
-            )
+            .part({
+                let input_part = part(|input| input);
+                kivact::custom::Part::new(input_part.state(), move |node| {
+                    node.part(input_part)
+                        .region_events()
+                        .on_key(move |event| key(state, event))
+                })
+            })
             .part(zoom.viewport())
             .child(crate::editors::node::parameters::popup(state))
             .into_view()

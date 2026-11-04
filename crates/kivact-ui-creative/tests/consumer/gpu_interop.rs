@@ -83,7 +83,7 @@ impl Surface {
                 ui::viewport_surface(move || pixels.pixels())
                     .gpu_frame(move || frame.frame())
                     .pixelated(true)
-                    .style(style().size(W, H)),
+                    .with_node(move |node| node.style(style().size(W, H))),
             )
         });
         Surface {

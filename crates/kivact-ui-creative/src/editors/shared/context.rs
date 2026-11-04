@@ -1,8 +1,8 @@
 //! Role: Shared domain snapshots for editor pointer, key and assistive menus.
 use crate::editors::shared::model::EditorContext;
 use crate::editors::shared::targets::Scene;
-use kivact::Signal;
 use kivact::draw::RegionId;
+use kivact::state::Signal;
 use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase};
 use std::hash::Hash;
 

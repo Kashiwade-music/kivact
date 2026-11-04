@@ -1,8 +1,8 @@
 //! Role: Transaction ownership and selective restoration for time editors.
 use crate::editors::time::gesture::{Snapshot, State};
 use crate::editors::time::model::TimeItem;
-use kivact::Binding;
-use kivact::draw::Point;
+use kivact::geometry::Point;
+use kivact::state::Binding;
 pub(crate) fn restore(
     playhead: Binding<f64>,
     zoom: Binding<f64>,
@@ -94,6 +94,6 @@ impl<T: TimeItem> State<T> {
             / self
                 .scale
                 .get_untracked()
-                .clamp(self.bounds.0, self.bounds.1)
+                .clamp(self.bounds.get().min(), self.bounds.get().max())
     }
 }

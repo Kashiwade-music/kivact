@@ -10,14 +10,16 @@ use crate::editors::time::gesture::{State, Target};
 use crate::editors::time::input::{key, pointer, wheel};
 use crate::editors::time::layout::lane_rect;
 use crate::editors::time::model::TimeItem;
-use kivact::control::{Node, node};
+use kivact::custom::part;
+use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag};
-use kivact::prelude::NodeBuilder;
-use kivact::primitive::{NodeExt, NodeRefExt, part};
+use kivact::state::{Callback, Value};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
-use kivact::ui::{EditPhase, ListItem};
-use kivact::view::{A11yAction, IntoValue, IntoView, MouseButton, Role, View, callback, node_ref};
-use kivact::{Callback, Value};
+use kivact::view::EditPhase;
+
+use kivact::view::{A11yAction, IntoView, MouseButton, Role, View, node_ref};
+use kivact::view::{Node, node};
 
 pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) root: Node,
@@ -87,7 +89,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
         let min_duration = ruler.min_duration;
         let selection = selected.into_value();
         let source = items.into_value();
-        let data = kivact::memo(move || {
+        let data = kivact::state::memo(move || {
             source
                 .get()
                 .into_iter()
@@ -97,7 +99,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
         let scale = zoom.into_value();
         let offset = pan.into_value();
         let _frame = playhead.into_value();
-        let visible = kivact::memo(move || {
+        let visible = kivact::state::memo(move || {
             if let Some(lanes) = lanes {
                 return lanes.get();
             }
@@ -109,7 +111,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             }
             result
         });
-        let order = kivact::memo(move || {
+        let order = kivact::state::memo(move || {
             data.get()
                 .into_iter()
                 .filter(|item| {
@@ -137,12 +139,14 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             }
             Ok(targets)
         });
-        let cells_width = extensions
-            .cells
-            .iter()
-            .map(|(width, _)| *width)
-            .sum::<f64>()
-            .min(SIDEBAR);
+        let cell_widths: Vec<_> = extensions.cells.iter().map(|(width, _)| *width).collect();
+        let cells_width = kivact::state::memo(move || {
+            cell_widths
+                .iter()
+                .map(|width| width.get())
+                .sum::<f64>()
+                .min(SIDEBAR)
+        });
         let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
             visible,
             &extensions,
@@ -198,9 +202,9 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             bounds,
             min_duration,
             lane_height,
-            active: kivact::signal(None),
+            active: kivact::state::signal(None),
             child_focus,
-            context: kivact::signal(EditorContext {
+            context: kivact::state::signal(EditorContext {
                 item: None,
                 lane: None,
                 time: playhead.get_untracked(),
@@ -214,7 +218,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
         let gesture = crate::editors::time::input::drag(state);
         let reference = node_ref();
         let focus = reference.focus_within();
-        kivact::effect(move || {
+        kivact::state::effect(move || {
             let focused = focus.get();
             let visible = reference.is_visible();
             let items = state.data.get();
@@ -242,29 +246,34 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                     "{} items; {} selected; zoom {:.0}%",
                     data.with(Vec::len),
                     selection.with(Vec::len),
-                    scale.get().clamp(bounds.0, bounds.1) * 100.0
+                    scale.get().clamp(bounds.get().min(), bounds.get().max()) * 100.0
                 )
             })
-            .draw(move |draw, size| super::paint::paint(draw, size, state, &ruler, cells_width))
+            .draw(move |draw, size| {
+                super::paint::paint(draw, size, state, &ruler, cells_width.get())
+            })
             .on_pointer(move |event| state.context_pointer(event))
             .on_key(move |event| state.context_key(&event))
             .on_pointer_default(move |event| pointer(state, event))
             .on_wheel_default(move |event| wheel(state, event))
             .part(gesture.source(()))
             // After the drag's sources, which take Escape during a drag.
-            .part(
-                part(|input| input)
-                    .region_events()
-                    .on_key(move |event| key(state, event)),
-            );
+            .part({
+                let input_part = part(|input| input);
+                kivact::custom::Part::new(input_part.state(), move |node| {
+                    node.part(input_part)
+                        .region_events()
+                        .on_key(move |event| key(state, event))
+                })
+            });
         match extensions.menu {
-            Some(menu) => menu(
-                root.on_a11y_event(A11yAction::ShowMenu, move |event| {
+            Some(menu) => menu.call((
+                root.a11y_action(A11yAction::ShowMenu, move |event| {
                     state.cancel();
                     state.context_request(event.region);
                 }),
                 state.context.into_value(),
-            ),
+            )),
             None => root.into_view(),
         }
     }

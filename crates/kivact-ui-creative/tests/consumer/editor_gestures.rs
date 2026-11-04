@@ -4,7 +4,7 @@ use crate::graph_support::app_graph;
 use crate::node_support::app_node_editor;
 use crate::support::clean;
 use crate::time_support::{app_dope_sheet, app_timeline};
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::interaction::ViewTransform;
 use kivact::prelude::*;
 use kivact::test::Screen;

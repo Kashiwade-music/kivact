@@ -1,5 +1,5 @@
 //! Role: Application-owned bindings for this component view state.
-use kivact::{Binding, signal};
+use kivact::state::{Binding, signal};
 /// The values a [`mixer_strip`](crate::mixer_strip) edits.
 #[derive(Clone, Copy)]
 pub struct ChannelState {

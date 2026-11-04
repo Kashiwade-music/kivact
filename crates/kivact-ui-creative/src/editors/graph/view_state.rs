@@ -1,6 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::graph::model::GraphView;
-use kivact::{Binding, signal};
+use kivact::state::{Binding, signal};
 /// The view state of a [`graph_editor`](crate::editors::graph).
 #[derive(Clone, Copy)]
 pub struct GraphState {

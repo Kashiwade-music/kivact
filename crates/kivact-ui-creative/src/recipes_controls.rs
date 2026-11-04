@@ -1,12 +1,13 @@
 //! Role: Creative appearance of the standard radio group, slider, toasts and splitter.
 use crate::Color;
-use crate::feedback::ToneExt;
-use kivact::draw::{Rect, Shadow, Size};
+
+use kivact::custom::PartState;
+use kivact::draw::Shadow;
+use kivact::geometry::{Rect, Size};
 use kivact::interaction::DisclosureState;
 use kivact::interaction::ToastState;
-use kivact::primitive::PartState;
 use kivact::style::{Align, Cursor, Direction, Justify, Position, Style, Theme, pct, rgba, style};
-use kivact::ui::{AxisState, CheckState, RadioGroupRecipes, SliderRecipes};
+use kivact::ui::{AxisState, CheckableState, RadioGroupRecipes, SliderRecipes};
 use kivact::ui::{
     DisclosureRecipes, Look, ProgressRecipes, ProgressState, SplitterRecipes, ToastRecipes,
 };
@@ -20,7 +21,7 @@ pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
         .item(|_| radio_item)
         .indicator(|_| radio_indicator)
         .description(|_| {
-            |_: &Theme, _: &Look<CheckState>| style().font_size(10.5).color(Color::Muted)
+            |_: &Theme, _: &Look<CheckableState>| style().font_size(10.5).color(Color::Muted)
         })
 }
 fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
@@ -34,7 +35,7 @@ fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
     }
 }
 /// A radio row: the indicator beside the label.
-fn radio_item(t: &Theme, state: &Look<CheckState>) -> Style {
+fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
     if state.variant::<Segmented>().is_some() {
         return crate::control_style::segmented_option_style(t);
     }
@@ -42,12 +43,12 @@ fn radio_item(t: &Theme, state: &Look<CheckState>) -> Style {
 }
 /// The 14 px disc of an option: the accent around the theme's `dot`, in the
 /// accent's ink, while chosen.
-fn radio_indicator(t: &Theme, s: &Look<CheckState>) -> Style {
+fn radio_indicator(t: &Theme, s: &Look<CheckableState>) -> Style {
     if s.variant::<Segmented>().is_some() {
         // A segment shows its choice by its fill, without a disc.
         return style().position(Position::Absolute).size(0, 0).clip(true);
     }
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let on = s.checked.is_checked();
     style()
         .size(14, 14)
@@ -77,7 +78,7 @@ fn bar(size: Size) -> Rect {
     }
 }
 fn slider_track(t: &Theme, s: &Look<AxisState>) -> Style {
-    let color = t.get::<Tokens>().strong;
+    let color = t.ext::<Tokens>().strong;
     let base = style()
         .shrink(0)
         .cursor(Cursor::EwResize)
@@ -88,7 +89,7 @@ fn slider_track(t: &Theme, s: &Look<AxisState>) -> Style {
     }
 }
 fn slider_range(t: &Theme, _: &Look<AxisState>) -> Style {
-    let color = t.get::<Tokens>().accent;
+    let color = t.ext::<Tokens>().accent;
     style().paint(move |d, size| {
         if size.width > 0.0 && size.height > 0.0 {
             d.rounded_rect(bar(size), BAR / 2.0, color);
@@ -100,7 +101,7 @@ fn slider_thumb(t: &Theme, _: &Look<AxisState>) -> Style {
     style()
         .size(THUMB, THUMB)
         .radius(THUMB / 2.0)
-        .background(t.get::<Tokens>().text_high)
+        .background(t.ext::<Tokens>().text_high)
 }
 
 pub(crate) fn toast(r: ToastRecipes) -> ToastRecipes {
@@ -124,7 +125,7 @@ fn toast_region(_: &Theme, _: &Look<PartState>) -> Style {
 }
 /// A glass card edged in the tone's color.
 fn toast_card(t: &Theme, s: &Look<ToastState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let color = s.tone.color(&p);
     style()
         .direction(Direction::Row)
@@ -143,7 +144,7 @@ fn toast_card(t: &Theme, s: &Look<ToastState>) -> Style {
 /// The square close button around the theme's `x`, like a toolbar action.
 fn toast_close(t: &Theme, _: &Look<ToastState>) -> Style {
     crate::controls::button_style(t)
-        .width(t.get::<Tokens>().row)
+        .width(t.ext::<Tokens>().row)
         .padding(0)
 }
 
@@ -197,7 +198,7 @@ fn progress_fill(_: &Theme, look: &Look<ProgressState>) -> Style {
             d.rounded_rect(
                 Rect::new(x, 0.0, width, size.height),
                 4.0,
-                d.theme().get::<Tokens>().accent,
+                d.theme().ext::<Tokens>().accent,
             );
         })
 }

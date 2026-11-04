@@ -3,11 +3,12 @@ use crate::editors::node::gesture::Target;
 use crate::editors::node::gesture::{DragMode, NodeMode, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink, NodeRequest};
-use kivact::Value;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::interaction::ListGesture;
-use kivact::ui::EditPhase;
-use kivact::view::IntoValue;
+use kivact::state::IntoValue;
+
+use kivact::state::Value;
+use kivact::view::EditPhase;
 
 pub(crate) fn same_slot(a: &NodeControl, b: &NodeControl) -> bool {
     if a.label != b.label || a.offset != b.offset {

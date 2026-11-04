@@ -2,8 +2,9 @@
 use crate::Clip;
 use crate::editors::arrangement::model::{TimelineTrack, TrackFlag};
 use crate::editors::shared::targets::{self, Scene};
+use kivact::UiError;
 use kivact::draw::RegionId;
-use kivact::{UiError, Value};
+use kivact::state::Value;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -73,5 +74,5 @@ pub(crate) fn create(
         }
         Ok::<_, UiError>(targets)
     });
-    kivact::memo(move || Regions(scene.get().ok()))
+    kivact::state::memo(move || Regions(scene.get().ok()))
 }

@@ -1,20 +1,20 @@
 //! Role: Display application pixels with shared transforms and semantic regions.
 
 use crate::editors::shared::targets;
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::draw::{Draw, ImageOptions, Layer, Pixels, Point, Rect, RegionId, Size, Transform};
+use kivact::custom::part;
+use kivact::draw::{Draw, ImageOptions, Layer, Pixels, RegionId, Transform};
+use kivact::geometry::{Point, Rect, Size};
 #[cfg(feature = "gpu-interop")]
 use kivact::gpu_interop::GpuFrame;
 use kivact::interaction::{ViewTransform, use_zoom_pan};
-use kivact::primitive::{NodeExt, part};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, Callback, Value};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
-use kivact::view::{
-    Handled, IntoValue, IntoView, Modifiers, PointerId, PointerPhase, Role, View, callback,
-    node_ref,
-};
-use kivact::{Binding, Callback, Value};
+use kivact::view::{Handled, IntoView, Modifiers, PointerId, PointerPhase, Role, View, node_ref};
+use kivact::view::{Node, NodeBuilder, node};
 use std::rc::Rc;
 
 /// The display area in logical and physical pixels.
@@ -120,8 +120,8 @@ impl ViewportSurface {
         self
     }
     /// Bind shared zoom/pan. Without a binding, the image always fits the surface.
-    pub fn transform(mut self, transform: impl Into<Binding<ViewTransform>>) -> Self {
-        self.transform = Some(transform.into());
+    pub fn transform(mut self, transform: impl IntoBinding<ViewTransform>) -> Self {
+        self.transform = Some(transform.into_binding());
         self
     }
     pub fn on_resize<R: HandlerResult>(mut self, f: impl Fn(SurfaceSize) -> R + 'static) -> Self {
@@ -176,7 +176,7 @@ impl ViewportSurface {
     /// is the size to ask for.
     ///
     /// ```ignore
-    /// use kivact::gpu_interop::shared_image;
+    /// use kivact::gpu_interop::{shared_image};
     /// use kivact_ui_creative::viewport_surface;
     ///
     /// let image = shared_image(1280, 720);
@@ -192,6 +192,7 @@ impl ViewportSurface {
     }
 }
 impl NodeBuilder for ViewportSurface {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -222,7 +223,7 @@ impl IntoView for ViewportSurface {
         let rect = reference.rect();
         // Whether the window's GPU device can import: only then a frame shows.
         #[cfg(feature = "gpu-interop")]
-        let gpu = kivact::memo(|| kivact::gpu_interop::adapter().is_some());
+        let gpu = kivact::state::memo(|| kivact::gpu_interop::adapter().is_some());
         let shown = move || -> Option<Shown> {
             #[cfg(feature = "gpu-interop")]
             if let Some(frame) = gpu_frame.get().filter(|_| gpu.get()) {
@@ -231,10 +232,10 @@ impl IntoView for ViewportSurface {
             image.get().map(Shown::Pixels)
         };
         let content =
-            kivact::memo(move || shown().map_or(Size::new(0.0, 0.0), |shown| shown.size()));
+            kivact::state::memo(move || shown().map_or(Size::new(0.0, 0.0), |shown| shown.size()));
         let view = match transform {
             Some(transform) => transform.into_value(),
-            None => kivact::memo(move || {
+            None => kivact::state::memo(move || {
                 ViewTransform::fit(
                     content.get(),
                     rect.get()
@@ -243,12 +244,12 @@ impl IntoView for ViewportSurface {
             }),
         };
         // Var reads are untracked, so this cache does not subscribe the effect.
-        let previous = kivact::var(None::<SurfaceSize>);
-        kivact::effect(move || {
+        let previous = kivact::state::var(None::<SurfaceSize>);
+        kivact::state::effect(move || {
             let Some(rect) = rect.get() else {
                 return;
             };
-            let scale_factor = kivact::platform::scale_factor();
+            let scale_factor = kivact::platform::scale_factor().get();
             let size = SurfaceSize {
                 logical: Size::new(rect.width, rect.height),
                 scale_factor,
@@ -265,7 +266,7 @@ impl IntoView for ViewportSurface {
         let scene = targets::targets(move || {
             Ok(regions.get().into_iter().map(|r| (r.id, r.role)).collect())
         });
-        let semantics = kivact::memo(move || {
+        let semantics = kivact::state::memo(move || {
             scene.with(|scene| match scene {
                 Ok(scene) => regions
                     .get()
@@ -286,9 +287,14 @@ impl IntoView for ViewportSurface {
                 |r| r.id,
                 move |_, data| {
                     let role = data.get_untracked().data.role;
-                    part(|input| input)
-                        .role(role)
-                        .name(move || data.get().data.name)
+                    {
+                        let input_part = part(|input| input);
+                        kivact::custom::Part::new(input_part.state(), move |node| {
+                            node.part(input_part)
+                                .role(role)
+                                .name(move || data.get().data.name)
+                        })
+                    }
                 },
             )
             .on_pointer_default(move |event| {

@@ -1,19 +1,21 @@
 //! Role: Inspector panel groups with peer collapse and reordering.
 
 use crate::Color;
-use kivact::control::icon;
-use kivact::draw::Rect;
+use kivact::geometry::Rect;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_disclosure, use_drag};
-use kivact::prelude::{
-    ColorToken, IntoValue, IntoView, Node, NodeBuilder, Role, Value, column, memo, node, node_ref,
-    row, signal, style, text,
-};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, current_theme};
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::state::{Value, memo, signal};
+use kivact::style::{ColorToken, style};
+use kivact::view::NodeBuilder;
+use kivact::view::icon;
+use kivact::view::{IntoView, Role, column, node, node_ref, row, text};
+
+use kivact::state::binding;
+use kivact::style::{Align, use_theme};
 use kivact::view::A11yAction;
 use kivact::view::for_each;
-use kivact::{Binding, binding};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -51,17 +53,17 @@ impl InspectorPanel {
 /// leaves only that panel open. The grip also offers accessible up/down movement.
 #[track_caller]
 pub fn panel_group<V: IntoView>(
-    panels: impl Into<Binding<Vec<InspectorPanel>>>,
+    panels: impl IntoBinding<Vec<InspectorPanel>>,
     content: impl Fn(Value<InspectorPanel>) -> V + 'static,
-) -> Node {
-    let panels = panels.into();
+) -> impl kivact::view::Component {
+    let panels = panels.into_binding();
     let data = panels.into_value();
     let rectangles = Rc::new(RefCell::new(HashMap::<u64, Value<Option<Rect>>>::new()));
     let drag = signal(None::<PanelDrag>);
     let rows = for_each(data, |panel| panel.id, {
         let rectangles = rectangles.clone();
         move |id, panel| {
-            kivact::on_cleanup(move || {
+            kivact::state::on_cleanup(move || {
                 if drag.get_untracked().is_some_and(|drag| drag.panel == id) {
                     drag.set(None);
                 }
@@ -72,7 +74,7 @@ pub fn panel_group<V: IntoView>(
             let expanded = binding(
                 memo(move || panel.with(|panel| panel.expanded)),
                 move |open: bool| {
-                    let held = kivact::view::current_modifiers();
+                    let held = kivact::view::modifiers().get();
                     let mut next = data.get();
                     if held.ctrl || held.meta {
                         // Ctrl or Meta: only this panel stays open.
@@ -147,12 +149,12 @@ pub fn panel_group<V: IntoView>(
             .hide_label(true)
             .icon(icon("more"));
             grip = grip
-                .style(style().size(18, 18).padding(0))
+                .with_node(move |node| node.style(style().size(18, 18).padding(0)))
                 // The grip is its own press target, so a click or drag on it
                 // does not reach the header's Activate and toggle the panel.
                 .on_press(|| {})
-                .on_a11y(A11yAction::Increment, move || reposition(1))
-                .on_a11y(A11yAction::Decrement, move || reposition(-1))
+                .a11y_action(A11yAction::Increment, move |_| reposition(1))
+                .a11y_action(A11yAction::Decrement, move |_| reposition(-1))
                 .part(reorder.source(id));
             let header = row((
                 icon("chevron-down")
@@ -186,8 +188,8 @@ pub fn panel_group<V: IntoView>(
                 move || [("title", panel.get().title)],
             ))
             .style(move || {
-                let theme = &current_theme();
-                let p = theme.get::<crate::tokens::Tokens>();
+                let theme = &use_theme().get();
+                let p = theme.ext::<crate::tokens::Tokens>();
                 let mut style = style()
                     .radius(7)
                     .background(p.island)

@@ -4,18 +4,20 @@ use crate::editors::graph::model::{Curve, CurveKey, GraphRequest, GraphView, Key
 use crate::editors::shared::model::EditorContext;
 use crate::editors::shared::ruler::Ruler;
 use crate::editors::shared::targets::Scene;
-use kivact::draw::{Point, RegionId, Size};
-use kivact::interaction::{Drag, EditSession, List, SpacePan};
+use kivact::UiError;
+use kivact::draw::RegionId;
+use kivact::geometry::{Point, Size};
+use kivact::interaction::{DragApi, EditSession, ListApi, SpacePanApi};
+use kivact::state::{Binding, Callback, Signal, Value};
 use kivact::style::Color;
 use kivact::view::Role;
-use kivact::{Binding, Callback, Signal, UiError, Value};
 use std::rc::Rc;
 
 pub(crate) struct Settings {
     pub(crate) ruler: Ruler,
     pub(crate) value_format: Rc<dyn Fn(f64) -> String>,
     pub(crate) step: (Value<f64>, Value<f64>),
-    pub(crate) cells_width: f64,
+    pub(crate) cells_width: Value<f64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -77,7 +79,7 @@ pub(crate) struct State {
     pub(crate) playhead: Binding<f64>,
     pub(crate) visible: Value<Vec<VisibleKey>>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
-    pub(crate) choose: List<u64>,
+    pub(crate) choose: ListApi<u64>,
     pub(crate) size: Value<Size>,
     pub(crate) snap: Value<bool>,
     pub(crate) step: (Value<f64>, Value<f64>),
@@ -85,11 +87,11 @@ pub(crate) struct State {
         crate::editors::shared::gesture::CanvasGesture<Target, (Option<Gesture>, Option<Snapshot>)>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`State::drag`).
-    pub(crate) gesture: Drag<()>,
+    pub(crate) gesture: DragApi<()>,
     pub(crate) edit: EditSession<Snapshot>,
     pub(crate) active: Signal<Option<Target>>,
     /// Space held on the focused editor: the next primary drag pans.
-    pub(crate) space: SpacePan,
+    pub(crate) space: SpacePanApi,
     pub(crate) lane_activate: Option<Callback<u64>>,
     pub(crate) item_activate: Option<Callback<u64>>,
     pub(crate) child_focus: Value<bool>,

@@ -1,12 +1,12 @@
 //! Role: Tests for the interactions of Creative controls through the public API.
 
 use crate::support::clean;
-use kivact::draw::Point;
+use kivact::geometry::Point;
+use kivact::interaction::{MenuEntry, toaster};
 use kivact::prelude::*;
-use kivact::ui::{MenuEntry, toaster};
 use kivact::view::A11yAction;
 use kivact_ui_creative as ui;
-use kivact_ui_creative::ThemeOptions;
+
 use std::time::Duration;
 
 #[test]
@@ -24,9 +24,14 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
                             choice_options(&[("first", "First"), ("second", "Second")]),
                             selected,
                         )
-                        .orientation(kivact::view::Orientation::Horizontal)
+                        .with_node(move |node| {
+                            node.orientation(kivact::view::Orientation::Horizontal)
+                        })
                         .variant(ui::Segmented),
-                        ui::value_slider("Opacity", signal(0.5)).range(0.0, 1.0),
+                        ui::value_slider("Opacity", signal(0.5)).range(
+                            kivact::interaction::ScalarRange::new(0.0, 1.0)
+                                .expect("invariant: finite ordered control range"),
+                        ),
                     ))
                 }),
             )
@@ -179,10 +184,11 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
                 column((
                     kivact::ui::checkbox("Visible", check),
                     kivact::ui::switch("Enabled", switch),
-                    kivact::ui::toggle("Bold", bold),
+                    kivact::ui::toggle_button("Bold", bold),
                     kivact::ui::disclosure("Transform", open, || text("Position"))
                         .keep_mounted(true),
-                    kivact::ui::checkbox("Locked", signal(false)).disabled(true),
+                    kivact::ui::checkbox("Locked", signal(false))
+                        .with_node(move |node| node.disabled(true)),
                 )),
             )
         });
@@ -232,7 +238,7 @@ fn modal_contains_input_and_restores_opener_focus() {
                     (
                         kivact::ui::button("Export...")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .expanded(open)
+                            .with_node(move |node| node.expanded(open))
                             .on_press(move || open.set(true)),
                         kivact::ui::dialog("Export...", open)
                             .closable(false)
@@ -283,14 +289,13 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
                         ),
                         MenuEntry::item("camera", "Camera"),
                     ],
-                    move |key: &'static str| selection.set(Some(key)),
                 )
+                .on_activate(move |key: &'static str| selection.set(Some(key)))
                 .offset(0.0)
                 .attach(
                     kivact::ui::button("Add")
                         .variant(kivact::ui::ButtonVariant::Secondary)
-                        .trailing_icon(kivact::control::icon("chevron-down"))
-                        .into_node(),
+                        .trailing_icon(kivact::view::icon("chevron-down")),
                 ),
                 kivact::ui::tooltip("Camera View")
                     .placement(kivact::view::Placement::Below)
@@ -305,7 +310,7 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
                     .attach(
                         kivact::ui::button("Help")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .test_id("tooltip-target"),
+                            .with_node(move |node| node.test_id("tooltip-target")),
                     ),
             )),
         )
@@ -332,9 +337,9 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
 
 fn choice_options(
     entries: &[(&'static str, &'static str)],
-) -> Vec<kivact::ui::ListItem<&'static str>> {
+) -> Vec<kivact::interaction::ListItem<&'static str>> {
     entries
         .iter()
-        .map(|(key, label)| kivact::ui::ListItem::new(*key, *label))
+        .map(|(key, label)| kivact::interaction::ListItem::new(*key, *label))
         .collect()
 }
