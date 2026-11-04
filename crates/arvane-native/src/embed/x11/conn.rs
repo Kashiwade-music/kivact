@@ -25,12 +25,22 @@ use x11rb::protocol::xproto::{
 use x11rb::wrapper::ConnectionExt as _;
 use x11rb::xcb_ffi::XCBConnection;
 
+pub(super) struct ConnectionAlive(AtomicBool);
+impl ConnectionAlive {
+    pub(super) fn is_alive(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+    pub(super) fn end(&self) -> bool {
+        self.0.swap(false, Ordering::AcqRel)
+    }
+}
+
 pub(super) struct Native {
     pub(super) connection: Arc<XCBConnection>,
     pub(super) id: NonZeroU32,
     pub(super) xembed: u32,
     /// The X server still has this window (no DestroyNotify or BadWindow for it yet).
-    pub(super) exists: AtomicBool,
+    pub(super) exists: ConnectionAlive,
     pub(super) screen: i32,
     visual: NonZeroU32,
     owner: ThreadId,
@@ -52,7 +62,7 @@ impl Native {
     pub(super) fn settle(&self, result: Result<(), ReplyError>) -> Result<(), ShellError> {
         match result {
             Err(error) if super::error::destroyed(&error, self.id.get()) => {
-                self.exists.store(false, Ordering::Release);
+                self.exists.end();
                 Ok(())
             }
             other => other.map_err(super::error::platform),
@@ -113,7 +123,7 @@ impl Native {
             screen: screen as i32,
             visual,
             owner: std::thread::current().id(),
-            exists: AtomicBool::new(true),
+            exists: ConnectionAlive(AtomicBool::new(true)),
         });
         let mask = EventMask::EXPOSURE
             | EventMask::STRUCTURE_NOTIFY
@@ -183,7 +193,7 @@ fn resource_scale(connection: &XCBConnection, root: u32) -> Option<f64> {
 
 impl HasWindowHandle for Native {
     fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
-        if std::thread::current().id() != self.owner || !self.exists.load(Ordering::Acquire) {
+        if std::thread::current().id() != self.owner || !self.exists.is_alive() {
             return Err(HandleError::Unavailable);
         }
         let mut handle = XcbWindowHandle::new(self.id);
@@ -195,7 +205,7 @@ impl HasWindowHandle for Native {
 
 impl HasDisplayHandle for Native {
     fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
-        if std::thread::current().id() != self.owner || !self.exists.load(Ordering::Acquire) {
+        if std::thread::current().id() != self.owner || !self.exists.is_alive() {
             return Err(HandleError::Unavailable);
         }
         let connection = NonNull::new(self.connection.get_raw_xcb_connection());
@@ -207,7 +217,7 @@ impl HasDisplayHandle for Native {
 
 impl Drop for Native {
     fn drop(&mut self) {
-        if self.exists.swap(false, Ordering::AcqRel) {
+        if self.exists.end() {
             // A completed external drop must acknowledge destruction on the
             // server, before another connection can still observe this child.
             if let Ok(destroyed) = self.connection.destroy_window(self.id.get()) {

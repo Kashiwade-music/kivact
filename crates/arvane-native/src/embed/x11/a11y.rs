@@ -75,9 +75,7 @@ impl Bridge {
             Err(error) if super::error::destroyed(&error, native.id.get()) => {
                 // The host can destroy its parent after the event queue was
                 // drained. A checked reply can observe that before DestroyNotify.
-                native
-                    .exists
-                    .store(false, std::sync::atomic::Ordering::Release);
+                native.exists.end();
                 return Ok(());
             }
             Err(error) => return Err(super::error::platform(error)),

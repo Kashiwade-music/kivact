@@ -1,9 +1,8 @@
 //! Role: Win32 dispatch with an independently retained Rc on every entry.
-use super::state::{Phase, ScaleSource, State};
+use super::state::{ScaleSource, State};
 use arvane_shell::{ShellError, ShellEvent};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
-use std::sync::atomic::Ordering;
 use windows_sys::Win32::Foundation::{GetLastError, HWND, LPARAM, LRESULT, SetLastError, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{BeginPaint, EndPaint};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -53,10 +52,7 @@ pub(super) unsafe extern "system" fn wndproc(
             0
         }
     };
-    if state.shared.stopped()
-        && !state.in_callback.get()
-        && matches!(state.phase.get(), Phase::Opening | Phase::Live)
-    {
+    if state.shared.stopped() && !state.in_callback.get() && state.session.active() {
         state.stop();
     }
     if message == WM_NCDESTROY {
@@ -140,7 +136,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             0
         }
         super::native::WAKE => {
-            state.native.wake_pending.store(false, Ordering::Release);
+            state.native.wake_pending.clear();
             state.event(ShellEvent::Wake);
             0
         }

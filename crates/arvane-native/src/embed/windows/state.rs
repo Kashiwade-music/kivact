@@ -10,20 +10,6 @@ use std::sync::Arc;
 use std::time::Instant;
 use windows_sys::Win32::UI::WindowsAndMessaging::WNDPROC;
 
-/// Where the child is in its life. It is read on every message, including reentrant ones, so it
-/// lives in a `Cell`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Phase {
-    /// `open` has not returned: events queue, nothing drains.
-    Opening,
-    /// The App runs and events drain.
-    Live,
-    /// The handler was closed and the child's resources released; the HWND may still exist.
-    Disposed,
-    /// After a panic: the handler and the State were forgotten (module retained); nothing is released.
-    Leaked,
-}
-
 /// Who decides the child's scale. The change is one-way: once the host sets a scale, the system's
 /// DPI no longer does (`ShellChild::set_scale` has no way back).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,18 +27,78 @@ pub(super) struct CpuFrame {
     pub(super) height: NonZeroU32,
 }
 
-/// Holds a reentrancy flag for a scope; clears it on drop, also on unwind (the window procedure can
-/// then stop the child after it caught a panic).
-pub(super) struct Hold<'a>(&'a Cell<bool>);
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum Held {
+    #[default]
+    Free,
+    Held,
+}
+#[derive(Default)]
+pub(super) struct ReentryGuard(Cell<Held>);
+#[derive(Default)]
+pub(super) struct DrainGuard(Cell<Held>);
+pub(super) struct Hold<'a>(&'a Cell<Held>);
+impl ReentryGuard {
+    pub(super) fn enter(&self) -> Option<Hold<'_>> {
+        Hold::enter(&self.0)
+    }
+    pub(super) fn get(&self) -> bool {
+        self.0.get() == Held::Held
+    }
+}
+impl DrainGuard {
+    pub(super) fn enter(&self) -> Option<Hold<'_>> {
+        Hold::enter(&self.0)
+    }
+}
 impl<'a> Hold<'a> {
-    /// `None` when the flag is already held.
-    pub(super) fn enter(flag: &'a Cell<bool>) -> Option<Self> {
-        (!flag.replace(true)).then_some(Self(flag))
+    fn enter(flag: &'a Cell<Held>) -> Option<Self> {
+        (flag.replace(Held::Held) == Held::Free).then(|| Self(flag))
     }
 }
 impl Drop for Hold<'_> {
     fn drop(&mut self) {
-        self.0.set(false);
+        self.0.set(Held::Free);
+    }
+}
+
+#[derive(Default)]
+pub(super) struct Utf16Decoder {
+    pending: Option<u16>,
+    tail: Option<char>,
+}
+impl Utf16Decoder {
+    pub(super) fn push(&mut self, unit: u16) -> Option<char> {
+        if (0xd800..=0xdbff).contains(&unit) {
+            return self
+                .pending
+                .replace(unit)
+                .map(|_| char::REPLACEMENT_CHARACTER);
+        }
+        let text = match self.pending.take() {
+            Some(previous) => String::from_utf16_lossy(&[previous, unit]),
+            None => String::from_utf16_lossy(&[unit]),
+        };
+        let mut chars = text.chars();
+        let first = chars.next();
+        self.tail = chars.next();
+        first
+    }
+    pub(super) fn take_tail(&mut self) -> Option<char> {
+        self.tail.take()
+    }
+}
+
+pub(super) enum Uia {
+    Inactive,
+    Active(accesskit_windows::Adapter),
+}
+impl Uia {
+    pub(super) fn as_mut(&mut self) -> Option<&mut accesskit_windows::Adapter> {
+        match self {
+            Self::Inactive => None,
+            Self::Active(adapter) => Some(adapter),
+        }
     }
 }
 
@@ -60,16 +106,15 @@ pub(super) struct State {
     pub(super) shared: Arc<Shared>,
     pub(super) native: Arc<Native>,
     pub(super) on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
-    pub(super) session: RefCell<Session>,
+    pub(super) session: Session,
     pub(super) events: RefCell<VecDeque<ShellEvent>>,
-    pub(super) phase: Cell<Phase>,
     /// App code (a handler callback) is on the stack.
-    pub(super) in_callback: Cell<bool>,
+    pub(super) in_callback: ReentryGuard,
     /// The host command queue is being drained.
-    pub(super) draining: Cell<bool>,
+    pub(super) draining: DrainGuard,
     pub(super) original_proc: Cell<WNDPROC>,
     pub(super) cursor: Cell<kivact_types::Cursor>,
-    pub(super) pending_surrogate: Cell<Option<u16>>,
+    pub(super) decoder: RefCell<Utf16Decoder>,
     pub(super) mouse: Cell<Mouse>,
     pub(super) clicks: RefCell<ClickCounter>,
     pub(super) environment: RefCell<kivact_types::Environment>,
@@ -82,7 +127,7 @@ pub(super) struct State {
     /// The child's accepted semantics, for its whole life.
     pub(super) a11y: PlatformTree,
     /// The UIA adapter, until the child is disposed.
-    pub(super) uia: RefCell<Option<accesskit_windows::Adapter>>,
+    pub(super) uia: RefCell<Uia>,
     pub(super) target: Arc<super::target::Target>,
     pub(super) started: Instant,
 }
