@@ -69,8 +69,8 @@ impl Drafting {
 }
 
 /// The part to attach to the field, and what Enter does.
+#[derive(Clone)]
 pub(crate) struct Installed {
-    pub(crate) node: Node,
     pub(crate) submit: Rc<dyn Fn()>,
     /// Called before the user's edit is written, to begin a draft.
     pub(crate) edited: Rc<dyn Fn()>,
@@ -78,7 +78,7 @@ pub(crate) struct Installed {
 
 /// Draft the field bound to `value`, whose validity `invalid` reads. Setup
 /// only.
-pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> Installed {
+pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> (Node, Installed) {
     let invalid = node
         .accessible_invalid()
         .unwrap_or_else(|| false.into_value());
@@ -144,9 +144,5 @@ pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> I
     // An edit of the user begins a draft in a field that kept the focus
     // after the last one was committed.
     let edited: Rc<dyn Fn()> = Rc::new(move || drafting.begin(value.get_untracked()));
-    Installed {
-        node: attachment,
-        submit,
-        edited,
-    }
+    (attachment, Installed { submit, edited })
 }

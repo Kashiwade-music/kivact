@@ -88,13 +88,14 @@ impl Machine for BusyInput {
     }
 }
 
+// xtask-allow(state-fields): NodeBuilder configuration and optional children; busy runtime phases live in BusyPhase.
 pub struct Button {
     root: Node,
     label: Value<String>,
     icon: Option<View>,
     trailing: Option<View>,
     children: Vec<View>,
-    settings: Rc<RefCell<Settings>>,
+    settings: Rc<RefCell<ButtonOptions>>,
     variants: Variants,
     busy: Rc<Cell<Value<bool>>>,
     expanded: Rc<Cell<Option<Value<bool>>>>,
@@ -103,13 +104,13 @@ pub struct Button {
 }
 /// What the builder knows of the button once it is configured.
 #[derive(Clone)]
-struct Settings {
+struct ButtonOptions {
     size: Value<ControlSize>,
     size_explicit: bool,
     leading_icon: bool,
     trailing_icon: bool,
 }
-impl Default for Settings {
+impl Default for ButtonOptions {
     fn default() -> Self {
         Self {
             size: super::values::default_control_size().into_value(),
@@ -122,9 +123,9 @@ impl Default for Settings {
 /// A themed button activated through the shared button part ([`use_button`]).
 pub fn button(label: impl IntoText) -> Button {
     let label = label.into_text_value();
-    let settings = Rc::new(RefCell::new(Settings {
+    let settings = Rc::new(RefCell::new(ButtonOptions {
         size: super::values::default_control_size().into_value(),
-        ..Settings::default()
+        ..ButtonOptions::default()
     }));
     let expanded = Rc::new(Cell::new(None::<Value<bool>>));
     let read_expanded = expanded.clone();
@@ -181,7 +182,7 @@ pub fn button(label: impl IntoText) -> Button {
     }
 }
 impl Button {
-    fn configure(self, f: impl FnOnce(&mut Settings)) -> Self {
+    fn configure(self, f: impl FnOnce(&mut ButtonOptions)) -> Self {
         f(&mut self.settings.borrow_mut());
         self
     }

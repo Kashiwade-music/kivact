@@ -261,24 +261,25 @@ struct FilterInput {
 impl Machine for FilterInput {
     type State = FilterDraft;
     type Event = FilterEvent;
-    type Effect = Option<FilterValue>;
+    type Effect = (bool, Option<FilterValue>);
     fn transition(
         &self,
         _state: &FilterDraft,
         event: FilterEvent,
-    ) -> Step<FilterDraft, FilterEvent, Option<FilterValue>> {
+    ) -> Step<FilterDraft, FilterEvent, Self::Effect> {
         match event {
             FilterEvent::External(value) if self.sent.get() == Some(&value) => Step::stay(),
             FilterEvent::External(value) => Step::to(FilterDraft::Valid {
                 text: format_value(value.as_ref()),
-                value,
-            }),
+                value: value.clone(),
+            })
+            .with((false, value)),
             FilterEvent::Typed(text) => match parse_value(&self.field, &text) {
                 Ok(value) => Step::to(FilterDraft::Valid {
                     text,
                     value: value.clone(),
                 })
-                .with(value),
+                .with((true, value)),
                 Err(()) => Step::to(FilterDraft::Invalid { text }),
             },
         }
@@ -304,11 +305,13 @@ fn text_editor(
             field: input.clone(),
             sent: sent.get(),
         },
-        move |_, next| {
+        move |_, (write, next)| {
             sent.update(|sent| {
                 sent.update(next.clone());
             });
-            value.set(next);
+            if write {
+                value.set(next);
+            }
         },
     );
     draft.feed(value.into_value(), FilterEvent::External);

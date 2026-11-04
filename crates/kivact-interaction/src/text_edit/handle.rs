@@ -34,10 +34,7 @@ pub struct TextEditApi {
 #[derive(Clone)]
 enum InputDraft {
     Immediate,
-    Drafting {
-        submit: Rc<dyn Fn()>,
-        edited: Rc<dyn Fn()>,
-    },
+    Drafting(draft::Installed),
 }
 
 /// Whether Enter submits or inserts a line break.
@@ -305,7 +302,7 @@ impl TextEditApi {
                 control = control.name(label);
             }
             let (control, input_draft) = if let Some(commit) = data.options.get().draft_commit {
-                let installed = draft::install(
+                let (control, installed) = draft::install(
                     Draft {
                         commit,
                         on_edit: data.options.get().draft_edit,
@@ -316,13 +313,7 @@ impl TextEditApi {
                     data.binding,
                     control,
                 );
-                (
-                    installed.node,
-                    InputDraft::Drafting {
-                        submit: installed.submit,
-                        edited: installed.edited,
-                    },
-                )
+                (control, InputDraft::Drafting(installed))
             } else {
                 (control, InputDraft::Immediate)
             };
@@ -410,8 +401,8 @@ impl TextEditApi {
                         return Ok(());
                     }
                     let edited = edit.text.unwrap_or_default();
-                    if let InputDraft::Drafting { edited, .. } = &input_draft {
-                        edited();
+                    if let InputDraft::Drafting(installed) = &input_draft {
+                        (installed.edited)();
                     }
                     binding.set(edited.clone());
                     data.control.send(machine::Event::Composition {
@@ -435,8 +426,8 @@ impl TextEditApi {
                 .on_key(move |event| {
                     let data = owned.get();
                     if lines == Lines::Single && data.is_mounted(id) && event.key() == Key::Enter {
-                        if let InputDraft::Drafting { submit, .. } = &draft_submit {
-                            submit();
+                        if let InputDraft::Drafting(installed) = &draft_submit {
+                            (installed.submit)();
                             return Ok(Handled::Yes);
                         }
                         let submit = data.options.get().submit;
