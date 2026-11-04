@@ -45,7 +45,7 @@ pub(super) enum Phase<'a> {
 /// Drain the deferred work of `phase`, in the order of the table above.
 pub(super) fn drain(rt: &Runtime, phase: Phase<'_>) {
     #[cfg(debug_assertions)]
-    crate::diagnostics::trace::stage(
+    crate::client::trace::stage(
         rt,
         match &phase {
             Phase::AfterHandler { .. } => "AfterHandler",
@@ -94,8 +94,8 @@ pub(super) fn commit(rt: &Runtime, writer: &Writer) -> usize {
     };
     #[cfg(debug_assertions)]
     {
-        crate::diagnostics::trace::stage(rt, "Commit");
-        crate::diagnostics::trace::event(
+        crate::client::trace::stage(rt, "Commit");
+        crate::client::trace::event(
             rt,
             format_args!("host_events commit revision={revision} writes={writes}"),
         );

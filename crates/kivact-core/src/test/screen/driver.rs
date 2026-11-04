@@ -55,7 +55,7 @@ impl Screen {
         let record = Rc::new(Record::default());
         let name = super::artifacts::test_name(at);
         #[cfg(debug_assertions)]
-        crate::diagnostics::trace::Trace::of(&rt).open(&name);
+        crate::client::trace::Trace::of(&rt).open(&name);
         let scale = options.scale;
         let host_options = TestHostOptions {
             width: options.width,
