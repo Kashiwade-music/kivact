@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn a_theme_icon_draws_without_errors() {
-        let options = kivact::test::kivact::test::RenderOptions::from_env().theme(Theme::light().with_icon("star", STAR));
+        let options = kivact::test::RenderOptions::from_env().theme(Theme::light().with_icon("star", STAR));
         let screen = kivact::test::render_with(options, app);
         screen.get_by_role(Role::Image, "Favorite");
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
