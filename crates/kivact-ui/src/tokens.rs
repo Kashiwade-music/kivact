@@ -1,6 +1,6 @@
 //! Role: Group per-component visual tokens in one theme extension.
 use crate::button_tokens::ButtonTokens;
-use crate::data_table::tokens::DataTableTokens;
+use crate::data_table_tokens::DataTableTokens;
 use crate::dialog_tokens::DialogTokens;
 use crate::disclosure_tokens::DisclosureTokens;
 use crate::progress_tokens::ProgressTokens;
