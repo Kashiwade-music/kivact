@@ -2,6 +2,8 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | A-1b | 新しい描画経路で診断 turn と queue state の既存期待が変わる | why の turn を 3、待機中 queue を Pending に更新。残る順序・latest・回復 assertion は維持し公開 API E2E 285 件成功。 |
+| 2026-11-05 | fix-G6-1 | catalog が旧 WindowMode と専用 GPU 環境変数を固定する | RenderOptions::from_env に mirror/GPU を統一し、通常は Auto、off gate では Off。catalog の表示・操作 assertion は変えない。 |
 | 2026-11-05 | A-1b | MIRROR off の public API binary でも native embed parent が実窓を開く | embed/smoke を含む binary・全 workspace は window-lock で実行。mirror off と GPU の理由付き skip は維持。 |
 | 2026-11-05 | A-5 | GPU loss の二重 counter を FrameHealth に集約 | 設計 19.6 どおり skip は連続 loss を戻す。最初の device-loss 診断は private 同期 wrapper で保持。 |
 | 2026-11-05 | A-1a | 次 Wake の test helper に借用 closure を保存できない | Harness::with の closure/result に static 制約を付け、move/clone で移行。製品 API を変えず unsafe bridge を避ける。 |
