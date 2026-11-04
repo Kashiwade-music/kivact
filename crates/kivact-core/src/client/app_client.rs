@@ -440,7 +440,7 @@ impl Drop for AppClient {
         // Opening may fail before an Embedded is returned, or its drop may
         // precede deferred callback cleanup. Record task retention here too.
         #[cfg(feature = "embed")]
-        if self.embed_closing.is_some() && kivact_task::detached_threads() {
+        if self.embed_closing.is_some() && kivact_types::process::DetachedThreads::any() {
             kivact_engine::embed::retain_module();
         }
     }

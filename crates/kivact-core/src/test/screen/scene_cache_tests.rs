@@ -282,7 +282,7 @@ fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_repl
 fn a_depth_fallback_reports_a_dropped_local_command_only_once() {
     use kivact_types::{DrawCmd, DrawList, Fill, Rgba};
     use std::sync::Arc;
-    let mut cmds = vec![DrawCmd::PushTransform([1., 0., 0., 1., 0., 0.]); 256];
+    let mut cmds = vec![DrawCmd::PushTransform(kivact_types::Transform::IDENTITY); 256];
     let red = Fill::Solid(Rgba {
         r: 1.,
         g: 0.,

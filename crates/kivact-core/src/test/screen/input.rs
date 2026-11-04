@@ -43,7 +43,8 @@
 //!   `set_safe_area`, and the software keyboard read through
 //!   `soft_keyboard_shown` and `soft_keyboard_requests`.
 
-use kivact_engine::testing::{PointerId, PointerInput, PointerPhase, ShellEvent};
+use kivact_engine::testing::{PointerId, PointerPhase, ShellEvent};
+use kivact_types::PointerSample;
 use kivact_types::{self as p, NodeId};
 
 use super::model::{Contact, Element, Screen};
@@ -70,12 +71,25 @@ const CONTACT_PRESS: ButtonPress = ButtonPress {
 };
 
 impl Screen {
-    pub(super) fn send(&self, event: ShellEvent) {
+    pub(super) fn send(&self, mut event: ShellEvent) {
+        match &mut event {
+            ShellEvent::Modifiers(modifiers) => self.input_modifiers.set(*modifiers),
+            ShellEvent::Key(input) => input.pointer = self.input_mouse.get(),
+            ShellEvent::Wheel(input) => {
+                let Some(position) = self.input_mouse.get() else {
+                    return;
+                };
+                input.position = position;
+                input.modifiers = self.input_modifiers.get();
+            }
+            _ => {}
+        }
         self.host.borrow_mut().send(event);
     }
 
     /// Move the virtual window's mouse to the window point `at`.
     fn mouse_to(&self, at: Point) {
+        self.input_mouse.set(Some(at));
         self.host.borrow_mut().mouse(PointerPhase::Move, Some(at));
     }
 
@@ -102,22 +116,23 @@ impl Screen {
         } else {
             key_text(key)
         };
-        // The US layout: a letter key is its own physical key.
-        let physical = match key {
-            Key::Char(c) if c.is_ascii_alphabetic() => Some(c.to_ascii_lowercase()),
-            _ => None,
-        };
-        self.send(ShellEvent::Key {
+        self.send(ShellEvent::Key(p::KeyInput {
             key,
-            physical,
-            code: Default::default(),
-            repeat: false,
-            text,
-        });
-        self.send(ShellEvent::KeyUp {
+            code: p::KeyCode::Unidentified,
+            phase: p::KeyPhase::Down {
+                repeat: false,
+                text,
+            },
+            modifiers,
+            pointer: None,
+        }));
+        self.send(ShellEvent::Key(p::KeyInput {
             key,
-            code: Default::default(),
-        });
+            code: p::KeyCode::Unidentified,
+            phase: p::KeyPhase::Up,
+            modifiers,
+            pointer: None,
+        }));
         if held {
             self.send(ShellEvent::Modifiers(Modifiers::default()));
         }
@@ -127,7 +142,7 @@ impl Screen {
     /// IME composition is open (the IME commit replaces the composition).
     fn type_events(&self, text: &str) {
         if self.host.borrow().composing() {
-            self.send(ShellEvent::Commit(text.into()));
+            self.send(ShellEvent::Ime(p::ImeInput::Commit(text.into())));
             return;
         }
         for c in text.chars() {
@@ -178,7 +193,11 @@ impl Screen {
     /// [`Self::mouse_move`]; [`Element::scroll`] moves it to an element.
     pub fn scroll(&self, dx: f64, dy: f64) {
         self.log(format!("scroll ({dx}, {dy}) at the pointer"));
-        self.send(ShellEvent::Wheel { x: dx, y: dy });
+        self.send(ShellEvent::Wheel(p::WheelInput {
+            delta: Point::new(dx, dy),
+            position: Point::default(),
+            modifiers: Modifiers::default(),
+        }));
         self.run_until_idle();
     }
 
@@ -313,7 +332,7 @@ impl Screen {
     /// Report the contact as the platform does: the window maps the
     /// platform's contact to a pointer of its own (`VirtualWindow::contact`).
     fn send_contact(&self, phase: PointerPhase, contact: Contact, at: Point) {
-        self.host.borrow_mut().contact(PointerInput {
+        self.host.borrow_mut().contact(PointerSample {
             id: PointerId(contact.id),
             kind: contact.kind,
             phase,
@@ -324,6 +343,14 @@ impl Screen {
             ),
             pressure: None,
             tilt: None,
+            button: None,
+            press: match phase {
+                PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press),
+                _ => None,
+            },
+            time_ns: 0,
+            modifiers: self.input_modifiers.get(),
+            is_primary: true,
         });
     }
 
@@ -331,6 +358,7 @@ impl Screen {
     /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_leave(&self) {
         self.log("pointer leaves".into());
+        self.input_mouse.set(None);
         self.host.borrow_mut().mouse(PointerPhase::Leave, None);
         self.run_until_idle();
     }
@@ -615,10 +643,10 @@ impl<'a> Element<'a> {
         self.ensure_focus();
         self.screen
             .log(format!("compose {preedit:?} in {}", self.short()));
-        self.screen.send(ShellEvent::Preedit {
+        self.screen.send(ShellEvent::Ime(p::ImeInput::Preedit {
             text: preedit.into(),
-            selection: Some((preedit.len(), preedit.len())),
-        });
+            selection: Some(preedit.len()..preedit.len()),
+        }));
         self.screen.run_until_idle();
     }
 
@@ -629,7 +657,8 @@ impl<'a> Element<'a> {
         self.ensure_focus();
         self.screen
             .log(format!("commit {text:?} in {}", self.short()));
-        self.screen.send(ShellEvent::Commit(text.into()));
+        self.screen
+            .send(ShellEvent::Ime(p::ImeInput::Commit(text.into())));
         self.screen.run_until_idle();
     }
 
@@ -677,7 +706,11 @@ impl<'a> Element<'a> {
         self.screen
             .log(format!("scroll ({dx}, {dy}) over {}", self.short()));
         self.screen.mouse_to(at);
-        self.screen.send(ShellEvent::Wheel { x: dx, y: dy });
+        self.screen.send(ShellEvent::Wheel(p::WheelInput {
+            delta: Point::new(dx, dy),
+            position: Point::default(),
+            modifiers: Modifiers::default(),
+        }));
         self.screen.run_until_idle();
     }
 

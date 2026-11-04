@@ -7,8 +7,8 @@
 //! an IME takes for reconversion, which the reconversion's composition
 //! then replaces.
 //!
-//! The host speaks UTF-16 code units (what platform IMEs count); tests
-//! speak chars of the value, converted here.
+//! Platform snapshots retain UTF-16 units; tests speak chars of the whole
+//! value and normalize injected selections to snapshot-relative UTF-8 bytes.
 
 use std::ops::Range;
 
@@ -45,7 +45,7 @@ impl Screen {
     /// (`ImeDisabled`): an open composition is gone, and a node with an IME
     /// session (`NodeExt::ime_session`) gets `ImeInput::End`.
     pub fn ime_disabled(&self) {
-        self.send(ShellEvent::ImeDisabled);
+        self.send(ShellEvent::Ime(kivact_types::ImeInput::End));
         self.run_until_idle();
     }
 
@@ -87,14 +87,21 @@ impl Element<'_> {
             .borrow()
             .ime_text()
             .map_or(0, |t| t.text_start);
-        let unit = |chars: usize| -> usize {
+        let snapshot = self
+            .screen
+            .host
+            .borrow()
+            .ime_text()
+            .map(|t| t.text)
+            .unwrap_or_default();
+        let byte = |chars: usize| -> usize {
             let units: usize = value.chars().take(chars).map(char::len_utf16).sum();
-            units.saturating_sub(base)
+            kivact_types::text_utf::byte_offset_from_utf16(&snapshot, units.saturating_sub(base))
         };
-        self.screen.send(ShellEvent::ImeSelection {
-            start: unit(range.start),
-            end: unit(range.end),
-        });
+        self.screen
+            .send(ShellEvent::Ime(kivact_types::ImeInput::Selection(
+                byte(range.start)..byte(range.end),
+            )));
         self.screen.run_until_idle();
     }
 }

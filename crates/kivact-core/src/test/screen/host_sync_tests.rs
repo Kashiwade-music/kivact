@@ -93,10 +93,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     dispatch(11, up);
     dispatch(22, up);
     screen.host.borrow_mut().inject(HostEvent::Activate {
-        target: Some(node),
-        local: Point::new(20., 20.),
-        captured: false,
-        activation: None,
+        node,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(kivact_types::PointerId(22)),
     });
@@ -109,10 +106,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     disabled.set(false);
     screen.run_until_idle();
     screen.host.borrow_mut().inject(HostEvent::Activate {
-        target: Some(node),
-        local: Point::new(20., 20.),
-        captured: false,
-        activation: None,
+        node,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(kivact_types::PointerId(33)),
     });

@@ -103,6 +103,8 @@ impl Screen {
             artifacts_written: Cell::new(false),
             scale: Cell::new(scale),
             contacts: RefCell::new(Vec::new()),
+            input_mouse: Cell::new(None),
+            input_modifiers: Cell::new(Default::default()),
             last_contact: Cell::new(0),
         };
         s.run_until_idle();

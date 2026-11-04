@@ -442,7 +442,7 @@ impl Tree {
 
     fn is_live_region(&self, id: NodeId) -> bool {
         self.with_node(id, |node| {
-            let semantics = node.map(|node| &node.semantics);
+            let semantics = node.and_then(|node| node.semantics.as_deref());
             semantics.is_some_and(|semantics| {
                 matches!(
                     semantics.role,
@@ -525,41 +525,41 @@ impl Tree {
     }
     pub(crate) fn name(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {
-            node.map(|node| &node.semantics)
+            node.and_then(|node| node.semantics.as_deref())
                 .and_then(|semantics| semantics.name.clone())
         })
     }
     pub(crate) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
         self.with_node(id, |node| {
-            node.map(|node| &node.semantics)
+            node.and_then(|node| node.semantics.as_deref())
                 .and_then(|semantics| semantics.role)
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn value(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {
-            node.map(|node| &node.semantics)
+            node.and_then(|node| node.semantics.as_deref())
                 .and_then(|semantics| semantics.value_text.clone())
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn selected(&self, id: NodeId) -> Option<bool> {
         self.with_node(id, |node| {
-            node.map(|node| &node.semantics)
+            node.and_then(|node| node.semantics.as_deref())
                 .and_then(|semantics| semantics.selected)
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn checked(&self, id: NodeId) -> Option<kivact_types::CheckedState> {
         self.with_node(id, |node| {
-            node.map(|node| &node.semantics)
+            node.and_then(|node| node.semantics.as_deref())
                 .and_then(|semantics| semantics.checked)
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn expanded(&self, id: NodeId) -> Option<bool> {
         self.with_node(id, |node| {
-            node.map(|node| &node.semantics)
+            node.and_then(|node| node.semantics.as_deref())
                 .and_then(|semantics| semantics.expanded)
         })
     }
@@ -665,7 +665,7 @@ impl Tree {
     #[cfg(feature = "test")]
     pub(crate) fn test_id(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {
-            node.map(|node| &node.semantics)
+            node.and_then(|node| node.semantics.as_deref())
                 .and_then(|semantics| semantics.test_id.clone())
         })
     }
@@ -950,7 +950,7 @@ impl Tree {
         if self.disabled(root) != Some(true)
             && let Some(region) = regions
                 .iter()
-                .find(|r| r.focusable && !r.disabled && !r.hidden)
+                .find(|r| r.semantics.focusable && !r.semantics.disabled && !r.semantics.hidden)
         {
             return Some(kivact_types::FocusTarget {
                 node: root,

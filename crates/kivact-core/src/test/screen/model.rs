@@ -34,6 +34,9 @@ pub struct Screen {
     /// The platform's id of the last contact (the window gives each
     /// contact a pointer id of its own, never the mouse's).
     pub(super) last_contact: Cell<u64>,
+    /// Native input context used to construct complete injected samples.
+    pub(super) input_mouse: Cell<Option<crate::draw::Point>>,
+    pub(super) input_modifiers: Cell<kivact_types::Modifiers>,
 }
 
 /// A touch or pen contact a test put down with [`Screen::contact_down`].
