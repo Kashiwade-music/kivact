@@ -256,7 +256,7 @@ fn combobox_filters_chooses_and_clears() {
             ),
         )
     });
-    let input = screen.get_by_role(Role::TextBox, "Fruit");
+    let input = screen.get_by_role(Role::ComboBox, "Fruit");
     input.click();
     screen.type_text("an");
     screen.run_until_idle();
