@@ -1410,7 +1410,7 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
 ### N-F1 core の追従と試験の API
 
 - **前提**: N-D1、N-D2。
-- **主な crate**: `kivact-runtime`、`kivact-style`、`kivact-i18n`、`kivact-editing`、`kivact-core`、`kivact-test`（G3）。
+- **主な crate**: `kivact-runtime`、`kivact-style`、`kivact-i18n`、`kivact-editing`、`kivact-core`、`kivact-test`（G3）。定義の所有漏れを避け、`kivact-types/src/motion.rs` の `Transition::decorative(bool)` 削除と `essential()` の直接実装も本 unit が行う（既定値は保つ）。
 - **手順**: この節の冒頭の 1〜7 を G3 の全 file に当てる。加えて:
   1. 文脈と ambient の読み出し（付録 B.10 の `use_context`、`try_use_context`、`use_theme`、`use_tokens`、`use_locale`、`use_direction`）は `Value<T>` を返し、setup と、その owner の下で作られた closure（style の closure、handler、effect）の中で呼べる。`view::modifiers()`・`view::pointer_position()`・`platform` の環境の読み出しは `Value<T>` を返し、どこでも呼べる（signal は `ViewState` の構築のときに作る）。`platform::pointer_settings()`・`keyboard_inset()` を足す（`kivact-types::env` の既存の field）。`use_context` の文脈がないときの panic の message は API-12 の形。
   2. theme: `Theme::ext::<T>() -> ThemeRef<T>`（`ThemeRef<T>(Arc<T>)`、`Clone`、`Deref<Target = T>`、`T: Clone` のとき `to_owned(&self) -> T`）。`App::theme(impl IntoValue<Theme>)` は root の owner の下で評価する reactive な値。`ThemeHint` から `ThemeMode` への `From`。

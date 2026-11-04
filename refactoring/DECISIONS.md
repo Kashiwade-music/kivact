@@ -111,3 +111,4 @@
 | 2026-11-05 | CP3 / fix-G1-4 | Contents の削除で layout dirty が消える | 削除前の flat parent を無効化し、共有 cache traversal は空 cache の Contents を通過する。実 box の early stop は保持。共有 target の取り違えは固定 gate で検証する。 |
 | 2026-11-05 | CP3 / fix-G6-6 | Contents 箱が Element.children に現れる | query 時だけ透明箱を射影し既存の直接の子の契約を保つ。role query の順序は公開 semantics の child 順で DFS し、allocation 順には依存しない。可変の shadow topology は追加しない。 |
 | 2026-11-05 | N-F1 / N-F3 | Recipe の定義が ui にある | 契約は変更せず N-F3 が定義を所有、N-F1 は G3 caller のみ移行し並列の file 所有を保つ。 |
+| 2026-11-05 | N-F1 | Transition の定義が types にある | 他 unit の所有と重ならない motion.rs の obsolete decorative 削除を N-F1 に含め、既存 essential と default を保つ。 |
