@@ -62,6 +62,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 impl TextEditing {
+    /// Report Begin and Commit around each native committed value change.
+    /// Composition previews and selection changes are not value edits.
+    pub fn on_edit<R: HandlerResult>(
+        mut self,
+        f: impl Fn(crate::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_phase = Some(kivact_runtime::Handler::from_fn(f));
+        self
+    }
+
     /// Forward selected control keys to handlers instead of native focus or editing.
     ///
     /// Supported keys are Tab, arrows, Home, End, PageUp, PageDown, Escape and
@@ -159,6 +169,7 @@ impl TextEditing {
             },
             on_edit: None,
             on_selection: None,
+            on_phase: None,
         }
     }
 

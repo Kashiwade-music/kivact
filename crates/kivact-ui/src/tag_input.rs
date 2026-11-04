@@ -21,6 +21,7 @@ pub struct TagInput {
     root: Node,
     label: Value<String>,
     tags: Value<Vec<String>>,
+    on_edit: Option<Callback<kivact_core::view::EditPhase>>,
     on_add: Callback<String>,
     on_remove: Callback<usize>,
     placeholder: Option<Value<String>>,
@@ -74,6 +75,7 @@ pub fn tag_input(label: impl IntoText, tags: impl IntoValue<Vec<String>>) -> Tag
         root,
         label: label.into_text_value(),
         tags: tags.into_value(),
+        on_edit: None,
         on_add: callback(|_: String| {}),
         on_remove: callback(|_: usize| {}),
         placeholder: None,
@@ -83,6 +85,15 @@ pub fn tag_input(label: impl IntoText, tags: impl IntoValue<Vec<String>>) -> Tag
 }
 
 impl TagInput {
+    /// Observe each addition or removal as one complete edit.
+    pub fn on_edit<R: HandlerResult>(
+        mut self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_edit = Some(callback(f));
+        self
+    }
+
     /// Handle a new tag.
     pub fn on_add<R: HandlerResult>(mut self, f: impl Fn(String) -> R + 'static) -> Self {
         self.on_add = callback(f);
@@ -126,6 +137,7 @@ impl IntoView for TagInput {
             mut root,
             label,
             tags,
+            on_edit,
             on_add,
             on_remove,
             placeholder,
@@ -143,6 +155,10 @@ impl IntoView for TagInput {
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
         let described_by = root.accessible_described_by();
+        let edit = kivact_interaction::EditSession::new(|(): ()| {});
+        if let Some(observer) = on_edit {
+            edit.on_edit(move |phase| observer.call(phase));
+        }
         let pending = signal(String::new());
         let chips = for_index(tags, {
             let variants = variants.clone();
@@ -155,7 +171,7 @@ impl IntoView for TagInput {
                         .variant(ButtonVariant::Ghost)
                         .hide_label(true)
                         .icon(icon("x"))
-                        .on_press(move || on_remove.call(index)),
+                        .on_press(move || edit.once((), || on_remove.call(index))),
                     |r| r.tag_input_recipes().remove_recipe(),
                     &variants,
                     PartState::default,
@@ -181,7 +197,7 @@ impl IntoView for TagInput {
                 .on_submit(move || {
                     let tag = pending.get_untracked().trim().to_owned();
                     if !tag.is_empty() {
-                        on_add.call(tag);
+                        edit.once((), || on_add.call(tag));
                         pending.set(String::new());
                     }
                 })
@@ -192,7 +208,7 @@ impl IntoView for TagInput {
                             if let Some(last) =
                                 tags.with_untracked(|tags| tags.len().checked_sub(1))
                             {
-                                on_remove.call(last);
+                                edit.once((), || on_remove.call(last));
                             }
                             return Handled::Yes;
                         }

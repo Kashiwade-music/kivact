@@ -20,6 +20,7 @@ macro_rules! toggle_builder {
             root: Node,
             label: Value<String>,
             state: Binding<bool>,
+            on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
             mixed: Option<Value<bool>>,
             hide_label: Option<Value<bool>>,
             size: Value<ControlSize>,
@@ -27,12 +28,22 @@ macro_rules! toggle_builder {
         }
 
         impl $name {
+            /// Observe the beginning and commit of each value edit.
+            pub fn on_edit<R: kivact_core::view::HandlerResult>(
+                mut self,
+                f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+            ) -> Self {
+                self.on_edit = Some(kivact_core::state::callback(f));
+                self
+            }
+
             fn create(label: Value<String>, state: Binding<bool>) -> Self {
                 Self {
                     root: node().style(super::helpers::single_line_text()).name(label),
                     label,
                     state,
                     mixed: None,
+                    on_edit: None,
                     hide_label: None,
                     size: super::values::default_control_size().into_value(),
                     variants: Variants::default(),
@@ -82,6 +93,9 @@ macro_rules! toggle_builder {
         impl IntoView for $name {
             fn into_view(mut self) -> View {
                 let mut behavior = $kind(self.state, self.mixed);
+                if let Some(observer) = self.on_edit {
+                    behavior = behavior.on_edit(move |phase| observer.call(phase));
+                }
                 // `.disabled(..)` ignores input while true.
                 if let Some(disabled) = self.root.accessible_disabled() {
                     behavior = behavior.disabled(move || disabled.get());
@@ -90,7 +104,8 @@ macro_rules! toggle_builder {
                 let size = self.size;
                 let text: Option<fn(Value<bool>) -> Value<String>> = $text;
                 let text = text.map(|text| text(self.state.into_value()));
-                let (control, drag) = $gesture(behavior.control(), self.state, size);
+                let (control, drag) =
+                    $gesture(behavior.control(), self.state, size, self.on_edit);
                 let part = control.map_state(move |state: ToggleState| CheckableState {
                     input: state.input,
                     checked: state.checked,
@@ -149,6 +164,7 @@ fn no_gesture(
     control: kivact_core::custom::Part<ToggleState>,
     _: Binding<bool>,
     _: Value<ControlSize>,
+    _: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
 ) -> (
     kivact_core::custom::Part<ToggleState>,
     super::switch_drag::Visual,

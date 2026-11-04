@@ -28,6 +28,7 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
     binding: Binding<K>,
+    on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     activation: ListActivation,
     orientation: Orientation,
     item: Option<TabContent<K>>,
@@ -55,6 +56,7 @@ pub fn tabs<K: kivact_core::state::ItemKey>(
         root: node().name(label),
         options: options.into_value(),
         binding: binding.into_binding(),
+        on_edit: None,
         activation: ListActivation::Automatic,
         orientation: Orientation::Horizontal,
         item: None,
@@ -64,6 +66,15 @@ pub fn tabs<K: kivact_core::state::ItemKey>(
     }
 }
 impl<K: kivact_core::state::ItemKey> Tabs<K> {
+    /// Observe the beginning and commit of each value edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_edit = Some(kivact_core::state::callback(f));
+        self
+    }
+
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -133,6 +144,9 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         let behavior = kivact_interaction::use_tabs(self.options, self.binding)
             .activation(self.activation)
             .orientation(self.orientation);
+        if let Some(observer) = self.on_edit {
+            behavior.on_edit(move |phase| observer.call(phase));
+        }
         let part = behavior.list();
         let list_state = part.state();
         let slot = self.item;

@@ -145,3 +145,92 @@ fn each_key_and_assistive_technology_write_is_its_own_edit() {
     assert!(log.borrow().is_empty(), "{:?}", log.borrow());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn every_value_writing_standard_component_reports_on_edit() {
+    use kivact::interaction::ListItem;
+    use kivact::ui::{checkbox, select, switch, tabs, tag_input, toggle_button};
+    let logs = Rc::new(RefCell::new(vec![Vec::new(); 6]));
+    let seen = logs.clone();
+    let (screen, (checked, switched, pressed, selected, tab, tags)) =
+        mount_with(real_window(), move || {
+            let checked = signal(false);
+            let switched = signal(false);
+            let pressed = signal(false);
+            let selected = signal(Some("a"));
+            let tab = signal("a");
+            let tags = signal(Vec::<String>::new());
+            let observe = move |index: usize| {
+                let seen = seen.clone();
+                move |phase| seen.borrow_mut()[index].push(phase)
+            };
+            let options = vec![ListItem::new("a", "Alpha"), ListItem::new("b", "Beta")];
+            (
+                (checked, switched, pressed, selected, tab, tags),
+                column((
+                    checkbox("Check", checked).on_edit(observe(0)),
+                    switch("Switch", switched).on_edit(observe(1)),
+                    toggle_button("Toggle", pressed).on_edit(observe(2)),
+                    select("Choose", options.clone(), selected).on_edit(observe(3)),
+                    tabs("Pages", options, tab).on_edit(observe(4)),
+                    tag_input("Tags", tags)
+                        .on_add(move |tag| tags.update(|tags| tags.push(tag)))
+                        .on_edit(observe(5)),
+                )),
+            )
+        });
+    screen.get_by_role(Role::CheckBox, "Check").click();
+    screen.get_by_role(Role::Switch, "Switch").click();
+    screen.get_by_role(Role::Button, "Toggle").click();
+    screen.get_by_role(Role::ComboBox, "Choose").focus();
+    screen.press_key(Key::ArrowDown);
+    screen.get_by_role(Role::Tab, "Beta").click();
+    screen.get_by_role(Role::TextBox, "Tags").type_text("new");
+    screen.press_key(Key::Enter);
+    assert!(checked.get_untracked());
+    assert!(switched.get_untracked());
+    assert!(pressed.get_untracked());
+    assert_eq!(selected.get_untracked(), Some("b"));
+    assert_eq!(tab.get_untracked(), "b");
+    assert_eq!(tags.get_untracked(), ["new"]);
+    for phases in logs.borrow().iter() {
+        assert_eq!(*phases, [Begin, Commit]);
+    }
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn text_input_reports_edit_phases_from_the_native_editor() {
+    use kivact::custom::TextEditing;
+    use kivact::interaction::text_edit_policy;
+    let logs = Rc::new(RefCell::new(vec![Vec::new(); 2]));
+    let seen = logs.clone();
+    let (screen, value) = mount_with(real_window(), move || {
+        let value = signal(String::new());
+        let ui_seen = seen.clone();
+        let native = node()
+            .role(Role::TextBox)
+            .name("Native")
+            .focusable(true)
+            .text_editing(
+                TextEditing::new("")
+                    .behavior(text_edit_policy)
+                    .on_edit(move |phase| seen.borrow_mut()[0].push(phase)),
+            );
+        (
+            value,
+            column((
+                native,
+                kivact::ui::text_input("Standard", value)
+                    .on_edit(move |phase| ui_seen.borrow_mut()[1].push(phase)),
+            )),
+        )
+    });
+    screen.get_by_role(Role::TextBox, "Native").type_text("x");
+    screen.get_by_role(Role::TextBox, "Standard").type_text("y");
+    assert_eq!(value.get_untracked(), "y");
+    for phases in logs.borrow().iter() {
+        assert_eq!(*phases, [Begin, Commit]);
+    }
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

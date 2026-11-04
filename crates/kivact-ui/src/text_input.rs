@@ -260,8 +260,8 @@ impl TextInput {
     }
 
     /// Report each [`EditPhase`] of the draft ([`draft`](Self::on_draft_commit)):
-    /// `Begin` when it starts, then `Commit` or `Cancel`. Without a draft it
-    /// is never called.
+    /// `Begin` when it starts, then `Commit` or `Cancel`. Without a draft,
+    /// native value changes each report `Begin` and `Commit`.
     #[track_caller]
     pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
         self.editing = self.editing.on_edit(f);

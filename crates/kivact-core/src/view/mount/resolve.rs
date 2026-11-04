@@ -122,7 +122,9 @@ pub(super) fn resolve(
             props,
             on_edit,
             on_selection,
+            on_phase,
         } = *editing;
+        handlers.edit_phase = on_phase;
         handlers.text = on_edit;
         handlers.selection = on_selection;
         props

@@ -62,6 +62,7 @@ pub(crate) struct Handlers {
     pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
     /// Session changes of a TextInput (`TextEditing::on_selection_change`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
+    pub edit_phase: Option<Handler<crate::view::EditPhase>>,
     /// Loading or decoding failed for the node's image source.
     pub image_error: Option<Handler<kivact_runtime::UiError>>,
     /// Scroll reports.
@@ -82,7 +83,14 @@ impl Handlers {
             self.file = later.file;
         }
         macro_rules! replace_fields { ($($field:ident),*) => { $(if later.$field.is_some() { self.$field = later.$field.take(); })* }; }
-        replace_fields!(activate, secondary_context, text, selection, image_error);
+        replace_fields!(
+            activate,
+            secondary_context,
+            text,
+            selection,
+            edit_phase,
+            image_error
+        );
         for (action, handler) in later.a11y {
             if let Some(entry) = self.a11y.iter_mut().find(|(a, _)| *a == action) {
                 entry.1 = handler;

@@ -32,6 +32,7 @@ pub struct Select<K: kivact_core::state::ItemKey> {
     label: Value<String>,
     options: Value<Vec<ListItem<K>>>,
     selected: Binding<Option<K>>,
+    on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     placeholder: Option<Value<String>>,
     preview: Option<Callback<Option<K>>>,
     icon: Option<View>,
@@ -62,6 +63,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
         options: options.into_value(),
         selected: selected.into_binding(),
         placeholder: None,
+        on_edit: None,
         preview: None,
         icon: None,
         size: super::values::default_control_size().into_value(),
@@ -73,6 +75,15 @@ pub fn select<K: kivact_core::state::ItemKey>(
     }
 }
 impl<K: kivact_core::state::ItemKey> Select<K> {
+    /// Observe the beginning and commit of each value edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_edit = Some(kivact_core::state::callback(f));
+        self
+    }
+
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -179,6 +190,9 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         let mut behavior = kivact_interaction::use_select(self.options, self.selected)
             .open_on_arrow(self.arrow_open)
             .keep_trigger_focus(self.keep_trigger_focus);
+        if let Some(observer) = self.on_edit {
+            behavior = behavior.on_edit(move |phase| observer.call(phase));
+        }
         if let Some(text) = self.placeholder {
             behavior = behavior.placeholder(text);
         }

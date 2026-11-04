@@ -204,7 +204,7 @@ impl TextEditApi {
         self
     }
 
-    /// Observe the beginning, commit and cancellation of a draft.
+    /// Observe native value edits, or the complete draft when drafting.
     pub fn on_edit<R: HandlerResult>(self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
         self.setup("TextEditApi::on_edit")
             .draft_edit
@@ -300,6 +300,14 @@ impl TextEditApi {
             };
             let value = binding.into_value();
             let editing = TextEditing::new(move || value.get())
+                .on_edit(move |phase| {
+                    let data = owned.get();
+                    if data.draft_commit.get().is_none()
+                        && let Some(observer) = data.draft_edit.get()
+                    {
+                        observer.call(phase);
+                    }
+                })
                 .report_text()
                 .behavior(text_edit_policy)
                 .forward_keys(move || {

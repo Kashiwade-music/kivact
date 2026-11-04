@@ -83,6 +83,7 @@ pub struct TextEditing {
     pub(crate) props: EditorProps,
     pub(crate) on_edit: Option<kivact_runtime::Handler<TextEditEvent>>,
     pub(crate) on_selection: Option<SessionHandler>,
+    pub(crate) on_phase: Option<kivact_runtime::Handler<crate::view::EditPhase>>,
 }
 
 /// The editor settings a mounted editing node binds (`mount::editing::bind`).

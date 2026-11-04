@@ -95,6 +95,7 @@ struct Gesture {
     contact: Var<Option<Contact>>,
     visual: Signal<Option<SwitchDragState>>,
     generation: Signal<u64>,
+    edit: kivact_interaction::EditSession<bool>,
 }
 
 pub(super) type Visual = Option<Value<Option<SwitchDragState>>>;
@@ -103,11 +104,17 @@ pub(super) fn switch(
     control: Part<ToggleState>,
     value: Binding<bool>,
     size: Value<ControlSize>,
+    on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
 ) -> (Part<ToggleState>, Visual) {
     if !use_theme().get().ext::<SwitchDrag>().0 {
         return (control, None);
     }
+    let edit = kivact_interaction::EditSession::new(move |initial| value.set(initial));
+    if let Some(observer) = on_edit {
+        edit.on_edit(move |phase| observer.call(phase));
+    }
     let gesture = Gesture {
+        edit,
         value,
         size,
         contact: var(None),
@@ -244,7 +251,8 @@ impl Gesture {
                             !contact.started_on
                         };
                         if self.value.get_untracked() != next {
-                            self.value.set(next);
+                            self.edit
+                                .once(self.value.get_untracked(), || self.value.set(next));
                         }
                         self.settle(contact, next);
                         return Handled::Yes;

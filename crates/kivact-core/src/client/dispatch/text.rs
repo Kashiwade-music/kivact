@@ -22,6 +22,13 @@ pub(super) fn text_changed(
     if !admitted(rt, host_event, "text", node) {
         return;
     }
+    let phase = handler(rt, node, |h| h.edit_phase.clone());
+    let committed = session.marked().is_none();
+    if committed && let Some(observer) = &phase {
+        run_handler(rt, node_owner(rt, node), || {
+            observer.call(crate::view::EditPhase::Begin)
+        });
+    }
     if let Some(h) = handler(rt, node, |h| h.text.clone()) {
         let edit = crate::custom::TextEditEvent {
             changes: changes.to_vec(),
@@ -29,6 +36,11 @@ pub(super) fn text_changed(
             text: text.map(str::to_owned),
         };
         run_handler(rt, node_owner(rt, node), || h.call(edit));
+    }
+    if committed && let Some(observer) = &phase {
+        run_handler(rt, node_owner(rt, node), || {
+            observer.call(crate::view::EditPhase::Commit)
+        });
     }
 }
 

@@ -105,6 +105,7 @@ pub struct ToggleButton {
     root: Node,
     label: Value<String>,
     pressed: Binding<bool>,
+    on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     icon: Option<View>,
     hide_label: Option<Value<bool>>,
     size: Value<ControlSize>,
@@ -141,6 +142,7 @@ pub fn toggle_button(
         label,
         pressed: pressed.into_binding(),
         icon: None,
+        on_edit: None,
         hide_label: None,
         size: super::values::default_control_size().into_value(),
         variants: Variants::default(),
@@ -148,6 +150,15 @@ pub fn toggle_button(
 }
 
 impl ToggleButton {
+    /// Observe the beginning and commit of each value edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_edit = Some(kivact_core::state::callback(f));
+        self
+    }
+
     /// The size (default [`ControlSize::Medium`]), given to the recipe in
     /// its state; the recipe sizes the toggle_button by it.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
@@ -198,6 +209,9 @@ impl NodeBuilder for ToggleButton {
 impl IntoView for ToggleButton {
     fn into_view(mut self) -> View {
         let mut behavior = use_toggle_button(self.pressed);
+        if let Some(observer) = self.on_edit {
+            behavior = behavior.on_edit(move |phase| observer.call(phase));
+        }
         // `.disabled(..)` ignores input while true.
         if let Some(disabled) = self.root.accessible_disabled() {
             behavior = behavior.disabled(move || disabled.get());
