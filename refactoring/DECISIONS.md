@@ -2,7 +2,7 @@
 
 ## P-1 状態の全数調査（2026-11-04）
 
-対象は `crates/`、`examples/`、`templates/` の Rust source（test と doctest も検索に含む）。付録 A の既存 169 件は変更せず、新規 27 件を SM-I901〜903、SM-U901〜905、SM-K901〜919 として追加した。コードは変更しない。この時点は検索調査の記録で、P-0 checker の全 crate report と clippy の結果は後段へ追記する。
+対象は `crates/`、`examples/`、`templates/` の Rust source（test と doctest も検索に含む）。付録 A の既存 169 件のうち SM-C27 の解消後だけを現契約に合わせて主担当判断で訂正し、新規 32 件を SM-I901〜904、SM-U901〜905、SM-K901〜923 として追加した。コードは変更しない。この時点は検索調査の記録で、P-0 checker の全 crate report と clippy の結果は後段へ追記する。
 
 判定は 13.1 の 8 種類と、単独 bool を認める 18.14 を併用する。二つ以上の field があるだけで option の束・入力の record を状態機械と扱わず、更新する場所と利用する場所で依存を確認する。既存項目と同じ field/遷移は追加件数に含めない。unit は同 module の既存項目を優先し、該当しなければ同 crate が主な crate になる最初の状態機械 unit（kit は K-1、ui は U-1）へ割り当てる。後の unit が必要なら主担当が担当移管を記録する。
 
@@ -379,20 +379,20 @@
 | `crates/kivact-ui-creative/src/dock/data.rs:53` `DockCx` | `on_edit`, `drag`, `root` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `crates/kivact-ui-creative/src/dock/model.rs:53` `DockTab` | `icon`, `closable` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `crates/kivact-ui-creative/src/dock/view.rs:41` `Dock` | `on_close`, `on_edit` | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
-| `crates/kivact-ui-creative/src/editors/arrangement/gesture.rs:41` `State` | `on_edit`, `cycle`, `cycling`, `snap`, `active_auto` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `crates/kivact-ui-creative/src/editors/arrangement/gesture.rs:41` `State` | `on_edit`, `cycle`, `cycling`, `snap`, `active_auto` | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
 | `crates/kivact-ui-creative/src/editors/arrangement/model.rs:53` `TimelineTrack` | `muted`, `solo`, `armed`, `automation_read` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `crates/kivact-ui-creative/src/editors/arrangement/view.rs:20` `Arrangement` | `snap`, `add_track`, `on_edit` | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
-| `crates/kivact-ui-creative/src/editors/graph/gesture.rs:72` `State` | `on_edit`, `snap`, `crate`, `active`, `lane_activate`, `item_activate`, `child_focus` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `crates/kivact-ui-creative/src/editors/graph/gesture.rs:72` `State` | `on_edit`, `snap`, `crate`, `active`, `lane_activate`, `item_activate`, `child_focus` | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
 | `crates/kivact-ui-creative/src/editors/graph/view.rs:21` `GraphEditor` | `lanes`, `snap`, `on_edit` | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
 | `crates/kivact-ui-creative/src/editors/node/gesture.rs:50` `Info` | `checked`, `selected`, `range` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
-| `crates/kivact-ui-creative/src/editors/node/gesture.rs:112` `State` | `on_edit`, `selected_link`, `snap`, `active`, `blocked` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `crates/kivact-ui-creative/src/editors/node/gesture.rs:112` `State` | `on_edit`, `selected_link`, `snap`, `active`, `blocked` | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
 | `crates/kivact-ui-creative/src/editors/node/model.rs:34` `NodeData` | `preview`, `muted` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `crates/kivact-ui-creative/src/editors/node/view.rs:22` `NodeEditor` | `snap`, `edit` | 対応: SM-K906（同じ file の状態。option/input の field 自体は依存のない record と区別） |
 | `crates/kivact-ui-creative/src/editors/shared/gesture.rs:13` `Pressed` | `target`, `pending`, `double`, `moved` | 対応: SM-K30。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
 | `crates/kivact-ui-creative/src/editors/shared/lane.rs:12` `LaneExtensions` | `lane_activate`, `item_activate`, `menu` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `crates/kivact-ui-creative/src/editors/shared/model.rs:20` `EditorContext` | `item`, `lane` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `crates/kivact-ui-creative/src/editors/shared/region_parts.rs:20` `RegionInfo` | `checked`, `selected` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
-| `crates/kivact-ui-creative/src/editors/time/gesture.rs:30` `State` | `on_edit`, `crate`, `snap`, `active`, `child_focus`, `lane_activate`, `item_activate` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
+| `crates/kivact-ui-creative/src/editors/time/gesture.rs:30` `State` | `on_edit`, `crate`, `snap`, `active`, `child_focus`, `lane_activate`, `item_activate` | 対応: SM-K30（CanvasGesture の payload と drag 開始値の写し）。node の focus/data の取消しは SM-K906 |
 | `crates/kivact-ui-creative/src/editors/time/view.rs:22` `TimeEditor` | `lanes`, `snap`, `on_edit` | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `crates/kivact-ui-creative/src/gradient/state.rs:23` `State` | `selection`, `drag`, `blocked`, `valid` | 対応: SM-K902。既存と同じ状態は再登録しない。独立した入力/option record は18.14で除外 |
 | `crates/kivact-ui-creative/src/gradient/view.rs:32` `GradientEditor` | `selection`, `edit` | 除外: builder/設定の option の束（18.14）。動作中の phase ではない |
@@ -1688,3 +1688,38 @@ call の括弧の範囲を追い、内部の `.set/.update/.replace` も補助�
 | `examples/kivact-ui-pop/src/pop/messaging.rs`: 50, 59, 211 | `sleep` | 除外: demo の非同期処理の模擬。利用者 code |
 | `examples/kivact-ui-pop/src/pop/shell.rs:152` | `effect`: `selected.set` | 除外: 利用者 code（18.20）。demo の入力/外部結果の adapter |
 | `examples/kivact-ui-pop/src/pop/shell.rs`: 89 | `sleep` | 除外: demo の非同期処理の模擬。利用者 code |
+
+### 補助照合: Option と State/Phase/Mode の同居
+
+二つの Option の検索に加え、Option が一つでも State/Phase/Mode 名の field と同居する struct を全文から抽出した（35 候補）。State という名前でも struct/値の場合があるため、enum かどうかを利用側で区別する。
+
+| 場所 | 判断と理由 |
+|---|---|
+| `arvane-render/src/draw/painter.rs:122` Painter.index/Mode | 除外: index は frame が backdrop を含む場合の入力索引、Drawing/Replaying のどちらでも保持できる。Mode の phase は既に enum、hidden は group の nesting の深さで event counter ではない |
+| `kivact-core/src/gpu_interop/share/link.rs:119` Open.phase/pixels | 対応: SM-C27。pixels は request の mode と独立して新しい CPU picture を take する mailbox（source の doc も whatever the request と明記） |
+| `kivact-engine/src/host/pump.rs:45` Host | 対応: SM-E01/E02、その他の adapter/IME は既存の SM-E22/E26 |
+| `kivact-engine/src/model/pointer/state.rs:13` Pointer | 対応: SM-E10〜E15。file_target は file drag の独立した routing target |
+| `kivact-engine/src/model/aggregate.rs:12` Model | 対応: SM-E27/E32。layout/paint/a11y はそれぞれ独立の所有者 |
+| `kivact-interaction/src/list/state.rs:41` State | 対応: SM-I14/I28 |
+| `kivact-interaction/src/list/data.rs:238` ListPolicy | 除外: axis は設定、mode は一覧操作の設定。lifecycle の phase ではない |
+| `kivact-interaction/src/menu/state.rs:55` MenuItemState、`table/data.rs:79` TableHeaderState | 除外: recipe に渡す snapshot record。PartState 自体も入力の値であり、この struct がその phase を変更しない |
+| `kivact-ui/src/values.rs:101,242,345` recipe state | 除外: PartState/CheckedState/TableRowState を含む描画用の snapshot record |
+| `kivact-style/src/draw/layer.rs:34` Layer、`kivact-types/src/protocol/effect.rs:57` Layer、`kivact-wire/src/drawing.rs:17` DrawingLayer/paint.rs:314 Effects | 除外: BlendMode と optional clipping/mask は描画の入力 record。Mode は描画設定で lifecycle ではない |
+| `kivact-style/src/draw/recorder.rs:151` RegionSemantics、`kivact-wire/src/scene.rs:114` Region | 除外: CheckedState はチェックの入力値。semantics の optional properties は独立した公開 record |
+| `arvane/src/test_display/virtual_window.rs:41`、`kivact-core/src/test/options.rs:36`、`kivact-engine/src/host/testing/test_options.rs:27` | 除外: WindowMode と locale/renderer の設定の束（18.14） |
+| `kivact-core/src/view/input.rs:171`、`kivact-types/src/protocol/window.rs:11`、`kivact-wire/src/events.rs:26`、`kivact-ui-creative/src/viewport_surface.rs:31` | 除外: PointerPhase/pressure/tilt/region は入力 event の値。phase により破棄する可変な内部 field ではない |
+| `kivact-ui-creative/src/audio/mixer_strip.rs:14`、`editors/{arrangement,graph,node,time}/view.rs`、`outliner/view.rs:50` | 除外: builder の入力。ChannelState/各 editor State は caller が渡す model の値、optional callback/renderer と phase 依存を持たない。動作中の node/outliner の同期は SM-K906/K917 |
+| `kivact-ui-soft/src/app_shell.rs:111` | 除外: MobileNavMode と optional slot は構造の option。動作中の mobile は SM-K09、skip link は SM-K915 |
+| `kivact-ui-soft/src/collapsible.rs:299` GroupCx | 対応: SM-K04。GroupMode と選択の不変条件 |
+| `kivact-ui-soft/src/resizable.rs:204` ResizeHandle | 除外: optional grip と ResizableState は builder の表示入力。操作中の PanelSize は SM-K06 |
+| `kivact-ui-creative/src/audio/transport.rs:13` TransportState、`audio/view_state.rs:5` ChannelState、`examples/kivact-ui-creative/src/creative/audio_values.rs:11` | 除外: caller 所有の音声 engine の値。play/record/cycle、mute/solo 等は kit が関連付けて phase を推定しない独立した control。stop で record arm を保持することも認める |
+| `kivact-ui-soft/src/soft_chat_composer.rs:591` DictationState | 除外: caller 提供の capability/listening の表示入力。kit は speech engine を所有せず内部の開始/終了の規則を作らない |
+
+### helper 経由の書込みと SM-C27 の訂正
+
+- effect の直接 `.set` だけでなく全 kit の effect を列挙して helper を追った結果、SM-I904（palette.reset）と SM-K920〜923（cancel/commit/open）を追加した。全追加は 32 件、付録 A は計 201 件。
+- `editors/{arrangement,time,graph}/view.rs` の `state.cancel()` は SM-K906 の同じ focus/data の取消しに含める。drag origin と CanvasGesture 自体は既存 SM-K30。
+- `combobox.rs:488` の row.scroll_into_view、`tab_list.rs:425` の scroll_into_view は外部の node への effect で内部 signal の派生状態を複製しないため除外。
+- `picker.rs:586` の outcomes.preview はすでに PickerPhase::Open { previewed } / Settled の明示状態で重複除去し、追加の bool/Option の組合せを作らないため除外。
+- `calendar/state.rs:131` と `table/state.rs:144` の reconcile は Roving::reconcile に入り、requested/observed/restore_from の処理は既存 SM-I16。新規機械として重複登録しない。
+- **SM-C27 の訂正（主担当決定）**: `gpu_interop/share/link.rs:124-127` は pixels を whatever the request の新しい CPU picture と明記する。公開 publish_pixels の GPU request 中の受理を保存するため、Phase::Pixels(Pixels) 案をやめ、Open が phase と独立した Mailbox<Pixels> を持つ形へ訂正する。Mailbox は V-4/S-9 の共通型。C-3 は振る舞い不変の unit なので、phase に閉じ込めて受理を制限する変更は行わない。

@@ -388,7 +388,7 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 
 ### SM-C27 共有の link の画素
 - **場所**: `gpu_interop/share/link.rs:110-145`（`Phase` の enum の外の `Open.pixels: Option<Pixels>`）
-- **解消後**: `Phase::Pixels(Pixels)` の variant に入れる
+- **解消後**: `Open.pixels` は `Mailbox<Pixels>`（S-9、V-4 の latest-wins/take-once）として `Phase` と独立して保持する。`publish_pixels` は GPU の request 中にも CPU picture を受け取る現在の契約を保存し、`Phase::Pixels` の variant に閉じ込めない（P-1 で code/doc を照合して主担当が訂正、DECISIONS）
 - **unit**: C-3
 
 ### SM-C28 embed の panic
@@ -1142,7 +1142,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **場所**: `kivact-ui-creative/src/color_wheel/view.rs:134-142,200-205`、`color_wheel/fields.rs:172-184`
 - **現在**: hue を外部色から effect で同期し、alpha がなくなると別の effect が active channel を Hue へ、palette の縮小で選択を clamp する。
 - **不正**: 使えない Alpha や消えた swatch を effect まで選んだ状態になる。
-- **解消後**: `enum ColorSelection { Channel(Channel), Swatch(usize) }` を machine が持ち、`ColorChanged`・`AlphaChanged`・`PaletteChanged` の遷移で hue と選択を一度に決める。無彩色で hue を保持する現在の規則は保存。
+- **解消後**: `Signal<ColorControls>`、`struct ColorControls { channel: Channel, swatch: SwatchSelection, hue: f64 }`、`enum SwatchSelection { None, Selected(usize) }`。channel と swatch は独立して共存する現在の意味を保存し、`ColorChanged`・`AlphaChanged`・`PaletteChanged` の遷移内でそれぞれの有効性を決める。無彩色で hue を保持する現在の規則も保存。
 - **unit**: K-1
 
 ### SM-K904 creative range の active end
@@ -1159,11 +1159,11 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **解消後**: `enum PickerColumn { Empty, Active(usize) }` を machine に置き、`QueryChanged`・`ItemsChanged`・column 移動の遷移内で選ぶ。preview と pick は選んだ column と同じ遷移の effect。
 - **unit**: K-1
 
-### SM-K906 node editor の focus と接続
-- **場所**: `kivact-ui-creative/src/editors/node/view.rs:196-225`
-- **現在**: node editor は focus/disabled の effect が接続の `mode` と edit を終了する。
-- **不正**: focus を失っても接続中。SM-K11 の key と SM-K30 の gesture origin とは別。
-- **解消後**: node editor の `NodeMode` の遷移が focus の out・無効化・data の変更を受ける。
+### SM-K906 creative editor の focus と data の取消し
+- **場所**: `kivact-ui-creative/src/editors/node/view.rs:196-225`、`editors/arrangement/view.rs:288-310`、`editors/time/view.rs:217-235`、`editors/graph/view.rs:243-260`
+- **現在**: node editor は focus/disabled の effect が接続の `mode` と edit を終了する。arrangement/time/graph も focus/visibility/data の effect が現在の drag を cancel する。
+- **不正**: focus を失っても接続/drag が残り、消えた item の drag は effect まで有効。SM-K11 の key と SM-K30 の gesture origin とは別。
+- **解消後**: 各 editor の gesture/接続の machine が focus の out・visibility・無効化・data の変更を受け、取消しと rollback を同じ遷移で決める。
 - **unit**: K-1
 
 ### SM-K907 editor の region id の純粋でない計算
@@ -1198,7 +1198,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **場所**: `kivact-ui-soft/src/time_input.rs:112-153`
 - **現在**: draft と invalid を別々に持ち、外部 value を effect で draft に写して invalid を消す。
 - **不正**: 無効な文字が新しい value と共存し、memo が空文字の invalid を隠す。SM-K18/19 の日付・日時の field とは別の time field。
-- **解消後**: `enum TimeDraft { Empty, Valid(TimeOfDay), Invalid(String) }` を signal に持ち、外部値・入力・commit の遷移で一度に決める。invalid は memo。
+- **解消後**: `enum TimeDraft { Empty, Valid { text: String, value: TimeOfDay }, Invalid(String) }` を signal に持ち、外部値・入力・commit の遷移で一度に決める。invalid は memo。
 - **unit**: K-1
 
 ### SM-K912 calendar kit の範囲選択と月の通知
@@ -1256,3 +1256,38 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **不正**: resource が新しい結果になっても effect まで古い options を使う。SM-K16 の open/filtering mode とは別の検索結果の同期。
 - **解消後**: `enum SearchResults<K> { Empty, Ready { current: Vec<ListItem<K>>, retained: Vec<ListItem<K>> } }` を controller が持ち、検索結果・選択の変更を同じ遷移で処理する。label/options は snapshot の memo、debounce は既存 resource の task のまま（task の cancellation は resource が所有する）。
 - **unit**: K-2
+
+### SM-I904 command palette の閉じると query の reset
+- **場所**: `kivact-interaction/src/palette.rs:326-331`
+- **現在**: caller の open と combobox の query/highlight を別々に持ち、閉じた後の effect が `combobox.reset()` を呼ぶ。
+- **不正**: 閉じた palette に前回の query/highlight が effect まで残る（helper 経由の S-5）。
+- **解消後**: palette の machine の `Closed/Open` の遷移が combobox の query/highlight の reset を同時に決める。combobox の snapshot を再利用し、別の query の写しを作らない。
+- **unit**: I-1
+
+### SM-K920 bezier の無効化と drag の取消し
+- **場所**: `kivact-ui-creative/src/bezier/view.rs:178-185`
+- **現在**: part の disabled/hidden を effect が見て `gesture.cancel()` を呼ぶ。
+- **不正**: part が無効になっても effect まで drag が active。SM-K30 の drag origin とは別の入力との同期。
+- **解消後**: gesture の machine が part の入力変化を受け、無効化と cancel を同じ遷移で決める。disabled/hidden の写しは保存しない。
+- **unit**: K-4
+
+### SM-K921 color popup の開閉と edit session
+- **場所**: `kivact-ui-creative/src/color_popup.rs:22-28,54-69`
+- **現在**: open は signal、snapshot は別の EditSession。閉じた後の effect が commit し、Escape は dismiss callback が cancel する。
+- **不正**: 閉じているのに session が active、Escape の cancel と close の commit が二つの入口に分かれる。
+- **解消後**: `enum ColorPopupPhase { Closed, Editing { initial: Color } }` を machine が持つ。開く・Escape・その他の close の遷移が snapshot/rollback/commit と popup の effect を一度に決める。
+- **unit**: K-1
+
+### SM-K922 pagination の page の draft
+- **場所**: `kivact-ui-soft/src/pagination.rs:626-642`
+- **現在**: page と draft を effect で同期し、focus を失った effect が commit する。
+- **不正**: page と前の文字が別の段階で見え、focus の event でなく派生値の観測順で commit する。
+- **解消後**: `enum PageDraft { Following(u32), Editing(String) }` の machine が page の変更・入力・Enter・focus の out を受け、clamp と書く値と表示文字を一つの遷移で決める。
+- **unit**: K-1
+
+### SM-K923 nav heading の二つの開閉状態
+- **場所**: `kivact-ui-soft/src/nav_heading.rs:119-132`
+- **現在**: use_hover_surface の shown と use_menu の shown を別々に持ち、effect が menu の open/close を呼ぶ。
+- **不正**: hover surface が開いて menu が閉じた組合せを effect で直す（S-4/S-5）。SM-K13 の top/side nav とは別の heading の adapter。
+- **解消後**: `use_navigation_menu` の一つの開閉 machine を使い、hover の timing と menu の session を同じ遷移で決める。表示の shown はその snapshot からの memo。
+- **unit**: K-1
