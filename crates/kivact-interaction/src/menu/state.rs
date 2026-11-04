@@ -8,7 +8,7 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::{PartState, raise};
 use kivact_core::geometry::Point;
 use kivact_core::state::IntoText;
-use kivact_core::state::{Callback, MachineHandle, Signal, Value, Var};
+use kivact_core::state::{Callback, MachineHandle, Signal, Value};
 use kivact_core::style::Icon;
 use kivact_core::view::NodeRef;
 
@@ -620,9 +620,7 @@ pub(super) enum Opened {
 /// State shared by every level of one menu. All handles are `Copy`.
 pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) entries: Value<Vec<MenuEntry<K>>>,
-    pub(super) choose: Var<Callback<K>>,
-    // xtask-allow(state-fields): Optional setup callback supplied by a containing menubar, not session state.
-    pub(super) menubar: Var<Option<Callback<bool>>>,
+    pub(super) options: crate::options_cell::OptionsCell<MenuOptions<K>>,
     /// The top level's popup; its anchor is the trigger.
     pub(super) popup: PopupApi,
     pub(super) anchor: NodeRef,
@@ -641,7 +639,7 @@ pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) kept: Value<usize>,
     // xtask-allow(state-fields): Read-only projection of the canonical pending request.
     pub(super) want: Value<Option<Want<K>>>,
-    pub(super) machine: MachineHandle<super::session::SessionMachine<K>>,
+    pub(super) machine: MachineHandle<super::machine::Machine<K>>,
     pub(super) typed: kivact_core::state::Binding<Typeahead>,
     // xtask-allow(state-fields): Independent structural theme opt-in; created once during setup.
     pub(super) press: Option<super::press_state::Press>,
@@ -654,3 +652,10 @@ impl<K: kivact_core::state::ItemKey> Clone for Session<K> {
     }
 }
 impl<K: kivact_core::state::ItemKey> Copy for Session<K> {}
+
+/// Setup callbacks shared by every level of a menu.
+#[derive(Clone)]
+pub(super) struct MenuOptions<K: 'static> {
+    pub(super) choose: Callback<K>,
+    pub(super) menubar: Option<Callback<bool>>,
+}

@@ -93,7 +93,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             move |key| {
                 session
                     .machine
-                    .send(super::session::SessionEvent::Focus(depth, key))
+                    .send(super::machine::Event::Focus(depth, key))
             },
         ));
         let anchors = signal(Vec::<(K, Rect)>::new());
@@ -252,9 +252,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                             }
                         }
                     }
-                    session
-                        .machine
-                        .send(super::session::SessionEvent::Request(None));
+                    session.machine.send(super::machine::Event::Request(None));
                 });
             })
     }
@@ -332,7 +330,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 pressed_over.get().unwrap_or_else(|| hovered.get()) && !disabled.get()
             });
             effect(move || {
-                session.machine.send(super::session::SessionEvent::Rest(
+                session.machine.send(super::machine::Event::Rest(
                     depth,
                     key.clone(),
                     resting.get() && !aiming.get(),
@@ -343,7 +341,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             let key = key.clone();
             let over = item_ref.hovered();
             effect(move || {
-                session.machine.send(super::session::SessionEvent::Rest(
+                session.machine.send(super::machine::Event::Rest(
                     depth,
                     key.clone(),
                     pressed_over.get().unwrap_or_else(|| over.get())
@@ -416,7 +414,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                         session.open_submenu(depth, invoke_key.clone());
                         return Ok(());
                     }
-                    session.choose.get().try_call(invoke_key.clone())?;
+                    session.options.get().choose.try_call(invoke_key.clone())?;
                     if !keep_open.get() {
                         session.close(PopupCloseReason::Selection);
                     }
@@ -459,7 +457,7 @@ fn on_key<K: kivact_core::state::ItemKey>(
             Handled::Yes
         }
         Key::ArrowLeft => {
-            if let Some(navigate) = session.menubar.get() {
+            if let Some(navigate) = session.options.get().menubar {
                 navigate.call(false);
                 Handled::Yes
             } else {
@@ -480,7 +478,7 @@ fn on_key<K: kivact_core::state::ItemKey>(
             if opens {
                 session.open_submenu(depth, key);
                 Handled::Yes
-            } else if let Some(navigate) = session.menubar.get() {
+            } else if let Some(navigate) = session.options.get().menubar {
                 navigate.call(true);
                 Handled::Yes
             } else {

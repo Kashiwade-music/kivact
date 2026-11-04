@@ -1,5 +1,8 @@
 //! Role: Track a held menu pointer and activate the eligible row at release.
-use super::press_state::{Input, Press, PressEvent, PressGesture, Source};
+use self::machine::{Event, Input, PressGesture};
+use super::press_state::{Press, Source};
+#[path = "press/machine.rs"]
+pub(super) mod machine;
 use super::state::{MenuOrigin, Session};
 use crate::PopupCloseReason;
 use kivact_core::custom::clock_now;
@@ -42,9 +45,9 @@ impl Press {
                     session.open_from_button();
                 } else {
                     self.machine
-                        .send(PressEvent::Highlight(self.hit(position).1.into()));
+                        .send(Event::Highlight(self.hit(position).1.into()));
                 }
-                self.machine.send(PressEvent::Open(
+                self.machine.send(Event::Open(
                     input,
                     position,
                     clock_now(),
@@ -64,8 +67,7 @@ impl Press {
                     session.open_from_button();
                 }
             });
-            self.machine
-                .send(PressEvent::Pending(input, position, callback));
+            self.machine.send(Event::Pending(input, position, callback));
             return Handled::No;
         }
         let gesture = self.machine.get().gesture;
@@ -112,7 +114,7 @@ impl Press {
             (PointerPhase::Move, PressGesture::Holding { .. } | PressGesture::Dragging { .. }) => {
                 let (inside, row) = self.hit(position);
                 if inside || matches!(gesture, PressGesture::Dragging { .. }) {
-                    self.machine.send(PressEvent::Move(position, row.into()));
+                    self.machine.send(Event::Move(position, row.into()));
                 }
                 return Handled::Yes;
             }

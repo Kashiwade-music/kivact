@@ -132,7 +132,9 @@ pub fn use_menu<K: kivact_core::state::ItemKey>(
 
 impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     pub(crate) fn menubar_navigation(self, navigate: Callback<bool>) {
-        self.session.menubar.set(Some(navigate));
+        self.session
+            .options
+            .update(|options| options.menubar = Some(navigate));
     }
 
     /// Drawing state of the mounted trigger.
@@ -171,7 +173,9 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
 
     /// Handle activation of a menu item.
     pub fn on_activate<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
-        self.session.choose.set(callback(f));
+        self.session
+            .options
+            .update(|options| options.choose = callback(f));
         self
     }
 
@@ -278,6 +282,11 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                         return Handled::No;
                     }
                     match event.key() {
+                        Key::Enter | Key::Space if !event.repeat() => {
+                            session.open_from_button();
+                            session.request(0, Edge::First);
+                        }
+                        Key::Enter | Key::Space => return Handled::Yes,
                         Key::ArrowDown => {
                             session.open_from_button();
                             session.request(0, Edge::First);
@@ -288,7 +297,6 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                         }
                         _ => return Handled::No,
                     }
-                    session.open_from_button();
                     Handled::Yes
                 })
                 .on_press(move || {
