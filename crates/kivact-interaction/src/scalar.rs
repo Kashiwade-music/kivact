@@ -40,24 +40,30 @@
 //!
 //! Invariants:
 //! - A range change writes the value back only when it falls outside the new
-//!   range, through one effect per scalar however many parts are attached.
+//!   range, through one transition per scalar however many parts are attached.
 //! - A key press, an assistive technology action and a track drag are each
 //!   one edit of the scalar's [`EditSession`]; Escape, an engine Cancel and
 //!   the focus leaving the thumb during a drag write the starting value back.
 
 mod data;
 mod edit_state;
+mod focus_machine;
 mod handle;
 mod ops;
 mod range;
+mod range_machine;
 mod touch;
+mod touch_data;
+mod touch_machine;
 mod track;
+mod track_data;
+mod track_machine;
 
 pub use data::ScalarState;
 pub(crate) use edit_state::{Edit, Shared};
 pub use handle::{ScalarApi, use_scalar};
 pub(crate) use ops::ScalarOps;
 
-pub(crate) use range::{follow_range, pulled_inside};
+pub(crate) use range::{follow_range, follow_ranges};
 pub use touch::TouchSliderGesture;
 pub(crate) use track::Grip;
