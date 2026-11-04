@@ -44,6 +44,9 @@ pub struct Range {
     root: Node,
     label: Value<String>,
     state: Binding<(f64, f64)>,
+    options: RangeOptions,
+}
+struct RangeOptions {
     min: Value<f64>,
     max: Value<f64>,
     step: Value<f64>,
@@ -76,45 +79,47 @@ pub fn range(label: impl IntoText, value: impl IntoBinding<(f64, f64)>) -> Range
             .style(style().width(pct(100)).height(24).cursor(Cursor::EwResize)),
         label,
         state: value.into_binding(),
-        min: 0.0.into_value(),
-        max: 240.0.into_value(),
-        step: 1.0.into_value(),
-        interval: None,
-        movable: false.into_value(),
-        on_edit: None,
+        options: RangeOptions {
+            min: 0.0.into_value(),
+            max: 240.0.into_value(),
+            step: 1.0.into_value(),
+            interval: None,
+            movable: false.into_value(),
+            on_edit: None,
+        },
     }
 }
 impl Range {
     /// Present the interval as a flat colored block with edge handles.
     pub fn interval(mut self, color: impl IntoValue<kivact::style::Color>) -> Self {
-        self.interval = Some(color.into_value());
+        self.options.interval = Some(color.into_value());
         self
     }
     /// Drag the interval body without changing its duration or crossing the
     /// bounds while true (constant or reactive).
     #[track_caller]
     pub fn movable(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.movable = enabled.into_value();
+        self.options.movable = enabled.into_value();
         self
     }
     /// Report the start and end of each edit as an [`EditPhase`]: a drag of
     /// an endpoint or of the body from the press to the release, or one key
     /// press or action.
     pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.on_edit = Some(callback(f));
+        self.options.on_edit = Some(callback(f));
         self
     }
     /// Inclusive finite bounds; invalid configurations keep the default bounds.
     pub fn limits(mut self, range: impl IntoValue<ScalarRange>) -> Self {
         let range = range.into_value();
-        self.min = memo(move || range.get().min());
-        self.max = memo(move || range.get().max());
+        self.options.min = memo(move || range.get().min());
+        self.options.max = memo(move || range.get().max());
         self
     }
     /// Keyboard and wheel increment.
     pub fn step(mut self, step: impl IntoValue<f64>) -> Self {
         let step = step.into_value();
-        self.step = memo(move || {
+        self.options.step = memo(move || {
             let step = step.get();
             if step.is_finite() && step > 0.0 {
                 step
@@ -138,12 +143,15 @@ impl IntoView for Range {
             root,
             label,
             state,
-            min,
-            max,
-            step,
-            interval,
-            movable,
-            on_edit,
+            options:
+                RangeOptions {
+                    min,
+                    max,
+                    step,
+                    interval,
+                    movable,
+                    on_edit,
+                },
         } = self;
         let interval_template = message("creative.range.interval", "{label} interval");
         let start_template = message("creative.range.start", "{label} start");

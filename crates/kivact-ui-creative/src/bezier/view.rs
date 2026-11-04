@@ -101,7 +101,9 @@ impl IntoView for BezierCurve {
             || machine::Machine,
             move |_, effect| match effect {
                 machine::Effect::Restore(initial) => binding.set(initial),
-                machine::Effect::StopDrag => drag.cancel(),
+                machine::Effect::StopDrag => {
+                    drag.cancel();
+                }
                 machine::Effect::Phase(phase) => {
                     if let Some(observer) = observer {
                         observer.call(phase);

@@ -209,8 +209,8 @@ pub(super) mod controls_machine {
     use super::{Channel, ColorControls, SwatchSelection, color_to_hsv};
     use kivact::state::Step;
     use kivact::style::Color;
-    pub(super) struct Machine;
-    pub(super) enum Event {
+    pub(in crate::color_wheel) struct Machine;
+    pub(in crate::color_wheel) enum Event {
         ColorChanged(Color),
         AlphaChanged(bool),
         PaletteChanged(usize),
@@ -280,7 +280,9 @@ impl Edit {
                     }
                 }
                 machine::Effect::Rollback(snapshot) => restore(snapshot),
-                machine::Effect::StopDrag => drag.cancel(),
+                machine::Effect::StopDrag => {
+                    drag.cancel();
+                }
             },
         );
         let edit = Self { handle };

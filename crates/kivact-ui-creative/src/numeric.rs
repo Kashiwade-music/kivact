@@ -11,7 +11,7 @@ use kivact::state::IntoBinding;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 
 use kivact::interaction::ScalarRange;
-use kivact::state::{Binding, Callback, Value, binding, memo, signal};
+use kivact::state::{Binding, Callback, Value, binding, machine, memo, signal};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Cursor, Justify, Style, Theme, style};
@@ -343,7 +343,7 @@ impl IntoView for Numeric {
         let typing = kivact::interaction::use_inline_edit(signal(None::<()>));
         let text_open = move || typing.is_open(&());
         // The value a scrub's delta is measured from.
-        let moved = signal(false);
+        let scrub_phase = machine(machine::State::Idle, || machine::Machine, |_, ()| {});
         let scalar = use_scalar(state, move || {
             ScalarRange::new(min.get(), max.get()).expect("invariant: numeric bounds are finite")
         })
@@ -531,7 +531,7 @@ impl IntoView for Numeric {
         });
         let scrub = pointer
             .on_start(move |_| {
-                moved.set(false);
+                scrub_phase.send(machine::Event::Press);
             })
             .on_update(move |update: DragUpdate<f64>| {
                 let horizontal = horizontal.get();
@@ -565,13 +565,15 @@ impl IntoView for Numeric {
                             .max(60.0);
                         scalar.set(from_n(normalized(start) + (delta / extent) * factor));
                     }
-                    moved.set(true);
+                    scrub_phase.send(machine::Event::Move);
                 }
             })
             .on_end(move |update: DragUpdate<f64>| {
-                if update.phase == DragPhase::Cancel {
-                    moved.set(false);
-                } else if !moved.get() && matches!(kind, NumericKind::Number | NumericKind::Slider)
+                let moved = matches!(scrub_phase.get(), machine::State::Moved);
+                scrub_phase.send(machine::Event::End);
+                if update.phase != DragPhase::Cancel
+                    && !moved
+                    && matches!(kind, NumericKind::Number | NumericKind::Slider)
                 {
                     begin_text();
                 }
@@ -1014,4 +1016,33 @@ pub fn evaluate_expression(s: &str) -> Option<f64> {
     let value = p.expression()?;
     p.spaces();
     (p.at == p.input.len() && value.is_finite()).then_some(value)
+}
+
+mod machine {
+    //! Role: Track whether a numeric scrub moved enough to suppress opening text on release.
+    use kivact::state::Step;
+    pub(super) struct Machine;
+    #[derive(Clone, Copy, PartialEq)]
+    pub(super) enum State {
+        Idle,
+        Pressed,
+        Moved,
+    }
+    pub(super) enum Event {
+        Press,
+        Move,
+        End,
+    }
+    impl kivact::state::Machine for Machine {
+        type State = State;
+        type Event = Event;
+        type Effect = ();
+        fn transition(&self, _: &State, event: Event) -> Step<State, Event, ()> {
+            Step::to(match event {
+                Event::Press => State::Pressed,
+                Event::Move => State::Moved,
+                Event::End => State::Idle,
+            })
+        }
+    }
 }

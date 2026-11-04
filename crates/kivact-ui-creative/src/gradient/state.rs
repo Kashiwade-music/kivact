@@ -221,7 +221,9 @@ impl Edit {
                     }
                 }
                 machine::Effect::Rollback(snapshot) => restore(snapshot),
-                machine::Effect::StopDrag => drag.cancel(),
+                machine::Effect::StopDrag => {
+                    drag.cancel();
+                }
             },
         );
         let edit = Self { handle };
