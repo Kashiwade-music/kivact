@@ -10,7 +10,7 @@ struct Activation(PlatformTree, ShellWaker);
 impl accesskit::ActivationHandler for Activation {
     fn request_initial_tree(&mut self) -> Option<accesskit::TreeUpdate> {
         let update = self.0.activate_with(convert_update);
-        self.1.wake();
+        self.1.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         update
     }
 }
@@ -20,14 +20,15 @@ impl accesskit::ActionHandler for Actions {
         if let Some((node, request)) = translate_action(&request)
             && self.0.queue_action(node, request)
         {
-            self.1.wake();
+            self.1.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         }
     }
 }
-struct Deactivation(PlatformTree);
+struct Deactivation(PlatformTree, ShellWaker);
 impl accesskit::DeactivationHandler for Deactivation {
     fn deactivate_accessibility(&mut self) {
         self.0.deactivate();
+        self.1.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
     }
 }
 
@@ -42,8 +43,8 @@ impl Bridge {
         crate::module::retain_module();
         let adapter = accesskit_unix::Adapter::new(
             Activation(tree.clone(), waker.clone()),
-            Actions(tree.clone(), waker),
-            Deactivation(tree.clone()),
+            Actions(tree.clone(), waker.clone()),
+            Deactivation(tree.clone(), waker),
         );
         Self { tree, adapter }
     }

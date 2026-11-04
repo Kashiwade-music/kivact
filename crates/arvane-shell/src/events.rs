@@ -8,7 +8,7 @@ pub enum ShellEvent {
     /// CPU framebuffer should be drawn.
     Redraw,
     /// Worker wake or scheduled deadline.
-    Wake,
+    Wake(crate::types::WakeReasons),
     /// Window content geometry or scale changed.
     Resized,
     /// User requested window closure.
@@ -56,6 +56,10 @@ pub enum ShellEvent {
     /// period (the window moved to another monitor), the safe area, the
     /// mouse settings or the system's locale. The scale changes with [`ShellEvent::Resized`].
     EnvironmentChanged,
+    /// Assistive technology activated this window's accessibility tree.
+    AccessibilityActivated,
+    /// Assistive technology deactivated this window's accessibility tree.
+    AccessibilityDeactivated,
     /// Native assistive technology requested an action.
     Accessibility {
         /// Stable semantics identity.

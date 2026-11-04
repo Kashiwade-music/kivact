@@ -49,7 +49,7 @@
 use crate::a11y::native::NativeAccessibility;
 use crate::cpu::CpuSurface;
 use crate::key_code::{map_key, physical_code};
-use crate::native_input::state::NativeInput;
+use crate::native_input::state::{InputWake, NativeInput};
 use crate::services::Services;
 use arvane_shell::ShellImeText;
 use arvane_shell::{Backend, ShellEvent, ShellHandler, ShellWindow};
@@ -62,6 +62,7 @@ use kivact_types::{Point, PointerPhase, Rect, Size};
 use std::num::{NonZeroU32, NonZeroU64};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalPosition, LogicalSize};
@@ -555,13 +556,13 @@ struct Runner<'a> {
     run: Run,
     started: Instant,
     waker: ShellWaker,
-    /// The last pointer position reported (physical client pixels).
-    cursor: Option<(f64, f64)>,
+    /// Wake reasons accumulated until the event loop receives the notification.
+    wake_reasons: Arc<AtomicU8>,
     /// The mouse's logical position and held buttons, which winit's button
     /// and leave messages do not carry.
     mouse: arvane_shell::Mouse,
     /// Shift is held (a vertical wheel then scrolls horizontally).
-    modifiers: ShellModifiers,
+    modifiers: arvane_shell::ModifierState,
     dnd: Dnd,
     /// Counts the presses of the pointer events delivered.
     clicks: arvane_shell::ClickCounter,
@@ -600,19 +601,12 @@ impl Runner<'_> {
         self.run
             .live_ref()
             .and_then(|w| crate::native_input::file_position(&w.window))
-            .or_else(|| {
-                let (x, y) = self.cursor?;
-                let scale = self.run.live_ref().map_or(1.0, |w| w.window.scale_factor());
-                Some(kivact_types::Point {
-                    x: (x / scale),
-                    y: (y / scale),
-                })
-            })
+            .or_else(|| self.mouse.window_position())
     }
     /// Deliver a window's input event, its presses counted.
     fn input(&mut self, el: &ActiveEventLoop, mut event: ShellEvent) {
         if let ShellEvent::Pointer(sample) = &mut event {
-            sample.modifiers = self.modifiers;
+            sample.modifiers = self.modifiers.current();
         }
         if let Some(window) = self.run.live_ref() {
             self.clicks
@@ -689,18 +683,16 @@ impl ApplicationHandler<()> for Runner<'_> {
                 crate::display::center_window(placement, &window, logical);
             }
             let accessibility = NativeAccessibility::new(el, &window, self.waker.clone());
-            let input = Rc::new(NativeInput::default());
-            input.scale.set(window.scale_factor());
-            input
-                .reduced_motion
-                .set(crate::native_input::reduced_motion());
-            input
-                .mouse
-                .set(crate::native_input::pointer_settings(window.scale_factor()));
-            input
-                .locale
-                .replace(crate::native_input::locale::system_locale());
-            *input.waker.borrow_mut() = Some(self.waker.clone());
+            let input = Rc::new(NativeInput::new(
+                kivact_types::Environment {
+                    scale_factor: window.scale_factor(),
+                    reduced_motion: crate::native_input::reduced_motion(),
+                    pointer: crate::native_input::pointer_settings(window.scale_factor()),
+                    locale: crate::native_input::locale::system_locale(),
+                    ..Default::default()
+                },
+                InputWake::EventLoop(self.waker.clone()),
+            ));
             let monitor = window.current_monitor();
             let mut window = WinitWindow {
                 #[cfg(windows)]
@@ -752,6 +744,10 @@ impl ApplicationHandler<()> for Runner<'_> {
         self.callback(el, Some(ShellEvent::MemoryWarning));
     }
     fn user_event(&mut self, el: &ActiveEventLoop, _: ()) {
+        let reasons = crate::wake::decode(self.wake_reasons.swap(0, Ordering::AcqRel));
+        if reasons.is_empty() {
+            return;
+        }
         if let Dnd::Hovering { files, at } = &mut self.dnd
             && let Some(position) = self
                 .run
@@ -772,7 +768,7 @@ impl ApplicationHandler<()> for Runner<'_> {
         let environment = self
             .run
             .live_ref()
-            .is_some_and(|window| window.input.env_changed.take());
+            .is_some_and(|window| window.input.env_changed.take().is_some());
         if environment {
             self.callback(el, Some(ShellEvent::EnvironmentChanged));
         }
@@ -784,14 +780,17 @@ impl ApplicationHandler<()> for Runner<'_> {
         for action in actions {
             self.callback(el, Some(action));
         }
-        self.callback(el, Some(ShellEvent::Wake));
+        self.callback(el, Some(ShellEvent::Wake(reasons)));
     }
     fn about_to_wait(&mut self, el: &ActiveEventLoop) {
         self.deliver_drop(el);
     }
     fn new_events(&mut self, el: &ActiveEventLoop, cause: StartCause) {
         if matches!(cause, StartCause::ResumeTimeReached { .. }) {
-            self.callback(el, Some(ShellEvent::Wake));
+            self.callback(
+                el,
+                Some(ShellEvent::Wake(arvane_shell::WakeReasons::CLIENT)),
+            );
         }
     }
     fn window_event(&mut self, el: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
@@ -826,9 +825,8 @@ impl ApplicationHandler<()> for Runner<'_> {
                     x >= 0.0 && y >= 0.0 && x < f64::from(size.width) && y < f64::from(size.height)
                 };
                 if let Some(at) = window.input.pointer.take().filter(|at| inside(*at))
-                    && self.cursor != Some(at)
+                    && self.mouse.window_position() != Some(logical(at, scale))
                 {
-                    self.cursor = Some(at);
                     let at = logical(at, scale);
                     before = self
                         .mouse
@@ -836,10 +834,6 @@ impl ApplicationHandler<()> for Runner<'_> {
                         .map(ShellEvent::Pointer);
                 }
             }
-            WindowEvent::CursorMoved { position, .. } => {
-                self.cursor = Some((position.x, position.y));
-            }
-            WindowEvent::CursorLeft { .. } => self.cursor = None,
             // winit tells of no change of the locale, and only Windows has a
             // message for it (`WM_SETTINGCHANGE`): coming back to the window
             // is when the user may have changed it elsewhere.
@@ -933,7 +927,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                     MouseScrollDelta::LineDelta(x, y) => crate::wheel::lines(
                         f64::from(x),
                         f64::from(y),
-                        self.modifiers.shift,
+                        self.modifiers.current().shift,
                         height,
                         mouse.wheel_lines,
                         mouse.wheel_chars,
@@ -944,31 +938,25 @@ impl ApplicationHandler<()> for Runner<'_> {
                     ShellEvent::Wheel(kivact_types::WheelInput {
                         delta: kivact_types::Point { x, y },
                         position,
-                        modifiers: self.modifiers,
+                        modifiers: self.modifiers.current(),
                     })
                 })
             }
             WindowEvent::ModifiersChanged(m) => {
                 let m = m.state();
-                self.modifiers = ShellModifiers {
+                self.modifiers.update(ShellModifiers {
                     shift: m.shift_key(),
                     ctrl: m.control_key(),
                     alt: m.alt_key(),
                     meta: m.super_key(),
-                };
-                Some(ShellEvent::Modifiers(ShellModifiers {
-                    shift: m.shift_key(),
-                    ctrl: m.control_key(),
-                    alt: m.alt_key(),
-                    meta: m.super_key(),
-                }))
+                })
             }
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Released => {
                 Some(ShellEvent::Key(kivact_types::KeyInput {
                     key: map_key(&event.logical_key),
                     code: physical_code(event.physical_key),
                     phase: kivact_types::KeyPhase::Up,
-                    modifiers: self.modifiers,
+                    modifiers: self.modifiers.current(),
                     pointer: self.mouse.window_position(),
                 }))
             }
@@ -980,7 +968,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                         repeat: event.repeat,
                         text: event.text.map(|s| s.to_string()),
                     },
-                    modifiers: self.modifiers,
+                    modifiers: self.modifiers.current(),
                     pointer: self.mouse.window_position(),
                 }))
             }
@@ -1109,8 +1097,13 @@ impl WinitWindow {
 impl Backend for NativeBackend {
     fn run(self: Box<Self>, handler: &mut dyn ShellHandler) -> Result<(), ShellError> {
         let proxy = self.event_loop.create_proxy();
-        let waker = ShellWaker::new(move || {
-            let _ = proxy.send_event(());
+        let wake_reasons = Arc::new(AtomicU8::new(0));
+        let pending = wake_reasons.clone();
+        let waker = ShellWaker::new(move |reasons| {
+            let bits = crate::wake::encode(reasons);
+            if bits != 0 && pending.fetch_or(bits, Ordering::AcqRel) == 0 {
+                let _ = proxy.send_event(());
+            }
         });
         let mut app = Runner {
             handler,
@@ -1118,10 +1111,10 @@ impl Backend for NativeBackend {
             run: Run::Starting,
             started: Instant::now(),
             waker,
-            cursor: None,
+            wake_reasons,
             mouse: arvane_shell::Mouse::default(),
             dnd: Dnd::Idle,
-            modifiers: ShellModifiers::default(),
+            modifiers: arvane_shell::ModifierState::default(),
             clicks: arvane_shell::ClickCounter::default(),
             contacts: arvane_shell::Contacts::default(),
         };

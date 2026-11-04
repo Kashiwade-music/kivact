@@ -18,7 +18,7 @@ use x11rb::connection::Connection;
 impl ChildPort for Arc<Notifier> {
     const MAX_DIMENSION: u32 = MAX_DIMENSION;
     fn wake(&self) {
-        super::poll::signal(&self.wake);
+        self.request(arvane_shell::WakeReasons::CLIENT);
     }
     fn close(&self, shared: &Shared) {
         // `request_close` already ran; the wake makes the UI loop observe it.
@@ -67,9 +67,9 @@ impl Drop for UiThreadExit {
 pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
     // Async wakers must not retain the eventfd after the UI thread closes.
     let weak = Arc::downgrade(backend);
-    ShellWaker::new(move || {
+    ShellWaker::new(move |reasons| {
         if let Some(backend) = weak.upgrade() {
-            backend.wake();
+            backend.request(reasons);
         }
     })
 }
@@ -83,6 +83,7 @@ pub(in crate::embed) fn open(
     let shared = Arc::new(Shared::new(0, 0, 1.0, hooks.panic.clone()));
     let backend = Arc::new(Notifier {
         wake: super::poll::eventfd()?,
+        reasons: std::sync::atomic::AtomicU8::new(0),
         thread: std::sync::Mutex::new(None),
     });
     let ui_backend = backend.clone();
@@ -253,7 +254,7 @@ fn event_loop(
         if closed(window) {
             return Ok(());
         }
-        let woke = super::poll::drain(&window.backend.wake)?;
+        let _ = super::poll::drain(&window.backend.wake)?;
         for command in window.shared.take_commands() {
             if closed(window) {
                 return Ok(());
@@ -290,8 +291,12 @@ fn event_loop(
         let due = session
             .deadline()
             .is_some_and(|deadline| deadline <= window.now_ns());
-        if due || woke {
-            session.deliver(ShellEvent::Wake, window);
+        let mut reasons = window.backend.take();
+        if due {
+            reasons.insert(arvane_shell::WakeReasons::CLIENT);
+        }
+        if !reasons.is_empty() {
+            session.deliver(ShellEvent::Wake(reasons), window);
             if closed(window) {
                 return Ok(());
             }

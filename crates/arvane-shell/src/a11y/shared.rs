@@ -6,6 +6,13 @@ use kivact_types::render::{SemanticsTree, SemanticsUpdate};
 use kivact_types::{SemanticsId, SemanticsTextRun};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+/// Whether pending nodes span multiple updates.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Merge {
+    Separate,
+    Merged,
+}
+
 /// What the platform has not been handed yet.
 #[derive(Default)]
 pub(crate) enum Unsent {
@@ -19,7 +26,7 @@ pub(crate) enum Unsent {
         runs: Vec<Arc<SemanticsTextRun>>,
         /// More than one update's nodes: they may repeat, and a later
         /// update may have dropped a run an earlier one added.
-        merged: bool,
+        merged: Merge,
     },
     /// The whole tree.
     Tree,
@@ -38,6 +45,7 @@ pub(crate) enum Reader {
 pub(crate) struct Shared {
     pub(crate) tree: Option<state::AcceptedTree>,
     pub(crate) reader: Reader,
+    focus: Option<SemanticsId>,
     /// The scale the root maps logical bounds to the window's pixels with.
     pub(crate) scale: f64,
     /// Actions assistive technology asked for, not taken yet.
@@ -49,6 +57,7 @@ impl Shared {
         Shared {
             tree: None,
             reader: Reader::Inactive,
+            focus: None,
             scale,
             actions: Vec::new(),
         }
@@ -57,6 +66,7 @@ impl Shared {
     /// Validates a complete tree and replaces the accepted one with it.
     pub(crate) fn replace(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
         let tree = validation::canonicalize(tree)?;
+        self.focus = tree.focus;
         self.tree = Some(state::AcceptedTree::new(&tree));
         if let Reader::Active { unsent } = &mut self.reader {
             *unsent = Unsent::Tree;
@@ -64,8 +74,7 @@ impl Shared {
         Ok(())
     }
 
-    /// Validates the nodes that may have changed and applies them; whether
-    /// anything changed. Without an accepted tree, or with a new root, the
+    /// Validates and applies the supplied change set. Without an accepted tree, or with a new root, the
     /// update must hold the complete tree.
     pub(crate) fn update(&mut self, update: &SemanticsUpdate) -> Result<bool, AccessibilityError> {
         let Some(tree) = self.tree.as_mut().filter(|t| t.root() == update.root) else {
@@ -76,9 +85,8 @@ impl Shared {
             })?;
             return Ok(true);
         };
-        let Some(changed) = tree.apply(update)? else {
-            return Ok(false);
-        };
+        let changed = tree.apply(update)?;
+        self.focus = update.focus;
         let Reader::Active { unsent } = &mut self.reader else {
             // No one reads the tree: activation hands over all of it.
             return Ok(true);
@@ -87,7 +95,7 @@ impl Shared {
             Unsent::Nothing => Unsent::Changed {
                 nodes: changed.nodes,
                 runs: changed.runs,
-                merged: false,
+                merged: Merge::Separate,
             },
             Unsent::Changed {
                 mut nodes,
@@ -99,7 +107,7 @@ impl Shared {
                 Unsent::Changed {
                     nodes,
                     runs,
-                    merged: true,
+                    merged: Merge::Merged,
                 }
             }
             Unsent::Tree => Unsent::Tree,
@@ -146,6 +154,7 @@ pub struct PlatformTree {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
+    focus: Option<SemanticsId>,
     nodes: Vec<&'a kivact_types::render::SemanticsNode>,
     runs: &'a [Arc<SemanticsTextRun>],
     all_runs: bool,
@@ -153,9 +162,14 @@ pub struct PlatformUpdate<'a> {
 }
 
 impl PlatformUpdate<'_> {
-    /// The current accepted hierarchy, including root and focus identities.
+    /// The current accepted hierarchy and root identity.
     pub fn tree(&self) -> &state::AcceptedTree {
         self.tree
+    }
+
+    /// The focus supplied by the latest accepted update.
+    pub fn focus(&self) -> Option<SemanticsId> {
+        self.focus
     }
 
     /// The current nodes the platform needs, in delivery order.
@@ -195,7 +209,7 @@ impl PlatformTree {
         lock(&self.shared).replace(tree)
     }
 
-    /// Validate and apply a partial update; return whether anything changed.
+    /// Validate and apply a partial update; return whether it was accepted.
     /// A new root requires a complete hierarchy. Rejection leaves the accepted
     /// tree unchanged. Publish or notify the window after this method returns.
     pub fn update(&self, update: &SemanticsUpdate) -> Result<bool, AccessibilityError> {
@@ -204,10 +218,8 @@ impl PlatformTree {
 
     /// A complete copy of the accepted tree in parent-before-child order.
     pub fn tree(&self) -> Option<SemanticsTree> {
-        lock(&self.shared)
-            .tree
-            .as_ref()
-            .map(state::AcceptedTree::tree)
+        let shared = lock(&self.shared);
+        shared.tree.as_ref().map(|tree| tree.tree(shared.focus))
     }
 
     /// Whether a platform reader has activated the tree and not deactivated it.
@@ -217,7 +229,13 @@ impl PlatformTree {
 
     /// Stop publication and discard pending changes; the accepted tree remains.
     pub fn deactivate(&self) {
-        lock(&self.shared).reader = Reader::Inactive;
+        let mut shared = lock(&self.shared);
+        if matches!(shared.reader, Reader::Active { .. }) {
+            shared
+                .actions
+                .push(crate::events::ShellEvent::AccessibilityDeactivated);
+        }
+        shared.reader = Reader::Inactive;
     }
 
     /// Activate a reader and convert its complete current tree under lock.
@@ -225,6 +243,11 @@ impl PlatformTree {
     /// return so it can refresh semantics. A conversion panic propagates.
     pub fn activate_with<R>(&self, convert: impl FnOnce(PlatformUpdate<'_>) -> R) -> Option<R> {
         let mut shared = lock(&self.shared);
+        if matches!(shared.reader, Reader::Inactive) {
+            shared
+                .actions
+                .push(crate::events::ShellEvent::AccessibilityActivated);
+        }
         if shared.tree.is_none() {
             shared.reader = Reader::Active {
                 unsent: Unsent::Tree,
@@ -234,6 +257,7 @@ impl PlatformTree {
         let tree = shared.tree.as_ref()?;
         let result = convert(PlatformUpdate {
             tree,
+            focus: shared.focus,
             nodes: tree.nodes(),
             runs: &[],
             all_runs: true,
@@ -289,10 +313,18 @@ impl PlatformTree {
                 let mut seen = std::collections::HashSet::new();
                 let current = nodes
                     .iter()
-                    .filter(|id| !*merged || seen.insert(**id))
+                    .filter(|id| *merged == Merge::Separate || seen.insert(**id))
                     .filter_map(|id| tree.node(*id))
                     .collect();
-                (current, if *merged { &[][..] } else { &runs[..] }, *merged)
+                (
+                    current,
+                    if *merged == Merge::Merged {
+                        &[][..]
+                    } else {
+                        &runs[..]
+                    },
+                    *merged == Merge::Merged,
+                )
             }
         };
         if include_root && !nodes.iter().any(|node| node.id == root) {
@@ -300,6 +332,7 @@ impl PlatformTree {
         }
         let result = convert(PlatformUpdate {
             tree,
+            focus: shared.focus,
             nodes,
             runs,
             all_runs,
@@ -325,7 +358,7 @@ impl PlatformTree {
                     *unsent = Unsent::Changed {
                         nodes: vec![root],
                         runs: Vec::new(),
-                        merged: false,
+                        merged: Merge::Separate,
                     }
                 }
                 Unsent::Changed { nodes, .. } if !nodes.contains(&root) => nodes.push(root),
@@ -340,6 +373,7 @@ impl PlatformTree {
     pub fn forget(&self) {
         let mut shared = lock(&self.shared);
         shared.tree = None;
+        shared.focus = None;
         if let Reader::Active { unsent } = &mut shared.reader {
             *unsent = Unsent::Tree;
         }

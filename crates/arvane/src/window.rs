@@ -296,7 +296,7 @@ impl<H: Handler> ShellHandler for Driver<H> {
     ) -> Result<ShellControl, ShellError> {
         // A GPU start step finished: once the GPU can draw the window,
         // draw a frame now, while nothing else happens.
-        if event == ShellEvent::Wake
+        if matches!(event, ShellEvent::Wake(reasons) if reasons.contains(arvane_shell::WakeReasons::GPU_STEP))
             && window.surface_generation().is_some()
             && self.presenter.prepare(window)
         {

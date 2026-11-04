@@ -2,7 +2,7 @@
 use super::native::Native;
 use crate::embed::child::Shared;
 use crate::embed::session::Session;
-use arvane_shell::{ClickCounter, Mouse, PlatformTree, ShellEvent};
+use arvane_shell::{ClickCounter, ModifierState, Mouse, PlatformTree, ShellEvent};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::num::NonZeroU32;
@@ -116,6 +116,7 @@ pub(super) struct State {
     pub(super) cursor: Cell<kivact_types::Cursor>,
     pub(super) decoder: RefCell<Utf16Decoder>,
     pub(super) mouse: Cell<Mouse>,
+    pub(super) modifiers: Cell<ModifierState>,
     pub(super) clicks: RefCell<ClickCounter>,
     pub(super) environment: RefCell<kivact_types::Environment>,
     pub(super) scale_source: Cell<ScaleSource>,

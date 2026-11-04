@@ -79,11 +79,13 @@ impl Handler for SharedHost {
             arvane::asset::AssetStore::inline()
         } else {
             let wake = waker.clone();
-            arvane::asset::AssetStore::new(move || wake.wake())
+            arvane::asset::AssetStore::new(move || wake.wake(arvane::WakeReasons::ASSETS))
         };
-        self.host
-            .borrow_mut()
-            .begin(window, HostWaker::new(move || waker.wake()), store)
+        self.host.borrow_mut().begin(
+            window,
+            HostWaker::new(move || waker.wake(arvane::WakeReasons::CLIENT)),
+            store,
+        )
     }
     fn event(
         &mut self,

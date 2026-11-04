@@ -10,7 +10,7 @@ impl accesskit::ActivationHandler for Activation {
     fn request_initial_tree(&mut self) -> Option<accesskit::TreeUpdate> {
         crate::retain_module();
         let update = self.tree.activate_with(convert_update);
-        self.waker.wake();
+        self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         update
     }
 }
@@ -23,7 +23,7 @@ impl accesskit::ActionHandler for Actions {
         if let Some((node, request)) = translate_action(&request)
             && self.tree.queue_action(node, request)
         {
-            self.waker.wake();
+            self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         }
     }
 }

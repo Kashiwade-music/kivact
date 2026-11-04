@@ -470,7 +470,7 @@ impl Display {
         );
         // The adapter must exist before the window is shown.
         let accessibility =
-            NativeAccessibility::with_scale(el, &window, ShellWaker::new(|| {}), options.scale);
+            NativeAccessibility::with_scale(el, &window, ShellWaker::new(|_| {}), options.scale);
         let context =
             softbuffer::Context::new(window.clone()).map_err(|e| ShellError::new(e.to_string()))?;
         let surface = softbuffer::Surface::new(&context, window.clone())

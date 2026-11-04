@@ -53,7 +53,7 @@ impl Handler for Host {
             seen.sizes.push((window.size(), window.scale()));
             window.request_redraw();
         }
-        if event == ShellEvent::Wake && window.now_ns() >= seen.deadline {
+        if matches!(event, ShellEvent::Wake(_)) && window.now_ns() >= seen.deadline {
             seen.timer = true;
         }
         if event == ShellEvent::Redraw {
@@ -111,9 +111,13 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     assert_eq!(child.scale(), 1.);
     let waker = seen.lock().unwrap().waker.clone().unwrap();
     let before = seen.lock().unwrap().events.len();
-    std::thread::spawn(move || waker.wake()).join().unwrap();
+    std::thread::spawn(move || waker.wake(arvane::WakeReasons::CLIENT))
+        .join()
+        .unwrap();
     wait(&parent, || {
-        seen.lock().unwrap().events[before..].contains(&ShellEvent::Wake)
+        seen.lock().unwrap().events[before..]
+            .iter()
+            .any(|event| matches!(event, ShellEvent::Wake(_)))
     });
     child.set_scale(2.);
     child.set_size(320, 200);

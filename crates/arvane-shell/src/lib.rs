@@ -31,6 +31,7 @@ mod clicks;
 mod contacts;
 mod events;
 mod ime;
+mod modifiers;
 mod mouse;
 mod services;
 mod target;
@@ -47,9 +48,10 @@ pub use events::ShellEvent;
 pub use ime::ShellImeText;
 pub use kivact_types::FilePhase;
 pub use kivact_types::render::CpuFrame;
+pub use modifiers::ModifierState;
 pub use mouse::Mouse;
 pub use services::FileDialog;
-pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker};
+pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker, WakeReasons};
 
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{

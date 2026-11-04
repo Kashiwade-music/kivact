@@ -70,6 +70,7 @@ mod open;
 mod runtime;
 mod services;
 mod wait;
+mod wake;
 mod wheel;
 
 pub use module::retain_module;

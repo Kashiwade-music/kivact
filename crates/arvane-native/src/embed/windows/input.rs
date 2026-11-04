@@ -92,13 +92,20 @@ fn held(key: u16) -> bool {
     // SAFETY: GetKeyState reads this UI thread's keyboard state and retains nothing.
     unsafe { GetKeyState(i32::from(key)) < 0 }
 }
-pub(super) fn modifiers() -> Modifiers {
-    Modifiers {
+pub(super) fn modifiers(state: &Rc<State>) -> Modifiers {
+    let current = Modifiers {
         shift: held(VK_SHIFT),
         ctrl: held(VK_CONTROL),
         alt: held(VK_MENU),
         meta: held(VK_LWIN) || held(VK_RWIN),
+    };
+    let mut modifiers = state.modifiers.get();
+    let event = modifiers.update(current);
+    state.modifiers.set(modifiers);
+    if let Some(event) = event {
+        state.event(event);
     }
+    modifiers.current()
 }
 pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> Option<LRESULT> {
     let hwnd = state.native.hwnd();
@@ -228,7 +235,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             let (x, y) = crate::wheel::lines(
                 x,
                 y,
-                modifiers().shift,
+                modifiers(state).shift,
                 height,
                 settings.wheel_lines,
                 settings.wheel_chars,
@@ -237,7 +244,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 state.event(ShellEvent::Wheel(kivact_types::WheelInput {
                     delta: kivact_types::Point { x, y },
                     position,
-                    modifiers: self::modifiers(),
+                    modifiers: self::modifiers(state),
                 }));
             }
             Some(0)
@@ -281,8 +288,7 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     use winit::platform::scancode::PhysicalKeyExtScancode;
     let scan = ((l as u32 >> 16) & 0xff) | if l & (1 << 24) != 0 { 0xe000 } else { 0 };
     let code = key_code::physical_code(PhysicalKey::from_scancode(scan));
-    let modifiers = modifiers();
-    state.event(ShellEvent::Modifiers(modifiers));
+    let modifiers = modifiers(state);
     let mut keyboard = [0u8; 256];
     let mut text = [0u16; 16];
     // SAFETY: keyboard is a writable 256-byte keyboard-state output array.
@@ -343,7 +349,7 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
             key,
             code,
             phase: kivact_types::KeyPhase::Up,
-            modifiers: self::modifiers(),
+            modifiers: self::modifiers(state),
             pointer: state.mouse.get().window_position(),
         }));
         return;
@@ -386,7 +392,7 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
             repeat: l & (1 << 30) != 0,
             text: (!text.is_empty()).then_some(text),
         },
-        modifiers: self::modifiers(),
+        modifiers: self::modifiers(state),
         pointer: state.mouse.get().window_position(),
     }));
 }

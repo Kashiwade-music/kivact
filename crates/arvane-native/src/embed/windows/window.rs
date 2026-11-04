@@ -328,7 +328,16 @@ impl State {
             a11y: PlatformTree::new(shared.scale()),
             uia: RefCell::new(super::state::Uia::Inactive),
             services: RefCell::new(crate::services::Services::default()),
-            input: crate::native_input::state::NativeInput::default(),
+            input: crate::native_input::state::NativeInput::new(
+                kivact_types::Environment {
+                    scale_factor: shared.scale(),
+                    reduced_motion: crate::native_input::reduced_motion(),
+                    pointer: crate::native_input::pointer_settings(shared.scale()),
+                    locale: crate::native_input::locale::system_locale(),
+                    ..Default::default()
+                },
+                crate::native_input::state::InputWake::Direct,
+            ),
             target: Arc::new(super::target::Target {
                 instance,
                 native: native.clone(),
@@ -345,6 +354,7 @@ impl State {
             cursor: Cell::new(kivact_types::Cursor::Auto),
             decoder: RefCell::new(super::state::Utf16Decoder::default()),
             mouse: Cell::new(Mouse::default()),
+            modifiers: Cell::new(arvane_shell::ModifierState::default()),
             clicks: RefCell::new(ClickCounter::default()),
             environment: RefCell::new(kivact_types::Environment::default()),
             scale_source: Cell::new(scale_source),
@@ -359,14 +369,14 @@ impl State {
     pub(super) fn waker(&self) -> ShellWaker {
         let shared = Arc::downgrade(&self.shared);
         let native = Arc::downgrade(&self.native);
-        ShellWaker::new(move || {
+        ShellWaker::new(move |reasons| {
             let (Some(shared), Some(native)) = (shared.upgrade(), native.upgrade()) else {
                 return;
             };
-            if shared.alive() && native.wake_pending.request() {
+            if shared.alive() && native.wake_pending.request(reasons) {
                 // SAFETY: posting uses only the opaque HWND and never accesses UI state.
                 if unsafe { PostMessageW(native.hwnd(), super::native::WAKE, 0, 0) } == 0 {
-                    native.wake_pending.clear();
+                    let _ = native.wake_pending.take();
                 }
             }
         })
@@ -388,7 +398,7 @@ impl State {
     }
     pub(super) fn event(self: &Rc<Self>, mut event: ShellEvent) {
         if let ShellEvent::Pointer(sample) = &mut event {
-            sample.modifiers = super::input::modifiers();
+            sample.modifiers = super::input::modifiers(self);
             sample.time_ns = self.now();
             sample.press = sample.phase.press();
             sample.button = sample.press.map(|press| press.button);
