@@ -30,8 +30,14 @@ const USER_EFFECT_ROUNDS: usize = 100;
 /// component.
 #[derive(Clone)]
 pub struct AppOptions {
-    title: String,
     theme: kivact_runtime::Prop<Theme>,
+    settings: AppSettings,
+}
+
+/// Canonical application settings that can cross the embedded UI thread boundary.
+#[derive(Clone)]
+pub(crate) struct AppSettings {
+    title: String,
     /// `None`: the system's locale (`App::locale`).
     locale: Option<Locale>,
     messages: Messages,
@@ -50,20 +56,23 @@ impl AppOptions {
     /// An app whose window is titled `title`, with the default theme.
     pub fn new(title: impl Into<String>) -> AppOptions {
         AppOptions {
-            title: title.into(),
             theme: kivact_runtime::Prop::constant(Theme::default()),
-            locale: None,
-            messages: Messages::new(),
-            window_size: None,
-            min_window_size: None,
-            blocking_threads: None,
-            fonts: Vec::new(),
-            gpu_preference: kivact_types::GpuPreference::default(),
+            settings: AppSettings {
+                title: title.into(),
+                locale: None,
+                messages: Messages::new(),
+                window_size: None,
+                min_window_size: None,
+                blocking_threads: None,
+                fonts: Vec::new(),
+                gpu_preference: kivact_types::GpuPreference::default(),
+            },
         }
     }
 
-    /// Theme of the whole App (to switch it at runtime, wrap the root in
-    /// `view::provide_theme` with a `Signal<Theme>`).
+    /// Theme of the whole App, evaluated reactively under its root owner.
+    /// Embedded startup accepts only a fixed theme; create reactive themes with
+    /// `view::provide_theme` inside the embedded root factory.
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.theme = theme.into_prop();
         self
@@ -77,7 +86,7 @@ impl AppOptions {
     /// [`view::provide_locale`](crate::view::provide_locale) with a `Signal<Locale>`. Read it with
     /// [`i18n::locale`](crate::i18n::locale).
     pub fn locale(mut self, locale: Locale) -> Self {
-        self.locale = Some(locale);
+        self.settings.locale = Some(locale);
         self
     }
 
@@ -86,7 +95,7 @@ impl AppOptions {
     /// keys. To switch them at runtime, wrap the root in
     /// [`view::provide_messages`](crate::view::provide_messages) with a `Signal<Messages>`.
     pub fn messages(mut self, messages: Messages) -> Self {
-        self.messages = messages;
+        self.settings.messages = messages;
         self
     }
 
@@ -99,7 +108,7 @@ impl AppOptions {
     /// [`crate::App::min_window_size`]: otherwise [`crate::App::run`] returns an error
     /// of kind `ErrorKind::Message` without opening the window.
     pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.window_size = Some(Size::new(width.into(), height.into()));
+        self.settings.window_size = Some(Size::new(width.into(), height.into()));
         self
     }
 
@@ -111,7 +120,7 @@ impl AppOptions {
     /// returns an error of kind `ErrorKind::Message` without opening the
     /// window.
     pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.min_window_size = Some(Size::new(width.into(), height.into()));
+        self.settings.min_window_size = Some(Size::new(width.into(), height.into()));
         self
     }
 
@@ -125,7 +134,7 @@ impl AppOptions {
     /// `ErrorKind::Asset`, located here; the App starts anyway.
     #[track_caller]
     pub fn font(mut self, font: impl Into<Asset>) -> Self {
-        self.fonts.push((font.into(), Location::caller()));
+        self.settings.fonts.push((font.into(), Location::caller()));
         self
     }
 
@@ -138,39 +147,58 @@ impl AppOptions {
     /// with [`gpu_interop::adapter`](crate::gpu_interop::adapter).
     #[cfg(feature = "gpu-interop")]
     pub fn gpu_preference(mut self, preference: crate::gpu_interop::GpuPreference) -> Self {
-        self.gpu_preference = preference;
+        self.settings.gpu_preference = preference;
         self
     }
 
     /// Size of the blocking pool (default `min(4, CPUs)`).
     pub fn blocking_threads(mut self, n: usize) -> Self {
-        self.blocking_threads = Some(n.max(1));
+        self.settings.blocking_threads = Some(n.max(1));
         self
     }
 
     #[track_caller]
     pub fn check_window_sizes(&self) -> crate::Result<()> {
-        crate::app::check_window_sizes(self.window_size, self.min_window_size, Location::caller())
+        crate::app::check_window_sizes(
+            self.settings.window_size,
+            self.settings.min_window_size,
+            Location::caller(),
+        )
     }
     pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.title = title.into();
+        self.settings.title = title.into();
         self
     }
     /// Initial engine settings, derived from the application options.
     pub fn host_options(&self) -> kivact_engine::api::HostOptions {
         #[cfg(feature = "gpu-interop")]
-        let gpu_preference = self.gpu_preference;
+        let gpu_preference = self.settings.gpu_preference;
         #[cfg(not(feature = "gpu-interop"))]
         let gpu_preference = kivact_types::GpuPreference::default();
         kivact_engine::api::HostOptions {
-            window_size: self.window_size,
+            window_size: self.settings.window_size,
             gpu_preference,
         }
     }
     /// The single title used for both engine startup and later window effects.
     pub fn window_title(&self) -> &str {
-        &self.title
+        &self.settings.title
     }
+    /// Extract only a fixed theme; reactive inputs stay on their owning thread.
+    pub(crate) fn into_embed_settings(
+        self,
+        at: &'static Location<'static>,
+    ) -> crate::Result<(AppSettings, Theme)> {
+        let theme = self.theme.fixed().ok_or_else(|| {
+            UiError::new(
+                ErrorKind::Unsupported,
+                "App::embed requires a fixed App theme; use view::provide_theme inside the Send root factory for an embedded reactive theme",
+                Some(at),
+            )
+        })?;
+        Ok((self.settings, theme))
+    }
+
     pub(crate) fn into_view_settings(
         self,
     ) -> (
@@ -178,7 +206,16 @@ impl AppOptions {
         Option<crate::i18n::Locale>,
         Messages,
     ) {
-        (self.theme, self.locale, self.messages)
+        (self.theme, self.settings.locale, self.settings.messages)
+    }
+}
+
+impl AppSettings {
+    pub(crate) fn with_theme(self, theme: Theme) -> AppOptions {
+        AppOptions {
+            theme: kivact_runtime::Prop::constant(theme),
+            settings: self,
+        }
     }
 }
 
@@ -282,7 +319,7 @@ impl Launch {
             ThreadWaker::new(move || ready.wake()),
             RuntimeConfig {
                 start_ns: info.now_ns,
-                blocking_threads: options.blocking_threads,
+                blocking_threads: options.settings.blocking_threads,
                 at: self.at,
             },
             |_rt, root| {
@@ -302,7 +339,7 @@ impl Launch {
                     info,
                     writer.clone(),
                     env,
-                    options.min_window_size,
+                    options.settings.min_window_size,
                     self.at,
                 );
                 let extensions = Extensions::new().with(view).with(motion_env);
@@ -321,10 +358,13 @@ impl Launch {
         let root_owner = rt.root();
         #[cfg(debug_assertions)]
         crate::client::trace::event(&rt, format_args!("host_events start {info:?}"));
-        writer.set_window(std::mem::take(&mut options.title), options.min_window_size);
+        writer.set_window(
+            std::mem::take(&mut options.settings.title),
+            options.settings.min_window_size,
+        );
         // The App's fonts precede the root's mount (the engine registers
         // a font when it is written, so the first layout uses them).
-        requests::register_app_fonts(&rt, std::mem::take(&mut options.fonts));
+        requests::register_app_fonts(&rt, std::mem::take(&mut options.settings.fonts));
         let families = ViewState::tree(&rt).reader().font_families();
         rt.enter(|| ViewState::of(&rt).fonts_value.set(families));
         let (options, root) = match std::mem::replace(

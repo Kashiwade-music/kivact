@@ -19,8 +19,9 @@ impl App {
             options: AppOptions::new(title),
         }
     }
-    /// Theme of the whole App (to switch it at runtime, wrap the root in
-    /// `view::provide_theme` with a `Signal<Theme>`).
+    /// Theme of the whole App, evaluated reactively under its root owner.
+    /// Embedded startup accepts only a fixed theme; create reactive themes with
+    /// [`view::provide_theme`](crate::view::provide_theme) inside the embedded root factory.
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.options = self.options.theme(theme);
         self
