@@ -8,13 +8,14 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, ProgressState};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
+use kivact_core::custom::NodeExt;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{reduced_motion, surface_active};
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Value, effect, memo, signal};
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
-use kivact_core::view::{IntoValue, IntoView, Role, View};
-use kivact_core::{Value, effect, memo, signal};
+use kivact_core::view::{IntoView, Role, View};
+use kivact_core::view::{Node, NodeBuilder, node};
 
 /// Timing of standard progress bars. Install it with [`Theme::with`].
 #[derive(Clone, Copy, Debug, PartialEq)]

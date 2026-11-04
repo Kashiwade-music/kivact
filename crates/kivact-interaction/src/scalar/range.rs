@@ -1,10 +1,10 @@
 //! Role: The ranges a scalar accepts, and the write-back when one leaves the value out.
 
 use crate::policy::scalar::ScalarRange;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::raise;
+use kivact_core::ErrorKind;
+use kivact_core::custom::raise;
+use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Value, effect_on};
-use kivact_core::view::IntoValue;
 use std::ops::RangeInclusive;
 use std::panic::Location;
 

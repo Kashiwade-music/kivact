@@ -3,10 +3,11 @@
 use super::data::{ListGesture, ListItemState, ListMode, ListSelection};
 use super::state::{State, selected};
 use crate::roving::Member;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{NodeRefExt, Owner, Part, PartState, part};
-use kivact_core::view::{A11yAction, IntoValue, Orientation, Role};
-use kivact_core::{memo, signal, var};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Owner, Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{memo, signal, var};
+use kivact_core::view::{A11yAction, Orientation, Role};
 use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;
@@ -152,7 +153,7 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
             if !state.roving.remove(&item_key, node) {
                 return;
             }
-            let current = kivact_core::primitive::focused_node();
+            let current = kivact_core::custom::focused_node();
             if id.is_some() && current == id {
                 state.roving.restore_from.set(current);
             }

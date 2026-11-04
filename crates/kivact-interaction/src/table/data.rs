@@ -1,7 +1,7 @@
 //! Role: Passive table inputs, the focus pattern and observable part state.
 
 use crate::{ListPolicy, ListRangePolicy};
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
 use kivact_core::view::{Reactive, SortDirection};
 
 /// The row-erased projection of a [`ColumnDef`](crate::ColumnDef) that a

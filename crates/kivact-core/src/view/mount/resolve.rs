@@ -186,12 +186,12 @@ pub(super) fn resolve(
     };
     Resolved {
         first: FirstWrite {
-            exit_layout,
+            exit_layout: exit_layout.unwrap_or_default(),
             exit_complete,
             test_id,
             role,
             focusable,
-            focusable_when_disabled,
+            focusable_when_disabled: focusable_when_disabled.unwrap_or_default(),
             roving_focus,
             hit_testable,
             actions,

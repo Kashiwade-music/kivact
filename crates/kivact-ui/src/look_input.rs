@@ -1,6 +1,6 @@
 //! Role: Default recipes for the tag input and the number input.
+use kivact_core::custom::PartState;
 use kivact_core::draw::Shadow;
-use kivact_core::primitive::PartState;
 use kivact_core::style::{Align, Color, ColorToken, Direction, Style, TextAlign, Theme, style};
 
 /// The box of the tags and the input, ringed while the focus is inside.

@@ -13,10 +13,11 @@ use kivact_core::style::current_theme;
 use std::cell::{Cell, OnceCell};
 use std::rc::Rc;
 
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::primitive::NodeExt;
-use kivact_core::view::{HandlerResult, IntoText, IntoValue, IntoView, NodeRef, View, callback};
-use kivact_core::{Binding, binding};
+use kivact_core::custom::NodeExt;
+use kivact_core::state::{Binding, binding};
+use kivact_core::state::{IntoText, IntoValue, callback};
+use kivact_core::view::{HandlerResult, IntoView, NodeRef, View};
+use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{EditPhase, TextEdit, use_text_area, use_text_edit};
 
 use super::layer::recipes;
@@ -319,7 +320,7 @@ impl TextInput {
     /// The finished field, as [`Button::into_node`](super::Button::into_node)
     /// is the finished button: for a list of mixed children that a container
     /// styles one by one (a kit's button group).
-    pub fn into_node(mut self) -> Node {
+    fn finish(mut self) -> Node {
         let invalid = self.field.accessible_invalid();
         if let Some(invalid) = invalid.clone() {
             let _ = self.invalid.set(invalid);
@@ -346,6 +347,6 @@ impl TextInput {
 
 impl IntoView for TextInput {
     fn into_view(self) -> View {
-        self.into_node().into_view()
+        self.finish().into_view()
     }
 }

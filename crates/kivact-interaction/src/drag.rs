@@ -28,14 +28,14 @@
 //!   edit.
 
 use crate::edit::EditSession;
-use kivact_core::draw::Point;
-use kivact_core::primitive::{Part, PartState, part};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::geometry::Point;
+use kivact_core::state::{Callback, Signal, Value, Var, effect, memo, signal, untrack, var};
+use kivact_core::state::{IntoValue, callback};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    Handled, IntoValue, Key, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerId,
-    PointerPhase, callback,
+    Handled, Key, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerId, PointerPhase,
 };
-use kivact_core::{Callback, Signal, Value, Var, effect, memo, signal, untrack, var};
 use std::rc::Rc;
 
 /// Coordinates used consistently for a drag's start, position and delta.

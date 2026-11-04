@@ -408,3 +408,16 @@ impl Insets {
         }
     }
 }
+
+/// The edge of the window a drawer is attached to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Edge {
+    /// The left edge.
+    Left,
+    /// The right edge.
+    Right,
+    /// The top edge.
+    Top,
+    /// The bottom edge.
+    Bottom,
+}

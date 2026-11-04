@@ -1,8 +1,8 @@
 //! Role: The writes of a scalar value: normalize, step and set through the binding.
 
 use crate::policy::scalar::ScalarRange;
+use kivact_core::state::{Binding, Value};
 use kivact_core::view::{A11yEvent, A11yRequest, Key};
-use kivact_core::{Binding, Value};
 
 /// What one key press does to the value.
 #[derive(Clone, Copy)]

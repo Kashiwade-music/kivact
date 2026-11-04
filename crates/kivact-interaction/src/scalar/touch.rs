@@ -3,11 +3,11 @@
 use super::track::{Grip, Pointer, nearest};
 use crate::edit::EditSession;
 use crate::{DragAxis, DragVelocity, project_release};
-use kivact_core::draw::Point;
+use kivact_core::custom::clock_now;
+use kivact_core::geometry::Point;
 use kivact_core::motion::{FrameLoop, FrameRate, frame_loop};
-use kivact_core::primitive::clock_now;
+use kivact_core::state::{Signal, Value, Var, signal, var};
 use kivact_core::view::{Handled, PointerEvent, PointerId, PointerKind, PointerPhase};
-use kivact_core::{Signal, Value, Var, signal, var};
 use std::time::Duration;
 
 /// Geometry and release timing for a scalar's opt-in touch path.

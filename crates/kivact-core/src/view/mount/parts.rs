@@ -16,6 +16,8 @@ impl Common {
     pub(crate) fn apply_caller(&mut self, mut later: Common) {
         macro_rules! replace_fields { ($($field:ident),* $(,)?) => { $(replace(&mut self.$field, later.$field.take());)* }; }
         replace_fields!(
+            exit_layout,
+            focusable_when_disabled,
             exit_complete,
             test_id,
             role,
@@ -42,10 +44,6 @@ impl Common {
             monochrome,
             at
         );
-        if later.exit_layout != Default::default() {
-            self.exit_layout = later.exit_layout;
-        }
-        self.focusable_when_disabled |= later.focusable_when_disabled;
         self.part_modal |= later.part_modal;
         self.part_region_events |= later.part_region_events;
         if let Some(semantics) = later.semantics {
@@ -107,7 +105,10 @@ impl Common {
             part.handlers.secondary_context.take(),
         );
         self.part_modal |= part.part_modal;
-        self.focusable_when_disabled |= part.focusable_when_disabled;
+        if let Some(required) = part.focusable_when_disabled {
+            self.focusable_when_disabled =
+                Some(self.focusable_when_disabled.unwrap_or_default() || required);
+        }
         self.part_constraints.disabled.extend(part.disabled.take());
         self.part_constraints
             .disabled

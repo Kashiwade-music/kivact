@@ -88,19 +88,20 @@ trusted_derives = [
 ]
 
 # ----- crate 内の module の依存の向き（dev/xtask の module_rules.rs）。依存の向き
-# `kivact-runtime ◀ i18n ◀ style ◀ view, draw ◀ control ◀
-# primitive ◀ prelude ◀ test` と `{task, motion, style, view} ◀ platform, diagnostics, gpu_interop ◀
-# client ◀ prelude` を書く。`uses` の key の module（子孫を含む）は、自分の部分木、crate root、
+# `kivact-runtime ◀ i18n ◀ style ◀ view, draw ◀
+# custom ◀ test` と `{task, motion, style, view} ◀ platform, diagnostics, gpu_interop ◀
+# client` を書く。`uses` の key の module（子孫を含む）は、自分の部分木、crate root、
 # 値に挙げた module、`uses` に無い module だけを参照してよい。`except` は上向きの例外
 # "from -> to"（`crate::` を省く。from はその module だけ、to はその module と子孫）。どの参照にも
 # 使われない例外も error にする。
 [module_rules.kivact-core.uses]
+state = ["view"]
+geometry = []
 task = []
 motion = []
 style = []
-view = ["task", "motion", "style", "launch"]
+view = ["task", "motion", "style", "launch", "state", "geometry"]
 draw = ["task", "motion", "style"]
-control = ["task", "motion", "style", "view"]
 # env・service の要求・`why`・GPU の取り込みは、公開 module が実装を持つ（view の state と requests の上に立つ）。
 platform = ["task", "motion", "style", "view"]
 # Embedded App setup uses the same root client factory.
@@ -109,12 +110,7 @@ diagnostics = ["task", "motion", "style", "view"]
 # 実験 feature `gpu-interop`。per-App の状態は client が runtime の extension に入れる。
 gpu_interop = ["task", "motion", "style", "view"]
 client = ["task", "motion", "style", "view", "platform", "gpu_interop", "diagnostics"]
-primitive = ["task", "motion", "style", "view", "draw", "control"]
-# 再公開だけの入口。中核の module からは参照させない（test だけが使う）。
-prelude = [
-    "task", "motion", "style", "view", "draw", "control", "platform",
-    "diagnostics", "client", "primitive",
-]
+custom = ["task", "motion", "style", "view", "draw"]
 
 # kivact-i18n contains pure locale values and ICU formatting calculations.
 [module_rules.kivact-i18n.uses]
@@ -350,11 +346,6 @@ reason = "Kit E2E tests are written from the user's side and import `kivact::pre
 rule = "glob-imports"
 path = "crates/kivact-ui-pop/tests/*"
 reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
-
-[[style.exceptions]]
-rule = "glob-imports"
-path = "crates/kivact/src/prelude.rs"
-reason = "The facade prelude is kivact_core's prelude plus the standard UI functions."
 
 [[style.exceptions]]
 rule = "catch-unwind"

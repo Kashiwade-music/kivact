@@ -1,8 +1,9 @@
 //! Role: One data table column: title, cell text and view, order, match, width.
 use crate::menu::Menu;
-use kivact_core::Value;
-use kivact_core::control::Node;
-use kivact_core::view::{IntoText, IntoValue, IntoView, View};
+use kivact_core::state::Value;
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::Node;
+use kivact_core::view::{IntoView, View};
 use kivact_interaction::ColumnDef;
 use std::cmp::Ordering;
 use std::hash::Hash;
@@ -219,47 +220,47 @@ impl<R: 'static> DataColumn<R> {
     }
 
     /// The text of `row`'s cell, which also names the cell.
-    pub fn text_of(&self, row: &R) -> String {
+    pub(crate) fn text_of(&self, row: &R) -> String {
         (self.text)(row)
     }
 
     /// The view of `row`'s cell given to [`cell`](Self::cell); `None` when
     /// the cell shows its text.
-    pub fn cell_of(&self, row: &R) -> Option<View> {
+    pub(crate) fn cell_of(&self, row: &R) -> Option<View> {
         self.cell.as_ref().map(|cell| cell(row))
     }
 
     /// Whether the cells show a [`cell`](Self::cell) view instead of their
     /// text, so a table can choose how to draw them before it has a row.
-    pub fn has_cell(&self) -> bool {
+    pub(crate) fn has_cell(&self) -> bool {
         self.cell.is_some()
     }
 
     /// Whether the header sorts the rows ([`compare`](Self::compare) or
     /// [`sortable`](Self::sortable)).
-    pub fn is_sortable(&self) -> bool {
+    pub(crate) fn is_sortable(&self) -> bool {
         self.def.is_sortable()
     }
 
     /// Whether the column takes part in the filter ([`filter`](Self::filter)).
-    pub fn is_filtered(&self) -> bool {
+    pub(crate) fn is_filtered(&self) -> bool {
         self.def.is_filtered()
     }
 
     /// Whether the column is [`numeric`](Self::numeric).
-    pub fn is_numeric(&self) -> bool {
+    pub(crate) fn is_numeric(&self) -> bool {
         self.numeric
     }
 
     /// The fixed width given to [`width`](Self::width).
-    pub fn width_value(&self) -> Option<f64> {
+    pub(crate) fn width_value(&self) -> Option<f64> {
         self.def.width_value()
     }
 
     /// The column of the headless row model, keyed by `key` (a table uses
     /// the column's position): its title, width, ordering, match and
     /// visibility.
-    pub fn definition<C: Clone>(&self, key: C) -> ColumnDef<R, C> {
+    pub(crate) fn definition<C: Clone>(&self, key: C) -> ColumnDef<R, C> {
         self.def
             .clone()
             .min_width(self.minimum_width())

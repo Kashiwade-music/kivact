@@ -13,9 +13,10 @@
 
 use std::panic::Location;
 
+use crate::state::{IntoText, IntoValue};
 use crate::view::node::{Content, Node};
 use crate::view::span::Span;
-use crate::view::{IntoText, IntoValue, IntoView, Role, View};
+use crate::view::{IntoView, Role, View};
 
 /// Text from a constant, a signal, a value or a closure.
 #[track_caller]
@@ -44,7 +45,7 @@ pub(crate) fn string_child(content: impl IntoText) -> Node {
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::control::{Span, rich_text, span};
+/// use kivact::view::{Span, rich_text, span};
 /// use kivact::prelude::*;
 ///
 /// /// `label` with the first match of `query` bold and highlighted.
@@ -65,7 +66,7 @@ pub(crate) fn string_child(content: impl IntoText) -> Node {
 /// # let _ = item;
 /// ```
 ///
-/// [`span`]: super::span
+/// [`span`]: crate::view::span
 #[track_caller]
 pub fn rich_text(spans: impl IntoValue<Vec<Span>>) -> Node {
     Node::new(Content::Rich(spans.into_prop()), Some(Location::caller())).role(Role::Text)

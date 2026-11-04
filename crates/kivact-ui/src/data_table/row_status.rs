@@ -1,11 +1,11 @@
 //! Role: Named status markers in the table's leading accessory lane.
 use crate::{Tone, tooltip};
-use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, icon, node};
 use kivact_core::i18n::message;
+use kivact_core::state::Value;
 use kivact_core::style::{
     Align, Color, ColorToken, Icon, Justify, Theme, ThemeExtension, current_theme, style,
 };
+use kivact_core::view::{Node, NodeBuilder, icon, node};
 use kivact_core::view::{Role, View, dynamic};
 
 /// A status announced by name and shown in the table's leading lane.

@@ -4,8 +4,8 @@
 //! deterministic random driver of `host_sync_tests` (the random probe tests
 //! over the public API have their own in `tests/e2e/support/random.rs`).
 
-use kivact_core::Binding;
 use kivact_core::prelude::{IntoText, IntoValue, Node, NodeBuilder, Role, node, text};
+use kivact_core::state::Binding;
 
 /// What the screen tests press: an element that is a button to assistive
 /// technology (role Button, focusable, `label` as its name and text),
@@ -52,7 +52,7 @@ pub(super) fn seeds() -> std::ops::Range<u64> {
 }
 
 pub(super) fn editor(label: impl IntoText, binding: impl Into<Binding<String>>) -> Node {
-    use kivact_core::primitive::{NodeRefExt, TextEditing, part};
+    use kivact_core::custom::{NodeRefExt, TextEditing, part};
     let binding = binding.into();
     let value = binding.into_value();
     let control = part(|state| state).role(Role::TextBox).focusable(true);

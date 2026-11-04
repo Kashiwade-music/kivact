@@ -14,8 +14,8 @@ use kivact_runtime::signal;
 
 #[test]
 fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
-    use kivact_core::control::canvas;
-    use kivact_core::primitive::part;
+    use kivact_core::custom::part;
+    use kivact_core::view::canvas;
     use kivact_core::view::{ButtonPress, Handled, MouseButton, PointerKind, PointerPhase};
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
@@ -124,8 +124,8 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
 
 #[test]
 fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() {
-    use kivact_core::control::canvas;
-    use kivact_core::primitive::part;
+    use kivact_core::custom::part;
+    use kivact_core::view::canvas;
     use kivact_core::view::{ButtonPress, Handled, MouseButton, PointerKind, PointerPhase};
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
@@ -358,7 +358,7 @@ fn a_host_edit_that_overrides_the_only_pending_prop_sends_nothing() {
 // normal engine Writer boundary, while mounting/highlighting through public APIs.
 #[test]
 fn replacing_editing_drops_line_state_after_releasing_the_model() {
-    use kivact_core::primitive::{TextEditing, part};
+    use kivact_core::custom::{TextEditing, part};
     use kivact_engine::api::Reader;
     use std::cell::RefCell;
     use std::rc::Weak;

@@ -5,12 +5,12 @@ use super::state::State;
 use crate::ListSelection;
 use crate::policy::grid::GridMove;
 use crate::roving::Member;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{NodeRefExt, Owner, Part, part};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Owner, Part, part};
+use kivact_core::state::{Value, Var, memo, var};
 use kivact_core::view::{
     ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, Role,
 };
-use kivact_core::{Value, Var, memo, var};
 use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;

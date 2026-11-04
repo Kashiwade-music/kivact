@@ -4,7 +4,7 @@
 //! readers live in the core view boundary.
 
 #[doc(inline)]
-pub use crate::view::boundary::{locale, message, message_with};
+pub use crate::view::boundary::{locale, message, message_with, provide_locale, provide_messages};
 #[doc(inline)]
 pub use kivact_i18n::{
     CalendarDate, CalendarMonth, DateRange, DateStyle, DateTime, FractionDigits, Grouping,

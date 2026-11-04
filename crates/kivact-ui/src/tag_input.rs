@@ -3,17 +3,17 @@ use super::layer::with_recipe_style;
 use super::text_input::text_input;
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
-use kivact_core::control::{Node, NodeBuilder, grid, icon, row, text};
+use kivact_core::custom::{NodeExt, PartState};
 use kivact_core::i18n::message_with;
-use kivact_core::primitive::{NodeExt, PartState};
-use kivact_core::signal;
+use kivact_core::state::signal;
+use kivact_core::state::{Callback, Value};
+use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{Align, Track, auto, current_theme, style};
 use kivact_core::view::NodeRef;
 use kivact_core::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, PointerPhase, View, callback,
-    for_index, node_ref,
+    Handled, HandlerResult, IntoView, Key, PointerPhase, View, for_index, node_ref,
 };
-use kivact_core::{Callback, Value};
+use kivact_core::view::{Node, NodeBuilder, grid, icon, row, text};
 
 /// A row of removable tags and a text input to add one, created by
 /// [`tag_input`].

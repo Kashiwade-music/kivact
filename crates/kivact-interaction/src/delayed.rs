@@ -8,9 +8,9 @@
 
 use std::time::Duration;
 
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal, untrack};
 use kivact_core::task::{Task, sleep, spawn};
-use kivact_core::view::IntoValue;
-use kivact_core::{Signal, Value, effect, memo, on_cleanup, signal, untrack};
 
 /// How long a [`Delayed`] waits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

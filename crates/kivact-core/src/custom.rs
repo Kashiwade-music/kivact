@@ -6,7 +6,7 @@
 //!
 //! The official interaction layer and external components use one public
 //! contract (implemented here, re-exported by the facade as
-//! `kivact::primitive`):
+//! `kivact::custom`):
 //! - [`Owner`] holds only the identity of an App and an owner, and
 //!   [`Owned<T>`] is a Copy handle to an `Rc<T>` released with its owner;
 //!   neither retains the runtime. An owner stores objects, registers
@@ -115,8 +115,8 @@
 //! ```no_run
 //! # use kivact_core as kivact;
 //! use kivact::prelude::*;
-//! use kivact::draw::{Rect, Size};
-//! use kivact::primitive::{Constraints, NodeExt, primitive};
+//! use kivact::geometry::{Rect, Size};
+//! use kivact::custom::{Constraints, NodeExt, primitive};
 //!
 //! /// A row of `n` dots, as wide as it has dots.
 //! fn dots(n: Signal<u32>) -> impl IntoView {
@@ -134,19 +134,18 @@
 //! }
 //! ```
 //!
-//! [`NodeBuilder`]: crate::control::NodeBuilder
+//! [`NodeBuilder`]: crate::view::NodeBuilder
 //! [`Draw`]: crate::draw::Draw
 
 pub use crate::view::descriptor::view_is_empty;
 pub use crate::view::ime_session::{ImeInput, ImeSession};
-pub use kivact_style::draw::TextParagraph;
 pub use kivact_types::{EditLineLayout, SemanticsText, SemanticsTextRun, TextCaret, TextRunId};
 
 mod measured_leaf;
 mod measurement;
 mod node;
 mod text_shaping;
-pub use crate::view::owner::{Owner, app_state};
+pub use crate::view::owner::Owner;
 pub use crate::view::part::{Part, PartState, part};
 pub use crate::view::part_data::PartMount;
 /// The `!Send + !Sync` marker of Kivact's handles, for a component's own
@@ -168,3 +167,6 @@ pub use kivact_editing::{
 
 mod inline_view;
 pub use inline_view::inline_view;
+
+#[doc(inline)]
+pub use kivact_runtime::Reactive;

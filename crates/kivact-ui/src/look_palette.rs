@@ -1,6 +1,6 @@
 //! Role: Default recipes for the command palette.
+use kivact_core::custom::PartState;
 use kivact_core::draw::Shadow;
-use kivact_core::primitive::PartState;
 use kivact_core::style::{Align, ColorToken, Direction, Position, Style, Theme, pct, style};
 use kivact_interaction::{ListItemState, PopupState};
 

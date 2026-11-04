@@ -1,10 +1,10 @@
 //! Role: Pure native editing keys and clipboard normalization.
 
-use kivact_core::primitive::{EditContext, EditOutcome, EditRequest, EditState};
+use kivact_core::custom::{EditContext, EditOutcome, EditRequest, EditState};
 use kivact_core::view::Key;
 
 /// The key and paste policy of [`use_text_edit`](crate::use_text_edit), for a
-/// [`TextEditing::behavior`](kivact_core::primitive::TextEditing::behavior)
+/// [`TextEditing::behavior`](kivact_core::custom::TextEditing::behavior)
 /// that handles some keys itself and leaves the rest to it.
 ///
 /// It moves and deletes by grapheme, selects with Shift, goes to the start

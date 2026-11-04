@@ -11,11 +11,10 @@
 //! mixed state, and the caller's writer clears it. A disabled control takes no input or
 //! assistive technology action and leaves the tab order.
 
-use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{
-    A11yAction, CheckedState, Handled, IntoValue, Key, KeyEvent, Modifiers, Role,
-};
-use kivact_core::{Binding, Signal, Value, signal};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Signal, Value, signal};
+use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifiers, Role};
 
 /// Copy handle for a momentary button, the behavior of react-aria's
 /// `useButton`. Attach its [`control`](Self::control) to the caller's
@@ -35,8 +34,8 @@ pub struct ButtonApi {
 /// Create a momentary button without creating a view. Setup only.
 ///
 /// ```no_run
-/// use kivact_core::control::node;
-/// use kivact_core::control::NodeBuilder;
+/// use kivact_core::view::node;
+/// use kivact_core::view::NodeBuilder;
 /// use kivact_interaction::use_button;
 /// let control = use_button().control();
 /// let view = node().part(control).name("Save").on_press(|| {});
@@ -132,8 +131,9 @@ fn core(checked: Binding<bool>, kind: Kind) -> Core {
 /// [`indeterminate`](CheckboxApi::indeterminate). Setup only.
 ///
 /// ```no_run
-/// use kivact_core::{signal, control::node};
-/// use kivact_core::control::NodeBuilder;
+/// use kivact_core::state::{signal};
+/// use kivact_core::{control::node};
+/// use kivact_core::view::NodeBuilder;
 /// use kivact_interaction::use_checkbox;
 /// let checked = signal(false);
 /// let control = use_checkbox(checked).control();

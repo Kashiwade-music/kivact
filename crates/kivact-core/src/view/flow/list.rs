@@ -345,8 +345,17 @@ fn writable_list<T: PropValue>(source: Binding<Vec<T>>) -> ListInput<T, Binding<
         items: source.into_prop(),
         row: Rc::new(move |item, same_key| {
             let initial = item.get_untracked();
+            let read_key = initial.clone();
+            let read_same_key = same_key.clone();
             kivact_runtime::binding(
-                move || item.get(),
+                move || {
+                    source.with(|list| {
+                        list.iter()
+                            .find(|candidate| read_same_key(candidate, &read_key))
+                            .cloned()
+                            .unwrap_or_else(|| item.get())
+                    })
+                },
                 move |replacement| {
                     let mut list = source.get_untracked();
                     if let Some(slot) = list

@@ -7,10 +7,11 @@ use super::types::{
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
-use kivact_core::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact_core::draw::{Rect, linear_gradient};
+use kivact_core::custom::Part;
+use kivact_core::draw::linear_gradient;
+use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
-use kivact_core::primitive::Part;
+use kivact_core::state::{Binding, Callback, Value, binding, memo, signal};
 use kivact_core::style::{
     Color, Cursor, Direction, Justify, Position, Style, TransitionProp, current_theme, pct, style,
 };
@@ -18,7 +19,7 @@ use kivact_core::view::{
     ButtonPress, CheckedState, Handled, IntoView, MouseButton, NodeRef, PointerEvent, PointerPhase,
     ReadingDirection, Role, View, current_direction, dynamic, node_ref,
 };
-use kivact_core::{Binding, Callback, Value, binding, memo, signal};
+use kivact_core::view::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact_interaction::{
     DragCoordinates, DragState, DragUpdate, ListGesture, Table, TableCellState, TableFocus,
     TableRowState, use_disclosure, use_drag,

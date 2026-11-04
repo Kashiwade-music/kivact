@@ -153,6 +153,8 @@ pub(crate) fn mount(v: View, cx: &Mcx<'_>) -> NodeId {
     v.mount(cx)
 }
 
+/// Pass a view, string, tuple, Vec, Option, or a closure returning owned text.
+///
 /// Anything that can be placed in the view tree: builders, `View`, strings
 /// (as text), tuples (up to 16, mixed types), `Vec<V>` and `Option<V>`.
 #[diagnostic::on_unimplemented(
@@ -299,6 +301,6 @@ where
     R: Into<String>,
 {
     fn into_view(self) -> View {
-        crate::control::text(self).into_view()
+        crate::view::text(self).into_view()
     }
 }

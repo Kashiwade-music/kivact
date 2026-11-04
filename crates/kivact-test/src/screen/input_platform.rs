@@ -1,6 +1,6 @@
 //! Role: Portable platform event injection through the real test window.
 use super::model::Screen;
-use kivact_core::draw::Point;
+use kivact_core::geometry::Point;
 use kivact_core::view::{FilePhase, Key, KeyCode, Modifiers};
 use kivact_engine::testing::ShellEvent;
 impl Screen {

@@ -2,8 +2,8 @@
 use super::values::{
     ControlSize, DialogState, FieldState, ProgressState, SelectTriggerState, TooltipArrowState,
 };
-use kivact_core::draw::Rect;
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
+use kivact_core::geometry::Rect;
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Position, Style, Theme, pct, style,
 };

@@ -10,10 +10,11 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::FieldState;
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node, text};
-use kivact_core::primitive::NodeExt;
-use kivact_core::view::{IntoText, IntoValue, IntoView, Role, View, node_ref, show_some};
-use kivact_core::{Value, memo};
+use kivact_core::custom::NodeExt;
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Value, memo};
+use kivact_core::view::{IntoView, Role, View, node_ref, show_some};
+use kivact_core::view::{Node, NodeBuilder, node, text};
 
 /// A control with its visible label, hint and error, created by [`field`].
 ///

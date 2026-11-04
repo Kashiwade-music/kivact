@@ -1,11 +1,12 @@
 //! Role: Configure one shared model and table and compose the retained regions.
 use super::rows::{self, Grid};
 use super::types::{DataTable, DataTableContext, RowName};
-use kivact_core::control::{NodeBuilder, column, scroll, text};
 use kivact_core::i18n::message;
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, binding, memo, signal};
 use kivact_core::style::{Length, pct, style};
-use kivact_core::view::{IntoValue, IntoView, Role, View, for_each, show};
-use kivact_core::{Binding, binding, memo, signal};
+use kivact_core::view::{IntoView, Role, View, for_each, show};
+use kivact_core::view::{NodeBuilder, column, scroll, text};
 use kivact_interaction::{ListSelection, ScalarRange, SortOrder, use_table, use_table_model};
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -361,7 +362,7 @@ where
         grid = grid.node_ref(sticky.content);
     }
     let mut scroller = scroll(grid)
-        .axes(kivact_core::control::ScrollAxes::Horizontal)
+        .axes(kivact_core::view::ScrollAxes::Horizontal)
         // The rows keep their height in a bounded parent: the caller's own
         // scroll view carries them.
         .style(style().shrink(0));

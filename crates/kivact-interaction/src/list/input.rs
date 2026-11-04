@@ -40,7 +40,7 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
     state.select(key.clone(), gesture(state, event.modifiers()));
     let node = state.target(key);
     if node.is_some_and(|node| {
-        use kivact_core::primitive::NodeRefExt;
+        use kivact_core::custom::NodeRefExt;
         node.holds_focus_within()
     }) {
         state.roving.requested.set(Some(key.clone()));
@@ -220,7 +220,7 @@ pub(super) fn typed<K: Clone + Eq + Hash + 'static>(
     let query = state
         .typed
         .get()
-        .update(|typed| typed.push(c, kivact_core::primitive::clock_now()));
+        .update(|typed| typed.push(c, kivact_core::custom::clock_now()));
     let items = state.items.with_untracked(|items| {
         let mut seen = std::collections::HashSet::new();
         items

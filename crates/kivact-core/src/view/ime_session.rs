@@ -31,8 +31,8 @@ pub use kivact_types::ImeInput;
 /// ```no_run
 /// # use kivact_core as kivact;
 /// use kivact::prelude::*;
-/// use kivact::draw::Rect;
-/// use kivact::primitive::{ImeInput, ImeSession, NodeExt};
+/// use kivact::geometry::Rect;
+/// use kivact::custom::{ImeInput, ImeSession, NodeExt};
 ///
 /// fn line_editor() -> impl IntoView {
 ///     let text = signal(String::new());

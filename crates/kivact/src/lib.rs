@@ -6,7 +6,7 @@
 //! (`signal`, `memo`, `binding`, `effect`, ... like Solid's `createSignal`,
 //! `createMemo`, `createEffect`). Callbacks are plain closures. A component
 //! author who stores a caller's closure keeps it as a Copy
-//! [`Callback`] (`callback`), and builds behavior from the
+//! [`state::Callback`] (`callback`), and builds behavior from the
 //! [`interaction`] parts. App authors may also use `callback` to share
 //! a handler between controls. State belongs to the
 //! nearest structural boundary (root, flow branch, list row, `provide`,
@@ -46,13 +46,10 @@ pub use kivact_core::embed;
 #[doc(inline)]
 pub use kivact_core::gpu_interop;
 #[doc(inline)]
-pub use kivact_core::{
-    App, Asset, Binding, Callback, Result, Selector, Signal, UiError, Value, Var, binding, effect,
-    effect_on, memo, on_cleanup, on_mount, signal, untrack, var,
-};
+pub use kivact_core::{App, ErrorKind, Result, UiError};
 #[doc(inline)]
 pub use kivact_core::{
-    control, diagnostics, draw, i18n, motion, platform, primitive, style, task, view,
+    custom, diagnostics, draw, geometry, i18n, motion, platform, state, style, task, view,
 };
 #[cfg(feature = "test")]
 #[doc(inline)]
@@ -60,4 +57,3 @@ pub use kivact_test as test;
 
 /// Everyday names and standard UI functions used by the introductory guides.
 pub mod prelude;
-pub mod state;

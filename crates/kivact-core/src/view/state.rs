@@ -65,7 +65,7 @@ pub(crate) struct NodeRefState {
     /// `NodeRef::rect` was called: every node the ref binds to has its layout observed.
     pub(crate) observes_layout: Cell<LayoutObservation>,
     pub(crate) rect_value: Value<Option<Rect>>,
-    pub(crate) scroll_value: Value<crate::draw::Point>,
+    pub(crate) scroll_value: Value<crate::geometry::Point>,
 }
 
 /// The node the host last reported under the pointer (`view::hover`).
@@ -226,7 +226,7 @@ pub(crate) struct ViewState {
     noted_missing: kivact_types::cell::ReportOnceSet<&'static str>,
     /// The node the host reported under the pointer last.
     hover: Cell<PointerObservation<kivact_types::FocusTarget>>,
-    pub(crate) mouse: Cell<PointerObservation<crate::draw::Point>>,
+    pub(crate) mouse: Cell<PointerObservation<crate::geometry::Point>>,
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
     pointer_modality: Cell<Modality>,

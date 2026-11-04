@@ -36,7 +36,7 @@
 //! #     pub use kivact_core::{control, i18n, prelude, view};
 //! #     pub extern crate kivact_interaction as interaction;
 //! # }
-//! use kivact::control::{column, node, row, text};
+//! use kivact::view::{column, node, row, text};
 //! use kivact::i18n::{CalendarDate, CalendarMonth};
 //! use kivact::interaction::{CalendarPolicy, CalendarSelection, use_calendar_grid};
 //! use kivact::prelude::*;

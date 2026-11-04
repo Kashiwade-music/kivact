@@ -24,7 +24,7 @@
 //! reads its text reactively, the handle is not part of the state's
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
 use kivact_core::view::CheckedState;
 use kivact_core::view::Orientation;
 use kivact_interaction::DialogKind;
@@ -286,7 +286,7 @@ pub struct TooltipArrowState {
     /// `data-side`): `Top` when it is above the trigger, so the arrow sits
     /// at the tooltip's bottom edge. It follows the host's flip once the
     /// tooltip is placed; before that, it is the requested placement.
-    pub side: kivact_interaction::Side,
+    pub side: kivact_core::geometry::Edge,
     /// Where the trigger's centre is along that edge, in logical pixels
     /// from the tooltip's left (`Top`, `Bottom`) or top (`Left`, `Right`)
     /// edge, within the tooltip.

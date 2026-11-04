@@ -23,13 +23,14 @@ use std::panic::Location;
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 
+use crate::state::{IntoText, IntoValue};
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
 use crate::view::mount::mount_host;
 use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::state::ViewState;
-use crate::view::{IntoText, IntoValue, IntoView, Role, View};
+use crate::view::{IntoView, Role, View};
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::asset::Asset;
@@ -126,7 +127,8 @@ impl Node {
         mut self,
         items: impl IntoValue<Vec<T>>,
         key: impl Fn(&T) -> kivact_style::draw::RegionId + 'static,
-        make: impl Fn(kivact_style::draw::RegionId, crate::Value<T>) -> crate::view::Part<S> + 'static,
+        make: impl Fn(kivact_style::draw::RegionId, crate::state::Value<T>) -> crate::view::Part<S>
+        + 'static,
     ) -> Self {
         self.common
             .regions
@@ -335,7 +337,7 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::control::{NodeBuilder, icon};
+/// use kivact::view::{NodeBuilder, icon};
 /// use kivact::style::{ColorToken, style};
 /// let check = icon("check").style(style().color(ColorToken::Accent));
 /// # let _ = check;

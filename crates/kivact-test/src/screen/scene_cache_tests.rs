@@ -7,7 +7,7 @@ use kivact_core::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
 use kivact_core::view::View;
 use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
 use kivact_style::asset::Asset;
-use kivact_style::draw::{Point, Rect, TextStyle};
+use kivact_style::draw::{Point, Rect, TextFormat};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -67,7 +67,7 @@ fn pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reu
     static SVG:&[u8]=br##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="#0000ff"/></svg>"##;
     let (mut host, _) = host(
         || {
-            kivact_core::control::canvas(|d, _| {
+            kivact_core::view::canvas(|d, _| {
                 d.fill_rect(Rect::new(0., 0., 4., 4.), rgb(0xff0000));
                 d.image(&Asset::from(SVG), Rect::new(8., 8., 12., 12.));
             })
@@ -110,7 +110,7 @@ fn pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reu
 fn registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping() {
     let (mut host, rt) = host(
         || {
-            kivact_core::control::canvas(|d, _| {
+            kivact_core::view::canvas(|d, _| {
                 d.text(
                     "WWWWii",
                     Point::new(4., 4.),

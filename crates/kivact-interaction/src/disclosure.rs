@@ -12,9 +12,10 @@
 //! accordion's height) stays visible while [`Disclosure::leaving`] says the
 //! animation runs; the trigger's `expanded` follows the shown state at once.
 
-use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{A11yAction, IntoValue, NodeRef, Role, node_ref};
-use kivact_core::{Binding, Signal, Value, signal};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Signal, Value, signal};
+use kivact_core::view::{A11yAction, NodeRef, Role, node_ref};
 
 /// The shown state and actual input state of a disclosure's trigger or content.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

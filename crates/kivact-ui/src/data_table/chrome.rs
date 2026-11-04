@@ -6,13 +6,13 @@ use crate::{
     ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, ListItem, button,
     checkbox, select, text_input,
 };
-use kivact_core::control::{NodeBuilder, node, row, text};
+use kivact_core::custom::PartState;
 use kivact_core::i18n::{message, message_with};
-use kivact_core::primitive::PartState;
+use kivact_core::state::{Binding, Value, binding, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
 use kivact_core::view::{IntoView, Role, View};
-use kivact_core::{Binding, Value, binding, memo};
+use kivact_core::view::{NodeBuilder, node, row, text};
 use std::hash::Hash;
 
 /// The row above the grid: the filter field, when the table has a filter.
@@ -69,7 +69,7 @@ pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
                 ]
             },
         );
-        kivact_core::control::text(text).style(style().grow(1))
+        kivact_core::view::text(text).style(style().grow(1))
     });
     let pager = context
         .page

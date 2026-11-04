@@ -1,73 +1,24 @@
 //! Role: Parts attach behavior and expose the state of their actual target.
 //!
-//! `primitive::part(|input: PartState| state)` makes a [`Part<S>`]: state,
-//! input, focus and semantics for one target, without look, children or
-//! drawing. It is moved once into an element's `.with(part)` or, on a
-//! canvas, into the setup's `.region(id, part)`. Its `state()` follows the
-//! pressed, hovered, focused, focus-visible, disabled and hidden state of
-//! the target it is attached to; `map_state` changes the state type only,
-//! keeping the target and the lifetime. `node_ref()` and `.reference(r)`
-//! return or add references to that same target. Plain elements and
-//! external components use the same contract.
+//! `Part::new(state, apply)` records one node transformation. `Node::part`
+//! defers it until mounting, in order with the surrounding caller modifiers.
+//! The state remains readable before the attachment is consumed. Canvas regions
+//! apply their attachment once while creating their retained template; adoption
+//! only copies the resulting semantic and input transport.
 //!
-//! Invariants:
-//! - `first.with(second)` attaches both to one target. The state type and
-//!   the main reference stay `first`'s; a state or reference obtained from
-//!   `second` before it was consumed follows the same target, and both bind
-//!   hooks are kept. The default callbacks run `first`'s then `second`'s,
-//!   after the caller's. Constraints and internal transport are flattened,
-//!   so `.region(id, first.with(second))` follows the same rules as several
-//!   `.with(..)` on a node.
-//! - A part's disabled and hidden combine with the caller's by OR, its
-//!   focusability by AND; a caller modifier written later does not lift
-//!   them. `PartMount::eligible` is the caller's constraints only, so it
-//!   does not loop through the part's own roving focus.
-//! - `on_bind` runs in the setup of the owner the part was actually
-//!   attached under, after the references bind and before the first
-//!   commit.
-//! - [`Part::modal`] asks the Overlay it is attached to for its modal focus
-//!   and input confinement. The requests of several parts and the Overlay's
-//!   own `modal` combine by OR (a later `.modal(false)` cannot clear one),
-//!   and the focus restore on removal uses the same confinement. On a plain
-//!   node or a canvas region it is reported as `Unsupported` at mount and
-//!   ignored.
-//! - The focus the engine keeps is one `FocusTarget { node, region }`;
-//!   regions get no focus manager of their own, and keys, focus changes and
-//!   accessibility relations keep that identity. `NodeRef` and `NodeToken`
-//!   can name a node or a region. Focus-visible is kept apart from the
-//!   focus identity: Tab and assistive technology show it, the pointer
-//!   hides it, and a modal's restore uses the saved state. While an input
-//!   bubbles, a focus change does not move its delivery target.
-//! - [`Part::region_events`] (an approved core addition) delivers this
-//!   part's default pointer, key and wheel handling, and only it, to the
-//!   unhandled input of the same canvas's regions, in the order caller,
-//!   region, opt-in part. It forwards nothing to other parts, activation or
-//!   assistive technology. The capture keeps its target's identity, and a
-//!   gesture that started is cancelled when its region retires or a
-//!   terminal event is consumed. `use_zoom_pan` and the standard menu use
-//!   it; kits do not duplicate the delivery.
-//!
-//! On a canvas, `Draw::region`, `region_shape` and `region_path` supply
-//! the geometry only (`kivact_style::draw`); the drawing order decides hits
-//! among overlapping regions, and Tab follows the order of the setup
-//! declarations.
+//! `part` derives state from the target's actual pointer, keyboard, focus and
+//! availability facts. `Node::on_attach` observes the bound reference and final
+//! constraints under the mounted target's setup owner.
 
-use kivact_runtime::{IntoText, IntoValue};
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_runtime::EffectKind;
-use kivact_runtime::HandlerResult;
-
+use crate::state::{Value, memo, on_cleanup, signal};
 use crate::view::common::Common;
-use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
 use crate::view::owner::Owner;
 use crate::view::part_data::{PartBinding, PartMount};
-use crate::view::{
-    A11yAction, A11yEvent, ButtonPress, Key, LiveRegion, MouseButton, NodeRef, Orientation,
-    PointerPhase, Role, SortDirection, node_ref,
-};
-use crate::{Value, memo, on_cleanup, signal};
+use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
+use kivact_runtime::EffectKind;
 
 // xtask-allow(state-fields): Public observation snapshot of independent input and availability facts.
 /// Actual input and availability state of an attached node or canvas region.
@@ -90,15 +41,8 @@ pub struct PartState {
     pub hidden: bool,
 }
 
-/// A move-only semantic and input attachment for one node or canvas region.
-///
-/// Obtain an attachment from [`part`](crate::primitive::part), read its state
-/// before consuming it with an element's `with` or a canvas node's `region`.
-/// Copies of the returned state and reference continue to follow that target.
-/// Parts contain no style, layout, children or rendering implementation.
-/// A modal requirement uses the attached Overlay's existing focus scope.
-/// Combine attachments with [`with`](Self::with); independently obtained state
-/// values and references continue to follow the shared target.
+/// A move-only node transformation with an exposed reactive state.
+/// Read the state before consuming this attachment with `Node::part` or `Node::region`.
 #[must_use]
 pub struct Part<S: kivact_runtime::PropValue> {
     state: Value<S>,
@@ -128,7 +72,7 @@ enum Hover {
 
 /// Create a setup-owned semantic and input attachment for one target.
 ///
-/// Read [`Part::state`](crate::primitive::Part::state) before consuming the attachment
+/// Read [`Part::state`](crate::custom::Part::state) before consuming the attachment
 /// with an element's `with` modifier or a canvas node's `region` declaration.
 /// The closure receives the exact target's input, focus and availability state.
 #[track_caller]

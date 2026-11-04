@@ -3,11 +3,12 @@ use super::types::{DataTable, DataTableContext, DataTableTreeIndent, Grouping, T
 use crate::DataColumn;
 use crate::layer::with_recipe_style;
 use crate::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, column};
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
+use kivact_core::state::{Binding, Value};
+use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::Color;
-use kivact_core::view::{HandlerResult, IntoValue, IntoView, Role, callback};
-use kivact_core::{Binding, Value};
+use kivact_core::view::{HandlerResult, IntoView, Role};
+use kivact_core::view::{Node, NodeBuilder, column};
 use kivact_interaction::{ScalarRange, SortOrder, TableFocus};
 use std::hash::Hash;
 use std::rc::Rc;

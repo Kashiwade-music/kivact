@@ -8,12 +8,13 @@ use crate::axis::Axis;
 use crate::drag::Drag;
 use crate::edit::EditPhase;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
-use kivact_core::primitive::{Part, PartState, part};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Value, memo};
 use kivact_core::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, IntoValue, Key, KeyEvent,
-    Modifiers, Orientation, Role,
+    A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, Key, KeyEvent, Modifiers,
+    Orientation, Role,
 };
-use kivact_core::{Binding, Value, memo};
 
 /// Reactive drawing state of an attached scalar thumb.
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -34,14 +34,14 @@
 
 use std::panic::Location;
 
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{
+use kivact_core::ErrorKind;
+use kivact_core::custom::{
     NodeRefExt, NodeToken, Owner, Part, PartState, focused_node, part, raise,
 };
+use kivact_core::state::{Binding, Value, Var, effect, on_cleanup, on_mount, var};
 use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
 };
-use kivact_core::{Binding, Value, Var, effect, on_cleanup, on_mount, var};
 
 use super::disclosure::{Disclosure, use_disclosure};
 use super::focus_return::{FocusReturn, PopupCloseReason};
@@ -83,7 +83,7 @@ pub struct PopupState {
 /// ```no_run
 /// use kivact_core::{signal, control::{NodeBuilder, node, text}, view::{Placement, Role, overlay, show}};
 /// use kivact_interaction::use_popup;
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::custom::NodeExt;
 /// let open = signal(false);
 /// let menu = use_popup(open);
 /// let trigger = menu.trigger();

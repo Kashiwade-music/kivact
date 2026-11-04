@@ -2,14 +2,14 @@
 use super::layer::with_recipe_style;
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::primitive::NodeExt;
+use kivact_core::custom::NodeExt;
+use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{IntoText, callback};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::{
-    HandlerResult, IntoText, IntoView, Orientation, ReadingDirection, View, callback,
-    current_direction,
+    HandlerResult, IntoView, Orientation, ReadingDirection, View, current_direction,
 };
-use kivact_core::{Binding, Callback, Value};
+use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{EditPhase, IntoScalarRange, ScalarRange, use_splitter};
 
 /// Two panes and a handle between them, created by [`splitter`].

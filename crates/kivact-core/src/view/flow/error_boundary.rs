@@ -173,7 +173,7 @@ pub struct Retry(kivact_runtime::Callback<()>);
 impl Retry {
     /// Store a retry action under the current owner.
     #[track_caller]
-    pub fn new(f: impl Fn() + 'static) -> Self {
+    pub(crate) fn new(f: impl Fn() + 'static) -> Self {
         Self(f.into())
     }
     /// Try the failed operation again.
