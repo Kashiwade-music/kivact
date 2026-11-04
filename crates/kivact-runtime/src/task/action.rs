@@ -199,7 +199,7 @@ impl<I: 'static> Queue<I> {
 
     /// Whether worker `id` is the current worker.
     fn is_worker(&self, id: Generation) -> bool {
-        match &*self.phase.borrow().parts().0 {
+        match self.phase.borrow().parts().0 {
             Worker::Picking { id: w, .. } | Worker::Running { id: w, .. } => *w == id,
             Worker::Stopped => false,
         }
