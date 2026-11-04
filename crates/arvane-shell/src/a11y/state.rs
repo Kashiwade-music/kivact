@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use kivact_types::protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate};
-use kivact_types::{NodeId, SemanticsTextRun};
+use kivact_types::{SemanticsId, SemanticsTextRun};
 
 use super::error::AccessibilityError;
 use super::runs::Runs;
@@ -24,16 +24,16 @@ use super::validation::check_values;
 /// Read access is borrowed inside a [`super::shared::PlatformTree`] conversion;
 /// node references always describe the same accepted revision.
 pub struct AcceptedTree {
-    root: NodeId,
-    focus: Option<NodeId>,
-    nodes: HashMap<NodeId, SemanticsNode>,
-    parents: HashMap<NodeId, NodeId>,
+    root: SemanticsId,
+    focus: Option<SemanticsId>,
+    nodes: HashMap<SemanticsId, SemanticsNode>,
+    parents: HashMap<SemanticsId, SemanticsId>,
     runs: Runs,
 }
 
 /// What an update changed: the nodes, and the text runs they added.
 pub(crate) struct Applied {
-    pub(crate) nodes: Vec<NodeId>,
+    pub(crate) nodes: Vec<SemanticsId>,
     pub(crate) runs: Vec<Arc<SemanticsTextRun>>,
 }
 
@@ -56,22 +56,22 @@ impl AcceptedTree {
     }
 
     /// The identity of the one root.
-    pub fn root(&self) -> NodeId {
+    pub fn root(&self) -> SemanticsId {
         self.root
     }
 
     /// The focused node, when one is present.
-    pub fn focus(&self) -> Option<NodeId> {
+    pub fn focus(&self) -> Option<SemanticsId> {
         self.focus
     }
 
     /// The accepted node with this identity, if present.
-    pub fn node(&self, id: NodeId) -> Option<&SemanticsNode> {
+    pub fn node(&self, id: SemanticsId) -> Option<&SemanticsNode> {
         self.nodes.get(&id)
     }
 
     /// The parent of `id` (`None` for the root and absent nodes).
-    pub fn parent(&self, id: NodeId) -> Option<NodeId> {
+    pub fn parent(&self, id: SemanticsId) -> Option<SemanticsId> {
         self.parents.get(&id).copied()
     }
 
@@ -104,7 +104,7 @@ impl AcceptedTree {
         &mut self,
         update: &SemanticsUpdate,
     ) -> Result<Option<Applied>, AccessibilityError> {
-        let mut incoming: HashMap<NodeId, &SemanticsNode> = HashMap::new();
+        let mut incoming: HashMap<SemanticsId, &SemanticsNode> = HashMap::new();
         for node in &update.nodes {
             if incoming.insert(node.id, node).is_some() {
                 return Err(AccessibilityError::DuplicateNode(node.id));
@@ -117,7 +117,7 @@ impl AcceptedTree {
             .filter(|n| self.nodes.get(&n.id) != Some(*n))
             .collect();
         let edits = self.reparent(&changed, &incoming)?;
-        let parent = |id: NodeId| match edits.get(&id) {
+        let parent = |id: SemanticsId| match edits.get(&id) {
             Some(p) => *p,
             None => self.parents.get(&id).copied(),
         };
@@ -163,7 +163,7 @@ impl AcceptedTree {
             }
         }
         if let Some(focus) = update.focus {
-            let get = |id: NodeId| incoming.get(&id).copied().or_else(|| self.nodes.get(&id));
+            let get = |id: SemanticsId| incoming.get(&id).copied().or_else(|| self.nodes.get(&id));
             let node = get(focus).ok_or(AccessibilityError::InvalidFocus(focus))?;
             if node.disabled || (focus != update.root && !node.focusable) {
                 return Err(AccessibilityError::InvalidFocus(focus));
@@ -216,7 +216,7 @@ impl AcceptedTree {
                 }
             }
         }
-        let ids: Vec<NodeId> = changed.iter().map(|n| n.id).collect();
+        let ids: Vec<SemanticsId> = changed.iter().map(|n| n.id).collect();
         for node in changed {
             // A changed node the update also drops was not checked: its
             // accepted runs leave with it.
@@ -251,11 +251,11 @@ impl AcceptedTree {
     fn check_relations(
         &self,
         changed: &[&SemanticsNode],
-        incoming: &HashMap<NodeId, &SemanticsNode>,
-        edits: &HashMap<NodeId, Option<NodeId>>,
+        incoming: &HashMap<SemanticsId, &SemanticsNode>,
+        edits: &HashMap<SemanticsId, Option<SemanticsId>>,
     ) -> Result<(), AccessibilityError> {
         let dropped = self.dropped(incoming, edits);
-        let present = |id: &NodeId| {
+        let present = |id: &SemanticsId| {
             !dropped.contains(id) && (incoming.contains_key(id) || self.nodes.contains_key(id))
         };
         let check = |node: &SemanticsNode| -> Result<(), AccessibilityError> {
@@ -285,15 +285,15 @@ impl AcceptedTree {
     /// parents drop and no one takes, with their subtrees.
     fn dropped(
         &self,
-        incoming: &HashMap<NodeId, &SemanticsNode>,
-        edits: &HashMap<NodeId, Option<NodeId>>,
-    ) -> HashSet<NodeId> {
-        let parent = |id: NodeId| match edits.get(&id) {
+        incoming: &HashMap<SemanticsId, &SemanticsNode>,
+        edits: &HashMap<SemanticsId, Option<SemanticsId>>,
+    ) -> HashSet<SemanticsId> {
+        let parent = |id: SemanticsId| match edits.get(&id) {
             Some(p) => *p,
             None => self.parents.get(&id).copied(),
         };
         let mut dropped = HashSet::new();
-        let mut pending: Vec<NodeId> = edits
+        let mut pending: Vec<SemanticsId> = edits
             .iter()
             .filter_map(|(child, p)| p.is_none().then_some(*child))
             .collect();
@@ -318,10 +318,10 @@ impl AcceptedTree {
     fn reparent(
         &self,
         changed: &[&SemanticsNode],
-        incoming: &HashMap<NodeId, &SemanticsNode>,
-    ) -> Result<HashMap<NodeId, Option<NodeId>>, AccessibilityError> {
-        let mut edits: HashMap<NodeId, Option<NodeId>> = HashMap::new();
-        let changed_ids: HashSet<NodeId> = changed.iter().map(|n| n.id).collect();
+        incoming: &HashMap<SemanticsId, &SemanticsNode>,
+    ) -> Result<HashMap<SemanticsId, Option<SemanticsId>>, AccessibilityError> {
+        let mut edits: HashMap<SemanticsId, Option<SemanticsId>> = HashMap::new();
+        let changed_ids: HashSet<SemanticsId> = changed.iter().map(|n| n.id).collect();
         for node in changed {
             if let Some(old) = self.nodes.get(&node.id) {
                 for child in &old.children {

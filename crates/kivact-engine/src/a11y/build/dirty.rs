@@ -64,7 +64,7 @@ impl Model {
             }
             return Built {
                 tree: kivact_types::protocol::SemanticsTree {
-                    root: kivact_types::NodeId(id),
+                    root: kivact_types::SemanticsId(id),
                     focus: None,
                     nodes: vec![node],
                 },
@@ -258,7 +258,7 @@ impl Model {
         let focus = self.semantics_focus(&metadata.clipped);
         Built {
             tree: kivact_types::protocol::SemanticsTree {
-                root: kivact_types::NodeId(root.0),
+                root: kivact_types::SemanticsId(root.0),
                 focus,
                 nodes,
             },

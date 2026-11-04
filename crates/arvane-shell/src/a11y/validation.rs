@@ -151,7 +151,7 @@ pub(crate) fn check_values(node: &SemanticsNode) -> Result<(), AccessibilityErro
 /// unique among all nodes and runs, and every selection inside its text.
 pub(super) fn check_text<'a>(
     nodes: impl Iterator<Item = &'a SemanticsNode>,
-    is_node: impl Fn(kivact_types::NodeId) -> bool,
+    is_node: impl Fn(kivact_types::SemanticsId) -> bool,
 ) -> Result<(), AccessibilityError> {
     let mut seen_runs = HashSet::new();
     for node in nodes {
@@ -161,8 +161,13 @@ pub(super) fn check_text<'a>(
         check_text_node(node)?;
         let mut end = 0u32;
         for run in text.runs.iter() {
-            if is_node(run.id) || !seen_runs.insert(run.id) {
-                return Err(AccessibilityError::DuplicateNode(run.id));
+            // A run must not reuse a platform node identity.
+            if is_node(kivact_types::SemanticsId(run.id.0))
+                || !seen_runs.insert(kivact_types::SemanticsId(run.id.0))
+            {
+                return Err(AccessibilityError::DuplicateNode(
+                    kivact_types::SemanticsId(run.id.0),
+                ));
             }
             end = end
                 .checked_add(check_run(node.id, run)?)
@@ -194,13 +199,15 @@ pub(super) fn check_text_node(node: &SemanticsNode) -> Result<(), AccessibilityE
 /// A run of `owner`'s text: finite bounds and carets, the carets inside
 /// it. Returns its length in scalars.
 pub(super) fn check_run(
-    owner: kivact_types::NodeId,
+    owner: kivact_types::SemanticsId,
     run: &kivact_types::SemanticsTextRun,
 ) -> Result<u32, AccessibilityError> {
     let count = u32::try_from(run.value.chars().count())
         .map_err(|_| AccessibilityError::InvalidProperties(owner))?;
     if !text_bounds(run.bounds) || run.carets.iter().any(|c| !text_bounds(c.rect)) {
-        return Err(AccessibilityError::InvalidBounds(run.id));
+        return Err(AccessibilityError::InvalidBounds(
+            kivact_types::SemanticsId(run.id.0),
+        ));
     }
     if run.carets.iter().any(|c| c.offset > count) {
         return Err(AccessibilityError::InvalidProperties(owner));
@@ -211,7 +218,7 @@ pub(super) fn check_run(
 /// The selection of `owner`'s text, whose runs are `len` scalars long from
 /// its start, lies in the runs.
 pub(super) fn check_selection(
-    owner: kivact_types::NodeId,
+    owner: kivact_types::SemanticsId,
     text: &kivact_types::SemanticsText,
     len: u32,
 ) -> Result<(), AccessibilityError> {

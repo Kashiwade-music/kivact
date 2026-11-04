@@ -3,7 +3,7 @@
 use super::error::AccessibilityError;
 use super::{state, validation};
 use kivact_types::protocol::{SemanticsTree, SemanticsUpdate};
-use kivact_types::{NodeId, SemanticsTextRun};
+use kivact_types::{SemanticsId, SemanticsTextRun};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// What the platform has not been handed yet.
@@ -15,7 +15,7 @@ pub(crate) enum Unsent {
     /// The focus and these nodes (in the order they changed; a node
     /// changed by several updates repeats), with the text runs they added.
     Changed {
-        nodes: Vec<NodeId>,
+        nodes: Vec<SemanticsId>,
         runs: Vec<Arc<SemanticsTextRun>>,
         /// More than one update's nodes: they may repeat, and a later
         /// update may have dropped a run an earlier one added.

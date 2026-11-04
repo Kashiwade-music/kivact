@@ -565,7 +565,7 @@ impl EditLines {
             None => (shift(empty), Vec::new()),
         };
         let run = Arc::new(kivact_types::SemanticsTextRun {
-            id: kivact_types::NodeId(id),
+            id: kivact_types::TextRunId(id),
             value: text[range].to_string(),
             bounds,
             carets,

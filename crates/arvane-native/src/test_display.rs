@@ -40,7 +40,7 @@ use crate::a11y::native::NativeAccessibility;
 use arvane_shell::{Accessibility, PlatformTree};
 use arvane_shell::{ShellError, ShellWaker};
 use kivact_types::protocol::{SemanticsNode, SemanticsTree, Transform};
-use kivact_types::{NodeId, Point, Rect, Role};
+use kivact_types::{Point, Rect, Role, SemanticsId};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -568,7 +568,7 @@ impl Display {
 
 /// The tree of a pooled window: a window with nothing in it.
 fn idle_tree() -> SemanticsTree {
-    let root = NodeId(0);
+    let root = SemanticsId(0);
     SemanticsTree {
         root,
         focus: None,

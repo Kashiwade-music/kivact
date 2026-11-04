@@ -2,7 +2,8 @@
 
 use std::sync::Arc;
 
-use crate::geometry::{NodeId, Rect};
+use crate::geometry::Rect;
+use crate::ids::TextRunId;
 
 /// Editable text and its active selection as published to assistive technology.
 ///
@@ -60,7 +61,7 @@ impl PartialEq for SemanticsText {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SemanticsTextRun {
     /// Stable platform child identity, unique among all nodes and text runs.
-    pub id: NodeId,
+    pub id: TextRunId,
     /// Original text, including any trailing line break.
     pub value: String,
     /// Unscrolled content bounds in the owning node's coordinate space.

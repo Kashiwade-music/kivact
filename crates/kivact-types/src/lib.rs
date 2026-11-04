@@ -59,6 +59,7 @@ mod cursor;
 mod effect;
 mod geometry;
 mod gpu_interop;
+pub mod ids;
 mod image;
 mod input;
 mod layout;
@@ -75,11 +76,12 @@ mod text;
 pub use asset::Asset;
 pub use cursor::Cursor;
 pub use effect::BlendMode;
-pub use geometry::{IntrinsicSize, NodeId, Point, Rect, RegionId, Size};
+pub use geometry::{IntrinsicSize, Point, Rect, RegionId, SemanticsId, Size};
 pub use gpu_interop::{
     AdapterMatch, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPower, GpuPreference,
     SharedHandle, SharedTextureFormat, SharedTextures,
 };
+pub use ids::TextRunId;
 pub use image::ImageFit;
 pub use input::{FilePhase, ImeEvent, Key, KeyCode, Modifiers, MouseButton};
 pub use layout::{

@@ -74,7 +74,7 @@ impl Model {
         } else {
             // An empty text: one empty run at the caret.
             let run = Arc::new(SemanticsTextRun {
-                id: kivact_types::NodeId(lines.run_id(0, &mut ids)),
+                id: kivact_types::TextRunId(lines.run_id(0, &mut ids)),
                 value: String::new(),
                 bounds: caret,
                 carets: Vec::new(),
@@ -118,7 +118,7 @@ impl Model {
                 };
                 self.a11y.authored.insert(key, native);
                 let shown = SemanticsTextRun {
-                    id: kivact_types::NodeId(native),
+                    id: kivact_types::TextRunId(native),
                     value: run.value.clone(),
                     bounds: shifted(run.bounds, dx, dy),
                     carets: run

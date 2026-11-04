@@ -12,7 +12,7 @@ impl Model {
     pub(super) fn semantics_focus(
         &self,
         clipped: &BTreeSet<wire::NodeId>,
-    ) -> Option<kivact_types::NodeId> {
+    ) -> Option<kivact_types::SemanticsId> {
         let f = self.focused()?;
         self.exposed(f.node)?;
         if self.hidden(f.node, clipped) || !self.is_focus_target(f) || !self.in_scope(f.node) {
@@ -24,8 +24,8 @@ impl Model {
                 .region_ids
                 .get(&(f.node, region))
                 .copied()
-                .map(kivact_types::NodeId),
-            None => Some(kivact_types::NodeId(f.node.0)),
+                .map(kivact_types::SemanticsId),
+            None => Some(kivact_types::SemanticsId(f.node.0)),
         }
     }
 
@@ -83,10 +83,10 @@ impl Model {
         } else {
             kivact_types::protocol::Transform::IDENTITY
         };
-        let children: Vec<kivact_types::NodeId> = self
+        let children: Vec<kivact_types::SemanticsId> = self
             .tree()
             .children_ids(n)
-            .map(|id| kivact_types::NodeId(id.0))
+            .map(|id| kivact_types::SemanticsId(id.0))
             .collect();
         // The model's exposure (role, name, actions). A node without a
         // role is not exposed: it stays a bare structural node (a
@@ -140,7 +140,7 @@ impl Model {
             .and_then(|props| props.text.clone());
         let mut output = kivact_types::protocol::SemanticsNode {
             properties: extras,
-            id: kivact_types::NodeId(id.0),
+            id: kivact_types::SemanticsId(id.0),
             role: exposed.role,
             children,
             label: exposed.name,
@@ -188,7 +188,7 @@ impl Model {
         for (region_id, region) in scene_regions {
             let native_id = self.region_identity(id, region_id);
             regions.insert(native_id);
-            output.children.push(kivact_types::NodeId(native_id));
+            output.children.push(kivact_types::SemanticsId(native_id));
             let offered = if hidden {
                 Vec::new()
             } else {
@@ -218,7 +218,7 @@ impl Model {
             }
             leaves.push(kivact_types::protocol::SemanticsNode {
                 properties: props.map(Box::new),
-                id: kivact_types::NodeId(native_id),
+                id: kivact_types::SemanticsId(native_id),
                 role: region.role,
                 children: Vec::new(),
                 label: region.name,
@@ -372,7 +372,7 @@ impl Model {
 /// they are.
 pub(super) fn properties(
     p: &wire::SemanticsProperties,
-    resolve: impl Fn(wire::FocusTarget) -> Option<kivact_types::NodeId>,
+    resolve: impl Fn(wire::FocusTarget) -> Option<kivact_types::SemanticsId>,
 ) -> kivact_types::protocol::SemanticsProperties {
     // Level and position are counted from 1, so 0 means "not set". A position
     // past the set's size is not a valid pair: the size is published, the
@@ -422,7 +422,7 @@ fn is_clipping_list(n: &crate::tree::node::HostNode, editor_present: bool) -> bo
 /// visibility.
 pub(super) fn structural(
     id: wire::NodeId,
-    children: Vec<kivact_types::NodeId>,
+    children: Vec<kivact_types::SemanticsId>,
     bounds: kivact_types::Rect,
     scroll: kivact_types::Point,
     transform: kivact_types::protocol::Transform,
@@ -430,7 +430,7 @@ pub(super) fn structural(
 ) -> kivact_types::protocol::SemanticsNode {
     kivact_types::protocol::SemanticsNode {
         properties: None,
-        id: kivact_types::NodeId(id.0),
+        id: kivact_types::SemanticsId(id.0),
         role: kivact_types::Role::Generic,
         children,
         label: String::new(),

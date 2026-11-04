@@ -8,24 +8,24 @@ impl Model {
     pub(super) fn semantic_target(
         &self,
         target: wire::FocusTarget,
-    ) -> Option<kivact_types::NodeId> {
+    ) -> Option<kivact_types::SemanticsId> {
         self.node(target.node)?;
         match target.region {
-            None => Some(kivact_types::NodeId(target.node.0)),
+            None => Some(kivact_types::SemanticsId(target.node.0)),
             Some(region) => {
                 self.node(target.node)?.region(region)?;
                 self.a11y
                     .region_ids
                     .get(&(target.node, region))
                     .copied()
-                    .map(kivact_types::NodeId)
+                    .map(kivact_types::SemanticsId)
             }
         }
     }
 
     pub(super) fn semantic_identity(
         &self,
-        target: kivact_types::NodeId,
+        target: kivact_types::SemanticsId,
     ) -> Option<wire::FocusTarget> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
@@ -42,7 +42,7 @@ impl Model {
         }
     }
 
-    pub(super) fn semantic_owner(&self, target: kivact_types::NodeId) -> Option<wire::NodeId> {
+    pub(super) fn semantic_owner(&self, target: kivact_types::SemanticsId) -> Option<wire::NodeId> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
             Some(*node)

@@ -4,7 +4,7 @@
 /// Stable host-assigned accessibility node identity; usable on any thread.
 /// Arvane treats it as an opaque key with no knowledge of the host's tree.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NodeId(pub u64);
+pub struct SemanticsId(pub u64);
 
 /// Position in logical pixels; usable on any thread.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

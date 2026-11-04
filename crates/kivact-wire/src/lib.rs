@@ -51,7 +51,7 @@ pub use grid::{
 /// The key of a text run in a node's [`SemanticsText`]: any value, the same
 /// across updates for the same run (the host gives the platform its own
 /// identity).
-pub use kivact_types::NodeId as TextRunId;
+pub use kivact_types::TextRunId;
 pub use kivact_types::protocol::{
     InlineBox, InlineBoxPlacement, PathCmd, ShapedInlineText, ShapedText, TextLine,
 };

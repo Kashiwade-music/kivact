@@ -9,7 +9,7 @@
 //! everything below it, so changing it changes one node.
 
 use super::transform::Transform;
-use crate::geometry::{NodeId, Point, Rect};
+use crate::geometry::{Point, Rect, SemanticsId};
 use crate::semantics::{
     A11yAction, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role, SortDirection,
 };
@@ -19,11 +19,11 @@ use crate::semantics_text::SemanticsText;
 #[derive(Clone, Debug, PartialEq)]
 pub struct SemanticsNode {
     /// Stable node identity.
-    pub id: NodeId,
+    pub id: SemanticsId,
     /// Assistive-technology role.
     pub role: Role,
     /// Children in reading order.
-    pub children: Vec<NodeId>,
+    pub children: Vec<SemanticsId>,
     /// Accessible name.
     pub label: String,
     /// Accessible description.
@@ -65,9 +65,9 @@ pub struct SemanticsNode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SemanticsTree {
     /// Root node identity.
-    pub root: NodeId,
+    pub root: SemanticsId,
     /// Focused node, or None for window focus.
-    pub focus: Option<NodeId>,
+    pub focus: Option<SemanticsId>,
     /// All nodes; each id occurs exactly once.
     pub nodes: Vec<SemanticsNode>,
 }
@@ -77,7 +77,7 @@ impl SemanticsTree {
     /// axis-aligned bounds of its content-space `bounds` mapped by its own
     /// transform, then by each ancestor's scroll (moved back) and
     /// transform, nearest first. `None` when `id` is not in the tree.
-    pub fn window_bounds(&self, id: NodeId) -> Option<Rect> {
+    pub fn window_bounds(&self, id: SemanticsId) -> Option<Rect> {
         let node = self.nodes.iter().find(|n| n.id == id)?;
         self.window_rect(id, node.bounds)
     }
@@ -85,7 +85,7 @@ impl SemanticsTree {
     /// Map a rectangle from `id`'s content space to logical window bounds,
     /// applying its transform and every ancestor's scroll and transform.
     /// Returns `None` when the node is absent.
-    pub fn window_rect(&self, id: NodeId, rect: Rect) -> Option<Rect> {
+    pub fn window_rect(&self, id: SemanticsId, rect: Rect) -> Option<Rect> {
         let node = self.nodes.iter().find(|n| n.id == id)?;
         let mut map = node.transform;
         let mut child = id;
@@ -105,9 +105,9 @@ impl SemanticsTree {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SemanticsUpdate {
     /// Root node identity.
-    pub root: NodeId,
+    pub root: SemanticsId,
     /// Focused node, or None for window focus.
-    pub focus: Option<NodeId>,
+    pub focus: Option<SemanticsId>,
     /// New or possibly changed nodes; each id occurs at most once.
     pub nodes: Vec<SemanticsNode>,
 }
@@ -130,16 +130,16 @@ pub struct SemanticsProperties {
     /// Direction of the control.
     pub orientation: Orientation,
     /// Active descendant identity.
-    pub active_descendant: Option<NodeId>,
+    pub active_descendant: Option<SemanticsId>,
     /// Nodes that describe this one, in order. Each names a node of the
     /// same tree.
-    pub described_by: Vec<NodeId>,
+    pub described_by: Vec<SemanticsId>,
     /// Nodes this one controls, in order. Each names a node of the same
     /// tree.
-    pub controls: Vec<NodeId>,
+    pub controls: Vec<SemanticsId>,
     /// Nodes that label this one, in order. Each names a node of the same
     /// tree.
-    pub labelled_by: Vec<NodeId>,
+    pub labelled_by: Vec<SemanticsId>,
     /// Depth in a hierarchy, counted from 1.
     pub level: Option<u32>,
     /// Number of items in the set this node belongs to or holds.

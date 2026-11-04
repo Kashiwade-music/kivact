@@ -32,7 +32,7 @@
 //!   no word boundaries (AccessKit's word starts) are given.
 
 use kivact_types::protocol::SemanticsNode;
-use kivact_types::{A11yAction, CheckedState, CurrentItem, NodeId, PopupKind, Role};
+use kivact_types::{A11yAction, CheckedState, CurrentItem, PopupKind, Role, SemanticsId};
 
 /// The id of the one custom action, `Dismiss`.
 const DISMISS: i32 = 1;
@@ -86,8 +86,8 @@ pub(super) fn action(request: &accesskit::ActionRequest) -> Option<A11yAction> {
 /// with all their text runs when `runs` (else none: the caller adds the
 /// runs that changed with [`text_run`]).
 pub(super) fn update<'a>(
-    root: NodeId,
-    focus: Option<NodeId>,
+    root: SemanticsId,
+    focus: Option<SemanticsId>,
     nodes: impl Iterator<Item = &'a SemanticsNode>,
     runs: bool,
 ) -> accesskit::TreeUpdate {
@@ -121,7 +121,7 @@ pub(super) fn update<'a>(
 /// it, so they stay where it is laid out.
 /// A transformed node maps its coordinate space (its bounds included) by
 /// its transform after that.
-fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
+fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
     // A generic root is filtered out of platform trees unless focused,
     // which detaches its children from sibling navigation; the root
     // stands for the window.
@@ -319,7 +319,7 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
     node
 }
 
-fn accesskit_ids(ids: &[NodeId]) -> Vec<accesskit::NodeId> {
+fn accesskit_ids(ids: &[SemanticsId]) -> Vec<accesskit::NodeId> {
     ids.iter().map(|id| accesskit::NodeId(id.0)).collect()
 }
 

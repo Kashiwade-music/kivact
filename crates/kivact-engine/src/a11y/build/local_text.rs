@@ -56,7 +56,7 @@ impl Model {
             self.a11y.constructed += nodes.len() as u64;
         }
         kivact_types::protocol::SemanticsTree {
-            root: kivact_types::NodeId(root.0),
+            root: kivact_types::SemanticsId(root.0),
             focus: self.semantics_focus(&metadata.clipped),
             nodes,
         }

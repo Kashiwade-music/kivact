@@ -45,9 +45,9 @@ pub(crate) struct A11yState {
     pub(super) next_semantics_id: u64,
     pub(super) authored: BTreeMap<(NodeId, u64), u64>,
     pub(super) hashes: BTreeMap<u64, u64>,
-    pub(super) root: Option<kivact_types::NodeId>,
+    pub(super) root: Option<kivact_types::SemanticsId>,
     pub(super) empty_root: Option<u64>,
-    pub(super) focus: Option<kivact_types::NodeId>,
+    pub(super) focus: Option<kivact_types::SemanticsId>,
     /// What changed since the last accepted publication.
     pub(super) dirt: Dirt,
     pub(super) metadata: Rc<Metadata>,

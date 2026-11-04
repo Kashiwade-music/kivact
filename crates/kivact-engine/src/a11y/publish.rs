@@ -28,7 +28,7 @@ impl Model {
             return;
         }
         let mut dirt = std::mem::replace(&mut self.a11y.dirt, Dirt::Clean);
-        if self.tree().root().map(|id| kivact_types::NodeId(id.0)) != self.a11y.root {
+        if self.tree().root().map(|id| kivact_types::SemanticsId(id.0)) != self.a11y.root {
             dirt = Dirt::Full;
         }
         let Built {
