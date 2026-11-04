@@ -44,7 +44,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | E-7 | merged | 82be6c5 | check/統合 workspace 0、drawable 判定統合済 |
 | E-8 | doing | | Contents の透明化と論理木 |
 | E-9a | todo | | |
-| E-9b | doing | | presence の公開値と出現の寿命 |
+| E-9b | merged | e94c53c | check 0、presence E2E 1 passed、破棄時の誤通知を除去 |
 | X-1 | merged | 025199b | all/no-default check 0、feature 17 件 0 |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
 | R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |
