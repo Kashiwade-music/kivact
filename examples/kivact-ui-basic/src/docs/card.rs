@@ -58,7 +58,10 @@ fn default() -> impl IntoView {
                     "Email",
                     text_input("Email", email).placeholder("m@example.com"),
                 ),
-                kivact::ui::field("Password", text_input("Password", password).password(true)),
+                kivact::ui::field(
+                    "Password",
+                    text_input("Password", password).purpose(kivact::view::InputPurpose::Password),
+                ),
             ))
         })
         .footer({

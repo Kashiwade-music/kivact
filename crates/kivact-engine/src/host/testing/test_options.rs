@@ -25,6 +25,8 @@ pub enum TestFonts {
 /// Options of [`ArvaneTestHost::new`].
 #[derive(Clone, Debug)]
 pub struct TestHostOptions {
+    /// Read-only state restored at launch.
+    pub restored_state: std::collections::BTreeMap<String, Vec<u8>>,
     /// Logical content width.
     pub width: f64,
     /// Logical content height.
@@ -64,6 +66,7 @@ pub struct TestHostOptions {
 impl Default for TestHostOptions {
     fn default() -> Self {
         Self {
+            restored_state: Default::default(),
             width: 400.0,
             height: 300.0,
             scale: 1.0,

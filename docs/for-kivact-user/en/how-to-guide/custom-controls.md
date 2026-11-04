@@ -634,7 +634,7 @@ mod tests {
 The binding receives each committed value; during IME composition the editor keeps the
 preedit text to itself and the binding sees the final text. To run code on every
 change, pass `binding(read, write)` instead of a signal. A few more settings:
-`use_text_area(value)` for several lines, `.password(..)`, `.read_only(..)`,
+`use_text_area(value)` for several lines, `.purpose(..)`, `.read_only(..)`,
 `.on_submit(..)` for Enter in a single line, and `.forward_keys([...])` to hand
 arrow, Tab or Escape keys to your own handlers (a suggestion list, say).
 

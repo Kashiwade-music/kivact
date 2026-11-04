@@ -97,8 +97,19 @@ impl Model {
         self.sync();
     }
 
-    /// The IME text to give the window, when it changed since the last one
-    /// given.
+    /// Input purpose of the focused editor or custom IME session.
+    pub(crate) fn ime_purpose(&self) -> kivact_types::InputPurpose {
+        if let Some(id) = self.focused_session() {
+            return self
+                .node(id)
+                .and_then(|n| n.properties.ime.as_deref())
+                .map_or(kivact_types::InputPurpose::Text, |s| s.purpose);
+        }
+        self.focused_input()
+            .and_then(|id| self.node(id))
+            .map_or(kivact_types::InputPurpose::Text, |n| n.purpose())
+    }
+    /// The IME text to give the window when it changes.
     pub(crate) fn ime_changed(&mut self, engine: &mut arvane::Engine) -> ImeUpdate {
         if let Some(id) = self.focused_session() {
             return match self.session_ime_changed(id) {

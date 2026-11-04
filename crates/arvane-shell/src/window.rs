@@ -98,6 +98,7 @@ pub trait ShellWindow {
     fn set_cursor(&self, cursor: ShellCursor);
 
     /// Allow IME input for the focused editor; disabling releases its caret area.
+    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose);
     fn set_ime_allowed(&self, allowed: bool);
 
     /// Request software keyboard visibility where the backend supports it.

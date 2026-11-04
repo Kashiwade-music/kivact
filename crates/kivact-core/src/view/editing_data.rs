@@ -102,7 +102,7 @@ pub(crate) struct EditorProps {
     pub(crate) multiline: bool,
     pub(crate) line_layout: Option<InputProp<kivact_types::EditLineLayout>>,
     pub(crate) report_text: bool,
-    pub(crate) password: Option<InputProp<bool>>,
+    pub(crate) purpose: Option<InputProp<kivact_types::InputPurpose>>,
     pub(crate) read_only: Option<InputProp<bool>>,
     /// The longest text, in Unicode scalars; no source, or a source reading `None`: no limit.
     pub(crate) max_length: Option<InputProp<Option<usize>>>,

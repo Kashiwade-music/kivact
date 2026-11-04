@@ -40,6 +40,8 @@ pub struct VirtualOptions {
     pub locale: Option<String>,
     pub gpu: GpuMode,
     pub mirror: MirrorMode,
+    /// Restoration snapshot for this launch.
+    pub restored_state: std::collections::BTreeMap<String, Vec<u8>>,
 }
 impl Default for VirtualOptions {
     fn default() -> Self {
@@ -56,10 +58,13 @@ impl Default for VirtualOptions {
             locale: None,
             gpu: GpuMode::Off,
             mirror: MirrorMode::Auto,
+            restored_state: Default::default(),
         }
     }
 }
 pub(crate) struct VirtualShell {
+    pub(crate) saved_state: std::rc::Rc<RefCell<std::collections::BTreeMap<String, Vec<u8>>>>,
+    pub(crate) ime_purpose: Cell<kivact_types::InputPurpose>,
     pub(crate) responders: Vec<crate::script::Responder>,
     pub(crate) now: u64,
     /// The single snapshot of the window's environment and preferences.
@@ -146,6 +151,10 @@ impl ShellWindow for VirtualShell {
             };
         }
         match request {
+            PlatformRequest::SaveState { key, bytes } => {
+                self.saved_state.borrow_mut().insert(key.to_string(), bytes);
+                PlatformResult::Done
+            }
             PlatformRequest::CopyText(text) => {
                 self.clipboard = text;
                 PlatformResult::Done
@@ -219,6 +228,7 @@ impl ShellWindow for VirtualShell {
     }
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            state_restoration: true,
             clipboard_text: true,
             file_dialogs: true,
             open_path: true,
@@ -261,6 +271,9 @@ impl ShellWindow for VirtualShell {
     }
     fn set_cursor(&self, cursor: Cursor) {
         self.cursor.set(cursor);
+    }
+    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
+        self.ime_purpose.set(purpose);
     }
     fn set_ime_allowed(&self, allowed: bool) {
         if !allowed {

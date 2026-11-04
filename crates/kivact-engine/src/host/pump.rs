@@ -373,6 +373,7 @@ impl Host {
         if let Some(caret) = caret {
             window.set_ime_cursor_area(caret);
         }
+        window.set_ime_purpose(self.model.borrow().ime_purpose());
         let update = self
             .model
             .borrow_mut()
@@ -408,6 +409,7 @@ impl Host {
         }
         // The IME may ask about the text right after the input that
         // edited it (a reconversion after a selection).
+        window.set_ime_purpose(self.model.borrow().ime_purpose());
         let update = self
             .model
             .borrow_mut()

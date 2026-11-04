@@ -46,8 +46,9 @@ pub use ids::{
     FocusTarget, IdHasher, IdMap, NodeId, RegionId, RequestId, Revision, SemanticsId, TextRunId,
 };
 pub use input::{
-    ButtonPress, FileDrop, FilePhase, ImeInput, Key, KeyCode, KeyInput, KeyPhase, Modifiers,
-    MouseButton, PointerButtons, PointerId, PointerKind, PointerPhase, PointerSample, WheelInput,
+    ButtonPress, FileDrop, FilePhase, ImeInput, InputPurpose, Key, KeyCode, KeyInput, KeyPhase,
+    Modifiers, MouseButton, PointerButtons, PointerId, PointerKind, PointerPhase, PointerSample,
+    WheelInput,
 };
 pub use layout::{
     Align, AvailableSpace, Baseline, Breadth, Dimension, Display, EditLineLayout, FlexDirection,

@@ -26,7 +26,11 @@ pub struct VirtualBackend {
 }
 impl VirtualBackend {
     pub fn new(options: VirtualOptions) -> Self {
+        let input = Rc::new(RefCell::new(Input::default()));
+        *input.borrow().saved_state.borrow_mut() = options.restored_state.clone();
         let shell = VirtualShell {
+            saved_state: input.borrow().saved_state.clone(),
+            ime_purpose: Cell::new(kivact_types::InputPurpose::Text),
             responders: Vec::new(),
             now: 0,
             env: RefCell::new(Environment {
@@ -40,6 +44,7 @@ impl VirtualBackend {
                     ThemeHint::Light
                 },
                 locale: options.locale.clone(),
+                restored_state: options.restored_state.clone(),
                 ..Environment::default()
             }),
             requested_sizes: Vec::new(),
@@ -69,7 +74,7 @@ impl VirtualBackend {
         Self {
             options,
             shell: Rc::new(RefCell::new(shell)),
-            input: Rc::new(RefCell::new(Input::default())),
+            input,
             woken: Arc::new(WakePending::default()),
         }
     }
@@ -249,7 +254,12 @@ impl SteppedLoop for Running {
 }
 fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
     let event = match item {
-        Item::Event(event) => Some(event),
+        Item::Event(event) => {
+            if let ShellEvent::KeyboardInset(insets) = &event {
+                shell.env.get_mut().keyboard_inset = insets.sanitize();
+            }
+            Some(event)
+        }
         Item::Time(ns) => {
             shell.now = ns;
             None
@@ -347,6 +357,9 @@ pub struct Probe {
     woken: Arc<WakePending>,
 }
 impl Probe {
+    pub fn ime_purpose(&self) -> kivact_types::InputPurpose {
+        self.shell.borrow().ime_purpose.get()
+    }
     /// Whether a worker has requested a wake since the last wake step.
     pub fn woken(&self) -> bool {
         self.woken.pending()

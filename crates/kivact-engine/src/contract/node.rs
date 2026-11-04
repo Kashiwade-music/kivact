@@ -68,7 +68,7 @@ pub struct ImeSessionProps {
     /// The caret in the node's own coordinates (from its top left corner).
     pub caret: kivact_types::Rect,
     /// Password text: the IME is given no surrounding text.
-    pub password: bool,
+    pub purpose: kivact_types::InputPurpose,
 }
 
 /// Optional input flags; absent values leave the host defaults in force.
@@ -128,7 +128,7 @@ pub struct EditingData {
     /// Controlled document value; identity and revision govern host adoption.
     pub value: Option<std::rc::Rc<str>>,
     /// Hide clipboard content and request protected native editing.
-    pub password: Option<bool>,
+    pub purpose: Option<kivact_types::InputPurpose>,
     /// Prevent mutations while retaining selection and copy.
     pub read_only: Option<bool>,
     /// Maximum Unicode scalar count accepted by editing mutations.

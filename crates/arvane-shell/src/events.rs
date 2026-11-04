@@ -5,6 +5,10 @@ use kivact_types::{FileDrop, ImeInput, KeyInput, Modifiers, PointerSample, Wheel
 /// Ordered shell events delivered on the UI thread.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ShellEvent {
+    /// Software keyboard occlusion in logical pixels.
+    KeyboardInset(kivact_types::Insets),
+    /// Ask the application to preserve state for its next launch.
+    SaveState,
     /// CPU framebuffer should be drawn.
     Redraw,
     /// Worker wake or scheduled deadline.

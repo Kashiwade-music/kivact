@@ -142,7 +142,13 @@ fn password_updates_and_ime_keep_published_text_protected() {
             (value, password),
             kivact::view::node().name("Protected fixture").part(
                 kivact::interaction::use_text_edit(value)
-                    .password(password)
+                    .purpose(move || {
+                        if password.get() {
+                            kivact::view::InputPurpose::Password
+                        } else {
+                            kivact::view::InputPurpose::Text
+                        }
+                    })
                     .control(),
             ),
         )
@@ -398,5 +404,90 @@ fn raw_file_drop_reaches_dropzone() {
     screen.raw_input(RawInput::Drop(RawDrop::Drop));
     screen.raw_input(RawInput::Drop(RawDrop::Drop));
     assert_eq!(seen.get_untracked(), vec![files]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn text_input_purpose_reaches_the_platform() {
+    use kivact::view::InputPurpose;
+    let (screen, purpose) = mount(|| {
+        let purpose = signal(InputPurpose::Text);
+        (
+            purpose,
+            text_input("Purpose", signal(String::new())).purpose(purpose),
+        )
+    });
+    screen.get_by_role(Role::TextBox, "Purpose").focus();
+    for expected in [
+        InputPurpose::Text,
+        InputPurpose::Number,
+        InputPurpose::Decimal,
+        InputPurpose::Email,
+        InputPurpose::Url,
+        InputPurpose::Phone,
+        InputPurpose::Password,
+        InputPurpose::Search,
+    ] {
+        purpose.set(expected);
+        screen.run_until_idle();
+        assert_eq!(screen.ime_purpose(), expected);
+    }
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn keyboard_inset_is_observable() {
+    let (screen, inset) = mount(|| {
+        let inset = platform::keyboard_inset();
+        (
+            inset,
+            text(move || format!("Keyboard: {}", inset.get().bottom)),
+        )
+    });
+    let expected = kivact::geometry::Insets {
+        bottom: 240.0,
+        ..Default::default()
+    };
+    screen.script().set_keyboard_inset(expected);
+    screen.run_until_idle();
+    assert_eq!(inset.get_untracked(), expected);
+    screen.get_by_text("Keyboard: 240");
+    screen.script().set_keyboard_inset(Default::default());
+    screen.run_until_idle();
+    screen.get_by_text("Keyboard: 0");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn saved_state_is_restored_on_the_next_launch() {
+    let screen = kivact::test::render(|| {
+        assert!(platform::capabilities().get().state_restoration);
+        assert_eq!(platform::restored_state("draft"), None);
+        platform::on_lifecycle(|event| {
+            if event == platform::LifecycleEvent::SaveState {
+                platform::save_state("draft", vec![0, 1, 255]);
+                platform::save_state("other", vec![42]);
+            }
+        });
+        text("First launch")
+    });
+    let script = screen.script();
+    script.save_state();
+    screen.run_until_idle();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    let saved = script.saved_state();
+    assert_eq!(saved.get("draft"), Some(&vec![0, 1, 255]));
+    drop(screen);
+    let screen = kivact::test::render_with(
+        kivact::test::RenderOptions::default().restored_state(saved),
+        || {
+            assert_eq!(platform::restored_state("draft"), Some(vec![0, 1, 255]));
+            assert_eq!(platform::restored_state("other"), Some(vec![42]));
+            assert_eq!(platform::restored_state("missing"), None);
+            platform::save_state("draft", vec![9]);
+            assert_eq!(platform::restored_state("draft"), Some(vec![0, 1, 255]));
+            text("Restored launch")
+        },
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

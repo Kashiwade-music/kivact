@@ -40,6 +40,7 @@ pub struct RenderOptions {
     mirror: MirrorMode,
     gpu: bool,
     frame_period_ns: u64,
+    restored_state: std::collections::BTreeMap<String, Vec<u8>>,
 }
 
 impl Default for RenderOptions {
@@ -55,10 +56,16 @@ impl Default for RenderOptions {
             mirror: mirror_from_env(),
             gpu: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
+            restored_state: Default::default(),
         }
     }
 }
 impl RenderOptions {
+    /// Supply the state saved by an earlier virtual launch.
+    pub fn restored_state(mut self, state: std::collections::BTreeMap<String, Vec<u8>>) -> Self {
+        self.restored_state = state;
+        self
+    }
     pub fn from_env() -> Self {
         Self {
             gpu: std::env::var("KIVACT_TEST_GPU").as_deref() == Ok("1"),
@@ -167,6 +174,7 @@ impl RenderOptions {
             .window_size
             .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE);
         let host = kivact_engine::testing::TestHostOptions {
+            restored_state: self.restored_state,
             width: size.width,
             height: size.height,
             scale: self.scale,

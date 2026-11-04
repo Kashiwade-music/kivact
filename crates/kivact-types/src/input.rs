@@ -538,3 +538,17 @@ impl PointerButtons {
         }
     }
 }
+
+/// Intended content and software keyboard hint for a text editor.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum InputPurpose {
+    #[default]
+    Text,
+    Number,
+    Decimal,
+    Email,
+    Url,
+    Phone,
+    Password,
+    Search,
+}

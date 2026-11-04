@@ -1,9 +1,21 @@
-//! Role: Public write-only script for virtual platform prerequisites and input.
+//! Role: Public script for virtual platform prerequisites, input and saved state.
 #[derive(Clone)]
 pub struct Script {
     pub(crate) platform: arvane_virtual::Script,
 }
 impl Script {
+    /// Saved bytes to pass to `RenderOptions::restored_state` on the next launch.
+    pub fn saved_state(&self) -> std::collections::BTreeMap<String, Vec<u8>> {
+        self.platform.saved_state()
+    }
+    /// Request a lifecycle save notification.
+    pub fn save_state(&self) {
+        self.platform.save_state();
+    }
+    /// Report software keyboard occlusion.
+    pub fn set_keyboard_inset(&self, insets: kivact_types::Insets) {
+        self.platform.set_keyboard_inset(insets);
+    }
     pub fn respond(
         &self,
         f: impl FnMut(&kivact_types::PlatformRequest) -> Option<kivact_types::PlatformResult> + 'static,

@@ -106,6 +106,7 @@ impl Window {
 impl ShellWindow for Window {
     fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
         match request {
+            PlatformRequest::SaveState { .. } => return PlatformResult::Done,
             PlatformRequest::CopyText(text) => {
                 self.services.copy(&text).map(|()| PlatformResult::Done)
             }
@@ -201,6 +202,7 @@ impl ShellWindow for Window {
     }
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            state_restoration: false,
             clipboard_text: true,
             file_dialogs: true,
             open_path: true,
@@ -242,6 +244,7 @@ impl ShellWindow for Window {
             self.shared.fail(error);
         }
     }
+    fn set_ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
     fn set_ime_allowed(&self, allowed: bool) {
         self.ime_driver.borrow_mut().set_allowed(
             &mut super::ime::Port {

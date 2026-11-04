@@ -31,6 +31,11 @@ pub struct FileDialog {
 /// A native platform action answered synchronously by its window.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlatformRequest {
+    /// Persist application bytes for a future launch; unsupported platforms ignore it.
+    SaveState {
+        key: &'static str,
+        bytes: Vec<u8>,
+    },
     /// Request logical content dimensions.
     RequestWindowSize(Size),
     Fullscreen(bool),

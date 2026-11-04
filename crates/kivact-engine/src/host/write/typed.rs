@@ -292,8 +292,8 @@ props! {
         => field(Some(v), |p| Some(&mut editing(p)?.decorations)),
         mut = Mut::NONE;
     /// Replace the node's password when its value differs.
-    Password: set_password(v: bool)
-        => field(Some(v), |p| Some(&mut editing(p)?.password)),
+    InputPurpose: set_input_purpose(v: kivact_types::InputPurpose)
+        => field(Some(v), |p| Some(&mut editing(p)?.purpose)),
         mut = Mut::MEASURE.and(Mut::RESTACK);
     /// Replace the node's read only when its value differs.
     ReadOnly: set_read_only(v: bool)

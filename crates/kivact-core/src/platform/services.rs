@@ -275,3 +275,20 @@ pub fn reveal_path(
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
 }
+
+/// Save bytes for the next launch. Platforms without state restoration ignore the request.
+#[track_caller]
+pub fn save_state(key: &'static str, bytes: Vec<u8>) {
+    let at = Location::caller();
+    let owner = Owner::ambient("save_state", at);
+    request(
+        owner,
+        "save_state",
+        HostRequest::Platform(PlatformRequest::SaveState { key, bytes }),
+        EffectWaiter::Report {
+            owner: Some(owner),
+            at,
+            failed: kivact_runtime::ErrorKind::Platform,
+        },
+    );
+}
