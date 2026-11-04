@@ -82,7 +82,7 @@ impl App {
     /// [`App::min_window_size`]: otherwise [`App::run`] returns an error
     /// of kind `ErrorKind::Message` without opening the window.
     pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.window_size = Some(size(width.into(), height.into()));
+        self.window_size = Some(Size::new(width.into(), height.into()));
         self
     }
 
@@ -93,7 +93,7 @@ impl App {
     /// returns an error of kind `ErrorKind::Message` without opening the
     /// window.
     pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.min_window_size = Some(size(width.into(), height.into()));
+        self.min_window_size = Some(Size::new(width.into(), height.into()));
         self
     }
 
@@ -191,12 +191,6 @@ impl App {
     }
 }
 
-/// A size of `width` by `height` logical pixels as the engine takes it
-/// (checked by `App::run`).
-fn size(width: f64, height: f64) -> Size {
-    Size { width, height }
-}
-
 /// Refuse a window size or minimum size that is not finite and positive,
 /// and a minimum larger than the size, as an error located at `at`
 /// (`App::run`): the platform would otherwise clamp or ignore it silently.
@@ -237,7 +231,7 @@ mod window_size_tests {
     use super::*;
 
     fn check(window: Option<(f64, f64)>, min: Option<(f64, f64)>) -> Result<()> {
-        let size = |(w, h): (f64, f64)| size(w, h);
+        let size = |(w, h): (f64, f64)| Size::new(w, h);
         check_window_sizes(window.map(size), min.map(size), Location::caller())
     }
 

@@ -495,6 +495,8 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
 
 ### E-2 host の状態機械
 
+- **V-3 の環境 field の追従**: E-1 で移した font collection の唯一の持主から `Environment.fonts: Generation` を派生させる。font 登録成功で世代を進め、更新後の環境を通知する。native の環境再取得で世代が初期値へ戻らないことを確かめる。W1 は field の導入に留め、既存の `fonts_added` と `EffectResult` の順を変えない。
+
 - **目的**: 設計書 8.2 節。付録 A の SM-E01〜E07、E18。
 - **手順**: `HostPhase`・`Run`・`AppPresence`・`Surface` を `host/` に置き、`Host` の field を置き換える（`HostPhase::Exiting` は締切を持たない。設計書 8.2 節）。`drawable()` を一つの関数にし、model の `Clock` と core への event の `surface_active` をそこから派生させる（V-3 の一時的な field を消す）。`CloseSignal`（`kivact_engine::contract`。embed の `AtomicBool` を包む）を pump の入口で一度だけ読み、立っていれば `HostEvent::CloseRequested` を core へ送る（14 か所の `closing()` を消す）。core の `client/dispatch.rs` に `CloseRequested` の arm を一つ足して `Runtime::request_exit`（R-2 が作る）を呼び、`AppClient.embed_closing` の読み出しを消す（core を変えるのはこの二点だけ。`ClientMode::Embedded` への整理は C-1）。`SurfaceLost` の往復をやめる。`FrameRequests`、`SmoothScroll`、`TickHistory`、`Host.last_frame` を `LastPresent` と改名。`PlatformRequest::RegisterFont` を engine の内部の request に分ける。`soft_keyboard`・`environment`・`adapter` を `Sent<T>`、`accessibility_noted` を `ReportOnce`。
 - **状態の点検表**: 0.7 節。
