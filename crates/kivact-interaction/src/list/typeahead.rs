@@ -9,7 +9,7 @@
 const TYPEAHEAD_WINDOW_NS: u64 = 500_000_000;
 
 /// The characters typed so far and when the last one arrived.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum Typeahead {
     #[default]
     Idle,
