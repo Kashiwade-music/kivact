@@ -1883,7 +1883,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
 
 - **目的**: 付録 A の SM-U05、SM-U901、SM-U902、SM-U904、SM-U905。
 - **決定済みの形**:
-  - SM-U05: `enum InlineEdit<K> { Idle, Editing { key: K, draft: String, session: EditSession<String> } }`。caller の `Binding<Option<K>>` は `Editing` の key の写しで、`Sent` で書く。
+  - SM-U05: `enum InlineEdit<K> { Idle, Requested { key: K }, Editing { key: K, draft: String, session: EditSession<String> } }`。条件付き mount の前は Requested とし、field mount で完成した draft/session を渡して Editing へ遷移する。caller の `Binding<Option<K>>` は編集要求と `Editing` の key の写しで、`Sent` で書く。
   - SM-U901: `into_node` で draft と validity を決めてから、callback を引数に取る完成した input を作る。`Rc<OnceCell<..>>` を消し、`enum InputDraft { Immediate, Drafting(Installed) }`。公開の builder のメソッドはそのまま。
   - SM-U902: `Signal<NumberText>` を machine が持ち、`ValueChanged`・`Typed`・`FocusOut` を受ける。数値・文字・`produced` は一つの遷移で決める（今の文字の保持の条件はそのまま）。
   - SM-U904: `enum FilterDraft { Valid { text: String, value: Option<FilterValue> }, Invalid { text: String } }` を一つの signal に置く。valid は memo。外へ書いた値は `Sent<Option<FilterValue>>`。

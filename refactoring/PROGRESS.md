@@ -144,7 +144,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | G-4a | merged | 586a75c | style_paint6 passed、check/fmt 0 |
 | G-4b | merged | 0703861 | motion11 passed、check/fmt0 |
 | G-4c | doing | | |
-| G-5 | doing | | |
+| G-5 | merged | a3d8db9 | async6/doc538+1 passed、scopedcheck/state-fields0 |
 | K-0 | todo | | |
 | K-1a | todo | | |
 | K-1b | todo | | |
@@ -184,3 +184,6 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G4-11 | merged | a2946b2 | press-time factory、check0/E2E1 passed |
 | fix-G4-12 | merged | 291e2de | Generation/active payload、check0/E2E1 passed |
 | fix-G4-13 | merged | 507ea44 | 元のgrouped-table試験1/list11 passed、check/state-fields0 |
+| fix-G5-9 | merged | 2ed4bfb | Creative9親を葉へ分離、check0/state-fields所有0 |
+| fix-G4-14 | doing | 613aec1 | interaction循環/virtual requested修正、check0/state-fields0、E2E待ち |
+| fix-G5-10 | doing | | Basic tooltip説明・ComboBox role追従 |
