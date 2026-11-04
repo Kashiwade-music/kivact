@@ -31,6 +31,15 @@ pub struct TextEditApi {
     data: Owned<Rc<Data>>,
 }
 
+#[derive(Clone)]
+enum InputDraft {
+    Immediate,
+    Drafting {
+        submit: Rc<dyn Fn()>,
+        edited: Rc<dyn Fn()>,
+    },
+}
+
 /// Whether Enter submits or inserts a line break.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Lines {
@@ -261,6 +270,12 @@ impl TextEditApi {
         });
         self
     }
+    pub(crate) fn draft_session(self, session: crate::EditSession<String>) -> Self {
+        self.setup("TextEditApi::draft_session")
+            .options
+            .update(|options| options.draft_session = Some(session));
+        self
+    }
     /// Create the focusable TextBox Part for this editor's native leaf.
     #[track_caller]
     pub fn control(self) -> Part<PartState> {
@@ -289,26 +304,29 @@ impl TextEditApi {
             if let Some(label) = data.options.get().label {
                 control = control.name(label);
             }
-            let (control, draft_submit, draft_edited) =
-                if let Some(commit) = data.options.get().draft_commit {
-                    let installed = draft::install(
-                        Draft {
-                            commit,
-                            on_edit: data.options.get().draft_edit,
-                            return_focus: data.options.get().return_focus,
-                            ended: data.options.get().draft_end,
-                        },
-                        data.binding,
-                        control,
-                    );
-                    (
-                        installed.node,
-                        Some(installed.submit),
-                        Some(installed.edited),
-                    )
-                } else {
-                    (control, None, None)
-                };
+            let (control, input_draft) = if let Some(commit) = data.options.get().draft_commit {
+                let installed = draft::install(
+                    Draft {
+                        commit,
+                        on_edit: data.options.get().draft_edit,
+                        return_focus: data.options.get().return_focus,
+                        ended: data.options.get().draft_end,
+                        session: data.options.get().draft_session,
+                    },
+                    data.binding,
+                    control,
+                );
+                (
+                    installed.node,
+                    InputDraft::Drafting {
+                        submit: installed.submit,
+                        edited: installed.edited,
+                    },
+                )
+            } else {
+                (control, InputDraft::Immediate)
+            };
+            let draft_submit = input_draft.clone();
             let owned = self.data;
             let (binding, lines) = {
                 let data = owned.get();
@@ -392,7 +410,7 @@ impl TextEditApi {
                         return Ok(());
                     }
                     let edited = edit.text.unwrap_or_default();
-                    if let Some(edited) = &draft_edited {
+                    if let InputDraft::Drafting { edited, .. } = &input_draft {
                         edited();
                     }
                     binding.set(edited.clone());
@@ -417,7 +435,7 @@ impl TextEditApi {
                 .on_key(move |event| {
                     let data = owned.get();
                     if lines == Lines::Single && data.is_mounted(id) && event.key() == Key::Enter {
-                        if let Some(submit) = &draft_submit {
+                        if let InputDraft::Drafting { submit, .. } = &draft_submit {
                             submit();
                             return Ok(Handled::Yes);
                         }
@@ -448,6 +466,7 @@ impl TextEditApi {
 #[derive(Clone, Default)]
 struct TextEditOptions {
     draft_commit: Option<Callback<String>>,
+    draft_session: Option<crate::EditSession<String>>,
     draft_edit: Option<Callback<EditPhase>>,
     draft_end: Option<Callback<()>>,
     return_focus: Option<NodeRef>,

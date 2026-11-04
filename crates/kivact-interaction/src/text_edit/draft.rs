@@ -18,6 +18,7 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub(crate) struct Draft {
     pub(crate) commit: Callback<String>,
+    pub(crate) session: Option<EditSession<String>>,
     pub(crate) on_edit: Option<Callback<EditPhase>>,
     pub(crate) return_focus: Option<NodeRef>,
     /// Called once the draft has ended with a commit or a cancel.
@@ -82,7 +83,9 @@ pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> I
         .accessible_invalid()
         .unwrap_or_else(|| false.into_value());
     let target = node_ref();
-    let session = EditSession::new(move |text: String| value.set(text));
+    let session = draft
+        .session
+        .unwrap_or_else(|| EditSession::new(move |text: String| value.set(text)));
     let (on_edit, ended) = (draft.on_edit, draft.ended);
     session.on_edit(move |phase| {
         if let Some(on_edit) = on_edit {

@@ -2,8 +2,10 @@
 use super::filter_value::{FilterField, FilterUi};
 use super::types::TypedFilters;
 use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_input, text_input};
+use kivact_core::custom::Sent;
 use kivact_core::i18n::{CalendarDate, message, message_with};
-use kivact_core::state::{Binding, Signal, Value, binding, effect, memo, signal, var};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo, signal, var};
 use kivact_core::style::{ColorToken, Justify, Length, pct, style};
 use kivact_core::view::IntoView;
 use kivact_core::view::NodeBuilder;
@@ -66,7 +68,7 @@ impl Filters {
             ControlSize::Medium
         };
         match field {
-            Some(field) => editor(field, label, value, signal(true), size),
+            Some(field) => editor(field, label, value, size).0,
             None => node()
                 .style(style().height(if compact { 28 } else { 32 }))
                 .into_view(),
@@ -118,12 +120,10 @@ fn popover(
         .hide_title(true)
         .content(move || {
             let draft = signal(value.get_untracked());
-            let valid = signal(true);
-            let control = editor(
+            let (control, valid) = editor(
                 field.clone(),
                 label,
                 kivact_core::state::IntoBinding::into_binding(draft),
-                valid,
                 ControlSize::Medium,
             );
             let reset = button(message("data_table.filter.reset", "Reset"))
@@ -153,10 +153,9 @@ fn editor(
     field: FilterField,
     label: Value<String>,
     value: Binding<Option<FilterValue>>,
-    valid: Signal<bool>,
     size: ControlSize,
-) -> View {
-    match field {
+) -> (View, Value<bool>) {
+    let view = match field {
         FilterField::Choice(options) => {
             let all = ListItem::new(None, message("data_table.filter.all", "All"));
             let options = std::iter::once(all)
@@ -229,48 +228,107 @@ fn editor(
                 })
                 .into_view()
         }
-        field => text_editor(field, label, value, valid, size),
-    }
+        field => return text_editor(field, label, value, size),
+    };
+    (view, true.into_value())
 }
 
+#[derive(Clone, PartialEq)]
+enum FilterDraft {
+    Valid {
+        text: String,
+        value: Option<FilterValue>,
+    },
+    Invalid {
+        text: String,
+    },
+}
+impl FilterDraft {
+    fn text(&self) -> &str {
+        match self {
+            Self::Valid { text, .. } | Self::Invalid { text } => text,
+        }
+    }
+}
+enum FilterEvent {
+    External(Option<FilterValue>),
+    Typed(String),
+}
+struct FilterInput {
+    field: FilterField,
+    sent: Sent<Option<FilterValue>>,
+}
+impl Machine for FilterInput {
+    type State = FilterDraft;
+    type Event = FilterEvent;
+    type Effect = Option<FilterValue>;
+    fn transition(
+        &self,
+        _state: &FilterDraft,
+        event: FilterEvent,
+    ) -> Step<FilterDraft, FilterEvent, Option<FilterValue>> {
+        match event {
+            FilterEvent::External(value) if self.sent.get() == Some(&value) => Step::stay(),
+            FilterEvent::External(value) => Step::to(FilterDraft::Valid {
+                text: format_value(value.as_ref()),
+                value,
+            }),
+            FilterEvent::Typed(text) => match parse_value(&self.field, &text) {
+                Ok(value) => Step::to(FilterDraft::Valid {
+                    text,
+                    value: value.clone(),
+                })
+                .with(value),
+                Err(()) => Step::to(FilterDraft::Invalid { text }),
+            },
+        }
+    }
+}
 fn text_editor(
     field: FilterField,
     label: Value<String>,
     value: Binding<Option<FilterValue>>,
-    valid: Signal<bool>,
     size: ControlSize,
-) -> View {
+) -> (View, Value<bool>) {
     let initial = value.get_untracked();
-    let raw = signal(format_value(initial.as_ref()));
-    let sent = var(initial);
-    effect(move || {
-        let next = value.get();
-        if sent.with(|sent| *sent != next) {
-            raw.set(format_value(next.as_ref()));
-            valid.set(true);
-            sent.set(next);
-        }
-    });
+    let mut last = Sent::new();
+    last.update(initial.clone());
+    let sent = var(last);
+    let input = field.clone();
+    let draft = machine(
+        FilterDraft::Valid {
+            text: format_value(initial.as_ref()),
+            value: initial,
+        },
+        move || FilterInput {
+            field: input.clone(),
+            sent: sent.get(),
+        },
+        move |_, next| {
+            sent.update(|sent| {
+                sent.update(next.clone());
+            });
+            value.set(next);
+        },
+    );
+    draft.feed(value.into_value(), FilterEvent::External);
+    let valid = memo(move || matches!(draft.get(), FilterDraft::Valid { .. }));
     let hint = match field {
         FilterField::Date => "YYYY-MM-DD",
         FilterField::Time => "HH:MM",
         _ => "",
     };
-    let draft = binding(raw, move |text: String| {
-        let next = parse_value(&field, &text);
-        raw.set(text);
-        valid.set(next.is_ok());
-        if let Ok(next) = next {
-            sent.set(next.clone());
-            value.set(next);
-        }
-    });
-    text_input(label, draft)
+    let draft = binding(
+        move || draft.get().text().to_owned(),
+        move |text| draft.send(FilterEvent::Typed(text)),
+    );
+    let view = text_input(label, draft)
         .size(size)
         .placeholder(hint)
         .invalid(move || !valid.get())
         .style(style().width(pct(100)))
-        .into_view()
+        .into_view();
+    (view, valid)
 }
 
 fn format_value(value: Option<&FilterValue>) -> String {
