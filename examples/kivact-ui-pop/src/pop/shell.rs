@@ -240,7 +240,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                         let offset = scroll_ref.scroll_offset().get();
                         scroll_ref.scroll_to(
                             Point::new(0.0, (offset.y + r.y - 76.0).max(0.0)),
-                            ScrollBehavior::Smooth,
+                            ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
                         );
                     }
                     selected.set(i);
@@ -523,7 +523,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 let offset = scroll_ref.scroll_offset().get();
                 scroll_ref.scroll_to(
                     Point::new(0.0, (offset.y + r.y - 76.0).max(0.0)),
-                    ScrollBehavior::Smooth,
+                    ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
                 );
             }
             selected.set(i);

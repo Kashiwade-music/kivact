@@ -105,6 +105,7 @@ fn layout(s: &Style) -> LayoutProps {
         None => (ov, ov),
     };
     LayoutProps {
+        scroll_snap: s.scroll_snap.unwrap_or_default(),
         enter_size: s.enter_size,
         exit_size: s.exit_size,
         layout_transition: s.layout_transition.clone(),
@@ -407,6 +408,7 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         position,
         overflow,
         scroll_axes,
+        scroll_snap,
         background,
         border_width,
         border_color,
@@ -489,6 +491,7 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
     add(wrap.is_some(), "wrap");
     add(position.is_some(), "position");
     add(overflow.is_some(), "overflow");
+    add(scroll_snap.is_some(), "scroll_snap");
     add(scroll_axes.is_some(), "with_scroll_axes");
     add(background.is_some(), "background");
     add(border_width.iter().any(Option::is_some), "border_width");

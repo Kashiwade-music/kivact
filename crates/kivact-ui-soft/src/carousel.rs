@@ -122,7 +122,7 @@ impl CarouselHandle {
         let motion = if kivact::platform::is_motion_reduced().get() {
             ScrollBehavior::Instant
         } else {
-            ScrollBehavior::Smooth
+            ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut)
         };
         self.viewport.scroll_to(Point { x, y: 0.0 }, motion);
     }

@@ -588,7 +588,7 @@ impl<K: kivact_runtime::ItemKey, T: Clone + 'static> Seeker<K, T> {
         };
         ViewState::tree(rt)
             .engine()
-            .scroll(self.outer, Point { x: 0.0, y: target }, false, false);
+            .scroll(self.outer, Point { x: 0.0, y: target }, false, None);
         rt.request_turn();
     }
 

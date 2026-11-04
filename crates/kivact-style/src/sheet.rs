@@ -211,6 +211,7 @@ pub struct Style {
     pub(super) overflow: Option<Overflow>,
     /// Scroll axes set by `scroll(..)`.
     pub(super) scroll_axes: Option<ScrollAxes>,
+    pub(super) scroll_snap: Option<kivact_types::ScrollSnap>,
     pub(super) background: Option<Background>,
     /// Border widths and colors, top, right, bottom, left.
     pub(super) border_width: [Option<f64>; 4],
@@ -327,6 +328,11 @@ macro_rules! sides {
 }
 
 impl Style {
+    /// Align direct in-flow children to scroll stops after touch scrolling.
+    pub fn scroll_snap(mut self, snap: kivact_types::ScrollSnap) -> Self {
+        self.scroll_snap = Some(snap);
+        self
+    }
     sides!(padding, padding, [top, right, bottom, left]);
     sides!(padding_x, padding, [left, right]);
     sides!(padding_y, padding, [top, bottom]);
@@ -1040,6 +1046,7 @@ impl Style {
             position,
             overflow,
             scroll_axes,
+            scroll_snap,
             background,
             border_style,
             ring,

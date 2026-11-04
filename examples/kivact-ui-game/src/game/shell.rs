@@ -476,7 +476,7 @@ fn reveal(scroll: NodeRef, offset: Value<Point>, target: Value<Option<Rect>>) {
     if let Some(rect) = target.get() {
         scroll.scroll_to(
             Point::new(0., (offset.get().y + rect.y - 72.).max(0.)),
-            kivact::view::ScrollBehavior::Smooth,
+            kivact::view::ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
         );
     }
 }

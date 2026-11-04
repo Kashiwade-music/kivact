@@ -6,6 +6,7 @@ pub mod cell;
 pub mod check;
 pub mod color;
 pub mod defaults;
+pub mod drag_velocity;
 pub mod embed;
 pub mod env;
 pub mod geometry;
@@ -20,6 +21,7 @@ pub mod presence;
 pub mod process;
 pub mod render;
 pub mod scene;
+pub mod scroll;
 pub mod semantics;
 pub mod semantics_text;
 pub mod text;
@@ -29,6 +31,7 @@ pub mod text_utf;
 pub use asset::Asset;
 pub use check::{LayoutCheck, LayoutFinding, LayoutLimit, LayoutRule};
 pub use color::Rgba;
+pub use drag_velocity::DragVelocity;
 pub use embed::{EmbedOptions, ParentWindow};
 pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
@@ -69,6 +72,7 @@ pub use scene::{
     BorderStyle, DrawCmd, DrawList, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin,
     PathCmd, PathData, Pixels, Region, ShapePaint, Stroke, TextRun,
 };
+pub use scroll::{ScrollSnap, nearest_snap};
 pub use semantics::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, Finite, LiveRegion,
     Orientation, PopupKind, Role, Semantics, SortDirection, check_text,

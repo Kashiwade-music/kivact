@@ -58,6 +58,7 @@ impl Model {
             track.gesture = TouchGesture::Pending {
                 route,
                 candidate: TouchCandidate {
+                    time_ns: track.source.time_ns,
                     start: at,
                     target: TouchTarget {
                         from,
@@ -110,13 +111,21 @@ impl Model {
                     unreachable!("invariant: touch pan belongs to a touch")
                 };
                 track.gesture = TouchGesture::Pan(TouchPan {
+                    samples: {
+                        let mut samples =
+                            kivact_types::DragVelocity::new(std::time::Duration::from_millis(100));
+                        samples.reset(candidate.time_ns, candidate.start);
+                        samples.record(track.source.time_ns, at);
+                        samples
+                    },
+                    scroller: target,
                     last: at,
                     target: candidate.target,
                     axis,
                 });
                 self.set_scroll(target, offset);
             }
-            TouchGesture::Pan(pan) => {
+            TouchGesture::Pan(mut pan) => {
                 if !self.touch_target_valid(pan.target) {
                     self.cancel_pointer_input(pointer);
                     return false;
@@ -129,7 +138,12 @@ impl Model {
                     Axis::Vertical => delta.x = 0.0,
                     Axis::Horizontal => delta.y = 0.0,
                 }
-                self.scroll_from(pan.target.from, delta, None);
+                if let Some((target, offset)) = self.scroll_target(pan.target.from, delta, None) {
+                    self.set_scroll(target, offset);
+                    pan.scroller = target;
+                }
+                let time = self.pointer.state.track(pointer).source().time_ns;
+                pan.samples.record(time, at);
                 let Track::Touch(track) = self.pointer.state.track_mut(pointer) else {
                     unreachable!("invariant: touch pan belongs to a touch")
                 };
@@ -139,6 +153,26 @@ impl Model {
         }
         self.settle(engine);
         true
+    }
+
+    /// Start inertia from the last 100 ms of touch positions.
+    pub(crate) fn release_touch_scroll(&mut self, pointer: PointerId) {
+        let Track::Touch(track) = self.pointer.state.track(pointer) else {
+            return;
+        };
+        let TouchGesture::Pan(pan) = &track.gesture else {
+            return;
+        };
+        let sampled = pan.samples.pixels_per_ms(track.source.time_ns);
+        let mut velocity = Point {
+            x: -sampled.x,
+            y: -sampled.y,
+        };
+        match pan.axis {
+            Axis::Vertical => velocity.x = 0.0,
+            Axis::Horizontal => velocity.y = 0.0,
+        }
+        self.start_scroll_fling(pan.scroller, velocity);
     }
 
     fn touch_target_valid(&self, target: TouchTarget) -> bool {
