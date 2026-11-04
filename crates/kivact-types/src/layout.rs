@@ -140,7 +140,7 @@ pub struct GridContainer {
 pub enum GridTrack {
     Single(TrackSize),
     /// CSS `repeat(count, tracks)`.
-    GridRepeat(GridRepeat, Vec<TrackSize>),
+    Repeat(GridRepeat, Vec<TrackSize>),
 }
 
 /// How often a `repeat()` repeats.
