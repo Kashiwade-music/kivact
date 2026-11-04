@@ -250,3 +250,19 @@ pub(super) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
         _ => s.width(6).cursor(Cursor::EwResize),
     }
 }
+
+/// Shared by all kits: the row owns size presence independently of card paint.
+pub(super) fn toast_row(t: &Theme, _: &PartState) -> Style {
+    let tokens = t.ext::<crate::UiTokens>();
+    let motion = &tokens.toast.row_motion;
+    let base = style()
+        .shrink(0)
+        .enter_size(kivact_core::view::Orientation::Vertical)
+        .exit_size(kivact_core::view::Orientation::Vertical);
+    if let Some(transition) = &motion.transition {
+        base.padding_top(motion.gap)
+            .transition(kivact_core::style::TransitionProp::Size, transition.clone())
+    } else {
+        base
+    }
+}

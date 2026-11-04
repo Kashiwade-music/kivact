@@ -35,7 +35,6 @@ mod announcer;
 mod axis;
 mod calendar;
 mod combobox;
-mod content_reveal;
 mod delayed;
 mod dialog;
 mod disclosure;
@@ -79,7 +78,6 @@ pub use calendar::{
     use_calendar_grid,
 };
 pub use combobox::{ComboboxApi, use_combobox};
-pub use content_reveal::{ContentReveal, use_content_reveal};
 pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
 pub use dialog::{DialogApi, DialogMode, DismissOn, use_dialog};
 pub use disclosure::{DisclosureApi, DisclosureState, use_disclosure};

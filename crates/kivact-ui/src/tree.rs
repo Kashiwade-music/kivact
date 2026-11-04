@@ -3,18 +3,15 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::custom::Part;
-use kivact_core::motion::{Transition, animated};
-use kivact_core::state::{Binding, Value, effect, memo, signal};
+use kivact_core::motion::Transition;
+use kivact_core::state::{Binding, Value, signal};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::style::{Overflow, TransitionProp, style};
+use kivact_core::style::{TransitionProp, style};
 use kivact_core::view::{
-    ExitLayout, HandlerResult, IntoView, ReadingDirection, Role, View, for_each, node_ref, show,
-    use_direction,
+    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each, use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{Selection, TreeApi, TreeItemState, TreeNode, TreeRow, use_tree};
-use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 type RowContent<K> = kivact_core::view::ViewFn<(Value<TreeRow<K>>, Value<TreeItemState>)>;
@@ -147,129 +144,30 @@ impl<K: kivact_core::state::ItemKey> IntoView for TreeRows<K> {
     }
 }
 
-type BranchRows<K> = HashMap<Option<K>, Vec<TreeRow<K>>>;
 type RowNode<K> = Rc<dyn Fn(K, Value<TreeRow<K>>, Part<TreeItemState>) -> Node>;
 
-/// Draw one clipped reveal per branch while keeping keyboard order on the
-/// logical tree. The host retains removed branch paint without focus, hit
-/// testing or accessibility. Reopening mounts fresh branch content.
-#[track_caller]
+/// Removed rows leave navigation immediately; engine size presence retains
+/// their paint and releases their layout over the supplied transition.
 fn revealed_rows<K: kivact_core::state::ItemKey>(
     tree: TreeApi<K>,
     gap: f64,
     transition: Transition,
     render: RowNode<K>,
 ) -> View {
-    let visible = tree.rows();
-    let branches = memo(move || {
-        let mut result = BranchRows::new();
-        let mut ancestors = Vec::new();
-        for row in visible.get() {
-            ancestors.truncate(row.level.saturating_sub(1) as usize);
-            let parent = ancestors.last().cloned();
-            ancestors.push(row.key.clone());
-            result.entry(parent).or_default().push(row);
-        }
-        result
-    });
-    branch_rows(tree, branches, None, gap, transition, render)
-}
-
-fn branch_rows<K: kivact_core::state::ItemKey>(
-    tree: TreeApi<K>,
-    branches: Value<BranchRows<K>>,
-    parent: Option<K>,
-    gap: f64,
-    transition: Transition,
-    render: RowNode<K>,
-) -> View {
-    // A closing ancestor removes this host subtree as one group. Keep this
-    // list's data until that unmount, so the host captures it as one exit.
-    let previous = RefCell::new(Vec::new());
-    let container = parent.clone();
     for_each(
-        move || {
-            if let Some(rows) = branches.with(|map| map.get(&parent).cloned()) {
-                previous.replace(rows.clone());
-                rows
-            } else if parent.is_some() {
-                previous.borrow().clone()
-            } else {
-                Vec::new()
-            }
-        },
+        tree.rows(),
         |row| (row.key.clone(), row.branch.has_children()),
         move |row| {
-            let (key, has_children) =
-                row.with_untracked(|row| (row.key.clone(), row.branch.has_children()));
+            let key = row.with_untracked(|row| row.key.clone());
             let part = tree.item_with_exit(key.clone());
-            let line = render(key.clone(), row, part);
-            if !has_children {
-                return line;
-            }
-            let parent = Some(key);
-            let lookup = parent.clone();
-            let container = container.clone();
-            let previous_open = Cell::new(false);
-            let open = memo(move || {
-                branches.with(|map| {
-                    if map.contains_key(&container) {
-                        previous_open.set(map.contains_key(&lookup));
-                    }
-                    previous_open.get()
-                })
-            });
-            let progress = animated(
-                move || if open.get() { 1.0f64 } else { 0.0 },
-                transition.clone(),
-            );
-            let measured = node_ref();
-            let rect = measured.rect();
-            let last_height = signal(0.0f64);
-            effect(move || {
-                if open.get()
-                    && let Some(rect) = rect.get()
-                    && rect.height > 0.0
-                {
-                    last_height.set(rect.height);
-                }
-            });
-            let render = render.clone();
-            let exit_transition = transition.clone();
-            let content = show(open, move || {
-                let mut paint = style()
-                    .gap(gap)
-                    .padding_top(gap)
+            column(render(key, row, part)).style(
+                style()
                     .shrink(0)
-                    .exit(style().opacity(0.0))
-                    .transition(TransitionProp::Paint, exit_transition.clone());
-                if progress.get_untracked() < 1.0 {
-                    paint = paint.enter(style().opacity(0.0));
-                }
-                column(branch_rows(
-                    tree,
-                    branches,
-                    parent.clone(),
-                    gap,
-                    exit_transition.clone(),
-                    render.clone(),
-                ))
-                .exit_layout(ExitLayout::Pop)
-                .style(paint)
-            });
-            let shell = column(column(content).node_ref(measured).style(style().shrink(0))).style(
-                move || {
-                    let share = progress.get().clamp(0.0, 1.0);
-                    if !open.get() || share < 1.0 {
-                        style()
-                            .height(last_height.get() * share)
-                            .overflow(Overflow::Hidden)
-                    } else {
-                        style()
-                    }
-                },
-            );
-            column((line, shell))
+                    .padding_top(gap)
+                    .enter_size(Orientation::Vertical)
+                    .exit_size(Orientation::Vertical)
+                    .transition(TransitionProp::Size, transition.clone()),
+            )
         },
     )
     .into_view()

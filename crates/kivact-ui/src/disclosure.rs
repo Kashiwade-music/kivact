@@ -10,11 +10,11 @@ use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::IntoText;
-use kivact_core::state::{Binding, Value, memo};
-use kivact_core::style::{Overflow, style, use_theme};
-use kivact_core::view::{IntoView, View, node_ref, show};
+use kivact_core::state::{Binding, Value};
+use kivact_core::style::{TransitionProp, style, use_theme};
+use kivact_core::view::{IntoView, Orientation, View, show};
 use kivact_core::view::{Node, NodeBuilder, icon, node, text};
-use kivact_interaction::{use_content_reveal, use_disclosure};
+use kivact_interaction::use_disclosure;
 
 /// A trigger and the content it opens, created by [`disclosure`].
 pub struct Disclosure {
@@ -22,7 +22,6 @@ pub struct Disclosure {
     title: Value<String>,
     open: Binding<bool>,
     content: kivact_core::view::ViewFn,
-    keep_mounted: bool,
     motion: DisclosureMotion,
     variants: Variants,
 }
@@ -33,8 +32,8 @@ pub struct Disclosure {
 /// The trigger is a button named and labelled by `title`, with the expanded
 /// state; click, Enter, Space and assistive technology's Expand, Collapse and
 /// Toggle write `open`. The content is built in a fresh owner each time the
-/// section opens and dropped when it closes;
-/// [`keep_mounted`](Disclosure::keep_mounted) builds it once instead. The look
+/// section opens and dropped when it closes. Engine presence retains its
+/// exit paint until the closing motion finishes. The look
 /// is the theme's [`UiRecipes::disclosure`](super::UiRecipes). A caller's
 /// `.disabled(..)` on the disclosure disables the trigger.
 ///
@@ -77,7 +76,6 @@ pub fn disclosure(
         title: title.into_text_value(),
         open: open.into_binding(),
         content: kivact_core::view::ViewFn::from(|()| ()),
-        keep_mounted: false,
         motion: use_theme()
             .get()
             .ext::<crate::UiTokens>()
@@ -94,16 +92,6 @@ impl Disclosure {
         self.content = content.into_view_fn();
         self
     }
-    /// Build the content once and keep it mounted, hidden while the section
-    /// is closed, so the state inside it (a draft, a scroll position)
-    /// survives closing (Radix's `forceMount`). A constant: it chooses
-    /// whether the content's owner lives with each opening or with the
-    /// disclosure.
-    pub fn keep_mounted(mut self) -> Self {
-        self.keep_mounted = true;
-        self
-    }
-
     /// Open and close by moving the content's height over 200 ms, a
     /// decorative motion that reduced motion skips (default: the content
     /// appears and disappears at once). A constant.
@@ -143,16 +131,7 @@ impl IntoView for Disclosure {
             details = details.disabled(move || disabled.get());
         }
         let shown = details.is_open();
-        let reveal = self.motion.animate.then(|| {
-            use_content_reveal(
-                shown,
-                Transition::tween(self.motion.duration.as_secs_f64() * 1000.0, Easing::EaseOut),
-            )
-        });
-        let present = memo(move || reveal.map_or_else(|| shown.get(), |reveal| reveal.present()));
-        if let Some(reveal) = reveal {
-            details = details.leaving(move || reveal.leaving());
-        }
+        let motion = self.motion;
         let variants = self.variants;
         let part = details.trigger();
         let state = part.state();
@@ -185,27 +164,26 @@ impl IntoView for Disclosure {
                     &variants,
                     move || content_state.get(),
                 );
-                let Some(reveal) = reveal else {
-                    return region.child(build.call(()));
-                };
-                let measured = node_ref();
-                let height = reveal.container_style(measured);
-                region
-                    .style(style().overflow(Overflow::Hidden))
-                    .style(move || height.get())
-                    .child(
-                        node()
-                            .node_ref(measured)
-                            .style(style().shrink(0))
-                            .child(build.call(())),
+                let region = if motion.animate {
+                    region.style(
+                        style()
+                            .enter_size(Orientation::Vertical)
+                            .exit_size(Orientation::Vertical)
+                            .transition(
+                                TransitionProp::Size,
+                                Transition::tween(
+                                    motion.duration.as_secs_f64() * 1000.0,
+                                    Easing::EaseOut,
+                                ),
+                            ),
                     )
+                } else {
+                    region
+                };
+                region.child(build.call(()))
             }
         };
-        let body: View = if self.keep_mounted {
-            region().into_view()
-        } else {
-            show(present, region).into_view()
-        };
+        let body = show(shown, region);
         with_base_recipe_style(
             self.root,
             |recipes| recipes.disclosure_recipes().root_recipe(),

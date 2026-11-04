@@ -1,7 +1,6 @@
 //! Role: Render Neutral disclosure triggers and coordinate groups.
 use crate::stack::rtl;
 use crate::tokens;
-use kivact::interaction::use_content_reveal;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Spring;
 use kivact::motion::Transition;
@@ -32,7 +31,6 @@ use kivact::style::pct;
 use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::View;
-use kivact::view::node_ref;
 use kivact::view::show;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -202,23 +200,8 @@ impl IntoView for Collapsible {
                 ..CollapsibleConfig::default()
             });
             let open = state.open;
-            let mut disclosure = use_disclosure(open).disabled(disabled);
+            let disclosure = use_disclosure(open).disabled(disabled);
             let shown = disclosure.is_open();
-            let reveal = animate_layout.get().then(|| {
-                use_content_reveal(
-                    shown,
-                    Transition::spring(Spring {
-                        stiffness: 157.91,
-                        damping: 25.13,
-                        mass: 1.0,
-                    }),
-                )
-            });
-            if let Some(reveal) = reveal {
-                disclosure = disclosure.leaving(move || reveal.leaving());
-            }
-            let present =
-                memo(move || reveal.map_or_else(|| shown.get(), |reveal| reveal.present()));
             let chevron = icon(match position {
                 ChevronPosition::Start => "chevron-right",
                 ChevronPosition::End => "chevron-down",
@@ -293,21 +276,29 @@ impl IntoView for Collapsible {
                             .padding_bottom(padding_for(density))
                     })
                     .child(content.as_ref().map(|content| content.call(())));
-                if let Some(reveal) = reveal {
-                    let measured = node_ref();
-                    let height = reveal.container_style(measured);
-                    region
-                        .style(style().clip(true))
-                        .style(move || height.get())
-                        .child(details.node_ref(measured))
+                let region = if animate_layout.get() {
+                    region.style(
+                        style()
+                            .enter_size(kivact::view::Orientation::Vertical)
+                            .exit_size(kivact::view::Orientation::Vertical)
+                            .transition(
+                                TransitionProp::Size,
+                                Transition::spring(Spring {
+                                    stiffness: 157.91,
+                                    damping: 25.13,
+                                    mass: 1.0,
+                                }),
+                            ),
+                    )
                 } else {
-                    region.child(details)
-                }
+                    region
+                };
+                region.child(details)
             };
             let details = if keep_mounted {
-                body().into_view()
+                body().hidden(move || !shown.get()).into_view()
             } else {
-                show(present, body).into_view()
+                show(shown, body).into_view()
             };
             root.with_node(move |node| node.base_style(style().direction(Direction::Column)))
                 .child((trigger, details))

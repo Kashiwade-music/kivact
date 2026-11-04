@@ -186,9 +186,7 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
                     kivact::ui::checkbox("Visible", check),
                     kivact::ui::switch("Enabled", switch),
                     kivact::ui::toggle_button("Bold", bold),
-                    kivact::ui::disclosure("Transform", open)
-                        .content(|| text("Position"))
-                        .keep_mounted(),
+                    kivact::ui::disclosure("Transform", open).content(|| text("Position")),
                     kivact::ui::checkbox("Locked", signal(false))
                         .with_node(move |node| node.disabled(true)),
                 )),

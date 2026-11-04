@@ -147,6 +147,8 @@ fn disclosure_indicator(_: &Theme, state: &Look<DisclosureState>) -> Style {
 
 fn disclosure_content(_: &Theme, _: &Look<DisclosureState>) -> Style {
     style()
+        .enter_size(kivact::view::Orientation::Vertical)
+        .exit_size(kivact::view::Orientation::Vertical)
         .direction(Direction::Column)
         .padding_bottom(14)
         .color(ColorToken::TextMuted)
