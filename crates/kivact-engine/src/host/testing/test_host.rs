@@ -9,7 +9,7 @@ use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 use arvane::{Renderer, ShellControl, ShellError, ShellEvent, ShellImeText, Window as _};
 use kivact_types::PointerSample;
 use kivact_types::render::SemanticsTree;
-use kivact_types::{Cursor, Insets, Point};
+use kivact_types::{Cursor, Insets, Modifiers, Point};
 use kivact_types::{DrawList, LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Size, ThemeHint};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -121,6 +121,16 @@ impl ArvaneTestHost {
     }
 
     // ----- input and lifecycle -----
+
+    /// The virtual platform's current mouse position inside the window.
+    pub fn mouse_position(&self) -> Option<Point> {
+        self.window.mouse_position()
+    }
+
+    /// Modifiers currently reported by the virtual platform.
+    pub fn modifiers(&self) -> Modifiers {
+        self.window.modifiers()
+    }
 
     /// Deliver one shell event at the host's entry, as the shell delivers
     /// the winit events it maps. Input is applied to the host model at

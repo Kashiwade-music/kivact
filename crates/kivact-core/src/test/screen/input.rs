@@ -72,24 +72,23 @@ const CONTACT_PRESS: ButtonPress = ButtonPress {
 
 impl Screen {
     pub(super) fn send(&self, mut event: ShellEvent) {
+        let mut host = self.host.borrow_mut();
         match &mut event {
-            ShellEvent::Modifiers(modifiers) => self.input_modifiers.set(*modifiers),
-            ShellEvent::Key(input) => input.pointer = self.input_mouse.get(),
+            ShellEvent::Key(input) => input.pointer = host.mouse_position(),
             ShellEvent::Wheel(input) => {
-                let Some(position) = self.input_mouse.get() else {
+                let Some(position) = host.mouse_position() else {
                     return;
                 };
                 input.position = position;
-                input.modifiers = self.input_modifiers.get();
+                input.modifiers = host.modifiers();
             }
             _ => {}
         }
-        self.host.borrow_mut().send(event);
+        host.send(event);
     }
 
     /// Move the virtual window's mouse to the window point `at`.
     fn mouse_to(&self, at: Point) {
-        self.input_mouse.set(Some(at));
         self.host.borrow_mut().mouse(PointerPhase::Move, Some(at));
     }
 
@@ -332,7 +331,9 @@ impl Screen {
     /// Report the contact as the platform does: the window maps the
     /// platform's contact to a pointer of its own (`VirtualWindow::contact`).
     fn send_contact(&self, phase: PointerPhase, contact: Contact, at: Point) {
-        self.host.borrow_mut().contact(PointerSample {
+        let mut host = self.host.borrow_mut();
+        let modifiers = host.modifiers();
+        host.contact(PointerSample {
             id: PointerId(contact.id),
             kind: contact.kind,
             phase,
@@ -349,7 +350,7 @@ impl Screen {
                 _ => None,
             },
             time_ns: 0,
-            modifiers: self.input_modifiers.get(),
+            modifiers,
             is_primary: true,
         });
     }
@@ -358,7 +359,6 @@ impl Screen {
     /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_leave(&self) {
         self.log("pointer leaves".into());
-        self.input_mouse.set(None);
         self.host.borrow_mut().mouse(PointerPhase::Leave, None);
         self.run_until_idle();
     }
