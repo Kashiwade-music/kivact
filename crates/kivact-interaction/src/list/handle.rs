@@ -302,7 +302,12 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     }
     #[track_caller]
     pub(crate) fn shared_highlight(self, highlight: Binding<Option<K>>) -> Self {
-        self.state().roving.requested.bind(highlight);
+        let state = self.state();
+        state.roving.requested.bind(highlight);
+        // Composite owners decide when their shared highlight resets.
+        state
+            .options
+            .update(|options| options.reset_on_exit = false);
         self
     }
     #[track_caller]

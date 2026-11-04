@@ -78,6 +78,18 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
             })
         })
     };
+    let order = state.order;
+    let set_size =
+        memo(move || order.with(|order| u32::try_from(order.keys().len()).unwrap_or(u32::MAX)));
+    let position = memo(move || {
+        key.with(|key| {
+            order.with(|order| {
+                order
+                    .position(key)
+                    .map_or(0, |index| u32::try_from(index + 1).unwrap_or(u32::MAX))
+            })
+        })
+    });
     let input = part(move |input| ListItemState {
         input,
         selected: selected_state.get(),
@@ -107,6 +119,8 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
             .role(Role::Option)
             .name(name)
             .selected(selected_state)
+            .set_size(set_size)
+            .pos_in_set(position)
             .disabled(disabled)
             .focusable(move || {
                 focus_mode.state().get().focus == machine::Focus::Physical && active.get()

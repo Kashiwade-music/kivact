@@ -159,6 +159,21 @@ impl<Id: kivact_core::state::ItemKey> Roving<Id> {
         })
     }
 
+    /// Whether a real outside focus replaced the focus of a mounted member.
+    pub(crate) fn left_members(&self, current: Option<NodeToken>) -> bool {
+        let previous = self
+            .requested
+            .machine
+            .state()
+            .get_untracked()
+            .roving
+            .observed();
+        self.requested.get_untracked().is_some()
+            && current.is_some()
+            && self.member_of(current).is_none()
+            && self.member_of(previous).is_some()
+    }
+
     /// Follow focus that reaches a member by other means, and give the focus
     /// of a removed or refused member to the tab stop. It returns the node it
     /// asked to take the focus, if any, so the owner can scroll to it.

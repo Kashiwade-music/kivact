@@ -25,6 +25,7 @@ type Selectable<K> = Rc<dyn Fn(&K) -> bool>;
 #[derive(Clone)]
 pub(super) struct ListSetupOptions<K: kivact_core::state::ItemKey> {
     pub(super) retained_focus: Value<bool>,
+    pub(super) reset_on_exit: bool,
     pub(super) page: Value<usize>,
     pub(super) leave: Option<Leave<K>>,
     pub(super) scroll: Option<Scroll<K>>,
@@ -78,6 +79,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     let requested = roving.requested;
     let options = OptionsCell::new(ListSetupOptions {
         retained_focus: false.into_value(),
+        reset_on_exit: true,
         page: 10.into_value(),
         leave: None,
         scroll: None,
@@ -141,16 +143,10 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
                         });
                 }
             }
-            let preference = if mode == ListMode::Select {
-                selected
-                    .iter()
-                    .rev()
-                    .find(|key| order.enabled(key) && available(key))
-            } else {
-                selected
-                    .iter()
-                    .find(|key| order.enabled(key) && available(key))
-            };
+            let keys = order.keys();
+            let preference = keys
+                .iter()
+                .find(|key| selected.contains(key) && order.enabled(key) && available(key));
             preference.cloned().or_else(|| {
                 order
                     .keys()
@@ -363,10 +359,13 @@ fn reconcile<K: kivact_core::state::ItemKey>(state: &State<K>) {
     let current = state.owner.focused_node();
     state.pending.send(machine::Event::Observe(current));
     let pending = state.pending.state().get_untracked().pending;
-    if matches!(pending, machine::Pending::Nothing)
-        && state.roving.requested.get_untracked() != active
+    // Once focus leaves, the next Tab entry starts at the selected item.
+    // Pending virtualization and retained trigger focus keep their own authority.
+    if state.options.get().reset_on_exit
+        && matches!(pending, machine::Pending::Nothing)
+        && state.roving.left_members(current)
     {
-        state.roving.requested.set(active.clone());
+        state.roving.requested.set(None);
     }
     // A pending request of the list's own keeps the tab stop where it asked.
     // A focus on an item the list refuses goes back to the tab stop.
