@@ -21,15 +21,14 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use kivact_core::primitive::{Owned, Owner, Part, PartState};
+use kivact_core::custom::{Owned, Owner, Part, PartState};
 
 use super::press::is_double_press;
 use super::{List, ListItem, ListPolicy, ListRangePolicy, ListSelection, use_list};
+use kivact_core::state::{Binding, Callback, Signal, Value, memo, signal};
+use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::A11yAction;
-use kivact_core::view::{
-    Handled, IntoText, IntoValue, Key, KeyEvent, PointerEvent, Reactive, Role, callback,
-};
-use kivact_core::{Binding, Callback, Signal, Value, memo, signal};
+use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Reactive, Role};
 
 /// One node of the data a [`Tree`] shows: its key, the key of its parent,
 /// its label and whether it is disabled.
@@ -307,7 +306,7 @@ fn flatten<K: Clone + Eq + Hash>(
     out
 }
 
-type TreeMarker<K> = PhantomData<(fn() -> K, kivact_core::primitive::UiThreadOnly)>;
+type TreeMarker<K> = PhantomData<(fn() -> K, kivact_core::custom::UiThreadOnly)>;
 
 struct Shared<K: Clone + Eq + Hash + 'static> {
     nodes: Value<Vec<TreeNode<K>>>,

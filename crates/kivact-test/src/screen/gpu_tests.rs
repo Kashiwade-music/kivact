@@ -13,10 +13,10 @@
 
 use std::panic::Location;
 
-use kivact_core::control::image;
 use kivact_core::draw::{
     BlendMode, Filter, Shadow, Shape, Transform, conic_gradient, linear_gradient, radial_gradient,
 };
+use kivact_core::view::image;
 use kivact_engine::testing::{Renderer, gpu_unavailable};
 use kivact_style::asset::{Asset, ImageFit};
 use kivact_style::{BorderStyle, Direction, Position, rgb};
@@ -25,9 +25,9 @@ use super::model::Screen;
 use super::results::Screenshot;
 use super::support::button_box;
 use crate::{MirrorMode, RenderOptions};
-use kivact_core::control::canvas;
-use kivact_core::draw::{Point, Rect};
+use kivact_core::geometry::{Point, Rect};
 use kivact_core::prelude::{IntoView, NodeBuilder, column, node, row, style, text};
+use kivact_core::view::canvas;
 use kivact_style::{Align, Color, Justify, pct, rgba};
 
 /// A 2 × 2 RGBA PNG (stretched and sampled bilinearly) and a two-color
@@ -397,7 +397,7 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
 }
 
 fn canvas_vocabulary() -> impl IntoView {
-    use kivact_core::draw::{ImageOptions, Layer, Path, Pixels, TextBaseline, TextStyle};
+    use kivact_core::draw::{ImageOptions, Layer, Path, Pixels, TextBaseline, TextFormat};
     use kivact_core::draw::{LineCap, Stroke};
     use kivact_style::TextAlign;
     canvas(|d, size| {

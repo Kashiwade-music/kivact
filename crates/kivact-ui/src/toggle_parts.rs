@@ -2,10 +2,10 @@
 use super::layer::{recipes, with_recipe_style};
 use super::values::CheckState;
 use super::variants::Variants;
-use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, node};
+use kivact_core::state::Value;
 use kivact_core::style::{Position, current_theme, style};
 use kivact_core::view::{IntoView, show};
+use kivact_core::view::{Node, NodeBuilder, node};
 
 pub(super) fn checkbox(variants: &Variants, state: Value<CheckState>) -> impl IntoView {
     let variants = variants.clone();

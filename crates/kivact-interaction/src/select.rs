@@ -15,7 +15,7 @@
 //! (`at_least_anchor_width`).
 
 use crate::list::typeahead::Typeahead;
-use kivact_core::primitive::Part;
+use kivact_core::custom::Part;
 use kivact_core::view::HandlerResult;
 use std::hash::Hash;
 
@@ -24,12 +24,11 @@ use super::{
     use_list, use_popup,
 };
 use kivact_core::i18n::message;
-use kivact_core::view::{
-    Handled, IntoText, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role, callback,
-};
-use kivact_core::{
+use kivact_core::state::{
     Binding, Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, untrack, var,
 };
+use kivact_core::state::{IntoText, IntoValue, callback};
+use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 
 /// A select over keyed [`ListItem`]s, without a look of its own.
 ///
@@ -79,7 +78,7 @@ use kivact_core::{
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{ListItem, use_select};
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::custom::NodeExt;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -377,7 +376,7 @@ impl<K: Clone + Eq + Hash + 'static> SelectApi<K> {
         list.retain_focus(retain_trigger_focus);
         let content = if sheet {
             let shown = popup.shown();
-            kivact_core::primitive::part(move |input| PopupState {
+            kivact_core::custom::part(move |input| PopupState {
                 input,
                 open: shown.get(),
             })

@@ -4,10 +4,10 @@ use super::touch::{Touch, TouchSliderGesture};
 use super::track::{self, Grip, Pointer};
 use crate::drag::Drag;
 use crate::edit::EditSession;
-use kivact_core::draw::Rect;
-use kivact_core::primitive::Part;
+use kivact_core::custom::Part;
+use kivact_core::geometry::Rect;
+use kivact_core::state::{Signal, Value, Var, effect, effect_on, memo, on_cleanup, signal, var};
 use kivact_core::view::{Handled, NodeRef, node_ref};
-use kivact_core::{Signal, Value, Var, effect, effect_on, memo, on_cleanup, signal, var};
 
 /// The edit plumbing one [`Scalar`] or both thumbs of a
 /// [`RangeScalar`](crate::RangeScalar) share: the session, what it restores,

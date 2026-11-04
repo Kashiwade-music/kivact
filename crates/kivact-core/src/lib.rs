@@ -17,7 +17,8 @@
 //!
 //! ```no_run
 //! # use kivact_core as kivact;
-//! use kivact::prelude::*;
+//! use kivact::state::{signal, Signal};
+//! use kivact::view::{IntoView, Role, column, node, text};
 //!
 //! fn counter(initial: i32) -> impl IntoView {
 //!     let count = signal(initial);
@@ -54,9 +55,10 @@ mod embed;
 
 mod app;
 mod client;
-pub mod control;
+pub mod custom;
 pub mod diagnostics;
 pub mod draw;
+pub mod geometry;
 #[cfg(feature = "gpu-interop")]
 pub mod gpu_interop;
 #[cfg(not(feature = "gpu-interop"))]
@@ -71,8 +73,6 @@ pub mod i18n;
 pub mod launch;
 pub mod motion;
 pub mod platform;
-pub mod prelude;
-pub mod primitive;
 pub mod state;
 pub mod style;
 pub mod task;
@@ -80,14 +80,4 @@ pub mod view;
 
 pub use app::App;
 #[doc(inline)]
-pub use kivact_runtime::Selector;
-#[doc(inline)]
-pub use kivact_runtime::untrack;
-#[doc(inline)]
-pub use kivact_runtime::{Binding, Callback, Signal, Value, Var};
-#[doc(inline)]
-pub use kivact_runtime::{Result, UiError};
-#[doc(inline)]
-pub use kivact_runtime::{binding, effect, effect_on, memo, on_cleanup, on_mount, signal, var};
-#[doc(inline)]
-pub use kivact_style::asset::Asset;
+pub use kivact_runtime::{ErrorKind, Result, UiError};

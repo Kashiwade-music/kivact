@@ -95,7 +95,7 @@ icon_into_value!(&'static str, Asset);
 /// The images a theme draws for [`Icon`] names, in
 /// [`Theme::icons`](crate::Theme::icons).
 ///
-/// A component that draws an icon (`kivact::control::icon`, the
+/// A component that draws an icon (`kivact::view::icon`, the
 /// marks and item icons of the standard components) looks its name up in the
 /// theme in effect, so a component library's theme gives every name its own
 /// glyph. The [`standard`](Self::standard) set has the marks the standard

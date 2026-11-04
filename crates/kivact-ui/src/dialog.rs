@@ -20,14 +20,14 @@ use super::DialogState;
 use super::layer::with_recipe_style;
 use super::recipes::{Recipe, UiRecipes};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, column, node, row, scroll, text};
-use kivact_core::primitive::{NodeExt, Part};
+use kivact_core::custom::{NodeExt, Part};
+use kivact_core::geometry::Edge;
+use kivact_core::state::{Binding, Value};
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Length, Position, Theme, ThemeExtension, current_theme, pct, style};
-use kivact_core::view::{
-    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay,
-};
-use kivact_core::{Binding, Value};
-use kivact_interaction::{DialogKind, Dismiss, PopupState, Side};
+use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
+use kivact_core::view::{Node, NodeBuilder, column, node, row, scroll, text};
+use kivact_interaction::{DialogKind, Dismiss, PopupState};
 use std::rc::Rc;
 
 /// Where a theme centers modal dialogs opened by an attached trigger.
@@ -157,7 +157,7 @@ fn wrapper(
     variants: &Variants,
     pick: fn(&UiRecipes) -> &Recipe<DialogState>,
 ) -> Node {
-    let part = kivact_core::primitive::part(move |input| PopupState {
+    let part = kivact_core::custom::part(move |input| PopupState {
         input,
         open: open.get(),
     });
@@ -313,7 +313,7 @@ impl Dialog {
                     themed(
                         node()
                             .name(kivact_core::i18n::message("dialog.close", "Close"))
-                            .child(kivact_core::control::icon("x")),
+                            .child(kivact_core::view::icon("x")),
                         behavior.close_trigger(),
                         shape,
                         &variants,
@@ -376,7 +376,7 @@ impl Dialog {
                 .footer
                 .as_ref()
                 .map(|footer| footer())
-                .filter(|footer| !kivact_core::primitive::view_is_empty(footer))
+                .filter(|footer| !kivact_core::custom::view_is_empty(footer))
                 .map(|footer| {
                     wrapper(row(footer), open, shape, variants, |r| {
                         r.dialog_recipes().footer_recipe()

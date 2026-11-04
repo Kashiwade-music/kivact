@@ -4,7 +4,7 @@
 //! component needs to keep resources for the lifetime of the part it
 //! builds: store an object, register a cleanup, provide and read contexts,
 //! report through the error boundary, and find the App's root and focus.
-//! [`app_state`] keeps a component library's App-wide state at the root.
+//! [`use_app_state`] keeps a component library's App-wide state at the root.
 //! Creating signals or effects under an owner, or running setup in one, is
 //! the core's job (the setup functions and the flows) and is not offered
 //! here.
@@ -144,8 +144,8 @@ impl Owner {
 /// Later calls return a clone of that value. It works in setup, handlers,
 /// tasks and effects. Outside a running App it raises a located `WrongApp`.
 #[track_caller]
-pub fn app_state<T: Clone + 'static>(api: &'static str, init: impl FnOnce() -> T) -> T {
-    let root = Owner::root(api);
+pub fn use_app_state<T: Clone + 'static>(init: impl FnOnce() -> T) -> T {
+    let root = Owner::root("use_app_state");
     if let Some(value) = root.context::<T>() {
         return value;
     }

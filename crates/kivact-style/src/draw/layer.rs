@@ -19,7 +19,8 @@ use kivact_types as p;
 /// ```
 /// use kivact::draw::{Layer, Shape, Transform};
 /// use kivact::prelude::*;
-/// use kivact::draw::{Draw, Size};
+/// use kivact::draw::{Draw};
+/// use kivact::geometry::{Size};
 /// use kivact::style::{pct};
 /// fn badge(d: &mut Draw, size: Size) {
 ///     let tilted = Layer::new()

@@ -10,7 +10,7 @@ use kivact_runtime::{Owner, Runtime, Trigger};
 use kivact_types::cell::{Generation, ReportOnceSet};
 use kivact_types::{IntrinsicSize, NodeId};
 
-use crate::Value;
+use crate::state::Value;
 use crate::view::descriptor::Mcx;
 use crate::view::part_data::PartBinding;
 use crate::view::tree::Handlers;

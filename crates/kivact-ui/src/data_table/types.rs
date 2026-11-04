@@ -1,10 +1,10 @@
 //! Role: The state of a data table: its builder fields, slots and live context.
 use crate::DataColumn;
 use crate::variants::Variants;
-use kivact_core::control::Node;
+use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::style::Color;
+use kivact_core::view::Node;
 use kivact_core::view::View;
-use kivact_core::{Binding, Callback, Value};
 use kivact_interaction::{ScalarRange, SortOrder, TableFocus, TableModel};
 use std::rc::Rc;
 

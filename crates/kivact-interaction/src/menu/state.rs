@@ -4,12 +4,13 @@ use std::panic::Location;
 
 use crate::Popup;
 use crate::list::typeahead::Typeahead;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::draw::Point;
-use kivact_core::primitive::{PartState, raise};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{PartState, raise};
+use kivact_core::geometry::Point;
+use kivact_core::state::IntoText;
+use kivact_core::state::{Callback, Signal, Value, Var};
 use kivact_core::style::Icon;
-use kivact_core::view::{IntoText, NodeRef, Reactive};
-use kivact_core::{Callback, Signal, Value, Var};
+use kivact_core::view::{NodeRef, Reactive};
 
 /// Where an open menu was asked to appear.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -635,7 +636,7 @@ pub(super) struct Session<K: 'static> {
     pub(super) want: Signal<Option<Want<K>>>,
     pub(super) typed: Var<Typeahead>,
     pub(super) press: Option<super::press_state::Press>,
-    pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::draw::Rect)>>,
+    pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
 }
 
 impl<K: 'static> Clone for Session<K> {

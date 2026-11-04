@@ -5,7 +5,7 @@
 //! decides whether the target may take the focus (liveness, hiding, the open
 //! modal): a request submits `restore_focus()` and nothing else.
 
-use kivact_core::primitive::NodeToken;
+use kivact_core::custom::NodeToken;
 use kivact_core::view::NodeRef;
 
 /// Why an application closes a popup.

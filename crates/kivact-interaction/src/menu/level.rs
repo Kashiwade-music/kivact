@@ -11,11 +11,12 @@ use crate::{
     Delays, List, ListItem, ListPolicy, ListSelection, PopupCloseReason, PopupState, use_delayed,
     use_hover_corridor, use_list,
 };
-use kivact_core::draw::Rect;
-use kivact_core::primitive::{Part, part};
+use kivact_core::custom::{Part, part};
+use kivact_core::geometry::Rect;
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
 use kivact_core::style::{Theme, ThemeExtension, current_theme};
-use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, PointerEvent, PointerPhase, Role};
-use kivact_core::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
+use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 
 /// Whether disabled menu entries participate in roving keyboard focus.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

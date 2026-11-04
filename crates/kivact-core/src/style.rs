@@ -18,3 +18,6 @@ pub use kivact_style::{
 };
 
 pub mod theme;
+
+#[doc(inline)]
+pub use crate::view::boundary::provide_theme;

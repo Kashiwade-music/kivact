@@ -6,19 +6,20 @@
 //! the shared room; the pixels the panes really take are read back from their
 //! rects, so a handle of any thickness (the theme's splitter recipe) moves the
 //! boundary exactly as far as the pointer.
-use super::children::IntoChildren;
 use super::layer::with_recipe_style;
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
+use kivact_core::custom::NodeExt;
 use kivact_core::i18n::message;
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::{Binding, Callback, Value, binding, memo};
+use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::{Direction, pct, style};
+use kivact_core::view::IntoChildren;
 use kivact_core::view::{
-    HandlerResult, IntoValue, IntoView, NodeRef, Orientation, ReadingDirection, View, callback,
-    current_direction, node_ref, show,
+    HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, View, current_direction,
+    node_ref, show,
 };
-use kivact_core::{Binding, Callback, Value, binding, memo};
+use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{EditPhase, ScalarRange, use_splitter};
 use std::rc::Rc;
 

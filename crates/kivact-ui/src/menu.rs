@@ -18,14 +18,14 @@
 //! to move the open menu to the next trigger.
 use super::layer::with_recipe_style;
 use super::variants::{Variant, Variants};
-use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, column, node, scroll, text};
-use kivact_core::primitive::NodeExt;
+use kivact_core::custom::NodeExt;
+use kivact_core::state::Value;
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, PopupKind, View, for_each,
-    overlay, overlay_at,
+    IntoView, NodeRef, OverlayAlign, Placement, PopupKind, View, for_each, overlay, overlay_at,
 };
+use kivact_core::view::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_interaction::{
     MenuApi as Behavior, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
 };
@@ -117,12 +117,6 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
     pub fn at_least_trigger_width(mut self, on: bool) -> Self {
         self.at_least_trigger_width = on;
         self
-    }
-    /// The headless menu this themed menu draws, to open, close or read it
-    /// from code: a menu bar moves the open menu between its triggers with
-    /// it.
-    pub fn behavior(&self) -> Behavior<K> {
-        self.behavior
     }
     /// What each item row shows, in every level, built once per row from
     /// its entry and its state (both reactive). The row itself, its keys,
@@ -235,7 +229,7 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
 /// role the trigger has (a menu bar's `MenuItem`) stays the trigger's.
 fn named<T: NodeBuilder + IntoView, S: Clone + PartialEq + 'static>(
     mut trigger: T,
-    part: kivact_core::primitive::Part<S>,
+    part: kivact_core::custom::Part<S>,
 ) -> (Option<std::rc::Rc<dyn Fn() -> String>>, View) {
     let name = trigger.accessible_name();
     let role = trigger.accessible_role();
@@ -274,7 +268,7 @@ fn inset_box<K: 'static>(entry: Value<MenuEntry<K>>, variants: &Variants) -> Vie
     kivact_core::view::show(
         move || entry.with(|entry| entry.is_inset()),
         move || {
-            let part = kivact_core::primitive::part(|state| state);
+            let part = kivact_core::custom::part(|state| state);
             let state = part.state();
             with_recipe_style(
                 node().part(part),
@@ -309,7 +303,7 @@ fn item_content<K: Clone + 'static>(
             move || state.get(),
         )
         .child(kivact_core::view::dynamic(shown, |name| {
-            name.map(|name| kivact_core::control::icon(name))
+            name.map(|name| kivact_core::view::icon(name))
         }))
     });
     let chevron = submenu.then(|| {
@@ -319,7 +313,7 @@ fn item_content<K: Clone + 'static>(
             variants,
             move || state.get(),
         )
-        .child(kivact_core::control::icon("chevron-right"))
+        .child(kivact_core::view::icon("chevron-right"))
     });
     let shortcuts = variants.clone();
     let lines = variants.clone();
@@ -443,11 +437,11 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
                     (row, child).into_view()
                 }
                 MenuRow::Label(_) => {
-                    let part = kivact_core::primitive::part(|state| state);
+                    let part = kivact_core::custom::part(|state| state);
                     let state = part.state();
                     let data = kivact_core::memo(move || entry.get().1);
                     with_recipe_style(
-                        kivact_core::control::row((
+                        kivact_core::view::row((
                             inset_box(data, &looks),
                             text(move || entry.get().1.label()),
                         ))
@@ -459,7 +453,7 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
                     .into_view()
                 }
                 MenuRow::Separator(_) => {
-                    let part = kivact_core::primitive::part(|state| state);
+                    let part = kivact_core::custom::part(|state| state);
                     let state = part.state();
                     with_recipe_style(
                         node().part(part).role(kivact_core::view::Role::Separator),
@@ -488,7 +482,7 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
             overlay_at(
                 move || match origin.get() {
                     Some(MenuOrigin::Pointer(point)) => point,
-                    _ => kivact_core::draw::Point::new(0.0, 0.0),
+                    _ => kivact_core::geometry::Point::new(0.0, 0.0),
                 },
                 placement,
                 content,

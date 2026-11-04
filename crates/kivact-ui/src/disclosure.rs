@@ -8,12 +8,13 @@
 //! write one `Binding<Vec<K>>`.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, icon, node, text};
+use kivact_core::custom::NodeExt;
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::IntoText;
+use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{Overflow, style};
-use kivact_core::view::{IntoText, IntoView, View, node_ref, show};
-use kivact_core::{Binding, Value, memo};
+use kivact_core::view::{IntoView, View, node_ref, show};
+use kivact_core::view::{Node, NodeBuilder, icon, node, text};
 use kivact_interaction::{use_content_reveal, use_disclosure};
 use std::rc::Rc;
 

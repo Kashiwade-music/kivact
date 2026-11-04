@@ -2,15 +2,16 @@
 
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, column, node, text};
+use kivact_core::custom::Part;
 use kivact_core::motion::{Transition, animated};
-use kivact_core::primitive::Part;
+use kivact_core::state::{Binding, Value, effect, memo, signal};
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Overflow, TransitionProp, style};
 use kivact_core::view::{
-    ExitLayout, HandlerResult, IntoText, IntoValue, IntoView, ReadingDirection, Role, View,
-    current_direction, for_each, node_ref, show,
+    ExitLayout, HandlerResult, IntoView, ReadingDirection, Role, View, current_direction, for_each,
+    node_ref, show,
 };
-use kivact_core::{Binding, Value, effect, memo, signal};
+use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{ListSelection, Tree, TreeItemState, TreeNode, TreeRow, use_tree};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;

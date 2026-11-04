@@ -23,13 +23,14 @@ use std::panic::Location;
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 
+use crate::state::{IntoText, IntoValue};
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
 use crate::view::mount::mount_host;
 use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::state::ViewState;
-use crate::view::{IntoText, IntoValue, IntoView, Role, View};
+use crate::view::{IntoView, Role, View};
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::asset::Asset;
@@ -126,7 +127,8 @@ impl Node {
         mut self,
         items: impl IntoValue<Vec<T>>,
         key: impl Fn(&T) -> kivact_style::draw::RegionId + 'static,
-        make: impl Fn(kivact_style::draw::RegionId, crate::Value<T>) -> crate::view::Part<S> + 'static,
+        make: impl Fn(kivact_style::draw::RegionId, crate::state::Value<T>) -> crate::view::Part<S>
+        + 'static,
     ) -> Self {
         self.common
             .regions
@@ -146,7 +148,7 @@ impl Node {
     /// Attach behavior, semantic relationships and input defaults to this
     /// element.
     ///
-    /// Same as [`NodeExt::part`](crate::primitive::NodeExt::part).
+    /// Same as [`NodeExt::part`](crate::custom::NodeExt::part).
     pub fn part<S: Clone + PartialEq + 'static>(mut self, part: crate::view::Part<S>) -> Self {
         part.attach(&mut self.common);
         self
@@ -154,7 +156,7 @@ impl Node {
 
     /// Accessibility role, overriding the function's default role.
     ///
-    /// Same as [`NodeExt::role`](crate::primitive::NodeExt::role).
+    /// Same as [`NodeExt::role`](crate::custom::NodeExt::role).
     pub fn role(mut self, r: Role) -> Self {
         self.common.role = Some(r);
         self
@@ -162,7 +164,7 @@ impl Node {
 
     /// Accessible value text (e.g. of a slider or progress bar).
     ///
-    /// Same as [`NodeExt::value_text`](crate::primitive::NodeExt::value_text).
+    /// Same as [`NodeExt::value_text`](crate::custom::NodeExt::value_text).
     pub fn value_text(mut self, v: impl IntoText) -> Self {
         self.common.value = Some(v.into_text());
         self
@@ -170,7 +172,7 @@ impl Node {
 
     /// Selected state (semantics and the `selected` style).
     ///
-    /// Same as [`NodeExt::selected`](crate::primitive::NodeExt::selected).
+    /// Same as [`NodeExt::selected`](crate::custom::NodeExt::selected).
     pub fn selected(mut self, v: impl IntoValue<bool>) -> Self {
         self.common.selected = Some(v.into_prop());
         self
@@ -178,7 +180,7 @@ impl Node {
 
     /// Binary checked state for a check box or switch.
     ///
-    /// Same as [`NodeExt::checked`](crate::primitive::NodeExt::checked).
+    /// Same as [`NodeExt::checked`](crate::custom::NodeExt::checked).
     pub fn checked(mut self, value: impl IntoValue<bool>) -> Self {
         self.common.checked = Some(value.into_prop());
         self
@@ -186,7 +188,7 @@ impl Node {
 
     /// Expanded state of a disclosure, menu or combo box.
     ///
-    /// Same as [`NodeExt::expanded`](crate::primitive::NodeExt::expanded).
+    /// Same as [`NodeExt::expanded`](crate::custom::NodeExt::expanded).
     pub fn expanded(mut self, value: impl IntoValue<bool>) -> Self {
         self.common.expanded = Some(value.into_prop());
         self
@@ -383,7 +385,7 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::control::{NodeBuilder, icon};
+/// use kivact::view::{NodeBuilder, icon};
 /// use kivact::style::{ColorToken, style};
 /// let check = icon("check").style(style().color(ColorToken::Accent));
 /// # let _ = check;

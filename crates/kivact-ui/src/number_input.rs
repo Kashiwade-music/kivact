@@ -3,12 +3,13 @@ use super::layer::with_recipe_style;
 use super::text_input::text_input;
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
-use kivact_core::control::{Node, NodeBuilder, grid, icon};
+use kivact_core::custom::{NodeExt, PartState};
 use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, locale, message};
-use kivact_core::primitive::{NodeExt, PartState};
+use kivact_core::state::{Binding, Value, binding, effect_on, memo, signal};
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Track, auto, style};
-use kivact_core::view::{IntoText, IntoValue, IntoView, View, node_ref};
-use kivact_core::{Binding, Value, binding, effect_on, memo, signal};
+use kivact_core::view::{IntoView, View, node_ref};
+use kivact_core::view::{Node, NodeBuilder, grid, icon};
 use kivact_interaction::{EditPhase, ScalarRange, use_scalar};
 
 /// What a number field shows: the value formatted, or what the user typed

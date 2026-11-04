@@ -59,6 +59,7 @@ use std::rc::Rc;
 use kivact_runtime::EffectKind;
 use kivact_runtime::HandlerResult;
 
+use crate::state::{Value, memo, on_cleanup, signal};
 use crate::view::common::Common;
 use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
 use crate::view::owner::Owner;
@@ -67,7 +68,6 @@ use crate::view::{
     A11yAction, A11yEvent, ButtonPress, Key, LiveRegion, MouseButton, NodeRef, Orientation,
     PointerPhase, Role, SortDirection, node_ref,
 };
-use crate::{Value, memo, on_cleanup, signal};
 
 // xtask-allow(state-fields): Public observation snapshot of independent input and availability facts.
 /// Actual input and availability state of an attached node or canvas region.
@@ -92,7 +92,7 @@ pub struct PartState {
 
 /// A move-only semantic and input attachment for one node or canvas region.
 ///
-/// Obtain an attachment from [`part`](crate::primitive::part), read its state
+/// Obtain an attachment from [`part`](crate::custom::part), read its state
 /// before consuming it with an element's `with` or a canvas node's `region`.
 /// Copies of the returned state and reference continue to follow that target.
 /// Parts contain no style, layout, children or rendering implementation.
@@ -130,7 +130,7 @@ enum Hover {
 
 /// Create a setup-owned semantic and input attachment for one target.
 ///
-/// Read [`Part::state`](crate::primitive::Part::state) before consuming the attachment
+/// Read [`Part::state`](crate::custom::Part::state) before consuming the attachment
 /// with an element's `with` modifier or a canvas node's `region` declaration.
 /// The closure receives the exact target's input, focus and availability state.
 #[track_caller]
@@ -400,7 +400,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Accessibility role, overriding the builder's default role.
     ///
-    /// Same as [`NodeExt::role`](crate::primitive::NodeExt::role).
+    /// Same as [`NodeExt::role`](crate::custom::NodeExt::role).
     pub fn role(mut self, r: Role) -> Self {
         self.common.role = Some(r);
         self
@@ -408,7 +408,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Accessible name.
     ///
-    /// Same as [`NodeBuilder::name`](crate::control::NodeBuilder::name).
+    /// Same as [`NodeBuilder::name`](crate::view::NodeBuilder::name).
     pub fn name(mut self, v: impl IntoText) -> Self {
         self.common.name = Some(v.into_text());
         self
@@ -416,7 +416,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Accessible description.
     ///
-    /// Same as [`NodeBuilder::description`](crate::control::NodeBuilder::description).
+    /// Same as [`NodeBuilder::description`](crate::view::NodeBuilder::description).
     pub fn description(mut self, v: impl IntoText) -> Self {
         self.common.description = Some(v.into_text());
         self
@@ -424,7 +424,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Accessible value text (e.g. of a slider or progress bar).
     ///
-    /// Same as [`NodeExt::value_text`](crate::primitive::NodeExt::value_text).
+    /// Same as [`NodeExt::value_text`](crate::custom::NodeExt::value_text).
     pub fn value_text(mut self, v: impl IntoText) -> Self {
         self.common.value = Some(v.into_text());
         self
@@ -432,7 +432,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Selected state (semantics and the `selected` style).
     ///
-    /// Same as [`NodeExt::selected`](crate::primitive::NodeExt::selected).
+    /// Same as [`NodeExt::selected`](crate::custom::NodeExt::selected).
     pub fn selected(mut self, v: impl IntoValue<bool>) -> Self {
         self.common.selected = Some(v.into_prop());
         self
@@ -440,7 +440,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Disabled state (semantics and the `disabled` style).
     ///
-    /// Same as [`NodeBuilder::disabled`](crate::control::NodeBuilder::disabled).
+    /// Same as [`NodeBuilder::disabled`](crate::view::NodeBuilder::disabled).
     pub fn disabled(mut self, v: impl IntoValue<bool>) -> Self {
         self.common.disabled = Some(v.into_prop());
         self
@@ -455,7 +455,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Hide the node and its subtree.
     ///
-    /// Same as [`NodeBuilder::hidden`](crate::control::NodeBuilder::hidden).
+    /// Same as [`NodeBuilder::hidden`](crate::view::NodeBuilder::hidden).
     pub fn hidden(mut self, v: impl IntoValue<bool>) -> Self {
         self.common.hidden = Some(v.into_prop());
         self
@@ -463,7 +463,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Whether the pointer hits the node and its subtree (default `true`).
     ///
-    /// Same as [`NodeBuilder::hit_testable`](crate::control::NodeBuilder::hit_testable).
+    /// Same as [`NodeBuilder::hit_testable`](crate::view::NodeBuilder::hit_testable).
     pub fn hit_testable(mut self, on: bool) -> Self {
         self.common.hit_testable = Some(on);
         self
@@ -471,7 +471,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Whether the node takes keyboard focus, overriding the builder's default.
     ///
-    /// Same as [`NodeBuilder::focusable`](crate::control::NodeBuilder::focusable).
+    /// Same as [`NodeBuilder::focusable`](crate::view::NodeBuilder::focusable).
     pub fn focusable(mut self, on: impl IntoValue<bool>) -> Self {
         self.common.focusable = Some(on.into_prop());
         self
@@ -479,7 +479,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Binary checked state for a check box or switch.
     ///
-    /// Same as [`NodeExt::checked`](crate::primitive::NodeExt::checked).
+    /// Same as [`NodeExt::checked`](crate::custom::NodeExt::checked).
     pub fn checked(mut self, value: impl IntoValue<bool>) -> Self {
         self.common.checked = Some(value.into_prop());
         self
@@ -487,7 +487,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Expanded state of a disclosure, menu or combo box.
     ///
-    /// Same as [`NodeExt::expanded`](crate::primitive::NodeExt::expanded).
+    /// Same as [`NodeExt::expanded`](crate::custom::NodeExt::expanded).
     pub fn expanded(mut self, value: impl IntoValue<bool>) -> Self {
         self.common.expanded = Some(value.into_prop());
         self
@@ -495,7 +495,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Mixed checked state, like an HTML checkbox's `indeterminate`.
     ///
-    /// Same as [`NodeExt::indeterminate`](crate::primitive::NodeExt::indeterminate).
+    /// Same as [`NodeExt::indeterminate`](crate::custom::NodeExt::indeterminate).
     pub fn indeterminate(mut self, value: impl IntoValue<bool>) -> Self {
         self.common.indeterminate = Some(value.into_prop());
         self
@@ -503,7 +503,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set value_min semantics, constant or reactive.
     ///
-    /// Same as [`NodeExt::value_min`](crate::primitive::NodeExt::value_min).
+    /// Same as [`NodeExt::value_min`](crate::custom::NodeExt::value_min).
     pub fn value_min(mut self, value: impl IntoValue<f64>) -> Self {
         self.common.semantics_mut().value_min = Some(value.into_prop());
         self
@@ -511,7 +511,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set value_max semantics, constant or reactive.
     ///
-    /// Same as [`NodeExt::value_max`](crate::primitive::NodeExt::value_max).
+    /// Same as [`NodeExt::value_max`](crate::custom::NodeExt::value_max).
     pub fn value_max(mut self, value: impl IntoValue<f64>) -> Self {
         self.common.semantics_mut().value_max = Some(value.into_prop());
         self
@@ -519,7 +519,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set value_now semantics, constant or reactive.
     ///
-    /// Same as [`NodeExt::value_now`](crate::primitive::NodeExt::value_now).
+    /// Same as [`NodeExt::value_now`](crate::custom::NodeExt::value_now).
     pub fn value_now(mut self, value: impl IntoValue<f64>) -> Self {
         self.common.semantics_mut().value_now = Some(value.into_prop());
         self
@@ -527,7 +527,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set live_region semantics, constant or reactive.
     ///
-    /// Same as [`NodeExt::live_region`](crate::primitive::NodeExt::live_region).
+    /// Same as [`NodeExt::live_region`](crate::custom::NodeExt::live_region).
     pub fn live_region(mut self, value: impl IntoValue<LiveRegion>) -> Self {
         self.common.semantics_mut().live_region = Some(value.into_prop());
         self
@@ -535,7 +535,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set sort semantics, constant or reactive.
     ///
-    /// Same as [`NodeExt::sort`](crate::primitive::NodeExt::sort).
+    /// Same as [`NodeExt::sort`](crate::custom::NodeExt::sort).
     pub fn sort(mut self, value: impl IntoValue<SortDirection>) -> Self {
         self.common.semantics_mut().sort = Some(value.into_prop());
         self
@@ -543,7 +543,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set orientation semantics, constant or reactive.
     ///
-    /// Same as [`NodeExt::orientation`](crate::primitive::NodeExt::orientation).
+    /// Same as [`NodeExt::orientation`](crate::custom::NodeExt::orientation).
     pub fn orientation(mut self, value: impl IntoValue<Orientation>) -> Self {
         self.common.semantics_mut().orientation = Some(value.into_prop());
         self
@@ -551,7 +551,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Identify the active option while focus stays on this control, constant or reactive.
     ///
-    /// Same as [`NodeExt::active_descendant`](crate::primitive::NodeExt::active_descendant).
+    /// Same as [`NodeExt::active_descendant`](crate::custom::NodeExt::active_descendant).
     pub fn active_descendant(mut self, descendant: impl IntoValue<Option<NodeRef>>) -> Self {
         self.common.semantics_mut().active_descendant = Some(descendant.into_prop());
         self
@@ -559,7 +559,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set the depth of this node in a hierarchy (`aria-level`), counted from 1: a heading's level, or a tree item's depth.
     ///
-    /// Same as [`NodeExt::level`](crate::primitive::NodeExt::level).
+    /// Same as [`NodeExt::level`](crate::custom::NodeExt::level).
     pub fn level(mut self, value: impl IntoValue<u32>) -> Self {
         self.common.semantics_mut().level = Some(value.into_prop());
         self
@@ -567,7 +567,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set how many items the set this node belongs to or holds has (`aria-setsize`).
     ///
-    /// Same as [`NodeExt::set_size`](crate::primitive::NodeExt::set_size).
+    /// Same as [`NodeExt::set_size`](crate::custom::NodeExt::set_size).
     pub fn set_size(mut self, value: impl IntoValue<u32>) -> Self {
         self.common.semantics_mut().set_size = Some(value.into_prop());
         self
@@ -575,7 +575,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set the position of this node in its set (`aria-posinset`), counted from 1 and not above `.set_size(..)`.
     ///
-    /// Same as [`NodeExt::pos_in_set`](crate::primitive::NodeExt::pos_in_set).
+    /// Same as [`NodeExt::pos_in_set`](crate::custom::NodeExt::pos_in_set).
     pub fn pos_in_set(mut self, value: impl IntoValue<u32>) -> Self {
         self.common.semantics_mut().pos_in_set = Some(value.into_prop());
         self
@@ -583,7 +583,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// State that this list, tree or grid allows more than one selected item (`aria-multiselectable`).
     ///
-    /// Same as [`NodeExt::multiselectable`](crate::primitive::NodeExt::multiselectable).
+    /// Same as [`NodeExt::multiselectable`](crate::custom::NodeExt::multiselectable).
     pub fn multiselectable(mut self, value: impl IntoValue<bool>) -> Self {
         self.common.semantics_mut().multiselectable = Some(value.into_prop());
         self
@@ -624,7 +624,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Name a node that describes this one (`aria-describedby`), for text such as a dialog's message or a field's hint.
     ///
-    /// Same as [`NodeExt::described_by`](crate::primitive::NodeExt::described_by).
+    /// Same as [`NodeExt::described_by`](crate::custom::NodeExt::described_by).
     pub fn described_by(mut self, target: NodeRef) -> Self {
         self.common.semantics_mut().described_by.push(target);
         self
@@ -632,7 +632,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Name a node this one controls (`aria-controls`), such as the panel a button expands.
     ///
-    /// Same as [`NodeExt::controls`](crate::primitive::NodeExt::controls).
+    /// Same as [`NodeExt::controls`](crate::custom::NodeExt::controls).
     pub fn controls(mut self, target: NodeRef) -> Self {
         self.common.semantics_mut().controls.push(target);
         self
@@ -640,7 +640,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Name a node that labels this one (`aria-labelledby`), for a visible heading or caption that should be the accessible name.
     ///
-    /// Same as [`NodeExt::labelled_by`](crate::primitive::NodeExt::labelled_by).
+    /// Same as [`NodeExt::labelled_by`](crate::custom::NodeExt::labelled_by).
     pub fn labelled_by(mut self, target: NodeRef) -> Self {
         self.common.semantics_mut().labelled_by.push(target);
         self
@@ -648,7 +648,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Report an invalid value to assistive technology.
     ///
-    /// Same as [`NodeBuilder::invalid`](crate::control::NodeBuilder::invalid).
+    /// Same as [`NodeBuilder::invalid`](crate::view::NodeBuilder::invalid).
     pub fn invalid(mut self, value: impl IntoValue<bool>) -> Self {
         self.common.invalid = Some(value.into_prop());
         self
@@ -656,7 +656,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Handle keys reported by the host before existing key handlers, default activation and Escape dismissal.
     ///
-    /// Same as [`NodeBuilder::on_key`](crate::control::NodeBuilder::on_key).
+    /// Same as [`NodeBuilder::on_key`](crate::view::NodeBuilder::on_key).
     pub fn on_key<F, R>(mut self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
@@ -668,7 +668,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Key release handler; releases do not edit or activate controls.
     ///
-    /// Same as [`NodeBuilder::on_key_up`](crate::control::NodeBuilder::on_key_up).
+    /// Same as [`NodeBuilder::on_key_up`](crate::view::NodeBuilder::on_key_up).
     pub fn on_key_up<F, R>(mut self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
@@ -692,7 +692,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
         self
     }
 
-    /// Same as [`NodeBuilder::on_pointer`](crate::control::NodeBuilder::on_pointer).
+    /// Same as [`NodeBuilder::on_pointer`](crate::view::NodeBuilder::on_pointer).
     pub fn on_pointer<F, R>(mut self, f: F) -> Self
     where
         F: Fn(PointerEvent) -> R + 'static,
@@ -704,7 +704,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Run before existing wheel behavior and native scrolling.
     ///
-    /// Same as [`NodeBuilder::on_wheel`](crate::control::NodeBuilder::on_wheel).
+    /// Same as [`NodeBuilder::on_wheel`](crate::view::NodeBuilder::on_wheel).
     pub fn on_wheel<F, R>(mut self, f: F) -> Self
     where
         F: Fn(WheelEvent) -> R + 'static,
@@ -716,7 +716,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Set the shared pointer, Enter/Space and accessibility Activate action.
     ///
-    /// Same as [`NodeBuilder::on_press`](crate::control::NodeBuilder::on_press).
+    /// Same as [`NodeBuilder::on_press`](crate::view::NodeBuilder::on_press).
     pub fn on_press<F, R>(mut self, f: F) -> Self
     where
         F: Fn() -> R + 'static,
@@ -728,7 +728,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Offer an assistive-technology action.
     ///
-    /// Same as [`NodeExt::on_a11y`](crate::primitive::NodeExt::on_a11y).
+    /// Same as [`NodeExt::on_a11y`](crate::custom::NodeExt::on_a11y).
     #[track_caller]
     pub fn on_a11y<F, R>(mut self, action: A11yAction, f: F) -> Self
     where
@@ -741,7 +741,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
 
     /// Offer an action and receive its [`A11yEvent`]: the region the request names and the request.
     ///
-    /// Same as [`NodeExt::on_a11y_event`](crate::primitive::NodeExt::on_a11y_event).
+    /// Same as [`NodeExt::on_a11y_event`](crate::custom::NodeExt::on_a11y_event).
     pub fn on_a11y_event<F, R>(mut self, action: A11yAction, f: F) -> Self
     where
         F: Fn(A11yEvent) -> R + 'static,

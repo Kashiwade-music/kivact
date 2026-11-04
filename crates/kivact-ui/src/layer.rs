@@ -1,9 +1,9 @@
 //! Role: Apply theme recipe styles before caller overrides without extra nodes.
 use super::recipes::{Recipe, UiRecipes};
 use super::variants::Variants;
-use kivact_core::control::NodeBuilder;
-use kivact_core::primitive::NodeExt;
+use kivact_core::custom::NodeExt;
 use kivact_core::style::{Theme, current_theme};
+use kivact_core::view::NodeBuilder;
 use std::sync::Arc;
 
 /// The standard components' recipes of `theme`.

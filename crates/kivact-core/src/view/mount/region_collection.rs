@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use crate::Value;
+use crate::state::Value;
 use crate::view::common::{Common, Declaration, Entry};
 use kivact_runtime::EffectKind;
 use kivact_runtime::Prop as InputProp;

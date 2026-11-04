@@ -8,11 +8,11 @@
 //! Image and Overlay. The standard components (`button`,
 //! `checkbox`, ...) are `kivact::ui`, and the components of a UI kit are in
 //! the kit's crate; both are built from these through the public API. A
-//! new primitive measured by its author is `kivact::primitive` (experimental).
+//! new primitive measured by its author is `kivact::custom` (experimental).
 //!
 //! The host node kinds stay these five: native editing is a payload any of
 //! them can carry, and a new primitive is a Box leaf that Kivact measures
-//! (`BoxData::measure`), not a new kind. Only primitives live in `control`;
+//! (`BoxData::measure`), not a new kind. Only primitives live in `view::elements`;
 //! the few components with a look that make a first screen without a kit
 //! are `kivact::ui`, and domain components are in the optional official
 //! kits.

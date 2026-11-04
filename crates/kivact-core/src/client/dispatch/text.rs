@@ -23,7 +23,7 @@ pub(super) fn text_changed(
         return;
     }
     if let Some(h) = handler(rt, node, |h| h.text.clone()) {
-        let edit = crate::primitive::TextEditEvent {
+        let edit = crate::custom::TextEditEvent {
             changes: changes.to_vec(),
             session: session.clone(),
             text: text.map(str::to_owned),

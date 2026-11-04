@@ -1,9 +1,9 @@
 //! Role: Retain only toast row geometry while a dismissed card exits.
-use kivact_core::control::{NodeBuilder, column};
 use kivact_core::motion::{Transition, animated};
+use kivact_core::state::{Value, effect, memo, on_mount, signal, var};
 use kivact_core::style::{Overflow, style};
+use kivact_core::view::{NodeBuilder, column};
 use kivact_core::view::{View, for_each, node_ref, show};
-use kivact_core::{Value, effect, memo, on_mount, signal, var};
 use kivact_interaction::ToastId;
 
 #[derive(Clone, Copy, PartialEq)]

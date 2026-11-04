@@ -349,7 +349,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
 
 /// The text properties of one span of rich text; each one is optional and an
 /// unset one is the paragraph's. A span's decoration lines and features
-/// replace the paragraph's. The `Span` builders of `kivact::control` fill
+/// replace the paragraph's. The `Span` builders of `kivact::view` fill
 /// it, and [`crate::internal::compile_span_style`] turns it into the engine's form.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {

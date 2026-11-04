@@ -2,16 +2,17 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, SelectTriggerState};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, column, node, scroll, text};
-use kivact_core::draw::Point;
-use kivact_core::primitive::NodeExt;
+use kivact_core::custom::NodeExt;
+use kivact_core::geometry::Point;
+use kivact_core::state::{Binding, Callback, Value, binding, effect_on, signal, var};
+use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::style;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    Handled, IntoText, IntoValue, IntoView, NodeRef, Placement, PointerId, PointerKind,
-    PointerPhase, PopupKind, View, callback, for_each, overlay, show,
+    Handled, IntoView, NodeRef, Placement, PointerId, PointerKind, PointerPhase, PopupKind, View,
+    for_each, overlay, show,
 };
-use kivact_core::{Binding, Callback, Value, binding, effect_on, signal, var};
+use kivact_core::view::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -220,7 +221,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
             &variants,
             move || state.get(),
         )
-        .child(kivact_core::control::icon("chevron-down"));
+        .child(kivact_core::view::icon("chevron-down"));
         let shown = behavior.shown();
         let open = behavior.open_binding();
         let sheet_open = signal(false);
@@ -354,7 +355,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
                             )
                             .child(kivact_core::view::dynamic(
                                 move || state.get().selected,
-                                |selected| selected.then(|| kivact_core::control::icon("check")),
+                                |selected| selected.then(|| kivact_core::view::icon("check")),
                             )),
                         )
                             .into_view(),

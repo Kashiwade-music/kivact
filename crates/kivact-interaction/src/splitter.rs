@@ -14,13 +14,13 @@ use super::scalar::{IntoScalarRange, ScalarOps, follow_range};
 use crate::axis::Axis;
 use crate::policy::scalar::ScalarRangeError;
 use crate::press::is_double_press;
-use kivact_core::primitive::{Part, PartState, part};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Signal, Value, memo, signal, var};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, IntoValue, Key, KeyEvent, Orientation,
-    PointerEvent, Role,
+    A11yAction, A11yEvent, A11yRequest, Handled, Key, KeyEvent, Orientation, PointerEvent, Role,
 };
-use kivact_core::{Binding, Signal, Value, memo, signal, var};
 
 /// Reactive drawing state of an attached splitter handle.
 #[derive(Clone, Copy, Debug, PartialEq)]

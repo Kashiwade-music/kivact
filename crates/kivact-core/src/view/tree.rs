@@ -183,9 +183,9 @@ fn offered_actions<T>(activate: bool, a11y: &[(A11yAction, T)]) -> Vec<A11yActio
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
-    pub(crate) rect: Signal<Option<crate::draw::Rect>>,
+    pub(crate) rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) text_truncated: Signal<bool>,
-    pub(crate) scroll: Signal<crate::draw::Point>,
+    pub(crate) scroll: Signal<crate::geometry::Point>,
     pub(crate) scene_revision: Trigger,
 }
 
@@ -372,15 +372,15 @@ impl ViewNodes {
             return Some(observation);
         }
         let observation = NodeObservation {
-            rect: node.owner.signal(None::<crate::draw::Rect>, at),
+            rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             text_truncated: node.owner.signal(false, at),
-            scroll: node.owner.signal(crate::draw::Point::default(), at),
+            scroll: node.owner.signal(crate::geometry::Point::default(), at),
             scene_revision: node.owner.trigger(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
         let rect = observation.rect;
         handlers.observe_layout(move |bounds, _| {
-            rect.set(Some(crate::draw::Rect::new(
+            rect.set(Some(crate::geometry::Rect::new(
                 bounds.x,
                 bounds.y,
                 bounds.width,

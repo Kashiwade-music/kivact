@@ -12,12 +12,11 @@
 //! interaction parts and draws its ordinary parts with `UiRecipes::tabs`.
 use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, column, node, row, text};
+use kivact_core::state::{Binding, Value};
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::current_theme;
-use kivact_core::view::{
-    IntoText, IntoValue, IntoView, Orientation, View, dynamic, for_each, show,
-};
-use kivact_core::{Binding, Value};
+use kivact_core::view::{IntoView, Orientation, View, dynamic, for_each, show};
+use kivact_core::view::{Node, NodeBuilder, column, node, row, text};
 use kivact_interaction::TabState;
 use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
 use std::hash::Hash;

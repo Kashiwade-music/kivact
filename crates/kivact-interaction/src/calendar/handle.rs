@@ -4,13 +4,11 @@ use super::policy::{CalendarPolicy, CalendarSelection};
 use super::state;
 use super::state::{Choice, State};
 use crate::roving::Member;
-use kivact_core::diagnostics::ErrorKind;
+use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Owned, Owner, Part, PartState, part, raise, require_setup};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
-use kivact_core::primitive::{
-    NodeRefExt, Owned, Owner, Part, PartState, part, raise, require_setup,
-};
+use kivact_core::state::{Binding, Value, memo};
 use kivact_core::view::{Handled, KeyEvent, Role};
-use kivact_core::{Binding, Value, memo};
 use std::panic::Location;
 use std::rc::Rc;
 

@@ -1,15 +1,16 @@
 //! Role: In-place renames: which item is being renamed, and the field that renames it.
-use super::text_input::{TextInput, text_input};
-use kivact_core::primitive::{NodeExt, part};
-use kivact_core::view::{HandlerResult, IntoText, callback};
-use kivact_core::{Binding, Signal, on_cleanup, on_mount};
+use crate::{TextEdit, use_text_edit};
+use kivact_core::custom::{NodeExt, part};
+use kivact_core::state::{Binding, Signal, on_cleanup, on_mount};
+use kivact_core::state::{IntoText, callback};
+use kivact_core::view::HandlerResult;
 
 /// Which item of a list, tab strip or tree is being renamed in place; a
 /// `Copy` handle created by [`use_inline_edit`].
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::ui::use_inline_edit;
+/// use kivact::interaction::use_inline_edit;
 ///
 /// fn rename() -> impl IntoView {
 ///     let title = signal(String::from("Untitled"));
@@ -82,7 +83,7 @@ impl<K: Clone + PartialEq + 'static> InlineEdit<K> {
         label: impl IntoText,
         draft: Signal<String>,
         on_commit: impl Fn(String) -> R + 'static,
-    ) -> TextInput {
+    ) -> TextEdit {
         let focus = part(|input| input);
         let target = focus.node_ref();
         on_mount(move || {
@@ -101,7 +102,7 @@ impl<K: Clone + PartialEq + 'static> InlineEdit<K> {
             }
         };
         on_cleanup(close.clone());
-        text_input(label, draft)
+        use_text_edit(draft)
             .part(focus)
             .draft(on_commit)
             .on_draft_end(callback(move |()| close()))

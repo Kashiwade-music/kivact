@@ -20,7 +20,7 @@
 
 use std::panic::Location;
 
-use crate::draw::Point;
+use crate::geometry::Point;
 use kivact_runtime::Runtime;
 use kivact_runtime::{Signal, Value, require_setup};
 use kivact_types::FocusTarget;

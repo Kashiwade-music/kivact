@@ -20,7 +20,7 @@
 //! with the element style, so a canvas adds no meaning of its own. Rare
 //! command values are boxed so an ordinary rectangle scene stays small.
 //!
-//! A text's `TextStyle.align` is the shared `TextAlign` (Start, Center,
+//! A text's `TextFormat.align` is the shared `TextAlign` (Start, Center,
 //! End) and places the text horizontally against its anchor (not the
 //! style's child alignment); with [`TextBaseline`] (Top, Middle,
 //! Alphabetic, Bottom) it places the text by the extent and baseline of the
@@ -82,7 +82,7 @@ pub use kivact_types::LineJoin;
 pub use kivact_types::Stroke;
 
 /// The extent of measured text: [`Draw::measure_text`] and
-/// `Constraints::measure_text` of `kivact::primitive`,
+/// `Constraints::measure_text` of `kivact::custom`,
 /// what `Draw::text` draws (one line, unwrapped) in logical px.
 /// `width` is the line advance, `height` is its height, and `baseline`
 /// is measured from its top (the `pos` passed to `Draw::text`).
@@ -91,6 +91,6 @@ pub use kivact_types::TextMetrics;
 
 pub(crate) use local_paint::LocalPaint;
 pub use recorder::{Draw, Recording, RegionSemantics};
-pub use text_run::{DrawTextStyle as TextStyle, TextBaseline, text_run};
+pub use text_run::{TextBaseline, TextFormat, text_run};
 
 pub use kivact_types::TextRun;

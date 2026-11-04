@@ -5,14 +5,15 @@
 //! an editor with its own pan attaches [`SpacePan::control`] to its root and
 //! reads [`SpacePan::armed`].
 
-use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{Handled, IntoValue, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase};
-use kivact_core::{Signal, Value, effect, signal, untrack};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Signal, Value, effect, signal, untrack};
+use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase};
 
 /// Whether Space is held on a focused surface.
 ///
 /// ```no_run
-/// use kivact_core::control::{NodeBuilder, node};
+/// use kivact_core::view::{NodeBuilder, node};
 /// use kivact_interaction::use_space_pan;
 /// let space = use_space_pan();
 /// let canvas = node().part(space.control());

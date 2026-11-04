@@ -216,7 +216,7 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::prelude::*;
-/// use kivact::draw::{Point};
+/// use kivact::geometry::{Point};
 /// use kivact::view::{Placement, PointerEvent};
 /// use kivact::view::{View, overlay_at};
 /// fn with_context_menu(area: Node, menu: impl Fn() -> View + 'static) -> impl IntoView {

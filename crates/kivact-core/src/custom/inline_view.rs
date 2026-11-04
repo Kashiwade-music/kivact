@@ -3,11 +3,11 @@
 use std::rc::Rc;
 
 use kivact_runtime::memo;
-use kivact_style::draw::{InlineParagraph, Point, TextStyle};
+use kivact_style::draw::{InlineParagraph, Point, TextFormat};
 use kivact_style::{Length, Position, pct, style};
 use kivact_types::{InlineBox, Size};
 
-use crate::control::{Node, NodeBuilder, node};
+use crate::view::{Node, NodeBuilder, node};
 use crate::view::{View, node_ref};
 
 /// Mount atomic views at UTF-8 byte offsets in a wrapped paragraph.
@@ -15,7 +15,7 @@ use crate::view::{View, node_ref};
 /// width. Its bottom edge aligns with the text baseline. Call during setup.
 pub fn inline_view(
     text: impl Into<String>,
-    typography: TextStyle,
+    typography: TextFormat,
     children: impl IntoIterator<Item = (usize, View)>,
 ) -> Node {
     let text = text.into();

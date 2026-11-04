@@ -2,7 +2,7 @@
 use super::press_state::{Gesture, Phase, Press, Source};
 use super::state::{MenuOrigin, Session};
 use crate::PopupCloseReason;
-use kivact_core::primitive::clock_now;
+use kivact_core::custom::clock_now;
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerKind, PointerPhase};
 use std::hash::Hash;

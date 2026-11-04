@@ -72,7 +72,7 @@ impl<'a> Element<'a> {
     /// coordinates: the bounds the host published, mapped by the
     /// published scrolls and transforms of its ancestors and its own, as
     /// platforms (AccessKit) map them. `None` when it was not published.
-    pub fn accessibility_bounds(&self) -> Option<kivact_core::draw::Rect> {
+    pub fn accessibility_bounds(&self) -> Option<kivact_core::geometry::Rect> {
         let host = self.screen.host.borrow();
         let id = host.semantics_id(self.node, self.region)?;
         let tree = host.semantics()?;
@@ -203,7 +203,7 @@ impl<'a> Element<'a> {
 
     /// The published editing caret in logical window coordinates, after the
     /// published scrolls and transforms. Protected text has no public snapshot.
-    pub fn text_caret(&self) -> Option<kivact_core::draw::Rect> {
+    pub fn text_caret(&self) -> Option<kivact_core::geometry::Rect> {
         let node = self.published()?;
         let caret = node.semantics.text.as_ref()?.caret;
         self.screen

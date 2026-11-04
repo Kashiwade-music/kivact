@@ -2,7 +2,7 @@
 //!
 //! `Node` and `NodeBuilder` are defined here, below the element builders in
 //! `view` (`overlay`, `virtual_list`) that hold a `Node` and implement
-//! `NodeBuilder`; `kivact::control` re-exports them and holds the primitives
+//! `NodeBuilder`; `kivact::view` re-exports them and holds the primitives
 //! that construct a `Node`.
 //!
 //! Invariant: what a node is (a box, a text, an image) is fixed by the
@@ -16,13 +16,14 @@ use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
 
+use crate::state::{IntoText, IntoValue};
+use crate::view::HandlerResult;
 use crate::view::View;
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
 use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
-use crate::view::{HandlerResult, IntoText, IntoValue};
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::{Callback, ErrorKind, UiError};
 use kivact_style::Style;
@@ -62,7 +63,7 @@ impl Content {
 /// [`expanded`](Self::expanded), [`selected`](Self::selected),
 /// [`value_text`](Self::value_text)) and [`part`](Self::part) are its own
 /// methods too, so `node().role(..)` needs no import; a component's builder
-/// gets them, for its root, from [`NodeExt`](crate::primitive::NodeExt). The
+/// gets them, for its root, from [`NodeExt`](crate::custom::NodeExt). The
 /// settings that mean something only on one kind of node are its own methods
 /// ([`child`](Self::child) for a box, [`fit`](Self::fit) and
 /// [`monochrome`](Self::monochrome) for an image). Text properties (font, wrap, line clamp, alignment, overflow)
@@ -145,7 +146,7 @@ impl Node {
 /// semantics that belong to what the component is (`role`, `checked`,
 /// `expanded`, `selected`, `value_text`), attaching a part, the extra
 /// semantics, handler layering and `draw_over` are the methods of
-/// [`NodeExt`](crate::primitive::NodeExt): a component decides what its own
+/// [`NodeExt`](crate::custom::NodeExt): a component decides what its own
 /// `checked` or `role` is, so a caller does not set them from outside.
 ///
 /// ```
@@ -225,7 +226,7 @@ pub trait NodeBuilder: Sized {
 
     /// Disabled state (semantics and the `disabled` style). A component
     /// reads it with
-    /// [`accessible_disabled`](crate::primitive::NodeExt::accessible_disabled)
+    /// [`accessible_disabled`](crate::custom::NodeExt::accessible_disabled)
     /// and gives it to its behavior, so this one definition disables the
     /// component's own input too.
     /// Suppresses activation, key and wheel callbacks, and pointer
@@ -240,7 +241,7 @@ pub trait NodeBuilder: Sized {
 
     /// Report an invalid value to assistive technology. A component that
     /// draws an invalid look reads it with
-    /// [`accessible_invalid`](crate::primitive::NodeExt::accessible_invalid).
+    /// [`accessible_invalid`](crate::custom::NodeExt::accessible_invalid).
     fn invalid(mut self, value: impl IntoValue<bool>) -> Self {
         self.node_mut().common.invalid = Some(value.into_prop());
         self

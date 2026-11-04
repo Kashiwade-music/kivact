@@ -8,10 +8,11 @@
 use super::layer::with_base_recipe_style;
 use super::values::{CheckState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::primitive::NodeExt;
-use kivact_core::view::{IntoText, IntoValue, IntoView, View};
-use kivact_core::{Binding, Value};
+use kivact_core::custom::NodeExt;
+use kivact_core::state::{Binding, Value};
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{IntoView, View};
+use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{CheckboxApi, Toggle, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
     ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $text:expr) => {
@@ -146,11 +147,11 @@ toggle_builder!(
 use super::switch_drag::switch as switch_gesture;
 
 fn no_gesture(
-    control: kivact_core::primitive::Part<ToggleState>,
+    control: kivact_core::custom::Part<ToggleState>,
     _: Binding<bool>,
     _: ControlSize,
 ) -> (
-    kivact_core::primitive::Part<ToggleState>,
+    kivact_core::custom::Part<ToggleState>,
     super::switch_drag::Visual,
 ) {
     (control, None)

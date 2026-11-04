@@ -32,7 +32,7 @@ use std::sync::Arc;
 
 use kivact_types::{self as p, DrawCmd, ShapedText, TextLine};
 
-use super::TextStyle;
+use super::TextFormat;
 use super::recorder::Draw;
 use crate::geometry::{Point, Rect, Size};
 
@@ -77,11 +77,12 @@ impl InlineParagraph {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::draw::{Draw, Point, Rect, Size, TextStyle};
+/// use kivact::draw::{Draw, TextFormat};
+/// use kivact::geometry::{Point, Rect, Size};
 ///
 /// // A line of text with the selected bytes highlighted.
 /// fn selected(d: &mut Draw, text: &str, range: std::ops::Range<usize>) {
-///     let paragraph = d.layout_paragraph(text, &TextStyle::default(), None);
+///     let paragraph = d.layout_paragraph(text, &TextFormat::default(), None);
 ///     for band in paragraph.rects(range) {
 ///         d.fill_rect(band, ColorToken::Selection);
 ///     }
@@ -290,7 +291,7 @@ impl Draw {
     pub fn layout_paragraph(
         &self,
         text: &str,
-        style: &TextStyle,
+        style: &TextFormat,
         max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = p::Point { x: 0.0, y: 0.0 };
@@ -308,7 +309,7 @@ impl Draw {
     pub fn layout_inline_paragraph(
         &self,
         text: &str,
-        style: &TextStyle,
+        style: &TextFormat,
         max_width: Option<f64>,
         boxes: &[p::InlineBox],
     ) -> Option<InlineParagraph> {

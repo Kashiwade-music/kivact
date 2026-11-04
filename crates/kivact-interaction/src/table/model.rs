@@ -1,8 +1,9 @@
 //! Role: A headless row model: filter, sort and page the caller's rows by column.
 
 use super::data::{Header, SortOrder};
-use kivact_core::view::{IntoText, IntoValue, Reactive};
-use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
+use kivact_core::state::{Binding, Signal, Value, Var, memo, signal, var};
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::Reactive;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::hash::Hash;

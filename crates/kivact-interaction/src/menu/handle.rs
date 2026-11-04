@@ -5,16 +5,17 @@ use super::state::{Edge, Session};
 use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
-use kivact_core::diagnostics::ErrorKind;
+use kivact_core::ErrorKind;
+use kivact_core::custom::raise;
+use kivact_core::custom::{Part, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
-use kivact_core::primitive::raise;
-use kivact_core::primitive::{Part, part};
+use kivact_core::state::{IntoValue, callback};
+use kivact_core::state::{Value, memo};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    A11yAction, Handled, IntoValue, IntoView, Key, KeyEvent, MouseButton, PointerEvent,
-    PointerPhase, View, callback, dynamic,
+    A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
+    dynamic,
 };
-use kivact_core::{Value, memo};
 use std::hash::Hash;
 use std::panic::Location;
 
@@ -69,7 +70,7 @@ use std::panic::Location;
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{MenuEntry, MenuRow, use_menu};
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::custom::NodeExt;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///

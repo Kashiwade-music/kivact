@@ -1,13 +1,14 @@
 //! Role: The `Primitive` builder: a leaf node whose author measures its size.
 
 use super::measurement::{Constraints, Measurement, constraints, sanitize};
-use crate::control::node;
+use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
+use crate::view::node;
 use crate::view::node::{Node, NodeBuilder};
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, HookSlot, SyncHook};
-use crate::view::{IntoValue, IntoView, View};
+use crate::view::{IntoView, View};
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::LeafMeasure;
 use kivact_runtime::EffectKind;
@@ -44,7 +45,7 @@ pub fn primitive() -> Primitive {
 }
 
 impl Primitive {
-    /// Size the primitive by `f(content, constraints)` (a [`Size`](crate::draw::Size), or a
+    /// Size the primitive by `f(content, constraints)` (a [`Size`](crate::geometry::Size), or a
     /// [`Measurement`] that adds a first baseline), which the layout
     /// calls synchronously, as it shapes a text. `content` (a constant, a
     /// `Signal`, a `Value` or a closure) holds everything the size depends

@@ -2,8 +2,8 @@
 //!
 //! The modifier methods are written once, as plain default methods:
 //! the everyday set (`common`, `draw`, `intrinsic`) on
-//! `kivact::control::NodeBuilder` and the advanced set (`advanced`,
-//! `draw_over`) on `kivact::primitive::NodeExt`. `Node`, `Overlay`,
+//! `kivact::view::NodeBuilder` and the advanced set (`advanced`,
+//! `draw_over`) on `kivact::custom::NodeExt`. `Node`, `Overlay`,
 //! `VirtualList` and every component holding a root `Node` implement
 //! `NodeBuilder`. `Part` has its own inherent methods for the semantic and
 //! input subset, which forward to the same `Common` methods below. Adding a

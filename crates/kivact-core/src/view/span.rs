@@ -2,7 +2,7 @@
 //!
 //! Rich text: one paragraph of [`Span`]s, each with its own text style
 //! and an optional background band (`<b>`, `<small>`, `<mark>`), built
-//! with [`span`] and shown by [`rich_text`](crate::control::rich_text).
+//! with [`span`] and shown by [`rich_text`](crate::view::rich_text).
 //!
 //! Invariant: a span sets only what it names; the rest is the
 //! paragraph's (the text node's inherited text style). A span's
@@ -19,7 +19,7 @@ use kivact_style::{Color, Theme, ThemeColor};
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::control::{rich_text, span};
+/// use kivact::view::{rich_text, span};
 /// use kivact::prelude::*;
 /// use kivact::style::{rgba};
 /// // <p>Open <mark>fi</mark>le</p>, the match bold and highlighted

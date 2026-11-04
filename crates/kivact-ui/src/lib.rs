@@ -75,7 +75,7 @@
 //! `interaction::use_text_edit` and the unstyled [`interaction`](kivact_interaction)
 //! behaviors, through the public API only. [`Button`], [`Checkbox`], [`Switch`],
 //! [`Select`], [`Tabs`] and [`TextInput`] (the native field itself) take
-//! [`NodeBuilder`](kivact_core::control::NodeBuilder) modifiers on their roots.
+//! [`NodeBuilder`](kivact_core::view::NodeBuilder) modifiers on their roots.
 //! Overlays attach the same way everywhere: [`Menu::attach`],
 //! [`Menu::attach_context`] and [`Tooltip::attach`] take the caller's trigger,
 //! [`Dialog::content`]/[`Dialog::footer`], [`Tabs::content`] and
@@ -125,14 +125,12 @@
 //! ```
 
 mod button;
-mod children;
 mod command_palette;
 mod data_column;
 mod data_table;
 mod disclosure;
 mod field;
 mod helpers;
-mod inline_edit;
 mod layer;
 mod list;
 mod look;
@@ -157,7 +155,6 @@ mod values;
 mod variants;
 
 pub use button::{Button, ButtonBusyMotion, DisabledButtonFocus, button};
-pub use children::IntoChildren;
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_column::DataColumn;
 pub use data_table::{
@@ -166,15 +163,6 @@ pub use data_table::{
 };
 pub use disclosure::{Disclosure, disclosure};
 pub use field::{Field, field};
-pub use inline_edit::{InlineEdit, use_inline_edit};
-pub use kivact_interaction::FilterValue;
-/// The values and data the standard components and the official kits take,
-/// so an app needs no `kivact::interaction` import (that module is the
-/// component author's).
-pub use kivact_interaction::{
-    Command, DialogKind, Dismiss, EditPhase, ListActivation, ListItem, MenuEntry, ScalarRange,
-    ScalarRangeError, Side, Toast, ToastOptions, Toaster, Tone, TreeNode, toaster,
-};
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
 pub use progress::{Progress, ProgressMotion, progress};
@@ -218,5 +206,5 @@ pub use slider::{Slider, SliderTouchMotion, range_slider, slider};
 pub use splitter::{Splitter, splitter};
 pub use tabs::{Tabs, tabs};
 pub use toast::{ToastRegion, ToastRowMotion, toast_region};
-pub use toast_swipe::{ToastSwipe, ToastSwipeEdge};
+pub use toast_swipe::ToastSwipe;
 pub use tooltip::{Tooltip, tooltip};

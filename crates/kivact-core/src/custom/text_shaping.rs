@@ -1,7 +1,7 @@
 //! Role: Shape a paragraph with the App's text engine outside drawing and measurement.
 
 use crate::view::state::ViewState;
-use kivact_style::draw::{InlineParagraph, TextParagraph, TextRun, TextStyle};
+use kivact_style::draw::{InlineParagraph, TextFormat, TextParagraph, TextRun};
 use kivact_types::{self as values, TextShaper};
 use std::panic::Location;
 
@@ -13,7 +13,7 @@ use std::panic::Location;
 /// and width share the shaping cache with drawing and measurement. No engine
 /// borrow survives this call and no reactive engine state is allocated.
 #[track_caller]
-pub fn shape_paragraph(text: &str, style: &TextStyle, max_width: Option<f64>) -> TextParagraph {
+pub fn shape_paragraph(text: &str, style: &TextFormat, max_width: Option<f64>) -> TextParagraph {
     let measurer = paragraph_measurer("shape_paragraph", Location::caller());
     let run = text_run(text, style);
     let shaped = measurer.shape(&run, max_width).unwrap_or_default();
@@ -24,7 +24,7 @@ pub fn shape_paragraph(text: &str, style: &TextStyle, max_width: Option<f64>) ->
 #[track_caller]
 pub fn shape_inline_paragraph(
     text: &str,
-    style: &TextStyle,
+    style: &TextFormat,
     max_width: Option<f64>,
     boxes: &[values::InlineBox],
 ) -> Option<InlineParagraph> {
@@ -45,7 +45,7 @@ fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl
     ViewState::tree(&rt).reader().paragraph_measurer(inherited)
 }
 
-fn text_run(text: &str, style: &TextStyle) -> TextRun {
+fn text_run(text: &str, style: &TextFormat) -> TextRun {
     kivact_style::draw::text_run(
         text,
         values::Point::default(),

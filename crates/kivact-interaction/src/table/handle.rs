@@ -7,12 +7,13 @@ use super::{cells, state};
 use crate::axis::check_list_axis;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
 use crate::{ListGesture, ListMode, ListSelection, SplitterState, use_splitter};
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{Owned, Part, PartState, part, raise, require_setup};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{Owned, Part, PartState, part, raise, require_setup};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Value, binding, memo, var};
 use kivact_core::view::{
-    Handled, IntoValue, Key, KeyEvent, Orientation, Role, SortDirection, current_modifiers,
+    Handled, Key, KeyEvent, Orientation, Role, SortDirection, current_modifiers,
 };
-use kivact_core::{Binding, Value, binding, memo, var};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::panic::Location;
