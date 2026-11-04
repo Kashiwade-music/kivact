@@ -2107,7 +2107,7 @@ enum AppPresence { Foreground, Suspended }
 enum Surface { Drawable { generation: u64 }, Unavailable(Unavailable) }
 enum Unavailable { NoSurface, ZeroSize }
 enum LastPresent { Settled, Skipped { retry_at_ns: u64 } }
-enum Launch { Pending(LaunchArgs), Starting, Running(Host) }   // arvane::Handler の実装。start で Model を本物の store で作る
+enum Launch { Pending(Box<LaunchArgs>), Starting, Running(Box<Host>) }   // arvane::Handler の実装。start で Model を本物の store で作る
 ```
 
 - `Host` は `phase`・`presence`・`surface`・`last_present` を並べて持つ（`presence` と `surface` はどの phase でも事実）。`drawable()` はこれらから計算する唯一の関数。

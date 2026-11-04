@@ -46,6 +46,10 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | E-9a | merged | d1ea035 | check 0、presence E2E 2 passed、親 auto 箱の縮小も確認 |
 | E-9b | merged | e94c53c | check 0、presence E2E 1 passed、破棄時の誤通知を除去 |
 | X-1 | merged | 025199b | all/no-default check 0、feature 17 件 0 |
+| fix-G3-2 | merged | 6e0e516 | mod.rs 移動と runtime Clippy 記法、check 0 |
+| fix-G2-1 | merged | 7a5ef0d | smoke skip 診断と virtual 条件式、check 0 |
+| fix-G2-2 | merged | 59aee2a | GPU readback 条件式、check 0 |
+| fix-G1-1 | doing | | Launch payload と engine 条件式 |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
 | R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |
 | R-3 | merged | 0165094 | 関連 E2E 34 passed、合流 runtime check 0 |

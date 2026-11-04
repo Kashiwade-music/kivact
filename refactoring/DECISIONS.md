@@ -2,6 +2,7 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | fix-G1-1 | LaunchArgs が約2.5KBで Launch 全体を大きくする | private Pending/Running payload を Box 所有にし、Starting 遷移と単一所有を保ちながら enum サイズ差を解消。 |
 | 2026-11-05 | E-9a | Taffy は親の item size/basis を hook の出力と別に読む | 親向け private item style に倍率を反映し子の natural style/cache は保持。倍率変更で依存 cache を無効化し、第二 layout 無しで親 auto 箱も縮める。 |
 | 2026-11-05 | E-8 | workorder の Fragment variant 指定が設計19.29と矛盾する | 設計優先で Contents 箱だけを実装し、透明判定を一つにする。C-5と同じ形へ指示書を訂正。 |
 | 2026-11-05 | E-9b | 旧 Arriving は最初の commit で Mounted になり動作中 Entering を示せない | private ArrivalPhase Pending/Animating を Arriving payload に持ち、arriving は索引一つだけ。動作完了で Mounted に遷移。 |
