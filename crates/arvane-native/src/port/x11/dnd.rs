@@ -1,8 +1,9 @@
 //! Role: Receives XDND v5 file drops through the child's own X11 selection.
 
 use super::conn::Native;
-use arvane_shell::{ShellError, ShellEvent};
-use kivact_types::{FilePhase, Point};
+use arvane_shell::ShellError;
+use arvane_shell::pipeline::RawDrop;
+use kivact_types::Point;
 use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::os::unix::ffi::OsStringExt;
@@ -122,7 +123,7 @@ impl Dnd {
         &mut self,
         native: &Native,
         files: Vec<PathBuf>,
-        out: &mut Vec<ShellEvent>,
+        out: &mut Vec<RawDrop>,
     ) -> Result<(), ShellError> {
         let Drag::Converting { source, point, .. } = std::mem::replace(&mut self.drag, Drag::Idle)
         else {
@@ -142,11 +143,11 @@ impl Dnd {
             ],
         )?;
         if success {
-            out.push(ShellEvent::File(kivact_types::FileDrop {
-                phase: FilePhase::Drop,
+            out.push(RawDrop::Hover {
                 files,
-                position: point,
-            }));
+                at: Some(point),
+            });
+            out.push(RawDrop::Drop);
         }
         Ok(())
     }
@@ -155,7 +156,7 @@ impl Dnd {
         native: &Native,
         event: &Event,
         scale: f64,
-    ) -> Result<Vec<ShellEvent>, ShellError> {
+    ) -> Result<Vec<RawDrop>, ShellError> {
         let mut out = Vec::new();
         match event {
             Event::ClientMessage(e) if e.window == native.id.get() && e.format == 32 => {

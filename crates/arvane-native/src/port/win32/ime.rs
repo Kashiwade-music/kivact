@@ -7,7 +7,7 @@
 //! preedit selections count UTF-8 bytes. No process input settings change.
 #![allow(unsafe_code, reason = "IMM32 is the native Windows text input API")]
 use super::state::State;
-use arvane_shell::ShellEvent;
+use arvane_shell::pipeline::{ImePort, RawIme};
 use std::rc::Rc;
 use windows_sys::Win32::Foundation::{POINT, RECT};
 use windows_sys::Win32::UI::Input::Ime::{
@@ -71,7 +71,7 @@ pub(super) fn area(state: &State, area: kivact_types::Rect) {
     if context.handle == 0 {
         return;
     }
-    let scale = state.shared.scale();
+    let scale = 1.0;
     let x = (area.x * scale).round() as i32;
     let y = (area.y * scale).round() as i32;
     let bottom = ((area.y + area.height) * scale).round() as i32;
@@ -99,14 +99,17 @@ pub(super) fn area(state: &State, area: kivact_types::Rect) {
 }
 pub(super) fn message(state: &Rc<State>, message: u32, flags: isize) {
     if message == WM_IME_STARTCOMPOSITION {
-        state.event(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
-            text: String::new(),
-            selection: None,
-        }));
+        input(
+            state,
+            RawIme::Preedit {
+                text: String::new(),
+                caret: None,
+            },
+        );
         return;
     }
     if message == WM_IME_ENDCOMPOSITION {
-        state.event(ShellEvent::Ime(kivact_types::ImeInput::End));
+        input(state, RawIme::End);
         return;
     }
     let mut events = Vec::new();
@@ -115,13 +118,11 @@ pub(super) fn message(state: &Rc<State>, message: u32, flags: isize) {
         if flags as u32 & GCS_RESULTSTR != 0
             && let Some(text) = context.text(GCS_RESULTSTR)
         {
-            events.push(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
+            events.push(RawIme::Preedit {
                 text: String::new(),
-                selection: None,
-            }));
-            events.push(ShellEvent::Ime(kivact_types::ImeInput::Commit(
-                String::from_utf16_lossy(&text),
-            )));
+                caret: None,
+            });
+            events.push(RawIme::Commit(String::from_utf16_lossy(&text)));
         }
         if flags as u32 & (GCS_COMPSTR | GCS_CURSORPOS | GCS_COMPATTR) != 0
             && let Some(text) = context.text(GCS_COMPSTR)
@@ -135,13 +136,32 @@ pub(super) fn message(state: &Rc<State>, message: u32, flags: isize) {
                 .filter(|at| *at <= text.len())
                 .and_then(|at| String::from_utf16(&text[..at]).ok())
                 .map(|prefix| (prefix.len(), prefix.len()));
-            events.push(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
+            events.push(RawIme::Preedit {
                 text: String::from_utf16_lossy(&text),
-                selection: (selection).map(|(start, end)| start..end),
-            }));
+                caret: selection,
+            });
         }
     }
     for event in events {
+        input(state, event);
+    }
+}
+
+pub(super) fn input(state: &Rc<State>, raw: RawIme) {
+    let events = state.input.ime.borrow_mut().input(raw);
+    for event in events {
         state.event(event);
+    }
+}
+pub(super) struct Port<'a>(pub(super) &'a State);
+impl ImePort for Port<'_> {
+    fn allow(&mut self, value: bool) {
+        allowed(self.0, value);
+    }
+    fn cursor_area(&mut self, value: kivact_types::Rect) {
+        area(self.0, value);
+    }
+    fn surrounding(&mut self, value: Option<&arvane_shell::ShellImeText>) {
+        self.0.input.text.replace(value.cloned());
     }
 }

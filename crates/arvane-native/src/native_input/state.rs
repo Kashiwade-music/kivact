@@ -9,6 +9,7 @@ use kivact_types::{Environment, PointerSettings};
 
 /// What the window's subclass shares with the window and the runner.
 pub(crate) struct NativeInput {
+    pub(crate) ime: RefCell<arvane_shell::pipeline::ImeDriver>,
     /// The focused text input's state, as the application last set it.
     pub(crate) text: RefCell<Option<ShellImeText>>,
     /// Physical pixels per logical pixel of the window.
@@ -78,6 +79,7 @@ pub(crate) enum Subclass {
 impl NativeInput {
     pub(crate) fn new(environment: Environment, wake: InputWake) -> Self {
         Self {
+            ime: RefCell::default(),
             text: RefCell::new(None),
             scale: Cell::new(environment.scale_factor),
             reconvert: LocalMailbox::new(),

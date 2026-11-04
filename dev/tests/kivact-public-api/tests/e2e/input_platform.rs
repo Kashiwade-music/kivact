@@ -303,14 +303,14 @@ fn raw_key_mapping_reaches_handlers() {
     use kivact::view::{Handled, KeyEvent};
     let (screen, seen) = mount(|| {
         let seen = signal(Vec::<Key>::new());
-        let view =
-            primitive()
-                .focusable(true)
-                .test_id("raw-keys")
-                .on_key(move |event: KeyEvent| {
-                    seen.update(|keys| keys.push(event.key()));
-                    Handled::Yes
-                });
+        let view = primitive()
+            .role(Role::Button)
+            .focusable(true)
+            .test_id("raw-keys")
+            .on_key(move |event: KeyEvent| {
+                seen.update(|keys| keys.push(event.key()));
+                Handled::Yes
+            });
         (seen, view)
     });
     screen.get_by_test_id("raw-keys").focus();
@@ -334,5 +334,69 @@ fn raw_key_mapping_reaches_handlers() {
         }));
     }
     assert_eq!(seen.get_untracked(), vec![Key::Char('a'), Key::Enter]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn raw_ime_composition_commits() {
+    use kivact::test::raw::{RawIme, RawInput};
+    let (screen, value) = mount(|| {
+        let value = signal(String::new());
+        (
+            value,
+            kivact::control::node()
+                .name("Raw IME")
+                .part(kivact::interaction::use_text_edit(value).control()),
+        )
+    });
+    screen.get_by_role(Role::TextBox, "Raw IME").focus();
+    screen.raw_input(RawInput::Ime(RawIme::Preedit {
+        text: "にほん".to_owned(),
+        caret: Some((9, 9)),
+    }));
+    assert_eq!(value.get_untracked(), "");
+    screen.raw_input(RawInput::Ime(RawIme::Commit("日本".to_owned())));
+    assert_eq!(value.get_untracked(), "日本");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn raw_file_drop_reaches_dropzone() {
+    use kivact::draw::Point;
+    use kivact::primitive::primitive;
+    use kivact::test::raw::{RawDrop, RawInput};
+    use kivact::view::{FileEvent, FilePhase};
+    use std::path::PathBuf;
+    let (screen, seen) = mount(|| {
+        let seen = signal(Vec::<Vec<PathBuf>>::new());
+        let view = primitive()
+            .test_id("raw-dropzone")
+            .style(style().width(240.0).height(120.0))
+            .on_file(move |event: FileEvent| {
+                if event.phase == FilePhase::Drop {
+                    seen.update(|drops| drops.push(event.files));
+                }
+            });
+        (seen, view)
+    });
+    let rect = screen
+        .get_by_test_id("raw-dropzone")
+        .rect()
+        .expect("invariant: mounted dropzone has geometry");
+    let files = vec![
+        PathBuf::from("raw-file.txt"),
+        PathBuf::from("raw-second.txt"),
+    ];
+    screen.raw_input(RawInput::Drop(RawDrop::Hover {
+        files: files.clone(),
+        at: Some(Point {
+            x: rect.x + 10.0,
+            y: rect.y + 10.0,
+        }),
+    }));
+    assert!(seen.get_untracked().is_empty());
+    screen.raw_input(RawInput::Drop(RawDrop::Drop));
+    screen.raw_input(RawInput::Drop(RawDrop::Drop));
+    assert_eq!(seen.get_untracked(), vec![files]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

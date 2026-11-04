@@ -15,6 +15,7 @@ pub(super) enum WindowFocus {
 
 pub(super) struct Input {
     mouse: Mouse,
+    dnd: arvane_shell::pipeline::DropSession,
     clicks: ClickCounter,
     pub(super) keyboard: Keyboard,
     /// The window has the keyboard focus as last reported; reported again only on change.
@@ -25,6 +26,7 @@ impl Input {
     pub(super) fn new(keyboard: Keyboard) -> Self {
         Self {
             mouse: Mouse::default(),
+            dnd: arvane_shell::pipeline::DropSession::default(),
             clicks: ClickCounter::default(),
             keyboard,
             focused: WindowFocus::Blurred,
@@ -35,7 +37,12 @@ impl Input {
         event: Event,
         window: &mut Window,
     ) -> Result<Vec<ShellEvent>, ShellError> {
-        let mut out = window.dnd.event(&window.native, &event, window.scale)?;
+        let mut out = Vec::new();
+        for raw in window.dnd.event(&window.native, &event, window.scale)? {
+            // Xdnd supplies paths only after conversion; only its completed drop is delivered.
+            let _ = self.dnd.input(raw);
+        }
+        out.extend(self.dnd.take_dropped());
         let filtered = window.ime.borrow_mut().filter(&event);
         out.extend(self.drain_ime(window));
         if filtered {
@@ -186,7 +193,11 @@ impl Input {
         Ok(out)
     }
     pub(super) fn drain_ime(&mut self, window: &Window) -> Vec<ShellEvent> {
-        let (mut events, returned, cancelled) = window.ime.borrow_mut().drain();
+        let (raw, returned, cancelled) = window.ime.borrow_mut().drain();
+        let mut events: Vec<_> = raw
+            .into_iter()
+            .flat_map(|raw| window.ime_driver.borrow_mut().input(raw))
+            .collect();
         // Reconcile old releases before a new context's returned press can
         // reuse the same physical detail. These keys never go back to XIM.
         for key in cancelled {
