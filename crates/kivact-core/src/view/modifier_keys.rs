@@ -1,7 +1,5 @@
 //! Role: Read the modifier keys held, from a handler that gets no event.
 
-use std::panic::Location;
-
 use super::input::Modifiers;
 use crate::view::state::ViewState;
 

@@ -5,7 +5,7 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_runtime::{Owner, Runtime, Signal, Trigger};
+use kivact_runtime::{Notifier, Owner, Runtime, Signal};
 use kivact_types::cell::Generation;
 use kivact_types::{GpuAdapter, SharedTextures};
 
@@ -57,7 +57,7 @@ pub struct SharedImage {
     state: Arc<Inbox<LinkState>>,
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
-    changed: Trigger,
+    changed: Notifier,
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
     pixels: Signal<Option<Pixels>>,
@@ -112,7 +112,7 @@ pub fn shared_image(width: u32, height: u32) -> SharedImage {
     })));
     let image = SharedImage {
         state: state.clone(),
-        changed: owner.trigger(at),
+        changed: owner.notifier(at),
         current: owner.signal(None, at),
         pixels: owner.signal(None, at),
         size: owner.signal(size, at),

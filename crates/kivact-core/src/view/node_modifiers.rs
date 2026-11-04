@@ -4,7 +4,7 @@ use crate::state::{IntoText, IntoValue};
 use crate::view::common::Common;
 use crate::view::ime_session::{ImeInput, ImeSession};
 use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
-use crate::view::node::{Node, NodeBuilder};
+use crate::view::node::Node;
 use crate::view::node_ref::NodeRef;
 use crate::view::part::Part;
 use crate::view::part_data::PartMount;

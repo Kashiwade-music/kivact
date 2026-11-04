@@ -165,7 +165,7 @@ pub(super) fn resolve(
         (!style.is_empty() && kind == NodeType::Box && editing.is_none()).then(|| {
             LocalPaintSource {
                 value: Rc::new(RefCell::new(None)),
-                revision: cx.owner.trigger(at),
+                revision: cx.owner.notifier(at),
             }
         });
     let observe_layout = below.is_some() || over.is_some();

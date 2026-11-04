@@ -628,7 +628,7 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
 }
 
 impl<T: Clone + 'static, I: 'static> Action<T, I> {
-    fn cell(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<ActionCell<T, I>>) {
+    fn cell(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<ActionCell<T, I>>) {
         let c = self.handle.get();
         (c.owner.runtime(), c)
     }

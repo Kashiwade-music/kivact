@@ -40,7 +40,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
 }
 
 impl FrameLoop {
-    fn cell(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<LoopCell>) {
+    fn cell(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<LoopCell>) {
         let c = self.handle.get();
         (c.owner.runtime(), c)
     }

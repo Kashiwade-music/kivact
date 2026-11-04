@@ -338,8 +338,8 @@ pub(super) fn prepare(
         root,
         at,
         state: RefCell::new(State::default()),
-        revision: cx.owner.trigger(at),
-        changed: cx.owner.trigger(at),
+        revision: cx.owner.notifier(at),
+        changed: cx.owner.notifier(at),
         phase: Cell::new(RegistryPhase::Mounting),
         gestures: RefCell::new(Gestures::default()),
     });

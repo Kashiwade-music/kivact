@@ -7,7 +7,7 @@ use kivact_style::draw::{InlineParagraph, Point, TextFormat};
 use kivact_style::{Length, Position, pct, style};
 use kivact_types::{InlineBox, Size};
 
-use crate::view::{Node, NodeBuilder, node};
+use crate::view::node;
 use crate::view::{View, node_ref};
 
 /// Mount atomic views at UTF-8 byte offsets in a wrapped paragraph.

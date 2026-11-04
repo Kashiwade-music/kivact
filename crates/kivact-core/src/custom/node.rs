@@ -290,7 +290,7 @@ impl NodeRefExt for NodeRef {
     fn focus_was_in(&self, panel: NodeToken) -> bool {
         if self.app != panel.app {
             super::raise(
-                crate::diagnostics::ErrorKind::WrongApp,
+                kivact_runtime::ErrorKind::WrongApp,
                 "focus panel belongs to another App",
             );
         }
