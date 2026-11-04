@@ -141,7 +141,7 @@
 
 pub use crate::view::descriptor::view_is_empty;
 pub use crate::view::ime_session::{ImeInput, ImeSession};
-pub use kivact_types::cell::Generation;
+pub use kivact_types::cell::{Generation, Sent};
 pub use kivact_types::{EditLineLayout, SemanticsText, SemanticsTextRun, TextCaret, TextRunId};
 
 mod measured_leaf;

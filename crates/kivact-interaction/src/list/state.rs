@@ -117,7 +117,12 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
                     .with_members(|targets| targets.get(key).is_some_and(|entry| entry.available()))
             };
             if let Some(key) = requested.as_ref() {
-                if order.enabled(key) && available(key) {
+                // A caller scroll callback can materialize a requested logical row.
+                // Keep that destination authoritative until its node mounts.
+                let virtual_request = option_values.get().scroll.is_some()
+                    && pending.state().get().focus == machine::Focus::Physical
+                    && !targets.contains(key);
+                if order.enabled(key) && (available(key) || virtual_request) {
                     return Some(key.clone());
                 }
                 if mode == ListMode::Select {

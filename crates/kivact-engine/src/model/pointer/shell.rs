@@ -313,6 +313,9 @@ impl Model {
             }
             PointerPhase::Up(press) => {
                 self.contact_at(id, at, input);
+                if input.kind == PointerKind::Touch {
+                    self.release_touch_scroll(id);
+                }
                 let hit = self.hit(at);
                 let space = PointerSpace::new(at, engine);
                 self.pointer_up(id, hit, press, modifiers, &space);

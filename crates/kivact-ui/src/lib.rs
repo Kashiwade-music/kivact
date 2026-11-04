@@ -218,3 +218,6 @@ mod toast_tokens;
 mod toggle_button_tokens;
 
 mod data_table_tokens;
+
+mod async_view;
+pub use async_view::{AsyncView, async_view};

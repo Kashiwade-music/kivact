@@ -147,7 +147,7 @@ impl Machine {
         if delta.x.hypot(delta.y) > slop {
             contact.travel = Travel::Moved;
         }
-        let mut velocity = contact.velocity.fork();
+        let mut velocity = (*contact.velocity).clone();
         velocity.record(now, position);
         contact.velocity = Rc::new(velocity);
         let mut effects = Vec::new();

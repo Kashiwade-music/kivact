@@ -1,4 +1,5 @@
 //! Role: Configure one shared model and table and compose the retained regions.
+use super::column_keys;
 use super::rows::{self, Grid};
 use super::types::{DataTable, DataTableContext, RowName};
 use kivact_core::i18n::message;
@@ -152,16 +153,16 @@ where
         shown
     };
     let accessory_columns = [
-        (row_status.is_some(), rows::STATUS, "Row status"),
-        (row_index.is_some(), rows::INDEX, "#"),
+        (row_status.is_some(), column_keys::STATUS, "Row status"),
+        (row_index.is_some(), column_keys::INDEX, "#"),
         (
             selection.is_some() && matches!(focus, kivact_interaction::TableFocus::Cells(_)),
-            rows::CHECK,
+            column_keys::CHECK,
             "Select rows",
         ),
         (
             details.is_some() && expanded_rows.is_some(),
-            rows::DETAILS,
+            column_keys::DETAILS,
             "Details",
         ),
     ];
@@ -175,7 +176,10 @@ where
         }
         navigation.extend(shown.get());
         if action_column {
-            navigation.push(kivact_interaction::ColumnDef::new(rows::ACTIONS, "Actions"));
+            navigation.push(kivact_interaction::ColumnDef::new(
+                column_keys::ACTIONS,
+                "Actions",
+            ));
         }
         navigation
     });

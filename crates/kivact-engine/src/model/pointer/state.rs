@@ -182,13 +182,16 @@ pub(crate) struct TouchTarget {
 /// A touch that may start a native scroll once it leaves the slop.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct TouchCandidate {
+    pub(super) time_ns: u64,
     pub(super) start: Point,
     pub(super) target: TouchTarget,
 }
 
 /// A touch that scrolls natively along `axis`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TouchPan {
+    pub(super) samples: kivact_types::DragVelocity,
+    pub(super) scroller: NodeId,
     pub(super) last: Point,
     pub(super) target: TouchTarget,
     pub(super) axis: Axis,

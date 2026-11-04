@@ -1,5 +1,5 @@
 //! Role: Pure pointer drag lifecycle, threshold, axis, and edit ownership transitions.
-use super::handle::{Active, DragOptions};
+use super::data::{Active, AxisLock, DragOptions, EditOwnership, Velocity};
 use crate::DragVelocity;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Machine as MachineTrait, Step};
@@ -7,39 +7,6 @@ use kivact_core::view::PointerId;
 use std::rc::Rc;
 use std::time::Duration;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum EditOwnership {
-    Owned,
-    Borrowed,
-}
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum AxisLock {
-    Free,
-    Horizontal,
-    Vertical,
-}
-impl AxisLock {
-    pub(super) fn constrain(self, point: Point) -> Point {
-        match self {
-            Self::Free => point,
-            Self::Horizontal => Point::new(point.x, 0.0),
-            Self::Vertical => Point::new(0.0, point.y),
-        }
-    }
-}
-#[derive(Clone)]
-pub(super) enum Velocity {
-    Disabled,
-    Tracking(Rc<DragVelocity>),
-}
-impl Velocity {
-    pub(super) fn at(&self, now: u64) -> Point {
-        match self {
-            Self::Disabled => Point::new(0.0, 0.0),
-            Self::Tracking(samples) => samples.pixels_per_ms(now),
-        }
-    }
-}
 pub(super) enum State<T> {
     Idle,
     Pending {
@@ -125,7 +92,7 @@ pub(super) fn position<T>(active: &Active<T>, pos: Point, now: u64, lock: bool) 
         };
     }
     if let Velocity::Tracking(samples) = &active.velocity {
-        let mut samples = samples.fork();
+        let mut samples = (**samples).clone();
         samples.record(now, pos);
         active.velocity = Velocity::Tracking(Rc::new(samples));
     }

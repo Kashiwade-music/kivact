@@ -8,6 +8,7 @@
 //! widths stay the caller's: the table keeps no copy of them.
 mod builder;
 mod chrome;
+mod column_keys;
 mod filter_value;
 mod filters;
 mod group_state;

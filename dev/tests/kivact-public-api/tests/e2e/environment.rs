@@ -225,3 +225,31 @@ fn control_size_provider_prefers_the_nearest_default_and_explicit_sizes() {
     assert!(height("Large") > height("Ordinary"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn theme_hint_follows_the_platform() {
+    let screen = render(|| text(move || format!("theme {:?}", platform::theme_hint().get())));
+    screen.set_dark(false);
+    screen.get_by_text("theme Light");
+    screen.set_dark(true);
+    screen.get_by_text("theme Dark");
+    screen.set_dark(false);
+    screen.get_by_text("theme Light");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn pointer_class_is_reported() {
+    let screen = render(|| {
+        text(move || format!("pointer {:?}", platform::pointer_settings().get().primary))
+    });
+    screen.get_by_text("pointer Fine");
+    screen.set_pointer_settings(platform::PointerSettings {
+        primary: platform::PointerClass::Coarse,
+        ..platform::PointerSettings::default()
+    });
+    screen.get_by_text("pointer Coarse");
+    screen.set_pointer_settings(platform::PointerSettings::default());
+    screen.get_by_text("pointer Fine");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

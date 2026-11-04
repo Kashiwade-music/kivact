@@ -365,6 +365,7 @@ pub enum Display {
 /// Flex or grid layout of a node. Hosts own the layout algorithm.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutProps {
+    pub scroll_snap: crate::ScrollSnap,
     pub display: Display,
     /// Axis revealed during entrance.
     pub enter_size: Option<crate::Orientation>,
@@ -443,6 +444,7 @@ impl Default for LayoutProps {
             enter_size: None,
             exit_size: None,
             size_transition: None,
+            scroll_snap: crate::ScrollSnap::None,
             layout_transition: None,
             direction: FlexDirection::Column,
             align_items: None,

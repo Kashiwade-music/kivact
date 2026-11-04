@@ -55,3 +55,5 @@ pub(crate) use sheet::paint_transition;
 
 /// Visibility of a layout box and its subtree.
 pub use kivact_types::Visibility;
+
+pub use kivact_types::ScrollSnap;

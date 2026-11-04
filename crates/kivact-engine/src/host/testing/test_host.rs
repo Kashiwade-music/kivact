@@ -411,6 +411,12 @@ impl ArvaneTestHost {
 
     /// Change the system theme and report it (`EnvChanged` when it
     /// changed).
+    /// Update pointer preferences as a platform environment change.
+    pub fn set_pointer_settings(&mut self, settings: kivact_types::PointerSettings) {
+        self.script.pointer_settings(settings);
+        self.step(Step::Input);
+    }
+
     pub fn set_theme(&mut self, theme: ThemeHint) {
         self.script.set_dark(theme == ThemeHint::Dark);
         self.step(Step::Input);

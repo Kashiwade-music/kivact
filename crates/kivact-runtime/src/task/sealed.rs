@@ -11,3 +11,6 @@ pub struct Nullary;
 
 /// The form of a closure with one argument of type `I`.
 pub struct Unary<I>(std::marker::PhantomData<I>);
+
+/// Seal of resource and action view adapters.
+pub trait AsyncSourceSeal {}

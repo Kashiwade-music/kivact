@@ -16,8 +16,9 @@ use std::rc::Rc;
 /// What `text_input(..).draft(..)` adds to a field, kept until the field is
 /// built.
 #[derive(Clone)]
-pub(crate) struct Draft {
+pub(crate) struct DraftOptions {
     pub(crate) commit: Callback<String>,
+    pub(crate) session: Option<EditSession<String>>,
     pub(crate) on_edit: Option<Callback<EditPhase>>,
     pub(crate) return_focus: Option<NodeRef>,
     /// Called once the draft has ended with a commit or a cancel.
@@ -68,8 +69,8 @@ impl Drafting {
 }
 
 /// The part to attach to the field, and what Enter does.
+#[derive(Clone)]
 pub(crate) struct Installed {
-    pub(crate) node: Node,
     pub(crate) submit: Rc<dyn Fn()>,
     /// Called before the user's edit is written, to begin a draft.
     pub(crate) edited: Rc<dyn Fn()>,
@@ -77,12 +78,18 @@ pub(crate) struct Installed {
 
 /// Draft the field bound to `value`, whose validity `invalid` reads. Setup
 /// only.
-pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> Installed {
+pub(crate) fn install(
+    draft: DraftOptions,
+    value: Binding<String>,
+    mut node: Node,
+) -> (Node, Installed) {
     let invalid = node
         .accessible_invalid()
         .unwrap_or_else(|| false.into_value());
     let target = node_ref();
-    let session = EditSession::new(move |text: String| value.set(text));
+    let session = draft
+        .session
+        .unwrap_or_else(|| EditSession::new(move |text: String| value.set(text)));
     let (on_edit, ended) = (draft.on_edit, draft.ended);
     session.on_edit(move |phase| {
         if let Some(on_edit) = on_edit {
@@ -141,9 +148,5 @@ pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> I
     // An edit of the user begins a draft in a field that kept the focus
     // after the last one was committed.
     let edited: Rc<dyn Fn()> = Rc::new(move || drafting.begin(value.get_untracked()));
-    Installed {
-        node: attachment,
-        submit,
-        edited,
-    }
+    (attachment, Installed { submit, edited })
 }

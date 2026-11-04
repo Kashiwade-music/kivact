@@ -1,4 +1,4 @@
-//! Role: Animate layout results through the shared visual transform without changing layout.
+//! Role: Apply layout motion steps to shared transforms.
 
 use super::state::LayoutAnimation;
 use crate::model::Model;

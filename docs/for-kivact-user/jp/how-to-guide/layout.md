@@ -306,3 +306,5 @@ mod tests {
 - [オーバーレイ](overlays.md): レイアウトの上に浮かぶダイアログ、メニュー、ツールチップ。
 - [テーマ](theming.md): 色、余白、hover や focus の見た目。
 - リファレンス: `cargo doc -p kivact-style --open` で `Style` のすべての設定メソッドを確認できます。
+
+タッチスクロールは指を離した後も platform の設定に従って減速します。`.scroll_snap(ScrollSnap::Start)`、`Center`、`End` を指定すると、停止時に直下の通常フローの子の位置へ揃えます。`Display::Contents` の子は展開されます。`ScrollSnap::None` は snap を無効にします。`ScrollSnap` は `kivact::style` から import します。プログラムからのスクロールは `ScrollBehavior::Smooth(Easing::EaseOut)` などの easing と `ScrollBehavior::Instant` を受けます。reduced motion では目標位置へ即座に移動します。

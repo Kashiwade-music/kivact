@@ -23,14 +23,7 @@ fn app() -> impl IntoView {
             button("Next").on_press(move || id.update(|n| *n += 1)),
         ))
         .style(style().gap(8)),
-        dynamic(
-            move || user.state(),
-            |state| match state {
-                AsyncState::Idle | AsyncState::Pending => text("Loading…"),
-                AsyncState::Failed(error) => text(format!("Error: {error}")),
-                AsyncState::Ready(name) => text(name),
-            },
-        ),
+        async_view(user, text),
     ))
     .style(style().padding(24).gap(12))
 }
