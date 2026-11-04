@@ -89,6 +89,8 @@ host 側の口（`Theme::install`、`Theme::of`、`Style::compile`、span の st
 
 `Action`、`ActionMode`（旧 `ActionPolicy`）、`ActionOutcome`(新)、`AsyncState`、`AsyncSource`(新、sealed。`Resource<T>`（retry = `refetch`）と `Action<T, I>`（retry = `retry`）が実装する)、`CancelToken`、`Resource`、`Task`、`action(mode, run)`、`blocking`、`resource`、`sleep`、`spawn`、`timeout`、`on_tokio`(新、feature `tokio`)
 
+`#[derive(Clone)] pub enum ActionOutcome<T> { Succeeded(T), Failed(UiError) }`。完了通知だけを表し、キャンセル時の通知は既存どおり発生させない。
+
 `ActionFn`・`BlockingWork` は署名の境界にだけ現れる sealed の trait として `#[doc(hidden)]` のまま残す（利用者は名前を書かない）。`IntoValue<AsyncState<T>> for Resource`・`Action` は作らない（設計書 18.5 節）。
 
 ### `kivact::i18n`

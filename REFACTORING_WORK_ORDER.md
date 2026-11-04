@@ -1332,7 +1332,7 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
 4. slot の形（付録 B.9）: 一度だけ mount するものは `impl IntoView`、作り直すものは `impl IntoViewFn<V>` か `impl Fn(A) -> V + 'static`、保存は `View` と `ViewFn<A>`。子を一つずつ包むものは `impl IntoChildren`。
 5. modifier: `NodeExt` の import と呼び出しを `Node` の固有メソッドにする。部品の builder の後のメソッドで root を変える箇所は `with_node`。part は `Part::new(state, apply)` と `node.part(p)`。`Part::on_bind` は `Node::on_attach`。
 6. `Rc`・`Arc`・`Box<dyn>`・`Location` を公開の署名から消す（付録 B.6）。
-7. 一つの root を持つ公開の部品の関数は `impl Component` を返す。
+7. 一つの root を持つ独自の合成部品は `impl Component` を返す（設計書の「独自部品」）。標準・kit の constructor で固有の fluent option を公開するものは具体的な builder 型を返し、option を隠さない。primitive は `Node`、behavior は `*Api` のまま。
 
 ### N-D1 module・facade・prelude・geometry
 
@@ -1417,6 +1417,7 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
   3. `Recipe<S>` を struct にする契約（`From<impl Fn(&Theme, &Look<S>) -> Style + Send + Sync + 'static>`、`Clone`）は維持し、定義が ui にあるため N-F3 が実装し本 unit は G3 caller を移す。`TestFonts::Only(Vec<Asset>)`、`#[track_caller]` で `at` の引数を消す（付録 B.6）。`Node::accessible_name() -> Option<Value<String>>`。`constant()` を消す。
   4. `kivact-test`: `Screen::evidence(name)`（`KIVACT_CATALOG_EVIDENCE` のとき screenshot・支援技術の木・debug の木を保存）、`Screen::assert_layout_clean()`、`Element::read_only` の削除、`invalid` → `is_invalid`、`password` → `is_password`、そのほか付録 B.10 の `kivact::test` の行。
   5. core の内部の試験の helper（`kivact-test` の中）を新しい API に直す。
+  6. `#[derive(Clone)] pub enum ActionOutcome<T> { Succeeded(T), Failed(UiError) }`。`Action::on_complete` は既存の完了通知をこの値で渡し、キャンセル時には従来どおり通知しない。
 - **unit の確認**: `cargo fmt` だけ（build 不可でよい）。
 - **規模**: L。
 - **並列**: N-F2〜N-F6 と同時（crate が別）。

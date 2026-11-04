@@ -1764,6 +1764,8 @@ facade から届く型の公開の `f32` の field は全部 `f64` にする（�
 
 `pub trait Component: IntoView + NodeBuilder {}` と blanket の impl を `kivact::view` に足す。規則: 一つの root を持つ独自部品は `impl Component` を返す（呼ぶ側が `.style(..)` などを続けられる）。root が一つでない部品だけ `impl IntoView`。付録 B.7 の例と custom-components の guide をこれに揃える。
 
+標準・kit の constructor が固有の fluent option を公開する場合は具体的な builder 型を返す。`impl Component` で `.variant(..)`・`.size(..)`・`.content(..)` などを隠さない。primitive は `Node`、behavior は `*Api` のまま。Action の完了 payload は `#[derive(Clone)] enum ActionOutcome<T> { Succeeded(T), Failed(UiError) }` とし、キャンセルの通知は増やさない。
+
 ### 18.10 Part が host の node の性質を読む
 
 7.4 節で `Part` は mount のときに当てるので、part は host の node に caller が書いた `disabled`・`invalid`・`name`・`labelled_by`・`described_by` を読み、machine の入力にする（作者が `accessible_disabled()` を手で渡す処理が要らない）。`*Api` は状態の読み出しを直接持つ（例: `SwitchApi::control_state() -> Value<ToggleState>`）。「part を node に移す前に状態を読む」（`custom-controls.md:56`）は要らなくなる。

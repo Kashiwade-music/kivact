@@ -112,3 +112,5 @@
 | 2026-11-05 | CP3 / fix-G6-6 | Contents 箱が Element.children に現れる | query 時だけ透明箱を射影し既存の直接の子の契約を保つ。role query の順序は公開 semantics の child 順で DFS し、allocation 順には依存しない。可変の shadow topology は追加しない。 |
 | 2026-11-05 | N-F1 / N-F3 | Recipe の定義が ui にある | 契約は変更せず N-F3 が定義を所有、N-F1 は G3 caller のみ移行し並列の file 所有を保つ。 |
 | 2026-11-05 | N-F1 | Transition の定義が types にある | 他 unit の所有と重ならない motion.rs の obsolete decorative 削除を N-F1 に含め、既存 essential と default を保つ。 |
+| 2026-11-05 | N fan-out | opaque Component が固有 option を隠す | 設計の「独自部品」に従い合成部品を impl Component、固有 option を持つ標準・kit constructor は具体 builder とし、fluent API を維持。 |
+| 2026-11-05 | N-F1 | ActionOutcome の variant が未定義 | Clone の Succeeded(T)/Failed(UiError) とし既存の完了だけ通知、キャンセル時の挙動は増やさない。 |
