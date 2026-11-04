@@ -77,7 +77,8 @@ impl Model {
                 .tree
                 .get(id)
                 .and_then(|n| n.states())
-                .is_some_and(|s| s.enter.is_some());
+                .is_some_and(|s| s.enter.is_some())
+                || self.size_shown(id, true);
             if !enters {
                 self.transition_presence(id, NodePresence::Mounted);
                 continue;
@@ -85,12 +86,13 @@ impl Model {
             if !self.tree.attached(id) {
                 continue;
             }
-            if self.transition_shown(id, |s| s.enter.is_some()) {
+            if self.transition_shown(id, |s| s.enter.is_some()) || self.size_shown(id, true) {
                 // Writing its props captured it at its paint: it starts at
                 // its enter paint instead.
                 self.transition_presence(id, NodePresence::Arriving(ArrivalPhase::Animating));
                 self.motion.forget(id);
                 self.prepare_entrance(id);
+                self.start_size(id, true);
             } else {
                 self.transition_presence(id, NodePresence::Mounted);
             }
@@ -111,6 +113,7 @@ impl Model {
                         NodePresence::Arriving(ArrivalPhase::Animating)
                     )
                 }) && self.motion.get(*id).is_none()
+                    && !self.presence.sizes.contains_key(id)
             })
             .collect();
         for id in done {
@@ -147,6 +150,7 @@ impl Model {
             .copied()
             .filter(|x| {
                 self.transition_shown(*x, |s| s.exit.is_some())
+                    || (!pop_layout && self.size_shown(*x, false))
                     || self
                         .tree
                         .get(*x)
@@ -156,6 +160,15 @@ impl Model {
         if exits.is_empty() {
             return false;
         }
+        let size_starts: Vec<_> = exits
+            .iter()
+            .copied()
+            .filter(|x| {
+                self.tree
+                    .get(*x)
+                    .is_some_and(|n| !matches!(n.presence, NodePresence::Leaving(_)))
+            })
+            .collect();
         let focus_lost = self
             .focused()
             .is_some_and(|f| self.tree.is_in_subtree(f.node, id));
@@ -181,7 +194,18 @@ impl Model {
             };
             self.transition_presence(*x, NodePresence::Leaving(role));
         }
+        if !pop_layout {
+            for x in &size_starts {
+                self.start_size(*x, false);
+            }
+        }
         if pop_layout {
+            for x in &subtree {
+                self.presence.sizes.remove(x);
+                if let Some(n) = self.tree.get(*x) {
+                    self.layout.set_presence_scale(n.index.0, None);
+                }
+            }
             self.pop_exit_layout(id);
         }
         self.a11y.subtree(id);
@@ -263,10 +287,15 @@ impl Model {
             .copied()
             .filter(|root| {
                 !self.tree.contains(*root)
-                    || !self
+                    || (!self
                         .motion
                         .moving()
                         .any(|x| self.tree.is_in_subtree(x, *root))
+                        && !self
+                            .presence
+                            .sizes
+                            .keys()
+                            .any(|x| self.tree.is_in_subtree(*x, *root)))
             })
             .collect();
         for root in done {

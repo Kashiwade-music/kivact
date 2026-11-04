@@ -155,6 +155,8 @@ pub enum TransitionProp {
     /// (brightness .. opacity, blur, drop shadow). Gradients, images,
     /// shapes, the z-index and the filter's order change at once.
     Paint,
+    /// Entrance and exit size along the selected axis.
+    Size,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -254,6 +256,8 @@ pub struct Style {
     pub(super) focus_visible: Option<Box<Style>>,
     pub(super) disabled: Option<Box<Style>>,
     pub(super) selected: Option<Box<Style>>,
+    pub(super) enter_size: Option<kivact_types::Orientation>,
+    pub(super) exit_size: Option<kivact_types::Orientation>,
     pub(super) enter: Option<Box<Style>>,
     pub(super) exit: Option<Box<Style>>,
     pub(super) transitions: Vec<(TransitionProp, Transition)>,
@@ -902,6 +906,18 @@ impl Style {
         self
     }
 
+    /// Reveal the selected axis at entrance when Size has a transition.
+    pub fn enter_size(mut self, axis: kivact_types::Orientation) -> Self {
+        self.enter_size = Some(axis);
+        self
+    }
+
+    /// Collapse the selected axis before removal when Size has a transition.
+    pub fn exit_size(mut self, axis: kivact_types::Orientation) -> Self {
+        self.exit_size = Some(axis);
+        self
+    }
+
     /// Animate changes of a property group with `t`.
     pub fn transition(mut self, prop: TransitionProp, t: Transition) -> Self {
         self.transitions.retain(|(p, _)| *p != prop);
@@ -978,6 +994,8 @@ impl Style {
             *a = b.or(*a);
         }
         take!(
+            enter_size,
+            exit_size,
             local_paint,
             row_gap,
             column_gap,

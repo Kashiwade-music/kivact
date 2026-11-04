@@ -483,6 +483,7 @@ impl Model {
             .collect();
         for gone in self.tree.subtree(id) {
             self.forget_presence(gone);
+            self.presence.sizes.remove(&gone);
         }
         for gone in self.remove_slots(id) {
             if notify.contains(&gone) {

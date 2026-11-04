@@ -59,6 +59,7 @@ impl Model {
             (Clock::Stopped { since }, true) => {
                 let now = self.frame.now;
                 self.shift_state_times(since, now);
+                self.shift_size_times(since, now);
                 self.frame.motion.offset_ns = self
                     .frame
                     .motion
@@ -116,7 +117,8 @@ impl Model {
         let stamp = if now - due < period / 4 { due } else { now };
         self.frame.frames.0.retain(|t| *t > now);
         self.changes.restack |= self.motion.is_active();
-        if self.step_states(stamp, self.frame.reduced_motion()) {
+        let sizes = self.step_sizes(stamp, self.frame.reduced_motion());
+        if self.step_states(stamp, self.frame.reduced_motion()) || sizes {
             self.frame.frames.0.insert(stamp.saturating_add(period));
         }
         self.sync();
