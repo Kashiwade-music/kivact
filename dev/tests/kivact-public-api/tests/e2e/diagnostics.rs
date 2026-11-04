@@ -91,7 +91,7 @@ fn normalize(s: &str) -> String {
 const WHY: &str = "node 5 Text \"doubled: 4\"
   Content set by the effect created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
     reads memo i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-      reads signal i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C, last written at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C (turn 3)";
+      reads signal i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C, last written at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C (turn 4)";
 
 #[test]
 fn why_follows_the_prop_to_the_write_through_a_memo() {
