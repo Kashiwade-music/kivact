@@ -20,7 +20,7 @@ pub(crate) struct RefreshedLines<'a> {
     pub(crate) style: Option<kivact_types::ComputedTextStyle>,
 }
 
-/// The input's incrementally reconciled lines, unless already borrowed.
+/// The input's incrementally reconciled lines, borrowed once.
 pub(crate) fn edit_lines<'a>(
     tree: &'a NodeTree,
     columns: &MeasureColumns,
@@ -45,7 +45,7 @@ pub(crate) fn edit_lines<'a>(
     Some((refreshed.lines, text))
 }
 
-/// Reconcile one source snapshot; inability to borrow consumes no damage.
+/// Reconcile one source snapshot with exclusive access to its line cache.
 pub(crate) fn refresh_lines<'a>(
     tree: &'a NodeTree,
     columns: &MeasureColumns,
@@ -75,16 +75,16 @@ pub(crate) fn refresh_lines<'a>(
     } else {
         &node.lines
     };
-    let Ok(mut slot) = cache.try_borrow_mut() else {
-        return Ok(None);
-    };
+    let mut slot = cache
+        .try_borrow_mut()
+        .expect("invariant: editor lines are borrowed once per refresh");
     let source = Source {
         value: edit.value(),
         revision: editor.revision(),
         damage: if measurement {
             None
         } else {
-            editor.take_damage()
+            slot.as_mut().and_then(|lines| lines.damage.take())
         },
         placeholder: n.placeholder(),
         password: n.password(),

@@ -1,10 +1,9 @@
 //! Role: The edit group's state: the text input index and the IME's last text.
 
-use std::collections::BTreeSet;
-
 use kivact_editing::TextSession;
 use kivact_types::{NodeId, Rect};
 
+// xtask-allow(state-fields): Cache key records the complete IME input snapshot.
 /// What a text input's IME text is made from (`Model::ime_changed`): the input,
 /// its text's revision and its session, its text box, its text scroll, its
 /// transform and its password and read-only flags.
@@ -20,6 +19,7 @@ pub(super) struct InputSource {
     pub(super) read_only: bool,
 }
 
+// xtask-allow(state-fields): Cache key records the complete IME session snapshot.
 /// What the IME text of a node with an IME session is made from
 /// (`Model::session_ime_changed`): the node, its session, its box and its
 /// transform.
@@ -40,10 +40,10 @@ pub(super) enum ImeGiven {
     /// No text: no text input or session node has the focus.
     Nothing,
     /// The text of the focused text input made of `source`; `start` is where it
-    /// starts in the input's value (bytes), `None` when the input gave no text.
+    /// starts in the input's value (bytes), or that the input gave no text.
     Input {
         source: InputSource,
-        start: Option<usize>,
+        start: InputStart,
     },
     /// The text of the focused node with an IME session.
     Session(SessionSource),
@@ -52,8 +52,8 @@ pub(super) enum ImeGiven {
 /// The text inputs with an editing state, and what the IME was last given.
 #[derive(Default)]
 pub(crate) struct Edits {
-    pub(super) inputs: BTreeSet<NodeId>,
     pub(super) given: ImeGiven,
+    pub(crate) target: ImeTarget,
 }
 
 /// What `Model::ime_changed` asks of the window.
@@ -64,9 +64,18 @@ pub(crate) enum ImeUpdate {
     Set(Option<arvane::ShellImeText>),
 }
 
-impl Edits {
-    /// The text inputs with an editing state, in id order.
-    pub(crate) fn inputs(&self) -> Vec<NodeId> {
-        self.inputs.iter().copied().collect()
-    }
+#[derive(Clone, Copy)]
+pub(super) enum InputStart {
+    At(usize),
+    NoText,
 }
+
+#[derive(Clone, Copy, Default)]
+pub(crate) enum ImeTarget {
+    #[default]
+    None,
+    Native(EditorSlot),
+    Session(NodeId),
+}
+#[derive(Clone, Copy)]
+pub(crate) struct EditorSlot(pub(crate) crate::tree::node::NodeIndex);

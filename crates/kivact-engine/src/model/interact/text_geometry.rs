@@ -278,7 +278,7 @@ impl Model {
     /// Scroll every text input so its caret stays inside
     /// the field: past the right edge less 2 px, or at the left edge.
     pub(crate) fn scroll_inputs(&mut self, engine: &mut arvane::Engine) {
-        for id in self.edits.inputs() {
+        for id in self.input_ids() {
             let area = visual::text_box(self, id);
             let width = area.width;
             // Hidden or zero-width fields have no viewport to scroll into.

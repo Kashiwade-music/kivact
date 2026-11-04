@@ -37,7 +37,7 @@ impl Editor {
     }
 
     /// Consume the damage accumulated since the line cache last refreshed.
-    pub fn take_damage(&self) -> Option<Damage> {
+    pub fn take_damage(&mut self) -> Option<Damage> {
         self.state.take_damage()
     }
 
@@ -51,7 +51,7 @@ impl Editor {
 
     /// Open the journal of one edit, its mutations held to `max_length` scalars.
     pub fn journal(&mut self, max_length: Option<usize>) -> Journal<'_> {
-        self.state.max_length = max_length;
+        self.state.set_max_length(max_length);
         self.state.start_log();
         let (revision, session) = (self.state.revision(), self.state.session().clone());
         Journal {
@@ -64,7 +64,7 @@ impl Editor {
     /// `state`, given back by kivact: cut to `max_length` scalars unless composing, and
     /// classified against this editor's text.
     pub fn incoming(&self, mut state: EditState, max_length: Option<usize>) -> Incoming {
-        state.max_length = max_length;
+        state.set_max_length(max_length);
         if !state.is_composing()
             && let Some(max) = max_length
             && let Some((end, _)) = state.value().char_indices().nth(max)
