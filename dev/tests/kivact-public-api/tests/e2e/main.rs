@@ -8,14 +8,18 @@ mod embed;
 mod support;
 mod theme_conformance;
 
-mod apg_tooltip;
 mod apg_combobox;
 mod apg_listbox;
+mod apg_radio_group;
+mod apg_tabs;
+mod apg_tooltip;
+mod apg_tree_view;
 mod assets;
 mod async_tests;
 mod canvas;
 mod canvas_worker;
 mod components;
+mod custom_text_field;
 mod diagnostics;
 mod disposal;
 mod environment;
@@ -92,3 +96,7 @@ mod launch_window;
 
 mod machine;
 mod reactive_props;
+
+mod apg_menu;
+mod apg_menu_button;
+mod apg_menubar;

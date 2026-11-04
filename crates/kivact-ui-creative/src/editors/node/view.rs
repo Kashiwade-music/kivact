@@ -1,7 +1,7 @@
 //! Role: The NodeEditor builder and the node canvas view it builds.
 
 use super::a11y::{semantic, targets};
-use crate::editors::node::gesture::{ConnectGuard, DragMode, NodeMode, State};
+use crate::editors::node::gesture::{ConnectGuard, NodeMode, State};
 use crate::editors::node::gesture::{ControlKind, Target};
 use crate::editors::node::input::{key, pointer};
 use crate::editors::node::model::{NodeData, NodeLink, NodeRequest};
@@ -131,10 +131,6 @@ impl IntoView for NodeEditor {
                 }
             })),
         );
-        let press = crate::editors::shared::gesture::CanvasGesture::<
-            crate::editors::node::gesture::Target,
-            DragMode,
-        >::new();
         let bounds = memo(move || crate::editors::node::layout::bounds(&data.get()));
         let root_part = {
             let input_part = part(|input| input);
@@ -164,9 +160,12 @@ impl IntoView for NodeEditor {
         let (armed, gesturing) = (zoom.is_space_armed(), zoom.is_gesturing());
         // A gesture begins its edit at its first change. The view pans
         // instead while Space is held or a pan runs.
-        let gesture = use_drag::<()>(DragCoordinates::Local)
-            .disabled(move || armed.get() || gesturing.get())
-            .edit_on_change(edit, || ());
+        let gesture =
+            use_drag::<crate::editors::node::gesture::DragSnapshot>(DragCoordinates::Local)
+                .slop(0.0)
+                .disabled(move || armed.get() || gesturing.get())
+                .edit_on_change(edit, || ());
+        let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
         let state = State {
             on_edit: observer,
             can_connect,
@@ -179,7 +178,7 @@ impl IntoView for NodeEditor {
             scene,
             snap,
             active: signal(None),
-            mode: signal(NodeMode::Idle),
+            mode: crate::editors::node::gesture::NodeController::new(),
             reference,
             texts: crate::editors::shared::texts::Texts::new(),
             press,
@@ -201,33 +200,47 @@ impl IntoView for NodeEditor {
         });
         let focus = reference.focus_within();
         effect(move || {
-            if blocked.get() {
-                state.cancel();
-            } else if !focus.get() {
-                if state.drag_state().is_some() || state.edit.is_active() {
-                    state.cancel();
-                } else {
-                    // A keyboard connection ends when the focus leaves; an
-                    // open popup follows its own focus rules.
-                    state.mode.update(|mode| {
-                        if matches!(mode, NodeMode::Connecting { .. }) {
-                            *mode = NodeMode::Idle;
-                        }
-                    });
-                }
-            }
-        });
-        effect(move || {
             let nodes = data.get();
-            if let Some((id, index, original)) = state.held_slot()
-                && !nodes
+            let slot_valid =
+                kivact::state::untrack(|| state.held_slot()).is_none_or(|(id, index, original)| {
+                    nodes
+                        .iter()
+                        .find(|node| node.id == id)
+                        .and_then(|node| node.controls.get(index))
+                        .is_some_and(|control| {
+                            crate::editors::node::edit::same_slot(&original, control)
+                        })
+                });
+            let connection_valid = state.mode.with_untracked(|mode| match mode {
+                NodeMode::Connecting { from, output } => nodes
                     .iter()
-                    .find(|n| n.id == id)
-                    .and_then(|n| n.controls.get(index))
-                    .is_some_and(|c| crate::editors::node::edit::same_slot(&original, c))
-            {
-                state.cancel();
-            }
+                    .find(|node| node.id == *from)
+                    .is_some_and(|node| *output < node.outputs.len()),
+                _ => true,
+            });
+            let drag_valid =
+                kivact::state::untrack(|| state.drag_state()).is_none_or(|drag| match drag {
+                    crate::editors::node::gesture::DragMode::Items { ids } => {
+                        ids.iter().all(|id| nodes.iter().any(|node| node.id == *id))
+                    }
+                    crate::editors::node::gesture::DragMode::Link { from, output, .. } => nodes
+                        .iter()
+                        .find(|node| node.id == from)
+                        .is_some_and(|node| output < node.outputs.len()),
+                    _ => true,
+                });
+            state.mode.inputs(
+                focus.get(),
+                blocked.get(),
+                slot_valid && connection_valid && drag_valid,
+                kivact::state::untrack(|| state.edit.is_active()),
+                kivact::state::untrack(|| state.drag_state().is_some()),
+                move || {
+                    state
+                        .press
+                        .inputs_changed(true, true, false, true, move || state.cancel());
+                },
+            );
         });
         let root = root
             .value_text(move || {
@@ -249,7 +262,7 @@ impl IntoView for NodeEditor {
                     // A press on a region drags from there.
                     let mut control = {
                         let input_part = part(|input| input);
-                        let drag_source = gesture.source(());
+                        let drag_source = gesture.source_with(move || state.source_snapshot());
                         kivact::custom::Part::new(input_part.state(), move |node| {
                             node.part(input_part)
                                 .focusable(true)
@@ -344,7 +357,7 @@ impl IntoView for NodeEditor {
                     Handled::No
                 }
             });
-        root.part(gesture.source(()))
+        root.part(gesture.source_with(move || state.source_snapshot()))
             // After the drag's sources, which take Escape during a drag.
             .part({
                 let input_part = part(|input| input);

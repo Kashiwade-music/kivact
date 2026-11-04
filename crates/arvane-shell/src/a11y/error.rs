@@ -14,7 +14,7 @@ pub enum AccessibilityError {
     InvalidTree(SemanticsId),
     /// A node is not reachable from the root.
     UnreachableNode(SemanticsId),
-    /// Focus refers to an absent, hidden, disabled or non-focusable node, or
+    /// Focus refers to an absent, hidden or non-focusable node, or
     /// one the update leaves out of the tree.
     InvalidFocus(SemanticsId),
     /// Bounds or scroll offsets are not finite, or bounds have a negative

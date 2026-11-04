@@ -4,16 +4,41 @@ use kivact::geometry::Rect;
 use kivact::view::{Node, NodeBuilder, node};
 
 use kivact::state::{IntoText, IntoValue};
-use kivact::state::{Value, effect, memo, signal};
+use kivact::state::{Machine, Step, Value, effect, machine, memo};
 use kivact::style::{Color, ColorToken, style};
 use kivact::view::{IntoView, Orientation, Role, View};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MeterClip {
+    Clear,
+    Held,
+}
+enum ClipEvent {
+    LevelChanged(f64),
+    Reset,
+}
+struct ClipMachine;
+impl Machine for ClipMachine {
+    type State = MeterClip;
+    type Event = ClipEvent;
+    type Effect = ();
+    fn transition(&self, state: &MeterClip, event: ClipEvent) -> Step<MeterClip, ClipEvent, ()> {
+        match event {
+            ClipEvent::Reset => Step::to(MeterClip::Clear),
+            ClipEvent::LevelChanged(level) if level > 1.0 => Step::to(MeterClip::Held),
+            ClipEvent::LevelChanged(_) => Step::to(*state),
+        }
+    }
+}
 
 /// An audio meter with clip hold and accessible numeric level.
 pub struct Meter {
     root: Node,
     level: Value<f64>,
+    // xtask-allow(state-fields): Independent reactive display option.
     horizontal: Value<bool>,
     channels: Value<usize>,
+    // xtask-allow(state-fields): Independent reactive display option.
     segmented: Value<bool>,
 }
 
@@ -88,11 +113,10 @@ impl IntoView for Meter {
             channels,
             segmented,
         } = self;
-        let clipped = signal(false);
+        let clip = machine(MeterClip::Clear, || ClipMachine, |_, ()| {});
+        let clipped = clip.state();
         effect(move || {
-            if level.get() > 1.0 {
-                clipped.set(true);
-            }
+            clip.send(ClipEvent::LevelChanged(level.get()));
         });
         root.value_now(move || level.get().clamp(0.0, 1.0))
             .value_text(move || format!("{:.1} dB", 20.0 * level.get().max(0.001).log10()))
@@ -103,7 +127,7 @@ impl IntoView for Meter {
                     Orientation::Vertical
                 }
             })
-            .on_press(move || clipped.set(false))
+            .on_press(move || clip.send(ClipEvent::Reset))
             .draw(move |d, size| {
                 let (horizontal, segmented) = (horizontal.get(), segmented.get());
                 let p = d.theme().ext::<crate::tokens::Tokens>();
@@ -157,7 +181,7 @@ impl IntoView for Meter {
                 d.rounded_rect(
                     clip,
                     2.0,
-                    if clipped.get() {
+                    if clipped.get() == MeterClip::Held {
                         p.x
                     } else {
                         p.x.with_alpha(0.17)

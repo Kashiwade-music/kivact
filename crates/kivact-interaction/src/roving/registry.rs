@@ -11,14 +11,14 @@
 //!
 //! No registry borrow is held while a node is asked to take the focus.
 
-use super::requested;
+use super::{machine, requested};
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use kivact_core::custom::{NodeRefExt, NodeToken};
-use kivact_core::state::{Signal, Value, signal, untrack};
+use kivact_core::state::{Notifier, Value, notifier, untrack};
 use kivact_core::view::NodeRef;
 
 /// A mounted member and the constraints that decide whether it can take focus.
@@ -26,7 +26,9 @@ use kivact_core::view::NodeRef;
 pub(crate) struct Member {
     pub(crate) node: NodeRef,
     pub(crate) eligible: Value<bool>,
+    // xtask-allow(state-fields): Caller-provided eligibility constraints are independent reactive inputs.
     pub(crate) disabled: Value<bool>,
+    // xtask-allow(state-fields): Ancestor visibility is an independent input, not a focus phase.
     pub(crate) hidden: Value<bool>,
 }
 
@@ -42,7 +44,7 @@ impl Member {
 }
 
 /// What one reconciliation pass is told by its owner.
-pub(crate) struct Observation<'a, Id> {
+pub(crate) struct ObservationInput<'a, Id> {
     /// The focused node as the owner just read it.
     pub(crate) current: Option<NodeToken>,
     /// The member holding the tab stop.
@@ -63,32 +65,31 @@ pub(crate) struct Roving<Id: kivact_core::state::ItemKey> {
     /// The mounted members; changed only through `insert` and `remove`.
     members: Rc<RefCell<HashMap<Id, Member>>>,
     /// Notified by every insertion and removal of a member.
-    changed: Signal<()>,
+    changed: Notifier,
     /// The member the keyboard or pointer last moved to.
     pub(crate) requested: requested::Requested<Id>,
     /// The focus as last seen by `reconcile`.
-    observed: Rc<Cell<Option<NodeToken>>>,
     /// A focused member was removed; the tab stop takes the focus once it settles.
-    pub(crate) restore_from: Rc<Cell<Option<NodeToken>>>,
+    pub(crate) restore_from: requested::Restore<Id>,
 }
 
 impl<Id: kivact_core::state::ItemKey> Roving<Id> {
     /// Setup only.
     #[track_caller]
     pub(crate) fn new() -> Self {
+        let requested = requested::Requested::new();
         Self {
             members: Rc::new(RefCell::new(HashMap::new())),
-            changed: signal(()),
-            requested: requested::Requested::new(),
-            observed: Rc::new(Cell::new(None)),
-            restore_from: Rc::new(Cell::new(None)),
+            changed: notifier(),
+            requested,
+            restore_from: requested::Restore::new(requested.machine),
         }
     }
 
     /// Follow the membership: a memo or an effect that calls it reruns when a
     /// member is inserted or removed (tracked).
     pub(crate) fn track(&self) {
-        self.changed.get();
+        self.changed.track();
     }
 
     pub(crate) fn contains(&self, id: &Id) -> bool {
@@ -158,21 +159,45 @@ impl<Id: kivact_core::state::ItemKey> Roving<Id> {
         })
     }
 
+    /// Whether a real outside focus replaced the focus of a mounted member.
+    pub(crate) fn left_members(&self, current: Option<NodeToken>) -> bool {
+        let previous = self
+            .requested
+            .machine
+            .state()
+            .get_untracked()
+            .roving
+            .observed();
+        self.requested.get_untracked().is_some()
+            && current.is_some()
+            && self.member_of(current).is_none()
+            && self.member_of(previous).is_some()
+    }
+
     /// Follow focus that reaches a member by other means, and give the focus
     /// of a removed or refused member to the tab stop. It returns the node it
     /// asked to take the focus, if any, so the owner can scroll to it.
     pub(crate) fn reconcile(
         &self,
-        observation: Observation<'_, Id>,
+        observation: ObservationInput<'_, Id>,
         enabled: impl Fn(&Id) -> bool,
     ) -> Option<NodeRef> {
-        let Observation {
+        let ObservationInput {
             current,
             active,
             adopt,
             reject_refused,
         } = observation;
-        let previous = self.observed.replace(current);
+        let previous = self
+            .requested
+            .machine
+            .state()
+            .get_untracked()
+            .roving
+            .observed();
+        self.requested
+            .machine
+            .send(machine::Event::Observe(current));
         let admitted = |id: &Id, member: &Member| enabled(id) && member.available_untracked();
         let focused = self.member_of(current);
         let refused = focused

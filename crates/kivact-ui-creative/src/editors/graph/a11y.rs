@@ -147,7 +147,7 @@ fn infos(state: State, settings: Rc<Settings>, lanes: Value<Vec<Lane>>) -> Value
 pub(crate) fn attach(
     root: Node,
     state: State,
-    gesture: DragApi<()>,
+    gesture: DragApi<crate::editors::graph::gesture::Snapshot>,
     settings: Rc<Settings>,
     lanes: Value<Vec<Lane>>,
 ) -> Node {
@@ -159,7 +159,7 @@ pub(crate) fn attach(
             // A press on a region drags from there.
             let mut result = {
                 let input_part = part(|input| input);
-                let drag_source = gesture.source(());
+                let drag_source = gesture.source_with(move || state.source_snapshot());
                 kivact::custom::Part::new(input_part.state(), move |node| {
                     node.part(input_part)
                         .role(info.get_untracked().role)

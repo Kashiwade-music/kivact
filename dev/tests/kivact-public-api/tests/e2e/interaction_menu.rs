@@ -19,7 +19,16 @@ use kivact::view::{Modifiers, MouseButton, overlay_at};
 type Entry = MenuEntry<&'static str>;
 
 fn real_window() -> RenderOptions {
-    RenderOptions::from_env().mirror(MirrorMode::Required)
+    let policy = kivact::interaction::InteractionPolicy {
+        menu: kivact::interaction::MenuPolicy {
+            disabled_focus: kivact::interaction::DisabledMenuFocus::Skip,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    RenderOptions::from_env()
+        .mirror(MirrorMode::Required)
+        .theme(kivact::style::Theme::default().with(policy))
 }
 
 fn action(name: &'static str) -> Node {
@@ -101,7 +110,7 @@ fn level<K: ItemKey>(m: MenuApi<K>) -> Node {
 }
 
 /// A menu button named `name` and its menu, named like it.
-fn menu_button<K: ItemKey>(name: &'static str, m: MenuApi<K>) -> View {
+pub(super) fn menu_button<K: ItemKey>(name: &'static str, m: MenuApi<K>) -> View {
     let trigger = m.trigger();
     let anchor = node_ref();
     (

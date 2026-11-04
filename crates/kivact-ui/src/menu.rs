@@ -34,10 +34,14 @@ type ItemContent<K> = kivact_core::view::ViewFn<(Value<MenuEntry<K>>, Value<Menu
 pub struct Menu<K: kivact_core::state::ItemKey> {
     label: Value<String>,
     behavior: Behavior<K>,
+    // xtask-allow(state-fields): Independent builder placement option, consumed when rendering.
     offset: Option<f64>,
     placement: Placement,
+    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
     align: Option<OverlayAlign>,
+    // xtask-allow(state-fields): Independent immutable layout option.
     at_least_anchor_width: bool,
+    // xtask-allow(state-fields): Optional immutable caller renderer, not interaction state.
     item: Option<ItemContent<K>>,
     variants: Variants,
 }
@@ -252,9 +256,13 @@ struct Level<K: kivact_core::state::ItemKey> {
     behavior: Behavior<K>,
     anchor: NodeRef,
     placement: Placement,
+    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
     align: Option<OverlayAlign>,
+    // xtask-allow(state-fields): Independent immutable layout option.
     at_least_anchor_width: bool,
+    // xtask-allow(state-fields): Immutable renderer choice for context positioning; session owns the origin.
     context: bool,
+    // xtask-allow(state-fields): Immutable renderer choice for a submenu recipe.
     /// A submenu's level, drawn with the submenu surface recipe.
     sub: bool,
     label: Value<String>,

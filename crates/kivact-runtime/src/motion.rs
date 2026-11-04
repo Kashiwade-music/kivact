@@ -66,7 +66,7 @@ mod values;
 
 pub use animated::{Animated, animated};
 pub use frame_loop::{FrameLoop, frame_loop};
-pub use kivact_types::motion::{Easing, Repeat, Spring};
+pub use kivact_types::motion::{Easing, Repeat, Retarget, Spring};
 pub use state::{MotionEnv, MotionState, MotionStats};
 pub use transition::Transition;
 pub use values::{Animatable, FrameInfo, FrameRate};

@@ -1,7 +1,8 @@
 //! Role: The `MenuApi` handle: open state, triggers, content, items and submenus.
 
 use super::level::Level;
-use super::state::{Edge, Session};
+use super::session::Session;
+use super::state::Edge;
 use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
@@ -9,8 +10,8 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
+use kivact_core::state::{Callback, Value, memo};
 use kivact_core::state::{IntoValue, callback};
-use kivact_core::state::{Value, memo};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
@@ -35,7 +36,7 @@ use kivact_core::view::{
 /// own `entries`, `show`, `surface` and `item`; its overlay is anchored to
 /// its item's node, after it.
 ///
-/// Keys inside the menu: Up and Down move through the enabled items of a level
+/// Keys inside the menu: Up and Down move through the focusable items of a level
 /// and wrap, Home and End jump to its ends, a letter key moves to the next
 /// item whose label starts with it (letters typed within 500 ms of each other
 /// are matched together), Enter and Space choose, Right opens a submenu and
@@ -131,6 +132,12 @@ pub fn use_menu<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> MenuApi<K> {
+    pub(crate) fn menubar_navigation(self, navigate: Callback<bool>) {
+        self.session
+            .options
+            .update(|options| options.menubar = Some(navigate));
+    }
+
     /// Drawing state of the mounted trigger.
     pub fn trigger_state(self) -> Value<PopupState> {
         self.session.popup.trigger_state()
@@ -167,7 +174,9 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
 
     /// Handle activation of a menu item.
     pub fn on_activate<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
-        self.session.choose.set(callback(f));
+        self.session
+            .options
+            .update(|options| options.choose = callback(f));
         self
     }
 
@@ -203,7 +212,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     }
 
     /// Open the menu as the trigger's ArrowDown does: it opens on its first
-    /// enabled item, and the focus later returns to the trigger. Does nothing
+    /// focusable item, and the focus later returns to the trigger. Does nothing
     /// while the menu is open. Meant for a component that opens one of several
     /// menus itself, such as a menu bar moving between its menus. Top level
     /// only.
@@ -243,9 +252,10 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     }
 
     /// The menu button: a `Role::Button` publishing `expanded` and `controls`.
+    /// A trigger belonging to a menubar has `Role::MenuItem` in either attachment order.
     ///
     /// Enter, Space, a click and an assistive technology's Activate open the
-    /// menu on its first enabled item (and close it again); ArrowDown does the
+    /// menu on its first focusable item (and close it again); ArrowDown does the
     /// same and ArrowUp opens on the last one. Expand opens it and Collapse
     /// closes it. Releasing Tab on the trigger closes it. These run after the
     /// caller's own handlers. The part binds the reference the top-level
@@ -258,15 +268,21 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         let base = trigger;
         let part_state = base.state();
         Part::new(part_state, move |host| {
-            let trigger = host.part(base);
+            let role = if session.options.get().menubar.is_some() {
+                kivact_core::view::Role::MenuItem
+            } else {
+                kivact_core::view::Role::Button
+            };
+            let trigger = host.part(base).role(role);
             let trigger = if let Some(press) = session.press {
                 trigger.on_pointer(move |event| {
-                    press.event(session, super::press_state::Source::Trigger, event)
+                    press.event(session, super::press::machine::Source::Trigger, event)
                 })
             } else {
                 trigger
             };
             trigger
+                .has_popup(Some(kivact_core::view::PopupKind::Menu))
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
                     if m.ctrl || m.alt || m.meta {
@@ -283,7 +299,6 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                         }
                         _ => return Handled::No,
                     }
-                    session.open_from_button();
                     Handled::Yes
                 })
                 .on_press(move || {
@@ -372,7 +387,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 let trigger = trigger.on_secondary_context(pointer);
                 if let Some(press) = session.press {
                     trigger.on_pointer(move |event| {
-                        press.event(session, super::press_state::Source::Context, event)
+                        press.event(session, super::press::machine::Source::Context, event)
                     })
                 } else {
                     trigger
@@ -381,7 +396,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 trigger.on_pointer(move |event| {
                     if let Some(press) = session.press {
                         let handled =
-                            press.event(session, super::press_state::Source::Context, event);
+                            press.event(session, super::press::machine::Source::Context, event);
                         if handled == Handled::Yes {
                             return handled;
                         }

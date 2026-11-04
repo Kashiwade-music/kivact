@@ -79,8 +79,15 @@ fn soft_disabled_menu_item_can_explain_why_but_cannot_activate() {
 }
 
 #[test]
-fn ordinary_theme_still_skips_disabled_menu_entries() {
-    let screen = render_with(options(Theme::light()), || {
+fn explicit_skip_policy_skips_disabled_menu_entries() {
+    let policy = kivact::interaction::InteractionPolicy {
+        menu: kivact::interaction::MenuPolicy {
+            disabled_focus: kivact::interaction::DisabledMenuFocus::Skip,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let screen = render_with(options(Theme::light().with(policy)), || {
         menu(
             "Actions",
             vec![

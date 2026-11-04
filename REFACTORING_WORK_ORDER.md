@@ -1772,7 +1772,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
 - **決定済みの形**:
   - SM-I14: `keep_focus()` は構造の option で、part の bind（mount）のときに読む（作成の順に依存しない）。`position` は別の memo にする（memo の中で書かない）。`enum Pending<K> { Nothing, Activating { key: K, origin: Origin } }`。option は `OptionsCell<ListOptions>`。
   - SM-I16: `changed` は `Notifier`（公開）。`enum Roving { Unset, Requested(Id), Observed(NodeToken) }`、`enum Restore { Nothing, From(NodeToken) }`。
-  - SM-I26: 生存の確認は既存の `Owner::is_alive()` を使い、`alive: Owned<()>` の token を消す（足す API はない）。
+  - SM-I26: 生存の確認は既存の実体 `Owned<State>::try_get`（pure memo は既存 order の try_get）を使い、`alive: Owned<()>` の token を消す（足す API はない）。
   - `tree.rs`・`tabs.rs` は、option の保存を `OptionsCell` にする（状態の項目はない）。
 - **手順**: `list/*`、`roving.rs`、`tree.rs`、`tabs.rs`。APG の commit で直すのは `kivact-ui` の `list.rs`、`radio_group.rs`、`tabs.rs`（`tree.rs` は I-7 が持つので、tree の APG の違いは interaction の `tree.rs` だけで直す。ui の役割と状態の違いは I-7 の後の K-4 で直す）。
 - **APG**: Listbox（list）、Tree View、Tabs、Radio Group。
@@ -1789,7 +1789,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
 - **決定済みの形**:
   - SM-I27: `OptionsCell<DataTableOptions>`。列の幅の変更は `use_splitter` の状態。並べ替えは `enum Sort { Unsorted, Sorted(Vec<(ColumnKey, SortDirection)>) }`。
   - SM-I903: `enum RangePhase { Start, End { anchor: CalendarDate, before: Option<DateRange> } }`。`ExternalValueChanged` と日付の選択を同じ遷移の入口で受け、binding の更新と phase の reset を一度に決める。
-  - SM-I26: `Owner::is_alive()` を使い、`alive` の token を消す。
+  - SM-I26: facade Owner に is_alive はないため、既存の実体 `Owned<State>::try_get` を使い、`alive` の token を消す。
 - **手順**: `table/*`、`calendar/*`。APG の commit で直すのは `kivact-ui/src/data_table/*`。
 - **APG**: Grid・Table（data table と calendar の grid）。
 - **試験**: APG の違いごとに `apg_grid.rs`。
@@ -1852,7 +1852,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
     enum ToastFocus { None, Inside(NodeToken) }
     ```
     toast の id は `Generation`。
-  - SM-I23: `enum Follow { Following { expected: Option<f32> }, Detached { offset: f32 }, AwaitingHistory { anchor: f32, revision: Revision } }`。
+  - SM-I23: `enum Follow { Following { expected: Option<f32> }, Detached { offset: f64 }, AwaitingHistory { anchor: f32, revision: Revision } }`。
   - SM-I25: `Notice { id: NoticeId, message }`。id は `Generation`。
 - **手順**: `hover_corridor.rs`、`toaster.rs`、`follow_end.rs`、`announcer.rs`。
 - **APG**: 当たる pattern はない（toast の表示は I-7、alert は K-6b）。
@@ -1867,9 +1867,9 @@ impl<S: Clone + 'static> OptionsCell<S> {
 
 - **目的**: 付録 A の SM-U01、SM-U02（gesture の状態）、SM-U03。設計書 19 章（touch だけの gesture は `DragApi` でなく machine）。
 - **決定済みの形**:
-  - 三つとも、今の raw pointer の handler を machine の event にする（`DragApi` は使わない）。touch・pen だけ、primary だけ、`suppress_activation` を呼ぶ時と `Handled` の値は今のまま。slop の判定は `DragAxis::past_slop`。値は `InteractionPolicy.toast.swipe_slop`、`InteractionPolicy.select.sheet_slop` と、switch の private の定数 10 px。
+  - 三つとも、今の raw pointer の handler を machine の event にする（`DragApi` は使わない）。受け付ける pointer kind・primary の判定は既存どおり（switch は mouse drag と pen の既存処理も保持）、`suppress_activation` を呼ぶ時と `Handled` の値は今のまま。slop の判定は `DragAxis::past_slop`。値は `InteractionPolicy.toast.swipe_slop`、`InteractionPolicy.select.sheet_slop` と、switch の private の定数 10 px。
   - SM-U01: `enum SwitchGesture { Idle, Pressed { origin: Point, started_on: bool }, Dragging { axis: Axis, visually_on: bool } }`。disable は `Idle` への遷移で、`generation` の counter を消す。
-  - SM-U02: `enum Swipe { Rest, Pressed { pointer: PointerId, origin: Point }, Dragging { pointer: PointerId, offset: f32 }, Blocked { pointer: PointerId } }`。閉じる動き（`Visual::Dismiss` と `frame_loop`）はこの unit では残す（I-7 が消す）。
+  - SM-U02: `enum Swipe { Rest, Pressed { pointer: PointerId, origin: Point }, Dragging { pointer: PointerId, offset: f64 }, Blocked { pointer: PointerId } }`。閉じる動き（`Visual::Dismiss` と `frame_loop`）はこの unit では残す（I-7 が消す）。
   - SM-U03: `enum SheetGesture { Idle, Pressed { pointer: PointerId, origin: Point }, Moved { pointer: PointerId }, Released(Outcome) }`。sheet の開閉は I-2a の `SelectState::Open { surface: Surface::Sheet, .. }`（`OpenSheet` event）で表し、`sheet_open` の signal を消す。
 - **手順**: `kivact-ui/src/switch_drag.rs`、`toast_swipe.rs`、`select.rs`（touch の sheet の部分）。
 - **試験**: 足さない（soft の touch の試験が回帰の網）。
@@ -2356,7 +2356,7 @@ wave W6。付録 C の作業。
   - SM-K05: lightbox は soft に残し、`use_dialog` と `use_zoom_pan` の上に作り直す。`enum LightboxState { Closed, Open { index: usize, view: LightboxView } }`、`enum LightboxView { Fit, Zoomed { pan: Point } }`。画像の失敗は `NodeRef::image_status()`。
   - SM-K06: `use_resizable` と `resize_handle` を消し、`ui::splitter` の `collapsible(..)`・`snaps(..)`（I-5b）にする。
   - SM-K07: `use_scroll_state`・`use_scroll_overflow`・`use_overflow` を消し、`NodeRef::scroll_state()`（K-0）にする。overflow の fit は soft に残す（`enum OverflowFit { Measuring, Fitted { visible: usize } }`）。key の scroll は core の既定の key の操作を使う。
-  - SM-K28（bottom sheet）: `enum Sheet { Resting { snap: usize }, Dragging { from: usize, offset: f32 }, Settling { to: usize } }`。`DragApi::track_velocity` と `nearest_snap`・`pull_to_snap` を使う。
+  - SM-K28（bottom sheet）: `enum Sheet { Resting { snap: usize }, Dragging { from: usize, offset: f64 }, Settling { to: usize } }`。`DragApi::track_velocity` と `nearest_snap`・`pull_to_snap` を使う。
 - **手順**: soft の `lightbox.rs`、`resizable.rs`、`scrollable_area.rs`、`soft_overflow.rs`、`bottom_sheet.rs`。
 - **試験**: 足さない（soft の試験が回帰の網）。
 - **unit の確認**: 共通の確認（soft）。
@@ -2705,3 +2705,9 @@ wave W7。
 | W7 | F-1 文書（六つ） | 各 M | |
 | W7 | F-2 検査の仕上げ | S | |
 | W7 | F-3 最後の確認と PR の説明の下書き | S | |
+
+### 実装で確定した公開境界の補足
+- I-3/KL: `DragApi::source_with(impl Fn() -> T)` は accepted press で一度だけ snapshot を取得する。`source(payload)` は定数データ用で同じ pipeline。`active_payload() -> Value<Option<T>>` は Pending/Active の投影で、このメソッドだけ `T: PartialEq`。editor は既存の zero slop を保持し、domain の click 意図だけを Machine に持つ（pointer/origin/数値 snapshot は Drag が所有）。
+- KL: `custom::Generation` と `Generation::as_u64()` で numeric region ID allocator を組む。追加 counter/map/hash は不要。
+- U-1: `SelectApi::open_sheet()`・`is_sheet_open() -> Value<bool>`・`trigger_with_sheet(impl Fn() -> bool)` を足す。最後の chooser は activation の単一処理内で Released outcome を消費し、Popup の default toggle と二重に実行しない。on_press の Handled は callback 境界で消えるため、これで抑止しない。
+- T-1: `Canvas` は既存名 `Draw`。`StyledRange`・入力用 `TextDecoration` は style、`Decoration`・`DecorationKind`・`TextLayout` は custom。入力用 decoration は Color/TextLength、backend へ一度 resolve する。

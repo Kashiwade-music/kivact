@@ -356,6 +356,32 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         self.popup.is_open()
     }
 
+    /// Whether the open select is presented in its touch sheet.
+    pub fn is_sheet_open(self) -> Value<bool> {
+        memo(move || {
+            self.session.state().with(|state| {
+                matches!(
+                    state,
+                    machine::State::Open {
+                        surface: machine::Surface::Sheet,
+                        ..
+                    }
+                )
+            })
+        })
+    }
+
+    /// Open the options in a touch sheet, or close an already open select.
+    /// Use [`Self::trigger_with_sheet`] to route a trigger activation through
+    /// one opening or closing decision.
+    pub fn open_sheet(self) {
+        if self.is_open().get_untracked() {
+            self.toggle();
+        } else {
+            self.session.send(machine::Event::OpenSheet);
+        }
+    }
+
     /// The binding shared with an alternative select surface.
     pub fn open_binding(self) -> Binding<bool> {
         self.popup.open_binding()
@@ -377,6 +403,16 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// overlay and where the focus returns. Setup only.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
+        self.trigger_with_sheet(|| false)
+    }
+
+    /// Build a trigger whose activation chooses a touch sheet when `choose`
+    /// returns true. The chooser runs once per activation, before opening or
+    /// closing, and may consume the caller's completed touch gesture.
+    /// Mouse and keyboard gestures should make the chooser return false.
+    /// Setup only; the chooser is fixed when this part is constructed.
+    #[track_caller]
+    pub fn trigger_with_sheet(self, choose: impl Fn() -> bool + 'static) -> Part<PopupState> {
         let label = self.label();
         let popup = self.popup;
         let closed = self.closed;
@@ -391,11 +427,25 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 .value()
                 .with(|options| options.keep_trigger_focus.get())
         });
-        let base = popup.trigger();
+        let base = popup.base_trigger();
         let part_state = base.state();
         Part::new(part_state, move |host| {
             let trigger = host
                 .part(base)
+                .on_press(move || {
+                    let sheet = choose();
+                    if sheet {
+                        self.open_sheet();
+                    } else {
+                        self.toggle();
+                    }
+                })
+                .a11y_action(kivact_core::view::A11yAction::Expand, move |_| {
+                    popup.open_binding().set(true)
+                })
+                .a11y_action(kivact_core::view::A11yAction::Collapse, move |_| {
+                    popup.close(PopupCloseReason::Accessibility)
+                })
                 .role(Role::ComboBox)
                 .value_text(label)
                 .on_key(move |event: KeyEvent| {

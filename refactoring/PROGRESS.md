@@ -10,7 +10,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
 | CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
 | CP3 | b0aad13 | 0 | 0 | — | — | 101→失敗4 target個別0、GPU6 passed | — | Clippy 8.69s / 固定public3.62s | 通過、固定 gate の公開308/Game3と対象 docs 0 |
-| CP4 | 19dfddc | 0 | 0 | 85 件の修正中 | 実行待ち | 実行中 | 実行待ち | Clippy 16.83s | 軽い gate 通過、重い gate は並行 |
+| CP4 | 19dfddc | 0 | 0 | source 修正統合・再確認待ち | 0（18件） | 101→失敗19 target個別0 | 同じ19 target、no-default対象再確認待ち | Clippy16.83s / WSL75s | WSL Clippy0、固定640fea0でCreative残件1も0 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -74,7 +74,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | C-5 | merged | 4785daa | check/state-fields 0、関連 E2E22 passed |
 | KL-basic | merged | 8056fb4 | check 0、E2E32/doctest40 passed |
 | KL-game | merged | 6332eb4 | check/state-fields 0、E2E12/doctest3 passed |
-| KL-creative | todo | | unit の明示依存 I-3 後へ（W5） |
+| KL-creative | doing | 10a222e | (a)43 passed 統合、(b)43対象通過/source merge 待ち |
 | KL-soft | merged | c2a8a74 | check 0、全 soft E2E85 passed、最終 rich_blocks2 passed |
 | fix-G3-4 | merged | 5189902 | Machine の正準 state 経路を公開 |
 | fix-G6-3 | merged | 65f313f | Game/Pop catalog の C1 caller 移行 |
@@ -122,26 +122,26 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G3-13 | merged | 2e0171a | view passive contracts/queue 所有、core check 0、docs 待ち |
 | fix-G4-7 | merged | c8acd89 | scalar/calendar cycle 解消、check 0 |
 | fix-G6-9 | merged | 2dddc69 | policy canonical paths/kit 責務分割、check 0 |
-| I-0 | doing | | |
-| I-1 | todo | | |
-| I-2a | todo | | |
-| I-2b | todo | | |
-| I-3 | todo | | |
-| I-4a | todo | | |
-| I-4b | todo | | |
+| I-0 | merged | c9cf306 | public17/Soft20 passed、check/state-fields 0 |
+| I-1 | merged | d94dd0a | public20/Soft9/dialog6 passed、check/state-fields 0 |
+| I-2a | merged | ac88c15 | public15/Soft6 passed、shared binding と caller 統合 check 0 |
+| I-2b | doing | 01e28b9 | machine 統合済み、最終 APG/host focus は固定 gate 待ち |
+| I-3 | merged | c0691c5 | public19 passed、check/state-fields 0 |
+| I-4a | doing | | |
+| I-4b | doing | | |
 | I-5a | todo | | |
 | I-5b | todo | | |
 | I-6 | todo | | |
-| U-1 | todo | | |
+| U-1 | doing | | |
 | U-2 | todo | | |
 | I-7 | todo | | |
-| T-1 | todo | | |
-| T-2 | todo | | |
-| G-1a | todo | | |
+| T-1 | merged | 6771046 | text_editing10 passed、check/fmt 0 |
+| T-2 | doing | ba8d6b1 | public proof7 passed、merge 待ち |
+| G-1a | merged | 1685f3e | canvas8 passed、workspace check/fmt 0 |
 | G-1b | todo | | |
 | G-2 | todo | | |
 | G-3 | todo | | |
-| G-4a | doing | | |
+| G-4a | merged | 586a75c | style_paint6 passed、check/fmt 0 |
 | G-4b | todo | | |
 | G-4c | todo | | |
 | G-5 | todo | | |
@@ -173,3 +173,13 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | F-1 | todo | | |
 | F-2 | todo | | |
 | F-3 | todo | | |
+| fix-G4-8 | merged | 143d513 | public2/Soft7/catalog15/Game1 passed |
+| fix-G5-7 | merged | f52935c | Creative42+固定advanced1/catalog3 passed |
+| fix-G5-8 | merged | c40d5cb | Basic navigation1 passed |
+| fix-G6-10 | merged | 1558df8 | 6 crate doctests 対象0 |
+| fix-G3-14 | merged | 3852a9f | 診断期待を新契約へ、source修正はG3-15 |
+| fix-G3-15 | merged | 640fea0 | core check0、diagnostics4 passed |
+| fix-G4-9 | merged | 0b78efb | passive policy/token 型分離、check0 |
+| fix-G4-10 | merged | f1b0340 | private module namespace 分離、check0 |
+| fix-G4-11 | merged | a2946b2 | press-time factory、check0/E2E1 passed |
+| fix-G4-12 | merged | 291e2de | Generation/active payload、check0/E2E1 passed |

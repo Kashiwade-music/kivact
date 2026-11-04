@@ -380,7 +380,8 @@ impl PlatformTree {
     }
 
     /// Check a request against the current hierarchy, without queueing it.
-    /// Hidden or disabled targets/ancestors and undeclared actions are rejected.
+    /// Hidden targets/ancestors, disabled ancestors and undeclared actions are rejected.
+    /// A disabled target accepts only `Focus`, and only while explicitly focusable.
     /// `Activate`, `Toggle` and `Select` share the default action and are delivered
     /// as `Activate`; a focusable node declares `Focus` even without an explicit
     /// entry in its action list. Other actions require an exact declaration.

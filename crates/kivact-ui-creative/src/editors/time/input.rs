@@ -20,26 +20,17 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
     }
     let target = s.target(e.region());
     match press.button {
-        MouseButton::Middle => start(s, Drag::Pan, s.view_snapshot(), &e, None),
+        MouseButton::Middle => start(s, Drag::Pan, &e, None),
         MouseButton::Primary => {
             s.active.set(target);
             match target {
                 // A lane press only activates on a stationary double click.
-                Some(Target::Lane(_)) => {
-                    s.press
-                        .begin(&e, target, (None, Some(s.snapshot(&[]))), None)
-                }
+                Some(Target::Lane(_)) => s.press.begin(&e, target, None, None),
                 // The press moves the playhead: see `drag`.
-                Some(Target::Playhead) => start(
-                    s,
-                    Drag::Playhead,
-                    Snapshot::Playhead(s.playhead.get()),
-                    &e,
-                    None,
-                ),
+                Some(Target::Playhead) => start(s, Drag::Playhead, &e, None),
                 Some(Target::Trim(id, right)) => {
                     s.choose.select(id, ListGesture::Replace);
-                    start(s, Drag::Trim(id, right), s.snapshot(&[id]), &e, None);
+                    start(s, Drag::Trim(id, right), &e, None);
                 }
                 Some(Target::Item(id)) => {
                     let mut pending = None;
@@ -54,15 +45,9 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
                             s.choose.select(id, gesture);
                         }
                     }
-                    start(s, Drag::Items, s.snapshot(&s.selection.get()), &e, pending);
+                    start(s, Drag::Items, &e, pending);
                 }
-                None => start(
-                    s,
-                    Drag::Marquee(e.pos(), e.pos()),
-                    s.snapshot(&[]),
-                    &e,
-                    None,
-                ),
+                None => start(s, Drag::Marquee(e.pos(), e.pos()), &e, None),
             }
         }
         _ => return Handled::No,
@@ -73,10 +58,10 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
 /// The editor's drag: a middle-button pan or the primary gesture the press
 /// chose, one edit from its first change. The returned drag has the callbacks
 /// its sources need; `s.gesture` is the same session.
-pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
-    let drag = s.gesture.on_start(move |_| {
+pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<Snapshot> {
+    let drag = s.gesture.on_start(move |update| {
         if s.drag_state() == Some(Drag::Playhead) {
-            motion(s, s.press.origin());
+            motion(s, update.pos, update.start_pos, &update.payload);
         }
     });
     s.press.install(
@@ -90,7 +75,7 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
             },
         ),
         (
-            move |pos| motion(s, pos),
+            move |pos, origin, snapshot| motion(s, pos, origin, snapshot),
             move |region| {
                 s.data
                     .get()
@@ -115,28 +100,14 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
         ),
     )
 }
-fn start<T: TimeItem>(
-    s: State<T>,
-    drag: Drag,
-    initial: Snapshot,
-    e: &PointerEvent,
-    pending: Option<u64>,
-) {
-    s.press.begin(
-        e,
-        s.target(e.region()),
-        (Some(drag), Some(initial)),
-        pending,
-    );
+fn start<T: TimeItem>(s: State<T>, drag: Drag, e: &PointerEvent, pending: Option<u64>) {
+    s.press.begin(e, s.target(e.region()), Some(drag), pending);
 }
-fn motion<T: TimeItem>(s: State<T>, pos: Point) {
+fn motion<T: TimeItem>(s: State<T>, pos: Point, origin: Point, snapshot: &Snapshot) {
     let Some(drag) = s.drag_state() else {
         return;
     };
-    let Some(snapshot) = s.initial() else {
-        return;
-    };
-    let origin = s.press.origin();
+    let snapshot = snapshot.clone();
     if matches!(drag, Drag::Items | Drag::Trim(..)) && !s.press.moved() {
         return;
     }

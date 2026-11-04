@@ -91,7 +91,7 @@ fn multi_selector_filters_and_commits_in_the_touch_sheet() {
             (selected, field)
         },
     );
-    let input = screen.get_by_role(Role::TextBox, "Teams");
+    let input = screen.get_by_role(Role::ComboBox, "Teams");
     let rect = input.rect().unwrap();
     let touch = screen.contact_down(
         PointerKind::Touch,
@@ -101,7 +101,7 @@ fn multi_selector_filters_and_commits_in_the_touch_sheet() {
     screen.contact_up(touch);
     screen.advance(Duration::from_millis(350));
     screen.get_by_role(Role::Dialog, "Teams");
-    screen.get_by_role(Role::TextBox, "Search options").click();
+    screen.get_by_role(Role::ComboBox, "Search options").click();
     screen.type_text("bet");
     assert!(screen.query_by_role(Role::Option, "Alpha").is_none());
     screen.get_by_role(Role::Option, "Beta").click();

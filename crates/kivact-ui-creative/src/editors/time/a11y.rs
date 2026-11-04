@@ -20,7 +20,7 @@ struct Info {
 pub(crate) fn attach<T: TimeItem>(
     root: Node,
     state: State<T>,
-    gesture: DragApi<()>,
+    gesture: DragApi<crate::editors::time::gesture::Snapshot>,
     format: Rc<dyn Fn(f64) -> String>,
 ) -> Node {
     let data = state.data;
@@ -76,7 +76,7 @@ pub(crate) fn attach<T: TimeItem>(
             // A press on a region drags from there.
             let result = {
                 let input_part = part(|input| input);
-                let drag_source = gesture.source(());
+                let drag_source = gesture.source_with(move || state.source_snapshot());
                 kivact::custom::Part::new(input_part.state(), move |node| {
                     node.part(input_part)
                         .role(Role::Button)
@@ -150,7 +150,7 @@ pub(crate) fn attach<T: TimeItem>(
             let format = format.clone();
             {
                 let input_part = part(|input| input);
-                let drag_source = gesture.source(());
+                let drag_source = gesture.source_with(move || state.source_snapshot());
                 kivact::custom::Part::new(input_part.state(), move |node| {
                     node.part(input_part)
                         .role(Role::Slider)

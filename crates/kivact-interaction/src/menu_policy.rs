@@ -3,8 +3,8 @@ use std::time::Duration;
 /// Whether disabled menu entries participate in roving keyboard focus.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DisabledMenuFocus {
-    #[default]
     Skip,
+    #[default]
     Retain,
 }
 
