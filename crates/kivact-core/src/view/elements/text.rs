@@ -14,7 +14,7 @@
 use std::panic::Location;
 
 use crate::state::{IntoText, IntoValue};
-use crate::view::node::{Content, Node};
+use crate::view::element_data::{Content, Node};
 use crate::view::span::Span;
 use crate::view::{IntoView, Role, View};
 

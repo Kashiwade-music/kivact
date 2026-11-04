@@ -25,8 +25,8 @@ use super::semantics::SemanticProps;
 use super::{diagnostics, part_input, parts, regions};
 use crate::view::descriptor::Mcx;
 use crate::view::editing_data::TextEditing;
+use crate::view::element_data::{Common, StyleLayer};
 use crate::view::ime_session::ImeSession;
-use crate::view::node::{Common, StyleLayer};
 use crate::view::node_ref::NodeRef;
 
 /// One host node's stage inputs, each moved into exactly one stage.
@@ -53,7 +53,8 @@ pub(super) fn resolve(
     at: &'static Location<'static>,
 ) -> Resolved {
     let common = {
-        let mut node = crate::view::node::Node::new(crate::view::node::Content::Box, None);
+        let mut node =
+            crate::view::element_data::Node::new(crate::view::element_data::Content::Box, None);
         node.common = common;
         while !node.common.deferred_parts.is_empty() {
             let deferred = std::mem::take(&mut node.common.deferred_parts);

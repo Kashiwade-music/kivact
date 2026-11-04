@@ -496,7 +496,7 @@ pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 #[derive(Default)]
 pub(crate) struct Common {
     pub(crate) deferred_parts:
-        Vec<Box<dyn FnOnce(crate::view::node::Node) -> crate::view::node::Node>>,
+        Vec<Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node>>,
     pub(crate) exit_layout: Option<super::exit_layout::ExitLayout>,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// NodeRefs bound at mount (each once, in order).

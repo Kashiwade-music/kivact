@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use super::{parts, region_template};
 use crate::view::descriptor::Mcx;
-use crate::view::node::{
+use crate::view::element_data::{
     Adopted, Common, Declaration, Entry, Gestures, RegionBinding, RegionEntry, RegionKey, Registry,
     RegistryPhase, State, Target, TargetId,
 };
@@ -17,7 +17,8 @@ use kivact_types::NodeId;
 
 impl Registry {
     pub(super) fn entry(&self, id: RegionId, template: Common, item_owner: Owner) -> Rc<Entry> {
-        let mut node = crate::view::node::Node::new(crate::view::node::Content::Box, None);
+        let mut node =
+            crate::view::element_data::Node::new(crate::view::element_data::Content::Box, None);
         node.common = template;
         while !node.common.deferred_parts.is_empty() {
             let deferred = std::mem::take(&mut node.common.deferred_parts);

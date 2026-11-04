@@ -10,7 +10,7 @@ use super::builders::node;
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
-use crate::view::node::{Node, NodeBuilder};
+use crate::view::element_data::{Node, NodeBuilder};
 use crate::view::state::ViewState;
 use crate::view::{IntoView, Orientation, Role, View};
 use kivact_style::{Direction, Style, style};

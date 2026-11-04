@@ -12,7 +12,7 @@ use kivact_types::{LayoutProps, NodeId};
 
 use super::facts::{LocalPaintSource, NodeFacts};
 use crate::view::descriptor::Mcx;
-use crate::view::node::StyleLayer;
+use crate::view::element_data::StyleLayer;
 use crate::view::state::ViewState;
 
 /// Merge `layers` in order over the empty style.

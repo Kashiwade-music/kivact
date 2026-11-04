@@ -1,9 +1,12 @@
 //! Role: Read-only inspection of a started application.
 use super::runtime::{ClientMode, Launch, LaunchState, TestTiming};
-use crate::{client::state::HostState, view::state::ViewState};
+use crate::client::state::HostState;
+use crate::view::state::ViewState;
 use kivact_engine::api::Client;
 use kivact_runtime::{Runtime, TaskState, UiError};
-use std::{cell::RefCell, panic::Location, rc::Rc};
+use std::cell::RefCell;
+use std::panic::Location;
+use std::rc::Rc;
 /// Read-only handle shared with an engine client.
 pub struct LaunchHandle(pub(super) Rc<RefCell<Launch>>);
 pub struct Inspect<'a> {

@@ -26,7 +26,7 @@ mod text;
 mod text_binding;
 
 #[doc(inline)]
-pub use crate::view::node::{Node, NodeBuilder};
+pub use crate::view::element_data::{Node, NodeBuilder};
 #[doc(inline)]
 pub use crate::view::span::{Span, span};
 pub use builders::{canvas, icon, image, node};
