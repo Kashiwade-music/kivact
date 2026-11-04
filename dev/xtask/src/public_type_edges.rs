@@ -10,6 +10,7 @@
 
 use crate::check_source::Source;
 use std::collections::{BTreeMap, BTreeSet};
+use syn::spanned::Spanned;
 use syn::visit::Visit;
 
 type Edges = BTreeMap<String, BTreeSet<String>>;
@@ -29,9 +30,7 @@ pub(crate) fn collect(
                 syn::Item::Enum(i) if public(&i.vis) => {
                     (definition(source, &i.ident.to_string()), &i.generics)
                 }
-                syn::Item::Type(i) if public(&i.vis) => {
-                    (definition(source, &i.ident.to_string()), &i.generics)
-                }
+                syn::Item::Type(i) => (definition(source, &i.ident.to_string()), &i.generics),
                 syn::Item::Trait(i) if public(&i.vis) => {
                     (definition(source, &i.ident.to_string()), &i.generics)
                 }
@@ -59,6 +58,7 @@ pub(crate) fn collect(
                     for member in &i.items {
                         if let syn::ImplItem::Fn(method) = member
                             && public(&method.vis)
+                            && !source.internal_contract(&method.attrs, method.sig.span())
                         {
                             visitor.signature(&method.sig);
                         }
@@ -93,7 +93,9 @@ pub(crate) fn collect(
                         visitor.visit_type_param_bound(bound);
                     }
                     for member in &i.items {
-                        if let syn::TraitItem::Fn(method) = member {
+                        if let syn::TraitItem::Fn(method) = member
+                            && !source.internal_contract(&method.attrs, method.sig.span())
+                        {
                             visitor.signature(&method.sig);
                         }
                     }

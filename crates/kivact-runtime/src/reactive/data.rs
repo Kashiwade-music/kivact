@@ -320,8 +320,10 @@ pub struct NodeInfo {
     /// Value type name.
     pub ty: &'static str,
     /// Where the node was created.
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
     pub at: &'static Location<'static>,
     /// Location and turn of the last value-changing write (sources).
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
     pub written: Option<(&'static Location<'static>, Turn)>,
     /// What the node read during its last run, in read order.
     pub deps: Vec<NodeId>,
@@ -423,8 +425,10 @@ pub struct TraceWrite {
     /// Type name of the written value.
     pub ty: &'static str,
     /// Where the signal was created.
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
     pub created_at: &'static Location<'static>,
     /// Where it was written.
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
     pub at: &'static Location<'static>,
 }
 
@@ -434,6 +438,7 @@ pub struct TraceRun {
     /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
     pub kind: &'static str,
     /// Where the memo or effect was created.
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
     pub at: &'static Location<'static>,
 }
 

@@ -29,8 +29,10 @@ pub enum ErrorKind {
     /// A handle was used after its owner was disposed.
     Disposed {
         /// Where the handle's node, object or owner was created, if known.
+        // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
         created_at: Option<&'static Location<'static>>,
         /// Where the owner that released it was created, if known.
+        // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
         disposed_by: Option<&'static Location<'static>>,
     },
     /// A write to a disposed signal (ignored, recorded in diagnostics).
@@ -42,6 +44,7 @@ pub enum ErrorKind {
     /// A dependency or effect cycle; `path` lists creation sites.
     Cycle {
         /// Creation sites of the computations on the cycle.
+        // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
         path: Vec<&'static Location<'static>>,
     },
     /// Duplicate `for_each` key; later rows are dropped. `key_hash` identifies the key.
@@ -102,6 +105,7 @@ pub struct UiError(Arc<Inner>);
 
 impl UiError {
     /// An error of `kind` with `message`, located at `at` when known.
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
     pub fn new(
         kind: ErrorKind,
         message: impl Into<String>,
@@ -127,6 +131,7 @@ impl UiError {
 
     /// Convert a boxed error (for example `anyhow::Error::into()`).
     #[track_caller]
+    // xtask-allow(api-shape): Standard Rust Error interop intentionally accepts boxed errors (design 10.11).
     pub fn from_boxed(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
         UiError(Arc::new(Inner {
             kind: ErrorKind::External,
@@ -154,6 +159,7 @@ impl UiError {
     }
 
     /// Source position where the error was raised, when known.
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
     pub fn location(&self) -> Option<&'static Location<'static>> {
         self.0.at
     }

@@ -5,6 +5,7 @@
 //! Library and binary targets have distinct identities even within one package;
 //! package selectors include declared and autodiscovered binary roots.
 
+use quote::ToTokens;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
@@ -46,7 +47,7 @@ impl Source {
             if let Some(reason) = line.strip_prefix(&marker) {
                 return !reason.trim().is_empty();
             }
-            if !(line.starts_with("#[")
+            if !((line.starts_with("#[") && line.ends_with(']'))
                 || line.starts_with("///")
                 || line.starts_with("// xtask-allow("))
             {
@@ -54,6 +55,16 @@ impl Source {
             }
         }
         false
+    }
+    pub(crate) fn internal_contract(
+        &self,
+        attrs: &[syn::Attribute],
+        span: proc_macro2::Span,
+    ) -> bool {
+        attrs.iter().any(|attribute| {
+            attribute.path().is_ident("doc")
+                && attribute.meta.to_token_stream().to_string() == "doc (hidden)"
+        }) && self.allows("internal-contract", span)
     }
     pub(crate) fn error(
         &self,

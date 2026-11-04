@@ -45,7 +45,7 @@ impl Options {
             }
         }
         if let Some(rule) = &result.only
-            && !RULES.contains(&rule.as_str())
+            && !rule.split(',').all(|name| RULES.contains(&name))
         {
             return Err(format!("unknown check: {rule}"));
         }
@@ -56,7 +56,9 @@ impl Options {
     }
 
     pub(crate) fn selected(&self, rule: &str) -> bool {
-        self.only.as_deref().is_none_or(|only| only == rule)
+        self.only
+            .as_deref()
+            .is_none_or(|only| only.split(',').any(|name| name == rule))
     }
 }
 
@@ -82,6 +84,16 @@ mod tests {
             .to_vec(),
         )
         .unwrap();
+        let (selected, _) = Options::parse(vec![
+            "--only".into(),
+            "api-shape,canonical-path,structural-options".into(),
+        ])
+        .unwrap();
+        assert!(selected.selected("api-shape"));
+        assert!(selected.selected("canonical-path"));
+        assert!(selected.selected("structural-options"));
+        assert!(!selected.selected("state-fields"));
+        assert!(Options::parse(vec!["--only".into(), "api-shape,unknown".into()]).is_err());
         assert!(options.report);
         assert_eq!(options.package.as_deref(), Some("demo"));
         assert_eq!(rest, ["check", "--no-write"]);

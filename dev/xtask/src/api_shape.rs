@@ -52,7 +52,9 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
                     .contains(&definition(source, &item.ident.to_string())) =>
             {
                 for member in &item.items {
-                    if let syn::TraitItem::Fn(method) = member {
+                    if let syn::TraitItem::Fn(method) = member
+                        && !source.internal_contract(&method.attrs, method.sig.span())
+                    {
                         check_signature(source, &method.sig, true, errors);
                     }
                 }
@@ -62,7 +64,7 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
                     .reachable
                     .contains(&definition(source, &item.ident.to_string())) =>
             {
-                check_type(source, &item.ty, false, errors)
+                check_type(source, &item.ty, true, errors)
             }
             syn::Item::Const(item)
                 if surface
@@ -88,6 +90,7 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
                 for member in &item.items {
                     if let syn::ImplItem::Fn(method) = member
                         && matches!(method.vis, syn::Visibility::Public(_))
+                        && !source.internal_contract(&method.attrs, method.sig.span())
                     {
                         check_signature(source, &method.sig, true, errors);
                     }
@@ -122,6 +125,9 @@ fn check_type(source: &Source, ty: &syn::Type, f32_forbidden: bool, errors: &mut
     }
 }
 fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: &mut Vec<String>) {
+    if source.allows("api-shape", sig.span()) {
+        return;
+    }
     let args: Vec<_> = sig
         .inputs
         .iter()
@@ -142,18 +148,12 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
     let name = sig.ident.to_string();
     if method
         && name.starts_with("on_")
-        && (args.len() != 1
-            || !args.first().is_some_and(|ty| {
-                matches!(ty, syn::Type::ImplTrait(_))
-                    && type_names(ty)
-                        .iter()
-                        .any(|n| matches!(n.as_str(), "Fn" | "IntoAction"))
-            }))
+        && (args.len() != 1 || !args.first().is_some_and(|ty| callback_type(ty, sig)))
     {
         source.error(
             "api-shape",
             sig.span(),
-            "on_ method requires exactly one impl Fn or impl IntoAction callback",
+            "on_ method requires exactly one Fn, IntoAction or Into<Callback> callback",
             errors,
         );
     }
@@ -169,6 +169,35 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         );
     }
 }
+fn callback_type(ty: &syn::Type, sig: &syn::Signature) -> bool {
+    let valid = |bounds: &syn::punctuated::Punctuated<syn::TypeParamBound, syn::token::Plus>| {
+        bounds.iter().any(|bound| {
+            let syn::TypeParamBound::Trait(bound) = bound else {
+                return false;
+            };
+            let Some(segment) = bound.path.segments.last() else {
+                return false;
+            };
+            matches!(segment.ident.to_string().as_str(), "Fn" | "IntoAction")
+                || (segment.ident == "Into"
+                    && matches!(&segment.arguments, syn::PathArguments::AngleBracketed(arguments)
+                        if arguments.args.iter().any(|argument| matches!(argument,
+                            syn::GenericArgument::Type(syn::Type::Path(path))
+                            if path.path.segments.last().is_some_and(|name| name.ident == "Callback")))))
+        })
+    };
+    match ty {
+        syn::Type::ImplTrait(ty) => valid(&ty.bounds),
+        syn::Type::Path(path) if path.path.segments.len() == 1 => {
+            let name = &path.path.segments[0].ident;
+            sig.generics.type_params().any(|parameter| parameter.ident == *name && valid(&parameter.bounds))
+                || sig.generics.where_clause.as_ref().is_some_and(|clause| clause.predicates.iter().any(|predicate| {
+                    matches!(predicate, syn::WherePredicate::Type(predicate) if predicate.bounded_ty == *ty && valid(&predicate.bounds))
+                }))
+        }
+        _ => false,
+    }
+}
 #[cfg(test)]
 mod tests {
     //! Role: Check public fields, callbacks and ownership only on reachable items.
@@ -182,6 +211,28 @@ mod tests {
         let mut errors = Vec::new();
         super::check(&source, &surface, &mut errors);
         assert_eq!(errors.len(), 4);
+    }
+    #[test]
+    fn accepts_inline_generic_and_callback_bounds() {
+        let mut source = crate::check_source::fixture(
+            "pub struct Widget; impl Widget { pub fn on_inline(self, f: impl Fn()) {} pub fn on_generic<F: Fn()>(self, f: F) {} pub fn on_where<F>(self, f: F) where F: Fn() {} pub fn on_callback(self, f: impl Into<Callback<()>>) {} pub fn on_fake(self, f: impl Into<bool>) {} }",
+        );
+        source.module.clear();
+        let surface = crate::public_surface::build(std::slice::from_ref(&source));
+        let mut errors = Vec::new();
+        super::check(&source, &surface, &mut errors);
+        assert_eq!(errors.len(), 1);
+    }
+    #[test]
+    fn follows_alias_fields_but_not_private_fields() {
+        let mut source = crate::check_source::fixture(
+            "pub struct Widget { pub values: Vec<Alias>, private: Hidden } type Alias = Option<f32>; struct Hidden { pub value: f32 }",
+        );
+        source.module.clear();
+        let surface = crate::public_surface::build(std::slice::from_ref(&source));
+        let mut errors = Vec::new();
+        super::check(&source, &surface, &mut errors);
+        assert_eq!(errors.len(), 1);
     }
     #[test]
     fn resolves_qualified_and_imported_impl_types() {

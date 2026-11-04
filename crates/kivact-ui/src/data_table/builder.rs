@@ -437,7 +437,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// state: the default is the selection summary and the pager.
     pub fn footer<V: IntoView>(
         mut self,
-        slot: impl FnOnce(DataTableContext<R, K>) -> V + 'static,
+        slot: impl Fn(DataTableContext<R, K>) -> V + 'static,
     ) -> Self {
         self.footer = Some(Box::new(move |context| slot(context).into_view()));
         self
