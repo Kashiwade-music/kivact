@@ -164,6 +164,10 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
             }
         }
     }
+    let edges = crate::public_type_edges::collect(sources, definition, |source, ty| {
+        surface.resolve_type(source, ty)
+    });
+    crate::public_type_edges::extend(&mut surface.reachable, edges);
     surface
 }
 fn resolve(path: &str, aliases: &BTreeMap<String, String>) -> String {
@@ -300,6 +304,115 @@ impl Surface {
 #[cfg(test)]
 mod tests {
     //! Role: Follow aliases through private modules without exposing private items.
+
+    fn source(module: &str, text: &str) -> crate::check_source::Source {
+        let mut source = crate::check_source::fixture(text);
+        source.package = "kivact".into();
+        source.module = module.into();
+        source
+    }
+
+    #[test]
+    fn exposed_signatures_follow_hidden_nested_fields_and_recursive_enum_payloads() {
+        let sources = [
+            source(
+                "",
+                "mod hidden; pub fn make() -> hidden::Wrapper { loop {} } pub fn accept(value: hidden::Payload) {}",
+            ),
+            source(
+                "hidden",
+                "pub struct Wrapper { pub values: Option<Vec<Color>>, pub recursive: Option<Box<Wrapper>>, private: Internal } pub struct Color { pub channel: f32 } pub enum Payload { Item(Color), Again(Box<Payload>) } pub struct Internal { pub value: f32 }",
+            ),
+        ];
+        let surface = super::build(&sources);
+        for name in ["Wrapper", "Color", "Payload"] {
+            assert!(
+                surface
+                    .reachable
+                    .contains(&format!("kivact::hidden::{name}"))
+            );
+        }
+        assert!(!surface.reachable.contains("kivact::hidden::Internal"));
+        assert_eq!(surface.exports.len(), 2);
+        assert!(!surface.exports.contains_key("kivact::hidden::Color"));
+        let mut errors = Vec::new();
+        for source in &sources {
+            crate::api_shape::check(source, &surface, &mut errors);
+        }
+        assert_eq!(errors.len(), 1);
+        for source in &sources {
+            crate::canonical_path::check(source, &surface, &mut errors);
+        }
+        assert_eq!(
+            errors.len(),
+            1,
+            "derived type reachability must not create public export paths"
+        );
+    }
+
+    #[test]
+    fn public_inherent_methods_expose_input_and_return_types_across_modules() {
+        let sources = [
+            source("", "pub struct Widget; mod hidden; mod methods;"),
+            source(
+                "hidden",
+                "pub struct Returned { pub x: f32 } pub struct Input { pub x: f32 } pub struct Private { pub x: f32 }",
+            ),
+            source(
+                "methods",
+                "use crate::Widget; impl Widget { pub fn get(&self) -> crate::hidden::Returned { loop {} } pub fn accept(&self, value: crate::hidden::Input) {} fn implementation(&self) -> crate::hidden::Private { loop {} } }",
+            ),
+        ];
+        let surface = super::build(&sources);
+        assert!(surface.reachable.contains("kivact::hidden::Returned"));
+        assert!(surface.reachable.contains("kivact::hidden::Input"));
+        assert!(!surface.reachable.contains("kivact::hidden::Private"));
+        let mut errors = Vec::new();
+        for source in &sources {
+            crate::api_shape::check(source, &surface, &mut errors);
+        }
+        assert_eq!(errors.len(), 2);
+    }
+
+    #[test]
+    fn generic_parameter_shadowing_and_private_implementation_types_stay_hidden() {
+        let sources = [
+            source(
+                "",
+                "mod hidden; pub fn make() -> hidden::Generic<()> { let implementation: hidden::Internal; loop {} }",
+            ),
+            source(
+                "hidden",
+                "pub struct Generic<T> { pub value: T, private: Internal } pub struct T { pub x: f32 } pub struct Internal { pub x: f32 } impl<X> Generic<X> { pub fn project<T>(&self, value: T) -> T { value } }",
+            ),
+        ];
+        let surface = super::build(&sources);
+        assert!(surface.reachable.contains("kivact::hidden::Generic"));
+        assert!(!surface.reachable.contains("kivact::hidden::T"));
+        assert!(!surface.reachable.contains("kivact::hidden::Internal"));
+        let mut errors = Vec::new();
+        for source in &sources {
+            crate::api_shape::check(source, &surface, &mut errors);
+        }
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn public_aliases_and_written_associated_generic_arguments_expose_types() {
+        let sources = [
+            source(
+                "",
+                "mod hidden; pub fn make() -> impl Iterator<Item = hidden::Alias> { loop {} }",
+            ),
+            source(
+                "hidden",
+                "pub type Alias = Option<Color>; pub struct Color { pub x: f32 }",
+            ),
+        ];
+        let surface = super::build(&sources);
+        assert!(surface.reachable.contains("kivact::hidden::Alias"));
+        assert!(surface.reachable.contains("kivact::hidden::Color"));
+    }
     #[test]
     fn growing_alias_cycles_terminate() {
         let aliases = [

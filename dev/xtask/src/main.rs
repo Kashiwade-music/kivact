@@ -31,6 +31,7 @@ mod name_collision;
 mod os_branch;
 mod policy;
 mod public_surface;
+mod public_type_edges;
 mod state_fields;
 mod structural_options;
 
