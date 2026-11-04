@@ -35,7 +35,8 @@ mod frame;
 mod graph;
 mod handler;
 mod handles;
-pub(crate) mod host;
+mod host;
+pub(crate) mod host_types;
 mod identity;
 pub mod keyed;
 mod mounts;
@@ -56,13 +57,13 @@ mod turn;
 pub use clock::clock_now;
 pub use data::{
     Binding, Callback, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
-    TraceRun, TraceWrite, Turn, TurnRecord, UiThreadOnly, Value, Var,
+    TraceRun, TraceWrite, Turn, TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
 };
 pub use error::{ErrorKind, HandlerResult, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;
 pub use handler::{Handled, Handler};
-pub use host::{ExitState, Host, Pending, Stage, ThreadWaker, TurnGuard, TurnReport};
+pub use host_types::{ExitState, Host, Pending, Stage, ThreadWaker, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};
 pub use props::{IntoReactive, IntoText, IntoValue, Prop, Reactive};

@@ -27,6 +27,16 @@ use std::rc::Rc;
 use crate::reactive::arena::{Arena, Key};
 use crate::reactive::error::UiError;
 
+/// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
+pub(crate) const CYCLE_LIMIT: usize = 100;
+
+/// A running turn and its trace record.
+#[must_use]
+pub struct TurnGuard<'a> {
+    pub(crate) rt: &'a Runtime,
+    pub(crate) started: std::time::Instant,
+}
+
 /// Live-object counts (lifecycle leak checks).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LiveCounts {
@@ -63,9 +73,9 @@ pub struct Runtime {
     pub(crate) mount_revision: Cell<kivact_types::Revision>,
     pub(crate) unstamped: RefCell<Vec<Mount>>,
     pub(crate) awaiting: RefCell<VecDeque<(kivact_types::Revision, Mount)>>,
-    pub(crate) host: Rc<dyn crate::reactive::host::Host>,
-    pub(crate) state: Cell<crate::reactive::host::TurnState>,
-    pub(crate) exit: Cell<crate::reactive::host::ExitState>,
+    pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
+    pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
+    pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
@@ -127,7 +137,7 @@ impl PassRuns {
             self.runs = 0;
         }
         self.runs = self.runs.saturating_add(1);
-        if usize::from(self.runs) > crate::reactive::turn::CYCLE_LIMIT {
+        if usize::from(self.runs) > CYCLE_LIMIT {
             Err(CycleDetected)
         } else {
             Ok(())

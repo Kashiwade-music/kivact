@@ -5,7 +5,7 @@ use std::cell::{Cell, OnceCell, RefCell};
 
 use crate::reactive::arena::Arena;
 use crate::reactive::data::{Diag, LiveCounts, Runtime, Sched};
-use crate::reactive::host::{ExitState, Host, Stage, TurnState};
+use crate::reactive::host_types::{ExitState, Host, Stage, TurnState};
 use std::rc::Rc;
 
 impl Runtime {
