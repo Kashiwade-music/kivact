@@ -125,3 +125,4 @@
 | 2026-11-05 | N-F1-props / N-F4 | core の表示入力が固定値のまま残る | Scroll axes/Overlay 配置は core が reactive に更新し root を保つ。Sidebar side と HoverCard delay は明示の構築 geometry/timing policy として 10.6 に追加。 |
 | 2026-11-05 | fix-G3-8 | Prop theme は Rc/owner-bound Value を含み Send でない | 固定 theme と canonical Send startup data を UI thread に渡す。embedded reactive theme は root factory の provide_theme、caller-side reactive App theme は明示 Unsupported。Clone と run/test reactive 評価を保ち unsafe/snapshot を避ける。 |
 | 2026-11-05 | fix-G4-3 | key_step を get_untracked で固定すると prop が追従しない | Scalar/RangeScalar は Value を保持し動作時に読む。初期は既存 ScalarRangeError、後から不正なら設定 owner に報告して write しない。 |
+| 2026-11-05 | fix-G5-4 | scoped children のサイズ継承が失われる | input_group_with の FnOnce 初期化を group 文脈内で一度実行し eager 入口と mount 処理を共有。C は IntoChildren のまま、既存の継承/明示 size の assertion を保つ。 |

@@ -1481,6 +1481,8 @@ N-F4 の補足: Calendar の number_of_months/caption/week_start は reactive �
 
 N-F6 の補足: StepIndicator::Custom(ViewFn<()>) は plain な slot/config enum。typed children の IntoView は private composition context を読み、任意の View は必要な wrapper を使う（共有 label 測定などの既存挙動を保つ）。
 
+既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChildren`）は scoped initializer として残す。group の size 文脈の内側で一度だけ構築する意味があり、作り直す view slot や alias ではない。eager/scoped の入口は一つの private mount 処理へ集約する。
+
 ### N-G1 例・catalog・雛形の追従
 
 - **前提**: fan-out A と fix。

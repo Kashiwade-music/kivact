@@ -502,6 +502,8 @@ pub fn my_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Compo
 
 ## B.9 slot の種類の表（API-6、設計書 18.8 節）
 
+kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChildren`）は、size 文脈内で一度だけ子を構築する scoped initializer。eager な children と意味が異なるため残し、一つの mount 処理で扱う。再生成する view slot の `IntoViewFn` にはしない。
+
 | 部品 | `impl IntoView`（一度だけ mount） | `impl IntoViewFn` / `impl Fn(..) -> V`（作り直す） |
 |---|---|---|
 | `button` | `icon`、`trailing` | — |
