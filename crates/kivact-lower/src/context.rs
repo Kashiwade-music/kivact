@@ -130,7 +130,7 @@ impl<'a> Context<'a> {
     fn unavailable(&self, asset: &kivact_types::Asset) {
         match self.assets.borrow().status(asset) {
             Some(arvane::asset::ImageState::Failed(error)) => self.fail(
-                kivact_types::Failure::new(kivact_types::FailureKind::Resource, error),
+                kivact_types::Failure::new(kivact_types::FailureKind::Resource, error.to_string()),
             ),
             Some(arvane::asset::ImageState::Pending) => self.fail(kivact_types::Failure::new(
                 kivact_types::FailureKind::Unavailable,
