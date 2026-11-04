@@ -1675,7 +1675,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
     `modal` は option。「既に開いているのに開く」は、`Open` で受けた `Open` event を misuse として報告する。
   - SM-I03 delayed: `State::{Hidden, Opening, Shown, Closing, Dismissed}`（task の handle を除く）。開く・閉じるの待ちは `Step::after(delay, Event::OpenDue)` と `Event::CloseDue`。
   - SM-I04 tooltip: hub の状態は `struct Hub { stack: Vec<TooltipId>, warmth: Warmth }`、`enum Warmth { Cold, Warm { until_ns: u64 } }`。`TooltipId` は `Generation`。時間は `InteractionPolicy.tooltip`（I-0）。module の doc を事実（`Delayed` と popup の状態で作る）に直す。
-  - SM-I05 dialog: 状態は popup の `State`。`anchored` の bool を消し、`DialogMode::Popover { anchor }` の variant にする（名前は付録 B.10）。
+  - SM-I05 dialog: 状態は popup の `State`。`anchored` の bool を消し、private `DialogOptionsMode::Popover { anchor }` の variant にする。公開 `DialogMode::Popover` は trigger を自動で anchor にできる appearance enum のまま保つ。
 - **手順**: `disclosure.rs`、`popup.rs`、`delayed.rs`、`tooltip.rs`、`dialog.rs` を書き直す。APG の commit で直すのは `kivact-ui` の `disclosure.rs`・`dialog.rs`・`tooltip.rs`。
 - **APG**: Disclosure、Dialog (Modal)、Alert Dialog、Tooltip。
 - **試験**: APG の違いごとに `apg_disclosure.rs`、`apg_dialog.rs`、`apg_alert_dialog.rs`、`apg_tooltip.rs`。
@@ -1737,7 +1737,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
 
 - **目的**: 付録 A の SM-I11、SM-I12、SM-I13、SM-I24。設計書 19 章の `DragApi` の追加。
 - **決定済みの形**:
-  - SM-I11: `enum EditSession<T> { Idle, Editing { initial: T, origin: EditOrigin } }`。U-2 がこの型を crate の中から使えるように `pub(crate)` で置き、`EditApi` の公開の署名は変えない。
+  - SM-I11: `enum EditSessionState<T> { Idle, Editing { initial: T, origin: EditOrigin } }`。U-2 がこの型を crate の中から使えるように `pub(crate)` で置き、`EditSession` handle の公開の署名は変えない。
   - SM-I12: `State::{Idle, Pending { origin: Point, pointer: PointerId }, Active(Active), Releasing { edit: EditOwnership }}`、`enum EditOwnership { Owned, Borrowed }`。source の id は `Generation`。
   - SM-I13:
     ```rust
