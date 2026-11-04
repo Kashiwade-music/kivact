@@ -8,6 +8,7 @@ mod embed;
 mod support;
 mod theme_conformance;
 
+mod apg_tooltip;
 mod assets;
 mod async_tests;
 mod canvas;
