@@ -4,7 +4,7 @@ use super::text_input::text_input;
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
 use kivact_core::control::{Node, NodeBuilder, grid, icon};
-use kivact_core::i18n::message;
+use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, locale, message};
 use kivact_core::primitive::{NodeExt, PartState};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::{IntoText, IntoValue, IntoView, View, node_ref};
@@ -146,19 +146,25 @@ fn places(step: f64) -> usize {
 
 /// Keep the precision of the step and the bounds (the step grid starts at the
 /// minimum and the maximum clamps), or the full value without a step.
-fn format_value(value: f64, range: ScalarRange) -> String {
-    let Some(step) = range.step() else {
-        return value.to_string();
-    };
-    let places = places(step)
-        .max(places(range.min()))
-        .max(places(range.max()));
-    let text = format!("{value:.places$}");
-    if text.contains('.') {
-        text.trim_end_matches('0').trim_end_matches('.').to_owned()
-    } else {
-        text
-    }
+fn format_value(value: f64, range: ScalarRange, locale: &Locale) -> String {
+    let places = range.step().map_or_else(
+        || places(value),
+        |step| {
+            places(step)
+                .max(places(range.min()))
+                .max(places(range.max()))
+        },
+    );
+    locale.format_number(
+        value,
+        NumberStyle {
+            fraction_digits: FractionDigits::Range {
+                min: 0,
+                max: places.min(255) as u8,
+            },
+            grouping: Grouping::None,
+        },
+    )
 }
 impl IntoView for NumberInput {
     fn into_view(self) -> View {
@@ -189,27 +195,36 @@ impl IntoView for NumberInput {
             number = number.on_edit(move |phase| on_edit.call(phase));
         }
         let shown = number.value();
+        let locale = locale();
         let typed = signal(NumberText::Value(format_value(
             shown.get_untracked(),
             range,
+            &locale.get_untracked(),
         )));
         let input_ref = node_ref();
         let focused = input_ref.focused();
         // A value that changes elsewhere replaces the text, unless the text
         // already parses to it or the user's own typing just produced it.
-        effect_on(shown, move |&now| {
-            let keeps = typed.with_untracked(|shown_text| {
-                shown_text.text().trim().parse::<f64>().ok() == Some(now)
+        effect_on(
+            memo(move || (shown.get(), locale.get())),
+            move |&(now, ref current)| {
+                let keeps = typed.with_untracked(|shown_text| {
+                current.parse_number(shown_text.text()) == Some(now)
                     || matches!(shown_text, NumberText::Typed { produced: Some(p), .. } if *p == now)
             });
-            if !keeps {
-                typed.set(NumberText::Value(format_value(now, range)));
-            }
-        });
+                if !keeps {
+                    typed.set(NumberText::Value(format_value(
+                        now,
+                        range,
+                        &locale.get_untracked(),
+                    )));
+                }
+            },
+        );
         let edit = binding(
             memo(move || typed.with(|shown_text| shown_text.text().to_owned())),
             move |text: String| {
-                let parsed = text.trim().parse::<f64>().ok();
+                let parsed = locale.get_untracked().parse_number(&text);
                 if let Some(parsed) = parsed {
                     number.once(|| number.set(parsed));
                 }
@@ -235,6 +250,7 @@ impl IntoView for NumberInput {
                 typed.set(NumberText::Value(format_value(
                     shown.get_untracked(),
                     range,
+                    &locale.get_untracked(),
                 )));
             }
         });

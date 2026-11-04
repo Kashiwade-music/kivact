@@ -146,18 +146,18 @@ impl CalendarDate {
     }
 
     /// Days since 1970-01-01 (negative before).
-    pub fn to_epoch_days(self) -> i64 {
+    pub fn to_days(self) -> i64 {
         days_from_civil(self.year, self.month, self.day)
     }
 
     /// The date `days` after 1970-01-01.
-    pub fn from_epoch_days(days: i64) -> Self {
+    pub fn from_days(days: i64) -> Self {
         civil_from_days(days)
     }
 
     /// The date `days` later (earlier when negative).
     pub fn add_days(self, days: i32) -> Self {
-        civil_from_days(self.to_epoch_days() + i64::from(days))
+        civil_from_days(self.to_days() + i64::from(days))
     }
 
     /// The date `months` later with the same day, or the last day of a
@@ -170,7 +170,7 @@ impl CalendarDate {
     /// The day of the week.
     pub fn weekday(self) -> Weekday {
         // 1970-01-01 was a Thursday.
-        Weekday::Monday.days_after((self.to_epoch_days() + 3).rem_euclid(7) as usize)
+        Weekday::Monday.days_after((self.to_days() + 3).rem_euclid(7) as usize)
     }
 
     /// The number of days in this date's month.

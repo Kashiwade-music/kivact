@@ -303,7 +303,8 @@ pub fn message(key: &'static str, default: &'static str) -> Value<String> {
 /// text is replaced by the value `args` gives for `name`. `args` runs
 /// again whenever what it reads changes, so the text follows the values
 /// as well as the messages. A `{name}` it gives no value for stays as
-/// written. Setup only.
+/// written. A plural message uses the cardinal category of the numeric
+/// `count` argument under the nearest locale. Setup only.
 ///
 /// The App's text decides where each value goes, which is how a language
 /// whose word order differs from English keeps a natural sentence
@@ -329,9 +330,21 @@ pub fn message_with<A: IntoIterator<Item = (&'static str, String)>>(
 ) -> Value<String> {
     let owner = Owner::current("message_with", Location::caller());
     let messages = messages_value(owner);
+    let locale = locale_value(owner);
     memo(move || {
-        let template = messages.with(|m| m.get(key).unwrap_or(default).to_owned());
         let args: Vec<(&'static str, String)> = args().into_iter().collect();
+        let count = args
+            .iter()
+            .find(|(name, _)| *name == "count")
+            .and_then(|(_, value)| value.parse::<f64>().ok());
+        let category = count.map(|n| locale.with(|locale| locale.plural_category(n)));
+        let template = messages.with(|messages| {
+            category
+                .and_then(|category| messages.get_plural(key, category))
+                .or_else(|| messages.get(key))
+                .unwrap_or(default)
+                .to_owned()
+        });
         let args: Vec<(&str, &str)> = args.iter().map(|(k, v)| (*k, v.as_str())).collect();
         interpolate(&template, &args)
     })

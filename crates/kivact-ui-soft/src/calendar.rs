@@ -144,7 +144,7 @@ impl Calendar {
         let disabled = self.disabled.clone();
         move |range| {
             let (start, end) = (range.start(), range.end());
-            let span = start.to_epoch_days().abs_diff(end.to_epoch_days()) + 1;
+            let span = start.to_days().abs_diff(end.to_days()) + 1;
             min.is_none_or(|min| start >= min)
                 && max.is_none_or(|max| end <= max)
                 && span >= u64::from(min_span)
@@ -324,7 +324,7 @@ impl IntoView for Calendar {
                     || max.is_some_and(|max| day > max)
                     || disabled(day)
                     || pending.get().is_some_and(|anchor| {
-                        let span = anchor.to_epoch_days().abs_diff(day.to_epoch_days()) + 1;
+                        let span = anchor.to_days().abs_diff(day.to_days()) + 1;
                         day != anchor
                             && (span < u64::from(min_span)
                                 || max_span.is_some_and(|max| span > u64::from(max)))

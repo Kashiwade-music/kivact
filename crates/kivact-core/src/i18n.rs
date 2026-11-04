@@ -7,5 +7,7 @@
 pub use crate::view::boundary::{locale, message, message_with};
 #[doc(inline)]
 pub use kivact_i18n::{
-    CalendarDate, CalendarMonth, DateRange, Locale, Messages, Weekday, interpolate,
+    CalendarDate, CalendarMonth, DateRange, DateStyle, DateTime, FractionDigits, Grouping,
+    HourCycle, Locale, Messages, NameWidth, NumberStyle, PluralCategory, PluralForms, TimeOfDay,
+    TimeStyle, Weekday, interpolate,
 };
