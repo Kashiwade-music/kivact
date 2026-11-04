@@ -345,7 +345,7 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
   - `Environment`（設計書 5.5 節）が protocol の `Environment`、wire の `HostEnv`、`VirtualShell` の field の役割を全部持つ。`surface_active` は持たない（E-2 で engine の状態から派生させるまでは、engine が core への event に別の field として足す）。`keyboard_inset` を足す（`arvane-native` は `Insets::ZERO`）。
   - `PointerSettings` が protocol の `MouseSettings`（ns・論理 px）と `arvane-native/src/native_input/state.rs:13-29` の `MouseSettings`（ms・物理 px）を一つにする。単位は ns と論理 px。`drag_slop`（論理 px）を足し、`arvane-native` は Windows で `SM_CXDRAG`/`SM_CYDRAG`、ほかは 4.0 を入れる。
   - `FileDialog` が core の `platform::FileDialog`、wire の `FileDialogRequest`、shell の `ShellFileDialog` を一つにする（core の `to_wire`、engine の `pump.rs:471-478` の `dialog()` を消す）。
-  - `EmbedOptions` が engine・arvane・shell の三つを一つにする（`arvane/src/embed.rs:79-85`、`kivact-engine/src/embed.rs:83-90` の写しを消す）。
+  - `EmbedOptions` が engine・arvane・shell の三つの純粋な設定値を一つにする（`size`、`scale`、`prefer_gpu`、`gpu_preference`）。callback と panic slot は shell 所有の `ChildHooks` に分け、embed 入口・`Backend::open_child` に options と並べて明示的に渡す。既存の callback/panic の受け渡しを保つ。
   - `LayoutRule`・`LayoutLimit`・`LayoutFinding` は `kivact-types::check` の一つ。core の `test/screen/results.rs:189-220` の二つ目と変換を消す。
   - `ThemeHint` と `dark: bool` の変換（`events.rs:388-393`）を消し、`ThemeHint` だけにする。
 - **試験**: 足さない。
@@ -366,6 +366,8 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
 - **18 章の追加**: facade から届く型の公開の `f32` の field を全部 `f64` にする（`api-shape` の report で一覧を作り報告に書く。`Point`・`Size`・`Rect`・`Insets`・`Transform`・`Spring` など、設計書 18.4 節）。taffy の adapter と GPU の code の境界で f32 に変換する。
 
 ### V-5 入力 event を一つの形にする
+
+- **実コードとの照合による訂正**: `PointerSample.pressure` は未取得を保持する `Option<f64>`、`is_primary: bool` も保持する。`Routed<T>` は `input: T`、`target: Option<NodeId>`、`region: Option<RegionId>`、`local`、`captured`、`activation` を持つ。window 宛て key は target が `None`、pointer/wheel は `Some`。下の当初の `target: NodeId` の例よりこの訂正を優先する。
 
 - **目的**: 設計書 5.4 節。pointer の 4 つの形と key の 2 つの形を一つにする。
 - **決定済みの形**: `PointerSample`、`KeyInput`、`WheelInput`、`ImeInput`、`FileDrop`（`kivact-types::input`）。engine の `Routed<T> { target: NodeId, local: Point, captured: bool, activation: Option<Activation> }`（`kivact-engine::contract`）。`Activation` は、現在 `Reader::take_adopted_activation`（`kivact-core/src/client/dispatch/pointer.rs:178-184` が呼ぶ）が返す値をそのまま包む struct で、C-4 が使う。この unit では engine は常に `None` を入れる（core は今までどおり `take_adopted_activation` を呼ぶ。C-4 で置き換える）。core の `PointerEvent`・`KeyEvent`・`WheelEvent` は `Routed<..>` を包む型にし、field を写さない。`KeyEvent.region` の field を `region()` のメソッドにする。

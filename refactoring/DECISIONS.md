@@ -2391,6 +2391,16 @@ P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しい
 
 ## Orchestrator follow-up decisions
 
+### W1 definition reconciliation
+
+- V-2: `Semantics<R>` includes the semantic properties currently split across `NodeSemantics`, both property structs, and the protocol node. The transport node retains topology/geometry plus one `semantics` value. Existing wire optional booleans take precedence; protocol-only `protected` remains a bool.
+- V-3: `EmbedOptions` is a pure value (`size`, `scale`, `prefer_gpu`, `gpu_preference`). Resize callbacks and the existing panic slot belong to shell-owned `ChildHooks`, passed explicitly beside options through embedding entry points and `Backend::open_child`. Preserve callback and panic forwarding behavior. This corrects the old options' hidden closure/state boundary rather than adding types-to-shell dependencies.
+- V-3: `FailureKind` adopts existing Arvane `ErrorKind` categories Content/Resource/Backend/Surface/Unavailable; no new arbitrary classification.
+- V-4: create helper definitions alongside the other definitions, then apply the cross-module f64 conversion after those merges and before grouped consumer migration. This avoids overlapping changes to the same types without changing the wave's final scope.
+- V-4: `Generation` is a copyable opaque u64 token, starts at zero, and `next(&mut self) -> Self` checks overflow; `is_current(&self, token: Self)` compares tokens. `Sent::update` retains the appendix's `Option<&T>` contract. Detached-thread tracking remains a permanent process fact, matching all four existing sticky atomic flags.
+- V-5: preserve unavailable pressure as `Option<f64>` and retain `is_primary`; the illustrative 5.4 struct omitted both distinctions. `Routed<T>` carries `input`, `target: Option<NodeId>`, `region: Option<RegionId>`, `local`, `captured`, and `activation`. A missing target preserves window-directed keyboard input. Pointer/wheel producers supply a target. Route facts are stored once. `Activation` wraps the existing adopted-activation boolean until C-4.
+- V-6: computed text resolves inheritance while preserving relative length/current-color meanings. Keep `TextLen`, `LineHeight`, and `TextDecoration` values and resolve pixels at use; semantic absence (unlimited lines, absent caret override) may remain optional. A parent 10px font with 0.1em spacing and a child 20px font must still yield 2px spacing. Do not add a second raw-style snapshot.
+
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
 | 2026-11-04 | V-1a | Shared accessibility node/run numeric identity space | Define TextRunId in types::ids and reexport it from types/wire; retain node/run collision rejection with explicit SemanticsId(run.id.0) conversions at validation/error boundaries. |

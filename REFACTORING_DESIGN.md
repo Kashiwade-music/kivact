@@ -470,12 +470,13 @@ pub struct PointerSample {
     pub id: PointerId, pub kind: PointerKind, pub phase: PointerPhase,
     pub position: Point,            // window の論理 px
     pub buttons: PointerButtons, pub button: Option<MouseButton>, pub press: Option<ButtonPress>,
-    pub pressure: f32, pub tilt: Option<(f32, f32)>, pub time_ns: u64, pub modifiers: Modifiers,
+    pub pressure: Option<f64>, pub tilt: Option<(f64, f64)>, pub time_ns: u64, pub modifiers: Modifiers,
+    pub is_primary: bool,
 }
 ```
 
 - shell は `PointerSample` を作る（`Mouse`・`ClickCounter`・`Contacts` の正規化はここ）。
-- engine は `Routed<PointerSample>`（target の node、local 座標、capture の有無）を core へ渡す。
+- engine は `Routed<PointerSample>`（`target: Option<NodeId>`、`region: Option<RegionId>`、local 座標、capture の有無、input）を core へ渡す。window 宛て key の target は `None`、pointer/wheel は `Some`。pressure の未取得と primary の区別を保持する。
 - core は `PointerEvent`（公開型、`kivact::view`）として handler へ渡す。`PointerEvent` は `Routed<PointerSample>` を包むだけで、field を写さない。
 - key も同じ: shell の `KeyInput` → engine の `Routed<KeyInput>` → core の `KeyEvent`。`KeyEvent.region` の field と `PointerEvent::region()` のメソッドの不揃いはなくし、全部メソッドにする。
 
@@ -484,7 +485,7 @@ pub struct PointerSample {
 ```rust
 // kivact_types::env
 pub struct Environment {
-    pub scale_factor: f32, pub window_size: Size, pub safe_area: Insets, pub keyboard_inset: Insets,
+    pub scale_factor: f64, pub window_size: Size, pub safe_area: Insets, pub keyboard_inset: Insets,
     pub theme_hint: ThemeHint, pub reduced_motion: bool, pub locale: Option<String>,
     pub fullscreen: bool, pub pointer: PointerSettings, pub fonts: Generation, // font の集合の世代（S-9。counter を event に使わない）
     // surface_active は持たない: engine の HostPhase から派生する（S-4）
@@ -498,6 +499,7 @@ backend → engine → core へ同じ値を送る。core は field ごとの mem
 - `TextStyle`（宣言）: 全 field が `Option`（`None` = 親から継承）。`Style` の builder が作る。
 - `ComputedTextStyle`（計算値）: 全 field が値。`impl ComputedTextStyle { pub fn inherit(parent: &ComputedTextStyle, own: &TextStyle) -> Self }` が継承の規則を一か所に持つ（現在 engine の `measure/inherited_text.rs` にある）。
 - `arvane-text` は `ComputedTextStyle` を直接受け取る。`kivact-lower/src/conversion.rs:47-141` の写しと、wire の `TextProps`/`TextMore`、protocol の `TextStyle` は消える。
+- 計算値は継承を解決するが、`TextLen`・`LineHeight`・`TextDecoration` の相対長・current color の意味を保ち、利用時に px を解決する。意味としての不在（無制限の行数など）は `Option` を保つ。親の相対 spacing は子の font size で解決する現行挙動を変えない。
 
 **text style の性質を足すときに変える場所:** `kivact-types` の二つの struct と `inherit`、`kivact-style` の builder、`arvane-text` の使い方。
 
