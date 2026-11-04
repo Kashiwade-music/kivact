@@ -9,8 +9,6 @@
 //!   it (their frames are the same whatever the environment); their
 //!   option `VirtualWindowOptions::renderer` stands for it, by the same
 //!   rule ([`starts_gpu`]).
-//! - `ARVANE_TEST_HEADLESS` (any value but `0`): test windows in
-//!   `WindowMode::Auto` are headless (feature `testing`).
 //! - `WGPU_BACKEND`, `WGPU_POWER_PREF` and the instance flags wgpu reads
 //!   (`WGPU_VALIDATION`, `WGPU_DEBUG` ..): how GPU devices are made
 //!   (feature `gpu`; read by `arvane-render`, which alone knows wgpu). The
@@ -31,9 +29,6 @@ pub(crate) struct Env {
     /// `ARVANE_RENDERER`: the renderer native windows draw with, whatever
     /// the host prefers.
     pub(crate) renderer: Option<Renderer>,
-    /// `ARVANE_TEST_HEADLESS`: test windows that may be real are headless.
-    #[cfg(feature = "testing")]
-    pub(crate) test_headless: bool,
     /// How GPU devices are made.
     #[cfg(feature = "gpu")]
     pub(crate) gpu: arvane_render::GpuEnv,
@@ -51,8 +46,6 @@ impl Env {
                 Ok("gpu") => Some(Renderer::Gpu),
                 _ => None,
             },
-            #[cfg(feature = "testing")]
-            test_headless: std::env::var_os("ARVANE_TEST_HEADLESS").is_some_and(|v| v != "0"),
             #[cfg(feature = "gpu")]
             gpu: arvane_render::GpuEnv::from_env(preference),
         }

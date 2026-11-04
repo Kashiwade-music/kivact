@@ -3,82 +3,54 @@
 //! This backend owns no renderer. The facade alone owns Presenter and capture
 //! policy; CPU frames and native GPU targets cross the ordinary shell SPI.
 
-use arvane_native::test_display::TestWindow;
+use crate::surface::TestSurface;
 use arvane_shell::{
     Accessibility, AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow,
 };
 use kivact_types::Environment;
 use kivact_types::render::{SemanticsTree, SemanticsUpdate};
-use kivact_types::{Capabilities, Cursor, Modifiers, Rect, Size};
+use kivact_types::{Capabilities, Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-pub(super) struct VirtualShell {
-    pub(super) now: u64,
+pub(crate) struct VirtualShell {
+    pub(crate) now: u64,
     /// The single snapshot of the window's environment and preferences.
-    pub(super) env: RefCell<Environment>,
-    pub(super) requested_sizes: Vec<Size>,
-    pub(super) clipboard: String,
-    pub(super) dialogs: VecDeque<Option<Vec<PathBuf>>>,
+    pub(crate) env: RefCell<Environment>,
+    pub(crate) requested_sizes: Vec<Size>,
+    pub(crate) clipboard: String,
+    pub(crate) dialogs: VecDeque<Option<Vec<PathBuf>>>,
     /// Paths asked to be opened, in order.
-    pub(super) opened: Vec<PathBuf>,
+    pub(crate) opened: Vec<PathBuf>,
     /// Paths asked to be revealed, in order.
-    pub(super) revealed: Vec<PathBuf>,
-    pub(super) fail_next: Option<ShellError>,
-    pub(super) redraw: Cell<bool>,
-    pub(super) title: RefCell<String>,
-    pub(super) min_size: Cell<Option<Size>>,
+    pub(crate) revealed: Vec<PathBuf>,
+    pub(crate) fail_next: Option<ShellError>,
+    pub(crate) redraw: Cell<bool>,
+    pub(crate) title: RefCell<String>,
+    pub(crate) min_size: Cell<Option<Size>>,
     /// The IME caret area while a text input has the focus.
-    pub(super) ime: Cell<Option<Rect>>,
+    pub(crate) ime: Cell<Option<Rect>>,
     /// What the focused text input shows the IME.
-    pub(super) ime_text: RefCell<Option<ShellImeText>>,
+    pub(crate) ime_text: RefCell<Option<ShellImeText>>,
     /// The cursor shown over the content.
-    pub(super) cursor: Cell<Cursor>,
+    pub(crate) cursor: Cell<Cursor>,
     /// The software keyboard is shown; how often it was shown or hidden.
-    pub(super) soft_keyboard: (Cell<bool>, Cell<u32>),
-    pub(super) frame: Option<(u32, u32, Arc<[u32]>)>,
+    pub(crate) soft_keyboard: (Cell<bool>, Cell<u32>),
+    pub(crate) frame: Option<(u32, u32, Arc<[u32]>)>,
     /// Frames are drawn on the GPU.
-    pub(super) gpu: bool,
-    pub(super) real: Option<TestWindow>,
+    pub(crate) gpu: bool,
+    pub(crate) real: Option<Box<dyn Mirror>>,
     /// The accessibility tree without a real window.
-    pub(super) headless: Accessibility,
-    /// Counts the presses injected (`input`).
-    pub(super) clicks: arvane_shell::ClickCounter,
-    /// The mouse's position and held buttons (`mouse`, `input`).
-    pub(super) mouse: arvane_shell::Mouse,
-    /// Modifier facts at the virtual platform input source.
-    pub(super) modifiers: Modifiers,
-    /// The touch and pen contacts injected (`contact`).
-    pub(super) contacts: arvane_shell::Contacts,
+    pub(crate) headless: Accessibility,
     /// The platform hides the window: it has no buffer for frames.
-    pub(super) occluded: bool,
+    pub(crate) occluded: bool,
     /// Presentations that are to fail as a lost surface does.
-    pub(super) failing: u32,
+    pub(crate) failing: u32,
     /// The window's surface.
-    pub(super) surface: TestSurface,
-    pub(super) cpu_frame: Cell<bool>,
-}
-
-/// The window's presentation surface, as the test drives the platform.
-#[derive(Clone, Copy, Debug)]
-pub(super) enum TestSurface {
-    /// The surface of `generation` (the count of surfaces made; the first is 1).
-    Live { generation: NonZeroU64 },
-    /// Destroyed by the platform; the last one was of generation `last`.
-    Destroyed { last: NonZeroU64 },
-}
-
-impl TestSurface {
-    /// The live surface's generation; `None` while destroyed.
-    pub(super) fn generation(self) -> Option<u64> {
-        match self {
-            Self::Live { generation } => Some(generation.get()),
-            Self::Destroyed { .. } => None,
-        }
-    }
+    pub(crate) surface: TestSurface,
+    pub(crate) cpu_frame: Cell<bool>,
 }
 
 impl VirtualShell {
@@ -91,14 +63,35 @@ impl VirtualShell {
         }
     }
     /// The accessibility tree: the real window's, else the headless one.
-    pub(super) fn accessibility(&self) -> &Accessibility {
+    pub(crate) fn accessibility(&self) -> &Accessibility {
         self.real
             .as_ref()
-            .map_or(&self.headless, TestWindow::accessibility)
+            .map_or(&self.headless, |real| real.accessibility())
     }
 }
 
+/// A mirror accepts rendered output without contributing input.
+pub(crate) trait Mirror {
+    fn present(&self, width: u32, height: u32, pixels: Arc<[u32]>);
+    fn accessibility(&self) -> &Accessibility;
+    fn set_title(&self, title: &str);
+    fn resize(&self, width: u32, height: u32, scale: f64);
+    fn sync(&self);
+    fn with_gpu_target(
+        &self,
+        make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
+    ) -> Result<(), ShellError>;
+    fn gpu_presents(&self);
+}
+
 impl ShellWindow for VirtualShell {
+    fn keeps_frames(&self) -> bool {
+        true
+    }
+    fn keep_frame(&mut self, frame: kivact_types::render::CpuFrame) {
+        self.frame = Some((frame.width, frame.height, frame.to_softbuffer().into()));
+    }
+
     fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
         self.effect_result()?;
         self.requested_sizes.push(size);
@@ -200,6 +193,9 @@ impl ShellWindow for VirtualShell {
     }
     fn set_title(&self, title: &str) {
         title.clone_into(&mut self.title.borrow_mut());
+        if let Some(real) = &self.real {
+            real.set_title(title);
+        }
     }
     fn set_min_size(&self, size: Option<Size>) {
         self.min_size.set(size);
@@ -271,6 +267,13 @@ impl ShellWindow for VirtualShell {
         height: u32,
         draw: &mut dyn FnMut(&mut [u32]) -> bool,
     ) -> Result<bool, ShellError> {
+        if self.occluded {
+            return Ok(false);
+        }
+        if self.failing > 0 {
+            self.failing -= 1;
+            return Err(ShellError::new("the window's surface was lost"));
+        }
         if self.surface.generation().is_none() || width == 0 || height == 0 {
             return Ok(false);
         }
@@ -291,7 +294,7 @@ impl ShellWindow for VirtualShell {
     }
 }
 
-pub(super) fn physical(size: Size, scale: f64) -> (u32, u32) {
+pub(crate) fn physical(size: Size, scale: f64) -> (u32, u32) {
     let side = |v: f64| (v * scale).round().max(0.0) as u32;
     (side(size.width), side(size.height))
 }

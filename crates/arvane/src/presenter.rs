@@ -49,11 +49,7 @@ mod frame_policy;
 #[cfg(feature = "gpu")]
 mod gpu;
 mod health;
-#[cfg(feature = "testing")]
-mod test_frames;
 
 pub use frame::{FramePlan, Presented};
 pub(crate) use frame::{no_pixels, no_surface};
 pub(crate) use frame_policy::Presenter;
-#[cfg(feature = "testing")]
-pub(crate) use test_frames::surface_pixels;

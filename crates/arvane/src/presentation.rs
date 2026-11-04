@@ -87,7 +87,7 @@ impl fmt::Display for RendererChange {
 }
 
 /// Observes a window's renderer changes.
-pub(crate) type Observer = Box<dyn FnMut(&RendererChange)>;
+pub type Observer = Box<dyn FnMut(&RendererChange)>;
 
 /// Where a presenter notes its renderer changes.
 #[derive(Default)]

@@ -3,7 +3,7 @@
 //! Responsibility: the only crate outside Arvane may depend on (via
 //! `kivact-engine`). It wires the adapter crates together; the
 //! adapters share `kivact-types` values and portable `arvane-shell` contracts. Text is the [`Engine`]'s; windows ([`Window`]: the native
-//! [`NativeWindow`] run by [`Shell`], and the test windows) present scenes
+//! [`Window`] run by [`Shell`], and the test windows) present scenes
 //! through their own presenters, which own the renderers, the GPU life
 //! cycle and the frame policy (`presenter.rs`).
 //!
@@ -43,6 +43,7 @@
 #[cfg(feature = "embed")]
 pub mod embed;
 
+mod availability;
 mod engine;
 mod env;
 mod error;
@@ -50,9 +51,7 @@ mod presentation;
 mod presenter;
 mod rasterizer;
 pub mod spi;
-/// Windows for tests (feature `testing`).
-#[cfg(feature = "testing")]
-pub mod test_display;
+mod test_font;
 mod window;
 
 /// Images, SVG and font files: loading, decoding, the image cache and its
@@ -69,4 +68,7 @@ pub use presentation::{Renderer, RendererChange};
 pub use presenter::{FramePlan, Presented};
 pub use rasterizer::Rasterizer;
 
-pub use window::{Handler, NativeWindow, Shell, Window};
+pub use availability::gpu_unavailable;
+pub use presentation::Observer;
+pub use test_font::test_font;
+pub use window::{Handler, Shell, ShellSetup, SteppedShell, Window};

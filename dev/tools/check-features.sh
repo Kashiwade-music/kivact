@@ -29,7 +29,7 @@ entries=(
   arvane-native/testing
   arvane/gpu
   arvane/gpu-interop
-  arvane/testing
+  arvane-virtual/mirror
   kivact-gpu-share/export
   kivact-gpu-share/import
   kivact-gpu-share/wgpu

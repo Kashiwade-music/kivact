@@ -107,6 +107,13 @@ pub struct WinitWindow {
     frame_period_ns: u64,
 }
 impl ShellWindow for WinitWindow {
+    fn keeps_frames(&self) -> bool {
+        false
+    }
+    fn keep_frame(&mut self, _: kivact_types::render::CpuFrame) {
+        unreachable!("invariant: native windows do not keep frames")
+    }
+
     fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: Duration) -> bool {
         crate::wait::until(done, limit)
     }

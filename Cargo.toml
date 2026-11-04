@@ -32,6 +32,7 @@ members = [
     "crates/kivact-types",
     "crates/arvane-native",
     "crates/arvane-shell",
+    "crates/arvane-virtual",
     "crates/arvane-text",
     "crates/arvane-render",
     "crates/arvane-asset",
@@ -156,6 +157,8 @@ opt-level = 3
 [profile.dev.package.arvane-native]
 opt-level = 3
 [profile.dev.package.arvane-shell]
+opt-level = 3
+[profile.dev.package.arvane-virtual]
 opt-level = 3
 [profile.dev.package.parley]
 opt-level = 3

@@ -10,7 +10,6 @@ description = "Arvane: the window, text, rendering, accessibility and asset laye
 [dependencies]
 arvane-shell = { path = "../arvane-shell", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
-arvane-native = { path = "../arvane-native", version = "0.1.0" }
 arvane-text = { path = "../arvane-text", version = "0.1.0" }
 arvane-render = { path = "../arvane-render", version = "0.1.0" }
 arvane-asset = { path = "../arvane-asset", version = "0.1.0" }
@@ -27,8 +26,6 @@ gpu = ["arvane-render/gpu"]
 # (`DrawCommand::External`, `Window::import_external_image`): Direct3D 12
 # and Vulkan on Windows, Vulkan on Linux; elsewhere no window can import.
 gpu-interop = ["gpu", "arvane-render/gpu-interop"]
-# Real windows for tests (`arvane::test_display`).
-testing = ["arvane-native/testing"]
 
 # The render engine standing in for an application's in the GPU texture
 # sharing tests (`tests/e2e/external.rs`).
@@ -40,7 +37,10 @@ gpu-interop-producer = { path = "../../dev/tests/gpu-interop-producer", features
 [[test]]
 name = "e2e"
 path = "tests/e2e/main.rs"
-required-features = ["testing"]
+
+[dev-dependencies]
+arvane-native = { path = "../arvane-native", features = ["testing"] }
+arvane-virtual = { path = "../arvane-virtual", features = ["mirror"] }
 
 [lints]
 workspace = true

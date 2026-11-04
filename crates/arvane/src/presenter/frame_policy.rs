@@ -159,7 +159,9 @@ impl Presenter {
             if self.gpu.ready() {
                 return false;
             }
-            let make = |context: &arvane_render::GpuContext| make_surface(window, context, false);
+            let make = |context: &arvane_render::GpuContext| {
+                make_surface(window, context, window.keeps_frames())
+            };
             self.gpu
                 .advance(&mut self.notes, &make, window.physical_size());
             self.gpu.ready()
@@ -242,7 +244,9 @@ impl Presenter {
         let physical = window.physical_size();
         #[cfg(feature = "gpu")]
         {
-            let make = |context: &arvane_render::GpuContext| make_surface(window, context, false);
+            let make = |context: &arvane_render::GpuContext| {
+                make_surface(window, context, window.keeps_frames())
+            };
             self.gpu.advance(&mut self.notes, &make, physical);
             let started = Instant::now();
             // While a worker makes the window's swapchain, a frame presented
@@ -263,6 +267,11 @@ impl Presenter {
                 None => {}
                 Some(Ok((presentation, present))) => {
                     window.release_cpu_surface();
+                    if window.keeps_frames() && presentation == arvane_render::Presentation::Shown {
+                        if let Some(frame) = self.gpu.read_back() {
+                            window.keep_frame(frame.map_err(error::render)?);
+                        }
+                    }
                     return Ok(Drawn {
                         renderer: Renderer::Gpu,
                         shown: presentation == arvane_render::Presentation::Shown,
@@ -281,6 +290,13 @@ impl Presenter {
                     let raster = started.elapsed();
                     match self.gpu.present_pixels(&make, &pixels, physical) {
                         Some(Ok((presentation, present))) => {
+                            if window.keeps_frames()
+                                && presentation == arvane_render::Presentation::Shown
+                            {
+                                if let Some(frame) = self.gpu.read_back() {
+                                    window.keep_frame(frame.map_err(error::render)?);
+                                }
+                            }
                             return Ok(Drawn {
                                 renderer: Renderer::Cpu,
                                 shown: presentation == arvane_render::Presentation::Shown,

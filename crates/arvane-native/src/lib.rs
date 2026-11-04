@@ -68,7 +68,7 @@ mod open;
 mod runtime;
 mod services;
 #[cfg(feature = "testing")]
-pub mod test_display;
+pub mod mirror;
 mod wait;
 mod wheel;
 

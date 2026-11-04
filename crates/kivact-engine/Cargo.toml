@@ -30,7 +30,7 @@ gpu = ["arvane/gpu"]
 # the scene's external frames and the adapter the window reports.
 gpu-interop = ["gpu", "arvane/gpu-interop"]
 # The in-process test driver on real windows (`testing`).
-testing = ["arvane/testing", "dep:png"]
+testing = ["dep:png"]
 
 [[test]]
 name = "host_locale"
