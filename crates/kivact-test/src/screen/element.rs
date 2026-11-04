@@ -37,16 +37,16 @@ impl<'a> Element<'a> {
         self.screen.all(Query::TestId(id.into()), Some(self.node))
     }
 
-    /// The element's child nodes on the host, in order (structure, not
-    /// semantics: nodes assistive technology does not see are included).
+    /// The element's retained child nodes in order, projecting through
+    /// structural Contents boxes. Nodes without accessibility roles are included.
     pub fn children(&self) -> Vec<Element<'a>> {
-        let host = self.screen.host.borrow();
-        host.children(self.node)
-            .unwrap_or_default()
-            .iter()
+        self.screen
+            .facts()
+            .children(self.node)
+            .into_iter()
             .map(|c| Element {
                 screen: self.screen,
-                node: *c,
+                node: c,
                 region: None,
             })
             .collect()
