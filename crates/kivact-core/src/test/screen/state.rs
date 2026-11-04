@@ -6,7 +6,8 @@
 use std::fmt::Write as _;
 use std::panic::Location;
 
-use kivact_wire::{NodeId, SceneLayer};
+use kivact_engine::contract::SceneLayer;
+use kivact_types::NodeId;
 
 use super::model::Screen;
 use super::results::SemanticNode;
@@ -76,7 +77,7 @@ impl Screen {
     fn semantic(&self, id: NodeId, parent_at: Option<&'static Location<'static>>) -> SemanticNode {
         let tree = ViewState::tree(&self.rt);
         let focused = self.host.borrow().focused()
-            == Some(kivact_wire::FocusTarget {
+            == Some(kivact_types::FocusTarget {
                 node: id,
                 region: None,
             });
@@ -114,7 +115,7 @@ impl Screen {
                         value: r.value.clone(),
                         test_id: None,
                         focused: self.host.borrow().focused()
-                            == Some(kivact_wire::FocusTarget {
+                            == Some(kivact_types::FocusTarget {
                                 node: id,
                                 region: Some(r.id),
                             }),

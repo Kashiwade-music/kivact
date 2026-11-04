@@ -21,7 +21,7 @@ use crate::app::check_window_sizes;
 use crate::view::IntoView;
 use crate::{App, Result, UiError};
 use kivact_reactive::ErrorKind;
-use kivact_wire::ParentWindow;
+use kivact_types::ParentWindow;
 use std::ffi::c_void;
 use std::num::{NonZeroIsize, NonZeroU32};
 use std::panic::Location;

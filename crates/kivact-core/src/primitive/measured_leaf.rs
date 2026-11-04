@@ -8,10 +8,11 @@ use crate::view::node::{Node, NodeBuilder};
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, SyncHook};
 use crate::view::{IntoValue, IntoView, View};
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::LeafMeasure;
 use kivact_reactive::EffectKind;
 use kivact_reactive::Prop as InputProp;
-use kivact_wire::{self as wire, LeafMeasure, NodeId};
+use kivact_types::{self as values, NodeId};
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
@@ -118,7 +119,7 @@ fn bind_measure<T, F, R>(
         *current.borrow_mut() = Some(hooked);
         LeafMeasure::new(move |request, text| {
             hook.call(|content, f| f(content, constraints(request, text)))
-                .map_or_else(wire::LeafSize::default, |measured| {
+                .map_or_else(values::LeafSize::default, |measured| {
                     sanitize(measured.into())
                 })
         })

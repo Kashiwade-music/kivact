@@ -1,8 +1,8 @@
 //! Role: The `Path` value and the commands that build it: lines, curves, arcs and shapes.
 
 use crate::geometry::{CornerRadius, Point, Rect};
-use kivact_wire as p;
-use kivact_wire::FillRule;
+use kivact_types as p;
+use kivact_types::FillRule;
 
 /// A reusable path, filled with `Draw::fill_path`, stroked with
 /// `Draw::stroke_path`, and used as a clip, a hit region or a style clip

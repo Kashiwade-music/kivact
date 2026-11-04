@@ -29,7 +29,7 @@
 
 use std::panic::Location;
 
-use kivact_wire::{PlatformRequest, PlatformResult, RequestId};
+use kivact_types::{PlatformRequest, PlatformResult, RequestId};
 
 use super::state::{EffectWaiter, FocusWaiter, QueuedFocus, ViewState};
 use kivact_reactive::{ErrorKind, UiError};
@@ -40,7 +40,7 @@ use kivact_style::asset::Asset;
 /// node fails at once.
 pub(crate) fn request_focus(
     rt: &Runtime,
-    node: Option<kivact_wire::FocusTarget>,
+    node: Option<kivact_types::FocusTarget>,
     waiter: FocusWaiter,
     visible: bool,
 ) {
@@ -148,7 +148,7 @@ pub(crate) fn on_focus_result(rt: &Runtime, id: u64, result: Result<(), String>)
 /// asked for, nor to a node that left.
 pub(crate) fn flush_focus(rt: &Runtime) {
     let queued = std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().queued_focus);
-    let exists = |target: kivact_wire::FocusTarget| ViewState::tree(rt).contains(target.node);
+    let exists = |target: kivact_types::FocusTarget| ViewState::tree(rt).contains(target.node);
     let explicit = queued
         .iter()
         .any(|q| matches!(q.waiter, FocusWaiter::Report(..)) && exists(q.target));
@@ -190,7 +190,7 @@ pub(crate) fn flush_focus(rt: &Runtime) {
 }
 
 /// Whether the engine lets `target` take a restored focus now.
-fn can_take_focus(rt: &Runtime, target: kivact_wire::FocusTarget) -> bool {
+fn can_take_focus(rt: &Runtime, target: kivact_types::FocusTarget) -> bool {
     ViewState::tree(rt).reader().can_take_focus(target)
 }
 
@@ -200,7 +200,7 @@ fn can_take_focus(rt: &Runtime, target: kivact_wire::FocusTarget) -> bool {
 /// focus back then, dropped silently otherwise.
 pub(crate) fn request_restore_focus(
     rt: &Runtime,
-    node: kivact_wire::FocusTarget,
+    node: kivact_types::FocusTarget,
     report: Option<(Owner, &'static Location<'static>)>,
     visible: bool,
 ) {
@@ -210,7 +210,7 @@ pub(crate) fn request_restore_focus(
 /// Run the default action of `node` (`NodeRef::activate`) once the current
 /// handler has returned: the client takes the queue after each event and
 /// before each flush of the turn.
-pub(crate) fn request_activation(rt: &Runtime, node: kivact_wire::FocusTarget) {
+pub(crate) fn request_activation(rt: &Runtime, node: kivact_types::FocusTarget) {
     ViewState::of(rt)
         .requests
         .borrow_mut()
@@ -220,7 +220,7 @@ pub(crate) fn request_activation(rt: &Runtime, node: kivact_wire::FocusTarget) {
 }
 
 /// Take the activations asked for since the last call.
-pub(crate) fn take_activations(rt: &Runtime) -> Vec<kivact_wire::FocusTarget> {
+pub(crate) fn take_activations(rt: &Runtime) -> Vec<kivact_types::FocusTarget> {
     std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().pending_activations)
 }
 

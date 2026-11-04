@@ -4,8 +4,8 @@ use crate::color::Color;
 use crate::geometry::{Point, Size};
 use crate::paint::{Paint, fill_layer};
 use crate::theme::value::Theme;
-use kivact_wire as p;
-use kivact_wire::{A11yAction, Fill, RegionId, Role, Scene, SceneCmd};
+use kivact_types as p;
+use kivact_types::{A11yAction, Fill, RegionId, Role, Scene, SceneCmd};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 

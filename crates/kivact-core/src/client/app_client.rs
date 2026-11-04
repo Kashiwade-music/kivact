@@ -32,8 +32,9 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_engine::bridge::{Boundary, Client, HostWaker, Writer};
-use kivact_wire::{HostEvent, HostInfo, Size, TurnOutput};
+use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
+use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
+use kivact_types::Size;
 
 use crate::client::phases::{self, Phase};
 use crate::client::settle::settle_async;
@@ -447,8 +448,8 @@ impl Drop for AppClient {
 
 /// The name of a pointer phase without its press data (trace labels carry
 /// no values).
-fn phase_name(phase: kivact_wire::PointerPhase) -> &'static str {
-    use kivact_wire::PointerPhase as P;
+fn phase_name(phase: kivact_types::PointerPhase) -> &'static str {
+    use kivact_types::PointerPhase as P;
     match phase {
         P::Down(_) => "Down",
         P::Move => "Move",
@@ -460,8 +461,8 @@ fn phase_name(phase: kivact_wire::PointerPhase) -> &'static str {
 }
 
 /// Short cause label of an event for the structured trace (no values).
-fn describe(e: &kivact_wire::HostEvent) -> String {
-    use kivact_wire::HostEvent as E;
+fn describe(e: &kivact_engine::contract::HostEvent) -> String {
+    use kivact_engine::contract::HostEvent as E;
     match e {
         E::Pointer { node, event, .. } => {
             format!("Pointer {} n{}", phase_name(event.phase), node.0)

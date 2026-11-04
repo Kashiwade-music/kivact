@@ -6,7 +6,7 @@
 use super::Path;
 use crate::geometry::{Point, Rect, Size};
 use crate::transform::Transform;
-use kivact_wire::{PathCmd, Point as WirePoint};
+use kivact_types::{PathCmd, Point as WirePoint};
 use kurbo::{Arc, BezPath, ParamCurve, ParamCurveExtrema, PathEl, Point as KPoint, SvgArc, Vec2};
 use std::f64::consts::TAU;
 

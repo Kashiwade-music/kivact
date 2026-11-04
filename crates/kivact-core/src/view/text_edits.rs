@@ -1,7 +1,7 @@
 //! Role: The text edits of a delivered batch that have not run yet.
 
+use kivact_engine::contract::HostEvent;
 use kivact_reactive::Runtime;
-use kivact_wire::HostEvent;
 
 use crate::view::state::ViewState;
 

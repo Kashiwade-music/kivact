@@ -17,8 +17,8 @@
 //! engine's `GridProps`, and only a grid container or a grid item carries
 //! `LayoutProps::grid` (an `Option<Box<..>>`), so other nodes pay nothing.
 
-use kivact_wire as w;
-use kivact_wire::Align;
+use kivact_types as w;
+use kivact_types::Align;
 
 use super::length::Length;
 
@@ -327,9 +327,9 @@ fn template(tracks: &Tracks) -> Vec<w::GridTrack> {
             }),
             TrackKind::Repeat(count, inner) => w::GridTrack::Repeat(
                 match count {
-                    Repeat::Times(n) => w::Repeat::Count(*n),
-                    Repeat::AutoFill => w::Repeat::AutoFill,
-                    Repeat::AutoFit => w::Repeat::AutoFit,
+                    Repeat::Times(n) => w::GridRepeat::Count(*n),
+                    Repeat::AutoFill => w::GridRepeat::AutoFill,
+                    Repeat::AutoFit => w::GridRepeat::AutoFit,
                 },
                 sizes(inner),
             ),

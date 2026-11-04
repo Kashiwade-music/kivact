@@ -33,7 +33,8 @@ mod style;
 use super::common::Common;
 use resolve::Resolved;
 
-use kivact_wire::{LayoutProps, NodeId, NodeType};
+use kivact_engine::contract::NodeType;
+use kivact_types::{LayoutProps, NodeId};
 
 use super::descriptor::Mcx;
 

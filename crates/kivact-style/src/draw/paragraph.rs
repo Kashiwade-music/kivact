@@ -30,7 +30,7 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_wire::{self as p, SceneCmd, ShapedText, TextLine};
+use kivact_types::{self as p, SceneCmd, ShapedText, TextLine};
 
 use super::recorder::Draw;
 use super::text_run::{TextRun, TextStyle};

@@ -5,17 +5,17 @@
 
 use super::values::Animatable;
 
-pub(crate) use kivact_wire::motion::Kind;
-use kivact_wire::motion::{Easing, PlayDirection, Repeat, Spring};
+pub(crate) use kivact_types::motion::Kind;
+use kivact_types::motion::{Easing, PlayDirection, Repeat, Spring};
 
 /// How a value moves to a new target: the engine's transition, built
 /// through these methods only.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Transition(kivact_wire::motion::Transition);
+pub struct Transition(kivact_types::motion::Transition);
 
 impl Transition {
     fn new(kind: Kind) -> Self {
-        Transition(kivact_wire::motion::Transition {
+        Transition(kivact_types::motion::Transition {
             kind,
             delay_ms: 0.0,
             repeat: Repeat::Times(1),
@@ -92,7 +92,7 @@ impl Transition {
 
 impl Transition {
     /// The protocol form the engine plays.
-    pub fn as_wire(&self) -> &kivact_wire::motion::Transition {
+    pub fn as_wire(&self) -> &kivact_types::motion::Transition {
         &self.0
     }
 }

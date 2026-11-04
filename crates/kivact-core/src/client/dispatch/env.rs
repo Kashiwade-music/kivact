@@ -3,7 +3,7 @@
 
 use kivact_motion::MotionState;
 use kivact_reactive::Runtime;
-use kivact_wire::{HostEnv, MotionClock, NodeId, Point, Rect, Size};
+use kivact_types::{HostEnv, MotionClock, NodeId, Point, Rect, Size};
 
 use super::common::{handler, node_owner, run_handler, stale};
 use crate::client::state::HostState;

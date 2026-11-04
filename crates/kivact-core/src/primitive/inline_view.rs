@@ -5,7 +5,7 @@ use std::rc::Rc;
 use kivact_reactive::memo;
 use kivact_style::draw::{InlineParagraph, Point, TextStyle};
 use kivact_style::{Length, Position, pct, style};
-use kivact_wire::{InlineBox, Size};
+use kivact_types::{InlineBox, Size};
 
 use crate::control::{Node, NodeBuilder, node};
 use crate::view::{View, node_ref};

@@ -17,7 +17,7 @@
 use kivact_reactive::Signal;
 use kivact_reactive::selector;
 use kivact_reactive::{Owner, Runtime};
-use kivact_wire::FocusTarget;
+use kivact_types::FocusTarget;
 use std::panic::Location;
 
 use crate::view::state::{FocusKeys, ViewState};

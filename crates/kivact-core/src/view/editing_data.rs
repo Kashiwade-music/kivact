@@ -66,7 +66,7 @@ pub(crate) struct HighlightAt {
     pub(crate) rt: Rc<kivact_reactive::Runtime>,
     pub(crate) owner: kivact_reactive::Owner,
     pub(crate) theme: Option<kivact_reactive::Value<kivact_style::Theme>>,
-    pub(crate) id: kivact_wire::NodeId,
+    pub(crate) id: kivact_types::NodeId,
     pub(crate) at: &'static Location<'static>,
 }
 
@@ -89,10 +89,10 @@ pub struct TextEditing {
 pub(crate) struct EditorProps {
     pub(crate) behavior: Option<Rc<Behavior>>,
     pub(crate) highlight: Option<BindHighlight>,
-    pub(crate) forward_keys: Option<InputProp<Vec<kivact_wire::Key>>>,
+    pub(crate) forward_keys: Option<InputProp<Vec<kivact_types::Key>>>,
     pub(crate) value: InputProp<Rc<str>>,
     pub(crate) multiline: bool,
-    pub(crate) line_layout: Option<InputProp<kivact_wire::EditLineLayout>>,
+    pub(crate) line_layout: Option<InputProp<kivact_types::EditLineLayout>>,
     pub(crate) report_text: bool,
     pub(crate) password: Option<InputProp<bool>>,
     pub(crate) read_only: Option<InputProp<bool>>,

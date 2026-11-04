@@ -5,8 +5,8 @@
 //! Shared input values come from
 //! the protocol; pointer and wheel events add access to drawing regions.
 
-use kivact_wire as p;
-pub use kivact_wire::{
+use kivact_types as p;
+pub use kivact_types::{
     ButtonPress, FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerButtons, PointerId,
     PointerPhase,
 };
@@ -19,7 +19,7 @@ pub use kivact_wire::{
 /// `Cancel`. The mouse's own `Leave` comes before the contact's
 /// `Enter`, and a mouse resting in the window enters again after the
 /// contact's `Leave`.
-pub use kivact_wire::PointerKind;
+pub use kivact_types::PointerKind;
 
 use kivact_reactive::Result;
 use kivact_style::draw::{Point, RegionId};
@@ -27,7 +27,7 @@ use kivact_style::draw::{Point, RegionId};
 /// The input that requested dismissal. Unmounting an overlay does not
 /// produce a dismissal event; applications close it explicitly themselves.
 #[doc(inline)]
-pub use kivact_wire::DismissReason;
+pub use kivact_types::DismissReason;
 
 /// An assistive-technology request delivered to a node or one of its drawn
 /// regions (and the dismissals delivered to an overlay's Dismiss handler).
@@ -122,7 +122,7 @@ impl KeyHandlerResult for Result<Handled> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyEvent {
     /// Original host identity, retained independently of focus changes during bubbling.
-    pub(crate) origin: Option<kivact_wire::FocusTarget>,
+    pub(crate) origin: Option<kivact_types::FocusTarget>,
     /// The original keyboard target region, preserved while bubbling.
     pub region: Option<RegionId>,
     pub key: Key,
@@ -136,7 +136,7 @@ pub struct KeyEvent {
     /// retargeting. This remains the target's role as the event bubbles;
     /// it is not the role of each handler's node. `None` means no explicit role.
     /// Global shortcuts can use it to leave form controls to their own handlers.
-    pub target_role: Option<kivact_wire::Role>,
+    pub target_role: Option<kivact_types::Role>,
     /// Where the mouse was in the window, in logical pixels, when the key
     /// arrived: the point a shortcut opens a menu or picker at
     /// (`overlay_at`), whichever node has the keyboard focus.

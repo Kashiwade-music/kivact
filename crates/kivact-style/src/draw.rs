@@ -66,21 +66,21 @@ pub use super::path::{FillRule, Path, PathContour};
 #[cfg(feature = "gpu-interop")]
 pub use image::GpuFrame;
 pub use image::{ImageOptions, Pixels};
-pub use kivact_wire::{InlineBox, InlineBoxPlacement};
+pub use kivact_types::{InlineBox, InlineBoxPlacement};
 pub use layer::Layer;
 pub use paragraph::{InlineParagraph, TextParagraph};
 
-pub use kivact_wire::RegionId;
+pub use kivact_types::RegionId;
 
 /// Ends of open contours and dashes.
 #[doc(inline)]
-pub use kivact_wire::LineCap;
+pub use kivact_types::LineCap;
 /// How adjacent segments meet.
 #[doc(inline)]
-pub use kivact_wire::LineJoin;
+pub use kivact_types::LineJoin;
 /// A line's width, caps, joins and repeating dash pattern, in logical px.
 #[doc(inline)]
-pub use kivact_wire::Stroke;
+pub use kivact_types::Stroke;
 
 /// The extent of measured text: [`Draw::measure_text`] and
 /// `Constraints::measure_text` of `kivact::primitive`,
@@ -88,7 +88,7 @@ pub use kivact_wire::Stroke;
 /// `width` is the line advance, `height` is its height, and `baseline`
 /// is measured from its top (the `pos` passed to `Draw::text`).
 #[doc(inline)]
-pub use kivact_wire::TextMetrics;
+pub use kivact_types::TextMetrics;
 
 pub(crate) use local_paint::LocalPaint;
 pub use recorder::{Draw, Recording, RegionSemantics};

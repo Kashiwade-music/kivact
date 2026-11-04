@@ -2,7 +2,7 @@
 //! failures, host failures, memory warnings.
 
 use kivact_reactive::{ErrorKind, Runtime, UiError};
-use kivact_wire::{NodeId, PlatformResult, RequestId, Revision};
+use kivact_types::{NodeId, PlatformResult, RequestId, Revision};
 
 use super::common::{handler, node_owner, run_handler};
 use crate::client::state::HostState;

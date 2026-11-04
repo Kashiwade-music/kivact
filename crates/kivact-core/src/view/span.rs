@@ -8,7 +8,7 @@
 //! paragraph's (the text node's inherited text style). A span's
 //! decoration lines and features replace the paragraph's.
 
-use kivact_wire as p;
+use kivact_types as p;
 
 use crate::draw::Paint;
 use kivact_style::text::{FontFeature, FontKerning, SpanStyle, TextDecorationLine, TextLength};

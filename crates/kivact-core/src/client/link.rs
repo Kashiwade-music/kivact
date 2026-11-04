@@ -18,7 +18,7 @@
 
 use std::cell::{Cell, OnceCell};
 
-use kivact_engine::bridge::HostWaker;
+use kivact_engine::api::HostWaker;
 use kivact_reactive::Driver;
 
 /// The host clock and waker of one App.

@@ -25,7 +25,7 @@ use crate::{Color, ThemeColor};
 
 /// What a [`CanvasGradient`] paints beyond its offsets 0 and 1.
 #[doc(inline)]
-pub use kivact_wire::GradientExtend;
+pub use kivact_types::Extend as GradientExtend;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum CanvasShape {

@@ -141,7 +141,7 @@ pub(super) fn root_target(
 
 /// Wrapping happens after every caller modifier, before refs bind at mount end.
 pub(super) fn route(
-    node: kivact_wire::NodeId,
+    node: kivact_types::NodeId,
     mut caller: Handlers,
     registry: Rc<Registry>,
 ) -> Handlers {

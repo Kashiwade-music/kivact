@@ -1,4 +1,4 @@
-//! Role: Shared text_shaping values.
+//! Role: Backend-neutral text shaping and measurement queries.
 use crate::{InlineBox, ShapedInlineText, ShapedText, TextMetrics, TextRun};
 use std::sync::Arc;
 

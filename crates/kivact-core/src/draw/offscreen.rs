@@ -98,7 +98,7 @@ pub struct RgbaImage {
 /// requires_send::<kivact::draw::Offscreen>();
 /// ```
 pub struct Offscreen {
-    engine: kivact_engine::bridge::Offscreen,
+    engine: kivact_engine::api::OffscreenRenderer,
     theme: Theme,
 }
 
@@ -111,7 +111,7 @@ impl Default for Offscreen {
 impl Offscreen {
     pub fn new() -> Self {
         Self {
-            engine: kivact_engine::bridge::Offscreen::new(),
+            engine: kivact_engine::api::OffscreenRenderer::new(),
             theme: Theme::default(),
         }
     }
@@ -162,7 +162,7 @@ impl Offscreen {
         paint: impl FnOnce(&mut Draw, Size),
     ) -> Result<RgbaImage> {
         let at = Location::caller();
-        if !kivact_engine::bridge::Offscreen::accepts_size(width, height) {
+        if !kivact_engine::api::OffscreenRenderer::accepts_size(width, height) {
             return Err(failed(
                 ErrorKind::Message,
                 format!("invalid or excessive image size {width}x{height}"),
@@ -170,7 +170,7 @@ impl Offscreen {
             ));
         }
         let size = Size::new(width as f32, height as f32);
-        let inherited = kivact_wire::ComputedText {
+        let inherited = kivact_types::ComputedText {
             family: self.theme.text().family.clone(),
             line_height: Some(self.theme.text().line_height),
             ..Default::default()
@@ -198,8 +198,8 @@ impl Offscreen {
             .engine
             .render(&std::sync::Arc::new(scene), (width, height), &inherited)
             .map_err(|error| match error {
-                kivact_engine::bridge::OffscreenError::Dropped(_) => rejected(),
-                kivact_engine::bridge::OffscreenError::Failed(message) => {
+                kivact_engine::api::OffscreenError::Dropped(_) => rejected(),
+                kivact_engine::api::OffscreenError::Failed(message) => {
                     failed(ErrorKind::Asset, message, at)
                 }
             })?;

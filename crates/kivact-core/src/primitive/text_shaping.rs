@@ -2,7 +2,7 @@
 
 use crate::view::state::ViewState;
 use kivact_style::draw::{InlineParagraph, TextParagraph, TextRun, TextStyle};
-use kivact_wire::{self as wire, TextShaper};
+use kivact_types::{self as values, TextShaper};
 use std::panic::Location;
 
 /// Shape text outside drawing or measurement, using this App's text engine.
@@ -26,7 +26,7 @@ pub fn shape_inline_paragraph(
     text: &str,
     style: &TextStyle,
     max_width: Option<f32>,
-    boxes: &[wire::InlineBox],
+    boxes: &[values::InlineBox],
 ) -> Option<InlineParagraph> {
     let measurer = paragraph_measurer("shape_inline_paragraph", Location::caller());
     let run = text_run(text, style);
@@ -37,7 +37,7 @@ pub fn shape_inline_paragraph(
 fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl TextShaper {
     let rt = kivact_reactive::Owner::ambient(api, at).runtime();
     let theme = kivact_style::current_theme();
-    let inherited = wire::ComputedText {
+    let inherited = values::ComputedText {
         family: theme.text().family.clone(),
         line_height: Some(theme.text().line_height),
         ..Default::default()
@@ -48,10 +48,10 @@ fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl
 fn text_run(text: &str, style: &TextStyle) -> TextRun {
     TextRun::from_style(
         text,
-        wire::Point::default(),
+        values::Point::default(),
         style,
         1.0,
-        wire::Rgba::TRANSPARENT,
+        values::Rgba::TRANSPARENT,
         None,
     )
 }

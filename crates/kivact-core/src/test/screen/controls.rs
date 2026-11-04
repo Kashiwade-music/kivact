@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use kivact_wire as p;
+use kivact_types as p;
 
 use kivact_engine::testing::Insets;
 

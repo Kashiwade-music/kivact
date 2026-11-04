@@ -5,8 +5,8 @@ use super::gradient::{Gradient, GradientKind, RadialExtent, RadialSize};
 use super::layer::{Paint, PaintImage, PaintSize};
 use crate::length::Length;
 use crate::theme::value::Theme;
-use kivact_wire as p;
-use kivact_wire::{FillImage, FillLayer, FillSize, GradientKind as WireKind, GradientStop};
+use kivact_types as p;
+use kivact_types::{FillImage, FillLayer, FillSize, GradientKind as WireKind, GradientStop};
 
 /// A paint as the engine fills an area with it.
 pub(crate) fn fill_layer(l: &Paint, theme: &Theme) -> FillLayer {

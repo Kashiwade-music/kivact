@@ -1,4 +1,4 @@
-//! Role: Easing curves, spring parameters and iteration counts of animations.
+//! Role: Animation timing, transitions, easing and spring stepping.
 
 /// Where a discrete easing step jumps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

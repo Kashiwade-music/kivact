@@ -5,8 +5,8 @@ use crate::effect::{Shape, basic};
 use crate::geometry::{Point, Rect};
 use crate::paint::Paint;
 use crate::path::Path;
-use kivact_wire as p;
-use kivact_wire::{SceneCmd, Stroke};
+use kivact_types as p;
+use kivact_types::{SceneCmd, Stroke};
 
 impl Draw {
     /// Fill a rectangle with the element styles' paint vocabulary.

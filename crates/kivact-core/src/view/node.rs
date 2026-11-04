@@ -14,7 +14,7 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_wire::NodeType;
+use kivact_engine::contract::NodeType;
 
 use crate::view::View;
 use crate::view::common::Common;
@@ -305,7 +305,7 @@ pub trait NodeBuilder: Sized {
         let rtl = crate::view::current_direction() == ReadingDirection::Rtl;
         let reference = crate::view::node_ref();
         let common = &mut self.node_mut().common;
-        common.roving_focus = Some(kivact_wire::RovingFocus { orientation, rtl });
+        common.roving_focus = Some(kivact_engine::contract::RovingFocus { orientation, rtl });
         common.node_ref.push(reference);
         self.on_key(move |event| {
             if event.modifiers != Modifiers::default() {

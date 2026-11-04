@@ -11,7 +11,7 @@ use crate::view::{
 };
 use kivact_style::Style;
 use kivact_style::draw::{Draw, Size};
-use kivact_wire::SemanticsText;
+use kivact_types::SemanticsText;
 use std::panic::Location;
 use std::rc::Rc;
 

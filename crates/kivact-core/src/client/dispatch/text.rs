@@ -1,8 +1,9 @@
 //! Role: Text-editing and focus events.
 
+use kivact_engine::contract::HostEvent;
 use kivact_reactive::Runtime;
 use kivact_style::draw::RegionId;
-use kivact_wire::{HostEvent, NodeId, RequestId};
+use kivact_types::{NodeId, RequestId};
 
 use super::common::{admitted, handler, node_owner, run_handler, stale};
 use crate::view::state::ViewState;
@@ -57,7 +58,7 @@ pub(super) fn focus_changed(
 ) {
     crate::view::focus::set_focused(
         rt,
-        node.map(|node| kivact_wire::FocusTarget { node, region }),
+        node.map(|node| kivact_types::FocusTarget { node, region }),
         visible,
     );
 }

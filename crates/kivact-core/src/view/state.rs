@@ -16,12 +16,12 @@ use kivact_reactive::Selector;
 use kivact_reactive::{ErrorKind, UiError};
 use kivact_reactive::{Owner, Runtime};
 use kivact_reactive::{Signal, Value};
-use kivact_wire::{HostEnv, Modifiers, NodeId, PlatformResult};
+use kivact_types::{HostEnv, Modifiers, NodeId, PlatformResult};
 
 use super::tree::Tree;
 use kivact_style::draw::Rect;
 use kivact_task::Completion;
-use kivact_wire::Capabilities;
+use kivact_types::Capabilities;
 
 /// What a [`NodeRef`](super::NodeRef) is bound to.
 #[derive(Clone, Copy, PartialEq)]
@@ -45,10 +45,10 @@ impl Bound {
     }
 
     /// The focus target the binding names.
-    pub(crate) fn target(self) -> kivact_wire::FocusTarget {
+    pub(crate) fn target(self) -> kivact_types::FocusTarget {
         match self {
-            Bound::Node(node) => kivact_wire::FocusTarget { node, region: None },
-            Bound::Region { node, region, .. } => kivact_wire::FocusTarget {
+            Bound::Node(node) => kivact_types::FocusTarget { node, region: None },
+            Bound::Region { node, region, .. } => kivact_types::FocusTarget {
                 node,
                 region: Some(region),
             },
@@ -81,7 +81,7 @@ pub(crate) enum PointerObservation<T: Clone + PartialEq + 'static> {
 /// A focus request made in this turn and not sent to the host yet.
 pub(crate) struct QueuedFocus {
     pub(crate) id: u64,
-    pub(crate) target: kivact_wire::FocusTarget,
+    pub(crate) target: kivact_types::FocusTarget,
     /// Whether the host shows a focus indicator for it.
     pub(crate) visible: bool,
     pub(crate) waiter: FocusWaiter,
@@ -142,9 +142,9 @@ impl EnvState {
 #[derive(Clone, Copy)]
 pub(crate) struct FocusKeys {
     /// The focused node as last reported by the host.
-    pub(crate) node: Signal<Option<kivact_wire::FocusTarget>>,
+    pub(crate) node: Signal<Option<kivact_types::FocusTarget>>,
     /// "Is this node focused", notifying only the previous and next node.
-    pub(crate) selector: Selector<kivact_wire::FocusTarget>,
+    pub(crate) selector: Selector<kivact_types::FocusTarget>,
     pub(crate) visible: Signal<bool>,
 }
 
@@ -189,7 +189,7 @@ pub(crate) struct Requests {
     pub(crate) effects: HashMap<u64, EffectWaiter>,
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
-    pub(crate) pending_activations: Vec<kivact_wire::FocusTarget>,
+    pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
 }
 
 impl Requests {
@@ -211,11 +211,11 @@ pub(crate) struct Started {
     /// The keyboard focus source.
     pub(super) focus: FocusKeys,
     /// The window's minimum size (`None`: no minimum).
-    pub(super) min_window_size: Option<kivact_wire::Size>,
+    pub(super) min_window_size: Option<kivact_types::Size>,
     /// The adapter of the window's GPU device that can import shared
     /// textures (`None` until the host reports one).
     #[cfg(feature = "gpu-interop")]
-    pub(super) adapter: Signal<Option<kivact_wire::GpuAdapter>>,
+    pub(super) adapter: Signal<Option<kivact_types::GpuAdapter>>,
 }
 
 /// Everything the view layer keeps per App. Fields drop in declaration
@@ -325,14 +325,14 @@ impl ViewState {
     }
 
     /// The window's minimum size (`None`: no minimum).
-    pub(crate) fn min_window_size(&self) -> Option<kivact_wire::Size> {
+    pub(crate) fn min_window_size(&self) -> Option<kivact_types::Size> {
         self.started().min_window_size
     }
 
     /// The adapter of the window's GPU device that can import shared
     /// textures.
     #[cfg(feature = "gpu-interop")]
-    pub(crate) fn adapter(&self) -> Signal<Option<kivact_wire::GpuAdapter>> {
+    pub(crate) fn adapter(&self) -> Signal<Option<kivact_types::GpuAdapter>> {
         self.started().adapter
     }
 

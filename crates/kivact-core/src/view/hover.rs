@@ -23,7 +23,7 @@ use std::panic::Location;
 use crate::draw::Point;
 use kivact_reactive::Runtime;
 use kivact_reactive::{Signal, Value, require_setup};
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::view::state::{PointerObservation, ViewState};
 
@@ -71,7 +71,7 @@ pub fn mouse_position() -> Value<Option<Point>> {
     source.into()
 }
 
-pub(crate) fn set_mouse_position(rt: &Runtime, position: Option<kivact_wire::Point>) {
+pub(crate) fn set_mouse_position(rt: &Runtime, position: Option<kivact_types::Point>) {
     let position = position.map(|point| Point::new(point.x, point.y));
     let state = ViewState::of(rt);
     match state.mouse.get() {

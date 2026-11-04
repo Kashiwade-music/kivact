@@ -1,4 +1,4 @@
-//! Role: Layout keywords: flex, alignment, position, overflow, placement, scroll axes.
+//! Role: Layout configuration, leaf measurement and overlay constraints.
 use crate::{Edges, NodeId, Point, Rect, Size};
 
 /// Main-axis direction and ordering of children in a flex container.

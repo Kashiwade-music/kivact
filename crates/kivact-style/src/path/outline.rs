@@ -1,6 +1,6 @@
 //! Role: `Path::stroke_outline`: a line's outline as a path to fill.
 use super::Path;
-use kivact_wire::{LineCap, LineJoin, Stroke};
+use kivact_types::{LineCap, LineJoin, Stroke};
 use kurbo::{Cap, Join, StrokeOpts};
 
 /// The largest distance, in px, between the outline and the true stroke.

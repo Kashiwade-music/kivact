@@ -27,8 +27,8 @@ impl TestParent {
         self.0
             .parent_in(x, y, width, height)
             .map(|parent| match parent {
-                kivact_wire::ParentWindow::Win32(hwnd) => Parent::win32(hwnd.get() as *mut c_void),
-                kivact_wire::ParentWindow::X11(id) => Parent::x11(id.get()),
+                kivact_types::ParentWindow::Win32(hwnd) => Parent::win32(hwnd.get() as *mut c_void),
+                kivact_types::ParentWindow::X11(id) => Parent::x11(id.get()),
             })
             .map_err(error)
     }

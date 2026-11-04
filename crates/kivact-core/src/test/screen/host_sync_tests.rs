@@ -3,7 +3,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use super::model::Screen;
 use super::support::button_box;
@@ -17,8 +17,9 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     use crate::control::canvas;
     use crate::primitive::part;
     use crate::view::{ButtonPress, Handled, MouseButton, PointerKind, PointerPhase};
+    use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
-    use kivact_wire::{HostEvent, Modifiers, PointerEvent};
+    use kivact_types::{Modifiers, PointerEvent};
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
     let downs = Rc::new(Cell::new(0));
@@ -61,13 +62,13 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
         let is_primary = id != 22;
         screen.host.borrow_mut().inject(HostEvent::Pointer {
             node,
-            region: Some(kivact_wire::RegionId(1)),
+            region: Some(kivact_types::RegionId(1)),
             event: PointerEvent {
-                id: kivact_wire::PointerId(id),
+                id: kivact_types::PointerId(id),
                 phase,
                 pos: Point::new(20., 20.),
                 window_pos: Point::new(20., 20.),
-                buttons: kivact_wire::PointerButtons::NONE
+                buttons: kivact_types::PointerButtons::NONE
                     .with(MouseButton::Primary, matches!(phase, PointerPhase::Down(_))),
                 modifiers: Modifiers::default(),
                 kind: PointerKind::Touch,
@@ -85,8 +86,8 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     dispatch(22, up);
     screen.host.borrow_mut().inject(HostEvent::Activate {
         node,
-        region: Some(kivact_wire::RegionId(1)),
-        pointer: Some(kivact_wire::PointerId(22)),
+        region: Some(kivact_types::RegionId(1)),
+        pointer: Some(kivact_types::PointerId(22)),
     });
     screen.run_until_idle();
     assert_eq!(presses.get(), 1, "the next pointer activation is not stale");
@@ -98,8 +99,8 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     screen.run_until_idle();
     screen.host.borrow_mut().inject(HostEvent::Activate {
         node,
-        region: Some(kivact_wire::RegionId(1)),
-        pointer: Some(kivact_wire::PointerId(33)),
+        region: Some(kivact_types::RegionId(1)),
+        pointer: Some(kivact_types::PointerId(33)),
     });
     assert_eq!(presses.get(), 2, "registry cancellation clears its gesture");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
@@ -110,8 +111,9 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     use crate::control::canvas;
     use crate::primitive::part;
     use crate::view::{ButtonPress, Handled, MouseButton, PointerKind, PointerPhase};
+    use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
-    use kivact_wire::{HostEvent, Modifiers, PointerEvent};
+    use kivact_types::{Modifiers, PointerEvent};
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
     let downs = Rc::new(Cell::new(0));
@@ -149,16 +151,16 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     // The mouse (pointer 1) starts a gesture whose Up never arrives.
     screen.host.borrow_mut().inject(HostEvent::Pointer {
         node,
-        region: Some(kivact_wire::RegionId(1)),
+        region: Some(kivact_types::RegionId(1)),
         event: PointerEvent {
-            id: kivact_wire::PointerId(1),
+            id: kivact_types::PointerId(1),
             phase: PointerPhase::Down(ButtonPress {
                 button: MouseButton::Primary,
                 clicks: 1,
             }),
             pos: Point::new(20., 20.),
             window_pos: Point::new(20., 20.),
-            buttons: kivact_wire::PointerButtons::NONE.with(MouseButton::Primary, true),
+            buttons: kivact_types::PointerButtons::NONE.with(MouseButton::Primary, true),
             modifiers: Modifiers::default(),
             kind: PointerKind::Mouse,
             pressure: None,
@@ -333,7 +335,7 @@ fn a_host_edit_that_overrides_the_only_pending_prop_sends_nothing() {
 fn replacing_editing_drops_line_state_after_releasing_the_model() {
     use crate::primitive::{TextEditing, part};
     use crate::view::state::ViewState;
-    use kivact_engine::bridge::Reader;
+    use kivact_engine::api::Reader;
     use std::cell::RefCell;
     use std::rc::Weak;
 

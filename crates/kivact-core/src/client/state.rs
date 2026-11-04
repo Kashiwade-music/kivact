@@ -9,7 +9,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::client::link::HostLink;
 use kivact_reactive::Runtime;

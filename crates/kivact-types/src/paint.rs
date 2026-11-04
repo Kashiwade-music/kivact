@@ -1,4 +1,4 @@
-//! Role: How a gradient continues beyond its first and last stop.
+//! Role: Shared node paint, image payloads, effects and state-dependent styling.
 use crate::layout::IntrinsicSize;
 use crate::{Asset, BorderStyle, Edges, Point, Rgba};
 

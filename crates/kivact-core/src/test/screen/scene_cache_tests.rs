@@ -157,20 +157,21 @@ fn registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping() {
 }
 
 fn retained_host(
-    scene: std::sync::Arc<kivact_wire::Scene>,
+    scene: std::sync::Arc<kivact_types::Scene>,
     inline_assets: bool,
     scale: f32,
 ) -> ArvaneTestHost {
     retained_reporting_host(scene, inline_assets, scale, Rc::default())
 }
 fn retained_reporting_host(
-    scene: std::sync::Arc<kivact_wire::Scene>,
+    scene: std::sync::Arc<kivact_types::Scene>,
     inline_assets: bool,
     scale: f32,
     reports: Rc<std::cell::RefCell<Vec<u32>>>,
 ) -> ArvaneTestHost {
-    use kivact_engine::bridge::Client;
-    use kivact_wire::{Dimension, LayoutProps, NodeId, NodeKind, SceneLayer, TurnOutput};
+    use kivact_engine::api::Client;
+    use kivact_engine::contract::{NodeKind, SceneLayer, TurnOutput};
+    use kivact_types::{Dimension, LayoutProps, NodeId};
     ArvaneTestHost::new(
         Client::new(
             move |_, _, writer| {
@@ -190,7 +191,7 @@ fn retained_reporting_host(
             },
             move |events, _, _| {
                 for event in events {
-                    if let kivact_wire::HostEvent::DrawDropped { count, .. } = event {
+                    if let kivact_engine::contract::HostEvent::DrawDropped { count, .. } = event {
                         reports.borrow_mut().push(*count);
                     }
                 }
@@ -211,7 +212,7 @@ fn retained_reporting_host(
 
 #[test]
 fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_replacement() {
-    use kivact_wire::{Fill, Rgba, Scene, SceneCmd};
+    use kivact_types::{Fill, Rgba, Scene, SceneCmd};
     use std::sync::Arc;
     static SVG:&[u8]=br##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><circle cx="6" cy="6" r="5" fill="#0000ff"/></svg>"##;
     let scene = Arc::new(Scene {
@@ -279,7 +280,7 @@ fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_repl
 
 #[test]
 fn a_depth_fallback_reports_a_dropped_local_command_only_once() {
-    use kivact_wire::{Fill, Rgba, Scene, SceneCmd};
+    use kivact_types::{Fill, Rgba, Scene, SceneCmd};
     use std::sync::Arc;
     let mut cmds = vec![SceneCmd::PushTransform([1., 0., 0., 1., 0., 0.]); 256];
     let red = Fill::Solid(Rgba {

@@ -1,8 +1,9 @@
 //! Role: Pointer, wheel, hover, file-drop and activation events.
 
+use kivact_engine::contract::HostEvent;
 use kivact_reactive::Runtime;
 use kivact_style::draw::RegionId;
-use kivact_wire::{FilePhase, HostEvent, NodeId, Point};
+use kivact_types::{FilePhase, NodeId, Point};
 
 use super::common::{admitted, handler, is_disabled, node_owner, run_handler, stale};
 use crate::view::input::{Handled, Modifiers, pointer_event_from_wire, wheel_event};
@@ -43,7 +44,7 @@ pub(super) fn pointer(
     host_event: &HostEvent,
     node: NodeId,
     region: Option<RegionId>,
-    event: kivact_wire::PointerEvent,
+    event: kivact_types::PointerEvent,
 ) {
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "pointer", node);
@@ -63,9 +64,9 @@ pub(super) fn pointer(
         && (!is_disabled(rt, id)
             || matches!(
                 event.phase,
-                kivact_wire::PointerPhase::Enter
-                    | kivact_wire::PointerPhase::Leave
-                    | kivact_wire::PointerPhase::Cancel
+                kivact_types::PointerPhase::Enter
+                    | kivact_types::PointerPhase::Leave
+                    | kivact_types::PointerPhase::Cancel
             ))
     {
         let handled = run_handler(rt, node_owner(rt, id), || h.deliver(e));

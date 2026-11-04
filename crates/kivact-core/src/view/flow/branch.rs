@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};

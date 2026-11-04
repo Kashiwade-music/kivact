@@ -14,7 +14,7 @@ use kivact_reactive::{
     AppId, EffectKind, HandlerResult, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal,
     Value, require_effectful,
 };
-use kivact_wire::motion::SpringRun;
+use kivact_types::motion::SpringRun;
 
 pub(crate) struct AnimCell<T: 'static> {
     pub(crate) owner: Owner,

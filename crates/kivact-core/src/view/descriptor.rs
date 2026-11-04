@@ -5,10 +5,11 @@
 use std::panic::Location;
 use std::rc::{Rc, Weak};
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
 use kivact_reactive::Prop as InputProp;
 use kivact_reactive::{EffectKind, NodeId as EffectId, Owner, Runtime, Value};
-use kivact_wire::{NodeId, NodeType};
+use kivact_types::NodeId;
 
 use super::state::ViewState;
 use kivact_style::Theme;

@@ -3,11 +3,12 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
 use kivact_reactive::Prop as InputProp;
 use kivact_reactive::{EffectKind, UiError};
 use kivact_style::{Interactive, Style};
-use kivact_wire::{LayoutProps, NodeId, NodeType};
+use kivact_types::{LayoutProps, NodeId};
 
 use super::facts::{LocalPaintSource, NodeFacts};
 use crate::view::common::StyleLayer;

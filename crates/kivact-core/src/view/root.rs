@@ -20,10 +20,11 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::i18n::{Locale, Messages};
-use kivact_engine::bridge::Writer;
+use kivact_engine::api::Writer;
+use kivact_engine::contract::{HostInfo, NodeType};
 use kivact_reactive::{IntoValue, Owner, Runtime, Signal, Value};
 use kivact_style::Theme;
-use kivact_wire::{HostInfo, NodeType, Size};
+use kivact_types::Size;
 
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
@@ -61,7 +62,7 @@ pub(crate) fn start(
         focus: crate::view::focus::keys(owner, at),
         min_window_size,
         #[cfg(feature = "gpu-interop")]
-        adapter: owner.signal(None::<kivact_wire::GpuAdapter>, at),
+        adapter: owner.signal(None::<kivact_types::GpuAdapter>, at),
     });
 }
 

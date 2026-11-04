@@ -4,8 +4,9 @@
 //! published it, falling back to the retained tree for nodes without a
 //! role), its text and state.
 
+use kivact_engine::contract::SceneLayer;
 use kivact_engine::testing::SemanticsNode;
-use kivact_wire::{self as p, SceneLayer};
+use kivact_types::{self as p};
 
 use super::model::{Element, Query};
 use crate::diagnostics::Why;

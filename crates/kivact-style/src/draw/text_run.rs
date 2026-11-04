@@ -5,8 +5,8 @@ use crate::color::Color;
 use crate::geometry::Point;
 use crate::text::{FontFeature, FontKerning, LineHeight, TextDecorationLine, TextLength};
 use crate::theme::value::Theme;
-use kivact_wire as p;
-use kivact_wire::{SceneCmd, TextMetrics};
+use kivact_types as p;
+use kivact_types::{SceneCmd, TextMetrics};
 
 /// Text style for `Draw::text` and `Draw::measure_text`: the text
 /// vocabulary of element styles, so canvas text matches element text.

@@ -6,25 +6,25 @@ use crate::view::NodeRef;
 use crate::view::common::SemanticSources;
 use crate::view::descriptor::Mcx;
 use crate::view::state::ViewState;
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
 use kivact_reactive::Prop as InputProp;
 use kivact_reactive::{EffectKind, ErrorKind, UiError};
 use kivact_style::asset::ImageFit;
-use kivact_wire::{CheckedState, NodeId};
+use kivact_types::{CheckedState, NodeId};
 
-use kivact_wire::SemanticsProperties;
+use kivact_types::SemanticsProperties;
 /// The nodes `refs` are bound to now, in order, leaving out a reference
 /// that is unbound or whose node is gone (tracked: the relation follows
 /// them being bound and unmounted).
 fn bound(
     refs: &[crate::view::NodeRef],
     at: &'static std::panic::Location<'static>,
-) -> Vec<kivact_wire::FocusTarget> {
+) -> Vec<kivact_types::FocusTarget> {
     refs.iter().filter_map(|r| r.target_value(at)).collect()
 }
 pub(super) fn bind(
     cx: &Mcx<'_>,
-    id: kivact_wire::NodeId,
+    id: kivact_types::NodeId,
     sources: SemanticSources,
     at: &'static std::panic::Location<'static>,
 ) {
@@ -57,7 +57,7 @@ pub(super) fn bind(
         let mut props = resolve(&sources, at);
         if let Some(rt) = weak.upgrade() {
             // A text the tree cannot publish is reported, not published.
-            if let Some(Err(why)) = props.text.as_ref().map(kivact_wire::check_text) {
+            if let Some(Err(why)) = props.text.as_ref().map(kivact_types::check_text) {
                 props.text = None;
                 rt.report(
                     Some(owner),
@@ -83,7 +83,7 @@ pub(super) fn bind(
 /// reads what the drawing just made sees it in the same turn.
 pub(super) fn bind_late(
     cx: &Mcx<'_>,
-    id: kivact_wire::NodeId,
+    id: kivact_types::NodeId,
     sources: Option<Box<SemanticSources>>,
     at: &'static std::panic::Location<'static>,
 ) {

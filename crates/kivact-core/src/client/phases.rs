@@ -19,7 +19,7 @@
 //! mounts and later reports, the tree's removes, `TaskState`, `MotionState`);
 //! a phase only decides when they are drained.
 
-use kivact_engine::bridge::Writer;
+use kivact_engine::api::Writer;
 use kivact_motion::MotionState;
 use kivact_reactive::{Runtime, TurnRecorder};
 

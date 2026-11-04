@@ -4,7 +4,7 @@ use crate::effect::{BlendMode, Filter, Shadow, Shape, basic, filter_ops};
 use crate::geometry::Rect;
 use crate::paint::{Paint, fill_layer};
 use crate::transform::Transform;
-use kivact_wire as p;
+use kivact_types as p;
 
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a
 /// transform, a clip, group opacity, blending, a filter, a mask and a

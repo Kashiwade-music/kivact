@@ -8,7 +8,7 @@
 
 use std::panic::Location;
 
-use kivact_wire::Size;
+use kivact_types::Size;
 
 use super::model::Screen;
 use crate::client::{AppClient, AppConfig};

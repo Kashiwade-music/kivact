@@ -53,7 +53,7 @@ use crate::view::editing_data::{
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, SyncHook};
 use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState, LineColors, LineState};
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
 use kivact_reactive::EffectKind;
 use kivact_reactive::HandlerResult;
 use kivact_reactive::{IntoText, IntoValue, Prop as InputProp};
@@ -169,7 +169,7 @@ impl TextEditing {
     }
 
     /// Configure soft wrapping and automatic row limits for a multiline editor.
-    pub fn line_layout(mut self, value: impl IntoValue<kivact_wire::EditLineLayout>) -> Self {
+    pub fn line_layout(mut self, value: impl IntoValue<kivact_types::EditLineLayout>) -> Self {
         self.props.line_layout = Some(value.into_prop());
         self
     }

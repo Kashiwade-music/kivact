@@ -1,8 +1,9 @@
 //! Role: Real-window rootless publication through the normal engine Writer.
 //! Rootless hosts cannot be constructed through the public App API.
-use kivact_engine::bridge::Client;
+use kivact_engine::api::Client;
+use kivact_engine::contract::{NodeKind, TurnOutput};
 use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
-use kivact_wire::{NodeId, NodeKind, Role, TurnOutput};
+use kivact_types::{NodeId, Role};
 use std::cell::RefCell;
 use std::rc::Rc;
 

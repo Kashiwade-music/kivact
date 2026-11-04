@@ -16,7 +16,7 @@ use super::{Palette, Radii, Spacing, Typography};
 use crate::color::{Color, ColorToken, Repr, rgb, rgba};
 use crate::icon::IconSet;
 use kivact_reactive::{Owner, Value};
-use kivact_wire::{LineHeight, Rgba};
+use kivact_types::{LineHeight, Rgba};
 use std::any::{Any, TypeId};
 use std::fmt;
 use std::sync::{Arc, Mutex};

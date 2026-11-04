@@ -2,8 +2,9 @@
 //! modal), then the default actions `Handled::No` leaves (Enter/Space
 //! activation, Escape dismissal).
 
+use kivact_engine::contract::HostEvent;
 use kivact_reactive::Runtime;
-use kivact_wire::{A11yRequest, DismissReason, HostEvent, KeyPhase};
+use kivact_types::{A11yRequest, DismissReason, KeyPhase};
 
 use super::a11y::run_a11y;
 use super::common::{handler, is_disabled, node_owner, run_handler, stale};
@@ -36,7 +37,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         return stale(rt, "key", target);
     }
     let e = KeyEvent {
-        origin: node.map(|node| kivact_wire::FocusTarget {
+        origin: node.map(|node| kivact_types::FocusTarget {
             node,
             region: *region,
         }),
@@ -51,8 +52,8 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
             .and_then(|region| {
                 let tree = ViewState::tree(rt);
                 [
-                    kivact_wire::SceneLayer::Draw,
-                    kivact_wire::SceneLayer::DrawOver,
+                    kivact_engine::contract::SceneLayer::Draw,
+                    kivact_engine::contract::SceneLayer::DrawOver,
                 ]
                 .into_iter()
                 .filter_map(|layer| tree.scene(target, layer))

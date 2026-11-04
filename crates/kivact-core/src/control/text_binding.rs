@@ -3,10 +3,10 @@
 use std::cell::Cell;
 use std::panic::Location;
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
 use kivact_reactive::EffectKind;
 use kivact_reactive::Prop as InputProp;
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::view::descriptor::Mcx;
 use crate::view::span::{self, Span};

@@ -97,26 +97,26 @@ pub use share::{ShareStatus, SharedImage, shared_image};
 
 /// An adapter's identity, as the graphics APIs report it.
 #[doc(inline)]
-pub use kivact_wire::AdapterMatch;
+pub use kivact_types::AdapterMatch;
 /// The adapter of the window's GPU device ([`adapter`]).
 #[doc(inline)]
-pub use kivact_wire::GpuAdapter;
+pub use kivact_types::GpuAdapter;
 /// A graphics API whose textures can be shared.
 #[doc(inline)]
-pub use kivact_wire::GpuBackend;
+pub use kivact_types::GpuBackend;
 /// Which kind of adapter an App prefers (`App::gpu_preference`).
 #[doc(inline)]
-pub use kivact_wire::GpuPower;
+pub use kivact_types::GpuPower;
 /// What an App wishes of the window's GPU device (`App::gpu_preference`).
 #[doc(inline)]
-pub use kivact_wire::GpuPreference;
+pub use kivact_types::GpuPreference;
 /// An owned OS handle of a shared texture or fence.
 #[doc(inline)]
-pub use kivact_wire::SharedHandle;
+pub use kivact_types::SharedHandle;
 /// The pixel format of shared textures.
 #[doc(inline)]
-pub use kivact_wire::SharedTextureFormat;
+pub use kivact_types::SharedTextureFormat;
 /// A pool of textures and its two timeline fences, to [`import`](fn@import); its
 /// rustdoc is the engine's contract.
 #[doc(inline)]
-pub use kivact_wire::SharedTextures;
+pub use kivact_types::SharedTextures;

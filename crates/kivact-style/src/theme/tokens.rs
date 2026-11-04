@@ -1,7 +1,7 @@
 //! Role: Theme token tables: palette, spacing, radii and typography.
 
 use crate::color::{Color, ColorToken};
-use kivact_wire::LineHeight;
+use kivact_types::LineHeight;
 
 /// The theme's colors, one per [`ColorToken`].
 ///

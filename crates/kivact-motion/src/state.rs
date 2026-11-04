@@ -9,7 +9,7 @@ use kivact_reactive::Signal;
 use kivact_reactive::UiError;
 use kivact_reactive::Value;
 use kivact_reactive::{Owner, Runtime};
-use kivact_wire::MotionClock;
+use kivact_types::MotionClock;
 
 use super::values::{FrameInfo, FrameRate};
 

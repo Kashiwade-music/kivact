@@ -111,8 +111,8 @@ impl Length {
     }
 
     /// The layout form.
-    pub(crate) fn to_wire(self) -> kivact_wire::Dimension {
-        use kivact_wire::Dimension as D;
+    pub(crate) fn to_wire(self) -> kivact_types::Dimension {
+        use kivact_types::Dimension as D;
         match self {
             Length::Auto => D::Auto,
             Length::Px(v) => D::Px(v),
@@ -133,9 +133,9 @@ impl Length {
     }
 
     /// The paint form (`Auto` and the content sizes are zero).
-    pub(crate) fn to_len(self) -> kivact_wire::Len {
+    pub(crate) fn to_len(self) -> kivact_types::Len {
         let (pct, px) = self.parts().unwrap_or((0.0, 0.0));
-        kivact_wire::Len { px, pct }
+        kivact_types::Len { px, pct }
     }
 }
 

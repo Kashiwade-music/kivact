@@ -223,7 +223,7 @@ mod tests {
     //! Role: Tests for path trimming.
     use super::*;
     use crate::geometry::{Point, Rect};
-    use kivact_wire::PathCmd;
+    use kivact_types::PathCmd;
 
     fn moves(path: &Path) -> usize {
         path.cmds
