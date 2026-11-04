@@ -15,7 +15,7 @@ pub(super) fn effect_result(rt: &Runtime, request: RequestId, result: &PlatformR
 
 pub(super) fn asset_failed(rt: &Runtime, node: NodeId, message: &str) {
     if let Some(handle) = handler(rt, node, |handlers| handlers.image_error.clone()) {
-        run_handler(rt, node_owner(rt, node), || handle(message));
+        run_handler(rt, node_owner(rt, node), || handle.call(message.to_owned()));
         return;
     }
     let first = HostState::of(rt)

@@ -44,7 +44,9 @@ pub(super) fn node_owner(rt: &Runtime, id: NodeId) -> Option<Owner> {
 
 pub(super) fn stale(rt: &Runtime, what: &str, id: NodeId) {
     let host = HostState::of(rt);
-    host.stale_events.set(host.stale_events.get() + 1);
+    let mut stats = host.stats.get();
+    stats.stale_events += 1;
+    host.stats.set(stats);
     rt.note(format!("stale {what} event for removed node {}", id.0));
 }
 
@@ -64,7 +66,9 @@ pub(super) fn admitted(rt: &Runtime, event: &HostEvent, what: &str, id: NodeId) 
 /// Count and note an event for `id` dropped because a modal is open.
 pub(super) fn drop_outside_modal(rt: &Runtime, what: &str, id: NodeId) {
     let host = HostState::of(rt);
-    host.stale_events.set(host.stale_events.get() + 1);
+    let mut stats = host.stats.get();
+    stats.stale_events += 1;
+    host.stats.set(stats);
     rt.note(format!(
         "{what} event for node {} outside the open modal overlay dropped",
         id.0

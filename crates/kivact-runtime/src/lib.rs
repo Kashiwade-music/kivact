@@ -19,7 +19,6 @@ pub use motion::{
     Animatable, Animated, Easing, FrameInfo, FrameLoop, FrameRate, MotionEnv, MotionState,
     MotionStats, Repeat, Spring, Transition, animated, frame_loop,
 };
-pub use reactive::keyed;
 pub use reactive::{
     AppId, Binding, Callback, EffectKind, ErrorKind, ExitState, Extensions, Handled, Handler,
     HandlerResult, Host, IntoReactive, IntoText, IntoValue, Kind, LiveCounts, NodeId, NodeInfo,
@@ -29,6 +28,7 @@ pub use reactive::{
     memo, on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector, signal,
     try_context, untrack, var,
 };
+pub use reactive::{handler, keyed};
 pub use task::{
     Action, ActionFn, ActionPolicy, AsyncState, BlockingWork, CancelToken, Completion,
     DEFAULT_DRAIN_NS, Resource, Task, TaskState, TaskStats, action, blocking, resource, sleep,

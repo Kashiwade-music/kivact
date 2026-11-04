@@ -11,7 +11,7 @@ use kivact_style::CompiledStyle;
 pub(super) struct NodeFacts {
     pub(super) kind: NodeType,
     /// The node is a focus stop: the theme's focus ring and disabled look
-    /// apply under its style, styled or not (see `Style::compile`).
+    /// apply under its style, styled or not (see `kivact_style::internal::compile_style`).
     pub(super) focus_stop: bool,
     pub(super) local_paint: Option<LocalPaintSource>,
 }

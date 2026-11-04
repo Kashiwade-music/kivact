@@ -120,7 +120,8 @@ impl IntoView for Scroll {
             ScrollAxes::Horizontal => Direction::Row,
             ScrollAxes::Vertical | ScrollAxes::Both => Direction::Column,
         };
-        let base = style().direction(direction).with_scroll_axes(self.axes);
+        let base =
+            kivact_style::internal::with_scroll_axes(style().direction(direction), self.axes);
         // The base style is the first layer, so the caller's `.style(..)`
         // wins whatever the order of the calls.
         self.root.common.prepend_style(base.into_prop());

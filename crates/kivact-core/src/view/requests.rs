@@ -6,33 +6,18 @@
 //! platform effects (`kivact::platform`, the App's fonts). Request ids come
 //! from one per-App counter.
 //!
-//! Invariants:
-//! - Every focus restore (a modal overlay or a popup closing,
-//!   `NodeRef::restore_focus`, the focus step of `NodeRef::activate`) is one
-//!   `FocusWaiter::Restore { report }` queued here and checked once, at the
-//!   flush, by the engine's `Reader::can_take_focus` alone: mounted and live,
-//!   neither it nor an ancestor hidden (`Hidden` or a hidden layout) or
-//!   leaving, focusable (a native text editor too), not disabled, inside
-//!   the topmost modal that stays open. A restore that fails it, one that an explicit live focus
-//!   request of the same flush beats, and one whose reporting owner is gone
-//!   are cancelled without a write or an answer.
-//! - `report` is `None` for the core's own restores and the ref's owner
-//!   and call site for `NodeRef::restore_focus`; only a request the host
-//!   still refuses after it was sent reaches the error sink, located there.
-//!   An unbound or disposed ref restores nothing.
-//! - Components use this path and never check the liveness, visibility or
-//!   disabled state of their anchor themselves.
-//! - An activation (`NodeRef::activate`) waits in a queue the client takes
-//!   after each event and before each flush of the turn, and runs through
-//!   the same activation as a host `Activate` event, after the handler
-//!   that asked for it returned.
+//! Restores are checked once at flush against engine focus eligibility.
+//! Cancellation produces no host write or error report. Activations run after
+//! the current handler returns, through the host activation path.
 
 use std::panic::Location;
 
 use kivact_engine::contract::HostRequest;
 use kivact_types::{PlatformResult, RequestId};
 
-use super::state::{EffectWaiter, FocusWaiter, QueuedFocus, ViewState};
+use super::state::{
+    EffectWaiter, FocusCompletion, FocusReply, FocusRequest, RequestStage, ViewState,
+};
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_runtime::{Owner, Runtime};
 use kivact_style::asset::Asset;
@@ -42,38 +27,46 @@ use kivact_style::asset::Asset;
 pub(crate) fn request_focus(
     rt: &Runtime,
     node: Option<kivact_types::FocusTarget>,
-    waiter: FocusWaiter,
+    reply: FocusReply,
     visible: bool,
 ) {
     let Some(node) = node else {
         let err = UiError::new(ErrorKind::Platform, "focus: node is not mounted", None);
-        resolve_focus_waiter(rt, waiter, Err(err));
+        resolve_focus_reply(rt, reply, FocusResult::Answered(Err(err)));
         return;
     };
     let mut req = ViewState::of(rt).requests.borrow_mut();
     let id = req.request_id();
-    req.queued_focus.push(QueuedFocus {
+    let id = RequestId(id);
+    req.focus.order.push(id);
+    req.focus.requests.insert(
         id,
-        target: node,
-        visible,
-        waiter,
-    });
+        FocusRequest {
+            target: node,
+            visible,
+            reply,
+            stage: RequestStage::Queued,
+        },
+    );
     drop(req);
     rt.request_turn();
 }
 
-fn resolve_focus_waiter(rt: &Runtime, waiter: FocusWaiter, result: Result<(), UiError>) {
-    match waiter {
-        FocusWaiter::Report(owner, at)
-        | FocusWaiter::Restore {
-            report: Some((owner, at)),
-        } => {
-            if let Err(e) = result {
-                let e = UiError::new(e.kind().clone(), e.message().to_string(), Some(at));
-                rt.report(Some(owner), e);
-            }
-        }
-        FocusWaiter::Restore { report: None } => {}
+enum FocusResult {
+    Answered(Result<(), UiError>),
+    Canceled,
+}
+
+fn resolve_focus_reply(rt: &Runtime, reply: FocusReply, result: FocusResult) {
+    if let FocusReply::Report(completion) | FocusReply::RestoreAndReport(completion) = reply
+        && let FocusResult::Answered(Err(error)) = result
+    {
+        let error = UiError::new(
+            error.kind().clone(),
+            error.message().to_string(),
+            Some(completion.at),
+        );
+        rt.report(Some(completion.owner), error);
     }
 }
 
@@ -127,64 +120,76 @@ pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
 
 /// The host answered focus request `id`.
 pub(crate) fn on_focus_result(rt: &Runtime, id: u64, result: Result<(), String>) {
-    let w = ViewState::of(rt)
-        .requests
-        .borrow_mut()
-        .sent_focus
-        .remove(&id);
-    if let Some(w) = w {
-        let r = result.map_err(|reason| UiError::new(ErrorKind::Platform, reason, None));
-        resolve_focus_waiter(rt, w, r);
+    let request = {
+        let mut requests = ViewState::of(rt).requests.borrow_mut();
+        let id = RequestId(id);
+        if !requests
+            .focus
+            .requests
+            .get(&id)
+            .is_some_and(|request| matches!(request.stage, RequestStage::Sent))
+        {
+            return;
+        }
+        requests.focus.requests.remove(&id)
+    };
+    if let Some(request) = request {
+        let result = result.map_err(|reason| UiError::new(ErrorKind::Platform, reason, None));
+        resolve_focus_reply(rt, request.reply, FocusResult::Answered(result));
     }
 }
 
-/// Record Focus writes for requests whose node exists; the others fail.
-///
-/// An explicit request (`NodeRef::focus`) wins over a restore queued in the
-/// same flush (a popup or modal overlay closed in the same turn, or
-/// `NodeRef::restore_focus`), and a restore whose target may not take the
-/// focus back now (`Reader::can_take_focus`) or whose reporting owner is
-/// gone is cancelled: such restores are dropped without a write or an
-/// answer, so the host does not move the focus away from the node the App
-/// asked for, nor to a node that left.
+/// Send queued focus requests in order, canceling ineligible restores.
 pub(crate) fn flush_focus(rt: &Runtime) {
-    let queued = std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().queued_focus);
+    let order = std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().focus.order);
     let exists = |target: kivact_types::FocusTarget| ViewState::tree(rt).contains(target.node);
-    let explicit = queued
-        .iter()
-        .any(|q| matches!(q.waiter, FocusWaiter::Report(..)) && exists(q.target));
-    for QueuedFocus {
-        id,
-        target,
-        visible,
-        waiter,
-    } in queued
-    {
-        if let FocusWaiter::Restore { report } = &waiter
-            && (explicit
-                || report.is_some_and(|(owner, _)| !owner.is_alive())
-                || !can_take_focus(rt, target))
-        {
-            continue; // cancelled: dropped without a write or an answer
+    let explicit = {
+        let requests = ViewState::of(rt).requests.borrow();
+        order.iter().any(|id| {
+            requests.focus.requests.get(id).is_some_and(|request| {
+                matches!(request.reply, FocusReply::Report(_)) && exists(request.target)
+            })
+        })
+    };
+    for id in order {
+        let Some(mut request) = ViewState::of(rt)
+            .requests
+            .borrow_mut()
+            .focus
+            .requests
+            .remove(&id)
+        else {
+            continue;
+        };
+        if !matches!(request.stage, RequestStage::Queued) {
+            continue;
         }
-        if exists(target) {
+        let restore = !matches!(request.reply, FocusReply::Report(_));
+        let owner_gone = matches!(&request.reply, FocusReply::RestoreAndReport(completion) if !completion.owner.is_alive());
+        if restore && (explicit || owner_gone || !can_take_focus(rt, request.target)) {
+            resolve_focus_reply(rt, request.reply, FocusResult::Canceled);
+            continue;
+        }
+        if exists(request.target) {
+            let target = request.target;
+            let visible = request.visible;
+            request.stage = RequestStage::Sent;
             ViewState::of(rt)
                 .requests
                 .borrow_mut()
-                .sent_focus
-                .insert(id, waiter);
-            ViewState::tree(rt)
-                .engine()
-                .focus(target, RequestId(id), visible);
+                .focus
+                .requests
+                .insert(id, request);
+            ViewState::tree(rt).engine().focus(target, id, visible);
         } else {
-            resolve_focus_waiter(
+            resolve_focus_reply(
                 rt,
-                waiter,
-                Err(UiError::new(
+                request.reply,
+                FocusResult::Answered(Err(UiError::new(
                     ErrorKind::Platform,
                     "focus: node was removed",
                     None,
-                )),
+                ))),
             );
         }
     }
@@ -205,7 +210,10 @@ pub(crate) fn request_restore_focus(
     report: Option<(Owner, &'static Location<'static>)>,
     visible: bool,
 ) {
-    request_focus(rt, Some(node), FocusWaiter::Restore { report }, visible);
+    let reply = report.map_or(FocusReply::Restore, |(owner, at)| {
+        FocusReply::RestoreAndReport(FocusCompletion { owner, at })
+    });
+    request_focus(rt, Some(node), reply, visible);
 }
 
 /// Run the default action of `node` (`NodeRef::activate`) once the current

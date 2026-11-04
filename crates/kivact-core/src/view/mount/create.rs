@@ -16,7 +16,7 @@ use crate::view::tree::Handlers;
 /// The node's first write.
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
-    pub(super) exit_complete: Option<kivact_runtime::Callback<()>>,
+    pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
     pub(super) test_id: Option<Rc<str>>,
     pub(super) role: Option<Role>,
     pub(super) focusable: Option<InputProp<bool>>,

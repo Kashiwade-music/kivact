@@ -205,7 +205,10 @@ impl Toast {
         label: impl Into<String>,
         on: impl Fn() -> R + 'static,
     ) -> Self {
-        self.action = Some((label.into(), Rc::new(move || on().into_result())));
+        self.action = Some((
+            label.into(),
+            Rc::new(move || on().into_outcome().map(|_| ())),
+        ));
         self
     }
 

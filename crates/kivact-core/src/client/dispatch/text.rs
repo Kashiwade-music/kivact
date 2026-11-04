@@ -28,7 +28,7 @@ pub(super) fn text_changed(
             session: session.clone(),
             text: text.map(str::to_owned),
         };
-        run_handler(rt, node_owner(rt, node), || h(edit));
+        run_handler(rt, node_owner(rt, node), || h.call(edit));
     }
 }
 
@@ -46,7 +46,7 @@ pub(super) fn selection_changed(
     }
     if let Some(h) = handler(rt, node, |h| h.selection.clone()) {
         let session = session.clone();
-        run_handler(rt, node_owner(rt, node), || h(session));
+        run_handler(rt, node_owner(rt, node), || h.call(session));
     }
 }
 

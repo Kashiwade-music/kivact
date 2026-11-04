@@ -171,7 +171,7 @@ impl Offscreen {
             scene,
             unsupported: invalid,
             ..
-        } = Draw::record(size, &self.theme, |draw| {
+        } = kivact_style::internal::record(size, &self.theme, |draw| {
             draw.set_text_measurer(measurer);
             paint(draw, size);
         });

@@ -107,11 +107,11 @@ pub(crate) fn bind_style(
     } = style;
     let owner = cx.owner;
     // Misplaced content sizes are reported once per node.
-    let reported = std::cell::Cell::new(false);
+    let reported = kivact_types::cell::ReportOnce::new();
     // So are text values the host cannot draw.
-    let reported_text = std::cell::Cell::new(false);
-    let reported_states = std::cell::Cell::new(false);
-    let reported_leaf_paint = std::cell::Cell::new(false);
+    let reported_text = kivact_types::cell::ReportOnce::new();
+    let reported_states = kivact_types::cell::ReportOnce::new();
+    let reported_leaf_paint = kivact_types::cell::ReportOnce::new();
     let theme = cx.theme();
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
@@ -128,11 +128,11 @@ pub(crate) fn bind_style(
                     selected: selected.as_ref().is_some_and(|f| f()),
                     root: kind == NodeType::Root,
                 };
-                s.compile(theme, state)
+                kivact_style::internal::compile_style(&s, theme, state)
             })
         });
         let has_paint = resolved.has_retained_paint();
-        if has_paint && local_paint.is_none() && !reported_leaf_paint.replace(true) {
+        if has_paint && local_paint.is_none() && reported_leaf_paint.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
@@ -173,7 +173,7 @@ pub(crate) fn bind_style(
             writer,
         );
         drop(tree);
-        if !resolved.unsupported_in_states.is_empty() && !reported_states.replace(true) {
+        if !resolved.unsupported_in_states.is_empty() && reported_states.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
@@ -192,7 +192,7 @@ pub(crate) fn bind_style(
                 id.0, resolved.duplicates
             ));
         }
-        if resolved.misplaced_content > 0 && !reported.replace(true) {
+        if resolved.misplaced_content > 0 && reported.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
@@ -205,7 +205,7 @@ pub(crate) fn bind_style(
                 ),
             );
         }
-        if resolved.unsupported_text > 0 && !reported_text.replace(true) {
+        if resolved.unsupported_text > 0 && reported_text.note() {
             rt.report(
                 Some(owner),
                 UiError::new(

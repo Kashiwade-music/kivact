@@ -9,7 +9,6 @@ use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{Modifiers, MouseButton};
 use kivact_ui_pop_catalog::{catalog, fonts, locale, messages};
-use std::sync::Arc;
 use std::time::Duration;
 
 #[test]
@@ -39,16 +38,15 @@ fn pop_source_chapters_scroll_in_the_original_shell() {
 
 fn mount() -> Screen {
     render_with(
-        RenderOptions {
-            width: 1846.,
-            height: 969.,
-            scale: 1.,
-            locale: Some(locale()),
-            messages: messages(),
-            reduced_motion: true,
-            fonts: TestFonts::Only(fonts().iter().map(|&bytes| Arc::from(bytes)).collect()),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(1846., 969.)
+            .scale(1.)
+            .locale(locale())
+            .messages(messages())
+            .reduced_motion()
+            .fonts(TestFonts::Only(
+                fonts().iter().map(|&bytes| bytes.into()).collect(),
+            )),
         catalog,
     )
 }

@@ -1,12 +1,11 @@
 //! Role: Mounting binds the draw layers of a host node.
 
-use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::contract::SceneLayer;
 use kivact_runtime::{EffectKind, Signal, UiError};
-use kivact_style::draw::{Draw, Recording, Size};
+use kivact_style::draw::{Recording, Size};
 use kivact_types::NodeId;
 
 use super::facts::LocalPaintSource;
@@ -45,9 +44,9 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
             continue;
         }
         let region_paint = regions.clone();
-        let region_reported = RefCell::new(std::collections::HashSet::new());
+        let region_reported = kivact_types::cell::ReportOnceSet::new();
         let weak = cx.weak();
-        let reported = std::cell::Cell::new(false);
+        let reported = kivact_types::cell::ReportOnce::new();
         cx.effect(EffectKind::Render, at, move || {
             let sz = size.get();
             let theme = theme.map(|t| t.get()).unwrap_or_default();
@@ -58,7 +57,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 scene,
                 unsupported: issues,
                 region_errors,
-            } = Draw::record(sz, &theme, |d| {
+            } = kivact_style::internal::record(sz, &theme, |d| {
                 if let Some(measurer) = measurer {
                     d.set_text_measurer(measurer);
                 }
@@ -81,12 +80,12 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
             if let Some(rt) = weak.upgrade() {
                 ViewState::tree_mut(&rt).set_scene(id, layer, scene);
                 for message in region_errors {
-                    if region_reported.borrow_mut().insert(message.clone()) {
+                    if region_reported.note(message.clone()) {
                         rt.report(Some(owner), UiError::new(
                             kivact_runtime::ErrorKind::Message, message, Some(at)));
                     }
                 }
-                if issues > 0 && !reported.replace(true) {
+                if issues > 0 && reported.note() {
                     rt.note(format!("node {}: {issues} draw commands unsupported (invalid pixels or box-only shadow values)", id.0));
                     rt.report(
                         Some(owner),
