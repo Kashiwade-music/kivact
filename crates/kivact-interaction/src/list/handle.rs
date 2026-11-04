@@ -140,7 +140,8 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub fn selected(self) -> Value<Vec<K>> {
         self.state().selected
     }
-    /// Read the enabled mounted key that currently owns the roving tab stop.
+    /// Read the enabled key that owns the roving tab stop, including a virtual
+    /// destination awaiting the caller scroll callback to mount its row.
     #[track_caller]
     pub fn active(self) -> Value<Option<K>> {
         self.state().active
