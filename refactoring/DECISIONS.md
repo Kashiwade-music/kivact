@@ -2,6 +2,7 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | W2 resources | 旧 trace/log 削除後も空きは約 74 GB で開始目安 100 GB 未満 | 作業外のデータは削除せず、共有 target と 40 GB の clean 境界で進める。workspace 内の全 cache を消しても目安に届かず、再 build を増やさない最小の選択。 |
 | 2026-11-04 | P-0 | Design documents exist only on the starting docs branch | Created integration from main and fast-forwarded the docs branch before unit worktrees. |
 | 2026-11-04 | All | Work order requires author approval for design gaps | User explicitly delegates all judgments; orchestrator decides using API consistency, React/Solid accessibility, simple internals, and maintainability. |
 | 2026-11-04 | P-0 | First baseline compilation exhausted disk space | Remove only this run's generated target/debug cache and disable incremental/debug symbols for checks; keep runtime debug assertions and optimize-level policy unchanged. |
