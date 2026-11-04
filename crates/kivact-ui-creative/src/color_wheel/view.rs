@@ -36,6 +36,9 @@ pub struct ColorWheel {
     root: Node,
     color: Binding<Color>,
     model: Binding<ColorModel>,
+    options: ColorWheelOptions,
+}
+struct ColorWheelOptions {
     alpha: Value<bool>,
     fields: Value<bool>,
     swatches: Option<Binding<Vec<Color>>>,
@@ -57,11 +60,13 @@ pub fn color_wheel(
             .style(style().min_width(0).width(pct(100)).gap(8)),
         color: color.into_binding(),
         model: model.into_binding(),
-        alpha: true.into_value(),
-        fields: true.into_value(),
-        swatches: None,
-        edit: None,
-        size: 220.0.into_value(),
+        options: ColorWheelOptions {
+            alpha: true.into_value(),
+            fields: true.into_value(),
+            swatches: None,
+            edit: None,
+            size: 220.0.into_value(),
+        },
     }
 }
 
@@ -69,29 +74,29 @@ impl ColorWheel {
     /// Reactively show model selection and channel input fields (default true).
     /// Removing an edited field cancels its edit and restores the starting color.
     pub fn fields(mut self, fields: impl IntoValue<bool>) -> Self {
-        self.fields = fields.into_value();
+        self.options.fields = fields.into_value();
         self
     }
 
     /// Reactively show the alpha strip and field (default true).
     /// Hiding them cancels their current edit and otherwise preserves alpha.
     pub fn alpha(mut self, alpha: impl IntoValue<bool>) -> Self {
-        self.alpha = alpha.into_value();
+        self.options.alpha = alpha.into_value();
         self
     }
     /// Bind editable swatches. Local swatch selection is not an edit.
     pub fn swatches(mut self, swatches: impl IntoBinding<Vec<Color>>) -> Self {
-        self.swatches = Some(swatches.into_binding());
+        self.options.swatches = Some(swatches.into_binding());
         self
     }
     /// Observe each continuous edit, including palette additions and removals.
     pub fn on_edit<R: HandlerResult>(mut self, edit: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.edit = Some(callback(edit));
+        self.options.edit = Some(callback(edit));
         self
     }
     /// Reactively set canvas height, at least 96 pixels; non-finite values use 220.
     pub fn wheel_size(mut self, size: impl IntoValue<f64>) -> Self {
-        self.size = size.into_value();
+        self.options.size = size.into_value();
         self
     }
 }
@@ -137,12 +142,18 @@ impl IntoView for ColorWheel {
             let input = root_state.get();
             input.disabled || input.hidden
         });
-        let alpha = self.alpha;
+        let alpha = self.options.alpha;
         let drag = use_drag::<Channel>(DragCoordinates::Local);
-        let state = Model::new(self.color, self.swatches, self.edit, blocked, drag);
+        let state = Model::new(
+            self.color,
+            self.options.swatches,
+            self.options.edit,
+            blocked,
+            drag,
+        );
         let value = self.color.into_value();
         let size = kivact::state::memo(move || {
-            let size = self.size.get();
+            let size = self.options.size.get();
             if size.is_finite() {
                 size.max(96.0)
             } else {
@@ -324,7 +335,7 @@ impl IntoView for ColorWheel {
             .part(root_part)
             .child((
                 canvas,
-                show(self.fields, move || {
+                show(self.options.fields, move || {
                     super::fields::fields(state, model, alpha)
                 }),
                 super::fields::swatches(state, alpha),

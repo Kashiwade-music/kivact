@@ -17,13 +17,23 @@ pub(super) enum ColorOwner {
     Swatch,
 }
 #[derive(Clone, Copy)]
-pub(super) struct Model {
+pub(super) struct ColorOptions {
     pub(super) color: Binding<Color>,
-    pub(super) hue: Value<f64>,
     pub(super) palette: Option<Binding<Vec<Color>>>,
+    pub(super) blocked: Value<bool>,
+}
+#[derive(Clone, Copy)]
+pub(super) struct Model {
+    options: ColorOptions,
+    pub(super) hue: Value<f64>,
     pub(super) edit: Edit,
     pub(super) controls: MachineHandle<controls_machine::Machine>,
-    pub(super) blocked: Value<bool>,
+}
+impl std::ops::Deref for Model {
+    type Target = ColorOptions;
+    fn deref(&self) -> &ColorOptions {
+        &self.options
+    }
 }
 impl Model {
     pub(super) fn new(
@@ -65,12 +75,14 @@ impl Model {
             drag,
         );
         Self {
-            color,
+            options: ColorOptions {
+                color,
+                palette,
+                blocked,
+            },
             hue,
-            palette,
             edit,
             controls,
-            blocked,
         }
     }
     /// What an edit writes back when it is canceled.
@@ -163,7 +175,9 @@ impl std::ops::Deref for State {
 }
 impl State {
     pub(super) fn new(model: Model, drag: DragApi<Channel>) -> Self {
-        Self { model, drag }
+        let state = Self { model, drag };
+        kivact::state::on_cleanup(move || state.cancel());
+        state
     }
     pub(super) fn cancel(self) {
         self.drag.cancel();

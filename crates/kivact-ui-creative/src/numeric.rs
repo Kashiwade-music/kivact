@@ -11,7 +11,7 @@ use kivact::state::IntoBinding;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 
 use kivact::interaction::ScalarRange;
-use kivact::state::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::state::{Binding, Callback, Value, binding, memo, signal};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Cursor, Justify, Style, Theme, style};
@@ -387,11 +387,10 @@ impl IntoView for Numeric {
         };
         let not_finite = message("creative.numeric.not_finite", "Enter a finite number");
         let mixed_text = message("creative.numeric.mixed", "Mixed");
-        let text_parser = var(text_parser);
         // `from` is the value the text field opened with, which a relative
         // entry such as `+5` is added to.
-        let parse = move |s: &str, from: f64| -> Result<f64, String> {
-            match text_parser.get() {
+        let parse: TextParser = Rc::new(move |s: &str, from: f64| -> Result<f64, String> {
+            match text_parser.as_ref() {
                 Some(parser) => parser(s, from).and_then(|v| {
                     if v.is_finite() {
                         Ok(v)
@@ -402,7 +401,7 @@ impl IntoView for Numeric {
                 None => parse_scalar(s, timecode.map(|fps| fps.get()), from)
                     .ok_or_else(|| not_finite.get()),
             }
-        };
+        });
         let begin_text = move || typing.open(());
         let suffix = unit;
         let shown = (move || {
@@ -461,6 +460,8 @@ impl IntoView for Numeric {
             },
         );
         let edit = show(text_open, move || {
+            let parse_commit = Rc::clone(&parse);
+            let parse_reason = Rc::clone(&parse);
             let status = node_ref();
             let from = value.get_untracked();
             let opened = format_scalar(from, precision.get(), "", timecode.map(|fps| fps.get()));
@@ -474,13 +475,13 @@ impl IntoView for Numeric {
                 if typed == opened && !mixed.get_untracked() {
                     return;
                 }
-                if let Ok(next) = parse(&typed, from) {
+                if let Ok(next) = parse_commit(&typed, from) {
                     set(next);
                 }
             };
             // Why the text does not parse, while it does not; it follows the
             // draft as it is typed.
-            let reason = memo(move || parse(&draft.get(), from).err());
+            let reason = memo(move || parse_reason(&draft.get(), from).err());
             let shown = memo(move || reason.get().is_some_and(|reason| !reason.is_empty()));
             let hint = use_popup(binding(shown, |_: bool| {}))
                 .anchor(reference)

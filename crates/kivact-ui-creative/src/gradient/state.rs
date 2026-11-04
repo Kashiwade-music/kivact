@@ -20,12 +20,22 @@ pub(super) enum GradientOwner {
 }
 type Snapshot = (Vec<GradientStop>, Option<usize>);
 #[derive(Clone, Copy)]
-pub(super) struct Model {
+pub(super) struct GradientOptions {
     pub(super) stops: Binding<Vec<GradientStop>>,
     pub(super) selection: Binding<Option<usize>>,
-    pub(super) edit: Edit,
     pub(super) blocked: Value<bool>,
     pub(super) valid: Value<bool>,
+}
+#[derive(Clone, Copy)]
+pub(super) struct Model {
+    options: GradientOptions,
+    pub(super) edit: Edit,
+}
+impl std::ops::Deref for Model {
+    type Target = GradientOptions;
+    fn deref(&self) -> &GradientOptions {
+        &self.options
+    }
 }
 impl Model {
     pub(super) fn new(
@@ -42,15 +52,17 @@ impl Model {
                 selection.set(selected);
             },
             observer,
-            blocked,
+            kivact::state::memo(move || blocked.get() || !valid.get()),
             drag,
         );
         Self {
-            stops,
-            selection,
+            options: GradientOptions {
+                stops,
+                selection,
+                blocked,
+                valid,
+            },
             edit,
-            blocked,
-            valid,
         }
     }
     pub(super) fn enabled(self) -> bool {
@@ -169,7 +181,9 @@ impl std::ops::Deref for State {
 }
 impl State {
     pub(super) fn new(model: Model, drag: DragApi<(usize, f64, f64)>) -> Self {
-        Self { model, drag }
+        let state = Self { model, drag };
+        kivact::state::on_cleanup(move || state.cancel());
+        state
     }
     pub(super) fn cancel(self) {
         self.drag.cancel();
