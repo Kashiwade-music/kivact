@@ -134,7 +134,7 @@ impl Dropzone {
     /// Receive dropped and picked files; no action by default. An `Err` is
     /// shown under the label until the next drop or pick.
     pub fn on_files<R: HandlerResult>(mut self, f: impl Fn(Vec<PathBuf>) -> R + 'static) -> Self {
-        self.on_files = Rc::new(move |files| f(files).into_result());
+        self.on_files = Rc::new(move |files| f(files).into_outcome().map(|_| ()));
         self
     }
 
