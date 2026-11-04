@@ -209,6 +209,8 @@ data の record と `*Api` の、同じ名詞の setter と読み出し（例: `
 
 設計書 10.4 節と 18.2 節の語彙を全部品に当てる。payload のある handler は `impl Fn(E) -> R + 'static`（`R: HandlerResult`）、payload のない handler は `impl Into<Callback<()>>`（closure と `Callback<()>` の両方を受ける）。
 
+`Handled` は `Yes`・`No`・`PreventDefault`。既存の `and` による伝播と既定動作の合成を保ち、`HandlerResult` の四つの impl はこの一つの型に揃える。
+
 | 型 | 再設計後の handler | 現在からの変更 |
 |---|---|---|
 | `Node`・`NodeBuilder` | `on_press(impl Into<Callback<()>>)`、`on_key(Fn(KeyEvent))`、`on_key_up(Fn(KeyEvent))`、`on_pointer(Fn(PointerEvent))`、`on_wheel(Fn(WheelEvent))`、`on_file(Fn(FileEvent))`、`on_exit_complete(impl Into<Callback<()>>)` | payload のない handler は `impl Into<Callback<()>>`（`From<F: Fn() -> R> for Callback<()>`。設計書 18.2 節）。`on_exit_complete(Callback<()>)` から |

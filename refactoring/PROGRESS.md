@@ -78,6 +78,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G6-3 | merged | 65f313f | Game/Pop catalog の C1 caller 移行 |
 | fix-G5-1 | merged | a0063b2 | kit HandlerResult caller 移行、check 0 |
 | fix-G6-4 | merged | 279b508 | 残る catalog/lookbook caller 移行、check 0 |
+| fix-G3-5 | merged | 71e7223 | i18n 条件式の Clippy 修正、check 0 |
 | N-D1 | todo | | |
 | N-D2 | todo | | |
 | N-F1 | todo | | |
