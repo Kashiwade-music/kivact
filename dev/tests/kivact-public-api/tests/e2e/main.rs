@@ -16,6 +16,7 @@ mod async_tests;
 mod canvas;
 mod canvas_worker;
 mod components;
+mod custom_text_field;
 mod diagnostics;
 mod disposal;
 mod environment;
