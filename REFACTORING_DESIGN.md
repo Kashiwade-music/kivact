@@ -2783,3 +2783,9 @@ pub enum DecorationKind { Underline(TextDecorationStyle), Outline, Background }
 - 理由: 付録 C.5 の creative の「残す」に `search_picker` があり、C.2 と食い違っていた。picker は列の追従（SM-K905）などの creative 固有の振る舞いを持つ。
 
 - I-0 の overlay metric: `Theme::overlay_margin()` の既定は `0.0`。viewport への fitting は常に行い、値は inset を表す。旧い未設定の no-fit は廃止し、負数・NaN sentinel や設定有無の mode は作らない。
+
+### 実装で確定した境界の補足
+- root の固定 Theme は一つの owner-owned Signal に正規化し、why の公開依存 source を保つ。動的 Theme は元の Value を保持して二重に保存しない。一般の Value::Const は変更しない。
+- Drag の press-time source_with factory と readonly active_payload、custom の Generation/as_u64、Select の trigger_with_sheet/open_sheet/is_sheet_open は、単一所有の state を公式 kit から使うための明示的な境界。互換 alias や同期用 state を作らない。
+- editor の既存 threshold 0 を保つ。Drag の pointer/origin/payload と、domain Machine の click-selection/connection 意図を分け、数値 snapshot は payload にだけ置く。
+- T-1 の style::TextDecoration は user input（Color/TextLength）で、wire の Rgba/TextLen record は公開しない。Draw は既存名を使い Canvas alias を作らない。

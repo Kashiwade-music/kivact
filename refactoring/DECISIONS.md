@@ -134,3 +134,7 @@
 | 2026-11-05 | I-0 | OverlayViewport の None と f64 metric | 既定 0.0 inset で常時 fitting する。意味が一つの公開数値 metric を優先し、未設定の no-fit を廃止。既存 overlay assertions は維持。 |
 | 2026-11-05 | fix-G3-14 | W4 の意図した診断追加と既存期待 | N-G4 の semantics 宣言位置2行と N-F1 の eager pointer write を exact expected に追加。順序・型・発生源・no-op を検証し、既存診断の内容は省略しない。 |
 | 2026-11-05 | I-1/I-3 | 指示書の private/public 名の衝突 | 公開 EditSession handle は保持し private enum は EditSessionState。公開 DialogMode は appearance のまま、anchor を持つ private DialogOptionsMode で不正な組合せを除く。 |
+| 2026-11-05 | I-3/KL | press 時の snapshot と numeric identity | source_with factory/active_payload 投影と custom::Generation/as_u64 を追加。snapshot Var・Clone side effect・別 allocator counter をなくす。editor zero slop は現状維持。 |
+| 2026-11-05 | U-1 | Sheet と native default activation | chooser を trigger の単一 default 内で実行する trigger_with_sheet と state action/projection を追加。on_press の Handled は消えるため抑止に使わない。switch mouse/pen は既存仕様を保持。 |
+| 2026-11-05 | I-4 | 存在しない facade Owner.is_alive | 既存の実体 Owned<State>/order の try_get で生存確認し、余分な alive token と新 API を作らない。 |
+| 2026-11-05 | T-1 | decoration の公開入力 | style の Color/TextLength record を一度 backend に resolve。StyledRange は style、Decoration/TextLayout は custom、描画引数は既存 Draw。 |
