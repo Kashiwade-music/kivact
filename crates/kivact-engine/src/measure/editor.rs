@@ -42,10 +42,10 @@ impl EditorNode {
     }
 
     pub(crate) fn flush_damage(&mut self) {
-        if let Some(damage) = self.editor.take_damage() {
-            if let Some(lines) = self.lines.get_mut() {
-                lines.hold_damage(damage);
-            }
+        if let Some(damage) = self.editor.take_damage()
+            && let Some(lines) = self.lines.get_mut()
+        {
+            lines.hold_damage(damage);
         }
     }
 

@@ -55,7 +55,7 @@ pub(crate) fn new(
     engine: arvane::Engine,
     frame_log: Rc<RefCell<FrameLog>>,
 ) -> Launch {
-    Launch::Pending(LaunchArgs {
+    Launch::Pending(Box::new(LaunchArgs {
         client,
         window_size,
         engine,
@@ -63,7 +63,7 @@ pub(crate) fn new(
         theme: kivact_types::ThemeHint::Light,
         assets: AssetMode::Worker,
         close: crate::contract::CloseSignal::new(),
-    })
+    }))
 }
 
 pub(super) enum AssetMode {
@@ -80,9 +80,9 @@ pub(crate) struct LaunchArgs {
     close: crate::contract::CloseSignal,
 }
 pub(crate) enum Launch {
-    Pending(LaunchArgs),
+    Pending(Box<LaunchArgs>),
     Starting,
-    Running(Host),
+    Running(Box<Host>),
 }
 impl Launch {
     pub(crate) fn with_close(mut self, close: crate::contract::CloseSignal) -> Self {
@@ -115,6 +115,7 @@ impl arvane::Handler for Launch {
         let Self::Pending(args) = std::mem::replace(self, Self::Starting) else {
             panic!("invariant: shell starts its handler once");
         };
+        let args = *args;
         let store = match args.assets {
             AssetMode::Inline => arvane::asset::AssetStore::inline(),
             AssetMode::Worker => {
@@ -148,7 +149,7 @@ impl arvane::Handler for Launch {
             window,
             super::client::HostWaker::new(move || waker.wake(arvane::WakeReasons::CLIENT)),
         );
-        *self = Self::Running(host);
+        *self = Self::Running(Box::new(host));
         result
     }
     fn event(
