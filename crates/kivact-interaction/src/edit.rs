@@ -20,8 +20,14 @@
 use kivact_core::ErrorKind;
 use kivact_core::UiError;
 use kivact_core::state::callback;
-use kivact_core::state::{Callback, Signal, Var, on_cleanup, signal, var};
+use kivact_core::state::{Callback, MachineHandle, Var, machine, on_cleanup, var};
+use std::rc::Rc;
+
+#[path = "edit/machine.rs"]
+mod machine;
+
 use kivact_core::view::{EditPhase, HandlerResult};
+pub(crate) use machine::{EditOrigin, EditSessionState};
 
 /// The state of the edit a component is in, and the phases it reports.
 ///
@@ -75,7 +81,7 @@ use kivact_core::view::{EditPhase, HandlerResult};
 /// # let _ = field;
 /// ```
 pub struct EditSession<T: 'static> {
-    initial: Signal<Option<T>>,
+    session: MachineHandle<machine::Machine<T>>,
     restore: Callback<T>,
     observer: Var<Option<Callback<EditPhase>>>,
     /// Passes an error of the observer on, as the session's owner reports it.
@@ -97,7 +103,11 @@ impl<T: Clone + 'static> EditSession<T> {
     #[track_caller]
     pub fn new<R: HandlerResult>(restore: impl Fn(T) -> R + 'static) -> Self {
         let session = Self {
-            initial: signal(None),
+            session: machine(
+                EditSessionState::Idle,
+                || machine::Machine::new(),
+                |_, ()| {},
+            ),
             restore: callback(restore),
             observer: var(None),
             failed: callback(Err::<(), UiError>),
@@ -138,13 +148,17 @@ impl<T: Clone + 'static> EditSession<T> {
         if self.is_active() {
             return;
         }
-        self.initial.update(|current| *current = Some(initial));
+        self.session.send(machine::Event::Begin(
+            Rc::new(initial),
+            EditOrigin::Programmatic,
+        ));
         self.report(EditPhase::Begin);
     }
 
     /// End the active edit and report `Commit`.
     pub fn commit(self) {
-        if self.is_active() && self.initial.update(Option::take).is_some() {
+        if self.is_active() {
+            self.session.send(machine::Event::Finish);
             self.report(EditPhase::Commit);
         }
     }
@@ -155,9 +169,14 @@ impl<T: Clone + 'static> EditSession<T> {
         if !self.is_active() {
             return false;
         }
-        let Some(initial) = self.initial.update(Option::take) else {
+        let initial = self.session.state().with_untracked(|state| match state {
+            EditSessionState::Idle => None,
+            EditSessionState::Editing { initial, .. } => Some(initial.as_ref().clone()),
+        });
+        let Some(initial) = initial else {
             return false;
         };
+        self.session.send(machine::Event::Finish);
         self.restore.call(initial);
         self.report(EditPhase::Cancel);
         true
@@ -189,7 +208,9 @@ impl<T: Clone + 'static> EditSession<T> {
     /// calls it does not follow the edit; use
     /// [`with_initial`](Self::with_initial) for that).
     pub fn is_active(self) -> bool {
-        self.initial.with_untracked(Option::is_some)
+        self.session
+            .state()
+            .with_untracked(|state| matches!(state, EditSessionState::Editing { .. }))
     }
 
     /// Read the value the active edit started from; `None` while no edit is
@@ -197,6 +218,9 @@ impl<T: Clone + 'static> EditSession<T> {
     /// edit's begin and end, so `with_initial(|_| ()).is_some()` is a tracked
     /// "is active".
     pub fn with_initial<R>(self, read: impl FnOnce(&T) -> R) -> Option<R> {
-        self.initial.with(|initial| initial.as_ref().map(read))
+        self.session.state().with(|state| match state {
+            EditSessionState::Idle => None,
+            EditSessionState::Editing { initial, .. } => Some(read(initial.as_ref())),
+        })
     }
 }
