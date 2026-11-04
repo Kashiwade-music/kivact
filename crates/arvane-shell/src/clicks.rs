@@ -17,10 +17,6 @@
 use crate::events::ShellEvent;
 use kivact_types::{MouseButton, Point, PointerId, PointerKind, PointerPhase};
 
-/// Windows' default double-click time (ns, `GetDoubleClickTime`) and
-/// distance (pixels per axis, `SM_CXDOUBLECLK` / `SM_CYDOUBLECLK`): what a
-/// window that cannot read the system's settings counts with.
-
 /// The last mouse press.
 #[derive(Clone, Copy, Debug)]
 struct Press {

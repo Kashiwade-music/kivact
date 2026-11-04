@@ -8,7 +8,7 @@ pub(super) fn physical_size(
 ) -> Result<(u32, u32), arvane_shell::ShellError> {
     let dimension = |logical: f64| {
         let physical = (logical * scale).round();
-        if physical.is_finite() && physical >= 1.0 && f64::from(physical) <= f64::from(max) {
+        if physical.is_finite() && physical >= 1.0 && physical <= f64::from(max) {
             Ok(physical as u32)
         } else {
             Err(arvane_shell::ShellError::new(

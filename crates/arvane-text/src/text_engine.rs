@@ -470,10 +470,10 @@ fn carets(layout: &parley::Layout<u32>, text: &str) -> Vec<TextCaret> {
             TextCaret {
                 offset: offset as u32,
                 rect: Rect {
-                    x: bounds.x0 as f64,
-                    y: bounds.y0 as f64,
-                    width: (bounds.x1 - bounds.x0) as f64,
-                    height: (bounds.y1 - bounds.y0) as f64,
+                    x: bounds.x0,
+                    y: bounds.y0,
+                    width: bounds.x1 - bounds.x0,
+                    height: bounds.y1 - bounds.y0,
                 },
             }
         })

@@ -288,7 +288,7 @@ impl State {
         on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
     ) -> Self {
         Self {
-            a11y: PlatformTree::new(f64::from(shared.scale())),
+            a11y: PlatformTree::new(shared.scale()),
             uia: RefCell::new(None),
             services: RefCell::new(crate::services::Services::default()),
             input: crate::native_input::state::NativeInput::default(),

@@ -240,7 +240,7 @@ impl ShellWindow for WinitWindow {
     }
     /// Physical pixels per logical pixel.
     fn scale(&self) -> f64 {
-        self.window.scale_factor() as f64
+        self.window.scale_factor()
     }
     /// Monotonic clock from loop creation.
     fn now_ns(&self) -> u64 {
@@ -431,8 +431,8 @@ impl ShellWindow for WinitWindow {
 /// A physical client position in logical pixels.
 fn logical((x, y): (f64, f64), scale: f64) -> Point {
     Point {
-        x: (x / scale) as f64,
-        y: (y / scale) as f64,
+        x: (x / scale),
+        y: (y / scale),
     }
 }
 
@@ -573,8 +573,8 @@ impl Runner<'_> {
                 let (x, y) = self.cursor?;
                 let scale = self.run.live_ref().map_or(1.0, |w| w.window.scale_factor());
                 Some(kivact_types::Point {
-                    x: (x / scale) as f64,
-                    y: (y / scale) as f64,
+                    x: (x / scale),
+                    y: (y / scale),
                 })
             })
     }
@@ -641,10 +641,7 @@ impl ApplicationHandler<()> for Runner<'_> {
             return;
         }
         let result = (|| {
-            let logical = (
-                f64::from(self.options.width),
-                f64::from(self.options.height),
-            );
+            let logical = (self.options.width, self.options.height);
             let mut attributes = Window::default_attributes()
                 .with_visible(false)
                 .with_title(&self.options.title)
@@ -910,9 +907,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                         mouse.wheel_lines,
                         mouse.wheel_chars,
                     ),
-                    MouseScrollDelta::PixelDelta(p) => {
-                        ((-p.x / scale) as f64, (-p.y / scale) as f64)
-                    }
+                    MouseScrollDelta::PixelDelta(p) => ((-p.x / scale), (-p.y / scale)),
                 };
                 self.mouse.position().map(|position| {
                     ShellEvent::Wheel(kivact_types::WheelInput {

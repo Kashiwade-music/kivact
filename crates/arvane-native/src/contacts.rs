@@ -35,14 +35,14 @@ pub(crate) fn map(touch: Touch, scale: f64, notes: &[ContactNote]) -> PointerSam
         kind: note.map_or(PointerKind::Touch, |n| n.kind),
         phase,
         position: Point {
-            x: (touch.location.x / scale) as f64,
-            y: (touch.location.y / scale) as f64,
+            x: (touch.location.x / scale),
+            y: (touch.location.y / scale),
         },
         buttons: PointerButtons::NONE.with(
             MouseButton::Primary,
             matches!(phase, PointerPhase::Down(_) | PointerPhase::Move),
         ),
-        pressure: touch.force.map(|force| force.normalized() as f64),
+        pressure: touch.force.map(|force| force.normalized()),
         tilt: note.and_then(|n| n.tilt),
         button: None,
         press: None,
