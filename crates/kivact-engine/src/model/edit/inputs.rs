@@ -1,7 +1,7 @@
-//! Role: Text inputs' native editors: edit states, controlled values, sessions and lines.
+//! Role: Reconcile native editors, controlled values, sessions and lines.
 
 use crate::contract::HostEvent;
-use crate::measure::editor::EditorNode;
+use crate::measure::editor::{ControlledValue, EditorNode};
 #[cfg(all(debug_assertions, feature = "testing"))]
 use crate::measure::input::RefreshedLines;
 use crate::model::Model;
@@ -23,18 +23,12 @@ impl Model {
         edit: Option<EditState>,
     ) -> Option<Box<EditorNode>> {
         let slot = self.tree.nodes.index_of(id);
-        let present = edit.is_some() && slot.is_some();
         let previous = slot.and_then(|slot| {
             std::mem::replace(
                 &mut self.editors[slot.0],
                 edit.map(|state| Box::new(EditorNode::new(state))),
             )
         });
-        if present {
-            self.edits.inputs.insert(id);
-        } else {
-            self.edits.inputs.remove(&id);
-        }
         previous
     }
 
@@ -50,9 +44,15 @@ impl Model {
         let edit = match &mut self.editors[node.index.0] {
             Some(edit) => {
                 if edit.editor.state().value() != &*value {
-                    edit.pending_controlled =
-                        (!edit.editor.set_controlled(&value)).then_some(value);
+                    edit.controlled = if edit.editor.set_controlled(&value) {
+                        ControlledValue::InSync {
+                            at: edit.editor.revision(),
+                        }
+                    } else {
+                        ControlledValue::HeldDuringComposition { value }
+                    };
                 }
+                edit.flush_damage();
                 return None;
             }
             None => EditState::new(&value),
@@ -78,7 +78,7 @@ impl Model {
             .is_some_and(|old| Rc::ptr_eq(old, &value))
             && self.editors[node.index.0]
                 .as_ref()
-                .is_some_and(|edit| edit.editor.revision() == edit.controlled_at);
+                .is_some_and(|edit| matches!(edit.controlled, ControlledValue::InSync { at } if edit.editor.revision() == at));
         if known {
             return false;
         }
@@ -93,17 +93,34 @@ impl Model {
             // held while composing.
             Some(edit) if edit.editor.state().value() != &*value => {
                 let taken = edit.editor.set_controlled(&value);
-                edit.pending_controlled = (!taken).then(|| value.clone());
+                edit.controlled = if taken {
+                    ControlledValue::InSync {
+                        at: edit.editor.revision(),
+                    }
+                } else {
+                    ControlledValue::HeldDuringComposition {
+                        value: value.clone(),
+                    }
+                };
                 taken
             }
             Some(edit) => {
-                edit.pending_controlled = None;
+                edit.controlled = ControlledValue::InSync {
+                    at: edit.editor.revision(),
+                };
                 false
             }
             None => false,
         };
         if let Some(edit) = &mut self.editors[node.index.0] {
-            edit.controlled_at = edit.editor.revision();
+            if matches!(edit.controlled, ControlledValue::InSync { .. }) {
+                edit.controlled = ControlledValue::InSync {
+                    at: edit.editor.revision(),
+                };
+            }
+        }
+        if let Some(edit) = &mut self.editors[node.index.0] {
+            edit.flush_damage();
         }
         if changed {
             self.changed(
@@ -167,8 +184,8 @@ impl Model {
     /// reported: caret moves, selections and edits alike.
     pub(crate) fn report_sessions(&mut self) {
         let mut events = Vec::new();
-        for id in &self.edits.inputs {
-            let Some(n) = self.tree.get_mut(*id) else {
+        for id in self.input_ids() {
+            let Some(n) = self.tree.get_mut(id) else {
                 continue;
             };
             if !n.reports_session() {
@@ -189,12 +206,24 @@ impl Model {
                 if let Some(node) = &mut self.editors[n.index.0] {
                     node.reported_session = Some(session.clone());
                 }
-                events.push(HostEvent::SelectionChanged { node: *id, session });
+                events.push(HostEvent::SelectionChanged { node: id, session });
             }
         }
         for event in events {
             self.push(event);
         }
+    }
+
+    pub(crate) fn input_ids(&self) -> Vec<NodeId> {
+        let mut ids: Vec<_> = self
+            .tree
+            .nodes
+            .iter()
+            .filter(|(_, node)| self.editors[node.index.0].is_some())
+            .map(|(id, _)| *id)
+            .collect();
+        ids.sort_unstable();
+        ids
     }
 
     /// The session of the text input `id`, read without its text.

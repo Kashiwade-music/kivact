@@ -180,18 +180,13 @@ impl Model {
 
     /// The focused text input, if it takes edits (not disabled).
     pub(crate) fn focused_input(&self) -> Option<NodeId> {
-        self.focused()
-            .filter(|f| f.region.is_none())
-            .map(|f| f.node)
-            .filter(|f| {
-                self.tree.get(*f).is_some_and(|n| {
-                    self.editors[n.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some()
-                        && !n.disabled()
-                })
-            })
+        match self.edits.target {
+            crate::model::edit::state::ImeTarget::Native(slot) => {
+                Some(self.tree.nodes.id_at(slot.0))
+            }
+            crate::model::edit::state::ImeTarget::None
+            | crate::model::edit::state::ImeTarget::Session(_) => None,
+        }
     }
 
     /// Edit the text input `id` with `f`, which says whether the value
@@ -237,8 +232,7 @@ impl Model {
         let EditorNode {
             editor,
             lines,
-            pending_controlled,
-            controlled_at,
+            controlled,
             ..
         } = self.editors[n.index.0].as_deref_mut()?;
         let mut journal = editor.journal(max_length);
@@ -265,7 +259,7 @@ impl Model {
         if read_only && (journal.text_changed() || journal.state().is_composing()) {
             journal.revert();
         }
-        if EditorNode::adopt_pending_controlled(pending_controlled, controlled_at, &mut journal) {
+        if EditorNode::adopt_pending_controlled(controlled, &mut journal) {
             reported = true;
         }
         let changed = !read_only && reported;
@@ -276,6 +270,9 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         });
+        if let Some(editor) = self.editor_node_mut(id) {
+            editor.flush_damage();
+        }
         self.repaint_text(id);
         if let Some(e) = event {
             self.changes.mark(id, Dirty::MEASURE);
@@ -477,10 +474,7 @@ impl Model {
         };
         let report = n.reports_text();
         let Some(EditorNode {
-            editor,
-            pending_controlled,
-            controlled_at,
-            ..
+            editor, controlled, ..
         }) = self.editors[n.index.0].as_deref_mut()
         else {
             return;
@@ -489,7 +483,7 @@ impl Model {
         if !journal.state_mut().unmark() {
             return;
         }
-        EditorNode::adopt_pending_controlled(pending_controlled, controlled_at, &mut journal);
+        EditorNode::adopt_pending_controlled(controlled, &mut journal);
         let changes = journal.finish();
         let event = HostEvent::TextChanged {
             node: id,
@@ -497,6 +491,9 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         };
+        if let Some(editor) = self.editor_node_mut(id) {
+            editor.flush_damage();
+        }
         self.repaint_text(id);
         self.push(event);
     }

@@ -69,7 +69,8 @@ pub(crate) struct Host {
     pub(super) suspended: bool,
     /// The software keyboard was asked for (an editable text input has
     /// the focus).
-    pub(super) soft_keyboard: bool,
+    pub(super) soft_keyboard: kivact_types::cell::Sent<SoftKeyboard>,
+    pub(super) ime_allowed: kivact_types::cell::Sent<ImeAllowed>,
     /// Per-frame timings for benchmarks (`KIVACT_FRAME_LOG`), shared with
     /// the window's renderer observer.
     pub(super) frame_log: Rc<RefCell<FrameLog>>,
@@ -329,12 +330,23 @@ impl Host {
                 .caret(&mut self.engine.borrow_mut())
                 .or_else(|| model.session_area())
         };
-        window.set_ime_allowed(caret.is_some());
+        let allowed = if caret.is_some() {
+            ImeAllowed::Yes
+        } else {
+            ImeAllowed::No
+        };
+        if let Some(allowed) = self.ime_allowed.update(allowed) {
+            window.set_ime_allowed(*allowed == ImeAllowed::Yes);
+        }
         // The software keyboard follows the focus of an editable text
         // input (a no-op where the platform has none).
-        if caret.is_some() != self.soft_keyboard {
-            self.soft_keyboard = caret.is_some();
-            window.set_soft_keyboard(self.soft_keyboard);
+        let keyboard = if caret.is_some() {
+            SoftKeyboard::Shown
+        } else {
+            SoftKeyboard::Hidden
+        };
+        if let Some(keyboard) = self.soft_keyboard.update(keyboard) {
+            window.set_soft_keyboard(*keyboard == SoftKeyboard::Shown);
         }
         if let Some(caret) = caret {
             window.set_ime_cursor_area(caret);
@@ -426,4 +438,15 @@ impl Host {
             next.map_or(ShellControl::Wait, ShellControl::WakeAt)
         }
     }
+}
+
+#[derive(PartialEq)]
+pub(super) enum SoftKeyboard {
+    Hidden,
+    Shown,
+}
+#[derive(PartialEq)]
+pub(super) enum ImeAllowed {
+    No,
+    Yes,
 }

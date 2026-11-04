@@ -1,6 +1,6 @@
 //! Role: IME composition, commit and selection applied to the focused text input.
 
-use super::state::{ImeGiven, ImeUpdate, InputSource};
+use super::state::{ImeGiven, ImeUpdate, InputSource, InputStart};
 use crate::model::Model;
 use kivact_editing::EditState;
 use kivact_types::ImeInput;
@@ -64,7 +64,7 @@ impl Model {
         }
         let ImeGiven::Input {
             source,
-            start: Some(base),
+            start: input_start,
         } = &self.edits.given
         else {
             return;
@@ -72,7 +72,10 @@ impl Model {
         if source.node != id {
             return;
         }
-        let base = *base;
+        let base = match input_start {
+            InputStart::At(base) => *base,
+            InputStart::NoText => return,
+        };
         let Some((start, end)) = self
             .node(id)
             .and_then(|n| {
@@ -132,7 +135,9 @@ impl Model {
             None => ImeGiven::Nothing,
             Some(source) => ImeGiven::Input {
                 source,
-                start: text.as_ref().map(|(_, start)| *start),
+                start: text
+                    .as_ref()
+                    .map_or(InputStart::NoText, |(_, start)| InputStart::At(*start)),
             },
         };
         ImeUpdate::Set(text.map(|(text, _)| text))

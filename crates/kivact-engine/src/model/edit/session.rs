@@ -28,10 +28,28 @@ impl Model {
     /// The focused node that has an IME session (it is not a native editor
     /// and not disabled).
     pub(crate) fn focused_session(&self) -> Option<NodeId> {
-        let target = self.focused().filter(|f| f.region.is_none())?;
-        let n = self.tree.get(target.node)?;
-        (n.properties.ime.is_some() && self.editors[n.index.0].is_none() && !n.disabled())
-            .then_some(target.node)
+        match self.edits.target {
+            super::state::ImeTarget::Session(id) => Some(id),
+            super::state::ImeTarget::None | super::state::ImeTarget::Native(_) => None,
+        }
+    }
+
+    pub(crate) fn update_ime_target(&mut self) {
+        use super::state::{EditorSlot, ImeTarget};
+        self.edits.target = self
+            .focused()
+            .filter(|f| f.region.is_none())
+            .and_then(|f| self.tree.get(f.node).map(|n| (f.node, n)))
+            .filter(|(_, n)| !n.disabled())
+            .map_or(ImeTarget::None, |(id, n)| {
+                if self.editors[n.index.0].is_some() {
+                    ImeTarget::Native(EditorSlot(n.index))
+                } else if n.properties.ime.is_some() {
+                    ImeTarget::Session(id)
+                } else {
+                    ImeTarget::None
+                }
+            });
     }
 
     /// The session of the focused node, if it has one.
