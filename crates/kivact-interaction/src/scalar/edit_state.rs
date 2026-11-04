@@ -111,7 +111,7 @@ impl Shared {
 /// The edit plumbing of one thumb.
 #[derive(Clone, Copy)]
 pub(crate) struct Edit {
-    pub(crate) observed: Signal<Option<Value<super::handle::ScalarState>>>,
+    pub(crate) observed: Signal<Option<Value<super::data::ScalarState>>>,
     pub(crate) shared: Shared,
     /// Which thumb of the slider this is, from 0.
     pub(crate) index: usize,

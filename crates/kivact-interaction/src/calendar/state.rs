@@ -35,7 +35,7 @@ pub(super) enum Choice {
 pub(super) struct State {
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) cell_states:
-        Signal<std::collections::HashMap<CalendarDate, Value<super::handle::CalendarDayState>>>,
+        Signal<std::collections::HashMap<CalendarDate, Value<super::data::CalendarDayState>>>,
     pub(super) owner: Owner,
     /// The App's root when the grid was created: a day of another App has
     /// another root.

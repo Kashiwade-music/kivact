@@ -67,9 +67,11 @@
 //! ));
 //! ```
 
+mod data;
 mod handle;
 mod policy;
 mod state;
 
-pub use handle::{CalendarDayState, CalendarGridApi, CalendarSpan, use_calendar_grid};
+pub use data::{CalendarDayState, CalendarSpan};
+pub use handle::{CalendarGridApi, use_calendar_grid};
 pub use policy::{CalendarOptions, CalendarSelection};
