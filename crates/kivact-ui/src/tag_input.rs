@@ -133,14 +133,12 @@ impl IntoView for TagInput {
             variants,
         } = self;
         let disabled = root
-            .accessible_disabled
-            .get()
+            .accessible_disabled()
             .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let label = root.accessible_name().map(|read| read).unwrap_or(label);
         let invalid = root
-            .accessible_invalid
-            .get()
+            .accessible_invalid()
             .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
@@ -187,14 +185,19 @@ impl IntoView for TagInput {
                         pending.set(String::new());
                     }
                 })
-                .on_key_default(move |event| {
-                    if event.key() == Key::Backspace && pending.with_untracked(String::is_empty) {
-                        if let Some(last) = tags.with_untracked(|tags| tags.len().checked_sub(1)) {
-                            on_remove.call(last);
+                .with_node(|node| {
+                    node.on_key_default(move |event| {
+                        if event.key() == Key::Backspace && pending.with_untracked(String::is_empty)
+                        {
+                            if let Some(last) =
+                                tags.with_untracked(|tags| tags.len().checked_sub(1))
+                            {
+                                on_remove.call(last);
+                            }
+                            return Handled::Yes;
                         }
-                        return Handled::Yes;
-                    }
-                    Handled::No
+                        Handled::No
+                    })
                 }),
             |r| r.tag_input_recipes().input_recipe(),
             &variants,

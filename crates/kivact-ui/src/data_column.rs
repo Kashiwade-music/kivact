@@ -238,17 +238,6 @@ impl<R: 'static> DataColumn<R> {
         self.cell.is_some()
     }
 
-    /// Whether the header sorts the rows ([`compare`](Self::compare) or
-    /// [`sortable`](Self::sortable)).
-    pub(crate) fn is_sortable(&self) -> bool {
-        self.def.is_sortable()
-    }
-
-    /// Whether the column takes part in the filter ([`filter`](Self::filter)).
-    pub(crate) fn is_filtered(&self) -> bool {
-        self.def.is_filtered()
-    }
-
     /// Whether the column is [`numeric`](Self::numeric).
     pub(crate) fn is_numeric(&self) -> bool {
         self.numeric

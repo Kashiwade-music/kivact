@@ -11,6 +11,7 @@ use kivact_core::i18n::{message, message_with};
 use kivact_core::state::{Binding, Value, binding, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
+use kivact_core::view::IntoView;
 use kivact_core::view::NodeBuilder;
 use kivact_core::view::{Role, View};
 use kivact_core::view::{node, row, text};
@@ -185,7 +186,7 @@ pub(super) fn select_page<K: kivact_core::state::ItemKey>(
     };
     let all = move || keys.with(|keys| !keys.is_empty() && chosen() == keys.len());
     let mixed = move || keys.with(|keys| chosen() > 0 && chosen() < keys.len());
-    let select = kivact_core::view::callback(move |on: bool| {
+    let select = kivact_core::state::callback(move |on: bool| {
         let keys = keys.get();
         let mut next = selection.get();
         next.retain(|k| !keys.contains(k));

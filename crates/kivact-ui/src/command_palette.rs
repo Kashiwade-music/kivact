@@ -136,8 +136,8 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
     }
 
     /// A line under the list, such as the keys that move, run and close.
-    /// `content` runs each time the palette opens. Without one nothing is
-    /// drawn there.
+    /// The content mounts once and remains alive while the palette is closed.
+    /// Without one nothing is drawn there.
     pub fn footer(mut self, content: impl IntoView) -> Self {
         self.footer = Some(content.into_view());
         self
@@ -169,20 +169,26 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
         });
         let empty =
             empty.unwrap_or_else(|| message("palette.empty", "No results found.").into_value());
-        palette
-            .show(move || {
+        node()
+            .hidden(move || !palette.is_open().get())
+            .child({
                 let plain = PartState::default;
                 let groups = for_each(
                     palette.visible(),
                     |group| (group.index, group.heading.is_some()),
                     {
                         let variants = variants.clone();
-                        move |(index, _), group| {
+                        move |group| {
+                            let index = group.with_untracked(|group| group.index);
                             let heading = group.with_untracked(|group| group.heading.clone());
                             let commands = memo(move || group.with(|group| group.commands.clone()));
                             let rows = for_each(commands, |command| command.key().clone(), {
                                 let variants = variants.clone();
-                                move |key, command| row_view(palette, key, command, &variants)
+                                move |command| {
+                                    let key =
+                                        command.with_untracked(|command| command.key().clone());
+                                    row_view(palette, key, command, &variants)
+                                }
                             });
                             let Some(heading) = heading else {
                                 return rows.into_view();
@@ -245,9 +251,9 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
                         )
                     }
                 });
-                let footer = footer.as_ref().map(|footer| {
+                let footer = footer.map(|footer| {
                     with_recipe_style(
-                        row(footer.clone()),
+                        row(footer),
                         |r| r.command_palette_recipes().footer_recipe(),
                         &variants,
                         plain,
@@ -268,8 +274,9 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
                         &variants,
                         plain,
                     ),
-                    overlay(node_ref(), Placement::Center, panel)
-                        .with_node(|node| node.part(content)),
+                    overlay(node_ref(), Placement::Center, panel).with_node(|node| {
+                        node.part(content).hidden(move || !palette.is_open().get())
+                    }),
                 )
             })
             .into_view()
@@ -278,7 +285,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
 
 /// One command's row: its icon, its label and its hint.
 fn row_view<K: kivact_core::state::ItemKey>(
-    palette: kivact_interaction::CommandPalette<K>,
+    palette: kivact_interaction::CommandPaletteApi<K>,
     key: K,
     command: Value<Command<K>>,
     variants: &Variants,

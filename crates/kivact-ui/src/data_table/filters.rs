@@ -5,6 +5,7 @@ use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_in
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::{Binding, Signal, Value, binding, effect, memo, signal, var};
 use kivact_core::style::{ColorToken, Justify, Length, pct, style};
+use kivact_core::view::IntoView;
 use kivact_core::view::NodeBuilder;
 use kivact_core::view::{NodeRef, OverlayAlign, Placement, View, node_ref};
 use kivact_core::view::{column, icon, node, row};
@@ -110,7 +111,7 @@ fn popover(
         .node_ref(reference)
         .style(style().size(20, 20).min_width(0).min_height(0).padding(0));
     dialog(label, open)
-        .kind(DialogMode::Popover)
+        .mode(DialogMode::Popover)
         .placement(Placement::Below)
         .align(OverlayAlign::Start)
         .width(Length::from(240))
@@ -121,7 +122,7 @@ fn popover(
             let control = editor(
                 field.clone(),
                 label,
-                draft.into(),
+                kivact_core::state::IntoBinding::into_binding(draft),
                 valid,
                 ControlSize::Medium,
             );

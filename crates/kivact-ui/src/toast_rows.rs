@@ -2,7 +2,6 @@
 use kivact_core::motion::{Transition, animated};
 use kivact_core::state::{Value, effect, memo, on_mount, signal, var};
 use kivact_core::style::{Overflow, style};
-use kivact_core::view::NodeBuilder;
 use kivact_core::view::column;
 use kivact_core::view::{View, for_each, node_ref, show};
 use kivact_interaction::ToastId;
@@ -51,7 +50,8 @@ pub(super) fn animate(
     for_each(
         slots,
         |slot| slot.generation,
-        move |generation, slot| {
+        move |slot| {
+            let generation = slot.with_untracked(|slot| slot.generation);
             let slot = slot.get();
             // The current toaster value hides the real card in the same update
             // that removes it. The presentation generation keeps a reappearing

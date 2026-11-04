@@ -6,6 +6,7 @@ use super::variants::{Variant, Variants};
 use kivact_core::custom::part;
 use kivact_core::motion::Transition;
 use kivact_core::state::signal;
+use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{Theme, ThemeExtension, use_theme};
 use kivact_core::view::NodeBuilder;
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
@@ -122,7 +123,7 @@ impl IntoView for ToastRegion {
             let items = if let Some(transition) = row_motion.transition.clone() {
                 super::toast_rows::animate(shown, transition, row_motion.gap, build)
             } else {
-                for_each(shown, |id| *id, move |id, _| build(id))
+                for_each(shown, |id| *id, move |id| build(id.get_untracked()))
             };
             let part = toaster.region(live);
             let input = part.state();

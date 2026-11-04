@@ -117,7 +117,7 @@ impl NumberInput {
         mut self,
         f: impl Fn(EditPhase) -> R + 'static,
     ) -> Self {
-        self.on_edit = Some(kivact_core::view::callback(f));
+        self.on_edit = Some(kivact_core::state::callback(f));
         self
     }
 }
@@ -180,14 +180,12 @@ impl IntoView for NumberInput {
             variants,
         } = self;
         let disabled = root
-            .accessible_disabled
-            .get()
+            .accessible_disabled()
             .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let label = root.accessible_name().map(|read| read).unwrap_or(label);
         let invalid = root
-            .accessible_invalid
-            .get()
+            .accessible_invalid()
             .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
@@ -274,14 +272,14 @@ impl IntoView for NumberInput {
             }
         };
         let decrease = button(message("stepper.decrease", "Decrease"))
-            .base_style(style().grid_row(1).grid_column(1))
+            .with_node(|node| node.base_style(style().grid_row(1).grid_column(1)))
             .disabled(disabled)
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("minus"))
             .on_press(step(-1.0));
         let increase = button(message("stepper.increase", "Increase"))
-            .base_style(style().grid_row(1).grid_column(3))
+            .with_node(|node| node.base_style(style().grid_row(1).grid_column(3)))
             .disabled(disabled)
             .variant(ButtonVariant::Ghost)
             .hide_label(true)

@@ -187,7 +187,7 @@ impl<S> Look<S> {
     /// The variant of type `T` the component was given with
     /// `.variant(..)`, if any.
     pub fn variant<T: 'static>(&self) -> Option<&T> {
-        self.ext.ext::<T>()
+        self.ext.get::<T>()
     }
 }
 

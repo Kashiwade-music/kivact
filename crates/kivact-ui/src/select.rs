@@ -223,7 +223,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             move || state.get(),
         )
         .child(kivact_core::view::icon("chevron-down"));
-        let shown = behavior.shown.get();
+        let shown = behavior.is_open();
         let open = behavior.open_binding();
         let sheet_open = signal(false);
         let (trigger, sheet_factory) = if let Some((eligible, factory)) = self.touch_sheet {
@@ -327,7 +327,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             for_each(
                 options,
                 |item| item.key().clone(),
-                move |key, item| {
+                move |item| {
+                    let key = item.with_untracked(|item| item.key().clone());
                     let variants = &rows;
                     let lines = rows.clone();
                     let part = if sheet {

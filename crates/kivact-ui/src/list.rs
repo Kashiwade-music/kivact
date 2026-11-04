@@ -178,7 +178,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for List<K> {
         let rows = for_each(
             items,
             |item| item.key().clone(),
-            move |key, item| {
+            move |item| {
+                let key = item.with_untracked(|item| item.key().clone());
                 let part = behavior.item(key);
                 let state = part.state();
                 let content = match &slot {
