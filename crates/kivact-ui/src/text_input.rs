@@ -13,7 +13,7 @@ use kivact_core::style::use_theme;
 use std::cell::{Cell, OnceCell};
 use std::rc::Rc;
 
-use kivact_core::state::{Binding, binding};
+use kivact_core::state::Binding;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{HandlerResult, IntoView, NodeRef, View};

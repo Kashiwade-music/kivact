@@ -140,7 +140,8 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         let labels = for_each(
             self.options,
             |item| item.key().clone(),
-            move |key, item| {
+            move |item| {
+                let key = item.with_untracked(|item| item.key().clone());
                 let part = behavior.item(key);
                 let state = part.state();
                 let content = match &slot {
@@ -245,7 +246,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
             let panels = for_each(
                 options,
                 |item| item.key().clone(),
-                move |key, _| panel(key, &factory),
+                move |item| panel(item.with_untracked(|item| item.key().clone()), &factory),
             );
             return if vertical {
                 row((list, panels)).into_view()

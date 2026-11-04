@@ -88,7 +88,7 @@ impl Tooltip {
     /// has a description keeps it. The surface is mounted in a fresh owner
     /// while the tooltip is shown.
     pub fn attach<T: NodeBuilder + IntoView>(self, mut trigger: T) -> View {
-        let behavior = kivact_interaction::use_tooltip_when(self.enabled);
+        let behavior = kivact_interaction::use_tooltip().disabled(move || !self.enabled.get());
         let part = behavior.trigger();
         let anchor = node_ref();
         let described = trigger.node_mut().has_description();
@@ -98,7 +98,7 @@ impl Tooltip {
         } else {
             trigger.description(self.label)
         };
-        let surface = kivact_core::view::show(behavior.shown.get(), move || {
+        let surface = kivact_core::view::show(behavior.is_open(), move || {
             let part = behavior.content();
             let state = part.state();
             let placed = node_ref();

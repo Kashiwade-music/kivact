@@ -110,7 +110,10 @@ pub fn tree_rows<K: kivact_core::state::ItemKey, P: kivact_core::state::ItemKey>
                 presentation(row),
             )
         },
-        move |(key, _, _), row| ordinary(key.clone(), row, tree_for_rows.item(key)),
+        move |row| {
+            let key = row.with_untracked(|row| row.key.clone());
+            ordinary(key.clone(), row, tree_for_rows.item(key))
+        },
     )
     .into_view();
     TreeRows {
@@ -196,7 +199,9 @@ fn branch_rows<K: kivact_core::state::ItemKey>(
             }
         },
         |row| (row.key.clone(), row.branch.has_children()),
-        move |(key, has_children), row| {
+        move |row| {
+            let (key, has_children) =
+                row.with_untracked(|row| (row.key.clone(), row.branch.has_children()));
             let part = tree.item_with_exit(key.clone());
             let line = render(key.clone(), row, part);
             if !has_children {

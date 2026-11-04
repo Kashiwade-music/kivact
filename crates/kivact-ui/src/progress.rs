@@ -9,7 +9,7 @@ use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, ProgressState};
 use super::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, animated, frame_loop};
-use kivact_core::platform::{reduced_motion, surface_active};
+use kivact_core::platform::{is_motion_reduced, is_surface_active};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, effect, memo, signal};
 use kivact_core::style::{Theme, ThemeExtension, use_theme};
@@ -170,7 +170,7 @@ impl IntoView for Progress {
         let phase = signal(0.0f64);
         let period = memo(|| {
             let motion = use_theme().get().ext::<ProgressMotion>();
-            if reduced_motion() {
+            if is_motion_reduced().get() {
                 motion.reduced_period_ms
             } else {
                 Some(motion.period_ms)
@@ -186,7 +186,7 @@ impl IntoView for Progress {
         effect(move || {
             if (target.get().is_none() || moving.get())
                 && period.get().is_some()
-                && surface_active()
+                && is_surface_active().get()
             {
                 clock.start(FrameRate::Hz(30.0));
             } else {

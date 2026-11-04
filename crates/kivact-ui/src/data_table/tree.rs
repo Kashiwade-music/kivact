@@ -5,6 +5,7 @@ use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
+use kivact_core::view::IntoView;
 use kivact_core::view::NodeBuilder;
 use kivact_core::view::{ReadingDirection, View, dynamic, use_direction};
 use kivact_core::view::{icon, node, row};
@@ -183,7 +184,7 @@ impl<K: kivact_core::state::ItemKey> Plan<K> {
                 }
                 let open = memo(move || aggregate.get().1);
                 control(open, true)
-                    .indeterminate(move || aggregate.get().2)
+                    .with_node(|node| node.indeterminate(move || aggregate.get().2))
                     .on_press(move || {
                         self.expanded.set(if open.get_untracked() {
                             Vec::new()
@@ -219,7 +220,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
     })
     .variant(ButtonVariant::Ghost)
     .hide_label(true)
-    .expanded(open)
+    .with_node(|node| node.expanded(open))
     .style(
         style()
             .size(24, 24)

@@ -1,13 +1,13 @@
 //! Role: Named status markers in the table's leading accessory lane.
-use crate::{Tone, tooltip};
+use crate::tooltip;
 use kivact_core::i18n::message;
 use kivact_core::state::Value;
 use kivact_core::style::{
     Align, Color, ColorToken, Icon, Justify, Theme, ThemeExtension, style, use_theme,
 };
-use kivact_core::view::NodeBuilder;
 use kivact_core::view::{Node, icon, node};
 use kivact_core::view::{Role, View, dynamic};
+use kivact_interaction::Tone;
 
 /// A status announced by name and shown in the table's leading lane.
 #[derive(Clone, Debug, PartialEq)]
@@ -37,7 +37,7 @@ impl RowStatus {
 
     /// Display a named or custom icon instead of the default mark.
     pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
-        self.icon = Some(icon.into_binding());
+        self.icon = Some(icon.into());
         self
     }
 }

@@ -21,7 +21,6 @@ use kivact_core::view::{
 };
 use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{ScalarRange, use_splitter};
-use std::rc::Rc;
 
 /// The pixels used until the host has laid the panes out.
 const UNMEASURED: f64 = 800.0;

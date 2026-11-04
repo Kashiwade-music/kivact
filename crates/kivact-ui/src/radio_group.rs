@@ -208,7 +208,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
         let rows = for_each(
             options,
             |item| item.key().clone(),
-            move |key, item| {
+            move |item| {
+                let key = item.with_untracked(|item| item.key().clone());
                 let member = group.item(key);
                 let state = member.state();
                 let check = kivact_core::state::memo(move || {

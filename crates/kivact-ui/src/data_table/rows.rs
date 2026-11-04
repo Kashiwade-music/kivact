@@ -9,6 +9,7 @@ use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
 use kivact_core::custom::Part;
 use kivact_core::draw::linear_gradient;
+use kivact_core::view::IntoView;
 use kivact_core::view::NodeBuilder;
 
 use kivact_core::geometry::Rect;
@@ -450,7 +451,7 @@ where
     let name = message_with("data_table.select_named", "Select {row}", move || {
         [("row", item.with(|row| label(row)))]
     });
-    let toggle = kivact_core::view::callback(move |_: bool| {
+    let toggle = kivact_core::state::callback(move |_: bool| {
         behavior.select(id.clone(), ListGesture::Toggle);
     });
     with_recipe_style(
@@ -640,7 +641,7 @@ fn row_disclosure<R: 'static, K: kivact_core::state::ItemKey>(
         },
     );
     let disclosure = use_disclosure(open);
-    let shown = disclosure.shown.get();
+    let shown = disclosure.is_open();
     let row_label = grid.row_label.clone();
     let name = message_with("data_table.row_details", "{row} details", move || {
         [("row", item.with(|row| row_label(row)))]

@@ -295,7 +295,7 @@ impl Dialog {
         let title = self.title;
         let hidden = self.title_hidden;
         let variants = self.variants.clone();
-        let dialog = kivact_core::view::show(behavior.shown.get(), move || {
+        let dialog = kivact_core::view::show(behavior.is_open(), move || {
             let variants = &variants;
             let heading = {
                 let variants = variants.clone();

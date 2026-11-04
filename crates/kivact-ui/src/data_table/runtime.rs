@@ -2,6 +2,7 @@
 use super::rows::{self, Grid};
 use super::types::{DataTable, DataTableContext, RowName};
 use kivact_core::i18n::message;
+use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::view::NodeBuilder;
 
 use kivact_core::state::{Binding, binding, memo, signal};
@@ -225,7 +226,7 @@ where
             move |next: Option<(usize, SortOrder)>| multi_sort.set(next.into_iter().collect()),
         )
     } else {
-        let sort = sort.unwrap_or_else(|| signal(None).into());
+        let sort = sort.unwrap_or_else(|| signal(None).into_binding());
         behavior = behavior.with_sort(binding(sort, move |next| {
             sort.set(next);
             if let Some((index, _)) = page {
@@ -329,7 +330,10 @@ where
         for_each(
             display,
             move |row| key(row),
-            move |id, item| rows::body(&grid, id, item),
+            move |item| {
+                let id = item.with_untracked(|row| (grid.key)(row));
+                rows::body(&grid, id, item)
+            },
         )
     };
     let empty_view = show(

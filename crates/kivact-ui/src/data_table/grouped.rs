@@ -10,6 +10,7 @@ use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{
     Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
 };
+use kivact_core::view::IntoView;
 use kivact_core::view::NodeBuilder;
 use kivact_core::view::{ReadingDirection, Role, View, for_each, use_direction};
 use kivact_core::view::{icon, node, row, text};
@@ -105,24 +106,30 @@ impl<R: kivact_core::state::PropValue> Plan<R> {
                 Entry::Group(label, _) => EntryKey::Group(label.clone()),
                 Entry::Data(row) => EntryKey::Data(key(row)),
             },
-            move |key, entry| match key {
-                EntryKey::Group(label) => {
-                    let state = memo(move || {
-                        entry.with(|entry| match entry {
-                            Entry::Group(_, state) => *state,
-                            Entry::Data(_) => unreachable!("group key refers to a group"),
-                        })
-                    });
-                    header(&grid, label, state, self.collapsed)
-                }
-                EntryKey::Data(key) => {
-                    let row = memo(move || {
-                        entry.with(|entry| match entry {
-                            Entry::Data(row) => row.clone(),
-                            Entry::Group(..) => unreachable!("data key refers to a row"),
-                        })
-                    });
-                    rows::body(&grid, key, row)
+            move |entry| {
+                let entry_key = entry.with_untracked(|entry| match entry {
+                    Entry::Group(label, _) => EntryKey::Group(label.clone()),
+                    Entry::Data(row) => EntryKey::Data((grid.key)(row)),
+                });
+                match entry_key {
+                    EntryKey::Group(label) => {
+                        let state = memo(move || {
+                            entry.with(|entry| match entry {
+                                Entry::Group(_, state) => *state,
+                                Entry::Data(_) => unreachable!("group key refers to a group"),
+                            })
+                        });
+                        header(&grid, label, state, self.collapsed)
+                    }
+                    EntryKey::Data(key) => {
+                        let row = memo(move || {
+                            entry.with(|entry| match entry {
+                                Entry::Data(row) => row.clone(),
+                                Entry::Group(..) => unreachable!("data key refers to a row"),
+                            })
+                        });
+                        rows::body(&grid, key, row)
+                    }
                 }
             },
         )
@@ -193,7 +200,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     let disclosure = button(name)
         .variant(ButtonVariant::Ghost)
         .hide_label(true)
-        .expanded(move || !state.get().collapsed)
+        .with_node(|node| node.expanded(move || !state.get().collapsed))
         .on_press(move || {
             let mut groups = collapsed.get_untracked();
             if groups.contains(&label) {

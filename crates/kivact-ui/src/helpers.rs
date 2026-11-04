@@ -1,7 +1,6 @@
 //! Role: Share text styles used by standard control labels.
 
 use kivact_core::style::{Style, TextOverflow, style};
-use kivact_core::view::NodeBuilder;
 
 /// The text style of a control that shows one line: the text does not wrap
 /// and ends in an ellipsis where it does not fit. It is the first style

@@ -137,7 +137,7 @@ impl IntoView for Disclosure {
         if let Some(disabled) = self.root.accessible_disabled() {
             details = details.disabled(move || disabled.get());
         }
-        let shown = details.shown.get();
+        let shown = details.is_open();
         let reveal = self
             .animated
             .then(|| use_content_reveal(shown, Transition::tween(200, Easing::EaseOut)));

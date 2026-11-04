@@ -132,7 +132,7 @@ pub fn button(label: impl IntoText) -> Button {
             busy: busy_value.get(),
             expanded: read_expanded.get().map(|open| open.get()),
             leading_icon: settings.leading_icon,
-            trailing_icon: settings.trailing,
+            trailing_icon: settings.trailing_icon,
             icon_only: settings.leading_icon && read_hide.get().is_some_and(|hide| hide.get()),
         }
     });
@@ -205,7 +205,7 @@ impl Button {
     /// recipe knows it from [`ButtonState::trailing_icon`].
     pub fn trailing(mut self, icon: impl IntoView) -> Self {
         self.trailing = Some(icon.into_view());
-        self.configure(|s| s.trailing = true)
+        self.configure(|s| s.trailing_icon = true)
     }
     /// Keep the accessible name while omitting the visible label (while
     /// true; constant or reactive). A button with a leading
@@ -283,7 +283,7 @@ impl Button {
                 let phase = signal(0.0f64);
                 let period = kivact_core::state::memo(|| {
                     let motion = use_theme().get().ext::<ButtonBusyMotion>();
-                    if kivact_core::platform::reduced_motion() {
+                    if kivact_core::platform::is_motion_reduced().get() {
                         motion.reduced_spin_ms
                     } else {
                         motion.spin_ms
@@ -296,14 +296,14 @@ impl Button {
                     phase.set(elapsed.rem_euclid(period) / period);
                 });
                 kivact_core::state::effect(move || {
-                    if kivact_core::platform::surface_active() {
+                    if kivact_core::platform::is_surface_active().get() {
                         clock.start(FrameRate::Hz(60.0));
                     } else {
                         clock.stop();
                     }
                 });
                 let motion = use_theme().get().ext::<ButtonBusyMotion>();
-                let delay = if kivact_core::platform::reduced_motion() {
+                let delay = if kivact_core::platform::is_motion_reduced().get() {
                     0
                 } else {
                     motion.reveal_delay_ms
@@ -325,7 +325,7 @@ impl Button {
                             Easing::CubicBezier(0.25, 0.1, 0.25, 1.0),
                         )
                         .delay(delay as f64)
-                        .decorative(false),
+                        .essential(),
                     )
                 });
                 with_recipe_style(

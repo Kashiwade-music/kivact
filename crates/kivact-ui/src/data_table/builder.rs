@@ -4,7 +4,6 @@ use crate::DataColumn;
 use crate::layer::with_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
-use kivact_core::geometry::Edge;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::Color;

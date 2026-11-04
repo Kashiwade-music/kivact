@@ -438,7 +438,7 @@ impl IntoView for Slider {
                         .child(thumb)
                         .style(move || {
                             let position = geometry.thumb_style(input.get().fraction);
-                            if kivact_core::platform::reduced_motion() {
+                            if kivact_core::platform::is_motion_reduced().get() {
                                 position
                             } else {
                                 let lifted = lifted.get();

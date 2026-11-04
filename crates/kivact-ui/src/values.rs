@@ -25,7 +25,6 @@
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
 use kivact_core::custom::PartState;
-use kivact_core::geometry::Edge;
 use kivact_core::view::CheckedState;
 use kivact_core::view::Orientation;
 use kivact_interaction::DialogMode;
@@ -93,8 +92,7 @@ pub fn provide_control_size<V: kivact_core::view::IntoView>(
 
 pub(super) fn default_control_size() -> ControlSize {
     kivact_core::state::try_use_context::<InheritedControlSize>()
-        .get()
-        .map_or_else(ControlSize::default, |size| size.0)
+        .map_or_else(ControlSize::default, |size| size.get().0)
 }
 
 /// What a button's recipes know of it: its root, its content row, its
@@ -196,7 +194,7 @@ impl ProgressState {
     /// calls it moves; under reduced motion it rests at the track's start.
     pub fn sweep(&self) -> (f64, f64) {
         const LENGTH: f64 = 0.3;
-        if kivact_core::platform::reduced_motion() {
+        if kivact_core::platform::is_motion_reduced().get() {
             return (0.0, LENGTH);
         }
         let eased = (1.0 - (self.phase.get() * std::f64::consts::PI).cos()) / 2.0;
@@ -387,3 +385,5 @@ pub struct DataTablePageState {
     /// How many pages the filtered rows fill. Zero for a remote page with unknown total.
     pub pages: usize,
 }
+
+kivact_core::state::constant_value!(ControlSize);
