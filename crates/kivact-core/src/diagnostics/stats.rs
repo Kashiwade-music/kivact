@@ -26,10 +26,8 @@ pub struct Stats {
     /// Revisions committed (each one batch of writes).
     pub batches: u64,
     /// Cumulative accessibility payload construction, excluding debug references.
-    #[cfg(feature = "test")]
     pub a11y_constructed: u64,
     /// Cumulative accessibility payloads sent, including rejected attempts.
-    #[cfg(feature = "test")]
     pub a11y_published: u64,
     /// Writes given to the engine.
     pub ops: u64,

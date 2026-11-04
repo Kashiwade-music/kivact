@@ -68,6 +68,7 @@ pub mod gpu_interop;
 )]
 mod gpu_interop;
 pub mod i18n;
+pub mod launch;
 pub mod motion;
 pub mod platform;
 pub mod prelude;

@@ -54,6 +54,5 @@ pub(crate) mod state;
 #[cfg(debug_assertions)]
 pub(crate) mod trace;
 
-pub(crate) use app_client::{AppClient, AppConfig};
 #[cfg(feature = "test")]
 pub(crate) use state::HostState;

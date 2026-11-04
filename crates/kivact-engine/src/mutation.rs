@@ -7,10 +7,8 @@ use std::collections::HashSet;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WriteStats {
     /// Cumulative accessibility payloads constructed, excluding debug references.
-    #[cfg(feature = "testing")]
     pub a11y_constructed: u64,
     /// Cumulative payloads sent to the window, including rejected attempts.
-    #[cfg(feature = "testing")]
     pub a11y_published: u64,
     pub creates: u64,
     pub set_props: u64,

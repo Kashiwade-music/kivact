@@ -19,6 +19,19 @@ pub struct Reader {
 }
 
 impl Reader {
+    /// Client mutation totals and the last committed revision.
+    pub fn stats(&self) -> crate::mutation::WriteStats {
+        let model = self.model.borrow();
+        let stats = model.writes.stats;
+        #[cfg(feature = "testing")]
+        let stats = crate::mutation::WriteStats {
+            a11y_constructed: model.a11y.constructed,
+            a11y_published: model.a11y.published,
+            ..stats
+        };
+        stats
+    }
+
     /// The current display lifetime phase; missing nodes have left.
     pub fn presence(&self, id: NodeId) -> kivact_types::Presence {
         self.model
