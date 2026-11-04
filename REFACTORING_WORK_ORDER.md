@@ -332,7 +332,7 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
 - **決定済みの形**: 設計書 5.3 節の struct と、その「field の型の規則」。`derive(Clone, Debug, PartialEq, Hash)`（geometry を含む `SemanticsText` の既存比較を保つため `Eq` は付けない）、`Default` は手で書く、`f64` の field は `Finite`。`Finite::new` は符号付きゼロを正規化する。text snapshot の `Hash` は設計書 5.3 節の訂正に従う。`map_relations`。field の一覧を報告に書く。
 - **手順**:
   1. `kivact-types` に `Semantics<R>` を作り、wire の `SemanticsProperties` と protocol の `SemanticsProperties` を消す。
-  2. engine: node の semantics を `Semantics<NodeId>` で持つ。`a11y/hash.rs` の field ごとの手書きの hash を、`Semantics<SemanticsId>` の `Hash` で置き換える。`a11y/build/*` は `map_relations` で関係を写す。
+  2. engine: node の semantics を `Semantics<FocusTarget>` で持つ（region への既存の関係を保持するため、当初の NodeId 指定を訂正）。`a11y/hash.rs` の field ごとの手書きの hash を、`Semantics<SemanticsId>` の `Hash` で置き換える。`a11y/build/*` は `map_relations` で関係を写す。
   3. `arvane-shell`（`a11y/validation.rs`、`a11y/state.rs`）と `arvane-native`（`a11y/conversion.rs`）を `Semantics<SemanticsId>` にする。
   4. core: `SemanticSources` は残し（N-3 で消す）、mount のときに `Semantics<FocusTarget>` を作って engine へ書く形にする。
 - **試験**: 足さない。既存の支援技術の E2E（`dev/tests/kivact-public-api/tests/e2e/` の accessibility 系、`crates/arvane/tests/e2e/accessibility.rs`）が回帰の網。

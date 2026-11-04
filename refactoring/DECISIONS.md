@@ -2394,6 +2394,7 @@ P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しい
 ### W1 definition reconciliation
 
 - V-2: `Semantics<R>` includes the semantic properties currently split across `NodeSemantics`, both property structs, and the protocol node. The transport node retains topology/geometry plus one `semantics` value. Existing wire optional booleans take precedence; protocol-only `protected` remains a bool.
+- V-2 consumer reconciliation: engine also stores `Semantics<FocusTarget>`, since existing relations may identify a draw region. The illustrative `Semantics<NodeId>` would lose that information. Map the node/region identity together to `SemanticsId` at accessibility publication.
 - V-3: `EmbedOptions` is a pure value (`size`, `scale`, `prefer_gpu`, `gpu_preference`). Resize callbacks and the existing panic slot belong to shell-owned `ChildHooks`, passed explicitly beside options through embedding entry points and `Backend::open_child`. Preserve callback and panic forwarding behavior. This corrects the old options' hidden closure/state boundary rather than adding types-to-shell dependencies.
 - V-3: `FailureKind` adopts existing Arvane `ErrorKind` categories Content/Resource/Backend/Surface/Unavailable; no new arbitrary classification.
 - V-4: create helper definitions alongside the other definitions, then apply the cross-module f64 conversion after those merges and before grouped consumer migration. This avoids overlapping changes to the same types without changing the wave's final scope.
