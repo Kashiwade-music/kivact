@@ -5,7 +5,7 @@ Date: 2026-11-04
 
 ## Baseline
 
-Baseline gates are running. Logs: `target/foundation-v3/baseline/` (not committed).
+Baseline gates completed (serial E2E as documented below). Logs: `target/foundation-v3/baseline/` (not committed).
 
 | Gate | Result |
 |---|---|
@@ -15,7 +15,8 @@ Baseline gates are running. Logs: `target/foundation-v3/baseline/` (not committe
 | individual features | exit 0; cumulative elapsed 956.9 seconds (preceding suite attempts included). |
 | xtask | exit 0; 43 workspace crates, 145 graphs; 1203.1 seconds including first build and Node shim shutdown wait. |
 | clippy all targets/features | exit 0; 31.54 seconds after xtask. |
-| retry | Running with CARGO_INCREMENTAL=0, CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0, CARGO_BUILD_JOBS=2. |
+| all-features serial E2E + doctest | exit 0; 1338 passed, 52 ignored; 960.0 seconds including lock wait. |
+| resource settings | Completed with CARGO_INCREMENTAL=0, CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0, CARGO_BUILD_JOBS=2. |
 | all-features E2E | wrapper exit 127, 390.5 seconds; arvane 33 + native 6 passed; GPU read_back passed 5/6 before STATUS_HEAP_CORRUPTION (0xc0000374). Serial rerun queued to isolate concurrency. |
 
 ## Units
