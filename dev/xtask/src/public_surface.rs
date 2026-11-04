@@ -21,7 +21,7 @@ struct Binding {
 }
 
 pub(crate) fn definition(source: &Source, name: &str) -> String {
-    let package = source.package.replace('-', "_");
+    let package = source.identity_root();
     if source.module.is_empty() {
         format!("{package}::{name}")
     } else {
@@ -123,8 +123,8 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
     }
     let roots: BTreeSet<_> = sources
         .iter()
-        .filter(|s| s.package == "kivact" || crate::foundation::is_kit(&s.package))
-        .map(|s| s.package.replace('-', "_"))
+        .filter(|s| s.library && (s.package == "kivact" || crate::foundation::is_kit(&s.package)))
+        .map(Source::identity_root)
         .collect();
     let mut pending: Vec<_> = roots
         .into_iter()

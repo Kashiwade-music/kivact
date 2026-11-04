@@ -50,6 +50,9 @@ const STANDARD: &[&str] = &[
     "AsyncFnOnce",
 ];
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
+    if !source.library {
+        return;
+    }
     if !crate::foundation::is_kit(&source.package) {
         return;
     }
@@ -61,7 +64,7 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
             }
         }
     }
-    let prefix = source.package.replace('-', "_") + "::";
+    let prefix = source.identity_root() + "::";
     for path in surface
         .exports
         .keys()
