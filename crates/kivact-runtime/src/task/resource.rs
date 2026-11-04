@@ -7,15 +7,12 @@ use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::async_state::{AsyncState, cancelled};
+use super::async_state::{AsyncCell, AsyncState, cancelled};
 use super::latest::LatestRun;
-use crate::{
-    EffectKind, IntoValue, Owned, Owner, Runtime, Signal, Trigger, UiError, require_effectful,
-};
+use crate::{EffectKind, IntoValue, Owned, Owner, Runtime, Trigger, UiError, require_effectful};
 
 pub(crate) struct ResourceCell<T: 'static> {
-    state: Signal<AsyncState<T>>,
-    latest: Signal<Option<T>>,
+    async_state: AsyncCell<T>,
     refetch: Trigger,
     fetch: Rc<LatestRun>,
 }
@@ -58,8 +55,7 @@ where
     let owner = Owner::current("resource", at);
     let app = owner.app();
     let cell = Rc::new(ResourceCell {
-        state: owner.signal(AsyncState::<T>::Idle, at),
-        latest: owner.signal(None::<T>, at),
+        async_state: AsyncCell::new(owner, at),
         refetch: owner.trigger(at),
         fetch: LatestRun::new(),
     });
@@ -80,22 +76,14 @@ where
                     owner,
                     at,
                     || {
-                        cell.state.update(|st| *st = AsyncState::Pending);
+                        cell.async_state.start();
                         fetch(s)
                     },
                     move |r| {
                         let Some(cell) = publish_to.upgrade() else {
                             return;
                         };
-                        let next = match r {
-                            Ok(v) => {
-                                let latest = v.clone();
-                                cell.latest.update(move |l| *l = Some(latest));
-                                AsyncState::Ready(v)
-                            }
-                            Err(e) => AsyncState::Failed(e),
-                        };
-                        cell.state.update(move |st| *st = next);
+                        cell.async_state.finish(r);
                     },
                 );
             });
@@ -114,14 +102,14 @@ impl<T: Clone + 'static> Resource<T> {
     /// `Failed` with an error whose `is_cancelled()` is true.
     #[track_caller]
     pub fn state(&self) -> AsyncState<T> {
-        self.cell(Location::caller()).state.get()
+        self.cell(Location::caller()).async_state.state.get()
     }
 
     /// Last successful value, kept while refetching, after errors and
     /// after cancellation (tracked).
     #[track_caller]
     pub fn latest(&self) -> Option<T> {
-        self.cell(Location::caller()).latest.get()
+        self.cell(Location::caller()).async_state.latest.get()
     }
 
     /// Error of the latest request while it is `Failed` (a cancellation
@@ -129,6 +117,7 @@ impl<T: Clone + 'static> Resource<T> {
     #[track_caller]
     pub fn error(&self) -> Option<UiError> {
         self.cell(Location::caller())
+            .async_state
             .state
             .with(|state| state.error().cloned())
     }
@@ -149,7 +138,7 @@ impl<T: Clone + 'static> Resource<T> {
         require_effectful("Resource::cancel");
         if cell.fetch.cancel() {
             let err = cancelled(at);
-            cell.state.update(move |st| *st = AsyncState::Failed(err));
+            cell.async_state.finish(Err(err));
         }
     }
 }
