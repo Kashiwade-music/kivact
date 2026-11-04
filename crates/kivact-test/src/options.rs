@@ -60,9 +60,10 @@ impl Default for RenderOptions {
 }
 impl RenderOptions {
     pub fn from_env() -> Self {
-        let mut options = Self::default();
-        options.gpu = std::env::var("KIVACT_TEST_GPU").as_deref() == Ok("1");
-        options
+        Self {
+            gpu: std::env::var("KIVACT_TEST_GPU").as_deref() == Ok("1"),
+            ..Self::default()
+        }
     }
     pub fn with_theme(theme: Theme) -> Self {
         Self::default().theme(theme)
