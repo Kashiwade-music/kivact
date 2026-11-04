@@ -4,16 +4,15 @@ use crate::theme_access::{
     CHECK, list_row, lit_row, popover_surface, shadow_md, stroke_glyph, tokens,
 };
 use crate::tokens::Tokens;
-use kivact::Value;
-use kivact::control::{column, node, scroll, text};
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::interaction::{ListItemState, SelectApi};
 use kivact::prelude::NodeBuilder;
-use kivact::primitive::NodeExt;
+use kivact::state::Value;
+use kivact::view::{column, node, scroll, text};
+
+use kivact::interaction::ListItem;
 use kivact::style::{Direction, Style};
-use kivact::ui::ListItem;
 use kivact::view::{IntoView, NodeRef, Placement, View, for_each, overlay, show};
-use std::hash::Hash;
 
 /// The popup list of select, menus, comboboxes and native selects:
 /// [`popover_surface`] with `shadow-md` and no padding.
@@ -52,13 +51,13 @@ pub(crate) fn row_style(p: &Tokens, state: &ListItemState) -> Style {
 }
 
 /// The open list of `behavior`, anchored below `anchor` and as wide as it.
-pub(crate) fn select_popup<K: Clone + Eq + Hash + 'static>(
+pub(crate) fn select_popup<K: kivact::state::ItemKey>(
     behavior: SelectApi<K>,
     options: Value<Vec<ListItem<K>>>,
     anchor: NodeRef,
     name: Value<String>,
 ) -> View {
-    show(behavior.shown(), move || {
+    show(behavior.is_open(), move || {
         let part = behavior.content();
         let rows = for_each(
             options,
@@ -67,7 +66,7 @@ pub(crate) fn select_popup<K: Clone + Eq + Hash + 'static>(
                 let part = behavior.item(key);
                 let state = part.state();
                 node()
-                    .part(part)
+                    .with_node(|root| root.part(part))
                     .style(move || row_style(&tokens(), &state.get()))
                     .child(text(move || item.get().label()))
             },
@@ -77,10 +76,10 @@ pub(crate) fn select_popup<K: Clone + Eq + Hash + 'static>(
             Placement::Below,
             scroll(column(rows)).style(move || surface_style(&tokens()).max_height(320)),
         )
-        .part(part)
+        .with_node(|root| root.part(part))
         .name(name)
         .offset(4.0)
-        .at_least_anchor_width(true)
+        .at_least_anchor_width()
     })
     .into_view()
 }

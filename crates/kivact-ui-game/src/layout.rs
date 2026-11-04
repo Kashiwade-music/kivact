@@ -1,13 +1,15 @@
 //! Role: Application-owned expandable file-tree entries and views.
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::state::{Binding, binding, memo, signal};
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::ui::tree_rows;
-use kivact::view::{IntoValue, Role};
-use kivact::{Binding, binding, memo, signal};
+use kivact::view::Role;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
 use std::collections::HashMap;
 
-use kivact::interaction::ListSelection;
-use kivact::ui::TreeNode;
+use kivact::interaction::Selection;
+use kivact::interaction::TreeNode;
 
 /// A reusable file-tree entry, independent of the application's file transport.
 #[derive(Clone, Debug, PartialEq)]
@@ -108,10 +110,10 @@ fn flatten(
 #[track_caller]
 pub fn tree(
     entries: impl IntoValue<Vec<TreeEntry>>,
-    selection: impl Into<Binding<Option<String>>>,
-) -> Node {
+    selection: impl kivact::state::IntoBinding<Option<String>>,
+) -> impl kivact::view::Component {
     let entries = entries.into_value();
-    let selection = selection.into();
+    let selection = selection.into_binding();
     let (mut nodes, mut facts, mut initially_open) = (Vec::new(), HashMap::new(), Vec::new());
     flatten(
         entries.get_untracked(),
@@ -138,7 +140,7 @@ pub fn tree(
         }
         None => source.set(None),
     });
-    let tree = kivact::interaction::use_tree(nodes, expanded, ListSelection::Single(keys));
+    let tree = kivact::interaction::use_tree(nodes, expanded, Selection::Single(keys));
     let tree = tree.on_activate({
         move |id: String| {
             if facts.with(|facts| facts.get(&id).is_some_and(|f| f.folder)) {
@@ -184,13 +186,13 @@ pub fn tree(
                 // A pointer-only expander: the tree's rows take the arrow keys.
                 chevron
                     .on_press(move || tree.toggle(id.clone()))
-                    .role(Role::Generic)
+                    .with_node(|root| root.role(Role::Generic))
             } else {
                 chevron
             };
             let body = row((
                 chevron,
-                kivact::control::icon(if folder { "folder" } else { "file-text" }).style(
+                kivact::view::icon(if folder { "folder" } else { "file-text" }).style(
                     style().size(14, 14).color(if folder {
                         ColorToken::Warning
                     } else {
@@ -214,10 +216,10 @@ pub fn tree(
                             .color(ColorToken::AccentText),
                     ),
             );
-            body.part(part)
+            body.with_node(|root| root.part(part))
         },
     );
     column(rows)
-        .part(tree.list())
+        .with_node(|root| root.part(tree.list()))
         .style(style().padding_y(4).width(pct(100)))
 }

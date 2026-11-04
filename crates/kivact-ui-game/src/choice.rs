@@ -1,13 +1,14 @@
 //! Role: Game looks of the radio group and tabs, and the slots that fill them.
 
 use crate::Color;
-use kivact::control::{column, text};
+use kivact::interaction::ListItem;
 use kivact::interaction::TabState;
 use kivact::prelude::NodeBuilder;
-use kivact::style::{current_theme, style};
-use kivact::ui::{CheckState, ListItem};
+use kivact::state::{Value, memo};
+use kivact::style::{style, use_theme};
+use kivact::ui::CheckableState;
 use kivact::view::{IntoView, View, dynamic, show};
-use kivact::{Value, memo};
+use kivact::view::{column, text};
 
 use crate::Tokens;
 
@@ -51,7 +52,7 @@ impl kivact::ui::Variant for Boxed {}
 /// count after it in the slot.
 ///
 /// ```no_run
-/// use kivact::ui::ListItem;
+/// use kivact::interaction::{ListItem};
 /// use kivact::prelude::*;
 /// use kivact_ui_game as g;
 ///
@@ -66,13 +67,16 @@ impl kivact::ui::Variant for Boxed {}
 ///     .item(|item, state| (g::card_label(item, state), text("¥39,800/month")))
 /// }
 /// ```
-pub fn card_label<K: Clone + 'static>(item: Value<ListItem<K>>, state: Value<CheckState>) -> View {
+pub fn card_label<K: Clone + 'static>(
+    item: Value<ListItem<K>>,
+    state: Value<CheckableState>,
+) -> View {
     (
         icon_view(item),
         text(move || item.with(ListItem::label)).style(move || {
-            let theme = &current_theme();
+            let theme = &use_theme().get();
             style()
-                .font_family(theme.get::<Tokens>().display_family.as_str())
+                .font_family(theme.ext::<Tokens>().display_family.as_str())
                 .font_size(18)
                 .weight(700)
                 .italic(true)
@@ -92,7 +96,7 @@ pub fn card_label<K: Clone + 'static>(item: Value<ListItem<K>>, state: Value<Che
 /// the slot.
 ///
 /// ```no_run
-/// use kivact::ui::ListItem;
+/// use kivact::interaction::{ListItem};
 /// use kivact::prelude::*;
 /// use kivact_ui_game as g;
 ///
@@ -101,7 +105,7 @@ pub fn card_label<K: Clone + 'static>(item: Value<ListItem<K>>, state: Value<Che
 ///     tabs("Sections", vec![ListItem::new("inbox", "Inbox"), ListItem::new("alerts", "Alerts")], section)
 ///         .orientation(Orientation::Vertical)
 ///         .variant(g::Navigation)
-///         .item(|item, state| (g::navigation_label(item, state), g::badge("3", kivact::ui::Tone::Info)))
+///         .item(|item, state| (g::navigation_label(item, state), g::badge("3", kivact::interaction::Tone::Info)))
 /// }
 /// ```
 pub fn navigation_label<K: Clone + 'static>(
@@ -121,7 +125,7 @@ pub fn navigation_label<K: Clone + 'static>(
 
 /// The description of `item`, tracked.
 fn description<K: Clone + 'static>(item: Value<ListItem<K>>) -> Value<Option<String>> {
-    memo(move || item.with(ListItem::description_value))
+    memo(move || item.with(ListItem::description))
 }
 
 /// An option's description in the muted small type, left out while it has
@@ -140,8 +144,8 @@ fn description_view(description: Value<Option<String>>) -> View {
 /// An option's icon, as the theme resolves it.
 fn icon_view<K: Clone + 'static>(item: Value<ListItem<K>>) -> View {
     dynamic(
-        move || item.with(|item| item.icon_value().cloned()),
-        |icon| icon.map(kivact::control::icon),
+        move || item.with(|item| item.icon().cloned()),
+        |icon| icon.map(kivact::view::icon),
     )
     .into_view()
 }

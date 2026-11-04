@@ -10,7 +10,7 @@ KPIs, file trees, banners and activity logs.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
+use kivact::style::{ThemeMode};
 use kivact_ui_game::{Density, Slant, ThemeOptions as _, theme};
 
 fn screen() -> impl IntoView {
@@ -35,7 +35,7 @@ fn main() -> kivact::Result<()> {
   `provide_theme`. Options such as `.density(..)` come from the
   `ThemeOptions` trait, which must be in scope (`use ... ThemeOptions as _`).
   The kit's tokens are `Tokens`; icons are the bundled Tabler set, drawn with
-  `kivact::control::icon("name")`.
+  `kivact::view::icon("name")`.
 - **Looks of standard components.** `radio_group(..).variant(Segmented)` or
   `.variant(ChoiceCard)`, `tabs(..).variant(Boxed)` and
   `tabs(..).variant(Navigation)` give the kit's other looks.
@@ -55,3 +55,10 @@ fn main() -> kivact::Result<()> {
 
 MIT OR Apache-2.0. The bundled Tabler icons are MIT
 ([LICENSE-tabler-icons.txt](assets/LICENSE-tabler-icons.txt)).
+
+| Slot kind | API |
+|---|---|
+| Mounted once: headers, media, actions, footers and other display content | `impl IntoView`, stored as `View` |
+| Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
+| Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
+| Individually wrapped children | `impl IntoChildren` |

@@ -1,18 +1,18 @@
 //! Role: Collapsible: a disclosure trigger and its content without a look of its own.
 
-use kivact::Binding;
-use kivact::control::{Node, NodeBuilder, column, node};
 use kivact::interaction::use_disclosure;
-use kivact::primitive::NodeExt;
+use kivact::state::Binding;
+use kivact::state::IntoBinding;
+use kivact::view::{Node, NodeBuilder, column, node};
+
 use kivact::view::{IntoView, View, show};
-use std::rc::Rc;
 
 /// A trigger and the content it shows (collapsible.tsx), without a look of
 /// its own. Created by [`collapsible`]; [`Collapsible::attach`] it to the
 /// caller's trigger.
 pub struct Collapsible {
     open: Binding<bool>,
-    content: Option<Rc<dyn Fn() -> View>>,
+    content: Option<kivact::view::ViewFn>,
 }
 
 /// A collapsible section shown while `open` is true.
@@ -29,9 +29,9 @@ pub struct Collapsible {
 /// }
 /// ```
 #[track_caller]
-pub fn collapsible(open: impl Into<Binding<bool>>) -> Collapsible {
+pub fn collapsible(open: impl kivact::state::IntoBinding<bool>) -> Collapsible {
     Collapsible {
-        open: open.into(),
+        open: open.into_binding(),
         content: None,
     }
 }
@@ -39,24 +39,24 @@ pub fn collapsible(open: impl Into<Binding<bool>>) -> Collapsible {
 impl Collapsible {
     /// What the section shows while it is open, built each time it opens
     /// and removed while it is closed.
-    pub fn content<V: IntoView>(mut self, content: impl Fn() -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move || content().into_view()));
+    pub fn content<V: IntoView>(mut self, content: impl kivact::view::IntoViewFn<V>) -> Self {
+        self.content = Some(content.into_view_fn());
         self
     }
 
     /// Make `trigger` the disclosure's trigger (`Role::Button` with
     /// `expanded`: click, Enter and Space toggle `open`) and return a column
     /// of the trigger over the content, which takes the modifiers.
-    pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> Node {
+    pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> impl kivact::view::Component {
         let details = use_disclosure(self.open);
-        let trigger = trigger.part(details.trigger());
+        let trigger = trigger.with_node(|root| root.part(details.trigger()));
         let content = self.content;
         column((
             trigger,
-            show(details.shown(), move || {
+            show(details.is_open(), move || {
                 node()
-                    .part(details.content())
-                    .child(content.as_ref().map(|content| content()))
+                    .with_node(|root| root.part(details.content()))
+                    .child(content.as_ref().map(|content| content.call(())))
             }),
         ))
     }

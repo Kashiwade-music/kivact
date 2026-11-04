@@ -12,11 +12,14 @@ use crate::button::{ButtonTone, Slant, button_style};
 use crate::choice::check_style;
 use crate::choice::{draw_check_indicator, draw_switch_indicator};
 use crate::form::input_style;
-use kivact::draw::{Draw, Size};
+use kivact::draw::Draw;
 use kivact::draw::{Layer, Transform};
+use kivact::geometry::Size;
 use kivact::style::{Style, Theme, style};
 use kivact::ui::Look;
-use kivact::ui::{ButtonState, ButtonVariant, CheckState, ControlSize, TextInputState, UiRecipes};
+use kivact::ui::{
+    ButtonState, ButtonVariant, CheckableState, ControlSize, TextInputState, UiRecipes,
+};
 use kivact::view::CheckedState;
 
 /// The size of a check box's box and the room a switch's track takes.
@@ -80,7 +83,7 @@ fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
         return s;
     }
     // An icon button is a square of the button's height with a quiet icon.
-    let p = theme.get::<Tokens>();
+    let p = theme.ext::<Tokens>();
     let side = match state.size {
         ControlSize::ExtraSmall => 26,
         ControlSize::Small => 32,
@@ -102,12 +105,12 @@ fn row(theme: &Theme, drawn: (f64, f64)) -> Style {
     check_style(theme).weight(500).padding_left(drawn.0 + GAP)
 }
 
-fn checkbox(theme: &Theme, state: &Look<CheckState>) -> Style {
+fn checkbox(theme: &Theme, state: &Look<CheckableState>) -> Style {
     let (theme, state) = (theme.clone(), **state);
     row(&theme, CHECK).paint(move |d, size| draw_checkbox(&theme, &state, d, size))
 }
 
-fn switch(theme: &Theme, state: &Look<CheckState>) -> Style {
+fn switch(theme: &Theme, state: &Look<CheckableState>) -> Style {
     let (theme, state) = (theme.clone(), **state);
     row(&theme, SWITCH).paint(move |d, size| draw_switch(&theme, &state, d, size))
 }
@@ -123,8 +126,8 @@ fn drawn(d: &mut Draw, size: Size, part: (f64, f64), paint: impl FnOnce(&mut Dra
     );
 }
 
-fn draw_checkbox(theme: &Theme, look: &CheckState, d: &mut Draw, size: Size) {
-    let p = theme.get::<Tokens>();
+fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
+    let p = theme.ext::<Tokens>();
     drawn(d, size, CHECK, |d, s| {
         draw_check_indicator(
             d,
@@ -138,8 +141,8 @@ fn draw_checkbox(theme: &Theme, look: &CheckState, d: &mut Draw, size: Size) {
     });
 }
 
-fn draw_switch(theme: &Theme, look: &CheckState, d: &mut Draw, size: Size) {
-    let p = theme.get::<Tokens>();
+fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
+    let p = theme.ext::<Tokens>();
     drawn(d, size, SWITCH, |d, s| {
         draw_switch_indicator(d, s, look.checked.is_checked(), p.blue, p.line_strong);
     });

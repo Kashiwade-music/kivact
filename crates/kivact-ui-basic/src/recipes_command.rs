@@ -4,8 +4,8 @@ use crate::Color;
 use crate::layers::scrim_style;
 use crate::theme_access::{list_row, menu_shortcut, popover_surface};
 use crate::tokens::Tokens;
+use kivact::custom::PartState;
 use kivact::interaction::{ListItemState, PopupState};
-use kivact::primitive::PartState;
 use kivact::style::{Align, Direction, Overflow, Position, Style, TextAlign, Theme, pct, style};
 use kivact::ui::{CommandPaletteRecipes, Look};
 
@@ -31,7 +31,7 @@ fn scrim(_: &Theme, _: &Look<PartState>) -> Style {
 /// The palette: `bg-popover` in the popover surface, 384 px wide, a third of
 /// the way down the window.
 fn panel(t: &Theme, _: &Look<PopupState>) -> Style {
-    popover_surface(&t.get::<Tokens>())
+    popover_surface(&t.ext::<Tokens>())
         .position(Position::Fixed)
         .top(pct(100.0 / 3.0))
         .left(pct(50))
@@ -51,7 +51,7 @@ fn search(t: &Theme, _: &Look<PartState>) -> Style {
         .height(32)
         .padding_left(8)
         .border_bottom(1, Color::Border)
-        .background(t.get::<Tokens>().input.with_alpha(0.3))
+        .background(t.ext::<Tokens>().input.with_alpha(0.3))
 }
 
 fn search_icon(_: &Theme, _: &Look<PartState>) -> Style {
@@ -63,7 +63,7 @@ fn search_icon(_: &Theme, _: &Look<PartState>) -> Style {
 }
 
 fn field(t: &Theme, _: &Look<PartState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .grow(1)
         .min_width(0)
@@ -94,7 +94,7 @@ fn group(_: &Theme, _: &Look<PartState>) -> Style {
 
 /// A row: `px-2 py-2 text-xs gap-2`, `bg-muted` while active.
 fn row(t: &Theme, s: &Look<ListItemState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = list_row(&p, false);
     if s.active {
         base.background(p.muted).color(p.foreground)
@@ -108,7 +108,7 @@ fn icon(_: &Theme, _: &Look<ListItemState>) -> Style {
 }
 
 fn hint(t: &Theme, s: &Look<ListItemState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = menu_shortcut(&p, false).shrink(0);
     if s.active {
         base.color(p.foreground)

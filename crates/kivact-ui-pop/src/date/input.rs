@@ -3,12 +3,14 @@
 use super::calendar::{Calendar, calendar};
 use super::field::{calendar_popup, date_text_field, field_strip, picker_button, status};
 use super::text::{date_text, error_message};
-use kivact::control::{Node, NodeBuilder, icon, node};
 use kivact::i18n::CalendarDate;
 use kivact::interaction::{PopupCloseReason, use_popup};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, Value, memo, signal};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{ColorToken, Direction, style};
-use kivact::view::{IntoText, IntoValue, IntoView, View, callback, node_ref, show};
-use kivact::{Binding, Value, memo, signal};
+use kivact::view::{IntoView, View, node_ref, show};
+use kivact::view::{Node, NodeBuilder, icon, node};
 use std::rc::Rc;
 
 /// An editable Gregorian date with a calendar to choose it from. Build it
@@ -57,13 +59,13 @@ pub struct DateInput {
 #[track_caller]
 pub fn date_input(
     label: impl IntoText,
-    value: impl Into<Binding<CalendarDate>>,
+    value: impl kivact::state::IntoBinding<CalendarDate>,
     today: CalendarDate,
 ) -> DateInput {
     DateInput {
         root: node().style(style().direction(Direction::Column)),
         label: label.into_text_value(),
-        value: value.into(),
+        value: value.into_binding(),
         today,
         valid: None,
         calendar: None,
@@ -74,8 +76,8 @@ impl DateInput {
     /// Whether the text is a date: not empty, in the format, and a day that
     /// exists. It is written as the text is edited, `true` while the text
     /// follows the value.
-    pub fn valid(mut self, valid: impl Into<Binding<bool>>) -> Self {
-        self.valid = Some(valid.into());
+    pub fn valid(mut self, valid: impl kivact::state::IntoBinding<bool>) -> Self {
+        self.valid = Some(valid.into_binding());
         self
     }
 
@@ -87,6 +89,7 @@ impl DateInput {
 }
 
 impl NodeBuilder for DateInput {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -107,7 +110,7 @@ impl IntoView for DateInput {
         let (parsed, error) = (input.parsed, input.shown);
         let bad = memo(move || error.get().is_some());
         if let Some(valid) = valid {
-            kivact::effect(move || valid.set(parsed.get().is_ok()));
+            kivact::state::effect(move || valid.set(parsed.get().is_ok()));
         }
         let (open, anchor, message_node) = (signal(false), node_ref(), node_ref());
         let popup = use_popup(open);
@@ -125,7 +128,7 @@ impl IntoView for DateInput {
             ),
         ))
         .child(status(bad, error_message(error), message_node))
-        .child(show(popup.shown(), move || {
+        .child(show(popup.is_open(), move || {
             let content = calendar(state, today).on_activate(move |value| picked.try_call(value));
             calendar_popup(
                 anchor,

@@ -32,7 +32,7 @@ fn code_block_reports_copy_requests_and_shows_copied_for_two_seconds() {
                     .title("main.rs")
                     .line_numbers(true)
                     .on_copy(move || copies.update(|n| *n += 1))
-                    .footer(move || text("Rust"))
+                    .footer(text("Rust"))
                     .test_id("code")
                     .style(style().width(400)),
             ),

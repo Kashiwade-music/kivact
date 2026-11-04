@@ -2,9 +2,9 @@
 
 use crate::support::assert_clean;
 use kivact::i18n::{CalendarDate, CalendarMonth};
+use kivact::interaction::ListItem;
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::ui::ListItem;
 use kivact::view::Key;
 use kivact_ui_basic as basic;
 
@@ -175,7 +175,7 @@ fn radio_group_arrows_move_and_select() {
     let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
         let value = signal(Some("apple"));
         let mut options = fruits();
-        options[0] = ListItem::new("apple", "Apple").description("Crunchy");
+        options[0] = ListItem::new("apple", "Apple").with_description("Crunchy");
         (value, page(radio_group("Fruit", options, value)))
     });
     screen.get_by_role(Role::RadioGroup, "Fruit");
@@ -209,7 +209,7 @@ fn slider_keys_and_drag_change_the_binding() {
             page(
                 slider("Volume", value)
                     .range(
-                        kivact::ui::ScalarRange::new(0.0, 100.0)
+                        kivact::interaction::ScalarRange::new(0.0, 100.0)
                             .and_then(|range| range.with_step(5.0))
                             .expect("a valid range"),
                     )
@@ -231,8 +231,8 @@ fn slider_keys_and_drag_change_the_binding() {
     screen.run_until_idle();
     assert_eq!(value.get_untracked(), 0.0);
     slider.drag(
-        kivact::draw::Point::new(6.0, 8.0),
-        kivact::draw::Point::new(6.0 + 94.0, 8.0),
+        kivact::geometry::Point::new(6.0, 8.0),
+        kivact::geometry::Point::new(6.0 + 94.0, 8.0),
     );
     screen.run_until_idle();
     let now = value.get_untracked();

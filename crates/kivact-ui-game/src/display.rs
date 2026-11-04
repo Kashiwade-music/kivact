@@ -1,17 +1,19 @@
 //! Role: Dense data displays with hard-edged status geometry.
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::draw::{Path, Point, Rect};
+use kivact::draw::Path;
 use kivact::draw::{Shape, Stroke, Transform};
+use kivact::geometry::{Point, Rect};
 use kivact::motion::{Animated, Easing, Transition};
 use kivact::platform;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::{IntoText, IntoValue};
+use kivact::state::{Signal, Value, effect, signal};
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Justify, Theme, pct, rgba, style};
-use kivact::view::{IntoText, IntoValue, IntoView, NodeRef, Role, View, node_ref};
-use kivact::{Signal, Value, effect, signal};
+use kivact::view::{IntoView, NodeRef, Role, View, node_ref};
 
 use crate::Tokens;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 
 /// The colors a game theme gives a semantic [`Tone`].
 pub(crate) trait ToneExt {
@@ -28,14 +30,14 @@ impl ToneExt for Tone {
             Self::Success => t.colors().success,
             Self::Warning => t.colors().warning,
             Self::Danger => t.colors().danger,
-            Self::Neutral => t.get::<Tokens>().text_2,
-            Self::Accent => t.get::<Tokens>().yellow,
+            Self::Neutral => t.ext::<Tokens>().text_2,
+            Self::Accent => t.ext::<Tokens>().yellow,
         }
     }
     fn weak(self, t: &Theme) -> Color {
-        let dark = t.get::<Tokens>().mode == kivact::style::ThemeMode::Dark;
+        let dark = t.ext::<Tokens>().mode == kivact::style::ThemeMode::Dark;
         match self {
-            Self::Info => t.get::<Tokens>().primary_weak,
+            Self::Info => t.ext::<Tokens>().primary_weak,
             Self::Success => {
                 if dark {
                     rgba(0x2cc48a, 0.14)
@@ -57,15 +59,19 @@ impl ToneExt for Tone {
                     kivact::style::rgb(0xfde4e8)
                 }
             }
-            Self::Neutral => t.get::<Tokens>().surface_3,
-            Self::Accent => t.get::<Tokens>().yellow,
+            Self::Neutral => t.ext::<Tokens>().surface_3,
+            Self::Accent => t.ext::<Tokens>().yellow,
         }
     }
 }
 
 /// Skew-ended status badge with a square status dot.
 #[track_caller]
-pub fn badge(label: impl IntoText, tone: Tone) -> Node {
+pub fn badge(
+    label: impl IntoText,
+    tone: impl kivact::state::IntoValue<Tone>,
+) -> impl kivact::view::Component {
+    let tone = tone.into_value();
     tag_badge(label, tone, BadgeVariant::Dot)
 }
 
@@ -81,11 +87,16 @@ pub enum BadgeVariant {
 
 /// A prototype badge with an explicit treatment, retaining generic modifiers.
 #[track_caller]
-pub fn tag_badge(label: impl IntoText, tone: Tone, variant: BadgeVariant) -> Node {
+pub fn tag_badge(
+    label: impl IntoText,
+    tone: impl IntoValue<Tone>,
+    variant: BadgeVariant,
+) -> impl kivact::view::Component {
+    let tone = tone.into_value();
     let dot = if variant == BadgeVariant::Dot {
         Some(node().style(move || {
-            let t = &current_theme();
-            style().size(6, 6).background(tone.color(t))
+            let t = &use_theme().get();
+            style().size(6, 6).background(tone.get().color(t))
         }))
     } else {
         None
@@ -93,35 +104,35 @@ pub fn tag_badge(label: impl IntoText, tone: Tone, variant: BadgeVariant) -> Nod
     row((
         dot,
         crate::mono(label).style(move || {
-            let t = &current_theme();
-            style().color(if tone == Tone::Accent {
-                t.get::<Tokens>().navy
+            let t = &use_theme().get();
+            style().color(if tone.get() == Tone::Accent {
+                t.ext::<Tokens>().navy
             } else if variant == BadgeVariant::Solid {
                 t.colors().accent_text
             } else {
-                tone.color(t)
+                tone.get().color(t)
             })
         }),
     ))
     .style(move || {
-        let t = &current_theme();
+        let t = &use_theme().get();
         let mut s = style()
             .height(20)
             .align_self(Align::Start)
             .padding_x(9)
             .gap(5)
             .align_items(Align::Center)
-            .color(if tone == Tone::Accent {
-                t.get::<Tokens>().navy
+            .color(if tone.get() == Tone::Accent {
+                t.ext::<Tokens>().navy
             } else if variant == BadgeVariant::Solid {
                 t.colors().accent_text
             } else {
-                tone.color(t)
+                tone.get().color(t)
             })
             .background(match variant {
-                BadgeVariant::Solid => tone.color(t),
+                BadgeVariant::Solid => tone.get().color(t),
                 BadgeVariant::Outline => Color::TRANSPARENT,
-                _ => tone.weak(t),
+                _ => tone.get().weak(t),
             })
             .clip_path(
                 Shape::polygon()
@@ -139,7 +150,7 @@ pub fn tag_badge(label: impl IntoText, tone: Tone, variant: BadgeVariant) -> Nod
                         .point(pct(100), pct(100))
                         .point(0, pct(100)),
                 )
-                .border(1, tone.color(t));
+                .border(1, tone.get().color(t));
         }
         s
     })
@@ -150,15 +161,15 @@ pub fn tag_badge(label: impl IntoText, tone: Tone, variant: BadgeVariant) -> Nod
 /// `label` is the small monospaced heading; [`Kpi::heading`] replaces it with
 /// an application-owned view, such as an icon and text label.
 #[track_caller]
-pub fn kpi(label: impl IntoText, target: f64) -> Kpi {
+pub fn kpi(label: impl IntoText, target: impl IntoValue<f64>) -> Kpi {
     Kpi {
         root: column(()),
         label: label.into_text_value(),
         heading: None,
-        target,
+        target: target.into_value(),
         unit: String::new().into_value(),
         change: String::new().into_value(),
-        tone: Tone::Neutral,
+        tone: Tone::Neutral.into_value(),
         trend: Vec::new().into_value(),
         formatter: std::rc::Rc::new(|value| format!("{value:.0}")),
     }
@@ -168,18 +179,21 @@ pub fn kpi(label: impl IntoText, target: f64) -> Kpi {
 pub struct Kpi {
     root: Node,
     label: Value<String>,
-    heading: Option<crate::slot::Slot>,
-    target: f64,
+    heading: Option<kivact::view::View>,
+    target: Value<f64>,
     unit: Value<String>,
     change: Value<String>,
-    tone: Tone,
+    tone: kivact::state::Value<Tone>,
     trend: Value<Vec<f64>>,
     formatter: std::rc::Rc<dyn Fn(f64) -> String>,
 }
 impl Kpi {
     /// Decimal places in the default numeric format; zero by default.
-    pub fn decimals(mut self, decimals: usize) -> Self {
-        self.formatter = std::rc::Rc::new(move |value| format!("{value:.decimals$}"));
+    pub fn decimals(mut self, decimals: impl IntoValue<usize>) -> Self {
+        let decimals = decimals.into_value();
+        self.formatter = std::rc::Rc::new(move |value| {
+            format!("{value:.precision$}", precision = decimals.get())
+        });
         self
     }
     /// Unit suffix; empty by default.
@@ -193,15 +207,16 @@ impl Kpi {
         self
     }
     /// Semantic accent; neutral by default.
-    pub fn tone(mut self, tone: Tone) -> Self {
-        self.tone = tone;
+    pub fn tone(mut self, tone: impl kivact::state::IntoValue<Tone>) -> Self {
+        let tone = tone.into_value();
+        self.tone = tone.into_value();
         self
     }
 
     /// An application-owned heading in place of the label text, built once
     /// by `heading` when the tile mounts.
-    pub fn heading<V: IntoView>(mut self, heading: impl FnOnce() -> V + 'static) -> Self {
-        self.heading = Some(crate::slot::slot(heading));
+    pub fn heading(mut self, heading: impl IntoView) -> Self {
+        self.heading = Some(heading.into_view());
         self
     }
     /// Read-only trend samples; the default empty trend draws no sparkline.
@@ -216,6 +231,7 @@ impl Kpi {
     }
 }
 impl NodeBuilder for Kpi {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -224,7 +240,7 @@ impl IntoView for Kpi {
     fn into_view(mut self) -> View {
         let tone = self.tone;
         self.root = self.root.base_style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             style()
                 .padding_x(16)
                 .padding_top(14)
@@ -232,10 +248,10 @@ impl IntoView for Kpi {
                 .gap(6)
                 .background(t.colors().surface)
                 .border(1, t.colors().border)
-                .border_top(3, tone.color(t))
+                .border_top(3, tone.get().color(t))
         });
         let heading = match self.heading {
-            Some(heading) => heading(),
+            Some(heading) => heading,
             None => crate::mono(self.label)
                 .style(style().color(ColorToken::TextMuted))
                 .into_view(),
@@ -253,7 +269,7 @@ impl IntoView for Kpi {
             0.,
             move || {
                 if matches!(revealed.get(), Reveal::Done) {
-                    target
+                    target.get()
                 } else {
                     0.
                 }
@@ -262,9 +278,9 @@ impl IntoView for Kpi {
         );
         let value_row = row((
             text(move || formatter(value.get())).style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
-                    .font_family(t.get::<Tokens>().display_family.as_str())
+                    .font_family(t.ext::<Tokens>().display_family.as_str())
                     .font_size(36)
                     .weight(700)
                     .italic(true)
@@ -301,7 +317,7 @@ impl IntoView for Kpi {
                     }
                     d.fill_path(
                         &area.line_to(Point::new(s.width, s.height)).close(),
-                        d.theme().get::<Tokens>().primary_weak,
+                        d.theme().ext::<Tokens>().primary_weak,
                     );
                     d.polyline(points, &Stroke::new(1.5), d.theme().colors().accent);
                 })
@@ -313,8 +329,8 @@ impl IntoView for Kpi {
                 value_row,
                 row((
                     crate::mono(change).style(move || {
-                        let t = &current_theme();
-                        style().color(tone.color(t))
+                        let t = &use_theme().get();
+                        style().color(tone.get().color(t))
                     }),
                     spark,
                 ))
@@ -335,14 +351,14 @@ pub fn gauge(label: impl IntoText, value: impl IntoValue<usize>) -> Gauge {
     let value = value.into_value();
     Gauge {
         root: row(())
-            .role(Role::Meter)
+            .with_node(|root| root.role(Role::Meter))
             .name(label)
             .value_min(0.)
             .value_max(100.)
             .value_now(move || value.get() as f64),
         value,
         total: 100usize.into_value(),
-        tone: Tone::Neutral,
+        tone: Tone::Neutral.into_value(),
     }
 }
 /// Presentation builder returned by [`gauge`].
@@ -350,7 +366,7 @@ pub struct Gauge {
     root: Node,
     value: Value<usize>,
     total: Value<usize>,
-    tone: Tone,
+    tone: kivact::state::Value<Tone>,
 }
 impl Gauge {
     /// Reactive number of bars; 100 by default.
@@ -361,12 +377,14 @@ impl Gauge {
         self
     }
     /// Semantic accent; neutral by default.
-    pub fn tone(mut self, tone: Tone) -> Self {
-        self.tone = tone;
+    pub fn tone(mut self, tone: impl kivact::state::IntoValue<Tone>) -> Self {
+        let tone = tone.into_value();
+        self.tone = tone.into_value();
         self
     }
 }
 impl NodeBuilder for Gauge {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -382,14 +400,14 @@ impl IntoView for Gauge {
                 move || (0..total.get()).collect::<Vec<_>>(),
                 move |i, _| {
                     node().style(move || {
-                        let t = &current_theme();
+                        let t = &use_theme().get();
                         style()
                             .size(12, 18)
                             .transform(Transform::new().skew_x(-12))
                             .background(if i < value.get() {
-                                tone.color(t)
+                                tone.get().color(t)
                             } else {
-                                t.get::<Tokens>().surface_3
+                                t.ext::<Tokens>().surface_3
                             })
                     })
                 },
@@ -401,7 +419,12 @@ impl IntoView for Gauge {
 
 /// Segmented circular meter with an upright center label.
 #[track_caller]
-pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Node {
+pub fn ring(
+    label: impl IntoText,
+    value: impl IntoValue<f64>,
+    tone: impl IntoValue<Tone>,
+) -> impl kivact::view::Component {
+    let tone = tone.into_value();
     let value = value.into_value();
     let node = node_ref();
     let revealed = reveal_once(node);
@@ -418,9 +441,9 @@ pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Nod
     );
     column((
         text(move || format!("{:.0}%", value.get())).style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             style()
-                .font_family(t.get::<Tokens>().display_family.as_str())
+                .font_family(t.ext::<Tokens>().display_family.as_str())
                 .font_size(24)
                 .weight(700)
                 .italic(true)
@@ -428,7 +451,7 @@ pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Nod
         crate::mono(label).style(style().font_size(9).color(ColorToken::TextMuted)),
     ))
     .node_ref(node)
-    .role(Role::Meter)
+    .with_node(|root| root.role(Role::Meter))
     .value_min(0.)
     .value_max(100.)
     .value_now(value)
@@ -445,14 +468,14 @@ pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Nod
         d.stroke_path(
             &Path::new().arc(center, 36., 0., 359.9, false),
             &Stroke::new(8),
-            d.theme().get::<Tokens>().surface_3,
+            d.theme().ext::<Tokens>().surface_3,
         );
         let end = -90. + animated.get() * 3.6;
         if end > -90. {
             d.stroke_path(
                 &Path::new().arc(center, 36., -90., end, false),
                 &Stroke::new(8),
-                tone.color(d.theme()),
+                tone.get().color(d.theme()),
             );
         }
         d.stroke_path(
@@ -475,7 +498,7 @@ fn reveal_once(node: NodeRef) -> Signal<Reveal> {
         if matches!(revealed.get_untracked(), Reveal::Pending)
             && let Some(rect) = node.rect().get()
         {
-            let height = platform::window_size().height;
+            let height = platform::window_size().get().height;
             let visible = (rect.y + rect.height).min(height) - rect.y.max(0.);
             if visible >= rect.height * 0.3 {
                 revealed.set(Reveal::Done);
@@ -494,37 +517,39 @@ pub fn avatar(initials: impl IntoText) -> Avatar {
     Avatar {
         root: node(),
         initials: initials.into_text_value(),
-        size: 36.,
-        color: ColorToken::Accent.into(),
-        online: None,
+        size: 36.0.into_value(),
+        color: kivact::style::Color::from(ColorToken::Accent).into_value(),
+        online: (|| None::<Tone>).into_value(),
     }
 }
 /// Presentation builder returned by [`avatar`].
 pub struct Avatar {
     root: Node,
     initials: Value<String>,
-    size: f64,
-    color: Color,
-    online: Option<Tone>,
+    size: Value<f64>,
+    color: Value<Color>,
+    online: Value<Option<Tone>>,
 }
 impl Avatar {
-    /// Side length in logical pixels; 36 by default.
-    pub fn size(mut self, size: f64) -> Self {
-        self.size = size;
+    /// Edge length in logical pixels; 36 by default.
+    pub fn size(mut self, size: impl IntoValue<f64>) -> Self {
+        let size = size.into_value();
+        self.size = size.into_value();
         self
     }
     /// Avatar fill; the theme accent by default.
-    pub fn color(mut self, color: Color) -> Self {
-        self.color = color;
+    pub fn color(mut self, color: impl IntoValue<Color>) -> Self {
+        self.color = color.into_value();
         self
     }
     /// Optional status marker; absent by default.
-    pub fn online(mut self, tone: Option<Tone>) -> Self {
-        self.online = tone;
+    pub fn online(mut self, tone: impl IntoValue<Option<Tone>>) -> Self {
+        self.online = tone.into_value();
         self
     }
 }
 impl NodeBuilder for Avatar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -537,36 +562,36 @@ impl IntoView for Avatar {
         let online = self.online;
 
         let content = node()
-            .style(
+            .style(move || {
                 style()
-                    .size(size, size)
+                    .size(size.get(), size.get())
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .background(color)
+                    .background(color.get())
                     .color(kivact::style::rgb(0xffffff))
                     .clip_path(
                         Shape::polygon()
                             .point(0, 0)
                             .point(pct(100), 0)
-                            .point(pct(100), pct(100) - size / 4.)
-                            .point(pct(100) - size / 4., pct(100))
+                            .point(pct(100), pct(100) - size.get() / 4.)
+                            .point(pct(100) - size.get() / 4., pct(100))
                             .point(0, pct(100)),
-                    ),
-            )
+                    )
+            })
             .child(text(initials).style(move || {
-                let t = &current_theme();
+                let t = &use_theme().get();
                 style()
-                    .font_family(t.get::<Tokens>().display_family.as_str())
-                    .font_size(size * 0.44)
+                    .font_family(t.ext::<Tokens>().display_family.as_str())
+                    .font_size(size.get() * 0.44)
                     .weight(700)
                     .italic(true)
                     .color(kivact::style::rgb(0xffffff))
             }));
         self.root
-            .base_style(style().size(size, size))
+            .base_style(move || style().size(size.get(), size.get()))
             .child(content)
             .draw_over(move |d, s| {
-                if let Some(tone) = online {
+                if let Some(tone) = online.get() {
                     d.fill_rect(
                         Rect::new(s.width - 8., s.height - 8., 10., 10.),
                         ColorToken::Surface,
@@ -583,7 +608,7 @@ impl IntoView for Avatar {
 
 /// Overlapping cut-corner avatars.
 #[track_caller]
-pub fn avatar_stack(items: impl IntoValue<Vec<(String, Color)>>) -> Node {
+pub fn avatar_stack(items: impl IntoValue<Vec<(String, Color)>>) -> impl kivact::view::Component {
     let items = items.into_value();
     row(kivact::view::dynamic(items, |items| {
         items
@@ -602,7 +627,7 @@ pub fn avatar_stack(items: impl IntoValue<Vec<(String, Color)>>) -> Node {
 
 /// Overflow count tile matching the avatar stack's cut corner and muted caption.
 #[track_caller]
-pub fn avatar_more(count: usize) -> Node {
+pub fn avatar_more(count: usize) -> impl kivact::view::Component {
     node()
         .child(
             crate::mono(format!("+{count}"))
@@ -646,7 +671,7 @@ impl ActivityEntry {
 /// Diamond-marked activity timeline.
 /// Entries own non-cloneable views and are consumed once as composition.
 #[track_caller]
-pub fn activity(entries: Vec<ActivityEntry>) -> Node {
+pub fn activity(entries: Vec<ActivityEntry>) -> impl kivact::view::Component {
     column(
         entries
             .into_iter()
@@ -666,7 +691,7 @@ pub fn activity(entries: Vec<ActivityEntry>) -> Node {
                             Point::new(5., 7.),
                             Point::new(5., s.height),
                             1.,
-                            d.theme().get::<Tokens>().line_strong,
+                            d.theme().ext::<Tokens>().line_strong,
                         );
                         d.fill_path(
                             &Path::new()
@@ -682,7 +707,7 @@ pub fn activity(entries: Vec<ActivityEntry>) -> Node {
             )
             .collect::<Vec<_>>(),
     )
-    .role(Role::List)
+    .with_node(|root| root.role(Role::List))
     .style(style().width(pct(100)))
 }
 
@@ -691,7 +716,7 @@ pub fn activity(entries: Vec<ActivityEntry>) -> Node {
 /// `.into_view()` to mix them).
 /// Values are consumed once as composition; reactive data belongs inside each view.
 #[track_caller]
-pub fn property_list<V: IntoView>(entries: Vec<(String, V)>) -> Node {
+pub fn property_list<V: IntoView>(entries: Vec<(String, V)>) -> impl kivact::view::Component {
     column(
         entries
             .into_iter()

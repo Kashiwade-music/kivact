@@ -1,7 +1,7 @@
 //! Role: Tests for component interactions.
 
+use kivact::interaction::ListItem;
 use kivact::prelude::*;
-use kivact::ui::ListItem;
 use kivact_ui_pop as ui;
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {
             let amount = signal(25.0);
             (
                 (theme, selected, amount),
-                kivact::view::provide_theme(theme, move || {
+                kivact::state::provide_theme(theme, move || {
                     column((
                         kivact::ui::tabs(
                             "Tabs",
@@ -65,7 +65,7 @@ fn tooltip_shows_on_focus_below_the_trigger_and_wraps_a_long_label() {
                         kivact::ui::button("Export")
                             .variant(kivact::ui::ButtonVariant::Ghost)
                             .hide_label(true)
-                            .icon(kivact::control::icon("download")),
+                            .icon(kivact::view::icon("download")),
                     ),
                 kivact::ui::tooltip("Add")
                     .placement(kivact::view::Placement::Below)
@@ -75,7 +75,7 @@ fn tooltip_shows_on_focus_below_the_trigger_and_wraps_a_long_label() {
                         kivact::ui::button("Add")
                             .variant(kivact::ui::ButtonVariant::Ghost)
                             .hide_label(true)
-                            .icon(kivact::control::icon("plus")),
+                            .icon(kivact::view::icon("plus")),
                     ),
                 kivact::ui::button("Elsewhere"),
             ))
@@ -111,7 +111,7 @@ fn theme_switch_changes_existing_nodes_and_pixels_without_remounting_state() {
             let checked = signal(true);
             (
                 (dark, checked),
-                kivact::view::provide_theme(
+                kivact::state::provide_theme(
                     move || {
                         ui::theme(if dark.get() {
                             kivact::style::ThemeMode::Dark

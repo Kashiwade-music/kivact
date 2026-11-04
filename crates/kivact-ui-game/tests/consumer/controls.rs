@@ -59,8 +59,8 @@ fn consumer_checkbox_switch_and_disclosure_follow_the_shared_toggle_rules() {
                 column((
                     kivact::ui::checkbox("Notify", check),
                     kivact::ui::switch("Network", switch),
-                    kivact::ui::disclosure("Settings", open, || text("Inspector content")),
-                    kivact::ui::checkbox("Locked", kivact::signal(false)).disabled(true),
+                    kivact::ui::disclosure("Settings", open).content(|| text("Inspector content")),
+                    kivact::ui::checkbox("Locked", kivact::state::signal(false)).disabled(true),
                 ))
                 .style(style().padding(20).gap(16)),
             )

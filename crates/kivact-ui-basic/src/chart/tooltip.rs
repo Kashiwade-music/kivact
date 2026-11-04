@@ -4,12 +4,12 @@ use super::model::{ChartConfig, Hit, series_color};
 use crate::Color;
 use crate::theme_access::tokens;
 use crate::typography::MONO;
-use kivact::Signal;
-use kivact::control::{Node, column, node, row, text};
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::prelude::NodeBuilder;
+use kivact::state::Signal;
 use kivact::style::{Align, Direction, Justify, Position, style};
 use kivact::view::{IntoView, Role};
+use kivact::view::{Node, column, node, row, text};
 use std::rc::Rc;
 
 /// The distance between the pointer and the card.
@@ -71,7 +71,7 @@ pub(super) fn tooltip(
             .map(|title| text(title).style(style().weight(500).line_height(1.0))),
         column(rows.collect::<Vec<_>>()).style(style().gap(6)),
     ))
-    .role(Role::Group)
+    .with_node(|root| root.role(Role::Group))
     // The pointer passes through the card to the plot (`pointer-events-none`).
     .hit_testable(false)
     .style(move || {

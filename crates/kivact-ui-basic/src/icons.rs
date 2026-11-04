@@ -1,7 +1,7 @@
 //! Role: Embedded Lucide icons (ISC), which the kit's theme puts in its icon set.
 
 /// The Lucide names the kit's [`theme`](crate::theme) puts in its icon set,
-/// in alphabetical order: `kivact::control::icon("trash-2")` draws one.
+/// in alphabetical order: `kivact::view::icon("trash-2")` draws one.
 pub const ICON_NAMES: &[&str] = &[
     "activity",
     "align-center",

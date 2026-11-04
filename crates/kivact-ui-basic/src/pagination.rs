@@ -3,15 +3,16 @@
 use crate::button::{Look, button_style};
 use crate::parts::pressable;
 use crate::theme_access::tokens;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::primitive::NodeExt;
+use kivact::state::IntoBinding;
+use kivact::view::icon;
+use kivact::view::{Node, NodeBuilder, node, row, text};
+
+use kivact::state::{Binding, Callback, Value, memo};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Cursor, Direction, Justify, pct, style};
 use kivact::ui::ControlSize;
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View, callback, for_each};
-use kivact::view::{ReadingDirection, current_direction};
-use kivact::{Binding, Callback, Value, memo};
+use kivact::view::{IntoView, Role, View, for_each};
+use kivact::view::{ReadingDirection, use_direction};
 use std::rc::Rc;
 
 /// A pagination bar (pagination.tsx): a `Role::Navigation` landmark named
@@ -37,7 +38,7 @@ use std::rc::Rc;
 /// }
 /// ```
 #[track_caller]
-pub fn pagination_content(children: impl IntoView) -> Node {
+pub fn pagination_content(children: impl IntoView) -> impl kivact::view::Component {
     bar().child(track(children))
 }
 
@@ -45,7 +46,7 @@ pub fn pagination_content(children: impl IntoView) -> Node {
 #[track_caller]
 fn bar() -> Node {
     node()
-        .role(Role::Navigation)
+        .with_node(|root| root.role(Role::Navigation))
         .name(kivact::i18n::message(
             "basic.pagination.label",
             "Pagination",
@@ -61,7 +62,7 @@ fn bar() -> Node {
 /// The row of links, reversed in a right-to-left direction.
 #[track_caller]
 fn track(children: impl IntoView) -> Node {
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     row(children).style(style().align_items(Align::Center).gap(2).direction(if rtl {
         Direction::RowReverse
     } else {
@@ -141,13 +142,14 @@ impl PaginationLink {
     }
 
     /// Report presses (click, Enter, Space) to `f`.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for PaginationLink {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -155,7 +157,7 @@ impl NodeBuilder for PaginationLink {
 
 impl IntoView for PaginationLink {
     fn into_view(self) -> View {
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let kind = self.kind;
         let (root, state) = pressable(
             self.root,
@@ -194,9 +196,9 @@ impl IntoView for PaginationLink {
 
 /// The "…" between page links, read as the text "More pages".
 #[track_caller]
-pub fn pagination_ellipsis() -> Node {
+pub fn pagination_ellipsis() -> impl kivact::view::Component {
     node()
-        .role(Role::Text)
+        .with_node(|root| root.role(Role::Text))
         .name(kivact::i18n::message("basic.pagination.more", "More pages"))
         .style(
             style()
@@ -274,12 +276,12 @@ pub struct PaginationPages {
 /// ```
 #[track_caller]
 pub fn pagination(
-    page: impl Into<Binding<usize>>,
+    page: impl kivact::state::IntoBinding<usize>,
     count: impl IntoValue<usize>,
 ) -> PaginationPages {
     PaginationPages {
         root: bar(),
-        page: page.into(),
+        page: page.into_binding(),
         count: count.into_value(),
         format: Rc::new(|number| number.to_string()),
     }
@@ -295,6 +297,7 @@ impl PaginationPages {
 }
 
 impl NodeBuilder for PaginationPages {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

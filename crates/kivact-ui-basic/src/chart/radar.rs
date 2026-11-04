@@ -4,7 +4,8 @@ use super::model::{Frame, Hit, HitRow, series_color};
 use super::polar::{MARGIN, locate, polar};
 use super::scale::{Domain, text_width};
 use crate::tokens::Tokens;
-use kivact::draw::{Draw, LineJoin, Path, Point, Size, Stroke, TextBaseline, TextStyle};
+use kivact::draw::{Draw, LineJoin, Path, Stroke, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Size};
 use kivact::style::TextAlign;
 
 /// The gap between the outer ring and the category labels.
@@ -58,7 +59,7 @@ impl Web {
 
 /// Paint the chart; `hit` is the axis under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().get::<Tokens>();
+    let tokens = d.theme().ext::<Tokens>();
     let web = Web::new(size, f);
     if f.grid {
         paint_web(d, &web, &tokens);
@@ -136,12 +137,12 @@ fn paint_labels(d: &mut Draw, web: &Web, f: &Frame, tokens: &Tokens) {
         } else {
             TextBaseline::Middle
         };
-        let style = TextStyle {
+        let style = TextFormat {
             size: 12.0,
             color: tokens.muted_foreground,
             align,
             baseline,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         d.text(&row.label, at, style);
     }

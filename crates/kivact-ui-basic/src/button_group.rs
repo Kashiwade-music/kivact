@@ -1,12 +1,13 @@
 //! Role: The Lyra button group: joined controls, a group separator and a text cell.
 
-use crate::children::GroupItems;
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::primitive::NodeExt;
+use kivact::view::IntoChildren;
+use kivact::view::{Node, NodeBuilder, node, row, text};
+
+use kivact::state::{IntoText, IntoValue, Value, provide, try_use_context};
 use kivact::style::{Align, Color, style};
-use kivact::view::{IntoText, IntoView, Orientation, Role, View, provide, try_context};
-use kivact::view::{ReadingDirection, current_direction};
+use kivact::view::{IntoView, Orientation, Role, View};
+use kivact::view::{ReadingDirection, use_direction};
 
 /// Controls joined into one bar (button-group.tsx). Created by [`button_group`].
 pub struct ButtonGroup {
@@ -14,14 +15,14 @@ pub struct ButtonGroup {
     /// The reading direction when the group was made.
     rtl: bool,
     /// The children, made once the axis is known.
-    children: Box<dyn FnOnce(bool) -> Vec<View>>,
-    orientation: Orientation,
+    children: Box<dyn FnOnce(Value<Orientation>) -> Vec<View>>,
+    orientation: Value<Orientation>,
 }
 
 /// The axis a [`button_group`] gives the separators inside it: `true` when
 /// the group is vertical.
 #[derive(Clone, Copy)]
-struct GroupAxis(bool);
+struct GroupAxis(Value<Orientation>);
 
 /// A group of `children` whose neighbouring borders collapse into one line.
 ///
@@ -50,24 +51,43 @@ struct GroupAxis(bool);
 /// }
 /// ```
 #[track_caller]
-pub fn button_group(children: impl GroupItems) -> ButtonGroup {
-    let rtl = current_direction() == ReadingDirection::Rtl;
+pub fn button_group(children: impl IntoChildren) -> ButtonGroup {
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     ButtonGroup {
-        root: node().role(Role::Group),
+        root: node().with_node(|root| root.role(Role::Group)),
         rtl,
-        children: Box::new(move |vertical| {
+        children: Box::new(move |orientation| {
             // A layer after each child's own, so it wins over its border.
-            children.into_styled_views(|index| {
-                let s = style().shrink(0);
-                match (index, vertical, rtl) {
-                    (0, _, _) => s,
-                    (_, true, _) => s.border_top(0, Color::TRANSPARENT),
-                    (_, false, false) => s.border_left(0, Color::TRANSPARENT),
-                    (_, false, true) => s.border_right(0, Color::TRANSPARENT),
-                }
-            })
+            children
+                .into_views()
+                .into_iter()
+                .enumerate()
+                .map(|(index, child)| {
+                    let s = move || {
+                        let vertical = orientation.get() == Orientation::Vertical;
+                        let s = style().shrink(0);
+                        match (index, vertical, rtl) {
+                            (0, _, _) => s,
+                            (_, true, _) => s.border_top(0, Color::TRANSPARENT),
+                            (_, false, false) => s.border_left(0, Color::TRANSPARENT),
+                            (_, false, true) => s.border_right(0, Color::TRANSPARENT),
+                        }
+                    };
+                    node()
+                        .style(s)
+                        .child(provide(
+                            GroupPosition {
+                                index,
+                                orientation,
+                                rtl,
+                            },
+                            move || child,
+                        ))
+                        .into_view()
+                })
+                .collect()
         }),
-        orientation: Orientation::Horizontal,
+        orientation: Orientation::Horizontal.into_value(),
     }
 }
 
@@ -76,13 +96,14 @@ impl ButtonGroup {
     /// [`Orientation::Vertical`] stacked (`Unspecified` is horizontal). A
     /// constant: the children's shared borders and the separators' axis are
     /// set from it when the group is built.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
 }
 
 impl NodeBuilder for ButtonGroup {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -90,23 +111,23 @@ impl NodeBuilder for ButtonGroup {
 
 impl IntoView for ButtonGroup {
     fn into_view(self) -> View {
-        let vertical = self.orientation == Orientation::Vertical;
+        let orientation = self.orientation;
         let rtl = self.rtl;
-        let axis = match (vertical, rtl) {
+        let axis = move || match (orientation.get() == Orientation::Vertical, rtl) {
             (true, _) => kivact::style::Direction::Column,
             (false, false) => kivact::style::Direction::Row,
             (false, true) => kivact::style::Direction::RowReverse,
         };
-        let children = (self.children)(vertical);
+        let children = (self.children)(orientation);
         // The separators among the children read the group's axis from here.
         self.root
-            .base_style(
+            .base_style(move || {
                 style()
-                    .direction(axis)
+                    .direction(axis())
                     .align_items(Align::Stretch)
-                    .radius(0),
-            )
-            .child(provide(GroupAxis(vertical), move || children))
+                    .radius(0)
+            })
+            .child(provide(GroupAxis(orientation), move || children))
             .into_view()
     }
 }
@@ -118,10 +139,13 @@ impl IntoView for ButtonGroup {
 /// a vertical line in a horizontal group, a horizontal line in a vertical
 /// one. Outside a group it is vertical.
 #[track_caller]
-pub fn button_group_separator() -> Node {
-    let across = || try_context::<GroupAxis>().is_some_and(|GroupAxis(vertical)| vertical);
+pub fn button_group_separator() -> impl kivact::view::Component {
+    let across = || {
+        try_use_context::<GroupAxis>()
+            .is_some_and(|GroupAxis(orientation)| orientation.get() == Orientation::Vertical)
+    };
     node()
-        .role(Role::Separator)
+        .with_node(|root| root.role(Role::Separator))
         .orientation(move || {
             if across() {
                 Orientation::Horizontal
@@ -147,7 +171,7 @@ pub fn button_group_separator() -> Node {
 /// a unit after a number. Muted fill, border, 12 px medium text, centered on
 /// the group's height (the group stretches it to its neighbours' height).
 #[track_caller]
-pub fn button_group_text(text_value: impl IntoText) -> Node {
+pub fn button_group_text(text_value: impl IntoText) -> impl kivact::view::Component {
     row(text(text_value)).style(
         style()
             .align_items(Align::Center)
@@ -161,4 +185,28 @@ pub fn button_group_text(text_value: impl IntoText) -> Node {
             .weight(500)
             .text_wrap(false),
     )
+}
+
+/// Per-child border ownership survives IntoChildren's view type erasure.
+#[derive(Clone, Copy)]
+struct GroupPosition {
+    index: usize,
+    orientation: Value<Orientation>,
+    rtl: bool,
+}
+
+pub(crate) fn joined(style: kivact::style::Style) -> kivact::style::Style {
+    let Some(position) = try_use_context::<GroupPosition>() else {
+        return style;
+    };
+    match (
+        position.index,
+        position.orientation.get() == Orientation::Vertical,
+        position.rtl,
+    ) {
+        (0, _, _) => style,
+        (_, true, _) => style.border_top(0, Color::TRANSPARENT),
+        (_, false, false) => style.border_left(0, Color::TRANSPARENT),
+        (_, false, true) => style.border_right(0, Color::TRANSPARENT),
+    }
 }

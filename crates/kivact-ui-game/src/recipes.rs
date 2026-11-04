@@ -2,18 +2,20 @@
 use crate::choice::{Boxed, ChoiceCard, Navigation, Segmented};
 use crate::choice_style;
 use crate::tokens::Tokens;
-use kivact::draw::{LineCap, LineJoin, Path, Point, Rect, Shadow, Stroke, TextStyle, Transform};
+use kivact::custom::PartState;
+use kivact::draw::{LineCap, LineJoin, Path, Shadow, Stroke, TextFormat, Transform};
+use kivact::geometry::{Point, Rect};
+use kivact::interaction::Tone;
 use kivact::interaction::{
     ListItemState, MenuItemState, PopupState, TabListState, TabState, ToastState,
 };
-use kivact::primitive::PartState;
 use kivact::style::{
     Align, Color, ColorToken, Cursor, Direction, Justify, Position, Style, Theme, pct, style,
 };
 use kivact::ui::Look;
 use kivact::ui::{
-    AxisState, ButtonState, ButtonVariant, CheckState, ControlSize, DialogState, TextInputState,
-    ToggleButtonState, Tone, UiRecipes,
+    AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DialogState,
+    TextInputState, ToggleButtonState, UiRecipes,
 };
 use kivact::view::CheckedState;
 use kivact::view::Orientation;
@@ -73,7 +75,7 @@ fn build() -> UiRecipes {
             menu.trigger(|_| menu_trigger)
                 .surface(|_| menu_surface)
                 .item(|_| menu_item)
-                .shortcut(|_| menu_shortcut)
+                .with_shortcut(|_| menu_shortcut)
                 .separator(|_| menu_separator)
         })
         .dialog(|dialog| {
@@ -141,7 +143,7 @@ fn button(t: &Theme, state: &Look<ButtonState>) -> Style {
             .unwrap_or_default(),
         state.variant::<ButtonTone>().copied(),
         state.size,
-        state.loading,
+        state.busy,
         state.variant::<Slant>().is_some(),
     )
 }
@@ -156,7 +158,7 @@ pub(crate) fn button_style(
     loading: bool,
     slant: bool,
 ) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let skew = skew(slant);
     let (bg, fg, hover, shadow) = match (tone, variant) {
         (Some(ButtonTone::Dark), _) => (
@@ -221,7 +223,7 @@ pub(crate) fn button_style(
         s = s.paint(|d, s| {
             d.fill_rect(
                 Rect::new(s.width - 10., 5., 5., 5.),
-                d.theme().get::<Tokens>().yellow,
+                d.theme().ext::<Tokens>().yellow,
             )
         });
     }
@@ -232,7 +234,7 @@ fn button_content(_: &Theme, state: &Look<ButtonState>) -> Style {
         .direction(Direction::Row)
         .gap(8)
         .align_items(Align::Center)
-        .opacity(if state.loading { 0. } else { 1. })
+        .opacity(if state.busy { 0. } else { 1. })
         .transform(Transform::new().skew_x(-skew(state.variant::<Slant>().is_some())))
 }
 /// The arc the button turns while busy.
@@ -249,7 +251,7 @@ fn button_busy(_: &Theme, state: &Look<ButtonState>) -> Style {
         .paint(move |d, _| {
             let color = match variant {
                 ButtonVariant::Secondary | ButtonVariant::Outline => d.theme().colors().accent,
-                ButtonVariant::Ghost | ButtonVariant::Link => d.theme().get::<Tokens>().text_2,
+                ButtonVariant::Ghost | ButtonVariant::Link => d.theme().ext::<Tokens>().text_2,
                 _ => d.theme().colors().accent_text,
             };
             d.stroke_path(
@@ -260,7 +262,7 @@ fn button_busy(_: &Theme, state: &Look<ButtonState>) -> Style {
         })
 }
 fn text_input(t: &Theme, _: &Look<TextInputState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .height(p.control_height)
         .min_height(p.control_height)
@@ -279,7 +281,7 @@ fn text_input(t: &Theme, _: &Look<TextInputState>) -> Style {
         .disabled(style().background(p.surface_3).color(p.text_3).opacity(1.))
 }
 fn text_area(t: &Theme, _: &Look<TextInputState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .min_height(88)
         .padding_x(12)
@@ -293,7 +295,7 @@ fn text_area(t: &Theme, _: &Look<TextInputState>) -> Style {
                 .ring(3, p.primary_weak),
         )
 }
-fn checkbox(_: &Theme, state: &Look<CheckState>) -> Style {
+fn checkbox(_: &Theme, state: &Look<CheckableState>) -> Style {
     let state = **state;
     style()
         .direction(Direction::Row)
@@ -307,7 +309,7 @@ fn checkbox(_: &Theme, state: &Look<CheckState>) -> Style {
                 |d| {
                     let c = state.checked.is_checked();
                     let mixed = state.checked == CheckedState::Indeterminate;
-                    let p = d.theme().get::<Tokens>();
+                    let p = d.theme().ext::<Tokens>();
                     let primary = d.theme().colors().accent;
 
                     d.fill_rect(
@@ -344,7 +346,7 @@ fn checkbox(_: &Theme, state: &Look<CheckState>) -> Style {
             );
         })
 }
-fn switch(_: &Theme, state: &Look<CheckState>) -> Style {
+fn switch(_: &Theme, state: &Look<CheckableState>) -> Style {
     let state = **state;
     style()
         .direction(Direction::Row)
@@ -357,7 +359,7 @@ fn switch(_: &Theme, state: &Look<CheckState>) -> Style {
                     .transform(Transform::new().translate_y((size.height - 20.) / 2.)),
                 |d| {
                     let c = state.checked.is_checked();
-                    let p = d.theme().get::<Tokens>();
+                    let p = d.theme().ext::<Tokens>();
                     let primary = d.theme().colors().accent;
 
                     d.fill_rect(
@@ -371,7 +373,7 @@ fn switch(_: &Theme, state: &Look<CheckState>) -> Style {
                     d.text(
                         &state.text.map(|text| text.get()).unwrap_or_default(),
                         Point::new(if c { 5. } else { 20. }, 6.),
-                        TextStyle {
+                        TextFormat {
                             size: 7.5,
                             weight: 700,
                             color: kivact::style::rgb(0xffffff),
@@ -385,7 +387,7 @@ fn switch(_: &Theme, state: &Look<CheckState>) -> Style {
 
 fn select_trigger(t: &Theme, s: &Look<kivact::ui::SelectTriggerState>) -> Style {
     // The heights of the buttons of the same size.
-    let h = t.get::<Tokens>().control_height;
+    let h = t.ext::<Tokens>().control_height;
     trigger(t).height(match s.size {
         ControlSize::ExtraSmall => h - 12.,
         ControlSize::Small => h - 6.,
@@ -399,16 +401,16 @@ fn menu_trigger(t: &Theme, _: &Look<PopupState>) -> Style {
 fn trigger(t: &Theme) -> Style {
     style()
         .direction(Direction::Row)
-        .height(t.get::<Tokens>().control_height)
+        .height(t.ext::<Tokens>().control_height)
         .padding_x(12)
         .gap(8)
         .align_items(Align::Center)
         .background(t.colors().surface)
-        .border(1, t.get::<Tokens>().line_strong)
+        .border(1, t.ext::<Tokens>().line_strong)
         .focus(
             style()
                 .border_color(t.colors().accent)
-                .ring(3, t.get::<Tokens>().primary_weak),
+                .ring(3, t.ext::<Tokens>().primary_weak),
         )
 }
 fn select_surface(_: &Theme, _: &Look<PopupState>) -> Style {
@@ -459,7 +461,7 @@ fn menu_surface(t: &Theme, _: &Look<PopupState>) -> Style {
         .min_width(220)
         .padding(4)
         .background(t.colors().surface)
-        .border(1, t.get::<Tokens>().line_strong)
+        .border(1, t.ext::<Tokens>().line_strong)
         .shadow(Shadow::new(0, 14, 36, t.colors().shadow))
 }
 fn menu_item(t: &Theme, _: &Look<MenuItemState>) -> Style {
@@ -478,19 +480,19 @@ fn menu_item(t: &Theme, _: &Look<MenuItemState>) -> Style {
 }
 fn menu_shortcut(t: &Theme, _: &Look<MenuItemState>) -> Style {
     style()
-        .font_family(t.get::<Tokens>().mono_family.as_str())
+        .font_family(t.ext::<Tokens>().mono_family.as_str())
         .font_size(10.5)
         .weight(600)
         .color(ColorToken::TextMuted)
 }
-fn menu_separator(_: &Theme, _: &Look<kivact::primitive::PartState>) -> Style {
+fn menu_separator(_: &Theme, _: &Look<kivact::custom::PartState>) -> Style {
     style().height(1).margin_y(4).background(ColorToken::Border)
 }
 fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
+    use kivact::geometry::Edge;
+    use kivact::interaction::DialogMode::*;
     use kivact::motion::{Easing, Transition};
     use kivact::style::TransitionProp;
-    use kivact::ui::DialogKind::*;
-    use kivact::ui::Side;
     let ease = Easing::CubicBezier(0.2, 0.8, 0.2, 1.);
     match s.kind {
         // A drawer slides in from its edge.
@@ -498,16 +500,16 @@ fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
             .width(420)
             .max_width(pct(100))
             .background(t.colors().surface)
-            .border_left(1, t.get::<Tokens>().line_strong)
+            .border_left(1, t.ext::<Tokens>().line_strong)
             .enter(style().opacity(0.).translate(
                 match side {
-                    Side::Left => -40.,
-                    Side::Right => 40.,
+                    Edge::Left => -40.,
+                    Edge::Right => 40.,
                     _ => 0.,
                 },
                 match side {
-                    Side::Top => -40.,
-                    Side::Bottom => 40.,
+                    Edge::Top => -40.,
+                    Edge::Bottom => 40.,
                     _ => 0.,
                 },
             ))
@@ -523,14 +525,14 @@ fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
             .width(520)
             .max_width(pct(100) - 32)
             .background(t.colors().surface)
-            .border(1, t.get::<Tokens>().line_strong)
+            .border(1, t.ext::<Tokens>().line_strong)
             .shadow(Shadow::new(0, 14, 36, t.colors().shadow))
             .enter(style().opacity(0.).scale(0.985).translate(0, 10))
             .transition(TransitionProp::Paint, Transition::tween(220, ease)),
     }
 }
 fn dialog_header(_: &Theme, s: &Look<DialogState>) -> Style {
-    if s.kind == kivact::ui::DialogKind::Popover {
+    if s.kind == kivact::interaction::DialogMode::Popover {
         style().align_items(Align::Center)
     } else {
         // The title over the description, clear of the 32 px close button.
@@ -545,11 +547,11 @@ fn dialog_header(_: &Theme, s: &Look<DialogState>) -> Style {
     }
 }
 fn dialog_title(t: &Theme, s: &Look<DialogState>) -> Style {
-    if s.kind == kivact::ui::DialogKind::Popover {
+    if s.kind == kivact::interaction::DialogMode::Popover {
         style().weight(700)
     } else {
         style()
-            .font_family(t.get::<Tokens>().display_family.as_str())
+            .font_family(t.ext::<Tokens>().display_family.as_str())
             .font_size(22)
             .weight(700)
             .italic(true)
@@ -560,7 +562,7 @@ fn dialog_description(_: &Theme, _: &Look<DialogState>) -> Style {
     style().font_size(13).color(ColorToken::TextMuted)
 }
 fn dialog_body(_: &Theme, s: &Look<DialogState>) -> Style {
-    if s.kind == kivact::ui::DialogKind::Popover {
+    if s.kind == kivact::interaction::DialogMode::Popover {
         style().gap(6)
     } else {
         style().padding_x(20).padding_y(18)
@@ -602,9 +604,9 @@ fn tooltip_surface(t: &Theme, _: &Look<PopupState>) -> Style {
         .padding_x(9)
         .padding_y(5)
         .max_width(320)
-        .background(t.get::<Tokens>().navy)
+        .background(t.ext::<Tokens>().navy)
         .color(kivact::style::rgb(0xffffff))
-        .border_bottom(2, t.get::<Tokens>().cyan)
+        .border_bottom(2, t.ext::<Tokens>().cyan)
         .font_size(11)
 }
 fn tabs_list(_: &Theme, state: &Look<TabListState>) -> Style {
@@ -673,7 +675,7 @@ fn radio_group(_: &Theme, orientation: &Look<Orientation>) -> Style {
         _ => s.direction(Direction::Row).wrap(true),
     }
 }
-fn radio_item(t: &Theme, state: &Look<CheckState>) -> Style {
+fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
     if state.variant::<Segmented>().is_some() {
         // A small slanted secondary button, filled while chosen.
         return button_style(
@@ -704,7 +706,7 @@ fn radio_item(t: &Theme, state: &Look<CheckState>) -> Style {
         .color(ColorToken::Text)
 }
 /// The diamond around the theme's `dot`, which is a diamond too.
-fn radio_indicator(_: &Theme, state: &Look<CheckState>) -> Style {
+fn radio_indicator(_: &Theme, state: &Look<CheckableState>) -> Style {
     if state.variant::<Segmented>().is_some() || state.variant::<ChoiceCard>().is_some() {
         return choice_style::hidden_indicator();
     }
@@ -719,7 +721,7 @@ fn radio_indicator(_: &Theme, state: &Look<CheckState>) -> Style {
             let color = if checked {
                 d.theme().colors().accent
             } else {
-                d.theme().get::<Tokens>().line_strong
+                d.theme().ext::<Tokens>().line_strong
             };
             d.stroke_path(
                 &diamond(0., 0., size.width.min(size.height), 1.),
@@ -728,15 +730,15 @@ fn radio_indicator(_: &Theme, state: &Look<CheckState>) -> Style {
             );
         })
 }
-fn radio_description(t: &Theme, _: &Look<CheckState>) -> Style {
-    style().font_size(11.5).color(t.get::<Tokens>().text_3)
+fn radio_description(t: &Theme, _: &Look<CheckableState>) -> Style {
+    style().font_size(11.5).color(t.ext::<Tokens>().text_3)
 }
 
 /// The thumb's 14 px run along the track and 18 px across it.
 const THUMB: (f64, f64) = (14., 18.);
 /// A 4 px bar across the middle of a box, along its longer side, leaving
 /// `inset` at both ends.
-fn bar(size: kivact::draw::Size, inset: f64) -> Rect {
+fn bar(size: kivact::geometry::Size, inset: f64) -> Rect {
     if size.width >= size.height {
         Rect::new(
             inset,
@@ -756,7 +758,7 @@ fn bar(size: kivact::draw::Size, inset: f64) -> Rect {
 /// A 28 px track holding the bar between the thumb's centres at the ends.
 fn slider_track(_: &Theme, state: &Look<AxisState>) -> Style {
     let s = style().shrink(0).cursor(Cursor::Pointer).paint(|d, size| {
-        d.fill_rect(bar(size, THUMB.0 / 2.), d.theme().get::<Tokens>().surface_3);
+        d.fill_rect(bar(size, THUMB.0 / 2.), d.theme().ext::<Tokens>().surface_3);
     });
     match state.orientation {
         Orientation::Vertical => s.width(28).height(160),
@@ -808,7 +810,7 @@ fn tone_color(t: &Theme, tone: Tone) -> Color {
         Tone::Success => t.colors().success,
         Tone::Warning => t.colors().warning,
         Tone::Danger => t.colors().danger,
-        Tone::Accent => t.get::<Tokens>().yellow,
+        Tone::Accent => t.ext::<Tokens>().yellow,
     }
 }
 /// A stack at the window's bottom right, above the page.
@@ -843,7 +845,7 @@ fn toast_card(t: &Theme, state: &Look<ToastState>) -> Style {
         .padding_bottom(14)
         .gap(12)
         .align_items(Align::Start)
-        .background(t.get::<Tokens>().navy)
+        .background(t.ext::<Tokens>().navy)
         .color(kivact::style::rgb(0xffffff))
         .border_left(4, tone_color(t, tone))
 }

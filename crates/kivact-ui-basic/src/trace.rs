@@ -3,17 +3,18 @@
 use crate::Color;
 use crate::parts::sized_icon;
 use crate::theme_access::tokens;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
 use kivact::interaction::use_disclosure;
-use kivact::primitive::NodeExt;
+use kivact::view::icon;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::IntoText;
+use kivact::state::{Binding, Value};
 use kivact::style::{Align, Cursor, Direction, pct, style};
-use kivact::view::{IntoText, IntoView, View};
-use kivact::{Binding, Value};
+use kivact::view::{IntoView, View};
 
 /// A stack of trace lines and collapsibles with 8 px between them.
 #[track_caller]
-pub fn trace(children: impl IntoView) -> Node {
+pub fn trace(children: impl IntoView) -> impl kivact::view::Component {
     column(children).style(style().width(pct(100)).min_width(0).gap(8))
 }
 
@@ -29,7 +30,7 @@ pub struct TraceLine {
 /// A trace line titled `title`, in muted 12 px text.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -101,6 +102,7 @@ impl TraceLine {
 }
 
 impl NodeBuilder for TraceLine {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -129,15 +131,15 @@ impl IntoView for TraceLine {
 /// ```
 #[track_caller]
 pub fn trace_collapsible(
-    open: impl Into<Binding<bool>>,
+    open: impl kivact::state::IntoBinding<bool>,
     line: TraceLine,
     content: impl IntoView,
-) -> Node {
+) -> impl kivact::view::Component {
     let section = use_disclosure(open);
-    let shown = section.shown();
+    let shown = section.is_open();
     let line = line.build(true);
     let trigger_part = section.trigger();
-    let trigger = line.part(trigger_part).child(
+    let trigger = line.with_node(|root| root.part(trigger_part)).child(
         node()
             .style(move || {
                 style()
@@ -147,19 +149,21 @@ pub fn trace_collapsible(
             })
             .child(sized_icon(icon("chevron-right"), 14.0)),
     );
-    let body = column(content).part(section.content()).style(
-        style()
-            .min_width(0)
-            .margin_top(8)
-            .margin_bottom(4)
-            .margin_left(6)
-            .padding_left(15)
-            .padding_right(4)
-            .border_left(1, Color::Border)
-            .line_height(1.625)
-            .color(Color::MutedForeground)
-            .font_size(12),
-    );
+    let body = column(content)
+        .with_node(|root| root.part(section.content()))
+        .style(
+            style()
+                .min_width(0)
+                .margin_top(8)
+                .margin_bottom(4)
+                .margin_left(6)
+                .padding_left(15)
+                .padding_right(4)
+                .border_left(1, Color::Border)
+                .line_height(1.625)
+                .color(Color::MutedForeground)
+                .font_size(12),
+        );
     column((row(trigger).style(style().align_self(Align::Start)), body))
         .style(style().width(pct(100)).min_width(0))
 }

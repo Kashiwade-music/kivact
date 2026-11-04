@@ -13,7 +13,7 @@ use kivact::style::{LineHeight, Theme, ThemeMode, rgb, rgba};
 /// ```no_run
 /// use kivact::prelude::*;
 /// use kivact::style::{ThemeMode};
-/// use kivact::view::{provide_theme};
+/// use kivact::style::{provide_theme};
 /// use kivact_ui_game::{self as game, Density, ThemeOptions as _};
 ///
 /// fn console(dark: Signal<bool>, compact: Signal<bool>) -> impl IntoView {
@@ -113,7 +113,7 @@ pub trait ThemeOptions {
 impl ThemeOptions for Theme {
     fn density(self, density: Density) -> Theme {
         let metrics = Tokens::new(self.mode(), density);
-        let mut tokens = (*self.get::<Tokens>()).clone();
+        let mut tokens = (*self.ext::<Tokens>()).clone();
         tokens.density = density;
         tokens.control_height = metrics.control_height;
         tokens.row_height = metrics.row_height;

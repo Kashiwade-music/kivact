@@ -1,13 +1,13 @@
 //! Role: Optional vertical resizing around an ordinary public text field.
 
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::i18n::message;
+use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
-use kivact::signal;
+use kivact::state::signal;
 use kivact::style::{ColorToken, Cursor, Position, pct, style};
-use kivact::ui::ScalarRange;
 use kivact::view::{ButtonPress, Handled, MouseButton, Orientation, PointerPhase, node_ref};
+use kivact::view::{Node, NodeBuilder, node};
 
 /// The tallest a resizable field becomes, in logical pixels. A minimum above
 /// this raises the maximum to the minimum.
@@ -38,7 +38,7 @@ pub fn resizable_text_area(
     field: kivact::ui::TextInput,
     initial_height: f64,
     min_height: f64,
-) -> Node {
+) -> impl kivact::view::Component {
     let min = if min_height.is_finite() && min_height > 0.0 {
         min_height
     } else {
@@ -92,12 +92,14 @@ pub fn resizable_text_area(
                 );
             }
         })
-        .part(
-            use_splitter(height, range, Orientation::Vertical)
-                .key_step(8.0)
-                .expect("invariant: positive finite key step")
-                .handle(),
-        );
+        .with_node(|root| {
+            root.part(
+                use_splitter(height, range, Orientation::Vertical)
+                    .key_step(8.0)
+                    .expect("invariant: positive finite key step")
+                    .handle(),
+            )
+        });
     node()
         .style(move || {
             style()

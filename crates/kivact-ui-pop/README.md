@@ -10,7 +10,7 @@ conversation threads.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
+use kivact::style::{ThemeMode};
 use kivact_ui_pop as pop;
 
 fn settings() -> impl IntoView {
@@ -37,7 +37,7 @@ fn main() -> kivact::Result<()> {
 
 - **Theme.** `pop::theme(ThemeMode::Light | Dark)` returns a plain `Theme` for
   `App::theme` or `provide_theme`. The kit's tokens are `pop::Tokens`; icons are
-  the bundled Tabler set, drawn with `kivact::control::icon("name")`.
+  the bundled Tabler set, drawn with `kivact::view::icon("name")`.
 - **Fonts.** The application registers fonts. The catalog uses Inter, Barlow
   and Noto Sans JP.
 - **State.** Components take their values as signals or bindings owned by the
@@ -57,3 +57,10 @@ fn main() -> kivact::Result<()> {
 
 MIT OR Apache-2.0. The bundled Tabler icons are MIT
 ([LICENSE-tabler-icons.txt](assets/LICENSE-tabler-icons.txt)).
+
+| Slot kind | API |
+|---|---|
+| Mounted once: headers, media, actions, footers and other display content | `impl IntoView`, stored as `View` |
+| Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
+| Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
+| Individually wrapped children | `impl IntoChildren` |

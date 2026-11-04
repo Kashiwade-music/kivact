@@ -12,7 +12,7 @@ use kivact::ui::{DataTableRecipes, ListRecipes};
 pub(crate) fn list(r: ListRecipes) -> ListRecipes {
     r.item(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s)
                 .min_height(p.row_height)
                 .padding_x(12)
@@ -31,7 +31,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     r.frame(|prev| move |t: &Theme, s: &_| prev(t, s).radius(0).background(ColorToken::Surface))
         .header(|prev| {
             move |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 prev(t, s)
                     .width(160)
                     .min_width(160)
@@ -44,7 +44,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
         })
         .row(|prev| {
             move |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 prev(t, s)
                     .group()
                     .min_height(s.height.unwrap_or(p.row_height))
@@ -58,7 +58,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
         })
         .cell(|prev| {
             move |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 prev(t, s)
                     .width(160)
                     .min_width(160)

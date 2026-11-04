@@ -6,10 +6,11 @@
 
 use crate::display::ToneExt;
 use crate::tokens::Tokens;
-use kivact::draw::{Layer, Path, Point, Rect};
+use kivact::draw::{Layer, Path};
+use kivact::geometry::{Point, Rect};
 use kivact::interaction::DisclosureState;
+use kivact::interaction::Tone;
 use kivact::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
-use kivact::ui::Tone;
 use kivact::ui::{ControlSize, DisclosureRecipes, Look, ProgressRecipes, ProgressState, Variant};
 
 /// Draw a standard progress bar with moving diagonal stripes over its fill:
@@ -37,14 +38,14 @@ fn progress_track(t: &Theme, look: &Look<ProgressState>) -> Style {
         )
         .min_width(0)
         .clip(true)
-        .background(t.get::<Tokens>().surface_3)
+        .background(t.ext::<Tokens>().surface_3)
 }
 
 fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
     let state = **look;
     let striped = look.variant::<Striped>().is_some();
     let tone = look.variant::<Tone>().copied().unwrap_or(Tone::Info);
-    let (fill, stripe) = (tone.color(t), t.get::<Tokens>().primary_hover);
+    let (fill, stripe) = (tone.color(t), t.ext::<Tokens>().primary_hover);
     style()
         .width(pct(100))
         .height(pct(100))

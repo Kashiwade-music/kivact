@@ -1,7 +1,8 @@
 //! Role: The segmented radio look, the check row style and choice list appearance.
 
 use crate::Tokens;
-use kivact::draw::{Draw, LineCap, LineJoin, Path, Point, Rect, Shadow, Size, Stroke};
+use kivact::draw::{Draw, LineCap, LineJoin, Path, Shadow, Stroke};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, Style, Theme, ThemeMode, style};
 
 /// The row of a check: the drawn part beside the label. A disabled row
@@ -32,7 +33,7 @@ impl kivact::ui::Variant for Segmented {}
 const SELECT_OPTION_HEIGHT: f64 = 32.0;
 
 pub(crate) fn select_option(t: &Theme) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .height(SELECT_OPTION_HEIGHT)
         .padding_x(8)
@@ -44,7 +45,7 @@ pub(crate) fn select_option(t: &Theme) -> Style {
 }
 
 pub(crate) fn select_list(t: &Theme) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .min_width(220)
         .padding(4)
@@ -55,7 +56,7 @@ pub(crate) fn select_list(t: &Theme) -> Style {
 }
 
 pub(crate) fn choice_option(t: &Theme, pill: bool) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let s = style()
         .height(if pill { 30 } else { 36 })
         .padding_x(12)
@@ -85,7 +86,7 @@ pub(crate) fn choice_option(t: &Theme, pill: bool) -> Style {
 }
 
 pub(crate) fn choice_list(t: &Theme, pill: bool) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     if pill {
         style().padding(3).radius(10).background(p.surface_active)
     } else {

@@ -1,43 +1,69 @@
 //! Role: Removable chips with application-owned additions.
 use kivact::ui::{ButtonVariant, ControlSize, button};
 
-use kivact::control::{Node, NodeBuilder, icon, row, text};
 use kivact::i18n::{message, message_with};
+use kivact::state::{Callback, Value};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, BorderStyle, ColorToken, style};
-use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, View, callback, for_index};
-use kivact::{Callback, Value};
+use kivact::view::{HandlerResult, IntoView, View, for_index};
+use kivact::view::{Node, NodeBuilder, icon, row, text};
 
 /// A chip that calls its owner when its remove button is invoked.
+pub struct RemovableChip {
+    root: Node,
+    label: Value<String>,
+    remove: Callback<()>,
+}
 #[track_caller]
-pub fn removable_chip<F, R>(label: impl IntoText, remove: F) -> Node
-where
-    F: Fn() -> R + 'static,
-    R: HandlerResult,
-{
-    let label = label.into_text_value();
-    row((
-        text(label),
-        button(message_with(
-            "pop.chip.remove",
-            "Remove {label}",
-            move || [("label", label.get())],
-        ))
-        .variant(ButtonVariant::Ghost)
-        .hide_label(true)
-        .icon(icon("x"))
-        .style(style().size(16, 16))
-        .on_press(remove),
-    ))
-    .style(
-        style()
-            .gap(4)
-            .height(26)
-            .padding_x(10)
-            .align_items(Align::Center)
-            .background(ColorToken::SurfaceAlt)
-            .radius(6)
-            .font_size(13),
-    )
+pub fn removable_chip(label: impl IntoText) -> RemovableChip {
+    RemovableChip {
+        root: row(()),
+        label: label.into_text_value(),
+        remove: callback(|_| ()),
+    }
+}
+impl RemovableChip {
+    pub fn on_remove(mut self, remove: impl Into<Callback<()>>) -> Self {
+        self.remove = remove.into();
+        self
+    }
+}
+impl NodeBuilder for RemovableChip {
+    #[doc(hidden)]
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+impl IntoView for RemovableChip {
+    fn into_view(self) -> View {
+        let label = self.label;
+        let remove = self.remove;
+        self.root
+            .child((
+                text(label),
+                button(message_with(
+                    "pop.chip.remove",
+                    "Remove {label}",
+                    move || [("label", label.get())],
+                ))
+                .variant(ButtonVariant::Ghost)
+                .hide_label(true)
+                .icon(icon("x"))
+                .style(style().size(16, 16))
+                .on_press(remove),
+            ))
+            .style(
+                style()
+                    .gap(4)
+                    .height(26)
+                    .padding_x(10)
+                    .align_items(Align::Center)
+                    .background(ColorToken::SurfaceAlt)
+                    .radius(6)
+                    .font_size(13),
+            )
+            .into_view()
+    }
 }
 
 /// A chip collection that reports requests to its owner.
@@ -58,8 +84,8 @@ pub fn chip_list(tags: impl IntoValue<Vec<String>>) -> ChipList {
 }
 impl ChipList {
     /// Request an application-defined addition.
-    pub fn on_add<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_add = callback(move |_| f());
+    pub fn on_add(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_add = f.into();
         self
     }
     /// Request removal of an item by index.
@@ -69,6 +95,7 @@ impl ChipList {
     }
 }
 impl NodeBuilder for ChipList {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -80,10 +107,10 @@ impl IntoView for ChipList {
         self.root
             .child((
                 for_index(self.tags, move |index, label| {
-                    removable_chip(label, move || remove.call(index))
+                    removable_chip(label).on_remove(move || remove.call(index))
                 }),
                 button(message("pop.chip.add", "Add"))
-                    .icon(kivact::control::icon("plus"))
+                    .icon(kivact::view::icon("plus"))
                     .size(ControlSize::Small)
                     .variant(ButtonVariant::Ghost)
                     .on_press(move || add.call(()))

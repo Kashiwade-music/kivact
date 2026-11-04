@@ -1,11 +1,11 @@
 //! Role: Shared parts of display components: pressable surfaces and resized icons.
 
-use kivact::control::{Node, node};
+use kivact::custom::{PartState, part};
 use kivact::prelude::NodeBuilder;
-use kivact::primitive::{PartState, part};
+use kivact::state::{Callback, Value};
 use kivact::style::style;
 use kivact::view::{IntoView, Role};
-use kivact::{Callback, Value};
+use kivact::view::{Node, node};
 
 /// Attach hover, focus and press tracking to `root`.
 ///
@@ -20,27 +20,29 @@ pub(crate) fn pressable(
 ) -> (Node, Value<PartState>) {
     let attachment = part(|input| input);
     let state = attachment.state();
-    let attachment = match on_press {
-        Some(callback) => attachment
-            .role(role)
+    let root = root.with_node(|root| root.part(attachment));
+    let root = match on_press {
+        Some(callback) => root
+            .with_node(|root| root.role(role))
             .focusable(true)
-            .on_press(move || callback.call(())),
-        None => attachment,
+            .on_press(callback),
+        None => root,
     };
-    (root.part(attachment), state)
+    (root, state)
 }
 
 /// Show `view` (a 16 px icon) at `to` pixels: the layout box is `to` wide and the glyph is scaled.
 #[track_caller]
-pub(crate) fn sized_icon(view: impl IntoView, to: f64) -> Node {
+pub(crate) fn sized_icon(view: impl IntoView, to: impl kivact::state::IntoValue<f64>) -> Node {
+    let to = to.into_value();
     let from = 16.0;
     node()
-        .style(
+        .style(move || {
             style()
                 .size(from, from)
-                .margin((to - from) / 2.0)
+                .margin((to.get() - from) / 2.0)
                 .shrink(0)
-                .scale(to / from),
-        )
+                .scale(to.get() / from)
+        })
         .child(view)
 }

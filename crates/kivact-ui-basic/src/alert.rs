@@ -1,11 +1,12 @@
 //! Role: The Lyra alert: a bordered callout with icon, title, text and action.
 
-use crate::slot::{Slot, slot};
 use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::primitive::NodeExt;
+use kivact::state::IntoValue;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::IntoText;
 use kivact::style::{Align, Position, style};
-use kivact::view::{IntoText, IntoView, Role, View};
+use kivact::view::{IntoView, Role, View};
 
 /// The colors of an [`Alert`] (alert.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -20,18 +21,18 @@ pub enum AlertVariant {
 /// A callout (alert.tsx) with `Role::Alert`. Created by [`alert`].
 pub struct Alert {
     root: Node,
-    title: kivact::Value<String>,
+    title: kivact::state::Value<String>,
     variant: AlertVariant,
-    tone: kivact::ui::Tone,
+    tone: kivact::state::Value<kivact::interaction::Tone>,
     icon: Option<View>,
-    description: Option<kivact::Value<String>>,
-    action: Option<Slot>,
+    description: Option<kivact::state::Value<String>>,
+    action: Option<kivact::view::View>,
 }
 
 /// An alert titled `title`.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -45,10 +46,10 @@ pub struct Alert {
 pub fn alert(title: impl IntoText) -> Alert {
     let title = title.into_text_value();
     Alert {
-        root: node().role(Role::Alert).name(title),
+        root: node().with_node(|root| root.role(Role::Alert)).name(title),
         title,
         variant: AlertVariant::Default,
-        tone: kivact::ui::Tone::Neutral,
+        tone: kivact::interaction::Tone::Neutral.into_value(),
         icon: None,
         description: None,
         action: None,
@@ -57,8 +58,9 @@ pub fn alert(title: impl IntoText) -> Alert {
 
 impl Alert {
     /// Semantic accent; neutral by default. The destructive visual variant takes precedence.
-    pub fn tone(mut self, tone: kivact::ui::Tone) -> Self {
-        self.tone = tone;
+    pub fn tone(mut self, tone: impl kivact::state::IntoValue<kivact::interaction::Tone>) -> Self {
+        let tone = tone.into_value();
+        self.tone = tone.into_value();
         self
     }
 
@@ -68,7 +70,7 @@ impl Alert {
         self
     }
 
-    /// Show `icon` (a `kivact::control::icon`) to the left of the text.
+    /// Show `icon` (a `kivact::view::icon`) to the left of the text.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
@@ -82,13 +84,14 @@ impl Alert {
 
     /// Show `action` (such as a small button) at the right, centered on the
     /// alert's height. shadcn puts it at the top right, 5 px from both edges.
-    pub fn action<V: IntoView>(mut self, action: impl FnOnce() -> V + 'static) -> Self {
-        self.action = Some(slot(action));
+    pub fn action(mut self, action: impl IntoView) -> Self {
+        self.action = Some(action.into_view());
         self
     }
 }
 
 impl NodeBuilder for Alert {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -140,14 +143,18 @@ impl IntoView for Alert {
                     .background(p.card)
                     .font_size(12)
                     .color(match variant {
-                        AlertVariant::Default => match tone {
-                            kivact::ui::Tone::Neutral => p.card_foreground,
-                            kivact::ui::Tone::Info | kivact::ui::Tone::Accent => {
+                        AlertVariant::Default => match tone.get() {
+                            kivact::interaction::Tone::Neutral => p.card_foreground,
+                            kivact::interaction::Tone::Info | kivact::interaction::Tone::Accent => {
                                 kivact::style::ColorToken::Accent.into()
                             }
-                            kivact::ui::Tone::Success => kivact::style::ColorToken::Success.into(),
-                            kivact::ui::Tone::Warning => kivact::style::ColorToken::Warning.into(),
-                            kivact::ui::Tone::Danger => p.destructive,
+                            kivact::interaction::Tone::Success => {
+                                kivact::style::ColorToken::Success.into()
+                            }
+                            kivact::interaction::Tone::Warning => {
+                                kivact::style::ColorToken::Warning.into()
+                            }
+                            kivact::interaction::Tone::Danger => p.destructive,
                         },
                         AlertVariant::Destructive => p.destructive,
                     })

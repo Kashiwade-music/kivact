@@ -3,23 +3,24 @@
 use crate::parts::{pressable, sized_icon};
 use crate::theme_access::tokens;
 use crate::tokens::Tokens;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
+use kivact::custom::part;
 use kivact::i18n::message;
+use kivact::interaction::{ListActivation, ListItem};
 use kivact::interaction::{
-    List, ListBoundary, ListMode, ListPolicy, ListSelection, use_list, use_popup,
+    ListApi, ListBoundary, ListMode, ListOptions, Selection, use_list, use_popup,
 };
 use kivact::motion::{Easing, Transition};
-use kivact::primitive::{NodeExt, part};
+use kivact::state::IntoBinding;
+use kivact::state::{Callback, Signal, Value, binding, effect_on, memo, signal};
+use kivact::state::{IntoText, IntoValue, callback, provide, try_use_context};
 use kivact::style::{Align, Color, Direction, Justify, Style, TransitionProp, style};
-use kivact::ui::{ListActivation, ListItem};
-use kivact::view::HandlerResult;
+use kivact::view::icon;
 use kivact::view::{
-    Handled, IntoText, IntoValue, IntoView, Key, Orientation, OverlayAlign, Placement,
-    PointerPhase, Role, View, callback, node_ref, overlay, provide, show, try_context,
+    Handled, IntoView, Key, Orientation, OverlayAlign, Placement, PointerPhase, Role, View,
+    node_ref, overlay, show,
 };
-use kivact::view::{ReadingDirection, current_direction};
-use kivact::{Callback, Signal, Value, binding, effect_on, memo, signal};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+use kivact::view::{ReadingDirection, use_direction};
 use std::rc::Rc;
 
 /// One entry of a [`navigation_menu`]: a plain link or a trigger that opens a panel.
@@ -32,7 +33,7 @@ pub struct NavItem {
 #[derive(Clone)]
 enum NavKind {
     Link(Callback<()>),
-    Menu(Rc<dyn Fn() -> View>),
+    Menu(kivact::view::ViewFn, Rc<()>),
 }
 
 /// Items are equal when their labels and kinds are. A link's callback is
@@ -42,7 +43,7 @@ impl PartialEq for NavItem {
         self.label == other.label
             && match (&self.kind, &other.kind) {
                 (NavKind::Link(_), NavKind::Link(_)) => true,
-                (NavKind::Menu(a), NavKind::Menu(b)) => Rc::ptr_eq(a, b),
+                (NavKind::Menu(_, a), NavKind::Menu(_, b)) => Rc::ptr_eq(a, b),
                 _ => false,
             }
     }
@@ -51,22 +52,22 @@ impl PartialEq for NavItem {
 impl NavItem {
     /// A link that calls `on_press` (a click, Enter or Space). Setup only.
     #[track_caller]
-    pub fn link<R: HandlerResult>(
-        label: impl Into<String>,
-        on_press: impl Fn() -> R + 'static,
-    ) -> Self {
+    pub fn link(label: impl Into<String>, on_press: impl Into<Callback<()>>) -> Self {
         NavItem {
             label: label.into(),
-            kind: NavKind::Link(callback(move |()| on_press())),
+            kind: NavKind::Link(on_press.into()),
         }
     }
 
     /// A trigger that opens the panel `content` builds: on hover, a click,
     /// Enter, Space and ArrowDown. `content` runs again for each opening.
-    pub fn menu<V: IntoView>(label: impl Into<String>, content: impl Fn() -> V + 'static) -> Self {
+    pub fn menu<V: IntoView>(
+        label: impl Into<String>,
+        content: impl kivact::view::IntoViewFn<V>,
+    ) -> Self {
         NavItem {
             label: label.into(),
-            kind: NavKind::Menu(Rc::new(move || content().into_view())),
+            kind: NavKind::Menu(content.into_view_fn(), Rc::new(())),
         }
     }
 }
@@ -146,9 +147,9 @@ fn trigger_style(p: &Tokens, open: bool) -> Style {
 /// }
 /// ```
 #[track_caller]
-pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
+pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> impl kivact::view::Component {
     let items = items.into_value();
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     let count = items.with_untracked(Vec::len);
     let open = signal(NavOpen::Closed);
     // The links and triggers are a horizontal list: the arrows move the focus along it.
@@ -163,13 +164,13 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
     let focus = signal(None::<usize>);
     let row_list = use_list(
         labels,
-        ListSelection::Single(focus.into()),
-        ListPolicy {
+        Selection::Single(focus.into_binding()),
+        ListOptions {
             axis: Some(Orientation::Horizontal),
             boundary: ListBoundary::Wrap,
             activation: ListActivation::Manual,
             mode: ListMode::Activate,
-            ..ListPolicy::default()
+            ..ListOptions::default()
         },
     );
     let mut children: Vec<View> = Vec::with_capacity(count);
@@ -188,8 +189,8 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
                 children.push(
                     // Every link and trigger stays a tab stop, as in the web
                     // component; the list only moves the focus by the arrows.
-                    link.part(row_list.item(at))
-                        .role(Role::Link)
+                    link.with_node(|root| root.part(row_list.item(at)))
+                        .with_node(|root| root.role(Role::Link))
                         .selected(false)
                         .focusable(true)
                         .name(label)
@@ -198,7 +199,7 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
                         .into_view(),
                 );
             }
-            Some(NavKind::Menu(content)) => {
+            Some(NavKind::Menu(content, _)) => {
                 let (trigger, panel) = menu_item(at, label, content, open, row_list, rtl);
                 children.push(trigger.into_view());
                 children.push(panel);
@@ -207,7 +208,7 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
         }
     }
     row(children)
-        .role(Role::Group)
+        .with_node(|root| root.role(Role::Group))
         .name(message("basic.navigation_menu.label", "Navigation"))
         .style(
             style()
@@ -227,9 +228,9 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> Node {
 fn menu_item(
     at: usize,
     label: Value<String>,
-    content: Rc<dyn Fn() -> View>,
+    content: kivact::view::ViewFn,
     open: Signal<NavOpen>,
-    row_list: List<usize>,
+    row_list: ListApi<usize>,
     rtl: bool,
 ) -> (Node, View) {
     let shown =
@@ -250,7 +251,7 @@ fn menu_item(
     let pop = use_popup(pinned);
     let attachment = pop.trigger();
     let state = attachment.state();
-    let anchor = attachment.node_ref();
+    let anchor = kivact::view::node_ref();
     let panel_ref = node_ref();
     let hot = {
         let on_trigger = anchor.hovered();
@@ -280,13 +281,14 @@ fn menu_item(
             )
     });
     let trigger = node()
-        .part(attachment)
+        .with_node(|root| root.part(attachment))
+        .node_ref(anchor)
         // The trigger reports what is drawn: expanded while its panel is
         // shown, hovered or pinned (a later part's semantics replace an
         // earlier one's).
-        .part(part(|input| input).expanded(shown))
-        .part(row_list.item(at))
-        .role(Role::Button)
+        .expanded(shown)
+        .with_node(|root| root.part(row_list.item(at)))
+        .with_node(|root| root.role(Role::Button))
         .selected(false)
         .focusable(true)
         .name(label)
@@ -320,7 +322,7 @@ fn menu_item(
         let attachment = pop.content();
         let body = provide(PanelCx { close }, {
             let content = content.clone();
-            move || content()
+            move || content.call(())
         });
         let card = node()
             .style(move || {
@@ -339,8 +341,9 @@ fn menu_item(
                 OverlayAlign::Start
             })
             .offset(0)
-            .part(attachment)
-            .role(Role::Group)
+            .with_node(|root| root.part(attachment))
+            .node_ref(anchor)
+            .with_node(|root| root.role(Role::Group))
             .name(label)
     })
     .into_view();
@@ -386,13 +389,14 @@ impl NavLink {
     }
 
     /// Call `f` when the link is pressed (click, Enter, Space).
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for NavLink {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -400,7 +404,7 @@ impl NodeBuilder for NavLink {
 
 impl IntoView for NavLink {
     fn into_view(self) -> View {
-        let panel = try_context::<PanelCx>();
+        let panel = try_use_context::<PanelCx>();
         let user = self.on_press;
         let press = callback(move |()| {
             if let Some(user) = user {

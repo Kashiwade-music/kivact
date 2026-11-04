@@ -1,19 +1,22 @@
 //! Role: Reusable hard-edged surfaces and decorative drawing vocabulary.
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::draw::{Layer, Path, Point, Rect};
+use kivact::draw::{Layer, Path};
 use kivact::draw::{Shape, Transform};
+use kivact::geometry::{Point, Rect};
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::platform;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::view::{Node, NodeBuilder, node, row, text};
+
+use kivact::state::IntoText;
+use kivact::state::{effect, signal};
+use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, pct, style};
-use kivact::view::{IntoText, IntoView, Role, node_ref};
-use kivact::{effect, signal};
+use kivact::view::{IntoView, Role, node_ref};
 
 use crate::Tokens;
 
 /// Two opposite cut corners, measured in logical pixels.
-pub fn cut_corner(cut: f64) -> Shape {
+pub fn cut_corner(cut: impl Into<f64>) -> Shape {
+    let cut = cut.into();
     Shape::polygon()
         .point(0, 0)
         .point(pct(100) - cut, 0)
@@ -25,11 +28,11 @@ pub fn cut_corner(cut: f64) -> Shape {
 
 /// Monospaced caption used for IDs, shortcuts and machine-readable values.
 #[track_caller]
-pub fn mono(label: impl IntoText) -> kivact::control::Node {
+pub fn mono(label: impl IntoText) -> impl kivact::view::Component {
     text(label).style(move || {
-        let t = &current_theme();
+        let t = &use_theme().get();
         style()
-            .font_family(t.get::<Tokens>().mono_family.as_str())
+            .font_family(t.ext::<Tokens>().mono_family.as_str())
             .font_size(10.5)
             .weight(600)
     })
@@ -37,7 +40,7 @@ pub fn mono(label: impl IntoText) -> kivact::control::Node {
 
 /// Surface with opposing 10 px HUD brackets.
 #[track_caller]
-pub fn hud(content: impl IntoView) -> Node {
+pub fn hud(content: impl IntoView) -> impl kivact::view::Component {
     node()
         .style(
             style()
@@ -70,28 +73,31 @@ pub fn section_heading(
     number: impl IntoText,
     title: impl IntoText,
     description: impl IntoText,
-) -> Node {
+) -> impl kivact::view::Component {
     row((
         text(number).style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             style()
-                .font_family(t.get::<Tokens>().display_family.as_str())
+                .font_family(t.ext::<Tokens>().display_family.as_str())
                 .font_size(34)
                 .line_height(0.9)
                 .weight(800)
                 .italic(true)
                 .color(ColorToken::Accent)
         }),
-        text(title).role(Role::Heading).level(2_u32).style(move || {
-            let t = &current_theme();
-            style()
-                .font_family(t.get::<Tokens>().display_family.as_str())
-                .font_size(24)
-                .line_height(1.)
-                .letter_spacing(0.96)
-                .weight(700)
-                .italic(true)
-        }),
+        text(title)
+            .with_node(|root| root.role(Role::Heading))
+            .level(2_u32)
+            .style(move || {
+                let t = &use_theme().get();
+                style()
+                    .font_family(t.ext::<Tokens>().display_family.as_str())
+                    .font_size(24)
+                    .line_height(1.)
+                    .letter_spacing(0.96)
+                    .weight(700)
+                    .italic(true)
+            }),
         text(description).style(style().font_size(12).color(ColorToken::TextMuted)),
     ))
     .style(
@@ -109,26 +115,26 @@ pub fn section_heading(
                 .line_to(Point::new(s.width - 2., s.height + 6.))
                 .line_to(Point::new(s.width - 46., s.height + 6.))
                 .close(),
-            d.theme().get::<Tokens>().yellow,
+            d.theme().ext::<Tokens>().yellow,
         );
     })
 }
 
 /// Concentric command halo with built-in decorative rotation, respecting reduced motion.
 #[track_caller]
-pub fn halo() -> Node {
+pub fn halo() -> impl kivact::view::Component {
     let time = signal(0_f64);
     let node_ref = node_ref();
     let clock = frame_loop(move |frame| time.set(frame.now.as_secs_f64()));
     effect(move || {
         let visible = node_ref.rect().get().is_some_and(|rect| {
-            rect.y < platform::window_size().height && rect.y + rect.height > 0.
+            rect.y < platform::window_size().get().height && rect.y + rect.height > 0.
         });
-        if visible && !platform::reduced_motion() && platform::surface_active() {
+        if visible && !platform::is_motion_reduced().get() && platform::is_surface_active().get() {
             clock.start(FrameRate::Hz(30.));
         } else {
             clock.stop();
-            if platform::reduced_motion() {
+            if platform::is_motion_reduced().get() {
                 time.set(0.);
             }
         }
@@ -137,7 +143,7 @@ pub fn halo() -> Node {
         .node_ref(node_ref)
         .style(style().size(180, 180))
         .draw(move |d, s| {
-            let p = d.theme().get::<Tokens>();
+            let p = d.theme().ext::<Tokens>();
             d.layer(
                 Layer::new().transform(Transform::new().scale_xy(s.width / 180., s.height / 180.)),
                 |d| {

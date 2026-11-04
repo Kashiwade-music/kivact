@@ -1,16 +1,16 @@
 //! Role: The Lyra item row with media, text, actions, group and separator.
 
 use crate::parts::pressable;
-use crate::slot::{Slot, slot};
 use crate::theme_access::{tokens, wide_focus_ring};
 use crate::tokens::Tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::primitive::NodeExt;
+use kivact::state::IntoValue;
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::IntoText;
+use kivact::state::{Callback, Value};
 use kivact::style::{Align, Color, Cursor, Direction, Justify, Overflow, pct, style};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoView, Orientation, Role, View, callback};
-use kivact::view::{ReadingDirection, current_direction};
-use kivact::{Callback, Value};
+use kivact::view::{IntoView, Orientation, Role, View};
+use kivact::view::{ReadingDirection, use_direction};
 
 /// The frame of an [`Item`] (item.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -53,13 +53,13 @@ pub struct Item {
     rtl: bool,
     title: Value<String>,
     variant: ItemVariant,
-    size: ItemSize,
-    media: Option<Slot>,
+    size: kivact::state::Value<ItemSize>,
+    media: Option<kivact::view::View>,
     media_variant: ItemMediaVariant,
     description: Option<Value<String>>,
-    actions: Option<Slot>,
-    header: Option<Slot>,
-    footer: Option<Slot>,
+    actions: Option<kivact::view::View>,
+    header: Option<kivact::view::View>,
+    footer: Option<kivact::view::View>,
     on_press: Option<Callback<()>>,
 }
 
@@ -73,19 +73,21 @@ pub struct Item {
 ///     basic::item("Basic Item")
 ///         .variant(basic::ItemVariant::Outline)
 ///         .description("A simple item with title and description.")
-///         .actions(|| button("Action"))
+///         .actions(button("Action"))
 /// }
 /// ```
 #[track_caller]
 pub fn item(title: impl IntoText) -> Item {
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     let title = title.into_text_value();
     Item {
-        root: node().role(Role::ListItem).name(title),
+        root: node()
+            .with_node(|root| root.role(Role::ListItem))
+            .name(title),
         rtl,
         title,
         variant: ItemVariant::Default,
-        size: ItemSize::Default,
+        size: ItemSize::Default.into_value(),
         media: None,
         media_variant: ItemMediaVariant::Default,
         description: None,
@@ -104,14 +106,14 @@ impl Item {
     }
 
     /// Choose the density.
-    pub fn size(mut self, size: ItemSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl kivact::state::IntoValue<ItemSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
     /// Show `media` before the text.
-    pub fn media<V: IntoView>(mut self, media: impl FnOnce() -> V + 'static) -> Self {
-        self.media = Some(slot(media));
+    pub fn media(mut self, media: impl IntoView) -> Self {
+        self.media = Some(media.into_view());
         self
     }
 
@@ -128,31 +130,32 @@ impl Item {
     }
 
     /// Show `actions` at the end of the row.
-    pub fn actions<V: IntoView>(mut self, actions: impl FnOnce() -> V + 'static) -> Self {
-        self.actions = Some(slot(actions));
+    pub fn actions(mut self, actions: impl IntoView) -> Self {
+        self.actions = Some(actions.into_view());
         self
     }
 
     /// Show `header` on its own line above the row.
-    pub fn header<V: IntoView>(mut self, header: impl FnOnce() -> V + 'static) -> Self {
-        self.header = Some(slot(header));
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = Some(header.into_view());
         self
     }
 
     /// Show `footer` on its own line below the row.
-    pub fn footer<V: IntoView>(mut self, footer: impl FnOnce() -> V + 'static) -> Self {
-        self.footer = Some(slot(footer));
+    pub fn footer(mut self, footer: impl IntoView) -> Self {
+        self.footer = Some(footer.into_view());
         self
     }
 
     /// Make the whole item a button that reports presses to `f`; it highlights on hover.
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_press = Some(callback(move |_| f()));
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_press = Some(f.into());
         self
     }
 }
 
 impl NodeBuilder for Item {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -218,7 +221,11 @@ impl IntoView for Item {
                         s
                     };
                     if media_variant == ItemMediaVariant::Image {
-                        let side = if size == ItemSize::Sm { 32.0 } else { 40.0 };
+                        let side = if size.get() == ItemSize::Sm {
+                            32.0
+                        } else {
+                            40.0
+                        };
                         s.size(side, side).overflow(Overflow::Hidden)
                     } else {
                         s
@@ -241,7 +248,7 @@ impl IntoView for Item {
         let actions = self
             .actions
             .map(|actions| row(actions).style(style().align_items(Align::Center).gap(8).shrink(0)));
-        let band = |view: Slot| {
+        let band = |view: kivact::view::View| {
             let view = view.into_view();
             row(view).style(
                 style()
@@ -264,17 +271,17 @@ impl IntoView for Item {
 
 /// A vertical list of [`item`]s with 16 px between them (`Role::List`).
 #[track_caller]
-pub fn item_group(children: impl IntoView) -> Node {
+pub fn item_group(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
-        .role(Role::List)
+        .with_node(|root| root.role(Role::List))
         .style(style().width(pct(100)).gap(16))
 }
 
 /// A horizontal rule between items, with 8 px above and below.
 #[track_caller]
-pub fn item_separator() -> Node {
+pub fn item_separator() -> impl kivact::view::Component {
     node()
-        .role(Role::Separator)
+        .with_node(|root| root.role(Role::Separator))
         .orientation(Orientation::Horizontal)
         .style(
             style()
@@ -285,3 +292,5 @@ pub fn item_separator() -> Node {
                 .background(crate::Color::Border),
         )
 }
+
+kivact::state::constant_value!(ItemSize);

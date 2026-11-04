@@ -1,6 +1,6 @@
 //! Role: Buttons, checks, switches, toggles, accordion and slider through the public API.
 
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 
@@ -40,7 +40,8 @@ fn checkbox_switch_and_mixed_states_are_accessible() {
                 (checked, on),
                 column((
                     kivact::ui::checkbox("Reports", checked),
-                    kivact::ui::checkbox("Partial", kivact::signal(false)).indeterminate(true),
+                    kivact::ui::checkbox("Partial", kivact::state::signal(false))
+                        .indeterminate(true),
                     kivact::ui::switch("Sync", on),
                 )),
             )
@@ -70,9 +71,9 @@ fn toggles_and_accordion_follow_the_shared_toggle_rules() {
                 column((
                     kivact::ui::checkbox("Reports", check),
                     kivact::ui::switch("Sync", switch),
-                    kivact::ui::toggle("Bold", bold),
-                    kivact::ui::disclosure("Details", open, || text("Body")),
-                    kivact::ui::checkbox("Locked", kivact::signal(false)).disabled(true),
+                    kivact::ui::toggle_button("Bold", bold),
+                    kivact::ui::disclosure("Details", open).content(|| text("Body")),
+                    kivact::ui::checkbox("Locked", kivact::state::signal(false)).disabled(true),
                 )),
             )
         });
@@ -120,7 +121,7 @@ fn slider_drag_keyboard_and_accessibility_share_one_binding() {
             value,
             kivact::ui::slider("Volume", value)
                 .range(
-                    kivact::ui::ScalarRange::new(0.0, 100.0)
+                    kivact::interaction::ScalarRange::new(0.0, 100.0)
                         .and_then(|range| range.with_step(1.0))
                         .expect("finite ordered range"),
                 )

@@ -2,7 +2,7 @@
 
 use crate::theme_access::with_focus;
 use crate::tokens::Tokens;
-use kivact::primitive::PartState;
+use kivact::custom::PartState;
 use kivact::style::{Align, Color, Direction, Justify, Style, TextDecorationLine, style};
 use kivact::ui::{ButtonVariant, ControlSize};
 
@@ -131,7 +131,7 @@ pub(crate) fn trigger_style(
             }
         }
     };
-    if look == Look::Destructive {
+    let s = if look == Look::Destructive {
         let ring = p.destructive.with_alpha(if dark { 0.4 } else { 0.2 });
         s.focus_visible(
             style()
@@ -140,5 +140,6 @@ pub(crate) fn trigger_style(
         )
     } else {
         with_focus(s, p)
-    }
+    };
+    crate::button_group::joined(s)
 }

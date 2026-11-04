@@ -42,7 +42,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
             move |t: &Theme, s: &_| {
                 prev(t, s)
                     .border_color(Color::Border)
-                    .hover(style().background(t.get::<Tokens>().muted.with_alpha(0.5)))
+                    .hover(style().background(t.ext::<Tokens>().muted.with_alpha(0.5)))
                     .selected(style().background(Color::Muted))
             }
         })

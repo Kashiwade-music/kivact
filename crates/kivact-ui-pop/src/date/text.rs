@@ -2,8 +2,8 @@
 
 use crate::form::Draft;
 use kivact::i18n::{CalendarDate, message};
+use kivact::state::{Signal, Value, memo, signal};
 use kivact::view::{NodeRef, node_ref};
-use kivact::{Signal, Value, memo, signal};
 
 /// Why the text of a date field is not a date.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -87,7 +87,7 @@ pub(super) fn date_text(value: Value<CalendarDate>) -> DateText {
         Err(error) => Some(error),
     });
     // Leaving the field checks it.
-    kivact::effect_on(node.focused(), move |&now| {
+    kivact::state::effect_on(node.focused(), move |&now| {
         if !now {
             checked.set(true);
         }

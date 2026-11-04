@@ -9,10 +9,13 @@
 use crate::button::{Look, metrics, trigger_style};
 use crate::theme_access::{CHECK, MINUS, field_fill, stroke_glyph, stroke_loader};
 use crate::tokens::Tokens;
-use kivact::draw::{CornerRadius, Draw, Path, Point, Rect, Size, Stroke};
-use kivact::primitive::PartState;
+use kivact::custom::PartState;
+use kivact::draw::{CornerRadius, Draw, Path, Stroke};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
-use kivact::ui::{ButtonState, ButtonVariant, CheckState, ControlSize, TextInputState, UiRecipes};
+use kivact::ui::{
+    ButtonState, ButtonVariant, CheckableState, ControlSize, TextInputState, UiRecipes,
+};
 use kivact::view::CheckedState;
 
 /// The recipes of the kit's look.
@@ -59,7 +62,7 @@ fn build() -> UiRecipes {
 }
 
 fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let look = Look::of(
         state
             .variant::<ButtonVariant>()
@@ -84,7 +87,7 @@ fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
     } else {
         s
     };
-    let s = if state.loading {
+    let s = if state.busy {
         // Room for the leading spinner that `button_busy` places absolutely.
         let (_, pad, gap, icon) = metrics(state.size);
         s.padding_left(pad + icon + gap)
@@ -126,7 +129,7 @@ fn button_busy(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
             .copied()
             .unwrap_or_default(),
     )
-    .foreground(&t.get::<Tokens>());
+    .foreground(&t.ext::<Tokens>());
     // The button turns the indicator while busy.
     style()
         .position(Position::Absolute)
@@ -173,13 +176,13 @@ fn toggle_row(p: &Tokens, drawn: f64) -> Style {
         .focus_visible(style().ring_none())
 }
 
-fn checkbox(t: &Theme, state: &kivact::ui::Look<CheckState>) -> Style {
-    let (p, state) = (t.get::<Tokens>(), **state);
+fn checkbox(t: &Theme, state: &kivact::ui::Look<CheckableState>) -> Style {
+    let (p, state) = (t.ext::<Tokens>(), **state);
     toggle_row(&p, CHECK_SIDE).paint(move |d, size| draw_checkbox(&p, &state, d, size))
 }
 
-fn switch(t: &Theme, state: &kivact::ui::Look<CheckState>) -> Style {
-    let (p, state) = (t.get::<Tokens>(), **state);
+fn switch(t: &Theme, state: &kivact::ui::Look<CheckableState>) -> Style {
+    let (p, state) = (t.ext::<Tokens>(), **state);
     let (track, _) = switch_metrics(state.size);
     toggle_row(&p, track.0).paint(move |d, size| draw_switch(&p, &state, d, size))
 }
@@ -237,7 +240,7 @@ fn toggle_edge(
     }
 }
 
-fn draw_checkbox(p: &Tokens, state: &CheckState, d: &mut Draw, size: Size) {
+fn draw_checkbox(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
     let rect = Rect::new(
         LEAD,
         ((size.height - CHECK_SIDE) / 2.0).round(),
@@ -271,7 +274,7 @@ fn draw_checkbox(p: &Tokens, state: &CheckState, d: &mut Draw, size: Size) {
     }
 }
 
-fn draw_switch(p: &Tokens, state: &CheckState, d: &mut Draw, size: Size) {
+fn draw_switch(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
     let on = state.checked.is_checked();
     let ((width, height), side) = switch_metrics(state.size);
     let track = Rect::new(LEAD, (size.height - height) / 2.0, width, height);
@@ -303,7 +306,7 @@ fn draw_switch(p: &Tokens, state: &CheckState, d: &mut Draw, size: Size) {
 
 /// The field look of input.tsx and textarea.tsx.
 fn field(t: &Theme, state: &kivact::ui::Look<TextInputState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let s = style()
         .min_width(0)
         .padding_x(10)

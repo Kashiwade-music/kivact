@@ -3,18 +3,18 @@
 use super::text::DateText;
 use crate::Tokens;
 use crate::form::input_style;
-use kivact::control::{Node, NodeBuilder, icon, node, row, text};
 use kivact::draw::Shadow;
 use kivact::i18n::{CalendarDate, message};
-use kivact::interaction::Popup;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::interaction::PopupApi;
+use kivact::view::{Node, NodeBuilder, icon, node, row, text};
+
+use kivact::state::{Binding, Value};
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, style};
 use kivact::ui::{ButtonVariant, button, text_input};
 use kivact::view::{
     A11yAction, IntoView, LiveRegion, NodeRef, Overlay, Placement, Role, overlay, show,
 };
-use kivact::{Binding, Value};
 use std::rc::Rc;
 
 /// An error line that is there while `shown`, announced politely. `node` is
@@ -22,7 +22,7 @@ use std::rc::Rc;
 pub(super) fn status(shown: Value<bool>, content: Value<String>, node: NodeRef) -> impl IntoView {
     show(shown, move || {
         text(content)
-            .role(Role::Status)
+            .with_node(|root| root.role(Role::Status))
             .live_region(LiveRegion::Polite)
             .node_ref(node)
             .style(style().font_size(12).color(ColorToken::Danger))
@@ -46,7 +46,7 @@ pub(super) fn date_text_field(
         ..
     } = text;
     let typed = draft.text();
-    let edited = kivact::binding(typed, move |text: String| {
+    let edited = kivact::state::binding(typed, move |text: String| {
         typed.set(text.clone());
         checked.set(false);
         if let Some(date) = draft.parse(&text) {
@@ -76,7 +76,7 @@ pub(super) fn date_text_field(
 /// It is the anchor of the calendar and turns red while `bad`.
 pub(super) fn field_strip(anchor: NodeRef, bad: Value<bool>, children: impl IntoView) -> Node {
     row(children).node_ref(anchor).style(move || {
-        let theme = &current_theme();
+        let theme = &use_theme().get();
         let strip = input_style(theme)
             .height(36)
             .padding_left(12)
@@ -84,7 +84,7 @@ pub(super) fn field_strip(anchor: NodeRef, bad: Value<bool>, children: impl Into
             .gap(8)
             .align_items(Align::Center);
         if bad.get() {
-            strip.border_color(theme.get::<Tokens>().red)
+            strip.border_color(theme.ext::<Tokens>().red)
         } else {
             strip
         }
@@ -92,30 +92,33 @@ pub(super) fn field_strip(anchor: NodeRef, bad: Value<bool>, children: impl Into
 }
 
 /// The button that opens the calendar; `on_open` runs before it opens.
-pub(super) fn picker_button(popup: Popup, on_open: impl Fn() + 'static) -> Node {
+pub(super) fn picker_button(
+    popup: PopupApi,
+    on_open: impl Into<kivact::state::Callback<()>>,
+) -> impl kivact::view::Component {
+    let on_open = on_open.into();
     let prepare = Rc::new(move || {
-        if !popup.shown().get_untracked() {
-            on_open();
+        if !popup.is_open().get_untracked() {
+            on_open.call(());
         }
     });
     button(message("pop.date.open", "Choose a date"))
         .variant(ButtonVariant::Ghost)
         .hide_label(true)
         .icon(icon("calendar"))
-        .part(popup.trigger())
+        .with_node(|node| node.part(popup.trigger()))
         .on_press({
             let prepare = prepare.clone();
             move || prepare()
         })
-        .on_a11y(A11yAction::Expand, move || prepare())
+        .with_node(|node| node.a11y_action(A11yAction::Expand, move |_| prepare()))
         .style(style().size(28, 28))
-        .into_node()
 }
 
 /// `content` in a panel below `anchor`, closed by Escape or a press outside.
 pub(super) fn calendar_popup(
     anchor: NodeRef,
-    popup: Popup,
+    popup: PopupApi,
     name: Value<String>,
     content: impl IntoView,
 ) -> Overlay {
@@ -134,5 +137,6 @@ pub(super) fn calendar_popup(
             .style(style().width(320).padding(16)),
     )
     .offset(4)
-    .part(popup.content().role(Role::Dialog).name(name))
+    .with_node(|root| root.part(popup.content()))
+    .with_node(|node| node.role(Role::Dialog).name(name))
 }

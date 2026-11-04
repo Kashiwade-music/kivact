@@ -1,6 +1,7 @@
 //! Role: Styles of the radio group and tabs looks: segments, cards, navigation, boxed.
 
-use kivact::draw::{Path, Point};
+use kivact::draw::Path;
+use kivact::geometry::Point;
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, Position, Style, pct, style};
 
 /// A segment or a card takes no indicator: out of the row, with no size.

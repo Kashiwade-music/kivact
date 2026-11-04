@@ -1,11 +1,13 @@
 //! Role: Overlay tests: accordion, the alert, sheet and popover looks, command menus.
 
 use crate::support::{assert_clean, distance, pixel};
+use kivact::geometry::Edge;
+use kivact::interaction::{Command, DialogMode};
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::LayoutCheck;
-use kivact::ui::{ButtonVariant, Side};
-use kivact::ui::{Command, DialogKind, command_palette};
+use kivact::ui::ButtonVariant;
+use kivact::ui::command_palette;
 use kivact::view::{A11yAction, Key};
 use kivact_ui_basic as basic;
 use std::time::Duration;
@@ -49,7 +51,9 @@ fn accordion(open: Signal<Vec<&'static str>>, multiple: bool) -> Node {
                         })
                     },
                 );
-                kivact::ui::disclosure(title, is_open, move || text(body)).animated(true)
+                kivact::ui::disclosure(title, is_open)
+                    .content(move || text(body))
+                    .animated(true)
             })
             .into_iter()
             .collect::<Vec<_>>(),
@@ -108,7 +112,7 @@ fn alert_dialog_ignores_outside_presses_and_reports_its_buttons() {
                 page((
                     kivact::ui::button("Delete").on_press(move || open.set(true)),
                     kivact::ui::dialog("Are you absolutely sure?", open)
-                        .kind(DialogKind::AlertModal)
+                        .mode(DialogMode::AlertModal)
                         .closable(false)
                         .description("This action cannot be undone.")
                         .footer(move || {
@@ -174,10 +178,10 @@ fn alert_dialog_ignores_outside_presses_and_reports_its_buttons() {
 #[test]
 fn sheet_attaches_to_each_side_and_closes_on_escape() {
     for (side, name) in [
-        (Side::Right, "Right"),
-        (Side::Left, "Left"),
-        (Side::Top, "Top"),
-        (Side::Bottom, "Bottom"),
+        (Edge::Right, "Right"),
+        (Edge::Left, "Left"),
+        (Edge::Top, "Top"),
+        (Edge::Bottom, "Bottom"),
     ] {
         let (screen, open) =
             kivact::test::render_with_handle(crate::support::options(), move || {
@@ -187,7 +191,7 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
                     page((
                         kivact::ui::button("Open").on_press(move || open.set(true)),
                         kivact::ui::dialog(name, open)
-                            .kind(DialogKind::Drawer(side))
+                            .mode(DialogMode::Drawer(side))
                             .description("Make changes here.")
                             .content(|| text("The body"))
                             .footer(|| kivact::ui::button("Save changes")),
@@ -199,20 +203,20 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
         let dialog = screen.get_by_role(Role::Dialog, name);
         let rect = panel(&dialog);
         match side {
-            Side::Right => {
+            Edge::Right => {
                 assert_eq!(rect.x + rect.width, 800.0, "{name}");
                 assert_eq!((rect.y, rect.height), (0.0, 600.0), "{name}");
                 assert_eq!(rect.width, 384.0, "{name}: sm:max-w-sm");
             }
-            Side::Left => {
+            Edge::Left => {
                 assert_eq!((rect.x, rect.y, rect.height), (0.0, 0.0, 600.0), "{name}");
                 assert_eq!(rect.width, 384.0, "{name}");
             }
-            Side::Top => {
+            Edge::Top => {
                 assert_eq!((rect.x, rect.y, rect.width), (0.0, 0.0, 800.0), "{name}");
                 assert!(rect.height < 600.0);
             }
-            Side::Bottom => {
+            Edge::Bottom => {
                 assert_eq!((rect.x, rect.width), (0.0, 800.0), "{name}");
                 assert_eq!(rect.y + rect.height, 600.0, "{name}");
             }
@@ -236,7 +240,7 @@ fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
             open,
             page(
                 kivact::ui::dialog("Dimensions", open)
-                    .kind(DialogKind::Popover)
+                    .mode(DialogMode::Popover)
                     .description("Set the dimensions for the layer.")
                     .content(|| kivact::ui::text_input("Width", signal(String::from("100%"))))
                     .attach(kivact::ui::button("Open popover").variant(ButtonVariant::Outline)),
@@ -287,7 +291,7 @@ fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
     trigger.click();
     screen
         .get_by_role(Role::Dialog, "Dimensions")
-        .a11y(A11yAction::Dismiss);
+        .a11y(A11yAction::DismissOn);
     assert!(!open.get_untracked(), "assistive technology can dismiss it");
     assert_clean(&screen);
 }
@@ -344,19 +348,19 @@ fn hover_card_opens_after_its_delay_and_stays_while_hovered() {
 fn entries() -> Vec<Command<&'static str>> {
     vec![
         Command::new("calendar", "Calendar")
-            .group("Suggestions")
-            .icon("calendar"),
+            .with_group("Suggestions")
+            .with_icon("calendar"),
         Command::new("search", "Search Emoji")
-            .group("Suggestions")
-            .icon("smile")
-            .keywords(["face"]),
+            .with_group("Suggestions")
+            .with_icon("smile")
+            .with_keywords(["face"]),
         Command::new("profile", "Profile")
-            .group("Settings")
-            .icon("user")
-            .hint("Ctrl P"),
+            .with_group("Settings")
+            .with_icon("user")
+            .with_hint("Ctrl P"),
         Command::new("settings", "Settings")
-            .group("Settings")
-            .icon("settings"),
+            .with_group("Settings")
+            .with_icon("settings"),
         Command::new("help", "Help"),
     ]
 }
@@ -369,11 +373,10 @@ fn command_filters_groups_and_chooses_with_the_keyboard() {
             let open = signal(true);
             (
                 (chosen, open),
-                page(command_palette(
-                    open,
-                    entries(),
-                    move |key: &'static str| chosen.update(|keys| keys.push(key)),
-                )),
+                page(
+                    command_palette(entries(), open)
+                        .on_activate(move |key: &'static str| chosen.update(|keys| keys.push(key))),
+                ),
             )
         });
     let search = screen.get_by_role(Role::TextBox, "Search commands");
@@ -441,7 +444,7 @@ fn command_filters_groups_and_chooses_with_the_keyboard() {
 
 /// The box of the panel inside a dialog's overlay: the overlay node itself has
 /// no size when its panel is placed at the window's edge.
-fn panel(dialog: &kivact::test::Element<'_>) -> kivact::draw::Rect {
+fn panel(dialog: &kivact::test::Element<'_>) -> kivact::geometry::Rect {
     dialog
         .children()
         .first()

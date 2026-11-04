@@ -40,7 +40,7 @@ it has no copies of the standard ones. `ButtonVariant::Primary` is shadcn's
 `Danger` is `destructive`; `ControlSize::ExtraSmall`, `Small`, `Medium` and
 `Large` are the `xs`, `sm`, `default` and `lg` sizes. A button with an icon and a
 hidden label (`button(name).icon(icon(..)).hide_label(true)`) is the square `icon`
-size. `kivact::ui::toggle` (variant `basic::ToggleVariant`), `progress`, `disclosure`
+size. `kivact::ui::toggle_button` (variant `basic::ToggleVariant`), `progress`, `disclosure`
 (an accordion is a column of them) and `split` (`.grip(true)` is `withHandle`) are
 standard components in this look. A button that opens a popover or a menu does not move
 while pressed and keeps the muted fill while its popup is open; tooltips
@@ -70,24 +70,24 @@ own default style and semantics first, so ordinary `NodeBuilder` modifiers
 such as `.style(...)`, `.test_id(...)`, `.disabled(...)` and `.name(...)` win
 over the kit's defaults. Parts without options return a `Node`. A slot
 method that places content in a component (`.content(..)`, `.header(..)`,
-`.footer(..)`, `.action(..)`, `.media(..)`, ...) takes a closure the
-component calls once when it mounts (`card().content(|| text("Body"))`); a
+`.footer(..)`, `.action(..)`, `.media(..)`, ...) takes a view
+(`card().content(text("Body"))`); a
 container's children are views.
 
-Icons are drawn with the core `kivact::control::icon(name)`: the theme puts
+Icons are drawn with the core `kivact::view::icon(name)`: the theme puts
 every Lucide name of `basic::ICON_NAMES` in its icon set. Icon slots of single
 components take a view (usually `icon(name)`); data records (`ListItem`,
 `MenuEntry`, `Command`) and `basic::attachment_action` take the name. A name the set lacks draws nothing
 and, in a debug build, is reported at the call.
 
 Dialogs, alert dialogs, sheets and popovers are the standard
-`kivact::ui::dialog` of the kinds `DialogKind::Modal`, `AlertModal`,
+`kivact::ui::dialog` of the kinds `DialogMode::Modal`, `AlertModal`,
 `Drawer(side)` and `Popover`, which the theme draws as dialog.tsx,
 alert-dialog.tsx (its width class is `.variant(basic::AlertDialogSize::Sm)`,
 its cancel and action buttons are the footer, and `.closable(false)` leaves
 out the close button it does not have), sheet.tsx and popover.tsx. A
-context menu is the standard `kivact::ui::menu(..).attach_context(target)`,
-drawn with context-menu.tsx's wider top level. The kit's own overlays
+use_context menu is the standard `kivact::ui::menu(..).attach_context(target)`,
+drawn with use_context-menu.tsx's wider top level. The kit's own overlays
 (`drawer`, which a swipe dismisses, and `hover_card`, which opens on a
 delay) show their content in a fresh branch each time they open, so they
 take their slots (`.content(..)`, `.footer(..)`) as functions and do not
@@ -95,7 +95,7 @@ implement `NodeBuilder`; `hover_card` attaches to a caller trigger with
 `.attach(trigger)`, and the trigger takes the modifiers. Mount the standard
 `kivact::ui::toast_region(toaster()).hold_all_on_hover(true)` once near
 the root to show the toasts pushed with
-`toaster().push(Toast::new(title).tone(..))`: the core `kivact::ui::Toast`
+`toaster().push(Toast::new(title).tone(..))`: the core `kivact::interaction::Toast`
 takes `.body(..)`, `.duration(..)`, `.action(..)` and `.icon(..)`, and the
 theme draws the icon of its `Tone`. In this theme
 the toasts stack behind the newest, open into a list while the pointer is
@@ -155,7 +155,7 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.questionnaire.skip` | Skip |
 | `basic.questionnaire.submit` | Submit |
 | `basic.sidebar.toggle` | Toggle Sidebar |
-| `basic.spinner.loading` | Loading |
+| `basic.spinner.busy` | Loading |
 
 The standard `kivact::ui` components the kit mounts keep their own
 unprefixed keys:
@@ -192,3 +192,10 @@ switch, button variants and sizes, toggles, text editing, icons, code block
 copy requests, the layout of the typography styles and the overlays
 (accordion made of disclosures, collapsible, alert dialogs, sheets, drawers, popovers, hover
 cards, the command palette and toasts).
+
+| Slot kind | API |
+|---|---|
+| Mounted once: headers, media, actions, footers and other display content | `impl IntoView`, stored as `View` |
+| Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
+| Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
+| Individually wrapped children | `impl IntoChildren` |

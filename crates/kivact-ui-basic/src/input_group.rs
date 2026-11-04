@@ -1,15 +1,15 @@
 //! Role: Input group: a bordered row of addons around one borderless control.
 
-use crate::slot::{Slot, slot};
 use crate::theme_access::{field_fill, tokens};
-use kivact::Binding;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::memo;
-use kivact::primitive::NodeExt;
+use kivact::state::memo;
+use kivact::state::{Binding, IntoValue, Value};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+
+use kivact::state::{IntoText, provide, try_use_context};
 use kivact::style::{Align, Color, Direction, Justify, Style, pct, style};
 use kivact::ui::{Button, ButtonVariant, ControlSize, TextInput, text_area, text_input};
-use kivact::view::{IntoText, IntoView, NodeRef, Role, View, node_ref, provide, try_context};
-use kivact::view::{ReadingDirection, current_direction};
+use kivact::view::{IntoView, NodeRef, Role, View, node_ref};
+use kivact::view::{ReadingDirection, use_direction};
 use std::any::Any;
 
 /// The sizes of an [`input_group_button`] (`InputGroupButton`).
@@ -70,8 +70,8 @@ pub struct InputGroup {
     input: View,
     start: Option<Addon>,
     end: Option<Addon>,
-    block_start: Option<Slot>,
-    block_end: Option<Slot>,
+    block_start: Option<kivact::view::View>,
+    block_end: Option<kivact::view::View>,
     anchor: Option<NodeRef>,
     /// The reading direction when the group was made.
     rtl: bool,
@@ -80,7 +80,7 @@ pub struct InputGroup {
 /// An input group around `input`.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -94,14 +94,14 @@ pub struct InputGroup {
 #[track_caller]
 pub fn input_group(input: impl IntoView) -> InputGroup {
     InputGroup {
-        root: node().role(Role::Group),
+        root: node().with_node(|root| root.role(Role::Group)),
         input: input.into_view(),
         start: None,
         end: None,
         block_start: None,
         block_end: None,
         anchor: None,
-        rtl: current_direction() == ReadingDirection::Rtl,
+        rtl: use_direction().get() == ReadingDirection::Rtl,
     }
 }
 
@@ -119,14 +119,14 @@ impl InputGroup {
     }
 
     /// An addon row above the control (`align="block-start"`).
-    pub fn block_start<V: IntoView>(mut self, addon: impl FnOnce() -> V + 'static) -> Self {
-        self.block_start = Some(slot(addon));
+    pub fn block_start(mut self, addon: impl IntoView) -> Self {
+        self.block_start = Some(addon.into_view());
         self
     }
 
     /// An addon row below the control (`align="block-end"`).
-    pub fn block_end<V: IntoView>(mut self, addon: impl FnOnce() -> V + 'static) -> Self {
-        self.block_end = Some(slot(addon));
+    pub fn block_end(mut self, addon: impl IntoView) -> Self {
+        self.block_end = Some(addon.into_view());
         self
     }
 }
@@ -140,6 +140,7 @@ impl InputGroup {
 }
 
 impl NodeBuilder for InputGroup {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -155,7 +156,7 @@ fn inline_addon(addon: Addon, padding_start: bool, input: NodeRef) -> Node {
     node()
         .child(addon.view)
         .on_press(move || input.activate())
-        .role(Role::Generic)
+        .with_node(|root| root.role(Role::Generic))
         .style(move || {
             let s = style()
                 .direction(Direction::Row)
@@ -180,7 +181,7 @@ fn block_addon(view: View, top: bool, input: NodeRef) -> Node {
     node()
         .child(view)
         .on_press(move || input.activate())
-        .role(Role::Generic)
+        .with_node(|root| root.role(Role::Generic))
         .style(move || {
             let s = style()
                 .direction(Direction::Row)
@@ -217,8 +218,8 @@ impl IntoView for InputGroup {
         let disabled = root.accessible_disabled();
         let anchor = anchor.unwrap_or_else(node_ref);
         let focused = anchor.focus_within();
-        let bad = memo(move || invalid.as_ref().is_some_and(|read| read()));
-        let off = memo(move || disabled.as_ref().is_some_and(|read| read()));
+        let bad = memo(move || invalid.as_ref().is_some_and(|read| read.get()));
+        let off = memo(move || disabled.as_ref().is_some_and(|read| read.get()));
         root = root.base_style(move || {
             let p = tokens();
             let dark = p.is_dark();
@@ -290,7 +291,7 @@ impl IntoView for InputGroup {
 
 /// An addon text with `text-xs text-muted-foreground` (`InputGroupText`).
 #[track_caller]
-pub fn input_group_text(label: impl IntoText) -> Node {
+pub fn input_group_text(label: impl IntoText) -> impl kivact::view::Component {
     row(text(label)).style(
         style()
             .align_items(Align::Center)
@@ -305,7 +306,7 @@ pub fn input_group_text(label: impl IntoText) -> Node {
 /// Created by [`input_group_button`].
 pub struct InputGroupButton {
     button: Button,
-    size: InputGroupButtonSize,
+    size: Value<InputGroupButtonSize>,
 }
 
 /// The measures of one size of the button (`inputGroupButtonVariants`).
@@ -324,25 +325,28 @@ pub fn input_group_button(label: impl IntoText) -> InputGroupButton {
     let button = kivact::ui::button(label).variant(ButtonVariant::Ghost);
     InputGroupButton {
         button,
-        size: InputGroupButtonSize::Xs,
+        size: InputGroupButtonSize::Xs.into_value(),
     }
     .size(InputGroupButtonSize::Xs)
 }
 
 impl InputGroupButton {
     /// The size (default [`InputGroupButtonSize::Xs`]).
-    pub fn size(mut self, size: InputGroupButtonSize) -> Self {
-        let icon_only = matches!(
-            size,
-            InputGroupButtonSize::IconXs | InputGroupButtonSize::IconSm
-        );
-        // The extra small sizes draw 14 px icons (`size-3.5`).
-        let control = match size {
-            InputGroupButtonSize::Xs | InputGroupButtonSize::IconXs => ControlSize::Small,
-            InputGroupButtonSize::Sm | InputGroupButtonSize::IconSm => ControlSize::Medium,
-        };
+    pub fn size(mut self, size: impl IntoValue<InputGroupButtonSize>) -> Self {
+        let size = size.into_value();
         self.size = size;
-        self.button = self.button.size(control).hide_label(icon_only);
+        self.button = self
+            .button
+            .size(move || match size.get() {
+                InputGroupButtonSize::Xs | InputGroupButtonSize::IconXs => ControlSize::Small,
+                InputGroupButtonSize::Sm | InputGroupButtonSize::IconSm => ControlSize::Medium,
+            })
+            .hide_label(move || {
+                matches!(
+                    size.get(),
+                    InputGroupButtonSize::IconXs | InputGroupButtonSize::IconSm
+                )
+            });
         self
     }
 
@@ -360,6 +364,7 @@ impl InputGroupButton {
 }
 
 impl NodeBuilder for InputGroupButton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()
     }
@@ -367,7 +372,10 @@ impl NodeBuilder for InputGroupButton {
 
 impl IntoView for InputGroupButton {
     fn into_view(self) -> View {
-        self.button.base_style(button_style(self.size)).into_view()
+        let size = self.size;
+        self.button
+            .with_node(|node| node.base_style(move || button_style(size.get())))
+            .into_view()
     }
 }
 
@@ -392,7 +400,7 @@ pub(crate) fn borderless(input: TextInput, height: Option<f64>) -> TextInput {
             .focus(style().border_color(Color::TRANSPARENT).ring_none())
             .focus_visible(style().border_color(Color::TRANSPARENT).ring_none());
         let Some(height) = height else { return s };
-        let around = try_context::<Around>();
+        let around = try_use_context::<Around>();
         let below = around.is_some_and(|around| around.block_end);
         let above = around.is_some_and(|around| around.block_start);
         let s = s.height(if below || above { 32.0 } else { height });
@@ -403,12 +411,20 @@ pub(crate) fn borderless(input: TextInput, height: Option<f64>) -> TextInput {
 
 /// The text input of an input group (`InputGroupInput`): no border, no ring.
 #[track_caller]
-pub fn input_group_input(label: impl IntoText, value: impl Into<Binding<String>>) -> TextInput {
+pub fn input_group_input(
+    label: impl IntoText,
+    value: impl kivact::state::IntoBinding<String>,
+) -> TextInput {
     borderless(text_input(label, value), Some(30.0))
 }
 
 /// The text area of an input group (`InputGroupTextarea`).
 #[track_caller]
-pub fn input_group_textarea(label: impl IntoText, value: impl Into<Binding<String>>) -> TextInput {
+pub fn input_group_textarea(
+    label: impl IntoText,
+    value: impl kivact::state::IntoBinding<String>,
+) -> TextInput {
     borderless(text_area(label, value), None).style(style().padding_y(8))
 }
+
+kivact::state::constant_value!(InputGroupButtonSize);

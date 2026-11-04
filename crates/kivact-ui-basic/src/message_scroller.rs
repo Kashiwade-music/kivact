@@ -1,11 +1,11 @@
 //! Role: The Lyra message scroller that follows new content and offers a jump to the end.
 
-use kivact::control::{Node, NodeBuilder, column, icon, node, scroll};
 use kivact::i18n::message;
 use kivact::interaction::use_follow_end;
 use kivact::style::{Color, Direction, Position, pct, style};
 use kivact::ui::{ButtonVariant, ControlSize, button};
 use kivact::view::{IntoView, View, node_ref};
+use kivact::view::{Node, NodeBuilder, column, icon, node, scroll};
 
 /// A scrolling column of messages that sticks to the bottom (message-scroller.tsx).
 ///
@@ -46,6 +46,7 @@ pub fn message_scroller(content: impl IntoView) -> MessageScroller {
 }
 
 impl NodeBuilder for MessageScroller {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

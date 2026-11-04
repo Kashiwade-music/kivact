@@ -1,7 +1,7 @@
 //! Role: Modal, notification, command search and menu through the public API.
 
+use kivact::interaction::{Command, MenuEntry, toaster};
 use kivact::prelude::*;
-use kivact::ui::{Command, MenuEntry, toaster};
 use kivact::view::LiveRegion;
 use std::time::Duration;
 
@@ -14,7 +14,9 @@ fn modal_dismisses_and_restores_focus_to_its_opener() {
             column((
                 kivact::ui::button("Open").on_press(move || open.set(true)),
                 kivact::ui::dialog("Confirm", open)
-                    .content(|| kivact::ui::text_input("Memo", kivact::signal(String::new())))
+                    .content(|| {
+                        kivact::ui::text_input("Memo", kivact::state::signal(String::new()))
+                    })
                     .footer(move || kivact::ui::button("OK").on_press(move || open.set(false))),
             )),
         )
@@ -47,18 +49,18 @@ fn notification_has_live_semantics_and_expires_on_the_host_clock() {
         (toaster, kivact::ui::toast_region(toaster))
     });
     toaster.push(
-        kivact::ui::Toast::new("Saved")
-            .tone(kivact::ui::Tone::Success)
+        kivact::interaction::Toast::new("Saved")
+            .tone(kivact::interaction::Tone::Success)
             .body("Request updated"),
     );
     toaster.push(
-        kivact::ui::Toast::new("Failed")
-            .tone(kivact::ui::Tone::Danger)
+        kivact::interaction::Toast::new("Failed")
+            .tone(kivact::interaction::Tone::Danger)
             .body("Request rejected"),
     );
     toaster.push(
-        kivact::ui::Toast::new("Heads up")
-            .tone(kivact::ui::Tone::Warning)
+        kivact::interaction::Toast::new("Heads up")
+            .tone(kivact::interaction::Tone::Warning)
             .body("Quota almost used"),
     );
     screen.run_until_idle();
@@ -88,14 +90,14 @@ fn command_search_rebuilds_rows_and_executes_the_filtered_action() {
             (
                 (open, chosen),
                 kivact::ui::command_palette(
-                    open,
                     vec![
-                        Command::new(1, "Alpha").icon("circle-dot"),
-                        Command::new(2, "Beta").icon("circle-dot"),
+                        Command::new(1, "Alpha").with_icon("circle-dot"),
+                        Command::new(2, "Beta").with_icon("circle-dot"),
                     ],
-                    move |key: usize| chosen.set(key),
+                    open,
                 )
-                .footer(|| text("↑↓ Move   Enter Run   Esc Close")),
+                .on_activate(move |key: usize| chosen.set(key))
+                .footer(text("↑↓ Move   Enter Run   Esc Close")),
             )
         });
     screen.get_by_text("↑↓ Move   Enter Run   Esc Close");
@@ -128,13 +130,13 @@ fn menu_skips_disabled_items_and_restores_the_custom_trigger() {
                     MenuEntry::item(101, "Blocked").disabled(true),
                     MenuEntry::item(2, "Last"),
                 ],
-                move |key: usize| chosen.set(key),
             )
+            .on_activate(move |key: usize| chosen.set(key))
             .attach(
                 kivact::ui::button("Actions")
                     .variant(kivact::ui::ButtonVariant::Ghost)
                     .hide_label(true)
-                    .icon(kivact::control::icon("dots")),
+                    .icon(kivact::view::icon("dots")),
             ),
         )
     });

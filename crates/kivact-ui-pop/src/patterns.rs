@@ -1,18 +1,18 @@
 //! Role: Reusable dashboard, navigation, conversation and scheduling patterns.
 
 use crate::{Hue, Tokens};
-use kivact::control::{Node, NodeBuilder, column, grid, icon, node, row, text};
 use kivact::i18n::message;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::view::{Node, NodeBuilder, column, grid, icon, node, row, text};
+
+use kivact::state::{Callback, Value};
+use kivact::state::{IntoText, IntoValue, callback};
+use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, Track, style};
 use kivact::ui::{ButtonVariant, button};
-use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoValue, IntoView, View, callback, show};
-use kivact::{Callback, Value};
+use kivact::view::{IntoView, View, show};
 
 #[track_caller]
-pub fn breadcrumb(items: impl IntoValue<Vec<String>>) -> Node {
+pub fn breadcrumb(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Component {
     let items = items.into_value();
     row(kivact::view::dynamic(items, |items| {
         let count = items.len();
@@ -65,8 +65,8 @@ pub fn stepper(labels: impl IntoValue<Vec<String>>, current: impl IntoValue<usiz
                 let width = size.width / count.max(1) as f64;
                 for index in 1..count {
                     d.line(
-                        kivact::draw::Point::new((index as f64 - 0.5) * width, 15.0),
-                        kivact::draw::Point::new((index as f64 + 0.5) * width, 15.0),
+                        kivact::geometry::Point::new((index as f64 - 0.5) * width, 15.0),
+                        kivact::geometry::Point::new((index as f64 + 0.5) * width, 15.0),
                         2.0,
                         if index <= current.get() {
                             ColorToken::Accent
@@ -89,6 +89,7 @@ impl Stepper {
     }
 }
 impl NodeBuilder for Stepper {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -115,8 +116,8 @@ impl IntoView for Stepper {
                             .margin_bottom(6),
                     )
                     .style(move || {
-                        let t = &current_theme();
-                        let p = t.get::<Tokens>();
+                        let t = &use_theme().get();
+                        let p = t.ext::<Tokens>();
                         if i < current.get() {
                             style()
                                 .background(p.blue)
@@ -164,7 +165,7 @@ pub struct AgendaItem {
     description: Value<String>,
     period: Value<String>,
     on_details: Option<Callback<()>>,
-    hue: Hue,
+    hue: Value<Hue>,
 }
 impl AgendaItem {
     /// Supporting text; empty by default.
@@ -173,8 +174,8 @@ impl AgendaItem {
         self
     }
     /// Border hue; neutral gray by default.
-    pub fn tone(mut self, value: Hue) -> Self {
-        self.hue = value;
+    pub fn tone(mut self, value: impl IntoValue<Hue>) -> Self {
+        self.hue = value.into_value();
         self
     }
 
@@ -184,12 +185,13 @@ impl AgendaItem {
         self
     }
     /// Adds a details button that reports activation to the application.
-    pub fn on_details<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.on_details = Some(callback(move |_| f()));
+    pub fn on_details(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.on_details = Some(f.into());
         self
     }
 }
 impl NodeBuilder for AgendaItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -203,7 +205,7 @@ pub fn agenda_item(time: impl IntoText, title: impl IntoText) -> AgendaItem {
         description: String::new().into_value(),
         period: String::new().into_value(),
         on_details: None,
-        hue: Hue::Gray,
+        hue: Hue::Gray.into_value(),
     }
 }
 
@@ -220,18 +222,17 @@ impl IntoView for AgendaItem {
         } = self;
         let disabled = root
             .accessible_disabled()
-            .map(|read| (move || read()).into_value())
             .unwrap_or_else(|| false.into_value());
         root.base_style(move || {
-            let t = &current_theme();
-            let p = t.get::<Tokens>();
+            let t = &use_theme().get();
+            let p = t.ext::<Tokens>();
             style()
                 .padding_y(10)
                 .padding_right(12)
                 .gap(14)
                 .align_items(Align::Center)
                 .border(1, p.line)
-                .border_left(3, p.accent(hue))
+                .border_left(3, p.accent(hue.get()))
                 .radius(8)
                 .background(p.surface)
         })

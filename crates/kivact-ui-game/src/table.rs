@@ -1,10 +1,10 @@
 //! Role: The console's table cell looks for the standard data table's columns.
-use kivact::control::{NodeBuilder, column, row, text};
 use kivact::i18n::message;
 use kivact::style::{Align, Color, ColorToken, pct, style};
 use kivact::view::{IntoView, View};
+use kivact::view::{NodeBuilder, column, row, text};
 
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 
 /// The console's cell looks, for a [`DataColumn::cell`](kivact::ui::DataColumn::cell)
 /// to return.

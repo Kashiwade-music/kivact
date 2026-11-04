@@ -2,7 +2,7 @@
 
 use crate::theme_access::wide_focus_ring;
 use crate::tokens::Tokens;
-use kivact::draw::Rect;
+use kivact::geometry::Rect;
 use kivact::interaction::{TabListState, TabState};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact::ui::Look;
@@ -45,7 +45,7 @@ pub(crate) fn is_line<S>(look: &Look<S>) -> bool {
 
 /// `inline-flex w-fit items-center gap-1 p-[3px] h-8 bg-transparent text-muted-foreground`.
 pub(crate) fn list(t: &Theme, s: &Look<TabListState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = style()
         .align_self(Align::Start)
         .align_items(Align::Center)
@@ -68,7 +68,7 @@ pub(crate) fn list(t: &Theme, s: &Look<TabListState>) -> Style {
 /// The tab, with the `after:` 2 px bar in `--foreground` while selected:
 /// under the tab (5 px below its box), or 4 px beside it when vertical.
 pub(crate) fn tab(t: &Theme, s: &Look<TabState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let rest = if p.is_dark() {
         p.muted_foreground
     } else {
@@ -119,7 +119,7 @@ pub(crate) fn panel(t: &Theme, s: &Look<TabState>) -> Style {
         .grow(1)
         .font_size(12)
         .line_height(1.625)
-        .color(t.get::<Tokens>().foreground);
+        .color(t.ext::<Tokens>().foreground);
     if s.orientation == Orientation::Vertical {
         base.padding_left(8)
     } else {

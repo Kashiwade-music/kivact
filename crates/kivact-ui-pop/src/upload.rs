@@ -2,10 +2,11 @@
 
 use crate::Color;
 use crate::spinner;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::message;
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, Justify, style};
-use kivact::view::{IntoText, IntoValue, Role, dynamic};
+use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::view::{Role, dynamic};
 
 /// A file row with an actual byte count and a percentage supplied by its owner.
 ///
@@ -17,7 +18,7 @@ pub fn upload_row(
     name: impl IntoText,
     bytes: impl IntoValue<Option<u64>>,
     percentage: impl IntoValue<f64>,
-) -> Node {
+) -> impl kivact::view::Component {
     let name = name.into_text_value();
     let bytes = bytes.into_value();
     let percentage = percentage.into_value();
@@ -60,19 +61,19 @@ pub fn upload_row(
             move |complete| {
                 if complete {
                     icon("circle-check")
-                        .role(Role::Status)
+                        .with_node(|root| root.role(Role::Status))
                         .name(done)
                         .style(style().color(Color::Mint))
                 } else {
                     spinner()
                         .style(style().size(16, 16))
-                        .role(Role::Status)
+                        .with_node(|root| root.role(Role::Status))
                         .name(uploading)
                 }
             },
         ),
     ))
-    .role(Role::Group)
+    .with_node(|root| root.role(Role::Group))
     .name(name)
     .style(
         style()

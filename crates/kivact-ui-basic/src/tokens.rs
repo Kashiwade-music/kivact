@@ -5,7 +5,7 @@ use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
 /// Typed tokens corresponding to the shadcn/ui CSS variables of the Neutral base color.
 ///
 /// [`theme`](crate::theme) installs them in the [`Theme`]; components read them
-/// with `theme.get::<Tokens>()` inside their recipes and style closures, or
+/// with `theme.ext::<Tokens>()` inside their recipes and style closures, or
 /// name a color with [`Color`](crate::Color), so a live theme switch restyles
 /// mounted components. A theme without them reads the values of its
 /// [`ThemeMode`].

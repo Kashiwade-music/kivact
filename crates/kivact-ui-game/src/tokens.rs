@@ -10,7 +10,7 @@ pub enum Density {
 }
 
 /// Additional operation-console tokens. [`theme`](crate::theme) installs
-/// them; components read them with `theme.get::<Tokens>()`, and a theme
+/// them; components read them with `theme.ext::<Tokens>()`, and a theme
 /// without them reads the comfortable values of its [`ThemeMode`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tokens {

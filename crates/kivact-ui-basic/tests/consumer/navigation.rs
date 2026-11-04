@@ -1,4 +1,4 @@
-//! Role: Menu component tests: dropdown, context menu, menu bar and navigation menu.
+//! Role: Menu component tests: dropdown, use_context menu, menu bar and navigation menu.
 
 use crate::support::assert_clean;
 use kivact::prelude::*;
@@ -32,16 +32,16 @@ pub(super) fn light() -> RenderOptions {
     options(kivact::style::ThemeMode::Light)
 }
 
-pub(super) fn open_button(name: &'static str) -> Node {
-    button(name).variant(ButtonVariant::Outline).into_node()
+pub(super) fn open_button(name: &'static str) -> impl Component {
+    button(name).variant(ButtonVariant::Outline)
 }
 
 pub(super) fn account_items(radio: &str, check: bool) -> Vec<MenuEntry<&'static str>> {
     vec![
         MenuEntry::heading("My Account"),
         MenuEntry::item("profile", "Profile")
-            .icon("user")
-            .shortcut("Ctrl+P"),
+            .with_icon("user")
+            .with_shortcut("Ctrl+P"),
         MenuEntry::item("billing", "Billing").disabled(true),
         MenuEntry::separator(),
         MenuEntry::checkbox("bars", "Status Bar", check).keep_open(true),
@@ -75,16 +75,17 @@ fn mount_dropdown() -> (Screen, Rig) {
         (
             (chosen, check, radio),
             page((
-                menu("Account", items, move |key: &'static str| {
-                    chosen.update(|chosen| chosen.push(key));
-                    match key {
-                        "bars" => check.update(|on| *on = !*on),
-                        "top" | "bottom" => radio.set(key),
-                        _ => {}
-                    }
-                })
-                .at_least_trigger_width(true)
-                .attach(open_button("Account")),
+                menu("Account", items)
+                    .on_activate(move |key: &'static str| {
+                        chosen.update(|chosen| chosen.push(key));
+                        match key {
+                            "bars" => check.update(|on| *on = !*on),
+                            "top" | "bottom" => radio.set(key),
+                            _ => {}
+                        }
+                    })
+                    .at_least_anchor_width()
+                    .attach(open_button("Account")),
                 button("After"),
             )),
         )
@@ -211,10 +212,10 @@ fn navigation_menu_shows_one_panel_at_a_time() {
     assert_clean(&screen);
 }
 
-/// The box a context menu is attached to in the tests.
+/// The box a use_context menu is attached to in the tests.
 pub(super) fn right_click_area() -> Node {
     column(text("Right click here"))
-        .role(Role::Group)
+        .with_node(|root| root.role(Role::Group))
         .name("Right click here")
         .focusable(true)
         .style(
@@ -230,7 +231,7 @@ pub(super) fn right_click_area() -> Node {
 pub(super) fn edit_items() -> Vec<MenuEntry<&'static str>> {
     vec![
         MenuEntry::heading("Edit"),
-        MenuEntry::item("undo", "Undo").shortcut("Ctrl+Z"),
+        MenuEntry::item("undo", "Undo").with_shortcut("Ctrl+Z"),
         MenuEntry::item("redo", "Redo"),
         MenuEntry::separator(),
         MenuEntry::submenu(
@@ -248,10 +249,9 @@ fn context_menu_opens_at_the_pointer_and_by_keyboard() {
         (
             chosen,
             page(
-                menu("Edit", edit_items(), move |key: &'static str| {
-                    chosen.update(|chosen| chosen.push(key))
-                })
-                .attach_context(right_click_area().test_id("area")),
+                menu("Edit", edit_items())
+                    .on_activate(move |key: &'static str| chosen.update(|chosen| chosen.push(key)))
+                    .attach_context(right_click_area().test_id("area")),
             ),
         )
     });

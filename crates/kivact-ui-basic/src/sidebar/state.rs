@@ -1,14 +1,15 @@
-//! Role: The sidebar's shared enums and the context the provider gives its parts.
+//! Role: The sidebar's shared enums and the use_context the provider gives its parts.
 //!
 //! The parts of a sidebar (menu buttons, group labels, the trigger) are built
 //! before the provider that contains them, so they cannot read the provider's
-//! context while they are built. Each part that depends on the sidebar's state
+//! use_context while they are built. Each part that depends on the sidebar's state
 //! therefore builds itself when it is mounted, below the provider, through
 //! [`deferred`]. A part used outside any provider behaves as in an expanded
 //! sidebar and its trigger does nothing.
 
-use kivact::view::{IntoView, View, provide, try_context};
-use kivact::{Binding, Value};
+use kivact::state::{Binding, Value};
+use kivact::state::{provide, try_use_context};
+use kivact::view::{IntoView, View};
 
 /// The side of the window a sidebar sits on.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -76,13 +77,13 @@ impl SidebarCx {
 
 /// The sidebar state of the provider above the current owner.
 pub(crate) fn current() -> Option<SidebarCx> {
-    try_context::<SidebarCx>()
+    try_use_context::<SidebarCx>()
 }
 
 /// Build `build` when it is mounted, below the provider that contains it.
 ///
 /// Parts are created before the provider runs; this is the only way for
-/// them to see its context.
+/// them to see its use_context.
 #[track_caller]
 pub(crate) fn deferred<V: IntoView + 'static>(build: impl FnOnce() -> V + 'static) -> View {
     provide((), build)

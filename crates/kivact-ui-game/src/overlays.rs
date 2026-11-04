@@ -1,11 +1,11 @@
 //! Role: The icon menu in the console's look.
-use kivact::control::{Node, NodeBuilder, icon};
-use kivact::primitive::NodeExt;
+use kivact::view::{Node, NodeBuilder, icon};
+
+use kivact::interaction::MenuEntry;
+use kivact::state::{Callback, Value};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::Icon;
-use kivact::ui::MenuEntry;
-use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, View, callback};
-use kivact::{Callback, Value};
-use std::hash::Hash;
+use kivact::view::{HandlerResult, IntoView, View};
 
 /// Menu triggered by a square tool button, with an optional icon and callback.
 pub struct IconMenu<K: 'static> {
@@ -17,7 +17,7 @@ pub struct IconMenu<K: 'static> {
 }
 /// Required menu label and entries; the default icon is `menu`.
 #[track_caller]
-pub fn icon_menu<K: Clone + Eq + Hash + 'static>(
+pub fn icon_menu<K: kivact::state::ItemKey>(
     label: impl IntoText,
     entries: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> IconMenu<K> {
@@ -43,27 +43,30 @@ impl<K: 'static> IconMenu<K> {
     }
 }
 impl<K: 'static> NodeBuilder for IconMenu<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.root.node_mut()
     }
 }
-impl<K: Clone + Eq + Hash + 'static> IntoView for IconMenu<K> {
+impl<K: kivact::state::ItemKey> IntoView for IconMenu<K> {
     fn into_view(mut self) -> View {
         let disabled = self
             .root
+            .node_mut()
             .accessible_disabled()
-            .map(|read| (move || read()).into_value())
+            .map(|read| read)
             .unwrap_or_else(|| false.into_value());
         let choose = self.choose;
-        kivact::ui::menu(self.label, self.entries, move |key| {
-            if disabled.get() {
-                Ok(())
-            } else {
-                choose.try_call(key)
-            }
-        })
-        .offset(0.)
-        .attach(self.root.icon(icon(self.icon)).into_node())
-        .into_view()
+        kivact::ui::menu(self.label, self.entries)
+            .on_activate(move |key| {
+                if disabled.get() {
+                    Ok(())
+                } else {
+                    choose.try_call(key)
+                }
+            })
+            .offset(0.)
+            .attach(self.root.icon(icon(self.icon)))
+            .into_view()
     }
 }

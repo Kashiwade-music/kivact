@@ -145,3 +145,5 @@ impl ThemeExtension for Tokens {
         Self::new(theme.mode())
     }
 }
+
+kivact::state::constant_value!(Hue);

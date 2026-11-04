@@ -15,8 +15,8 @@ fn near(a: f64, b: f64, tolerance: f64) -> bool {
 /// Drag `element` by `dx` along x from its own center (points are local to the element).
 fn drag_by(element: &kivact::test::Element<'_>, dx: f64) {
     let rect = element.rect().expect("laid out");
-    let from = kivact::draw::Point::new(rect.width / 2.0, rect.height / 2.0);
-    element.drag(from, kivact::draw::Point::new(from.x + dx, from.y));
+    let from = kivact::geometry::Point::new(rect.width / 2.0, rect.height / 2.0);
+    element.drag(from, kivact::geometry::Point::new(from.x + dx, from.y));
 }
 
 fn mount_resizable(
@@ -30,12 +30,12 @@ fn mount_resizable(
             sizes,
             page(
                 kivact::ui::split(
+                    sizes,
                     vec![
                         text("One").test_id("one").into_view(),
                         text("Two").test_id("two").into_view(),
                         text("Three").test_id("three").into_view(),
                     ],
-                    sizes,
                 )
                 .orientation(orientation)
                 .grip(grip)
@@ -184,7 +184,7 @@ fn carousel_steps_with_buttons_and_keys_and_stops_at_the_ends() {
 
 #[test]
 fn line_tabs_select_move_and_mark_the_selected_tab_with_an_underline() {
-    use kivact::ui::ListItem;
+    use kivact::interaction::ListItem;
     let (screen, current) = kivact::test::render_with_handle(light(), || {
         let current = signal("overview");
         (
@@ -257,28 +257,28 @@ fn app_sidebar(
         .side(side)
         .rail(true)
         .test_id("sidebar")
-        .header(move || text("Acme Inc"))
-        .content(move || {
+        .header(text("Acme Inc"))
+        .content({
             basic::sidebar_group("Application")
-                .action(move || {
+                .action({
                     kivact::ui::button("Add project")
                         .hide_label(true)
-                        .icon(kivact::control::icon("plus"))
+                        .icon(kivact::view::icon("plus"))
                         .variant(ButtonVariant::Ghost)
                 })
-                .content(move || {
+                .content({
                     basic::sidebar_menu((
                         basic::sidebar_menu_button("Home")
-                            .icon(kivact::control::icon("house"))
+                            .icon(kivact::view::icon("house"))
                             .active(true)
                             .test_id("home"),
                         basic::sidebar_menu_button("Inbox")
-                            .icon(kivact::control::icon("inbox"))
+                            .icon(kivact::view::icon("inbox"))
                             .badge("12")
                             .test_id("inbox"),
                         basic::sidebar_menu_button("Settings")
-                            .icon(kivact::control::icon("settings"))
-                            .sub(move || {
+                            .icon(kivact::view::icon("settings"))
+                            .sub({
                                 (
                                     basic::sidebar_menu_sub_button("Profile").active(true),
                                     basic::sidebar_menu_sub_button("Billing"),
@@ -288,7 +288,7 @@ fn app_sidebar(
                     ))
                 })
         })
-        .footer(move || basic::sidebar_menu_button("Account").icon(kivact::control::icon("user")))
+        .footer(basic::sidebar_menu_button("Account").icon(kivact::view::icon("user")))
 }
 
 fn mount_sidebar(

@@ -1,14 +1,16 @@
 //! Role: One-time-code input: slots drawn over one hidden native text edit.
 
 use crate::theme_access::{field_fill, tokens};
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, node, row, text};
 use kivact::interaction::use_text_edit;
-use kivact::primitive::NodeExt;
+use kivact::state::IntoBinding;
+use kivact::view::icon;
+use kivact::view::{Node, NodeBuilder, node, row, text};
+
+use kivact::state::{Binding, Callback, Value, binding, memo};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Color, Direction, Justify, Position, style};
 use kivact::view::HandlerResult;
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View, callback, node_ref};
-use kivact::{Binding, Callback, Value, binding, memo};
+use kivact::view::{IntoView, Role, View, node_ref};
 
 /// The characters an [`InputOtp`] accepts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -60,14 +62,14 @@ pub struct InputOtp {
 #[track_caller]
 pub fn input_otp(
     label: impl IntoText,
-    value: impl Into<Binding<String>>,
+    value: impl kivact::state::IntoBinding<String>,
     length: usize,
 ) -> InputOtp {
     let length = length.max(1);
     InputOtp {
         root: node(),
         label: label.into_text_value(),
-        value: value.into(),
+        value: value.into_binding(),
         length,
         groups: vec![length],
         pattern: OtpPattern::Digits,
@@ -111,6 +113,7 @@ impl InputOtp {
 }
 
 impl NodeBuilder for InputOtp {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -128,9 +131,7 @@ impl IntoView for InputOtp {
             complete,
         } = self;
         // `.disabled(..)` ignores input and dims the slots.
-        let disabled: Option<Value<bool>> = root
-            .accessible_disabled()
-            .map(|read| (move || read()).into_value());
+        let disabled: Option<Value<bool>> = root.accessible_disabled();
         let current = value.into_value();
         // Keep only accepted characters, at most `length` of them.
         let filtered = binding(current, move |typed: String| {
@@ -152,7 +153,7 @@ impl IntoView for InputOtp {
         let mut editor = node()
             .node_ref(editor_ref)
             .name(label)
-            .part(use_text_edit(filtered).max_length(length).control())
+            .with_node(|root| root.part(use_text_edit(filtered).max_length(length).control()))
             .style(
                 style()
                     .position(Position::Absolute)
@@ -169,7 +170,7 @@ impl IntoView for InputOtp {
             if n > 0 {
                 cells.push(
                     node()
-                        .role(Role::Separator)
+                        .with_node(|root| root.role(Role::Separator))
                         .child(icon("minus"))
                         .style(
                             style()
@@ -201,7 +202,7 @@ impl IntoView for InputOtp {
                 s
             }
         })
-        .role(Role::Group)
+        .with_node(|root| root.role(Role::Group))
         .child(row(cells).style(style().align_items(Align::Center)))
         .child(editor)
         .into_view()
