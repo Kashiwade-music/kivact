@@ -32,4 +32,4 @@ pub use services::{
 pub(crate) use window_loop::run_native;
 
 #[doc(inline)]
-pub use env::{Capabilities, Insets};
+pub use env::{Capabilities, CommandKey, ContextMenuTrigger, Insets};

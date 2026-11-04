@@ -53,7 +53,7 @@ pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker};
 
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{
-    Backend, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
+    Backend, CpuFormat, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
 };
 
 pub use child::{ChildHooks, MakeHandler, PanicSlot, ShellChild};

@@ -1,5 +1,5 @@
 //! Role: Native platform requests, dialog options and classified failures.
-use crate::{Asset, Size};
+use crate::Size;
 use std::path::PathBuf;
 
 /// Result of a platform request; cancellation is represented by an absent path.
@@ -28,14 +28,12 @@ pub struct FileDialog {
     pub filters: Vec<(String, Vec<String>)>,
 }
 
-/// A requested native platform action, completed through host events.
+/// A native platform action answered synchronously by its window.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlatformRequest {
     /// Request logical content dimensions.
     RequestWindowSize(Size),
     Fullscreen(bool),
-    /// Override the window's reduced-motion preference, or follow the system.
-    ReducedMotion(Option<bool>),
     CopyText(String),
     ReadText,
     PickFile(FileDialog),
@@ -51,14 +49,6 @@ pub enum PlatformRequest {
     /// Show a file or folder selected in the platform's file manager;
     /// results as for `OpenPath`.
     RevealPath(PathBuf),
-    /// Register the fonts of a TTF, OTF or TTC file with the host's text
-    /// system (always available). The result is
-    /// `PlatformResult::Fonts` with the family names in the file, or
-    /// `Failed` with a message naming the source and the reason. The
-    /// engine handles it when it is written: the next layout already
-    /// measures with the font, and text measured before is measured and
-    /// drawn again.
-    RegisterFont(Asset),
 }
 
 /// Stable classification of a boundary failure, independent of external libraries.

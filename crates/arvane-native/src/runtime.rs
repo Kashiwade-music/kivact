@@ -57,6 +57,7 @@ use arvane_shell::{ShellControl, ShellError, ShellOptions, ShellWaker};
 use kivact_types::{
     Cursor as ShellCursor, Modifiers as ShellModifiers, MouseButton as ShellButton,
 };
+use kivact_types::{PlatformRequest, PlatformResult};
 use kivact_types::{Point, PointerPhase, Rect, Size};
 use std::num::{NonZeroU32, NonZeroU64};
 use std::rc::Rc;
@@ -107,6 +108,53 @@ pub struct WinitWindow {
     frame_period_ns: u64,
 }
 impl ShellWindow for WinitWindow {
+    fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
+        match request {
+            PlatformRequest::CopyText(text) => self
+                .services
+                .copy_text(&text)
+                .map(|()| PlatformResult::Done),
+            PlatformRequest::ReadText => self.services.read_text().map(PlatformResult::Text),
+            PlatformRequest::PickFile(request) => {
+                Services::pick_file(&self.window, &request).map(PlatformResult::Path)
+            }
+            PlatformRequest::PickFiles(request) => {
+                Services::pick_files(&self.window, &request).map(PlatformResult::Paths)
+            }
+            PlatformRequest::SaveFile(request) => {
+                Services::save_file(&self.window, &request).map(PlatformResult::Path)
+            }
+            PlatformRequest::PickFolder(request) => {
+                Services::pick_folder(&self.window, &request).map(PlatformResult::Path)
+            }
+            PlatformRequest::OpenPath(path) => {
+                crate::open::open_path(&path).map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::RevealPath(path) => {
+                crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::RequestWindowSize(size) => {
+                let _ = self
+                    .window
+                    .request_inner_size(winit::dpi::LogicalSize::new(size.width, size.height));
+                Ok(PlatformResult::Done)
+            }
+            PlatformRequest::Fullscreen(fullscreen) => {
+                self.window.set_fullscreen(
+                    fullscreen.then_some(winit::window::Fullscreen::Borderless(None)),
+                );
+                Ok(PlatformResult::Done)
+            }
+        }
+        .unwrap_or_else(|error| match error {
+            ShellError::Unsupported(_) => PlatformResult::Unsupported,
+            ShellError::Failed(failure) => PlatformResult::Failed(failure),
+        })
+    }
+    fn cpu_format(&self) -> arvane_shell::CpuFormat {
+        arvane_shell::CpuFormat::Xrgb8888
+    }
+
     fn keeps_frames(&self) -> bool {
         false
     }
@@ -118,58 +166,6 @@ impl ShellWindow for WinitWindow {
         crate::wait::until(done, limit)
     }
 
-    /// Write UTF-8 text to the native clipboard.
-    fn copy_text(&mut self, text: &str) -> Result<(), ShellError> {
-        self.services.copy_text(text)
-    }
-    /// Read native clipboard text.
-    fn read_text(&mut self) -> Result<String, ShellError> {
-        self.services.read_text()
-    }
-    /// Show a window-parented file picker; cancellation returns None.
-    fn pick_file(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError> {
-        Services::pick_file(&self.window, request)
-    }
-    /// Show a window-parented multiple-file dialog; cancellation returns None.
-    fn pick_files(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<Vec<std::path::PathBuf>>, ShellError> {
-        Services::pick_files(&self.window, request)
-    }
-    /// Show a window-parented save dialog; cancellation returns None.
-    fn save_file(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError> {
-        Services::save_file(&self.window, request)
-    }
-    /// Show a window-parented folder picker; cancellation returns None.
-    /// The request's file name and filters do not apply to a folder.
-    fn pick_folder(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError> {
-        Services::pick_folder(&self.window, request)
-    }
-    /// Open a file or folder with the OS default handler (Explorer on
-    /// Windows, `xdg-open` on Linux). `Ok` once the handler was started; a
-    /// missing path or a handler that cannot be started is an error naming
-    /// the path, and on other platforms (macOS) the error is
-    /// [`ShellError::unsupported`].
-    fn open_path(&mut self, path: &std::path::Path) -> Result<(), ShellError> {
-        crate::open::open_path(path)
-    }
-    /// Show a file or folder selected in the OS file manager (Explorer's
-    /// `/select,` on Windows). `xdg-open` cannot select, so on Linux the
-    /// containing folder is opened instead. Errors as for
-    /// [`WinitWindow::open_path`].
-    fn reveal_path(&mut self, path: &std::path::Path) -> Result<(), ShellError> {
-        crate::open::reveal_path(path)
-    }
     /// Drop the CPU presentation surface after a presentation failure; the
     /// next CPU presentation creates a new one.
     fn recover_surface(&mut self) -> Result<(), ShellError> {
@@ -264,6 +260,42 @@ impl ShellWindow for WinitWindow {
     fn capabilities(&self) -> kivact_types::Capabilities {
         let mobile = cfg!(any(target_os = "android", target_os = "ios"));
         kivact_types::Capabilities {
+            clipboard_text: true,
+            file_dialogs: true,
+            open_path: cfg!(any(
+                windows,
+                all(
+                    unix,
+                    not(any(
+                        target_os = "macos",
+                        target_os = "ios",
+                        target_os = "android"
+                    ))
+                )
+            )),
+            reveal_path: cfg!(any(
+                windows,
+                all(
+                    unix,
+                    not(any(
+                        target_os = "macos",
+                        target_os = "ios",
+                        target_os = "android"
+                    ))
+                )
+            )),
+            fullscreen: true,
+            min_size: true,
+            command_key: if cfg!(target_os = "macos") {
+                kivact_types::CommandKey::Command
+            } else {
+                kivact_types::CommandKey::Ctrl
+            },
+            context_menu_on: if cfg!(target_os = "macos") {
+                kivact_types::ContextMenuTrigger::Press
+            } else {
+                kivact_types::ContextMenuTrigger::Release
+            },
             touch: !cfg!(target_os = "macos"),
             pen: self.subclassed(),
             soft_keyboard: SOFT_KEYBOARD,
@@ -335,18 +367,6 @@ impl ShellWindow for WinitWindow {
         }
     }
 
-    fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        let _ = self
-            .window
-            .request_inner_size(winit::dpi::LogicalSize::new(size.width, size.height));
-        Ok(())
-    }
-    /// Enter or leave borderless fullscreen.
-    fn set_fullscreen(&self, fullscreen: bool) -> Result<(), ShellError> {
-        self.window
-            .set_fullscreen(fullscreen.then_some(winit::window::Fullscreen::Borderless(None)));
-        Ok(())
-    }
     /// Current fullscreen state.
     fn fullscreen(&self) -> bool {
         self.window.fullscreen().is_some()

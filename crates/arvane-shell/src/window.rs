@@ -10,9 +10,21 @@ use crate::ime::ShellImeText;
 use crate::types::{ShellControl, ShellError, ShellWaker};
 use kivact_types::{Cursor as ShellCursor, Rect, Size};
 
+/// Pixel layout accepted by a CPU presentation surface.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CpuFormat {
+    Xrgb8888,
+}
+
 /// Window services implemented by a platform backend or an in-memory shell.
 /// This trait imposes no `Send` or `Sync` bound on the window itself.
 pub trait ShellWindow {
+    /// Execute a platform request synchronously on this window's UI thread.
+    fn perform(&mut self, request: kivact_types::PlatformRequest) -> kivact_types::PlatformResult;
+
+    /// Pixel format accepted by the CPU surface.
+    fn cpu_format(&self) -> CpuFormat;
+
     /// Whether the backend retains presented frames for inspection.
     fn keeps_frames(&self) -> bool;
 
@@ -23,42 +35,6 @@ pub trait ShellWindow {
     /// dispatch only sent messages while waiting, never input or posted
     /// messages; other backends sleep for one millisecond between polls.
     fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: std::time::Duration) -> bool;
-
-    /// Write UTF-8 text to the window's clipboard service.
-    fn copy_text(&mut self, text: &str) -> Result<(), ShellError>;
-
-    /// Read UTF-8 text from the window's clipboard service.
-    fn read_text(&mut self) -> Result<String, ShellError>;
-
-    /// Request one file; cancellation returns `None`.
-    fn pick_file(
-        &mut self,
-        request: &crate::services::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError>;
-
-    /// Request multiple files; cancellation returns `None`.
-    fn pick_files(
-        &mut self,
-        request: &crate::services::FileDialog,
-    ) -> Result<Option<Vec<std::path::PathBuf>>, ShellError>;
-
-    /// Request a save path; cancellation returns `None`.
-    fn save_file(
-        &mut self,
-        request: &crate::services::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError>;
-
-    /// Request one folder; cancellation returns `None`. File filters do not apply.
-    fn pick_folder(
-        &mut self,
-        request: &crate::services::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError>;
-
-    /// Ask the platform to open a path. `Ok` acknowledges the request, not its completion.
-    fn open_path(&mut self, path: &std::path::Path) -> Result<(), ShellError>;
-
-    /// Ask the platform to reveal a path in its file manager.
-    fn reveal_path(&mut self, path: &std::path::Path) -> Result<(), ShellError>;
 
     /// Recover after a presentation failure; the next presentation may recreate resources.
     fn recover_surface(&mut self) -> Result<(), ShellError>;
@@ -117,11 +93,6 @@ pub trait ShellWindow {
 
     /// Current scale, refresh period, preferences, safe area, mouse settings and locale.
     fn environment(&self) -> kivact_types::Environment;
-
-    /// Request a logical content size.
-    fn request_size(&mut self, size: Size) -> Result<(), ShellError>;
-    /// Request fullscreen state; platform policy may constrain the result.
-    fn set_fullscreen(&self, fullscreen: bool) -> Result<(), ShellError>;
 
     /// Whether the window is currently fullscreen.
     fn fullscreen(&self) -> bool;

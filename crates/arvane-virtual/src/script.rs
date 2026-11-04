@@ -8,7 +8,11 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+pub(crate) type Responder =
+    Box<dyn FnMut(&kivact_types::PlatformRequest) -> Option<kivact_types::PlatformResult>>;
+
 pub(crate) enum Item {
+    Respond(Responder),
     Event(ShellEvent),
     Time(u64),
     Resize(Size),
@@ -39,6 +43,13 @@ pub(crate) struct Input {
 #[derive(Clone)]
 pub struct Script(pub(crate) Rc<RefCell<Input>>);
 impl Script {
+    /// Override requests; the newest responder returning a result wins.
+    pub fn respond(
+        &self,
+        f: impl FnMut(&kivact_types::PlatformRequest) -> Option<kivact_types::PlatformResult> + 'static,
+    ) {
+        self.push(Item::Respond(Box::new(f)));
+    }
     fn push(&self, item: Item) {
         self.0.borrow_mut().queue.push_back(item);
     }

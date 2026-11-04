@@ -45,7 +45,9 @@ use crate::contract::{HostEvent, HostInfo};
 use crate::host::HostWaker;
 use arvane::Window;
 use arvane::{Presented, ShellControl, ShellError, ShellEvent, ShellWaker};
-use kivact_types::{KeyInput, KeyPhase, LifecycleEvent, PointerKind, PointerPhase};
+use kivact_types::{
+    KeyInput, KeyPhase, LifecycleEvent, PlatformRequest, PlatformResult, PointerKind, PointerPhase,
+};
 impl arvane::Handler for Host {
     fn start(
         &mut self,
@@ -309,10 +311,12 @@ impl Host {
                 match result {
                     // A cut already removed the text.
                     KeyResult::Copy(text) => {
-                        let _ = window.copy_text(&text);
+                        let _ = window.perform(PlatformRequest::CopyText(text));
                     }
                     KeyResult::Paste(id) => {
-                        if let Ok(text) = window.read_text() {
+                        if let PlatformResult::Text(text) =
+                            window.perform(PlatformRequest::ReadText)
+                        {
                             self.model
                                 .borrow_mut()
                                 .paste(id, &text, &mut self.engine.borrow_mut());

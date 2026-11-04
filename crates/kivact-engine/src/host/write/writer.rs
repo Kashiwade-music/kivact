@@ -1,12 +1,11 @@
 //! Role: `Writer`: the turn's write API onto the engine's tree.
 
 use super::reader::Reader;
-use crate::contract::{HostEvent, NodeKind, SceneLayer};
-use crate::model::Model;
+use crate::contract::{HostEvent, HostRequest, NodeKind, SceneLayer};
+use crate::model::{DeferredRequest, Model};
 use crate::mutation::WriteStats;
 use kivact_types::{
-    DrawList, NodeId, PlatformRequest, PlatformResult, Point, PointerId, RegionId, RequestId,
-    Revision, Size,
+    DrawList, NodeId, PlatformResult, Point, PointerId, RegionId, RequestId, Revision, Size,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -255,12 +254,12 @@ impl Writer {
     /// `request` (`HostEvent::EffectResult`). A font is registered at
     /// once (the next layout measures with it); the other effects are
     /// carried out by the window after the turn.
-    pub fn effect(&self, request: RequestId, effect: PlatformRequest) {
+    pub fn effect(&self, request: RequestId, effect: HostRequest) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         m.writes.command(None);
         match effect {
-            PlatformRequest::RegisterFont(font) => {
+            HostRequest::RegisterFont(font) => {
                 let result = m
                     .assets
                     .borrow_mut()
@@ -270,7 +269,12 @@ impl Writer {
                 }
                 m.push(HostEvent::EffectResult { request, result });
             }
-            effect => m.effects.push((request, effect)),
+            HostRequest::Platform(effect) => {
+                m.effects.push((request, DeferredRequest::Platform(effect)))
+            }
+            HostRequest::ReducedMotion(value) => m
+                .effects
+                .push((request, DeferredRequest::ReducedMotion(value))),
         }
     }
 

@@ -9,6 +9,12 @@ use crate::tree::node::HostNode;
 use arvane::asset::AssetStore;
 use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Revision, Size};
 
+/// Requests that must wait until the current client turn has finished.
+pub(crate) enum DeferredRequest {
+    Platform(PlatformRequest),
+    ReducedMotion(Option<bool>),
+}
+
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     pub(crate) tree: NodeTree,
@@ -36,7 +42,7 @@ pub(crate) struct Model {
     /// The window title and minimum size to set after the turn.
     pub(crate) window_request: Option<(String, Option<Size>)>,
     /// The platform effects to carry out after the turn.
-    pub(crate) effects: Vec<(RequestId, PlatformRequest)>,
+    pub(crate) effects: Vec<(RequestId, DeferredRequest)>,
     /// The imports and drops of shared textures to carry out after the
     /// turn, in the order written.
     #[cfg(feature = "gpu-interop")]

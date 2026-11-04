@@ -1,5 +1,5 @@
 //! Role: Engine client host contracts.
-use kivact_types::{Capabilities, Environment};
+use kivact_types::{Asset, Capabilities, Environment, PlatformRequest};
 use std::fmt;
 
 /// What the client is given at start: the window's environment as the
@@ -53,3 +53,13 @@ impl fmt::Display for HostError {
 }
 
 impl std::error::Error for HostError {}
+
+/// A service performed by the host, or delegated to its platform window.
+#[derive(Clone, Debug, PartialEq)]
+pub enum HostRequest {
+    Platform(PlatformRequest),
+    /// Register a font before the next layout measures text.
+    RegisterFont(Asset),
+    /// Override reduced motion, or follow the system preference.
+    ReducedMotion(Option<bool>),
+}

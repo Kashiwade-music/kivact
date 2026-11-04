@@ -25,11 +25,9 @@ impl Handler for Host {
     ) -> Result<ShellControl, ShellError> {
         assert_eq!(window.surface_generation(), Some(1));
         assert!(!window.fullscreen());
-        assert!(
-            window
-                .set_fullscreen(true)
-                .expect_err("embedded fullscreen is unsupported")
-                .is_unsupported()
+        assert_eq!(
+            window.perform(kivact_types::PlatformRequest::Fullscreen(true)),
+            kivact_types::PlatformResult::Unsupported
         );
         let deadline = window.now_ns() + 50_000_000;
         let mut seen = self

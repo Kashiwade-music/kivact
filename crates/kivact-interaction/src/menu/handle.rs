@@ -6,6 +6,7 @@ use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
 use kivact_core::diagnostics::ErrorKind;
+use kivact_core::platform::{ContextMenuTrigger, capabilities};
 use kivact_core::primitive::raise;
 use kivact_core::primitive::{Part, part};
 use kivact_core::view::HandlerResult;
@@ -287,13 +288,12 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
             if matches!(event.phase(), PointerPhase::Down(_)) {
                 session.close(PopupCloseReason::OutsidePress);
             }
-            // A context menu opens on the press on macOS and on the release
-            // elsewhere.
+            // Open on the phase selected by the platform.
             let opens = match event.phase() {
                 PointerPhase::Down(press) | PointerPhase::Up(press) => {
                     press.button == MouseButton::Secondary
                         && matches!(event.phase(), PointerPhase::Down(_))
-                            == cfg!(target_os = "macos")
+                            == (capabilities().context_menu_on == ContextMenuTrigger::Press)
                 }
                 _ => false,
             };

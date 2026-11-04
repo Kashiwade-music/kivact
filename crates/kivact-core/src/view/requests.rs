@@ -29,7 +29,8 @@
 
 use std::panic::Location;
 
-use kivact_types::{PlatformRequest, PlatformResult, RequestId};
+use kivact_engine::contract::HostRequest;
+use kivact_types::{PlatformResult, RequestId};
 
 use super::state::{EffectWaiter, FocusWaiter, QueuedFocus, ViewState};
 use kivact_runtime::{ErrorKind, UiError};
@@ -77,7 +78,7 @@ fn resolve_focus_waiter(rt: &Runtime, waiter: FocusWaiter, result: Result<(), Ui
 }
 
 /// Send a platform effect to the host (a write of the next revision).
-pub(crate) fn request_effect(rt: &Runtime, req: PlatformRequest, waiter: EffectWaiter) {
+pub(crate) fn request_effect(rt: &Runtime, req: HostRequest, waiter: EffectWaiter) {
     let id = {
         let mut r = ViewState::of(rt).requests.borrow_mut();
         let id = r.request_id();
@@ -99,7 +100,7 @@ pub(crate) fn register_app_fonts(rt: &Runtime, fonts: Vec<(Asset, &'static Locat
             at,
             failed: ErrorKind::Asset,
         };
-        request_effect(rt, PlatformRequest::RegisterFont(font), waiter);
+        request_effect(rt, HostRequest::RegisterFont(font), waiter);
     }
 }
 

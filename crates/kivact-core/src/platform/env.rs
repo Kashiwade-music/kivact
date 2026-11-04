@@ -12,7 +12,7 @@ use crate::view::state::{EnvState, ViewState};
 use kivact_style::draw::Size;
 use kivact_types::Environment;
 #[doc(inline)]
-pub use kivact_types::{Capabilities, Insets};
+pub use kivact_types::{Capabilities, CommandKey, ContextMenuTrigger, Insets};
 
 /// The App's environment as seen from the nearest owner at the call (`api`
 /// names the caller in misuse diagnostics).

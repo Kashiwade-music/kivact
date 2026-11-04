@@ -8,6 +8,7 @@ use crate::embed::session::{Session, negotiate};
 use arvane_shell::{ShellError, ShellWindow};
 use kivact_types::Environment;
 use kivact_types::{Capabilities, Cursor, Rect, Size};
+use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
 use std::rc::Rc;
@@ -101,6 +102,57 @@ impl Window {
 }
 
 impl ShellWindow for Window {
+    fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
+        match request {
+            PlatformRequest::CopyText(text) => {
+                self.services.copy(&text).map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::ReadText => self.services.read().map(PlatformResult::Text),
+            PlatformRequest::PickFile(request) => {
+                super::services::Services::pick_file(&self.native, &request)
+                    .map(PlatformResult::Path)
+            }
+            PlatformRequest::PickFiles(request) => {
+                super::services::Services::pick_files(&self.native, &request)
+                    .map(PlatformResult::Paths)
+            }
+            PlatformRequest::SaveFile(request) => {
+                super::services::Services::save_file(&self.native, &request)
+                    .map(PlatformResult::Path)
+            }
+            PlatformRequest::PickFolder(request) => {
+                super::services::Services::pick_folder(&self.native, &request)
+                    .map(PlatformResult::Path)
+            }
+            PlatformRequest::OpenPath(path) => {
+                crate::open::open_path(&path).map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::RevealPath(path) => {
+                crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::RequestWindowSize(size) => {
+                debug_assert!(!self.session.opening());
+                negotiate(
+                    size,
+                    self.scale,
+                    MAX_DIMENSION,
+                    self.on_resize_request.as_deref(),
+                    &self.shared,
+                    || self.backend.wake(),
+                )
+                .map(|()| PlatformResult::Done)
+            }
+            PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
+        }
+        .unwrap_or_else(|error| match error {
+            ShellError::Unsupported(_) => PlatformResult::Unsupported,
+            ShellError::Failed(failure) => PlatformResult::Failed(failure),
+        })
+    }
+    fn cpu_format(&self) -> arvane_shell::CpuFormat {
+        arvane_shell::CpuFormat::Xrgb8888
+    }
+
     fn keeps_frames(&self) -> bool {
         false
     }
@@ -108,54 +160,6 @@ impl ShellWindow for Window {
         unreachable!("invariant: native windows do not retain presented frames");
     }
 
-    fn request_size(&mut self, size: Size) -> Result<(), ShellError> {
-        debug_assert!(!self.session.opening());
-        negotiate(
-            size,
-            self.scale,
-            MAX_DIMENSION,
-            self.on_resize_request.as_deref(),
-            &self.shared,
-            || self.backend.wake(),
-        )
-    }
-
-    fn copy_text(&mut self, text: &str) -> Result<(), ShellError> {
-        self.services.copy(text)
-    }
-    fn read_text(&mut self) -> Result<String, ShellError> {
-        self.services.read()
-    }
-    fn pick_file(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError> {
-        super::services::Services::pick_file(&self.native, request)
-    }
-    fn pick_files(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<Vec<std::path::PathBuf>>, ShellError> {
-        super::services::Services::pick_files(&self.native, request)
-    }
-    fn save_file(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError> {
-        super::services::Services::save_file(&self.native, request)
-    }
-    fn pick_folder(
-        &mut self,
-        request: &arvane_shell::FileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError> {
-        super::services::Services::pick_folder(&self.native, request)
-    }
-    fn open_path(&mut self, path: &std::path::Path) -> Result<(), ShellError> {
-        crate::open::open_path(path)
-    }
-    fn reveal_path(&mut self, path: &std::path::Path) -> Result<(), ShellError> {
-        crate::open::reveal_path(path)
-    }
     fn recover_surface(&mut self) -> Result<(), ShellError> {
         self.release_cpu_surface();
         Ok(())
@@ -198,6 +202,14 @@ impl ShellWindow for Window {
     }
     fn capabilities(&self) -> Capabilities {
         Capabilities {
+            clipboard_text: true,
+            file_dialogs: true,
+            open_path: true,
+            reveal_path: true,
+            fullscreen: false,
+            min_size: false,
+            command_key: kivact_types::CommandKey::Ctrl,
+            context_menu_on: kivact_types::ContextMenuTrigger::Release,
             native_accessibility: true,
             ..Capabilities::default()
         }
@@ -222,9 +234,7 @@ impl ShellWindow for Window {
             ..Environment::default()
         }
     }
-    fn set_fullscreen(&self, _: bool) -> Result<(), ShellError> {
-        Err(unsupported("fullscreen"))
-    }
+
     fn fullscreen(&self) -> bool {
         false
     }

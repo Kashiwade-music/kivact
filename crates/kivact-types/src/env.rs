@@ -43,6 +43,7 @@ pub struct Environment {
     /// `None` where the host cannot tell.
     pub locale: Option<String>,
     /// The window is borderless fullscreen.
+    /// The window can enter fullscreen.
     pub fullscreen: bool,
     /// System pointer preferences, expressed in logical pixels and nanoseconds.
     pub pointer: PointerSettings,
@@ -126,6 +127,21 @@ impl Default for PointerSettings {
 /// window.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Capabilities {
+    /// The platform can read and write clipboard text.
+    pub clipboard_text: bool,
+    /// The platform can show file and folder dialogs.
+    pub file_dialogs: bool,
+    /// The platform can open files and folders.
+    pub open_path: bool,
+    /// The platform can reveal paths in its file manager.
+    pub reveal_path: bool,
+    pub fullscreen: bool,
+    /// The window can enforce a minimum content size.
+    pub min_size: bool,
+    /// The modifier used for platform editing commands.
+    pub command_key: CommandKey,
+    /// The pointer transition used to open context menus.
+    pub context_menu_on: ContextMenuTrigger,
     /// Touch contacts arrive as touch pointers.
     pub touch: bool,
     /// Pen contacts arrive as pen pointers (not as touch or mouse).
@@ -158,4 +174,20 @@ pub enum LifecycleEvent {
     Resumed,
     /// The platform asks the application to release rebuildable resources.
     MemoryWarning,
+}
+
+/// Key used for platform editing commands.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CommandKey {
+    #[default]
+    Ctrl,
+    Command,
+}
+
+/// Pointer transition that opens a context menu.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ContextMenuTrigger {
+    Press,
+    #[default]
+    Release,
 }
