@@ -13,7 +13,7 @@ use std::sync::Arc;
 use kivact::prelude::*;
 use kivact::style::{Align, Justify};
 use kivact::style::{Overflow, TextOverflow};
-use kivact::test::{LayoutRule, RenderOptions, TestFonts, render, render_with};
+use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, TestFonts, render, render_with};
 
 static NOTO: &[u8] = include_bytes!(
     "../../../../../examples/kivact-ui-pop/assets/fonts/notosansjp/NotoSansJP[wght].ttf"
@@ -46,7 +46,12 @@ fn narrow_button(label: &'static str) -> Node {
 }
 
 fn overflows_parent(rule: &LayoutRule) -> bool {
-    matches!(rule, LayoutRule::OverflowVisualParent)
+    matches!(
+        rule,
+        LayoutRule::Overflow {
+            into: LayoutLimit::VisualParent
+        }
+    )
 }
 
 #[test]
@@ -76,10 +81,10 @@ fn a_nowrap_text_wider_than_its_row_overflows_it() {
     assert_eq!(found.len(), 1, "{found:#?}");
     let v = &found[0];
     assert_eq!(v.test_id.as_deref(), Some("long"));
-    assert!(overflows_parent(&v.rule), "{v}");
+    assert!(overflows_parent(&v.rule()), "{v}");
     // The row is 80 wide, the text more than twice that.
-    assert!(v.amount > 60.0, "{v}");
-    assert_eq!(v.limit.width, 80.0);
+    assert!(v.amount() > 60.0, "{v}");
+    assert_eq!(v.limit().width, 80.0);
 }
 
 #[test]

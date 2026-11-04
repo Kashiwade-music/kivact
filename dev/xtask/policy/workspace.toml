@@ -27,7 +27,7 @@ kivact-ui = ["kivact"]
 # Embedded handles are Send + Sync. A panic of an embedded App is kept in a
 # PanicSlot and resumed by the embedder's next call; nothing turns it into a
 # diagnostic.
-# Detach facts flow task -> core and asset/native -> arvane -> engine/embed.
+# Detach facts use the single process-wide tracker in kivact-types.
 # Only arvane-native retains the code module; task and asset contain no unsafe.
 # Shared values belong to kivact-types; pure layout belongs to kivact-layout.
 kivact-engine = ["kivact-core"]
@@ -237,28 +237,32 @@ api = ["contract", "host", "offscreen", "text_measure", "mutation"]
 embed = ["contract", "host", "api"]
 testing = ["contract", "host", "offscreen", "api"]
 
-# kivact-types: 語彙（root の module）は host と Arvane の protocol に依存しない。`protocol` を key にして
-# 語彙の全 module を許すのは、protocol から語彙への向きだけを許す（`protocol` が key でないと、語彙から
-# protocol への参照は検査されない）ため。
+# Shared values and render records depend only on the concept modules below.
+# Closure-owning contracts stay in the engine; backend implementations stay outside types.
 [module_rules.kivact-types.uses]
 asset = []
+cell = []
 check = ["geometry", "ids", "semantics"]
 color = []
-env = ["geometry"]
+defaults = ["geometry"]
+embed = ["defaults", "geometry", "gpu"]
+env = ["cell", "defaults", "geometry"]
 geometry = []
 gpu = []
 ids = []
 input = ["geometry"]
 layout = ["geometry", "ids"]
-motion = []
-paint = ["asset", "color", "geometry", "layout", "motion", "protocol", "scene"]
+motion = ["geometry"]
+paint = ["asset", "color", "geometry", "layout", "motion", "scene"]
 platform = ["asset", "geometry"]
-scene = ["asset", "color", "geometry", "gpu", "ids", "paint", "protocol", "semantics", "text"]
+process = []
+render = ["asset", "check", "color", "env", "geometry", "gpu", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
+scene = ["asset", "color", "geometry", "gpu", "ids", "paint", "render", "semantics", "text"]
 semantics = ["geometry", "ids", "semantics_text"]
 semantics_text = ["geometry", "ids"]
-text = ["color", "geometry", "paint", "protocol"]
-text_shaping = ["protocol", "scene", "text"]
-protocol = ["asset", "check", "color", "env", "geometry", "gpu", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
+text = ["color", "geometry", "paint"]
+text_shaping = ["render", "scene", "text"]
+text_utf = []
 
 [style]
 enabled = true
@@ -276,7 +280,7 @@ disabled_rules = ["missing-docs"]
 # non-exhaustive（extra_rules に入れていない）も同じ理由で今は検査しない。互換を残さない初期開発版では
 # semver の利点がなく、workspace の中の match から網羅性の検査を奪うだけになる。API が落ち着いたら
 # extra_rules に戻す。下の api_packages はそのときの対象。
-# 語彙と protocol: facade が再公開する値は kivact-types の protocol 外で定義する。kivact-types と kivact_types::protocol は workspace 内の protocol。
+# Shared vocabulary is defined in kivact-types concept modules; render records are internal transport.
 # facade（kivact）から届く crate と、五つの公式キット。
 api_packages = [
     "kivact", "kivact-core", "kivact-editing", "kivact-gpu-share", "kivact-i18n", "kivact-interaction",
@@ -285,15 +289,12 @@ api_packages = [
 ]
 # 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
 options_structs = [
-    "arvane::embed::EmbedOptions",
     "arvane::test_display::VirtualWindowOptions",
     "arvane-native::test_display::TestWindowOptions",
-    "arvane-shell::ChildOptions",
+    "arvane-shell::ChildHooks",
     "arvane-shell::ShellOptions",
-    "kivact-core::platform::FileDialog",
     "kivact-core::test::RenderOptions",
     "kivact-engine::api::HostOptions",
-    "kivact-engine::embed::EmbedOptions",
     "kivact-engine::testing::TestHostOptions",
     "kivact-interaction::Delays",
     "kivact-interaction::Dismiss",
@@ -303,7 +304,9 @@ options_structs = [
     "kivact-style::draw::ImageOptions",
     "kivact-style::draw::TextStyle",
     "kivact-types::GpuPreference",
-    "kivact-types::protocol::MouseSettings",
+    "kivact-types::embed::EmbedOptions",
+    "kivact-types::env::PointerSettings",
+    "kivact-types::platform::FileDialog",
     "kivact-ui-basic::ChartConfig",
     "kivact-ui-creative::WindowOptions",
 ]
