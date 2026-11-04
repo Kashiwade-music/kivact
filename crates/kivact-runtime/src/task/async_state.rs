@@ -58,3 +58,35 @@ impl<T> AsyncState<T> {
 pub(crate) fn cancelled(at: &'static Location<'static>) -> UiError {
     UiError::new(ErrorKind::Cancelled, "cancelled", Some(at))
 }
+
+/// The only publication path for resource and action state.
+pub(crate) struct AsyncCell<T: 'static> {
+    pub(super) state: crate::Signal<AsyncState<T>>,
+    pub(super) latest: crate::Signal<Option<T>>,
+}
+impl<T: Clone + 'static> AsyncCell<T> {
+    pub(super) fn new(owner: crate::Owner, at: &'static Location<'static>) -> Self {
+        let cell = Self {
+            state: owner.signal(AsyncState::Idle, at),
+            latest: owner.signal(None, at),
+        };
+        cell.reset();
+        cell
+    }
+    pub(super) fn start(&self) {
+        self.state.update(|state| *state = AsyncState::Pending);
+    }
+    pub(super) fn finish(&self, result: Result<T, UiError>) {
+        let next = match result {
+            Ok(value) => {
+                self.latest.update(|latest| *latest = Some(value.clone()));
+                AsyncState::Ready(value)
+            }
+            Err(error) => AsyncState::Failed(error),
+        };
+        self.state.update(|state| *state = next);
+    }
+    pub(super) fn reset(&self) {
+        self.state.update(|state| *state = AsyncState::Idle);
+    }
+}

@@ -52,17 +52,13 @@ pub(crate) fn start(
     owner: Owner,
     info: &HostInfo,
     engine: Writer,
+    env: Rc<EnvState>,
     min_window_size: Option<Size>,
     at: &'static Location<'static>,
 ) {
     ViewState::of(rt).start(Started {
         tree: RefCell::new(Tree::new(engine, owner)),
-        env: Rc::new(EnvState::new(
-            owner,
-            info.env.clone(),
-            info.surface_active,
-            at,
-        )),
+        env,
         capabilities: info.capabilities,
         focus: crate::view::focus::keys(owner, at),
         min_window_size,
@@ -96,11 +92,6 @@ pub(crate) fn mount_root(
             })
         }
     };
-    kivact_runtime::MotionState::of(rt).attach_env(kivact_runtime::MotionEnv {
-        reduced_motion: env.field("reduced_motion", |e| e.reduced_motion),
-        surface_active: env.surface_active.into_value(),
-        frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
-    });
     let theme: Signal<Theme> = owner.signal(settings.theme, at);
     Theme::install(owner, theme.into_value());
     kivact_i18n::install_locale(owner, locale);

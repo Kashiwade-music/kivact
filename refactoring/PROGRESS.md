@@ -49,8 +49,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
 | R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |
 | R-3 | merged | 0165094 | 関連 E2E 34 passed、合流 runtime check 0 |
-| R-4 | doing | | 実装完了、取り込み待ち |
-| R-5 | doing | | 実装完了、取り込み待ち |
+| R-4 | merged | 5340dd7 | runtime check 0、E2E は A-1b 合流で |
+| R-5 | merged | 85c6f7f | 統合 runtime check 0、E2E は A-1b 合流で |
 | R-6 | merged | e4a39b3 | check/doc test 0 |
 | C-1 | todo | | |
 | C-2 | todo | | |

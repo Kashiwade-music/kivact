@@ -7,26 +7,30 @@ use std::rc::Rc;
 
 use super::state::TaskCell;
 use crate::{Owned, Owner, Runtime};
+use kivact_types::cell::Generation;
 
 /// The run in flight: its owner task and its id.
 #[derive(Clone, Copy)]
-struct Inflight {
-    task: Owned<TaskCell>,
-    id: u64,
+enum Latest {
+    Idle,
+    Running {
+        task: Owned<TaskCell>,
+        generation: Generation,
+    },
 }
 
 /// At most one run in flight; starting one cancels the previous one, and a run publishes only
 /// while it is still the current one (a `start` or `cancel` during its last poll stops it too).
 pub(crate) struct LatestRun {
-    current: Cell<Option<Inflight>>,
-    next_id: Cell<u64>,
+    current: Cell<Latest>,
+    generation: Cell<Generation>,
 }
 
 impl LatestRun {
     pub(crate) fn new() -> Rc<Self> {
         Rc::new(LatestRun {
-            current: Cell::new(None),
-            next_id: Cell::new(0),
+            current: Cell::new(Latest::Idle),
+            generation: Cell::new(Generation::new()),
         })
     }
 
@@ -44,8 +48,9 @@ impl LatestRun {
     {
         self.cancel();
         let fut = make();
-        let id = self.next_id.get() + 1;
-        self.next_id.set(id);
+        let mut generation = self.generation.get();
+        let id = generation.next();
+        self.generation.set(generation);
         let me = Rc::downgrade(self);
         let task = super::spawn::spawn_owned(
             rt,
@@ -60,30 +65,33 @@ impl LatestRun {
             },
             at,
         );
-        self.current.set(Some(Inflight { task, id }));
+        self.current.set(Latest::Running {
+            task,
+            generation: id,
+        });
     }
 
     /// Cancel the run in flight; returns whether there was one.
     pub(crate) fn cancel(&self) -> bool {
-        match self.current.take() {
-            Some(run) => {
-                run.task.remove();
+        match self.current.replace(Latest::Idle) {
+            Latest::Running { task, .. } => {
+                task.remove();
                 true
             }
-            None => false,
+            Latest::Idle => false,
         }
     }
 
     /// Whether a run is in flight.
     pub(crate) fn is_running(&self) -> bool {
-        self.current.get().is_some()
+        matches!(self.current.get(), Latest::Running { .. })
     }
 
     /// Run `id` completed: whether it is still the current one (it then is no longer in flight).
-    fn end(&self, id: u64) -> bool {
-        let current = self.current.get().is_some_and(|run| run.id == id);
+    fn end(&self, id: Generation) -> bool {
+        let current = matches!(self.current.get(), Latest::Running { generation, .. } if generation.is_current(id));
         if current {
-            self.current.set(None);
+            self.current.set(Latest::Idle);
         }
         current
     }

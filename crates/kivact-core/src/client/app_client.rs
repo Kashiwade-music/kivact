@@ -185,6 +185,7 @@ impl AppClient {
         #[cfg(debug_assertions)]
         let trace_name = self.trace_name.clone();
         let ready = waker.clone();
+        let mut built_env = None;
         let rt = Runtime::new(
             Rc::new(ClientHost(waker)),
             ThreadWaker::new(move || ready.wake()),
@@ -193,8 +194,20 @@ impl AppClient {
                 blocking_threads: threads,
                 at: self.at,
             },
-            |_rt, _root| {
-                let extensions = Extensions::new().with(ViewState::new());
+            |_rt, root| {
+                let env = Rc::new(crate::view::state::EnvState::new(
+                    root,
+                    info.env.clone(),
+                    info.surface_active,
+                    self.at,
+                ));
+                let motion_env = kivact_runtime::MotionEnv {
+                    reduced_motion: env.field("reduced_motion", |e| e.reduced_motion),
+                    surface_active: kivact_runtime::Value::from(env.surface_active),
+                    frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
+                };
+                built_env = Some(env);
+                let extensions = Extensions::new().with(ViewState::new()).with(motion_env);
                 #[cfg(feature = "gpu-interop")]
                 let extensions = extensions.with(crate::gpu_interop::State::default());
                 #[cfg(debug_assertions)]
@@ -219,6 +232,7 @@ impl AppClient {
             root_owner,
             info,
             writer.clone(),
+            built_env.expect("invariant: runtime construction builds the environment"),
             config.min_window_size,
             self.at,
         );

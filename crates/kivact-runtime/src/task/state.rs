@@ -5,9 +5,10 @@
 //! extension when the App is created. [`TaskState`] is the driver API of the
 //! host that runs the App's turns.
 
+use kivact_types::cell::Registry;
 use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::task::Waker;
@@ -17,25 +18,56 @@ use crate::task::worker_pool::{self, Pool};
 use crate::{ErrorKind, UiError};
 use crate::{Owned, Runtime};
 
-/// The pending host-clock timers of an App, by deadline and arrival.
+/// Arrival identity of a registered timer.
+pub(crate) type TimerId = u64;
+
+/// Cancellation handoffs never borrow the timer table.
 #[derive(Default)]
-pub(crate) struct TimeState {
-    pub(crate) timers: BTreeMap<(u64, u64), Waker>,
-    pub(crate) next_id: u64,
+pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerId>>);
+
+impl CancelQueue {
+    pub(crate) fn push(&self, id: TimerId) {
+        let mut pending = self.0.take().unwrap_or_default();
+        pending.push(id);
+        self.0.put(pending);
+    }
 }
 
-impl TimeState {
-    pub(crate) fn next_deadline(&self) -> Option<u64> {
+/// Pending host-clock timers ordered by deadline and arrival.
+#[derive(Default)]
+pub(crate) struct Scheduler {
+    pub(crate) timers: BTreeMap<(u64, TimerId), Waker>,
+    pub(crate) next_id: u64,
+    pub(crate) cancel: Rc<CancelQueue>,
+}
+
+impl Scheduler {
+    fn drain_cancel(&mut self) {
+        while let Some(pending) = self.cancel.0.take() {
+            for id in pending {
+                self.timers.retain(|(_, timer), _| *timer != id);
+            }
+        }
+    }
+
+    pub(crate) fn next_deadline(&mut self) -> Option<u64> {
+        self.drain_cancel();
         self.timers.keys().next().map(|k| k.0)
     }
 
-    pub(crate) fn len(&self) -> usize {
+    pub(crate) fn len(&mut self) -> usize {
+        self.drain_cancel();
         self.timers.len()
     }
 
     /// Remove and return wakers of timers due at `now` (ns).
     pub(crate) fn take_due(&mut self, now: u64) -> Vec<Waker> {
-        let due: Vec<(u64, u64)> = self.timers.range(..(now + 1, 0)).map(|(k, _)| *k).collect();
+        self.drain_cancel();
+        let due: Vec<(u64, TimerId)> = self
+            .timers
+            .range(..=(now, u64::MAX))
+            .map(|(k, _)| *k)
+            .collect();
         due.into_iter()
             .filter_map(|k| self.timers.remove(&k))
             .collect()
@@ -59,19 +91,19 @@ pub struct TaskState {
     /// The UI-thread executor of spawned futures and action queue workers.
     pub(super) exec: Executor,
     /// Pending host-clock timers.
-    pub(super) time: RefCell<TimeState>,
+    pub(super) time: RefCell<Scheduler>,
     /// Worker count of the blocking pool (`None`: the default).
     pub(super) blocking_threads: Option<usize>,
     /// Owned tasks whose future completed; their objects are removed after
     /// the poll that finished them.
     pub(super) finished: RefCell<Vec<Owned<TaskCell>>>,
     /// Live actions with a queue policy (for the exit drain).
-    pub(super) queues: RefCell<Vec<Weak<dyn Drain>>>,
+    pub(super) queues: RefCell<Registry<dyn Drain>>,
     /// Queued actions of disposed owners still draining, with their deadline (ns).
-    pub(super) draining: RefCell<Vec<(Rc<dyn Drain>, u64)>>,
+    pub(super) draining: RefCell<Vec<Rc<DrainEntry>>>,
     /// The blocking pool, created on first use.
     fallback_threads: RefCell<Vec<std::thread::JoinHandle<()>>>,
-    pub(super) pool: RefCell<Option<Arc<Pool>>>,
+    pub(super) pool: RefCell<PoolState>,
 }
 
 impl TaskState {
@@ -80,12 +112,12 @@ impl TaskState {
     pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
         TaskState {
             exec: Executor::new(waker),
-            time: RefCell::new(TimeState::default()),
+            time: RefCell::new(Scheduler::default()),
             blocking_threads,
             finished: RefCell::new(Vec::new()),
-            queues: RefCell::new(Vec::new()),
+            queues: RefCell::new(Registry::new()),
             draining: RefCell::new(Vec::new()),
-            pool: RefCell::new(None),
+            pool: RefCell::new(PoolState::NotStarted),
             fallback_threads: RefCell::new(Vec::new()),
         }
     }
@@ -112,8 +144,13 @@ impl TaskState {
     /// earlier of the next pending timer and the next drain deadline of a
     /// draining action. `None` when neither exists.
     pub fn next_deadline(&self) -> Option<u64> {
-        let timer = self.time.borrow().next_deadline();
-        let drain = self.draining.borrow().iter().map(|(_, d)| *d).min();
+        let timer = self.time.borrow_mut().next_deadline();
+        let drain = self
+            .draining
+            .borrow()
+            .iter()
+            .map(|entry| entry.deadline)
+            .min();
         [timer, drain].into_iter().flatten().min()
     }
 
@@ -121,21 +158,15 @@ impl TaskState {
     /// (not the blocking pool).
     pub fn stats(&self) -> TaskStats {
         TaskStats {
-            timers: self.time.borrow().len(),
-            outstanding_blocking: self
-                .pool
-                .borrow()
-                .as_ref()
-                .map(|p| p.outstanding.load(Ordering::SeqCst))
-                .unwrap_or(0),
+            timers: self.time.borrow_mut().len(),
+            outstanding_blocking: self.pool.borrow().outstanding(),
         }
     }
 
-    /// Stop the blocking pool, waiting up to two seconds per worker. A later
-    /// blocking job creates a new pool.
+    /// Stop the blocking pool, waiting up to two seconds per worker.
     pub fn shutdown(&self) {
-        let pool = self.pool.borrow_mut().take();
-        if let Some(p) = pool {
+        let pool = self.pool.replace(PoolState::ShutDown);
+        if let PoolState::Running(p) = pool {
             p.shutdown();
         }
         worker_pool::wait_for_threads(self.fallback_threads.take());
@@ -157,7 +188,9 @@ impl TaskState {
         let now = rt.now_ns();
         let list = std::mem::take(&mut *self.draining.borrow_mut());
         let mut keep = Vec::new();
-        for (a, deadline) in list {
+        for entry in list {
+            let a = &entry.action;
+            let deadline = entry.deadline;
             if !a.busy() {
                 continue;
             }
@@ -173,7 +206,7 @@ impl TaskState {
                 );
                 continue;
             }
-            keep.push((a, deadline));
+            keep.push(entry);
         }
         self.draining.borrow_mut().extend(keep);
     }
@@ -181,12 +214,15 @@ impl TaskState {
     /// Any queued action (live or draining) still has work: the host waits for
     /// this to turn false before it exits.
     pub fn queues_busy(&self) -> bool {
-        self.draining.borrow().iter().any(|(a, _)| a.busy())
+        self.draining
+            .borrow()
+            .iter()
+            .any(|entry| entry.action.busy())
             || self
                 .queues
-                .borrow()
-                .iter()
-                .filter_map(|w| w.upgrade())
+                .borrow_mut()
+                .live()
+                .into_iter()
                 .any(|a| a.busy())
     }
 
@@ -198,9 +234,9 @@ impl TaskState {
                 .draining
                 .borrow_mut()
                 .drain(..)
-                .map(|(a, _)| a)
+                .map(|entry| entry.action.clone())
                 .collect();
-            v.extend(self.queues.borrow().iter().filter_map(|w| w.upgrade()));
+            v.extend(self.queues.borrow_mut().live());
             v
         };
         all.iter().map(|a| a.abandon()).sum()
@@ -214,13 +250,18 @@ impl TaskState {
 
     /// The App's blocking pool, created on first use.
     pub(crate) fn blocking_pool(&self) -> Arc<Pool> {
-        if let Some(p) = self.pool.borrow().as_ref() {
-            return p.clone();
+        let mut state = self.pool.borrow_mut();
+        match &*state {
+            PoolState::Running(pool) => return pool.clone(),
+            PoolState::ShutDown => {
+                panic!("invariant: no App code runs after the blocking pool shut down")
+            }
+            PoolState::NotStarted => {}
         }
         let threads = self.blocking_threads.unwrap_or_else(Pool::default_threads);
-        let p = Pool::new(threads);
-        *self.pool.borrow_mut() = Some(p.clone());
-        p
+        let pool = Pool::new(threads);
+        *state = PoolState::Running(pool.clone());
+        pool
     }
 }
 
@@ -231,4 +272,30 @@ pub struct TaskStats {
     pub timers: usize,
     /// Blocking jobs submitted and not yet finished.
     pub outstanding_blocking: usize,
+}
+
+/// Lifecycle of the App's lazily constructed blocking pool.
+pub(super) enum PoolState {
+    NotStarted,
+    Running(Arc<Pool>),
+    ShutDown,
+}
+impl PoolState {
+    fn outstanding(&self) -> usize {
+        match self {
+            Self::Running(pool) => pool.outstanding.load(Ordering::SeqCst),
+            Self::NotStarted | Self::ShutDown => 0,
+        }
+    }
+}
+
+/// A detached queue retained until it drains or reaches its deadline.
+pub(super) struct DrainEntry {
+    action: Rc<dyn Drain>,
+    deadline: u64,
+}
+impl DrainEntry {
+    pub(super) fn new(action: Rc<dyn Drain>, deadline: u64) -> Rc<Self> {
+        Rc::new(Self { action, deadline })
+    }
 }
