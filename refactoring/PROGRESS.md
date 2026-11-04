@@ -89,6 +89,10 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | N-D2 | merged | b0beeae | fmt 0、build 不可の定義段 |
 | N-F1 | merged | 909b7df | fmt 0、ambient/ThemeRef/Outcome/owner/test API |
 | N-F1-props | merged | 2ef7cce | fmt 0、安定 root の reactive props/identity equality |
+| fix-G3-7 | merged | 0db0e29 | Notifier/setter/path 移行、残りは別 thread unit |
+| fix-G3-8 | merged | 01a2798 | canonical Send settings/固定 embed theme、所有 error 解消 |
+| fix-G3-9 | doing | | ktest helper の移行漏れ/core warnings |
+| fix-G4-1 | doing | | interaction 統合 compiler errors |
 | N-F2 | merged | 7efa8aa | fmt 0、62 files、Part/Selection/shared draft/state reads |
 | N-F3 | merged | aba3e97 | fmt 0、Recipe/TreeRows/drafting、追加の旧 caller なし |
 | N-F4 | merged | 39220fd | fmt 0、139 files、reactive Calendar/headless menubar |
