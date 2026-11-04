@@ -8,6 +8,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 |---|---|---|---|---|---|---|---|---|---|
 | CP0 | b6e7ff2 | 0 | 0 | 0 | 0 | 1362 passed / 52 ignored | 1349 passed / 51 ignored | 634.8s / 405.6s | 通過 |
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
+| CP2 | 5c3b17b | 0 | 0 | running | running | running | running | Clippy 12.79s | 軽い gate 通過、重い gate は固定 commit で実行 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -49,7 +50,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G3-2 | merged | 6e0e516 | mod.rs 移動と runtime Clippy 記法、check 0 |
 | fix-G2-1 | merged | 7a5ef0d | smoke skip 診断と virtual 条件式、check 0 |
 | fix-G2-2 | merged | 59aee2a | GPU readback 条件式、check 0 |
-| fix-G1-1 | doing | | Launch payload と engine 条件式 |
+| fix-G1-1 | merged | 5c3b17b | Launch payload/engine 記法、check 0、全 Clippy 0 |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
 | R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |
 | R-3 | merged | 0165094 | 関連 E2E 34 passed、合流 runtime check 0 |
