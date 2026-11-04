@@ -175,6 +175,7 @@ fn toast_swipe_dismiss_exits_from_the_drag_offset() {
     let rect = screen.get_by_role(Role::Status, "Swipe").rect().unwrap();
     let contact = screen.contact_down(PointerKind::Touch, rect.x + 20.0, rect.y + 5.0);
     screen.contact_move(contact, rect.x + 20.0, rect.y + 65.0);
+    advance(&screen, 16);
     let drag_top = red_top(&screen).expect("invariant: drag paint is visible");
     assert!(drag_top as f64 > rect.y + 40.0);
     screen.contact_up(contact);
