@@ -6,7 +6,10 @@ use crate::check_source::Source;
 use crate::public_surface::{Surface, export_span};
 use std::collections::BTreeMap;
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
-    let prefix = source.package.replace('-', "_") + "::";
+    if !source.library {
+        return;
+    }
+    let prefix = source.identity_root() + "::";
     let mut paths: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for (path, target) in &surface.exports {
         if path.starts_with(&prefix) && !path.split("::").any(|p| p == "prelude") {

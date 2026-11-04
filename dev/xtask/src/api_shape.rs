@@ -12,6 +12,9 @@ const SLOTS: &[&str] = &[
 ];
 
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
+    if !source.library {
+        return;
+    }
     for item in &source.items {
         match item {
             syn::Item::Struct(item)

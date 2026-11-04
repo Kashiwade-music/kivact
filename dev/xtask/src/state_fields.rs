@@ -16,7 +16,15 @@ pub(crate) fn check(
     surface: &crate::public_surface::Surface,
     errors: &mut Vec<String>,
 ) {
-    let qualified = format!("{}::{}", source.package, source.module);
+    let qualified = format!(
+        "{}::{}",
+        if source.library {
+            source.package.clone()
+        } else {
+            source.identity_root()
+        },
+        source.module
+    );
     if crate::foundation::strings(policy, "value_modules")
         .iter()
         .any(|v| qualified == *v || qualified.starts_with(&format!("{v}::")))
