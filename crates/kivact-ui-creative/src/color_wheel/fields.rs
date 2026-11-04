@@ -2,13 +2,13 @@
 use super::ColorModel;
 use super::color_to_hsv;
 use super::geometry::Channel;
-use super::state::{ColorOwner, State};
+use super::state::{ColorOwner, State, SwatchSelection};
 use crate::number;
 use kivact::i18n::message;
 use kivact::interaction::ListItem;
 use kivact::state::IntoValue;
 use kivact::state::callback;
-use kivact::state::{Binding, Value, binding, effect, memo, signal};
+use kivact::state::{Binding, Value, binding, memo, signal};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
 use kivact::view::IntoView;
@@ -178,17 +178,7 @@ fn hex(state: State, alpha: Value<bool>) -> View {
 pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
     let palette = state.palette?;
     let colors = palette.into_value();
-    let selected = signal(None::<usize>);
-    effect(move || {
-        let len = colors.get().len();
-        if let Some(index) = selected.get_untracked() {
-            selected.set(if len == 0 {
-                None
-            } else {
-                Some(index.min(len - 1))
-            });
-        }
-    });
+    let selected = memo(move || state.controls.get().swatch.index());
     let items = memo(move || colors.get().into_iter().enumerate().collect::<Vec<_>>());
     let swatch_label = message("creative.color.swatch", "Swatch");
     let buttons = for_each(
@@ -199,7 +189,11 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
             kivact::ui::button(move || format!("{} {}", swatch_label.get(), index + 1))
                 .with_node(move |node| node.disabled(state.blocked))
                 .on_press(move || {
-                    selected.set(Some(index));
+                    state
+                        .controls
+                        .send(super::state::controls_machine::Event::Swatch(
+                            SwatchSelection::Selected(index),
+                        ));
                     state.once(ColorOwner::Swatch, || {
                         let color = item.get().1;
                         state.color.set(if alpha.get() {
@@ -229,7 +223,11 @@ pub(super) fn swatches(state: State, alpha: Value<bool>) -> Option<View> {
                         state.once(ColorOwner::Swatch, || {
                             let mut colors = colors.get();
                             colors.push(state.color.into_value().get());
-                            selected.set(Some(colors.len() - 1));
+                            state
+                                .controls
+                                .send(super::state::controls_machine::Event::Swatch(
+                                    SwatchSelection::Selected(colors.len() - 1),
+                                ));
                             palette.set(colors);
                         })
                     }),

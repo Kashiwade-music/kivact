@@ -35,25 +35,48 @@ impl PieEntry {
 }
 /// Public state permits a surrounding application to open the same menu from a hovered editor.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct PieState {
-    pub open: bool,
-    pub held: bool,
-    pub center: Point,
-    pub hot: Option<usize>,
+pub enum PieState {
+    #[default]
+    Closed,
+    Open {
+        mode: PieMode,
+        center: Point,
+        hot: Option<usize>,
+    },
+}
+/// How the directional menu was opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PieMode {
+    Click,
+    Held,
 }
 impl PieState {
     pub fn open_at(center: Point, held: bool) -> Self {
-        Self {
-            open: true,
-            held,
+        Self::Open {
+            mode: if held { PieMode::Held } else { PieMode::Click },
             center,
             hot: None,
         }
     }
+    fn hot(self) -> Option<usize> {
+        match self {
+            Self::Closed => None,
+            Self::Open { hot, .. } => hot,
+        }
+    }
+    fn center(self) -> Point {
+        match self {
+            Self::Closed => Point::default(),
+            Self::Open { center, .. } => center,
+        }
+    }
     /// Keep the center dead zone and select the closest offered direction.
     pub fn pointer(&mut self, pointer: Point, entries: &[PieEntry]) {
-        let delta = Point::new(pointer.x - self.center.x, pointer.y - self.center.y);
-        self.hot = if delta.x.hypot(delta.y) < 22.0 {
+        let Self::Open { center, hot, .. } = self else {
+            return;
+        };
+        let delta = Point::new(pointer.x - center.x, pointer.y - center.y);
+        *hot = if delta.x.hypot(delta.y) < 22.0 {
             None
         } else {
             let angle = delta.y.atan2(delta.x).to_degrees();
@@ -79,24 +102,25 @@ pub fn pie_menu(
     entries: impl IntoValue<Vec<PieEntry>>,
     state: impl IntoBinding<PieState>,
 ) -> PieMenu {
-    let choose = kivact::state::var(None::<kivact::state::Callback<usize>>);
-    let root = pie_menu_view(entries, state, move |index| {
-        if let Some(choose) = choose.get() {
-            choose.call(index);
-        }
-    });
-    PieMenu { root, choose }
+    PieMenu {
+        root: column(()).style(style().height(0).gap(0)),
+        entries: entries.into_value(),
+        state: state.into_binding(),
+        choose: None,
+    }
 }
 
 /// A directional popup with an application activation handler.
 pub struct PieMenu {
     root: Node,
-    choose: kivact::state::Var<Option<kivact::state::Callback<usize>>>,
+    entries: kivact::state::Value<Vec<PieEntry>>,
+    state: kivact::state::Binding<PieState>,
+    choose: Option<kivact::state::Callback<usize>>,
 }
 impl PieMenu {
     /// Run the selected directional command.
-    pub fn on_activate<R: HandlerResult>(self, choose: impl Fn(usize) -> R + 'static) -> Self {
-        self.choose.set(Some(callback(choose)));
+    pub fn on_activate<R: HandlerResult>(mut self, choose: impl Fn(usize) -> R + 'static) -> Self {
+        self.choose = Some(callback(choose));
         self
     }
 }
@@ -108,11 +132,18 @@ impl NodeBuilder for PieMenu {
 }
 impl IntoView for PieMenu {
     fn into_view(self) -> kivact::view::View {
-        self.root.into_view()
+        let choose = self.choose;
+        pie_menu_view(self.root, self.entries, self.state, move |index| {
+            if let Some(choose) = choose {
+                choose.call(index);
+            }
+        })
+        .into_view()
     }
 }
 
 fn pie_menu_view<R: HandlerResult>(
+    root: Node,
     entries: impl IntoValue<Vec<PieEntry>>,
     state: impl IntoBinding<PieState>,
     choose: impl Fn(usize) -> R + 'static,
@@ -120,36 +151,39 @@ fn pie_menu_view<R: HandlerResult>(
     let choose = callback(choose);
     let entries = entries.into_value();
     let state = state.into_binding();
-    let current = state.into_value();
+    let external = state.into_value();
+    let controller = kivact::state::machine(
+        external.get_untracked(),
+        move || machine::Machine {
+            entries: entries.get_untracked(),
+        },
+        move |_, effect| match effect {
+            machine::Effect::Publish(next) => state.set(next),
+            machine::Effect::Choose(index) => choose.call(index),
+        },
+    );
+    controller.feed(external, machine::Event::External);
+    let current = controller.state();
     let visible = binding(
-        (move || current.get().open).into_value(),
+        (move || matches!(current.get(), PieState::Open { .. })).into_value(),
         move |open: bool| {
             if !open {
-                let mut next = current.get();
-                next.open = false;
-                next.held = false;
-                state.set(next);
+                controller.send(machine::Event::Close);
             }
         },
     );
     let popup = use_popup(visible);
     let choose = move |index| {
-        choose.call(index);
-        let mut value = current.get_untracked();
-        value.open = false;
-        value.held = false;
-        state.set(value);
+        controller.send(machine::Event::Choose(index));
     };
     let layer = kivact::view::show(popup.is_open(), move || {
-        let pointer_entries = entries;
         let key_entries = entries;
         let buttons = kivact::view::for_index(entries, move |index, entry| {
-            let button_entries = entries;
             let angle = move || entry.with(|entry| entry.angle.to_radians());
             let button = button(move || entry.get().label)
                 .variant(kivact::ui::ButtonVariant::Secondary)
                 .icon(kivact::view::icon(move || entry.get().icon))
-                .with_node(move |node| node.selected(move || current.get().hot == Some(index)));
+                .with_node(move |node| node.selected(move || current.get().hot() == Some(index)));
             button
                 .with_node(move |node| {
                     node.style(move || {
@@ -163,9 +197,7 @@ fn pie_menu_view<R: HandlerResult>(
                 .with_node(move |node| {
                     node.on_pointer_default(move |event| {
                         if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
-                            let mut next = current.get();
-                            next.pointer(event.window_pos(), &button_entries.get());
-                            state.set(next);
+                            controller.send(machine::Event::Pointer(event.window_pos()));
                         }
                         if matches!(event.phase(), PointerPhase::Down(_)) {
                             Handled::Yes
@@ -178,7 +210,7 @@ fn pie_menu_view<R: HandlerResult>(
                 .into_view()
         });
         overlay_at(
-            move || current.get().center,
+            move || current.get().center(),
             Placement::Center,
             node()
                 .child(buttons)
@@ -202,9 +234,7 @@ fn pie_menu_view<R: HandlerResult>(
                 })
                 .on_pointer_default(move |event| {
                     if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
-                        let mut next = current.get();
-                        next.pointer(event.window_pos(), &pointer_entries.get());
-                        state.set(next);
+                        controller.send(machine::Event::Pointer(event.window_pos()));
                     } else if matches!(
                         event.phase(),
                         PointerPhase::Down(ButtonPress {
@@ -212,7 +242,7 @@ fn pie_menu_view<R: HandlerResult>(
                             ..
                         })
                     ) {
-                        if let Some(index) = current.get().hot {
+                        if let Some(index) = current.get().hot() {
                             choose(index);
                         }
                         return Handled::Yes;
@@ -226,7 +256,7 @@ fn pie_menu_view<R: HandlerResult>(
         .with_node(move |node| node.focusable(true))
         .with_node(move |node| {
             node.on_key_default(move |event| {
-                let mut next = current.get();
+                let next = current.get();
                 match event.key() {
                     Key::Char(key) if ('1'..='9').contains(&key) => {
                         let index = (key as u8 - b'1') as usize;
@@ -238,19 +268,15 @@ fn pie_menu_view<R: HandlerResult>(
                         if key_entries.with(Vec::is_empty) {
                             return Handled::No;
                         }
-                        let index = next.hot.unwrap_or(0).min(key_entries.with(Vec::len) - 1);
-                        next.hot =
-                            Some(if matches!(event.key(), Key::ArrowRight | Key::ArrowDown) {
-                                (index + 1) % key_entries.with(Vec::len)
-                            } else {
-                                (index + key_entries.with(Vec::len) - 1)
-                                    % key_entries.with(Vec::len)
-                            });
-                        state.set(next);
+                        controller.send(machine::Event::Navigate(matches!(
+                            event.key(),
+                            Key::ArrowRight | Key::ArrowDown
+                        )));
                     }
                     Key::Enter => {
-                        if let Some(index) =
-                            next.hot.filter(|index| *index < key_entries.with(Vec::len))
+                        if let Some(index) = next
+                            .hot()
+                            .filter(|index| *index < key_entries.with(Vec::len))
                         {
                             choose(index);
                         }
@@ -261,5 +287,63 @@ fn pie_menu_view<R: HandlerResult>(
             })
         })
     });
-    column((layer,)).style(style().height(0).gap(0))
+    root.child(layer)
+}
+
+mod machine {
+    //! Role: Transition the public pie state and command activation atomically.
+    use super::{PieEntry, PieState};
+    use kivact::geometry::Point;
+    use kivact::state::Step;
+    pub(super) struct Machine {
+        pub(super) entries: Vec<PieEntry>,
+    }
+    pub(super) enum Event {
+        External(PieState),
+        Close,
+        Choose(usize),
+        Pointer(Point),
+        Navigate(bool),
+    }
+    pub(super) enum Effect {
+        Publish(PieState),
+        Choose(usize),
+    }
+    impl kivact::state::Machine for Machine {
+        type State = PieState;
+        type Event = Event;
+        type Effect = Effect;
+        fn transition(&self, state: &PieState, event: Event) -> Step<PieState, Event, Effect> {
+            let next = match event {
+                Event::External(next) => return Step::to(next),
+                Event::Close => PieState::Closed,
+                Event::Choose(index) => {
+                    return Step::to(PieState::Closed)
+                        .with(Effect::Choose(index))
+                        .with(Effect::Publish(PieState::Closed));
+                }
+                Event::Pointer(point) => {
+                    let mut next = *state;
+                    next.pointer(point, &self.entries);
+                    next
+                }
+                Event::Navigate(forward) => {
+                    let mut next = *state;
+                    if let PieState::Open { hot, .. } = &mut next {
+                        let len = self.entries.len();
+                        if len != 0 {
+                            let index = hot.unwrap_or(0).min(len - 1);
+                            *hot = Some(if forward {
+                                (index + 1) % len
+                            } else {
+                                (index + len - 1) % len
+                            });
+                        }
+                    }
+                    next
+                }
+            };
+            Step::to(next).with(Effect::Publish(next))
+        }
+    }
 }

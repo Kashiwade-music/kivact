@@ -343,7 +343,6 @@ impl IntoView for Numeric {
         let typing = kivact::interaction::use_inline_edit(signal(None::<()>));
         let text_open = move || typing.is_open(&());
         // The value a scrub's delta is measured from.
-        let origin = var(0.0);
         let moved = signal(false);
         let scalar = use_scalar(state, move || {
             ScalarRange::new(min.get(), max.get()).expect("invariant: numeric bounds are finite")
@@ -357,7 +356,7 @@ impl IntoView for Numeric {
         // A scrub is one edit of the scalar from its press: Escape, the
         // engine and the disposal of the field end it as a Cancel, with the
         // value it started from written back first.
-        let pointer = scalar.scrub(use_drag::<()>(DragCoordinates::Local));
+        let pointer = scalar.scrub(use_drag::<f64>(DragCoordinates::Local));
         let reference = node_ref();
         let rect = reference.rect();
         let logarithmic = move || logarithmic.get() && min.get() > 0.0;
@@ -531,10 +530,9 @@ impl IntoView for Numeric {
         });
         let scrub = pointer
             .on_start(move |_| {
-                origin.set(value.get());
                 moved.set(false);
             })
-            .on_update(move |update: DragUpdate<()>| {
+            .on_update(move |update: DragUpdate<f64>| {
                 let horizontal = horizontal.get();
                 let delta = if matches!(kind, NumericKind::Knob | NumericKind::Fader) && !horizontal
                 {
@@ -550,7 +548,7 @@ impl IntoView for Numeric {
                     } else {
                         1.0
                     };
-                    let start = origin.get();
+                    let start = update.payload;
                     if kind == NumericKind::Number {
                         scalar.set(start + delta * step.get() * factor);
                     } else {
@@ -569,7 +567,7 @@ impl IntoView for Numeric {
                     moved.set(true);
                 }
             })
-            .on_end(move |update: DragUpdate<()>| {
+            .on_end(move |update: DragUpdate<f64>| {
                 if update.phase == DragPhase::Cancel {
                     moved.set(false);
                 } else if !moved.get() && matches!(kind, NumericKind::Number | NumericKind::Slider)
@@ -732,7 +730,7 @@ impl IntoView for Numeric {
                 }
                 Handled::No
             })
-            .part(scrub.source(()))
+            .part(scrub.source_with(move || value.get_untracked()))
             .child(display)
             .child(edit);
         // The accessibility actions are edits of their own. A value needs a

@@ -6,11 +6,11 @@ use kivact::custom::part;
 use kivact::draw::{Path, RegionId, Stroke};
 use kivact::geometry::Size;
 use kivact::i18n::message;
-use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, EditSession, use_drag};
+use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
 use kivact::state::callback;
-use kivact::state::{Binding, Callback, effect, var};
+use kivact::state::{Binding, Callback, machine, memo};
 use kivact::style::{style, use_theme};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
@@ -94,35 +94,42 @@ impl IntoView for BezierCurve {
     fn into_view(self) -> View {
         let binding = self.value;
         let value = binding.into_value();
-        let edit = crate::editors::shared::model::observed(
-            EditSession::new(move |original| binding.set(original)),
-            self.on_edit,
+        let drag = use_drag::<(usize, CubicBezier, Plane)>(DragCoordinates::Local);
+        let observer = self.on_edit;
+        let edit = machine(
+            machine::State::Idle,
+            || machine::Machine,
+            move |_, effect| match effect {
+                machine::Effect::Restore(initial) => binding.set(initial),
+                machine::Effect::StopDrag => drag.cancel(),
+                machine::Effect::Phase(phase) => {
+                    if let Some(observer) = observer {
+                        observer.call(phase);
+                    }
+                }
+            },
         );
+        kivact::state::on_cleanup(move || edit.send(machine::Event::Cancel));
         let reference = node_ref();
         let rect = reference.rect();
-        let snapshot = var((value.get_untracked(), Plane::new(Size::default(), 0.0, 1.0)));
-        let apply_drag = move |update: DragUpdate<usize>| {
-            let (raw, plane) = snapshot.get();
+        let apply_drag = move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
+            let (index, raw, plane) = update.payload;
             let base = raw.clean();
-            let index = update.payload;
             binding.set(base.with_point(index, plane.moved(base.point(index), update.delta)));
         };
         // Each drag is one edit; Escape, an engine Cancel and the effect
         // below cancel it, which writes the value from the press back.
-        let gesture = use_drag::<usize>(DragCoordinates::Local)
-            .edit(edit, move || value.get_untracked())
-            .on_start(move |_update: DragUpdate<usize>| {
-                let raw = value.get();
-                let clean = raw.clean();
-                let size = rect
-                    .get()
-                    .map_or(Size::default(), |r| Size::new(r.width, r.height));
-                snapshot.set((raw, plane(clean, size)));
+        let gesture = drag
+            .on_start(move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
+                edit.send(machine::Event::Begin(update.payload.1))
             })
             .on_update(apply_drag)
-            .on_end(move |update: DragUpdate<usize>| {
-                if update.phase != DragPhase::Cancel {
+            .on_end(move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
+                if update.phase == DragPhase::Cancel {
+                    edit.send(machine::Event::Cancel);
+                } else {
                     apply_drag(update);
+                    edit.send(machine::Event::Commit);
                 }
             });
         // A key or an action is an edit of its own; a drag owns the value.
@@ -131,7 +138,9 @@ impl IntoView for BezierCurve {
                 return;
             }
             let raw = value.get_untracked();
-            edit.once(raw, || binding.set(raw.clean().with_point(index, next)));
+            edit.send(machine::Event::Begin(raw));
+            binding.set(raw.clean().with_point(index, next));
+            edit.send(machine::Event::Commit);
         };
         let mut root = self.root.node_ref(reference).draw(move |draw, size| {
             let value = value.get().clean();
@@ -190,12 +199,13 @@ impl IntoView for BezierCurve {
             let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
                 node.part(attachment).node_ref(target)
             });
-            effect(move || {
-                let state = state.get();
-                if state.disabled || state.hidden {
-                    gesture.cancel();
-                }
-            });
+            edit.feed(
+                memo(move || {
+                    let input = state.get();
+                    input.disabled || input.hidden
+                }),
+                machine::Event::InputChanged,
+            );
             let action = move |event: A11yEvent| {
                 if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
                     target.focus();
@@ -215,7 +225,13 @@ impl IntoView for BezierCurve {
                     change(index, next);
                 }
             };
-            let drag_source = gesture.source(index);
+            let drag_source = gesture.source_with(move || {
+                let raw = value.get_untracked();
+                let size = rect
+                    .get_untracked()
+                    .map_or(Size::default(), |r| Size::new(r.width, r.height));
+                (index, raw, plane(raw.clean(), size))
+            });
             let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
                 node.part(attachment)
                     .part(drag_source)
@@ -247,5 +263,51 @@ impl IntoView for BezierCurve {
             root = root.region(id, attachment);
         }
         root.into_view()
+    }
+}
+
+mod machine {
+    //! Role: Own curve edit snapshots and cancel the gesture in the unavailable-input transition.
+    use super::CubicBezier;
+    use kivact::state::Step;
+    use kivact::view::EditPhase;
+    pub(super) struct Machine;
+    #[derive(Clone, Copy, PartialEq)]
+    pub(super) enum State {
+        Idle,
+        Editing { initial: CubicBezier },
+    }
+    pub(super) enum Event {
+        Begin(CubicBezier),
+        Commit,
+        Cancel,
+        InputChanged(bool),
+    }
+    pub(super) enum Effect {
+        Restore(CubicBezier),
+        StopDrag,
+        Phase(EditPhase),
+    }
+    impl kivact::state::Machine for Machine {
+        type State = State;
+        type Event = Event;
+        type Effect = Effect;
+        fn transition(&self, state: &State, event: Event) -> Step<State, Event, Effect> {
+            match (state, event) {
+                (State::Idle, Event::Begin(initial)) => {
+                    Step::to(State::Editing { initial }).with(Effect::Phase(EditPhase::Begin))
+                }
+                (State::Editing { .. }, Event::Commit) => {
+                    Step::to(State::Idle).with(Effect::Phase(EditPhase::Commit))
+                }
+                (State::Editing { initial }, Event::Cancel | Event::InputChanged(true)) => {
+                    Step::to(State::Idle)
+                        .with(Effect::StopDrag)
+                        .with(Effect::Restore(*initial))
+                        .with(Effect::Phase(EditPhase::Cancel))
+                }
+                _ => Step::stay(),
+            }
+        }
     }
 }
