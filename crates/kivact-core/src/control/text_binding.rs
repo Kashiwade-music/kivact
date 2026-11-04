@@ -1,6 +1,5 @@
 //! Role: This module binds rich text and styled spans in one render effect.
 
-use std::cell::Cell;
 use std::panic::Location;
 
 use kivact_engine::api::PropValue;
@@ -24,7 +23,7 @@ pub(super) fn bind_rich(
     let weak = cx.weak();
     let theme = cx.theme();
     let owner = cx.owner;
-    let reported = Cell::new(false);
+    let reported = kivact_types::cell::ReportOnce::new();
     cx.effect(EffectKind::Render, at, move || {
         let theme = theme.map(|t| t.get()).unwrap_or_default();
         let (text, spans, dropped) = spans.with(|v| span::resolve(v, &theme));
@@ -37,7 +36,7 @@ pub(super) fn bind_rich(
             tree.update(id, PropValue::Content(text), writer);
             tree.update(id, PropValue::TextSpans(spans), writer);
         }
-        if dropped > 0 && !reported.replace(true) {
+        if dropped > 0 && reported.note() {
             rt.report(
                 Some(owner),
                 kivact_runtime::UiError::new(

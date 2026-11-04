@@ -218,6 +218,11 @@ impl Runtime {
         self.diag.borrow().errors.iter().cloned().collect()
     }
 
+    /// The current setup or host turn.
+    pub fn turn(&self) -> Turn {
+        self.diag.borrow().turn()
+    }
+
     /// Recent turn records, oldest first (bounded ring).
     pub fn turns(&self) -> Vec<TurnRecord> {
         self.diag.borrow().turns.iter().cloned().collect()

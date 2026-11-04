@@ -366,12 +366,14 @@ impl Launch {
         let before = boundaries
             .first()
             .map_or(tree.stats().revision, |b| b.revision.0.saturating_sub(1));
-        host.turns.set(host.turns.get() + 1);
+        let mut stats = host.stats.get();
+        stats.turns += 1;
+        host.stats.set(stats);
         let turn = rt.begin_turn(events.len());
         turn.run_mounts(kivact_types::Revision(before));
         turn.deliver_reports();
         turn.stabilize();
-        let edits = TextEditsAhead::count(&rt, events);
+        let edits = TextEditsAhead::begin(&mut ViewState::tree_mut(&rt), events);
         let mut boundaries = boundaries.iter().peekable();
         let mut acknowledge = |delivered: usize| {
             while let Some(b) = boundaries.next_if(|b| b.events <= delivered) {
@@ -556,14 +558,12 @@ fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
         writer.request_frame(at_ns);
     }
     requests::flush_focus(rt);
-    if ViewState::tree_mut(rt).take_removes() {
-        // Removed nodes report nothing more: forget their failures,
-        // so the set stays as small as the live tree.
-        let tree = ViewState::tree(rt);
-        HostState::of(rt)
-            .asset_failures
+    let host = HostState::of(rt);
+    let removed = std::mem::take(&mut *host.removed.borrow_mut());
+    if !removed.is_empty() {
+        host.asset_failures
             .borrow_mut()
-            .retain(|(id, _)| tree.contains(*id));
+            .retain(|(id, _)| !removed.contains(id));
     }
     let writes = writer.pending_writes();
     // The new `on_mount` callbacks wait for the revision these writes

@@ -81,7 +81,7 @@ pub(crate) type BindHighlight = Box<dyn FnOnce(HighlightAt)>;
 /// unsupported. Canvas regions cannot carry an editing attachment.
 pub struct TextEditing {
     pub(crate) props: EditorProps,
-    pub(crate) on_edit: Option<Rc<dyn Fn(TextEditEvent) -> kivact_runtime::Result<()>>>,
+    pub(crate) on_edit: Option<kivact_runtime::Handler<TextEditEvent>>,
     pub(crate) on_selection: Option<SessionHandler>,
 }
 
@@ -102,4 +102,4 @@ pub(crate) struct EditorProps {
 }
 
 /// What [`TextEditing::on_selection`] runs.
-pub(crate) type SessionHandler = Rc<dyn Fn(TextSession) -> kivact_runtime::Result<()>>;
+pub(crate) type SessionHandler = kivact_runtime::Handler<TextSession>;

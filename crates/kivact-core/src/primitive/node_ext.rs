@@ -2,7 +2,7 @@
 
 use crate::view::IntoValue;
 use crate::view::ime_session::{ImeInput, ImeSession};
-use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
+use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node::NodeBuilder;
 use crate::view::part::Part;
 use crate::view::{
@@ -362,13 +362,13 @@ pub trait NodeExt: NodeBuilder {
     fn on_key_default<F, R>(mut self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut()
             .common
             .handlers
             .key
-            .node_default(move |e| f(e).into_handled());
+            .node_default(move |e| f(e).into_outcome());
         self
     }
 
@@ -376,13 +376,13 @@ pub trait NodeExt: NodeBuilder {
     fn on_pointer_default<F, R>(mut self, f: F) -> Self
     where
         F: Fn(PointerEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut()
             .common
             .handlers
             .pointer
-            .node_default(move |e| f(e).into_handled());
+            .node_default(move |e| f(e).into_outcome());
         self
     }
 
@@ -390,13 +390,13 @@ pub trait NodeExt: NodeBuilder {
     fn on_wheel_default<F, R>(mut self, f: F) -> Self
     where
         F: Fn(WheelEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut()
             .common
             .handlers
             .wheel
-            .node_default(move |e| f(e).into_handled());
+            .node_default(move |e| f(e).into_outcome());
         self
     }
 
@@ -456,7 +456,7 @@ pub trait NodeExt: NodeBuilder {
     fn on_ime<F, R>(mut self, f: F) -> Self
     where
         F: Fn(ImeInput) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut().common.prepend_ime(f);
         self

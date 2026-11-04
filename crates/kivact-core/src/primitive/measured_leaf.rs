@@ -6,7 +6,7 @@ use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
 use crate::view::node::{Node, NodeBuilder};
 use crate::view::state::ViewState;
-use crate::view::sync_hook::{Current, SyncHook};
+use crate::view::sync_hook::{Current, HookSlot, SyncHook};
 use crate::view::{IntoValue, IntoView, View};
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::LeafMeasure;
@@ -110,13 +110,13 @@ fn bind_measure<T, F, R>(
     F: Fn(&T, Constraints<'_>) -> R + 'static,
 {
     let owner = cx.owner;
-    let current: Current<T, Rc<F>> = Rc::new(RefCell::new(None));
+    let current: Current<T, Rc<F>> = Rc::new(RefCell::new(HookSlot::Disposed));
     let held = current.clone();
-    owner.on_cleanup(move || drop(held.borrow_mut().take()));
+    owner.on_cleanup(move || drop(held.replace(HookSlot::Disposed)));
     let now = current.clone();
     let leaf = move |content: T| {
         let (hook, hooked) = SyncHook::new(owner, content, f.clone());
-        *current.borrow_mut() = Some(hooked);
+        *current.borrow_mut() = HookSlot::Live(hooked);
         LeafMeasure::new(move |request, text| {
             hook.call(|content, f| f(content, constraints(request, text)))
                 .map_or_else(values::LeafSize::default, |measured| {
@@ -133,7 +133,7 @@ fn bind_measure<T, F, R>(
     cx.effect(EffectKind::Render, at, move || {
         let v = src.get();
         // Compared with the content the engine measures (no second copy).
-        let same = now.borrow().as_ref().is_some_and(|m| m.content == v);
+        let same = matches!(&*now.borrow(), HookSlot::Live(m) if m.content == v);
         if same {
             return;
         }

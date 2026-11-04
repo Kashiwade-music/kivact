@@ -19,7 +19,7 @@ use kivact_engine::contract::NodeType;
 use crate::view::View;
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
-use crate::view::input::{FileEvent, KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
+use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use crate::view::{HandlerResult, IntoText, IntoValue};
@@ -258,7 +258,9 @@ pub trait NodeBuilder: Sized {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     fn on_exit_complete(mut self, callback: Callback<()>) -> Self {
-        self.node_mut().common.exit_complete = Some(callback);
+        self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
+            callback.call_if_alive(())
+        }));
         self
     }
 
@@ -347,7 +349,7 @@ pub trait NodeBuilder: Sized {
     fn on_key<F, R>(mut self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut().common.prepend_key(f);
         self
@@ -357,7 +359,7 @@ pub trait NodeBuilder: Sized {
     fn on_key_up<F, R>(mut self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut().common.prepend_key_up(f);
         self
@@ -371,7 +373,7 @@ pub trait NodeBuilder: Sized {
     fn on_pointer<F, R>(mut self, f: F) -> Self
     where
         F: Fn(PointerEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut().common.prepend_pointer(f);
         self
@@ -383,7 +385,7 @@ pub trait NodeBuilder: Sized {
     fn on_wheel<F, R>(mut self, f: F) -> Self
     where
         F: Fn(WheelEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut().common.prepend_wheel(f);
         self
@@ -405,13 +407,13 @@ pub trait NodeBuilder: Sized {
     fn on_file<F, R>(mut self, f: F) -> Self
     where
         F: Fn(FileEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.node_mut()
             .common
             .handlers
             .file
-            .replace_caller(move |event| f(event).into_handled());
+            .replace_caller(move |event| f(event).into_outcome());
         self
     }
 

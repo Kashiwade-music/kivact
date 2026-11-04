@@ -35,10 +35,8 @@
 //! the node (`SemanticSources`), so an ordinary node stores nothing extra
 //! for them; `mount::semantics` publishes them.
 
-use std::rc::Rc;
-
 use crate::view::common::{Common, SemanticSources};
-use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
+use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
 use crate::view::{A11yAction, A11yEvent, A11yRequest, HandlerResult};
 
 /// The shared bodies of the modifiers that are more than a field write.
@@ -53,45 +51,45 @@ impl Common {
     pub(crate) fn prepend_key<F, R>(&mut self, f: F)
     where
         F: Fn(KeyEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
-        self.handlers.key.caller(move |e| f(e).into_handled());
+        self.handlers.key.caller(move |e| f(e).into_outcome());
     }
 
     /// `on_key_up`: run before the key release handlers already registered.
     pub(crate) fn prepend_key_up<F, R>(&mut self, f: F)
     where
         F: Fn(KeyEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
-        self.handlers.key_up.caller(move |e| f(e).into_handled());
+        self.handlers.key_up.caller(move |e| f(e).into_outcome());
     }
 
     /// `on_pointer`: run before the pointer handlers already registered.
     pub(crate) fn prepend_pointer<F, R>(&mut self, f: F)
     where
         F: Fn(PointerEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
-        self.handlers.pointer.caller(move |e| f(e).into_handled());
+        self.handlers.pointer.caller(move |e| f(e).into_outcome());
     }
 
     /// `on_wheel`: run before the wheel handlers already registered.
     pub(crate) fn prepend_wheel<F, R>(&mut self, f: F)
     where
         F: Fn(WheelEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
-        self.handlers.wheel.caller(move |e| f(e).into_handled());
+        self.handlers.wheel.caller(move |e| f(e).into_outcome());
     }
 
     /// `on_ime`: run before the IME handlers already registered.
     pub(crate) fn prepend_ime<F, R>(&mut self, f: F)
     where
         F: Fn(kivact_types::ImeInput) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
-        self.handlers.ime.caller(move |e| f(e).into_handled());
+        self.handlers.ime.caller(move |e| f(e).into_outcome());
     }
 
     /// `on_press`: the shared pointer, Enter/Space and accessibility
@@ -101,7 +99,7 @@ impl Common {
         F: Fn() -> R + 'static,
         R: HandlerResult,
     {
-        self.handlers.activate = Some(Rc::new(move |_region| f().into_result()));
+        self.handlers.activate = Some(kivact_runtime::Handler::from_fn(move |_region| f()));
     }
 
     /// `on_a11y`: offer an action. `Activate` is reported and ignored (it
@@ -138,16 +136,16 @@ impl Common {
         R: HandlerResult,
     {
         if action == A11yAction::Activate {
-            self.handlers.activate = Some(Rc::new(move |region| {
+            self.handlers.activate = Some(kivact_runtime::Handler::from_fn(move |region| {
                 f(A11yEvent {
                     request: A11yRequest::Activate,
                     region,
                 })
-                .into_result()
+                .into_outcome()
+                .map(|_| ())
             }));
         } else {
-            let h: Rc<dyn Fn(A11yEvent) -> crate::Result<()>> =
-                Rc::new(move |event| f(event).into_result());
+            let h = kivact_runtime::Handler::from_fn(f);
             let a11y = &mut self.handlers.a11y;
             match a11y.iter_mut().find(|(a, _)| *a == action) {
                 Some(entry) => entry.1 = h,

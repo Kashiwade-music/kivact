@@ -87,7 +87,9 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::ExitComplete { node } => {
             let callback = crate::view::state::ViewState::tree_mut(rt).take_exit_callback(*node);
             if let Some(callback) = callback {
-                callback.call_if_alive(());
+                if let Err(error) = callback.call(()) {
+                    rt.report(None, error);
+                }
             }
         }
         HostEvent::FocusResult { request, result } => {

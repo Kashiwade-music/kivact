@@ -21,7 +21,6 @@ pub use kivact_types::{
 /// contact's `Leave`.
 pub use kivact_types::PointerKind;
 
-use kivact_runtime::Result;
 use kivact_style::draw::{Point, RegionId};
 
 /// The input that requested dismissal. Unmounting an overlay does not
@@ -42,38 +41,6 @@ pub struct A11yEvent {
 }
 
 pub use kivact_runtime::Handled;
-
-impl crate::sealed::KeyHandlerResultSeal for () {}
-impl crate::sealed::KeyHandlerResultSeal for Handled {}
-impl crate::sealed::KeyHandlerResultSeal for Result<Handled> {}
-
-/// Return type of `on_key`/`on_pointer`/`on_wheel` handlers: `()` (not
-/// handled), [`Handled`] or `Result<Handled, UiError>`.
-#[diagnostic::on_unimplemented(
-    message = "a key handler must return `()`, `Handled` or `Result<Handled, UiError>`"
-)]
-pub trait KeyHandlerResult: crate::sealed::KeyHandlerResultSeal {
-    #[doc(hidden)]
-    fn into_handled(self) -> Result<Handled>;
-}
-
-impl KeyHandlerResult for () {
-    fn into_handled(self) -> Result<Handled> {
-        Ok(Handled::No)
-    }
-}
-
-impl KeyHandlerResult for Handled {
-    fn into_handled(self) -> Result<Handled> {
-        Ok(self)
-    }
-}
-
-impl KeyHandlerResult for Result<Handled> {
-    fn into_handled(self) -> Result<Handled> {
-        self
-    }
-}
 
 /// A keyboard event with its original host route.
 #[derive(Clone, Debug, PartialEq)]

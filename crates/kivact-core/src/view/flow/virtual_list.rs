@@ -200,7 +200,7 @@ struct VState<K: 'static, T: 'static> {
     /// The `scroll_to` request in progress.
     seek: Seek<K>,
     /// The row that holds the keyboard focus (`keep_focused`).
-    held: Option<K>,
+    held: HeldState<K>,
 }
 
 /// Rows mounted at once above which an unconstrained viewport is reported.
@@ -275,11 +275,14 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                 rows: HashMap::new(),
                 measured: HashMap::new(),
                 seek: Seek::Idle,
-                held: None,
+                held: HeldState {
+                    value: Held::Nothing,
+                    changed: cx.owner.trigger(at),
+                },
             }));
             // Which row holds the focus changes rarely: only then does the
             // visible range run again, not at every focus move.
-            let held_version = cx.owner.trigger(at);
+            let held_version = state.borrow().held.changed;
             if keep_focused {
                 let keys = ViewState::of(cx.rt).focus_keys();
                 let weak = cx.weak();
@@ -288,10 +291,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                     let node = keys.node.get();
                     let Some(rt) = weak.upgrade() else { return };
                     let held = node.and_then(|node| focused_row(&rt, spacer, node.node, &st));
-                    if st.borrow().held != held {
-                        st.borrow_mut().held = held;
-                        held_version.notify();
-                    }
+                    st.borrow_mut().held.set(held);
                 });
             }
             let seeker = Rc::new(Seeker {
@@ -305,7 +305,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
             let weak = cx.weak();
             let parent = cx.owner;
             let st = state.clone();
-            let warned = std::cell::Cell::new(false);
+            let warned = kivact_types::cell::ReportOnce::new();
             let range_seeker = seeker.clone();
             cx.effect(EffectKind::Internal, at, move || {
                 let reported = viewport.get();
@@ -314,7 +314,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                 measured_version.track();
                 let Some(rt) = weak.upgrade() else { return };
                 held_version.track();
-                let focused_key = st.borrow().held.clone();
+                let focused_key = st.borrow().held.key().cloned();
                 let lo = (offset - overscan).max(0.0);
                 let hi = offset + vh + overscan;
                 // Visible slice: (key, item clone if new or changed, top, height)
@@ -397,7 +397,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                     && v.height > 0.0
                     && v.height + 0.5 >= total
                     && visible.len() >= UNCONSTRAINED_ROWS
-                    && !warned.replace(true)
+                    && warned.note()
                 {
                     let msg = format!(
                         "virtual_list at {at}: viewport ({:.0}px) is as tall as its                          content ({total:.0}px), so all {} rows are mounted; give the list a                          bounded height (e.g. `min_height(0)` on flex ancestors or a fixed height)",
@@ -627,7 +627,7 @@ fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
     };
     for r in gone {
         let removed = ViewState::tree_mut(rt).remove(r.wrapper);
-        drop(removed);
+        removed.commit(rt);
         r.owner.dispose();
     }
     // Wrappers in item order, and which of them are new.
@@ -745,5 +745,33 @@ fn reorder_rows(rt: &Runtime, spacer: NodeId, order: Vec<NodeId>, fresh: &[bool]
             tree.move_writes_before(w, next);
         }
         next = Some(w);
+    }
+}
+
+#[derive(PartialEq)]
+enum Held<K> {
+    Nothing,
+    Holding { key: K },
+}
+struct HeldState<K> {
+    value: Held<K>,
+    changed: kivact_runtime::Trigger,
+}
+impl<K: PartialEq> HeldState<K> {
+    fn key(&self) -> Option<&K> {
+        match &self.value {
+            Held::Nothing => None,
+            Held::Holding { key } => Some(key),
+        }
+    }
+    fn set(&mut self, key: Option<K>) {
+        let next = match key {
+            Some(key) => Held::Holding { key },
+            None => Held::Nothing,
+        };
+        if self.value != next {
+            self.value = next;
+            self.changed.notify();
+        }
     }
 }
