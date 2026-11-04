@@ -6,7 +6,7 @@
 //! artifacts, pooled windows and tests on parallel threads.
 //!
 //! Set `KIVACT_TEST_HOLD_MS` to keep each window open that long at the end
-//! of a test (to look at it, or to read it with UI Automation), and
+//! of a test (to look at it, or to read it with UI Automation).
 //! Every settle draws requested frames.
 
 use std::cell::Cell;

@@ -33,7 +33,6 @@ impl ShellHandler for Smoke {
         Ok(ShellControl::Wait)
     }
 }
-#[test]
 fn native_window_opens_presents_and_closes() {
     let backend = match arvane_native::backend(ShellOptions {
         width: 160.0,
@@ -49,4 +48,9 @@ fn native_window_opens_presents_and_closes() {
     let mut smoke = Smoke { presented: false };
     backend.run(&mut smoke).expect("native window runs");
     assert!(smoke.presented, "native window presented a frame");
+}
+
+// The native backend owns the process main thread, as it does in an application.
+fn main() {
+    native_window_opens_presents_and_closes();
 }

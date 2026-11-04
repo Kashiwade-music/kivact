@@ -49,4 +49,5 @@ workspace = true
 
 [[test]]
 name = "smoke"
+harness = false
 required-features = ["test"]
