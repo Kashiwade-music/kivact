@@ -105,11 +105,14 @@ draw = ["task", "motion", "style"]
 # env・service の要求・`why`・GPU の取り込みは、公開 module が実装を持つ（view の state と requests の上に立つ）。
 platform = ["task", "motion", "style", "view"]
 # Embedded App setup uses the same root client factory.
-embed = ["view", "launch"]
+embed = ["state", "view", "launch", "app"]
 diagnostics = ["task", "motion", "style", "view"]
 # 実験 feature `gpu-interop`。per-App の状態は client が runtime の extension に入れる。
 gpu_interop = ["task", "motion", "style", "view"]
 client = ["task", "motion", "style", "view", "platform", "gpu_interop", "diagnostics"]
+# Launch owns client construction; App and embedding consume that shared boundary.
+launch = ["state", "view", "platform", "diagnostics", "gpu_interop", "client"]
+app = ["state", "view", "launch"]
 custom = ["task", "motion", "style", "view", "draw"]
 
 # kivact-i18n contains pure locale values and ICU formatting calculations.
