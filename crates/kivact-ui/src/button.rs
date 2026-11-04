@@ -20,9 +20,8 @@ use super::values::{ButtonState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::state::{Value, on_cleanup, signal};
+use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::{style, use_theme};
-use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{IntoView, View, show};
 use kivact_core::view::{Node, NodeBuilder, node, row};
 use kivact_interaction::DisabledButtonFocus;
@@ -31,13 +30,72 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
+#[derive(Clone, Copy, PartialEq)]
+enum BusyPhase {
+    Idle,
+    Waiting,
+    Revealing,
+    Shown,
+}
+enum BusyEvent {
+    Changed(bool),
+    RevealDue,
+    ShownDue,
+    SurfaceChanged,
+}
+struct BusyInput {
+    delay: u64,
+    fade: u64,
+    active: bool,
+}
+impl Machine for BusyInput {
+    type State = BusyPhase;
+    type Event = BusyEvent;
+    type Effect = bool;
+    fn transition(&self, state: &BusyPhase, event: BusyEvent) -> Step<BusyPhase, BusyEvent, bool> {
+        match event {
+            BusyEvent::Changed(false) => Step::to(BusyPhase::Idle)
+                .cancel(BusyEvent::RevealDue)
+                .cancel(BusyEvent::ShownDue)
+                .with(false),
+            BusyEvent::Changed(true) if *state == BusyPhase::Idle => {
+                if self.delay != 0 {
+                    Step::to(BusyPhase::Waiting)
+                        .after(Duration::from_millis(self.delay), BusyEvent::RevealDue)
+                        .with(self.active)
+                } else if self.fade != 0 {
+                    Step::to(BusyPhase::Revealing)
+                        .after(Duration::from_millis(self.fade), BusyEvent::ShownDue)
+                        .with(self.active)
+                } else {
+                    Step::to(BusyPhase::Shown).with(self.active)
+                }
+            }
+            BusyEvent::RevealDue if *state == BusyPhase::Waiting => {
+                if self.fade != 0 {
+                    Step::to(BusyPhase::Revealing)
+                        .after(Duration::from_millis(self.fade), BusyEvent::ShownDue)
+                } else {
+                    Step::to(BusyPhase::Shown)
+                }
+            }
+            BusyEvent::ShownDue if *state == BusyPhase::Revealing => Step::to(BusyPhase::Shown),
+            BusyEvent::SurfaceChanged => {
+                Step::stay().with(*state != BusyPhase::Idle && self.active)
+            }
+            _ => Step::stay(),
+        }
+    }
+}
+
+// xtask-allow(state-fields): NodeBuilder configuration and optional children; busy runtime phases live in BusyPhase.
 pub struct Button {
     root: Node,
     label: Value<String>,
     icon: Option<View>,
     trailing: Option<View>,
     children: Vec<View>,
-    settings: Rc<RefCell<Settings>>,
+    settings: Rc<RefCell<ButtonOptions>>,
     variants: Variants,
     busy: Rc<Cell<Value<bool>>>,
     expanded: Rc<Cell<Option<Value<bool>>>>,
@@ -46,13 +104,13 @@ pub struct Button {
 }
 /// What the builder knows of the button once it is configured.
 #[derive(Clone)]
-struct Settings {
+struct ButtonOptions {
     size: Value<ControlSize>,
     size_explicit: bool,
     leading_icon: bool,
     trailing_icon: bool,
 }
-impl Default for Settings {
+impl Default for ButtonOptions {
     fn default() -> Self {
         Self {
             size: super::values::default_control_size().into_value(),
@@ -65,9 +123,9 @@ impl Default for Settings {
 /// A themed button activated through the shared button part ([`use_button`]).
 pub fn button(label: impl IntoText) -> Button {
     let label = label.into_text_value();
-    let settings = Rc::new(RefCell::new(Settings {
+    let settings = Rc::new(RefCell::new(ButtonOptions {
         size: super::values::default_control_size().into_value(),
-        ..Settings::default()
+        ..ButtonOptions::default()
     }));
     let expanded = Rc::new(Cell::new(None::<Value<bool>>));
     let read_expanded = expanded.clone();
@@ -124,7 +182,7 @@ pub fn button(label: impl IntoText) -> Button {
     }
 }
 impl Button {
-    fn configure(self, f: impl FnOnce(&mut Settings)) -> Self {
+    fn configure(self, f: impl FnOnce(&mut ButtonOptions)) -> Self {
         f(&mut self.settings.borrow_mut());
         self
     }
@@ -220,7 +278,58 @@ impl Button {
                 move || state.get(),
             )
         };
-        let reveal_pending = signal(false);
+        let phase = signal(0.0f64);
+        let period = memo(|| {
+            let motion = use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .button
+                .busy_motion;
+            if kivact_core::platform::is_motion_reduced().get() {
+                motion.reduced_spin_ms
+            } else {
+                motion.spin_ms
+            }
+            .max(1) as f64
+        });
+        let clock = frame_loop(move |frame| {
+            let period = period.get();
+            let elapsed = frame.now.as_secs_f64() * 1000.0;
+            phase.set(elapsed.rem_euclid(period) / period);
+        });
+        let busy_machine = machine(
+            BusyPhase::Idle,
+            || {
+                let motion = use_theme()
+                    .get()
+                    .ext::<crate::UiTokens>()
+                    .button
+                    .busy_motion;
+                BusyInput {
+                    delay: if kivact_core::platform::is_motion_reduced().get() {
+                        0
+                    } else {
+                        motion.reveal_delay_ms
+                    },
+                    fade: motion.reveal_fade_ms,
+                    active: kivact_core::platform::is_surface_active().get(),
+                }
+            },
+            move |_, running| {
+                if running {
+                    clock.start(FrameRate::Hz(60.0));
+                } else {
+                    clock.stop();
+                }
+            },
+        );
+        let loading = memo(move || state.get().busy);
+        busy_machine.send(BusyEvent::Changed(loading.get_untracked()));
+        busy_machine.feed(loading, BusyEvent::Changed);
+        busy_machine.feed(kivact_core::platform::is_surface_active(), |_| {
+            BusyEvent::SurfaceChanged
+        });
+        let reveal_pending = memo(move || busy_machine.get() == BusyPhase::Waiting);
         let content = with_recipe_style(
             row((
                 self.icon.map(slot),
@@ -239,32 +348,6 @@ impl Button {
         let busy = show(
             move || state.get().busy,
             move || {
-                let phase = signal(0.0f64);
-                let period = kivact_core::state::memo(|| {
-                    let motion = use_theme()
-                        .get()
-                        .ext::<crate::UiTokens>()
-                        .button
-                        .busy_motion;
-                    if kivact_core::platform::is_motion_reduced().get() {
-                        motion.reduced_spin_ms
-                    } else {
-                        motion.spin_ms
-                    }
-                    .max(1) as f64
-                });
-                let clock = frame_loop(move |frame| {
-                    let period = period.get();
-                    let elapsed = frame.now.as_secs_f64() * 1000.0;
-                    phase.set(elapsed.rem_euclid(period) / period);
-                });
-                kivact_core::state::effect(move || {
-                    if kivact_core::platform::is_surface_active().get() {
-                        clock.start(FrameRate::Hz(60.0));
-                    } else {
-                        clock.stop();
-                    }
-                });
                 let motion = use_theme()
                     .get()
                     .ext::<crate::UiTokens>()
@@ -275,14 +358,6 @@ impl Button {
                 } else {
                     motion.reveal_delay_ms
                 };
-                if delay != 0 {
-                    reveal_pending.set(true);
-                    on_cleanup(move || reveal_pending.set(false));
-                    spawn(async move {
-                        sleep(Duration::from_millis(delay)).await;
-                        reveal_pending.set(false);
-                    });
-                }
                 let fade = (delay != 0 || motion.reveal_fade_ms != 0).then(|| {
                     Animated::from(
                         0.0f64,

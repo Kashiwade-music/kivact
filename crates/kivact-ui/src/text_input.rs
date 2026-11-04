@@ -10,7 +10,7 @@
 //! return style only.
 
 use kivact_core::style::use_theme;
-use std::cell::{Cell, OnceCell};
+use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact_core::state::Binding;
@@ -33,7 +33,6 @@ pub struct TextInput {
     field: Node,
     editing: TextEditApi,
     size: Rc<Cell<kivact_core::state::Value<ControlSize>>>,
-    invalid: Rc<OnceCell<kivact_core::state::Value<bool>>>,
     variants: Variants,
     multiline: bool,
 }
@@ -82,40 +81,18 @@ fn create(
     let size = Rc::new(Cell::new(
         super::values::default_control_size().into_value(),
     ));
-    let read = size.clone();
-    let invalid = Rc::new(OnceCell::<kivact_core::state::Value<bool>>::new());
-    let read_invalid = invalid.clone();
     let editing = if multiline {
         use_text_area(value)
     } else {
         use_text_edit(value)
     };
     let part = editing.control();
-    let input = part.state();
     let variants = Variants::default();
-    let look = variants.clone();
-    let field = node().name(label).part(part).style(move || {
-        let theme = use_theme().get();
-        let recipes = recipes(&theme);
-        let recipe = if multiline {
-            recipes.text_area_recipe()
-        } else {
-            recipes.text_input_recipe()
-        };
-        recipe(
-            &theme,
-            &look.look(TextInputState {
-                input: input.get(),
-                size: read.get().get(),
-                invalid: read_invalid.get().is_some_and(|invalid| invalid.get()),
-            }),
-        )
-    });
+    let field = node().name(label).part(part);
     TextInput {
         field,
         editing,
         size,
-        invalid,
         variants,
         multiline,
     }
@@ -297,9 +274,31 @@ impl NodeBuilder for TextInput {
 
 impl IntoView for TextInput {
     fn into_view(mut self) -> View {
-        if let Some(invalid) = self.field.accessible_invalid() {
-            let _ = self.invalid.set(invalid);
-        }
+        let invalid = self
+            .field
+            .accessible_invalid()
+            .unwrap_or_else(|| false.into_value());
+        let input = self.editing.control_state();
+        let multiline = self.multiline;
+        let size = self.size;
+        let look = self.variants;
+        self.field = self.field.base_style(move || {
+            let theme = use_theme().get();
+            let recipes = recipes(&theme);
+            let recipe = if multiline {
+                recipes.text_area_recipe()
+            } else {
+                recipes.text_input_recipe()
+            };
+            recipe(
+                &theme,
+                &look.look(TextInputState {
+                    input: input.get(),
+                    size: size.get().get(),
+                    invalid: invalid.get(),
+                }),
+            )
+        });
         self.field.into_view()
     }
 }

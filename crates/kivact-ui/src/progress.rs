@@ -11,11 +11,40 @@ use super::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{is_motion_reduced, is_surface_active};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Value, effect, memo, signal};
+use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{IntoView, Role, View};
 use kivact_core::view::{Node, NodeBuilder, node};
 
+#[derive(Clone, Copy, PartialEq)]
+enum ProgressMotionPhase {
+    Stopped,
+    Running,
+}
+struct ProgressMotionInput;
+impl Machine for ProgressMotionInput {
+    type State = ProgressMotionPhase;
+    type Event = bool;
+    type Effect = ProgressMotionPhase;
+    fn transition(
+        &self,
+        state: &Self::State,
+        running: bool,
+    ) -> Step<Self::State, bool, Self::Effect> {
+        let next = if running {
+            ProgressMotionPhase::Running
+        } else {
+            ProgressMotionPhase::Stopped
+        };
+        if *state == next {
+            Step::stay()
+        } else {
+            Step::to(next).with(next)
+        }
+    }
+}
+
+// xtask-allow(state-fields): NodeBuilder options describe the requested progress appearance; motion is owned by ProgressMotionPhase.
 /// A bar of the share done, created by [`progress`].
 pub struct Progress {
     root: Node,
@@ -150,17 +179,24 @@ impl IntoView for Progress {
                 phase.set(elapsed.rem_euclid(period) / period);
             }
         });
-        effect(move || {
-            if (target.get().is_none() || moving.get())
+        let motion_machine = machine(
+            ProgressMotionPhase::Stopped,
+            || ProgressMotionInput,
+            move |_, phase_state| match phase_state {
+                ProgressMotionPhase::Running => clock.start(FrameRate::Hz(30.0)),
+                ProgressMotionPhase::Stopped => {
+                    clock.stop();
+                    phase.set(0.0);
+                }
+            },
+        );
+        let running = memo(move || {
+            (target.get().is_none() || moving.get())
                 && period.get().is_some()
                 && is_surface_active().get()
-            {
-                clock.start(FrameRate::Hz(30.0));
-            } else {
-                clock.stop();
-                phase.set(0.0);
-            }
         });
+        motion_machine.send(running.get_untracked());
+        motion_machine.feed(running, |running| running);
         let phase = phase.into_value();
         let state = memo(move || ProgressState {
             value: target.get(),

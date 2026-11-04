@@ -5,7 +5,7 @@ use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, message, use_locale};
-use kivact_core::state::{Binding, Value, binding, effect_on, memo, signal};
+use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::EditPhase;
@@ -30,6 +30,54 @@ impl NumberText {
     fn text(&self) -> &str {
         match self {
             NumberText::Value(text) | NumberText::Typed { text, .. } => text,
+        }
+    }
+}
+
+enum NumberEvent {
+    ValueChanged,
+    Typed(String),
+    FocusOut,
+}
+struct NumberInputSnapshot {
+    value: f64,
+    range: ScalarRange,
+    locale: Locale,
+}
+impl Machine for NumberInputSnapshot {
+    type State = NumberText;
+    type Event = NumberEvent;
+    type Effect = f64;
+    fn transition(
+        &self,
+        state: &NumberText,
+        event: NumberEvent,
+    ) -> Step<NumberText, NumberEvent, f64> {
+        match event {
+            NumberEvent::ValueChanged
+                if self.locale.parse_number(state.text()) == Some(self.value)
+                    || matches!(state, NumberText::Typed { produced: Some(p), .. } if *p == self.value) =>
+            {
+                Step::stay()
+            }
+            NumberEvent::ValueChanged | NumberEvent::FocusOut => Step::to(NumberText::Value(
+                format_value(self.value, self.range, &self.locale),
+            )),
+            NumberEvent::Typed(text) => {
+                let parsed = self.locale.parse_number(&text);
+                let produced = parsed
+                    .and_then(|value| self.range.normalize(value))
+                    .or_else(|| match state {
+                        NumberText::Typed { produced, .. } => *produced,
+                        NumberText::Value(_) => None,
+                    });
+                let step = Step::to(NumberText::Typed { text, produced });
+                if let Some(value) = parsed {
+                    step.with(value)
+                } else {
+                    step
+                }
+            }
         }
     }
 }
@@ -59,7 +107,9 @@ pub struct NumberInput {
 ///
 /// The editor precedes the step buttons in focus/semantic order, so activating
 /// a surrounding field label focuses the value without stepping it. Structural
-/// grid placement keeps the visible order decrease, editor, increase. Disabled
+/// grid placement keeps the visible order decrease, editor, increase. Step buttons
+/// keep focus on the editor and do not add tab stops. Invalid typed text is
+/// exposed as invalid until it is corrected or the field loses focus. Disabled
 /// and invalid state published on the root also reaches the editor.
 ///
 /// ```no_run
@@ -194,62 +244,52 @@ impl IntoView for NumberInput {
         }
         let shown = number.value();
         let locale = use_locale();
-        let typed = signal(NumberText::Value(format_value(
-            shown.get_untracked(),
-            range.get_untracked(),
-            &locale.get_untracked(),
-        )));
-        let input_ref = node_ref();
-        let focused = input_ref.focused();
-        // A value that changes elsewhere replaces the text, unless the text
-        // already parses to it or the user's own typing just produced it.
-        effect_on(
-            memo(move || (shown.get(), locale.get(), range.get())),
-            move |&(now, ref current, _)| {
-                let keeps = typed.with_untracked(|shown_text| {
-                current.parse_number(shown_text.text()) == Some(now)
-                    || matches!(shown_text, NumberText::Typed { produced: Some(p), .. } if *p == now)
-            });
-                if !keeps {
-                    typed.set(NumberText::Value(format_value(
-                        now,
-                        range.get_untracked(),
-                        &locale.get_untracked(),
-                    )));
-                }
+        let typed = machine(
+            NumberText::Value(format_value(
+                shown.get_untracked(),
+                range.get_untracked(),
+                &locale.get_untracked(),
+            )),
+            move || NumberInputSnapshot {
+                value: shown.get(),
+                range: range.get(),
+                locale: locale.get(),
+            },
+            move |_, parsed| {
+                number.once(|| number.set(parsed));
             },
         );
+        let input_ref = node_ref();
+        let focused = input_ref.focused();
+        typed.feed(
+            memo(move || (shown.get(), locale.get(), range.get())),
+            |_| NumberEvent::ValueChanged,
+        );
         let edit = binding(
-            memo(move || typed.with(|shown_text| shown_text.text().to_owned())),
-            move |text: String| {
-                let parsed = locale.get_untracked().parse_number(&text);
-                if let Some(parsed) = parsed {
-                    number.once(|| number.set(parsed));
-                }
-                let produced = match parsed {
-                    Some(_) => Some(shown.get_untracked()),
-                    None => typed.with_untracked(|previous| match previous {
-                        NumberText::Typed { produced, .. } => *produced,
-                        NumberText::Value(_) => None,
-                    }),
-                };
-                typed.set(NumberText::Typed { text, produced });
-            },
+            move || typed.get().text().to_owned(),
+            move |text| typed.send(NumberEvent::Typed(text)),
         );
         let field = text_input(label, edit)
             .disabled(disabled)
-            .invalid(invalid)
+            .invalid(move || {
+                invalid.get()
+                    || match typed.get() {
+                        NumberText::Value(_) => false,
+                        NumberText::Typed { text, .. } => {
+                            let range = range.get();
+                            locale.get().parse_number(&text).is_none_or(|value| {
+                                !value.is_finite() || value < range.min() || value > range.max()
+                            })
+                        }
+                    }
+            })
             .with_node(|node| node.base_style(style().grid_row(1).grid_column(2)))
             .node_ref(input_ref)
             .with_node(|node| node.part(number.input()));
         // Leaving the field shows the written value again.
-        effect_on(focused, move |&now| {
+        kivact_core::state::effect_on(focused, move |&now| {
             if !now {
-                typed.set(NumberText::Value(format_value(
-                    shown.get_untracked(),
-                    range.get_untracked(),
-                    &locale.get_untracked(),
-                )));
+                typed.send(NumberEvent::FocusOut);
             }
         });
         let mut field = with_recipe_style(
@@ -270,14 +310,22 @@ impl IntoView for NumberInput {
             }
         };
         let decrease = button(message("stepper.decrease", "Decrease"))
-            .with_node(|node| node.base_style(style().grid_row(1).grid_column(1)))
+            .with_node(|node| {
+                node.base_style(style().grid_row(1).grid_column(1))
+                    .focusable(false)
+                    .focus_on_press(input_ref)
+            })
             .disabled(disabled)
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("minus"))
             .on_press(step(-1.0));
         let increase = button(message("stepper.increase", "Increase"))
-            .with_node(|node| node.base_style(style().grid_row(1).grid_column(3)))
+            .with_node(|node| {
+                node.base_style(style().grid_row(1).grid_column(3))
+                    .focusable(false)
+                    .focus_on_press(input_ref)
+            })
             .disabled(disabled)
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
