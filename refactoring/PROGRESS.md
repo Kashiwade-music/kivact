@@ -32,8 +32,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | A-3 | merged | f4f17dc | 指定 5 crate/統合 workspace check 0、状態点検 1〜10 完了 |
 | A-4 | merged | 19f1a69 | 新 trait 前提の確認は A-1a/1b 合流で |
 | A-5 | merged | 9d59292 | 対象 4 package check 0、全体は A-1b 合流で |
-| A-6a | merged | 49a6fc3 | check/統合 workspace 0、E2E は統合 target で確認 |
-| A-6b | doing | | IME / DnD pipeline |
+| A-6a | merged | 49a6fc3 | 統合 check 0、input_platform 8/embed 8 passed |
+| A-6b | merged | 48cb043 | 統合 check 0、input_platform 8/embed 8 passed |
 | E-1 | merged | 3f3b930 | 初回 check 0、xtask 0、統合 check 0 |
 | E-2 | merged | 20439fd | check 0、lifecycle 3/environment 6/embed 8 passed |
 | E-3 | merged | 7fb10d4 | keyboard 5/pointer 16/hover 7 passed、統合 check 0 |
