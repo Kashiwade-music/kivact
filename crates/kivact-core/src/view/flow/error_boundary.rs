@@ -135,10 +135,10 @@ impl IntoView for ErrorBoundary {
                 let Some(rt) = weak_rt.upgrade() else { return };
                 match shown.try_get_untracked() {
                     Some(Shown::Child) => {
-                        if let Some(f) = &on_error {
-                            if let Err(error) = f.call(e.clone()) {
-                                parent.report(error);
-                            }
+                        if let Some(f) = &on_error
+                            && let Err(error) = f.call(e.clone())
+                        {
+                            parent.report(error);
                         }
                         shown.set(Shown::Fallback(e));
                     }

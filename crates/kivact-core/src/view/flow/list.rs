@@ -361,11 +361,10 @@ fn writable_list<T: PropValue>(source: Binding<Vec<T>>) -> ListInput<T, Binding<
                     if let Some(slot) = list
                         .iter_mut()
                         .find(|candidate| same_key(candidate, &initial))
+                        && *slot != replacement
                     {
-                        if *slot != replacement {
-                            *slot = replacement;
-                            source.set(list);
-                        }
+                        *slot = replacement;
+                        source.set(list);
                     }
                 },
             )
