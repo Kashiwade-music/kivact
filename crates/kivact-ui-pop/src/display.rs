@@ -655,7 +655,7 @@ impl IntoView for ListItem {
                     text(subtitle).base_style(style().font_size(12).color(ColorToken::TextMuted)),
                 ))
                 .base_style(style().grow(1)),
-                trailing.map(|slot| slot),
+                trailing,
             ))
             .base_style(
                 style()
@@ -789,7 +789,7 @@ impl IntoView for Alert {
                         },
                     )
             })
-            .child(self.actions.map(|slot| slot))
+            .child(self.actions)
             .into_view()
     }
 }
@@ -1050,7 +1050,7 @@ impl IntoView for EmptyState {
                 text(title).base_style(style().font_size(16).weight(600)),
                 text(description)
                     .base_style(style().color(ColorToken::TextMuted).margin_bottom(12)),
-                action.map(|slot| slot),
+                action,
             ))
             .base_style(
                 style()
