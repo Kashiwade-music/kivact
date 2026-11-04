@@ -80,14 +80,9 @@ pub fn request_window_size(
     let owner = Owner::ambient("request_window_size", at);
     require_effectful("request_window_size");
     let (width, height) = (width.into(), height.into());
-    let valid = [width, height]
-        .into_iter()
-        .all(|v| v.is_finite() && v > 0.0);
+    let valid = kivact_types::env::is_valid_window_size(kivact_types::Size { width, height });
     let result = if valid {
-        let mut size = kivact_types::Size {
-            width: width,
-            height: height,
-        };
+        let mut size = kivact_types::Size { width, height };
         if let Some(min) = crate::view::state::ViewState::of(&owner.runtime()).min_window_size() {
             size.width = size.width.max(min.width);
             size.height = size.height.max(min.height);
@@ -100,7 +95,7 @@ pub fn request_window_size(
     } else {
         Err(UiError::new(
             kivact_reactive::ErrorKind::Message,
-            "request_window_size dimensions must be finite and positive in f64",
+            "request_window_size dimensions must be positive, finite and fit the native window extent",
             Some(at),
         ))
     };

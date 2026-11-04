@@ -194,10 +194,7 @@ impl App {
 /// A size of `width` by `height` logical pixels as the engine takes it
 /// (checked by `App::run`).
 fn size(width: f64, height: f64) -> Size {
-    Size {
-        width: width,
-        height: height,
-    }
+    Size { width, height }
 }
 
 /// Refuse a window size or minimum size that is not finite and positive,
@@ -208,15 +205,13 @@ pub(crate) fn check_window_sizes(
     min: Option<Size>,
     at: &'static Location<'static>,
 ) -> Result<()> {
-    let usable =
-        |s: Size| s.width.is_finite() && s.height.is_finite() && s.width > 0.0 && s.height > 0.0;
     let fail = |message: String| Err(UiError::new(ErrorKind::Message, message, Some(at)));
     for (name, size) in [("window_size", window), ("min_window_size", min)] {
         if let Some(s) = size
-            && !usable(s)
+            && !kivact_types::env::is_valid_window_size(s)
         {
             return fail(format!(
-                "App::{name}: {} by {} is not a finite, positive size in logical pixels",
+                "App::{name}: {} by {} must be positive, finite and fit the native window extent",
                 s.width, s.height
             ));
         }

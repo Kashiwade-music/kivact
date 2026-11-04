@@ -3,6 +3,14 @@ use crate::cell::Generation;
 use crate::defaults::{DEFAULT_WINDOW_SIZE, DOUBLE_CLICK, FRAME_PERIOD_NS};
 use crate::{Insets, Size};
 
+/// Whether logical window dimensions are positive, finite and fit a native
+/// unsigned pixel extent before scaling. Backends also validate the scaled size.
+pub fn is_valid_window_size(size: Size) -> bool {
+    [size.width, size.height]
+        .into_iter()
+        .all(|value| value.is_finite() && value > 0.0 && value <= f64::from(u32::MAX))
+}
+
 /// System preference for a light or dark color scheme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ThemeHint {
