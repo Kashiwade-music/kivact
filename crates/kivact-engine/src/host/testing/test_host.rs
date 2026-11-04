@@ -329,7 +329,7 @@ impl ArvaneTestHost {
     /// created the driver, so it can wait for one with
     /// `std::thread::park_timeout`.
     pub fn woken(&self) -> bool {
-        matches!(self.outcome, StepOutcome::Idle { woken: true, .. })
+        matches!(self.outcome, StepOutcome::Idle { .. }) && self.probe.woken()
     }
 
     /// What the shell does on a wake or a reached deadline: frame ticks due

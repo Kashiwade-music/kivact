@@ -22,6 +22,7 @@ pub struct VirtualBackend {
     options: VirtualOptions,
     shell: Rc<RefCell<VirtualShell>>,
     input: Rc<RefCell<Input>>,
+    woken: Arc<WakePending>,
 }
 impl VirtualBackend {
     pub fn new(options: VirtualOptions) -> Self {
@@ -69,6 +70,7 @@ impl VirtualBackend {
             options,
             shell: Rc::new(RefCell::new(shell)),
             input: Rc::new(RefCell::new(Input::default())),
+            woken: Arc::new(WakePending::default()),
         }
     }
     pub fn script(&self) -> Script {
@@ -78,6 +80,7 @@ impl VirtualBackend {
         Probe {
             shell: Rc::clone(&self.shell),
             input: Rc::clone(&self.input),
+            woken: Arc::clone(&self.woken),
         }
     }
 }
@@ -110,7 +113,7 @@ impl SteppedBackend for VirtualBackend {
             handler,
             control: ShellControl::Wait,
             state: State::Live,
-            woken: Arc::new(WakePending::default()),
+            woken: self.woken,
         };
         let wake = Arc::clone(&running.woken);
         let result = running.handler.start(
@@ -337,8 +340,13 @@ fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
 pub struct Probe {
     shell: Rc<RefCell<VirtualShell>>,
     input: Rc<RefCell<Input>>,
+    woken: Arc<WakePending>,
 }
 impl Probe {
+    /// Whether a worker has requested a wake since the last wake step.
+    pub fn woken(&self) -> bool {
+        self.woken.pending()
+    }
     pub fn now_ns(&self) -> u64 {
         self.input.borrow().clock.now()
     }
