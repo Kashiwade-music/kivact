@@ -5,9 +5,10 @@
 //! extension when the App is created. [`TaskState`] is the driver API of the
 //! host that runs the App's turns.
 
+use kivact_types::cell::Registry;
 use std::cell::{OnceCell, RefCell};
 use std::collections::BTreeMap;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::task::Waker;
@@ -97,12 +98,12 @@ pub struct TaskState {
     /// the poll that finished them.
     pub(super) finished: RefCell<Vec<Owned<TaskCell>>>,
     /// Live actions with a queue policy (for the exit drain).
-    pub(super) queues: RefCell<Vec<Weak<dyn Drain>>>,
+    pub(super) queues: RefCell<Registry<dyn Drain>>,
     /// Queued actions of disposed owners still draining, with their deadline (ns).
-    pub(super) draining: RefCell<Vec<(Rc<dyn Drain>, u64)>>,
+    pub(super) draining: RefCell<Vec<Rc<DrainEntry>>>,
     /// The blocking pool, created on first use.
     fallback_threads: RefCell<Vec<std::thread::JoinHandle<()>>>,
-    pub(super) pool: RefCell<Option<Arc<Pool>>>,
+    pub(super) pool: RefCell<PoolState>,
 }
 
 impl TaskState {
@@ -114,9 +115,9 @@ impl TaskState {
             time: RefCell::new(Scheduler::default()),
             blocking_threads,
             finished: RefCell::new(Vec::new()),
-            queues: RefCell::new(Vec::new()),
+            queues: RefCell::new(Registry::new()),
             draining: RefCell::new(Vec::new()),
-            pool: RefCell::new(None),
+            pool: RefCell::new(PoolState::NotStarted),
             fallback_threads: RefCell::new(Vec::new()),
         }
     }
@@ -144,7 +145,12 @@ impl TaskState {
     /// draining action. `None` when neither exists.
     pub fn next_deadline(&self) -> Option<u64> {
         let timer = self.time.borrow_mut().next_deadline();
-        let drain = self.draining.borrow().iter().map(|(_, d)| *d).min();
+        let drain = self
+            .draining
+            .borrow()
+            .iter()
+            .map(|entry| entry.deadline)
+            .min();
         [timer, drain].into_iter().flatten().min()
     }
 
@@ -153,20 +159,14 @@ impl TaskState {
     pub fn stats(&self) -> TaskStats {
         TaskStats {
             timers: self.time.borrow_mut().len(),
-            outstanding_blocking: self
-                .pool
-                .borrow()
-                .as_ref()
-                .map(|p| p.outstanding.load(Ordering::SeqCst))
-                .unwrap_or(0),
+            outstanding_blocking: self.pool.borrow().outstanding(),
         }
     }
 
-    /// Stop the blocking pool, waiting up to two seconds per worker. A later
-    /// blocking job creates a new pool.
+    /// Stop the blocking pool, waiting up to two seconds per worker.
     pub fn shutdown(&self) {
-        let pool = self.pool.borrow_mut().take();
-        if let Some(p) = pool {
+        let pool = self.pool.replace(PoolState::ShutDown);
+        if let PoolState::Running(p) = pool {
             p.shutdown();
         }
         worker_pool::wait_for_threads(self.fallback_threads.take());
@@ -188,7 +188,9 @@ impl TaskState {
         let now = rt.now_ns();
         let list = std::mem::take(&mut *self.draining.borrow_mut());
         let mut keep = Vec::new();
-        for (a, deadline) in list {
+        for entry in list {
+            let a = &entry.action;
+            let deadline = entry.deadline;
             if !a.busy() {
                 continue;
             }
@@ -204,7 +206,7 @@ impl TaskState {
                 );
                 continue;
             }
-            keep.push((a, deadline));
+            keep.push(entry);
         }
         self.draining.borrow_mut().extend(keep);
     }
@@ -212,12 +214,15 @@ impl TaskState {
     /// Any queued action (live or draining) still has work: the host waits for
     /// this to turn false before it exits.
     pub fn queues_busy(&self) -> bool {
-        self.draining.borrow().iter().any(|(a, _)| a.busy())
+        self.draining
+            .borrow()
+            .iter()
+            .any(|entry| entry.action.busy())
             || self
                 .queues
-                .borrow()
-                .iter()
-                .filter_map(|w| w.upgrade())
+                .borrow_mut()
+                .live()
+                .into_iter()
                 .any(|a| a.busy())
     }
 
@@ -229,9 +234,9 @@ impl TaskState {
                 .draining
                 .borrow_mut()
                 .drain(..)
-                .map(|(a, _)| a)
+                .map(|entry| entry.action.clone())
                 .collect();
-            v.extend(self.queues.borrow().iter().filter_map(|w| w.upgrade()));
+            v.extend(self.queues.borrow_mut().live());
             v
         };
         all.iter().map(|a| a.abandon()).sum()
@@ -245,13 +250,18 @@ impl TaskState {
 
     /// The App's blocking pool, created on first use.
     pub(crate) fn blocking_pool(&self) -> Arc<Pool> {
-        if let Some(p) = self.pool.borrow().as_ref() {
-            return p.clone();
+        let mut state = self.pool.borrow_mut();
+        match &*state {
+            PoolState::Running(pool) => return pool.clone(),
+            PoolState::ShutDown => {
+                panic!("invariant: no App code runs after the blocking pool shut down")
+            }
+            PoolState::NotStarted => {}
         }
         let threads = self.blocking_threads.unwrap_or_else(Pool::default_threads);
-        let p = Pool::new(threads);
-        *self.pool.borrow_mut() = Some(p.clone());
-        p
+        let pool = Pool::new(threads);
+        *state = PoolState::Running(pool.clone());
+        pool
     }
 }
 
@@ -262,4 +272,30 @@ pub struct TaskStats {
     pub timers: usize,
     /// Blocking jobs submitted and not yet finished.
     pub outstanding_blocking: usize,
+}
+
+/// Lifecycle of the App's lazily constructed blocking pool.
+pub(super) enum PoolState {
+    NotStarted,
+    Running(Arc<Pool>),
+    ShutDown,
+}
+impl PoolState {
+    fn outstanding(&self) -> usize {
+        match self {
+            Self::Running(pool) => pool.outstanding.load(Ordering::SeqCst),
+            Self::NotStarted | Self::ShutDown => 0,
+        }
+    }
+}
+
+/// A detached queue retained until it drains or reaches its deadline.
+pub(super) struct DrainEntry {
+    action: Rc<dyn Drain>,
+    deadline: u64,
+}
+impl DrainEntry {
+    pub(super) fn new(action: Rc<dyn Drain>, deadline: u64) -> Rc<Self> {
+        Rc::new(Self { action, deadline })
+    }
 }
