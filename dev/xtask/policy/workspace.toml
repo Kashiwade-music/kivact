@@ -55,7 +55,7 @@ gpu-interop-producer = ["arvane", "kivact-public-api-tests", "kivact-ui-creative
 kivact-template-basic = []
 kivact-example-counter = []
 kivact-example-form = []
-kivact-example-list = ["RenderOptions::from_env", "RenderOptions::reduced_motion", "RenderOptions::dark", "RenderOptions::gpu"]
+kivact-example-list = []
 kivact-example-async = []
 kivact-example-component = []
 kivact-ui-basic-catalog = []
@@ -94,6 +94,10 @@ trusted_derives = [
 # 値に挙げた module、`uses` に無い module だけを参照してよい。`except` は上向きの例外
 # "from -> to"（`crate::` を省く。from はその module だけ、to はその module と子孫）。どの参照にも
 # 使われない例外も error にする。
+[module_rules.kivact-core]
+# The canonical style facade reexports theme composition from its view boundary implementation.
+except = ["style -> view::boundary"]
+
 [module_rules.kivact-core.uses]
 state = ["view"]
 geometry = []
@@ -170,18 +174,18 @@ focus_return = []
 roving = []
 drag = ["edit"]
 list = ["axis", "roving"]
-text_edit = []
+text_edit = ["edit"]
 toaster = []
-toggle = []
+toggle = ["edit"]
 popup = ["disclosure", "focus_return"]
 scalar = ["axis", "drag", "edit", "focus_return", "policy"]
 range_scalar = ["drag", "edit", "policy", "scalar"]
 dialog = ["focus_return", "popup"]
 tooltip = ["delayed", "popup"]
 combobox = ["list"]
-tabs = ["axis", "list"]
+tabs = ["axis", "edit", "list"]
 tree = ["list", "press"]
-select = ["focus_return", "list", "popup"]
+select = ["edit", "focus_return", "list", "popup"]
 menu = ["delayed", "focus_return", "list", "popup"]
 zoom_pan = ["edit", "space_pan"]
 splitter = ["axis", "drag", "edit", "policy", "press", "scalar"]
@@ -294,16 +298,15 @@ options_structs = [
     "arvane-shell::ChildHooks",
     "arvane-shell::ShellOptions",
     "kivact-test::RenderOptions",
-    "kivact-core::launch::AppOptions",
     "kivact-engine::api::HostOptions",
     "kivact-engine::testing::TestHostOptions",
     "kivact-interaction::Delays",
-    "kivact-interaction::Dismiss",
-    "kivact-interaction::ListPolicy",
-    "kivact-interaction::ListRangePolicy",
+    "kivact-interaction::DismissOn",
+    "kivact-interaction::ListOptions",
+    "kivact-interaction::ListRangeOptions",
     "kivact-interaction::TooltipConfig",
     "kivact-style::draw::ImageOptions",
-    "kivact-style::draw::TextStyle",
+    "kivact-style::draw::TextFormat",
     "kivact-types::GpuPreference",
     "kivact-types::embed::EmbedOptions",
     "kivact-types::env::PointerSettings",
