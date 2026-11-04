@@ -49,8 +49,12 @@ pub(super) enum Event {
         policy: FocusReturn,
     },
     Policy(FocusReturn),
+    FocusInitial,
     Close(PopupCloseReason),
-    Accepted(PopupCloseReason),
+    Accepted {
+        reason: PopupCloseReason,
+        target: Option<NodeToken>,
+    },
     Focus {
         anchor_present: bool,
         entered: bool,
@@ -58,47 +62,40 @@ pub(super) enum Event {
     },
     Unmount {
         was_inside: bool,
+        target: Option<NodeToken>,
     },
-    Returned,
 }
 pub(super) enum Effect {
     Misuse,
-    WriteClose(PopupCloseReason),
+    FocusInitial,
+    WriteClose {
+        reason: PopupCloseReason,
+        opening: Option<(Option<NodeToken>, FocusPolicy)>,
+    },
     Return(NodeToken),
     Unmounted,
 }
-pub(super) struct Machine {
-    pub modal: bool,
-    pub anchor: Option<NodeToken>,
-}
+pub(super) struct Machine;
 impl Machine {
     fn closing(
         &self,
         opener: Option<NodeToken>,
-        policy: FocusPolicy,
         reason: PopupCloseReason,
         immediate: bool,
     ) -> Step<State, Event, Effect> {
-        let target = if !self.modal && policy.0.restores(reason) {
-            match policy.0.target {
-                FocusReturnTarget::Opener => opener.or(self.anchor),
-                FocusReturnTarget::Anchor(reference) => {
-                    use kivact_core::custom::NodeRefExt;
-                    reference.mounted_node()
-                }
-            }
-        } else {
-            None
-        };
         if immediate {
-            if let Some(opener) = target {
+            if let Some(opener) = opener {
                 return Step::to(State::ReturningFocus { opener }).with(Effect::Return(opener));
             }
         }
-        Step::to(State::Closing {
-            reason,
-            opener: target,
-        })
+        Step::to(State::Closing { reason, opener })
+    }
+    fn close_effect(&self, state: &State, reason: PopupCloseReason) -> Effect {
+        let opening = match state {
+            State::Open { opener, policy, .. } => Some((*opener, *policy)),
+            _ => None,
+        };
+        Effect::WriteClose { reason, opening }
     }
 }
 impl MachineTrait for Machine {
@@ -107,6 +104,7 @@ impl MachineTrait for Machine {
     type Effect = Effect;
     fn transition(&self, state: &State, event: Event) -> Step<State, Event, Effect> {
         match (state, event) {
+            (_, Event::FocusInitial) => Step::stay().with(Effect::FocusInitial),
             (State::Open { .. }, Event::Open { .. }) => Step::stay().with(Effect::Misuse),
             (_, Event::Open { opener, policy }) => Step::to(State::Open {
                 opener,
@@ -118,10 +116,9 @@ impl MachineTrait for Machine {
                 policy: FocusPolicy(policy),
                 focus: *focus,
             }),
-            (_, Event::Close(reason)) => Step::stay().with(Effect::WriteClose(reason)),
-            (State::Open { opener, policy, .. }, Event::Accepted(reason)) => self.closing(
-                *opener,
-                *policy,
+            (_, Event::Close(reason)) => Step::stay().with(self.close_effect(state, reason)),
+            (State::Open { .. }, Event::Accepted { reason, target }) => self.closing(
+                target,
                 reason,
                 matches!(
                     reason,
@@ -170,28 +167,34 @@ impl MachineTrait for Machine {
                     focus: next,
                 });
                 if next == FocusRange::AnchorRemoved {
-                    step.with(Effect::WriteClose(PopupCloseReason::AnchorRemoved))
+                    step.with(self.close_effect(state, PopupCloseReason::AnchorRemoved))
                 } else if matches!(next, FocusRange::Entered { .. }) && outside && !entered {
-                    step.with(Effect::WriteClose(PopupCloseReason::Tab))
+                    step.with(self.close_effect(state, PopupCloseReason::Tab))
                 } else {
                     step
                 }
             }
-            (State::Open { opener, policy, .. }, Event::Unmount { was_inside: true }) => {
-                let step = self.closing(*opener, *policy, PopupCloseReason::Unmount, true);
-                step.with(Effect::Unmounted)
-            }
+            (
+                State::Open { .. },
+                Event::Unmount {
+                    was_inside: true,
+                    target,
+                },
+            ) => self
+                .closing(target, PopupCloseReason::Unmount, true)
+                .with(Effect::Unmounted),
             (
                 State::Closing {
                     opener: Some(opener),
                     ..
                 },
-                Event::Unmount { was_inside: true },
+                Event::Unmount {
+                    was_inside: true, ..
+                },
             ) => Step::to(State::ReturningFocus { opener: *opener })
                 .with(Effect::Return(*opener))
                 .with(Effect::Unmounted),
             (_, Event::Unmount { .. }) => Step::to(State::Closed),
-            (State::ReturningFocus { .. }, Event::Returned) => Step::stay(),
             _ => Step::stay(),
         }
     }
