@@ -33,7 +33,7 @@ mod accessibility;
 mod assets;
 mod effects;
 mod environment;
-#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+#[cfg(any(windows, target_os = "linux"))]
 mod external;
 mod images;
 mod input;
@@ -47,5 +47,4 @@ mod text;
 mod text_style;
 mod transform;
 
-#[cfg(feature = "embed")]
 mod embed;

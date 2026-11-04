@@ -47,7 +47,6 @@ impl Default for ImageOptions {
 /// Its RGBA8 values are composited as sRGB-encoded values (premultiplied
 /// alpha), as `Pixels` and CSS colors are: an engine that computes in
 /// linear light encodes to sRGB before it hands the frame over.
-#[cfg(feature = "gpu-interop")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GpuFrame {
     pub(crate) frame: kivact_types::ExternalFrame,
@@ -55,7 +54,6 @@ pub struct GpuFrame {
     pub(crate) height: u32,
 }
 
-#[cfg(feature = "gpu-interop")]
 impl GpuFrame {
     /// The frame `frame` of the shared textures of `width` by `height`
     /// pixels (what `ExternalImage::frame` and its publisher make).
@@ -80,7 +78,6 @@ impl GpuFrame {
     }
 }
 
-#[cfg(feature = "gpu-interop")]
 kivact_runtime::constant_value!(GpuFrame);
 
 impl Draw {
@@ -139,7 +136,6 @@ impl Draw {
     /// (premultiplied alpha), as `Pixels` and CSS colors are: an engine
     /// that computes in linear light encodes to sRGB before it hands the
     /// frame over.
-    #[cfg(feature = "gpu-interop")]
     pub fn gpu_frame(&mut self, frame: &GpuFrame, rect: Rect, options: ImageOptions) {
         self.cmds.push(p::DrawCmd::External {
             frame: frame.frame,

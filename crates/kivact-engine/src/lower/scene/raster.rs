@@ -36,7 +36,6 @@ impl Context<'_> {
                 });
                 true
             }
-            #[cfg(feature = "gpu-interop")]
             DrawCmd::External {
                 frame,
                 rect: r,
@@ -58,9 +57,6 @@ impl Context<'_> {
                 }
                 true
             }
-            // An external frame draws only where it was imported.
-            #[cfg(not(feature = "gpu-interop"))]
-            DrawCmd::External { .. } => true,
             DrawCmd::ImagePart {
                 source,
                 rect: r,

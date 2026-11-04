@@ -4,9 +4,9 @@
 //! Other operating systems report Unsupported without constructing a handler.
 use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
 use kivact_types::ParentWindow;
-#[cfg(windows)]
+#[cfg(all(windows, feature = "embed"))]
 mod windows;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "embed"))]
 mod x11;
 #[cfg(all(windows, feature = "test"))]
 pub use windows::TestParent;
@@ -20,27 +20,27 @@ pub fn open(
     hooks: ChildHooks,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    #[cfg(windows)]
+    #[cfg(all(windows, feature = "embed"))]
     {
         windows::open(parent, options, hooks, make)
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "embed"))]
     {
         x11::open(parent, options, hooks, make)
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(not(all(feature = "embed", any(windows, target_os = "linux"))))]
     {
         let _ = (parent, options, hooks, make);
         Err(ShellError::unsupported(
-            "embedding a window is not implemented on this platform yet",
+            "embedding a window is not enabled or supported on this platform",
         ))
     }
 }
 
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 mod geometry;
 
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 mod child;
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 mod session;

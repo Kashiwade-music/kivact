@@ -582,13 +582,11 @@ impl Gpu {
 
     /// The adapter of the device drawing the window's frames, when it can
     /// import shared textures.
-    #[cfg(feature = "gpu-interop")]
     pub(crate) fn adapter(&self) -> Option<kivact_types::GpuAdapter> {
         self.device()?.context.interop_adapter()
     }
 
     /// The context of the device drawing the window's frames, when ready.
-    #[cfg(feature = "gpu-interop")]
     pub(crate) fn context(&mut self) -> Option<&mut GpuContext> {
         self.device_mut().map(|device| &mut *device.context)
     }

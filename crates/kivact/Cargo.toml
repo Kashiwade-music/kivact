@@ -8,18 +8,18 @@ repository.workspace = true
 description = "Setup-once fine-grained reactive UI (Solid-style, no macros) over a retained native host"
 
 [dependencies]
+# Enable implementation features; the facade never calls these crates.
+arvane-render = { path = "../arvane-render", version = "0.1.0", optional = true }
+arvane-native = { path = "../arvane-native", version = "0.1.0", optional = true }
 kivact-core = { path = "../kivact-core", version = "0.1.0", default-features = false }
 kivact-interaction = { path = "../kivact-interaction", version = "0.1.0" }
 kivact-ui = { path = "../kivact-ui", version = "0.1.0" }
 
 [features]
-embed = ["kivact-core/embed"]
 default = ["gpu"]
-gpu = ["kivact-core/gpu"]
-# Experimental: `kivact::gpu_interop`, textures an application's own render
-# engine shares with the window, drawn without reading them back. Off by
-# default.
-gpu-interop = ["gpu", "kivact-core/gpu-interop"]
+gpu = ["dep:arvane-render", "arvane-render/gpu"]
+gpu-interop = ["gpu", "arvane-render/gpu-interop", "kivact-core/gpu-interop"]
+embed = ["dep:arvane-native", "arvane-native/embed", "kivact-core/embed"]
 test = ["kivact-core/test"]
 
 [lints]

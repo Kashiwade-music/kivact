@@ -56,7 +56,6 @@
 //!   threads. Each Writer or Reader call borrows shared state for that call.
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "embed")]
 pub mod embed;
 
 mod a11y;

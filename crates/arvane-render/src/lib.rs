@@ -47,6 +47,8 @@ mod derived;
 mod draw;
 #[cfg(feature = "gpu")]
 pub(crate) mod gpu;
+#[cfg(not(feature = "gpu"))]
+mod gpu_unbuilt;
 mod images;
 mod ink;
 mod limits;
@@ -57,6 +59,11 @@ mod validate;
 pub use cpu::CpuRenderer;
 #[cfg(feature = "gpu")]
 pub use gpu::state::{GpuContext, GpuEnv, GpuSurface, Presentation};
+#[cfg(not(feature = "gpu"))]
+pub use gpu_unbuilt::{GpuContext, GpuEnv, GpuSurface, Presentation};
+
+pub const GPU_BUILT: bool = cfg!(feature = "gpu");
+
 pub use ink::glyph_ink_bounds;
 pub use validate::{dimensions, raster_plan};
 

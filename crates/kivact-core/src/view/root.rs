@@ -62,7 +62,6 @@ pub(crate) fn start(
         capabilities: info.capabilities,
         focus: crate::view::focus::keys(owner, at),
         min_window_size,
-        #[cfg(feature = "gpu-interop")]
         adapter: owner.signal(None::<kivact_types::GpuAdapter>, at),
     });
 }

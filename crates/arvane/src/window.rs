@@ -13,7 +13,6 @@ use kivact_types::Environment;
 use kivact_types::GpuPreference;
 use kivact_types::render::{RenderScene, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, Size};
-#[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 
 /// The native window of a running [`Shell`], handed to the [`Handler`]'s
@@ -45,7 +44,7 @@ impl Window<'_> {
     }
     pub fn capabilities(&self) -> Capabilities {
         Capabilities {
-            gpu: cfg!(feature = "gpu"),
+            gpu: arvane_render::GPU_BUILT,
             ..self.shell.capabilities()
         }
     }
@@ -111,11 +110,9 @@ impl Window<'_> {
         self.shell.update_accessibility(update)
     }
 
-    #[cfg(feature = "gpu-interop")]
     pub fn gpu_adapter(&self) -> Option<GpuAdapter> {
         self.presenter.gpu_adapter()
     }
-    #[cfg(feature = "gpu-interop")]
     pub fn import_external_image(
         &mut self,
         id: ExternalImageId,
@@ -123,7 +120,6 @@ impl Window<'_> {
     ) -> Result<(), Failure> {
         self.presenter.import_external(id, textures)
     }
-    #[cfg(feature = "gpu-interop")]
     pub fn drop_external_image(&mut self, id: ExternalImageId) {
         self.presenter.drop_external(id);
     }

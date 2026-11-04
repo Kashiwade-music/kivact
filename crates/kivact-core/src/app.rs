@@ -25,8 +25,7 @@ pub struct App {
     threads: Option<usize>,
     fonts: Vec<(Asset, &'static Location<'static>)>,
     /// How the window's GPU device is made (`gpu_preference`).
-    #[cfg(feature = "gpu-interop")]
-    pub(crate) gpu_preference: crate::gpu_interop::GpuPreference,
+    pub(crate) gpu_preference: kivact_types::GpuPreference,
 }
 
 impl App {
@@ -41,8 +40,7 @@ impl App {
             min_window_size: None,
             threads: None,
             fonts: Vec::new(),
-            #[cfg(feature = "gpu-interop")]
-            gpu_preference: crate::gpu_interop::GpuPreference::default(),
+            gpu_preference: kivact_types::GpuPreference::default(),
         }
     }
 
@@ -159,10 +157,7 @@ impl App {
         check_window_sizes(self.window_size, self.min_window_size, at)?;
         let options = kivact_engine::api::HostOptions {
             window_size: self.window_size,
-            #[cfg(feature = "gpu-interop")]
             gpu_preference: self.gpu_preference,
-            #[cfg(not(feature = "gpu-interop"))]
-            gpu_preference: Default::default(),
         };
         crate::platform::run_native(self.client(root, at), options)
     }

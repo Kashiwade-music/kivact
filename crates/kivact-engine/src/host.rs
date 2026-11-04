@@ -87,6 +87,5 @@ pub mod testing;
 pub(crate) mod write;
 
 pub use client::{Boundary, Client, HostWaker};
-#[cfg(any(feature = "embed", feature = "testing"))]
 pub(crate) use launch::new;
 pub use launch::run_native;

@@ -69,8 +69,7 @@ pub struct RenderOptions {
     /// How the window's GPU device is made, as `App::gpu_preference`
     /// (feature `gpu-interop`; default: Arvane's own choice). Use it with
     /// `gpu` to test `kivact::gpu_interop` on a graphics API.
-    #[cfg(feature = "gpu-interop")]
-    pub gpu_preference: crate::gpu_interop::GpuPreference,
+    pub gpu_preference: kivact_types::GpuPreference,
 }
 
 impl Default for RenderOptions {
@@ -90,7 +89,6 @@ impl Default for RenderOptions {
             gpu: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             title: None,
-            #[cfg(feature = "gpu-interop")]
             gpu_preference: Default::default(),
         }
     }

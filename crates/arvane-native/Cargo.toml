@@ -38,7 +38,7 @@ windows-sys = { workspace = true, features = ["Win32_System_LibraryLoader", "Win
 embed = []
 default = []
 # Real windows for tests on one process-wide UI thread (`mirror`).
-test = []
+test = ["embed"]
 
 [lints]
 workspace = true

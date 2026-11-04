@@ -54,7 +54,6 @@
 //! ([`arvane_shell::Backend::run`]).
 #![deny(unsafe_code)]
 
-#[cfg(feature = "embed")]
 pub mod embed;
 
 mod a11y;

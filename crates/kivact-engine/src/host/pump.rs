@@ -77,12 +77,10 @@ pub(crate) struct Host {
     pub(super) accessibility_noted: bool,
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
-    #[cfg(feature = "gpu-interop")]
     pub(super) adapter: Option<kivact_types::GpuAdapter>,
 }
 
 impl Host {
-    #[cfg(feature = "embed")]
     pub(crate) fn with_embedded_closing(
         mut self,
         closing: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -161,7 +159,6 @@ impl Host {
     }
     /// Hand the window the imports and drops of shared textures the turn
     /// wrote, in order; answer each import.
-    #[cfg(feature = "gpu-interop")]
     pub(super) fn externals(&mut self, window: &mut Window<'_>) {
         use crate::model::ExternalWrite;
         use kivact_types::ExternalImport;
@@ -187,7 +184,6 @@ impl Host {
         }
     }
     /// Tell the client when the window's adapter changed.
-    #[cfg(feature = "gpu-interop")]
     fn adapter_changed(&mut self, window: &Window<'_>) {
         let adapter = window.gpu_adapter();
         if adapter != self.adapter {
@@ -258,7 +254,6 @@ impl Host {
         if self.closing() {
             return Ok(());
         }
-        #[cfg(feature = "gpu-interop")]
         self.externals(window);
         self.layout();
         Ok(())
@@ -272,7 +267,6 @@ impl Host {
         if self.closing() {
             return Ok(ShellControl::Wait);
         }
-        #[cfg(feature = "gpu-interop")]
         self.adapter_changed(window);
         self.model.borrow_mut().tick(window.now_ns());
         let mut turns = 0;

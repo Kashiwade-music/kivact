@@ -43,6 +43,14 @@
 
 #[cfg(feature = "embed")]
 pub mod embed;
+#[cfg(not(feature = "embed"))]
+#[allow(
+    dead_code,
+    unused_imports,
+    unreachable_pub,
+    reason = "the feature hides the public entry while keeping implementation paths compiled"
+)]
+mod embed;
 
 mod app;
 mod client;
@@ -51,6 +59,14 @@ pub mod diagnostics;
 pub mod draw;
 #[cfg(feature = "gpu-interop")]
 pub mod gpu_interop;
+#[cfg(not(feature = "gpu-interop"))]
+#[allow(
+    dead_code,
+    unused_imports,
+    unreachable_pub,
+    reason = "the feature hides the public entry while keeping implementation paths compiled"
+)]
+mod gpu_interop;
 pub mod i18n;
 pub mod motion;
 pub mod platform;

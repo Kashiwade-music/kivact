@@ -114,7 +114,6 @@ impl Host {
         if self.closing() {
             return Ok(ShellControl::Wait);
         }
-        #[cfg(feature = "gpu-interop")]
         self.externals(window);
         self.layout();
         self.pump(window)

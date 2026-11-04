@@ -290,7 +290,6 @@ impl Writer {
     /// `image` of the window (`Window::import_external_image`), after the
     /// turn; the answer is `HostEvent::ExternalImported`. The client names
     /// each image once.
-    #[cfg(feature = "gpu-interop")]
     pub fn import_external(
         &self,
         image: kivact_types::ExternalImageId,
@@ -306,7 +305,6 @@ impl Writer {
     /// Drop the image `image` of the window
     /// (`Window::drop_external_image`), after the turn; nothing when it is
     /// not imported.
-    #[cfg(feature = "gpu-interop")]
     pub fn drop_external(&self, image: kivact_types::ExternalImageId) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;

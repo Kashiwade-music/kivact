@@ -45,7 +45,6 @@ pub(crate) struct Model {
     pub(crate) effects: Vec<(RequestId, DeferredRequest)>,
     /// The imports and drops of shared textures to carry out after the
     /// turn, in the order written.
-    #[cfg(feature = "gpu-interop")]
     pub(crate) external_writes: Vec<ExternalWrite>,
     #[cfg(debug_assertions)]
     pub(crate) lint: crate::check::lint::state::Lint,
@@ -55,7 +54,6 @@ pub(crate) struct Model {
 /// by the window after the turn (`Writer::import_external`,
 /// `Writer::drop_external`). The textures hold OS handles, so the write
 /// owns them (it is not `Clone`).
-#[cfg(feature = "gpu-interop")]
 pub(crate) enum ExternalWrite {
     Import(kivact_types::ExternalImageId, kivact_types::SharedTextures),
     Drop(kivact_types::ExternalImageId),
@@ -88,7 +86,6 @@ impl Model {
             frame: super::frame::state::Frame::default(),
             window_request: None,
             effects: vec![],
-            #[cfg(feature = "gpu-interop")]
             external_writes: Vec::new(),
             #[cfg(debug_assertions)]
             lint: Default::default(),

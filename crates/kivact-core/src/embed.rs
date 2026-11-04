@@ -181,12 +181,21 @@ impl App {
     /// fullscreen have no effect.
     /// `min_window_size` clamps `platform::request_window_size`, not the host.
     #[track_caller]
+    #[cfg(feature = "embed")]
     pub fn embed<V: IntoView>(
         self,
         parent: Parent,
         root: impl FnOnce() -> V + Send + 'static,
     ) -> Result<Embedded> {
-        let at = Location::caller();
+        self.embed_impl(parent, root, Location::caller())
+    }
+
+    pub(crate) fn embed_impl<V: IntoView>(
+        self,
+        parent: Parent,
+        root: impl FnOnce() -> V + Send + 'static,
+        at: &'static Location<'static>,
+    ) -> Result<Embedded> {
         check_window_sizes(self.window_size, self.min_window_size, at)?;
         if parent
             .scale
@@ -212,10 +221,7 @@ impl App {
                 .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE),
             scale: parent.scale,
             prefer_gpu: true,
-            #[cfg(feature = "gpu-interop")]
             gpu_preference: self.gpu_preference,
-            #[cfg(not(feature = "gpu-interop"))]
-            gpu_preference: Default::default(),
         };
         let hooks = kivact_engine::embed::ChildHooks {
             on_resize_request: parent.on_resize_request,
