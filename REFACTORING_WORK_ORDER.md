@@ -353,7 +353,7 @@ I-7  ← I-1, I-4a, I-6, U-1
 T-1
 T-2  ← T-1
 G-1a, G-1b, G-2, G-4a, G-4b, G-4c, G-5
-G-3  ← I-3
+G-3  ← I-3・U-2
 ```
 
 - T・G は I・U と crate が重ならないので、I・U の空いた枠に入れる（各 unit の前提は unit の節）。
@@ -2057,7 +2057,7 @@ wave W5（I・U と同じ wave）。crate が I・U と重ならないので、9
 - **決定済みの形**:
   - C-20: `platform::theme_hint() -> Value<ThemeHint>` は N-G5、`From<ThemeHint> for ThemeMode` は N-F1 で前倒し済み。この unit は native 追従を確認する。`ThemeMode::System` は作らない。
   - C-21: backend の判定。Windows は `GetSystemMetrics(SM_MOUSEPRESENT) == 0` かつ `SM_DIGITIZER` が `NID_READY` を含むとき `Coarse`、それ以外は `Fine`。X11・Wayland は `Fine`。`arvane-virtual` は台本で指定する。値は `Environment` の更新で変わる。
-  - C-37: `Style::scroll_snap(ScrollSnap)`、touch の fling の慣性、`ScrollBehavior::Smooth(Easing)`（今の `Smooth` に easing を持たせる）。慣性は、離したときの速度（`DragVelocity` と同じ計算）から `PointerSettings.fling_deceleration` で減速し、`fling_min_velocity` を下回ったら止める。snap がある scroll は、止まる位置を `nearest_snap` で寄せる。
+  - C-37: `Style::scroll_snap(ScrollSnap)`（`ScrollSnap::{None, Start, Center, End}`。既定 None、ScrollAxes に従い直下の in-flow の子の border box を viewport に整列、Contents は透過）、touch の fling の慣性、`ScrollBehavior::Smooth(Easing)`（今の `Smooth` に easing を持たせる）。慣性は、離したときの速度（`DragVelocity` と同じ計算）から `PointerSettings.fling_deceleration` で減速し、`fling_min_velocity` を下回ったら止める。snap がある scroll は、止まる位置を `nearest_snap` で寄せる。
 - **手順**: core の `platform`、`arvane-native`（Windows の判定）、`arvane-virtual`、style、engine の scroll、`kivact-core/src/view/node_ref.rs` の `ScrollBehavior`。
 - **試験**: 足す。`environment.rs` に `theme_hint_follows_the_platform`、`pointer_class_is_reported`。`touch_scroll.rs` に `fling_decelerates_and_stops`、`scroll_snap_settles_on_a_stop`、`smooth_scroll_uses_the_easing`。
 - **unit の確認**:
