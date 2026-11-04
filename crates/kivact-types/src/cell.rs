@@ -125,6 +125,11 @@ impl Generation {
         *self
     }
 
+    /// The numeric identity of this generation, for APIs that use a `u64` id.
+    pub const fn as_u64(self) -> u64 {
+        self.0
+    }
+
     /// Whether a saved generation still identifies the current work.
     pub fn is_current(&self, generation: Self) -> bool {
         *self == generation
