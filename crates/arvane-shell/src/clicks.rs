@@ -81,7 +81,7 @@ impl ClickCounter {
     /// logical pixels, read at the press), else it is a single click; a
     /// release carries the count its button was pressed with. A contact's
     /// `Down` counts up the same way from the last contact's `Down`.
-    /// `now_ns` is read at a press or a `Down`.
+    /// `now_ns` timestamps every pointer sample; settings are read at a press.
     pub fn count(
         &mut self,
         event: &mut ShellEvent,
