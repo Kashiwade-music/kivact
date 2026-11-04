@@ -134,7 +134,7 @@ fn trace_records_causes_writes_reruns_ops_and_duration() {
     assert!(
         t.writes[0]
             .ty
-            .ends_with("Option<kivact_wire::ids::FocusTarget>")
+            .ends_with("Option<kivact_types::ids::FocusTarget>")
     );
     assert_eq!(t.writes[1].ty, "i32");
     assert_eq!(t.writes[1].at.file(), file!());
