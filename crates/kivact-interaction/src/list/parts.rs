@@ -1,14 +1,14 @@
 //! Role: ListApi parts bind and unregister exact mounted focus targets.
 
-use super::data::{ListGesture, ListItemState, ListMode};
+use super::data::ListItemState;
 use super::state::{State, selected};
 use crate::Selection;
 use crate::roving::Member;
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owner, Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{memo, signal, var};
-use kivact_core::view::{A11yAction, Orientation, Role};
+use kivact_core::state::{Signal, memo, signal, var};
+use kivact_core::view::{Orientation, Role};
 use std::rc::Rc;
 
 pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> Part<PartState> {
@@ -32,7 +32,7 @@ pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> 
 
 /// How a list item's part is bound.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum ItemMount {
+pub(super) enum ItemMount {
     Unbound,
     Admitted,
     Rejected,
@@ -42,7 +42,7 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
     state: Rc<State<K>>,
     key: K,
     retain_disabled_focus: bool,
-) -> Part<ListItemState> {
+) -> (Part<ListItemState>, Signal<ItemMount>) {
     let key = var(key);
     let bound = signal(ItemMount::Unbound);
     let selected_state = {
@@ -97,14 +97,10 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
             });
         }
     });
-    let target = kivact_core::view::node_ref();
-    Part::new(part_state, move |host| {
-        let attachment = host.part(input).node_ref(target);
-        let node = target;
+    let attachment = Part::new(part_state, move |host| {
+        let attachment = host.part(input);
         let keys = state.clone();
         let pointers = state.clone();
-        let actions = state.clone();
-        let mode = state.mode;
         let retained_focus = state.retained_focus;
         let attachment = attachment
             .role(Role::Option)
@@ -115,22 +111,9 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
             .focusable_when_disabled(retain_disabled_focus)
             .on_key(move |event| super::input::key(&keys, &key.get(), event, None))
             .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
-        let invoke = move || {
-            if bound.get_untracked() != ItemMount::Admitted {
-                return;
-            }
-            let key = key.get();
-            if mode == ListMode::Activate {
-                actions.choose(key);
-            } else if actions.target(&key).is_some() {
-                actions.select(key, ListGesture::Replace);
-            }
-        };
-        let attachment = match mode {
-            ListMode::Activate => attachment.on_press(invoke),
-            ListMode::Select => attachment.a11y_action(A11yAction::Select, move |_| invoke()),
-        };
         attachment.on_attach(move |mount| {
+            // Registry removal requires the same reference identity used at insertion.
+            let node = mount.node;
             let owner = Owner::current();
             // The bound state is reset when the owner goes, on every path below.
             owner.on_cleanup(move || bound.set(ItemMount::Unbound));
@@ -182,5 +165,6 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
             });
             state.pending_mounted(&key.get());
         })
-    })
+    });
+    (attachment, bound)
 }

@@ -323,6 +323,20 @@ impl PopupApi {
     /// handlers. The part binds the popup's anchor.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
+        let base = self.base_trigger();
+        Part::new(base.state(), move |host| {
+            host.part(base)
+                .on_press(move || self.toggle())
+                .a11y_action(A11yAction::Expand, move |_| self.disclosure.open.set(true))
+                .a11y_action(A11yAction::Collapse, move |_| {
+                    self.close(PopupCloseReason::Accessibility)
+                })
+        })
+    }
+
+    /// Shared trigger anatomy and Tab departure; its caller supplies activation.
+    #[track_caller]
+    pub(crate) fn base_trigger(self) -> Part<PopupState> {
         let base = self
             .disclosure
             .base_trigger(|input, open| PopupState { input, open });
@@ -340,11 +354,6 @@ impl PopupApi {
                         self.close(PopupCloseReason::Tab);
                     }
                     Handled::No
-                })
-                .on_press(move || self.toggle())
-                .a11y_action(A11yAction::Expand, move |_| self.disclosure.open.set(true))
-                .a11y_action(A11yAction::Collapse, move |_| {
-                    self.close(PopupCloseReason::Accessibility)
                 })
         })
     }
