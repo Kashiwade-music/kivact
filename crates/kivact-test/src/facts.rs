@@ -60,6 +60,25 @@ impl Facts {
             })
         })
     }
+    /// Project retained children through structural Contents boxes in tree order.
+    pub(super) fn children(&self, id: NodeId) -> Vec<NodeId> {
+        let mut children = Vec::new();
+        let mut stack: Vec<NodeId> = self
+            .get(id)
+            .into_iter()
+            .flat_map(|node| node.children.iter().rev().copied())
+            .collect();
+        while let Some(child) = stack.pop() {
+            if self.is_transparent(child) {
+                if let Some(node) = self.get(child) {
+                    stack.extend(node.children.iter().rev().copied());
+                }
+            } else if self.get(child).is_some() {
+                children.push(child);
+            }
+        }
+        children
+    }
     pub(super) fn reader(&self) -> Reader {
         self.reader.clone()
     }

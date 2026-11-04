@@ -98,18 +98,7 @@ impl Screen {
                     });
                 }
             }
-            let mut stack: Vec<NodeId> = n.children.iter().rev().copied().collect();
-            while let Some(c) = stack.pop() {
-                match tree.get(c) {
-                    Some(_) if !tree.is_transparent(c) => kids.push(c),
-                    Some(cn) => {
-                        for x in cn.children.iter().rev() {
-                            stack.push(*x);
-                        }
-                    }
-                    None => {}
-                }
-            }
+            kids = tree.children(id);
         }
         drop(tree);
         for k in kids {

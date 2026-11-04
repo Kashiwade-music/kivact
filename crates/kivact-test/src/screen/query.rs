@@ -15,7 +15,7 @@
 //! the role `None`). `Element::rect` is the bounding box of the drawn box
 //! (`NodeRef::rect`'s); `Element::accessibility_bounds` is the published
 //! bounds mapped by scrolling and transforms as the platform maps them;
-//! `children()` walks the host's tree.
+//! `children()` projects the retained tree through structural Contents boxes.
 
 use std::fmt::Write as _;
 use std::panic::Location;
@@ -98,7 +98,12 @@ impl Screen {
             return Vec::new();
         };
         let mut out = Vec::new();
-        for n in &tree.nodes {
+        let mut stack = vec![tree.root];
+        while let Some(id) = stack.pop() {
+            let Some(n) = tree.nodes.iter().find(|node| node.id == id) else {
+                continue;
+            };
+            stack.extend(n.children.iter().rev().copied());
             // A node without a role is published as a bare structural node.
             if n.semantics.name.clone().unwrap_or_default() != name
                 || n.semantics.role.unwrap_or(kivact_types::Role::Generic) != wire
