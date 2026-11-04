@@ -2,8 +2,7 @@
 use super::measure::LeafMeasure;
 use kivact_types::{
     A11yAction, CheckedState, EditLineLayout, FocusTarget, ImageData, IntrinsicSize, Key,
-    LayoutProps, Orientation, OverlayProps, PaintProps, Role, SemanticsProperties, StateStyles,
-    TextData, TextProps,
+    LayoutProps, Orientation, OverlayProps, PaintProps, Role, StateStyles, TextData, TextStyle,
 };
 
 /// The kind of a host node: these five only. Native text editing is not a
@@ -45,13 +44,13 @@ pub struct NodeProperties {
     /// Optional resolved paint properties.
     pub paint: Option<Box<PaintProps>>,
     /// Optional inherited text properties.
-    pub text: Option<Box<TextProps>>,
+    pub text: Option<Box<TextStyle>>,
     /// Optional state-dependent style overrides.
     pub states: Option<Box<StateStyles>>,
     /// Input participation and focus flags.
     pub input: NodeInput,
     /// Optional accessible node properties.
-    pub semantics: Option<Box<NodeSemantics>>,
+    pub semantics: Option<Box<kivact_types::Semantics<FocusTarget>>>,
 }
 
 /// What a focusable node that edits its own text (not a native editor) shows
@@ -104,33 +103,6 @@ pub struct NodeInput {
 pub struct RovingFocus {
     pub orientation: Orientation,
     pub rtl: bool,
-}
-
-/// Accessible identity, state and actions attached to a node.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct NodeSemantics {
-    /// Accessible role of the node.
-    pub role: Option<Role>,
-    /// Accessible name.
-    pub name: Option<String>,
-    /// Additional accessible description.
-    pub description: Option<String>,
-    /// Accessible text value.
-    pub value: Option<String>,
-    /// Accessible selection state.
-    pub selected: Option<bool>,
-    /// Checked state; `None`: not a toggle.
-    pub checked: Option<CheckedState>,
-    /// Accessible expansion state.
-    pub expanded: Option<bool>,
-    /// Whether the accessible value is invalid.
-    pub invalid: Option<bool>,
-    /// Additional structured accessibility properties.
-    pub accessibility: Option<Box<SemanticsProperties>>,
-    /// Actions the node offers to assistive technology.
-    pub actions: Option<Vec<A11yAction>>,
-    /// Stable identifier used by public screen queries.
-    pub test_id: Option<String>,
 }
 
 /// Measurement callback for a childless box; absent means ordinary layout.

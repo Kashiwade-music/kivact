@@ -37,14 +37,14 @@
 use super::context::Context;
 use crate::effects::Tint;
 use crate::shape::BoxShape;
-use kivact_types::protocol::DrawCommand as D;
+use kivact_types::render::RenderCmd as D;
 use kivact_types::{
     CoordinateGradient, CoordinateShape, Fill, FillImage, FillLayer, FillSize, Gradient,
     GradientKind, RadialExtent,
 };
 use kivact_types::{Rgba, Size};
 
-use kivact_types::protocol::{GradientShape, Pattern, PatternSource};
+use kivact_types::render::{GradientShape, Pattern, PatternSource};
 use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
@@ -52,7 +52,7 @@ const FEW: u32 = 4;
 
 impl BoxShape {
     /// Fill the outline with `paint`.
-    pub(crate) fn fill(&self, out: &mut crate::SceneOut, paint: kivact_types::protocol::Paint) {
+    pub(crate) fn fill(&self, out: &mut crate::SceneOut, paint: kivact_types::render::Paint) {
         match *self {
             BoxShape::Rect(rect) => out.push(D::RoundedRect {
                 rect,
@@ -93,7 +93,7 @@ struct Tiles {
 impl Tiles {
     /// The copies of a `size` tile at `position` (resolved against the
     /// area less the tile, as CSS does), repeated as `layer` says.
-    fn of(layer: &FillLayer, area: Rect, size: (f32, f32)) -> Option<Tiles> {
+    fn of(layer: &FillLayer, area: Rect, size: (f64, f64)) -> Option<Tiles> {
         let (tw, th) = size;
         if !(tw.is_finite() && th.is_finite() && tw > 0.0 && th > 0.0) {
             return None;
@@ -105,11 +105,11 @@ impl Tiles {
         }
         // The first copy at or before the area's start, and how many
         // reach its end.
-        let axis = |o: f32, t: f32, start: f32, len: f32, repeat: bool| -> (f32, u32) {
+        let axis = |o: f64, t: f64, start: f64, len: f64, repeat: bool| -> (f64, u32) {
             if repeat {
                 let first = o - ((o - start) / t).ceil() * t;
                 let n = ((start + len - first) / t).ceil().max(1.0);
-                (first, n.min(u32::MAX as f32) as u32)
+                (first, n.min(u32::MAX as f64) as u32)
             } else {
                 (o, 1)
             }
@@ -144,16 +144,16 @@ impl Tiles {
     fn each(&self) -> impl Iterator<Item = Rect> + '_ {
         (0..self.ny).flat_map(move |j| {
             (0..self.nx).map(move |i| Rect {
-                x: self.first.x + i as f32 * self.first.width,
-                y: self.first.y + j as f32 * self.first.height,
+                x: self.first.x + i as f64 * self.first.width,
+                y: self.first.y + j as f64 * self.first.height,
                 ..self.first
             })
         })
     }
 
     /// The pattern repeating `source` from the first copy.
-    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> kivact_types::protocol::Paint {
-        kivact_types::protocol::Paint::Pattern(Pattern {
+    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> kivact_types::render::Paint {
+        kivact_types::render::Paint::Pattern(Pattern {
             source,
             tile: self.first,
             repeat_x: layer.repeat_x,
@@ -174,10 +174,9 @@ impl Context<'_> {
         origin: Point,
     ) {
         match fill {
-            Fill::Solid(color) => shape.fill(
-                out,
-                kivact_types::protocol::Paint::Solid(tint.color(*color)),
-            ),
+            Fill::Solid(color) => {
+                shape.fill(out, kivact_types::render::Paint::Solid(tint.color(*color)))
+            }
             Fill::Layers(layers) => {
                 for layer in layers.iter().rev() {
                     self.fill_layer(out, shape, layer, tint, origin);
@@ -188,12 +187,7 @@ impl Context<'_> {
 
     /// Fill `shape` with `paint`, or drop it (counted) when Arvane would
     /// reject it: one rejected command fails the whole frame.
-    fn put(
-        &self,
-        out: &mut crate::SceneOut,
-        shape: &BoxShape,
-        paint: kivact_types::protocol::Paint,
-    ) {
+    fn put(&self, out: &mut crate::SceneOut, shape: &BoxShape, paint: kivact_types::render::Paint) {
         if crate::sanitize::fill(&paint) {
             shape.fill(out, paint);
         } else {
@@ -203,7 +197,7 @@ impl Context<'_> {
 
     /// The size of a layer's tile in `area` (`None`: nothing to draw yet,
     /// an image still loading).
-    fn tile_size(&self, layer: &FillLayer, area: Rect) -> Option<(f32, f32)> {
+    fn tile_size(&self, layer: &FillLayer, area: Rect) -> Option<(f64, f64)> {
         let natural = match &layer.image {
             FillImage::Image(asset) => {
                 let n = self.natural(asset)?;
@@ -264,7 +258,7 @@ impl Context<'_> {
         };
         match &layer.image {
             FillImage::Solid(color) => {
-                let paint = kivact_types::protocol::Paint::Solid(tint.color(*color));
+                let paint = kivact_types::render::Paint::Solid(tint.color(*color));
                 if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
                     self.put(out, shape, paint);
                 } else {
@@ -286,7 +280,7 @@ impl Context<'_> {
                         y: 0.0,
                         ..tiles.first
                     };
-                    if let Some(kivact_types::protocol::Paint::Gradient(g)) = gradient(g, local) {
+                    if let Some(kivact_types::render::Paint::Gradient(g)) = gradient(g, local) {
                         let paint = tiles.pattern(layer, PatternSource::Gradient(g));
                         self.put(out, shape, tint.paint(paint));
                     }
@@ -324,7 +318,7 @@ impl Context<'_> {
         out: &mut crate::SceneOut,
         shape: &BoxShape,
         tiles: &Tiles,
-        paint: impl Fn(Rect) -> Option<kivact_types::protocol::Paint>,
+        paint: impl Fn(Rect) -> Option<kivact_types::render::Paint>,
     ) {
         let area = shape.rect();
         for copy in tiles.each().take(FEW as usize) {
@@ -346,7 +340,7 @@ impl Context<'_> {
         layer: &FillLayer,
         area: Rect,
         origin: Point,
-    ) -> Option<kivact_types::protocol::Paint> {
+    ) -> Option<kivact_types::render::Paint> {
         if let FillImage::Coordinate(g) = &layer.image {
             return coordinate(g, origin);
         }
@@ -354,17 +348,18 @@ impl Context<'_> {
         let tiles = Tiles::of(layer, area, size)?;
         match &layer.image {
             FillImage::Solid(color) => {
-                let paint = kivact_types::protocol::Paint::Solid(crate::sanitize::color(*color));
+                let paint =
+                    kivact_types::render::Paint::Solid(kivact_types::Rgba::sanitize(*color));
                 if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
                     Some(paint)
                 } else {
                     // A solid tile is a one-stop gradient tile.
-                    let g = kivact_types::protocol::Gradient {
+                    let g = kivact_types::render::Gradient {
                         shape: GradientShape::Linear {
                             start: Point { x: 0.0, y: 0.0 },
                             end: Point { x: 1.0, y: 0.0 },
                         },
-                        stops: vec![(0.0, crate::sanitize::color(*color))],
+                        stops: vec![(0.0, kivact_types::Rgba::sanitize(*color))],
                         extend: Extend::Pad,
                     };
                     Some(tiles.pattern(layer, PatternSource::Gradient(g)))
@@ -380,7 +375,7 @@ impl Context<'_> {
                     ..tiles.first
                 };
                 match gradient(g, local)? {
-                    kivact_types::protocol::Paint::Gradient(g) => {
+                    kivact_types::render::Paint::Gradient(g) => {
                         Some(tiles.pattern(layer, PatternSource::Gradient(g)))
                     }
                     other => Some(other),
@@ -410,9 +405,9 @@ impl Context<'_> {
 
 /// The stops of `g` as fractions of its line (CSS color stop fixup):
 /// `length` is the line's length in px (a conic gradient's: 360°).
-fn stops(g: &Gradient, length: f32) -> Vec<(f32, Rgba)> {
+fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
     let n = g.stops.len();
-    let mut at: Vec<Option<f32>> = g
+    let mut at: Vec<Option<f64>> = g
         .stops
         .iter()
         .map(|s| {
@@ -436,7 +431,7 @@ fn stops(g: &Gradient, length: f32) -> Vec<(f32, Rgba)> {
         at[n - 1] = Some(1.0);
     }
     // No position before an earlier one.
-    let mut max = f32::NEG_INFINITY;
+    let mut max = f64::NEG_INFINITY;
     for t in at.iter_mut().flatten() {
         max = max.max(*t);
         *t = max;
@@ -451,22 +446,22 @@ fn stops(g: &Gradient, length: f32) -> Vec<(f32, Rgba)> {
         let start = i - 1;
         let end = (i..n).find(|j| at[*j].is_some()).unwrap_or(n - 1);
         let (a, b) = (at[start].unwrap_or(0.0), at[end].unwrap_or(1.0));
-        let span = (end - start) as f32;
+        let span = (end - start) as f64;
         for (k, slot) in at.iter_mut().enumerate().take(end).skip(i) {
-            *slot = Some(a + (b - a) * (k - start) as f32 / span);
+            *slot = Some(a + (b - a) * (k - start) as f64 / span);
         }
         i = end;
     }
     g.stops
         .iter()
         .zip(at)
-        .map(|(s, t)| (t.unwrap_or(0.0), crate::sanitize::color(s.color)))
+        .map(|(s, t)| (t.unwrap_or(0.0), kivact_types::Rgba::sanitize(s.color)))
         .collect()
 }
 
 /// Stops spanning `[lo, hi]` mapped onto `[0, 1]`.
-fn normalized(stops: &[(f32, Rgba)], lo: f32, hi: f32) -> Vec<(f32, Rgba)> {
-    let span = (hi - lo).max(f32::MIN_POSITIVE);
+fn normalized(stops: &[(f64, Rgba)], lo: f64, hi: f64) -> Vec<(f64, Rgba)> {
+    let span = (hi - lo).max(f64::MIN_POSITIVE);
     stops
         .iter()
         .map(|(t, c)| (((t - lo) / span).clamp(0.0, 1.0), *c))
@@ -474,7 +469,7 @@ fn normalized(stops: &[(f32, Rgba)], lo: f32, hi: f32) -> Vec<(f32, Rgba)> {
 }
 
 /// The color of the stops at `t` (premultiplied interpolation).
-fn color_at(stops: &[(f32, Rgba)], t: f32) -> Rgba {
+fn color_at(stops: &[(f64, Rgba)], t: f64) -> Rgba {
     let Some(first) = stops.first() else {
         return Rgba::default();
     };
@@ -486,7 +481,7 @@ fn color_at(stops: &[(f32, Rgba)], t: f32) -> Rgba {
         if t <= t1 {
             let k = if t1 > t0 { (t - t0) / (t1 - t0) } else { 1.0 };
             let a = c0.a + (c1.a - c0.a) * k;
-            let mix = |x: f32, y: f32| {
+            let mix = |x: f64, y: f64| {
                 if a > 0.0 {
                     (x * c0.a + (y * c1.a - x * c0.a) * k) / a
                 } else {
@@ -507,7 +502,7 @@ fn color_at(stops: &[(f32, Rgba)], t: f32) -> Rgba {
 /// One period of stops (in `[0, 1]`) shifted by `phase` (a fraction of
 /// the period), wrapped around: the color at `u` is the period's at
 /// `u - phase`.
-fn rotated(period: &[(f32, Rgba)], phase: f32) -> Vec<(f32, Rgba)> {
+fn rotated(period: &[(f64, Rgba)], phase: f64) -> Vec<(f64, Rgba)> {
     let phase = phase.rem_euclid(1.0);
     if phase == 0.0 {
         return period.to_vec();
@@ -532,16 +527,16 @@ fn rotated(period: &[(f32, Rgba)], phase: f32) -> Vec<(f32, Rgba)> {
 
 /// A CSS gradient over the box `rect` as an Arvane paint (`None`: no
 /// stops).
-pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protocol::Paint> {
+pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Paint> {
     if g.stops.is_empty() {
         return None;
     }
-    let lerp = |a: Point, b: Point, t: f32| Point {
+    let lerp = |a: Point, b: Point, t: f64| Point {
         x: a.x + (b.x - a.x) * t,
         y: a.y + (b.y - a.y) * t,
     };
-    let solid = |stops: &[(f32, Rgba)]| {
-        Some(kivact_types::protocol::Paint::Solid(
+    let solid = |stops: &[(f64, Rgba)]| {
+        Some(kivact_types::render::Paint::Solid(
             stops.last().map(|s| s.1).unwrap_or_default(),
         ))
     };
@@ -586,7 +581,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protoco
             let cy = rect.y + center[1].of(rect.height);
             let (dl, dr) = ((cx - rect.x).abs(), (rect.right() - cx).abs());
             let (dt, db) = ((cy - rect.y).abs(), (rect.bottom() - cy).abs());
-            let corner = |x: f32, y: f32| x.hypot(y);
+            let corner = |x: f64, y: f64| x.hypot(y);
             let (rx, ry) = match extent {
                 RadialExtent::ClosestSide if circle => {
                     let r = dl.min(dr).min(dt).min(db);
@@ -603,16 +598,16 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protoco
                     (r, r)
                 }
                 RadialExtent::ClosestCorner => (
-                    dl.min(dr) * std::f32::consts::SQRT_2,
-                    dt.min(db) * std::f32::consts::SQRT_2,
+                    dl.min(dr) * std::f64::consts::SQRT_2,
+                    dt.min(db) * std::f64::consts::SQRT_2,
                 ),
                 RadialExtent::FarthestCorner if circle => {
                     let r = corner(dl.max(dr), dt.max(db));
                     (r, r)
                 }
                 RadialExtent::FarthestCorner => (
-                    dl.max(dr) * std::f32::consts::SQRT_2,
-                    dt.max(db) * std::f32::consts::SQRT_2,
+                    dl.max(dr) * std::f64::consts::SQRT_2,
+                    dt.max(db) * std::f64::consts::SQRT_2,
                 ),
                 RadialExtent::Radii(x, _) if circle => {
                     let r = x.of(rect.width);
@@ -677,8 +672,8 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protoco
             )
         }
     };
-    Some(kivact_types::protocol::Paint::Gradient(
-        kivact_types::protocol::Gradient {
+    Some(kivact_types::render::Paint::Gradient(
+        kivact_types::render::Gradient {
             shape,
             stops,
             extend,
@@ -693,7 +688,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::protoco
 pub(crate) fn coordinate(
     g: &CoordinateGradient,
     origin: Point,
-) -> Option<kivact_types::protocol::Paint> {
+) -> Option<kivact_types::render::Paint> {
     let at = |p: kivact_types::Point| Point {
         x: origin.x + p.x,
         y: origin.y + p.y,
@@ -701,7 +696,7 @@ pub(crate) fn coordinate(
     let stops = g
         .stops
         .iter()
-        .map(|(t, c)| (*t, crate::sanitize::color(*c)))
+        .map(|(t, c)| (*t, kivact_types::Rgba::sanitize(*c)))
         .collect();
     let (shape, extend) = match g.shape {
         CoordinateShape::Linear { start, end } => (
@@ -735,7 +730,7 @@ pub(crate) fn coordinate(
             Extend::Repeat,
         ),
     };
-    let paint = kivact_types::protocol::Paint::Gradient(kivact_types::protocol::Gradient {
+    let paint = kivact_types::render::Paint::Gradient(kivact_types::render::Gradient {
         shape,
         stops,
         extend,

@@ -83,8 +83,8 @@ impl Axes {
 }
 
 /// How far `r` reaches outside `limit` across `axes` (at most 0 inside).
-pub(super) fn reach(r: Rect, limit: Rect, axes: Axes) -> f32 {
-    let mut most = 0.0f32;
+pub(super) fn reach(r: Rect, limit: Rect, axes: Axes) -> f64 {
+    let mut most = 0.0f64;
     if axes.x {
         most = most
             .max(limit.x - r.x)

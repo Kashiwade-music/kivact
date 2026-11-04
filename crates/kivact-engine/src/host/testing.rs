@@ -71,14 +71,13 @@ mod text_reference;
 
 pub use arvane::test_display::{TestDisplayStats, WindowMode};
 pub use arvane::{Renderer, ShellEvent, ShellImeText};
-pub use kivact_types::protocol::{
-    PointerInput, SemanticsNode, SemanticsProperties, SemanticsTree, Transform,
-};
+pub use kivact_types::render::{SemanticsNode, SemanticsTree};
 pub use kivact_types::{
     A11yAction, A11yRequest, ButtonPress, CheckedState, Cursor, DismissReason, FilePhase, Insets,
     Key, KeyCode, LiveRegion, Modifiers, MouseButton, Orientation, Point, PointerId, PointerKind,
     PointerPhase, Role, SortDirection,
 };
+pub use kivact_types::{PointerSample, Semantics, Transform};
 
 pub use display_probe::{display_stats, gpu_unavailable};
 pub use test_frame::TestFrame;

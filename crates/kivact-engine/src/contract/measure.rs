@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 /// Text measurement lent to a [`LeafMeasure`] while it runs: the extent a
-/// scene's text run (`SceneCmd::Text`, its `origin` and `color` aside)
+/// scene's text run (`DrawCmd::Text`, its `origin` and `color` aside)
 /// would be drawn with in the measured leaf (a run without a family takes
 /// the leaf's inherited one), and the run shaped as a paragraph.
 #[derive(Clone, Copy)]
@@ -18,7 +18,7 @@ impl<'a> LeafTextMeasurer<'a> {
     pub fn shape_inline(
         &self,
         run: &TextRun,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
         boxes: &[InlineBox],
     ) -> Option<ShapedInlineText> {
         self.0.shape_inline(run, max_width, boxes)
@@ -35,7 +35,7 @@ impl<'a> LeafTextMeasurer<'a> {
     }
 
     /// `run` shaped as a paragraph wrapped at `max_width`.
-    pub fn shape(&self, run: &TextRun, max_width: Option<f32>) -> Option<Arc<ShapedText>> {
+    pub fn shape(&self, run: &TextRun, max_width: Option<f64>) -> Option<Arc<ShapedText>> {
         self.0.shape(run, max_width)
     }
 }
@@ -44,7 +44,7 @@ impl TextShaper for LeafTextMeasurer<'_> {
     fn shape_inline(
         &self,
         run: &TextRun,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
         boxes: &[InlineBox],
     ) -> Option<ShapedInlineText> {
         self.0.shape_inline(run, max_width, boxes)
@@ -54,7 +54,7 @@ impl TextShaper for LeafTextMeasurer<'_> {
         self.0.measure(run)
     }
 
-    fn shape(&self, run: &TextRun, max_width: Option<f32>) -> Option<Arc<ShapedText>> {
+    fn shape(&self, run: &TextRun, max_width: Option<f64>) -> Option<Arc<ShapedText>> {
         self.0.shape(run, max_width)
     }
 }

@@ -35,7 +35,7 @@ use crate::text_measure::TextMeasurer;
 use kivact_lower::assets::ArvaneAssets;
 use kivact_lower::context::Context;
 use kivact_lower::effects::Tint;
-use kivact_types::{Asset, ComputedText, PlatformResult, Rect, Scene};
+use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect};
 
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
@@ -53,7 +53,7 @@ pub enum OffscreenError {
     /// of commands the painting dropped).
     Dropped(u32),
     /// A resource, the shaping of a text or the rasterization failed.
-    Failed(String),
+    Failed(kivact_types::Failure),
 }
 
 /// A rendered image: tightly packed straight-alpha RGBA8, top row first, in
@@ -99,7 +99,7 @@ impl OffscreenRenderer {
     /// Text measurement for a drawing callback whose runs inherit
     /// `inherited`'s family and line height; fonts registered later are
     /// seen through the shared text engine.
-    pub fn text_measurer(&self, inherited: ComputedText) -> TextMeasurer {
+    pub fn text_measurer(&self, inherited: ComputedTextStyle) -> TextMeasurer {
         TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }
 
@@ -118,9 +118,9 @@ impl OffscreenRenderer {
     /// `inherited`'s. The first failure of a drawn command is the error.
     pub fn render(
         &mut self,
-        scene: &std::sync::Arc<Scene>,
+        scene: &std::sync::Arc<DrawList>,
         size: (u32, u32),
-        inherited: &ComputedText,
+        inherited: &ComputedTextStyle,
     ) -> Result<OffscreenImage, OffscreenError> {
         self.assets.get_mut().begin_frame();
         self.assets.get_mut().discard_failures();
@@ -133,8 +133,8 @@ impl OffscreenRenderer {
             Rect {
                 x: 0.0,
                 y: 0.0,
-                width: size.0 as f32,
-                height: size.1 as f32,
+                width: size.0 as f64,
+                height: size.1 as f64,
             },
             &Tint {
                 alpha: 1.0,
@@ -149,25 +149,19 @@ impl OffscreenRenderer {
         if dropped > 0 {
             return Err(OffscreenError::Dropped(dropped));
         }
-        failure.map_err(OffscreenError::Failed)?;
+        if let Some(failure) = failure.into_iter().next() {
+            return Err(OffscreenError::Failed(failure));
+        }
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
         let lowered = lowered.into_scene();
         let mut frame = self
             .rasterizer
             .render(&lowered, size.0, size.1)
-            .map_err(|e| OffscreenError::Failed(e.to_string()))?;
+            .map_err(|e| OffscreenError::Failed(e.into()))?;
         // PNG and Draw::pixels are straight alpha; Arvane's frame is
         // premultiplied.
-        for pixel in frame.rgba.as_chunks_mut::<4>().0 {
-            let alpha = u32::from(pixel[3]);
-            for channel in &mut pixel[..3] {
-                *channel = (u32::from(*channel) * 255 + alpha / 2)
-                    .checked_div(alpha)
-                    .unwrap_or(0)
-                    .min(255) as u8;
-            }
-        }
+        kivact_types::color::unpremultiply(&mut frame.rgba);
         Ok(OffscreenImage {
             width: frame.width,
             height: frame.height,

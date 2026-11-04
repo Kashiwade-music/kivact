@@ -1,9 +1,9 @@
 //! Role: Lowering of local scene text commands.
 use super::state::State;
 use crate::context::Context;
-use kivact_types::{Point, SceneCmd};
+use kivact_types::{DrawCmd, Point};
 impl Context<'_> {
-    pub(super) fn paint_text(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
+    pub(super) fn paint_text(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
         let point = |p: Point| Point {
             x: origin.x + p.x,
@@ -11,7 +11,7 @@ impl Context<'_> {
         };
         let tint = &state.current_tint;
         match cmd {
-            SceneCmd::Text(run) => {
+            DrawCmd::Text(run) => {
                 let mut style = crate::glyphs::run_style(state.engine, run, state.inherited);
                 style.color = tint.color(run.color);
                 style.decoration.color = run.decoration.color.map(|c| tint.color(c));
@@ -42,11 +42,11 @@ impl Context<'_> {
                             self.raster.get(),
                         );
                     }
-                    Err(error) => self.fail(error),
+                    Err(error) => self.fail(error.into()),
                 }
                 true
             }
-            SceneCmd::Paragraph {
+            DrawCmd::Paragraph {
                 shaped,
                 origin: at,
                 color,

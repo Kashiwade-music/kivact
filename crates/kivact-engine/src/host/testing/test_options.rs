@@ -26,11 +26,11 @@ pub enum TestFonts {
 #[derive(Clone, Debug)]
 pub struct TestHostOptions {
     /// Logical content width.
-    pub width: f32,
+    pub width: f64,
     /// Logical content height.
-    pub height: f32,
+    pub height: f64,
     /// Physical pixels per logical pixel (the test's, not the monitor's).
-    pub scale: f32,
+    pub scale: f64,
     /// The fonts text is shaped with.
     pub fonts: TestFonts,
     /// Window mirroring.
@@ -70,7 +70,7 @@ impl Default for TestHostOptions {
             fonts: TestFonts::Bundled,
             window: WindowMode::Auto,
             title: "kivact test".into(),
-            frame_period_ns: arvane::DEFAULT_FRAME_PERIOD_NS,
+            frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             theme: ThemeHint::Light,
             reduced_motion: false,
             locale: None,

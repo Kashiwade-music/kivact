@@ -118,10 +118,7 @@ impl ExactSizeIterator for StackedChildren<'_> {}
 
 /// The matrix of `t` for a box of `size`, relative to the box's top-left
 /// corner (`None`: it moves nothing, or a value is not finite).
-pub(crate) fn resolve(
-    t: &ElementTransform,
-    size: Size,
-) -> Option<kivact_types::protocol::Transform> {
+pub(crate) fn resolve(t: &ElementTransform, size: Size) -> Option<kivact_types::Transform> {
     if t.is_none() {
         return None;
     }
@@ -135,7 +132,7 @@ pub(crate) fn resolve(
     };
     let (sx, sy) = (t.scale.x, t.scale.y);
     // translate · rotate · skewX · scale.
-    let m = kivact_types::protocol::Transform {
+    let m = kivact_types::Transform {
         a: cos * sx,
         b: sin * sx,
         c: (cos * k - sin) * sy,
@@ -154,7 +151,7 @@ pub(crate) fn resolve(
 
 /// `sin` and `cos` of `deg` degrees, exact at the quarter turns (a
 /// rotation by 360° is the identity, its text hinted again).
-fn sin_cos_deg(deg: f32) -> (f32, f32) {
+fn sin_cos_deg(deg: f64) -> (f64, f64) {
     let turn = deg.rem_euclid(360.0);
     if turn == 0.0 {
         (0.0, 1.0)
@@ -171,17 +168,14 @@ fn sin_cos_deg(deg: f32) -> (f32, f32) {
 
 /// `t` moved to a box at `at` (its matrix is relative to the box's
 /// top-left corner).
-pub(crate) fn placed(
-    t: kivact_types::protocol::Transform,
-    at: Point,
-) -> kivact_types::protocol::Transform {
-    kivact_types::protocol::Transform::translate(-at.x, -at.y)
+pub(crate) fn placed(t: kivact_types::Transform, at: Point) -> kivact_types::Transform {
+    kivact_types::Transform::translate(-at.x, -at.y)
         .then(t)
-        .then(kivact_types::protocol::Transform::translate(at.x, at.y))
+        .then(kivact_types::Transform::translate(at.x, at.y))
 }
 
 /// The axis-aligned bounds of `r` mapped by `t` (`r` itself without one).
-pub(crate) fn map_rect(t: Option<&kivact_types::protocol::Transform>, r: Rect) -> Rect {
+pub(crate) fn map_rect(t: Option<&kivact_types::Transform>, r: Rect) -> Rect {
     match t {
         Some(t) => t.bounds(r),
         None => r,
@@ -217,17 +211,13 @@ impl Model {
         &self,
         id: NodeId,
         size: Size,
-    ) -> Option<kivact_types::protocol::Transform> {
+    ) -> Option<kivact_types::Transform> {
         resolve(&self.element_transform(id)?, size)
     }
 
     /// The transform of `id` from its own space to its parent's: about its
     /// box `rect` there (`None`: none).
-    pub(crate) fn transform_at(
-        &self,
-        id: NodeId,
-        rect: Rect,
-    ) -> Option<kivact_types::protocol::Transform> {
+    pub(crate) fn transform_at(&self, id: NodeId, rect: Rect) -> Option<kivact_types::Transform> {
         let size = Size {
             width: rect.width,
             height: rect.height,
@@ -250,8 +240,8 @@ impl Model {
         &self,
         id: NodeId,
         upto: Option<NodeId>,
-    ) -> Option<kivact_types::protocol::Transform> {
-        let mut out: Option<kivact_types::protocol::Transform> = None;
+    ) -> Option<kivact_types::Transform> {
+        let mut out: Option<kivact_types::Transform> = None;
         let mut cur = Some(id);
         while let Some(x) = cur {
             if Some(x) == upto {

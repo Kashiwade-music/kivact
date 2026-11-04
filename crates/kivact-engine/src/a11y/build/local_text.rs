@@ -14,7 +14,7 @@ impl Model {
         root: types::NodeId,
         nodes: &BTreeSet<types::NodeId>,
         engine: &mut a::Engine,
-    ) -> kivact_types::protocol::SemanticsTree {
+    ) -> kivact_types::render::SemanticsTree {
         let metadata = std::rc::Rc::clone(&self.a11y.metadata);
         self.build_local_text_with(root, nodes, &metadata, engine)
     }
@@ -25,7 +25,7 @@ impl Model {
         nodes: &BTreeSet<types::NodeId>,
         metadata: &Metadata,
         engine: &mut a::Engine,
-    ) -> kivact_types::protocol::SemanticsTree {
+    ) -> kivact_types::render::SemanticsTree {
         let mut dirty = nodes.clone();
         let mut queue: Vec<_> = dirty.iter().copied().collect();
         // Current naming policy has no implicit ancestor name. Only raw
@@ -55,7 +55,7 @@ impl Model {
         {
             self.a11y.constructed += nodes.len() as u64;
         }
-        kivact_types::protocol::SemanticsTree {
+        kivact_types::render::SemanticsTree {
             root: kivact_types::SemanticsId(root.0),
             focus: self.semantics_focus(&metadata.clipped),
             nodes,

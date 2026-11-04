@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use kivact_types::{HostEnv, Insets, MotionClock, NodeId, Point, Size, ThemeHint};
+use kivact_types::{Environment, Insets, MotionClock, NodeId, Point, Size, ThemeHint};
 
 /// One active programmatic scroll; allocated only while animating.
 pub(super) struct SmoothScroll {
@@ -34,7 +34,8 @@ pub(crate) struct Frame {
     pub(super) last_frame: Option<u64>,
     /// The environment as the client last saw it: the one source of the
     /// display period, reduced motion and drawability.
-    pub(super) env: HostEnv,
+    pub(super) env: Environment,
+    pub(super) surface_active: bool,
 }
 
 impl Default for Frame {
@@ -46,17 +47,8 @@ impl Default for Frame {
             frames: vec![],
             smooth_scrolls: BTreeMap::new(),
             last_frame: None,
-            env: HostEnv {
-                scale: 1.0,
-                reduced_motion: false,
-                theme_hint: ThemeHint::Light,
-                frame_period_ns: arvane::DEFAULT_FRAME_PERIOD_NS,
-                safe_area: Insets::default(),
-                window: Size::default(),
-                locale: None,
-                fullscreen: false,
-                surface_active: true,
-            },
+            env: Environment::default(),
+            surface_active: true,
         }
     }
 }
@@ -91,7 +83,7 @@ impl Frame {
 
     /// Whether there is a surface to draw on.
     pub(crate) fn surface_active(&self) -> bool {
-        self.env.surface_active
+        self.surface_active
     }
 
     /// Ask for a tick at or after `at_ns`.

@@ -51,9 +51,9 @@ impl Model {
             None => node.focusable(self.editors[node.index.0].is_some()),
             Some(id) => {
                 !node.disabled()
-                    && node
-                        .region(id)
-                        .is_some_and(|r| r.focusable && !r.disabled && !r.hidden)
+                    && node.region(id).is_some_and(|r| {
+                        r.semantics.focusable && !r.semantics.disabled && !r.semantics.hidden
+                    })
             }
         }
     }

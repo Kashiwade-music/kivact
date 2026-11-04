@@ -1,7 +1,7 @@
 //! Role: Bounded retained local scene payloads and resource dependency data.
 use crate::effects::Tint;
 use arvane::asset::{PixelSize, Region};
-use kivact_types::{Asset, ComputedText, Rgba, Scene, Size};
+use kivact_types::{Asset, ComputedTextStyle, DrawList, Rgba, Size};
 use std::sync::{Arc, Weak};
 
 /// Rebuildable local-scene lowering owned by one host or offscreen renderer.
@@ -30,8 +30,8 @@ impl SceneCache {
     }
     pub(crate) fn get(
         &mut self,
-        scene: &Arc<Scene>,
-        inherited: Option<&ComputedText>,
+        scene: &Arc<DrawList>,
+        inherited: Option<&ComputedTextStyle>,
         raster: u32,
         tint: &Tint,
     ) -> Option<Arc<Entry>> {
@@ -63,12 +63,12 @@ impl SceneCache {
     }
 }
 pub(crate) struct Entry {
-    pub(crate) scene: Weak<Scene>,
+    pub(crate) scene: Weak<DrawList>,
     pub(crate) len: usize,
-    pub(crate) inherited: Option<ComputedText>,
+    pub(crate) inherited: Option<ComputedTextStyle>,
     pub(crate) raster: u32,
     pub(crate) tint: Tint,
-    pub(crate) lowered: kivact_types::protocol::Scene,
+    pub(crate) lowered: kivact_types::render::RenderScene,
     pub(crate) max_depth: usize,
     pub(crate) dependencies: Vec<Dependency>,
 }

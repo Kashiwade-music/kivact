@@ -57,7 +57,7 @@ impl Model {
             } else if replace {
                 window.replace_accessibility(&candidate)
             } else {
-                window.update_accessibility(&kivact_types::protocol::SemanticsUpdate {
+                window.update_accessibility(&kivact_types::render::SemanticsUpdate {
                     root,
                     focus,
                     nodes: candidate.nodes,

@@ -8,20 +8,23 @@ use arvane::asset::{PixelSize, fit_image};
 use kivact_lower::effects::Tint;
 use kivact_lower::shape::BoxShape;
 use kivact_lower::{border, effects, scene, shape};
-use kivact_types::protocol::DrawCommand as D;
+use kivact_types::render::RenderCmd as D;
 use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
 
 impl Model {
     /// Build the frame's display list from the paint list (`list`): every
     /// listed node with its current content. Every shown image is drawn in
     /// it: a new frame of the asset store's recency.
-    pub(crate) fn scene(&mut self, engine: &mut arvane::Engine) -> kivact_types::protocol::Scene {
+    pub(crate) fn scene(
+        &mut self,
+        engine: &mut arvane::Engine,
+    ) -> kivact_types::render::RenderScene {
         self.paint_list();
         self.assets.borrow_mut().begin_frame();
         let mut out = kivact_lower::SceneOut::default();
         // How much the transforms around a node enlarge it, outermost
         // first: its images are rasterized for that much more.
-        let mut zoom: Vec<f32> = Vec::new();
+        let mut zoom: Vec<f64> = Vec::new();
         for entry in &self.paint.list.entries {
             let at = zoom.last().copied().unwrap_or(1.0);
             match entry {
@@ -61,7 +64,7 @@ impl Model {
     }
 
     /// The color matrix at `index` of the paint list.
-    fn matrix(&self, index: Option<u32>) -> Option<kivact_types::protocol::ColorMatrix> {
+    fn matrix(&self, index: Option<u32>) -> Option<kivact_types::render::ColorMatrix> {
         self.paint.list.matrices.get(index? as usize).copied()
     }
 
@@ -97,9 +100,9 @@ impl Model {
         step: &Step,
         p: &PaintProps,
         bounds: Rect,
-    ) -> Vec<kivact_types::protocol::Layer> {
+    ) -> Vec<kivact_types::render::Layer> {
         let e = p.effects.as_deref();
-        let outer = kivact_types::protocol::Layer {
+        let outer = kivact_types::render::Layer {
             clip: e
                 .and_then(|e| e.clip_path.as_ref())
                 .map(|s| shape::clip_path(s, bounds)),
@@ -111,9 +114,9 @@ impl Model {
                     y: area.y,
                 };
                 self.layer_paint(m, area, origin)
-                    .map(|paint| kivact_types::protocol::Mask { rect: area, paint })
+                    .map(|paint| kivact_types::render::Mask { rect: area, paint })
             }),
-            ..kivact_types::protocol::Layer::default()
+            ..kivact_types::render::Layer::default()
         };
         let opacity = if step.group { p.opacity } else { 1.0 };
         let parent = self.matrix(step.parent_matrix);
@@ -121,7 +124,7 @@ impl Model {
         // As many as the list counted (it closes as many).
         layers.resize_with(
             usize::from(step.layers),
-            kivact_types::protocol::Layer::default,
+            kivact_types::render::Layer::default,
         );
         layers
     }
@@ -173,9 +176,9 @@ impl Model {
             let padding =
                 BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
             if step.rounded {
-                out.push(D::PushLayer(kivact_types::protocol::Layer {
+                out.push(D::PushLayer(kivact_types::render::Layer {
                     clip: Some(padding.shape()),
-                    ..kivact_types::protocol::Layer::default()
+                    ..kivact_types::render::Layer::default()
                 }));
             } else {
                 out.push(D::PushClip(padding.rect()));
@@ -282,8 +285,8 @@ impl Model {
                         height: rect.height,
                     };
                     out.push(D::FillShape {
-                        shape: kivact_types::protocol::Shape::Rect(rect),
-                        paint: kivact_types::protocol::Paint::Solid(tint.color(color)),
+                        shape: kivact_types::scene::Shape::Rect(rect),
+                        paint: kivact_types::render::Paint::Solid(tint.color(color)),
                     });
                 }
             }

@@ -9,8 +9,8 @@ use std::sync::Arc;
 
 use crate::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::{
-    A11yAction, LayoutProps, Overflow, OverlayProps, PaintProps, Point, Position, Rect, Region,
-    RegionId, Role, Scene, Size, StateStyles, TextProps,
+    A11yAction, DrawList, FocusTarget, LayoutProps, Overflow, OverlayProps, PaintProps, Point,
+    Position, Rect, Region, RegionId, Role, Size, StateStyles, TextStyle,
 };
 
 /// A stable position in the sole node store, used only by retained links.
@@ -23,7 +23,7 @@ pub(crate) struct HostNode {
     /// The primary slot it was made for, assigned by `NodeStore::reserve`.
     pub(crate) index: NodeIndex,
     pub(crate) properties: NodeProperties,
-    pub(crate) scenes: [Option<Arc<Scene>>; 2],
+    pub(crate) scenes: [Option<Arc<DrawList>>; 2],
     pub(crate) scroll: Point,
     pub(crate) sent_layout: Option<(Rect, Size, bool)>,
     pub(crate) sent_scroll: Option<(Point, Size, Size)>,
@@ -118,7 +118,7 @@ impl HostNode {
         self.place.fixed = position == Some(Position::Fixed);
     }
 
-    pub(crate) fn semantics(&self) -> Option<&crate::contract::NodeSemantics> {
+    pub(crate) fn semantics(&self) -> Option<&kivact_types::Semantics<FocusTarget>> {
         self.properties.semantics.as_deref()
     }
     pub(crate) fn text_data(&self) -> Option<&kivact_types::TextData> {
@@ -159,12 +159,12 @@ impl HostNode {
     }
 
     /// The scenes of both draw layers (`Draw`, `DrawOver`).
-    pub(crate) fn scenes(&self) -> &[Option<Arc<Scene>>; 2] {
+    pub(crate) fn scenes(&self) -> &[Option<Arc<DrawList>>; 2] {
         &self.scenes
     }
 
     /// The scene of a draw layer.
-    pub(crate) fn scene(&self, layer: SceneLayer) -> Option<&Arc<Scene>> {
+    pub(crate) fn scene(&self, layer: SceneLayer) -> Option<&Arc<DrawList>> {
         self.scenes[layer_index(layer)].as_ref()
     }
 
@@ -227,7 +227,7 @@ impl HostNode {
     pub(crate) fn states(&self) -> Option<&StateStyles> {
         self.properties.states.as_deref()
     }
-    pub(crate) fn text(&self) -> Option<&TextProps> {
+    pub(crate) fn text(&self) -> Option<&TextStyle> {
         self.properties.text.as_deref()
     }
     pub(crate) fn overlay(&self) -> Option<OverlayProps> {
@@ -352,9 +352,9 @@ impl HostNode {
             .rev()
             .flatten()
             .flat_map(|s| s.regions.iter().rev())
-            .filter(|r| !r.hidden)
+            .filter(|r| !r.semantics.hidden)
             .find(|r| {
-                let Some(inverse) = kivact_lower::path::transform(r.transform).invert() else {
+                let Some(inverse) = r.transform.invert() else {
                     return false;
                 };
                 let point = inverse.apply(local);

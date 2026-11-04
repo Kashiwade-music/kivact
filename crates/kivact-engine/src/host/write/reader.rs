@@ -2,7 +2,7 @@
 
 use crate::contract::{HostEvent, NodeProperties, SceneLayer};
 use crate::model::Model;
-use kivact_types::{FocusTarget, NodeId, Point, PointerId, RegionId, Scene};
+use kivact_types::{DrawList, FocusTarget, NodeId, Point, PointerId, RegionId};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -19,6 +19,11 @@ pub struct Reader {
 }
 
 impl Reader {
+    /// Clone the one canonical semantics value stored for this node.
+    pub fn semantics(&self, id: NodeId) -> Option<kivact_types::Semantics<FocusTarget>> {
+        self.model.borrow().tree().get(id)?.semantics().cloned()
+    }
+
     /// Registered and system font family names, sorted and unique, preserving case.
     pub fn font_families(&self) -> Vec<String> {
         self.engine.borrow().font_families()
@@ -154,7 +159,7 @@ impl Reader {
     }
 
     /// The scene of node `id`'s draw `layer`, if it has one.
-    pub fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<Scene>> {
+    pub fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<DrawList>> {
         let model = self.model.borrow();
         model.node(id).and_then(|n| n.scene(layer)).cloned()
     }
@@ -163,7 +168,7 @@ impl Reader {
     /// inherited defaults. Each shaping borrow ends before returning its result.
     pub fn paragraph_measurer(
         &self,
-        inherited: kivact_types::ComputedText,
+        inherited: kivact_types::ComputedTextStyle,
     ) -> crate::text_measure::TextMeasurer {
         crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }
@@ -176,7 +181,7 @@ impl Reader {
             let model = self.model.try_borrow().expect(
                 "invariant: draw callbacks run in kivact's turn, never while the engine holds the model",
             );
-            kivact_types::ComputedText::clone(&model.text_props(id))
+            kivact_types::ComputedTextStyle::clone(&model.text_props(id))
         };
         crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }

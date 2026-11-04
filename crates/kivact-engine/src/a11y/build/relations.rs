@@ -8,7 +8,7 @@ impl Model {
     pub(super) fn validate_relations(
         &self,
         source: types::FocusTarget,
-        props: &mut kivact_types::protocol::SemanticsProperties,
+        props: &mut kivact_types::Semantics<kivact_types::SemanticsId>,
     ) {
         // A relation names nodes the platform tree has: one that is
         // gone, not attached or not exposed (no role) is left out. A
@@ -38,7 +38,10 @@ impl Model {
                 return false;
             }
             if let Some(region) = target.region
-                && (node.disabled() || node.region(region).is_none_or(|r| r.hidden || r.disabled))
+                && (node.disabled()
+                    || node
+                        .region(region)
+                        .is_none_or(|r| r.semantics.hidden || r.semantics.disabled))
             {
                 return false;
             }

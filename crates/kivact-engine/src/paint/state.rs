@@ -13,7 +13,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
-use kivact_types::protocol::ColorMatrix;
+use kivact_types::render::ColorMatrix;
 use kivact_types::{Edges, NodeId, Point, Rect, Size};
 
 /// The paint group of the model: derived caches and whether a
@@ -21,8 +21,8 @@ use kivact_types::{Edges, NodeId, Point, Rect, Size};
 pub(crate) struct PaintState {
     pub(crate) ink: Vec<Cell<Option<Ink>>>,
     pub(crate) look: Vec<Option<Look>>,
-    pub(super) scale: f32,
-    pub(super) raster: Cell<f32>,
+    pub(super) scale: f64,
+    pub(super) raster: Cell<f64>,
     pub(crate) scene_cache: RefCell<kivact_lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
     pub(super) dropped_draws: RefCell<Vec<(NodeId, u32)>>,
@@ -47,7 +47,7 @@ impl PaintState {
     }
 
     /// The window's scale factor the next frame is drawn at.
-    pub(crate) fn set_scale(&mut self, scale: f32) {
+    pub(crate) fn set_scale(&mut self, scale: f64) {
         self.scale = scale;
     }
 
@@ -67,7 +67,7 @@ impl PaintState {
     }
 
     /// A node's paint reads around its box by `reach` (backdrop filters).
-    pub(crate) fn note_backdrop(&mut self, reach: f32) {
+    pub(crate) fn note_backdrop(&mut self, reach: f64) {
         self.list.note_backdrop(reach);
     }
 }
@@ -77,14 +77,14 @@ impl PaintState {
 /// styles, and their paint is not copied).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Look {
-    pub(super) opacity: f32,
+    pub(super) opacity: f64,
     /// How far its outer shadows and focus ring reach outside its box.
-    pub(super) overflow: f32,
+    pub(super) overflow: f64,
     /// The widths of its visible border sides (canvas scenes start inside
     /// them).
-    pub(super) border: Edges<f32>,
+    pub(super) border: Edges<f64>,
     /// How far its layer filters draw beyond what they filter.
-    pub(super) fx: f32,
+    pub(super) fx: f64,
     /// The layers its effects need (layer filters, clip path, mask,
     /// blend), whatever its opacity: 0 or at least 1.
     pub(super) layers: u8,
@@ -123,7 +123,7 @@ pub(crate) struct Step {
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
     /// times its ancestors').
-    pub(super) alpha: f32,
+    pub(super) alpha: f64,
     pub(super) clips: bool,
     /// Its corners are rounded (a clip is a layer clipped to its rounded
     /// padding box, not a rect clip).
@@ -163,14 +163,14 @@ pub(crate) struct PaintList {
     pub(super) matrices: Vec<ColorMatrix>,
     /// The transforms of the listed transformed nodes, each in the space
     /// of the transforms around it.
-    pub(super) transforms: Vec<kivact_types::protocol::Transform>,
+    pub(super) transforms: Vec<kivact_types::Transform>,
     /// How far the farthest-reaching backdrop filter seen reads around its
     /// box (the viewport grows by it).
-    pub(super) backdrop_reach: f32,
+    pub(super) backdrop_reach: f64,
     /// Rebuild before the next frame.
     pub(super) stale: bool,
     /// The window size and raster scale it was culled for.
-    pub(super) built_for: Option<(Size, f32)>,
+    pub(super) built_for: Option<(Size, f64)>,
     /// The child indices of the containers with many children.
     pub(super) indices: HashMap<NodeId, ChildIndex>,
     /// Layout passes so far (the indices' geometry is from one of them).
@@ -220,8 +220,8 @@ pub(crate) struct ChildIndex {
     /// Along `axis`, per entry: where its reach starts (a hidden entry
     /// repeats the one before it), and the furthest end of the reaches up
     /// to it.
-    pub(super) starts: Vec<f32>,
-    pub(super) furthest: Vec<f32>,
+    pub(super) starts: Vec<f64>,
+    pub(super) furthest: Vec<f64>,
     /// The entries of the sticky children.
     pub(super) sticky: Vec<usize>,
     /// The layout pass the entries' geometry is from.

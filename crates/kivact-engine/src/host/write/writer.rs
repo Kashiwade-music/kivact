@@ -5,8 +5,8 @@ use crate::contract::{HostEvent, NodeKind, SceneLayer};
 use crate::model::Model;
 use crate::mutation::WriteStats;
 use kivact_types::{
-    NodeId, PlatformRequest, PlatformResult, Point, PointerId, RegionId, RequestId, Revision,
-    Scene, Size,
+    DrawList, NodeId, PlatformRequest, PlatformResult, Point, PointerId, RegionId, RequestId,
+    Revision, Size,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -131,7 +131,7 @@ impl Writer {
     }
 
     /// Set the scene of one draw layer of the `Box` `id`.
-    pub fn set_scene(&self, id: NodeId, layer: SceneLayer, scene: Arc<Scene>) {
+    pub fn set_scene(&self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
 

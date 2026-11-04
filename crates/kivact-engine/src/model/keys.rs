@@ -150,15 +150,25 @@ impl Model {
     /// A key release, reported to the focused node.
     pub(crate) fn key_up(&mut self, key: Key, code: KeyCode) {
         let node = self.focused();
-        self.push(HostEvent::Key {
-            node: node.map(|f| f.node),
+        self.push(HostEvent::Key(crate::contract::Routed {
+            target: node.map(|f| f.node),
             region: node.and_then(|f| f.region),
-            key,
-            code,
-            phase: KeyPhase::Up,
-            modifiers: self.modifiers,
-            pointer: self.pointer.mouse(),
-        });
+            local: self
+                .pointer
+                .mouse()
+                .zip(node.map(|f| f.node))
+                .map(|(point, node)| self.to_local(node, point))
+                .unwrap_or_default(),
+            captured: false,
+            activation: None,
+            input: kivact_types::KeyInput {
+                key,
+                code,
+                phase: KeyPhase::Up,
+                modifiers: self.modifiers,
+                pointer: self.pointer.mouse(),
+            },
+        }));
     }
 
     /// The focused text input, if it takes edits (not disabled).
@@ -195,7 +205,7 @@ impl Model {
         &mut self,
         id: NodeId,
         engine: &mut arvane::Engine,
-        f: impl FnOnce(&mut EditState, &Shaping<'_>, f32) -> bool,
+        f: impl FnOnce(&mut EditState, &Shaping<'_>, f64) -> bool,
     ) -> Option<bool> {
         let width = self.lay_out_lines(id, engine);
         self.edit_editor_with(id, |journal, lines| {
@@ -400,15 +410,25 @@ impl Model {
             Key::Char(_) | Key::Space => text.map(str::to_string),
             _ => None,
         };
-        self.push(HostEvent::Key {
-            node: self.focused().map(|f| f.node),
+        self.push(HostEvent::Key(crate::contract::Routed {
+            target: self.focused().map(|f| f.node),
             region: self.focused().and_then(|f| f.region),
-            key,
-            code,
-            phase: KeyPhase::Down { repeat, text },
-            modifiers,
-            pointer: self.pointer.mouse(),
-        });
+            local: self
+                .pointer
+                .mouse()
+                .zip(self.focused().map(|f| f.node))
+                .map(|(point, node)| self.to_local(node, point))
+                .unwrap_or_default(),
+            captured: false,
+            activation: None,
+            input: kivact_types::KeyInput {
+                key,
+                code,
+                phase: KeyPhase::Down { repeat, text },
+                modifiers: modifiers,
+                pointer: self.pointer.mouse(),
+            },
+        }));
         KeyResult::Reported
     }
 
@@ -514,7 +534,7 @@ impl Model {
 impl Model {
     /// Bring the lines of the text input `id` up to its text for a
     /// behavior to read; the width of the box they are aligned in.
-    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane::Engine) -> f32 {
+    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane::Engine) -> f64 {
         drop(self.edit_lines(id, engine));
         crate::model::interact::visual::text_box(self, id).width
     }
@@ -522,7 +542,7 @@ impl Model {
 
 /// What a behavior is given: the input's `(multiline, read_only,
 /// password)` and its `lines`, aligned in a box `width` wide.
-fn context<'a>(flags: (bool, bool, bool), lines: &'a Shaping<'_>, width: f32) -> EditContext<'a> {
+fn context<'a>(flags: (bool, bool, bool), lines: &'a Shaping<'_>, width: f64) -> EditContext<'a> {
     let (multiline, read_only, password) = flags;
     let layout = EditLayout {
         lines,

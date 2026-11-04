@@ -1,21 +1,21 @@
 //! Role: An append-only output scene that knows how many groups are open in it.
 
-use kivact_types::protocol::{DrawCommand, Scene};
+use kivact_types::render::{RenderCmd, RenderScene};
 
 /// Draw commands being built in paint order. It is append-only, so it always knows how many
 /// clips, transforms and layers are open at its end (a cached payload is appended under one
 /// more transform only while that stays within Arvane's depth limit).
 #[derive(Clone, Debug, Default)]
 pub struct SceneOut {
-    scene: Scene,
+    scene: RenderScene,
     open: usize,
     deepest: usize,
 }
 
 impl SceneOut {
     /// Append `command`.
-    pub fn push(&mut self, command: DrawCommand) {
-        use DrawCommand as D;
+    pub fn push(&mut self, command: RenderCmd) {
+        use RenderCmd as D;
         match command {
             D::PushClip(_) | D::PushTransform(_) | D::PushLayer(_) => {
                 self.open += 1;
@@ -31,7 +31,7 @@ impl SceneOut {
     }
 
     /// Append `commands` in order.
-    pub fn extend(&mut self, commands: impl IntoIterator<Item = DrawCommand>) {
+    pub fn extend(&mut self, commands: impl IntoIterator<Item = RenderCmd>) {
         for command in commands {
             self.push(command);
         }
@@ -48,7 +48,7 @@ impl SceneOut {
     }
 
     /// The finished scene.
-    pub fn into_scene(self) -> Scene {
+    pub fn into_scene(self) -> RenderScene {
         self.scene
     }
 }

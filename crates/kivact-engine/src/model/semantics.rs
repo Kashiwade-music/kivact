@@ -136,10 +136,10 @@ impl Model {
         self.tree
             .get(id)
             .and_then(|n| n.region(region))
-            .filter(|r| !r.disabled && !r.hidden)
+            .filter(|r| !r.semantics.disabled && !r.semantics.hidden)
             .map(|r| {
-                let mut actions = r.actions.clone();
-                if r.focusable && !actions.contains(&A11yAction::Focus) {
+                let mut actions = r.semantics.actions.clone();
+                if r.semantics.focusable && !actions.contains(&A11yAction::Focus) {
                     actions.push(A11yAction::Focus);
                 }
                 actions

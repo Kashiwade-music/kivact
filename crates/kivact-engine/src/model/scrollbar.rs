@@ -21,8 +21,8 @@ pub(crate) struct Bar {
     pub(crate) track: Rect,
     pub(crate) thumb: Rect,
     pub(crate) vertical: bool,
-    pub(crate) range: f32,
-    pub(crate) travel: f32,
+    pub(crate) range: f64,
+    pub(crate) travel: f64,
 }
 impl Model {
     pub(crate) fn scrollbar_bars(&self, id: NodeId) -> [Option<Bar>; 2] {

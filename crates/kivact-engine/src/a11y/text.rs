@@ -142,7 +142,7 @@ impl Model {
     }
 }
 
-fn shifted(rect: Rect, x: f32, y: f32) -> Rect {
+fn shifted(rect: Rect, x: f64, y: f64) -> Rect {
     Rect {
         x: rect.x + x,
         y: rect.y + y,

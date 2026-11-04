@@ -7,9 +7,9 @@ use crate::host::pump::Host;
 use crate::host::{Client, HostWaker};
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
 use arvane::{Renderer, ShellControl, ShellError, ShellEvent, ShellImeText, Window as _};
-use kivact_types::protocol::{PointerInput, SemanticsTree};
+use kivact_types::render::{PointerSample, SemanticsTree};
 use kivact_types::{Cursor, Insets, Point};
-use kivact_types::{LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Scene, Size, ThemeHint};
+use kivact_types::{DrawList, LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Size, ThemeHint};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -163,7 +163,7 @@ impl ArvaneTestHost {
     /// delivers its contacts: the window gives it a pointer id of its own
     /// (never the mouse's), counts its taps and drops what it would not
     /// report (a move or an end of a contact that never began).
-    pub fn contact(&mut self, contact: PointerInput) {
+    pub fn contact(&mut self, contact: PointerSample) {
         for event in self.window.contact(contact) {
             self.deliver(event);
         }
@@ -264,13 +264,13 @@ impl ArvaneTestHost {
     // ----- environment -----
 
     /// Resize the content to `width` × `height` logical pixels.
-    pub fn resize(&mut self, width: f32, height: f32) {
+    pub fn resize(&mut self, width: f64, height: f64) {
         self.window.resize(Size { width, height });
         self.send(ShellEvent::Resized);
     }
 
     /// Change the scale (physical pixels per logical pixel).
-    pub fn set_scale(&mut self, scale: f32) {
+    pub fn set_scale(&mut self, scale: f64) {
         self.window.set_scale(scale);
         self.send(ShellEvent::Resized);
     }
@@ -492,7 +492,7 @@ impl ArvaneTestHost {
     }
 
     /// The node hit at a logical window point.
-    pub fn hit(&self, x: f32, y: f32) -> Option<NodeId> {
+    pub fn hit(&self, x: f64, y: f64) -> Option<NodeId> {
         self.host.model.borrow().hit(Point { x, y })
     }
 
@@ -574,7 +574,7 @@ impl ArvaneTestHost {
     }
 
     /// The draw and draw-over scenes of node `id`.
-    pub fn scenes(&self, id: NodeId) -> Option<[Option<Arc<Scene>>; 2]> {
+    pub fn scenes(&self, id: NodeId) -> Option<[Option<Arc<DrawList>>; 2]> {
         let model = self.host.model.borrow();
         model.node(id).map(|n| n.scenes().clone())
     }

@@ -11,7 +11,7 @@
 //! - Box shadows follow the box's outline (elliptical corners too): outer
 //!   ones beneath the background, cut out of the box when the background
 //!   is not opaque (CSS); inset ones above the background. The first
-//!   shadow is on top. Each is one `DrawCommand::BoxShadow` of CSS's
+//!   shadow is on top. Each is one `RenderCmd::BoxShadow` of CSS's
 //!   `box-shadow`: the box grown by the spread (Arvane grows the radii by
 //!   CSS's formula, so sharp corners stay sharp), moved by the offset,
 //!   blurred by a gaussian of standard deviation blur / 2 (a blur of 0 is a
@@ -24,11 +24,11 @@
 
 use crate::effects::Tint;
 use crate::shape::BoxShape;
-use kivact_types::protocol::DrawCommand as D;
+use kivact_types::render::RenderCmd as D;
 use kivact_types::{Border, BorderStyle, Edges, Fill, Ring, Shadow};
 use kivact_types::{Rect, Rgba};
 
-use kivact_types::protocol::Shape;
+use kivact_types::scene::Shape;
 use kivact_types::{FillRule, LineCap, Point, Stroke};
 
 /// A border's sides in drawing order: top, right, bottom, left.
@@ -66,7 +66,7 @@ fn ring(outer: &BoxShape, inner: &BoxShape) -> Shape {
 
 /// Renderer strokes straddle the path; borders and rings lie inside
 /// `rect`.
-fn push_stroke(out: &mut crate::SceneOut, rect: Rect, radii: [f32; 4], width: f32, color: Rgba) {
+fn push_stroke(out: &mut crate::SceneOut, rect: Rect, radii: [f64; 4], width: f64, color: Rgba) {
     let half = width / 2.0;
     let rect = Rect {
         x: rect.x + half,
@@ -97,7 +97,7 @@ fn push_stroke(out: &mut crate::SceneOut, rect: Rect, radii: [f32; 4], width: f3
 fn stroke_band(
     out: &mut crate::SceneOut,
     shape: &BoxShape,
-    width: f32,
+    width: f64,
     style: BorderStyle,
     color: Rgba,
 ) {
@@ -127,7 +127,7 @@ fn stroke_band(
     out.push(D::StrokeShape {
         shape: middle.shape(),
         stroke,
-        paint: kivact_types::protocol::Paint::Solid(color),
+        paint: kivact_types::render::Paint::Solid(color),
     });
 }
 
@@ -157,18 +157,18 @@ pub fn border(out: &mut crate::SceneOut, shape: &BoxShape, border: &Border, tint
         if one_color {
             out.push(D::FillShape {
                 shape: band,
-                paint: kivact_types::protocol::Paint::Solid(color(shown[0])),
+                paint: kivact_types::render::Paint::Solid(color(shown[0])),
             });
             return;
         }
         for i in shown {
-            out.push(D::PushLayer(kivact_types::protocol::Layer {
+            out.push(D::PushLayer(kivact_types::render::Layer {
                 clip: Some(trapezoid(i, o, p)),
-                ..kivact_types::protocol::Layer::default()
+                ..kivact_types::render::Layer::default()
             }));
             out.push(D::FillShape {
                 shape: band.clone(),
-                paint: kivact_types::protocol::Paint::Solid(color(i)),
+                paint: kivact_types::render::Paint::Solid(color(i)),
             });
             out.push(D::PopLayer);
         }
@@ -176,9 +176,9 @@ pub fn border(out: &mut crate::SceneOut, shape: &BoxShape, border: &Border, tint
     }
     // Dashed or dotted sides of their own widths.
     for i in shown {
-        out.push(D::PushLayer(kivact_types::protocol::Layer {
+        out.push(D::PushLayer(kivact_types::render::Layer {
             clip: Some(trapezoid(i, o, p)),
-            ..kivact_types::protocol::Layer::default()
+            ..kivact_types::render::Layer::default()
         }));
         stroke_band(out, shape, w[i], border.style, color(i));
         out.push(D::PopLayer);
@@ -207,7 +207,7 @@ pub fn shadows(
         if color.a <= 0.0 {
             continue;
         }
-        out.push(D::BoxShadow(kivact_types::protocol::BoxShadow {
+        out.push(D::BoxShadow(kivact_types::render::BoxShadow {
             shape: rounded,
             offset: s.offset,
             spread: s.spread,
@@ -238,7 +238,7 @@ pub fn focus_ring(
         out.push(D::StrokeShape {
             shape: clip.clone(),
             stroke: Stroke::new(2.0 * width),
-            paint: kivact_types::protocol::Paint::Solid(color),
+            paint: kivact_types::render::Paint::Solid(color),
         });
         return;
     }
@@ -249,7 +249,7 @@ pub fn focus_ring(
         BoxShape::Circular(r, radii) => push_stroke(out, r, radii, width, color),
         BoxShape::Rounded(_) => out.push(D::FillShape {
             shape: ring(&outer, &inner),
-            paint: kivact_types::protocol::Paint::Solid(color),
+            paint: kivact_types::render::Paint::Solid(color),
         }),
     }
 }

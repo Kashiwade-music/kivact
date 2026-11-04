@@ -11,14 +11,14 @@ pub struct EditLines {
     pub(crate) key: Key,
     pub(crate) align: kivact_types::TextAlign,
     pub(crate) revision: u64,
-    pub(crate) height: f32,
+    pub(crate) height: f64,
     /// The baseline of a line without text (a space's, in the style).
-    pub(crate) blank: f32,
+    pub(crate) blank: f64,
     pub(crate) chunks: Vec<Chunk>,
     /// What comes before each chunk, then in all.
     pub(crate) before: Vec<Before>,
     /// The widest shaped line's width.
-    pub(crate) width: f32,
+    pub(crate) width: f64,
     /// The colors the lines were colored with.
     pub(crate) colors: Option<LineColors>,
     pub(crate) colored: usize,
@@ -31,7 +31,7 @@ impl EditLines {
     /// `damage` is not needed: nothing was laid out before).
     pub fn new(
         source: Source<'_>,
-        style: kivact_types::protocol::TextStyle,
+        style: kivact_types::ComputedTextStyle,
         engine: &mut arvane::Engine,
     ) -> Self {
         let (key, align) = Key::of(&source, style);

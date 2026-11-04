@@ -26,8 +26,8 @@ impl Lengths<'_, '_> {
     fn dim(&mut self, d: Dimension) -> TDim {
         match d {
             Dimension::Auto => TDim::auto(),
-            Dimension::Px(v) => TDim::length(v),
-            Dimension::Percent(v) => TDim::percent(v / 100.0),
+            Dimension::Px(v) => TDim::length((v) as f32),
+            Dimension::Percent(v) => TDim::percent((v / 100.0) as f32),
             Dimension::Calc { percent, px } => TDim::calc(self.alloc.calc(percent, px)),
             Dimension::MinContent => TDim::min_content(),
             Dimension::MaxContent => TDim::max_content(),
@@ -37,12 +37,12 @@ impl Lengths<'_, '_> {
 
     fn lp(&mut self, d: Dimension) -> LengthPercentage {
         match d {
-            Dimension::Percent(v) => LengthPercentage::percent(v / 100.0),
-            Dimension::Px(v) => LengthPercentage::length(v),
+            Dimension::Percent(v) => LengthPercentage::percent((v / 100.0) as f32),
+            Dimension::Px(v) => LengthPercentage::length((v) as f32),
             Dimension::Auto
             | Dimension::MinContent
             | Dimension::MaxContent
-            | Dimension::FitContent => LengthPercentage::length(0.0),
+            | Dimension::FitContent => LengthPercentage::length((0.0) as f32),
             Dimension::Calc { percent, px } => LengthPercentage::calc(self.alloc.calc(percent, px)),
         }
     }
@@ -53,8 +53,8 @@ impl Lengths<'_, '_> {
             | Dimension::MinContent
             | Dimension::MaxContent
             | Dimension::FitContent => LengthPercentageAuto::auto(),
-            Dimension::Px(v) => LengthPercentageAuto::length(v),
-            Dimension::Percent(v) => LengthPercentageAuto::percent(v / 100.0),
+            Dimension::Px(v) => LengthPercentageAuto::length((v) as f32),
+            Dimension::Percent(v) => LengthPercentageAuto::percent((v / 100.0) as f32),
             Dimension::Calc { percent, px } => {
                 LengthPercentageAuto::calc(self.alloc.calc(percent, px))
             }
@@ -63,12 +63,14 @@ impl Lengths<'_, '_> {
 }
 
 /// A border width as taffy takes it (not finite or below zero: 0).
-fn border(width: f32) -> LengthPercentage {
-    LengthPercentage::length(if width.is_finite() {
-        width.max(0.0)
-    } else {
-        0.0
-    })
+fn border(width: f64) -> LengthPercentage {
+    LengthPercentage::length(
+        (if width.is_finite() {
+            width.max(0.0)
+        } else {
+            0.0
+        }) as f32,
+    )
 }
 
 fn align(a: Align) -> AlignItems {

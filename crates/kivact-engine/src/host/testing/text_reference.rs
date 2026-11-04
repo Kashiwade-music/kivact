@@ -203,12 +203,12 @@ pub(super) fn compare(
     let before: Vec<_> = a
         .runs
         .iter()
-        .map(|r| (&r.value, r.bounds, &r.carets))
+        .map(|r| (&r.semantics.value_text, r.bounds, &r.carets))
         .collect();
     let after: Vec<_> = b
         .runs
         .iter()
-        .map(|r| (&r.value, r.bounds, &r.carets))
+        .map(|r| (&r.semantics.value_text, r.bounds, &r.carets))
         .collect();
     if before != after {
         // Compare all raw values strictly, but never put document text into
@@ -217,7 +217,7 @@ pub(super) fn compare(
         let describe = |runs: &[std::sync::Arc<kivact_types::SemanticsTextRun>]| {
             first
                 .and_then(|i| runs.get(i))
-                .map(|r| (r.value.len(), r.bounds, r.carets.len()))
+                .map(|r| (r.semantics.value_text.len(), r.bounds, r.carets.len()))
         };
         errors.push(format!(
             "publication values differ (text redacted, IDs excluded): run counts {}/{}, first {first:?}, retained {:?}, rebuilt {:?}",

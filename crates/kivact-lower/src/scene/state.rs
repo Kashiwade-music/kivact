@@ -1,21 +1,21 @@
 //! Role: The groups one local scene lowering has open in the output.
 use crate::SceneOut;
 use crate::effects::Tint;
-use kivact_types::protocol::DrawCommand as D;
-use kivact_types::{ComputedText, Rect};
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{ComputedTextStyle, Rect};
 /// A group a local scene opened in the output and has not closed yet.
 #[derive(Clone, Copy, Debug)]
 pub(super) enum Frame {
     /// A rect clip; `drawn: false` when its rect could not be drawn (its pop draws nothing).
     Clip { drawn: bool },
     /// A transform, with the raster scale outside it.
-    Transform { raster: f32 },
+    Transform { raster: f64 },
     /// A drawing layer: the output layers it pushed and the tint outside it.
     Layer { pushed: usize, tint: Tint },
 }
 
 pub(super) struct State<'a> {
-    pub(super) inherited: Option<&'a ComputedText>,
+    pub(super) inherited: Option<&'a ComputedTextStyle>,
     pub(super) engine: &'a mut arvane::Engine,
     pub(super) out: &'a mut SceneOut,
     pub(super) origin: Rect,
@@ -24,7 +24,7 @@ pub(super) struct State<'a> {
 }
 impl<'a> State<'a> {
     pub(super) fn new(
-        inherited: Option<&'a ComputedText>,
+        inherited: Option<&'a ComputedTextStyle>,
         engine: &'a mut arvane::Engine,
         out: &'a mut SceneOut,
         origin: Rect,

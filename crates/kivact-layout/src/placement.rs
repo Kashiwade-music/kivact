@@ -26,7 +26,7 @@ use kivact_types::{OverlayAlign, OverlayProps, Placement, Point, Rect, Size};
 fn place_without_inset(
     placement: Placement,
     align: OverlayAlign,
-    offset: f32,
+    offset: f64,
     anchor: Option<Rect>,
     size: Size,
     window: Size,
@@ -74,7 +74,7 @@ fn place_without_inset(
 /// Start coordinate on the placement's axis: after the anchor (`end`) or
 /// before it (`start - size`), preferring `after`, flipped as the module
 /// says.
-fn side(after: bool, start: f32, end: f32, size: f32, limit: f32) -> f32 {
+fn side(after: bool, start: f64, end: f64, size: f64, limit: f64) -> f64 {
     let room_after = limit - end;
     let room_before = start;
     let fits_after = size <= room_after;
@@ -89,7 +89,7 @@ fn side(after: bool, start: f32, end: f32, size: f32, limit: f32) -> f32 {
 
 /// Start coordinate along the anchor's side (`start`, `length`) of an
 /// overlay of `size` aligned by `align`, flipped as the module says.
-fn along(align: OverlayAlign, start: f32, length: f32, size: f32, limit: f32) -> f32 {
+fn along(align: OverlayAlign, start: f64, length: f64, size: f64, limit: f64) -> f64 {
     let at_start = start;
     let at_end = start + length - size;
     match align {
@@ -202,7 +202,7 @@ pub fn anchor_clear_size(
     if !geometry.overlaps_anchor(place_overlay(props, Some(anchor), size, window)) {
         return None;
     }
-    let room = |before: f32, after: f32| (before.max(after) - offset).max(0.0);
+    let room = |before: f64, after: f64| (before.max(after) - offset).max(0.0);
     Some(
         if matches!(props.placement, Placement::Start | Placement::End) {
             Size::new(
@@ -240,7 +240,7 @@ struct FitGeometry {
     anchor: Rect,
     size: Size,
     viewport: Rect,
-    offset: f32,
+    offset: f64,
 }
 
 impl FitGeometry {

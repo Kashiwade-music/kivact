@@ -6,7 +6,7 @@ use crate::model::Model;
 use crate::model::edit::state::ImeUpdate;
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, ShellControl, ShellError, Window};
-use kivact_types::{FileDialogRequest, PlatformRequest, PlatformResult};
+use kivact_types::{FileDialog, PlatformRequest, PlatformResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -62,7 +62,7 @@ pub(crate) struct Host {
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
-    pub(super) environment: kivact_types::protocol::Environment,
+    pub(super) environment: kivact_types::render::Environment,
     pub(super) reduced_motion_override: Option<bool>,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes. Independent of `phase`.
@@ -139,13 +139,13 @@ impl Host {
                         let fullscreen = window.fullscreen();
                         self.model
                             .borrow_mut()
-                            .update_env(|env| env.fullscreen = fullscreen);
+                            .update_env(|env, _| env.fullscreen = fullscreen);
                         PlatformResult::Done
                     })
                 }
                 PlatformRequest::ReducedMotion(override_value) => {
                     self.reduced_motion_override = override_value;
-                    self.model.borrow_mut().update_env(|env| {
+                    self.model.borrow_mut().update_env(|env, _| {
                         env.reduced_motion =
                             override_value.unwrap_or(self.environment.reduced_motion);
                     });
@@ -155,18 +155,10 @@ impl Host {
                     window.copy_text(&text).map(|()| PlatformResult::Done)
                 }
                 PlatformRequest::ReadText => window.read_text().map(PlatformResult::Text),
-                PlatformRequest::PickFile(p) => {
-                    window.pick_file(&dialog(p)).map(PlatformResult::Path)
-                }
-                PlatformRequest::PickFiles(p) => {
-                    window.pick_files(&dialog(p)).map(PlatformResult::Paths)
-                }
-                PlatformRequest::SaveFile(p) => {
-                    window.save_file(&dialog(p)).map(PlatformResult::Path)
-                }
-                PlatformRequest::PickFolder(p) => {
-                    window.pick_folder(&dialog(p)).map(PlatformResult::Path)
-                }
+                PlatformRequest::PickFile(p) => window.pick_file(&p).map(PlatformResult::Path),
+                PlatformRequest::PickFiles(p) => window.pick_files(&p).map(PlatformResult::Paths),
+                PlatformRequest::SaveFile(p) => window.save_file(&p).map(PlatformResult::Path),
+                PlatformRequest::PickFolder(p) => window.pick_folder(&p).map(PlatformResult::Path),
                 PlatformRequest::OpenPath(path) => {
                     window.open_path(&path).map(|()| PlatformResult::Done)
                 }
@@ -180,10 +172,9 @@ impl Host {
             .unwrap_or_else(|e| {
                 // A service the platform does not have is `Unsupported`
                 // (`ErrorKind::Unsupported` in the App), not a failure.
-                if e.is_unsupported() {
-                    PlatformResult::Unsupported
-                } else {
-                    PlatformResult::Failed(e.to_string())
+                match e {
+                    arvane::ShellError::Unsupported(_) => PlatformResult::Unsupported,
+                    arvane::ShellError::Failed(failure) => PlatformResult::Failed(failure),
                 }
             });
             if self.closing() {
@@ -466,14 +457,5 @@ impl Host {
         } else {
             next.map_or(ShellControl::Wait, ShellControl::WakeAt)
         }
-    }
-}
-
-fn dialog(p: FileDialogRequest) -> arvane::ShellFileDialog {
-    arvane::ShellFileDialog {
-        title: p.title,
-        directory: p.directory,
-        file_name: p.file_name,
-        filters: p.filters,
     }
 }

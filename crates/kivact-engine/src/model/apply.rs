@@ -30,7 +30,7 @@ use std::sync::Arc;
 
 use crate::contract::{HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
 use crate::mutation::Mutation;
-use kivact_types::{ElementTransform, NodeId, Point, RequestId, Revision, Scene};
+use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId, Revision};
 
 use crate::model::Model;
 use crate::model::changes::Dirty;
@@ -65,7 +65,7 @@ impl Model {
     }
 
     /// Set the scene of one draw layer of `id`.
-    pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Arc<Scene>) {
+    pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
         self.changes.restack = true;
         let old_order = if self.focused().is_some_and(|focus| focus.node == id) {
             self.focus_order()

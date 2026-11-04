@@ -31,7 +31,7 @@
 //! - Publication happens after the client's turns, or, when the native
 //!   window has a frame to draw, after that frame
 //!   (`Window::defers_accessibility`).
-//! - Scene regions are flat synthetic leaves of their node, with native ids
+//! - DrawList regions are flat synthetic leaves of their node, with native ids
 //!   counted down from `u64::MAX` that stay stable while the region exists;
 //!   a region with a non-finite or negative rect is left out alone.
 //! - Rows of a clipping list-like container (virtual list overscan) lying

@@ -44,7 +44,7 @@ impl EditLines {
     pub fn refresh(
         &mut self,
         source: Source<'_>,
-        style: kivact_types::protocol::TextStyle,
+        style: kivact_types::ComputedTextStyle,
         engine: &mut arvane::Engine,
         mode: RefreshMode,
     ) -> Result<(), RefreshError> {
@@ -75,7 +75,7 @@ impl EditLines {
     fn reconcile(
         &mut self,
         source: Source<'_>,
-        style: kivact_types::protocol::TextStyle,
+        style: kivact_types::ComputedTextStyle,
         engine: &mut arvane::Engine,
     ) {
         let (key, align) = Key::of(&source, style);

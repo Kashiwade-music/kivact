@@ -42,7 +42,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::AssetEvent;
 use arvane::asset::{AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font};
-use kivact_types::{Asset, ComputedText, NodeId, PlatformResult, Rgba, Size};
+use kivact_types::{Asset, ComputedTextStyle, NodeId, PlatformResult, Rgba, Size};
 
 /// UI-thread resource owner with image and font diagnostic deduplication.
 /// Owner keys are supplied by the caller; this manager never traverses a tree.
@@ -161,7 +161,7 @@ impl ArvaneAssets {
         device: PixelSize,
         visible: Region,
         tint: Option<Rgba>,
-    ) -> Option<(kivact_types::protocol::ImageData, Region)> {
+    ) -> Option<(kivact_types::scene::Pixels, Region)> {
         if device.is_empty() {
             return None;
         }
@@ -169,7 +169,7 @@ impl ArvaneAssets {
         // Arvane keeps no device textures: evicted pixels need no work.
         self.store.take_evicted();
         let (pixels, region) = drawn?;
-        let image = kivact_types::protocol::ImageData {
+        let image = kivact_types::scene::Pixels {
             width: pixels.width(),
             height: pixels.height(),
             rgba: std::sync::Arc::clone(pixels.rgba()),
@@ -293,9 +293,9 @@ pub fn family(engine: &mut arvane::Engine, name: Option<&str>) -> Option<String>
 /// The Arvane text style for `props`, its family resolved.
 pub fn text_style(
     engine: &mut arvane::Engine,
-    props: &ComputedText,
-) -> kivact_types::protocol::TextStyle {
-    let mut style = crate::conversion::text(props);
+    props: &ComputedTextStyle,
+) -> kivact_types::ComputedTextStyle {
+    let mut style = props.clone();
     style.family = family(engine, props.family.as_deref());
     style
 }

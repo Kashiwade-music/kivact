@@ -3,7 +3,7 @@
 use kivact_types::{NodeId, Point, RegionId};
 
 /// One shared input sample and the engine's routing decision.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Routed<T> {
     /// The receiving node, or no node for a window-directed key event.
     pub target: Option<NodeId>,

@@ -504,7 +504,7 @@ impl Model {
     /// reveals the target where the inner scrolls left it.
     pub(crate) fn scroll_into_view(&mut self, id: NodeId) {
         // The scroll delta that brings [t, t + tl) into [v, v + vl).
-        let reveal = |t: f32, tl: f32, v: f32, vl: f32| {
+        let reveal = |t: f64, tl: f64, v: f64, vl: f64| {
             if t < v {
                 t - v
             } else {

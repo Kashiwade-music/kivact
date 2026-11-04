@@ -1,10 +1,10 @@
 //! Role: Engine client host contracts.
-use kivact_types::{Capabilities, HostEnv};
+use kivact_types::{Capabilities, Environment};
 use std::fmt;
 
 /// What the client is given at start: the window's environment as the
 /// host read it (`Window::environment`). Later changes arrive as
-/// `HostEvent::EnvChanged`, with the whole `HostEnv` again.
+/// `HostEvent::EnvChanged`, with the whole `Environment` again.
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostInfo {
     /// What the window's backend can do (touch, pen, software keyboard,
@@ -14,7 +14,8 @@ pub struct HostInfo {
     /// Host clock at start (ns, monotonic, host-defined epoch).
     pub now_ns: u64,
     /// The window's environment at start.
-    pub env: HostEnv,
+    pub env: Environment,
+    pub surface_active: bool,
 }
 
 /// Result of one turn. A turn may commit several revisions (user effects

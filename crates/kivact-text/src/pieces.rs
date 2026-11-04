@@ -29,7 +29,7 @@ fn fragments(text: &str) -> Vec<Range<usize>> {
     let mut out = Vec::new();
     let mut from = 0;
     while text.len() - from > FRAGMENT {
-        let piece = &text[from..floor(text, from + FRAGMENT)];
+        let piece = &text[from..kivact_types::text_utf::floor_char_boundary(text, from + FRAGMENT)];
         let (mut last, mut after_space, mut space) = (0, 0, false);
         for (at, g) in piece.grapheme_indices(true) {
             if at > 0 {
@@ -56,23 +56,23 @@ fn fragments(text: &str) -> Vec<Range<usize>> {
 /// end on one baseline into one line.
 pub(super) fn shape_long(
     text: &str,
-    mut shape: impl FnMut(Range<usize>) -> Option<Arc<kivact_types::protocol::ShapedText>>,
-) -> Option<Arc<kivact_types::protocol::ShapedText>> {
+    mut shape: impl FnMut(Range<usize>) -> Option<Arc<kivact_types::scene::ShapedText>>,
+) -> Option<Arc<kivact_types::scene::ShapedText>> {
     let pieces = fragments(text);
     if pieces.len() == 1 {
         return shape(0..text.len());
     }
-    let shaped: Vec<(Range<usize>, kivact_types::protocol::ShapedText)> = pieces
+    let shaped: Vec<(Range<usize>, kivact_types::scene::ShapedText)> = pieces
         .into_iter()
         .map(|range| Some((range.clone(), Arc::unwrap_or_clone(shape(range)?))))
         .collect::<Option<_>>()?;
-    let baseline = shaped.iter().map(|(_, s)| s.baseline).fold(0.0, f32::max);
-    let mut out = kivact_types::protocol::ShapedText {
+    let baseline = shaped.iter().map(|(_, s)| s.baseline).fold(0.0, f64::max);
+    let mut out = kivact_types::scene::ShapedText {
         baseline,
         ..Default::default()
     };
-    let mut line: Option<kivact_types::protocol::TextLine> = None;
-    let (mut x, mut scalars) = (0.0f32, 0u32);
+    let mut line: Option<kivact_types::render::TextLine> = None;
+    let (mut x, mut scalars) = (0.0f64, 0u32);
     for (i, (range, piece)) in shaped.into_iter().enumerate() {
         let dy = baseline - piece.baseline;
         let advance = piece
@@ -80,7 +80,7 @@ pub(super) fn shape_long(
             .iter()
             .flat_map(|r| r.glyphs.iter())
             .map(|g| g.x + g.advance)
-            .fold(piece.size.width, f32::max);
+            .fold(piece.size.width, f64::max);
         let at = |r: Rect| Rect {
             x: r.x + x,
             y: r.y + dy,
@@ -120,7 +120,7 @@ pub(super) fn shape_long(
         if let Some(first) = piece.lines.first() {
             let rect = at(first.rect);
             line = Some(match line.take() {
-                None => kivact_types::protocol::TextLine {
+                None => kivact_types::render::TextLine {
                     range: 0..text.len(),
                     rect,
                     baseline,
@@ -145,13 +145,4 @@ pub(super) fn shape_long(
     out.size.width = x;
     out.lines.extend(line);
     Some(Arc::new(out))
-}
-
-/// The largest char boundary of `s` not after `x`.
-pub(super) fn floor(s: &str, x: usize) -> usize {
-    let mut x = x.min(s.len());
-    while !s.is_char_boundary(x) {
-        x -= 1;
-    }
-    x
 }

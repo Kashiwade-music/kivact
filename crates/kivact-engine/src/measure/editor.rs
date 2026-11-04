@@ -17,9 +17,9 @@ pub(crate) struct EditorNode {
     /// Last session sent to the selection listener.
     pub(crate) reported_session: Option<kivact_editing::TextSession>,
     /// Horizontal text scroll, independent of container scrolling.
-    pub(crate) scroll_x: f32,
+    pub(crate) scroll_x: f64,
     /// Vertical scroll of an automatically sized or wrapped field.
-    pub(crate) scroll_y: f32,
+    pub(crate) scroll_y: f64,
     /// Revision at which the current controlled Rc value was last considered.
     pub(crate) controlled_at: u64,
 }

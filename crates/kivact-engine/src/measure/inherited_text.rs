@@ -2,38 +2,26 @@
 
 use crate::measure::state::MeasureColumns;
 use crate::tree::NodeTree;
-use kivact_types::{ComputedText, NodeId, TextProps};
+use kivact_types::{ComputedTextStyle, NodeId, TextStyle};
 use std::rc::Rc;
 
 /// The inherited text style of `id`, resolved from its ancestors' `Text`
 /// props: the resolver behind [`computed_text`], which the paint and
 /// measure paths read instead (the checks compare the two).
-pub(crate) fn text_props(tree: &crate::tree::NodeTree, id: NodeId) -> ComputedText {
-    let mut props: Option<TextProps> = None;
+pub(crate) fn text_props(tree: &crate::tree::NodeTree, id: NodeId) -> ComputedTextStyle {
+    let mut ancestors = Vec::new();
     let mut cur = Some(id);
     while let Some(x) = cur {
         let Some(n) = tree.nodes.get(&x) else { break };
-        if let Some(t) = n.text() {
-            let own = match &mut props {
-                Some(own) => {
-                    own.inherit(t);
-                    own
-                }
-                None => {
-                    let mut own = t.clone();
-                    if x != id {
-                        own.capsize = None;
-                    }
-                    props.insert(own)
-                }
-            };
-            if own.is_complete() {
-                break;
-            }
-        }
+        ancestors.push(n);
         cur = tree.parent_id(n);
     }
-    props.unwrap_or_default().computed()
+    ancestors
+        .into_iter()
+        .rev()
+        .fold(ComputedTextStyle::default(), |parent, node| {
+            ComputedTextStyle::inherit(&parent, node.text().unwrap_or(&TextStyle::default()))
+        })
 }
 
 /// The inherited text style of `id` as kept in `columns`: resolved once
@@ -44,9 +32,9 @@ pub(crate) fn computed_text(
     tree: &crate::tree::NodeTree,
     columns: &MeasureColumns,
     id: NodeId,
-) -> Rc<ComputedText> {
+) -> Rc<ComputedTextStyle> {
     let Some(n) = tree.get(id) else {
-        return Rc::new(ComputedText::default());
+        return Rc::new(ComputedTextStyle::default());
     };
     if let Some(kept) = columns.computed_text(n.index.0) {
         return kept;
@@ -63,10 +51,10 @@ pub(crate) fn input_style(
     columns: &MeasureColumns,
     id: NodeId,
     engine: &mut arvane::Engine,
-) -> kivact_types::protocol::TextStyle {
+) -> kivact_types::ComputedTextStyle {
     let mut style = kivact_lower::assets::text_style(engine, &computed_text(tree, columns, id));
-    style.wrap = kivact_types::protocol::TextWrap::NoWrap;
-    style.decoration = kivact_types::protocol::TextDecoration::default();
+    style.wrap = kivact_types::TextWrap::NoWrap;
+    style.decoration = kivact_types::TextDecoration::default();
     style.overflow = kivact_types::TextOverflow::Clip;
     style.max_lines = None;
     style.capsize = false;

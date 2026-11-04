@@ -131,13 +131,13 @@ impl<'a> Measure<'a> {
     fn node_text(
         &mut self,
         node: &crate::tree::node::HostNode,
-        text: kivact_types::protocol::RichText<'_>,
-        mut style: kivact_types::protocol::TextStyle,
-        max_width: Option<f32>,
+        text: kivact_types::render::RichText<'_>,
+        mut style: kivact_types::ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Option<LeafSize> {
         // Colors and decorations never change an extent.
-        style.color = kivact_types::protocol::TextStyle::default().color;
-        style.decoration = kivact_types::protocol::TextDecoration::default();
+        style.color = kivact_types::ComputedTextStyle::default().color;
+        style.decoration = kivact_types::TextDecoration::default();
         let mut extents = self.cache.extents[node.index.0].borrow_mut();
         if extents.as_ref().is_none_or(|e| e.style != style) {
             let single = self.engine.text_metrics(text, &style, None).ok();
@@ -169,8 +169,8 @@ impl<'a> Measure<'a> {
 
 /// Whether text in `style` whose one unwrapped line is `single` measures
 /// otherwise at `width`: it wraps, or is cut with an ellipsis.
-fn narrows(style: &kivact_types::protocol::TextStyle, width: f32, single: Size) -> bool {
-    (style.wrap == kivact_types::protocol::TextWrap::Wrap
+fn narrows(style: &kivact_types::ComputedTextStyle, width: f64, single: Size) -> bool {
+    (style.wrap == kivact_types::TextWrap::Wrap
         || style.overflow == kivact_types::TextOverflow::Ellipsis)
         && width < single.width
 }
@@ -256,11 +256,11 @@ impl Measure<'_> {
                     } else {
                         120.0
                     },
-                    height: rows as f32 * line,
+                    height: rows as f64 * line,
                 };
                 let size = slack(Size {
                     width,
-                    height: count as f32 * line,
+                    height: count as f64 * line,
                 });
                 // A single-line input's line sits `line_offset` into its
                 // content box (as `text_geometry::line_box` places it), so
@@ -304,7 +304,7 @@ impl Measure<'_> {
                         .check_family(self.engine, id, span.style.family.as_deref());
                 }
                 let spans = rich_spans(self.engine, n.spans(), &style);
-                let text = kivact_types::protocol::RichText {
+                let text = kivact_types::render::RichText {
                     text: n.content().unwrap_or(""),
                     spans: &spans,
                 };
@@ -368,12 +368,12 @@ impl Measure<'_> {
 pub(crate) fn rich_spans(
     engine: &mut arvane::Engine,
     spans: &[kivact_types::TextSpan],
-    style: &kivact_types::protocol::TextStyle,
-) -> Vec<kivact_types::protocol::TextSpan> {
+    style: &kivact_types::ComputedTextStyle,
+) -> Vec<kivact_types::render::TextSpan> {
     if spans.is_empty() {
         return Vec::new();
     }
-    kivact_lower::conversion::spans(spans, style.font_size, kivact_lower::sanitize::color, |f| {
+    kivact_lower::conversion::spans(spans, style.font_size, kivact_types::Rgba::sanitize, |f| {
         kivact_lower::assets::family(engine, Some(f))
     })
 }
@@ -402,14 +402,14 @@ fn leaf_size(
 /// inherited ones, computed when a run needs them).
 struct LeafText<'a> {
     engine: std::cell::RefCell<&'a mut arvane::Engine>,
-    inherited: std::cell::OnceCell<std::rc::Rc<kivact_types::ComputedText>>,
+    inherited: std::cell::OnceCell<std::rc::Rc<kivact_types::ComputedTextStyle>>,
     tree: &'a NodeTree,
     columns: &'a MeasureColumns,
     id: NodeId,
 }
 
 impl LeafText<'_> {
-    fn inherited(&self, run: &kivact_types::TextRun) -> Option<&kivact_types::ComputedText> {
+    fn inherited(&self, run: &kivact_types::TextRun) -> Option<&kivact_types::ComputedTextStyle> {
         kivact_lower::glyphs::inherits(run).then(|| {
             &**self
                 .inherited
@@ -427,8 +427,8 @@ impl kivact_types::TextShaper for LeafText<'_> {
     fn shape(
         &self,
         run: &kivact_types::TextRun,
-        max_width: Option<f32>,
-    ) -> Option<std::sync::Arc<kivact_types::protocol::ShapedText>> {
+        max_width: Option<f64>,
+    ) -> Option<std::sync::Arc<kivact_types::scene::ShapedText>> {
         let inherited = self.inherited(run);
         kivact_lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
     }
@@ -436,7 +436,7 @@ impl kivact_types::TextShaper for LeafText<'_> {
     fn shape_inline(
         &self,
         run: &kivact_types::TextRun,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
         boxes: &[kivact_types::InlineBox],
     ) -> Option<kivact_types::ShapedInlineText> {
         let inherited = self.inherited(run);

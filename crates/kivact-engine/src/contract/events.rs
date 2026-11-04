@@ -1,8 +1,8 @@
 //! Role: Engine client events contracts.
 use kivact_types::{
-    A11yRequest, ExternalImport, FilePhase, HostEnv, ImeEvent, Key, KeyCode, KeyPhase, LayoutRule,
-    LifecycleEvent, Modifiers, MotionClock, NodeId, PlatformResult, Point, PointerEvent, PointerId,
-    Rect, RegionId, RequestId, Revision, Size,
+    A11yRequest, Environment, ExternalImport, FilePhase, ImeInput, Key, KeyCode, KeyPhase,
+    LayoutRule, LifecycleEvent, Modifiers, MotionClock, NodeId, PlatformResult, Point, PointerId,
+    PointerSample, Rect, RegionId, RequestId, Revision, Size,
 };
 use std::path::PathBuf;
 
@@ -24,39 +24,11 @@ pub enum HostEvent {
     ExitComplete {
         node: NodeId,
     },
-    Pointer {
-        node: NodeId,
-        region: Option<RegionId>,
-        event: PointerEvent,
-    },
-    Wheel {
-        node: NodeId,
-        region: Option<RegionId>,
-        delta: Point,
-        pos: Point,
-        modifiers: Modifiers,
-    },
-    File {
-        node: NodeId,
-        phase: FilePhase,
-        files: Vec<PathBuf>,
-        pos: Point,
-        window_pos: Point,
-    },
-    /// A key press or release (`phase`), sent to the focused node (None =
-    /// window).
-    Key {
-        node: Option<NodeId>,
-        region: Option<RegionId>,
-        key: Key,
-        code: KeyCode,
-        phase: KeyPhase,
-        modifiers: Modifiers,
-        /// Where the mouse was in the window (logical pixels) when the key
-        /// arrived; `None` while it is outside the window and before it
-        /// first entered. A touch or pen contact does not move it.
-        pointer: Option<Point>,
-    },
+    Pointer(super::Routed<kivact_types::PointerSample>),
+    Wheel(super::Routed<kivact_types::WheelInput>),
+    File(super::Routed<kivact_types::FileDrop>),
+    /// Key input, including a missing target for window-directed keys.
+    Key(super::Routed<kivact_types::KeyInput>),
     /// The modifier keys held changed between events: a modifier key went
     /// down or up, or the window lost the keyboard (none are held). Sent
     /// only when they differ from the last ones; key, pointer and wheel
@@ -107,7 +79,7 @@ pub enum HostEvent {
     /// (not a native editor): composition, commit or reconversion.
     Ime {
         node: NodeId,
-        event: ImeEvent,
+        event: ImeInput,
     },
     ScrollChanged {
         node: NodeId,
@@ -152,13 +124,16 @@ pub enum HostEvent {
     /// Lifecycle notification after updated environment and host cache release.
     Lifecycle(LifecycleEvent),
     /// The window's environment changed: the new value, whole. Sent
-    /// whenever any field of `HostEnv` differs from the last one the client
+    /// whenever any field of `Environment` differs from the last one the client
     /// was given (the scale or logical size, the theme, reduced motion,
     /// refresh period, safe area, locale, fullscreen, or whether anything
     /// can be drawn: no surface, an empty window, or the application
     /// suspended in the background, `surface_active`), one event for any
     /// of them.
-    EnvChanged(HostEnv),
+    EnvChanged {
+        environment: Environment,
+        surface_active: bool,
+    },
     /// A physical failure applying `revision`, reported as a diagnostic.
     HostFailure {
         revision: Revision,
@@ -198,7 +173,7 @@ pub enum HostEvent {
     LayoutWarning {
         node: NodeId,
         rule: LayoutRule,
-        amount: f32,
+        amount: f64,
     },
     CloseRequested,
     /// The window carried out `Writer::import_external` of `image` (after

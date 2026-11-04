@@ -1,136 +1,26 @@
-//! Role: Complete payload fingerprints; never an authority for accepting actions.
-use kivact_types::protocol::{SemanticsNode, SemanticsProperties, Transform};
-use kivact_types::{Rect, SemanticsText};
+//! Role: Fingerprint canonical accessible payloads and their transport geometry.
+use kivact_types::render::SemanticsNode;
 use std::hash::{DefaultHasher, Hash, Hasher};
-fn rect(r: Rect, h: &mut DefaultHasher) {
-    [r.x, r.y, r.width, r.height].map(f32::to_bits).hash(h);
-}
-fn text(t: &SemanticsText, h: &mut DefaultHasher) {
-    let SemanticsText {
-        runs,
-        start,
-        selection,
-        caret,
-    } = t;
-    start.hash(h);
-    selection.hash(h);
-    rect(*caret, h);
-    runs.len().hash(h);
-    for r in runs.iter() {
-        let kivact_types::SemanticsTextRun {
-            id,
-            value,
-            bounds,
-            carets,
-        } = r.as_ref();
-        id.hash(h);
-        value.hash(h);
-        rect(*bounds, h);
-        carets.len().hash(h);
-        for c in carets {
-            let kivact_types::TextCaret {
-                offset,
-                rect: bounds,
-            } = c;
-            offset.hash(h);
-            rect(*bounds, h);
-        }
-    }
-}
-fn props(p: &SemanticsProperties, h: &mut DefaultHasher) {
-    let SemanticsProperties {
-        text: t,
-        value_min,
-        value_max,
-        value_now,
-        live_region,
-        sort,
-        orientation,
-        active_descendant,
-        described_by,
-        controls,
-        labelled_by,
-        level,
-        set_size,
-        pos_in_set,
-        multiselectable,
-        busy,
-        required,
-        has_popup,
-        current_item,
-        invalid,
-        read_only,
-        protected,
-    } = p;
-    t.is_some().hash(h);
-    if let Some(t) = t {
-        text(t, h);
-    }
-    for v in [value_min, value_max, value_now] {
-        v.map(f64::to_bits).hash(h);
-    }
-    live_region.hash(h);
-    sort.hash(h);
-    orientation.hash(h);
-    active_descendant.hash(h);
-    described_by.hash(h);
-    controls.hash(h);
-    labelled_by.hash(h);
-    level.hash(h);
-    set_size.hash(h);
-    pos_in_set.hash(h);
-    multiselectable.hash(h);
-    busy.hash(h);
-    required.hash(h);
-    has_popup.hash(h);
-    current_item.hash(h);
-    invalid.hash(h);
-    read_only.hash(h);
-    protected.hash(h);
-}
 pub(super) fn fingerprint(n: &SemanticsNode) -> u64 {
-    let SemanticsNode {
-        id,
-        role,
-        children,
-        label,
-        description,
-        value,
-        bounds,
-        scroll,
-        transform,
-        disabled,
-        hidden,
-        focusable,
-        checked,
-        selected,
-        expanded,
-        test_id,
-        actions,
-        properties,
-    } = n;
     let mut h = DefaultHasher::new();
-    id.hash(&mut h);
-    role.hash(&mut h);
-    children.hash(&mut h);
-    label.hash(&mut h);
-    description.hash(&mut h);
-    value.hash(&mut h);
-    rect(*bounds, &mut h);
-    [scroll.x.to_bits(), scroll.y.to_bits()].hash(&mut h);
-    let Transform { a, b, c, d, e, f } = transform;
-    [a, b, c, d, e, f].map(|v| v.to_bits()).hash(&mut h);
-    disabled.hash(&mut h);
-    hidden.hash(&mut h);
-    focusable.hash(&mut h);
-    checked.hash(&mut h);
-    selected.hash(&mut h);
-    expanded.hash(&mut h);
-    test_id.hash(&mut h);
-    actions.hash(&mut h);
-    properties.is_some().hash(&mut h);
-    if let Some(p) = properties {
-        props(p, &mut h);
-    }
+    n.id.hash(&mut h);
+    n.children.hash(&mut h);
+    n.semantics.hash(&mut h);
+    [
+        n.bounds.x,
+        n.bounds.y,
+        n.bounds.width,
+        n.bounds.height,
+        n.scroll.x,
+        n.scroll.y,
+        n.transform.a,
+        n.transform.b,
+        n.transform.c,
+        n.transform.d,
+        n.transform.e,
+        n.transform.f,
+    ]
+    .map(|v| if v == 0.0 { 0 } else { v.to_bits() })
+    .hash(&mut h);
     h.finish()
 }

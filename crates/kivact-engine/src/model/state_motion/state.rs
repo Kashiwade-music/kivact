@@ -40,8 +40,8 @@ pub(super) enum AnimPhase {
     Captured,
     /// Moving from `from` to `to` since `start` (host ns).
     Running {
-        from: Vec<f32>,
-        to: Vec<f32>,
+        from: Vec<f64>,
+        to: Vec<f64>,
         start: u64,
     },
 }
@@ -50,7 +50,7 @@ pub(super) enum AnimPhase {
 pub(crate) struct StateAnimation {
     pub(super) transition: std::sync::Arc<Transition>,
     pub(super) target: PaintProps,
-    pub(super) current: Vec<f32>,
+    pub(super) current: Vec<f64>,
     /// A spring's velocity, step time and iteration; it survives a
     /// re-capture, so an interrupted spring goes on with its velocity.
     pub(super) spring: SpringRun,

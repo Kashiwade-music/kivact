@@ -32,7 +32,10 @@ fn start(locale: Option<&str>) -> (ArvaneTestHost, Rc<RefCell<Told>>) {
                 let told = told.clone();
                 move |events, _, _| {
                     for event in events {
-                        if let HostEvent::EnvChanged(env) = event {
+                        if let HostEvent::EnvChanged {
+                            environment: env, ..
+                        } = event
+                        {
                             told.borrow_mut().changes.push(env.locale.clone());
                         }
                     }

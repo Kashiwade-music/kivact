@@ -3,10 +3,10 @@ use super::state::State;
 use crate::context::Context;
 use crate::sanitize;
 use crate::shape::BoxShape;
-use kivact_types::protocol::DrawCommand as D;
-use kivact_types::{DrawingShape, Fill, Point, Rect, SceneCmd};
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{DrawCmd, DrawingShape, Fill, Point, Rect};
 impl Context<'_> {
-    pub(super) fn paint_geometry(&self, cmd: &SceneCmd, state: &mut State<'_>) -> bool {
+    pub(super) fn paint_geometry(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
         let point = |p: Point| Point {
             x: origin.x + p.x,
@@ -24,10 +24,10 @@ impl Context<'_> {
         };
         let tint = &state.current_tint;
         let command = match cmd {
-            SceneCmd::Shape(painted) => {
+            DrawCmd::Shape(painted) => {
                 let shape = crate::scene_shape::shape(&painted.shape);
                 // Before lowering arcs and before any paint resource.
-                if let kivact_types::protocol::Shape::Path { cmds, .. } = &shape
+                if let kivact_types::scene::Shape::Path { cmds, .. } = &shape
                     && !sanitize::path(cmds)
                 {
                     self.drop_command();
@@ -72,7 +72,7 @@ impl Context<'_> {
                 };
                 match &painted.paint {
                     Fill::Solid(color) => {
-                        push(kivact_types::protocol::Paint::Solid(tint.color(*color)))
+                        push(kivact_types::render::Paint::Solid(tint.color(*color)))
                     }
                     Fill::Layers(layers) => {
                         for layer in layers.iter().rev() {
@@ -88,7 +88,7 @@ impl Context<'_> {
                 }
                 return true;
             }
-            SceneCmd::Rect { rect: r, fill } => {
+            DrawCmd::Rect { rect: r, fill } => {
                 let r = rect(*r);
                 if !sanitize::drawable(&D::PushClip(r)) {
                     self.drop_command();
@@ -96,14 +96,14 @@ impl Context<'_> {
                     // As before fills had layers.
                     state.out.push(D::Rect {
                         rect: r,
-                        fill: kivact_types::protocol::Paint::Solid(tint.color(*color)),
+                        fill: kivact_types::render::Paint::Solid(tint.color(*color)),
                     });
                 } else {
                     self.fill(state.out, &BoxShape::Rect(r), fill, tint, origin_point);
                 }
                 return true;
             }
-            SceneCmd::RoundedRect {
+            DrawCmd::RoundedRect {
                 rect: r,
                 radius,
                 fill,
@@ -122,7 +122,7 @@ impl Context<'_> {
                 }
                 return true;
             }
-            SceneCmd::StrokeRect {
+            DrawCmd::StrokeRect {
                 rect: r,
                 width,
                 color,
@@ -133,7 +133,7 @@ impl Context<'_> {
                 color: tint.color(*color),
                 radius: *radius,
             },
-            SceneCmd::Line {
+            DrawCmd::Line {
                 from,
                 to,
                 width,
