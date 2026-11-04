@@ -76,7 +76,8 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 ///
 /// With [`popup`](Self::popup) the list is a popup the combobox opens and
 /// closes in the caller's `Binding<bool>`: ArrowDown and ArrowUp open a
-/// closed list (they move the active option only once it is open), Enter on
+/// closed list (they move the active option only once it is open and stop
+/// at the ends), Enter on
 /// a closed one does nothing, Escape closes an open one, choosing a single
 /// option closes it, and the list closes when the field loses the focus.
 /// With a [`Selection::Multiple`] selection, choosing toggles the option in
@@ -385,6 +386,12 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     .and_then(|key| enabled.iter().position(|k| *k == key))
             });
             let to = match (at, direction > 0) {
+                (Some(at), true) if matches!(self.mode.get(), ComboboxMode::Popup(_)) => {
+                    (at + 1).min(count - 1)
+                }
+                (Some(at), false) if matches!(self.mode.get(), ComboboxMode::Popup(_)) => {
+                    at.saturating_sub(1)
+                }
                 (Some(at), true) => (at + 1) % count,
                 (Some(at), false) => (at + count - 1) % count,
                 (None, true) => 0,
@@ -410,7 +417,13 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         let part_state = input.state();
         self.input_state.set(Some(part_state));
         let target = kivact_core::view::node_ref();
+        let expanded = self.is_open();
         Part::new(part_state, move |host| {
+            let host = if matches!(self.mode.get(), ComboboxMode::Popup(_)) {
+                host.role(Role::ComboBox).expanded(expanded)
+            } else {
+                host
+            };
             host.part(input)
                 .node_ref(target)
                 .node_ref(self.input_ref)
@@ -426,7 +439,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     if m.ctrl || m.alt || m.meta || m.shift {
                         return Handled::No;
                     }
-                    let closed = !self.is_open().get_untracked();
+                    let closed = matches!(self.mode.get(), ComboboxMode::Popup(open) if !open.get_untracked());
                     match event.key() {
                         Key::ArrowDown | Key::ArrowUp if closed => self.open(),
                         Key::ArrowDown => self.step(1),

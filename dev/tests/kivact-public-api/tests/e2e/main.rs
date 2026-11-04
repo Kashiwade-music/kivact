@@ -8,6 +8,8 @@ mod embed;
 mod support;
 mod theme_conformance;
 
+mod apg_combobox;
+mod apg_listbox;
 mod assets;
 mod async_tests;
 mod canvas;

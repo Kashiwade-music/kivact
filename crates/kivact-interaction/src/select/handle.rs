@@ -61,8 +61,9 @@ struct SelectOptions {
 /// and an assistive technology's Activate or Expand open it; a click or Escape
 /// closes it again.
 ///
-/// The open list takes the focus on the selected option, or else on the first
-/// enabled one. Up, Down, Home, End and letter keys move the focus only; Enter,
+/// The open list highlights the selected option, or else the first enabled
+/// one, while physical focus stays on the trigger. Up, Down, Home, End and
+/// letter keys move the active option only; Enter,
 /// Space and a click choose the focused option, close the list and give the
 /// focus back to the trigger. Escape and Alt+Up close it without choosing, and
 /// so does Tab, which moves the focus on from the list as usual. The focused
@@ -213,13 +214,13 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
         selected,
         placeholder: signal(message("select.placeholder", "Select…")),
         preview: var(None),
-        popup: use_popup(open),
+        popup: use_popup(open).anchor_starts_focus_range(true),
         // The closed trigger moves the selection through the logical order,
         // including options that are not mounted.
         closed: group(options, selected).shared_typeahead(typed),
         settings: OptionsCell::new(SelectOptions {
             arrow_open: false.into_value(),
-            keep_trigger_focus: false.into_value(),
+            keep_trigger_focus: true.into_value(),
         }),
         session,
         list: group(options, selected)
@@ -271,7 +272,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
 
     /// Keep physical focus on the trigger while the open list highlights options.
     /// The trigger publishes the active mounted option as its active descendant.
-    /// Configure before mounting the trigger or content.
     pub fn keep_trigger_focus(mut self, enabled: impl IntoValue<bool>) -> Self {
         let enabled = enabled.into_value();
         self.settings
@@ -381,8 +381,16 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         let popup = self.popup;
         let closed = self.closed;
         let session = self.session;
-        let arrow_open = self.settings.get().arrow_open;
-        let retained = self.settings.get().keep_trigger_focus;
+        let arrow_open = memo(move || {
+            self.settings
+                .value()
+                .with(|options| options.arrow_open.get())
+        });
+        let retained = memo(move || {
+            self.settings
+                .value()
+                .with(|options| options.keep_trigger_focus.get())
+        });
         let base = popup.trigger();
         let part_state = base.state();
         Part::new(part_state, move |host| {
@@ -421,14 +429,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         && matches!(event.key(), Key::ArrowDown | Key::ArrowUp)
                     {
                         session.send(machine::Event::Open(machine::OpenedBy::Key(event.key())));
-                        return Handled::Yes;
-                    }
-                    if retained.get()
-                        && matches!(
-                            event.key(),
-                            Key::Home | Key::End | Key::PageUp | Key::PageDown
-                        )
-                    {
                         return Handled::Yes;
                     }
                     closed.key_selection(&event)
@@ -476,7 +476,11 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         let keep_trigger_focus = if sheet {
             false.into_value()
         } else {
-            self.settings.get().keep_trigger_focus
+            memo(move || {
+                self.settings
+                    .value()
+                    .with(|options| options.keep_trigger_focus.get())
+            })
         };
         list.retain_focus(keep_trigger_focus);
         let shown = popup.is_open();
@@ -598,14 +602,28 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         let keep_trigger_focus = if sheet {
             false.into_value()
         } else {
-            self.settings.get().keep_trigger_focus
+            memo(move || {
+                self.settings
+                    .value()
+                    .with(|options| options.keep_trigger_focus.get())
+            })
         };
         let member = list.base_item(key.clone(), false);
         let base = member;
+        let active_key = key.clone();
+        let popup_selected = memo(move || {
+            list.active()
+                .with(|active| active.as_ref() == Some(&active_key))
+        });
         let part_state = base.state();
         Part::new(part_state, move |host| {
             let option_ref = kivact_core::view::node_ref();
             let member = host.part(base).node_ref(option_ref);
+            let member = if keep_trigger_focus.get() {
+                member.selected(popup_selected)
+            } else {
+                member
+            };
             let hover_key = key.clone();
             let invoke_key = key;
             member

@@ -8,6 +8,10 @@ use std::marker::PhantomData;
 pub(super) enum OpenedBy {
     Pointer,
     Key(Key),
+    #[allow(
+        dead_code,
+        reason = "Reserved opening origin required by the select state model; closed typeahead currently selects without opening."
+    )]
     Typeahead,
 }
 #[derive(Clone, Copy, PartialEq)]
