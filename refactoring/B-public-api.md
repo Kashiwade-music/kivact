@@ -130,9 +130,9 @@ host 側の口（`Theme::install`、`Theme::of`、`Style::compile`、span の st
 
 data の record と `*Api` の、同じ名詞の setter と読み出し（例: `ListItem::icon(..)` と `icon_value()`）は、読み出しを名詞（`icon()`）にし、setter を `with_<名詞>`（`with_icon(..)`）にする（API-14。B.10 の (決定) の行）。
 
-### `kivact::ui`
-
 `IntoSelection<K>` は四つの Signal/Binding 入力に加え、正準 `Selection<K>` 自身の恒等変換も実装する。合成部品はそのまま渡せる。From の別経路は作らない。
+
+### `kivact::ui`
 
 | 種類 | item |
 |---|---|
