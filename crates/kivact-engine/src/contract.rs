@@ -13,3 +13,6 @@ pub use node::{
 
 mod routed;
 pub use routed::{Activation, Routed};
+
+mod close;
+pub use close::CloseSignal;

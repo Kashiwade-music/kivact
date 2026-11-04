@@ -3,7 +3,6 @@
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
 use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
@@ -95,7 +94,7 @@ pub(crate) struct AppClient {
     /// The embedder's close flag, set by `Embedded::drop`: the turn in
     /// progress finishes, but the rest of its event batch is not delivered.
     /// `None`: the App has a window of its own.
-    embed_closing: Option<Arc<std::sync::atomic::AtomicBool>>,
+    embed_closing: Option<kivact_engine::contract::CloseSignal>,
 }
 
 impl AppClient {
@@ -122,7 +121,7 @@ impl AppClient {
 
     pub(crate) fn with_embed_closing(
         mut self,
-        closing: Arc<std::sync::atomic::AtomicBool>,
+        closing: kivact_engine::contract::CloseSignal,
     ) -> Self {
         self.embed_closing = Some(closing);
         self
@@ -130,7 +129,7 @@ impl AppClient {
 
     fn embed_closing(&self) -> bool {
         if let Some(closing) = &self.embed_closing {
-            return closing.load(std::sync::atomic::Ordering::Acquire);
+            return closing.is_set();
         }
         false
     }

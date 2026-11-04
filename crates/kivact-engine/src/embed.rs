@@ -1,7 +1,7 @@
 //! Role: Embedded hosts using the desktop client's turn and rendering loop.
 
 use crate::api::Client;
-use crate::contract::HostError;
+use crate::contract::{CloseSignal, HostError};
 use crate::{FrameLog, host};
 pub use arvane::embed::ChildHooks;
 pub use arvane::embed::PanicSlot;
@@ -11,19 +11,17 @@ use kivact_types::EmbedOptions;
 use kivact_types::ParentWindow;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// An embedded engine host. `Send` and `Sync`. Drop requests closure and stops new turns.
 pub struct EmbeddedHost {
     host: Embedded,
-    closing: Arc<AtomicBool>,
+    closing: CloseSignal,
 }
 impl Drop for EmbeddedHost {
     fn drop(&mut self) {
         // The UI may still be inside Host::effects. Stop its next client turn
         // before the lower native handle can defer destruction of this host.
-        self.closing.store(true, Ordering::Release);
+        self.closing.close();
     }
 }
 impl EmbeddedHost {
@@ -56,17 +54,16 @@ pub fn embed_native(
     parent: ParentWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
-    client: impl FnOnce(Arc<AtomicBool>) -> Client + Send + 'static,
+    client: impl FnOnce(CloseSignal) -> Client + Send + 'static,
 ) -> Result<EmbeddedHost, HostError> {
     let size = options.size;
-    let closing = Arc::new(AtomicBool::new(false));
+    let closing = CloseSignal::new();
     let ui_closing = closing.clone();
     let make = arvane::embed::driver(&options, move || {
         let client = client(ui_closing.clone());
         let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
         let log = frame_log.clone();
-        let host = host::new(client, size, arvane::Engine::new(), frame_log)
-            .with_embedded_closing(ui_closing);
+        let host = host::new(client, size, arvane::Engine::new(), frame_log).with_close(ui_closing);
         Embedder::new(host).on_renderer_change(move |change| {
             let mut log = log.borrow_mut();
             match change {

@@ -1,10 +1,10 @@
-//! Role: `ArvaneTestHost`: drive a client's window in process and read its state.
+//! Role: Drive a client test window and query its settled engine model.
 
 use super::test_frame::TestFrame;
 use super::test_options::{TestFonts, TestHostOptions, default_font};
 use crate::contract::{HostError, HostEvent, NodeProperties, NodeType};
-use crate::host::pump::Host;
-use crate::host::{Client, HostWaker};
+use crate::host::Client;
+use crate::host::launch::{AssetMode, Launch};
 use arvane::spi::{Step, StepOutcome};
 use arvane::{
     Handler, Renderer, RendererChange, Shell, ShellControl, ShellError, ShellEvent, ShellImeText,
@@ -49,7 +49,7 @@ fn counted(client: Client, counts: Rc<Counts>) -> Client {
 
 /// The engine driven by a test on the calling thread.
 pub struct ArvaneTestHost {
-    pub(super) host: Rc<RefCell<Host>>,
+    pub(super) host: Rc<RefCell<Launch>>,
     pub(super) probe: Probe,
     script: Script,
     shell: SteppedShell,
@@ -65,9 +65,8 @@ enum RendererState {
 }
 
 struct SharedHost {
-    host: Rc<RefCell<Host>>,
+    host: Rc<RefCell<Launch>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,
-    inline_assets: bool,
 }
 impl Handler for SharedHost {
     fn start(
@@ -75,24 +74,15 @@ impl Handler for SharedHost {
         window: &mut Window<'_>,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
-        let store = if self.inline_assets {
-            arvane::asset::AssetStore::inline()
-        } else {
-            let wake = waker.clone();
-            arvane::asset::AssetStore::new(move || wake.wake(arvane::WakeReasons::ASSETS))
-        };
-        self.host.borrow_mut().begin(
-            window,
-            HostWaker::new(move || waker.wake(arvane::WakeReasons::CLIENT)),
-            store,
-        )
+        self.host.borrow_mut().start(window, waker)
     }
     fn event(
         &mut self,
         event: ShellEvent,
         window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
-        let mut host = self.host.borrow_mut();
+        let mut launch = self.host.borrow_mut();
+        let host = launch.host_mut();
         for injected in self.injected.borrow_mut().drain(..) {
             let control = host.inject(injected, window)?;
             if control == ShellControl::Exit {
@@ -107,14 +97,14 @@ fn make_host(
     client: Client,
     options: &TestHostOptions,
     counts: Rc<Counts>,
-) -> Result<Rc<RefCell<Host>>, HostError> {
+) -> Result<Rc<RefCell<Launch>>, HostError> {
     let engine = match &options.fonts {
         TestFonts::Bundled => arvane::Engine::with_fonts_only(&[default_font()]),
         TestFonts::Only(fonts) => arvane::Engine::with_fonts_only(fonts),
         TestFonts::System => Ok(arvane::Engine::new()),
     }
     .map_err(|e| HostError::new(e.to_string()))?;
-    let host = crate::host::new(
+    let mut host = crate::host::new(
         counted(client, counts),
         Size {
             width: options.width,
@@ -124,7 +114,14 @@ fn make_host(
         Rc::new(RefCell::new(crate::FrameLog::disabled())),
     );
     // Reported light at start in production; a test may start dark.
-    host.model.borrow_mut().frame.start_theme(options.theme);
+    if let Launch::Pending(args) = &mut host {
+        args.theme = options.theme;
+        args.assets = if options.inline_assets {
+            AssetMode::Inline
+        } else {
+            AssetMode::Worker
+        };
+    }
     Ok(Rc::new(RefCell::new(host)))
 }
 
@@ -175,7 +172,6 @@ impl ArvaneTestHost {
             SharedHost {
                 host: host.clone(),
                 injected: injected.clone(),
-                inline_assets: options.inline_assets,
             },
         )
         .map_err(|e| error(&e))?;
@@ -305,7 +301,7 @@ impl ArvaneTestHost {
 
     /// The display refresh period frame ticks are paced at (ns).
     pub fn frame_period_ns(&self) -> u64 {
-        self.host.borrow().model.borrow().frame.period_ns()
+        self.host.borrow().host().model.borrow().frame.period_ns()
     }
 
     /// When the host next wants to run (virtual ns): queued events at once,
@@ -551,7 +547,8 @@ impl ArvaneTestHost {
     /// for (node ids are Kivact node ids; regions count down from
     /// `u64::MAX`).
     pub fn semantics_target(&self, id: u64) -> Option<(NodeId, Option<RegionId>)> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         match model.a11y.region_of(id) {
             Some((node, region)) => Some((node, Some(region))),
@@ -561,7 +558,8 @@ impl ArvaneTestHost {
 
     /// The accessibility id of a node or of one of its scene regions.
     pub fn semantics_id(&self, node: NodeId, region: Option<RegionId>) -> Option<u64> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         match region {
             Some(region) => model.a11y.region_id(node, region),
@@ -572,12 +570,13 @@ impl ArvaneTestHost {
     /// Where the box of `id` is drawn, in logical window coordinates: its
     /// layout box mapped by its transforms (their bounds).
     pub fn rect(&self, id: NodeId) -> Option<Rect> {
-        self.host.borrow().model.borrow().bounds(id)
+        self.host.borrow().host().model.borrow().bounds(id)
     }
 
     /// The layout size of `id` (its box before its transforms).
     pub fn size(&self, id: NodeId) -> Option<Size> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         model.computed_layout(id).map(|l| l.size)
     }
@@ -585,7 +584,8 @@ impl ArvaneTestHost {
     /// The rect of scene region `region` of `id`, relative to the node's
     /// untransformed layout box.
     pub fn region_local(&self, id: NodeId, region: RegionId) -> Option<Rect> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         Some(model.node(id)?.region(region)?.rect)
     }
@@ -595,7 +595,8 @@ impl ArvaneTestHost {
     /// transforms).
     pub fn region_rect(&self, id: NodeId, region: RegionId) -> Option<Rect> {
         let r = self.region_local(id, region)?;
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         let bounds = model.rect(id)?;
         let own = Rect {
@@ -610,33 +611,39 @@ impl ArvaneTestHost {
     /// The window point drawn at `local`, a point relative to the
     /// untransformed layout box of `id` (mapped by its transforms).
     pub fn window_point(&self, id: NodeId, local: Point) -> Point {
-        self.host.borrow().model.borrow().local_to_window(id, local)
+        self.host
+            .borrow()
+            .host()
+            .model
+            .borrow()
+            .local_to_window(id, local)
     }
 
     /// The node hit at a logical window point.
     pub fn hit(&self, x: f64, y: f64) -> Option<NodeId> {
-        self.host.borrow().model.borrow().hit(Point { x, y })
+        self.host.borrow().host().model.borrow().hit(Point { x, y })
     }
 
     /// The node with the keyboard focus.
     pub fn focused(&self) -> Option<kivact_types::FocusTarget> {
-        self.host.borrow().model.borrow().focused()
+        self.host.borrow().host().model.borrow().focused()
     }
 
     /// The node under the pointer.
     pub fn hovered(&self) -> Option<NodeId> {
-        self.host.borrow().model.borrow().hovered()
+        self.host.borrow().host().model.borrow().hovered()
     }
 
     /// The open modal that confines input, if any.
     pub fn modal(&self) -> Option<NodeId> {
-        self.host.borrow().model.borrow().modal()
+        self.host.borrow().host().model.borrow().modal()
     }
 
     /// The host's tree in preorder (from the root), without the subtrees
     /// leaving after kivact removed them (they are kivact's no more).
     pub fn preorder(&self) -> Vec<NodeId> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         let tree = model.tree();
         tree.preorder()
@@ -648,7 +655,8 @@ impl ArvaneTestHost {
     /// Nodes the host holds for kivact (reachable or not; not the leaving
     /// ones).
     pub fn node_count(&self) -> usize {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         let tree = model.tree();
         tree.iter().filter(|(id, _)| tree.live(*id)).count()
@@ -662,7 +670,8 @@ impl ArvaneTestHost {
         check: &LayoutCheck,
         scope: Option<NodeId>,
     ) -> Vec<LayoutFinding> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         let mut engine = host.engine.borrow_mut();
         crate::check::layout_findings(&model, &mut engine, check, scope, true)
@@ -670,12 +679,19 @@ impl ArvaneTestHost {
 
     /// The kind of node `id`.
     pub fn kind(&self, id: NodeId) -> Option<NodeType> {
-        self.host.borrow().model.borrow().node(id).map(|n| n.kind())
+        self.host
+            .borrow()
+            .host()
+            .model
+            .borrow()
+            .node(id)
+            .map(|n| n.kind())
     }
 
     /// The children of node `id`, in order (not the leaving ones).
     pub fn children(&self, id: NodeId) -> Option<Vec<NodeId>> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         model.node(id).map(|n| {
             model
@@ -689,33 +705,37 @@ impl ArvaneTestHost {
     /// The props node `id` holds (as the client sent them; a text input's
     /// value is [`Self::input_value`]).
     pub fn properties(&self, id: NodeId) -> Option<NodeProperties> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         model.node(id).map(|n| n.properties.clone())
     }
 
     /// The value of text input `id` as the host edits it.
     pub fn input_value(&self, id: NodeId) -> Option<String> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         model.node(id).map(|_| model.input_value(id).to_owned())
     }
 
     /// The draw and draw-over scenes of node `id`.
     pub fn scenes(&self, id: NodeId) -> Option<[Option<Arc<DrawList>>; 2]> {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         model.node(id).map(|n| n.scenes().clone())
     }
 
     /// Whether node `id` is shown (it and its ancestors are not hidden).
     pub fn shown(&self, id: NodeId) -> bool {
-        self.host.borrow().model.borrow().tree().shown(id)
+        self.host.borrow().host().model.borrow().tree().shown(id)
     }
 
     /// Whether the focused text input holds an IME composition.
     pub fn composing(&self) -> bool {
-        let host = self.host.borrow();
+        let launch = self.host.borrow();
+        let host = launch.host();
         let model = host.model.borrow();
         let host = &model;
         host.focused_input()
@@ -733,6 +753,7 @@ impl ArvaneTestHost {
     pub fn has_font_family(&mut self, family: &str) -> bool {
         self.host
             .borrow()
+            .host()
             .engine
             .borrow_mut()
             .has_font_family(family)

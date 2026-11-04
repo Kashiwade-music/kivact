@@ -1,4 +1,4 @@
-//! Role: Shared diagnostic latches, caches, generations and take-once mailboxes.
+//! Role: Share diagnostic latches, caches, generations and mailboxes.
 //!
 //! Fields stay private so their one update rule is enforced by these methods.
 //! These helpers store a latch, cache, identity or take-once value; they are not
@@ -65,7 +65,7 @@ impl<K> Default for ReportOnceSet<K> {
 pub struct Sent<T>(Option<T>);
 
 impl<T> Sent<T> {
-    /// The last sent value, when one has been sent.
+    /// The last value handed to the outside party.
     pub fn get(&self) -> Option<&T> {
         self.0.as_ref()
     }

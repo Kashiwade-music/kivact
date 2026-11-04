@@ -43,7 +43,7 @@
 //!   its turn deferred (`Host::defer`), the IME text and the cursor updated.
 //! - Platform requests (`Writer::effect`) are carried out after the turn;
 //!   those written during the shell's start (the client's start and the
-//!   first pump's turns, `Phase::Starting`) wait for the first entry after
+//!   first pump's turns, `HostPhase::Starting`) wait for the first entry after
 //!   it, which the host asks for at once (an embedding host is still inside
 //!   its editor's open call and takes no size request or dialog then);
 //!   the window's `Err` is reported as `PlatformResult::Failed(reason)`,
@@ -58,9 +58,8 @@
 //!   once when the window regains the focus), `Dropped` (the scene cannot
 //!   be drawn: the picture stays until the next change), `SurfaceLost`
 //!   (Arvane recovers its GPU resources and surface; layout and text
-//!   measurement are kept; an `EnvChanged` that is not drawable, then
-//!   `HostFailure`, then an `EnvChanged` that is drawable again are sent
-//!   and the frame drawn again). `Err` means the
+//!   measurement are kept; `HostFailure` is sent once and the frame is
+//!   drawn again). `Err` means the
 //!   window can present no more (three surface losses in a row) and ends
 //!   the host with a failure.
 //! - The engine has no platform branch, renderer limit or GPU state: OS,

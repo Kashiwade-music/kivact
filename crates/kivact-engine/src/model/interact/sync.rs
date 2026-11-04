@@ -34,7 +34,6 @@ use crate::contract::{HostEvent, NodeType};
 use crate::lower::AssetEvent;
 use crate::model::Model;
 use crate::model::changes::{Dirty, Geometry};
-use arvane::asset::AssetStore;
 use kivact_types::{NodeId, Size};
 
 /// Whether settling performed pending layout and geometry work.
@@ -80,12 +79,6 @@ impl Model {
         self.changes
             .layout
             .contains(crate::model::changes::LayoutReasons::PASS)
-    }
-
-    /// Load images with `store` from now on (the shell's waker exists only
-    /// once the window does; nothing is loaded before).
-    pub(crate) fn set_store(&mut self, store: AssetStore) {
-        self.assets.get_mut().replace_store(store);
     }
 
     pub(crate) fn invalidate_paint(&mut self) {
