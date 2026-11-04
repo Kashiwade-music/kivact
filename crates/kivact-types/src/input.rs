@@ -2,6 +2,7 @@
 use crate::Point;
 
 use std::ops::Range;
+use std::path::PathBuf;
 
 /// Logical key independent of platform scan codes: what the key means in the
 /// current layout, like the Web's `KeyboardEvent.key`. The physical position
@@ -329,7 +330,7 @@ pub enum FilePhase {
 /// What the platform's input method (IME) does with a node that has an IME
 /// session (`NodeProperties::ime`). Offsets are UTF-8 byte offsets.
 #[derive(Clone, Debug, PartialEq)]
-pub enum ImeEvent {
+pub enum ImeInput {
     /// The composition (preedit) is now `text`; `selection` is the part of
     /// it the IME marks (its caret), if it says.
     Preedit {
@@ -345,36 +346,70 @@ pub enum ImeEvent {
     End,
 }
 
-/// Pointer event with node-local position. The host owns hit testing and
-/// capture: while a pointer holds a button (a touch or pen is in contact),
-/// its events go to the node that got its `Down`. The mouse is pointer 1;
-/// each touch or pen contact has its own id while it lasts and presses as
-/// the primary button. `is_primary` is Pointer Events' `isPrimary`: the
-/// mouse, and the first touch or pen contact while no other of its kind is
-/// in contact.
+/// A normalized pointer sample, shared from the window to the listener.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PointerEvent {
-    /// The mouse's is 1; each touch or pen contact has its own.
+pub struct PointerSample {
+    /// The pointer's identity for the lifetime of its contact.
     pub id: PointerId,
-    /// Transition represented by this pointer event; a `Down` or `Up` carries
-    /// its button and click count.
-    pub phase: PointerPhase,
-    /// Where the pointer is, in the node's untransformed local coordinates.
-    pub pos: Point,
-    /// The same point in the window (logical pixels).
-    pub window_pos: Point,
-    /// Buttons held after this event, independent of its changed button.
-    pub buttons: PointerButtons,
-    /// Modifier keys held for the event.
-    pub modifiers: Modifiers,
-    /// Mouse, touch or pen.
+    /// The device that produced the sample.
     pub kind: PointerKind,
-    /// Pressure from 0 to 1, when the device reports it.
-    pub pressure: Option<f32>,
-    /// Pen tilt from vertical in degrees, when reported by the device.
-    pub tilt: Option<(f32, f32)>,
+    /// The transition and its press data, when present.
+    pub phase: PointerPhase,
+    /// Logical window coordinates.
+    pub position: Point,
+    /// Buttons held after the transition.
+    pub buttons: PointerButtons,
+    /// The button changed by this sample, if any.
+    pub button: Option<MouseButton>,
+    /// Click count and button for a press or release, if any.
+    pub press: Option<ButtonPress>,
+    /// Pressure from zero to one, when reported by the device.
+    pub pressure: Option<f64>,
+    /// Pen tilt from vertical in degrees, when reported.
+    pub tilt: Option<(f64, f64)>,
+    /// The sample's monotonic timestamp in nanoseconds.
+    pub time_ns: u64,
+    /// Modifier keys held for this sample.
+    pub modifiers: Modifiers,
     /// Whether this is the primary active pointer of its kind.
     pub is_primary: bool,
+}
+
+/// A normalized key press or release, independent of its routing target.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KeyInput {
+    /// Logical meaning in the current keyboard layout.
+    pub key: Key,
+    /// Physical keyboard position.
+    pub code: KeyCode,
+    /// Press or release, including repeat and produced text.
+    pub phase: KeyPhase,
+    /// Modifier keys held for this event.
+    pub modifiers: Modifiers,
+    /// The last mouse position in logical window coordinates, if inside.
+    pub pointer: Option<Point>,
+}
+
+/// A wheel movement before node-local routing.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WheelInput {
+    /// Movement in logical pixels.
+    pub delta: Point,
+    /// Mouse position in logical window coordinates.
+    pub position: Point,
+    /// Modifier keys held for the movement.
+    pub modifiers: Modifiers,
+}
+
+/// An operating-system file drag before node-local routing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FileDrop {
+    /// Transition of the file drag.
+    pub phase: FilePhase,
+    /// Files offered or dropped, in platform order.
+    pub files: Vec<PathBuf>,
+    /// Position in logical window coordinates.
+    pub position: Point,
 }
 
 /// A key's press or release (`HostEvent::Key`).
