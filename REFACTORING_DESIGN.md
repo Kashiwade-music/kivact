@@ -2168,9 +2168,10 @@ impl Style { pub fn display(self, display: Display) -> Style; }   // display_gri
 （17.10 節の `Style::enter_size`・`exit_size` の箇条に足す）
 
 - 軸は既存の `Orientation` を使う（`Axis` は作らない。付録 B.1）。`TransitionProp::Size` を足す（今の `TransitionProp` は `Paint` だけ、`kivact-style/src/sheet.rs:150`）。
-- 「二度目の layout をせず、子は自然な大きさ、親は倍にした大きさ」は、`kivact-layout` の `compute_cached_layout` の hook（`kivact-layout/src/tree.rs:207`）で、その node の出力の大きさの軸だけに倍率を掛けて実現する（cache の key に倍率を含める）。倍率は engine の presence の遷移が毎 frame `Layout::set_presence_scale` で渡す。`ExitLayout::Pop` の node では `exit_size` を無視する（退場の始めに場所を手放すため）。
+- 「二度目の layout をせず、子は自然な大きさ、親は倍にした大きさ」は、`kivact-layout` の `compute_cached_layout` の hook（`kivact-layout/src/tree.rs:207`）で、その node の出力の大きさの軸だけに倍率を掛けて実現する（倍率を cache の依存に含め、変更時の無効化でもよい）。倍率は engine の presence の遷移が毎 frame `Layout::set_presence_scale` で渡す。`ExitLayout::Pop` の node では `exit_size` を無視する（退場の始めに場所を手放すため）。
 - 公開の値: `kivact_types::Presence { Entering, Present, Leaving }`（正準パス `kivact::view::Presence`）。engine は `HostEvent::PresenceChanged { node, presence }` と `Reader::presence(id) -> Presence` を出し、core の `NodeRef::presence() -> Value<Presence>` は最初の呼び出しで signal を作る。
 - `NodePresence::Arriving(ArrivalPhase)` は private な `Pending`（未開始）と `Animating`（出現中）を区別する。公開値は両方 Entering。arriving の索引は一つだけとし、出現完了で Mounted にする。
+- Taffy が親の計算で直接読む item style の size/min/max/basis にも倍率を反映する private adapter を使う。子を計算する natural style は保持し、自然出力の cache から親の known size を復元する。二度目の layout は行わない。
 
 ### 19.13 pointer の経路と modal の受け入れ
 

@@ -43,7 +43,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | E-6 | merged | 40a0c11 | check/統合 workspace 0、関連 E2E 5 passed |
 | E-7 | merged | 82be6c5 | check/統合 workspace 0、drawable 判定統合済 |
 | E-8 | merged | 5f46fbb | check 0、layout E2E 16 passed、Contents の透明化 |
-| E-9a | doing | | 出現・退場の size transition |
+| E-9a | merged | d1ea035 | check 0、presence E2E 2 passed、親 auto 箱の縮小も確認 |
 | E-9b | merged | e94c53c | check 0、presence E2E 1 passed、破棄時の誤通知を除去 |
 | X-1 | merged | 025199b | all/no-default check 0、feature 17 件 0 |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
