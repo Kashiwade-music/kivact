@@ -107,7 +107,9 @@ pub struct NumberInput {
 ///
 /// The editor precedes the step buttons in focus/semantic order, so activating
 /// a surrounding field label focuses the value without stepping it. Structural
-/// grid placement keeps the visible order decrease, editor, increase. Disabled
+/// grid placement keeps the visible order decrease, editor, increase. Step buttons
+/// keep focus on the editor and do not add tab stops. Invalid typed text is
+/// exposed as invalid until it is corrected or the field loses focus. Disabled
 /// and invalid state published on the root also reaches the editor.
 ///
 /// ```no_run
@@ -269,7 +271,18 @@ impl IntoView for NumberInput {
         );
         let field = text_input(label, edit)
             .disabled(disabled)
-            .invalid(invalid)
+            .invalid(move || {
+                invalid.get()
+                    || match typed.get() {
+                        NumberText::Value(_) => false,
+                        NumberText::Typed { text, .. } => {
+                            let range = range.get();
+                            locale.get().parse_number(&text).is_none_or(|value| {
+                                !value.is_finite() || value < range.min() || value > range.max()
+                            })
+                        }
+                    }
+            })
             .with_node(|node| node.base_style(style().grid_row(1).grid_column(2)))
             .node_ref(input_ref)
             .with_node(|node| node.part(number.input()));
@@ -297,14 +310,22 @@ impl IntoView for NumberInput {
             }
         };
         let decrease = button(message("stepper.decrease", "Decrease"))
-            .with_node(|node| node.base_style(style().grid_row(1).grid_column(1)))
+            .with_node(|node| {
+                node.base_style(style().grid_row(1).grid_column(1))
+                    .focusable(false)
+                    .focus_on_press(input_ref)
+            })
             .disabled(disabled)
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
             .icon(icon("minus"))
             .on_press(step(-1.0));
         let increase = button(message("stepper.increase", "Increase"))
-            .with_node(|node| node.base_style(style().grid_row(1).grid_column(3)))
+            .with_node(|node| {
+                node.base_style(style().grid_row(1).grid_column(3))
+                    .focusable(false)
+                    .focus_on_press(input_ref)
+            })
             .disabled(disabled)
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
