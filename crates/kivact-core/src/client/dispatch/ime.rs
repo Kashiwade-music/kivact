@@ -1,7 +1,7 @@
 //! Role: Input method events for a node's IME session.
 
 use kivact_engine::contract::HostEvent;
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 use kivact_types::{ImeInput, NodeId};
 
 use super::common::{admitted, handler, is_disabled, node_owner, run_handler, stale};

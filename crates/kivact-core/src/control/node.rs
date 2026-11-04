@@ -30,8 +30,8 @@ use crate::view::mount::mount_host;
 use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::state::ViewState;
 use crate::view::{IntoText, IntoValue, IntoView, Role, View};
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{ErrorKind, UiError};
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::asset::Asset;
 
 /// Start a custom element: an empty box, located at the call of `node()`
@@ -397,7 +397,7 @@ pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
         let theme = kivact_style::current_theme();
         theme.icons().resolve(&icon).unwrap_or_else(|| {
             if cfg!(debug_assertions) && !reported.replace(true) {
-                let owner = kivact_reactive::Owner::ambient("icon", at);
+                let owner = kivact_runtime::Owner::ambient("icon", at);
                 let rt = owner.runtime();
                 rt.report_later(
                     Some(owner),

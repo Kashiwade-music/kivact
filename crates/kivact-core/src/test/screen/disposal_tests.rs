@@ -12,7 +12,7 @@ use std::time::Duration;
 use crate::prelude::{column, effect, show, text};
 use crate::task::spawn;
 use crate::test::render;
-use kivact_reactive::{Owner, on_cleanup, signal};
+use kivact_runtime::{Owner, on_cleanup, signal};
 
 type Log = Rc<RefCell<Vec<String>>>;
 

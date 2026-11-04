@@ -11,8 +11,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
-use kivact_reactive::Prop;
-use kivact_reactive::Prop as InputProp;
+use kivact_runtime::Prop;
+use kivact_runtime::Prop as InputProp;
 use kivact_style::draw::Size;
 use kivact_types::NodeId;
 

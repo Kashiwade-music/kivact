@@ -2,8 +2,8 @@
 
 use std::rc::Rc;
 
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::UiError;
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::UiError;
 
 use crate::Value;
 use crate::view::NodeRef;

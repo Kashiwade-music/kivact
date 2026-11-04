@@ -3,7 +3,7 @@
 use std::panic::Location;
 
 use crate::view::descriptor::Mcx;
-use kivact_reactive::{ErrorKind, UiError};
+use kivact_runtime::{ErrorKind, UiError};
 
 /// A node with `on_press` that is neither a focus stop nor has a role is
 /// pressable only with a pointer: the keyboard and assistive technology do

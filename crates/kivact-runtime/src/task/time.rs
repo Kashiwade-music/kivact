@@ -1,0 +1,125 @@
+//! Role: Host-clock timers (`sleep`, `timeout`).
+//!
+//! In tests the clock is virtual and only moves with `advance`.
+
+use std::future::Future;
+use std::panic::Location;
+use std::pin::Pin;
+use std::rc::{Rc, Weak};
+use std::task::{Context, Poll};
+use std::time::Duration;
+
+use crate::Runtime;
+use crate::{ErrorKind, UiError, raise};
+
+/// Future returned by [`sleep`].
+pub(crate) struct Sleep {
+    rt: Weak<Runtime>,
+    /// When it is due on the App's clock (ns), fixed when it is made.
+    deadline: u64,
+    /// The timer it registered while it waits.
+    timer: Option<(u64, u64)>,
+}
+
+impl Future for Sleep {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+        let Some(rt) = self.rt.upgrade() else {
+            return Poll::Ready(());
+        };
+        let now = rt.now_ns();
+        let deadline = self.deadline;
+        let mut t = super::TaskState::of(&rt).time.borrow_mut();
+        if now >= deadline {
+            let fired = self.timer.take().and_then(|k| t.timers.remove(&k));
+            drop(t);
+            // A waker is dropped outside the timer table's borrow.
+            drop(fired);
+            return Poll::Ready(());
+        }
+        let key = match self.timer {
+            Some(k) => k,
+            None => {
+                t.next_id += 1;
+                let k = (deadline, t.next_id);
+                self.timer = Some(k);
+                k
+            }
+        };
+        let old = t.timers.insert(key, cx.waker().clone());
+        drop(t);
+        drop(old);
+        rt.request_turn();
+        Poll::Pending
+    }
+}
+
+impl Drop for Sleep {
+    fn drop(&mut self) {
+        if let (Some(k), Some(rt)) = (self.timer.take(), self.rt.upgrade())
+            && let Ok(mut t) = super::TaskState::of(&rt).time.try_borrow_mut()
+        {
+            t.timers.remove(&k);
+        }
+    }
+}
+
+pub(crate) fn sleep_ns(rt: &Rc<Runtime>, ns: u64) -> Sleep {
+    Sleep {
+        rt: Rc::downgrade(rt),
+        deadline: rt.now_ns().saturating_add(ns),
+        timer: None,
+    }
+}
+
+/// Wait for `d` on the host clock (virtual in tests), counted from this call.
+/// Must be created in a running App's frame; otherwise raises a located `WrongApp`.
+#[track_caller]
+pub fn sleep(d: Duration) -> impl Future<Output = ()> {
+    let ns = d.as_nanos().min(u64::MAX as u128) as u64;
+    sleep_ns(&timer_runtime("sleep", Location::caller()), ns)
+}
+
+fn timer_runtime(api: &'static str, at: &'static Location<'static>) -> Rc<Runtime> {
+    Runtime::current().unwrap_or_else(|| {
+        raise(
+            ErrorKind::WrongApp,
+            format!("`{api}` needs a running App"),
+            at,
+        )
+    })
+}
+
+struct Timeout<F> {
+    fut: Pin<Box<F>>,
+    sleep: Pin<Box<Sleep>>,
+}
+
+impl<F: Future> Future for Timeout<F> {
+    type Output = Result<F::Output, UiError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if let Poll::Ready(v) = self.fut.as_mut().poll(cx) {
+            return Poll::Ready(Ok(v));
+        }
+        match self.sleep.as_mut().poll(cx) {
+            Poll::Ready(()) => {
+                Poll::Ready(Err(UiError::new(ErrorKind::Timeout, "timed out", None)))
+            }
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+/// Run `fut` with a deadline `d` after this call; `Err(Timeout)` if it passes first.
+/// Must be created in a running App's frame; otherwise raises a located `WrongApp`.
+#[track_caller]
+pub fn timeout<F: Future>(d: Duration, fut: F) -> impl Future<Output = Result<F::Output, UiError>> {
+    let ns = d.as_nanos().min(u64::MAX as u128) as u64;
+    let sleep = sleep_ns(&timer_runtime("timeout", Location::caller()), ns);
+    Timeout {
+        fut: Box::pin(fut),
+        sleep: Box::pin(sleep),
+    }
+}

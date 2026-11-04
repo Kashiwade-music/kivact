@@ -14,9 +14,9 @@
 //! - Node ids are never reused, so a stale id in the source never matches a
 //!   node mounted later.
 
-use kivact_reactive::Signal;
-use kivact_reactive::selector;
-use kivact_reactive::{Owner, Runtime};
+use kivact_runtime::Signal;
+use kivact_runtime::selector;
+use kivact_runtime::{Owner, Runtime};
 use kivact_types::FocusTarget;
 use std::panic::Location;
 

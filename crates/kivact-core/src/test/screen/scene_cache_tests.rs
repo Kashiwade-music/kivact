@@ -6,7 +6,7 @@ use crate::client::{AppClient, AppConfig};
 use crate::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
 use crate::view::View;
 use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Point, Rect, TextStyle};
 use std::panic::Location;

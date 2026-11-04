@@ -32,9 +32,9 @@ mod stats;
 pub(crate) mod why;
 
 #[doc(inline)]
-pub use kivact_reactive::ErrorKind;
+pub use kivact_runtime::ErrorKind;
 #[doc(inline)]
-pub use kivact_reactive::{TraceRun, TraceWrite, Turn, TurnRecord};
+pub use kivact_runtime::{TraceRun, TraceWrite, Turn, TurnRecord};
 #[doc(inline)]
 pub use why::{Why, WhyDep, WhyProp, why};
 

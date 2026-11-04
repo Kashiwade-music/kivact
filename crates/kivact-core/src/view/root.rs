@@ -22,7 +22,7 @@ use std::rc::Rc;
 use crate::i18n::{Locale, Messages};
 use kivact_engine::api::Writer;
 use kivact_engine::contract::{HostInfo, NodeType};
-use kivact_reactive::{IntoValue, Owner, Runtime, Signal, Value};
+use kivact_runtime::{IntoValue, Owner, Runtime, Signal, Value};
 use kivact_style::Theme;
 use kivact_types::Size;
 
@@ -92,11 +92,11 @@ pub(crate) fn mount_root(
         None => {
             let host = env.field("locale", |e| e.locale.clone());
             owner.with_setup(|| {
-                kivact_reactive::memo(move || host.with(|tag| host_locale(tag.as_deref())))
+                kivact_runtime::memo(move || host.with(|tag| host_locale(tag.as_deref())))
             })
         }
     };
-    kivact_motion::MotionState::of(rt).attach_env(kivact_motion::MotionEnv {
+    kivact_runtime::MotionState::of(rt).attach_env(kivact_runtime::MotionEnv {
         reduced_motion: env.field("reduced_motion", |e| e.reduced_motion),
         surface_active: env.surface_active.into_value(),
         frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),

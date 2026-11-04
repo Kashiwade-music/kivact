@@ -23,8 +23,8 @@ use crate::view::input::{FileEvent, KeyEvent, KeyHandlerResult, PointerEvent, Wh
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use crate::view::{HandlerResult, IntoText, IntoValue};
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{Callback, ErrorKind, UiError};
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::{Callback, ErrorKind, UiError};
 use kivact_style::Style;
 
 use super::exit_layout::ExitLayout;

@@ -1811,10 +1811,8 @@ dependencies = [
  "kivact-editing",
  "kivact-engine",
  "kivact-i18n",
- "kivact-motion",
- "kivact-reactive",
+ "kivact-runtime",
  "kivact-style",
- "kivact-task",
  "kivact-types",
  "tracing",
 ]
@@ -1904,7 +1902,7 @@ name = "kivact-i18n"
 version = "0.1.0"
 dependencies = [
  "kivact",
- "kivact-reactive",
+ "kivact-runtime",
 ]
 
 [[package]]
@@ -1931,15 +1929,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kivact-motion"
-version = "0.1.0"
-dependencies = [
- "kivact",
- "kivact-reactive",
- "kivact-types",
-]
-
-[[package]]
 name = "kivact-public-api-tests"
 version = "0.1.0"
 dependencies = [
@@ -1956,9 +1945,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "kivact-reactive"
+name = "kivact-runtime"
 version = "0.1.0"
 dependencies = [
+ "async-task",
+ "kivact",
  "kivact-types",
  "tracing",
 ]
@@ -1969,20 +1960,9 @@ version = "0.1.0"
 dependencies = [
  "kivact",
  "kivact-editing",
- "kivact-motion",
- "kivact-reactive",
+ "kivact-runtime",
  "kivact-types",
  "kurbo",
-]
-
-[[package]]
-name = "kivact-task"
-version = "0.1.0"
-dependencies = [
- "async-task",
- "kivact-reactive",
- "kivact-types",
- "tracing",
 ]
 
 [[package]]

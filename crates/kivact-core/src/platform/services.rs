@@ -31,8 +31,8 @@ use kivact_types::{PlatformRequest, PlatformResult};
 use crate::view::requests;
 use crate::view::requests::platform_result;
 use crate::view::state::EffectWaiter;
-use kivact_reactive::{Owner, UiError, require_effectful};
-use kivact_task::Completion;
+use kivact_runtime::Completion;
+use kivact_runtime::{Owner, UiError, require_effectful};
 
 pub use kivact_types::FileDialog;
 
@@ -94,7 +94,7 @@ pub fn request_window_size(
         ))
     } else {
         Err(UiError::new(
-            kivact_reactive::ErrorKind::Message,
+            kivact_runtime::ErrorKind::Message,
             "request_window_size dimensions must be finite, at least one logical pixel and fit the native window extent",
             Some(at),
         ))

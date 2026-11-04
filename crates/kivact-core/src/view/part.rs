@@ -52,13 +52,13 @@
 //! among overlapping regions, and Tab follows the order of the setup
 //! declarations.
 
-use kivact_reactive::{IntoText, IntoValue};
+use kivact_runtime::{IntoText, IntoValue};
 use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_reactive::EffectKind;
-use kivact_reactive::HandlerResult;
+use kivact_runtime::EffectKind;
+use kivact_runtime::HandlerResult;
 
 use crate::view::common::Common;
 use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
@@ -169,7 +169,7 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
         input.hidden.set(mount.hidden.get_untracked());
         let previously_focused = Cell::new(focused.get_untracked());
         let at = Location::caller();
-        let owner = kivact_reactive::Owner::current("part binding", at);
+        let owner = kivact_runtime::Owner::current("part binding", at);
         owner.effect(
             EffectKind::Internal,
             move || {
@@ -326,13 +326,13 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     #[track_caller]
     pub fn focus_on_press(mut self, destination: NodeRef) -> Self {
         let at = Location::caller();
-        let owner = kivact_reactive::Owner::current("Part::focus_on_press", at);
+        let owner = kivact_runtime::Owner::current("Part::focus_on_press", at);
         let runtime = owner.runtime();
         if destination.app != runtime.id() {
             runtime.report(
                 Some(owner),
-                kivact_reactive::UiError::new(
-                    kivact_reactive::ErrorKind::WrongApp,
+                kivact_runtime::UiError::new(
+                    kivact_runtime::ErrorKind::WrongApp,
                     "Part::focus_on_press got a NodeRef of another App; declaration ignored",
                     Some(at),
                 ),
@@ -364,13 +364,13 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     #[track_caller]
     pub(crate) fn into_common(mut self) -> Common {
         let at = Location::caller();
-        let owner = kivact_reactive::Owner::current("Part attachment", at);
+        let owner = kivact_runtime::Owner::current("Part attachment", at);
         let runtime = owner.runtime();
         if self.node.app != runtime.id() {
             runtime.report(
                 Some(owner),
-                kivact_reactive::UiError::new(
-                    kivact_reactive::ErrorKind::WrongApp,
+                kivact_runtime::UiError::new(
+                    kivact_runtime::ErrorKind::WrongApp,
                     "Part belongs to another App; attachment ignored",
                     Some(at),
                 ),

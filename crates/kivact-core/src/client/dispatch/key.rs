@@ -3,7 +3,7 @@
 //! activation, Escape dismissal).
 
 use kivact_engine::contract::HostEvent;
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 use kivact_types::{A11yRequest, DismissReason, KeyPhase};
 
 use super::a11y::run_a11y;

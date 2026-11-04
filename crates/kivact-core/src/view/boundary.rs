@@ -20,7 +20,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::i18n::{Locale, Messages};
-use kivact_reactive::{IntoValue, Owner, Runtime};
+use kivact_runtime::{IntoValue, Owner, Runtime};
 use kivact_style::Theme;
 use kivact_types::NodeId;
 
@@ -190,5 +190,5 @@ pub fn provide_direction<V: IntoView>(
 /// [`ReadingDirection::Ltr`] without one. Setup, handlers and effects.
 #[track_caller]
 pub fn current_direction() -> ReadingDirection {
-    kivact_reactive::try_context::<ReadingDirection>().unwrap_or_default()
+    kivact_runtime::try_context::<ReadingDirection>().unwrap_or_default()
 }

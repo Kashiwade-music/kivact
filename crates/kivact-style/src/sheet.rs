@@ -103,7 +103,7 @@ use super::text::{
 };
 use super::theme::value::ThemeColor;
 use crate::transform::Transform;
-use kivact_motion::Transition;
+use kivact_runtime::Transition;
 
 #[doc(inline)]
 pub use kivact_types::FlexDirection as Direction;
@@ -1069,7 +1069,7 @@ impl Style {
     }
 }
 
-kivact_reactive::constant_value!(Style);
+kivact_runtime::constant_value!(Style);
 
 /// Overlay scrollbar width.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

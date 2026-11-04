@@ -21,7 +21,7 @@ pub use kivact_types::{
 /// contact's `Leave`.
 pub use kivact_types::PointerKind;
 
-use kivact_reactive::Result;
+use kivact_runtime::Result;
 use kivact_style::draw::{Point, RegionId};
 
 /// The input that requested dismissal. Unmounting an overlay does not

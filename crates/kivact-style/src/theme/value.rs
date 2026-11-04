@@ -15,7 +15,7 @@
 use super::{Palette, Radii, Spacing, Typography};
 use crate::color::{Color, ColorToken, Repr, rgb, rgba};
 use crate::icon::IconSet;
-use kivact_reactive::{Owner, Value};
+use kivact_runtime::{Owner, Value};
 use kivact_types::{LineHeight, Rgba};
 use std::any::{Any, TypeId};
 use std::fmt;
@@ -438,7 +438,7 @@ impl Default for Theme {
 #[derive(Clone, Copy)]
 struct ThemeCtx(Value<Theme>);
 
-kivact_reactive::constant_value!(Theme);
+kivact_runtime::constant_value!(Theme);
 
 impl Theme {
     /// Provide `theme` to `owner`'s subtree, replacing any inherited theme.
@@ -619,7 +619,7 @@ impl Color {
     }
 }
 
-impl kivact_motion::Animatable for Color {
+impl kivact_runtime::Animatable for Color {
     const COMPONENTS: usize = 4;
     fn to_components(&self, out: &mut Vec<f64>) {
         out.extend_from_slice(&self.components());

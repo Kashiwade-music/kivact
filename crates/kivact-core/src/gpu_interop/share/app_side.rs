@@ -5,15 +5,15 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_reactive::{Owner, Runtime, Signal, Trigger};
+use kivact_runtime::{Owner, Runtime, Signal, Trigger};
 use kivact_types::{GpuAdapter, SharedTextures};
 
 use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareStatus, Work};
 use crate::gpu_interop::adapter;
 use crate::gpu_interop::import::inbox::Inbox;
 use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
+use kivact_runtime::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
-use kivact_task::spawn_in;
 
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
@@ -70,7 +70,7 @@ impl PartialEq for Current {
 #[track_caller]
 pub fn shared_image(width: u32, height: u32) -> SharedImage {
     let at = Location::caller();
-    let owner = kivact_reactive::Owner::current("shared_image", at);
+    let owner = kivact_runtime::Owner::current("shared_image", at);
     let size = (width.max(1), height.max(1));
     let mode = mode_of(adapter());
     let state = Arc::new(Inbox::new(LinkState::new(ShareRequest {
@@ -90,7 +90,7 @@ pub fn shared_image(width: u32, height: u32) -> SharedImage {
     // import was lost.
     let issued = RefCell::new((mode, size));
     let renewing = image.clone();
-    kivact_reactive::effect(move || {
+    kivact_runtime::effect(move || {
         let wanted = (mode_of(adapter()), renewing.size.get());
         let lost = renewing.import_lost();
         if !lost && *issued.borrow() == wanted {
@@ -208,7 +208,7 @@ impl SharedImage {
         }));
         self.changed.notify();
         let this = self.clone();
-        child.with_setup(|| kivact_reactive::effect(move || this.follow(token, &image)));
+        child.with_setup(|| kivact_runtime::effect(move || this.follow(token, &image)));
     }
 
     /// Mirror the status of the import of request `token`.

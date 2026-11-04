@@ -1,7 +1,7 @@
 //! Role: Run the tasks and timers of a turn until quiet.
 
-use kivact_reactive::{ErrorKind, Runtime, TurnRecorder, UiError};
-use kivact_task::TaskState;
+use kivact_runtime::TaskState;
+use kivact_runtime::{ErrorKind, Runtime, TurnRecorder, UiError};
 
 /// Rounds of tasks and timers one settle runs; the rest waits for the next
 /// turn.

@@ -4,7 +4,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
-use kivact_reactive::Prop as InputProp;
+use kivact_runtime::Prop as InputProp;
 use kivact_types::{IntrinsicSize, NodeId, Role};
 
 use super::editing;
@@ -16,7 +16,7 @@ use crate::view::tree::Handlers;
 /// The node's first write.
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
-    pub(super) exit_complete: Option<kivact_reactive::Callback<()>>,
+    pub(super) exit_complete: Option<kivact_runtime::Callback<()>>,
     pub(super) test_id: Option<Rc<str>>,
     pub(super) role: Option<Role>,
     pub(super) focusable: Option<InputProp<bool>>,

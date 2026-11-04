@@ -3,7 +3,7 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_reactive::{Owner, Prop, Value, memo};
+use kivact_runtime::{Owner, Prop, Value, memo};
 
 use super::locale::Locale;
 use super::messages::Messages;

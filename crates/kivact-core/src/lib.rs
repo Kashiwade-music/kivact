@@ -65,14 +65,14 @@ pub mod view;
 
 pub use app::App;
 #[doc(inline)]
-pub use kivact_reactive::Selector;
+pub use kivact_runtime::Selector;
 #[doc(inline)]
-pub use kivact_reactive::untrack;
+pub use kivact_runtime::untrack;
 #[doc(inline)]
-pub use kivact_reactive::{Binding, Callback, Signal, Value, Var};
+pub use kivact_runtime::{Binding, Callback, Signal, Value, Var};
 #[doc(inline)]
-pub use kivact_reactive::{Result, UiError};
+pub use kivact_runtime::{Result, UiError};
 #[doc(inline)]
-pub use kivact_reactive::{binding, effect, effect_on, memo, on_cleanup, on_mount, signal, var};
+pub use kivact_runtime::{binding, effect, effect_on, memo, on_cleanup, on_mount, signal, var};
 #[doc(inline)]
 pub use kivact_style::asset::Asset;

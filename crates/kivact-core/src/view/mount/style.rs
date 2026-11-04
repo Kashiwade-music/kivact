@@ -5,8 +5,8 @@ use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{EffectKind, UiError};
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::{EffectKind, UiError};
 use kivact_style::{Interactive, Style};
 use kivact_types::{LayoutProps, NodeId};
 
@@ -119,7 +119,7 @@ pub(crate) fn bind_style(
         let Some(rt) = weak.upgrade() else { return };
         // The style closures only compute values: pure even when this is
         // an Internal effect feeding a paint transition.
-        let resolved = kivact_reactive::pure(|| {
+        let resolved = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
                 let s = merge_layers(&layers);
                 let state = Interactive {
@@ -136,7 +136,7 @@ pub(crate) fn bind_style(
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     "local paint requires a box node; apply it to the containing node",
                     Some(at),
                 ),
@@ -177,7 +177,7 @@ pub(crate) fn bind_style(
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     format!(
                         "state styles set properties their state cannot change, ignored: {}; a hover, pressed, focus,                          focus_visible, group_hover, group_focus, enter or exit style changes paint only (background,                          border, ring, radius, opacity, shadow, transform, z_index, scrollbar, cursor, filters, mask,                          clip_path, color), and a paint callback belongs on the base style",
                         resolved.unsupported_in_states.join(", ")
@@ -196,7 +196,7 @@ pub(crate) fn bind_style(
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     format!(
                         "{} content size(s) (Length::MinContent, Length::MaxContent, Length::FitContent) outside width, height and basis; they are auto there",
                         resolved.misplaced_content
@@ -209,7 +209,7 @@ pub(crate) fn bind_style(
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     format!(
                         "{} text value(s) the host cannot draw (a font feature tag that is not four ASCII characters, a text shadow's spread or inset); dropped",
                         resolved.unsupported_text
@@ -236,6 +236,6 @@ fn bind_state(
         return Rc::new(move || v);
     }
     let f = s.into_fn();
-    cx.bind(id, kivact_reactive::Prop::computed(f.clone()), value, at);
+    cx.bind(id, kivact_runtime::Prop::computed(f.clone()), value, at);
     f
 }

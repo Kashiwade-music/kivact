@@ -17,7 +17,7 @@ pub use kivact_types::{Capabilities, Insets};
 /// The App's environment as seen from the nearest owner at the call (`api`
 /// names the caller in misuse diagnostics).
 fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
-    let rt = kivact_reactive::Owner::ambient(api, at).runtime();
+    let rt = kivact_runtime::Owner::ambient(api, at).runtime();
     ViewState::of(&rt).env()
 }
 
@@ -35,8 +35,8 @@ fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&Environme
 /// screen from content mounted later. This is an untracked snapshot.
 #[track_caller]
 pub fn is_initial_render() -> bool {
-    let rt = kivact_reactive::Owner::ambient("platform::is_initial_render", Location::caller())
-        .runtime();
+    let rt =
+        kivact_runtime::Owner::ambient("platform::is_initial_render", Location::caller()).runtime();
     let revision = ViewState::tree(&rt).engine().stats().revision;
     revision == 0
 }
@@ -49,7 +49,7 @@ pub fn is_initial_render() -> bool {
 /// a call outside every owner reports a located `SetupOnly` misuse.
 #[track_caller]
 pub fn font_families() -> Vec<String> {
-    let rt = kivact_reactive::Owner::ambient("font_families", Location::caller()).runtime();
+    let rt = kivact_runtime::Owner::ambient("font_families", Location::caller()).runtime();
     ViewState::tree(&rt).reader().font_families()
 }
 
@@ -98,7 +98,7 @@ pub fn surface_active() -> bool {
 #[track_caller]
 pub fn safe_area() -> Insets {
     let at = Location::caller();
-    let rt = kivact_reactive::Owner::ambient("safe_area", at).runtime();
+    let rt = kivact_runtime::Owner::ambient("safe_area", at).runtime();
     let state = ViewState::of(&rt);
     // Relying on a safe area the platform does not report is noted
     // (once per App) instead of silently reading zero.
@@ -150,7 +150,7 @@ pub fn window_size() -> Size {
 /// ```
 #[track_caller]
 pub fn capabilities() -> Capabilities {
-    let rt = kivact_reactive::Owner::ambient("capabilities", Location::caller()).runtime();
+    let rt = kivact_runtime::Owner::ambient("capabilities", Location::caller()).runtime();
     ViewState::of(&rt).capabilities()
 }
 

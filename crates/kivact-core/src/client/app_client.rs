@@ -45,11 +45,11 @@ use crate::view::requests;
 use crate::view::root::AppSettings;
 use crate::view::state::ViewState;
 use crate::view::text_edits::TextEditsAhead;
-use kivact_motion::MotionState;
-use kivact_reactive::{ErrorKind, Extensions, Runtime, TurnRecorder, UiError};
+use kivact_runtime::MotionState;
+use kivact_runtime::TaskState;
+use kivact_runtime::{ErrorKind, Extensions, Runtime, TurnRecorder, UiError};
 use kivact_style::Theme;
 use kivact_style::asset::Asset;
-use kivact_task::TaskState;
 
 /// Rounds of `on_mount` callbacks and user effects one turn runs before
 /// the rest is cut as a `Cycle`.

@@ -18,7 +18,7 @@ impl PointerEvent {
     pub fn reserve_touch_gesture(&self) {
         if self.kind() == crate::view::PointerKind::Touch
             && matches!(self.phase(), PointerPhase::Down(_))
-            && let Some(runtime) = kivact_reactive::Runtime::current()
+            && let Some(runtime) = kivact_runtime::Runtime::current()
         {
             ViewState::tree(&runtime)
                 .engine()
@@ -31,7 +31,7 @@ impl PointerEvent {
     /// Keyboard and accessibility activations are independent.
     pub fn suppress_activation(&self) {
         if self.is_primary()
-            && let Some(runtime) = kivact_reactive::Runtime::current()
+            && let Some(runtime) = kivact_runtime::Runtime::current()
         {
             ViewState::tree(&runtime).engine().adopt_pointer_target(
                 self.origin().node,

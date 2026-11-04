@@ -3,7 +3,7 @@ use super::Screenshot;
 use crate::embed::Parent;
 use crate::view::KeyCode;
 use crate::{Result, UiError};
-use kivact_reactive::ErrorKind;
+use kivact_runtime::ErrorKind;
 use std::ffi::c_void;
 use std::time::Duration;
 

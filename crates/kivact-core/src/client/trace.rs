@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 use kivact_types::NodeId;
 
 use crate::view::state::ViewState;

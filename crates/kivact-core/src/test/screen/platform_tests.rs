@@ -10,7 +10,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact_reactive::{ErrorKind, UiError};
+use kivact_runtime::{ErrorKind, UiError};
 
 use super::support::button_box;
 use crate::platform;

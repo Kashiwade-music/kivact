@@ -30,7 +30,7 @@ mod pointer;
 mod text;
 
 use kivact_engine::contract::HostEvent;
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 
 pub(super) use pointer::run_requested_activations;
 

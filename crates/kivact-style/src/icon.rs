@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use kivact_reactive::{IntoValue, Prop as Input};
+use kivact_runtime::{IntoValue, Prop as Input};
 
 use crate::asset::Asset;
 
@@ -72,7 +72,7 @@ impl From<&'static str> for Icon {
     }
 }
 
-kivact_reactive::constant_value!(Icon);
+kivact_runtime::constant_value!(Icon);
 
 /// A constant icon from what [`Icon`] converts from: a name the theme
 /// resolves (`icon("check")`) or an image [`Asset`]. The conversion happens

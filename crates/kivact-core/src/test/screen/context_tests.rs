@@ -1,7 +1,7 @@
 //! Role: Real-window regressions for layer context entry.
 use crate::prelude::{Value, memo, signal, text};
 use crate::test::{RenderOptions, WindowMode, render_with, render_with_handle};
-use kivact_reactive::{pure, untrack};
+use kivact_runtime::{pure, untrack};
 use std::cell::Cell;
 
 #[test]

@@ -3,7 +3,7 @@
 use crate::i18n::{Locale, Messages};
 use crate::view::IntoView;
 use crate::{Asset, Result, UiError};
-use kivact_reactive::ErrorKind;
+use kivact_runtime::ErrorKind;
 use kivact_style::Theme;
 use kivact_types::Size;
 use std::panic::Location;

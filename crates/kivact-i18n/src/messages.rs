@@ -66,4 +66,4 @@ impl Messages {
     }
 }
 
-kivact_reactive::constant_value!(Messages);
+kivact_runtime::constant_value!(Messages);

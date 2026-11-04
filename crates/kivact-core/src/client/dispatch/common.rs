@@ -2,7 +2,7 @@
 //! the lookup of a node's handler and owner, and the failure-safe handler run.
 
 use kivact_engine::contract::HostEvent;
-use kivact_reactive::{Owner, Runtime, UiError};
+use kivact_runtime::{Owner, Runtime, UiError};
 use kivact_types::{KeyPhase, NodeId, PointerPhase};
 
 use crate::client::state::HostState;

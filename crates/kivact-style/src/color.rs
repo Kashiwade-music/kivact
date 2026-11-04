@@ -104,4 +104,4 @@ impl From<ColorToken> for Color {
     }
 }
 
-kivact_reactive::constant_value!(Color);
+kivact_runtime::constant_value!(Color);

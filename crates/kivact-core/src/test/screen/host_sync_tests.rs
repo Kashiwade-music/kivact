@@ -10,7 +10,7 @@ use super::support::button_box;
 use super::support::{Rng, seeds};
 use crate::prelude::{NodeBuilder, Role, Signal, column, for_each, node, style, text};
 use crate::test::render;
-use kivact_reactive::signal;
+use kivact_runtime::signal;
 
 #[test]
 fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {

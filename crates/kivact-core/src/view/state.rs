@@ -12,15 +12,15 @@ use std::collections::HashMap;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_reactive::Selector;
-use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owner, Runtime};
-use kivact_reactive::{Signal, Value};
+use kivact_runtime::Selector;
+use kivact_runtime::{ErrorKind, UiError};
+use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::{Signal, Value};
 use kivact_types::{Environment, Modifiers, NodeId, PlatformResult};
 
 use super::tree::Tree;
+use kivact_runtime::Completion;
 use kivact_style::draw::Rect;
-use kivact_task::Completion;
 use kivact_types::Capabilities;
 
 /// What a [`NodeRef`](super::NodeRef) is bound to.
@@ -139,7 +139,7 @@ impl EnvState {
         let env = self.env;
         let made = self
             .owner
-            .with_setup(|| kivact_reactive::memo(move || env.with(f)));
+            .with_setup(|| kivact_runtime::memo(move || env.with(f)));
         self.fields.borrow_mut().push((name, Box::new(made)));
         made
     }

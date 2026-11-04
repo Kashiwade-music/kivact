@@ -4,7 +4,7 @@ use crate::view::owner::Owner;
 use crate::view::state::ViewState;
 use crate::view::{NodeRef, focus, requests};
 use kivact_engine::api::PropValue;
-use kivact_reactive::{AppId, Runtime, require_effectful};
+use kivact_runtime::{AppId, Runtime, require_effectful};
 use kivact_types::FocusTarget;
 use std::panic::Location;
 use std::rc::Rc;

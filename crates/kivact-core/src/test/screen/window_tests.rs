@@ -83,7 +83,7 @@ fn resize_dimensions_must_fit_finite_positive_f64() {
         assert_eq!(screen.errors().len(), 1);
         assert_eq!(
             *screen.errors()[0].kind(),
-            kivact_reactive::ErrorKind::Message
+            kivact_runtime::ErrorKind::Message
         );
     }
 }

@@ -240,7 +240,7 @@ impl Screen {
 
     /// Number of frame ticks the App has been given.
     pub fn frame_ticks(&self) -> u64 {
-        kivact_motion::MotionState::of(&self.rt).stats().ticks
+        kivact_runtime::MotionState::of(&self.rt).stats().ticks
     }
 
     /// Whether the screen is shown in a real window (not headless).

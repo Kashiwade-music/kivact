@@ -107,7 +107,7 @@ pub trait NodeExt: NodeBuilder {
     fn accessible_disabled(&mut self) -> Option<Rc<dyn Fn() -> bool>> {
         self.node_mut()
             .disabled_source()
-            .map(kivact_reactive::Prop::into_fn)
+            .map(kivact_runtime::Prop::into_fn)
     }
 
     /// Read the preserved accessible-name input without allocating a value.
@@ -115,7 +115,7 @@ pub trait NodeExt: NodeBuilder {
     fn accessible_name(&mut self) -> Option<Rc<dyn Fn() -> String>> {
         self.node_mut()
             .name_source()
-            .map(kivact_reactive::Prop::into_fn)
+            .map(kivact_runtime::Prop::into_fn)
     }
 
     /// Copy the preserved label references, in caller/part order, without
@@ -159,7 +159,7 @@ pub trait NodeExt: NodeBuilder {
     fn accessible_invalid(&mut self) -> Option<Rc<dyn Fn() -> bool>> {
         self.node_mut()
             .invalid_source()
-            .map(kivact_reactive::Prop::into_fn)
+            .map(kivact_runtime::Prop::into_fn)
     }
 
     /// Read the preserved expanded-state input (`.expanded(..)`, set by the
@@ -171,7 +171,7 @@ pub trait NodeExt: NodeBuilder {
     fn accessible_expanded(&mut self) -> Option<Rc<dyn Fn() -> bool>> {
         self.node_mut()
             .expanded_source()
-            .map(kivact_reactive::Prop::into_fn)
+            .map(kivact_runtime::Prop::into_fn)
     }
 
     /// Record `at` as where this element was created, instead of
