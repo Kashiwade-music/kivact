@@ -40,8 +40,8 @@ arvane = ["kivact-engine"]
 arvane-shell = ["arvane", "arvane-native", "kivact-engine", "arvane-virtual"]
 # Linux embedded native services own XCB/XIM, AT-SPI and desktop services;
 # callbacks queue through arvane-shell and never depend back on the engine.
-arvane-native = ["kivact-engine", "arvane-virtual"]
-arvane-virtual = ["kivact-engine", "kivact-test", "arvane"]
+arvane-native = ["kivact-engine", "arvane-virtual", "arvane"]
+arvane-virtual = ["kivact-engine", "arvane"]
 arvane-text = ["arvane"]
 arvane-render = ["arvane"]
 arvane-asset = ["arvane"]

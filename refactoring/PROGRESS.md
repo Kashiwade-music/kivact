@@ -26,12 +26,12 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | V-5 | merged | 52e7934 | |
 | V-6 | merged | bcb6f69 | |
 | A-0 | merged | 1d54c60 | 指定 check 0、統合 check 0 |
-| A-1a | doing | | virtual backend と Window の一本化 |
-| A-1b | todo | | |
+| A-1a | merged | 17d4592 | Arvane 指定 check 0 |
+| A-1b | doing | | engine/core の新 test driver |
 | A-2 | todo | | |
 | A-3 | todo | | |
-| A-4 | doing | | embed lifecycle |
-| A-5 | todo | | |
+| A-4 | merged | 19f1a69 | 新 trait 前提の確認は A-1a/1b 合流で |
+| A-5 | doing | | GPU の状態 |
 | A-6a | todo | | |
 | A-6b | todo | | |
 | E-1 | merged | 3f3b930 | 初回 check 0、xtask 0、統合 check 0 |
@@ -47,11 +47,11 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | E-9b | todo | | |
 | X-1 | todo | | |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
-| R-2 | doing | | host と turn guard |
-| R-3 | doing | | reactive の状態 |
-| R-4 | todo | | |
-| R-5 | todo | | |
-| R-6 | doing | | Machine |
+| R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |
+| R-3 | merged | 0165094 | 関連 E2E 34 passed、合流 runtime check 0 |
+| R-4 | doing | | 実装完了、取り込み待ち |
+| R-5 | doing | | 実装完了、取り込み待ち |
+| R-6 | merged | e4a39b3 | check/doc test 0 |
 | C-1 | todo | | |
 | C-2 | todo | | |
 | L-1 | todo | | |

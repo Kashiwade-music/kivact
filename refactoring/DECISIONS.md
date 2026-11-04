@@ -2,6 +2,10 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
+| 2026-11-05 | A-1a | 次 Wake の test helper に借用 closure を保存できない | Harness::with の closure/result に static 制約を付け、move/clone で移行。製品 API を変えず unsafe bridge を避ける。 |
+| 2026-11-05 | A-1a | policy は dev 依存と未作成 consumer も検査する | native E2E 用の arvane dev consumer は残し、virtual の kivact-test consumer は C-1 の crate 作成時に足す。通常の native 依存は削除。 |
+| 2026-11-05 | A-4 | child frame と CpuSurface の提示方式がまだ異なる | frame Option の解消は既定の softbuffer 提示統合 A-6a で行う。lifecycle の所有は A-4 で一元化。 |
+| 2026-11-05 | R-5 | Closed 後も worker と待機列が drain を続ける | private Closed に queue data を保持し、新版 Pending と busy の一致を優先。待機中の完了通知でも Pending とする。 |
 | 2026-11-05 | W2 shared target | 別 worktree の改名済み Arvane metadata が混在して単体 check に外部型の不在が出る | 同じ単体 gate を反復せず、初回成功を保持して合流し専用 integration target で確認。R-1/A-0/E-1 統合 check は 0。 |
 | 2026-11-05 | W2 resources | 旧 trace/log 削除後も空きは約 74 GB で開始目安 100 GB 未満 | 作業外のデータは削除せず、共有 target と 40 GB の clean 境界で進める。workspace 内の全 cache を消しても目安に届かず、再 build を増やさない最小の選択。 |
 | 2026-11-04 | P-0 | Design documents exist only on the starting docs branch | Created integration from main and fast-forwarded the docs branch before unit worktrees. |

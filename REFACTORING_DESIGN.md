@@ -696,7 +696,7 @@ impl<M: Machine> MachineCx<M> {
 
 ### 6.6 非同期の状態
 
-`Resource` と `Action` が別々に持つ `state: Signal<AsyncState<T>>` と `latest: Signal<Option<T>>` の組（`kivact-task/src/resource.rs:16-21`、`action.rs:196-197`）を、`AsyncCell<T>`（`Signal<AsyncSnapshot<T> { state, latest }>` 一つ）にまとめる。`Action` は `ActionPhase::{Open(Worker), Closed, Detached(Drain)}` を持ち、`Detached` は `Runner::Queue|All` からしか作れない型にする（SM-R13）。
+`Resource` と `Action` が別々に持つ `state: Signal<AsyncState<T>>` と `latest: Signal<Option<T>>` の組（`kivact-task/src/resource.rs:16-21`、`action.rs:196-197`）を、`AsyncCell<T>`（`Signal<AsyncSnapshot<T> { state, latest }>` 一つ）にまとめる。`Action` は `ActionPhase::{Open(Worker), Closed { worker: Worker, waiting: VecDeque<Submitted<I>> }, Detached(Drain)}` を持ち、`Detached` は `Runner::Queue|All` からしか作れない型にする（SM-R13）。
 
 ### 6.7 拡張（App ごとの状態）
 
@@ -1938,6 +1938,8 @@ W0・W1 を実装した結果と、W2 以降の各 unit を現在の code に当
 
 ### 19.1 `Backend` は既存の `ShellEventLoop` の改名にする
 
+既存の native/embed E2E のための `arvane` から `arvane-native` への dev-dependency は残す（通常依存は消す）。policy は dev-dependency も検査するので、この用途だけ `arvane` を consumer に含める。
+
 （9.1 節の `Backend` trait の code、「A-0 の実コードとの照合による補足」、9.1 節の箇条の一つ目と二つ目、4.1 節の `kivact-engine` の行の依存 `arvane-virtual（feature test）` 以外を置き換える）
 
 ```rust
@@ -2369,7 +2371,7 @@ impl<T: Clone> AsyncCell<T> {
     fn reset(&self);                          // Idle
 }
 enum Latest { Idle, Running { task: Owned<TaskCell>, generation: Generation } }
-enum ActionPhase<I> { Open { worker: Worker, waiting: VecDeque<Submitted<I>> }, Closed, Detached(Drain) }
+enum ActionPhase<I> { Open { worker: Worker, waiting: VecDeque<Submitted<I>> }, Closed { worker: Worker, waiting: VecDeque<Submitted<I>> }, Detached(Drain) }
 enum PoolState { NotStarted, Running(Arc<Pool>), ShutDown }
 ```
 

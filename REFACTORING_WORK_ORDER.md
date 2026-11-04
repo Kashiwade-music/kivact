@@ -474,8 +474,8 @@ V-1a〜V-6（`kivact-wire` の解体、`kivact-types` への語彙の一本化�
   2. `crates/arvane-virtual` を作る。`arvane/src/test_display/{shell.rs, virtual_window.rs, environment.rs}` の code を移して `ShellWindow`・`SteppedLoop` の実装に直す（`git mv` してから直す）。module は設計書 4.4 節の `[module_rules.arvane-virtual.uses]` のとおり（`clock`・`script`・`surface`・`window`・`backend`・`mirror`）。
   3. `arvane-native`: `test_display.rs` → `mirror.rs`。`ShellWindow` の native の実装に `keeps_frames`・`keep_frame`。
   4. `arvane`: `Shell::start_stepped`・`ShellSetup`・`SteppedShell`、`Window` の具体型化、Presenter の一本化、`test_display` の削除、`Cargo.toml` から arvane-native と feature `testing` を消す。
-  5. `crates/arvane/tests/e2e`（33 試験）: `support.rs` に `Harness` を作る（`Harness::open(options) -> Harness`、`with<R>(&mut self, f: impl FnOnce(&mut arvane::Window<'_>) -> R) -> R` は closure を handler の次の `Wake` で走らせて結果を返す、`script()`、`probe()`）。試験は窓の書き換え（`set_title`、`present`、`request_redraw` など App 側）を `with` に、platform 側（`contact`、`set_occluded`、`fail_presents` など）を `script()` に、読み出しを `probe()` に置き換える。`arvane-virtual` を dev-dependency にする。
-  6. 0.9 節の一覧（`arvane-virtual` を足す）。policy: `arvane-virtual` の `visible_to = ["kivact-engine", "kivact-test", "arvane"]`。`arvane-native` の `visible_to` は `["kivact-engine", "arvane-virtual"]`（`arvane` を消す）。`arvane-shell` の `visible_to` に `arvane-virtual` があること。
+  5. `crates/arvane/tests/e2e`（33 試験）: `support.rs` に `Harness` を作る（`Harness::open(options) -> Harness`、`with<R: 'static>(&mut self, f: impl FnOnce(&mut arvane::Window<'_>) -> R + 'static) -> R` は closure を handler の次の `Wake` で走らせて結果を返す、`script()`、`probe()`）。試験は窓の書き換え（`set_title`、`present`、`request_redraw` など App 側）を `with` に、platform 側（`contact`、`set_occluded`、`fail_presents` など）を `script()` に、読み出しを `probe()` に置き換える。`arvane-virtual` を dev-dependency にする。
+  6. 0.9 節の一覧（`arvane-virtual` を足す）。policy: `arvane-virtual` の `visible_to = ["kivact-engine", "arvane"]`（`kivact-test` は C-1 で作る際に足す）。`arvane-native` の `visible_to` は `["kivact-engine", "arvane-virtual", "arvane"]`（`arvane` は既存 native/embed E2E の dev-dependency のみ。通常依存は消す）。`arvane-shell` の `visible_to` に `arvane-virtual` があること。
 - **試験**: 足さない（arvane の 33 試験を移す）。
 - **unit の確認**: build 可（arvane 側だけ）。`cargo check -p arvane-shell -p arvane-virtual -p arvane-native -p arvane --all-targets --all-features`。engine・core は check しない。
 - **規模**: L。手順 1〜4 と 5 で commit を分ける。**並列**: R-2・R-3・E-1 と同時に動いてよい。A-4（arvane-native/src/embed だけ）と同時でよい。
@@ -564,6 +564,8 @@ V-1a〜V-6（`kivact-wire` の解体、`kivact-types` への語彙の一本化�
 - **規模**: M。**並列**: A-1a の merge を待つ（`State::Foreground` の削除）。A-1b・A-2・A-3・A-4 と同時でよい。
 
 ### A-6a arvane-native の port と key・cursor・提示
+
+- **前段からの申し送り**: A-4 に残した native child の `frame: Option<CpuFrame>` は、この unit の softbuffer/CpuSurface 提示統合で解消する。
 
 - **目的**: 設計書 17.2 節と 19（pipeline の置き場所）。D-14 の前半。
 - **決定済みの形**:
@@ -987,7 +989,7 @@ Phase R は `kivact-reactive`・`kivact-task`・`kivact-motion` を `kivact-runt
       fn reset(&self);                                // Idle
   }
   enum Latest { Idle, Running { task: Owned<TaskCell>, generation: Generation } }
-  enum ActionPhase<I> { Open { worker: Worker, waiting: VecDeque<Submitted<I>> }, Closed, Detached(Drain) }
+  enum ActionPhase<I> { Open { worker: Worker, waiting: VecDeque<Submitted<I>> }, Closed { worker: Worker, waiting: VecDeque<Submitted<I>> }, Detached(Drain) }
   enum PoolState { NotStarted, Running(Arc<Pool>), ShutDown }
   ```
   - `Resource` と `Action` の状態は `AsyncCell` を通してだけ書く。公開の `state()`・`latest()` はそれぞれの signal を読む（memo にしない）。
