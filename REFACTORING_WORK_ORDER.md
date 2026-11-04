@@ -1901,7 +1901,7 @@ impl<S: Clone + 'static> OptionsCell<S> {
 
 - **目的**: 設計書 17.10 節（19 章で変えた所を含む）。付録 A の SM-I01（presence の部分）、SM-U02（閉じる動き）、SM-U04、SM-U06、SM-U903。
 - **決定済みの形**:
-  - 退場と出現は engine の presence（E-9a・E-9b: `Style::enter_size(Orientation)`・`exit_size(Orientation)`、`TransitionProp::Size`、`NodeRef::presence() -> Value<Presence>`、`Presence::{Entering, Present, Exiting}`）だけで描く。
+  - 退場と出現は engine の presence（E-9a・E-9b: `Style::enter_size(Orientation)`・`exit_size(Orientation)`、`TransitionProp::Size`、`NodeRef::presence() -> Value<Presence>`、`Presence::{Entering, Present, Leaving}`）だけで描く。
   - disclosure は閉じたら内容の node を unmount する。高さの動きは recipe の `enter_size(Orientation::Vertical)`・`exit_size(Orientation::Vertical)` で、時間は `UiTokens.disclosure.motion`。`ui::disclosure(..).animated(bool)` は、その一つの部品の `motion.animate` の上書きとして残す。
   - `DisclosureOptions.leaving` と `interaction::use_content_reveal`・`ContentReveal` を消す。
   - toast の swipe で閉じる動きは、drag の位置から始まる toast の node の退場にする（`Visual::Dismiss` と `frame_loop` を消す）。

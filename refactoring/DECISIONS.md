@@ -141,3 +141,4 @@
 | 2026-11-05 | G-4c | ScrollSnap の形が未定義 | None/Start/Center/End とし既存 ScrollAxes で子を整列。可変サイズを扱い、raw pixel stop の別設定を増やさない。nearest_snap/DragVelocity は types の単一純粋実装を interaction が再公開。 |
 | 2026-11-05 | U-2 | inline field は open 後に条件付き mount される | Requested{key} を実際の要求として持ち field mount で Editing へ遷移。dummy session・事前登録の順序要求・後付け slot は作らない。 |
 | 2026-11-05 | G-5 | async_view が PartialEq を追加要求する | canonical AsyncCell の Rc publication identity を dynamic が観測。単一 state のまま T:Clone を保ち、Idle は空表示、Pending だけ loading にする。 |
+| 2026-11-05 | fix-G5-10 | 既存Basic menuのskip試験とAPG既定Retain | fixtureへ明示Skipを渡し全assertを保持。tooltip fallbackはdeferred Partの既存descriptionを見て決め、空説明でshortcutを消さない。 |

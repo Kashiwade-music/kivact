@@ -133,14 +133,14 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | I-5b | doing | | |
 | I-6 | merged | cca5c70 | public7/Soft2、固定follow2 passed、check/state-fields0 |
 | U-1 | merged | 0c87c70 | public12/Soft6 passed、check/state-fields0 |
-| U-2 | doing | | |
+| U-2 | merged | 257f8d5 | public56/APG2/Soft5 passed、check/state-fields0。details残件はI7 |
 | I-7 | doing | | |
 | T-1 | merged | 6771046 | text_editing10 passed、check/fmt 0 |
 | T-2 | merged | 9130a41 | 公開API editor証明7 passed、check0 |
 | G-1a | merged | 1685f3e | canvas8 passed、workspace check/fmt 0 |
 | G-1b | merged | b36cb40 | engine/core check0、固定canvas10 passed |
 | G-2 | merged | bec641a | pointer6 passed、engine/core check/fmt0 |
-| G-3 | todo | | |
+| G-3 | doing | | |
 | G-4a | merged | 586a75c | style_paint6 passed、check/fmt 0 |
 | G-4b | merged | 0703861 | motion11 passed、check/fmt0 |
 | G-4c | doing | | |
