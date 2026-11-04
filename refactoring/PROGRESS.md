@@ -29,7 +29,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | A-1a | merged | 17d4592 | Arvane 指定 check 0 |
 | A-1b | merged | 7319467 | 指定 check 0、公開 API E2E 285 passed、native smoke 0 |
 | A-2 | merged | 26d62bb | 指定 check 0、platform E2E 7 passed、統合 workspace check 0 |
-| A-3 | doing | | 入力・wake・AccessKit の状態管理 |
+| A-3 | merged | f4f17dc | 指定 5 crate check 0、状態点検 1〜10 完了 |
 | A-4 | merged | 19f1a69 | 新 trait 前提の確認は A-1a/1b 合流で |
 | A-5 | merged | 9d59292 | 対象 4 package check 0、全体は A-1b 合流で |
 | A-6a | todo | | |
@@ -45,7 +45,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | E-8 | todo | | |
 | E-9a | todo | | |
 | E-9b | todo | | |
-| X-1 | todo | | |
+| X-1 | doing | | feature の実装 crate への集約 |
 | R-1 | merged | 0341b35 | 初回 check 0、統合 check 0 |
 | R-2 | merged | b4b03bd | check 0、関連 E2E 32 passed |
 | R-3 | merged | 0165094 | 関連 E2E 34 passed、合流 runtime check 0 |
