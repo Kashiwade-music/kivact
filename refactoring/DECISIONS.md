@@ -139,3 +139,5 @@
 | 2026-11-05 | I-4 | 存在しない facade Owner.is_alive | 既存の実体 Owned<State>/order の try_get で生存確認し、余分な alive token と新 API を作らない。 |
 | 2026-11-05 | T-1 | decoration の公開入力 | style の Color/TextLength record を一度 backend に resolve。StyledRange は style、Decoration/TextLayout は custom、描画引数は既存 Draw。 |
 | 2026-11-05 | G-4c | ScrollSnap の形が未定義 | None/Start/Center/End とし既存 ScrollAxes で子を整列。可変サイズを扱い、raw pixel stop の別設定を増やさない。nearest_snap/DragVelocity は types の単一純粋実装を interaction が再公開。 |
+| 2026-11-05 | U-2 | inline field は open 後に条件付き mount される | Requested{key} を実際の要求として持ち field mount で Editing へ遷移。dummy session・事前登録の順序要求・後付け slot は作らない。 |
+| 2026-11-05 | G-5 | async_view が PartialEq を追加要求する | canonical AsyncCell の Rc publication identity を dynamic が観測。単一 state のまま T:Clone を保ち、Idle は空表示、Pending だけ loading にする。 |

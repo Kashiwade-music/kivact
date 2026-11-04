@@ -615,7 +615,7 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 
 ### SM-U05 inline の編集
 - **場所**: `inline_edit.rs:34,~96`（`editing: Binding<Option<K>>`、cleanup で閉じる）、`text_draft.rs:24-40`（field ごとの draft の signal と `EditSession`）
-- **解消後**: `enum InlineEdit<K> { Idle, Editing { key: K, draft: String, session: EditSession<String> } }`。caller の `Binding<Option<K>>` は `Editing` の key の写し（`Sent` で書く）
+- **解消後**: `enum InlineEdit<K> { Idle, Requested { key: K }, Editing { key: K, draft: String, session: EditSession<String> } }`。条件付き mount の前は Requested とし、field mount で完成した draft/session を渡して Editing へ遷移する。caller の `Binding<Option<K>>` は編集要求と `Editing` の key の写し（`Sent` で書く）
 - **unit**: U-2
 
 ### SM-U06 disclosure の動き
