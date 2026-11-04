@@ -247,6 +247,7 @@ impl Transition {
     }
 
     /// Derive timing for an interrupted component animation.
+    // xtask-allow(internal-contract): Shared component timing bridges runtime and host animation drivers.
     #[doc(hidden)]
     pub fn retargeted(&self, from: &[f64], to: &[f64], current: &[f64], target: &[f64]) -> Self {
         let mut timing = self.clone();

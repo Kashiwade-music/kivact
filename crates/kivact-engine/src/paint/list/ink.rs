@@ -304,7 +304,7 @@ pub(super) fn local_transform(
     n: &HostNode,
     layout: &NodeLayout,
 ) -> Option<kivact_types::Transform> {
-    if n.place.transformed {
+    if n.place.transformed || host.layout_motion_transform(id).is_some() {
         host.local_transform(id, layout.size)
     } else {
         None

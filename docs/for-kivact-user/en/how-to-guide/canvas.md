@@ -512,6 +512,18 @@ fn exporter() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Export").run(exporter) }
 ```
 
+## Capture a mounted node
+
+Bind a `NodeRef` with `.node_ref(target)` and await `target.snapshot()` from
+an async action or task. It returns owned `Pixels` in straight-alpha RGBA8,
+cropped to the node's layout size, including its background and descendants.
+One logical pixel becomes one output pixel; a fractional size rounds up.
+The CPU rasterizer draws the current scene even when the window uses a GPU.
+Ordinary `Pixels` are included. A shared GPU frame has no CPU pixel
+representation and returns a located `ErrorKind::Unsupported` error.
+An unbound or removed target is an error. The future follows the reference's
+current binding when polled and fails if its owner has been disposed.
+
 ## See also
 
 - [Animate values and elements](animation.md): drive a canvas from a frame loop.

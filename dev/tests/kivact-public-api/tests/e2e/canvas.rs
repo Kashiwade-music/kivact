@@ -283,3 +283,107 @@ fn parse_svg_draws_the_same_path() {
     }
     assert!(screen.errors().is_empty());
 }
+
+#[test]
+fn snapshot_returns_the_node_pixels() {
+    let (screen, capture) = super::support::mount(|| {
+        let target = node_ref();
+        let capture = callback(move |reply: std::sync::mpsc::Sender<_>| {
+            kivact::task::spawn(async move {
+                reply
+                    .send(target.snapshot().await)
+                    .expect("snapshot receiver lives");
+            });
+        });
+        (
+            capture,
+            row((
+                node().style(style().size(25, 40).background(rgb(BLUE))),
+                node()
+                    .style(style().size(60, 40).background(Color::WHITE))
+                    .node_ref(target)
+                    .child(
+                        canvas(|draw, _| {
+                            let pixels = kivact::draw::Pixels::new(
+                                1,
+                                1,
+                                std::sync::Arc::from([255, 0, 0, 255]),
+                            );
+                            draw.pixels(
+                                &pixels,
+                                Rect::new(0., 0., 30., 20.),
+                                ImageOptions::default(),
+                            );
+                        })
+                        .style(style().size(60, 40)),
+                    ),
+            )),
+        )
+    });
+    let (send, receive) = std::sync::mpsc::channel();
+    capture.call(send);
+    screen.run_until_idle();
+    let pixels = receive
+        .try_recv()
+        .expect("snapshot completes")
+        .expect("CPU subtree renders");
+    assert_eq!((pixels.width, pixels.height), (60, 40));
+    assert_eq!(pixels.rgba.len(), 60 * 40 * 4);
+    let red = pixels
+        .rgba
+        .chunks_exact(4)
+        .filter(|p| p[0] > 180 && p[1] < 80 && p[2] < 80)
+        .count();
+    let white = pixels
+        .rgba
+        .chunks_exact(4)
+        .filter(|p| p[0] > 180 && p[1] > 180 && p[2] > 180)
+        .count();
+    assert!(
+        red > 300 && white > 1000,
+        "snapshot includes the drawing and the node background"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+#[test]
+fn snapshot_of_a_gpu_frame_is_unsupported() {
+    let (screen, capture) =
+        super::support::mount_with(kivact::test::RenderOptions::default(), || {
+            let target = node_ref();
+            let frame = super::gpu_interop::unread_frame();
+            let capture = callback(move |reply: std::sync::mpsc::Sender<_>| {
+                kivact::task::spawn(async move {
+                    reply
+                        .send(target.snapshot().await)
+                        .expect("snapshot receiver lives");
+                });
+            });
+            (
+                capture,
+                node().node_ref(target).style(style().size(48, 32)).child(
+                    canvas(move |draw, _| {
+                        draw.gpu_frame(
+                            &frame,
+                            Rect::new(0., 0., 48., 32.),
+                            ImageOptions::default(),
+                        );
+                    })
+                    .style(style().size(48, 32)),
+                ),
+            )
+        });
+    let (send, receive) = std::sync::mpsc::channel();
+    capture.call(send);
+    screen.run_until_idle();
+    let error = receive
+        .try_recv()
+        .expect("snapshot completes")
+        .expect_err("GPU pixels cannot be read by the CPU");
+    assert_eq!(*error.kind(), kivact::ErrorKind::Unsupported);
+    assert!(
+        error.location().is_some(),
+        "snapshot errors identify the call"
+    );
+}

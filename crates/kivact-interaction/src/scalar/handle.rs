@@ -135,8 +135,8 @@ impl ScalarApi {
         }
         self.edit
             .shared
-            .key_step
-            .set(Some((step, Owner::current())));
+            .settings
+            .update(|settings| settings.key_step = Some((step, Owner::current())));
         Ok(self)
     }
 
@@ -149,8 +149,8 @@ impl ScalarApi {
         let disabled = disabled.into_value();
         self.edit
             .shared
-            .disabled
-            .update(|current| *current = Some(disabled));
+            .settings
+            .update(|settings| settings.disabled = Some(disabled));
         self
     }
 
@@ -222,7 +222,7 @@ impl ScalarApi {
     /// else the range's step, else 1.
     #[track_caller]
     fn current_key_step(self) -> Option<f64> {
-        if let Some((value, owner)) = self.edit.shared.key_step.get() {
+        if let Some((value, owner)) = self.edit.shared.settings.get().key_step {
             let step = value.get_untracked();
             if !step.is_finite() || step <= 0.0 {
                 owner.report(
@@ -296,8 +296,9 @@ impl ScalarApi {
     pub fn touch_lifted(self) -> Option<Value<bool>> {
         self.edit
             .shared
-            .touch
+            .settings
             .get()
+            .touch
             .map(|touch| touch.lifted(self.edit.index))
     }
 
@@ -324,11 +325,13 @@ impl ScalarApi {
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
-            let own_disabled = shared.disabled.get_untracked();
-            shared.disabled.set(Some(memo(move || {
-                caller_disabled.is_some_and(|value| value.get())
-                    || own_disabled.is_some_and(|value| value.get())
-            })));
+            let own_disabled = shared.settings.get().disabled;
+            shared.settings.update(|settings| {
+                settings.disabled = Some(memo(move || {
+                    caller_disabled.is_some_and(|value| value.get())
+                        || own_disabled.is_some_and(|value| value.get())
+                }))
+            });
             let surface = host.part(input).node_ref(target).focus_on_press(edit.thumb);
             let surface = shared.touch_source(surface, Grip::Track);
             shared.pointer.attach_track(target.rect(), axis);
@@ -353,11 +356,13 @@ impl ScalarApi {
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
-            let own_disabled = shared.disabled.get_untracked();
-            shared.disabled.set(Some(memo(move || {
-                caller_disabled.is_some_and(|value| value.get())
-                    || own_disabled.is_some_and(|value| value.get())
-            })));
+            let own_disabled = shared.settings.get().disabled;
+            shared.settings.update(|settings| {
+                settings.disabled = Some(memo(move || {
+                    caller_disabled.is_some_and(|value| value.get())
+                        || own_disabled.is_some_and(|value| value.get())
+                }))
+            });
             let mut control = host
                 .part(input)
                 .node_ref(target)
@@ -396,7 +401,19 @@ impl ScalarApi {
                     .value_max(move || range.get().max()),
             };
             if role == Role::Slider {
-                control = control.value_text(move || value.get().to_string());
+                control = control
+                    .value_text(move || value.get().to_string())
+                    .orientation(move || {
+                        if shared
+                            .pointer
+                            .geometry()
+                            .is_some_and(|geometry| !geometry.axis.is_horizontal())
+                        {
+                            Orientation::Vertical
+                        } else {
+                            Orientation::Horizontal
+                        }
+                    });
             }
             for action in [
                 A11yAction::Increment,
@@ -421,7 +438,7 @@ impl ScalarApi {
             let focused = memo(move || state.get().input.focused);
             register_focus(shared, focused);
             control = control
-                .disabled(move || shared.disabled.with(|d| d.is_some_and(|d| d.get())))
+                .disabled(move || shared.is_disabled())
                 .node_ref(self.edit.thumb);
             if role == Role::Slider {
                 let grip = Grip::Thumb(self.edit.index);

@@ -434,6 +434,17 @@ fn exporter() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Export").run(exporter) }
 ```
 
+## マウント済みの node を画像にする
+
+`NodeRef` を `.node_ref(target)` で結び付け、非同期の action や task から
+`target.snapshot()` を await します。背景と子孫を含む現在の scene を、node の
+layout の大きさに切り取った、所有された straight-alpha RGBA8 の `Pixels` が返ります。
+論理画素一つが出力画素一つになり、小数の大きさは切り上げます。ウィンドウが GPU を
+使っていても CPU の rasterizer で描画します。通常の `Pixels` は含まれます。
+GPU 共有の frame には CPU の画素の表現がないため、呼び出し位置を持つ
+`ErrorKind::Unsupported` のエラーになります。未接続または取り外された target も
+エラーです。future は poll された時点の接続先を使い、owner が破棄されていれば失敗します。
+
 ## 関連項目
 
 - [値と要素をアニメーションさせる](animation.md): フレームループでキャンバスを動かします。

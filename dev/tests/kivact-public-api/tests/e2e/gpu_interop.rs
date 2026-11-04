@@ -278,6 +278,13 @@ fn unread_textures() -> SharedTextures {
     }
 }
 
+/// Make a GPU-only frame on a CPU host, which refuses the unused handles.
+/// Call only from a test mounted with CPU rendering.
+pub(super) fn unread_frame() -> kivact::gpu_interop::GpuFrame {
+    // SAFETY: the CPU host rejects the import without accessing its handles.
+    unsafe { gpu_interop::import(unread_textures()) }.frame(0, 1)
+}
+
 /// The size `shared_image` asks after `set_size` in the tests.
 const W2: u32 = 224;
 const H2: u32 = 96;

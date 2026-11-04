@@ -328,3 +328,47 @@ impl Model {
         self.paint.list = list;
     }
 }
+
+impl Model {
+    /// Build an independent list in the target's local output space.
+    pub(crate) fn subtree_paint_list(
+        &self,
+        id: NodeId,
+        clip: Rect,
+    ) -> crate::paint::state::PaintList {
+        let mut indices = HashMap::new();
+        let mut walk = Walk {
+            host: self,
+            margin: MARGIN,
+            indices: &mut indices,
+            pass: self.paint.list.pass,
+            generation: self.paint.list.ink_gen,
+            used: HashSet::new(),
+            out: Vec::new(),
+            matrices: Vec::new(),
+            transforms: Vec::new(),
+        };
+        walk.node(id, Point::default(), 1.0, None, clip);
+        let bounds = self.rect(id).unwrap_or_default();
+        for (layer, origin) in self.layers() {
+            if layer != id && self.tree().is_in_subtree(layer, id) {
+                walk.node(
+                    layer,
+                    Point {
+                        x: origin.x - bounds.x,
+                        y: origin.y - bounds.y,
+                    },
+                    1.0,
+                    None,
+                    clip,
+                );
+            }
+        }
+        crate::paint::state::PaintList {
+            entries: walk.out,
+            matrices: walk.matrices,
+            transforms: walk.transforms,
+            ..Default::default()
+        }
+    }
+}

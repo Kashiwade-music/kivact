@@ -148,10 +148,22 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
                 .iter()
                 .find(|key| selected.contains(key) && order.enabled(key) && available(key));
             preference.cloned().or_else(|| {
-                order
-                    .keys()
-                    .into_iter()
+                // Keep the last tab stop's ordinal when a selected item disappears.
+                // An empty selection still starts a fresh entry at the first item.
+                let start = if mode == ListMode::Select && !selected.is_empty() {
+                    position.get()
+                } else {
+                    0
+                };
+                keys.iter()
+                    .skip(start)
                     .find(|key| order.enabled(key) && available(key))
+                    .or_else(|| {
+                        keys.iter()
+                            .rev()
+                            .find(|key| order.enabled(key) && available(key))
+                    })
+                    .cloned()
             })
         })
     });
@@ -179,9 +191,9 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         if stored.try_get().is_none() {
             return;
         }
+        // History follows the derived tab stop even before an explicit focus request.
         if let Some(at) = state
-            .roving
-            .requested
+            .active
             .get()
             .and_then(|key| state.order.with(|order| order.position(&key)))
         {

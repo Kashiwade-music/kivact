@@ -2,10 +2,10 @@
 
 use crate::drag::DragApi;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
-use crate::scalar::{Edit, Grip, ScalarApi, ScalarOps, ScalarState, Shared, pulled_inside};
+use crate::scalar::{Edit, Grip, ScalarApi, ScalarOps, ScalarState, Shared, follow_ranges};
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Value, binding, effect_on, memo};
+use kivact_core::state::{Binding, Value, binding, memo};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{HandlerResult, Orientation};
 
@@ -41,7 +41,7 @@ pub struct RangeScalarApi {
 ///
 /// `range` bounds and quantizes both, as for [`use_scalar`](crate::use_scalar).
 /// The thumbs keep `low <= high` for their own writes; direct writes to the
-/// bindings are not validated. When the range changes, one effect moves both
+/// bindings are not validated. When the range changes, one transition moves both
 /// ends that lie outside the new range to its nearest bound together, so they
 /// stay ordered whatever order the thumbs were made in. Setup only.
 ///
@@ -104,18 +104,7 @@ pub fn use_range_scalar(
             (low_value, max),
         ),
     };
-    // One effect for both ends: moved one at a time, the first would pass the
-    // other, which still lies outside the new range.
-    effect_on(range, move |range| {
-        let from = pulled_inside(low.get_untracked(), *range);
-        let to = pulled_inside(high.get_untracked(), *range);
-        if let Some(from) = from {
-            low.set(from);
-        }
-        if let Some(to) = to {
-            high.set(to);
-        }
-    });
+    follow_ranges(low, high, range);
     shared
         .pointer
         .thumbs

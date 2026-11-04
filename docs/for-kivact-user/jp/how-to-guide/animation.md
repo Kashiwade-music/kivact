@@ -44,6 +44,10 @@ fn main() -> kivact::Result<()> {
 
 `Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps_end(n)` / `steps_start(n)` です。`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。
 
+`.retarget(kivact::motion::Retarget::Proportional)` を指定すると、時間指定の transition の途中で目標が変わったとき、残りの成分距離に比例して新しい所要時間を短縮・延長し、意図した速度を保ちます。既定は `Restart` です。spring は物理モデルの時間で動きます。
+
+`style().layout_transition(Transition::tween(250, Easing::EaseOut))` は、レイアウトによる位置・大きさの変化を補間します。レイアウト計算は一度だけ行い、描画・ポインターの当たり判定・支援技術が同じ視覚変換を使います。装飾用のレイアウト transition は動きを減らす設定に従います。
+
 ### 値をスタイルで使う
 
 `transform` と `opacity` で要素を動かすのは軽い処理です。レイアウトが変わらないからです。スタイルのクロージャの中で、アニメーションする値を読みます。
