@@ -338,20 +338,20 @@ pub fn catalog() -> impl IntoView {
             )
             .on_pointer(move |e| {
                 if matches!(
-                    e.phase,
+                    e.phase(),
                     PointerPhase::Move | PointerPhase::Enter | PointerPhase::Down(_)
                 ) {
-                    pointer.set(e.window_pos);
+                    pointer.set(e.window_pos());
                     if pie.get().open {
                         let mut next = pie.get();
-                        next.pointer(e.window_pos, &pie_entries);
+                        next.pointer(e.window_pos(), &pie_entries);
                         pie.set(next);
                     }
                 }
                 Handled::No
             })
             .on_key_up(move |e| {
-                if e.key == Key::Char('z') && pie.get().held {
+                if e.key() == Key::Char('z') && pie.get().held {
                     if let Some(index) = pie.get().hot {
                         choose_pie(index);
                     }
@@ -360,11 +360,11 @@ pub fn catalog() -> impl IntoView {
                 }
                 Handled::No
             })
-            .on_key(move |e| match e.key {
+            .on_key(move |e| match e.key() {
                 Key::Char('z')
-                    if !e.repeat
-                        && !e.modifiers.ctrl
-                        && !e.modifiers.alt
+                    if !e.repeat()
+                        && !e.modifiers().ctrl
+                        && !e.modifiers().alt
                         && !pie.get().open
                         && (pie_zone.hit_test(pointer.get())
                             || viewport_ref.hit_test(pointer.get())) =>
@@ -380,7 +380,7 @@ pub fn catalog() -> impl IntoView {
                     status.set("Render Image · Catalog simulation complete".into());
                     Handled::Yes
                 }
-                Key::Char('d') if e.modifiers.ctrl && e.modifiers.alt => {
+                Key::Char('d') if e.modifiers().ctrl && e.modifiers().alt => {
                     compact.update(|v| *v = !*v);
                     Handled::Yes
                 }
@@ -574,7 +574,7 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
         .style(style().background(ui::Color::Canvas)),
         spacer(),
         column(
-            [("CPU", 0.22_f32), ("DSK", 0.07_f32)]
+            [("CPU", 0.22_f64), ("DSK", 0.07_f64)]
                 .into_iter()
                 .map(|(label, value)| {
                     line((
@@ -797,7 +797,7 @@ fn hero(compact: Signal<bool>) -> impl IntoView {
             .style(move || { let t = &current_theme(); style().background(t.get::<ui::Tokens>().canvas.with_alpha(0.75)).border(1, t.get::<ui::Tokens>().hair) }),
     )).style(style().min_height(242).padding_x(28).padding_top(30).padding_bottom(26).gap(24).radius(12).shrink(0))
         .style(move || { let t = &current_theme(); let p = t.get::<ui::Tokens>(); style().background((radial_gradient().radii(520, 260).at(pct(92), pct(10)).colors([p.accent.with_alpha(0.3), rgba(0, 0.0)]), p.island)).border(1, p.hair) })
-        .draw(|d, size| { for x in (0..size.width as usize).step_by(18) { for y in (0..size.height as usize).step_by(18) { d.rounded_rect(Rect::new(x as f32, y as f32, 1.0, 1.0), 0.5, rgba(0xffffff, 0.06)); } } })
+        .draw(|d, size| { for x in (0..size.width as usize).step_by(18) { for y in (0..size.height as usize).step_by(18) { d.rounded_rect(Rect::new(x as f64, y as f64, 1.0, 1.0), 0.5, rgba(0xffffff, 0.06)); } } })
 }
 
 fn section_icon(i: usize) -> &'static str {

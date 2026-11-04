@@ -211,7 +211,7 @@ impl TextRow {
 /// of 0 shares the room), choosing `selected` and sorted by `sort`. Every
 /// column sorts by its text and matches the table's filter, ignoring case.
 pub(super) fn text_table(
-    columns: &[(&str, f32)],
+    columns: &[(&str, f64)],
     rows: impl IntoValue<Vec<TextRow>>,
     selected: impl Into<Binding<Vec<u64>>>,
     sort: impl Into<Binding<Option<(usize, kivact::interaction::SortOrder)>>>,

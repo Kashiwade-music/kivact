@@ -59,7 +59,7 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
             .on_pointer(move |event| {
                 out_first
                     .borrow_mut()
-                    .push((1, event.phase, event.region()));
+                    .push((1, event.phase(), event.region()));
                 Handled::No
             });
         let first = a.state();
@@ -67,7 +67,7 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
             .role(Role::Button)
             .name("Drag B")
             .on_pointer(move |event| {
-                out.borrow_mut().push((2, event.phase, event.region()));
+                out.borrow_mut().push((2, event.phase(), event.region()));
                 Handled::No
             });
         let second = b.state();

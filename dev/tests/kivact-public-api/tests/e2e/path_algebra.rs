@@ -9,11 +9,11 @@ use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::test::render;
 
-fn circle(center: Point, radius: f32) -> Path {
+fn circle(center: Point, radius: f64) -> Path {
     Path::new().arc(center, radius, 0, 360, false).close()
 }
 
-fn line(from: (f32, f32), to: (f32, f32)) -> Path {
+fn line(from: (f64, f64), to: (f64, f64)) -> Path {
     Path::new()
         .move_to(Point::new(from.0, from.1))
         .line_to(Point::new(to.0, to.1))

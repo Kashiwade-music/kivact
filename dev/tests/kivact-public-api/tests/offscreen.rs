@@ -102,10 +102,10 @@ fn rects_and_text_are_drawn_where_they_are_placed() {
             if px(&image, x, y) != [255, 255, 255, 255] {
                 inked += 1;
                 assert!(
-                    (x as f32) >= 9.0
-                        && (x as f32) <= 10.0 + metrics.size.width + 1.0
-                        && (y as f32) >= 9.0
-                        && (y as f32) <= 10.0 + metrics.size.height + 1.0,
+                    (x as f64) >= 9.0
+                        && (x as f64) <= 10.0 + metrics.size.width + 1.0
+                        && (y as f64) >= 9.0
+                        && (y as f64) <= 10.0 + metrics.size.height + 1.0,
                     "ink at {x},{y} outside the measured {metrics:?}"
                 );
             }

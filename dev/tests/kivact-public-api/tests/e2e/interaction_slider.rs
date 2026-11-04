@@ -24,8 +24,8 @@ type Log = Rc<RefCell<Vec<(EditPhase, f64)>>>;
 
 /// The track is 200 by 20 and the thumb 20 by 20, so the thumb's center
 /// spans 180 pixels from 10 to 190.
-const TRACK: f32 = 200.0;
-const THUMB: f32 = 20.0;
+const TRACK: f64 = 200.0;
+const THUMB: f64 = 20.0;
 
 fn real_window() -> RenderOptions {
     RenderOptions {
@@ -53,7 +53,7 @@ fn thumb(
 ) -> Node {
     let state = part.state();
     node().part(part).name(name.to_string()).style(move || {
-        let at = state.get().fraction as f32 * (TRACK - THUMB);
+        let at = state.get().fraction * (TRACK - THUMB);
         let s = style().size(THUMB, THUMB).position(Position::Absolute);
         match (axis, rtl) {
             (Orientation::Vertical, _) => s.left(0).top(TRACK - THUMB - at),

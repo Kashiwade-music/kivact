@@ -53,7 +53,7 @@ fn options() -> RenderOptions {
 
 /// The names shown by the rows, top to bottom.
 fn names(screen: &Screen) -> Vec<String> {
-    let mut found: Vec<(f32, String)> = people()
+    let mut found: Vec<(f64, String)> = people()
         .iter()
         .filter_map(|p| screen.query_by_role(Role::GridCell, p.name))
         .map(|cell| (cell.rect().expect("laid out").y, cell.name()))
@@ -441,7 +441,7 @@ fn a_cell_that_claims_secondary_input_suppresses_the_row_menu() {
         columns[0] = columns[0].clone().cell(move |person| {
             text(person.name).on_pointer(move |event| {
                 if matches!(
-                    event.phase,
+                    event.phase(),
                     kivact::view::PointerPhase::Down(press)
                         | kivact::view::PointerPhase::Up(press)
                         if press.button == MouseButton::Secondary

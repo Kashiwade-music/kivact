@@ -85,7 +85,7 @@ fn input_alignment_keeps_pixels_pointer_selection_and_ime_in_the_same_place() {
                     })
                 })
             })
-            .expect("painted input text") as f32
+            .expect("painted input text") as f64
     };
     assert!(first_ink("center") > first_ink("start") + 80.0);
     assert!(first_ink("end") > first_ink("center") + 80.0);

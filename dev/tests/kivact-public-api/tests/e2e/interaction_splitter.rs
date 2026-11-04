@@ -30,7 +30,7 @@ fn range() -> ScalarRange {
 fn recorded(divider: Node, keys: Rc<RefCell<Vec<Key>>>) -> Node {
     node()
         .on_key(move |event: KeyEvent| {
-            keys.borrow_mut().push(event.key);
+            keys.borrow_mut().push(event.key());
             Handled::No
         })
         .child(divider)

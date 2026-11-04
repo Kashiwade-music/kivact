@@ -8,7 +8,7 @@ use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::{Handled, PointerEvent, PointerKind, PointerPhase};
 
-fn y(screen: &Screen, id: &str) -> f32 {
+fn y(screen: &Screen, id: &str) -> f64 {
     screen.get_by_test_id(id).rect().expect("laid out").y
 }
 
@@ -25,7 +25,7 @@ fn taps_and_edges_keep_presses_while_scrolling_cancels_capture_once() {
                     .test_id("target")
                     .on_press(move || count.set(count.get() + 1))
                     .on_pointer(move |event: PointerEvent| {
-                        events.borrow_mut().push(event.phase);
+                        events.borrow_mut().push(event.phase());
                         Handled::No
                     })
                     .style(style().size(160, 60).shrink(0.0)),

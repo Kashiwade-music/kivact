@@ -314,8 +314,8 @@ pub(super) fn meters(state: Signal<TransportState>) -> impl IntoView {
                     .draw(|d, s| {
                         for i in 1..4 {
                             d.line(
-                                Point::new(0.0, s.height * i as f32 / 4.0),
-                                Point::new(s.width, s.height * i as f32 / 4.0),
+                                Point::new(0.0, s.height * i as f64 / 4.0),
+                                Point::new(s.width, s.height * i as f64 / 4.0),
                                 1.0,
                                 d.theme().get::<ui::Tokens>().hair,
                             );

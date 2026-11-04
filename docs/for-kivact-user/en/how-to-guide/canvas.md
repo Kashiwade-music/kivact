@@ -221,12 +221,12 @@ use kivact::control::canvas;
 use kivact::draw::{LineJoin, Path, Point, Stroke};
 use kivact::prelude::*;
 
-fn sparkline(values: Signal<Vec<f32>>) -> impl IntoView {
+fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
     canvas(move |draw, size| {
         let values = values.get(); // reading subscribes this canvas
-        let step = size.width / values.len().saturating_sub(1).max(1) as f32;
+        let step = size.width / values.len().saturating_sub(1).max(1) as f64;
         let path = values.iter().enumerate().fold(Path::new(), |path, (i, v)| {
-            let point = Point::new(i as f32 * step, size.height * (1.0 - v.clamp(0.0, 1.0)));
+            let point = Point::new(i as f64 * step, size.height * (1.0 - v.clamp(0.0, 1.0)));
             if i == 0 { path.move_to(point) } else { path.line_to(point) }
         });
         draw.stroke_path(&path, &Stroke::new(2).join(LineJoin::Round), ColorToken::Accent);
@@ -236,11 +236,11 @@ fn sparkline(values: Signal<Vec<f32>>) -> impl IntoView {
 }
 
 fn app() -> impl IntoView {
-    let values = signal(vec![0.5_f32]);
+    let values = signal(vec![0.5_f64]);
     column((
         sparkline(values),
         button("Add a point").on_press(move || {
-            values.update(|v| v.push(((v.len() as f32) * 1.7).sin() * 0.5 + 0.5));
+            values.update(|v| v.push(((v.len() as f64) * 1.7).sin() * 0.5 + 0.5));
         }),
     ))
     .style(style().gap(8).padding(12))
@@ -286,7 +286,7 @@ fn swatches() -> impl IntoView {
 
     let mut board = canvas(move |draw, size| {
         for (i, (_, color)) in SWATCHES.iter().enumerate() {
-            let rect = Rect::new(i as f32 * 56.0, 0.0, 48.0, size.height);
+            let rect = Rect::new(i as f64 * 56.0, 0.0, 48.0, size.height);
             draw.fill_rect(rect, rgb(*color));
             if chosen.get() == i {
                 draw.stroke_rect(rect, 3, rgb(0xffffff));

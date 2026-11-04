@@ -119,7 +119,7 @@ pub(super) fn jobs(status: Signal<String>) -> impl IntoView {
             kivact::ui::progress(Some(0.64)).name("Render progress"),kivact::ui::progress(Some(0.32)).name("Proxy progress"),
             kivact::ui::progress(move||Some(amount.get())).name("Determinate progress").style(style().height(18)),
             kivact::ui::progress(move||Some(if running.get(){amount.get()}else{0.21})).name("Background task").style(style().height(18)),
-            node().style(style().height(22)).draw(move|d,s|{let p=d.theme().get::<ui::Tokens>();for i in 0..56 {d.rounded_rect(Rect::new(i as f32*s.width/56.0,5.0,3.0,12.0),1.5,if i<14{p.success}else{p.strong});}}),
+            node().style(style().height(22)).draw(move|d,s|{let p=d.theme().get::<ui::Tokens>();for i in 0..56 {d.rounded_rect(Rect::new(i as f64*s.width/56.0,5.0,3.0,12.0),1.5,if i<14{p.success}else{p.strong});}}),
             row((job_ring(0.24),job_ring(0.0),job_ring(amount))).style(style().gap(12)),
         ))).style(style().height(210)),
         col((
@@ -139,7 +139,7 @@ fn job_ring(value: impl IntoValue<f64>) -> Node {
         let center = Point::new(s.width / 2.0, s.height / 2.0);
         let mut path = kivact::draw::Path::new();
         for i in 0..=50 {
-            let a = i as f32 / 50.0 * std::f32::consts::TAU;
+            let a = i as f64 / 50.0 * std::f64::consts::TAU;
             let pt = Point::new(center.x + a.sin() * 16.0, center.y - a.cos() * 16.0);
             path = if i == 0 {
                 path.move_to(pt)
@@ -152,10 +152,10 @@ fn job_ring(value: impl IntoValue<f64>) -> Node {
             &Stroke::new(3.0).cap(LineCap::Round).join(LineJoin::Round),
             p.strong,
         );
-        let v = value.get() as f32;
+        let v = value.get();
         let mut path = kivact::draw::Path::new();
         for i in 0..=50 {
-            let a = i as f32 / 50.0 * std::f32::consts::TAU * v;
+            let a = i as f64 / 50.0 * std::f64::consts::TAU * v;
             let pt = Point::new(center.x + a.sin() * 16.0, center.y - a.cos() * 16.0);
             path = if i == 0 {
                 path.move_to(pt)

@@ -337,7 +337,7 @@ fn keyboard_activation_disabled_and_bubbling() {
             enabled,
             node()
                 .on_key(move |k: KeyEvent| {
-                    la.borrow_mut().push(format!("parent {:?}", k.key));
+                    la.borrow_mut().push(format!("parent {:?}", k.key()));
                     Handled::No
                 })
                 .child(

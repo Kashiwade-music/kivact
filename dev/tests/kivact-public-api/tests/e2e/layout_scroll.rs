@@ -219,7 +219,7 @@ fn a_long_list_draws_what_reaches_its_viewport_from_rows_outside_it() {
     // 72 px.
     list.scroll(0.0, 640.0);
     let shot = screen.screenshot();
-    let at = |shot: &kivact::test::Screenshot, x: f32, y: f32| {
+    let at = |shot: &kivact::test::Screenshot, x: f64, y: f64| {
         shot.pixel((top.x + x) as u32, (top.y + y) as u32)
             .expect("in the frame")
     };

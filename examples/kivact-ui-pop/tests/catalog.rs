@@ -192,7 +192,7 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     );
     let initial_memo = memo.rect().expect("memo laid out");
     assert_eq!(initial_memo.height, 80.0);
-    let resize = |delta: f32| {
+    let resize = |delta: f64| {
         let grip = screen
             .get_by_test_id("pop-memo-resize")
             .get_by_role(Role::Splitter, "テキスト欄の高さを変更");

@@ -384,7 +384,7 @@ pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<E
         .edit(edit, move || value.get_untracked())
         .on_start(move |_| origin.set(value.get_untracked()))
         .on_update(move |update: DragUpdate<()>| {
-            value.set(origin.get_untracked() + f64::from(update.delta.x));
+            value.set(origin.get_untracked() + update.delta.x);
         })
         .source(());
     let state = source.state();
@@ -470,18 +470,18 @@ use kivact::prelude::*;
 use kivact::primitive::{Constraints, NodeExt, primitive};
 use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
 
-const CELL: f32 = 20.0;
+const CELL: f64 = 20.0;
 
 /// A row of `max` dots; the number of lit dots is the rating.
 pub fn rating(max: u32, value: impl Into<Binding<u32>>) -> impl IntoView {
     let value = value.into();
     primitive()
         // The size depends only on `max`: the layout measures again when it changes.
-        .measure(max, |max: &u32, _: Constraints| Size::new(*max as f32 * CELL, CELL))
+        .measure(max, |max: &u32, _: Constraints| Size::new(*max as f64 * CELL, CELL))
         .draw(move |d, size| {
             for i in 0..max {
                 let color = if i < value.get() { ColorToken::Accent } else { ColorToken::Border };
-                d.circle(Point::new(i as f32 * CELL + CELL / 2.0, size.height / 2.0), 7.0, color);
+                d.circle(Point::new(i as f64 * CELL + CELL / 2.0, size.height / 2.0), 7.0, color);
             }
         })
         .role(Role::Slider)
@@ -492,11 +492,11 @@ pub fn rating(max: u32, value: impl Into<Binding<u32>>) -> impl IntoView {
         .value_text(move || format!("{} of {max}", value.get()))
         .focusable(true)
         .on_pointer(move |event: PointerEvent| {
-            if matches!(event.phase, PointerPhase::Down(_)) {
-                value.set(((event.pos.x / CELL) as u32 + 1).min(max));
+            if matches!(event.phase(), PointerPhase::Down(_)) {
+                value.set(((event.pos().x / CELL) as u32 + 1).min(max));
             }
         })
-        .on_key(move |event: KeyEvent| match event.key {
+        .on_key(move |event: KeyEvent| match event.key() {
             Key::ArrowRight => {
                 value.set((value.get() + 1).min(max));
                 Handled::Yes

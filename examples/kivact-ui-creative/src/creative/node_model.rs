@@ -111,7 +111,7 @@ pub(super) fn edits(
     }
 }
 
-pub(super) fn editor_node(id: u64, label: &str, x: f32, y: f32, color: u32) -> ui::NodeData {
+pub(super) fn editor_node(id: u64, label: &str, x: f64, y: f64, color: u32) -> ui::NodeData {
     let socket = ui::NodeSocket::new;
     let model = match label {
         "Render Layers" => ui::NodeData::new(

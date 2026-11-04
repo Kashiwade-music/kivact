@@ -158,7 +158,7 @@ pub(super) fn properties() -> impl IntoView {
 pub(super) fn docking() -> impl IntoView {
     let document=signal("import kivact as kv\n\nscene = kv.context.scene\nfor obj in scene.objects:\n    if obj.type == \"MESH\":\n        obj.modifiers.new(\"Bevel\", \"BEVEL\")".to_string());
     let command = signal(String::new());
-    let editor_sizes = signal(vec![0.55f32, 0.45]);
+    let editor_sizes = signal(vec![0.55f64, 0.45]);
     let output = signal("KIVACT Console 0.1 — type help\n".to_string());
     let layout = signal(ui::DockLayout::new(ui::DockNode::split(
         ui::DockAxis::Horizontal,
@@ -210,7 +210,7 @@ pub(super) fn docking() -> impl IntoView {
                 .read_only(true)
                 .style(style().height(200)),
             kivact::ui::text_input("Console command", command).on_key(move |e| {
-                if e.key == Key::Enter {
+                if e.key() == Key::Enter {
                     let cmd = command.get();
                     let answer = if cmd == "help" {
                         "help · clear · arithmetic expressions".into()
@@ -343,7 +343,7 @@ fn console_view(output: Signal<String>, command: Signal<String>) -> Node {
             .style(style().height(96)),
         kivact::ui::text_input("Console command", command)
             .on_key(move |e| {
-                if e.key != Key::Enter {
+                if e.key() != Key::Enter {
                     return Handled::No;
                 }
                 let cmd = command.get();
@@ -723,7 +723,7 @@ fn layer_property(
     let watch = signal(animated);
     let keys = signal(if animated {
         if label == "Position" {
-            vec![24.0_f32, 72.0]
+            vec![24.0_f64, 72.0]
         } else {
             vec![24.0, 48.0, 150.0, 168.0]
         }
@@ -738,7 +738,7 @@ fn layer_property(
             let written = bind(value, move |v| {
                 value.set(v);
                 if watch.get_untracked() {
-                    let frame = state.get_untracked().frame.round() as f32;
+                    let frame = state.get_untracked().frame.round() as f64;
                     keys.update(|ks| {
                         if !ks.contains(&frame) {
                             ks.push(frame);
@@ -768,7 +768,7 @@ fn layer_property(
             bind(watch, move |on| {
                 watch.set(on);
                 if on {
-                    keys.update(|ks| ks.push(state.get_untracked().frame.round() as f32));
+                    keys.update(|ks| ks.push(state.get_untracked().frame.round() as f64));
                 } else {
                     keys.set(Vec::new());
                 }
@@ -801,7 +801,7 @@ fn layer_property(
                         p.accent,
                     );
                 }
-                let x = state.get().frame as f32 / 240.0 * s.width;
+                let x = state.get().frame as f64 / 240.0 * s.width;
                 d.line(
                     Point::new(x, 0.0),
                     Point::new(x, s.height),

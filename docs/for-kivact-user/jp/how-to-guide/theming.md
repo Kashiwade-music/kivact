@@ -304,7 +304,7 @@ use kivact::style::{Color, ThemeExtension, current_theme, rgb};
 #[derive(Debug, PartialEq)]
 struct Brand {
     highlight: Color,
-    gutter: f32,
+    gutter: f64,
 }
 
 impl ThemeExtension for Brand {

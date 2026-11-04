@@ -374,7 +374,7 @@ Each feature appears only when you give it a binding:
 | `.sort(Binding<Option<(usize, SortOrder)>>)` | read or set the sorted column (by position) and direction; without it the header still sorts by itself |
 | `.filter(Signal<String>)` | a filter box that keeps rows whose `DataColumn::filter` matches |
 | `.page(Signal<usize>, size)` | pages of `size` rows with Previous and Next |
-| `.resizable(Signal<Vec<f32>>)` | resize handles on the header; the widths are yours |
+| `.resizable(Signal<Vec<f64>>)` | resize handles on the header; the widths are yours |
 | `.row_actions(width, \|row\| view)` | a last column of buttons or menus |
 | `.toolbar(\|ctx\| view)`, `.footer(\|ctx\| view)` | replace the top or bottom area; `ctx` exposes the model counts and the bindings |
 | `.row_details(\|row\| view)`, `.cell_controls(\|row, column\| view)` | views built once per row key, so inputs keep their state while the row sorts or pages |

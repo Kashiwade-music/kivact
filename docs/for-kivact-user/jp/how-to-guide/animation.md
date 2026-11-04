@@ -24,7 +24,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::EaseOut));
 
     column((
@@ -55,7 +55,7 @@ use kivact::prelude::*;
 fn drawer() -> impl IntoView {
     let open = signal(false);
     let offset = animated(
-        move || if open.get() { 0.0_f32 } else { -240.0 },
+        move || if open.get() { 0.0_f64 } else { -240.0 },
         Transition::spring(Spring::DEFAULT),
     );
 
@@ -82,7 +82,7 @@ fn drawer() -> impl IntoView {
 - `pause()` と `resume()` は、停止と再開です。止まっていた時間は数えません。
 - `is_running()` は、動いているかどうかを返す追跡付きの読み取りです。
 - セットアップで登録する `.on_complete(|| …)` は、1 回の実行が自然に終わったときに一度だけ呼ばれます。目標が置き換えられたとき、`jump_to` したとき、無限に繰り返しているときは呼ばれません。現在の値と同じ目標では実行が始まらないので、そのときも呼ばれません。
-- 値の型には、`f32`、`f64`、それらの最大 4 要素のタプル、`Point`・`Size`・`Rect` が使えます。独自の型は `Animatable` を実装するとアニメーションできます（いくつかの `f32` の成分との相互変換を書きます）。色はここではアニメーションできません。0 から 1 の数値をアニメーションさせて自分で色を混ぜるか、次のスタイルのトランジションを使ってください。
+- 値の型には、`f32`、`f64`、それらの最大 4 要素のタプル、`Point`・`Size`・`Rect` が使えます。独自の型は `Animatable` を実装するとアニメーションできます（いくつかの `f64` の成分との相互変換を書きます）。色はここではアニメーションできません。0 から 1 の数値をアニメーションさせて自分で色を混ぜるか、次のスタイルのトランジションを使ってください。
 
 ## 要素の見た目をアニメーションさせる
 
@@ -161,11 +161,11 @@ use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
 fn clock_hand() -> impl IntoView {
-    let angle = signal(0.0_f32);
+    let angle = signal(0.0_f64);
 
     let frames = frame_loop(move |frame: FrameInfo| {
         // 10 秒で 1 周。ティックを数えず、アプリの時計から求めます。
-        angle.set((frame.now.as_secs_f32() / 10.0 * 360.0) % 360.0);
+        angle.set((frame.now.as_secs_f64() / 10.0 * 360.0) % 360.0);
     });
     on_mount(move || frames.start(FrameRate::Hz(30.0)));
 
@@ -204,8 +204,8 @@ fn clock_hand() -> impl IntoView {
 # use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 # use kivact::prelude::*;
 fn drifting_background() -> impl IntoView {
-    let shift = signal(0.0_f32);
-    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f32() * 12.0));
+    let shift = signal(0.0_f64);
+    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
     effect(move || {
         if kivact::platform::reduced_motion() {
             frames.stop();
@@ -227,7 +227,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::Linear));
     column((
         button("満たす").on_press(move || target.set(100.0)),

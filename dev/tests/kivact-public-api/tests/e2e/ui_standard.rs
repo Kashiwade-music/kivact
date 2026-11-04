@@ -37,14 +37,14 @@ fn options(theme: Theme) -> RenderOptions {
 }
 
 /// The pixel `dx` right of and `dy` below the top left of `id`.
-fn pixel_in(screen: &Screen, id: &str, dx: f32, dy: f32) -> u32 {
+fn pixel_in(screen: &Screen, id: &str, dx: f64, dy: f64) -> u32 {
     let r = screen.get_by_test_id(id).rect().expect("laid out");
     let shot = screen.screenshot();
     pixel(&shot, (r.x + dx) as u32, (r.y + dy) as u32)
 }
 
 /// The pixel at the vertical middle of `id`, `dx` right of its left edge.
-fn pixel_mid(screen: &Screen, id: &str, dx: f32) -> u32 {
+fn pixel_mid(screen: &Screen, id: &str, dx: f64) -> u32 {
     let h = screen.get_by_test_id(id).rect().expect("laid out").height;
     pixel_in(screen, id, dx, (h / 2.0).floor())
 }

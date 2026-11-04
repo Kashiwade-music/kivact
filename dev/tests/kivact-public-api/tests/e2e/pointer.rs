@@ -22,7 +22,7 @@ use kivact::view::{MouseButton, PointerKind, PointerPhase};
 
 type Log = Rc<RefCell<Vec<String>>>;
 
-fn center(screen: &Screen, id: &str) -> (f32, f32) {
+fn center(screen: &Screen, id: &str) -> (f64, f64) {
     let r = screen.get_by_test_id(id).rect().expect("laid out");
     (r.x + r.width / 2.0, r.y + r.height / 2.0)
 }
@@ -59,7 +59,7 @@ fn state_styles_stack_focus_hover_and_pressed_while_hovered() {
         .style(style().align_items(Align::Start))
     });
     let (x, y) = center(&screen, "state");
-    let color = |x: f32, y: f32| screen.screenshot().pixel(x as u32, y as u32);
+    let color = |x: f64, y: f64| screen.screenshot().pixel(x as u32, y as u32);
     assert_eq!(color(x, y), Some(0x101010));
     screen.get_by_test_id("state").focus();
     assert_eq!(color(x, y), Some(0x00a000), "focus");
@@ -94,12 +94,12 @@ fn enter_leave_click_counts_and_the_release_outside_the_window() {
             node()
                 .test_id("listener")
                 .on_pointer(move |e: PointerEvent| {
-                    let what = match e.phase {
+                    let what = match e.phase() {
                         PointerPhase::Down(press) => format!("Down {}", press.clicks),
                         PointerPhase::Up(press) => format!("Up {}", press.clicks),
                         phase => format!("{phase:?}"),
                     };
-                    if e.phase != PointerPhase::Move {
+                    if e.phase() != PointerPhase::Move {
                         o.borrow_mut().push(what);
                     }
                     Handled::Yes
@@ -230,7 +230,7 @@ fn contact_log(out: Log) -> impl Fn(PointerEvent) -> Handled + 'static {
             "own id"
         };
         out.borrow_mut()
-            .push(format!("{:?} {:?} {mouse}", e.phase, e.kind));
+            .push(format!("{:?} {:?} {mouse}", e.phase(), e.kind()));
         Handled::No
     }
 }

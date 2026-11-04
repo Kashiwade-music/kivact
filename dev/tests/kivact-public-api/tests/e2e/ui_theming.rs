@@ -30,7 +30,7 @@ const WHITE: u32 = 0xffffff;
 static SQUARE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="#000"/></svg>"##;
 
 /// The pixel at `(dx, dy)` from the top left of the element `id`.
-fn at(screen: &Screen, id: &str, dx: f32, dy: f32) -> u32 {
+fn at(screen: &Screen, id: &str, dx: f64, dy: f64) -> u32 {
     let r = screen.get_by_test_id(id).rect().expect("laid out");
     pixel(&screen.screenshot(), (r.x + dx) as u32, (r.y + dy) as u32)
 }

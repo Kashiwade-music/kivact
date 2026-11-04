@@ -189,7 +189,7 @@ pub fn removable_chip(label: impl IntoText, on_remove: impl Fn() + 'static) -> N
     .name(label)
     .focusable(true)
     .on_key(move |event: KeyEvent| {
-        if event.key == Key::Delete {
+        if event.key() == Key::Delete {
             remove.call(());
             Handled::Yes
         } else {

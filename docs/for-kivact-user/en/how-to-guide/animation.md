@@ -32,7 +32,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::EaseOut));
 
     column((
@@ -77,7 +77,7 @@ use kivact::prelude::*;
 fn drawer() -> impl IntoView {
     let open = signal(false);
     let offset = animated(
-        move || if open.get() { 0.0_f32 } else { -240.0 },
+        move || if open.get() { 0.0_f64 } else { -240.0 },
         Transition::spring(Spring::DEFAULT),
     );
 
@@ -111,7 +111,7 @@ to run on every frame. Prefer a transform when you have the choice.
   does not run then either.
 - The value type can be `f32`, `f64`, a tuple of up to four of them,
   `Point`, `Size` or `Rect`. Implement `Animatable` to animate your own
-  type (it converts to and from a few `f32` components). A color is not
+  type (it converts to and from a few `f64` components). A color is not
   animatable here: animate a number from 0 to 1 and mix the colors yourself, or
   use a style transition, below.
 
@@ -205,11 +205,11 @@ use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
 fn clock_hand() -> impl IntoView {
-    let angle = signal(0.0_f32);
+    let angle = signal(0.0_f64);
 
     let frames = frame_loop(move |frame: FrameInfo| {
         // One turn every 10 seconds, from the app clock, not by counting ticks.
-        angle.set((frame.now.as_secs_f32() / 10.0 * 360.0) % 360.0);
+        angle.set((frame.now.as_secs_f64() / 10.0 * 360.0) % 360.0);
     });
     on_mount(move || frames.start(FrameRate::Hz(30.0)));
 
@@ -265,8 +265,8 @@ acts on it for you in most cases:
 # use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 # use kivact::prelude::*;
 fn drifting_background() -> impl IntoView {
-    let shift = signal(0.0_f32);
-    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f32() * 12.0));
+    let shift = signal(0.0_f64);
+    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
     effect(move || {
         if kivact::platform::reduced_motion() {
             frames.stop();
@@ -290,7 +290,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::Linear));
     column((
         button("Fill").on_press(move || target.set(100.0)),

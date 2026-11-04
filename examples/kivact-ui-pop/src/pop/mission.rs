@@ -75,7 +75,7 @@ where
             .draw(|draw, size| {
                 let stripe = kivact::style::rgba(0xffffff, 0.1);
                 for i in 0..((size.width / 16.0) as usize + 10) {
-                    let x = i as f32 * 16.0 - 80.0;
+                    let x = i as f64 * 16.0 - 80.0;
                     draw.line(
                         kivact::draw::Point::new(x, size.height),
                         kivact::draw::Point::new(x + size.height * 0.47, 0.0),
