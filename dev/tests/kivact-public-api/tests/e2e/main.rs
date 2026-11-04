@@ -8,14 +8,15 @@ mod embed;
 mod support;
 mod theme_conformance;
 
-mod apg_tooltip;
 mod apg_combobox;
 mod apg_listbox;
+mod apg_tooltip;
 mod assets;
 mod async_tests;
 mod canvas;
 mod canvas_worker;
 mod components;
+mod custom_text_field;
 mod diagnostics;
 mod disposal;
 mod environment;
