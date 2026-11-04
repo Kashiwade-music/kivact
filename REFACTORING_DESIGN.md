@@ -31,6 +31,7 @@
 15. [戦略の遂行性（変更前後の比較）](#15-戦略の遂行性変更前後の比較)
 16. [やらないこと・リスク・要確認事項](#16-やらないことリスク要確認事項)
 17. [根本解決の追加](#17-根本解決の追加2026-11-04-の改訂)
+18. [第 4 回のレビューによる改訂](#18-第-4-回のレビューによる改訂2026-11-04)
 
 ---
 
@@ -54,7 +55,7 @@
 
 ### 0.3 何を正とするか
 
-1. **本書の決定が正。** 付録は本書の決定を具体化したもので、本書と付録が矛盾したら本書に従う。
+1. **本書の決定が正。** 付録は本書の決定を具体化したもので、本書と付録が矛盾したら本書に従う。本書の中では **18 章 → 17 章 → 1〜16 章** の順に優先する（18.0 節）。古い記述が新しい章と食い違うときは新しい章のとおりに読み、選択肢として扱わない。
 2. **現状の事実（`file:line`）はコードが正。** 本書と付録の `file:line` は `a3536ef` の値で、作業が進むとずれる。ずれていたら、その名前でコードを検索し直す。
 3. **実装者は設計を決めない。** 実装者（Codex のオーケストレータとサブエージェント）が自分で決めてよいのは、次の **機械的な導出** だけである。
    - **M-1 private な名前:** 公開されない field・variant・関数・module の名前。現在の code の名前から作る（例: `pointer_pressed: Signal<bool>` → `Press::Pointer`）。
@@ -73,7 +74,7 @@
 
 Kivact は機能の点では戦略 5 章の多くの行を満たしているが、**同じ意味が層ごとに書き直され、状態が層ごとに複製され、公開 API が経路と形の点で揃っていない**。このため、一つの機能を足すのに 3〜6 crate・最大 4 層の構造体を書き換え、状態の食い違いを effect や呼び出し順で抑えている。今の形のままでは、戦略が求める「第二の backend」「地域書式」「テキスト編集の拡張口」「モバイル」が、どれも全層を貫く改修になる。
 
-以下の 31 の決定で、これを解消する（D-13〜D-31 は 17 章）。
+以下の 32 の決定で、これを解消する（D-13〜D-31 は 17 章、D-32 は 18 章）。
 
 | ID | 決定 | 主な効果 |
 |---|---|---|
@@ -108,6 +109,7 @@ Kivact は機能の点では戦略 5 章の多くの行を満たしているが�
 | D-29 | **Canvas・Path2D の対応と明示の pointer の capture**（17.17 節） | 戦略 5 章の 2D 描画の対応 |
 | D-30 | **soft kit が求めた中核の不足を全部入れる**（17.18 節） | SOFT_UI_WORK_ORDER の未実装の項目が消える |
 | D-31 | **非同期の標準部品**（17.19 節） | 戦略 5 章の標準部品の範囲を満たす |
+| D-32 | **第 4 回のレビューで API の規則・handler・`use_`・数値・非同期・prelude・`Machine`・設定の面・検査を直す**（18 章） | 15 の規則で公開 API 全体を説明でき、検査と設定の面が減る |
 
 ---
 
@@ -193,6 +195,8 @@ Kivact は機能の点では戦略 5 章の多くの行を満たしているが�
 
 ### 3.3 状態（S 規則）— 13 章で詳しく定める
 
+> **S-2 は 18.14 節が置き換える。** 状態の field が二つ以上の struct だけを対象にし、単独の bool は許す。
+
 - **S-1** 3 つ以上の状態、または状態によって有効な field が変わるものは、データを持つ variant の enum で表す。
 - **S-2** 状態の field に `bool`（`Cell<bool>`、`AtomicBool`、`Signal<bool>`、`Var<bool>` を含む）を使わない。2 状態でも名前の付いた 2 variant の enum にする（例: `Modality::{Pointer, Keyboard}`）。option の束（`*Options`、`*Settings`、`*Policy`、`*Config`、`*Props`、`*Style`）の field は対象外。
 - **S-3** ある field の `Some`/`None` が別の field の値に依存してはならない。依存するなら S-1 に従って一つの enum の variant の中に入れる。
@@ -209,20 +213,25 @@ Kivact は機能の点では戦略 5 章の多くの行を満たしているが�
   - 純粋な cache（無効化の規則が一つの関数にあるもの）。
   - 統計の counter。
 
-### 3.4 公開 API（API 規則）— 10 章で詳しく定める
+### 3.4 公開 API（API 規則）— 10 章と 18 章で詳しく定める
 
-- **API-1** 公開 item の module path は一つ（正準パス）。ほかに出してよいのは `kivact::prelude` だけ。
-- **API-2** 実行中に変わりうる性質は `impl IntoValue<T>` を取る。plain な値を取るのは 10.6 節の構造の option だけ。
-- **API-3** handler は、payload のある event は `on_<event>(impl Fn(Payload) -> R + 'static)`、`R: HandlerResult`。payload のない event は `on_<event>(impl IntoAction<M>)`（`Fn() -> R` の closure と `Callback<()>` を受ける。17.6 節）。位置引数で callback を取らない。
-- **API-4** 数値の引数は `impl Into<f64>`（reactive なら `impl IntoValue<f64>`）。整数の概念（個数、index、z-index、font の weight）だけ整数型。
-- **API-5** 表示する文字列は `impl IntoText`。識別子（test id、icon の名前、font の family）は `impl Into<String>`。message の key と既定の文は `&'static str`。
-- **API-6** slot: 部品と一緒に一度だけ mount する内容は `impl IntoView`。開くたび・項目ごと・状態ごとに作り直す内容は `impl Fn(..) -> V + 'static`。`FnOnce` の slot は作らない。
-- **API-7** setup の中だけで呼べて、その部品の owner や文脈に結び付く関数は `use_` で始める。App 全体の値（`platform::window_size()` など）は `use_` を付けず、どこでも呼べる。
-- **API-8** 公開の署名に `Rc`・`Arc`・`Box<dyn ..>`・`&'static Location`・lifetime の引数を出さない（`custom` module の測定用の `Constraints<'_>` と、試験の `Element<'_>` だけは例外として 10.11 節に列挙する）。
-- **API-9** 下層の型（winit・wgpu・vello・accesskit・parley・taffy・kurbo）と、facade から名前を付けられない型を公開の署名に出さない。
-- **API-10** kit の公開名は `kivact::prelude`・`kivact::ui`・Rust の std prelude の名前と衝突させない（12 章）。
-- **API-11** 公開の署名の境界に現れる trait（`IntoView`、`IntoValue`、`IntoText`、`IntoReactive`、`HandlerResult`、`IntoAction`、`IntoChildren`、`Variant`、`ThemeExtension`、`ThemeColor`、`Animatable`、`Machine`）には `#[diagnostic::on_unimplemented]` で、React・SolidJS の開発者が次に何を書けばよいかが分かる message を付ける（例: `IntoValue<MyEnum>` が足りないとき「`constant_value!(MyEnum)` を一度書く」）。`Selection<K>` のように `Into` で受ける型は、`From` の impl の一覧を rustdoc の先頭に書く（戦略 P-02 の「誤用時の診断」）。
-- **API-12** setup の中だけで呼べる関数・文脈がないときの読み出し（`use_context::<T>()` など）の誤用は、`#[track_caller]` の位置と「何をどこに書けばよいか」（例: 「`provide(User { .. }, || ..)` を上の部品に書く」）を含む message で panic する（misuse は不具合。G-05 の「黙って無視しない」）。
+公開 API の全体をこの 15 の規則で説明できるようにする（2026-11-04 の第 4 回のレビューで書き直した。番号の意味は初版の API-1〜API-12 と同じで、API-13〜API-15 を足した）。例外はこの節に書いたものだけにする。
+
+- **API-1 正準パス:** 公開 item の module path は一つ。ほかに出してよいのは `kivact::prelude` だけ。型と、それを作る関数と、その builder の型は同じ module に置く。振る舞いと、その data は `interaction`、部品と、その `*State`・`*Variant`・`*Recipes`・`*Tokens` は `ui`。
+- **API-2 値:** builder の option は全部 `impl IntoValue<T>` を取る。plain な値を取るのは次の三つだけ: (1) mount のときに一度だけ決まる引数なしの flag（10.6 節の一覧。名前は既定でない方の振る舞い）と `.mode(XMode)`、(2) `*Options` の束、(3) collection に入れる data の record（10.6 節の末尾）。
+- **API-3 handler:** `on_` で始まる名前は event の handler だけに使う。payload のある event は `on_<event>(impl Fn(Payload) -> R + 'static)`（`R: HandlerResult`）、payload のない event は `on_<event>(impl Into<Callback<()>>)`（closure と `Callback<()>` の両方を受ける、18.2 節）。状態の変化の event は `on_<名詞>_change`。既定の層は `_default`。位置引数で handler を取らない。event でない関数（計算する関数）は、計算するものの名詞で名付け（`disabled_dates`、`key`、`highlight`）、引数を `&T` で受ける。
+- **API-4 数値:** 数値の引数と、利用者が読み返す数値（`Point`・`Size`・`Rect`・`Insets`・`Transform` の field、event の位置、drag の値）は全部 `f64`（引数は `impl Into<f64>`、reactive なら `impl IntoValue<f64>`）。整数は個数・index・level・font の weight だけ。
+- **API-5 文字列:** 表示する文字列は `impl IntoText`。識別子（test id、icon の名前、font の family）は `impl Into<String>`。message の key と既定の文は `&'static str`。部品の名前の語は三つだけ: `label`（control の支援技術の名前）、`title`（容器の見える見出し）、`Node::name`（semantics の生の名前）。
+- **API-6 slot:** 一度だけ mount する内容は `impl IntoView`、開くたび・項目ごと・状態ごとに作り直す内容は `impl Fn(..) -> V + 'static`。項目ごとの slot は `.item(..)`、容器の slot の名前は `content`・`header`・`footer`・`media`・`actions`・`icon`・`trailing`・`loading`・`fallback`・`empty` の語彙だけ。全部の slot の種類は付録 B.9 の表にする。
+- **API-7 `use_`:** `use_` は「今の owner に結び付く」関数にだけ付ける。二種類ある: (1) 振る舞いを付ける `use_<振る舞い>()`（`*Api` を返す。setup の中だけ）、(2) 文脈を読む `use_<値>()`（`use_context`、`use_theme`、`use_tokens`、`use_locale`、`use_direction`。setup と、その owner の下で作られた closure・handler・effect の中で呼べ、reactive な closure の中では tracked な読み出し）。reactive の部品を作る関数（`signal`、`memo`、`machine`、`resource`、`action`、`animated`、`frame_loop`、`node_ref`、`toaster`、`announcer`）と、App 全体の値の読み出し（`platform::window_size()`、`view::modifiers()` など）には `use_` を付けない。`provide_x` には必ず対の `use_x` がある。
+- **API-8 署名:** 公開の署名に `Rc`・`Arc`・`Box<dyn ..>`・`&'static Location`・lifetime の引数を出さない（例外は `custom::Constraints<'_>` と `test::Element<'_>` だけ）。
+- **API-9 下層の型:** winit・wgpu・vello・accesskit・parley・taffy・kurbo・ICU4X の型と、facade から名前を付けられない型を公開の署名に出さない。
+- **API-10 kit の名前:** kit の公開名は `kivact::prelude`・`kivact::ui`・Rust の std prelude の名前と衝突させない。
+- **API-11 診断:** 公開の署名の境界に現れる trait（`IntoView`、`IntoValue`、`IntoText`、`IntoReactive`、`IntoBinding`、`IntoSelection`、`IntoViewFn`、`HandlerResult`、`IntoChildren`、`Variant`、`ThemeExtension`、`ThemeColor`、`Animatable`、`Machine`、`ItemKey`、`PropValue`、`AsyncSource`、`Component`）には `#[diagnostic::on_unimplemented]` で、React・SolidJS の開発者が次に何を書けばよいかが分かる message を付ける（例: `IntoValue<MyEnum>` が足りないとき「`constant_value!(MyEnum)` を、その型を定義した crate に一度書く。外の crate の型なら `move || x.clone()` を渡す」）。
+- **API-12 誤用:** setup の中だけで呼べる関数の誤用と、文脈がないときの `use_context::<T>()` は、`#[track_caller]` の位置と「何をどこに書けばよいか」を含む message で panic する（G-05）。
+- **API-13 位置引数:** 位置引数は、部品がそれなしでは成り立たないものだけを、`label`/`title` → data → binding/selection → 子 の順で取る。ほかは全部 builder のメソッド。constructor の `snake_name(..)` は builder の型 `SnakeName` を返し、builder は `IntoView` を実装する（一つの root を持つ部品は `Component` も、18.9 節）。trigger に付ける overlay は `.attach(trigger)` が `View` を返す。
+- **API-14 問い合わせと語:** bool か `Value<bool>` を返す読み出しは `is_*`・`has_*`、ほかの読み出しは名詞だけ（`get_`・`_value` を付けない）、変更は動詞か `set_*`、失敗しうる版は `try_*`。一つの概念に一つの語を使う（open、disabled、busy、selection、active、dismiss、exit、label、title。語の表は 18.12 節）。略語は `a11y`・`ime`・`id` だけ。
+- **API-15 接尾辞:** `*Api`（`use_*` が返す handle）、`*State`（slot と recipe が受け取る状態）、`*Variant`（見た目の選択）、`*Recipes`・`*Tokens`（recipe の表、design token の束）、`*Options`（作る前に渡す設定の束）、`*Policy`（theme が運ぶ振る舞いの既定。`InteractionPolicy` だけ）、`*Mode`（構造の選択）、`*Kind`（値の分類）、`*Event`・`*Phase`・`*Reason`（handler の payload）。
 
 ### 3.5 依存と機能（DEP 規則）
 
@@ -617,6 +626,8 @@ enum Stage { Clock, Reports, Stabilize, Dispatch, Async, Commit, Mounts, UserEff
 
 ### 6.5 状態機械の部品 `Machine`
 
+> **18.13 節が置き換える。** この節の `Input`・`Timer` の関連型、`MachineCx::after`・`cancel`、`TimerKey` はない。
+
 interaction・ui・kit・利用者の独自部品が、同じ形で状態機械を書くための小さな部品。公開する（`kivact::state`。prelude には入れない）。
 
 ```rust
@@ -862,6 +873,8 @@ enum Surface {
 - `PlatformRequest::RegisterFont` が effects の queue に入りうるのに `unreachable!`（`pump.rs:175-177`）なのは、型を分けて表せないようにする。
 
 ### 8.3 `kivact-lower` の公開面
+
+> **18.17 節が置き換える。** `ArvaneAssets` と `shape` は engine へ移る。
 
 ```rust
 // kivact_lower
@@ -1181,6 +1194,8 @@ impl<K> From<Binding<Vec<K>>> for Selection<K> { .. }
 
 ### 11.1 behavior の形
 
+> **18.13・18.15 節が置き換える部分がある**（`Machine` の形、`UiPolicy` の削除、`Settings<S>` → `OptionsCell<S>`）。
+
 全 behavior は次の形にする。
 
 ```rust
@@ -1326,6 +1341,8 @@ impl PopupApi {
 
 ### 14.1 `cargo xtask check` に足す検査
 
+> **検査の一覧は 18.20 節が置き換える。** この節の表のうち `state-flags`・`state-options`・`late-init`・`counter-state`・`memo-purity`・`fn-length`・`anchor-deps`・`policy-coverage` は作らない。
+
 `dev/xtask` に足す（`vendor/xtask-core` は変えない）。すべて error で、移行中の警告扱いは作らない。対象の crate は `dev/xtask/policy/workspace.toml` の各検査の `crates` に書き、作業手順書の unit がその crate を規則に合わせたときに足す（現在の `module_rules` と同じ、列挙した crate だけを検査する方式）。最後の phase で全 crate が入る。
 
 | 検査 | 内容 | 例外の書き方 |
@@ -1365,7 +1382,7 @@ CI は既定で無効にしてある（作者の方針）。この再設計は `
 | layout・paint の性質を 1 つ足す | 3 crate | 3 crate（wire がなくなり、型は一つ） |
 | OS サービスを 1 つ足す | 6 crate、約 15 file、`ShellWindow` の実装 4 つ、`arvane::Window` の実装 2 つ、試験の配管 3 層 | 3 crate（`kivact-types` の request・result・capability、`arvane-native` の `perform` の分岐、`kivact-core` の `platform` の関数）。試験は台本の応答を登録するだけ |
 | 環境の field を 1 つ足す | 5〜6 crate | 3 crate（`kivact-types` の `Environment`、`arvane-native`、`kivact-core` の読み出し） |
-| 第二の backend（モバイル、Web の試作、別の窓の library） | 不可能（fork が要る） | `Backend` を実装する crate を一つ足す。`arvane-virtual` が常に二つ目の実装として SPI を検証する |
+| 第二の backend（モバイル、Web の試作、別の窓の library） | 不可能（fork が要る） | OS の backend は `arvane-native/port/<os>` を一つ足す（入力の pipeline は `arvane-shell` で共有。18.18・18.19 節）。`arvane-virtual` が常に二つ目の実装として SPI を検証する |
 | 地域書式（数値・日付・時刻・月名） | 置き場所がなく kit が自前 | `kivact-i18n` の `Locale` の書式の関数に足す。kit は中核の関数を使う |
 | `text_field` を公開 API で作り直す | native editor leaf に依存 | `kivact::custom` の文字編集と IME session は今回の再設計で形を揃える。編集する node の制約（子と独自の描画が `Unsupported`）を外し、`kivact::custom` だけで code editor を作れることを E2E で証明する（17.12 節） |
 | 新しい behavior を足す | 書き手ごとに bool と effect の組合せ | `Machine` の状態 enum・event・遷移関数を書く。timer・effect・状態の公開の仕方が決まっている |
@@ -1437,6 +1454,8 @@ CI は既定で無効にしてある（作者の方針）。この再設計は `
 
 ### 17.2 arvane-native の入力の一本化（D-14）
 
+> **18.18 節が置き換える部分がある。** OS を知らない pipeline は `arvane-shell` に置く。
+
 **現状:** winit・Win32 の埋め込み・X11 の埋め込みの三つの経路が、key の写像（`key_code.rs:162`、`embed/windows/input.rs:278`、`embed/x11/keyboard.rs:311,370`）、IME（winit＋Windows subclass、IMM32、XIM）、DnD、CPU の提示（softbuffer と GDI と試験の blit）、cursor の写像を別々に持つ。OS の機能を一つ足すと三か所を直す。
 
 **解決:** arvane-native を「OS ごとの port」と「共有の pipeline」に分ける。
@@ -1483,10 +1502,12 @@ arvane-native/src
 
 ### 17.4 関数の大きさ（D-16）
 
+> **18.20 節が置き換える。** xtask の `fn-length` ではなく clippy の `too_many_lines` を使う。
+
 - xtask の新しい検査 `fn-length`: 関数の本体の code 行（`max_code_lines` と同じ数え方）が 80 を超えたら error。例外は「一つの `match` の arm が一行ずつの写像の表」（key・cursor・role の写像）だけで、policy に path と理由を書く。
 - 分け方は設計書 0.3 節の M-4（同じ葉の module の helper 関数か、新しい葉の module）。振る舞いを変えない。
 - 調査で見つかった大きい関数（`data_table/runtime.rs:29` 347 行、`select.rs:176` 240 行、`virtual_list.rs:229` 233 行、`slider.rs:283` 201 行、`part_pointer.rs:150` 193 行、`runtime.rs:758` 256 行、`x11/dnd.rs:153` 250 行、`painter.rs:161` 246 行、`events.rs:124` 238 行、`a11y/build/dirty.rs:33` 235 行 ほか）は、状態機械の unit・17.1・17.2 で形が変わったあとに残ったものを、この検査が全部見つける。
-- **unit:** X-2。
+- **unit:** 18.20 節（clippy の `too_many_lines` を crate ごとに有効にし、F-2 で workspace へ）。
 
 ### 17.5 内部の handler の型を一つに（D-17）
 
@@ -1494,6 +1515,8 @@ arvane-native/src
 - **unit:** R-7（runtime の中）、C-3（core の slot）。
 
 ### 17.6 開発者の使いにくさ（D-18）
+
+> **18.2 節が置き換える。** `IntoAction` は作らず、payload のない handler は `impl Into<Callback<()>>`。
 
 - **handler に `Callback` をそのまま渡す:** payload のない event（`on_press`、`on_exit_complete`、`on_hide`、`on_submit` など）の引数を `impl IntoAction<M>` にする。`IntoAction<M>` は sealed の trait で、`impl<F: Fn() -> R + 'static, R: HandlerResult> IntoAction<(R,)> for F` と `impl IntoAction<CallbackMarker> for Callback<()>` の二つの impl を持つ（`M` は impl を区別するための marker で、利用者は書かない。`R` を trait の引数に出さないと unconstrained の型引数になるため）。`button("Add").on_press(on_add)` と書ける（`on_add.call(())` を包む closure が要らない）。payload のある event（`on_key(|e| ..)` など）は `impl Fn(E) -> R + 'static` のまま: Rust は closure の引数の型を `Fn` 系の bound からしか推論しないので、独自の trait で受けると `|e: KeyEvent|` と型を書く必要が出るためである。payload のある handler に `Callback<E>` を渡すときは既存の `Callback::to_fn()` を使う（`.on_key(cb.to_fn())`）。`IntoAction` には API-11 の `on_unimplemented` を付ける。
 - **`constant_value!` は残す（Rust の制約の下限）。** 「定数の blanket impl」と「closure の blanket impl」は stable の Rust では一つの trait に共存できない（coherence。特殊化は nightly）。利用者の型を prop にする一行は消せないので、(1) A-11 の message で「`constant_value!(MyEnum)` を一度書く」と示し、(2) 中核・kit の公開の enum には全部付けておき、(3) ガイドの custom component の最初の例で教える。
@@ -1503,17 +1526,21 @@ arvane-native/src
 
 ### 17.7 recipe の token 化（D-19）
 
+> **18.15 節が置き換える部分がある。** `UiTokens` は部品ごとの入れ子の struct で、token にするのは kit が上書きする値と theme から読む値だけ。
+
 **現状:** 中核の既定の recipe は値を literal と theme の数個の metric から作る。kit は値が違うだけでも recipe の関数を丸ごと書く。pop と game の recipe の file はほぼ同じ（`recipes_field` 31 行中 12 行だけ違うなど）。
 
 **解決:** 中核の既定の recipe が読む値を、全部 `kivact::ui::UiTokens`（`ThemeExtension`）の field にする。kit は値の違いを `UiTokens` で渡し、recipe は「形が違う」（game の欠けた角、soft の影の重ね方など）ときだけ書く。
 
 - `UiTokens` の field は、現在の `kivact-ui` の既定の recipe（`look*.rs`、`recipes.rs`）が使っている literal と theme の読み出しの一つずつ。名前は `<部品>_<部分>_<性質>`（例: `button_padding_x`、`checkbox_indicator_radius`、`menu_item_height`）。型は値の型（長さは `f64`。色は、既定の recipe が theme の palette から読んでいるものは `ColorToken`、literal の色は `Color`）。状態ごとに違う値は `StateTokens<T> { rest, hover, pressed, disabled, selected, focus }` で持つ。field の作り方は機械的なので、設計書 0.3 節の M-8（下に足す）で作る。
 - pop と game は、recipe の file を `UiTokens` の値と、形の違う recipe だけにする。KIT-3 の README の表に「上書きした recipe」と「設定した token」を分けて書く。
-- **unit:** K-10。
+- **unit:** K-0（18.15 節で token にする範囲を狭めた）。
 
 （0.3 節に足す M-8: `UiTokens` の field の名前と型を、既定の recipe の literal と theme の読み出しから上の名前の規則で作ること。）
 
 ### 17.8 状態機械の網羅の保証（D-20）
+
+> **18.14・18.20 節が置き換える部分がある。** 状態の検査は `state-fields`・`effect-writes` と clippy・runtime の検査。
 
 付録 A の 169 項目は調査で見つけたもので、全部であることは保証されていない。次の三つで「全部」を保証する。
 
@@ -1655,3 +1682,216 @@ SOFT_UI_WORK_ORDER の 7 章のうち未実装のもの:
 
 - **path の boolean 演算:** 調査は「HTML Canvas・Path2D との対応で足りないもの」に挙げたが、Canvas・Path2D にも boolean 演算はない（`addPath` だけで、これは `Path::append` として既にある）。戦略 5 章の「HTML Canvas と Path2D に対応させる」の不足ではなく、ほかに必要とする部品・要求も見つかっていない。作者の 2026-10-09 の見送りとも一致する。
 - **3D の `rotateX`（SOFT_UI_WORK_ORDER の C-24）:** 使う場所は soft の日付の touch の wheel だけで、soft は既に 2D の affine の変換で円筒の見え方を近似している（`kivact-ui-soft/src/date_touch.rs:514-515`: 行ごとに `scale_xy(scale, scale * cos(角度))`）。C-24 の「代替（wheel を作らない）」の記述は古い。残る差は行が台形にならないこと（遠近の効果）だけで、操作・支援技術・振る舞いの問題ではない。
+
+---
+
+## 18. 第 4 回のレビューによる改訂（2026-11-04）
+
+「Rust 未経験の React・SolidJS 開発者が書けるか」「API は統一的か」「内部は統一的で単純か」「長期の保守性」の四つの観点のレビューで決めたことを、この章にまとめる。
+
+### 18.0 優先の順
+
+**18 章 → 17 章 → 1〜16 章 → 付録 の順に優先する。** 18 章と食い違う古い記述は、18 章のとおりに読む（選択肢ではない）。付録 B の名前は B.8 の改名の表を当てたものが正である。作業手順書の各 unit は、自分の範囲の 18 章の決定を、その unit の「18 章の追加」に従って同時に行う。
+
+### 18.1 API の規則
+
+3.4 節を 15 の規則に書き直した。初版との主な違い: 位置引数の順（API-13）、問い合わせと語（API-14）、接尾辞の役割（API-15）、`use_` の意味（API-7、18.3 節）、利用者が読み返す数値も `f64`（API-4、18.4 節）。
+
+### 18.2 handler と callback の型（17.6 節を置き換える）
+
+- **payload のない event:** 引数は `impl Into<Callback<()>>`。`kivact-runtime` に `impl<F, R> From<F> for Callback<()> where F: Fn() -> R + 'static, R: HandlerResult` を足す。変換は今の owner（setup、handler、effect の中のどこでも）の下に `Callback` を作る。owner がないところでは API-12 の panic。data の record（`Toast::action(label, ..)` など、handler の中でも作るもの）も同じ型で受ける。`Fn` は `#[fundamental]` で `Callback` は自分の型なので、`From<T> for T` と重ならない（yew の `Callback` と同じ形）。`R` は `Fn() -> R` の projection で拘束されるので marker の型引数は要らない。
+- **`IntoAction<M>` は作らない。** 17.6 節の `IntoAction`・marker・`CallbackMarker` を消す。
+- **payload のある event:** 今までどおり `impl Fn(E) -> R + 'static`（Rust は closure の引数の型を `Fn` 系の bound からしか推論しないため）。`Callback<E>` を渡すときは `cb.to_fn()`。
+- **独自部品の callback の prop の書き方（ガイドで最初に教える形）:**
+  ```rust
+  fn toolbar(on_add: impl Into<Callback<()>>) -> impl Component {
+      let on_add = on_add.into();                  // Copy の Callback<()>
+      row((button("Add").on_press(on_add), button("Add again").on_press(on_add)))
+  }
+  // 呼ぶ側は closure をそのまま渡す
+  toolbar(move || hits.update(|h| *h += 1));
+  ```
+  payload のある callback の prop は `on_pick: impl Fn(K) + 'static` を取り、二か所で使うなら `let on_pick = callback(on_pick);`。
+
+### 18.3 `use_` の意味
+
+API-7 のとおり。`use_theme()`・`use_tokens::<T>()`・`use_context::<T>()`・`use_locale()`・`use_direction()` は、setup と、その owner の下で作られた closure（style の closure、handler、effect）の中で呼べる（現在の `current_theme()` が owner の文脈ならどこでも呼べるのと同じ。初版の「setup だけ」は退行だった）。17.7 節の `tokens::<T>()` は `use_tokens::<T>()` と改名する。振る舞いを付ける `use_popup()` などは setup の中だけ。
+
+### 18.4 数値は読み返す値も f64
+
+facade から届く型の公開の `f32` の field は全部 `f64` にする（約 74。`kivact-types/src/geometry.rs:11-35` の `Point`・`Size`・`Rect`、`Insets`（`kivact-types/src/platform.rs`）、`Transform`、`Spring` の `stiffness`・`damping`・`mass` など。一覧は V-4 が `api-shape` の report で作る）。event の位置、`DragUpdate`、`NodeRef::rect()`、`Draw` の大きさも同じ型なので、`value.set(origin + update.delta.x)` がそのまま書ける。f32 は taffy の adapter（`kivact-layout`）と GPU の code（`arvane-render`）の中だけで、境界で変換する。xtask の `api-shape` は公開の field の `f32` も error にする。
+
+### 18.5 非同期
+
+- `ui::async_view(source: impl AsyncSource<T>, ready: impl Fn(T) -> V + 'static)`。`AsyncSource` は sealed で、`Resource<T>`（retry = `refetch`）と `Action<T, I>`（retry = `retry`）が実装する。既定の失敗の表示（retry の button を持つ `ui::alert`）は `AsyncSource` の retry を呼ぶ。`.loading(impl Fn() -> V)`、`.fallback(impl Fn(UiError, Retry) -> V)`（`ErrorBoundary::fallback` と同じ名前）。17.6・17.19 節の `IntoValue<AsyncState<T>> for Resource` は作らない（重なるため）。`AsyncState` だけを持つときは `dynamic` を使う。
+- **tokio の future を待つ:** facade の feature `tokio`（既定は無効。実装の crate は `kivact-runtime`、DEP-4）。`kivact::task::on_tokio<T: Send + 'static>(fut: impl Future<Output = T> + Send + 'static) -> impl Future<Output = T>` は、App が持つ一つの tokio の runtime のスレッドで `fut` を動かし、終わったら UI を起こす。返した future が drop されたら tokio の task を abort する（`spawn` した task は owner の破棄で drop されるので、owner の破棄で止まる）。ガイドに「HTTP で JSON を読む」の手順（`?` で `UiError` にする）を足す。
+- `Retry::retry()` は `Retry::run()` と改名する。
+
+### 18.6 prelude
+
+**規則:** prelude に入れるのは、(1) 入門のガイド（getting-started）と付録 B.7 の例が import なしで使う名前、(2) prelude の関数の位置引数の型。builder の option の型（`ControlSize`、`Edge`、`*Variant`、`style()` の enum など）は、その module から import する（全部を入れると prelude が大きくなり、名前の衝突も増えるため）。付録 B.2 はこの規則の一覧。足すもの: `constant_value!`、`Component`、`ItemKey`、`PropValue`、`bind!`、`InputPurpose`、`async_view`、`toaster`、`Toast`、`toast_region`、`Tone`、`DialogMode`、`DismissOn`、`Placement`、`RowHeight`、`Point`、`Size`。
+
+### 18.7 prop の型と binding
+
+- **外の crate の型:** `std::time::Duration` と `std::path::PathBuf` に定数の prop の impl を `kivact-runtime` で付ける。それ以外の外の型（`chrono::NaiveDate` など）は orphan rule で `constant_value!` を書けないので、`move || x.clone()` を渡す（API-11 の message でそう示す）。
+- **bound の別名:** `kivact::state::ItemKey`（`Clone + Eq + Hash + 'static` の blanket の supertrait）と `PropValue`（`Clone + PartialEq + 'static`）を足し、公開の署名の bound を全部これにする。`on_unimplemented` は「`#[derive(Clone, PartialEq, Eq, Hash)]` を付ける」。
+- **binding と選択の trait:** `Into<Binding<T>>` を `IntoBinding<T>`、`Into<Selection<K>>` を `IntoSelection<K>`（どちらも sealed、`on_unimplemented` 付き。例: 「slider は f64 を binding する: `signal(40.0)` と書く」）にする。impl の組は、`IntoBinding<T>` が `Signal<T>` と `Binding<T>`、`IntoSelection<K>` が `Signal<Option<K>>`・`Signal<Vec<K>>`・`Binding<Option<K>>`・`Binding<Vec<K>>`。今の `From<Signal<T>> for Binding<T>` と `From<..> for Selection<K>` は消す（経路を一つにする）。`.optional()` は残す（`Signal<K>` を `Option<K>` の binding にすると None の書き込みを捨てることになり、G-05 に反するため）。
+- **struct の field の binding:** `Signal::field(get_ref, get_mut)` を `Signal::project(get_ref, get_mut) -> Binding<U>` と改名し（`ui::field` と名前が衝突しないように）、`Binding::project(get_ref, get_mut) -> Binding<U>` も同じ形で持つ。macro `bind!(draft.name)`（`bind!(draft.address.city)` のように入れ子も可）を足す。`bind!(x.a.b)` は `x.project(|v| &v.a.b, |v| &mut v.a.b)` に展開し、`x` が `Signal` でも `Binding` でも `Binding<U>` を返す。
+- **一覧の行の binding:** `for_each` の source が `Signal<Vec<T>>` のとき、行の closure は `Binding<T>` を受け取る。`trait ListSource<T> { type Row; }`（`T` は trait の型引数、行の型は関連型）。impl の組は全部で五つ: `Signal<Vec<T>>` と `Binding<Vec<T>>` は `Row = Binding<T>`、`Value<Vec<T>>`、`Vec<T>`、`F: Fn() -> Vec<T>` は `Row = Value<T>`（memo は `Value`）。`IntoValue<Vec<T>>` への blanket の impl にはしない（`Signal` の impl と重なるため）。`Var` は reactive でないので一覧の source にできない。`todos.item(|t| t.id, id)` が要らなくなり、`row.get()` は今までどおり書ける。`Signal::item` は消す。
+- **closure を子にする:** `impl<F, R> IntoView for F where F: Fn() -> R + 'static, R: Into<String>` を足す（reactive な文字の子。Solid の `{n()}` と同じ: `row(("Count: ", move || n.get().to_string()))`）。closure の view を返す動的な子は今までどおり `dynamic`。
+- `IntoText` の読み出しの名前は `into_text_value` のまま（`IntoValue::into_value` と同じ名前にすると、両方を実装する `&str`・`String` で曖昧になるため）。
+
+**API-11 の受け入れの基準:** blanket の impl を持つ trait（`ItemKey`、`PropValue`、`IntoViewFn`、`Component`）では、rustc が内側の bound（例: `Hash`）の error を先に出し、`on_unimplemented` の message が出ないことがある。その trait は、message を付けたうえで、rustdoc の先頭と guide に同じ hint を書く（message が出ることまでは求めない）。
+
+### 18.8 slot の種類の表
+
+付録 B.9 に、全部の標準部品と kit の部品の slot の種類（`IntoView` か `Fn`）の表を置く。`impl Fn() -> V` の slot は `impl IntoViewFn<V>`（sealed、`Fn() -> V` の blanket）で受け、`on_unimplemented` は「この内容は開くたびに作り直す: `|| view` と書く」。
+
+### 18.9 部品の戻り値
+
+`pub trait Component: IntoView + NodeBuilder {}` と blanket の impl を `kivact::view` に足す。規則: 一つの root を持つ独自部品は `impl Component` を返す（呼ぶ側が `.style(..)` などを続けられる）。root が一つでない部品だけ `impl IntoView`。付録 B.7 の例と custom-components の guide をこれに揃える。
+
+### 18.10 Part が host の node の性質を読む
+
+7.4 節で `Part` は mount のときに当てるので、part は host の node に caller が書いた `disabled`・`invalid`・`name`・`labelled_by`・`described_by` を読み、machine の入力にする（作者が `accessible_disabled()` を手で渡す処理が要らない）。`*Api` は状態の読み出しを直接持つ（例: `SwitchApi::control_state() -> Value<ToggleState>`）。「part を node に移す前に状態を読む」（`custom-controls.md:56`）は要らなくなる。
+
+### 18.11 theme
+
+- `Theme::get::<T>()` を `Theme::ext::<T>()` と改名する（`use_theme().get().ext::<X>()` と読める）。`Ext<T>` は `ThemeRef<T>` と改名する（`NodeExt` などの `Ext` と紛れないように）。
+- `App::theme(impl IntoValue<Theme>)` は reactive な値を受け、root の owner の下で評価する。OS の light・dark に追従するのは `App::new(..).theme(move || basic::theme(platform::theme_hint().get().into()))` と書く（`ThemeHint` から `ThemeMode` への `From`）。17.18 節の `ThemeMode::System` は作らない。
+- 別の kit の theme の下で kit の variant を使ったら、中核の既定の recipe で描き、`ReportOnce` の diagnostic を一度出す。
+
+### 18.12 改名と語の統一
+
+付録 B.8 の表のとおり（API-13〜API-15 を当てた結果）。主なもの:
+
+| 語 | 統一 |
+|---|---|
+| 開いているか | `is_open()`（`shown()` を消す） |
+| 押せない | `disabled` だけ（`use_tooltip_when(enabled)` → `use_tooltip().disabled(..)`） |
+| 処理中 | `busy`（`Button::loading` → `busy`） |
+| 消える | `exit`（`Presence::Leaving` → `Exiting`、`while_shown` → `while_present`） |
+| 選ぶ前の強調 | `active`（`on_preview` → `on_active_change`） |
+| 見た目の選択 | `*Variant`（`DialogLook` → `DialogVariant`、`ui::Segmented` → `RadioGroupVariant::Segmented`、`ProgressVariant::{Bar, Ring, Gauge}`、`AlertVariant::Banner`） |
+| 構造の選択 | `.mode(XMode)`（`DialogKind` → `DialogMode`、`ActionPolicy` → `ActionMode`） |
+| 作る前の設定の束 | `*Options`（`CalendarPolicy` → `CalendarOptions`、`ListPolicy` → `ListOptions`、`AppSettings` → `AppOptions`、behavior の `*Settings` → `*Options`、`Settings<S>` → `OptionsCell<S>`） |
+| 時間の束 | `*Timing`（`TooltipConfig` → `TooltipTiming`） |
+| 通知 | `Notifier`・`notifier()`（`Trigger` は `PopupApi::trigger()` と紛れるため改名。`notify()`・`track()`） |
+| 端 | `Edge`（`Side`・`ToastSwipeEdge` を一つに） |
+| 向き | `Orientation`（17.10 節の `Axis` を作らない） |
+| node に付いた | `Node::on_attach(Fn(PartMount))`（`state::on_mount` と分ける） |
+
+### 18.13 `Machine` を小さくする（6.5 節を置き換える）
+
+```rust
+pub trait Machine: Sized + 'static {     // Self が、遷移が読む入力の snapshot
+    type State: Clone + PartialEq + 'static;
+    type Event: 'static;
+    type Effect: 'static;
+    fn transition(&self, state: &Self::State, event: Self::Event) -> Step<Self::State, Self::Event, Self::Effect>;
+}
+impl<S, Ev, Ef> Step<S, Ev, Ef> {
+    pub fn stay() -> Self; pub fn to(next: S) -> Self;
+    pub fn with(self, effect: Ef) -> Self;
+    /// Send `event` after `delay`, replacing a pending timer of the same event variant.
+    pub fn after(self, delay: Duration, event: Ev) -> Self;
+    /// Cancel the pending timer of `event`'s variant (the value is only used for its variant).
+    pub fn cancel(self, event: Ev) -> Self;
+}
+/// Setup only. `input` builds the machine value (its input snapshot) for each event, untracked.
+pub fn machine<M: Machine>(initial: M::State, input: impl Fn() -> M + 'static, run: impl Fn(MachineCx<M>, M::Effect) + 'static) -> MachineHandle<M>;
+```
+
+- `Input` と `Timer` の関連型、`MachineCx::after`・`cancel`、`TimerKey` を消す。timer は遷移が `Step::after` で出し、一つの machine の中で event の variant ごとに一つ（`std::mem::discriminant`）。遷移を読めば timer の動きも分かる。item ごとに timer が要るもの（toaster の toast ごとの期限など）は、item ごとに machine を一つ持つ（toaster は toast ごとの machine と、列を持つ machine に分ける）。
+- `machine(..)` の `M` は `input` の closure の戻り値から推論されるので、turbofish は要らない。
+- interaction の machine の型は、behavior の module の private な `machine` 子 module に `Machine`・`State`・`Event`・`Effect` の名前で置き、公開の `*State`（part の状態）と名前が衝突しないようにする。
+- guide の「React・SolidJS からの対応表」に「`Machine` は `useReducer` に effect と timer を足したもの」と書く。
+
+### 18.14 状態の規則（S-2・13.1 節・17.8 節を置き換える）
+
+- 暗黙の状態機械の検出は、13.1 節の定義（1）と同じにする: **状態の field（bool、`Option`、counter）を二つ以上持つ struct**、または `Option` と `*State`・`*Phase` の enum を一緒に持つ struct を検出する。単独の bool の field（2 状態の独立した事実）は許す。初版の S-2（bool を全部 enum にする）はやめる（現在 bool の field は約 705 あり、大半は独立した事実か option の束）。
+- 状態の検査の対象外は、役割で決まるものだけを policy に書く: API-15 で役割の決まった接尾辞（`*Options`・`*Event`・`*Phase`・`*Reason`・`*Input`・`*Report`・`*Tokens`・`*Recipes`）の struct、`NodeBuilder` を実装する builder と `*Api`、policy の `record_types` の record、policy の `value_modules`（`kivact-types` の値の module と `kivact-engine::contract`）の型。それ以外の例外は、field か struct の直前の inline の目印 `// xtask-allow(<検査>): <理由>` で書く（`//! Role:` と同じ流儀。file の分割や改名で壊れない）。
+- 接尾辞は役割を一つだけ表す（API-15）。
+
+### 18.15 設定の面を減らす（11.1 節・17.7 節を置き換える）
+
+- `UiPolicy` を消す。振る舞いの knob（閾値、時間、disabled の focus、drag と swipe）は全部 `InteractionPolicy` に、behavior ごとの入れ子の struct で置く。ui の部品の振る舞いの knob もここ（ui は interaction を読める）。field の名前と型は次で決まり（全部 `pub`、`Default` は今の値）:
+  ```rust
+  pub struct InteractionPolicy {
+      pub menu: MenuPolicy,          // { press: MenuPress, drift: PressDrift, submenu: SubmenuTiming, disabled_focus: DisabledMenuFocus }
+      pub tooltip: TooltipTiming,
+      pub hover_card: HoverCardTiming,
+      pub button: ButtonPolicy,      // { disabled_focus: DisabledButtonFocus }
+      pub slider: SliderPolicy,      // { touch: SliderTouchMotion }
+      pub switch: SwitchPolicy,      // { drag: SwitchDrag }
+      pub toast: ToastPolicy,        // { swipe: ToastSwipe, swipe_slop: f64 (8.0) }
+      pub select: SelectPolicy,      // { sheet_slop: f64 (10.0) }
+      pub drawer: DrawerPolicy,      // { swipe: DrawerSwipe }
+  }
+  ```
+  `MenuPress(pub bool)` は今の形のまま field の型にする（`PressDrift` は 17 章の 11.1 節の表の型）。
+- 見た目の動きと配置は `UiTokens` へ: `button.busy_motion: ButtonBusyMotion`、`progress.motion: ProgressMotion`、`toast.row_motion: ToastRowMotion`、`toggle_button.label_reservation: ToggleLabelReservation`、`dialog.center: DialogCenter`、`disclosure.motion: DisclosureMotion`、skeleton の shimmer。
+- `UiTokens` は部品ごとの入れ子の struct（`UiTokens { button: ButtonTokens, menu: MenuTokens, .. }`）にし、各 struct はその部品の recipe の隣の file で定義する。入れ子の struct の field の名前は `<部分>_<性質>`（`ButtonTokens.padding_x`、`CheckboxTokens.indicator_radius`。17.7 節の `<部品>_` は付けない）。M-8 で token にするのは「現在いずれかの kit が上書きしている値」と「theme から読んでいる値」だけ（ほかの literal は既定の recipe の中に残す。後で kit が上書きしたくなったら field を一つ足す）。
+- kit の作者が触る面は四つになる: `Theme`（palette と metric）、kit 自身の `Tokens`、`UiTokens`（値）と `UiRecipes`（形）、`InteractionPolicy`（振る舞い）。
+
+### 18.16 語彙の規則 VOC-5
+
+**VOC-5:** 依存を持たない純粋な値の型は、builder のメソッドも含めて `kivact-types` に置き、facade はそれをそのまま再公開する（包む型を作らない）。包む型を作ってよいのは、reactive な値を持つとき（`Style`）と、外の crate の依存が要るとき（kurbo を使う `Path` の幾何）だけ。
+
+- `kivact::motion::Transition` は `kivact_types::motion::Transition` の再公開にする（`essential`・`retarget` も types に）。
+- `Path` は kurbo の幾何（bounds、length、trim、stroke outline、contains、parse）が要るので `kivact-style` の型のまま。types の側の記録は `PathData`（`PathCmd` の列）と名付け、`types::scene::Path` という名前は作らない（VOC-3）。
+
+### 18.17 `kivact-lower` の境界（8.3 節を置き換える）
+
+`ArvaneAssets`（node ごとの報告の履歴、font の登録、asset の store を持つ。`kivact-lower/src/assets.rs:48`）と当たり判定の `shape` を engine へ移す。`BoxShape` は値なので `kivact-types::paint` へ。`kivact-lower` の公開は `Lowerer`・`LowerCx`・`LowerReport`・`SceneCache` だけにし、asset は `LowerCx` の lookup の関数で受け取る。これで lower は「木も入力も asset の状態も知らない純粋な変換」になる。
+
+### 18.18 入力の正規化は `arvane-shell` に（17.2 節を変える）
+
+OS を知らない正規化（`ImeDriver`、`DropSession`、key の正規化、VK と keysym の数値の写像表、cursor の写像表、`RawInput`）は `arvane-shell` の `pipeline` に置く（`Mouse`・`ClickCounter`・`Contacts`・`ModifierState` と同じ crate）。`arvane-native/port` には OS の呼び出しと、winit の型からの写像（winit に依存するため）だけを残す。`arvane-virtual` の台本に `Script::raw(RawInput)` を足し、E2E が同じ pipeline（key の写像、IME、DnD）を通るようにする。`RawInput` は OS を知らない値なので SPI に入れてよい。
+
+### 18.19 backend の選び方（15 章の行を直す）
+
+OS の backend は全部 `arvane-native/port/<os>` に置き、cfg で選ぶ（新しい OS は port を一つ足す。pipeline は共有）。OS でない backend（`arvane-virtual`）だけが別の crate。`App::run` は native を使い、試験は virtual を使う。外から backend を差し込む公開の口は作らない（P-10 の第二の実装は `arvane-virtual`）。
+
+### 18.20 検査を減らす（14.1 節・17.3 節・17.4 節・17.8 節を置き換える）
+
+| 検査 | 実現 | 理由 |
+|---|---|---|
+| 関数の長さ | clippy の `too_many_lines`（`clippy.toml` の `too-many-lines-threshold = 80`）。例外は `#[expect(clippy::too_many_lines, reason = "..")]` | 既存の lint で足り、例外の書き方も既存の規則（reason 必須）と同じ |
+| 後から埋める初期化 | clippy の `disallowed_types`（`OnceCell`、`OnceLock`、`LazyCell`、`LazyLock`。`static` と `kivact-types::cell` は `#[expect]`） | 既存の lint で足りる |
+| memo の中の書き込み | runtime の misuse（`FrameKind::Pure` の中の signal の書き込みは panic。6.4 節） | 構文の検査より正確（helper 関数の中の書き込みも見える） |
+| `state-fields` | xtask。18.14 節の規則（状態の field が二つ以上） | `state-flags`・`state-options`・`counter-state`・`late-init` の残りを一つに |
+| `effect-writes` | xtask。中核と kit の crate の `effect(`・`effect_on(` の中の signal の書き込み | 利用者の code は対象にしない（Solid と同じく、利用者は effect で書いてよい） |
+| `api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch` | xtask（14.1 節のとおり。ただし `api-shape` に「facade から届く型の公開の `f32` の field は error」を足す） | — |
+| `structural-options` | xtask。引数なしで `Self` を返す公開のメソッドは、policy の `structural_options` の一覧に載っていなければ error | 10.6 節の一覧がずれない |
+
+- 消す検査: `anchor-deps`（`visible_to` で足りる）、`policy-coverage`、`fn-length`、`late-init`、`memo-purity`、`state-flags`・`state-options`・`counter-state`（`state-fields` に統合）。
+- 検査の対象は「全 crate から policy の `skip` の一覧を除いたもの」にする（一覧は作業の進みで空へ減る。新しい crate は自動で対象になる）。各 unit は自分の crate を `skip` から外す。
+- 例外は inline の目印（18.14 節）。xtask の各検査の module の rustdoc に、規則とその理由を書く。
+
+### 18.21 そのほかの内部の統一
+
+- **失敗の型を一つに:** `ShellError::Failed(String)`、`LowerReport.failures: Vec<String>`、`PlatformResult::Failed` を `kivact_types::Failure { kind: FailureKind, detail: String }` にする。
+- **App 全体の型の map を一つに:** `Extensions`（構築時に中核の entry を入れる）と `AppStates`（17.11 節）を一つの map にし、`use_app_state::<T>(init)` は同じ map に最初の呼び出しで入れる。
+- **`*Api` の option の builder は setup の中だけ:** `disabled(self, ..) -> Self` などは共有の `OptionsCell` を書き換えるので、mount の後に呼んだら API-12 の misuse にする。
+- **semantics の patch:** mount のとき定数の patch は畳み、reactive な patch があるときだけ render effect を作る。patch の `#[track_caller]` の位置を `why` の origin に記録する。
+- **fragment の透明性:** engine の `tree` の生の `children` を module の外に出さず、`flat_children` だけを出す（`module_rules` で強制）。
+- **ICU4X:** L-1 で実行ファイルの大きさに加えて build の時間も測り、`PROGRESS.md` に書く。
+
+### 18.22 知識を残す（作業手順書 F-1・F-3 を変える）
+
+- `docs/for-kivact-developer/decisions.md`（新規、日本語）: 作者の決定の記録（ADR の形: 日付、問い、決定、理由）。16.3 節の Q-01〜Q-08、17.9 節の APG より優先する作者の決定、17.20 節（行わないものと、課題でなかったもの）、`DECISIONS.md` の全部を移す。消さない。
+- `docs/for-kivact-developer/architecture.md` に足す: 17.3 節の feature の表、6.2 節の `Stage` の対応の表と 6.3 節の時間の仕組み、15 章の表を「X を足すときに変える場所」の check list に書き直したもの、10.6 節の構造の option の考え方（一覧そのものは policy）。
+- xtask の各検査の rustdoc に規則と理由を書く（18.20 節）。
+
+### 18.23 15 章の表の行を足す
+
+| 作業 | 再設計後 |
+|---|---|
+| 標準部品を一つ足す | `kivact-interaction`（`use_*` と machine）、`kivact-ui`（builder、recipe の表、`UiTokens` の入れ子の struct）、E2E 一つ、guide の en・jp |
+| paint・layout の性質を一つ足す | 3 crate（`kivact-types`、`kivact-style`、`kivact-lower` か `kivact-layout`） |
+| 地域書式を一つ足す | `kivact-i18n` の `Locale` のメソッド一つ（ICU4X を呼ぶ） |
+| 振る舞いを一つ変える | その behavior の machine の遷移（`transition` 一つ）と E2E |
+| 新しい OS | `arvane-native/port/<os>` を一つ（pipeline は `arvane-shell` で共有） |
+
+作業手順書 12 章の試し（8 番）に、paint の性質と標準部品の追加を足し、crate の数に加えて file の数も記録する。

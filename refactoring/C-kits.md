@@ -1,6 +1,6 @@
 # 付録 C: 公式 kit の整理
 
-[設計書](../REFACTORING_DESIGN.md) 11.3 節と 12 章の付録。`file:line` は `main` @ `a3536ef`、path は `crates/` からの相対。
+[設計書](../REFACTORING_DESIGN.md) 11.3 節と 12 章の付録。部品の名前と引数の順は付録 B.8 の改名の表と設計書 18 章が優先する（例: `calendar(selection)`、`card(..).on_press`、`toggle_button`、`item_row`、`RadioGroupVariant::Segmented`）。`file:line` は `main` @ `a3536ef`、path は `crates/` からの相対。
 
 **前提（作者の決定）:** 5 つの kit には repo の外に実際の利用者がいる。kit を縮めない（部品も option も減らさない）。ただし利用者は API の変更に追従するので、API を壊すことは避けない。中核へ上がる部品は、上がる前の kit の版の機能の**和集合**を持つ。
 
@@ -198,5 +198,5 @@ soft の breakpoint の関数（`viewport_below`、`viewport_from`、`is_compact
 - **中核へ上がった部品の試験:** 部品の振る舞いの E2E は `dev/tests/kivact-public-api/tests/e2e/` に一つずつ書く（kit ごとには書かない）。kit の E2E は、kit の recipe が当たっていることと、kit に残る部品の振る舞いを確かめる。`theme_conformance`（`dev/tests/kivact-public-api/tests/e2e/theme_conformance.rs:285-291`）は C.1 の KIT-3 の確認を足す。
 - **catalog の font:** NotoSansJP（4 つの catalog で同じ bytes）、Inter（basic・pop）、GeistMono（basic・creative）を `examples/shared-assets/fonts/` に一つずつ置き、各 catalog の `fonts.rs` は相対 path の `include_bytes!` で読む。font の loop は `App::fonts(iter)`。license の文書は同じ directory に置き、`THIRD-PARTY-NOTICES.md` を直す。
 - **creative の feature `gpu-interop`:** 消す（設計書 17.3 節の DEP-4。`viewport` は中核へ移り、`gpu_frame` は facade の feature `gpu-interop` で出る）。
-- **pop と game の recipe:** 値だけが違う recipe を `UiTokens` の値にし、file を形の違う recipe だけにする（設計書 17.7 節、unit K-10）。
+- **pop と game の recipe:** 値だけが違う recipe を `UiTokens` の値にし、file を形の違う recipe だけにする（設計書 17.7・18.15 節、unit K-0）。
 - **catalog の page:** 中核へ上がった部品の page は、その kit の look（recipe）で中核の部品を見せる page に書き直す（page を消さない: kit の利用者の見本）。

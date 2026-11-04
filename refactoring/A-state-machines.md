@@ -10,6 +10,8 @@
 - **解消後**: 決定した形。型名と variant は決定。variant の field の名前・event・effect・遷移は、設計書 0.3 節の M-1〜M-3（現在の code からの機械的な導出）で作る
 - **unit**: 作業手順書の担当 unit
 
+**`Machine` の形は設計書 18.13 節が正**（`Input`・`Timer` の関連型と `MachineCx::after` はない。timer は遷移が `Step::after(delay, event)` で出す）。この付録の項目の「timer は `after`」「`MachineCx::after(..)`」「`type Timer = ..`」は、`Step::after` の意味に読む。
+
 **この付録の項目は調査で見つけたもので、unit P-1（設計書 17.8 節の全数調査）が足す項目を含めて全部になる。** 足した項目は接頭辞のあとに 9 から始まる番号を付ける（例: SM-E901）。
 
 共通の部品（`kivact-types::cell` に置く。std だけの小さな型で、engine・Arvane・中核・kit が使う。unit V-4 が作る）:
@@ -558,7 +560,7 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
   struct HoldSet(BTreeSet<HoldId>);      // 「何件の hold」ではなく「どの hold」
   enum ToastFocus { None, Inside(NodeToken) }
   ```
-  toast の id は `Generation`
+  toast の id は `Generation`。toast ごとの期限は toast ごとの machine が `Step::after` で持つ（設計書 18.13 節）
 - **unit**: I-6
 
 ### SM-I23 末尾への追従

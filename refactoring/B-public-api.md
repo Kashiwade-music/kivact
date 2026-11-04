@@ -1,6 +1,6 @@
 # 付録 B: 公開 API の最終形
 
-[設計書](../REFACTORING_DESIGN.md) 10 章の付録。現在の名前は `main` @ `a3536ef`。
+[設計書](../REFACTORING_DESIGN.md) 10 章と 18 章の付録。現在の名前は `main` @ `a3536ef`。**B.8 の改名の表が B.1〜B.6 の名前より優先する**（設計書 18.0 節）。
 
 - B.1 module ごとの item（正準パス）
 - B.2 prelude の固定の一覧
@@ -9,6 +9,8 @@
 - B.5 prop の形の変更の表
 - B.6 `Rc`・`Arc`・`Box<dyn>`・`Location` を署名から消す表
 - B.7 書き方の例（ガイドと例の新しい形）
+- B.8 第 4 回のレビューの改名の表
+- B.9 slot の種類の表
 
 ---
 
@@ -136,30 +138,32 @@
 
 ## B.2 prelude の固定の一覧
 
-`kivact::prelude` はこの一覧だけを出す（`kivact/src/prelude.rs` に一つずつ書き、glob の再公開をしない）。入門のガイド（`docs/for-kivact-user/*/getting-started`）が import なしで使う名前の全部。
+`kivact::prelude` はこの一覧だけを出す（`kivact/src/prelude.rs` に一つずつ書き、glob の再公開をしない）。規則（設計書 18.6 節）: 入門のガイドが import なしで使う名前と、prelude の関数の builder のメソッドを呼ぶのに要る型の全部。
 
 ```rust
 pub use crate::{App, UiError};
 pub use crate::state::{
-    Binding, Callback, IntoText, IntoValue, Signal, Value, Var, binding, callback, effect, effect_on,
-    memo, on_cleanup, on_mount, provide, signal, untrack, use_context, var,
+    Binding, Callback, IntoBinding, IntoSelection, IntoText, IntoValue, ItemKey, PropValue, Signal, Value, Var, bind, binding,
+    callback, constant_value, effect, effect_on, memo, on_cleanup, on_mount, provide, signal,
+    untrack, use_context, var,
 };
+pub use crate::geometry::{Point, Size};
 pub use crate::view::{
-    CheckedState, EditPhase, Handled, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, NodeRef,
-    Orientation, PointerEvent, Role, ScrollAxes, View, canvas, column, dynamic, error_boundary,
-    for_each, for_index, grid, icon, image, node, node_ref, row, scroll, show, show_some, spacer,
-    stack, text, virtual_list,
+    CheckedState, Component, EditPhase, Handled, InputPurpose, IntoView, Key, KeyEvent, Modifiers,
+    Node, NodeBuilder, NodeRef, Orientation, Placement, PointerEvent, Role, RowHeight, ScrollAxes,
+    View, canvas, column, dynamic, error_boundary, for_each, for_index, grid, icon, image, node,
+    node_ref, row, scroll, show, show_some, spacer, stack, text, virtual_list,
 };
 pub use crate::style::{
     Align, Color, ColorToken, Justify, Style, Theme, ThemeColor, ThemeMode, pct, provide_theme, rgb,
-    style, use_theme,
+    style, use_theme, use_tokens,
 };
-pub use crate::task::{Action, ActionPolicy, AsyncState, Resource, action, blocking, resource, spawn};
+pub use crate::task::{Action, ActionMode, AsyncState, Resource, action, blocking, resource, spawn};
 pub use crate::i18n::message;
-pub use crate::interaction::{ListItem, MenuEntry, Selection};
+pub use crate::interaction::{DialogMode, DismissOn, ListItem, MenuEntry, Selection, Toast, Tone, toaster};
 pub use crate::ui::{
-    ButtonVariant, DataColumn, button, checkbox, data_table, dialog, field, list, menu, radio_group,
-    select, slider, switch, tabs, text_area, text_input, tooltip,
+    ButtonVariant, DataColumn, async_view, button, checkbox, data_table, dialog, field, list, menu,
+    radio_group, select, slider, switch, tabs, text_area, text_input, toast_region, tooltip,
 };
 ```
 
@@ -313,9 +317,9 @@ pub use crate::ui::{
 
 ---
 
-## B.7 書き方の例
+## B.7 書き方の例（第 4 回のレビューで書き直した）
 
-ガイドと例は、ここに示す形で書き直す（作業手順書の F-1）。どれも `use kivact::prelude::*;` だけで書ける（`kivact::state` の状態機械の例を除く）。data の constructor（`ListItem::new`、`MenuEntry::item` など）の名前は、作業の時点のものに合わせる（この付録は形を示すもので、constructor の名前は決めない）。
+ガイドと例は、この形で書き直す（作業手順書の F-1）。どれも `use kivact::prelude::*;` だけで書ける（状態機械の例は `kivact::state` の import を足す）。data の constructor（`ListItem::new`、`MenuEntry::item` など）の名前は作業の時点のものに合わせる。
 
 ### counter（変わらない）
 
@@ -326,7 +330,7 @@ fn app() -> impl IntoView {
     let count = signal(0);
     let doubled = memo(move || count.get() * 2);
     column((
-        text(move || format!("Count: {}", count.get())),
+        row(("Count: ", move || count.get().to_string())),     // closure の子は reactive な文字
         text(move || format!("Doubled: {}", doubled.get())),
         button("Increment").on_press(move || count.update(|n| *n += 1)),
     ))
@@ -334,48 +338,100 @@ fn app() -> impl IntoView {
 }
 ```
 
-### props・子・callback（`Callback` と `Binding` が prelude にある）
+### props・子・callback
 
 ```rust
 use kivact::prelude::*;
 
-fn stat(label: impl IntoText, value: impl IntoValue<i32>) -> impl IntoView {
+fn stat(label: impl IntoText, value: impl IntoValue<i32>) -> impl Component {
     let value = value.into_value();
     row((text(label), text(move || value.get().to_string()))).style(style().gap(8))
 }
 
-// 二つの場所で使う callback は `callback(..)` で Copy にする（`impl Fn() + Copy` を教えない）。
-fn toolbar(on_add: Callback<()>) -> impl IntoView {
-    row((button("Add").on_press(move || on_add.call(())), button("Add again").on_press(move || on_add.call(()))))
+// payload のない callback の prop は impl Into<Callback<()>>。呼ぶ側は closure をそのまま渡す。
+fn toolbar(on_add: impl Into<Callback<()>>) -> impl Component {
+    let on_add = on_add.into();
+    row((button("Add").on_press(on_add), button("Add again").on_press(on_add)))
 }
 
-// 一度だけ mount する子は値（impl IntoView）。
-fn panel(title: impl IntoText, child: impl IntoView) -> impl IntoView {
+// 一度だけ mount する子は値（impl IntoView）。root が一つなので impl Component を返す。
+fn panel(title: impl IntoText, child: impl IntoView) -> impl Component {
     column((text(title), child)).style(style().gap(8).padding(12))
 }
-```
 
-### 選択（`Selection` が signal の型で single と multiple を選ぶ）
-
-```rust
-use kivact::prelude::*;
-
-fn files() -> impl IntoView {
-    let items = signal(vec![ListItem::new(1, "a.txt"), ListItem::new(2, "b.txt")]);
-    let one = signal(None::<u32>);
-    let many = signal(Vec::<u32>::new());
-    column((list(items).selection(one), list(items).selection(many)))
+fn app() -> impl IntoView {
+    let hits = signal(0);
+    panel("Stats", column((stat("Hits", hits), toolbar(move || hits.update(|h| *h += 1)))))
+        .style(style().max_width(480))
 }
 ```
 
-### menu と palette（位置引数の callback がない）
+### form（struct の field の binding）
 
 ```rust
 use kivact::prelude::*;
 
-fn file_menu() -> impl IntoView {
+#[derive(Clone, PartialEq, Default)]
+struct Profile { name: String, plan: Option<Plan>, agree: bool }
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Plan { Free, Pro }
+constant_value!(Plan);
+
+fn profile_form() -> impl Component {
+    let draft = signal(Profile::default());
+    let error = memo(move || draft.with(|p| p.name.is_empty()).then(|| "Name is required".to_owned()));
+    column((
+        field("Name", text_input("Name", bind!(draft.name))).error(error),
+        select("Plan", vec![ListItem::new(Plan::Free, "Free"), ListItem::new(Plan::Pro, "Pro")], bind!(draft.plan)),
+        checkbox("I agree", bind!(draft.agree)),
+        button("Save").on_press(move || save(draft.get())),
+    ))
+}
+# fn save(_: Profile) {}
+```
+
+### 一覧（行は Binding を受け取る）
+
+```rust
+use kivact::prelude::*;
+
+#[derive(Clone, PartialEq)]
+struct Todo { id: u32, title: String, done: bool }
+
+fn todos_view(todos: Signal<Vec<Todo>>) -> impl IntoView {
+    for_each(todos, |t| t.id, move |id, todo| {
+        // todos が Signal<Vec<Todo>> なので todo は Binding<Todo>。
+        // 引数を row と名付けると prelude の row 関数が隠れるので避ける（E0618）。
+        row((
+            checkbox(move || todo.get().title, bind!(todo.done)),
+            button("Remove").on_press(move || todos.update(|v| v.retain(|t| t.id != id))),
+        ))
+    })
+}
+```
+
+### 非同期（retry できる）
+
+```rust
+use kivact::prelude::*;
+
+fn user_view(id: Signal<u32>) -> impl IntoView {
+    let user = resource(id, |id| async move { load_user(id).await });
+    async_view(user, |u: User| text(u.name))      // 既定の loading と、retry 付きの失敗の表示
+}
+# #[derive(Clone)] struct User { name: String }
+# async fn load_user(_: u32) -> Result<User, UiError> { todo!() }
+```
+
+### menu（位置引数の callback がない）
+
+```rust
+use kivact::prelude::*;
+
+fn file_menu(on_open: impl Into<Callback<()>>, on_save: impl Into<Callback<()>>) -> impl IntoView {
+    let (open, save) = (on_open.into(), on_save.into());
     menu("File", vec![MenuEntry::item("open", "Open"), MenuEntry::item("save", "Save")])
-        .on_activate(|key: &'static str| tracing::info!(key, "menu"))
+        .on_activate(move |key| match key { "open" => open.call(()), _ => save.call(()) })
 }
 ```
 
@@ -383,61 +439,144 @@ fn file_menu() -> impl IntoView {
 
 ```rust
 use kivact::prelude::*;
-use kivact::state::{Machine, MachineCx, Step, machine};
+use kivact::state::{Machine, Step, machine};
 use std::time::Duration;
 
 #[derive(Clone, PartialEq)]
 enum CopyState { Idle, Copied }
 enum CopyEvent { Pressed, Expired }
-enum CopyEffect { Write, StartTimer }
-#[derive(Clone, PartialEq, Eq, Hash)]
-enum CopyTimer { Reset }
-struct CopyInput { text: String }
+enum CopyEffect { Write(String) }
 
-struct CopyMachine;
-impl Machine for CopyMachine {
+struct CopyButton { text: String }               // Self が遷移の読む入力
+impl Machine for CopyButton {
     type State = CopyState;
     type Event = CopyEvent;
     type Effect = CopyEffect;
-    type Input = CopyInput;
-    type Timer = CopyTimer;
-    fn transition(state: &CopyState, event: CopyEvent, _input: &CopyInput) -> Step<CopyState, CopyEffect> {
+    fn transition(&self, state: &CopyState, event: CopyEvent) -> Step<CopyState, CopyEvent, CopyEffect> {
         match (state, event) {
-            (_, CopyEvent::Pressed) => Step::to(CopyState::Copied).with(CopyEffect::Write).with(CopyEffect::StartTimer),
+            (_, CopyEvent::Pressed) => Step::to(CopyState::Copied)
+                .with(CopyEffect::Write(self.text.clone()))
+                .after(Duration::from_secs(2), CopyEvent::Expired),
             (CopyState::Copied, CopyEvent::Expired) => Step::to(CopyState::Idle),
             (CopyState::Idle, CopyEvent::Expired) => Step::stay(),
         }
     }
 }
 
-fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
+fn copy_button(text: impl IntoValue<String>) -> impl Component {
     let text = text.into_value();
-    let m = machine::<CopyMachine>(
-        CopyState::Idle,
-        move || CopyInput { text: text.get_untracked() },
-        move |cx: MachineCx<CopyMachine>, effect| match effect {
-            CopyEffect::Write => { spawn(kivact::platform::copy_text(text.get_untracked())); }
-            CopyEffect::StartTimer => cx.after(CopyTimer::Reset, Duration::from_secs(2), CopyEvent::Expired),
-        },
-    );
+    let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
+        CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
+    });
     button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
         .on_press(move || m.send(CopyEvent::Pressed))
 }
 ```
 
-（この例は書き方を示すためのもので、実際の copy の feedback は `kivact::interaction::use_copy_feedback` を使う。）
+（実際の copy の feedback は `kivact::interaction::use_copy_feedback` を使う。この例は書き方を示すためのもの。）
 
-### 独自の control（`Node` の固有メソッドで semantics を書き、`NodeExt` の import が要らない）
+### 独自の control（part が host の node の性質を読む）
 
 ```rust
 use kivact::prelude::*;
 use kivact::interaction::use_switch;
 
-pub fn my_switch(label: impl IntoText, on: impl Into<Binding<bool>>) -> impl IntoView {
+pub fn my_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Component {
     let api = use_switch(on);
     node()
-        .part(api.control())          // role・checked・key・press は part が当てる
+        .part(api.control())          // role・checked・key・press。caller の disabled も part が読む
         .child(text(label))
         .style(style().padding(4))
 }
 ```
+
+---
+
+## B.8 第 4 回のレビューの改名の表（設計書 18.12 節。B.1〜B.6 の名前より優先する）
+
+| 現在（B.1〜B.6 の名前） | 再設計後 | 規則 |
+|---|---|---|
+| `IntoAction<M>` | 削除。payload のない handler は `impl Into<Callback<()>>` | 18.2 |
+| `toaster() -> ToasterApi`、`announcer() -> AnnouncerApi` | `toaster() -> Toaster`、`announcer() -> Announcer` | API-15（`*Api` は `use_*` だけ） |
+| `ViewportApi`（`to_content`・`to_view`） | 削除。座標の変換は `ZoomPanApi::to_content`・`to_view`（変換を持つ側） | API-15 |
+| `state::Trigger`・`trigger()` | `Notifier`・`notifier()`（`notify()`・`track()`） | API-14 |
+| `Node::on_mount(Fn(PartMount))` | `Node::on_attach(Fn(PartMount))` | API-14 |
+| `ui::CheckState` | `CheckableState`（semantics の `CheckedState` と分ける） | API-14 |
+| `combobox(..).tokens()` | `.chips()` | API-14 |
+| `disclosure_group(..).item(key, title, content)` | `.panel(key, title, content)` | API-6（`.item` は項目ごとの slot だけ） |
+| `navigation_menu(..).item(key, label, content)` | `.link(key, label, content)` | API-6 |
+| `ui::item(title)` | `ui::item_row(title)` | API-14 |
+| `Select::option(..)` | `Select::item(..)` | API-6 |
+| `async_view(..).error(..)` | `.fallback(Fn(UiError, Retry) -> V)` | API-6 |
+| `use_table`・`TableApi`・`use_table_model`・`TableModelApi` | `use_data_table`・`DataTableApi`・`use_data_table_model`・`DataTableModelApi` | API-14（`ui::table` は静的な表） |
+| `platform::fullscreen()`・`surface_active()`・`reduced_motion()` | `is_fullscreen()`・`is_surface_active()`・`is_motion_reduced()` | API-14 |
+| `*Api::shown()`、`CopyFeedbackApi::copied()`、`space_armed()` | `is_open()`、`is_copied()`、`is_space_armed()` | API-14 |
+| `CalendarPolicy`、`ListPolicy`、`ListRangePolicy` | `CalendarOptions`、`ListOptions`、`ListRangeOptions` | API-15 |
+| `ActionPolicy`・`action(policy, run)` | `ActionMode`・`action(mode, run)` | API-15 |
+| `TooltipConfig` | `TooltipTiming` | API-15 |
+| `DialogKind`・`.kind(..)` | `DialogMode`・`.mode(..)` | API-15 |
+| `SnapMode`（reactive） | `Snap` | API-15（`*Mode` は構造の選択だけ） |
+| `split(panes, sizes)` | `split(sizes, panes)` | API-13 |
+| `pagination(page, count)` | `pagination(count, page)` | API-13 |
+| `command_palette(open, commands)` | `command_palette(commands, open)` | API-13 |
+| `heading(level, text)` | `heading(text, level)` | API-13 |
+| `list(items).selection(..)`、`tree(nodes).selection(..)`（10.8 節・B.7 の初版） | `list(label, items).selection(..)`、`tree(label, nodes).selection(..).expanded(impl IntoBinding<Vec<K>>)` | API-13（control は支援技術の名前を最初に取る） |
+| `basic::DialogLook`、`basic::MenuLook`、`SegmentedLook`、`GameCellLook` | `DialogVariant`、`MenuVariant`、`SegmentedVariant`、`GameCellVariant` | API-15 |
+| `ui::Segmented`、progress の `Ring`・`Gauge`、alert の banner | `RadioGroupVariant::Segmented`、`ProgressVariant::{Bar, Ring, Gauge}`、`AlertVariant::Banner` | API-15 |
+| `calendar(selected)`・`calendar_range(range)` | `calendar(impl IntoSelection<CalendarSelection>)`（`Signal<Option<CalendarDate>>` と `Signal<Option<DateRange>>` から作る） | API-13 |
+| `clickable_card(..)`、`selectable_card(selected)` | `card(..).on_press(..)`、`card(..).selected(impl IntoBinding<bool>)` | API-1 |
+| `ui::toggle`・`Toggle` | `ui::toggle_button`・`ToggleButton` | API-13（hook の `use_toggle_button` と揃える） |
+| `ui::tree` の builder の `TreeView` | `Tree` | API-13 |
+| `Button::loading`、`ButtonState.loading` | `busy` | API-14 |
+| `Button::size(ControlSize)` | `size(impl IntoValue<ControlSize>)` | API-2 |
+| `Button::trailing_icon` | `trailing` | API-6 |
+| `use_tooltip_when(enabled)` | `use_tooltip().disabled(..)` | API-14 |
+| `StateTokens { rest, hover, pressed, disabled, selected, focus }` | `{ rest, hovered, pressed, disabled, selected, focused }`（`PartState` の語） | API-14 |
+| `Presence::Leaving`、`FrameLoop::while_shown` | `Presence::Exiting`、`while_present` | API-14 |
+| `style::Ext<T>`、`Theme::get::<T>()`、`tokens::<T>()` | `ThemeRef<T>`、`Theme::ext::<T>()`、`use_tokens::<T>()` | API-7・API-14 |
+| `on_composition`、`TextEditing::on_selection`、`on_preview` | `on_composition_change`、`on_selection_change`、`on_active_change` | API-3 |
+| `ToastOptions::on_hide(Fn())` | `on_dismiss(Fn(DismissReason))`（`DismissReason::Timeout` を足す） | API-14 |
+| `retain_focus()`、`retain_trigger_focus`、`expand_all()`、`DragApi::velocity()` | `keep_focus()`、`keep_trigger_focus`、`initially_expanded()`、`track_velocity()` | API-14 |
+| `TableAlign` | `style::TextAlign` | API-14 |
+| `Side`、`ToastSwipeEdge` | `geometry::Edge` | API-14 |
+| `interaction::Dismiss { escape, outside }` | `DismissOn` | API-15 |
+| `StepperItem { label, description, state }`（公開の field）、`StepState` | builder の record（`StepperItem::new(label).description(..).status(..)`）、`StepStatus` | API-2 |
+| `splitter(name, ..)` | `splitter(label, ..)` | API-5 |
+| `kbd_combo(Vec<Key>)` | `kbd_combo(impl IntoValue<Vec<Key>>)` | API-2 |
+| `kivact::style::Asset` | `kivact::view::Asset` | API-1（`image`・`App::font`・`avatar.src` が使う） |
+| `kivact::draw::{Point, Size, Rect}`、`Insets` | `kivact::geometry::{Point, Size, Rect, Insets, Edge}`（新しい module。field は `f64`） | API-1・API-4 |
+| `view::Reorder` | `interaction::Reorder` | API-1（data table だけが使う） |
+| `draw::DrawText` | `draw::TextFormat` | API-14 |
+| `tree_rows_with_reveal(..)` | `tree_rows(..).reveal(..)` | API-2 |
+| `ListItem::icon_value`、`MenuEntry::shortcut_value` など | `icon`、`shortcut`（名詞だけ） | API-14 |
+| `Signal::field(get_ref, get_mut)`、`Signal::item(key, id)` | `Signal::project(get_ref, get_mut)` と `bind!(x.a.b)`、`Signal::item` は削除（`for_each` の行が `Binding<T>` を受ける） | 18.7 |
+| `Retry::retry()` | `Retry::run()` | API-14 |
+| `AppSettings`、behavior の `*Settings`、`Settings<S>` | `AppOptions`、`*Options`、`OptionsCell<S>` | API-15 |
+| `UiPolicy` | 削除（振る舞いは `InteractionPolicy` の入れ子、見た目の動きは `UiTokens`） | 18.15 |
+| `InlineEditApi::field(key, label, draft, on_commit)` | `.field(key, label, draft).on_draft_commit(..)` | API-3 |
+| `Into<Binding<T>>`、`Into<Selection<K>>` | `IntoBinding<T>`、`IntoSelection<K>` | 18.7 |
+| `IntoViewFn`、`Component`、`ItemKey`、`PropValue`、`AsyncSource` | 新しい公開の trait | 18.7〜18.9 |
+
+---
+
+## B.9 slot の種類の表（API-6、設計書 18.8 節）
+
+| 部品 | `impl IntoView`（一度だけ mount） | `impl IntoViewFn` / `impl Fn(..) -> V`（作り直す） |
+|---|---|---|
+| `button` | `icon`、`trailing` | — |
+| `dialog` | — | `content`、`footer`、`media`（開くたびに作る） |
+| `tooltip`、`hover_card` | — | `content` |
+| `disclosure` | — | `content`（開いたときに作る） |
+| `disclosure_group` | — | `.panel(key, title, content)` の `content` |
+| `menu`、`list`、`select`、`radio_group`、`tree`、`tabs`、`toggle_group`、`pagination`、`breadcrumb` | — | `item`（項目ごと） |
+| `tabs` | — | `content(Fn(K) -> V)`（選ばれた tab ごと） |
+| `command_palette` | `footer` | `item` |
+| `splitter`、`split` | `start`、`end`（`split` は子の列） | — |
+| `card`、`alert`、`empty_state`、`item_row`、`stat`、`chat_message` | `header`、`media`、`icon`、`actions`、`footer`、`content` | — |
+| `toolbar` | `start`、`center`、`end`（子の列） | — |
+| `async_view` | — | `ready`（位置引数）、`loading`、`fallback` |
+| `error_boundary` | — | `fallback` |
+| `viewport` | — | — |
+| kit の部品 | 付録 C.1 の KIT-5 の規則（現在の code が開くたびに作り直しているものは `Fn`、それ以外は `IntoView`）で決め、各 kit の README の表に書く | 同左 |
+
+---
