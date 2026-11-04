@@ -46,6 +46,6 @@ pub(crate) enum SemanticInput {
 
 /// Deferred transformations, interleaved with caller modifier segments.
 pub(crate) enum Modifier {
-    Caller(super::common::Common),
+    Caller(Box<super::common::Common>),
     Part(Box<dyn FnOnce(super::node::Node) -> super::node::Node>),
 }

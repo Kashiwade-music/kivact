@@ -773,7 +773,11 @@ impl Node {
     pub fn semantics_text(mut self, text: impl IntoValue<SemanticsText>) -> Self {
         self.common
             .semantic(text.into_prop(), |s, value| s.text = Some(value));
-        self.common.semantics.last_mut().unwrap().text = true;
+        self.common
+            .semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .text = true;
         self
     }
 
@@ -787,7 +791,7 @@ impl Node {
 impl Node {
     fn record_part<S: kivact_runtime::PropValue>(&mut self, part: Part<S>) {
         self.modifiers
-            .push(Modifier::Caller(std::mem::take(&mut self.common)));
+            .push(Modifier::Caller(Box::new(std::mem::take(&mut self.common))));
         self.modifiers.push(Modifier::Part(part.into_apply()));
     }
     pub(crate) fn resolve_modifiers(mut self) -> Self {
@@ -812,7 +816,7 @@ impl Node {
         let outer_reads = std::mem::take(&mut self.semantic_reads);
         for (index, modifier) in modifiers.into_iter().enumerate() {
             match modifier {
-                Modifier::Caller(caller) => self.common.apply_caller(caller),
+                Modifier::Caller(caller) => self.common.apply_caller(*caller),
                 Modifier::Part(apply) => {
                     self.semantic_reads = later_callers[index].clone();
                     self.semantic_reads.extend(outer_reads.iter().cloned());
@@ -836,11 +840,15 @@ impl Node {
         for patch in self.common.semantics.iter_mut().skip(start) {
             patch.part = true;
         }
-        let mut transport = Common::default();
-        transport.handlers = std::mem::replace(&mut self.common.handlers, handlers);
-        transport.part_actions = std::mem::replace(&mut self.common.part_actions, actions);
-        transport.part_region_events =
-            std::mem::replace(&mut self.common.part_region_events, region_events);
+        let transport = Common {
+            handlers: std::mem::replace(&mut self.common.handlers, handlers),
+            part_actions: std::mem::replace(&mut self.common.part_actions, actions),
+            part_region_events: std::mem::replace(
+                &mut self.common.part_region_events,
+                region_events,
+            ),
+            ..Common::default()
+        };
         self.common.attach_part(transport);
         self
     }

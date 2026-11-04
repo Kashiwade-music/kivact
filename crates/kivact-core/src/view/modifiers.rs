@@ -76,7 +76,10 @@ impl Common {
                 list.extend(target);
             },
         );
-        self.semantics.last_mut().unwrap().relation = Some((relation, target));
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .relation = Some((relation, target));
     }
 
     #[track_caller]
@@ -85,7 +88,10 @@ impl Common {
         source: kivact_runtime::Prop<kivact_types::Orientation>,
     ) {
         self.semantic(source.clone(), |s, value| s.orientation = value);
-        self.semantics.last_mut().unwrap().orientation = Some(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .orientation = Some(source);
     }
 
     pub(crate) fn append_semantics(&mut self, patches: &mut Vec<SemanticsPatch>) {
@@ -101,7 +107,10 @@ impl Common {
         self.semantic(kivact_runtime::Prop::constant(value), |s, v| {
             s.role = Some(v)
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Role(value);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Role(value);
     }
     pub(crate) fn role_source(&self) -> Option<kivact_types::Role> {
         self.semantics.iter().rev().find_map(|p| match p.input {
@@ -114,14 +123,20 @@ impl Common {
         self.semantic(source.clone(), |s, v| {
             s.name = Some(v);
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Name(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Name(source);
     }
     #[track_caller]
     pub(crate) fn set_description(&mut self, source: kivact_runtime::Prop<String>) {
         self.semantic(source.clone(), |s, v| {
             s.description = Some(v);
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Description(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Description(source);
     }
     #[track_caller]
     pub(crate) fn set_value(&mut self, source: kivact_runtime::Prop<String>) {
@@ -134,7 +149,10 @@ impl Common {
         self.semantic(source.clone(), |s, v| {
             s.selected = Some(v);
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Selected(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Selected(source);
     }
     pub(crate) fn selected_source(&self) -> Option<kivact_runtime::Prop<bool>> {
         self.semantics.iter().rev().find_map(|p| match &p.input {
@@ -147,7 +165,10 @@ impl Common {
         self.semantic(source.clone(), |s, v| {
             s.disabled = v;
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Disabled(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Disabled(source);
     }
     pub(crate) fn disabled_source(&self) -> Option<kivact_runtime::Prop<bool>> {
         self.semantics
@@ -164,7 +185,10 @@ impl Common {
         self.semantic(source.clone(), |s, v| {
             s.hidden = v;
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Hidden(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Hidden(source);
     }
     pub(crate) fn hidden_source(&self) -> Option<kivact_runtime::Prop<bool>> {
         self.semantics
@@ -181,14 +205,20 @@ impl Common {
         self.semantic(source.clone(), |s, v| {
             s.invalid = Some(v);
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Invalid(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Invalid(source);
     }
     #[track_caller]
     pub(crate) fn set_checked(&mut self, source: kivact_runtime::Prop<bool>) {
         self.semantic(source.clone(), |s, v| {
             s.checked = Some(kivact_types::CheckedState::from_bool(v));
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Checked(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Checked(source);
     }
     #[track_caller]
     pub(crate) fn set_indeterminate(&mut self, source: kivact_runtime::Prop<bool>) {
@@ -197,21 +227,30 @@ impl Common {
                 s.checked = Some(kivact_types::CheckedState::Indeterminate);
             };
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Indeterminate(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Indeterminate(source);
     }
     #[track_caller]
     pub(crate) fn set_expanded(&mut self, source: kivact_runtime::Prop<bool>) {
         self.semantic(source.clone(), |s, v| {
             s.expanded = Some(v);
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Expanded(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Expanded(source);
     }
     #[track_caller]
     pub(crate) fn set_focusable(&mut self, source: kivact_runtime::Prop<bool>) {
         self.semantic(source.clone(), |s, v| {
             s.focusable = v;
         });
-        self.semantics.last_mut().unwrap().input = SemanticInput::Focusable(source);
+        self.semantics
+            .last_mut()
+            .expect("invariant: semantic appends a patch")
+            .input = SemanticInput::Focusable(source);
     }
     pub(crate) fn focusable_source(&self) -> Option<kivact_runtime::Prop<bool>> {
         self.semantics
