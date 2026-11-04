@@ -13,9 +13,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use crate::support::mount;
+use kivact::custom::{Constraints, primitive};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
-use kivact::custom::{Constraints, primitive};
 use kivact::style::Align;
 use kivact::test::Screen;
 use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent};
@@ -145,9 +145,9 @@ fn a_primitive_takes_focus_input_and_accessibility_like_any_element() {
                     let w = size.width * level.get() as f64 / 10.0;
                     d.fill_rect(Rect::new(0.0, 0.0, w, size.height), ColorToken::Accent);
                 })
-                .role(Role::Slider)
+                .with_node(move |node| node.role(Role::Slider))
                 .name("level")
-                .value_text(move || level.get().to_string())
+                .with_node(move |node| node.value_text(move || level.get().to_string()))
                 .focusable(true)
                 .test_id("level")
                 .on_key(move |e: KeyEvent| match e.key() {
@@ -163,7 +163,9 @@ fn a_primitive_takes_focus_input_and_accessibility_like_any_element() {
                         level.set((e.pos().x / 10.0) as u32);
                     }
                 })
-                .on_a11y(A11yAction::Increment, move || level.update(|l| *l += 1)),
+                .with_node(move |node| {
+                    node.a11y_action(A11yAction::Increment, move |_| level.update(|l| *l += 1))
+                }),
         ));
         (level, view)
     });

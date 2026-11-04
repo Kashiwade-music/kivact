@@ -152,7 +152,8 @@ fn focus_within_follows_focus_into_and_out_of_a_subtree() {
                 .name("panel")
                 .child(column((
                     kivact::view::node().name("inner").part(
-                        kivact::interaction::use_text_edit(kivact::state::signal(String::new())).control(),
+                        kivact::interaction::use_text_edit(kivact::state::signal(String::new()))
+                            .control(),
                     ),
                     {
                         let label = ("inner button").into_value();
@@ -295,8 +296,10 @@ fn closing_a_modal_gives_the_focus_back_to_the_opener() {
                     Placement::Below,
                     column((
                         kivact::view::node().name("name").part(
-                            kivact::interaction::use_text_edit(kivact::state::signal(String::new()))
-                                .control(),
+                            kivact::interaction::use_text_edit(
+                                kivact::state::signal(String::new()),
+                            )
+                            .control(),
                         ),
                         {
                             let label = ("close").into_value();

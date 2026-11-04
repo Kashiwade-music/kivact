@@ -7,11 +7,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount_with;
+use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::style::Cursor;
 use kivact::test::{MirrorMode, RenderOptions};
-use kivact::interaction::ScalarRange;
 use kivact::view::{Handled, KeyEvent};
 use kivact::view::{MouseButton, Orientation};
 
@@ -43,7 +43,7 @@ fn side_by_side_panes_use_left_and_right_and_leave_the_vertical_arrows_alone() {
     let seen = keys.clone();
     let (screen, value) = mount_with(real_window(), move || {
         let value = signal(40.0);
-        let divider = handle("Side").part(
+        let divider = handle("Edge").part(
             use_splitter(value, range(), Orientation::Horizontal)
                 .key_step(5.0)
                 .unwrap()
@@ -51,7 +51,7 @@ fn side_by_side_panes_use_left_and_right_and_leave_the_vertical_arrows_alone() {
         );
         (value, recorded(divider, seen))
     });
-    let split = screen.get_by_role(Role::Splitter, "Side");
+    let split = screen.get_by_role(Role::Splitter, "Edge");
     split.focus();
     screen.press_key(Key::ArrowRight);
     assert_eq!(value.get_untracked(), 45.0);

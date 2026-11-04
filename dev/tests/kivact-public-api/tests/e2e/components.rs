@@ -58,11 +58,13 @@ fn node_builder_modifiers_land_on_the_root_node() {
         let (o, p) = (opened.clone(), pressed.clone());
         let view = column(
             card("Profile")
-                .role(Role::Dialog)
+                .with_node(move |node| node.role(Role::Dialog))
                 .name("Profile card")
                 .test_id("card")
                 .style(style().height(30))
-                .on_a11y(A11yAction::Expand, move || o.set(o.get() + 1))
+                .with_node(move |node| {
+                    node.a11y_action(A11yAction::Expand, move |_| o.set(o.get() + 1))
+                })
                 .on_press(move || p.set(p.get() + 1)),
         )
         .style(style().align_items(Align::Start));
@@ -92,7 +94,7 @@ fn element_functions_share_one_type() {
     let mode = |m: u8| match m {
         0 => text("t").test_id("t"),
         1 => column(text("c")).test_id("c"),
-        2 => image(kivact::Asset::from(Vec::<u8>::new())).test_id("i"),
+        2 => image(kivact::view::Asset::from(Vec::<u8>::new())).test_id("i"),
         _ => node().test_id("n"),
     };
     let screen = render(move || (mode(0), mode(1), mode(3)));
@@ -176,13 +178,15 @@ fn disabled_nodes_offer_no_actions_and_lose_the_focus() {
                 .disabled(true)
                 .style(style().size(40, 20))
                 .on_press(|| {})
-                .region(
-                    RegionId(1),
-                    kivact::custom::part(|state| state)
-                        .role(Role::Button)
-                        .name("bar")
-                        .on_press(|| {}),
-                )
+                .region(RegionId(1), {
+                    let attachment = kivact::custom::part(|state| state);
+                    kivact::custom::Part::new(attachment.state(), move |node| {
+                        node.part(attachment)
+                            .role(Role::Button)
+                            .name("bar")
+                            .on_press(|| {})
+                    })
+                })
                 .draw(|d: &mut Draw, size: Size| {
                     d.region(RegionId(1), size.to_rect());
                 }),

@@ -131,7 +131,8 @@ fn for_each_keeps_row_owners_uses_minimal_moves_and_reports_duplicates() {
             column(for_each(
                 list,
                 |it| it.id,
-                move |id, it| {
+                move |it| {
+                    let id = it.with(|it| it.id);
                     let l4 = l3.clone();
                     l4.borrow_mut().push(format!("mount {id}"));
                     on_cleanup(move || l4.borrow_mut().push(format!("dispose {id}")));

@@ -4,8 +4,6 @@
 //! `Offscreen`: the same pixels (the windowless behaviour of `Offscreen`
 //! is `tests/offscreen.rs`).
 
-use kivact::view::Asset;
-use kivact::view::canvas;
 use kivact::draw::Transform;
 use kivact::draw::{Draw, Layer, Offscreen, Pixels, TextBaseline, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
@@ -13,6 +11,8 @@ use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::style::{TextAlign, Theme};
 use kivact::test::{RenderOptions, TestFonts, render_with};
+use kivact::view::Asset;
+use kivact::view::canvas;
 
 use crate::paint::{distance, pixel};
 
@@ -74,7 +74,7 @@ fn a_drawing_function_gives_the_same_pixels_on_a_canvas_and_in_an_offscreen_imag
         RenderOptions::default()
             .window_size(96.0, 64.0)
             .theme(theme())
-            .fonts(TestFonts::Only(vec![kivact::Asset::from(TUFFY)])),
+            .fonts(TestFonts::Only(vec![kivact::view::Asset::from(TUFFY)])),
         move || {
             canvas(move |draw, size| artwork(draw, size, &preview_image))
                 .style(style().size(96, 64))

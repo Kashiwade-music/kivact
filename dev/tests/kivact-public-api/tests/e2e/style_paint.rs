@@ -8,8 +8,8 @@ use super::support::mount;
 use kivact::ErrorKind;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::test::render;
 use kivact::style::provide_theme;
+use kivact::test::render;
 
 #[test]
 fn paint_only_style_tracks_size_signals_theme_and_removal() {

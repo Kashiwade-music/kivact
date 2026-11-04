@@ -118,7 +118,7 @@ fn space_armed_follows_space_and_turns_off_when_the_focus_leaves() {
         let transform = signal(ViewTransform::default());
         let zoom = use_zoom_pan(transform);
         (
-            zoom.space_armed(),
+            zoom.is_space_armed(),
             column((surface().part(zoom.viewport()), other())),
         )
     });

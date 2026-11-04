@@ -11,10 +11,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::draw::{InlineBox, InlineParagraph, TextParagraph, TextFormat};
+use kivact::custom::{Constraints, Primitive, primitive};
+use kivact::draw::{InlineBox, InlineParagraph, TextFormat, TextParagraph};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
-use kivact::custom::{Constraints, Primitive, primitive};
 use kivact::style::Align;
 
 /// The text style the tests shape in: a fixed size, so widths are stable.

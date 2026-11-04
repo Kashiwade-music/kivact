@@ -339,7 +339,10 @@ fn on_composition_change_reports_each_change_of_the_composing_state() {
                     .part(
                         field
                             .on_composition_change(move |composing| {
-                                seen.borrow_mut().push((composing, value.get_untracked()));
+                                seen.borrow_mut().push((
+                                    composing == kivact::view::Composition::Composing,
+                                    value.get_untracked(),
+                                ));
                             })
                             .control(),
                     )

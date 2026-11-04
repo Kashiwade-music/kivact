@@ -2,7 +2,7 @@
 
 use crate::support::mount_with;
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Locale, Weekday};
-use kivact::interaction::{CalendarGrid, CalendarPolicy, CalendarSelection, use_calendar_grid};
+use kivact::interaction::{CalendarGridApi, CalendarOptions, CalendarSelection, use_calendar_grid};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
 use kivact::view::{Modifiers, dynamic};
@@ -15,7 +15,7 @@ fn day(y: i32, m: u8, d: u8) -> CalendarDate {
 /// neighbouring months are drawn in the first and last week only when
 /// `outside` is true (two months side by side would repeat them).
 fn drawn(
-    calendar: CalendarGrid,
+    calendar: CalendarGridApi,
     first: Signal<CalendarMonth>,
     months: usize,
     outside: bool,
@@ -77,7 +77,7 @@ fn single(
     selected: Option<CalendarDate>,
     months: usize,
     outside: bool,
-    configure: impl FnOnce(CalendarPolicy) -> CalendarPolicy + 'static,
+    configure: impl FnOnce(CalendarOptions) -> CalendarOptions + 'static,
 ) -> (Screen, Single) {
     mount_with(
         RenderOptions::default().locale(Locale::new("en-US")),
@@ -86,13 +86,16 @@ fn single(
             let month = signal(selected.unwrap_or(day(2026, 10, 1)).month_of());
             let commits = signal(Vec::<CalendarDate>::new());
             let policy = configure(
-                CalendarPolicy::new()
+                CalendarOptions::new()
                     .months(months)
                     .week_start(Weekday::Monday)
-                    .on_commit(move |date| commits.update(|all| all.push(date))),
+                    .on_activate(move |date| commits.update(|all| all.push(date))),
             );
-            let calendar =
-                use_calendar_grid(month, CalendarSelection::Single(value.into()), policy);
+            let calendar = use_calendar_grid(
+                month,
+                CalendarSelection::Single(value.into_binding()),
+                policy,
+            );
             (
                 Single {
                     value,
@@ -190,8 +193,8 @@ fn range(initial: Option<DateRange>) -> (Screen, Signal<Option<DateRange>>) {
             let month = signal(day(2026, 10, 1).month_of());
             let calendar = use_calendar_grid(
                 month,
-                CalendarSelection::Range(value.into()),
-                CalendarPolicy::new().week_start(Weekday::Monday),
+                CalendarSelection::Range(value.into_binding()),
+                CalendarOptions::new().week_start(Weekday::Monday),
             );
             (value, drawn(calendar, month, 1, true))
         },

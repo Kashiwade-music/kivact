@@ -1,15 +1,14 @@
 //! Role: Tests for list navigation and roving tab stops.
 //!
-//! The unstyled `List`: a roving tab stop over the rows of a
+//! The unstyled `ListApi`: a roving tab stop over the rows of a
 //! multi-select list, the keys of an ARIA list box with multiple selection,
 //! typeahead, the press, and the active row following the rows.
 
-
 use crate::support::mount_with;
-use kivact::interaction::{List, ListPolicy, ListSelection, use_list};
+use kivact::interaction::ListItem;
+use kivact::interaction::{ListApi, ListOptions, use_list};
 use kivact::prelude::*;
 use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
-use kivact::interaction::ListItem;
 use kivact::view::{KeyCode, Modifiers};
 
 const NAMES: [&str; 12] = [
@@ -32,7 +31,7 @@ const CTRL: Modifiers = Modifiers {
 
 struct Handles {
     selected: Signal<Vec<&'static str>>,
-    nav: List<&'static str>,
+    nav: ListApi<&'static str>,
 }
 
 fn real_window() -> RenderOptions {
@@ -41,7 +40,7 @@ fn real_window() -> RenderOptions {
 
 fn mount_list(
     initial: Vec<&'static str>,
-    configure: impl FnOnce(List<&'static str>) -> List<&'static str> + 'static,
+    configure: impl FnOnce(ListApi<&'static str>) -> ListApi<&'static str> + 'static,
 ) -> (Screen, Handles) {
     mount_list_kind(initial, false, configure)
 }
@@ -49,18 +48,18 @@ fn mount_list(
 fn mount_list_kind(
     initial: Vec<&'static str>,
     single: bool,
-    configure: impl FnOnce(List<&'static str>) -> List<&'static str> + 'static,
+    configure: impl FnOnce(ListApi<&'static str>) -> ListApi<&'static str> + 'static,
 ) -> (Screen, Handles) {
     mount_with(real_window(), move || {
         let rows = signal(NAMES.to_vec());
         let selected = signal(initial);
         let selection = if single {
-            ListSelection::Single(kivact::state::binding(
+            Selection::Single(kivact::state::binding(
                 memo(move || selected.with(|keys| keys.first().copied())),
                 move |key: Option<&'static str>| selected.set(key.into_iter().collect()),
             ))
         } else {
-            ListSelection::Multiple(selected.into())
+            selected.into_selection()
         };
 
         let nav = configure(use_list(
@@ -71,30 +70,31 @@ fn mount_list_kind(
                     .collect::<Vec<_>>()
             },
             selection,
-            ListPolicy {
+            ListOptions {
                 typeahead: true,
-                ..ListPolicy::default()
+                ..ListOptions::default()
             },
         ));
         let list = for_each(
             rows,
             |name| *name,
-            move |name, _| {
+            move |row_value| {
+                let name = row_value.with(|name| *name);
                 (node()
                     .role(Role::Option)
                     .name(name)
                     .selected(move || nav.selected().with(|keys| keys.contains(&name)))
                     .child(text(name))
                     .style(style().height(24).shrink(0)))
-                .part(nav.item(name).role(Role::Option))
+                .part(nav.item(name))
             },
         );
         let list = (scroll(list)
-            .role(Role::ListBox)
+            .with_node(move |node| node.role(Role::ListBox))
             .name("Fruit")
             .test_id("list")
             .style(style().height(120)))
-        .part(nav.list());
+        .with_node(move |node| node.part(nav.list()));
         (
             Handles { selected, nav },
             column((button("before"), list, button("after"))),

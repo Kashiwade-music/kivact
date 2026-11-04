@@ -11,9 +11,9 @@ use std::rc::Rc;
 
 use crate::support::mount;
 use crate::support::random::residue;
+use kivact::custom::Owner;
 use kivact::geometry::Point;
 use kivact::prelude::*;
-use kivact::custom::Owner;
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -33,7 +33,7 @@ fn a_cleanup_writes_signals_and_registers_a_cleanup_on_its_disposing_owner() {
         let open = signal(true);
         let closed = signal(0);
         let branch = show(open, move || {
-            let owner = Owner::current("disposal test");
+            let owner = Owner::current();
             let l3 = l2.clone();
             on_cleanup(move || {
                 // A write to a signal that outlives the branch.

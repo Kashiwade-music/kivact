@@ -6,7 +6,9 @@ use std::time::Duration;
 
 use crate::support::{mount, mount_with};
 use kivact::motion::FrameRate;
-use kivact::motion::{Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop};
+use kivact::motion::{
+    Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop,
+};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::test::{RenderOptions, Screen};
@@ -24,7 +26,7 @@ fn popped_exit_releases_layout_and_finishes_after_the_last_descendant() {
         let count = completions.clone();
         let (screen, shown) = mount(move || {
             let shown = signal(true);
-            let finished = kivact::view::callback(move |()| count.set(count.get() + 1));
+            let finished = kivact::state::callback(move |()| count.set(count.get() + 1));
             let exit = |duration| {
                 style().exit(style().opacity(0.0)).transition(
                     TransitionProp::Paint,
@@ -101,12 +103,12 @@ fn exit_completion_fires_for_instant_removal_and_skips_a_disposed_callback() {
     let count = completions.clone();
     let (screen, shown) = mount(move || {
         let shown = signal(true);
-        let finished = kivact::view::callback(move |()| count.set(count.get() + 1));
+        let finished = kivact::state::callback(move |()| count.set(count.get() + 1));
         (
             shown,
             show(shown, move || {
                 let disposed =
-                    kivact::view::callback::<(), ()>(|()| panic!("removed callback owner ran"));
+                    kivact::state::callback::<(), ()>(|()| panic!("removed callback owner ran"));
                 (
                     node().on_exit_complete(finished).style(
                         style().exit(style().opacity(0.0)).transition(
@@ -199,7 +201,7 @@ fn reduced_motion_completes_decorative_transitions_only() {
     screen.run_until_idle();
     assert_eq!(decorative.get_untracked(), 10.0, "decorative: instant");
     let (screen2, (target2, info)) =
-        animated_app(Transition::tween(100, Easing::Linear).decorative(false));
+        animated_app(Transition::tween(100, Easing::Linear).essential());
     screen2.set_reduced_motion(true);
     target2.set(10.0);
     screen2.run_until_idle();

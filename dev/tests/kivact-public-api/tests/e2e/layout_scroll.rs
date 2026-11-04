@@ -304,7 +304,7 @@ fn orientation_on_a_scroll_container_is_reported_and_the_axes_win() {
     let screen = render(|| {
         scroll(row((text("a"), text("b"))))
             .axes(ScrollAxes::Horizontal)
-            .orientation(Orientation::Vertical)
+            .with_node(move |node| node.orientation(Orientation::Vertical))
             .test_id("strip")
     });
     assert_eq!(

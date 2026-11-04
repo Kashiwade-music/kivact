@@ -76,23 +76,20 @@ fn chord_keeps_drag_and_alt_f4_reaches_host() {
         .press_button(MouseButton::Secondary, 200.0, 20.0)
         .unwrap();
     parent.pump(Duration::from_millis(50));
-    assert_eq!(
-        *phases.lock().unwrap(),
-        [kivact::interaction::EditPhase::Begin]
-    );
+    assert_eq!(*phases.lock().unwrap(), [kivact::view::EditPhase::Begin]);
     parent
         .release_button(MouseButton::Secondary, 200.0, 20.0)
         .unwrap();
     parent.move_to(250.0, 20.0).unwrap();
     parent.release(250.0, 20.0).unwrap();
     wait(&parent, || {
-        phases.lock().unwrap().last() == Some(&kivact::interaction::EditPhase::Commit)
+        phases.lock().unwrap().last() == Some(&kivact::view::EditPhase::Commit)
     });
     assert!(
         !phases
             .lock()
             .unwrap()
-            .contains(&kivact::interaction::EditPhase::Cancel)
+            .contains(&kivact::view::EditPhase::Cancel)
     );
     let host = parent.win32_hwnd().unwrap() as HWND;
     // SAFETY: search only the direct children of this test-owned host.

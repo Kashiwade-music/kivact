@@ -20,7 +20,7 @@ static NOTO: &[u8] = include_bytes!(
 const GRAY: u32 = 0xdddddd;
 
 fn japanese() -> RenderOptions {
-    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::Asset::from(NOTO)]))
+    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::view::Asset::from(NOTO)]))
 }
 
 /// A fixed-width button whose label does not fit (its label is located at

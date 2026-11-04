@@ -21,7 +21,7 @@ fn app() -> impl IntoView {
                     .name(label)
                     .child(text(label))
                     .style(move || {
-                        let t = &use_theme();
+                        let t = &use_theme().get();
                         style()
                             .direction(kivact::style::Direction::Row)
                             .align_items(Align::Center)
@@ -41,7 +41,7 @@ fn app() -> impl IntoView {
                     .name(label)
                     .child(text(label))
                     .style(move || {
-                        let t = &use_theme();
+                        let t = &use_theme().get();
                         style()
                             .direction(kivact::style::Direction::Row)
                             .align_items(Align::Center)

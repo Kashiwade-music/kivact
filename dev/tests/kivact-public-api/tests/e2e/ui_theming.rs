@@ -10,15 +10,15 @@
 
 use crate::paint::{distance, pixel};
 use crate::support::mount;
-use kivact::view::icon;
 use kivact::interaction::{MenuItemState, TabState};
 use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
-use kivact::style::{Color, Icon, ThemeExtension, TransitionProp, use_theme, rgb};
+use kivact::style::provide_theme;
+use kivact::style::{Color, Icon, ThemeExtension, TransitionProp, rgb, use_theme};
 use kivact::test::Screen;
 use kivact::ui::Look;
 use kivact::ui::{ButtonState, UiRecipes};
-use kivact::style::provide_theme;
+use kivact::view::icon;
 use std::time::Duration;
 
 const RED: u32 = 0xff0000;
@@ -136,22 +136,22 @@ fn a_menu_slot_replaces_item_rows_and_the_default_shows_headings_and_description
                 ],
             ),
             MenuEntry::separator(),
-            MenuEntry::item("export", "Export").description("As a PNG image"),
+            MenuEntry::item("export", "Export").with_description("As a PNG image"),
         ];
         let custom = vec![
             MenuEntry::item("new", "New"),
             MenuEntry::item("open", "Open"),
         ];
         let view = column((
-            menu("Arrange", entries, move |key| chosen.set(Some(key))),
-            menu("File", custom, move |key| chosen.set(Some(key))).item(
-                |entry, state: Value<MenuItemState>| {
+            menu("Arrange", entries).on_activate(move |key| chosen.set(Some(key))),
+            menu("File", custom)
+                .on_activate(move |key| chosen.set(Some(key)))
+                .item(|entry, state: Value<MenuItemState>| {
                     text(move || {
                         let mark = if state.get().input.focused { "> " } else { "" };
                         format!("{mark}[{}]", entry.get().label())
                     })
-                },
-            ),
+                }),
         ));
         (chosen, view)
     });
@@ -189,7 +189,7 @@ fn a_named_icon_draws_the_themes_image_and_follows_a_theme_switch() {
                     .test_id("brand")
                     .style(style().color(rgb(RED))),
                 // An image icon draws its own asset under any theme.
-                icon(Icon::from(kivact::Asset::from(SQUARE)))
+                icon(Icon::from(kivact::view::Asset::from(SQUARE)))
                     .test_id("image")
                     .style(style().color(rgb(BLUE))),
             ))
@@ -234,7 +234,7 @@ fn a_librarys_tokens_are_read_again_on_a_theme_switch_without_a_remount() {
     // A recipe that reads the tokens, as a kit's does.
     let recipes = UiRecipes::default().button(|prev| {
         move |theme: &Theme, state: &Look<ButtonState>| {
-            prev(theme, state).background(theme.get::<Brand>().fill)
+            prev(theme, state).background(theme.ext::<Brand>().fill)
         }
     });
     let (red, blue) = (red.with(recipes.clone()), blue.with(recipes));
@@ -246,7 +246,7 @@ fn a_librarys_tokens_are_read_again_on_a_theme_switch_without_a_remount() {
             column((
                 button("Go").test_id("go"),
                 node().test_id("box").style(move || {
-                    let fill = use_theme().get::<Brand>().fill;
+                    let fill = use_theme().get().ext::<Brand>().fill;
                     style().size(20, 20).background(fill)
                 }),
             ))

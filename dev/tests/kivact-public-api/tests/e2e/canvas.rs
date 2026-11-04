@@ -1,17 +1,17 @@
 //! Role: Tests for canvas pixels, shaping, compositing, and hit regions.
 use super::paint::{BLACK, BLUE, RED, WHITE, expect, pixel};
-use kivact::view::canvas;
 use kivact::draw::{BlendMode, Filter, LineCap, Shadow, Shape, Stroke, Transform, radial_gradient};
 use kivact::draw::{FillRule, ImageOptions, Layer, Path};
 use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::test::render;
+use kivact::view::canvas;
 
 #[test]
 fn scaled_canvas_svg_raster_matches_an_explicitly_sized_image() {
     static SVG: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><path d="M0 0L10 10H0Z"/></svg>"#;
-    let asset = kivact::Asset::from(SVG);
+    let asset = kivact::view::Asset::from(SVG);
     let screen = render(move || {
         let reference = asset.clone();
         row((
@@ -58,7 +58,7 @@ fn scaled_canvas_svg_raster_matches_an_explicitly_sized_image() {
 #[test]
 fn asset_source_rect_and_path_helpers_are_drawn() {
     static IMAGE:&[u8]=br##"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="10" height="10" fill="#ff0000"/><rect x="10" width="10" height="10" fill="#0000ff"/></svg>"##;
-    let source = kivact::Asset::from(IMAGE);
+    let source = kivact::view::Asset::from(IMAGE);
     let screen = render(move || {
         canvas(move |d, _| {
             d.image_with(

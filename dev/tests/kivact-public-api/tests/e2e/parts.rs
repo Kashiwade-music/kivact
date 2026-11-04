@@ -4,11 +4,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::view::canvas;
-use kivact::geometry::Rect;
-use kivact::draw::RegionId;
-use kivact::prelude::*;
 use kivact::custom::part;
+use kivact::draw::RegionId;
+use kivact::geometry::Rect;
+use kivact::prelude::*;
+use kivact::view::canvas;
 use kivact::view::{A11yAction, Handled};
 use kivact::view::{KeyCode, Modifiers, MouseButton, PointerPhase};
 
@@ -53,24 +53,34 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
         let reference = node_ref();
         let hover = reference.hovered();
         let out_first = out.clone();
-        let a = part(|state| state)
-            .role(Role::Button)
-            .name("Drag A")
-            .reference(reference)
-            .on_pointer(move |event| {
-                out_first
-                    .borrow_mut()
-                    .push((1, event.phase(), event.region()));
-                Handled::No
-            });
+        let a = {
+            let attachment = part(|state| state);
+            kivact::custom::Part::new(attachment.state(), move |node| {
+                node.part(attachment)
+                    .role(Role::Button)
+                    .name("Drag A")
+                    .node_ref(reference)
+                    .on_pointer(move |event| {
+                        out_first
+                            .borrow_mut()
+                            .push((1, event.phase(), event.region()));
+                        Handled::No
+                    })
+            })
+        };
         let first = a.state();
-        let b = part(|state| state)
-            .role(Role::Button)
-            .name("Drag B")
-            .on_pointer(move |event| {
-                out.borrow_mut().push((2, event.phase(), event.region()));
-                Handled::No
-            });
+        let b = {
+            let attachment = part(|state| state);
+            kivact::custom::Part::new(attachment.state(), move |node| {
+                node.part(attachment)
+                    .role(Role::Button)
+                    .name("Drag B")
+                    .on_pointer(move |event| {
+                        out.borrow_mut().push((2, event.phase(), event.region()));
+                        Handled::No
+                    })
+            })
+        };
         let second = b.state();
         let view = canvas(|draw, _| {
             draw.region(RegionId(1), Rect::new(0.0, 0.0, 80.0, 40.0));
@@ -135,19 +145,26 @@ fn node_parts_keep_customizations_first_and_observe_consumed_input() {
     let (screen, (state, selected)) = mount(move || {
         let selected = signal(false);
         let behavior_calls = out.clone();
-        let behavior = part(|state| state)
-            .role(Role::Button)
-            .name("Behavior name")
-            .selected(selected)
-            .focusable(true)
-            .on_key(move |_| {
-                behavior_calls.borrow_mut().push("behavior key");
-                Handled::No
-            });
+        let behavior = {
+            let attachment = part(|state| state);
+            kivact::custom::Part::new(attachment.state(), move |node| {
+                node.part(attachment)
+                    .role(Role::Button)
+                    .name("Behavior name")
+                    .selected(selected)
+                    .focusable(true)
+                    .on_key(move |_| {
+                        behavior_calls.borrow_mut().push("behavior key");
+                        Handled::No
+                    })
+            })
+        };
         let state = behavior.state();
         let behavior_press = out.clone();
-        let behavior =
-            behavior.on_press(move || behavior_press.borrow_mut().push("behavior press"));
+        let behavior = kivact::custom::Part::new(behavior.state(), move |node| {
+            node.part(behavior)
+                .on_press(move || behavior_press.borrow_mut().push("behavior press"))
+        });
         let custom_key = out.clone();
         let custom_press = out.clone();
         let control = node()
@@ -201,22 +218,32 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
             let first_calls = signal(0);
             let second_calls = signal(0);
             let shared_first = node_ref();
-            let first = part(|state| state)
-                .role(Role::Button)
-                .name("First region")
-                .reference(shared_first)
-                .focusable(true)
-                .on_press(move || first_calls.update(|n| *n += 1));
-            let second = part(|state| state)
-                .role(Role::Button)
-                .name("Second region")
-                .focusable(true)
-                .disabled(disabled)
-                .on_press(move || second_calls.update(|n| *n += 1));
+            let first = {
+                let attachment = part(|state| state);
+                kivact::custom::Part::new(attachment.state(), move |node| {
+                    node.part(attachment)
+                        .role(Role::Button)
+                        .name("First region")
+                        .node_ref(shared_first)
+                        .focusable(true)
+                        .on_press(move || first_calls.update(|n| *n += 1))
+                })
+            };
+            let second = {
+                let attachment = part(|state| state);
+                kivact::custom::Part::new(attachment.state(), move |node| {
+                    node.part(attachment)
+                        .role(Role::Button)
+                        .name("Second region")
+                        .focusable(true)
+                        .disabled(disabled)
+                        .on_press(move || second_calls.update(|n| *n += 1))
+                })
+            };
             let first_state = first.state();
             let second_state = second.state();
             let first_ref = shared_first;
-            let second_ref = second.node_ref();
+            let second_ref = node_ref();
             let root = canvas(move |draw, _| {
                 if visible.get() {
                     draw.region(RegionId(2), Rect::new(100.0, 0.0, 80.0, 40.0));
@@ -225,14 +252,23 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
             })
             .region(RegionId(1), first)
             .region(RegionId(2), second)
-            .region(
-                RegionId(3),
-                part(|state| state)
-                    .role(Role::Button)
-                    .name("Undrawn")
-                    .focusable(true),
-            )
-            .part(part(|state| state).role(Role::Canvas).name("Parts canvas"))
+            .region(RegionId(3), {
+                let attachment = part(|state| state);
+                kivact::custom::Part::new(attachment.state(), move |node| {
+                    node.part(attachment)
+                        .role(Role::Button)
+                        .name("Undrawn")
+                        .focusable(true)
+                })
+            })
+            .part({
+                let attachment = part(|state| state);
+                kivact::custom::Part::new(attachment.state(), move |node| {
+                    node.part(attachment)
+                        .role(Role::Canvas)
+                        .name("Parts canvas")
+                })
+            })
             .style(style().size(200, 50));
             let view = column((
                 root,

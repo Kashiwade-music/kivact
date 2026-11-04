@@ -1,6 +1,6 @@
 //! Role: Tests for command palette behavior and filtering.
 //!
-//! The unstyled `CommandPalette`: opening, the active row, keys, filtering,
+//! The unstyled `CommandPaletteApi`: opening, the active row, keys, filtering,
 //! running, groups, the empty list, scrolling and the App's texts.
 
 use kivact::view::View;
@@ -9,12 +9,12 @@ use std::rc::Rc;
 
 use crate::support::mount;
 use kivact::i18n::message;
-use kivact::interaction::{CommandPalette, use_command_palette};
-use kivact::prelude::*;
-use kivact::test::{Element, Screen};
 use kivact::interaction::Command;
-use kivact::view::{Placement, overlay};
+use kivact::interaction::{CommandPaletteApi, use_command_palette};
+use kivact::prelude::*;
 use kivact::state::callback;
+use kivact::test::{Element, Screen};
+use kivact::view::{Placement, overlay};
 
 type Cmd = Command<&'static str>;
 
@@ -44,15 +44,17 @@ const NAMES: [&str; 20] = [
 
 fn base() -> Vec<Cmd> {
     vec![
-        Cmd::new("new", "New file").group("File").hint("Ctrl N"),
+        Cmd::new("new", "New file")
+            .with_group("File")
+            .with_hint("Ctrl N"),
         Cmd::new("open", "Open file")
-            .group("File")
-            .keywords(["load", "browse"]),
-        Cmd::new("save", "Save").group("File").disabled(true),
+            .with_group("File")
+            .with_keywords(["load", "browse"]),
+        Cmd::new("save", "Save").with_group("File").disabled(true),
         Cmd::new("theme", "Toggle theme")
-            .group("View")
-            .keywords(["dark"]),
-        Cmd::new("zoom", "Zoom in").group("View"),
+            .with_group("View")
+            .with_keywords(["dark"]),
+        Cmd::new("zoom", "Zoom in").with_group("View"),
         Cmd::new("quit", "Quit"),
     ]
 }
@@ -67,17 +69,19 @@ fn opener(open: Signal<bool>) -> Node {
         .on_press(move || open.set(true))
 }
 
-fn palette_with_height(p: CommandPalette<&'static str>, height: f64) -> View {
+fn palette_with_height(p: CommandPaletteApi<&'static str>, height: f64) -> View {
     p.show(move || {
         let rows = for_each(
             p.visible(),
             |g| (g.index, g.heading.is_some()),
-            move |(index, headed), group| {
+            move |group| {
+                let (index, headed) = group.with(|g| (g.index, g.heading.is_some()));
                 let commands = memo(move || group.with(|g| g.commands.clone()));
                 let rows = for_each(
                     commands,
                     |c| *c.key(),
-                    move |key, command| {
+                    move |command| {
+                        let key = command.with(|c| *c.key());
                         node()
                             .part(p.item(key))
                             .style(style().height(28))
@@ -114,7 +118,7 @@ fn palette_with_height(p: CommandPalette<&'static str>, height: f64) -> View {
             ))
             .style(style().width(400)),
         )
-        .part(p.content())
+        .with_node(move |node| node.part(p.content()))
     })
 }
 
@@ -126,14 +130,14 @@ struct Page {
 
 fn page_with(
     commands: Vec<Cmd>,
-    tweak: impl Fn(CommandPalette<&'static str>) -> CommandPalette<&'static str> + 'static,
+    tweak: impl Fn(CommandPaletteApi<&'static str>) -> CommandPaletteApi<&'static str> + 'static,
 ) -> Page {
     page_with_height(commands, tweak, 360.0)
 }
 
 fn page_with_height(
     commands: Vec<Cmd>,
-    tweak: impl Fn(CommandPalette<&'static str>) -> CommandPalette<&'static str> + 'static,
+    tweak: impl Fn(CommandPaletteApi<&'static str>) -> CommandPaletteApi<&'static str> + 'static,
     height: f64,
 ) -> Page {
     let ran = Rc::new(RefCell::new(Vec::new()));
@@ -146,9 +150,10 @@ fn page_with_height(
             column((
                 opener(open),
                 palette_with_height(
-                    tweak(use_command_palette(open, commands, move |value| {
-                        run.try_call(value)
-                    })),
+                    tweak(
+                        use_command_palette(commands, open)
+                            .on_activate(move |value| run.try_call(value)),
+                    ),
                     height,
                 ),
             )),
@@ -182,7 +187,7 @@ impl Page {
     }
     /// The one active row, if any: the field's active descendant.
     fn active(&self) -> Option<String> {
-        let field = self.project();
+        let field = self.field();
         let rows = self.rendered();
         let mut active = rows.iter().filter(|r| field.has_active_descendant(r));
         let first = active.next().map(|r| r.name());
@@ -222,7 +227,7 @@ fn it_is_a_modal_dialog_named_after_the_palette_with_no_visible_heading() {
             .is_none()
     );
     p.screen.get_by_role(Role::ListBox, "Command palette");
-    assert_eq!(p.project().role(), Some(Role::TextBox));
+    assert_eq!(p.field().role(), Some(Role::TextBox));
     p.no_errors();
 }
 
@@ -252,7 +257,7 @@ fn the_arrow_keys_move_the_active_row_over_enabled_rows_and_wrap() {
     p.screen.press_key(Key::ArrowUp);
     assert_eq!(p.active().as_deref(), Some("Zoom in"));
     assert_eq!(p.selected(), ["Zoom in"]);
-    assert!(p.project().is_focused());
+    assert!(p.field().is_focused());
     p.no_errors();
 }
 

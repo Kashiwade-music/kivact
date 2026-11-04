@@ -13,7 +13,9 @@ use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::{RenderOptions, render, render_with};
-use kivact::view::{A11yAction, Handled, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at};
+use kivact::view::{
+    A11yAction, Handled, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at,
+};
 
 #[test]
 fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
@@ -49,7 +51,7 @@ fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
                 ),
                 overlay(middle, Placement::Below, node())
                     .align(OverlayAlign::Center)
-                    .keep_anchor_clear(true)
+                    .keep_anchor_clear()
                     .offset(4)
                     .style(style().size(190, 110))
                     .test_id("tooltip"),
@@ -124,7 +126,7 @@ fn menu(dismissed: Count, other: Count) -> impl IntoView {
             )
             // A role exposes the menu (and its Dismiss) to assistive
             // technology.
-            .role(Role::Menu)
+            .with_node(move |node| node.role(Role::Menu))
             .test_id("menu")
             .on_dismiss(move |_| {
                 d();
@@ -250,7 +252,7 @@ fn keys_go_to_an_open_modal_without_focus_and_stop_there() {
                 // No tab stop inside: nothing is focused while it is open.
                 overlay(opener, Placement::Center, text("お知らせ"))
                     .modal()
-                    .role(Role::Dialog)
+                    .with_node(move |node| node.role(Role::Dialog))
                     .on_key(move |event| {
                         assert_eq!(event.target_role(), Some(Role::Dialog));
                         m();
@@ -368,8 +370,7 @@ fn overlays_flip_clamp_center_stay_out_of_flow_and_follow_their_anchor() {
 #[test]
 fn at_least_anchor_width_on_a_point_overlay_is_reported() {
     let screen = render(|| {
-        overlay_at(Point::new(10.0, 10.0), Placement::Below, text("menu"))
-            .at_least_anchor_width(true)
+        overlay_at(Point::new(10.0, 10.0), Placement::Below, text("menu")).at_least_anchor_width()
     });
     let errors = screen.errors();
     assert_eq!(errors.len(), 1, "{errors:?}");

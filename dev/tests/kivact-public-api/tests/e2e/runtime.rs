@@ -10,9 +10,9 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
+use kivact::prelude::*;
 use kivact::state::Binding;
 use kivact::state::binding;
-use kivact::prelude::*;
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -198,7 +198,7 @@ fn small_handles_trigger_var_binding_callback_value() {
         let constant: Value<i32> = 40.into_value();
         let setter = callback(move |v| base.set(v));
         let bound = binding(move || base.get(), move |value| base.set(value));
-        let direct: Binding<i32> = base.into();
+        let direct: Binding<i32> = base.into_binding();
         let snapshot = memo(move || {
             bound.get_untracked()
                 + bound.with_untracked(|n| *n)

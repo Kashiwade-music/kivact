@@ -4,8 +4,8 @@
 //! deterministic random driver of `host_sync_tests` (the random probe tests
 //! over the public API have their own in `tests/e2e/support/random.rs`).
 
-use kivact::state::Binding;
-use kivact::prelude::{IntoText, IntoValue, Node, NodeBuilder, Role, node, text};
+use kivact::prelude::{IntoText, IntoValue, Node, Role, node, node_ref, text};
+use kivact::state::IntoBinding;
 
 /// What the screen tests press: an element that is a button to assistive
 /// technology (role Button, focusable, `label` as its name and text),
@@ -21,18 +21,21 @@ pub(super) fn button_box(label: &'static str) -> Node {
         .child(text(label))
 }
 
-pub(super) fn editor(label: impl IntoText, binding: impl Into<Binding<String>>) -> Node {
-    use kivact::custom::{NodeRefExt, TextEditing, part};
-    let binding = binding.into();
+pub(super) fn editor(label: impl IntoText, binding: impl IntoBinding<String>) -> Node {
+    use kivact::custom::{NodeRefExt, TextEditing};
+    let binding = binding.into_binding();
     let value = binding.into_value();
-    let control = part(|state| state).role(Role::TextBox).focusable(true);
-    let reference = control.node_ref();
-    let text = move || std::rc::Rc::<str>::from(value.get());
-    node().name(label).part(
-        control.text_editing(
+    let reference = node_ref();
+    let text = move || value.get();
+    node()
+        .name(label)
+        .role(Role::TextBox)
+        .focusable(true)
+        .node_ref(reference)
+        .text_editing(
             TextEditing::new(text)
                 .report_text()
-                .on_edit(move |edit| {
+                .on_text_change(move |edit| {
                     if edit.composition().is_some() {
                         return;
                     }
@@ -46,6 +49,5 @@ pub(super) fn editor(label: impl IntoText, binding: impl Into<Binding<String>>) 
                         reference.set_edit_value(value);
                     }
                 }),
-        ),
-    )
+        )
 }

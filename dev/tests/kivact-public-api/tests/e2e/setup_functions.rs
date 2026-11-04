@@ -9,10 +9,10 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::state::effect_on;
 use kivact::prelude::*;
+use kivact::state::effect_on;
+use kivact::state::use_context;
 use kivact::test::render;
-use kivact::view::context;
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -116,12 +116,12 @@ fn context_is_found_in_setup_and_in_handlers() {
     let s2 = seen.clone();
     let screen = render(move || {
         provide(Theme2(7), move || {
-            let in_setup = context::<Theme2>().0;
+            let in_setup = use_context::<Theme2>().get().0;
             assert_eq!(
-                kivact::view::try_context::<Theme2>().map(|t| t.0),
+                kivact::state::try_use_context::<Theme2>().map(|t| t.get().0),
                 Some(in_setup)
             );
-            let missing = kivact::view::try_context::<u8>();
+            let missing = kivact::state::try_use_context::<u8>();
             assert!(missing.is_none());
             {
                 let label = (format!("ctx {in_setup}")).into_value();
@@ -131,7 +131,7 @@ fn context_is_found_in_setup_and_in_handlers() {
                     .name(label)
                     .child(text(label))
             }
-            .on_press(move || s2.set(context::<Theme2>().0))
+            .on_press(move || s2.set(use_context::<Theme2>().get().0))
         })
     });
     screen.get_by_role(Role::Button, "ctx 7").click();

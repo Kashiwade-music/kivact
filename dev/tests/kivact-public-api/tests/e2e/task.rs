@@ -19,7 +19,7 @@ fn ms(n: u64) -> Duration {
 #[test]
 fn async_state_helpers_and_direct_errors_follow_each_state() {
     let (screen, (act, res)) = mount(|| {
-        let act = action(ActionPolicy::Latest, |n: u32| async move {
+        let act = action(ActionMode::Latest, |n: u32| async move {
             sleep(ms(10)).await;
             if n == 0 {
                 Err(UiError::msg("zero"))
@@ -166,7 +166,7 @@ fn action_latest_wins_retry_cancel_and_multiple_done_handlers() {
     let (screen, (act, counter)) = mount(move || {
         let attempts = var(0u32);
         let counter = signal(0u32);
-        let act = action(ActionPolicy::Latest, move |delay: u64| async move {
+        let act = action(ActionMode::Latest, move |delay: u64| async move {
             sleep(ms(delay)).await;
             attempts.update(|a| *a += 1);
             if delay == 13 {
@@ -175,8 +175,14 @@ fn action_latest_wins_retry_cancel_and_multiple_done_handlers() {
             Ok(delay * 2)
         });
         let (d3, d4) = (d2.clone(), d2.clone());
-        act.on_done(move |r: &Result<u64, UiError>| d3.borrow_mut().push(format!("{r:?}")));
-        act.on_done(move |_| {
+        let act = act.on_complete(move |r| {
+            let result = match r {
+                kivact::task::ActionOutcome::Succeeded(value) => Ok(value),
+                kivact::task::ActionOutcome::Failed(error) => Err(error),
+            };
+            d3.borrow_mut().push(format!("{result:?}"));
+        });
+        let act = act.on_complete(move |_| {
             d4.borrow_mut().push("second".into());
             counter.update(|c| *c += 1); // writes in completion handlers publish in the same turn
         });
@@ -221,7 +227,7 @@ fn queue_orders_coalesces_recovers_and_drains() {
     let l2 = log.clone();
     let (screen, (fifo, latest)) = mount(move || {
         let (la, lb) = (l2.clone(), l2.clone());
-        let fifo = action(ActionPolicy::Queue, move |n: u32| {
+        let fifo = action(ActionMode::Queue, move |n: u32| {
             let la = la.clone();
             async move {
                 sleep(ms(10)).await;
@@ -232,7 +238,7 @@ fn queue_orders_coalesces_recovers_and_drains() {
                 Ok(())
             }
         });
-        let latest = action(ActionPolicy::QueueLatest, move |n: u32| {
+        let latest = action(ActionMode::QueueLatest, move |n: u32| {
             let lb = lb.clone();
             async move {
                 sleep(ms(10)).await;
@@ -241,7 +247,9 @@ fn queue_orders_coalesces_recovers_and_drains() {
             }
         });
         let results = var(Vec::<bool>::new());
-        fifo.on_done(move |r| results.update(|v| v.push(r.is_ok())));
+        let fifo = fifo.on_complete(move |r| {
+            results.update(|v| v.push(matches!(r, kivact::task::ActionOutcome::Succeeded(_))))
+        });
         (
             (fifo, latest),
             text(move || format!("{:?}", fifo.state())).test_id("status"),

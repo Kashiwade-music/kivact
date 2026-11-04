@@ -4,10 +4,10 @@
 //! default text, the App's replacement, a switch at runtime and a subtree's
 //! own.
 
-use kivact::i18n::{Locale, Messages, locale, message, message_with};
+use kivact::i18n::{Locale, Messages, message, message_with, use_locale};
+use kivact::i18n::{provide_locale, provide_messages};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render, render_with};
-use kivact::i18n::{provide_locale, provide_messages};
 
 /// A part that shows one of its texts the way a component library does.
 fn close_label() -> impl IntoView {
@@ -15,7 +15,7 @@ fn close_label() -> impl IntoView {
 }
 
 fn locale_tag() -> impl IntoView {
-    let locale = locale();
+    let locale = use_locale();
     text(move || locale.get().tag().to_owned()).test_id("locale")
 }
 
@@ -94,7 +94,7 @@ fn a_subtree_has_its_own_locale_and_messages_and_siblings_keep_the_outer() {
                     provide_messages(Messages::new().with("dialog.close", "Fermer"), || {
                         column((
                             text({
-                                let locale = locale();
+                                let locale = use_locale();
                                 move || format!("inner {}", locale.get().tag())
                             }),
                             close_label(),
@@ -104,7 +104,7 @@ fn a_subtree_has_its_own_locale_and_messages_and_siblings_keep_the_outer() {
                     })
                 }),
                 text({
-                    let locale = locale();
+                    let locale = use_locale();
                     move || format!("outer {}", locale.get().tag())
                 }),
                 text(message("dialog.close", "Close")),
@@ -165,11 +165,14 @@ fn a_message_with_values_follows_both_the_values_and_the_messages() {
 
 #[test]
 fn en_us_formats_numbers_dates_and_names() {
-    use kivact::i18n::{CalendarDate, DateStyle, FractionDigits, Grouping, HourCycle, NameWidth, NumberStyle, TimeOfDay, TimeStyle, Weekday};
+    use kivact::i18n::{
+        CalendarDate, DateStyle, FractionDigits, Grouping, HourCycle, NameWidth, NumberStyle,
+        TimeOfDay, TimeStyle, Weekday,
+    };
     let screen = render_with(
         RenderOptions::from_env().locale(Locale::new("en-US")),
         || {
-            let current = locale().get();
+            let current = use_locale().get();
             let date = CalendarDate::new(2026, 11, 5);
             let number = NumberStyle {
                 fraction_digits: FractionDigits::Exact(2),
@@ -225,7 +228,9 @@ fn en_us_formats_numbers_dates_and_names() {
 
 #[test]
 fn ja_jp_and_de_de_format_numbers_and_dates() {
-    use kivact::i18n::{CalendarDate, DateStyle, FractionDigits, Grouping, NameWidth, NumberStyle, Weekday};
+    use kivact::i18n::{
+        CalendarDate, DateStyle, FractionDigits, Grouping, NameWidth, NumberStyle, Weekday,
+    };
     let screen = render(|| {
         let date = CalendarDate::new(2026, 11, 5);
         let number = NumberStyle {

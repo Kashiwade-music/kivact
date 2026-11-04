@@ -11,11 +11,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::view::canvas;
-use kivact::draw::Transform;
 use kivact::draw::Draw;
+use kivact::draw::Transform;
 use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
+use kivact::view::canvas;
 use kivact::view::{Handled, PointerEvent};
 use kivact::view::{MouseButton, WheelEvent};
 

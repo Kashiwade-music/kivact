@@ -3,17 +3,17 @@
 use crate::support::mount;
 use kivact::platform;
 use kivact::prelude::*;
+use kivact::state::callback;
 use kivact::style::{Align, Color};
 use kivact::task::spawn;
 use kivact::view::{KeyCode, LiveRegion, Modifiers, Orientation, SortDirection};
-use kivact::state::callback;
 
 #[test]
 fn a_press_handler_reads_the_modifiers_held_at_the_press() {
     let (screen, seen) = mount(|| {
         let seen = signal(None::<bool>);
         let view =
-            button("Open").on_press(move || seen.set(Some(kivact::view::modifiers().ctrl)));
+            button("Open").on_press(move || seen.set(Some(kivact::view::modifiers().get().ctrl)));
         (seen, view)
     });
     let ctrl = Modifiers {
@@ -150,7 +150,7 @@ fn password_updates_and_ime_keep_published_text_protected() {
     let input = screen.get_by_role(Role::TextBox, "Protected fixture");
     input.focus();
     let assert_protected = || {
-        assert!(input.password());
+        assert!(input.is_password());
         assert_eq!(input.value(), None);
         let ime = screen.ime_text().expect("focused protected input");
         assert_eq!(ime.text, "");
@@ -192,7 +192,7 @@ fn advanced_roles_properties_active_descendant_and_fullscreen_are_published() {
         let set_fullscreen = callback(move |on| {
             spawn(platform::set_fullscreen(on));
         });
-        let fullscreen = memo(move || platform::fullscreen());
+        let fullscreen = memo(move || platform::is_fullscreen().get());
         (
             (value, fullscreen, set_fullscreen),
             column((
@@ -304,7 +304,7 @@ fn raw_key_mapping_reaches_handlers() {
     let (screen, seen) = mount(|| {
         let seen = signal(Vec::<Key>::new());
         let view = primitive()
-            .role(Role::Button)
+            .with_node(move |node| node.role(Role::Button))
             .focusable(true)
             .test_id("raw-keys")
             .on_key(move |event: KeyEvent| {
@@ -362,8 +362,8 @@ fn raw_ime_composition_commits() {
 
 #[test]
 fn raw_file_drop_reaches_dropzone() {
-    use kivact::geometry::Point;
     use kivact::custom::primitive;
+    use kivact::geometry::Point;
     use kivact::test::raw::{RawDrop, RawInput};
     use kivact::view::{FileEvent, FilePhase};
     use std::path::PathBuf;
