@@ -346,24 +346,25 @@ fn drag_source_with_samples_once_at_the_accepted_press() {
     let updates = Rc::new(RefCell::new(Vec::new()));
     let sampled = calls.clone();
     let seen = updates.clone();
-    let (screen, (payload, disabled)) = mount_with(real_window(), move || {
+    let (screen, (payload, disabled, active)) = mount_with(real_window(), move || {
         let payload = signal(3);
         let disabled = signal(false);
         let started = seen.clone();
         let moved = seen.clone();
         let ended = seen.clone();
-        let source = use_drag(DragCoordinates::Window)
+        let drag = use_drag(DragCoordinates::Window)
             .slop(10)
             .disabled(disabled)
             .on_start(move |update: DragUpdate<i32>| started.borrow_mut().push(update.payload))
             .on_update(move |update: DragUpdate<i32>| moved.borrow_mut().push(update.payload))
-            .on_end(move |update: DragUpdate<i32>| ended.borrow_mut().push(update.payload))
-            .source_with(move || {
-                sampled.set(sampled.get() + 1);
-                payload.get_untracked()
-            });
+            .on_end(move |update: DragUpdate<i32>| ended.borrow_mut().push(update.payload));
+        let active = drag.active_payload();
+        let source = drag.source_with(move || {
+            sampled.set(sampled.get() + 1);
+            payload.get_untracked()
+        });
         (
-            (payload, disabled),
+            (payload, disabled, active),
             node()
                 .test_id("stepper")
                 .name("Drag snapshot")
@@ -373,6 +374,7 @@ fn drag_source_with_samples_once_at_the_accepted_press() {
         )
     });
     assert_eq!(calls.get(), 0, "setup must not sample the payload");
+    assert_eq!(active.get(), None, "idle has no payload");
     let at = center(&screen);
     screen.mouse_move(at.x, at.y);
     disabled.set(true);
@@ -382,14 +384,26 @@ fn drag_source_with_samples_once_at_the_accepted_press() {
     screen.mouse_down(MouseButton::Secondary);
     screen.mouse_up(MouseButton::Secondary);
     assert_eq!(calls.get(), 0, "rejected presses must not call the factory");
+    assert_eq!(active.get(), None);
 
     screen.mouse_down(MouseButton::Primary);
     assert_eq!(calls.get(), 1, "a pending press samples immediately");
+    assert_eq!(
+        active.get(),
+        Some(3),
+        "pending exposes the accepted snapshot"
+    );
     payload.set(7);
+    assert_eq!(
+        active.get(),
+        Some(3),
+        "external writes do not change the snapshot"
+    );
     screen.mouse_move(at.x + 5.0, at.y);
     assert!(updates.borrow().is_empty());
     screen.mouse_move(at.x + 15.0, at.y);
     screen.mouse_move(at.x + 25.0, at.y);
+    assert_eq!(active.get(), Some(3), "active retains the pending snapshot");
     screen.mouse_up(MouseButton::Primary);
     assert_eq!(
         *updates.borrow(),
@@ -397,10 +411,20 @@ fn drag_source_with_samples_once_at_the_accepted_press() {
         "start, moves and end share the press-time snapshot"
     );
     assert_eq!(calls.get(), 1, "moves and release never resample");
+    assert_eq!(
+        active.get(),
+        None,
+        "release clears the authoritative payload"
+    );
 
     updates.borrow_mut().clear();
     screen.mouse_move(at.x, at.y);
     screen.mouse_down(MouseButton::Primary);
+    assert_eq!(
+        active.get(),
+        Some(7),
+        "the next pending press exposes a fresh snapshot"
+    );
     payload.set(9);
     screen.mouse_move(at.x + 15.0, at.y);
     screen.mouse_up(MouseButton::Primary);
@@ -410,5 +434,6 @@ fn drag_source_with_samples_once_at_the_accepted_press() {
         "the next gesture takes a new snapshot"
     );
     assert_eq!(calls.get(), 2);
+    assert_eq!(active.get(), None);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
