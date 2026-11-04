@@ -2,7 +2,7 @@
 
 use super::native::{COMMAND, MAX_DIMENSION, Native};
 use super::state::{ScaleSource, State};
-use crate::embed::child::{Handle, Shared};
+use crate::port::embed::child::{Handle, Shared};
 use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
 use std::num::NonZeroIsize;
 use std::rc::Rc;
@@ -14,7 +14,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WS_CLIPSIBLINGS,
 };
 
-pub(in crate::embed) fn open(
+pub(in crate::port) fn open(
     parent: kivact_types::ParentWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
@@ -55,7 +55,7 @@ pub(in crate::embed) fn open(
     let scale = options
         .scale
         .unwrap_or_else(|| super::dpi::scale(parent.get()));
-    let (width, height) = crate::embed::geometry::physical_size(
+    let (width, height) = crate::port::embed::geometry::physical_size(
         kivact_types::Size {
             width: options.size.width,
             height: options.size.height,
@@ -123,7 +123,7 @@ pub(in crate::embed) fn open(
         let actual = super::dpi::scale(hwnd);
         if actual != scale {
             shared.set_scale(actual);
-            let (width, height) = crate::embed::geometry::physical_size(
+            let (width, height) = crate::port::embed::geometry::physical_size(
                 kivact_types::Size {
                     width: options.size.width,
                     height: options.size.height,

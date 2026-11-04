@@ -1,8 +1,8 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
 use super::native::Native;
-use super::state::{CpuFrame, DrainGuard, ReentryGuard, ScaleSource, State};
-use crate::embed::child::{ChildPort, Command, Shared};
-use crate::embed::session::{Session, negotiate};
+use super::state::{DrainGuard, ReentryGuard, ScaleSource, State};
+use crate::port::embed::child::{ChildPort, Command, Shared};
+use crate::port::embed::session::{Session, negotiate};
 use arvane_shell::{AccessibilityError, ShellError, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
@@ -148,11 +148,10 @@ impl ShellWindow for Window {
         Ok(())
     }
     fn shows_cpu_frame(&self) -> bool {
-        self.0.frame.borrow().is_some()
+        self.0.cpu.borrow().shows_frame()
     }
     fn release_cpu_surface(&mut self) {
-        self.0.frame.replace(None);
-        self.0.scratch.replace(Vec::new());
+        self.0.cpu.borrow_mut().release();
     }
     fn replace_accessibility(
         &mut self,
@@ -278,32 +277,12 @@ impl ShellWindow for Window {
                 "frame dimensions differ from the child client size",
             ));
         }
-        let count = (width as usize)
-            .checked_mul(height as usize)
-            .filter(|count| *count <= isize::MAX as usize / std::mem::size_of::<u32>())
-            .ok_or_else(|| ShellError::new("embedded frame dimensions overflow"))?;
-        let mut scratch = self.0.scratch.borrow_mut();
-        let additional = count.saturating_sub(scratch.len());
-        scratch.try_reserve(additional).map_err(|error| {
-            ShellError::new(format!("embedded frame allocation failed: {error}"))
-        })?;
-        scratch.resize(count, 0);
-        if !draw(&mut scratch) {
-            return Ok(false);
-        }
-        let pixels = std::mem::take(&mut *scratch);
-        drop(scratch);
-        let old = self.0.frame.replace(Some(CpuFrame {
-            pixels,
-            width: w,
-            height: h,
-        }));
-        if let Some(old) = old {
-            *self.0.scratch.borrow_mut() = old.pixels;
-        }
-        super::cpu::present(&self.0)?;
-        Ok(true)
+        self.0
+            .cpu
+            .borrow_mut()
+            .present(w, h, || crate::present::surface(&self.0.target), draw)
     }
+
     fn with_gpu_target(
         &self,
         make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
@@ -358,8 +337,8 @@ impl State {
             clicks: RefCell::new(ClickCounter::default()),
             environment: RefCell::new(kivact_types::Environment::default()),
             scale_source: Cell::new(scale_source),
-            frame: RefCell::new(None),
-            scratch: RefCell::new(Vec::new()),
+            cpu: RefCell::new(crate::present::CpuSurface::Released),
+
             started: Instant::now(),
         }
     }
@@ -542,8 +521,8 @@ impl State {
             self.leak_resources();
             return;
         }
-        self.frame.replace(None);
-        self.scratch.replace(Vec::new());
+        self.cpu.borrow_mut().release();
+
         // Explicit close disposes before DestroyWindow; parent destruction enters
         // through WM_DESTROY. Both paths disconnect before adapter destruction.
         super::a11y::disconnect(self);

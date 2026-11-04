@@ -66,3 +66,11 @@ fn offer<D: HasDisplayHandle, W: HasWindowHandle>(
 fn error(error: softbuffer::SoftBufferError) -> ShellError {
     ShellError::new(format!("CPU surface: {error}"))
 }
+
+/// Construct a softbuffer surface for a retained native target.
+pub(crate) fn surface<T: HasDisplayHandle + HasWindowHandle>(
+    target: &std::sync::Arc<T>,
+) -> Result<softbuffer::Surface<std::sync::Arc<T>, std::sync::Arc<T>>, ShellError> {
+    let context = softbuffer::Context::new(target.clone()).map_err(error)?;
+    softbuffer::Surface::new(&context, target.clone()).map_err(error)
+}

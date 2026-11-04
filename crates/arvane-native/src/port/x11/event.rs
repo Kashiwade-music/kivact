@@ -99,7 +99,7 @@ impl Input {
                         out.push(ShellEvent::Pointer(event));
                     }
                     let settings = kivact_types::PointerSettings::default();
-                    let (x, y) = crate::wheel::lines(
+                    let (x, y) = crate::port::winit::wheel::lines(
                         x,
                         y,
                         u16::from(e.state) & 1 != 0,

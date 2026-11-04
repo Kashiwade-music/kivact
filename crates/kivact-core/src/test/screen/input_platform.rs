@@ -4,6 +4,12 @@ use crate::draw::Point;
 use crate::view::{FilePhase, Key, KeyCode, Modifiers};
 use kivact_engine::testing::ShellEvent;
 impl Screen {
+    /// Normalize raw platform input through the production shell pipeline.
+    pub fn raw_input(&self, input: crate::test::raw::RawInput) {
+        self.host.borrow_mut().raw_input(input);
+        self.run_until_idle();
+    }
+
     /// Inject a key press at a physical keyboard position.
     pub fn key_down(&self, key: Key, physical_code: KeyCode, modifiers: Modifiers) {
         self.send(ShellEvent::Modifiers(modifiers));

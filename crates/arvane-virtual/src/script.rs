@@ -38,6 +38,7 @@ pub(crate) struct Input {
     pub(crate) modifiers: Modifiers,
     clicks: ClickCounter,
     contacts: Contacts,
+    keys: arvane_shell::pipeline::KeyPipeline,
 }
 /// Cloneable write-only controls for the virtual platform.
 #[derive(Clone)]
@@ -55,6 +56,31 @@ impl Script {
     }
     pub fn input(&self, event: ShellEvent) {
         let mut input = self.0.borrow_mut();
+        enqueue(&mut input, event);
+    }
+    pub fn raw(&self, raw: arvane_shell::pipeline::RawInput) {
+        let mut input = self.0.borrow_mut();
+        let modifiers = input.modifiers;
+        let pointer = input.mouse.window_position();
+        let event = match raw {
+            arvane_shell::pipeline::RawInput::Key(key) => input.keys.key(key, modifiers, pointer),
+            arvane_shell::pipeline::RawInput::Ime(ime) => ShellEvent::Ime(match ime {
+                arvane_shell::pipeline::RawIme::Preedit { text, caret } => {
+                    kivact_types::ImeInput::Preedit {
+                        text,
+                        selection: caret.map(|(start, end)| start..end),
+                    }
+                }
+                arvane_shell::pipeline::RawIme::Commit(text) => {
+                    kivact_types::ImeInput::Commit(text)
+                }
+                arvane_shell::pipeline::RawIme::End => kivact_types::ImeInput::End,
+                arvane_shell::pipeline::RawIme::Reconvert { selection } => {
+                    kivact_types::ImeInput::Selection(selection.0..selection.1)
+                }
+            }),
+            arvane_shell::pipeline::RawInput::Drop(_) => return,
+        };
         enqueue(&mut input, event);
     }
     pub fn mouse(&self, phase: PointerPhase, position: Option<Point>) {
@@ -149,6 +175,7 @@ fn enqueue(input: &mut Input, mut event: ShellEvent) {
     }
     if matches!(event, ShellEvent::Focused(false)) {
         input.modifiers = Modifiers::default();
+        input.keys.focus_lost();
         let _ = input.mouse.cancel();
     }
     let now = input.clock.now();

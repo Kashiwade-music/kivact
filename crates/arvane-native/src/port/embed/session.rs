@@ -19,7 +19,7 @@ enum ChildLifecycle {
     Disposed,
     Leaked,
 }
-pub(super) struct Session {
+pub(in crate::port) struct Session {
     state: RefCell<ChildLifecycle>,
     shared: Arc<Shared>,
     retention: ModuleRetention,
@@ -41,28 +41,28 @@ impl Drop for Callback<'_> {
     }
 }
 impl Session {
-    pub(super) fn new(shared: Arc<Shared>) -> Self {
+    pub(in crate::port) fn new(shared: Arc<Shared>) -> Self {
         Self {
             state: RefCell::new(ChildLifecycle::Opening(HandlerSlot::Unstarted)),
             shared,
             retention: ModuleRetention,
         }
     }
-    pub(super) fn opening(&self) -> bool {
+    pub(in crate::port) fn opening(&self) -> bool {
         matches!(*self.state.borrow(), ChildLifecycle::Opening(_))
     }
     #[cfg(windows)]
-    pub(super) fn live(&self) -> bool {
+    pub(in crate::port) fn live(&self) -> bool {
         matches!(*self.state.borrow(), ChildLifecycle::Live(_))
     }
     #[cfg(windows)]
-    pub(super) fn active(&self) -> bool {
+    pub(in crate::port) fn active(&self) -> bool {
         matches!(
             *self.state.borrow(),
             ChildLifecycle::Opening(_) | ChildLifecycle::Live(_)
         )
     }
-    pub(super) fn opened(&self) {
+    pub(in crate::port) fn opened(&self) {
         let mut state = self.state.borrow_mut();
         if let ChildLifecycle::Opening(slot) =
             std::mem::replace(&mut *state, ChildLifecycle::Disposed)
@@ -81,7 +81,12 @@ impl Session {
             ChildLifecycle::Disposed | ChildLifecycle::Leaked => None,
         }
     }
-    pub(super) fn start(&self, make: MakeHandler, window: &mut dyn ShellWindow, waker: ShellWaker) {
+    pub(in crate::port) fn start(
+        &self,
+        make: MakeHandler,
+        window: &mut dyn ShellWindow,
+        waker: ShellWaker,
+    ) {
         if self.shared.stopped() {
             return;
         }
@@ -103,7 +108,7 @@ impl Session {
         };
         self.accept(&mut callback.slot, result);
     }
-    pub(super) fn deliver(&self, event: ShellEvent, window: &mut dyn ShellWindow) {
+    pub(in crate::port) fn deliver(&self, event: ShellEvent, window: &mut dyn ShellWindow) {
         if self.shared.stopped() {
             return;
         }
@@ -130,14 +135,14 @@ impl Session {
             }
         }
     }
-    pub(super) fn deadline(&self) -> Option<u64> {
+    pub(in crate::port) fn deadline(&self) -> Option<u64> {
         match &*self.state.borrow() {
             ChildLifecycle::Opening(HandlerSlot::Running { control, .. })
             | ChildLifecycle::Live(HandlerSlot::Running { control, .. }) => control.deadline(),
             _ => None,
         }
     }
-    pub(super) fn close(&self, window: &mut dyn ShellWindow) -> bool {
+    pub(in crate::port) fn close(&self, window: &mut dyn ShellWindow) -> bool {
         self.shared.request_close();
         let state = self.state.replace(ChildLifecycle::Disposed);
         let slot = match state {
@@ -162,7 +167,7 @@ impl Session {
         true
     }
 }
-pub(super) fn negotiate(
+pub(in crate::port) fn negotiate(
     size: kivact_types::Size,
     scale: f64,
     maximum: u32,

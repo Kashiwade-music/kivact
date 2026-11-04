@@ -19,4 +19,4 @@ pub(crate) mod test_parent;
 mod thread;
 mod window;
 
-pub(super) use thread::open;
+pub(in crate::port) use thread::open;

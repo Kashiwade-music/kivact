@@ -1,7 +1,7 @@
 //! Role: Checked logical to physical child sizing.
 /// Shared initial/requested sizing rule; the backend supplies its coordinate limit.
 #[cfg(any(windows, target_os = "linux"))]
-pub(super) fn physical_size(
+pub(in crate::port) fn physical_size(
     size: kivact_types::Size,
     scale: f64,
     max: u32,

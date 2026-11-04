@@ -5,7 +5,7 @@
 )]
 
 use arvane_shell::{ModifierState, ShellError, ShellEvent};
-use kivact_types::{Key, KeyCode, Modifiers};
+use kivact_types::Modifiers;
 use std::collections::HashSet;
 use std::ptr::{self, NonNull};
 use x11rb::protocol::xkb::{ConnectionExt as _, EventType, ID, MapPart, SelectEventsAux};
@@ -59,6 +59,7 @@ pub(super) struct Keyboard {
     map: Map,
     context: XkbContext,
     pressed: HashSet<u8>,
+    pipeline: arvane_shell::pipeline::KeyPipeline,
     modifiers: ModifierState,
 }
 
@@ -99,6 +100,7 @@ impl Keyboard {
             map,
             context,
             pressed: HashSet::new(),
+            pipeline: arvane_shell::pipeline::KeyPipeline::default(),
             modifiers: ModifierState::default(),
         })
     }
@@ -154,15 +156,17 @@ impl Keyboard {
 
     pub(super) fn key(&mut self, detail: u8, mask: u16, down: bool) -> Vec<ShellEvent> {
         self.set_mask(mask);
-        let code = physical(detail);
+
         // SAFETY: state is live; any X11 keycode is accepted by xkbcommon.
         let sym = unsafe {
             (self.api.xkb_state_key_get_one_sym)(self.map.state.raw.as_ptr(), detail.into())
         };
         // SAFETY: keysym conversion accepts unknown keysyms and returns zero for them.
         let scalar = unsafe { (self.api.xkb_keysym_to_utf32)(sym) };
-        let key = logical(sym, scalar);
-        let repeat = down && !self.pressed.insert(detail);
+
+        if down {
+            self.pressed.insert(detail);
+        }
         if !down {
             self.pressed.remove(&detail);
         }
@@ -208,23 +212,20 @@ impl Keyboard {
         };
         let modifiers = self.read_modifiers();
         let changed = self.modifiers.update(modifiers);
-        let event = if down {
-            ShellEvent::Key(kivact_types::KeyInput {
-                key,
-                code,
-                phase: kivact_types::KeyPhase::Down { repeat, text },
-                modifiers,
-                pointer: None,
-            })
-        } else {
-            ShellEvent::Key(kivact_types::KeyInput {
-                key,
-                code,
-                phase: kivact_types::KeyPhase::Up,
-                modifiers,
-                pointer: None,
-            })
-        };
+        let event = self.pipeline.key(
+            arvane_shell::pipeline::RawKey {
+                key: arvane_shell::pipeline::PlatformKey::Keysym {
+                    keysym: sym,
+                    chr: char::from_u32(scalar),
+                    keycode: detail,
+                },
+                pressed: down,
+                repeat: None,
+                text,
+            },
+            modifiers,
+            None,
+        );
         changed.into_iter().chain(std::iter::once(event)).collect()
     }
 
@@ -250,6 +251,7 @@ impl Keyboard {
     }
     pub(super) fn focus_lost(&mut self) {
         self.pressed.clear();
+        self.pipeline.focus_lost();
         self.modifiers.update(Modifiers::default());
     }
 }
@@ -313,140 +315,4 @@ fn select_events(connection: &XCBConnection) -> Result<(), ShellError> {
         .map_err(super::error::platform)?
         .check()
         .map_err(super::error::platform)
-}
-
-fn logical(sym: u32, scalar: u32) -> Key {
-    match sym {
-        0xff0d | 0xff8d => Key::Enter,
-        0xff09 | 0xfe20 => Key::Tab,
-        0x20 | 0xff80 => Key::Space,
-        0xff08 => Key::Backspace,
-        0xffff => Key::Delete,
-        0xff1b => Key::Escape,
-        0xff51 => Key::ArrowLeft,
-        0xff52 => Key::ArrowUp,
-        0xff53 => Key::ArrowRight,
-        0xff54 => Key::ArrowDown,
-        0xff50 => Key::Home,
-        0xff57 => Key::End,
-        0xff55 => Key::PageUp,
-        0xff56 => Key::PageDown,
-        0xff67 => Key::ContextMenu,
-        0xffbe..=0xffd5 => Key::F((sym - 0xffbe + 1) as u8),
-        _ => char::from_u32(scalar)
-            .filter(|c| !c.is_control())
-            .map_or(Key::Unidentified, Key::Char),
-    }
-}
-
-// Xorg's evdev keycodes are Linux input keycodes plus eight; these identify
-// physical positions, while all layout-dependent meaning comes from XKB.
-pub(super) fn physical(code: u8) -> KeyCode {
-    use KeyCode::*;
-    match code {
-        9 => Escape,
-        10 => Digit1,
-        11 => Digit2,
-        12 => Digit3,
-        13 => Digit4,
-        14 => Digit5,
-        15 => Digit6,
-        16 => Digit7,
-        17 => Digit8,
-        18 => Digit9,
-        19 => Digit0,
-        20 => Minus,
-        21 => Equal,
-        22 => Backspace,
-        23 => Tab,
-        24 => KeyQ,
-        25 => KeyW,
-        26 => KeyE,
-        27 => KeyR,
-        28 => KeyT,
-        29 => KeyY,
-        30 => KeyU,
-        31 => KeyI,
-        32 => KeyO,
-        33 => KeyP,
-        34 => BracketLeft,
-        35 => BracketRight,
-        36 => Enter,
-        37 => ControlLeft,
-        38 => KeyA,
-        39 => KeyS,
-        40 => KeyD,
-        41 => KeyF,
-        42 => KeyG,
-        43 => KeyH,
-        44 => KeyJ,
-        45 => KeyK,
-        46 => KeyL,
-        47 => Semicolon,
-        48 => Quote,
-        49 => Backquote,
-        50 => ShiftLeft,
-        51 => Backslash,
-        52 => KeyZ,
-        53 => KeyX,
-        54 => KeyC,
-        55 => KeyV,
-        56 => KeyB,
-        57 => KeyN,
-        58 => KeyM,
-        59 => Comma,
-        60 => Period,
-        61 => Slash,
-        62 => ShiftRight,
-        63 => NumpadMultiply,
-        64 => AltLeft,
-        65 => Space,
-        66 => CapsLock,
-        67 => F1,
-        68 => F2,
-        69 => F3,
-        70 => F4,
-        71 => F5,
-        72 => F6,
-        73 => F7,
-        74 => F8,
-        75 => F9,
-        76 => F10,
-        77 => NumLock,
-        78 => ScrollLock,
-        79 => Numpad7,
-        80 => Numpad8,
-        81 => Numpad9,
-        82 => NumpadSubtract,
-        83 => Numpad4,
-        84 => Numpad5,
-        85 => Numpad6,
-        86 => NumpadAdd,
-        87 => Numpad1,
-        88 => Numpad2,
-        89 => Numpad3,
-        90 => Numpad0,
-        91 => NumpadDecimal,
-        95 => F11,
-        96 => F12,
-        104 => NumpadEnter,
-        105 => ControlRight,
-        106 => NumpadDivide,
-        107 => PrintScreen,
-        108 => AltRight,
-        110 => Home,
-        111 => ArrowUp,
-        112 => PageUp,
-        113 => ArrowLeft,
-        114 => ArrowRight,
-        115 => End,
-        116 => ArrowDown,
-        117 => PageDown,
-        118 => Insert,
-        119 => Delete,
-        127 => Pause,
-        133 => SuperLeft,
-        134 => SuperRight,
-        _ => Unidentified,
-    }
 }

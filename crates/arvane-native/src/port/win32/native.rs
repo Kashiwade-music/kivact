@@ -1,5 +1,5 @@
 //! Role: Keep Win32 identity, message ids and the host-facing ChildPort below dispatch.
-use crate::embed::child::{ChildPort, Shared};
+use crate::port::embed::child::{ChildPort, Shared};
 use std::num::NonZeroIsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};

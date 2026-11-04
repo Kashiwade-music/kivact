@@ -1,11 +1,10 @@
 //! Role: UI-only callback state, separate from synchronous wndproc answers.
 use super::native::Native;
-use crate::embed::child::Shared;
-use crate::embed::session::Session;
+use crate::port::embed::child::Shared;
+use crate::port::embed::session::Session;
 use arvane_shell::{ClickCounter, ModifierState, Mouse, PlatformTree, ShellEvent};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Instant;
 use windows_sys::Win32::UI::WindowsAndMessaging::WNDPROC;
@@ -18,13 +17,6 @@ pub(super) enum ScaleSource {
     System,
     /// The host chose the scale (at creation or by `set_scale`).
     Host,
-}
-
-/// The last CPU frame the window shows.
-pub(super) struct CpuFrame {
-    pub(super) pixels: Vec<u32>,
-    pub(super) width: NonZeroU32,
-    pub(super) height: NonZeroU32,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -120,9 +112,8 @@ pub(super) struct State {
     pub(super) clicks: RefCell<ClickCounter>,
     pub(super) environment: RefCell<kivact_types::Environment>,
     pub(super) scale_source: Cell<ScaleSource>,
-    pub(super) frame: RefCell<Option<CpuFrame>>,
-    /// The buffer the next frame is drawn into (the last frame's allocation, reused).
-    pub(super) scratch: RefCell<Vec<u32>>,
+    pub(super) cpu:
+        RefCell<crate::present::CpuSurface<Arc<super::target::Target>, Arc<super::target::Target>>>,
     pub(super) services: RefCell<crate::services::Services>,
     pub(super) input: crate::native_input::state::NativeInput,
     /// The child's accepted semantics, for its whole life.

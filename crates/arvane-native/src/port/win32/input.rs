@@ -1,8 +1,8 @@
 //! Role: Win32 mouse normalization, keyboard text and synchronous cursor answers.
 use super::state::State;
-use crate::key_code;
+use crate::port::winit::key_code;
 use arvane_shell::ShellEvent;
-use kivact_types::{ButtonPress, Cursor, Key, Modifiers, MouseButton, Point, PointerPhase};
+use kivact_types::{ButtonPress, Cursor, Modifiers, MouseButton, Point, PointerPhase};
 use std::rc::Rc;
 use windows_sys::Win32::Foundation::{LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
@@ -12,13 +12,10 @@ use windows_sys::Win32::System::SystemServices::{
 use windows_sys::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     GetCapture, GetKeyState, GetKeyboardLayout, GetKeyboardState, ReleaseCapture, SetCapture,
-    SetFocus, TME_LEAVE, TRACKMOUSEEVENT, ToUnicodeEx, TrackMouseEvent, VK_APPS, VK_BACK,
-    VK_CONTROL, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1, VK_F24, VK_HOME, VK_LCONTROL,
-    VK_LEFT, VK_LMENU, VK_LWIN, VK_MENU, VK_NEXT, VK_PRIOR, VK_RCONTROL, VK_RETURN, VK_RIGHT,
-    VK_RMENU, VK_RWIN, VK_SHIFT, VK_SPACE, VK_TAB, VK_UP,
+    SetFocus, TME_LEAVE, TRACKMOUSEEVENT, ToUnicodeEx, TrackMouseEvent, VK_CONTROL, VK_LCONTROL,
+    VK_LMENU, VK_LWIN, VK_MENU, VK_RCONTROL, VK_RMENU, VK_RWIN, VK_SHIFT,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_IBEAM, IDC_NO, IDC_SIZEALL, IDC_SIZENS, IDC_SIZEWE,
     LoadCursorW, PM_REMOVE, PeekMessageW, SetCursor, WM_CAPTURECHANGED, WM_CHAR, WM_DEADCHAR,
     WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
     WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
@@ -26,18 +23,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 pub(super) fn cursor(cursor: Cursor) {
-    let id = match cursor {
-        Cursor::None => std::ptr::null(),
-        Cursor::Text => IDC_IBEAM,
-        Cursor::Pointer => IDC_HAND,
-        Cursor::ColResize | Cursor::EwResize => IDC_SIZEWE,
-        Cursor::RowResize | Cursor::NsResize => IDC_SIZENS,
-        Cursor::Crosshair => IDC_CROSS,
-        Cursor::Move => IDC_SIZEALL,
-        Cursor::NotAllowed => IDC_NO,
-        Cursor::Grab | Cursor::Grabbing => IDC_HAND,
-        _ => IDC_ARROW,
-    };
+    let id = arvane_shell::pipeline::cursor_to_vk_cursor(cursor) as usize as *const u16;
     let handle = if id.is_null() {
         0
     } else {
@@ -232,7 +218,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             };
             let settings = crate::native_input::pointer_settings(state.shared.scale());
             let height = applied.height as f64 / scale;
-            let (x, y) = crate::wheel::lines(
+            let (x, y) = crate::port::winit::wheel::lines(
                 x,
                 y,
                 modifiers(state).shift,
@@ -325,33 +311,23 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     } else {
         String::new()
     };
-    let key = match w as u16 {
-        VK_RETURN => Key::Enter,
-        VK_TAB => Key::Tab,
-        VK_SPACE => Key::Space,
-        VK_BACK => Key::Backspace,
-        VK_DELETE => Key::Delete,
-        VK_ESCAPE => Key::Escape,
-        VK_UP => Key::ArrowUp,
-        VK_DOWN => Key::ArrowDown,
-        VK_LEFT => Key::ArrowLeft,
-        VK_RIGHT => Key::ArrowRight,
-        VK_HOME => Key::Home,
-        VK_END => Key::End,
-        VK_PRIOR => Key::PageUp,
-        VK_NEXT => Key::PageDown,
-        VK_APPS => Key::ContextMenu,
-        v if (VK_F1..=VK_F24).contains(&v) => Key::F((v - VK_F1 + 1) as u8),
-        _ => fallback.chars().next().map_or(Key::Unidentified, Key::Char),
+    let raw_key = arvane_shell::pipeline::PlatformKey::Vk {
+        vk: w as u16,
+        chr: fallback.chars().next(),
+        code,
     };
+
     if matches!(message, WM_KEYUP | WM_SYSKEYUP) {
-        state.event(ShellEvent::Key(kivact_types::KeyInput {
-            key,
-            code,
-            phase: kivact_types::KeyPhase::Up,
-            modifiers: self::modifiers(state),
-            pointer: state.mouse.get().window_position(),
-        }));
+        state.event(arvane_shell::pipeline::KeyPipeline::default().key(
+            arvane_shell::pipeline::RawKey {
+                key: raw_key,
+                pressed: false,
+                repeat: Some(false),
+                text: None,
+            },
+            self::modifiers(state),
+            state.mouse.get().window_position(),
+        ));
         return;
     }
     let mut units = Vec::new();
@@ -385,14 +361,14 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     } else {
         String::new()
     };
-    state.event(ShellEvent::Key(kivact_types::KeyInput {
-        key,
-        code,
-        phase: kivact_types::KeyPhase::Down {
-            repeat: l & (1 << 30) != 0,
-            text: (!text.is_empty()).then_some(text),
+    state.event(arvane_shell::pipeline::KeyPipeline::default().key(
+        arvane_shell::pipeline::RawKey {
+            key: raw_key,
+            pressed: true,
+            repeat: Some(l & (1 << 30) != 0),
+            text: Some(text),
         },
-        modifiers: self::modifiers(state),
-        pointer: state.mouse.get().window_position(),
-    }));
+        self::modifiers(state),
+        state.mouse.get().window_position(),
+    ));
 }

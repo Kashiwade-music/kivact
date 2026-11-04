@@ -108,9 +108,6 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             unsafe {
                 EndPaint(hwnd, &paint);
             }
-            if let Err(error) = super::cpu::present(state) {
-                state.shared.fail(error);
-            }
             state.event(ShellEvent::Redraw);
             0
         }

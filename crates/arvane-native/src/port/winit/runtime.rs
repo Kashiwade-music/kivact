@@ -47,9 +47,9 @@
 //!   the area a software keyboard covers.
 
 use crate::a11y::native::NativeAccessibility;
-use crate::cpu::CpuSurface;
-use crate::key_code::{map_key, physical_code};
 use crate::native_input::state::{InputWake, NativeInput};
+use crate::port::winit::key_code::{map_key, physical_code};
+use crate::present::CpuSurface;
 use crate::services::Services;
 use arvane_shell::ShellImeText;
 use arvane_shell::{Backend, ShellEvent, ShellHandler, ShellWindow};
@@ -465,9 +465,7 @@ fn logical((x, y): (f64, f64), scale: f64) -> Point {
 }
 
 fn cpu_surface(window: &Arc<Window>) -> Result<WinitSurface, ShellError> {
-    let context =
-        softbuffer::Context::new(window.clone()).map_err(|e| ShellError::new(e.to_string()))?;
-    softbuffer::Surface::new(&context, window.clone()).map_err(|e| ShellError::new(e.to_string()))
+    crate::present::surface(window)
 }
 /// Whether the platform destroys a window's surface when it suspends the
 /// application (Android), so the window has none until it resumes.
@@ -862,7 +860,7 @@ impl ApplicationHandler<()> for Runner<'_> {
             WindowEvent::Touch(touch) => {
                 let notes = window.input.contacts.borrow();
                 self.contacts
-                    .deliver(crate::contacts::map(*touch, scale, &notes))
+                    .deliver(super::contacts::map(*touch, scale, &notes))
             }
             WindowEvent::Focused(false) => {
                 let mut events = self.contacts.cancel();
@@ -924,7 +922,7 @@ impl ApplicationHandler<()> for Runner<'_> {
             }),
             WindowEvent::MouseWheel { delta, .. } => {
                 let (x, y) = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => crate::wheel::lines(
+                    MouseScrollDelta::LineDelta(x, y) => crate::port::winit::wheel::lines(
                         f64::from(x),
                         f64::from(y),
                         self.modifiers.current().shift,
@@ -951,26 +949,20 @@ impl ApplicationHandler<()> for Runner<'_> {
                     meta: m.super_key(),
                 })
             }
-            WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Released => {
-                Some(ShellEvent::Key(kivact_types::KeyInput {
-                    key: map_key(&event.logical_key),
-                    code: physical_code(event.physical_key),
-                    phase: kivact_types::KeyPhase::Up,
-                    modifiers: self.modifiers.current(),
-                    pointer: self.mouse.window_position(),
-                }))
-            }
             WindowEvent::KeyboardInput { event, .. } => {
-                Some(ShellEvent::Key(kivact_types::KeyInput {
-                    key: map_key(&event.logical_key),
-                    code: physical_code(event.physical_key),
-                    phase: kivact_types::KeyPhase::Down {
-                        repeat: event.repeat,
+                Some(arvane_shell::pipeline::KeyPipeline::default().key(
+                    arvane_shell::pipeline::RawKey {
+                        key: arvane_shell::pipeline::PlatformKey::Code {
+                            key: map_key(&event.logical_key),
+                            code: physical_code(event.physical_key),
+                        },
+                        pressed: event.state == ElementState::Pressed,
+                        repeat: Some(event.repeat),
                         text: event.text.map(|s| s.to_string()),
                     },
-                    modifiers: self.modifiers.current(),
-                    pointer: self.mouse.window_position(),
-                }))
+                    self.modifiers.current(),
+                    self.mouse.window_position(),
+                ))
             }
             WindowEvent::HoveredFile(path) => {
                 if matches!(self.dnd, Dnd::Dropped { .. }) {

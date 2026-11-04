@@ -2,12 +2,12 @@
 //!
 //! Win32 uses the host GUI thread; X11 owns a joined connection thread.
 //! Other operating systems report Unsupported without constructing a handler.
+#[cfg(all(windows, feature = "embed"))]
+use crate::port::win32 as windows;
+#[cfg(all(target_os = "linux", feature = "embed"))]
+use crate::port::x11;
 use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
 use kivact_types::ParentWindow;
-#[cfg(all(windows, feature = "embed"))]
-mod windows;
-#[cfg(all(target_os = "linux", feature = "embed"))]
-mod x11;
 #[cfg(all(windows, feature = "test"))]
 pub use windows::TestParent;
 #[cfg(all(target_os = "linux", feature = "test"))]
@@ -36,11 +36,3 @@ pub fn open(
         ))
     }
 }
-
-#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
-mod geometry;
-
-#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
-mod child;
-#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
-mod session;

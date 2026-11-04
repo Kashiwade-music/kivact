@@ -295,3 +295,44 @@ fn a_reactive_active_descendant_moves_in_the_accessibility_tree() {
     assert!(list.has_active_descendant(&first));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn raw_key_mapping_reaches_handlers() {
+    use kivact::primitive::primitive;
+    use kivact::test::raw::{PlatformKey, RawInput, RawKey};
+    use kivact::view::{Handled, KeyEvent};
+    let (screen, seen) = mount(|| {
+        let seen = signal(Vec::<Key>::new());
+        let view =
+            primitive()
+                .focusable(true)
+                .test_id("raw-keys")
+                .on_key(move |event: KeyEvent| {
+                    seen.update(|keys| keys.push(event.key()));
+                    Handled::Yes
+                });
+        (seen, view)
+    });
+    screen.get_by_test_id("raw-keys").focus();
+    for key in [
+        PlatformKey::Vk {
+            vk: 0x41,
+            chr: Some('a'),
+            code: KeyCode::KeyA,
+        },
+        PlatformKey::Keysym {
+            keysym: 0xff0d,
+            chr: None,
+            keycode: 36,
+        },
+    ] {
+        screen.raw_input(RawInput::Key(RawKey {
+            key,
+            pressed: true,
+            repeat: None,
+            text: None,
+        }));
+    }
+    assert_eq!(seen.get_untracked(), vec![Key::Char('a'), Key::Enter]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

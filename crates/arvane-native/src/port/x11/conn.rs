@@ -101,7 +101,7 @@ impl Native {
         if !scale.is_finite() || scale <= 0.0 {
             return Err(super::error::platform("invalid scale"));
         }
-        let (width, height) = super::super::geometry::physical_size(
+        let (width, height) = crate::port::embed::geometry::physical_size(
             kivact_types::Size {
                 width: logical_width,
                 height: logical_height,

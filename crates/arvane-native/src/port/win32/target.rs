@@ -8,7 +8,7 @@ use std::sync::Arc;
 pub(super) struct Target {
     pub(super) instance: isize,
     pub(super) native: Arc<super::native::Native>,
-    pub(super) shared: Arc<crate::embed::child::Shared>,
+    pub(super) shared: Arc<crate::port::embed::child::Shared>,
 }
 impl HasWindowHandle for Target {
     fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {

@@ -2,9 +2,9 @@
 
 use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
-use crate::cpu::CpuSurface;
-use crate::embed::child::{ChildPort as _, Shared};
-use crate::embed::session::{Session, negotiate};
+use crate::port::embed::child::{ChildPort as _, Shared};
+use crate::port::embed::session::{Session, negotiate};
+use crate::present::CpuSurface;
 use arvane_shell::{ShellError, ShellWindow};
 use kivact_types::Environment;
 use kivact_types::{Capabilities, Cursor, Rect, Size};
@@ -273,16 +273,9 @@ impl ShellWindow for Window {
             ));
         }
         let native = self.native.clone();
-        let presented = self.cpu.present(
-            w,
-            h,
-            || {
-                let context =
-                    softbuffer::Context::new(native.clone()).map_err(super::error::platform)?;
-                softbuffer::Surface::new(&context, native.clone()).map_err(super::error::platform)
-            },
-            draw,
-        )?;
+        let presented = self
+            .cpu
+            .present(w, h, || crate::present::surface(&native), draw)?;
         if presented {
             // softbuffer queues XCB image requests on this shared connection. Send
             // them now; the host event loop may otherwise wait without another request.

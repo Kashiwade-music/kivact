@@ -82,6 +82,7 @@
 )]
 
 mod options;
+pub mod raw;
 mod render;
 mod screen;
 

@@ -12,7 +12,6 @@
 
 mod a11y;
 mod bridge;
-mod cpu;
 mod create;
 mod dpi;
 mod ime;
@@ -28,4 +27,4 @@ mod window;
 #[cfg(feature = "test")]
 pub use test_parent::TestParent;
 
-pub(super) use create::open;
+pub(in crate::port) use create::open;

@@ -509,7 +509,7 @@ impl TestParent {
     /// Press and release one physical keyboard position.
     pub fn key(&self, key: KeyCode) -> Result<(), ShellError> {
         let detail = (8..=u8::MAX)
-            .find(|&code| super::keyboard::physical(code) == key)
+            .find(|&code| arvane_shell::pipeline::code_from_x11_keycode(code) == key)
             .ok_or_else(|| ShellError::unsupported("physical key has no X11 evdev position"))?;
         self.send_key(detail, KeyButMask::default())
     }

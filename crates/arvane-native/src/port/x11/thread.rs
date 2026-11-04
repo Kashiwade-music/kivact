@@ -5,8 +5,8 @@ use super::keyboard::Keyboard;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use super::poll::Waiter;
 use super::window::{ChildRedraw, Window};
-use crate::embed::child::{ChildPort, Command, Handle, Shared};
-use crate::embed::session::Session;
+use crate::port::embed::child::{ChildPort, Command, Handle, Shared};
+use crate::port::embed::session::Session;
 use arvane_shell::{
     ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker,
     ShellWindow,
@@ -74,7 +74,7 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
     })
 }
 
-pub(in crate::embed) fn open(
+pub(in crate::port) fn open(
     parent: kivact_types::ParentWindow,
     options: EmbedOptions,
     hooks: ChildHooks,

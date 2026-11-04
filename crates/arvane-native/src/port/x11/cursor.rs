@@ -88,18 +88,16 @@ fn create(native: &Native, cursor: Cursor) -> Result<u32, ShellError> {
             .map_err(super::error::platform)?
             .check()
             .map_err(super::error::platform)?;
-        let glyph = match cursor {
-            Cursor::Auto | Cursor::Default => 68,
-            Cursor::Text => 152,
-            Cursor::Pointer => 60,
-            Cursor::ColResize | Cursor::EwResize => 108,
-            Cursor::RowResize | Cursor::NsResize => 116,
-            Cursor::Grab => 58,
-            Cursor::Grabbing => 52,
-            Cursor::Crosshair => 34,
-            Cursor::Move => 52,
-            Cursor::NotAllowed => 0,
-            Cursor::None => unreachable!(),
+        let glyph = match arvane_shell::pipeline::cursor_to_x11_name(cursor).to_bytes() {
+            b"xterm" => 152,
+            b"hand2" => 60,
+            b"sb_h_double_arrow" => 108,
+            b"sb_v_double_arrow" => 116,
+            b"hand1" => 58,
+            b"fleur" => 52,
+            b"crosshair" => 34,
+            b"X_cursor" => 0,
+            _ => 68,
         };
         let result = connection
             .create_glyph_cursor(

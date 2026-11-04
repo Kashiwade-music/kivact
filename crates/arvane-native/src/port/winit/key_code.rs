@@ -2,7 +2,7 @@
 
 use kivact_types::Key as ShellKey;
 use winit::keyboard::{Key, KeyCode, NamedKey, PhysicalKey};
-pub(super) fn physical_code(key: PhysicalKey) -> kivact_types::KeyCode {
+pub(in crate::port) fn physical_code(key: PhysicalKey) -> kivact_types::KeyCode {
     use kivact_types::KeyCode as C;
     match key {
         PhysicalKey::Code(KeyCode::KeyA) => C::KeyA,

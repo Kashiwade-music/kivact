@@ -14,7 +14,7 @@ use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-pub(super) enum Command {
+pub(in crate::port) enum Command {
     SetSize {
         width: u32,
         height: u32,
@@ -22,7 +22,7 @@ pub(super) enum Command {
     },
     SetScale(f64),
 }
-pub(super) struct Shared {
+pub(in crate::port) struct Shared {
     inner: Mutex<Inner>,
     panic: PanicSlot,
 }
@@ -36,10 +36,10 @@ struct Inner {
 }
 /// The physical size and scale the child applied last, read together.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct Applied {
-    pub(super) width: u32,
-    pub(super) height: u32,
-    pub(super) scale: f64,
+pub(in crate::port) struct Applied {
+    pub(in crate::port) width: u32,
+    pub(in crate::port) height: u32,
+    pub(in crate::port) scale: f64,
 }
 enum ChildStatus {
     /// The App runs.
@@ -64,7 +64,7 @@ enum NativeWindow {
     Gone,
 }
 impl Shared {
-    pub(super) fn new(width: u32, height: u32, scale: f64, panic: PanicSlot) -> Self {
+    pub(in crate::port) fn new(width: u32, height: u32, scale: f64, panic: PanicSlot) -> Self {
         Self {
             inner: Mutex::new(Inner {
                 state: ChildStatus::Running,
@@ -86,7 +86,7 @@ impl Shared {
     }
     /// Keep the payload of a panic that reached a platform boundary; the
     /// child stops and the host resumes it (see [`PanicSlot`]).
-    pub(super) fn keep_panic(&self, payload: Box<dyn Any + Send>) {
+    pub(in crate::port) fn keep_panic(&self, payload: Box<dyn Any + Send>) {
         self.panic.put(payload);
         let mut inner = self.lock();
         inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
@@ -106,7 +106,7 @@ impl Shared {
             },
         };
     }
-    pub(super) fn panicked(&self) -> bool {
+    pub(in crate::port) fn panicked(&self) -> bool {
         matches!(
             self.lock().state,
             ChildStatus::Stopped {
@@ -115,7 +115,7 @@ impl Shared {
             }
         )
     }
-    pub(super) fn request_close(&self) {
+    pub(in crate::port) fn request_close(&self) {
         let mut inner = self.lock();
         if matches!(inner.state, ChildStatus::Running) {
             inner.state = ChildStatus::Stopped {
@@ -125,7 +125,7 @@ impl Shared {
         }
     }
     /// The native window is gone (Win32 `WM_DESTROY`; X11: the UI thread ended).
-    pub(super) fn window_gone(&self) {
+    pub(in crate::port) fn window_gone(&self) {
         let mut inner = self.lock();
         inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
             ChildStatus::Running => ChildStatus::Stopped {
@@ -139,7 +139,7 @@ impl Shared {
         };
     }
     /// Record a failure and stop; the first failure wins.
-    pub(super) fn fail(&self, error: ShellError) {
+    pub(in crate::port) fn fail(&self, error: ShellError) {
         let mut inner = self.lock();
         inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
             ChildStatus::Running => ChildStatus::Stopped {
@@ -165,7 +165,7 @@ impl Shared {
             stopped @ ChildStatus::Stopped { .. } => stopped,
         };
     }
-    pub(super) fn failure(&self) -> Option<ShellError> {
+    pub(in crate::port) fn failure(&self) -> Option<ShellError> {
         match &self.lock().state {
             ChildStatus::Stopped {
                 cause:
@@ -178,11 +178,11 @@ impl Shared {
             _ => None,
         }
     }
-    pub(super) fn stopped(&self) -> bool {
+    pub(in crate::port) fn stopped(&self) -> bool {
         !matches!(self.lock().state, ChildStatus::Running)
     }
     /// Whether the native window and its UI loop still exist.
-    pub(super) fn alive(&self) -> bool {
+    pub(in crate::port) fn alive(&self) -> bool {
         matches!(
             self.lock().state,
             ChildStatus::Running
@@ -195,7 +195,7 @@ impl Shared {
     /// Queues a host change for the UI thread. Unnegotiated sizes and scales
     /// coalesce so that the newest host value wins; negotiated sizes keep their
     /// generation check and are never dropped here.
-    pub(super) fn queue(&self, command: Command) {
+    pub(in crate::port) fn queue(&self, command: Command) {
         let mut inner = self.lock();
         if matches!(inner.state, ChildStatus::Running) {
             inner.push(command);
@@ -203,7 +203,7 @@ impl Shared {
     }
     /// Queues a size the host chose: it advances the generation, so earlier negotiated sizes go
     /// stale.
-    pub(super) fn queue_host_size(&self, width: u32, height: u32) {
+    pub(in crate::port) fn queue_host_size(&self, width: u32, height: u32) {
         let mut inner = self.lock();
         if matches!(inner.state, ChildStatus::Running) {
             inner.generation += 1;
@@ -216,34 +216,34 @@ impl Shared {
     }
     /// The next queued command (the Win32 UI loop re-checks its state between commands).
     #[cfg(windows)]
-    pub(super) fn pop_command(&self) -> Option<Command> {
+    pub(in crate::port) fn pop_command(&self) -> Option<Command> {
         self.lock().commands.pop_front()
     }
     /// Drain every queued command at once (the X11 UI loop).
     #[cfg(target_os = "linux")]
-    pub(super) fn take_commands(&self) -> Vec<Command> {
+    pub(in crate::port) fn take_commands(&self) -> Vec<Command> {
         self.lock().commands.drain(..).collect()
     }
-    pub(super) fn current(&self, generation: Option<u64>) -> bool {
+    pub(in crate::port) fn current(&self, generation: Option<u64>) -> bool {
         generation.is_none_or(|generation| generation == self.generation())
     }
-    pub(super) fn generation(&self) -> u64 {
+    pub(in crate::port) fn generation(&self) -> u64 {
         self.lock().generation
     }
     /// The applied size and scale, read together.
-    pub(super) fn applied(&self) -> Applied {
+    pub(in crate::port) fn applied(&self) -> Applied {
         self.lock().applied
     }
-    pub(super) fn size(&self) -> (u32, u32) {
+    pub(in crate::port) fn size(&self) -> (u32, u32) {
         let applied = self.applied();
         (applied.width, applied.height)
     }
-    pub(super) fn scale(&self) -> f64 {
+    pub(in crate::port) fn scale(&self) -> f64 {
         self.applied().scale
     }
     /// Record the applied size; whether it changed.
     #[cfg(windows)]
-    pub(super) fn set_size(&self, width: u32, height: u32) -> bool {
+    pub(in crate::port) fn set_size(&self, width: u32, height: u32) -> bool {
         let mut inner = self.lock();
         let changed = (inner.applied.width, inner.applied.height) != (width, height);
         inner.applied.width = width;
@@ -251,12 +251,12 @@ impl Shared {
         changed
     }
     #[cfg(windows)]
-    pub(super) fn set_scale(&self, scale: f64) {
+    pub(in crate::port) fn set_scale(&self, scale: f64) {
         self.lock().applied.scale = scale;
     }
     /// Record the applied size and scale together (the X11 UI loop).
     #[cfg(target_os = "linux")]
-    pub(super) fn update(&self, width: u32, height: u32, scale: f64) {
+    pub(in crate::port) fn update(&self, width: u32, height: u32, scale: f64) {
         self.lock().applied = Applied {
             width,
             height,
@@ -297,7 +297,7 @@ impl Inner {
 ///   Off the UI thread, wait for cleanup at most `SHUTDOWN_WAIT`, then detach
 ///   the thread and retain the module. On the UI thread (inside a callback),
 ///   return at once, let the outer loop finish cleanup and retain the module.
-pub(super) trait ChildPort: Send + Sync + 'static {
+pub(in crate::port) trait ChildPort: Send + Sync + 'static {
     const MAX_DIMENSION: u32;
     fn wake(&self);
     fn close(&self, shared: &Shared);
@@ -305,9 +305,9 @@ pub(super) trait ChildPort: Send + Sync + 'static {
     /// whose App runs on its own thread; the Win32 backend has none).
     fn collect_panic(&self, shared: &Shared);
 }
-pub(super) struct Handle<B: ChildPort> {
-    pub(super) shared: Arc<Shared>,
-    pub(super) backend: B,
+pub(in crate::port) struct Handle<B: ChildPort> {
+    pub(in crate::port) shared: Arc<Shared>,
+    pub(in crate::port) backend: B,
 }
 impl<B: ChildPort> ShellChild for Handle<B> {
     fn set_size(&self, width: u32, height: u32) {
