@@ -1,11 +1,11 @@
-//! Role: Every page of the document-style catalog renders cleanly on a real window.
+//! Role: Every page of the document-style catalog renders cleanly with the standard test backend.
 //! The tests open each page from the component list, check the page structure,
 //! the example previews and code, the theme toggle, the search and the copy button.
 #![warn(redundant_imports)]
 
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::test::{LayoutCheck, RenderOptions, Screen, TestFonts, WindowMode, render_with};
+use kivact::test::{LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact_ui_basic_catalog::{catalog_with_mode, fonts, pages};
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,15 +15,12 @@ fn mount() -> Screen {
 }
 
 fn mount_in(mode: ThemeMode) -> Screen {
-    let gpu = std::env::var("KIVACT_CATALOG_GPU").is_ok_and(|value| value == "1");
     render_with(
         RenderOptions {
             width: 1440.,
             height: 900.,
             scale: 1.,
             reduced_motion: true,
-            window: WindowMode::Real,
-            gpu,
             fonts: TestFonts::Only(fonts().iter().map(|&bytes| Arc::from(bytes)).collect()),
             ..RenderOptions::from_env()
         },

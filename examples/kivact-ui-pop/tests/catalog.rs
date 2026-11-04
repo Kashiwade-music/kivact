@@ -1,5 +1,5 @@
 //! Role: All source chapters remain reachable in the complete, font-matched shell.
-//! Optional artifacts are produced by the same public real-window driver
+//! Optional artifacts are produced by the same public test driver with optional window mirroring
 //! that consumers use; no library reaches into an implementation crate.
 //! Public-driver state checks for the complete Pop catalogue.
 #![warn(redundant_imports)]
@@ -38,7 +38,6 @@ fn pop_source_chapters_scroll_in_the_original_shell() {
 }
 
 fn mount() -> Screen {
-    let gpu = std::env::var("KIVACT_CATALOG_GPU").is_ok_and(|value| value == "1");
     render_with(
         RenderOptions {
             width: 1846.,
@@ -47,8 +46,6 @@ fn mount() -> Screen {
             locale: Some(locale()),
             messages: messages(),
             reduced_motion: true,
-            window: kivact::test::WindowMode::Real,
-            gpu,
             fonts: TestFonts::Only(fonts().iter().map(|&bytes| Arc::from(bytes)).collect()),
             ..RenderOptions::from_env()
         },
