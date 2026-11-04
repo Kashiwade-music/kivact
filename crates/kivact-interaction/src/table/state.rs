@@ -15,6 +15,7 @@ use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
 type MultiSort<C> = Binding<Vec<(C, SortOrder)>>;
+type SortOption<K, C> = OptionValue<DataTableOptions<K, C>, Binding<Option<(C, SortOrder)>>>;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) enum Target<K, C> {
@@ -216,9 +217,7 @@ fn reconcile<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(sta
 }
 
 impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> State<K, C> {
-    pub(super) fn sort(
-        &self,
-    ) -> OptionValue<DataTableOptions<K, C>, Binding<Option<(C, SortOrder)>>> {
+    pub(super) fn sort(&self) -> SortOption<K, C> {
         OptionValue::new(self.options, |options| options.sort)
     }
     pub(super) fn multi_sort(&self) -> OptionValue<DataTableOptions<K, C>, Option<MultiSort<C>>> {

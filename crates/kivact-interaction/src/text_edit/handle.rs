@@ -287,7 +287,6 @@ impl TextEditApi {
             EditLineLayout {
                 wrap: options.wrap.is_some_and(|value| value.get()),
                 rows: options.rows,
-                ..EditLineLayout::default()
             }
         });
         Part::new(state, move |host| {

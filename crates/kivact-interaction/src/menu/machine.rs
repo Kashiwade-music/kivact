@@ -145,9 +145,8 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
             Event::OpenAfter(depth, key) => {
                 if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Opening { key: current } if current == &key)) { open_level(levels, depth, key); }
             }
-            Event::CloseAfter(depth, key) => {
-                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Closing { key: current } if current == &key)) { truncate(levels, depth); }
-            }
+            Event::CloseAfter(depth, key)
+                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Closing { key: current } if current == &key)) => { truncate(levels, depth); }
             _ => {}
         }
         // All topology repairs happen in this transition, before publishing state.

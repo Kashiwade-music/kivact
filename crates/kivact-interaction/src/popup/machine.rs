@@ -83,10 +83,8 @@ impl Machine {
         reason: PopupCloseReason,
         immediate: bool,
     ) -> Step<State, Event, Effect> {
-        if immediate {
-            if let Some(opener) = opener {
-                return Step::to(State::ReturningFocus { opener }).with(Effect::Return(opener));
-            }
+        if immediate && let Some(opener) = opener {
+            return Step::to(State::ReturningFocus { opener }).with(Effect::Return(opener));
         }
         Step::to(State::Closing { reason, opener })
     }

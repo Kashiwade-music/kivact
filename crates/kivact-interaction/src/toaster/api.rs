@@ -151,10 +151,10 @@ pub fn toaster() -> Toaster {
                     if let Some(previous) = previous {
                         previous.restore_focus();
                     }
-                    if let Some(callback) = callback {
-                        if let Err(error) = callback(reason) {
-                            Owner::root().report(error.kind().clone(), error.to_string());
-                        }
+                    if let Some(callback) = callback
+                        && let Err(error) = callback(reason)
+                    {
+                        Owner::root().report(error.kind().clone(), error.to_string());
                     }
                 }
             },
