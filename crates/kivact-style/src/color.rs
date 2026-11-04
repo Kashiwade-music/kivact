@@ -1,6 +1,6 @@
 //! Role: Colors: sRGB, theme tokens or theme-resolved values, resolved at paint.
 
-use kivact_wire::Rgba;
+use kivact_types::Rgba;
 
 /// Semantic color slots of a [`Theme`](super::theme::value::Theme).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

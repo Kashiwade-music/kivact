@@ -4,8 +4,8 @@ use super::recorder::{Draw, RegionSemantics};
 use crate::effect::{Shape, basic};
 use crate::geometry::{Point, Rect};
 use crate::path::Path;
-use kivact_wire as p;
-use kivact_wire::RegionId;
+use kivact_types as p;
+use kivact_types::RegionId;
 
 impl Draw {
     /// Supply the node's declared regions before the drawing callbacks run;

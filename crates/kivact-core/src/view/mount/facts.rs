@@ -3,9 +3,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use kivact_engine::contract::NodeType;
 use kivact_reactive::Trigger;
 use kivact_style::CompiledStyle;
-use kivact_wire::NodeType;
 
 /// What a node's first write decided, for the style and draw stages.
 pub(super) struct NodeFacts {

@@ -29,8 +29,8 @@ mod platform;
 mod pointer;
 mod text;
 
+use kivact_engine::contract::HostEvent;
 use kivact_reactive::Runtime;
-use kivact_wire::HostEvent;
 
 pub(super) use pointer::run_requested_activations;
 
@@ -123,7 +123,7 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             platform::host_failure(rt, *revision, reason)
         }
         HostEvent::Lifecycle(event) => {
-            if *event == kivact_wire::LifecycleEvent::MemoryWarning {
+            if *event == kivact_types::LifecycleEvent::MemoryWarning {
                 platform::memory_warning(rt);
             }
             crate::platform::lifecycle::dispatch(rt, *event);

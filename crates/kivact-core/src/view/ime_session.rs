@@ -21,7 +21,7 @@ use std::ops::Range;
 use kivact_reactive::{IntoValue, Value};
 use kivact_style::draw::Rect;
 
-pub use kivact_wire::ImeEvent;
+pub use kivact_types::ImeEvent;
 
 /// What a focusable node that edits its own text shows the input method
 /// (IME): its text, selection and caret. Attach it with

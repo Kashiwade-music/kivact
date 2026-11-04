@@ -62,7 +62,7 @@
 //!   rule, so their height matches a text node's. `measure_text` shapes the
 //!   same run the drawing does and returns its size and first baseline.
 
-use kivact_wire as p;
+use kivact_types as p;
 
 use super::color::Color;
 use super::effect::Shadow;
@@ -140,25 +140,25 @@ impl TextLength {
 /// A number never changes meaning with its size: `line_height(4.0)` is four
 /// times the font size and `line_height(4.5)` four and a half times.
 #[doc(inline)]
-pub use kivact_wire::LineHeight;
+pub use kivact_types::LineHeight;
 
 /// Which lines decorate text (CSS `text-decoration-line`), combined with
 /// `|`: `TextDecorationLine::UNDERLINE | TextDecorationLine::OVERLINE`.
 #[doc(inline)]
-pub use kivact_wire::DecorationLines as TextDecorationLine;
+pub use kivact_types::DecorationLines as TextDecorationLine;
 
 /// What a line of text that does not fit shows (CSS `text-overflow`).
 #[doc(inline)]
-pub use kivact_wire::TextOverflow;
+pub use kivact_types::TextOverflow;
 
 /// Case conversion when text is drawn (CSS `text-transform`). The text's
 /// accessible name and `Element::text` keep the text as written.
 #[doc(inline)]
-pub use kivact_wire::TextTransform;
+pub use kivact_types::TextTransform;
 
 /// Pair kerning of text (CSS `font-kerning`).
 #[doc(inline)]
-pub use kivact_wire::FontKerning;
+pub use kivact_types::FontKerning;
 
 /// An OpenType feature setting (one entry of CSS `font-feature-settings`):
 /// a four letter tag and its value. `("tnum", 1)`, `("ss01", 1)` and

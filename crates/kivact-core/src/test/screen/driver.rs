@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use kivact_engine::testing::WindowMode as HostWindow;
 use kivact_engine::testing::{ArvaneTestHost, TestFonts as HostFonts, TestHostOptions};
-use kivact_wire as p;
+use kivact_types as p;
 
 use super::model::{FIND_TIMEOUT, Record, Screen};
 use crate::client::{AppClient, AppConfig};

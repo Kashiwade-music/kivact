@@ -28,7 +28,7 @@ mod trim;
 
 /// The rule used to fill a path's nested or intersecting contours.
 #[doc(inline)]
-pub use kivact_wire::FillRule;
+pub use kivact_types::FillRule;
 
 pub use commands::Path;
 pub use geometry::PathContour;

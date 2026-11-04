@@ -1,4 +1,4 @@
-//! Role: Declared and computed text properties and authored text content.
+//! Role: Authored text content with declared and computed typography.
 use crate::text::primitives::{FontKerning, LineHeight, TextAlign, TextOverflow, TextTransform};
 use crate::{Fill, FontFeature, Rgba, TextWrap};
 use std::ops::Range;

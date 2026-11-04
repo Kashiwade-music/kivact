@@ -118,7 +118,7 @@ pub use exit_layout::ExitLayout;
 #[doc(inline)]
 pub use kivact_reactive::{context, try_context};
 #[doc(inline)]
-pub use kivact_wire::{
+pub use kivact_types::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
     SortDirection,
 };

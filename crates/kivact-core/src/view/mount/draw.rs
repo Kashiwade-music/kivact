@@ -4,9 +4,10 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
+use kivact_engine::contract::SceneLayer;
 use kivact_reactive::{EffectKind, Signal, UiError};
 use kivact_style::draw::{Draw, Recording, Size};
-use kivact_wire::{NodeId, SceneLayer};
+use kivact_types::NodeId;
 
 use super::facts::LocalPaintSource;
 use crate::view::common::{DrawFn, Registry};

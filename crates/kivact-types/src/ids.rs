@@ -1,4 +1,4 @@
-//! Role: Portable identities shared by text producers and hosts.
+//! Role: Shared node, region, request and text identities and identity maps.
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hasher};
 

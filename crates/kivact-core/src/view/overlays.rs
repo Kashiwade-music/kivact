@@ -46,12 +46,13 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
 use kivact_reactive::EffectKind;
 use kivact_reactive::HandlerResult;
 use kivact_reactive::{ErrorKind, UiError};
 use kivact_reactive::{Owner, Runtime};
-use kivact_wire::{A11yRequest, NodeId, NodeType, OverlayProps};
+use kivact_types::{A11yRequest, NodeId, OverlayProps};
 
 use kivact_reactive::{IntoValue, Prop as InputProp};
 
@@ -78,7 +79,7 @@ use kivact_style::draw::Point;
 ///
 /// `Center`: Centered on the anchor.
 #[doc(inline)]
-pub use kivact_wire::Placement;
+pub use kivact_types::Placement;
 
 /// Alignment of an overlay along its anchor's edge: where the overlay sits
 /// on the side [`Placement`] chose. It is not the flex `Align` of a
@@ -95,7 +96,7 @@ pub use kivact_wire::Placement;
 ///
 /// `End`: At the anchor's end edge.
 #[doc(inline)]
-pub use kivact_wire::OverlayAlign;
+pub use kivact_types::OverlayAlign;
 
 /// Theme-wide viewport margin for overlays, in logical pixels.
 ///
@@ -121,7 +122,7 @@ impl kivact_style::ThemeExtension for OverlayViewport {
 }
 
 /// Where an overlay is placed, chosen by its constructor: the reactive source
-/// of [`kivact_wire::OverlayAt`] (the same two cases).
+/// of [`kivact_types::OverlayAt`] (the same two cases).
 enum Place {
     /// [`overlay`]: against the node `node` is bound to; `at_least_width`
     /// from [`Overlay::at_least_anchor_width`].
@@ -421,12 +422,12 @@ impl IntoView for Overlay {
                     Place::Anchor {
                         node,
                         at_least_width,
-                    } => kivact_wire::OverlayAt::Anchor {
+                    } => kivact_types::OverlayAt::Anchor {
                         node: node_ref::node_value(node, at),
                         at_least_width: *at_least_width,
                     },
                     Place::Point { point, .. } => {
-                        kivact_wire::OverlayAt::Point(kivact_reactive::Prop::get(point))
+                        kivact_types::OverlayAt::Point(kivact_reactive::Prop::get(point))
                     }
                 };
                 if let Some(rt) = weak.upgrade() {
@@ -441,7 +442,7 @@ impl IntoView for Overlay {
                                     .get::<OverlayViewport>()
                                     .margin
                             })
-                            .map(|margin| kivact_wire::OverlayFit {
+                            .map(|margin| kivact_types::OverlayFit {
                                 margin,
                                 keep_anchor_clear,
                                 rtl: crate::view::current_direction()
@@ -483,7 +484,7 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
         let Some(rt) = weak.upgrade() else { return };
         let back = {
             let tree = ViewState::tree(&rt);
-            let inside = |target: kivact_wire::FocusTarget| {
+            let inside = |target: kivact_types::FocusTarget| {
                 let f = target.node;
                 // Already deleted with the overlay, or still under it.
                 !tree.contains(f)

@@ -7,7 +7,7 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_wire::{FocusTarget, NodeId};
+use kivact_types::{FocusTarget, NodeId};
 
 use crate::view::state::{Bound, NodeRefState, ViewState};
 use kivact_reactive::{
@@ -629,8 +629,8 @@ fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rec
         let rt = Runtime::get(app)?;
         let tree = ViewState::tree(&rt);
         let region = [
-            kivact_wire::SceneLayer::Draw,
-            kivact_wire::SceneLayer::DrawOver,
+            kivact_engine::contract::SceneLayer::Draw,
+            kivact_engine::contract::SceneLayer::DrawOver,
         ]
         .into_iter()
         .filter_map(|layer| tree.scene(target.node, layer))
@@ -690,8 +690,8 @@ fn live_target(app: AppId, target: FocusTarget) -> Option<FocusTarget> {
     tree.get(target.node)?;
     if let Some(region) = target.region
         && ![
-            kivact_wire::SceneLayer::Draw,
-            kivact_wire::SceneLayer::DrawOver,
+            kivact_engine::contract::SceneLayer::Draw,
+            kivact_engine::contract::SceneLayer::DrawOver,
         ]
         .into_iter()
         .filter_map(|l| tree.scene(target.node, l))

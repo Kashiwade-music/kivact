@@ -27,8 +27,8 @@
 //!   that drops a text property writes `None`, through the typed setter, so
 //!   the node goes back to what it inherits.
 
-use kivact_wire as p;
-use kivact_wire::{
+use kivact_types as p;
+use kivact_types::{
     Border, Corners, Edges, Effects, ElementTransform, Fill, LayoutProps, PaintDelta, PaintProps,
     Ring, ScrollAxes, StateStyles, TextProps,
 };

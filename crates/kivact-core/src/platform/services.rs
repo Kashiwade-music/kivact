@@ -26,7 +26,7 @@ use std::future::Future;
 use std::panic::Location;
 use std::path::PathBuf;
 
-use kivact_wire::{FileDialogRequest, PlatformRequest, PlatformResult};
+use kivact_types::{FileDialogRequest, PlatformRequest, PlatformResult};
 
 use crate::view::requests;
 use crate::view::requests::platform_result;
@@ -108,7 +108,7 @@ pub fn request_window_size(
         .into_iter()
         .all(|v| v.is_finite() && v > 0.0 && (v as f32).is_finite() && (v as f32) > 0.0);
     let result = if valid {
-        let mut size = kivact_wire::Size {
+        let mut size = kivact_types::Size {
             width: width as f32,
             height: height as f32,
         };

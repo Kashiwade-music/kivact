@@ -12,7 +12,7 @@
 //! nearest located ancestor. `LayoutCheck` and `LayoutRule` are
 //! `#[non_exhaustive]`.
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use super::model::{Element, Screen};
 use super::results::{LayoutCheck, LayoutViolation};

@@ -1,8 +1,9 @@
 //! Role: What the host event modules share: the stale and modal drops,
 //! the lookup of a node's handler and owner, and the failure-safe handler run.
 
+use kivact_engine::contract::HostEvent;
 use kivact_reactive::{Owner, Runtime, UiError};
-use kivact_wire::{HostEvent, KeyPhase, NodeId, PointerPhase};
+use kivact_types::{KeyPhase, NodeId, PointerPhase};
 
 use crate::client::state::HostState;
 use crate::view::state::ViewState;

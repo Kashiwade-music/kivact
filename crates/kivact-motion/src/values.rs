@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use kivact_wire::{Point, Rect, Size};
+use kivact_types::{Point, Rect, Size};
 
 /// Values that can be interpolated component-wise.
 pub trait Animatable: Clone + 'static {

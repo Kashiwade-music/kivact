@@ -1,8 +1,9 @@
 //! Role: Layout containers: column, row, grid, stack, scroll and spacer (box nodes).
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
 use kivact_reactive::{ErrorKind, UiError};
-use kivact_wire::{Dimension, Edges, LayoutProps, NodeType, Position, ScrollAxes};
+use kivact_types::{Dimension, Edges, LayoutProps, Position, ScrollAxes};
 
 use super::node::node;
 use crate::view::descriptor::Mcx;

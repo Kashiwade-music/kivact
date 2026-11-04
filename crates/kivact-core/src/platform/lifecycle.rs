@@ -10,7 +10,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_reactive::{Callback, HandlerResult, Owner, Runtime};
-pub use kivact_wire::LifecycleEvent;
+pub use kivact_types::LifecycleEvent;
 
 #[derive(Default)]
 pub(crate) struct LifecycleState {

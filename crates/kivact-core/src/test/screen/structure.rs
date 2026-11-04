@@ -6,7 +6,7 @@
 //! record that is not reachable. Properties are not compared: the engine's
 //! tree is their only store.
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use super::model::Screen;
 use crate::view::state::ViewState;

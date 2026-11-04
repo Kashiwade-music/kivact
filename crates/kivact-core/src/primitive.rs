@@ -140,7 +140,7 @@
 pub use crate::view::descriptor::view_is_empty;
 pub use crate::view::ime_session::{ImeEvent, ImeSession};
 pub use kivact_style::draw::TextParagraph;
-pub use kivact_wire::{EditLineLayout, SemanticsText, SemanticsTextRun, TextCaret, TextRunId};
+pub use kivact_types::{EditLineLayout, SemanticsText, SemanticsTextRun, TextCaret, TextRunId};
 
 mod measured_leaf;
 mod measurement;

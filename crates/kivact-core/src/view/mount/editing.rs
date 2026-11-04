@@ -1,10 +1,10 @@
 //! Role: Mounting wires a node's text editing callbacks and binds its editing data.
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
 
 use crate::view::descriptor::Mcx;
 use crate::view::editing_data::EditorProps;
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 use std::panic::Location;
 
 /// Write the editing payload of a text-editing node and bind its values.
@@ -19,7 +19,7 @@ pub(super) fn bind(
     at: &'static Location<'static>,
 ) {
     use kivact_editing::{EditBehavior, EditOutcome};
-    use kivact_wire::EditingData;
+    use kivact_engine::contract::EditingData;
     // The owner keeps the author's function; the engine, which may drop
     // its copy while its tree is borrowed, calls it through a `SyncHook`
     // (a panic propagates through the engine and ends the App).
@@ -82,10 +82,10 @@ pub(super) fn bind_session(
     session: crate::view::ime_session::ImeSession,
     at: &'static Location<'static>,
 ) {
-    use kivact_wire::ImeSession;
+    use kivact_engine::contract::ImeSessionProps;
     let weak = cx.weak();
     cx.effect(kivact_reactive::EffectKind::Render, at, move || {
-        let value = ImeSession {
+        let value = ImeSessionProps {
             text: session.text.get(),
             selection: session.selection.get(),
             caret: session.caret.get(),

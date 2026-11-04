@@ -10,9 +10,9 @@ use std::rc::Rc;
 
 use crate::view::state::{EnvState, ViewState};
 use kivact_style::draw::Size;
-use kivact_wire::HostEnv;
+use kivact_types::HostEnv;
 #[doc(inline)]
-pub use kivact_wire::{Capabilities, Insets};
+pub use kivact_types::{Capabilities, Insets};
 
 /// The App's environment as seen from the nearest owner at the call (`api`
 /// names the caller in misuse diagnostics).

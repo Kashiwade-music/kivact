@@ -20,8 +20,8 @@
 
 use std::panic::Location;
 
-use kivact_engine::bridge::PropValue;
-use kivact_wire::NodeType;
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
 
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;

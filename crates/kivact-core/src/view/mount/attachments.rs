@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 use std::panic::Location;
 
 use super::parts;

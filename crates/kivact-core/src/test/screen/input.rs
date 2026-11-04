@@ -44,7 +44,7 @@
 //!   `soft_keyboard_shown` and `soft_keyboard_requests`.
 
 use kivact_engine::testing::{PointerId, PointerInput, PointerPhase, ShellEvent};
-use kivact_wire::{self as p, NodeId};
+use kivact_types::{self as p, NodeId};
 
 use super::model::{Contact, Element, Screen};
 use crate::view::input::{ButtonPress, Modifiers, MouseButton, PointerKind};
@@ -769,10 +769,10 @@ impl Screen {
 
     /// The host reports a failure after the last revision it applied.
     pub(crate) fn queue_host_failure(&self, reason: &str) {
-        let revision = kivact_wire::Revision(ViewState::tree(&self.rt).engine().stats().revision);
+        let revision = kivact_types::Revision(ViewState::tree(&self.rt).engine().stats().revision);
         self.host
             .borrow_mut()
-            .inject(kivact_wire::HostEvent::HostFailure {
+            .inject(kivact_engine::contract::HostEvent::HostFailure {
                 revision,
                 reason: reason.into(),
             });

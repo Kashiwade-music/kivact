@@ -1,4 +1,4 @@
-//! Role: Shared env values.
+//! Role: Host environment, capabilities and lifecycle events.
 use crate::Size;
 
 /// System preference for a light or dark color scheme.

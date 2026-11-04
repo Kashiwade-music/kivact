@@ -3,7 +3,7 @@
 use crate::view::{CheckedState, Role};
 use kivact_engine::testing::{ShellImeText, TestFrame};
 use kivact_style::draw::Rect;
-use kivact_wire as p;
+use kivact_types as p;
 use std::fmt;
 use std::ops::Range;
 use std::panic::Location;

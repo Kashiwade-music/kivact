@@ -34,8 +34,8 @@ pub use effect::BorderStyle;
 pub use grid::{GridAutoFlow, GridPlacement, Track};
 pub use icon::{Icon, IconSet};
 #[doc(inline)]
-pub use kivact_wire::Align;
-pub use kivact_wire::{Cursor, TextAlign};
+pub use kivact_types::Align;
+pub use kivact_types::{Cursor, TextAlign};
 pub use length::{Length, auto, pct};
 pub use paint::Background;
 pub use resolve::{CompiledStyle, Interactive};

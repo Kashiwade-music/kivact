@@ -4,8 +4,8 @@
 //! `Style` (and of custom drawing), and how a shape and a filter become the
 //! engine's.
 
-use kivact_wire as p;
-use kivact_wire::{ClipShape, Corners, FilterOp};
+use kivact_types as p;
+use kivact_types::{ClipShape, Corners, FilterOp};
 
 use super::color::Color;
 use super::geometry::{Point, Rect, corner};
@@ -72,13 +72,13 @@ impl Shadow {
 ///
 /// `Dotted`: Round dots as wide as the border.
 #[doc(inline)]
-pub use kivact_wire::BorderStyle;
+pub use kivact_types::BorderStyle;
 
 pub use super::geometry::CornerRadius;
 
 /// How a node's pixels mix with what is beneath (CSS `mix-blend-mode`).
 #[doc(inline)]
-pub use kivact_wire::BlendMode;
+pub use kivact_types::BlendMode;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum FilterFn {

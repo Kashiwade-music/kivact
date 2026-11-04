@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use kivact_reactive::UiError;
-use kivact_wire::{GpuAdapter, SharedTextures};
+use kivact_types::{GpuAdapter, SharedTextures};
 
 use crate::gpu_interop::import::FramePublisher;
 use crate::gpu_interop::import::inbox::Inbox;

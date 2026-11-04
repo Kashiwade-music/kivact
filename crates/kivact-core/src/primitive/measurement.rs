@@ -1,7 +1,7 @@
 //! Role: The measurement contract of a primitive: constraints, sizes and baselines.
 
 use kivact_style::draw::{Size, TextMetrics, TextParagraph, TextRun, TextStyle};
-use kivact_wire::{self as wire};
+use kivact_types::{self as values};
 
 /// Space available to a primitive along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -28,7 +28,7 @@ pub struct Constraints<'a> {
     pub available_width: AvailableSpace,
     /// The height available.
     pub available_height: AvailableSpace,
-    text: wire::LeafTextMeasurer<'a>,
+    text: kivact_engine::contract::LeafTextMeasurer<'a>,
 }
 
 impl Constraints<'_> {
@@ -66,8 +66,8 @@ impl Constraints<'_> {
     /// # let _ = chip;
     /// ```
     pub fn measure_text(&self, text: &str, style: &TextStyle) -> TextMetrics {
-        let origin = wire::Point { x: 0.0, y: 0.0 };
-        let run = TextRun::from_style(text, origin, style, 1.0, wire::Rgba::TRANSPARENT, None);
+        let origin = values::Point { x: 0.0, y: 0.0 };
+        let run = TextRun::from_style(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
         self.text.measure(run.as_wire())
     }
 
@@ -100,8 +100,8 @@ impl Constraints<'_> {
         style: &TextStyle,
         max_width: Option<f32>,
     ) -> TextParagraph {
-        let origin = wire::Point { x: 0.0, y: 0.0 };
-        let run = TextRun::from_style(text, origin, style, 1.0, wire::Rgba::TRANSPARENT, None);
+        let origin = values::Point { x: 0.0, y: 0.0 };
+        let run = TextRun::from_style(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
         let shaped = self
             .text
             .shape(run.as_wire(), max_width)
@@ -115,14 +115,14 @@ impl Constraints<'_> {
         text: &str,
         style: &TextStyle,
         max_width: Option<f32>,
-        boxes: &[wire::InlineBox],
+        boxes: &[values::InlineBox],
     ) -> Option<kivact_style::draw::InlineParagraph> {
         let run = TextRun::from_style(
             text,
-            wire::Point::default(),
+            values::Point::default(),
             style,
             1.0,
-            wire::Rgba::TRANSPARENT,
+            values::Rgba::TRANSPARENT,
             None,
         );
         let shaped = self.text.shape_inline(run.as_wire(), max_width, boxes)?;
@@ -152,17 +152,17 @@ impl std::fmt::Debug for Constraints<'_> {
     }
 }
 
-pub(super) fn space(s: wire::AvailableSpace) -> AvailableSpace {
+pub(super) fn space(s: values::AvailableSpace) -> AvailableSpace {
     match s {
-        wire::AvailableSpace::Definite(v) => AvailableSpace::Definite(v),
-        wire::AvailableSpace::MinContent => AvailableSpace::MinContent,
-        wire::AvailableSpace::MaxContent => AvailableSpace::MaxContent,
+        values::AvailableSpace::Definite(v) => AvailableSpace::Definite(v),
+        values::AvailableSpace::MinContent => AvailableSpace::MinContent,
+        values::AvailableSpace::MaxContent => AvailableSpace::MaxContent,
     }
 }
 
 pub(super) fn constraints(
-    r: wire::MeasureRequest,
-    text: wire::LeafTextMeasurer<'_>,
+    r: values::MeasureRequest,
+    text: kivact_engine::contract::LeafTextMeasurer<'_>,
 ) -> Constraints<'_> {
     Constraints {
         known_width: r.known_width,
@@ -218,16 +218,16 @@ impl From<Size> for Measurement {
 
 /// A size the layout can use: finite and not negative; a baseline it can
 /// use: finite.
-pub(super) fn sanitize(m: Measurement) -> wire::LeafSize {
+pub(super) fn sanitize(m: Measurement) -> values::LeafSize {
     let clean = |v: f32| if v.is_finite() { v.max(0.0) } else { 0.0 };
-    wire::LeafSize {
-        size: wire::Size {
+    values::LeafSize {
+        size: values::Size {
             width: clean(m.size.width),
             height: clean(m.size.height),
         },
         baseline: m
             .baseline
             .filter(|y| y.is_finite())
-            .map(wire::Baseline::FromTop),
+            .map(values::Baseline::FromTop),
     }
 }

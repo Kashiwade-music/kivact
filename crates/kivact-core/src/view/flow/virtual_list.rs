@@ -31,8 +31,9 @@ use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::bridge::PropValue;
-use kivact_wire::{Dimension, Edges, LayoutProps, NodeId, NodeType, Overflow, Point, Position};
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
+use kivact_types::{Dimension, Edges, LayoutProps, NodeId, Overflow, Point, Position};
 
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
@@ -45,7 +46,7 @@ use kivact_reactive::{
     EffectKind, ErrorKind, IntoValue, Owner, Prop as InputProp, Runtime, Signal, Trigger, UiError,
     Value, untrack,
 };
-use kivact_wire::Role;
+use kivact_types::Role;
 
 /// Row height policy of a virtual list.
 #[derive(Clone, Copy, Debug, PartialEq)]

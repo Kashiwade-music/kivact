@@ -6,7 +6,7 @@ use std::panic::Location;
 use std::sync::Arc;
 
 use kivact_reactive::{Owner, Runtime, Signal, Trigger};
-use kivact_wire::{GpuAdapter, SharedTextures};
+use kivact_types::{GpuAdapter, SharedTextures};
 
 use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareStatus, Work};
 use crate::gpu_interop::adapter;

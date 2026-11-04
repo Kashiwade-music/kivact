@@ -1,4 +1,4 @@
-//! Role: Shared check values.
+//! Role: Layout validation rules, limits and findings.
 use crate::{NodeId, Rect, Role};
 
 /// The box a text must stay inside.

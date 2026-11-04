@@ -13,7 +13,7 @@ use crate::view::common::{
 use crate::view::descriptor::Mcx;
 use kivact_reactive::{EffectKind, ErrorKind, Owner, Runtime, UiError};
 use kivact_style::draw::{RegionId, RegionSemantics};
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 impl Registry {
     pub(super) fn entry(&self, id: RegionId, mut template: Common, item_owner: Owner) -> Rc<Entry> {

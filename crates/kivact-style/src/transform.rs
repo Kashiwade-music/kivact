@@ -33,7 +33,7 @@
 //! container isolating as CSS `isolation: isolate`); the Tab order is the
 //! tree order.
 
-use kivact_wire::{ElementTransform, Len, Point as WPoint};
+use kivact_types::{ElementTransform, Len, Point as WPoint};
 
 use super::length::Length;
 use crate::geometry::Size;

@@ -2,7 +2,7 @@
 //! commands, cut turns. None of them is an error of a node's owner chain.
 
 use kivact_reactive::{ErrorKind, Runtime, UiError};
-use kivact_wire::{LayoutRule, NodeId};
+use kivact_types::{LayoutRule, NodeId};
 
 use crate::view::state::ViewState;
 

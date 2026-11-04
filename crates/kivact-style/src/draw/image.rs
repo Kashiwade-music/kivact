@@ -2,8 +2,8 @@
 use super::recorder::Draw;
 use crate::asset::Asset;
 use crate::geometry::Rect;
-use kivact_wire as p;
-use kivact_wire::SceneCmd;
+use kivact_types as p;
+use kivact_types::SceneCmd;
 use std::sync::Arc;
 
 /// Straight-alpha RGBA8 pixels. Keep the same Arc for unchanged pixels;
@@ -82,7 +82,7 @@ kivact_reactive::constant_value!(Pixels);
 #[cfg(feature = "gpu-interop")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GpuFrame {
-    pub(crate) frame: kivact_wire::ExternalFrame,
+    pub(crate) frame: kivact_types::ExternalFrame,
     pub(crate) width: u32,
     pub(crate) height: u32,
 }
@@ -91,7 +91,7 @@ pub struct GpuFrame {
 impl GpuFrame {
     /// The frame `frame` of the shared textures of `width` by `height`
     /// pixels (what `ExternalImage::frame` and its publisher make).
-    pub fn new(frame: kivact_wire::ExternalFrame, width: u32, height: u32) -> Self {
+    pub fn new(frame: kivact_types::ExternalFrame, width: u32, height: u32) -> Self {
         Self {
             frame,
             width,

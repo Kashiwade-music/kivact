@@ -87,7 +87,7 @@
 //!   `Length` and duplicate diagnostics; one side never sets another, so an
 //!   asymmetric layout needs only the public `Style`.
 
-use kivact_wire::{Align, Cursor, ScrollAxes, TextAlign};
+use kivact_types::{Align, Cursor, ScrollAxes, TextAlign};
 
 use super::color::Color;
 use super::draw::{Draw, LocalPaint, Size};
@@ -106,7 +106,7 @@ use crate::transform::Transform;
 use kivact_motion::Transition;
 
 #[doc(inline)]
-pub use kivact_wire::FlexDirection as Direction;
+pub use kivact_types::FlexDirection as Direction;
 
 /// How content is distributed along an axis (CSS `justify-content`,
 /// `align-content`).
@@ -114,7 +114,7 @@ pub use kivact_wire::FlexDirection as Direction;
 /// `Stretch`: Grow auto grid tracks (or wrapped flex lines) to fill the
 /// container (`align_content`); like `Start` for a flex `justify`.
 #[doc(inline)]
-pub use kivact_wire::Justify;
+pub use kivact_types::Justify;
 
 /// How a box is positioned (CSS `position`), with the insets `top`,
 /// `right`, `bottom`, `left` (`inset` for all four).
@@ -140,10 +140,10 @@ pub use kivact_wire::Justify;
 /// transforms, opacity and filters do not apply to it. It stays in the tree
 /// (focus, Tab order, accessibility, state).
 #[doc(inline)]
-pub use kivact_wire::Position;
+pub use kivact_types::Position;
 
 #[doc(inline)]
-pub use kivact_wire::Overflow;
+pub use kivact_types::Overflow;
 
 /// Property group animated by `Style::transition`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

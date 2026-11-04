@@ -7,7 +7,7 @@ use std::rc::{Rc, Weak};
 
 use kivact_reactive::Prop as InputProp;
 use kivact_reactive::{Owner, Runtime};
-use kivact_wire::{IntrinsicSize, NodeId};
+use kivact_types::{IntrinsicSize, NodeId};
 
 use crate::view::descriptor::Mcx;
 use crate::view::part_data::PartBinding;
@@ -17,7 +17,7 @@ use crate::{Signal, Value};
 use kivact_style::Style;
 use kivact_style::asset::ImageFit;
 use kivact_style::draw::{Draw, RegionId, Size};
-use kivact_wire::Role;
+use kivact_types::Role;
 
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
@@ -61,7 +61,7 @@ pub(crate) struct Common {
     /// user's modifiers).
     pub focusable: Option<InputProp<bool>>,
     pub focusable_when_disabled: bool,
-    pub roving_focus: Option<kivact_wire::RovingFocus>,
+    pub roving_focus: Option<kivact_engine::contract::RovingFocus>,
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<bool>,
     /// Native pointer focus destination, resolved through the reference binding.
@@ -268,9 +268,9 @@ pub(crate) struct SemanticSources {
     pub(crate) value_min: Option<InputProp<f64>>,
     pub(crate) value_max: Option<InputProp<f64>>,
     pub(crate) value_now: Option<InputProp<f64>>,
-    pub(crate) live_region: Option<InputProp<kivact_wire::LiveRegion>>,
-    pub(crate) sort: Option<InputProp<kivact_wire::SortDirection>>,
-    pub(crate) orientation: Option<InputProp<kivact_wire::Orientation>>,
+    pub(crate) live_region: Option<InputProp<kivact_types::LiveRegion>>,
+    pub(crate) sort: Option<InputProp<kivact_types::SortDirection>>,
+    pub(crate) orientation: Option<InputProp<kivact_types::Orientation>>,
     pub(crate) active_descendant: Option<InputProp<Option<crate::view::NodeRef>>>,
     pub(crate) level: Option<InputProp<u32>>,
     pub(crate) set_size: Option<InputProp<u32>>,
@@ -279,11 +279,11 @@ pub(crate) struct SemanticSources {
     pub(crate) busy: Option<InputProp<bool>>,
     pub(crate) required: Option<InputProp<bool>>,
     pub(crate) read_only: Option<InputProp<bool>>,
-    pub(crate) has_popup: Option<InputProp<Option<kivact_wire::PopupKind>>>,
-    pub(crate) current_item: Option<InputProp<Option<kivact_wire::CurrentItem>>>,
+    pub(crate) has_popup: Option<InputProp<Option<kivact_types::PopupKind>>>,
+    pub(crate) current_item: Option<InputProp<Option<kivact_types::CurrentItem>>>,
     pub(crate) described_by: Vec<crate::view::NodeRef>,
     pub(crate) controls: Vec<crate::view::NodeRef>,
     pub(crate) labelled_by: Vec<crate::view::NodeRef>,
     /// The node's own text runs for assistive technology.
-    pub(crate) text: Option<InputProp<kivact_wire::SemanticsText>>,
+    pub(crate) text: Option<InputProp<kivact_types::SemanticsText>>,
 }

@@ -3,7 +3,7 @@
 use kivact_reactive::Runtime;
 use kivact_reactive::Signal;
 use kivact_reactive::{ErrorKind, UiError};
-use kivact_wire::{ExternalImageId, ExternalImport, GpuAdapter};
+use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::panic::Location;

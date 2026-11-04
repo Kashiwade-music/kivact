@@ -8,7 +8,7 @@ use std::fmt;
 use std::panic::Location;
 
 use kivact_reactive::Turn;
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::view::NodeRef;
 use crate::view::state::ViewState;

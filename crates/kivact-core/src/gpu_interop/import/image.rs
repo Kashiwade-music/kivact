@@ -7,7 +7,7 @@ use kivact_reactive::Signal;
 use kivact_reactive::{Owner, Runtime, require_effectful};
 use kivact_style::draw::GpuFrame;
 use kivact_task::spawn_in;
-use kivact_wire::{ExternalFrame, ExternalImageId, SharedTextures};
+use kivact_types::{ExternalFrame, ExternalImageId, SharedTextures};
 use std::fmt;
 use std::panic::Location;
 use std::rc::Rc;

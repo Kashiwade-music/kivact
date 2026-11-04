@@ -22,7 +22,7 @@ use std::rc::Rc;
 use crate::i18n::{Locale, Messages};
 use kivact_reactive::{IntoValue, Owner, Runtime};
 use kivact_style::Theme;
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};

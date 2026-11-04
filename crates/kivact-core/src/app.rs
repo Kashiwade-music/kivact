@@ -5,7 +5,7 @@ use crate::view::IntoView;
 use crate::{Asset, Result, UiError};
 use kivact_reactive::ErrorKind;
 use kivact_style::Theme;
-use kivact_wire::Size;
+use kivact_types::Size;
 use std::panic::Location;
 
 /// An application: title, window size, theme, fonts and the root
@@ -155,7 +155,7 @@ impl App {
     pub fn run<V: IntoView>(self, root: impl FnOnce() -> V + 'static) -> Result<()> {
         let at = Location::caller();
         check_window_sizes(self.window_size, self.min_window_size, at)?;
-        let options = kivact_engine::HostOptions {
+        let options = kivact_engine::api::HostOptions {
             window_size: self.window_size,
             #[cfg(feature = "gpu-interop")]
             gpu_preference: self.gpu_preference,
@@ -169,7 +169,7 @@ impl App {
         self,
         root: impl FnOnce() -> V + 'static,
         at: &'static Location<'static>,
-    ) -> kivact_engine::bridge::Client {
+    ) -> kivact_engine::api::Client {
         self.app_client(root, at).into_client(None)
     }
 

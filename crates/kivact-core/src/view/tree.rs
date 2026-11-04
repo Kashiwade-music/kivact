@@ -34,24 +34,23 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_engine::bridge::{Prop, PropValue};
-use kivact_engine::bridge::{Reader, Writer};
-use kivact_wire::{
-    IdMap, NodeId, NodeKind, NodeProperties, NodeType, Rect, Scene, SceneLayer, Size,
-};
+use kivact_engine::api::{Prop, PropValue};
+use kivact_engine::api::{Reader, Writer};
+use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use kivact_types::{IdMap, NodeId, Rect, Scene, Size};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
 use kivact_reactive::{NodeId as EffectId, Owner, Signal, Trigger, UiError};
-use kivact_wire::A11yAction;
+use kivact_types::A11yAction;
 
 /// Scroll position report of a scroll container.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ScrollState {
     /// Scroll offset of the content.
-    pub offset: kivact_wire::Point,
+    pub offset: kivact_types::Point,
     /// Size of the visible area.
-    pub viewport: kivact_wire::Size,
+    pub viewport: kivact_types::Size,
 }
 
 type SecondaryContextHandler = Rc<dyn Fn(PointerEvent) -> Result<Handled, UiError>>;
@@ -78,7 +77,7 @@ pub(crate) struct Handlers {
     /// Wheel handlers.
     pub wheel: EventHandlers<WheelEvent>,
     /// The input method's events for the node's IME session.
-    pub ime: EventHandlers<kivact_wire::ImeEvent>,
+    pub ime: EventHandlers<kivact_types::ImeEvent>,
     /// Assistive-technology actions other than `Activate`, at most one
     /// handler per action (`on_a11y` replaces an earlier one).
     pub a11y: Vec<(
@@ -448,16 +447,16 @@ impl Tree {
                 matches!(
                     semantics.role,
                     Some(
-                        kivact_wire::Role::Alert
-                            | kivact_wire::Role::Status
-                            | kivact_wire::Role::Log
+                        kivact_types::Role::Alert
+                            | kivact_types::Role::Status
+                            | kivact_types::Role::Log
                     )
                 ) || matches!(
                     semantics
                         .accessibility
                         .as_deref()
                         .and_then(|a| a.live_region),
-                    Some(kivact_wire::LiveRegion::Polite | kivact_wire::LiveRegion::Assertive)
+                    Some(kivact_types::LiveRegion::Polite | kivact_types::LiveRegion::Assertive)
                 )
             })
         })
@@ -519,7 +518,7 @@ impl Tree {
             })
         })
     }
-    pub(crate) fn overlay(&self, id: NodeId) -> Option<kivact_wire::OverlayProps> {
+    pub(crate) fn overlay(&self, id: NodeId) -> Option<kivact_types::OverlayProps> {
         self.with_node(id, |node| {
             node.and_then(|node| match &node.kind {
                 NodeKind::Overlay(data) => *data,
@@ -533,7 +532,7 @@ impl Tree {
                 .and_then(|semantics| semantics.name.clone())
         })
     }
-    pub(crate) fn role(&self, id: NodeId) -> Option<kivact_wire::Role> {
+    pub(crate) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
         self.with_node(id, |node| {
             node.and_then(|node| node.semantics.as_ref())
                 .and_then(|semantics| semantics.role)
@@ -554,7 +553,7 @@ impl Tree {
         })
     }
     #[cfg(feature = "test")]
-    pub(crate) fn checked(&self, id: NodeId) -> Option<kivact_wire::CheckedState> {
+    pub(crate) fn checked(&self, id: NodeId) -> Option<kivact_types::CheckedState> {
         self.with_node(id, |node| {
             node.and_then(|node| node.semantics.as_ref())
                 .and_then(|semantics| semantics.checked)
@@ -932,19 +931,19 @@ impl Tree {
     /// opened part puts the focus when the caller names no target. It is a
     /// candidate only; the restore request made for it is checked by
     /// `Reader::can_take_focus` when it is sent.
-    pub(crate) fn first_focus_target(&self, root: NodeId) -> Option<kivact_wire::FocusTarget> {
+    pub(crate) fn first_focus_target(&self, root: NodeId) -> Option<kivact_types::FocusTarget> {
         if self.overlay_hidden(root) {
             return None;
         }
         if self.is_focusable(root) {
-            return Some(kivact_wire::FocusTarget {
+            return Some(kivact_types::FocusTarget {
                 node: root,
                 region: None,
             });
         }
         let mut regions: Vec<_> = [
-            kivact_wire::SceneLayer::Draw,
-            kivact_wire::SceneLayer::DrawOver,
+            kivact_engine::contract::SceneLayer::Draw,
+            kivact_engine::contract::SceneLayer::DrawOver,
         ]
         .into_iter()
         .filter_map(|layer| self.scene(root, layer))
@@ -956,7 +955,7 @@ impl Tree {
                 .iter()
                 .find(|r| r.focusable && !r.disabled && !r.hidden)
         {
-            return Some(kivact_wire::FocusTarget {
+            return Some(kivact_types::FocusTarget {
                 node: root,
                 region: Some(region.id),
             });

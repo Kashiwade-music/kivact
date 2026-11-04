@@ -20,7 +20,8 @@
 use std::fmt::Write as _;
 use std::panic::Location;
 
-use kivact_wire::{NodeId, NodeType};
+use kivact_engine::contract::NodeType;
+use kivact_types::NodeId;
 
 use super::model::{Element, FIND_TIMEOUT, Query, Screen, Within};
 use crate::view::Role;

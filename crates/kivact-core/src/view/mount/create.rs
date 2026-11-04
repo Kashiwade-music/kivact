@@ -3,9 +3,9 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
 use kivact_reactive::Prop as InputProp;
-use kivact_wire::{IntrinsicSize, NodeId, Role};
+use kivact_types::{IntrinsicSize, NodeId, Role};
 
 use super::editing;
 use crate::view::descriptor::Mcx;
@@ -21,7 +21,7 @@ pub(super) struct FirstWrite {
     pub(super) role: Option<Role>,
     pub(super) focusable: Option<InputProp<bool>>,
     pub(super) focusable_when_disabled: bool,
-    pub(super) roving_focus: Option<kivact_wire::RovingFocus>,
+    pub(super) roving_focus: Option<kivact_engine::contract::RovingFocus>,
     pub(super) hit_testable: Option<bool>,
     /// The accessibility actions the node offers, its own and its parts'.
     pub(super) actions: Vec<crate::view::A11yAction>,

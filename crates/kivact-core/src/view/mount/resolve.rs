@@ -10,10 +10,11 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
+use kivact_engine::contract::NodeType;
 use kivact_reactive::Prop;
 use kivact_reactive::Prop as InputProp;
 use kivact_style::draw::Size;
-use kivact_wire::{NodeId, NodeType};
+use kivact_types::NodeId;
 
 use super::attachments::Attached;
 use super::create::FirstWrite;
