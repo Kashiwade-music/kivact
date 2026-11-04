@@ -37,6 +37,7 @@
 
 mod handle;
 mod level;
+mod machine;
 mod order;
 mod press;
 mod press_state;

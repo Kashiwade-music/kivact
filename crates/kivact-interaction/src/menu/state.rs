@@ -2,15 +2,12 @@
 
 use kivact_core::custom::Reactive;
 
-use crate::PopupApi;
-use crate::list::typeahead::Typeahead;
 use kivact_core::ErrorKind;
 use kivact_core::custom::{PartState, raise};
 use kivact_core::geometry::Point;
+use kivact_core::state::Callback;
 use kivact_core::state::IntoText;
-use kivact_core::state::{Callback, MachineHandle, Signal, Value, Var};
 use kivact_core::style::Icon;
-use kivact_core::view::NodeRef;
 
 /// Where an open menu was asked to appear.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -54,14 +51,18 @@ pub enum MenuItemKind {
 /// The state of a menu item for the caller's drawing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuItemState {
+    // xtask-allow(state-fields): Derived drawing projection of the independent press machine.
     /// Which row is under the held pointer during menu press tracking.
     /// None leaves highlighting to the ordinary focus and hover states.
     pub pressed_over: Option<bool>,
     pub input: PartState,
+    // xtask-allow(state-fields): Immutable entry check configuration projected for drawing.
     /// The checked state of a check or radio item; `None` for other items.
     pub check: Option<MenuCheck>,
+    // xtask-allow(state-fields): Derived submenu state for drawing, never written as behavior state.
     /// A submenu item whose submenu is open.
     pub expanded: bool,
+    // xtask-allow(state-fields): Independent author appearance option, not a transition phase.
     /// The entry is marked destructive ([`MenuEntry::destructive`]), for a
     /// warning color.
     pub destructive: bool,
@@ -145,15 +146,21 @@ struct ItemEntry<K> {
     role: ItemRole<K>,
     /// The shortcut text, published as the item's accessible description.
     shortcut: String,
+    // xtask-allow(state-fields): Independent immutable author option; entry modifiers run before publication.
     /// A disabled item cannot be chosen.
     disabled: bool,
+    // xtask-allow(state-fields): Independent immutable author tooltip option.
     disabled_reason: Option<Reactive<String>>,
+    // xtask-allow(state-fields): Independent immutable author appearance option.
     /// An icon shown before the label: a name the theme resolves or an image.
     icon: Option<Icon>,
+    // xtask-allow(state-fields): Independent immutable author description option.
     /// A secondary line under the label.
     description: Option<Reactive<String>>,
+    // xtask-allow(state-fields): Independent immutable author appearance option.
     /// A destructive item (delete, remove): only the drawing reads it.
     destructive: bool,
+    // xtask-allow(state-fields): Independent immutable author activation option.
     /// Choosing the item leaves the menu open (a check item toggled in a
     /// row of several).
     keep_open: bool,
@@ -293,7 +300,7 @@ impl<K> MenuEntry<K> {
     }
 
     /// A disabled item cannot be chosen, and a disabled submenu cannot open.
-    /// By default the arrow keys and typeahead skip disabled items. Items only.
+    /// By default disabled items remain in keyboard focus order. Items only.
     #[track_caller]
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.item_for("disabled").disabled = disabled;
@@ -607,33 +614,9 @@ pub(super) enum Opened {
     Context(MenuOrigin),
 }
 
-/// State shared by every level of one menu. All handles are `Copy`.
-pub(super) struct Session<K: kivact_core::state::ItemKey> {
-    pub(super) entries: Value<Vec<MenuEntry<K>>>,
-    pub(super) choose: Var<Callback<K>>,
-    /// The top level's popup; its anchor is the trigger.
-    pub(super) popup: PopupApi,
-    pub(super) anchor: NodeRef,
-    /// How the open menu was opened; `None` while it is closed.
-    pub(super) opened: Value<Option<Opened>>,
-    /// Where the open menu was asked to appear, derived from `opened`.
-    pub(super) origin: Value<Option<MenuOrigin>>,
-    /// Keys of the submenu items that are open, outermost first.
-    pub(super) path: Value<Vec<K>>,
-    /// The item that has the focus: its depth and key.
-    pub(super) focus_key: Value<Option<(usize, K)>>,
-    /// How many levels the current entries keep (see `super::order::kept_levels`).
-    pub(super) kept: Value<usize>,
-    pub(super) want: Value<Option<Want<K>>>,
-    pub(super) machine: MachineHandle<super::session::SessionMachine<K>>,
-    pub(super) typed: kivact_core::state::Binding<Typeahead>,
-    pub(super) press: Option<super::press_state::Press>,
-    pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
+/// Setup callbacks shared by every level of a menu.
+#[derive(Clone)]
+pub(super) struct MenuOptions<K: 'static> {
+    pub(super) choose: Callback<K>,
+    pub(super) menubar: Option<Callback<bool>>,
 }
-
-impl<K: kivact_core::state::ItemKey> Clone for Session<K> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<K: kivact_core::state::ItemKey> Copy for Session<K> {}

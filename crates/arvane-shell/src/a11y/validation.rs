@@ -4,8 +4,8 @@
 //!
 //! A complete tree is accepted when its ids are unique, every child it
 //! names exists and has one parent, every node is reachable from the root,
-//! the focus names a node that is shown, enabled and focusable (or the
-//! root), bounds, scroll offsets and transforms are finite (bounds of no
+//! the focus names a node that is shown and focusable (or the
+//! enabled root), bounds, scroll offsets and transforms are finite (bounds of no
 //! negative size), numeric values are finite with `min <= max`, and text
 //! runs are well formed. Relations (`described_by`, `controls`,
 //! `labelled_by`) must name nodes of the tree (`MissingNode`), and an
@@ -94,8 +94,7 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
             .get(&focus)
             .ok_or(AccessibilityError::InvalidFocus(focus))?;
         if hidden_nodes.contains(&focus)
-            || node.semantics.disabled
-            || (focus != tree.root && !node.semantics.focusable)
+            || (!node.semantics.focusable && (node.semantics.disabled || focus != tree.root))
         {
             return Err(AccessibilityError::InvalidFocus(focus));
         }

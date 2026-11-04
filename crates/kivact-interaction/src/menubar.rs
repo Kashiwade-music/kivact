@@ -18,7 +18,7 @@
 //! and the last trigger. With a menu open, resting the pointer on another
 //! trigger opens that menu.
 
-use kivact_core::custom::{Part, PartState, part};
+use kivact_core::custom::{Part, PartState};
 use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, Var, memo, signal, var};
@@ -105,11 +105,28 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
             ..ListOptions::default()
         },
     );
-    MenubarApi {
-        list,
-        menus: var(menus),
-        rtl: use_direction().get() == ReadingDirection::Rtl,
-    }
+    let menus = var(menus);
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    menus.with(|items| {
+        for (at, menu) in items.iter().copied().enumerate() {
+            menu.menubar_navigation(kivact_core::state::callback(move |right| {
+                menus.with(|items| {
+                    let len = items.len();
+                    let next = if right != rtl {
+                        (at + 1) % len
+                    } else {
+                        (at + len - 1) % len
+                    };
+                    if next != at {
+                        items[at].close();
+                        list.focus(next);
+                        items[next].open();
+                    }
+                });
+            }));
+        }
+    });
+    MenubarApi { list, menus, rtl }
 }
 
 impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
@@ -128,7 +145,7 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
     #[track_caller]
     pub fn bar(self) -> Part<PartState> {
         let MenubarApi { list, menus, rtl } = self;
-        let input = part(|input| input);
+        let input = list.list();
         let part_state = input.state();
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
@@ -174,8 +191,8 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
     /// The trigger of the menu `at`: a `Role::MenuItem` and an item of the
     /// bar's list. Resting the pointer on it while another menu is open moves
     /// that menu here. Attach the menu's own `trigger` to the same node
-    /// before this part, so that the item's role is the one the node has (a
-    /// trigger is a `Role::Button`); the caller names it. Setup only.
+    /// in either order; the trigger keeps `Role::MenuItem`. The caller names it.
+    /// Setup only.
     #[track_caller]
     pub fn item(self, at: usize) -> Part<ListItemState> {
         let MenubarApi { list, menus, .. } = self;

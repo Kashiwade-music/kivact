@@ -4,9 +4,8 @@ use crate::Selection;
 use kivact_core::state::IntoBinding;
 
 use super::order::{Rows, edge_item, rows};
-use super::state::{
-    Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Session, Target, Want,
-};
+use super::session::Session;
+use super::state::{Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Target, Want};
 use crate::{
     ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_hover_corridor, use_list,
 };
@@ -21,18 +20,22 @@ pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: kivact_core::state::ItemKey> {
+    // xtask-allow(state-fields): Mounted view registry, never used to repair behavior state.
     pub(super) content_state: Signal<Option<Value<PopupState>>>,
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<MenuItemState>>>,
     session: Session<K>,
     pub(super) depth: usize,
     /// The keys of the submenu items that lead to this level.
     pub(super) prefix: Value<Vec<K>>,
+    // xtask-allow(state-fields): Read-only projection of session topology, not a separate open state.
     pub(super) shown: Value<bool>,
     pub(super) rows: Value<Rows<K>>,
     group: ListApi<K>,
     anchors: Signal<Vec<(K, Rect)>>,
+    // xtask-allow(state-fields): Read-only corridor-machine observation.
     aiming: Value<bool>,
     timing: SubmenuTiming,
+    // xtask-allow(state-fields): Independent structural theme option captured during setup.
     retain_disabled_focus: bool,
 }
 
@@ -89,7 +92,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             move |key| {
                 session
                     .machine
-                    .send(super::session::SessionEvent::Focus(depth, key))
+                    .send(super::machine::Event::Focus(depth, key))
             },
         ));
         let anchors = signal(Vec::<(K, Rect)>::new());
@@ -165,7 +168,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         }
         let base = if let Some(press) = session.press {
             base.on_pointer(move |event| {
-                press.event(session, super::press_state::Source::Menu, event)
+                press.event(session, super::press::machine::Source::Menu, event)
             })
         } else {
             base
@@ -204,7 +207,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 if depth == 0 {
                     // Where the focus returns for this opening.
                     session.popup.set_opening_policy(session.focus_return());
-                    // The top level takes the focus on its first enabled item
+                    // The top level takes the focus on its first focusable item
                     // unless the opener asked for another one.
                     if session.want.with_untracked(Option::is_none) {
                         session.request(0, Edge::First);
@@ -248,9 +251,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                             }
                         }
                     }
-                    session
-                        .machine
-                        .send(super::session::SessionEvent::Request(None));
+                    session.machine.send(super::machine::Event::Request(None));
                 });
             })
     }
@@ -328,7 +329,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 pressed_over.get().unwrap_or_else(|| hovered.get()) && !disabled.get()
             });
             effect(move || {
-                session.machine.send(super::session::SessionEvent::Rest(
+                session.machine.send(super::machine::Event::Rest(
                     depth,
                     key.clone(),
                     resting.get() && !aiming.get(),
@@ -339,7 +340,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             let key = key.clone();
             let over = item_ref.hovered();
             effect(move || {
-                session.machine.send(super::session::SessionEvent::Rest(
+                session.machine.send(super::machine::Event::Rest(
                     depth,
                     key.clone(),
                     pressed_over.get().unwrap_or_else(|| over.get())
@@ -392,7 +393,8 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 .description(description)
                 .on_pointer(move |event: PointerEvent| {
                     if let Some(press) = session.press {
-                        let handled = press.event(session, super::press_state::Source::Menu, event);
+                        let handled =
+                            press.event(session, super::press::machine::Source::Menu, event);
                         if handled == Handled::Yes {
                             return handled;
                         }
@@ -412,7 +414,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                         session.open_submenu(depth, invoke_key.clone());
                         return Ok(());
                     }
-                    session.choose.get().try_call(invoke_key.clone())?;
+                    session.options.get().choose.try_call(invoke_key.clone())?;
                     if !keep_open.get() {
                         session.close(PopupCloseReason::Selection);
                     }
@@ -424,7 +426,10 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 member
             };
             if submenu {
-                member.expanded(expanded).selected(expanded)
+                member
+                    .has_popup(Some(kivact_core::view::PopupKind::Menu))
+                    .expanded(expanded)
+                    .selected(expanded)
             } else {
                 member
             }
@@ -451,6 +456,14 @@ fn on_key<K: kivact_core::state::ItemKey>(
             session.close_level(depth);
             Handled::Yes
         }
+        Key::ArrowLeft => {
+            if let Some(navigate) = session.options.get().menubar {
+                navigate.call(false);
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        }
         Key::ArrowRight => {
             let Some(key) = session.focused_at(depth) else {
                 return Handled::No;
@@ -464,6 +477,9 @@ fn on_key<K: kivact_core::state::ItemKey>(
             });
             if opens {
                 session.open_submenu(depth, key);
+                Handled::Yes
+            } else if let Some(navigate) = session.options.get().menubar {
+                navigate.call(true);
                 Handled::Yes
             } else {
                 Handled::No

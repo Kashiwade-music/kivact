@@ -1,6 +1,10 @@
 //! Role: Track a held menu pointer and activate the eligible row at release.
-use super::press_state::{Input, Press, PressEvent, PressGesture, Source};
-use super::state::{MenuOrigin, Session};
+use self::machine::{Event, Input, PressGesture, Source};
+use super::press_state::Press;
+#[path = "press/machine.rs"]
+pub(super) mod machine;
+use super::session::Session;
+use super::state::MenuOrigin;
 use crate::PopupCloseReason;
 use kivact_core::custom::clock_now;
 use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerKind, PointerPhase};
@@ -42,9 +46,9 @@ impl Press {
                     session.open_from_button();
                 } else {
                     self.machine
-                        .send(PressEvent::Highlight(self.hit(position).1.into()));
+                        .send(Event::Highlight(self.hit(position).1.into()));
                 }
-                self.machine.send(PressEvent::Open(
+                self.machine.send(Event::Open(
                     input,
                     position,
                     clock_now(),
@@ -64,16 +68,23 @@ impl Press {
                     session.open_from_button();
                 }
             });
-            self.machine
-                .send(PressEvent::Pending(input, position, callback));
+            self.machine.send(Event::Pending(input, position, callback));
             return Handled::No;
         }
         let gesture = self.machine.get().gesture;
         let input = match gesture {
             PressGesture::Idle => return Handled::No,
-            PressGesture::Pending { input, .. }
-            | PressGesture::Holding { input, .. }
-            | PressGesture::Dragging { input, .. } => input,
+            PressGesture::Pending {
+                source,
+                kind,
+                origin,
+                ..
+            } => Input {
+                id: source,
+                kind,
+                source: origin,
+            },
+            PressGesture::Holding { input, .. } | PressGesture::Dragging { input, .. } => input,
         };
         if input.id != event.id() {
             return Handled::No;
@@ -104,7 +115,7 @@ impl Press {
             (PointerPhase::Move, PressGesture::Holding { .. } | PressGesture::Dragging { .. }) => {
                 let (inside, row) = self.hit(position);
                 if inside || matches!(gesture, PressGesture::Dragging { .. }) {
-                    self.machine.send(PressEvent::Move(position, row.into()));
+                    self.machine.send(Event::Move(position, row.into()));
                 }
                 return Handled::Yes;
             }
