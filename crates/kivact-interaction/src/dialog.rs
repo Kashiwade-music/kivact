@@ -33,8 +33,9 @@
 
 use kivact_core::geometry::Edge;
 
-use kivact_core::custom::{Part, PartState, part};
-use kivact_core::state::Value;
+use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Part, PartState, part, raise};
+use kivact_core::state::{Value, on_mount};
 use kivact_core::view::{DismissReason, NodeRef, Role, node_ref};
 
 use crate::options_cell::OptionsCell;
@@ -309,6 +310,16 @@ impl DialogApi {
     /// Per-opening focus: the start and, for a popover, the return. Setup
     /// only, under the mounted surface's owner.
     fn bind(self) {
+        if let DialogOptionsMode::Popover { anchor } = self.mode {
+            on_mount(move || {
+                if anchor.get_untracked().mounted_node().is_none() {
+                    raise(
+                        ErrorKind::Message,
+                        "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
+                    );
+                }
+            });
+        }
         if self.popover() {
             // Whatever closes a popover while the focus is inside it, the
             // focus goes back to the anchor. A modal gets this from the
