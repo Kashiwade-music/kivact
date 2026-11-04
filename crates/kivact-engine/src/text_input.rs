@@ -37,7 +37,7 @@
 //! accessibility runs stopped being contiguous, so the platform refused the
 //! whole tree (a 10,000-line editor could not be found by its role). Cost,
 //! measured in a release build on a real Windows window with the GPU and
-//! `KIVACT_TEST_LIVE=1` (a frame per input): a plain editor
+//! the stepped test driver (a frame per settle): a plain editor
 //! (`text_edit_policy`, lines of about 30 bytes) in a 420 × 220 scroll,
 //! scrolled to its middle line, the median of 12 one-character inserts at
 //! its start until the next frame is drawn, and opening from the mount to

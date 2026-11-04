@@ -11,8 +11,9 @@ impl ArvaneTestHost {
         if std::env::var_os("KIVACT_SELF_CHECK").is_some_and(|value| value == "0") {
             return Vec::new();
         }
-        let mut model = self.host.model.borrow_mut();
-        let mut engine = self.host.engine.borrow_mut();
+        let host = self.host.borrow();
+        let mut model = host.model.borrow_mut();
+        let mut engine = host.engine.borrow_mut();
         let mut errors = model.layout_self_check(&mut engine);
         errors.extend(model.paint_self_check());
         errors.extend(model.text_self_check());
@@ -41,7 +42,7 @@ impl ArvaneTestHost {
         if model.a11y.publication_pending() {
             return errors;
         }
-        let published = self.window.accessibility().tree();
+        let published = self.probe.accessibility();
         // The independent build works on copies; the originals are put back after it.
         let independent = model.a11y.clone();
         let state = std::mem::replace(&mut model.a11y, independent);

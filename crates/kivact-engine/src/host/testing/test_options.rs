@@ -1,13 +1,13 @@
 //! Role: Options of a test host: fonts, window, scale and clock.
 
-use arvane::test_display::WindowMode;
+use arvane_virtual::{GpuMode, MirrorMode};
 use kivact_types::ThemeHint;
 use std::sync::Arc;
 
 /// The bundled default test font: Arvane's test font (Tuffy, public
 /// domain), which has no CJK glyphs.
 pub fn default_font() -> Arc<[u8]> {
-    arvane::test_display::test_font()
+    arvane::test_font()
 }
 
 /// The fonts text is shaped with.
@@ -34,7 +34,7 @@ pub struct TestHostOptions {
     /// The fonts text is shaped with.
     pub fonts: TestFonts,
     /// Window mirroring.
-    pub window: WindowMode,
+    pub mirror: MirrorMode,
     /// Title of the real window.
     pub title: String,
     /// The display refresh period frame ticks are paced at (ns).
@@ -51,10 +51,10 @@ pub struct TestHostOptions {
     /// like a running App (results arrive in real time and wake the host).
     pub inline_assets: bool,
     /// Draw frames on the GPU: through a GPU surface of the real window
-    /// (read back for [`ArvaneTestHost::frame`]), or offscreen when
-    /// headless. Starting fails when the GPU renderer cannot start
+    /// (read back for [`ArvaneTestHost::frame`]). Requires a native mirror.
+    /// Starting fails when the GPU renderer cannot start
     /// ([`gpu_unavailable`]). Frames then differ slightly from the CPU's.
-    pub gpu: bool,
+    pub gpu: GpuMode,
     /// How the window's GPU device is made, as a native window's
     /// (`HostOptions::gpu_preference`). Used with feature `gpu-interop`;
     /// ignored without it.
@@ -68,14 +68,14 @@ impl Default for TestHostOptions {
             height: 300.0,
             scale: 1.0,
             fonts: TestFonts::Bundled,
-            window: WindowMode::Auto,
+            mirror: MirrorMode::Auto,
             title: "kivact test".into(),
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             theme: ThemeHint::Light,
             reduced_motion: false,
             locale: None,
             inline_assets: true,
-            gpu: false,
+            gpu: GpuMode::Off,
             gpu_preference: Default::default(),
         }
     }
