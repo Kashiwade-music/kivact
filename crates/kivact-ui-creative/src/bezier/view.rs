@@ -170,10 +170,11 @@ impl IntoView for BezierCurve {
         ] {
             let attachment = {
                 let input_part = part(|input| input);
+                let label = message(key, fallback);
                 kivact::custom::Part::new(input_part.state(), move |node| {
                     node.part(input_part)
                         .role(Role::Slider)
-                        .name(message(key, fallback))
+                        .name(label)
                         .focusable(true)
                         .value_text(move || {
                             let (x, y) = value.get().clean().point(index);
