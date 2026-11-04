@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
-use arvane::asset::{Asset, AssetStore, ImageState, PixelSize, Pixels};
+use arvane::asset::{Asset, AssetImage, AssetStore, ImageState, PixelSize};
 
 use kivact_types::Size;
 
@@ -60,18 +60,18 @@ fn pixels(
     asset: &Asset,
     width: u32,
     height: u32,
-) -> Pixels {
+) -> AssetImage {
     wait(store, woken, |store| {
         store.pixels(asset, PixelSize { width, height }, None)
     })
 }
 
-fn size(width: f32, height: f32) -> Size {
+fn size(width: f64, height: f64) -> Size {
     Size { width, height }
 }
 
 /// The straight RGBA of pixel `(x, y)`.
-fn rgba(pixels: &Pixels, x: u32, y: u32) -> [u8; 4] {
+fn rgba(pixels: &AssetImage, x: u32, y: u32) -> [u8; 4] {
     let at = ((y * pixels.width() + x) * 4) as usize;
     let bytes = &pixels.rgba()[at..at + 4];
     [bytes[0], bytes[1], bytes[2], bytes[3]]

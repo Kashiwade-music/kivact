@@ -109,7 +109,7 @@ impl Session {
 }
 pub(super) fn negotiate(
     size: kivact_types::Size,
-    scale: f32,
+    scale: f64,
     maximum: u32,
     callback: Option<&(dyn Fn(u32, u32) -> bool + Send + Sync)>,
     shared: &Shared,

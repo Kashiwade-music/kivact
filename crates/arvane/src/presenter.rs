@@ -1,4 +1,4 @@
-//! Role: Scene presentation and frame policy.
+//! Role: RenderScene presentation and frame policy.
 //!
 //! Presenting scenes to a window: the renderers, their life cycle and the
 //! frame policy behind [`crate::Window::present`]. Each window has one

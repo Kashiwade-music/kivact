@@ -1,7 +1,7 @@
 //! Role: CPU image output independent of windows, using the window rasterizer.
-use crate::Error;
+use crate::Failure;
 use kivact_types::Size;
-use kivact_types::protocol::{CpuFrame, Scene};
+use kivact_types::render::{CpuFrame, RenderScene};
 
 /// Reusable CPU rasterizer for fixed-resolution, transparent image output.
 /// Its caches belong to this value and are released when it is dropped.
@@ -22,10 +22,10 @@ impl Rasterizer {
 
     /// Whether a `width` × `height` image can be rendered: the frame budget
     /// of windows (each side and the area are limited). An image beyond it
-    /// is an error, never reduced. Fails with [`ErrorKind::Content`].
+    /// is an error, never reduced. Fails with [`FailureKind::Content`].
     ///
-    /// [`ErrorKind::Content`]: crate::ErrorKind::Content
-    pub fn check_size(width: u32, height: u32) -> Result<(), Error> {
+    /// [`FailureKind::Content`]: crate::FailureKind::Content
+    pub fn check_size(width: u32, height: u32) -> Result<(), Failure> {
         arvane_render::dimensions(size(width, height), 1.0)
             .map(|_| ())
             .map_err(crate::error::render)
@@ -35,7 +35,12 @@ impl Rasterizer {
     /// without compositing over a background. Returns premultiplied sRGB
     /// RGBA8; an invalid size or scene is an error. An error leaves the
     /// rasterizer usable for the next call.
-    pub fn render(&mut self, scene: &Scene, width: u32, height: u32) -> Result<CpuFrame, Error> {
+    pub fn render(
+        &mut self,
+        scene: &RenderScene,
+        width: u32,
+        height: u32,
+    ) -> Result<CpuFrame, Failure> {
         self.renderer
             .render(scene, size(width, height), 1.0)
             .map_err(crate::error::render)
@@ -46,7 +51,7 @@ impl Rasterizer {
 /// than the budget's limit of 16,384.
 fn size(width: u32, height: u32) -> Size {
     Size {
-        width: width as f32,
-        height: height as f32,
+        width: width as f64,
+        height: height as f64,
     }
 }

@@ -123,42 +123,6 @@ pub(super) fn physical_code(key: PhysicalKey) -> kivact_types::KeyCode {
         _ => C::Unidentified,
     }
 }
-/// The US-layout letter of a physical letter key (`KeyA`..=`KeyZ`).
-pub(super) fn physical_letter(key: PhysicalKey) -> Option<char> {
-    let PhysicalKey::Code(code) = key else {
-        return None;
-    };
-    const LETTERS: [KeyCode; 26] = [
-        KeyCode::KeyA,
-        KeyCode::KeyB,
-        KeyCode::KeyC,
-        KeyCode::KeyD,
-        KeyCode::KeyE,
-        KeyCode::KeyF,
-        KeyCode::KeyG,
-        KeyCode::KeyH,
-        KeyCode::KeyI,
-        KeyCode::KeyJ,
-        KeyCode::KeyK,
-        KeyCode::KeyL,
-        KeyCode::KeyM,
-        KeyCode::KeyN,
-        KeyCode::KeyO,
-        KeyCode::KeyP,
-        KeyCode::KeyQ,
-        KeyCode::KeyR,
-        KeyCode::KeyS,
-        KeyCode::KeyT,
-        KeyCode::KeyU,
-        KeyCode::KeyV,
-        KeyCode::KeyW,
-        KeyCode::KeyX,
-        KeyCode::KeyY,
-        KeyCode::KeyZ,
-    ];
-    let i = LETTERS.iter().position(|c| *c == code)?;
-    Some(char::from(b'a' + u8::try_from(i).ok()?))
-}
 pub(super) fn map_key(key: &Key) -> ShellKey {
     match key {
         Key::Character(s) => s.chars().next().map_or(ShellKey::Unidentified, |c| {

@@ -12,11 +12,11 @@ static SERIAL: Mutex<()> = Mutex::new(());
 #[derive(Default)]
 struct Seen {
     events: Vec<ShellEvent>,
-    sizes: Vec<(Size, f32)>,
+    sizes: Vec<(Size, f64)>,
     waker: Option<ShellWaker>,
     deadline: u64,
     timer: bool,
-    wheel_settings: Option<kivact_types::protocol::MouseSettings>,
+    wheel_settings: Option<kivact_types::PointerSettings>,
 }
 struct Host(Arc<Mutex<Seen>>);
 impl Handler for Host {
@@ -38,7 +38,7 @@ impl Handler for Host {
             .0
             .lock()
             .expect("handler observations are not poisoned");
-        seen.wheel_settings = Some(window.environment().mouse);
+        seen.wheel_settings = Some(window.environment().pointer);
         seen.waker = Some(waker);
         seen.deadline = deadline;
         window.request_redraw();
@@ -105,6 +105,7 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
             prefer_gpu: false,
             ..Default::default()
         },
+        embed::ChildHooks::default(),
         move || Embedder::new(Host(output)),
     )
     .unwrap();
@@ -164,6 +165,7 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
             prefer_gpu: false,
             ..Default::default()
         },
+        embed::ChildHooks::default(),
         move || Embedder::new(Host(output)),
     )
     .unwrap();
@@ -182,7 +184,7 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
             .unwrap()
             .events
             .iter()
-            .filter(|event| matches!(event, ShellEvent::Wheel { .. }))
+            .filter(|event| matches!(event, ShellEvent::Wheel(_)))
             .count()
             == 2
     });
@@ -192,14 +194,17 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
         if count > 100 {
             100.
         } else {
-            count as f32 * 20.
+            count as f64 * 20.
         }
     };
     let wheels: Vec<_> = seen
         .events
         .iter()
         .filter_map(|event| match event {
-            ShellEvent::Wheel { x, y } => Some((*x, *y)),
+            ShellEvent::Wheel(kivact_types::WheelInput {
+                delta: kivact_types::Point { x, y },
+                ..
+            }) => Some((*x, *y)),
             _ => None,
         })
         .collect();

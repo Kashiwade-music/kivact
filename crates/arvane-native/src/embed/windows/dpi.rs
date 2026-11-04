@@ -52,7 +52,7 @@ impl Drop for Guard {
         }
     }
 }
-pub(super) fn scale(hwnd: HWND) -> f32 {
+pub(super) fn scale(hwnd: HWND) -> f64 {
     let dpi = api(b"GetDpiForWindow\0")
         .map(|f| {
             // SAFETY: this export has precisely the GetDpi ABI/signature.
@@ -62,5 +62,5 @@ pub(super) fn scale(hwnd: HWND) -> f32 {
         })
         .filter(|dpi| *dpi > 0)
         .unwrap_or(96);
-    dpi as f32 / 96.0
+    dpi as f64 / 96.0
 }

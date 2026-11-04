@@ -1,19 +1,15 @@
 //! Role: Portable queries of system input settings and file-drag tracking.
 
-use super::state::MouseSettings;
-
-impl MouseSettings {
-    /// The system's settings (the defaults where the shell cannot read
-    /// them).
-    pub(crate) fn read() -> Self {
-        #[cfg(windows)]
-        {
-            super::windows::mouse_settings()
-        }
-        #[cfg(not(windows))]
-        {
-            MouseSettings::default()
-        }
+/// The system's pointer settings, in logical pixels and nanoseconds.
+pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
+    #[cfg(windows)]
+    {
+        super::windows::pointer_settings(scale)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = scale;
+        kivact_types::PointerSettings::default()
     }
 }
 

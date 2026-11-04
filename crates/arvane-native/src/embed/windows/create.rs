@@ -3,7 +3,7 @@
 use super::native::{COMMAND, MAX_DIMENSION, Native};
 use super::state::{Phase, ScaleSource, State};
 use crate::embed::child::{Handle, Shared};
-use arvane_shell::{ChildOptions, MakeHandler, ShellChild, ShellError};
+use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
 use std::num::NonZeroIsize;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -16,11 +16,12 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 pub(in crate::embed) fn open(
-    parent: kivact_types::protocol::ParentWindow,
-    options: ChildOptions,
+    parent: kivact_types::ParentWindow,
+    options: EmbedOptions,
+    hooks: ChildHooks,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    let kivact_types::protocol::ParentWindow::Win32(parent) = parent else {
+    let kivact_types::ParentWindow::Win32(parent) = parent else {
         return Err(ShellError::unsupported(
             "Windows embedding needs a Win32 parent",
         ));
@@ -41,10 +42,10 @@ pub(in crate::embed) fn open(
             "the parent window must belong to the calling GUI thread",
         ));
     }
-    if !options.width.is_finite()
-        || !options.height.is_finite()
-        || options.width <= 0.0
-        || options.height <= 0.0
+    if !options.size.width.is_finite()
+        || !options.size.height.is_finite()
+        || options.size.width <= 0.0
+        || options.size.height <= 0.0
         || options.scale.is_some_and(|s| !s.is_finite() || s <= 0.0)
     {
         return Err(ShellError::new(
@@ -57,8 +58,8 @@ pub(in crate::embed) fn open(
         .unwrap_or_else(|| super::dpi::scale(parent.get()));
     let (width, height) = crate::embed::geometry::physical_size(
         kivact_types::Size {
-            width: options.width,
-            height: options.height,
+            width: options.size.width,
+            height: options.size.height,
         },
         scale,
         MAX_DIMENSION,
@@ -85,7 +86,7 @@ pub(in crate::embed) fn open(
     let Some(hwnd) = NonZeroIsize::new(hwnd) else {
         return Err(ShellError::new("CreateWindowExW failed"));
     };
-    let shared = Arc::new(Shared::new(width, height, scale, options.panic));
+    let shared = Arc::new(Shared::new(width, height, scale, hooks.panic));
     let native = Arc::new(Native {
         hwnd,
         ui_thread: std::thread::current().id(),
@@ -100,7 +101,7 @@ pub(in crate::embed) fn open(
         } else {
             ScaleSource::System
         },
-        options.on_resize_request,
+        hooks.on_resize_request,
     ));
     let hwnd = hwnd.get();
     if let Err(error) = super::proc::attach(&state, hwnd) {
@@ -123,8 +124,8 @@ pub(in crate::embed) fn open(
             shared.set_scale(actual);
             let (width, height) = crate::embed::geometry::physical_size(
                 kivact_types::Size {
-                    width: options.width,
-                    height: options.height,
+                    width: options.size.width,
+                    height: options.size.height,
                 },
                 actual,
                 MAX_DIMENSION,

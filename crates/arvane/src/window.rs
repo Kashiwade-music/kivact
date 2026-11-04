@@ -36,12 +36,13 @@
 use crate::presentation::{Notes, Observer};
 use crate::presenter::Presenter;
 use crate::{
-    AccessibilityError, Error, FramePlan, Presented, RendererChange, ShellControl, ShellError,
-    ShellEvent, ShellFileDialog, ShellImeText, ShellOptions, ShellWaker,
+    AccessibilityError, Failure, FileDialog, FramePlan, Presented, RendererChange, ShellControl,
+    ShellError, ShellEvent, ShellImeText, ShellOptions, ShellWaker,
 };
 use arvane_shell::{ShellEventLoop, ShellHandler, ShellWindow};
+use kivact_types::Environment;
 use kivact_types::GpuPreference;
-use kivact_types::protocol::{Environment, Scene, SemanticsTree, SemanticsUpdate};
+use kivact_types::render::{RenderScene, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, Size};
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
@@ -54,7 +55,7 @@ pub trait Window {
     /// Current logical content size.
     fn size(&self) -> Size;
     /// Physical pixels per logical pixel.
-    fn scale(&self) -> f32;
+    fn scale(&self) -> f64;
     /// The window's clock (ns).
     fn now_ns(&self) -> u64;
     /// The window's environment now (scale, refresh period, preferences,
@@ -105,7 +106,7 @@ pub trait Window {
     /// and recovers its surface; the host follows [`Presented`] to decide
     /// when to request another frame. `Err` ends presentation when surface
     /// recovery fails or three surface failures occur in a row.
-    fn present(&mut self, scene: &Scene, plan: FramePlan) -> Result<Presented, Error>;
+    fn present(&mut self, scene: &RenderScene, plan: FramePlan) -> Result<Presented, Failure>;
     /// Whether anything reads the accessibility tree yet (assistive
     /// technology asked for it; a test window is always read).
     fn accessibility_active(&self) -> bool;
@@ -126,15 +127,14 @@ pub trait Window {
     /// Read the clipboard's text.
     fn read_text(&mut self) -> Result<String, ShellError>;
     /// Ask for a file to open; `None` when cancelled.
-    fn pick_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError>;
+    fn pick_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError>;
     /// Ask for multiple files; `None` when cancelled.
-    fn pick_files(&mut self, request: &ShellFileDialog)
-    -> Result<Option<Vec<PathBuf>>, ShellError>;
+    fn pick_files(&mut self, request: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError>;
     /// Ask for a file to save; `None` when cancelled.
-    fn save_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError>;
+    fn save_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError>;
     /// Ask for a folder; `None` when cancelled. The request's title and
     /// directory apply; its file name and filters do not.
-    fn pick_folder(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError>;
+    fn pick_folder(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError>;
     /// Open the file or folder at `path` with the platform's default
     /// handler. `Ok` once the handler was started: what it does with the
     /// item afterwards is not reported. A platform without the service
@@ -157,7 +157,7 @@ pub trait Window {
     /// Import the pool of textures an external render engine shares
     /// (`textures`, made as [`SharedTextures`] says) as the image `id` of
     /// this window, replacing the image `id` imported before; scenes then
-    /// draw its frames with [`kivact_types::protocol::DrawCommand::External`]. The image
+    /// draw its frames with [`kivact_types::render::RenderCmd::External`]. The image
     /// belongs to this window's device: another window's scene that names
     /// `id` draws nothing. It lasts until [`Window::drop_external_image`],
     /// the window's close, or a new device (a new
@@ -165,17 +165,17 @@ pub trait Window {
     /// past every frame. Returns once the textures are ready for the
     /// engine to write.
     ///
-    /// Errors: [`crate::ErrorKind::Unavailable`] without a device that can
-    /// import ([`Window::gpu_adapter`] is `None`), [`crate::ErrorKind::Content`]
+    /// Errors: [`crate::FailureKind::Unavailable`] without a device that can
+    /// import ([`Window::gpu_adapter`] is `None`), [`crate::FailureKind::Content`]
     /// when the textures do not fit what they say or the window's device
     /// (size, adapter, graphics API, handles it refuses),
-    /// [`crate::ErrorKind::Backend`] when the device failed.
+    /// [`crate::FailureKind::Backend`] when the device failed.
     #[cfg(feature = "gpu-interop")]
     fn import_external_image(
         &mut self,
         id: ExternalImageId,
         textures: SharedTextures,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Failure>;
     /// Drop the image `id` (nothing when it is not imported): its frames
     /// draw nothing from now on, and its release fence is signaled past
     /// every frame of it.
@@ -197,7 +197,7 @@ impl Window for NativeWindow<'_> {
     fn size(&self) -> Size {
         self.shell.size()
     }
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.shell.scale()
     }
     fn now_ns(&self) -> u64 {
@@ -251,7 +251,7 @@ impl Window for NativeWindow<'_> {
     fn frame_plan(&self) -> FramePlan {
         FramePlan::new(self.shell.physical_size(), self.shell.scale())
     }
-    fn present(&mut self, scene: &Scene, plan: FramePlan) -> Result<Presented, Error> {
+    fn present(&mut self, scene: &RenderScene, plan: FramePlan) -> Result<Presented, Failure> {
         if self.shell.surface_generation().is_none() {
             return Ok(crate::presenter::no_surface());
         }
@@ -278,19 +278,16 @@ impl Window for NativeWindow<'_> {
     fn read_text(&mut self) -> Result<String, ShellError> {
         self.shell.read_text()
     }
-    fn pick_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.shell.pick_file(request)
     }
-    fn pick_files(
-        &mut self,
-        request: &ShellFileDialog,
-    ) -> Result<Option<Vec<PathBuf>>, ShellError> {
+    fn pick_files(&mut self, request: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
         self.shell.pick_files(request)
     }
-    fn save_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn save_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.shell.save_file(request)
     }
-    fn pick_folder(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_folder(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.shell.pick_folder(request)
     }
     fn open_path(&mut self, path: &Path) -> Result<(), ShellError> {
@@ -308,7 +305,7 @@ impl Window for NativeWindow<'_> {
         &mut self,
         id: ExternalImageId,
         textures: SharedTextures,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Failure> {
         self.presenter.import_external(id, textures)
     }
     #[cfg(feature = "gpu-interop")]

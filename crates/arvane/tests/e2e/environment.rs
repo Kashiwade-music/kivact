@@ -6,8 +6,8 @@
 
 use arvane::Window as _;
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
-use kivact_types::protocol::{Environment, MouseSettings};
 use kivact_types::{Cursor, Insets, Size};
+use kivact_types::{Environment, PointerSettings};
 
 use crate::support::{PERIOD, open, options, rect};
 
@@ -24,13 +24,18 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     assert_eq!(
         window.environment(),
         Environment {
-            scale: 1.0,
+            scale_factor: 1.0,
             frame_period_ns: PERIOD / 2,
             reduced_motion: true,
-            dark: true,
+            theme_hint: kivact_types::ThemeHint::Dark,
             safe_area: Insets::default(),
-            mouse: MouseSettings::default(),
+            pointer: PointerSettings::default(),
             locale: Some("ja-JP".into()),
+            window_size: Size {
+                width: 100.0,
+                height: 80.0
+            },
+            ..Default::default()
         }
     );
     // What a host is told about with `EnvironmentChanged` (the scale with
@@ -51,13 +56,18 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     assert_eq!(
         environment,
         Environment {
-            scale: 1.5,
+            scale_factor: 1.5,
             frame_period_ns: PERIOD,
             reduced_motion: false,
-            dark: false,
+            theme_hint: kivact_types::ThemeHint::Light,
             safe_area: insets,
-            mouse: MouseSettings::default(),
+            pointer: PointerSettings::default(),
             locale: None,
+            window_size: Size {
+                width: 100.0,
+                height: 80.0
+            },
+            ..Default::default()
         }
     );
     assert_eq!(window.scale(), 1.5);

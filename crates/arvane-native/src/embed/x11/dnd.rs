@@ -142,11 +142,11 @@ impl Dnd {
             ],
         )?;
         if success {
-            out.push(ShellEvent::File {
+            out.push(ShellEvent::File(kivact_types::FileDrop {
                 phase: FilePhase::Drop,
                 files,
                 position: point,
-            });
+            }));
         }
         Ok(())
     }
@@ -154,7 +154,7 @@ impl Dnd {
         &mut self,
         native: &Native,
         event: &Event,
-        scale: f32,
+        scale: f64,
     ) -> Result<Vec<ShellEvent>, ShellError> {
         let mut out = Vec::new();
         match event {
@@ -251,8 +251,8 @@ impl Dnd {
                         source,
                         accepts,
                         point: Some(Point {
-                            x: f32::from(translated.dst_x) / scale,
-                            y: f32::from(translated.dst_y) / scale,
+                            x: f64::from(translated.dst_x) / scale,
+                            y: f64::from(translated.dst_y) / scale,
                         }),
                     };
                     self.send(

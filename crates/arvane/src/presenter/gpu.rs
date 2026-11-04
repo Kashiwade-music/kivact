@@ -40,13 +40,13 @@
 //! the CPU.
 
 #[cfg(feature = "testing")]
-use crate::error::{self, Error};
+use crate::error::{self, Failure};
 use crate::presentation::{Notes, RendererChange};
 use arvane_render::{GpuContext, GpuEnv, GpuSurface, Presentation, RenderError};
 use kivact_types::Size;
 #[cfg(feature = "testing")]
-use kivact_types::protocol::CpuFrame;
-use kivact_types::protocol::Scene;
+use kivact_types::render::CpuFrame;
+use kivact_types::render::RenderScene;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -175,7 +175,7 @@ impl<T> Drop for Worker<T> {
             let _ = thread.join();
             return;
         }
-        crate::shutdown::DETACHED.store(true, std::sync::atomic::Ordering::Release);
+        kivact_types::process::DetachedThreads::note();
         tracing::warn!(target: "kivact", worker = self.name,
             "GPU worker still running when its window closed; its thread is detached");
         // Keep a late result alive rather than destroying its native surface
@@ -370,7 +370,7 @@ impl Gpu {
     /// Create the device now, on the calling thread (test windows,
     /// offscreen frames); the window's first frame makes its surface.
     #[cfg(feature = "testing")]
-    pub(crate) fn enable(&mut self, notes: &mut Notes) -> Result<(), Error> {
+    pub(crate) fn enable(&mut self, notes: &mut Notes) -> Result<(), Failure> {
         assert!(
             matches!(self.state, State::Off),
             "invariant: a test window enables the GPU once, on a new presenter"
@@ -573,9 +573,9 @@ impl Gpu {
     pub(crate) fn present(
         &mut self,
         make: MakeSurface<'_>,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
         physical: (u32, u32),
     ) -> Option<Result<(Presentation, Duration), RenderError>> {
         let Device {
@@ -642,9 +642,9 @@ impl Gpu {
     #[cfg(feature = "testing")]
     pub(crate) fn render(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
     ) -> Option<Result<CpuFrame, RenderError>> {
         Some(self.device_mut()?.context.render(scene, size, scale))
     }

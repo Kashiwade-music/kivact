@@ -1,6 +1,6 @@
 //! Role: Native dialog ownership and shell file drops for embedded windows.
 #![allow(unsafe_code, reason = "Win32 dialog handles and owned shell drop data")]
-use arvane_shell::{ShellError, ShellFileDialog};
+use arvane_shell::{FileDialog, ShellError};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawWindowHandle,
     Win32WindowHandle, WindowHandle,
@@ -41,7 +41,7 @@ impl HasDisplayHandle for Parent {
 }
 /// Use rfd's library-owned worker so COM initialization never runs on the
 /// host GUI thread. The public async builder preserves the desktop options.
-fn dialog(parent: &Parent, request: &ShellFileDialog) -> Result<rfd::AsyncFileDialog, ShellError> {
+fn dialog(parent: &Parent, request: &FileDialog) -> Result<rfd::AsyncFileDialog, ShellError> {
     if request.title.contains('\0')
         || request
             .file_name
@@ -113,14 +113,14 @@ fn pump() {
 
 pub(super) fn pick_file(
     parent: &Parent,
-    request: &ShellFileDialog,
+    request: &FileDialog,
 ) -> Result<Option<PathBuf>, ShellError> {
     Ok(wait(dialog(parent, request)?.pick_file()).map(|file| file.path().to_owned()))
 }
 
 pub(super) fn pick_files(
     parent: &Parent,
-    request: &ShellFileDialog,
+    request: &FileDialog,
 ) -> Result<Option<Vec<PathBuf>>, ShellError> {
     Ok(wait(dialog(parent, request)?.pick_files()).map(|files| {
         files
@@ -132,14 +132,14 @@ pub(super) fn pick_files(
 
 pub(super) fn save_file(
     parent: &Parent,
-    request: &ShellFileDialog,
+    request: &FileDialog,
 ) -> Result<Option<PathBuf>, ShellError> {
     Ok(wait(dialog(parent, request)?.save_file()).map(|file| file.path().to_owned()))
 }
 
 pub(super) fn pick_folder(
     parent: &Parent,
-    request: &ShellFileDialog,
+    request: &FileDialog,
 ) -> Result<Option<PathBuf>, ShellError> {
     Ok(wait(dialog(parent, request)?.pick_folder()).map(|file| file.path().to_owned()))
 }
@@ -164,12 +164,12 @@ pub(super) fn dropped(state: &Rc<super::state::State>, drop: isize) {
     // SAFETY: release exactly the HDROP transferred by this message before invoking application code.
     unsafe { DragFinish(drop) };
     let scale = state.shared.scale();
-    state.event(arvane_shell::ShellEvent::File {
+    state.event(arvane_shell::ShellEvent::File(kivact_types::FileDrop {
         phase: arvane_shell::FilePhase::Drop,
         files,
         position: kivact_types::Point {
-            x: point.x as f32 / scale,
-            y: point.y as f32 / scale,
+            x: point.x as f64 / scale,
+            y: point.y as f64 / scale,
         },
-    });
+    }));
 }

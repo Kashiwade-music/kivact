@@ -14,8 +14,8 @@
 //! backend; native and injected input use these same normalization rules.
 //!
 //! [`ShellImeText`] supplies surrounding text in UTF-16 offsets and logical
-//! character bounds. [`ShellFileDialog`] carries dialog options without opening
-//! a dialog. [`DEFAULT_FRAME_PERIOD_NS`] is the fallback for unknown refresh
+//! character bounds. [`FileDialog`] carries dialog options without opening
+//! a dialog. [`kivact_types::defaults::FRAME_PERIOD_NS`] is the fallback for unknown refresh
 //! rates. [`Accessibility`] validates semantics transactionally. [`AcceptedTree`]
 //! gives backends read access; [`PlatformTree`] tracks activation, pending updates
 //! and accepted actions. [`PlatformUpdate`] is converted under its lock so native
@@ -41,16 +41,17 @@ pub use a11y::Accessibility;
 pub use a11y::error::AccessibilityError;
 pub use a11y::shared::{PlatformTree, PlatformUpdate};
 pub use a11y::state::AcceptedTree;
-pub use clicks::{ClickCounter, DEFAULT_DOUBLE_CLICK};
+pub use clicks::ClickCounter;
 pub use contacts::Contacts;
 pub use events::ShellEvent;
 pub use ime::ShellImeText;
 pub use kivact_types::FilePhase;
 pub use mouse::Mouse;
-pub use services::ShellFileDialog;
+pub use services::FileDialog;
 pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker};
 
 pub use target::{GpuTarget, GpuWindow};
-pub use window::{DEFAULT_FRAME_PERIOD_NS, ShellEventLoop, ShellHandler, ShellWindow};
+pub use window::{ShellEventLoop, ShellHandler, ShellWindow};
 
-pub use child::{ChildOptions, MakeHandler, PanicSlot, ShellChild};
+pub use child::{ChildHooks, MakeHandler, PanicSlot, ShellChild};
+pub use kivact_types::EmbedOptions;

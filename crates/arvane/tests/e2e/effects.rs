@@ -4,14 +4,15 @@
 //! backdrops (what lies behind a shape, blurred and color-filtered, drawn
 //! again without reading pixels back).
 
-use kivact_types::protocol::{Backdrop, DrawCommand, RoundedRect, Shape};
+use kivact_types::render::{Backdrop, RenderCmd};
+use kivact_types::scene::{RoundedRect, Shape};
 
 use crate::support::{RED, WHITE, fill, gray, open, pixel, rect, show};
 
 /// Black and white vertical stripes, 2 px each, over `width` × `height`.
-fn stripes(width: f32, height: f32) -> Vec<DrawCommand> {
+fn stripes(width: f64, height: f64) -> Vec<RenderCmd> {
     (0..(width / 4.0) as u32)
-        .map(|i| fill(4.0 * i as f32, 0.0, 2.0, height, 0x000000))
+        .map(|i| fill(4.0 * i as f64, 0.0, 2.0, height, 0x000000))
         .collect()
 }
 
@@ -19,7 +20,7 @@ fn stripes(width: f32, height: f32) -> Vec<DrawCommand> {
 fn a_backdrop_blurs_what_is_behind_its_shape_and_nothing_else() {
     let mut window = open(200.0, 100.0);
     let mut commands = stripes(200.0, 100.0);
-    commands.push(DrawCommand::Backdrop(Backdrop {
+    commands.push(RenderCmd::Backdrop(Backdrop {
         shape: Shape::RoundedRect(RoundedRect::new(rect(50.0, 20.0, 100.0, 60.0), 10.0)),
         std_dev: 4.0,
         color_matrix: None,

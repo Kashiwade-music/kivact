@@ -2,7 +2,8 @@
 
 use super::conn::Native;
 use arvane_shell::ShellError;
-use kivact_types::protocol::{CpuFrame, ParentWindow};
+use kivact_types::ParentWindow;
+use kivact_types::render::CpuFrame;
 use kivact_types::{KeyCode, MouseButton};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -21,7 +22,7 @@ use x11rb::wrapper::ConnectionExt as _;
 
 /// A top-level X11 host on a separate connection from its embedded child.
 pub struct TestParent {
-    point: Cell<(f32, f32)>,
+    point: Cell<(f64, f64)>,
     covers: RefCell<Vec<u32>>,
     wm_frame: Cell<Option<u32>>,
     native: Arc<Native>,
@@ -37,7 +38,7 @@ impl TestParent {
             x11rb::xcb_ffi::XCBConnection::connect(None).map_err(super::error::platform)?;
         let root = connection.setup().roots[screen].root;
         let (native, _, _, _) =
-            Native::create_unmapped(root, width as f32, height as f32, Some(1.0))?;
+            Native::create_unmapped(root, width as f64, height as f64, Some(1.0))?;
         let protocols = native
             .connection
             .intern_atom(false, b"WM_PROTOCOLS")
@@ -107,12 +108,12 @@ impl TestParent {
         }
     }
     /// Press the requested button at physical child coordinates.
-    pub fn press_button(&self, button: MouseButton, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn press_button(&self, button: MouseButton, x: f64, y: f64) -> Result<(), ShellError> {
         self.point.set((x, y));
         self.send_button(button, x, y, true)
     }
     /// Release the requested button at physical child coordinates.
-    pub fn release_button(&self, button: MouseButton, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn release_button(&self, button: MouseButton, x: f64, y: f64) -> Result<(), ShellError> {
         self.point.set((x, y));
         self.send_button(button, x, y, false)
     }
@@ -179,7 +180,7 @@ impl TestParent {
         connection.flush().map_err(super::error::platform)
     }
     /// Send an XDND file selection and wait for the receiver's completion.
-    pub fn drop_files(&self, files: &[PathBuf], x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn drop_files(&self, files: &[PathBuf], x: f64, y: f64) -> Result<(), ShellError> {
         use std::os::unix::ffi::OsStrExt;
         let connection = &self.native.connection;
         let child = self.child()?;
@@ -412,17 +413,17 @@ impl TestParent {
         }
     }
     /// Click the primary button at physical child coordinates.
-    pub fn click(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn click(&self, x: f64, y: f64) -> Result<(), ShellError> {
         self.press(x, y)?;
         self.release(x, y)
     }
     /// Press the primary button at physical child coordinates.
-    pub fn press(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn press(&self, x: f64, y: f64) -> Result<(), ShellError> {
         self.point.set((x, y));
         self.button(x, y, true)
     }
     /// Move the child mouse to physical coordinates.
-    pub fn move_to(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn move_to(&self, x: f64, y: f64) -> Result<(), ShellError> {
         let child = self.child()?;
         self.point.set((x, y));
         let event = MotionNotifyEvent {
@@ -448,16 +449,16 @@ impl TestParent {
             .map_err(super::error::platform)
     }
     /// Release the primary button at physical child coordinates.
-    pub fn release(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn release(&self, x: f64, y: f64) -> Result<(), ShellError> {
         self.point.set((x, y));
         self.button(x, y, false)
     }
     /// Send whole wheel notches at the most recently injected mouse point.
     /// Positive values scroll right/down; units are native wheel notches.
-    pub fn wheel(&self, lines_x: f32, lines_y: f32) -> Result<(), ShellError> {
+    pub fn wheel(&self, lines_x: f64, lines_y: f64) -> Result<(), ShellError> {
         if [lines_x, lines_y]
             .iter()
-            .any(|v| !v.is_finite() || v.fract() != 0.0 || v.abs() > u16::MAX as f32)
+            .any(|v| !v.is_finite() || v.fract() != 0.0 || v.abs() > u16::MAX as f64)
         {
             return Err(ShellError::unsupported(
                 "X11 wheel injection requires whole native notches",
@@ -729,14 +730,14 @@ impl TestParent {
             .find(|child| !covers.contains(child))
             .ok_or_else(|| super::error::platform("host has no embedded child"))
     }
-    fn button(&self, x: f32, y: f32, down: bool) -> Result<(), ShellError> {
+    fn button(&self, x: f64, y: f64, down: bool) -> Result<(), ShellError> {
         self.send_button(MouseButton::Primary, x, y, down)
     }
     fn send_button(
         &self,
         button: MouseButton,
-        x: f32,
-        y: f32,
+        x: f64,
+        y: f64,
         down: bool,
     ) -> Result<(), ShellError> {
         let child = self.child()?;

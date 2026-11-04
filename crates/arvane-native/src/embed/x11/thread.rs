@@ -9,7 +9,8 @@ use super::window::Window;
 use crate::embed::child::{Backend as ChildBackend, Command, Handle, Shared};
 use crate::embed::session::Session;
 use arvane_shell::{
-    ChildOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker, ShellWindow,
+    ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker,
+    ShellWindow,
 };
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, mpsc};
@@ -30,7 +31,7 @@ impl ChildBackend for Arc<Notifier> {
         if let Some(thread) = thread {
             // The callback must return before its own event loop can close.
             if thread.thread().id() == std::thread::current().id() {
-                crate::detached::DETACHED.store(true, Ordering::Release);
+                kivact_types::process::DetachedThreads::note();
                 crate::retain_module();
                 return;
             }
@@ -39,7 +40,7 @@ impl ChildBackend for Arc<Notifier> {
                     shared.keep_panic(payload);
                 }
             } else {
-                crate::detached::DETACHED.store(true, Ordering::Release);
+                kivact_types::process::DetachedThreads::note();
                 crate::retain_module();
                 tracing::warn!(target: "kivact", "embedded X11 UI thread did not stop within two seconds; detaching");
             }
@@ -76,11 +77,12 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
 }
 
 pub(in crate::embed) fn open(
-    parent: kivact_types::protocol::ParentWindow,
-    options: ChildOptions,
+    parent: kivact_types::ParentWindow,
+    options: EmbedOptions,
+    hooks: ChildHooks,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    let shared = Arc::new(Shared::new(0, 0, 1.0, options.panic.clone()));
+    let shared = Arc::new(Shared::new(0, 0, 1.0, hooks.panic.clone()));
     let backend = Arc::new(Notifier {
         wake: super::poll::eventfd()?,
         thread: std::sync::Mutex::new(None),
@@ -95,6 +97,7 @@ pub(in crate::embed) fn open(
             let result = run(
                 parent,
                 options,
+                hooks,
                 make,
                 ui_shared.clone(),
                 ui_backend,
@@ -131,18 +134,23 @@ pub(in crate::embed) fn open(
 }
 
 fn run(
-    parent: kivact_types::protocol::ParentWindow,
-    options: ChildOptions,
+    parent: kivact_types::ParentWindow,
+    options: EmbedOptions,
+    hooks: ChildHooks,
     make: MakeHandler,
     shared: Arc<Shared>,
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let kivact_types::protocol::ParentWindow::X11(parent) = parent else {
+    let kivact_types::ParentWindow::X11(parent) = parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
-    let (native, width, height, scale) =
-        Native::create_unmapped(parent.get(), options.width, options.height, options.scale)?;
+    let (native, width, height, scale) = Native::create_unmapped(
+        parent.get(),
+        options.size.width,
+        options.size.height,
+        options.scale,
+    )?;
     let keyboard = Keyboard::new(&native.connection)?;
     let waiter = Waiter::new()?;
     let mut window = Window::new(
@@ -151,7 +159,7 @@ fn run(
         backend.clone(),
         (width, height),
         scale,
-        options.on_resize_request,
+        hooks.on_resize_request,
         waker(&backend),
     )?;
     let mut session = Session::new(shared.clone());

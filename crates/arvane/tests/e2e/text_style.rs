@@ -14,9 +14,8 @@
 use std::sync::Arc;
 
 use arvane::Engine;
-use kivact_types::protocol::{
-    RichText, ShapedText, SpanStyle, TextDecoration, TextSpan, TextStyle,
-};
+use kivact_types::render::{RichText, ShapedText, SpanStyle, TextSpan};
+use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rgba};
 
 use crate::support::engine;
@@ -27,10 +26,10 @@ fn inter() -> Engine {
     Engine::with_fonts_only(&[Arc::from(INTER)]).expect("Inter is usable")
 }
 
-fn style(font_size: f32) -> TextStyle {
-    TextStyle {
+fn style(font_size: f64) -> ComputedTextStyle {
+    ComputedTextStyle {
         font_size,
-        ..TextStyle::default()
+        ..ComputedTextStyle::default()
     }
 }
 
@@ -46,8 +45,8 @@ const RED: Rgba = Rgba {
 fn shaped<'t>(
     engine: &mut Engine,
     text: impl Into<RichText<'t>>,
-    style: &TextStyle,
-    width: Option<f32>,
+    style: &ComputedTextStyle,
+    width: Option<f64>,
 ) -> Arc<ShapedText> {
     let text = text.into();
     let measured = engine.measure_text(text, style, width).expect("measure");
@@ -62,11 +61,11 @@ fn shaped<'t>(
 #[test]
 fn capsize_uses_shaped_cap_height_and_last_visible_baseline() {
     let mut engine = inter();
-    let normal_style = TextStyle {
+    let normal_style = ComputedTextStyle {
         max_lines: Some(2),
         ..style(24.0)
     };
-    let cap_style = TextStyle {
+    let cap_style = ComputedTextStyle {
         capsize: true,
         ..normal_style.clone()
     };
@@ -89,8 +88,8 @@ fn capsize_uses_shaped_cap_height_and_last_visible_baseline() {
 fn letter_spacing_adds_its_space_after_every_character() {
     let mut engine = engine();
     let plain = shaped(&mut engine, "spacing", &style(16.0), None);
-    let spaced = TextStyle {
-        letter_spacing: 3.0,
+    let spaced = ComputedTextStyle {
+        letter_spacing: kivact_types::TextLen::Px(3.0),
         ..style(16.0)
     };
     let wide = shaped(&mut engine, "spacing", &spaced, None);
@@ -100,8 +99,8 @@ fn letter_spacing_adds_its_space_after_every_character() {
         "seven characters, 3 px each: grown by {grown}"
     );
     // A negative spacing tightens.
-    let tight = TextStyle {
-        letter_spacing: -1.0,
+    let tight = ComputedTextStyle {
+        letter_spacing: kivact_types::TextLen::Px(-1.0),
         ..style(16.0)
     };
     assert!(shaped(&mut engine, "spacing", &tight, None).size.width < plain.size.width);

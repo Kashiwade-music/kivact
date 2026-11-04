@@ -164,7 +164,9 @@ impl Ime {
             return;
         };
         tracing::warn!(target: "kivact", "X11 IME disabled, using the keyboard directly: {reason}");
-        self.app.events.push(ShellEvent::ImeDisabled);
+        self.app
+            .events
+            .push(ShellEvent::Ime(kivact_types::ImeInput::End));
         let Connection {
             flight, pending, ..
         } = *connection;
@@ -226,7 +228,7 @@ impl Ime {
         if matches!(connection.flight, Some(Flight::Canceled { .. })) {
             self.app
                 .events
-                .retain(|event| matches!(event, ShellEvent::ImeDisabled));
+                .retain(|event| matches!(event, ShellEvent::Ime(kivact_types::ImeInput::End)));
             // Known canceled releases were reconciled at cancellation time.
             // Delayed output must not release a newer local down of that key.
             self.app.returned.clear();
@@ -359,7 +361,7 @@ impl Ime {
         }
         self.app
             .events
-            .retain(|event| matches!(event, ShellEvent::ImeDisabled));
+            .retain(|event| matches!(event, ShellEvent::Ime(kivact_types::ImeInput::End)));
     }
     pub(super) fn drain(&mut self) -> (Vec<ShellEvent>, Vec<KeyPressEvent>, Vec<KeyPressEvent>) {
         // The loop drains once per pass and wakes for the flight deadline, so
@@ -411,7 +413,9 @@ impl Ime {
         let on = self.app.allowed && self.app.focused;
         if !on {
             connection.session.preedit.clear();
-            self.app.events.push(ShellEvent::ImeDisabled);
+            self.app
+                .events
+                .push(ShellEvent::Ime(kivact_types::ImeInput::End));
         }
         let client = &mut connection.client;
         let mut focus = || -> Result<(), ClientError> {
@@ -431,11 +435,11 @@ impl Ime {
     pub(super) fn cursor(
         &mut self,
         area: kivact_types::Rect,
-        scale: f32,
+        scale: f64,
     ) -> Result<(), ShellError> {
         let spot = xim::Point {
-            x: (area.x * scale).clamp(i16::MIN as f32, i16::MAX as f32) as i16,
-            y: ((area.y + area.height) * scale).clamp(i16::MIN as f32, i16::MAX as f32) as i16,
+            x: (area.x * scale).clamp(i16::MIN as f64, i16::MAX as f64) as i16,
+            y: ((area.y + area.height) * scale).clamp(i16::MIN as f64, i16::MAX as f64) as i16,
         };
         let key = (spot.x, spot.y);
         self.app.spot = spot.clone();
@@ -667,7 +671,9 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
         text: &str,
     ) -> Result<(), ClientError> {
         self.session.preedit.clear();
-        self.app.events.push(ShellEvent::Commit(text.into()));
+        self.app
+            .events
+            .push(ShellEvent::Ime(kivact_types::ImeInput::Commit(text.into())));
         Ok(())
     }
     fn handle_preedit_start(
@@ -701,10 +707,12 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
         session.preedit.replace_range(start..end.max(start), text);
         session.caret = caret.clamp(0, session.preedit.chars().count() as i32);
         let cursor = byte(&session.preedit, caret);
-        self.app.events.push(ShellEvent::Preedit {
-            text: session.preedit.clone(),
-            selection: Some((cursor, cursor)),
-        });
+        self.app
+            .events
+            .push(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
+                text: session.preedit.clone(),
+                selection: (Some((cursor, cursor))).map(|(start, end)| start..end),
+            }));
         Ok(())
     }
     fn handle_preedit_caret(
@@ -729,10 +737,12 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
         .clamp(0, length);
         *position = session.caret;
         let cursor = byte(&session.preedit, session.caret);
-        self.app.events.push(ShellEvent::Preedit {
-            text: session.preedit.clone(),
-            selection: Some((cursor, cursor)),
-        });
+        self.app
+            .events
+            .push(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
+                text: session.preedit.clone(),
+                selection: (Some((cursor, cursor))).map(|(start, end)| start..end),
+            }));
         Ok(())
     }
     fn handle_preedit_done(
@@ -742,10 +752,12 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
         _: u16,
     ) -> Result<(), ClientError> {
         self.session.preedit.clear();
-        self.app.events.push(ShellEvent::Preedit {
-            text: String::new(),
-            selection: None,
-        });
+        self.app
+            .events
+            .push(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
+                text: String::new(),
+                selection: None,
+            }));
         Ok(())
     }
     // We never send Disconnect, so this is the server ending the connection.

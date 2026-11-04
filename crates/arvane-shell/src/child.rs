@@ -52,47 +52,13 @@ impl std::fmt::Debug for PanicSlot {
     }
 }
 
-/// The first logical size and optional host-decided scale of a child window.
-/// The host's window is passed beside the options, not inside them.
-///
-/// The default is 960 by 720 logical pixels, the OS scale and no resize
-/// request.
-#[derive(Clone)]
-pub struct ChildOptions {
-    /// Initial width in logical pixels (default 960).
-    pub width: f32,
-    /// Initial height in logical pixels (default 720).
-    pub height: f32,
-    /// Physical pixels per logical pixel, or the OS scale.
-    pub scale: Option<f32>,
-    /// Ask the host for a physical content size.
-    pub on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
-    /// Where a panic of the child's App is kept for the embedder to resume.
+/// Callback and panic state owned by the shell, separate from pure options.
+#[derive(Clone, Default)]
+pub struct ChildHooks {
+    /// Ask the embedding host for a physical content size.
+    pub on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
+    /// The existing shared panic payload slot.
     pub panic: PanicSlot,
-}
-
-impl std::fmt::Debug for ChildOptions {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ChildOptions")
-            .field("width", &self.width)
-            .field("height", &self.height)
-            .field("scale", &self.scale)
-            .field("on_resize_request", &self.on_resize_request.is_some())
-            .field("panic", &self.panic.is_set())
-            .finish()
-    }
-}
-
-impl Default for ChildOptions {
-    fn default() -> Self {
-        Self {
-            width: 960.0,
-            height: 720.0,
-            scale: None,
-            on_resize_request: None,
-            panic: PanicSlot::default(),
-        }
-    }
 }
 
 /// Builds the window's handler on its UI thread, once.
@@ -105,9 +71,9 @@ pub trait ShellChild: Send + Sync {
     /// Last applied physical size.
     fn size(&self) -> (u32, u32);
     /// Change scale, keeping the physical size.
-    fn set_scale(&self, scale: f32);
+    fn set_scale(&self, scale: f64);
     /// Last applied scale.
-    fn scale(&self) -> f32;
+    fn scale(&self) -> f64;
     /// Why the window stopped, or `None` while running.
     fn failure(&self) -> Option<ShellError>;
 }

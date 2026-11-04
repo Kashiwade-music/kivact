@@ -20,7 +20,7 @@ pub(super) enum Command {
         height: u32,
         generation: Option<u64>,
     },
-    SetScale(f32),
+    SetScale(f64),
 }
 pub(super) struct Shared {
     inner: Mutex<Inner>,
@@ -39,7 +39,7 @@ struct Inner {
 pub(super) struct Applied {
     pub(super) width: u32,
     pub(super) height: u32,
-    pub(super) scale: f32,
+    pub(super) scale: f64,
 }
 enum ChildState {
     /// The App runs.
@@ -64,7 +64,7 @@ enum NativeWindow {
     Gone,
 }
 impl Shared {
-    pub(super) fn new(width: u32, height: u32, scale: f32, panic: PanicSlot) -> Self {
+    pub(super) fn new(width: u32, height: u32, scale: f64, panic: PanicSlot) -> Self {
         Self {
             inner: Mutex::new(Inner {
                 state: ChildState::Running,
@@ -238,7 +238,7 @@ impl Shared {
         let applied = self.applied();
         (applied.width, applied.height)
     }
-    pub(super) fn scale(&self) -> f32 {
+    pub(super) fn scale(&self) -> f64 {
         self.applied().scale
     }
     /// Record the applied size; whether it changed.
@@ -251,12 +251,12 @@ impl Shared {
         changed
     }
     #[cfg(windows)]
-    pub(super) fn set_scale(&self, scale: f32) {
+    pub(super) fn set_scale(&self, scale: f64) {
         self.lock().applied.scale = scale;
     }
     /// Record the applied size and scale together (the X11 UI loop).
     #[cfg(target_os = "linux")]
-    pub(super) fn update(&self, width: u32, height: u32, scale: f32) {
+    pub(super) fn update(&self, width: u32, height: u32, scale: f64) {
         self.lock().applied = Applied {
             width,
             height,
@@ -326,7 +326,7 @@ impl<B: Backend> ShellChild for Handle<B> {
         self.backend.collect_panic(&self.shared);
         self.shared.size()
     }
-    fn set_scale(&self, scale: f32) {
+    fn set_scale(&self, scale: f64) {
         self.backend.collect_panic(&self.shared);
         if self.shared.stopped() {
             return;
@@ -338,7 +338,7 @@ impl<B: Backend> ShellChild for Handle<B> {
         self.shared.queue(Command::SetScale(scale));
         self.backend.wake();
     }
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.backend.collect_panic(&self.shared);
         self.shared.scale()
     }

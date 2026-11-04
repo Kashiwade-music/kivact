@@ -3,46 +3,11 @@
 use crate::presentation::Observer;
 use crate::{Handler, RendererChange, ShellError};
 pub use arvane_shell::PanicSlot;
-use arvane_shell::{ChildOptions, ShellChild};
-use kivact_types::protocol::ParentWindow;
-use kivact_types::{GpuPreference, Size};
+use arvane_shell::ShellChild;
+use kivact_types::ParentWindow;
 
-/// Initial embedded window settings. Coordinates are logical pixels. The
-/// host's window is passed to [`open`] beside the options.
-///
-/// The default is 960 by 720, the OS scale, no resize request, GPU
-/// rendering preferred and the default GPU preference.
-pub struct EmbedOptions {
-    /// Initial logical size (default 960 by 720).
-    pub size: Size,
-    /// Host-decided scale, or the OS scale.
-    pub scale: Option<f32>,
-    /// Ask the host for a physical content size.
-    pub on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
-    /// Prefer GPU rendering, as `Shell::prefer_gpu` does (default true).
-    pub prefer_gpu: bool,
-    /// GPU device preference.
-    pub gpu_preference: GpuPreference,
-    /// Where a panic of the child's App is kept for the embedder to resume
-    /// (see [`PanicSlot`]).
-    pub panic: PanicSlot,
-}
-
-impl Default for EmbedOptions {
-    fn default() -> Self {
-        Self {
-            size: Size {
-                width: 960.0,
-                height: 720.0,
-            },
-            scale: None,
-            on_resize_request: None,
-            prefer_gpu: true,
-            gpu_preference: GpuPreference::default(),
-            panic: PanicSlot::default(),
-        }
-    }
-}
+pub use arvane_shell::ChildHooks;
+pub use kivact_types::EmbedOptions;
 
 /// Handler and optional renderer observer constructed on the UI thread.
 pub struct Embedder<H> {
@@ -70,30 +35,26 @@ impl<H: Handler> Embedder<H> {
 pub fn open<H, F>(
     parent: ParentWindow,
     options: EmbedOptions,
+    hooks: ChildHooks,
     make: F,
 ) -> Result<Embedded, ShellError>
 where
     H: Handler + 'static,
     F: FnOnce() -> Embedder<H> + Send + 'static,
 {
-    let child = ChildOptions {
-        width: options.size.width,
-        height: options.size.height,
-        scale: options.scale,
-        on_resize_request: options.on_resize_request,
-        panic: options.panic,
-    };
+    let prefer_gpu = options.prefer_gpu;
+    let gpu_preference = options.gpu_preference;
     let make = Box::new(move || {
         let embedder = make();
         Box::new(crate::window::driver(
             embedder.handler,
-            options.prefer_gpu,
-            options.gpu_preference,
+            prefer_gpu,
+            gpu_preference,
             embedder.observer,
             true,
         )) as Box<dyn arvane_shell::ShellHandler>
     });
-    arvane_native::embed::open(parent, child, make).map(Embedded)
+    arvane_native::embed::open(parent, options, hooks, make).map(Embedded)
 }
 
 /// A running child window. `Send` and `Sync`.
@@ -109,11 +70,11 @@ impl Embedded {
         self.0.size()
     }
     /// Set scale while keeping physical size.
-    pub fn set_scale(&self, scale: f32) {
+    pub fn set_scale(&self, scale: f64) {
         self.0.set_scale(scale);
     }
     /// Last applied scale.
-    pub fn scale(&self) -> f32 {
+    pub fn scale(&self) -> f64 {
         self.0.scale()
     }
     /// Why the child stopped, or `None` while running.

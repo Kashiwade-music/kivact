@@ -1,8 +1,9 @@
 //! Role: Engine: text shaping, measuring and fonts for its creating UI thread.
 
 use crate::asset;
-use crate::error::{self, Error};
-use kivact_types::protocol::{InlineBox, RichText, ShapedInlineText, ShapedText, TextStyle};
+use crate::error::{self, Failure};
+use kivact_types::ComputedTextStyle;
+use kivact_types::render::{InlineBox, RichText, ShapedInlineText, ShapedText};
 use kivact_types::{Size, TextMetrics};
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -40,7 +41,7 @@ impl Engine {
     /// script, so shaping, layout and frames are the same on every machine
     /// (deterministic tests). Text none of them covers draws a missing
     /// glyph. Fails when a font holds no usable face.
-    pub fn with_fonts_only(fonts: &[Arc<[u8]>]) -> Result<Self, Error> {
+    pub fn with_fonts_only(fonts: &[Arc<[u8]>]) -> Result<Self, Failure> {
         Ok(Self::with_text(
             arvane_text::TextEngine::isolated(fonts).map_err(error::text)?,
         ))
@@ -57,7 +58,7 @@ impl Engine {
     ///
     /// New fonts can change fallback, so cached shaping and measurement are
     /// discarded, and so are the answers of [`Engine::has_font_family`].
-    pub fn register_font(&mut self, bytes: Arc<[u8]>) -> Result<Vec<String>, Error> {
+    pub fn register_font(&mut self, bytes: Arc<[u8]>) -> Result<Vec<String>, Failure> {
         self.text
             .get_mut()
             .register_font(bytes)
@@ -99,7 +100,7 @@ impl Engine {
     /// Named families are trimmed and compared without case; a missing
     /// name selects the system UI font and sets `missing`. Empty names
     /// and CSS generic families never set it. The returned choice can be
-    /// used as [`TextStyle::family`] (`SystemUi` means `None`); the host
+    /// used as [`ComputedTextStyle::family`] (`SystemUi` means `None`); the host
     /// decides whether and where to report a missing name.
     ///
     /// Comma-separated CSS lists (and quoted names) are retained for
@@ -131,9 +132,9 @@ impl Engine {
     pub fn shape<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-    ) -> Result<Arc<ShapedText>, Error> {
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+    ) -> Result<Arc<ShapedText>, Failure> {
         self.text
             .get_mut()
             .shape(text.into(), style, max_width)
@@ -146,9 +147,9 @@ impl Engine {
     pub fn shape_glyphs<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-    ) -> Result<Arc<ShapedText>, Error> {
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+    ) -> Result<Arc<ShapedText>, Failure> {
         self.text
             .get_mut()
             .shape_glyphs(text.into(), style, max_width)
@@ -160,10 +161,10 @@ impl Engine {
     pub fn shape_inline<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         boxes: &[InlineBox],
-    ) -> Result<ShapedInlineText, Error> {
+    ) -> Result<ShapedInlineText, Failure> {
         self.text
             .get_mut()
             .shape_inline(text.into(), style, max_width, boxes)
@@ -177,9 +178,9 @@ impl Engine {
     pub fn measure_text<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-    ) -> Result<Size, Error> {
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+    ) -> Result<Size, Failure> {
         self.text_metrics(text, style, max_width)
             .map(|metrics| metrics.size)
     }
@@ -189,9 +190,9 @@ impl Engine {
     pub fn text_metrics<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-    ) -> Result<TextMetrics, Error> {
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+    ) -> Result<TextMetrics, Failure> {
         self.text
             .get_mut()
             .measure(text.into(), style, max_width)

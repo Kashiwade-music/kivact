@@ -5,12 +5,13 @@ use crate::env::Env;
 use crate::presentation::Notes;
 use crate::presenter::Presenter;
 use crate::{
-    Accessibility, AccessibilityError, Error, ErrorKind, FramePlan, Presented, Renderer,
-    RendererChange, ShellError, ShellFileDialog, ShellImeText, Window,
+    Accessibility, AccessibilityError, Failure, FailureKind, FileDialog, FramePlan, Presented,
+    Renderer, RendererChange, ShellError, ShellImeText, Window,
 };
 use arvane_native::test_display::{TestDisplay, TestWindow, TestWindowOptions};
 use arvane_shell::ShellWindow;
-use kivact_types::protocol::{Environment, Scene, SemanticsTree, SemanticsUpdate};
+use kivact_types::Environment;
+use kivact_types::render::{RenderScene, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, GpuPreference, Insets, Rect, Size};
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
@@ -44,7 +45,7 @@ pub struct VirtualWindowOptions {
     /// Logical content size.
     pub size: Size,
     /// Physical pixels per logical pixel.
-    pub scale: f32,
+    pub scale: f64,
     /// The display's refresh period (ns).
     pub frame_period_ns: u64,
     /// The system's reduce-motion preference.
@@ -113,7 +114,7 @@ impl VirtualWindow {
     /// Open the window `options` describe, with a real window when the
     /// mode asks for one (failing to open one is an error only in
     /// [`WindowMode::Real`]).
-    pub fn open(options: VirtualWindowOptions) -> Result<Self, Error> {
+    pub fn open(options: VirtualWindowOptions) -> Result<Self, Failure> {
         let env = Env::read(options.gpu_preference);
         let changes = Arc::new(Mutex::new(Vec::new()));
         let noted = Arc::clone(&changes);
@@ -197,7 +198,7 @@ impl VirtualWindow {
         let now = self.shell.now;
         self.shell
             .clicks
-            .count(&mut event, || now, || arvane_shell::DEFAULT_DOUBLE_CLICK);
+            .count(&mut event, || now, || kivact_types::defaults::DOUBLE_CLICK);
         event
     }
 
@@ -226,10 +227,7 @@ impl VirtualWindow {
     /// end of a contact that never began), and a `Cancel` of the old
     /// contact first for a `Down` of a platform id still in contact. Taps
     /// are counted (`clicks`) as [`Self::input`] counts presses.
-    pub fn contact(
-        &mut self,
-        contact: kivact_types::protocol::PointerInput,
-    ) -> Vec<crate::ShellEvent> {
+    pub fn contact(&mut self, contact: kivact_types::PointerSample) -> Vec<crate::ShellEvent> {
         let mut events = self.shell.contacts.deliver(contact);
         for event in &mut events {
             *event = self.input(event.clone());
@@ -299,7 +297,7 @@ impl VirtualWindow {
     }
 
     /// Change the scale (deliver [`crate::ShellEvent::Resized`] after it).
-    pub fn set_scale(&mut self, scale: f32) {
+    pub fn set_scale(&mut self, scale: f64) {
         self.shell.scale = scale;
         self.resized();
     }
@@ -510,7 +508,7 @@ fn open_real(
     options: &VirtualWindowOptions,
     env: &Env,
     (width, height): (u32, u32),
-) -> Result<Option<TestWindow>, Error> {
+) -> Result<Option<TestWindow>, Failure> {
     let mode = match options.mode {
         WindowMode::Auto if env.test_headless => WindowMode::Headless,
         mode => mode,
@@ -528,7 +526,9 @@ fn open_real(
     });
     match opened {
         Ok(window) => Ok(Some(window)),
-        Err(e) if mode == WindowMode::Real => Err(Error::new(e.to_string())),
+        Err(e) if mode == WindowMode::Real => {
+            Err(Failure::new(crate::FailureKind::Backend, e.to_string()))
+        }
         Err(_) => Ok(None),
     }
 }
@@ -540,7 +540,7 @@ impl Window for VirtualWindow {
     fn size(&self) -> Size {
         self.shell.size()
     }
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.shell.scale()
     }
     fn now_ns(&self) -> u64 {
@@ -595,7 +595,7 @@ impl Window for VirtualWindow {
     fn frame_plan(&self) -> FramePlan {
         FramePlan::new(self.physical(), self.shell.scale)
     }
-    fn present(&mut self, scene: &Scene, plan: FramePlan) -> Result<Presented, Error> {
+    fn present(&mut self, scene: &RenderScene, plan: FramePlan) -> Result<Presented, Failure> {
         if self.shell.surface.generation().is_none() {
             return Ok(crate::presenter::no_surface());
         }
@@ -609,7 +609,7 @@ impl Window for VirtualWindow {
         }
         if self.shell.failing > 0 {
             self.shell.failing -= 1;
-            let lost = Error::with(ErrorKind::Surface, "the window's surface was lost");
+            let lost = Failure::new(FailureKind::Surface, "the window's surface was lost");
             return self
                 .presenter
                 .refused(Some(lost), self.shell.now, self.shell.period);
@@ -654,19 +654,16 @@ impl Window for VirtualWindow {
     fn read_text(&mut self) -> Result<String, ShellError> {
         self.shell.read_text()
     }
-    fn pick_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.shell.pick_file(request)
     }
-    fn pick_files(
-        &mut self,
-        request: &ShellFileDialog,
-    ) -> Result<Option<Vec<PathBuf>>, ShellError> {
+    fn pick_files(&mut self, request: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
         self.shell.pick_files(request)
     }
-    fn save_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn save_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.shell.save_file(request)
     }
-    fn pick_folder(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_folder(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.shell.pick_folder(request)
     }
     fn open_path(&mut self, path: &Path) -> Result<(), ShellError> {
@@ -684,7 +681,7 @@ impl Window for VirtualWindow {
         &mut self,
         id: ExternalImageId,
         textures: SharedTextures,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Failure> {
         self.presenter.import_external(id, textures)
     }
     #[cfg(feature = "gpu-interop")]

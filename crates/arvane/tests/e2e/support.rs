@@ -2,7 +2,7 @@
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions, test_font};
 use arvane::{Engine, Presented, Window as _};
-use kivact_types::protocol::{DrawCommand, Paint, Scene};
+use kivact_types::render::{Paint, RenderCmd, RenderScene};
 use kivact_types::{Rect, Rgba, Size};
 
 /// 60 Hz.
@@ -15,7 +15,7 @@ pub(crate) const BLUE: u32 = 0x0000_00ff;
 /// The options of a CPU test window of `width` × `height` logical pixels at
 /// scale 1, a real window where one can open (else headless), titled
 /// after the test.
-pub(crate) fn options(width: f32, height: f32) -> VirtualWindowOptions {
+pub(crate) fn options(width: f64, height: f64) -> VirtualWindowOptions {
     VirtualWindowOptions {
         title: std::thread::current()
             .name()
@@ -29,7 +29,7 @@ pub(crate) fn options(width: f32, height: f32) -> VirtualWindowOptions {
 
 /// A CPU test window of `width` × `height` logical pixels (see
 /// [`options`]).
-pub(crate) fn open(width: f32, height: f32) -> VirtualWindow {
+pub(crate) fn open(width: f64, height: f64) -> VirtualWindow {
     VirtualWindow::open(options(width, height)).expect("a test window opens")
 }
 
@@ -38,7 +38,7 @@ pub(crate) fn engine() -> Engine {
     Engine::with_fonts_only(&[test_font()]).expect("the test font is usable")
 }
 
-pub(crate) fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
+pub(crate) fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
     Rect {
         x,
         y,
@@ -53,8 +53,8 @@ pub(crate) fn color(rgb: u32) -> Rgba {
 }
 
 /// A straight-alpha color from 0x00RRGGBB and an alpha.
-pub(crate) fn color_alpha(rgb: u32, a: f32) -> Rgba {
-    let channel = |shift: u32| ((rgb >> shift) & 0xff) as f32 / 255.0;
+pub(crate) fn color_alpha(rgb: u32, a: f64) -> Rgba {
+    let channel = |shift: u32| ((rgb >> shift) & 0xff) as f64 / 255.0;
     Rgba {
         r: channel(16),
         g: channel(8),
@@ -63,19 +63,19 @@ pub(crate) fn color_alpha(rgb: u32, a: f32) -> Rgba {
     }
 }
 
-pub(crate) fn fill(x: f32, y: f32, width: f32, height: f32, rgb: u32) -> DrawCommand {
-    DrawCommand::Rect {
+pub(crate) fn fill(x: f64, y: f64, width: f64, height: f64, rgb: u32) -> RenderCmd {
+    RenderCmd::Rect {
         rect: rect(x, y, width, height),
         fill: Paint::Solid(color(rgb)),
     }
 }
 
-pub(crate) fn scene(commands: Vec<DrawCommand>) -> Scene {
-    Scene { commands }
+pub(crate) fn scene(commands: Vec<RenderCmd>) -> RenderScene {
+    RenderScene { commands }
 }
 
 /// Present `commands` as the window plans its frame.
-pub(crate) fn present(window: &mut VirtualWindow, commands: Vec<DrawCommand>) -> Presented {
+pub(crate) fn present(window: &mut VirtualWindow, commands: Vec<RenderCmd>) -> Presented {
     let plan = window.frame_plan();
     window
         .present(&scene(commands), plan)
@@ -84,7 +84,7 @@ pub(crate) fn present(window: &mut VirtualWindow, commands: Vec<DrawCommand>) ->
 
 /// Present `commands` and require the frame to be shown.
 #[track_caller]
-pub(crate) fn show(window: &mut VirtualWindow, commands: Vec<DrawCommand>) {
+pub(crate) fn show(window: &mut VirtualWindow, commands: Vec<RenderCmd>) {
     let presented = present(window, commands);
     assert!(
         matches!(presented, Presented::Shown { .. }),
@@ -124,7 +124,7 @@ pub(crate) fn solid(rgb: u32) -> Paint {
     Paint::Solid(color(rgb))
 }
 
-pub(crate) fn pt(x: f32, y: f32) -> kivact_types::Point {
+pub(crate) fn pt(x: f64, y: f64) -> kivact_types::Point {
     kivact_types::Point { x, y }
 }
 
@@ -158,8 +158,8 @@ impl FrameDiff {
 /// GPU test window of `width` × `height`, compared frame by frame. The
 /// caller skips when `arvane::test_display::gpu_unavailable` says so.
 pub(crate) fn gpu_against_cpu(
-    (width, height): (f32, f32),
-    frames: &[Vec<DrawCommand>],
+    (width, height): (f64, f64),
+    frames: &[Vec<RenderCmd>],
 ) -> Vec<FrameDiff> {
     let run = |gpu: bool| {
         let mut window = VirtualWindow::open(VirtualWindowOptions {
@@ -224,16 +224,16 @@ pub(crate) fn ink(window: &VirtualWindow) -> Option<((u32, u32, u32, u32), usize
 
 /// `text` shaped at `size` with the test font, its layout's origin at
 /// `origin`, as glyph runs.
-pub(crate) fn text_runs(text: &str, size: f32, origin: kivact_types::Point) -> Vec<DrawCommand> {
-    let style = kivact_types::protocol::TextStyle {
+pub(crate) fn text_runs(text: &str, size: f64, origin: kivact_types::Point) -> Vec<RenderCmd> {
+    let style = kivact_types::ComputedTextStyle {
         font_size: size,
-        ..kivact_types::protocol::TextStyle::default()
+        ..kivact_types::ComputedTextStyle::default()
     };
     let shaped = engine().shape(text, &style, None).expect("text shapes");
     shaped
         .runs
         .iter()
-        .map(|run| DrawCommand::Glyphs {
+        .map(|run| RenderCmd::Glyphs {
             run: std::sync::Arc::clone(run),
             origin,
             color: None,

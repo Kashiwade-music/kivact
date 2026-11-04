@@ -5,10 +5,11 @@
 
 use arvane_native::test_display::TestWindow;
 use arvane_shell::{
-    Accessibility, AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow,
+    Accessibility, AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow,
 };
-use kivact_types::protocol::{Environment, MouseSettings, SemanticsTree, SemanticsUpdate};
+use kivact_types::render::{SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Insets, Rect, Size};
+use kivact_types::{Environment, PointerSettings};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::num::NonZeroU64;
@@ -19,7 +20,7 @@ pub(super) struct VirtualShell {
     pub(super) now: u64,
     pub(super) size: Size,
     pub(super) requested_sizes: Vec<Size>,
-    pub(super) scale: f32,
+    pub(super) scale: f64,
     /// The display's refresh period (ns).
     pub(super) period: u64,
     pub(super) reduced_motion: bool,
@@ -130,7 +131,7 @@ impl ShellWindow for VirtualShell {
         self.effect_result()?;
         Ok(self.clipboard.clone())
     }
-    fn pick_file(&mut self, _: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_file(&mut self, _: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.effect_result()?;
         Ok(self
             .dialogs
@@ -138,11 +139,11 @@ impl ShellWindow for VirtualShell {
             .flatten()
             .and_then(|paths| paths.into_iter().next()))
     }
-    fn pick_files(&mut self, _: &ShellFileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
+    fn pick_files(&mut self, _: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
         self.effect_result()?;
         Ok(self.dialogs.pop_front().flatten())
     }
-    fn save_file(&mut self, _: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn save_file(&mut self, _: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.effect_result()?;
         Ok(self
             .dialogs
@@ -150,7 +151,7 @@ impl ShellWindow for VirtualShell {
             .flatten()
             .and_then(|paths| paths.into_iter().next()))
     }
-    fn pick_folder(&mut self, _: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_folder(&mut self, _: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         self.effect_result()?;
         Ok(self
             .dialogs
@@ -180,7 +181,7 @@ impl ShellWindow for VirtualShell {
     fn size(&self) -> Size {
         self.size
     }
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.scale
     }
     fn now_ns(&self) -> u64 {
@@ -211,19 +212,26 @@ impl ShellWindow for VirtualShell {
         self.min_size.set(size);
     }
     fn environment(&self) -> Environment {
-        let (double_click_ns, double_click_distance) = arvane_shell::DEFAULT_DOUBLE_CLICK;
+        let (double_click_ns, double_click_distance) = kivact_types::defaults::DOUBLE_CLICK;
         Environment {
-            scale: self.scale,
+            scale_factor: self.scale,
             frame_period_ns: self.period,
             reduced_motion: self.reduced_motion,
-            dark: self.dark,
+            theme_hint: if self.dark {
+                kivact_types::ThemeHint::Dark
+            } else {
+                kivact_types::ThemeHint::Light
+            },
             safe_area: self.safe_area,
-            mouse: MouseSettings {
+            pointer: PointerSettings {
                 double_click_ns,
                 double_click_distance,
-                ..MouseSettings::default()
+                ..PointerSettings::default()
             },
             locale: self.locale.clone(),
+            window_size: self.size(),
+            fullscreen: self.fullscreen.get(),
+            ..Default::default()
         }
     }
     fn set_fullscreen(&self, fullscreen: bool) -> Result<(), ShellError> {
@@ -310,7 +318,7 @@ impl ShellWindow for VirtualShell {
     }
 }
 
-pub(super) fn physical(size: Size, scale: f32) -> (u32, u32) {
-    let side = |v: f32| (v * scale).round().max(0.0) as u32;
+pub(super) fn physical(size: Size, scale: f64) -> (u32, u32) {
+    let side = |v: f64| (v * scale).round().max(0.0) as u32;
     (side(size.width), side(size.height))
 }

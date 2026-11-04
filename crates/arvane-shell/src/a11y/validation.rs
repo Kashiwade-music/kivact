@@ -17,7 +17,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use kivact_types::protocol::{SemanticsNode, SemanticsTree};
+use kivact_types::render::{SemanticsNode, SemanticsTree};
 
 use super::error::AccessibilityError;
 
@@ -31,17 +31,13 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
     }
     check_text(tree.nodes.iter(), |id| lookup.contains_key(&id))?;
     for node in &tree.nodes {
-        if let Some(active) = node.properties.as_ref().and_then(|p| p.active_descendant) {
+        if let Some(active) = node.semantics.active_descendant {
             if !lookup.contains_key(&active) {
                 return Err(AccessibilityError::MissingNode(active));
             }
             // The node's own subtree, or the subtree of a node it controls.
             let mut pending = node.children.clone();
-            pending.extend(
-                node.properties
-                    .iter()
-                    .flat_map(|p| p.controls.iter().copied()),
-            );
+            pending.extend(node.semantics.controls.iter().copied());
             let mut seen = HashSet::new();
             let mut found = false;
             while let Some(id) = pending.pop() {
@@ -62,7 +58,8 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
         }
     }
     for node in &tree.nodes {
-        if let Some(props) = &node.properties {
+        {
+            let props = &node.semantics;
             let targets = [&props.described_by, &props.controls, &props.labelled_by];
             if let Some(missing) = targets
                 .into_iter()
@@ -82,7 +79,7 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
         if !visited.insert(id) {
             return Err(AccessibilityError::InvalidTree(id));
         }
-        let hidden = ancestor_hidden || node.hidden;
+        let hidden = ancestor_hidden || node.semantics.hidden;
         if hidden {
             hidden_nodes.insert(id);
         }
@@ -96,7 +93,9 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
         let node = lookup
             .get(&focus)
             .ok_or(AccessibilityError::InvalidFocus(focus))?;
-        if hidden_nodes.contains(&focus) || node.disabled || (focus != tree.root && !node.focusable)
+        if hidden_nodes.contains(&focus)
+            || node.semantics.disabled
+            || (focus != tree.root && !node.semantics.focusable)
         {
             return Err(AccessibilityError::InvalidFocus(focus));
         }
@@ -111,12 +110,8 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
 /// Bounds are finite with a non-negative size, and the scroll offset and
 /// the transform are finite.
 pub(crate) fn check_values(node: &SemanticsNode) -> Result<(), AccessibilityError> {
-    if let Some(props) = &node.properties
-        && ([props.value_min, props.value_max, props.value_now]
-            .into_iter()
-            .flatten()
-            .any(|v| !v.is_finite())
-            || matches!((props.value_min, props.value_max), (Some(min), Some(max)) if min > max))
+    let props = &node.semantics;
+    if matches!((props.value_min, props.value_max), (Some(min), Some(max)) if min.get() > max.get())
     {
         return Err(AccessibilityError::InvalidProperties(node.id));
     }
@@ -139,7 +134,7 @@ pub(crate) fn check_values(node: &SemanticsNode) -> Result<(), AccessibilityErro
         t.f,
     ]
     .into_iter()
-    .all(f32::is_finite);
+    .all(f64::is_finite);
     if !finite || b.width < 0.0 || b.height < 0.0 {
         return Err(AccessibilityError::InvalidBounds(node.id));
     }
@@ -155,7 +150,7 @@ pub(super) fn check_text<'a>(
 ) -> Result<(), AccessibilityError> {
     let mut seen_runs = HashSet::new();
     for node in nodes {
-        let Some(text) = node.properties.as_ref().and_then(|p| p.text.as_ref()) else {
+        let Some(text) = node.semantics.text.as_ref() else {
             continue;
         };
         check_text_node(node)?;
@@ -181,9 +176,7 @@ pub(super) fn check_text<'a>(
 /// A text snapshot's own values: shown (not protected), with at least one
 /// run and a finite caret.
 pub(super) fn check_text_node(node: &SemanticsNode) -> Result<(), AccessibilityError> {
-    let Some(props) = &node.properties else {
-        return Ok(());
-    };
+    let props = &node.semantics;
     let Some(text) = &props.text else {
         return Ok(());
     };
@@ -243,7 +236,7 @@ fn text_bounds(rect: kivact_types::Rect) -> bool {
         rect.bottom(),
     ]
     .into_iter()
-    .all(f32::is_finite)
+    .all(f64::is_finite)
         && rect.width >= 0.0
         && rect.height >= 0.0
 }

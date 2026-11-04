@@ -48,7 +48,7 @@
 
 use crate::a11y::native::NativeAccessibility;
 use crate::cpu::CpuSurface;
-use crate::key_code::{map_key, physical_code, physical_letter};
+use crate::key_code::{map_key, physical_code};
 use crate::native_input::state::NativeInput;
 use crate::services::Services;
 use arvane_shell::ShellImeText;
@@ -122,21 +122,21 @@ impl ShellWindow for WinitWindow {
     /// Show a window-parented file picker; cancellation returns None.
     fn pick_file(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError> {
         Services::pick_file(&self.window, request)
     }
     /// Show a window-parented multiple-file dialog; cancellation returns None.
     fn pick_files(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<Vec<std::path::PathBuf>>, ShellError> {
         Services::pick_files(&self.window, request)
     }
     /// Show a window-parented save dialog; cancellation returns None.
     fn save_file(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError> {
         Services::save_file(&self.window, request)
     }
@@ -144,7 +144,7 @@ impl ShellWindow for WinitWindow {
     /// The request's file name and filters do not apply to a folder.
     fn pick_folder(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError> {
         Services::pick_folder(&self.window, request)
     }
@@ -197,7 +197,7 @@ impl ShellWindow for WinitWindow {
     /// rejected tree keeps the accepted one.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::protocol::SemanticsTree,
+        tree: &kivact_types::render::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.replace(tree)
     }
@@ -209,7 +209,7 @@ impl ShellWindow for WinitWindow {
     /// tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::protocol::SemanticsUpdate,
+        update: &kivact_types::render::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.update(update)
     }
@@ -227,7 +227,7 @@ impl ShellWindow for WinitWindow {
         let s = self
             .window
             .inner_size()
-            .to_logical::<f32>(self.window.scale_factor());
+            .to_logical::<f64>(self.window.scale_factor());
         Size {
             width: s.width,
             height: s.height,
@@ -239,8 +239,8 @@ impl ShellWindow for WinitWindow {
         (s.width, s.height)
     }
     /// Physical pixels per logical pixel.
-    fn scale(&self) -> f32 {
-        self.window.scale_factor() as f32
+    fn scale(&self) -> f64 {
+        self.window.scale_factor() as f64
     }
     /// Monotonic clock from loop creation.
     fn now_ns(&self) -> u64 {
@@ -301,22 +301,30 @@ impl ShellWindow for WinitWindow {
     /// mouse settings and the system's locale. A change arrives as
     /// [`ShellEvent::EnvironmentChanged`] (the scale's as
     /// [`ShellEvent::Resized`]).
-    fn environment(&self) -> kivact_types::protocol::Environment {
+    fn environment(&self) -> kivact_types::Environment {
         let (double_click_ns, double_click_distance) = self.double_click();
         let mouse = self.input.mouse.get();
-        kivact_types::protocol::Environment {
-            scale: self.scale(),
+        kivact_types::Environment {
+            scale_factor: self.scale(),
             frame_period_ns: self.frame_period_ns,
             reduced_motion: self.reduced_motion(),
-            dark: self.window.theme() == Some(winit::window::Theme::Dark),
+            theme_hint: if self.window.theme() == Some(winit::window::Theme::Dark) {
+                kivact_types::ThemeHint::Dark
+            } else {
+                kivact_types::ThemeHint::Light
+            },
             safe_area: kivact_types::Insets::default(),
-            mouse: kivact_types::protocol::MouseSettings {
+            pointer: kivact_types::PointerSettings {
                 double_click_ns,
                 double_click_distance,
                 wheel_lines: mouse.wheel_lines,
                 wheel_chars: mouse.wheel_chars,
+                ..mouse
             },
+            window_size: self.size(),
+            fullscreen: self.fullscreen(),
             locale: self.input.locale.borrow().clone(),
+            ..Default::default()
         }
     }
 
@@ -391,7 +399,7 @@ impl ShellWindow for WinitWindow {
     /// monitor's reported rate, a whole-hertz report read as the common
     /// rate it was rounded down from (Windows reports a 60 Hz mode as
     /// 59 Hz). An unknown or implausible report keeps the last period
-    /// ([`arvane_shell::DEFAULT_FRAME_PERIOD_NS`] before any). A move to another
+    /// ([`kivact_types::defaults::FRAME_PERIOD_NS`] before any). A move to another
     /// monitor is announced as [`ShellEvent::EnvironmentChanged`].
     fn frame_period_ns(&self) -> u64 {
         self.frame_period_ns
@@ -423,8 +431,8 @@ impl ShellWindow for WinitWindow {
 /// A physical client position in logical pixels.
 fn logical((x, y): (f64, f64), scale: f64) -> Point {
     Point {
-        x: (x / scale) as f32,
-        y: (y / scale) as f32,
+        x: (x / scale) as f64,
+        y: (y / scale) as f64,
     }
 }
 
@@ -522,7 +530,7 @@ struct Runner<'a> {
     /// and leave messages do not carry.
     mouse: arvane_shell::Mouse,
     /// Shift is held (a vertical wheel then scrolls horizontally).
-    shift: bool,
+    modifiers: ShellModifiers,
     dnd: Dnd,
     /// Counts the presses of the pointer events delivered.
     clicks: arvane_shell::ClickCounter,
@@ -544,11 +552,11 @@ impl Runner<'_> {
                 if let Some(position) = self.file_position().or(at) {
                     self.input(
                         el,
-                        ShellEvent::File {
+                        ShellEvent::File(kivact_types::FileDrop {
                             phase: arvane_shell::FilePhase::Drop,
                             files,
                             position,
-                        },
+                        }),
                     );
                 }
             }
@@ -565,13 +573,16 @@ impl Runner<'_> {
                 let (x, y) = self.cursor?;
                 let scale = self.run.live_ref().map_or(1.0, |w| w.window.scale_factor());
                 Some(kivact_types::Point {
-                    x: (x / scale) as f32,
-                    y: (y / scale) as f32,
+                    x: (x / scale) as f64,
+                    y: (y / scale) as f64,
                 })
             })
     }
     /// Deliver a window's input event, its presses counted.
     fn input(&mut self, el: &ActiveEventLoop, mut event: ShellEvent) {
+        if let ShellEvent::Pointer(sample) = &mut event {
+            sample.modifiers = self.modifiers;
+        }
         if let Some(window) = self.run.live_ref() {
             self.clicks
                 .count(&mut event, || window.now_ns(), || window.double_click());
@@ -657,7 +668,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                 .set(crate::native_input::reduced_motion());
             input
                 .mouse
-                .set(crate::native_input::state::MouseSettings::read());
+                .set(crate::native_input::pointer_settings(window.scale_factor()));
             input
                 .locale
                 .replace(crate::native_input::locale::system_locale());
@@ -677,7 +688,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                 accessibility,
                 services: Services::default(),
                 monitor,
-                frame_period_ns: arvane_shell::DEFAULT_FRAME_PERIOD_NS,
+                frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             };
             window.read_frame_period();
             Ok::<_, ShellError>(window)
@@ -723,11 +734,11 @@ impl ApplicationHandler<()> for Runner<'_> {
             let files = files.clone();
             self.input(
                 el,
-                ShellEvent::File {
+                ShellEvent::File(kivact_types::FileDrop {
                     phase: arvane_shell::FilePhase::Over,
                     files,
                     position,
-                },
+                }),
             );
         }
         let environment = self
@@ -774,11 +785,9 @@ impl ApplicationHandler<()> for Runner<'_> {
         match &event {
             // A range the IME took for reconversion.
             WindowEvent::Ime(_) => {
-                before = window
-                    .input
-                    .reconvert
-                    .take()
-                    .map(|(start, end)| ShellEvent::ImeSelection { start, end });
+                before = window.input.reconvert.take().map(|(start, end)| {
+                    ShellEvent::Ime(kivact_types::ImeInput::Selection(start..end))
+                });
             }
             // winit reports buttons and wheels without a position: the
             // message's own, when it differs from the last move (a move
@@ -860,11 +869,11 @@ impl ApplicationHandler<()> for Runner<'_> {
                 match &mut self.dnd {
                     Dnd::Hovering { files, at: last } => {
                         *last = Some(at);
-                        Some(ShellEvent::File {
+                        Some(ShellEvent::File(kivact_types::FileDrop {
                             phase: arvane_shell::FilePhase::Over,
                             files: files.clone(),
                             position: at,
-                        })
+                        }))
                     }
                     Dnd::Idle | Dnd::Dropped { .. } => self
                         .mouse
@@ -894,22 +903,33 @@ impl ApplicationHandler<()> for Runner<'_> {
             WindowEvent::MouseWheel { delta, .. } => {
                 let (x, y) = match delta {
                     MouseScrollDelta::LineDelta(x, y) => crate::wheel::lines(
-                        x,
-                        y,
-                        self.shift,
+                        f64::from(x),
+                        f64::from(y),
+                        self.modifiers.shift,
                         height,
                         mouse.wheel_lines,
                         mouse.wheel_chars,
                     ),
                     MouseScrollDelta::PixelDelta(p) => {
-                        ((-p.x / scale) as f32, (-p.y / scale) as f32)
+                        ((-p.x / scale) as f64, (-p.y / scale) as f64)
                     }
                 };
-                Some(ShellEvent::Wheel { x, y })
+                self.mouse.position().map(|position| {
+                    ShellEvent::Wheel(kivact_types::WheelInput {
+                        delta: kivact_types::Point { x, y },
+                        position,
+                        modifiers: self.modifiers,
+                    })
+                })
             }
             WindowEvent::ModifiersChanged(m) => {
                 let m = m.state();
-                self.shift = m.shift_key();
+                self.modifiers = ShellModifiers {
+                    shift: m.shift_key(),
+                    ctrl: m.control_key(),
+                    alt: m.alt_key(),
+                    meta: m.super_key(),
+                };
                 Some(ShellEvent::Modifiers(ShellModifiers {
                     shift: m.shift_key(),
                     ctrl: m.control_key(),
@@ -918,18 +938,26 @@ impl ApplicationHandler<()> for Runner<'_> {
                 }))
             }
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Released => {
-                Some(ShellEvent::KeyUp {
+                Some(ShellEvent::Key(kivact_types::KeyInput {
                     key: map_key(&event.logical_key),
                     code: physical_code(event.physical_key),
-                })
+                    phase: kivact_types::KeyPhase::Up,
+                    modifiers: self.modifiers,
+                    pointer: self.mouse.window_position(),
+                }))
             }
-            WindowEvent::KeyboardInput { event, .. } => Some(ShellEvent::Key {
-                key: map_key(&event.logical_key),
-                physical: physical_letter(event.physical_key),
-                code: physical_code(event.physical_key),
-                repeat: event.repeat,
-                text: event.text.map(|s| s.to_string()),
-            }),
+            WindowEvent::KeyboardInput { event, .. } => {
+                Some(ShellEvent::Key(kivact_types::KeyInput {
+                    key: map_key(&event.logical_key),
+                    code: physical_code(event.physical_key),
+                    phase: kivact_types::KeyPhase::Down {
+                        repeat: event.repeat,
+                        text: event.text.map(|s| s.to_string()),
+                    },
+                    modifiers: self.modifiers,
+                    pointer: self.mouse.window_position(),
+                }))
+            }
             WindowEvent::HoveredFile(path) => {
                 if matches!(self.dnd, Dnd::Dropped { .. }) {
                     self.deliver_drop(el);
@@ -953,10 +981,12 @@ impl ApplicationHandler<()> for Runner<'_> {
                     files: files.clone(),
                     at,
                 };
-                at.map(|position| ShellEvent::File {
-                    phase,
-                    files,
-                    position,
+                at.map(|position| {
+                    ShellEvent::File(kivact_types::FileDrop {
+                        phase,
+                        files,
+                        position,
+                    })
                 })
             }
             WindowEvent::HoveredFileCancelled => {
@@ -965,13 +995,13 @@ impl ApplicationHandler<()> for Runner<'_> {
                         if let Some(window) = self.run.live_ref() {
                             crate::native_input::track_files(&window.window, false);
                         }
-                        self.file_position()
-                            .or(at)
-                            .map(|position| ShellEvent::File {
+                        self.file_position().or(at).map(|position| {
+                            ShellEvent::File(kivact_types::FileDrop {
                                 phase: arvane_shell::FilePhase::Leave,
                                 files,
                                 position,
                             })
+                        })
                     }
                     other => {
                         self.dnd = other;
@@ -1000,10 +1030,15 @@ impl ApplicationHandler<()> for Runner<'_> {
                 None
             }
             WindowEvent::Ime(Ime::Preedit(text, selection)) => {
-                Some(ShellEvent::Preedit { text, selection })
+                Some(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
+                    text,
+                    selection: (selection).map(|(start, end)| start..end),
+                }))
             }
-            WindowEvent::Ime(Ime::Commit(text)) => Some(ShellEvent::Commit(text)),
-            WindowEvent::Ime(Ime::Disabled) => Some(ShellEvent::ImeDisabled),
+            WindowEvent::Ime(Ime::Commit(text)) => {
+                Some(ShellEvent::Ime(kivact_types::ImeInput::Commit(text)))
+            }
+            WindowEvent::Ime(Ime::Disabled) => Some(ShellEvent::Ime(kivact_types::ImeInput::End)),
             WindowEvent::ThemeChanged(_) => Some(ShellEvent::EnvironmentChanged),
             _ => None,
         };
@@ -1028,16 +1063,11 @@ impl WinitWindow {
     /// How close in time (ns) and space (logical pixels per axis) a second
     /// press of a button counts as a double click: the system's setting
     /// (Windows' defaults elsewhere: 500 ms, 4 pixels), read at each press.
-    fn double_click(&self) -> (u64, (f32, f32)) {
-        let mouse = self.input.mouse.get();
-        let scale = self.window.scale_factor();
-        let logical = |px: u32| (f64::from(px) / scale) as f32;
+    fn double_click(&self) -> (u64, (f64, f64)) {
+        let mouse = crate::native_input::pointer_settings(self.scale());
         (
-            u64::from(mouse.double_click_ms) * 1_000_000,
-            (
-                logical(mouse.double_click_px.0),
-                logical(mouse.double_click_px.1),
-            ),
+            mouse.double_click_ns,
+            (mouse.double_click_distance.0, mouse.double_click_distance.1),
         )
     }
     /// Read the display's refresh period again (created, or moved to
@@ -1065,7 +1095,7 @@ impl ShellEventLoop for Shell {
             cursor: None,
             mouse: arvane_shell::Mouse::default(),
             dnd: Dnd::Idle,
-            shift: false,
+            modifiers: ShellModifiers::default(),
             clicks: arvane_shell::ClickCounter::default(),
             contacts: arvane_shell::Contacts::default(),
         };

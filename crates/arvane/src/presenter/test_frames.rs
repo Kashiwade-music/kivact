@@ -4,24 +4,24 @@ use super::frame::Presented;
 #[cfg(feature = "gpu")]
 use super::frame_policy::make_surface;
 use super::frame_policy::{Drawn, Presenter};
-use crate::error::{self, Error, ErrorKind};
+use crate::error::{self, Failure, FailureKind};
 use crate::presentation::Renderer;
 use arvane_shell::ShellWindow;
 use kivact_types::Size;
-use kivact_types::protocol::CpuFrame;
-use kivact_types::protocol::Scene;
+use kivact_types::render::CpuFrame;
+use kivact_types::render::RenderScene;
 use std::time::{Duration, Instant};
 
 impl Presenter {
     /// Create the GPU renderer now, on this thread (test windows). Fails
-    /// with [`ErrorKind::Unavailable`] when no hardware adapter exists or
+    /// with [`FailureKind::Unavailable`] when no hardware adapter exists or
     /// GPU support is not built in.
-    pub(crate) fn enable_gpu(&mut self) -> Result<(), Error> {
+    pub(crate) fn enable_gpu(&mut self) -> Result<(), Failure> {
         #[cfg(feature = "gpu")]
         return self.gpu.enable(&mut self.notes);
         #[cfg(not(feature = "gpu"))]
-        Err(Error::with(
-            ErrorKind::Unavailable,
+        Err(Failure::new(
+            FailureKind::Unavailable,
             "Arvane was built without GPU support (feature `gpu`)",
         ))
     }
@@ -41,10 +41,10 @@ impl Presenter {
     /// `None`: the window is hidden), or its surface failed.
     pub(crate) fn refused(
         &mut self,
-        failure: Option<Error>,
+        failure: Option<Failure>,
         now_ns: u64,
         period_ns: u64,
-    ) -> Result<Presented, Error> {
+    ) -> Result<Presented, Failure> {
         let drawn = match failure {
             None => Ok(Drawn {
                 renderer: Renderer::Cpu,
@@ -67,11 +67,11 @@ impl Presenter {
         &mut self,
         window: &mut dyn ShellWindow,
         native_gpu_surface: bool,
-        scene: &Scene,
+        scene: &RenderScene,
         plan: crate::FramePlan,
         physical: (u32, u32),
         (now_ns, period_ns): (u64, u64),
-    ) -> Result<(Presented, Option<(CpuFrame, Renderer)>), Error> {
+    ) -> Result<(Presented, Option<(CpuFrame, Renderer)>), Failure> {
         let drawn = match native_gpu_surface {
             true => self.present_test_window(window, scene, plan.size, plan.scale, physical),
             false => {
@@ -84,7 +84,7 @@ impl Presenter {
                                 buffer.copy_from_slice(&pixels);
                                 true
                             })
-                            .map_err(|e| Error::with(ErrorKind::Surface, e.to_string()));
+                            .map_err(|e| Failure::new(FailureKind::Surface, e.to_string()));
                         shown.map(|shown| {
                             let drawn = Drawn {
                                 renderer: self.renderer(),
@@ -114,7 +114,7 @@ impl Presenter {
     /// Rasterize a display list at the requested physical scale: on the
     /// GPU (read back) once enabled, else on the CPU. A GPU device failure
     /// draws the frame on the CPU.
-    fn render(&mut self, scene: &Scene, size: Size, scale: f32) -> Result<CpuFrame, Error> {
+    fn render(&mut self, scene: &RenderScene, size: Size, scale: f64) -> Result<CpuFrame, Failure> {
         #[cfg(feature = "gpu")]
         if let Some(rendered) = self.gpu.render(scene, size, scale) {
             match rendered {
@@ -128,15 +128,15 @@ impl Presenter {
     /// Present `scene` to the test window `window` through a GPU surface
     /// (the test display stops drawing the frames handed to that window)
     /// and read the frame back. Needs [`Presenter::enable_gpu`]; fails
-    /// with [`ErrorKind::Unavailable`] without it.
+    /// with [`FailureKind::Unavailable`] without it.
     fn present_test_window(
         &mut self,
         window: &mut dyn ShellWindow,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
         physical: (u32, u32),
-    ) -> Result<(Drawn, CpuFrame), Error> {
+    ) -> Result<(Drawn, CpuFrame), Failure> {
         #[cfg(feature = "gpu")]
         if self.gpu.ready() {
             window.release_cpu_surface();
@@ -147,14 +147,14 @@ impl Presenter {
                 Some(Ok(presented)) => presented,
                 Some(Err(e)) => {
                     self.gpu_failed(e)?;
-                    return Err(Error::with(ErrorKind::Backend, "the GPU frame failed"));
+                    return Err(Failure::new(FailureKind::Backend, "the GPU frame failed"));
                 }
-                None => return Err(Error::with(ErrorKind::Backend, "the GPU device failed")),
+                None => return Err(Failure::new(FailureKind::Backend, "the GPU device failed")),
             };
             let frame = self
                 .gpu
                 .read_back()
-                .ok_or_else(|| Error::with(ErrorKind::Backend, "the GPU device failed"))?
+                .ok_or_else(|| Failure::new(FailureKind::Backend, "the GPU device failed"))?
                 .map_err(error::render)?;
             let drawn = Drawn {
                 renderer: Renderer::Gpu,
@@ -165,8 +165,8 @@ impl Presenter {
             return Ok((drawn, frame));
         }
         let _ = (window, scene, size, scale, physical);
-        Err(Error::with(
-            ErrorKind::Unavailable,
+        Err(Failure::new(
+            FailureKind::Unavailable,
             "the GPU renderer is not enabled",
         ))
     }
@@ -175,7 +175,7 @@ impl Presenter {
 /// The 0x00RRGGBB pixels of a `width` × `height` window showing `frame`,
 /// enlarging a frame drawn at a reduced scale by nearest neighbor.
 pub(crate) fn surface_pixels(
-    frame: &kivact_types::protocol::CpuFrame,
+    frame: &kivact_types::render::CpuFrame,
     width: u32,
     height: u32,
 ) -> Vec<u32> {

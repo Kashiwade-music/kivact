@@ -15,10 +15,12 @@ pub(super) fn accept(tree: &AcceptedTree, node: u64, request: A11yRequest) -> Op
     let id = SemanticsId(node);
     let target = tree.node(id)?;
     let action = normalized(request.action());
-    let supported = (action == A11yAction::Focus && target.focusable)
+    let supported = (action == A11yAction::Focus && target.semantics.focusable)
         || target
+            .semantics
             .actions
             .iter()
+            .flatten()
             .any(|offered| normalized(*offered) == action);
     if !supported {
         return None;
@@ -26,7 +28,7 @@ pub(super) fn accept(tree: &AcceptedTree, node: u64, request: A11yRequest) -> Op
     let mut at = Some(id);
     while let Some(id) = at {
         let node = tree.node(id)?;
-        if node.hidden || node.disabled {
+        if node.semantics.hidden || node.semantics.disabled {
             return None;
         }
         at = tree.parent(id);

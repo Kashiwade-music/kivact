@@ -40,8 +40,8 @@ impl Input {
         let scale = window.scale;
         let point = |x: i16, y: i16| {
             Some(Point {
-                x: x as f32 / scale,
-                y: y as f32 / scale,
+                x: x as f64 / scale,
+                y: y as f64 / scale,
             })
         };
         match event {
@@ -93,7 +93,7 @@ impl Input {
                     {
                         out.push(ShellEvent::Pointer(event));
                     }
-                    let settings = kivact_types::protocol::MouseSettings::default();
+                    let settings = kivact_types::PointerSettings::default();
                     let (x, y) = crate::wheel::lines(
                         x,
                         y,
@@ -102,7 +102,13 @@ impl Input {
                         settings.wheel_lines,
                         settings.wheel_chars,
                     );
-                    out.push(ShellEvent::Wheel { x, y });
+                    if let Some(position) = self.mouse.position() {
+                        out.push(ShellEvent::Wheel(kivact_types::WheelInput {
+                            delta: kivact_types::Point { x, y },
+                            position,
+                            modifiers: self.keyboard.modifiers(),
+                        }));
+                    }
                 } else if let Some(button) = button(e.detail) {
                     // Wheel buttons must not move keyboard focus; only real buttons do.
                     window
@@ -163,8 +169,14 @@ impl Input {
         }
         let now = window.now_ns();
         for event in &mut out {
+            if let ShellEvent::Pointer(sample) = event {
+                sample.modifiers = self.keyboard.modifiers();
+            }
+            if let ShellEvent::Key(key) = event {
+                key.pointer = self.mouse.window_position();
+            }
             self.clicks
-                .count(event, || now, || arvane_shell::DEFAULT_DOUBLE_CLICK);
+                .count(event, || now, || kivact_types::defaults::DOUBLE_CLICK);
         }
         Ok(out)
     }

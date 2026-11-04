@@ -142,7 +142,7 @@ impl Keyboard {
         };
     }
 
-    fn modifiers(&self) -> Modifiers {
+    pub(super) fn modifiers(&self) -> Modifiers {
         Modifiers {
             shift: self.active(c"Shift"),
             ctrl: self.active(c"Control"),
@@ -208,15 +208,21 @@ impl Keyboard {
         let modifiers = self.modifiers();
         self.modifiers = modifiers;
         let event = if down {
-            ShellEvent::Key {
+            ShellEvent::Key(kivact_types::KeyInput {
                 key,
-                physical: letter(code),
                 code,
-                repeat,
-                text,
-            }
+                phase: kivact_types::KeyPhase::Down { repeat, text },
+                modifiers,
+                pointer: None,
+            })
         } else {
-            ShellEvent::KeyUp { key, code }
+            ShellEvent::Key(kivact_types::KeyInput {
+                key,
+                code,
+                phase: kivact_types::KeyPhase::Up,
+                modifiers,
+                pointer: None,
+            })
         };
         vec![ShellEvent::Modifiers(modifiers), event]
     }
@@ -330,39 +336,6 @@ fn logical(sym: u32, scalar: u32) -> Key {
             .filter(|c| !c.is_control())
             .map_or(Key::Unidentified, Key::Char),
     }
-}
-
-fn letter(code: KeyCode) -> Option<char> {
-    use KeyCode::*;
-    Some(match code {
-        KeyA => 'a',
-        KeyB => 'b',
-        KeyC => 'c',
-        KeyD => 'd',
-        KeyE => 'e',
-        KeyF => 'f',
-        KeyG => 'g',
-        KeyH => 'h',
-        KeyI => 'i',
-        KeyJ => 'j',
-        KeyK => 'k',
-        KeyL => 'l',
-        KeyM => 'm',
-        KeyN => 'n',
-        KeyO => 'o',
-        KeyP => 'p',
-        KeyQ => 'q',
-        KeyR => 'r',
-        KeyS => 's',
-        KeyT => 't',
-        KeyU => 'u',
-        KeyV => 'v',
-        KeyW => 'w',
-        KeyX => 'x',
-        KeyY => 'y',
-        KeyZ => 'z',
-        _ => return None,
-    })
 }
 
 // Xorg's evdev keycodes are Linux input keycodes plus eight; these identify

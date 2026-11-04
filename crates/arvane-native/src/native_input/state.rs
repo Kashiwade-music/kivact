@@ -4,29 +4,7 @@ use std::cell::{Cell, RefCell};
 
 use arvane_shell::ShellImeText;
 
-/// The system's mouse settings: how close in time (ms) and space
-/// (physical pixels per axis) a second press counts as a double click, and
-/// how many lines (characters with Shift) one notch of the wheel scrolls.
-/// Windows reads them from the system and again when they change; the
-/// defaults are Windows' own.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct MouseSettings {
-    pub(crate) double_click_ms: u32,
-    pub(crate) double_click_px: (u32, u32),
-    pub(crate) wheel_lines: u32,
-    pub(crate) wheel_chars: u32,
-}
-
-impl Default for MouseSettings {
-    fn default() -> Self {
-        MouseSettings {
-            double_click_ms: 500,
-            double_click_px: (4, 4),
-            wheel_lines: 3,
-            wheel_chars: 3,
-        }
-    }
-}
+use kivact_types::PointerSettings;
 
 /// What the window's subclass shares with the window and the runner.
 #[derive(Debug, Default)]
@@ -35,7 +13,7 @@ pub(crate) struct NativeInput {
     pub(crate) text: RefCell<Option<ShellImeText>>,
     /// Physical pixels per logical pixel of the window.
     pub(crate) scale: Cell<f64>,
-    /// A range of `text` the IME took for reconversion (UTF-16), not
+    /// A range of `text` the IME took for reconversion (snapshot-relative UTF-8 bytes), not
     /// delivered yet.
     pub(crate) reconvert: Cell<Option<(usize, usize)>>,
     /// The client position (physical pixels) of the last button or wheel
@@ -49,7 +27,7 @@ pub(crate) struct NativeInput {
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
     /// The system's mouse settings as last read.
-    pub(crate) mouse: Cell<MouseSettings>,
+    pub(crate) mouse: Cell<PointerSettings>,
     /// The system's locale as last read (`system_locale`).
     pub(crate) locale: RefCell<Option<String>>,
     /// The reduce-motion preference, the mouse settings or the locale
@@ -76,5 +54,5 @@ pub(crate) struct ContactNote {
     /// The contact ended without a release (the system took it over).
     pub(crate) canceled: bool,
     /// The pen's tilt (degrees along x and y), when reported.
-    pub(crate) tilt: Option<(f32, f32)>,
+    pub(crate) tilt: Option<(f64, f64)>,
 }

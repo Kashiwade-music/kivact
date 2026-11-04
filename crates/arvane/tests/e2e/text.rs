@@ -5,14 +5,15 @@
 //! space alone never wraps, and bad input is classified.
 
 use kivact_types::Size;
-use kivact_types::protocol::{InlineBox, TextStyle, TextWrap};
+use kivact_types::render::InlineBox;
+use kivact_types::{ComputedTextStyle, TextWrap};
 
 use crate::support::engine;
 
-fn style(font_size: f32) -> TextStyle {
-    TextStyle {
+fn style(font_size: f64) -> ComputedTextStyle {
+    ComputedTextStyle {
         font_size,
-        ..TextStyle::default()
+        ..ComputedTextStyle::default()
     }
 }
 
@@ -95,7 +96,7 @@ fn another_width_wraps_the_same_text_again() {
         line
     );
     // No wrapping keeps one line whatever the width.
-    let nowrap = TextStyle {
+    let nowrap = ComputedTextStyle {
         wrap: TextWrap::NoWrap,
         ..style
     };
@@ -112,7 +113,7 @@ fn an_unknown_family_falls_back_to_the_fonts_there_are() {
     let unknown = engine
         .shape(
             "Fallback",
-            &TextStyle {
+            &ComputedTextStyle {
                 family: Some("No Such Family".into()),
                 ..style(16.0)
             },

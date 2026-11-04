@@ -15,14 +15,14 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use kivact_types::protocol::SemanticsNode;
+use kivact_types::render::SemanticsNode;
 use kivact_types::{SemanticsId, SemanticsText, SemanticsTextRun};
 
 use super::error::AccessibilityError;
 use super::validation::{check_run, check_selection, check_text_node};
 
 fn text(node: &SemanticsNode) -> Option<&SemanticsText> {
-    node.properties.as_ref()?.text.as_ref()
+    node.semantics.text.as_ref()
 }
 
 /// The runs of a node's text (none without one).

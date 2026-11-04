@@ -5,40 +5,48 @@
 //! it.
 
 use arvane::{ShellEvent, Window as _};
-use kivact_types::protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate, Transform};
+use kivact_types::Transform;
+use kivact_types::render::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 use kivact_types::{A11yAction, A11yRequest, DismissReason, Point, Role, SemanticsId};
 
 use crate::support::{open, rect};
 
 fn node(id: u64, role: Role, children: &[u64]) -> SemanticsNode {
     SemanticsNode {
-        properties: None,
         id: SemanticsId(id),
-        role,
         children: children.iter().copied().map(SemanticsId).collect(),
-        label: format!("node {id}"),
-        description: String::new(),
-        value: None,
         bounds: rect(0.0, 0.0, 10.0, 10.0),
         scroll: Point::default(),
         transform: Transform::IDENTITY,
-        disabled: false,
-        hidden: false,
-        focusable: false,
-        checked: None,
-        selected: false,
-        expanded: None,
-        test_id: None,
-        actions: Vec::new(),
+        semantics: kivact_types::Semantics {
+            role: Some(role),
+            name: Some(format!("node {id}")),
+            description: Some(String::new()),
+            value_text: None,
+            disabled: false,
+            hidden: false,
+            focusable: false,
+            checked: None,
+            selected: Some(false),
+            expanded: None,
+            test_id: None,
+            actions: Some(Vec::new()),
+            ..Default::default()
+        },
     }
 }
 
 fn button(id: u64) -> SemanticsNode {
-    SemanticsNode {
-        properties: None,
-        focusable: true,
-        actions: vec![A11yAction::Activate],
-        ..node(id, Role::Button, &[])
+    {
+        let base = node(id, Role::Button, &[]);
+        SemanticsNode {
+            semantics: kivact_types::Semantics {
+                focusable: true,
+                actions: Some(vec![A11yAction::Activate]),
+                ..base.semantics
+            },
+            ..base
+        }
     }
 }
 
@@ -72,10 +80,15 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
         root: SemanticsId(1),
         focus: Some(SemanticsId(6)),
         nodes: vec![
-            SemanticsNode {
-                properties: None,
-                label: "renamed".into(),
-                ..button(4)
+            {
+                let base = button(4);
+                SemanticsNode {
+                    semantics: kivact_types::Semantics {
+                        name: Some("renamed".into()),
+                        ..base.semantics
+                    },
+                    ..base
+                }
             },
             node(2, Role::Group, &[3, 4, 6]),
             button(6),
@@ -91,7 +104,7 @@ fn a_replaced_tree_takes_updates_of_the_nodes_that_changed() {
         [1, 2, 3, 4, 6, 5],
         "parents before children"
     );
-    assert_eq!(accepted.nodes[3].label, "renamed");
+    assert_eq!(accepted.nodes[3].semantics.name.as_deref(), Some("renamed"));
     // Dropping the group from the root takes its subtree with it.
     window
         .update_accessibility(&SemanticsUpdate {
@@ -113,14 +126,19 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
         "no tree yet"
     );
     let mut tree = tree();
-    tree.nodes.push(SemanticsNode {
-        properties: None,
-        actions: vec![
-            A11yAction::Toggle,
-            A11yAction::SetValue,
-            A11yAction::Dismiss,
-        ],
-        ..node(6, Role::CheckBox, &[])
+    tree.nodes.push({
+        let base = node(6, Role::CheckBox, &[]);
+        SemanticsNode {
+            semantics: kivact_types::Semantics {
+                actions: Some(vec![
+                    A11yAction::Toggle,
+                    A11yAction::SetValue,
+                    A11yAction::Dismiss,
+                ]),
+                ..base.semantics
+            },
+            ..base
+        }
     });
     tree.nodes[0].children.push(SemanticsId(6));
     window.replace_accessibility(&tree).expect("a valid tree");
@@ -153,15 +171,25 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
     assert_eq!(request(42, A11yRequest::Activate), None);
     // A disabled or hidden ancestor drops the request.
     for change in [
-        SemanticsNode {
-            properties: None,
-            disabled: true,
-            ..node(2, Role::Group, &[3, 4])
+        {
+            let base = node(2, Role::Group, &[3, 4]);
+            SemanticsNode {
+                semantics: kivact_types::Semantics {
+                    disabled: true,
+                    ..base.semantics
+                },
+                ..base
+            }
         },
-        SemanticsNode {
-            properties: None,
-            hidden: true,
-            ..node(2, Role::Group, &[3, 4])
+        {
+            let base = node(2, Role::Group, &[3, 4]);
+            SemanticsNode {
+                semantics: kivact_types::Semantics {
+                    hidden: true,
+                    ..base.semantics
+                },
+                ..base
+            }
         },
     ] {
         window.replace_accessibility(&tree).expect("a valid tree");
@@ -185,10 +213,15 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
         .update_accessibility(&SemanticsUpdate {
             root: SemanticsId(1),
             focus: None,
-            nodes: vec![SemanticsNode {
-                properties: None,
-                disabled: true,
-                ..tree.nodes[5].clone()
+            nodes: vec![{
+                let base = tree.nodes[5].clone();
+                SemanticsNode {
+                    semantics: kivact_types::Semantics {
+                        disabled: true,
+                        ..base.semantics
+                    },
+                    ..base
+                }
             }],
         })
         .expect("a valid update");
