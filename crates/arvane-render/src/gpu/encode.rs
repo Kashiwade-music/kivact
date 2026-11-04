@@ -51,7 +51,7 @@
 //!   texel (vello_hybrid clamps first), where an image samples the last
 //!   texel alone. Drawn at its own size, a frame's pixels are exact.
 
-use super::external::External;
+use super::external::Frame;
 use super::state::{AtlasImage, GpuContext, GpuImage, Images};
 use crate::draw;
 use crate::error::RenderError;
@@ -100,6 +100,7 @@ impl GpuContext {
         size: (u32, u32),
         info: &SceneInfo,
         opaque: bool,
+        external: &Frame,
     ) {
         let Self {
             scene,
@@ -109,7 +110,6 @@ impl GpuContext {
             queue,
             images,
             caches,
-            external,
             ..
         } = self;
         record(
@@ -141,7 +141,7 @@ impl GpuContext {
         scale: f64,
         size: (u32, u32),
         info: &SceneInfo,
-        opaque: bool,
+        external: &Frame,
         alongside: impl FnOnce(&wgpu::Device, &wgpu::Adapter) -> R + Send,
     ) -> R {
         let Self {
@@ -153,7 +153,6 @@ impl GpuContext {
             images,
             caches,
             adapter,
-            external,
             ..
         } = self;
         let (device, adapter) = (&*device, &*adapter);
@@ -174,7 +173,7 @@ impl GpuContext {
                 scale,
                 size,
                 info,
-                opaque,
+                true,
             );
             side.join()
                 .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
@@ -191,7 +190,7 @@ struct Recorder<'a> {
     queue: &'a wgpu::Queue,
     images: &'a mut Images,
     caches: &'a mut draw::Caches,
-    external: &'a External,
+    external: &'a Frame,
 }
 
 /// Record `source` into the scene (see [`GpuContext::encode`]).
@@ -264,7 +263,7 @@ struct HybridCanvas<'a> {
     queue: &'a wgpu::Queue,
     images: &'a mut Images,
     /// The external frames ready for this frame.
-    external: &'a External,
+    external: &'a Frame,
     /// Atlas uploads and clears of this recording, submitted before the
     /// frame is drawn.
     uploads: Option<wgpu::CommandEncoder>,

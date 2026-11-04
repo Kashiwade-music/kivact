@@ -3,10 +3,10 @@
 use super::frame::Presented;
 #[cfg(feature = "gpu")]
 use super::gpu::Fallback;
-use super::health::FrameHealth;
+use super::health::{FrameHealth, LossAction};
+use crate::ShellWaker;
 use crate::error::{self, Failure, FailureKind};
 use crate::presentation::{Notes, Renderer, RendererChange};
-use crate::{ShellError, ShellWaker};
 #[cfg(feature = "gpu")]
 use arvane_render::RenderError;
 use arvane_shell::ShellWindow;
@@ -179,9 +179,11 @@ impl Presenter {
     pub(super) fn settle(
         &mut self,
         drawn: Result<Drawn, Failure>,
-        now_ns: u64,
-        period_ns: u64,
-        recover: impl FnOnce() -> Result<(), ShellError>,
+        (now_ns, period_ns): (u64, u64),
+        renderer: Renderer,
+        window: &mut dyn ShellWindow,
+        scene: &RenderScene,
+        plan: crate::FramePlan,
     ) -> Result<Presented, Failure> {
         match drawn {
             Ok(drawn) if drawn.shown => {
@@ -202,10 +204,26 @@ impl Presenter {
                 })
             }
             Err(error) if error.kind == FailureKind::Surface => {
-                if self.health.lost() {
-                    return Err(error);
+                match self.health.lost(renderer) {
+                    LossAction::Fail => return Err(error),
+                    LossAction::FallbackToCpu => {
+                        #[cfg(feature = "gpu")]
+                        self.gpu.fallback_to_cpu(&mut self.notes, &error);
+                        let drawn = self.draw_native(window, scene, plan.size, plan.scale);
+                        return self.settle(
+                            drawn,
+                            (now_ns, period_ns),
+                            Renderer::Cpu,
+                            window,
+                            scene,
+                            plan,
+                        );
+                    }
+                    LossAction::Recover => {}
                 }
-                recover().map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
+                window
+                    .recover_surface()
+                    .map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
                 Ok(Presented::SurfaceLost(error))
             }
             Err(error) => Ok(Presented::Dropped(error)),
@@ -223,7 +241,21 @@ impl Presenter {
         let drawn = self.draw_native(window, scene, plan.size, plan.scale);
         self.note_missed();
         let (now, period) = (window.now_ns(), window.frame_period_ns());
-        self.settle(drawn, now, period, || window.recover_surface())
+        let renderer = {
+            #[cfg(feature = "gpu")]
+            {
+                if self.gpu.ready() {
+                    Renderer::Gpu
+                } else {
+                    Renderer::Cpu
+                }
+            }
+            #[cfg(not(feature = "gpu"))]
+            {
+                Renderer::Cpu
+            }
+        };
+        self.settle(drawn, (now, period), renderer, window, scene, plan)
     }
 
     /// Render `scene` (logical `size`, drawn at `scale`) and show it in
