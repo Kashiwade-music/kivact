@@ -18,7 +18,7 @@
 - `kivact-core` の内部 render effect が tree/registry を更新する箇所は render の出力を作る入口であり、別の利用者向け signal の派生状態を後追いで直す effect と区別する。part の disabled/hidden の複製は既存 SM-C15、region の revision は SM-C16。
 - `kivact-ui-creative/src/editors/shared/owned_edit.rs` は EditSession<(owner,snapshot)> 一つで既に状態を所有し、独立した active flag がない。gesture origin は既存 SM-K30。
 - `kivact-ui-creative/src/viewport_surface.rs:226-243` の Shown::Gpu/Pixels と fit transform は memo による派生値。resize の前回値だけを SM-K918 に追加した。
-- `kivact-ui-soft/src/typeahead.rs:162-183` の resource + sleep は resource が cancellation と stale result を所有する非同期処理であり、caller の Option<Task> timer ではない。cached の同期は別途 SM-K919。
+- `kivact-ui-soft/src/typeahead.rs:162-183` の resource + sleep は resource が cancellation と stale result を所有する非同期処理であり、caller の Option<Task> timer ではない。cached は選択済み label の保持用で、SM-K919 の LabelCache<K> に保持規則を閉じる。options は resource 状態から直接 memo で読む。
 - `kivact-ui-soft/src/typeahead.rs:487-518` の token_notices は Binding の差分を外部の announcer へ渡す通知 adapter。previous は差分計算の履歴で、label は翻訳 message の callback 内の入力、独立の表示 phase ではない。
 - `examples/` の effect の signal 書込みは 18.20 の effect-writes の対象外である利用者 code。独立した demo の dialog の open・theme・editing などは同時に成立できる。fake async の sleep は server を模擬する処理で lifecycle の内部機械ではない。
 - `templates/basic/src/main.rs:14` の memo は count の純粋な算出。templates に mutable phase の候補なし。
@@ -1670,11 +1670,11 @@ call の括弧の範囲を追い、内部の `.set/.update/.replace` も補助�
 | `crates/kivact-ui-soft/src/time_input.rs:131` | `effect`: `draft.set`, `invalid.set` | 対応: SM-K911。同じ遷移の再登録をしない |
 | `crates/kivact-ui-soft/src/toolbar.rs:272` | `effect`: `seen.set`, `anchor.set`, `anchor.set`, `anchor.set` | 対応: SM-K25。同じ遷移の再登録をしない |
 | `crates/kivact-ui-soft/src/toolbar.rs`: 279 | `sleep` | 対応: SM-K25 |
-| `crates/kivact-ui-soft/src/typeahead.rs:186` | `effect`: `cached.set` | 対応: SM-K16、SM-K919。同じ遷移の再登録をしない |
-| `crates/kivact-ui-soft/src/typeahead.rs:234` | `effect`: `sheet_open.set`, `editing.set`, `query.set` | 対応: SM-K16、SM-K919。同じ遷移の再登録をしない |
-| `crates/kivact-ui-soft/src/typeahead.rs:246` | `effect`: `open.set` | 対応: SM-K16、SM-K919。同じ遷移の再登録をしない |
-| `crates/kivact-ui-soft/src/typeahead.rs:497` | `effect_on`: `previous.replace`, `label.set` | 対応: SM-K16、SM-K919。同じ遷移の再登録をしない |
-| `crates/kivact-ui-soft/src/typeahead.rs`: 178 | `sleep` | 対応: SM-K16、SM-K919 |
+| `crates/kivact-ui-soft/src/typeahead.rs:186` | `effect`: `cached.set` | 対応: SM-K919。検索完了でLabelCache<K>の選択済みlabel保持規則を更新する。optionsはresource状態の直接memoを維持 |
+| `crates/kivact-ui-soft/src/typeahead.rs:234` | `effect`: `sheet_open.set`, `editing.set`, `query.set` | 対応: SM-K16（open/filteringの遷移）。label cacheのSM-K919とは別 |
+| `crates/kivact-ui-soft/src/typeahead.rs:246` | `effect`: `open.set` | 対応: SM-K16（open/filteringの遷移）。label cacheのSM-K919とは別 |
+| `crates/kivact-ui-soft/src/typeahead.rs:497` | `effect_on`: `previous.replace`, `label.set` | 除外: token_noticesの翻訳messageへのcallback内の引数と差分履歴（上記の型別判断）。LabelCacheとは別 |
+| `crates/kivact-ui-soft/src/typeahead.rs`: 178 | `sleep` | 除外: resourceがdebounceとcancellationを所有する非同期処理。LabelCacheの候補状態ではない |
 | `crates/kivact-ui-soft/tests/search.rs`: 34 | `sleep` | 除外: harness の待機/不変条件の検証 |
 | `examples/kivact/async/src/main.rs`: 11 | `sleep` | 除外: demo の非同期処理の模擬。利用者 code |
 | `examples/kivact-ui-basic/src/docs/button.rs`: 139 | `sleep` | 除外: demo の非同期処理の模擬。利用者 code |
@@ -2186,10 +2186,10 @@ P-0 の lib/bin root の補正を取り込み、専用の `target/p1-checker` �
 | `effect-writes` | `crates/kivact-ui-soft/src/toolbar.rs:277` `kivact-ui-soft::toolbar`: Signal/Var write inside an effect closure | 対応: SM-K25（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
 | `effect-writes` | `crates/kivact-ui-soft/src/toolbar.rs:280` `kivact-ui-soft::toolbar`: Signal/Var write inside an effect closure | 対応: SM-K25（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
 | `effect-writes` | `crates/kivact-ui-soft/src/toolbar.rs:284` `kivact-ui-soft::toolbar`: Signal/Var write inside an effect closure | 対応: SM-K25（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
-| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:198` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
-| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:236` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
-| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:237` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
-| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:248` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16、SM-K919（同じfileの状態の遷移。新規との境界は各項目の不正欄） |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:198` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K919。検索完了でLabelCache<K>の選択済みlabel保持規則を更新する。optionsはresource状態の直接memoを維持 |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:236` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16（open/filteringの遷移）。label cacheのSM-K919とは別 |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:237` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16（open/filteringの遷移）。label cacheのSM-K919とは別 |
+| `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:248` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 対応: SM-K16（open/filteringの遷移）。label cacheのSM-K919とは別 |
 | `effect-writes` | `crates/kivact-ui-soft/src/typeahead.rs:514` `kivact-ui-soft::typeahead`: Signal/Var write inside an effect closure | 除外: token_notices の翻訳messageへのcallback内の引数。独立した表示stateを後追いで保持しない（上記判断） |
 | `state-fields` | `crates/kivact-ui-soft/src/alert_dialog.rs:11` `kivact-ui-soft::alert_dialog`: AlertDialog combines state fields | 除外: 設定/入力/出力または geometry の record。field は独立したデータで、利用可能性を別 field の lifecycle が決めない |
 | `state-fields` | `crates/kivact-ui-soft/src/app_shell.rs:111` `kivact-ui-soft::app_shell`: AppShell combines state fields | 対応: SM-K915（同じ file の状態。option/input の field 自体は依存のない record と区別） |
@@ -2372,3 +2372,10 @@ P-0 の lib/bin root の補正を取り込み、専用の `target/p1-checker` �
 - 10: 付録にない34項目を追記。公開PieStateは主担当判断を記録し、SM-C27の現契約との不一致を主担当決定で訂正。
 
 P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しいE2Eは追加しない。P-0 checkerの実装テスト28件はP-0担当が実施済み。本unitの確認は検索・report・clippyと文書の整合検査である。PROGRESS.mdへの追加件数/完了記録は主担当の所有範囲で行う。
+
+### spot review による記述の訂正
+
+- SM-U903: slots は全行、live_slots はその live な部分集合であり、正常な行は両方に入る。問題は二重所属ではなく、この重複した索引と mounted/height/animation の phase を複数 effect の更新順で一致させる構造。単一の行表と明示 phase の案は維持する。
+- SM-K919: cached は候補 options ではなく、検索から消えた選択済み item の label を保持する cache。211〜224行の options は resource.state の Ready を直接読む memo。S-9 の LabelCache<K> が検索完了 event で既存と同じ保持規則を更新し、labels は source+cache の memo、options は resource 状態の直接 memo を維持する。現在の検索結果を別 controller に複製せず、callback/表示契約を変えない。
+- SM-U905: progress の Running に開始時刻を追加しない。既存と同じ clock の絶対時刻から位相を計算し、再開/period変更で開始時刻相対へ変えない。停止中の扱いとbuttonの待ちの契約も保存する。
+- 文書の正確化だけで、追加34件/総203件、検査結果と分類件数は変えない。指示どおりchecker/clippyを再実行しない。

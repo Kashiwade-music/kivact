@@ -1105,8 +1105,8 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 ### SM-U903 toast の退場する行
 - **場所**: `kivact-ui/src/toast_rows.rs:21-47,58-87`
-- **現在**: `slots` と `live_slots` への所属、`mounted`、`height`、animation の値から行の段階を推定し、effect が二つの collection を同期する。
-- **不正**: 行が両 collection に入り、同じ id の再表示の区別を生の世代 counter に依存する。SM-U02 の swipe とは別。
+- **現在**: `slots` は退場中を含む全行、`live_slots` はその live な部分集合。正常な live 行は両方に入る。この包含関係と `mounted`・`height`・animation の値から行の段階を推定し、複数の effect が collection の追加・更新・削除を分担する。
+- **不正**: 同じ live 行を二つの collection に保持する重複と、行の phase が複数の signal/effect に分散するため、包含関係と phase の一致を更新順で保つ必要がある。同じ id の再表示の区別も生の世代 counter に依存する。両方への所属自体は正常。SM-U02 の swipe とは別。
 - **解消後**: `enum ToastRowPhase { Mounting, Live { height: f32 }, Leaving { height: f32 } }` を行ごとの machine が持つ。一つの行表で phase を管理し、animation 完了 event で削除する。再表示の識別は `Generation`。
 - **unit**: U-1
 
@@ -1121,7 +1121,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **場所**: `kivact-ui/src/progress.rs:166-198`、`button.rs:240-329`
 - **現在**: progress は frame loop の start/stop と `phase` を effect で同期する。button は loading の表示と `reveal_pending`、sleep、fade の開始を別々に持つ。
 - **不正**: 止まった loop に前の phase が残る、loading の内容と spinner の表示の開始が別の状態になる。
-- **解消後**: progress は `enum ProgressMotionPhase { Stopped, Running { started_ns: u64 } }`、button は `enum BusyPhase { Idle, Waiting, Revealing, Shown }` を machine が持つ。phase は時計から算出し、button の待ちは `Step::after`、start/stop は遷移 effect。
+- **解消後**: progress は `enum ProgressMotionPhase { Stopped, Running }`、button は `enum BusyPhase { Idle, Waiting, Revealing, Shown }` を machine が持つ。progress の位相は既存と同じ clock の絶対時刻から計算し、再開時や period 変更時にも開始時刻からの相対計算へ変えない。button の待ちは `Step::after`、start/stop は遷移 effect。
 - **unit**: U-1
 
 ### SM-K901 pie menu の公開状態
@@ -1250,11 +1250,11 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **解消後**: `Sent<SurfaceSize>`。resize callback を呼ぶ一つの入口だけが `update` する。size 自体は rect と scale の memo。
 - **unit**: K-1
 
-### SM-K919 typeahead の検索結果の保持
-- **場所**: `kivact-ui-soft/src/typeahead.rs:184-207`
-- **現在**: resource の latest と別の cached を保存し、effect が新しい結果に選択済み item を足して cached に写す。
-- **不正**: resource が新しい結果になっても effect まで古い options を使う。SM-K16 の open/filtering mode とは別の検索結果の同期。
-- **解消後**: `enum SearchResults<K> { Empty, Ready { current: Vec<ListItem<K>>, retained: Vec<ListItem<K>> } }` を controller が持ち、検索結果・選択の変更を同じ遷移で処理する。label/options は snapshot の memo、debounce は既存 resource の task のまま（task の cancellation は resource が所有する）。
+### SM-K919 typeahead の選択済み label の cache
+- **場所**: `kivact-ui-soft/src/typeahead.rs:184-224`
+- **現在**: `cached` は選択済み item の label を保持するための履歴。検索完了後の effect が新しい結果を基に、旧 cache にある選択済み item の不足分を残す。`labels` は source と cache からの memo、`options` は resource の `state` の Ready を直接読む memo（211〜224行）で、cache を候補の状態として使わない。
+- **不正**: label の保持規則を生の signal と effect の更新手順で表しており、cache の責務と保持する条件が明示の型に閉じていない。options の遅延や検索状態の二重保持を問題としない。SM-K16 の open/filtering mode とは別の S-9 の cache。
+- **解消後**: S-9 の明示の `LabelCache<K>` に保持規則を閉じる。検索完了 event で、新しい結果を基に現在と同じ選択済み label の保持規則を更新する。`labels` は source と cache からの memo、`options` は resource 状態を直接読む memo を維持し、現在の検索結果を別 controller にも保存しない。debounce/cancellation は既存 resource が所有し、callback と表示の契約を変えない。
 - **unit**: K-2
 
 ### SM-I904 command palette の閉じると query の reset
