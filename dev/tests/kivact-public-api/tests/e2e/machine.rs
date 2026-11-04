@@ -2,7 +2,9 @@
 use crate::support::mount;
 use kivact::prelude::*;
 use kivact::state::{Machine, Step, machine};
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::time::Duration;
 
 struct Counter;
 enum Event {
