@@ -47,12 +47,12 @@ struct NumberInputSnapshot {
 impl Machine for NumberInputSnapshot {
     type State = NumberText;
     type Event = NumberEvent;
-    type Effect = f64;
+    type Effect = ();
     fn transition(
         &self,
         state: &NumberText,
         event: NumberEvent,
-    ) -> Step<NumberText, NumberEvent, f64> {
+    ) -> Step<NumberText, NumberEvent, ()> {
         match event {
             NumberEvent::ValueChanged
                 if self.locale.parse_number(state.text()) == Some(self.value)
@@ -65,18 +65,14 @@ impl Machine for NumberInputSnapshot {
             )),
             NumberEvent::Typed(text) => {
                 let parsed = self.locale.parse_number(&text);
-                let produced = parsed
-                    .and_then(|value| self.range.normalize(value))
-                    .or_else(|| match state {
+                let produced = match parsed {
+                    Some(_) => Some(self.value),
+                    None => match state {
                         NumberText::Typed { produced, .. } => *produced,
                         NumberText::Value(_) => None,
-                    });
-                let step = Step::to(NumberText::Typed { text, produced });
-                if let Some(value) = parsed {
-                    step.with(value)
-                } else {
-                    step
-                }
+                    },
+                };
+                Step::to(NumberText::Typed { text, produced })
             }
         }
     }
@@ -255,9 +251,7 @@ impl IntoView for NumberInput {
                 range: range.get(),
                 locale: locale.get(),
             },
-            move |_, parsed| {
-                number.once(|| number.set(parsed));
-            },
+            |_, ()| {},
         );
         let input_ref = node_ref();
         let focused = input_ref.focused();
@@ -267,7 +261,14 @@ impl IntoView for NumberInput {
         );
         let edit = binding(
             move || typed.get().text().to_owned(),
-            move |text| typed.send(NumberEvent::Typed(text)),
+            move |text: String| {
+                // Scalar owns the numeric write. Snapshot its accepted value
+                // when recording text, including bindings that reject a write.
+                if let Some(parsed) = locale.get_untracked().parse_number(&text) {
+                    number.once(|| number.set(parsed));
+                }
+                typed.send(NumberEvent::Typed(text));
+            },
         );
         let field = text_input(label, edit)
             .disabled(disabled)
