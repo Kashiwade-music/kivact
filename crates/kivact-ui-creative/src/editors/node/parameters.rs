@@ -129,6 +129,6 @@ pub(super) fn popup(state: State) -> impl IntoView {
                         .border(1, Color::HairStrong),
                 ),
         )
-        .part(popup.content())
+        .with_node(move |node| node.part(popup.content()))
     })
 }

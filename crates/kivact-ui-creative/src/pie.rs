@@ -220,41 +220,45 @@ fn pie_menu_view<R: HandlerResult>(
                     Handled::No
                 }),
         )
-        .part(popup.content())
-        .role(Role::Menu)
-        .name(message("creative.pie.name", "Shading pie"))
-        .focusable(true)
-        .on_key_default(move |event| {
-            let mut next = current.get();
-            match event.key() {
-                Key::Char(key) if ('1'..='9').contains(&key) => {
-                    let index = (key as u8 - b'1') as usize;
-                    if index < key_entries.with(Vec::len) {
-                        choose(index);
+        .with_node(move |node| node.part(popup.content()))
+        .with_node(move |node| node.role(Role::Menu))
+        .with_node(move |node| node.name(message("creative.pie.name", "Shading pie")))
+        .with_node(move |node| node.focusable(true))
+        .with_node(move |node| {
+            node.on_key_default(move |event| {
+                let mut next = current.get();
+                match event.key() {
+                    Key::Char(key) if ('1'..='9').contains(&key) => {
+                        let index = (key as u8 - b'1') as usize;
+                        if index < key_entries.with(Vec::len) {
+                            choose(index);
+                        }
                     }
-                }
-                Key::ArrowRight | Key::ArrowDown | Key::ArrowLeft | Key::ArrowUp => {
-                    if key_entries.with(Vec::is_empty) {
-                        return Handled::No;
+                    Key::ArrowRight | Key::ArrowDown | Key::ArrowLeft | Key::ArrowUp => {
+                        if key_entries.with(Vec::is_empty) {
+                            return Handled::No;
+                        }
+                        let index = next.hot.unwrap_or(0).min(key_entries.with(Vec::len) - 1);
+                        next.hot =
+                            Some(if matches!(event.key(), Key::ArrowRight | Key::ArrowDown) {
+                                (index + 1) % key_entries.with(Vec::len)
+                            } else {
+                                (index + key_entries.with(Vec::len) - 1)
+                                    % key_entries.with(Vec::len)
+                            });
+                        state.set(next);
                     }
-                    let index = next.hot.unwrap_or(0).min(key_entries.with(Vec::len) - 1);
-                    next.hot = Some(if matches!(event.key(), Key::ArrowRight | Key::ArrowDown) {
-                        (index + 1) % key_entries.with(Vec::len)
-                    } else {
-                        (index + key_entries.with(Vec::len) - 1) % key_entries.with(Vec::len)
-                    });
-                    state.set(next);
-                }
-                Key::Enter => {
-                    if let Some(index) =
-                        next.hot.filter(|index| *index < key_entries.with(Vec::len))
-                    {
-                        choose(index);
+                    Key::Enter => {
+                        if let Some(index) =
+                            next.hot.filter(|index| *index < key_entries.with(Vec::len))
+                        {
+                            choose(index);
+                        }
                     }
+                    _ => return Handled::No,
                 }
-                _ => return Handled::No,
-            }
-            Handled::Yes
+                Handled::Yes
+            })
         })
     });
     column((layer,)).style(style().height(0).gap(0))

@@ -163,7 +163,8 @@ impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
         let rows = for_each(
             items,
             |(key, _)| key.clone(),
-            move |key, entry| {
+            move |entry| {
+                let key = entry.get_untracked().0;
                 let item = memo(move || entry.with(|(_, item)| item.clone()));
                 match key {
                     ItemKey::Chrome(_) => super::chrome::container(cx, item),

@@ -62,7 +62,7 @@ pub fn notice(tone: impl IntoValue<Tone>, title: impl IntoText, message: impl In
             ))
             .style(style().gap(3).grow(1)),
         ))
-        .role(move || {
+        .role({
             if tone.get() == Tone::Danger {
                 Role::Alert
             } else {
@@ -681,21 +681,23 @@ fn window_layer<V: IntoView>(
                     .overflow(kivact::style::Overflow::Hidden)
             }),
         )
-        .role(Role::Dialog)
-        .name(title)
-        .style(move || {
-            let viewport = platform::window_size().get();
-            let rect = bounds
-                .get()
-                .unwrap_or(Rect::new(0.0, 0.0, options.width, 0.0));
-            let centered = WindowPosition::Center.origin(viewport, rect);
-            let initial = options.position.origin(viewport, rect);
-            style().translate(
-                initial.x - centered.x + offset.get().x,
-                initial.y - centered.y + offset.get().y,
-            )
+        .with_node(move |node| node.role(Role::Dialog))
+        .with_node(move |node| node.name(title))
+        .with_node(move |node| {
+            node.style(move || {
+                let viewport = platform::window_size().get();
+                let rect = bounds
+                    .get()
+                    .unwrap_or(Rect::new(0.0, 0.0, options.width, 0.0));
+                let centered = WindowPosition::Center.origin(viewport, rect);
+                let initial = options.position.origin(viewport, rect);
+                style().translate(
+                    initial.x - centered.x + offset.get().x,
+                    initial.y - centered.y + offset.get().y,
+                )
+            })
         })
-        .part(dialog.content());
+        .with_node(move |node| node.part(dialog.content()));
         column((
             (options.modal && options.backdrop_blur > 0.0).then(move || {
                 node().style(

@@ -62,7 +62,8 @@ pub fn panel_group<V: IntoView>(
     let drag = signal(None::<PanelDrag>);
     let rows = for_each(data, |panel| panel.id, {
         let rectangles = rectangles.clone();
-        move |id, panel| {
+        move |panel| {
+            let id = panel.get_untracked().id;
             kivact::state::on_cleanup(move || {
                 if drag.get_untracked().is_some_and(|drag| drag.panel == id) {
                     drag.set(None);
@@ -153,9 +154,13 @@ pub fn panel_group<V: IntoView>(
                 // The grip is its own press target, so a click or drag on it
                 // does not reach the header's Activate and toggle the panel.
                 .on_press(|| {})
-                .a11y_action(A11yAction::Increment, move |_| reposition(1))
-                .a11y_action(A11yAction::Decrement, move |_| reposition(-1))
-                .part(reorder.source(id));
+                .with_node(move |node| {
+                    node.a11y_action(A11yAction::Increment, move |_| reposition(1))
+                })
+                .with_node(move |node| {
+                    node.a11y_action(A11yAction::Decrement, move |_| reposition(-1))
+                })
+                .with_node(move |node| node.part(reorder.source(id)));
             let header = row((
                 icon("chevron-down")
                     .style(move || style().rotate(if panel.get().expanded { 0 } else { -90 })),

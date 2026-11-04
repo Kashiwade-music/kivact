@@ -1,5 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::graph::model::GraphView;
+use kivact::state::IntoBinding;
 use kivact::state::{Binding, signal};
 /// The view state of a [`graph_editor`](crate::editors::graph).
 #[derive(Clone, Copy)]
@@ -18,9 +19,9 @@ impl GraphState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            view: signal(GraphView::default()).into(),
-            selection: signal(Vec::new()).into(),
-            playhead: signal(0.0).into(),
+            view: signal(GraphView::default()).into_binding(),
+            selection: signal(Vec::new()).into_binding(),
+            playhead: signal(0.0).into_binding(),
         }
     }
 }

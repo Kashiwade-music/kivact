@@ -35,12 +35,12 @@ const DRAG_THRESHOLD: f64 = 5.0;
 type AppEntries<K, C> = Rc<dyn Fn(&DockTabs<K>) -> Vec<MenuEntry<C>>>;
 
 /// The application's entries for a container menu and its callback.
-pub(super) struct AppMenu<K: 'static, C: 'static> {
+pub(super) struct AppMenu<K: kivact::state::ItemKey, C: 'static> {
     pub(super) entries: AppEntries<K, C>,
     pub(super) choose: Callback<(K, C)>,
 }
 
-impl<K: 'static, C: 'static> Clone for AppMenu<K, C> {
+impl<K: kivact::state::ItemKey, C: 'static> Clone for AppMenu<K, C> {
     fn clone(&self) -> Self {
         Self {
             entries: self.entries.clone(),
@@ -91,7 +91,7 @@ pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<It
         .child(for_each(
             list,
             |tab| tab.id.clone(),
-            move |id, tab| tab_view(cx, group, id, tab),
+            move |tab| tab_view(cx, group, tab.get_untracked().id, tab),
         ))
         .name(message_with(
             "creative.dock.tabs",
@@ -240,28 +240,32 @@ fn tab_view<K: kivact::state::ItemKey>(
     .with_node(move |node| node.hidden(move || !tab.with(|tab| tab.closable)))
     .with_node(move |node| node.style(style().size(16, 16).padding(0).radius(4)))
     // Presses on the close button never start a tab drag or rename.
-    .on_pointer_default(|event| {
-        if matches!(event.phase(), PointerPhase::Down(_)) {
-            Handled::Yes
-        } else {
-            Handled::No
-        }
+    .with_node(move |node| {
+        node.on_pointer_default(|event| {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        })
     })
     .on_press(move || {
         let id = key.get();
         cx.close(|layout| layout.close(&id).into_iter().collect());
     });
     let selected = memo(move || member_state.get().selected);
-    let member = member
-        .role(Role::Tab)
-        .name(title)
-        .selected(selected)
-        // A rename double-click keeps focus in the inline field.
-        .on_press(move || {
-            if !renaming() {
-                group.choose(key.get());
-            }
-        });
+    let member = kivact::custom::Part::new(member.state(), move |node| {
+        node.part(member)
+            .role(Role::Tab)
+            .name(title)
+            .selected(selected)
+            // A rename double-click keeps focus in the inline field.
+            .on_press(move || {
+                if !renaming() {
+                    group.choose(key.get());
+                }
+            })
+    });
     node()
         .part(member)
         .child((glyph, label, editor, close))
@@ -478,7 +482,7 @@ fn builtin_entries<K: Clone + Eq + Hash, C>(
                 texts.maximize
             },
         )
-        .shortcut(texts.maximize_shortcut.get()),
+        .with_shortcut(texts.maximize_shortcut.get()),
     );
     entries
         .push(item(Builtin::Shift(-1), texts.move_left).disabled(!position.is_some_and(|p| p > 0)));

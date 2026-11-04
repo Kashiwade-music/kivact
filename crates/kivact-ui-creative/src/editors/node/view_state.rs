@@ -1,6 +1,7 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::node::model::NodeLink;
 use kivact::interaction::ViewTransform;
+use kivact::state::IntoBinding;
 use kivact::state::{Binding, signal};
 /// The view state of a [`node_editor`](crate::editors::node).
 #[derive(Clone, Copy)]
@@ -18,9 +19,9 @@ impl NodeState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            selection: signal(Vec::new()).into(),
-            link: signal(None).into(),
-            transform: signal(ViewTransform::default()).into(),
+            selection: signal(Vec::new()).into_binding(),
+            link: signal(None).into_binding(),
+            transform: signal(ViewTransform::default()).into_binding(),
         }
     }
 }

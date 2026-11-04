@@ -214,13 +214,13 @@ impl IntoView for GradientEditor {
                                 .value_min(0.0)
                                 .value_max(1.0)
                                 .value_now(move || {
-                                    stops.part(|stops| {
+                                    stops.with(|stops| {
                                         stops.get(id).map_or(0.0, |s| position_value(s.position))
                                     })
                                 })
                                 .value_text(move || {
                                     stops
-                                        .part(|stops| {
+                                        .with(|stops| {
                                             stops
                                                 .get(id)
                                                 .map_or(0.0, |s| position_value(s.position))

@@ -8,6 +8,7 @@ use crate::editors::shared::text::label;
 use kivact::draw::{Draw, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::state::IntoValue;
+use kivact::state::Value;
 use kivact::state::callback;
 use kivact::style::TextAlign;
 use std::rc::Rc;

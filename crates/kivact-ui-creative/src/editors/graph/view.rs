@@ -5,6 +5,7 @@ use crate::editors::graph::model::Curve;
 use crate::editors::shared::lane::{GRAPH_LANE_WIDTH, LaneExtensions, graph_lane_y};
 use crate::editors::shared::model::{EditorContext, Lane};
 use crate::editors::shared::ruler::{Ruler, RulerTicks};
+use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_space_pan};

@@ -73,12 +73,12 @@ pub trait ThemeOptions {
 
 impl ThemeOptions for Theme {
     fn accent(self, accent: Accent) -> Theme {
-        let p = self.ext::<Tokens>().as_ref().clone().with_accent(accent);
+        let p = self.ext::<Tokens>().to_owned().with_accent(accent);
         install(self, p)
     }
 
     fn density(self, density: Density) -> Theme {
-        let p = self.ext::<Tokens>().as_ref().clone().with_density(density);
+        let p = self.ext::<Tokens>().to_owned().with_density(density);
         install(self, p)
     }
 }

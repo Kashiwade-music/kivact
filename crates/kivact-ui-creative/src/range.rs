@@ -183,7 +183,7 @@ impl IntoView for Range {
             })
         };
         let ends = use_range_scalar(end(0), end(1), range)
-            .key_step(step)
+            .key_step(step.get_untracked())
             .expect("invariant: positive finite range step");
         let ends = match on_edit {
             Some(observer) => ends.on_edit(move |phase| observer.call(phase)),

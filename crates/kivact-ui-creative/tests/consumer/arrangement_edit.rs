@@ -62,13 +62,13 @@ fn fixture() -> (Screen, Model) {
                         m.clips,
                         m.tracks,
                         ui::ArrangementState {
-                            selection: m.selected.into(),
-                            playhead: m.frame.into(),
-                            loop_range: m.range.into(),
-                            cycling: m.cycling.into(),
-                            zoom: m.zoom.into(),
-                            pan: m.pan.into(),
-                            tool: m.tool.into(),
+                            selection: m.selected.into_binding(),
+                            playhead: m.frame.into_binding(),
+                            loop_range: m.range.into_binding(),
+                            cycling: m.cycling.into_binding(),
+                            zoom: m.zoom.into_binding(),
+                            pan: m.pan.into_binding(),
+                            tool: m.tool.into_binding(),
                         },
                     )
                     .on_edit(arrangement_model::edits(m.clips, m.tracks, move |phase| {
@@ -141,7 +141,7 @@ fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
                     rgb(0x34d399),
                 )]),
                 ui::ArrangementState {
-                    selection: (signal(vec![1])).into(),
+                    selection: (signal(vec![1])).into_binding(),
                     ..ui::ArrangementState::new()
                 },
             )

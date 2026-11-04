@@ -96,14 +96,14 @@ pub(crate) fn attach<T: TimeItem>(
                             }
                         })
                         .a11y_action(A11yAction::Increment, move |_| {
-                            if let Some(time) = state.data.part(|items| {
+                            if let Some(time) = state.data.with(|items| {
                                 items.iter().find(|i| i.id() == id).map(TimeItem::time)
                             }) {
                                 state.set_item_time(id, time + state.step());
                             }
                         })
                         .a11y_action(A11yAction::Decrement, move |_| {
-                            if let Some(time) = state.data.part(|items| {
+                            if let Some(time) = state.data.with(|items| {
                                 items.iter().find(|i| i.id() == id).map(TimeItem::time)
                             }) {
                                 state.set_item_time(id, time - state.step());
@@ -115,7 +115,7 @@ pub(crate) fn attach<T: TimeItem>(
                             }
                         })
                         .a11y_action(A11yAction::Activate, move |_| {
-                            if state.drag_state().is_none() && !selection.part(|s| s.contains(&id))
+                            if state.drag_state().is_none() && !selection.with(|s| s.contains(&id))
                             {
                                 choose.select(id, ListGesture::Replace);
                             }
@@ -129,12 +129,14 @@ pub(crate) fn attach<T: TimeItem>(
                             }
                         })
                 }),
-                Target::Lane(id) => result
-                    .role(Role::Group)
-                    .focusable(true)
-                    .a11y_action(A11yAction::Activate, move |_| {
-                        state.activate(Target::Lane(id))
-                    }),
+                Target::Lane(id) => kivact::custom::Part::new(result.state(), move |node| {
+                    node.part(result)
+                        .role(Role::Group)
+                        .focusable(true)
+                        .a11y_action(A11yAction::Activate, move |_| {
+                            state.activate(Target::Lane(id))
+                        })
+                }),
                 Target::Playhead => result,
             }
         },

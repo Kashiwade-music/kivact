@@ -57,9 +57,9 @@ fn fixture() -> (Screen, Model) {
                     app_graph(
                         model.curves,
                         ui::GraphState {
-                            view: model.view.into(),
-                            selection: model.selection.into(),
-                            playhead: model.frame.into(),
+                            view: model.view.into_binding(),
+                            selection: model.selection.into_binding(),
+                            playhead: model.frame.into_binding(),
                         },
                     )
                     .lanes(model.lanes)
@@ -181,12 +181,12 @@ fn graph_tangents_are_draggable_and_keyboard_editable() {
             app_graph(
                 data,
                 ui::GraphState {
-                    selection: (signal(vec![1])).into(),
+                    selection: (signal(vec![1])).into_binding(),
                     view: (signal(ui::GraphView {
                         time: (0.0, 400.0),
                         value: (0.0, 278.0),
                     }))
-                    .into(),
+                    .into_binding(),
                     ..ui::GraphState::new()
                 },
             )

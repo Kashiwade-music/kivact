@@ -33,8 +33,8 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
                     clips,
                     tracks,
                     ui::ArrangementState {
-                        loop_range: range.into(),
-                        tool: tool.into(),
+                        loop_range: range.into_binding(),
+                        tool: tool.into_binding(),
                         ..ui::ArrangementState::new()
                     },
                 )
@@ -277,7 +277,7 @@ fn color_popup_escape_rolls_back_while_outside_and_accessibility_dismissal_commi
     let committed = color.get_untracked();
     screen
         .get_by_role(Role::Dialog, "Edit color")
-        .a11y(A11yAction::DismissOn);
+        .a11y(A11yAction::Dismiss);
     assert_eq!(color.get_untracked(), committed);
     let next = rgb(0x446688);
     color.set(next);
@@ -500,9 +500,7 @@ fn viewport_surface_forwards_application_image_coordinates() {
                     offset: Point::new(10.0, 20.0),
                     scale: 2.0,
                 }))
-                .with_node(move |node| {
-                    node.on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
-                })
+                .on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
                 .with_node(move |node| node.style(style().size(300, 200)))
                 .with_node(move |node| node.test_id("viewport")),
         )

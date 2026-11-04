@@ -1,6 +1,7 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::arrangement::model::TimelineTool;
 use kivact::geometry::Point;
+use kivact::state::IntoBinding;
 use kivact::state::{Binding, signal};
 /// The view state of an [`arrangement`](crate::editors::arrangement).
 #[derive(Clone, Copy)]
@@ -27,13 +28,13 @@ impl ArrangementState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            selection: signal(Vec::new()).into(),
-            playhead: signal(0.0).into(),
-            loop_range: signal((0.0, 16.0)).into(),
-            cycling: signal(true).into(),
-            zoom: signal(26.0).into(),
-            pan: signal(Point::new(0.0, 0.0)).into(),
-            tool: signal(TimelineTool::Select).into(),
+            selection: signal(Vec::new()).into_binding(),
+            playhead: signal(0.0).into_binding(),
+            loop_range: signal((0.0, 16.0)).into_binding(),
+            cycling: signal(true).into_binding(),
+            zoom: signal(26.0).into_binding(),
+            pan: signal(Point::new(0.0, 0.0)).into_binding(),
+            tool: signal(TimelineTool::Select).into_binding(),
         }
     }
 }

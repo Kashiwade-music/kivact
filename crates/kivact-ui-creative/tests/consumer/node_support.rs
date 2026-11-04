@@ -1,6 +1,5 @@
 //! Role: Application node graph constraints and edit reduction.
 use kivact::state::{Callback, Signal, signal};
-use kivact::view::IntoView;
 
 use kivact_ui_creative as ui;
 
