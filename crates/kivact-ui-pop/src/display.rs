@@ -105,14 +105,14 @@ impl IntoView for Badge {
                 BadgeVariant::Slant => s
                     .background(linear_gradient(90).colors([
                         p.accent(hue.get()),
-                        match hue {
+                        match hue.get() {
                             Hue::Yellow => kivact::style::rgb(0xffe98a),
                             Hue::Red => kivact::style::rgb(0xff9c6e),
                             Hue::Pink => kivact::style::rgb(0xff7cb0),
                             _ => p.cyan,
                         },
                     ]))
-                    .color(if hue == Hue::Yellow {
+                    .color(if hue.get() == Hue::Yellow {
                         kivact::style::rgb(0x3b2f00)
                     } else {
                         Color::WHITE
@@ -128,8 +128,12 @@ impl IntoView for Badge {
                     .min_width(20)
                     .padding_x(6)
                     .radius(999)
-                    .background(if hue == Hue::Pink { p.pink } else { bg })
-                    .color(if hue == Hue::Pink { Color::WHITE } else { fg }),
+                    .background(if hue.get() == Hue::Pink { p.pink } else { bg })
+                    .color(if hue.get() == Hue::Pink {
+                        Color::WHITE
+                    } else {
+                        fg
+                    }),
                 _ => s,
             }
         });
@@ -544,7 +548,7 @@ impl IntoView for StatCard {
                     text(value).base_style(style().font_size(26).weight(600).line_height(1.2)),
                 ))
                 .base_style(style().padding(20).padding_bottom(0).gap(4)),
-                sparkline(points).base_style(style().margin_top(8)),
+                sparkline(points).with_node(|node| node.base_style(style().margin_top(8))),
             ))
             .base_style(style().padding(0).min_height(185).clip(true))
             .into_view()

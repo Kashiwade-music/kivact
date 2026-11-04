@@ -5,7 +5,6 @@ use super::field::{calendar_popup, date_text_field, field_strip, picker_button, 
 use super::text::{date_text, error_message};
 use kivact::i18n::{CalendarDate, message};
 use kivact::interaction::{PopupCloseReason, use_popup};
-use kivact::state::IntoBinding;
 use kivact::view::{Node, NodeBuilder, icon, node, text};
 
 use kivact::state::{Binding, Value, memo, signal};

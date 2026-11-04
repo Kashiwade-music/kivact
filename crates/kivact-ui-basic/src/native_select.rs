@@ -4,7 +4,6 @@ use crate::Color;
 use crate::list_popup::select_popup;
 use crate::theme_access::{field_fill, tokens};
 use kivact::interaction::use_select;
-use kivact::state::IntoBinding;
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, node, text};
 

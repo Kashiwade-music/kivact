@@ -14,7 +14,7 @@ fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {
             let amount = signal(25.0);
             (
                 (theme, selected, amount),
-                kivact::state::provide_theme(theme, move || {
+                kivact::style::provide_theme(theme, move || {
                     column((
                         kivact::ui::tabs(
                             "Tabs",
@@ -111,7 +111,7 @@ fn theme_switch_changes_existing_nodes_and_pixels_without_remounting_state() {
             let checked = signal(true);
             (
                 (dark, checked),
-                kivact::state::provide_theme(
+                kivact::style::provide_theme(
                     move || {
                         ui::theme(if dark.get() {
                             kivact::style::ThemeMode::Dark

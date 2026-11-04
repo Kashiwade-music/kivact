@@ -6,7 +6,7 @@ use kivact::motion::{FrameRate, frame_loop};
 use kivact::platform;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
-use kivact::state::{IntoText, IntoValue, callback};
+use kivact::state::{IntoText, IntoValue};
 use kivact::state::{Value, signal};
 use kivact::style::use_theme;
 use kivact::style::{Align, BorderStyle, ColorToken, Justify, pct, style};
@@ -129,7 +129,7 @@ impl IntoView for Banner {
                         .grow(1)
                         .color(kivact::style::rgb(0xffffff)),
                 )
-                .child(content.map(|content| content.call(()))),
+                .child(content),
             action,
         ))
         .with_node(|root| root.role(Role::Status))

@@ -3,7 +3,6 @@
 use crate::button::{Look, button_style};
 use crate::theme_access::tokens;
 use kivact::custom::PartState;
-use kivact::prelude::NodeBuilder;
 use kivact::style::{Position, Style, style, use_theme};
 use kivact::ui::ControlSize;
 use kivact::view::{Node, node};

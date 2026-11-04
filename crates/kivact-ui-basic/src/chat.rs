@@ -277,7 +277,7 @@ impl IntoView for Bubble {
         // The reactions hang out of the bubble; the margin keeps them off
         // the next row. shadcn leaves that room to the caller.
         let root_style = move || {
-            (match hanging() {
+            match hanging() {
                 Some(BubbleReactionsSide::Top) => style().margin_top(REACTIONS_OVERHANG),
                 Some(BubbleReactionsSide::Bottom) => style().margin_bottom(REACTIONS_OVERHANG),
                 None => style(),
@@ -291,7 +291,7 @@ impl IntoView for Bubble {
                 pct(80)
             })
             .min_width(0)
-            .gap(4))
+            .gap(4)
         };
         self.root
             .base_style(root_style)

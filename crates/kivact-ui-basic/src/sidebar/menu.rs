@@ -7,7 +7,7 @@ use crate::theme_access::tokens;
 use kivact::interaction::use_tooltip;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
-use kivact::state::{Binding, Callback, Value};
+use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Color, Direction, Justify, Overflow, Position, pct, style, use_theme};
 use kivact::ui::{TextInput, text_input};

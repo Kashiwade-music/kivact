@@ -1,11 +1,10 @@
 //! Role: Application-owned expandable file-tree entries and views.
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
-use kivact::state::{Binding, binding, memo, signal};
+use kivact::state::{binding, memo, signal};
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::ui::tree_rows;
 use kivact::view::Role;
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
+use kivact::view::{NodeBuilder, column, node, row, text};
 use std::collections::HashMap;
 
 use kivact::interaction::Selection;

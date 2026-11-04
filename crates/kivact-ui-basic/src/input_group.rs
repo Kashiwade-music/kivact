@@ -2,7 +2,7 @@
 
 use crate::theme_access::{field_fill, tokens};
 use kivact::state::memo;
-use kivact::state::{Binding, IntoValue, Value};
+use kivact::state::{IntoValue, Value};
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 use kivact::state::{IntoText, provide, try_use_context};
@@ -401,8 +401,8 @@ pub(crate) fn borderless(input: TextInput, height: Option<f64>) -> TextInput {
             .focus_visible(style().border_color(Color::TRANSPARENT).ring_none());
         let Some(height) = height else { return s };
         let around = try_use_context::<Around>();
-        let below = around.is_some_and(|around| around.block_end);
-        let above = around.is_some_and(|around| around.block_start);
+        let below = around.is_some_and(|around| around.get().block_end);
+        let above = around.is_some_and(|around| around.get().block_start);
         let s = s.height(if below || above { 32.0 } else { height });
         let s = if below { s.padding_top(12) } else { s };
         if above { s.padding_bottom(12) } else { s }

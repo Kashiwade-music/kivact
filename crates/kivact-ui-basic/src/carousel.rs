@@ -2,7 +2,6 @@
 
 use kivact::i18n::message;
 use kivact::motion::{Easing, Transition};
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
 use kivact::state::{Binding, Value, memo};
 use kivact::style::{Direction, Overflow, Position, TransitionProp, pct, style};

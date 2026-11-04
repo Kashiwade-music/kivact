@@ -112,20 +112,21 @@ fn mount_carousel(
 ) -> (Screen, Signal<usize>) {
     kivact::test::render_with_handle(light(), move || {
         let index = signal(0usize);
+        let carousel = basic::carousel(
+            (0..5)
+                .map(|n| text(format!("Slide {n}")).test_id(format!("s{n}")))
+                .collect::<Vec<_>>(),
+            index,
+        )
+        .orientation(orientation)
+        .items_per_view(per_view);
+        let carousel = if looped { carousel.looping() } else { carousel };
         (
             index,
             page(
-                basic::carousel(
-                    (0..5)
-                        .map(|n| text(format!("Slide {n}")).test_id(format!("s{n}")))
-                        .collect::<Vec<_>>(),
-                    index,
-                )
-                .orientation(orientation)
-                .items_per_view(per_view)
-                .looping(looped)
-                .test_id("carousel")
-                .style(style().width(240).height(120).margin(48)),
+                carousel
+                    .test_id("carousel")
+                    .style(style().width(240).height(120).margin(48)),
             ),
         )
     })

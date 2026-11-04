@@ -62,7 +62,8 @@ pub(crate) fn select_popup<K: kivact::state::ItemKey>(
         let rows = for_each(
             options,
             |item| item.key().clone(),
-            move |key, item| {
+            move |item| {
+                let key = item.get().key().clone();
                 let part = behavior.item(key);
                 let state = part.state();
                 node()

@@ -4,7 +4,6 @@ use crate::theme_access::tokens;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::ListItem;
 use kivact::interaction::{ListItemState, ListOptions, Selection, use_list};
-use kivact::state::IntoBinding;
 use kivact::state::{Binding, Callback, Value, binding, memo};
 use kivact::state::{IntoValue, callback};
 use kivact::state::{Machine, Step, machine};
@@ -397,7 +396,8 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
             let rows = for_each(
                 items,
                 |item| item.key().clone(),
-                move |key, _| {
+                move |item| {
+                    let key = item.get().key().clone();
                     let choice = choices
                         .iter()
                         .find(|c| c.value == key)

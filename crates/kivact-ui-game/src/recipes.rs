@@ -75,7 +75,7 @@ fn build() -> UiRecipes {
             menu.trigger(|_| menu_trigger)
                 .surface(|_| menu_surface)
                 .item(|_| menu_item)
-                .with_shortcut(|_| menu_shortcut)
+                .shortcut(|_| menu_shortcut)
                 .separator(|_| menu_separator)
         })
         .dialog(|dialog| {

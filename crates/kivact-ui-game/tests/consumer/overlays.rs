@@ -91,7 +91,7 @@ fn consumer_toast_expiry_and_hover_pause() {
                             );
                         }),
                     g::banner("NOTICE", kivact::interaction::Tone::Warning, ())
-                        .content(move || {
+                        .content({
                             rich_text(vec![
                                 span("Maintenance:").weight(700).color(rgb(0xffc928)),
                                 span(" read only"),
@@ -221,7 +221,7 @@ fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technolog
         opener.click();
         let dialog = screen.get_by_role(Role::Dialog, title);
         screen.get_by_role(Role::Heading, title);
-        dialog.a11y(A11yAction::DismissOn);
+        dialog.a11y(A11yAction::Dismiss);
         assert!(!open.get_untracked(), "{title}: DismissOn closes it");
         assert!(opener.is_focused(), "{title}: focus returns to the opener");
     }

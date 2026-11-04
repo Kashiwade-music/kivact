@@ -5,7 +5,6 @@ use crate::calendar::{Calendar, Names, calendar, calendar_range};
 use crate::parts::pressable;
 use crate::theme_access::tokens;
 use kivact::i18n::{CalendarDate, DateRange, interpolate, message};
-use kivact::state::IntoBinding;
 use kivact::state::{Binding, Value, memo, signal};
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Color, Justify, pct, style};

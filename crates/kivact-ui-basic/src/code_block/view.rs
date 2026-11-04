@@ -15,7 +15,6 @@ use kivact::ui::{ButtonVariant, ControlSize};
 use kivact::view::icon;
 use kivact::view::{IntoView, Key, Role, View, show};
 use kivact::view::{Node, NodeBuilder, ScrollAxes, column, node, row, scroll, text};
-use std::rc::Rc;
 use std::time::Duration;
 
 /// The text size and padding of a code block (code-block.tsx `size`).
@@ -257,7 +256,7 @@ fn code_view(lines: Value<Vec<CodeLine>>, name: Value<String>, size: Value<CodeB
     let value = move || {
         lines.with(|lines| {
             let text = lines.iter().map(CodeLine::text).collect::<Vec<_>>();
-            Rc::<str>::from(text.join("\n"))
+            text.join("\n")
         })
     };
     let editing = TextEditing::new(value)

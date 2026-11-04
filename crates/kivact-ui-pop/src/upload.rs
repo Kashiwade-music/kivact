@@ -5,7 +5,8 @@ use crate::spinner;
 use kivact::i18n::message;
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, Justify, style};
-use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::view::IntoView;
+use kivact::view::{NodeBuilder, column, icon, node, row, text};
 use kivact::view::{Role, dynamic};
 
 /// A file row with an actual byte count and a percentage supplied by its owner.
@@ -64,11 +65,13 @@ pub fn upload_row(
                         .with_node(|root| root.role(Role::Status))
                         .name(done)
                         .style(style().color(Color::Mint))
+                        .into_view()
                 } else {
                     spinner()
                         .style(style().size(16, 16))
                         .with_node(|root| root.role(Role::Status))
                         .name(uploading)
+                        .into_view()
                 }
             },
         ),

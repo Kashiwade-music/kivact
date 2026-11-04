@@ -291,7 +291,7 @@ fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
     trigger.click();
     screen
         .get_by_role(Role::Dialog, "Dimensions")
-        .a11y(A11yAction::DismissOn);
+        .a11y(A11yAction::Dismiss);
     assert!(!open.get_untracked(), "assistive technology can dismiss it");
     assert_clean(&screen);
 }

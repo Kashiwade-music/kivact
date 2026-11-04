@@ -77,7 +77,7 @@ impl SidebarCx {
 
 /// The sidebar state of the provider above the current owner.
 pub(crate) fn current() -> Option<SidebarCx> {
-    try_use_context::<SidebarCx>()
+    try_use_context::<SidebarCx>().map(|value| value.get())
 }
 
 /// Build `build` when it is mounted, below the provider that contains it.

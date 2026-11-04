@@ -3,7 +3,6 @@
 use crate::button::{Look, button_style};
 use crate::parts::pressable;
 use crate::theme_access::tokens;
-use kivact::state::IntoBinding;
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 
@@ -316,7 +315,7 @@ impl IntoView for PaginationPages {
         let links = for_each(
             items,
             |cell| *cell,
-            move |cell, _| match cell {
+            move |cell| match cell.get() {
                 Cell::Previous => pagination_previous()
                     .disabled(move || count.get() == 0 || effective.get() == 0)
                     .on_press(move || page.set(effective.get().saturating_sub(1)))

@@ -234,7 +234,7 @@ impl IntoView for CardHeader {
     fn into_view(self) -> View {
         kivact::state::provide((), move || {
             let spacing = kivact::state::try_use_context::<CardSpacing>()
-                .map(|spacing| spacing.0)
+                .map(|spacing| spacing.get().0)
                 .unwrap_or_else(|| 16.0.into_value());
             self.build(spacing)
         })

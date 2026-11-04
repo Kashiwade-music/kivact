@@ -2,10 +2,9 @@
 
 use kivact::interaction::use_disclosure;
 use kivact::state::Binding;
-use kivact::state::IntoBinding;
-use kivact::view::{Node, NodeBuilder, column, node};
+use kivact::view::{NodeBuilder, column, node};
 
-use kivact::view::{IntoView, View, show};
+use kivact::view::{IntoView, show};
 
 /// A trigger and the content it shows (collapsible.tsx), without a look of
 /// its own. Created by [`collapsible`]; [`Collapsible::attach`] it to the

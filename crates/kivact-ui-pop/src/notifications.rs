@@ -62,7 +62,7 @@ pub fn notification_menu<V: IntoView + NodeBuilder>(
         trigger,
         root: column(()),
         items: items.into_value(),
-        mark_read: callback(|_| ()),
+        mark_read: kivact::state::callback(|_| ()),
     }
 }
 impl<V: IntoView + NodeBuilder> NotificationMenu<V> {
@@ -136,7 +136,7 @@ impl<V: IntoView + NodeBuilder> IntoView for NotificationMenu<V> {
                             for_each(
                                 items,
                                 |item| item.id,
-                                |_, item| {
+                                |item| {
                                     let initial = item.get_untracked();
                                     row((
                                         node()
