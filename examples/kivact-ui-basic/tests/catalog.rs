@@ -1,4 +1,4 @@
-//! Role: Every page of the document-style catalog renders cleanly with the standard test backend.
+//! Role: Render catalog pages and interactions through the standard test backend.
 //! The tests open each page from the component list, check the page structure,
 //! the example previews and code, the theme toggle, the search and the copy button.
 #![warn(redundant_imports)]

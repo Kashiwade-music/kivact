@@ -490,6 +490,7 @@ V-1a〜V-6（`kivact-wire` の解体、`kivact-types` への語彙の一本化�
   - GPU（`GpuMode::Required`）の試験 host は、作った後に `step(Step::Wake)` を、renderer の通知が GPU か失敗になるまで繰り返す（間は `std::thread::park_timeout(5 ms)`、合計 5 秒まで）。
   - core の driver（`kivact-core/src/test/screen/driver.rs`）の `pump` は、turn を回し切った後、`redraw_requested` のあいだ `Step::Redraw` を回す（本番と同じく、支援技術の公開は frame の後）。`present` は `pump` に吸収する。`KIVACT_TEST_LIVE` は意味がなくなるので消す。
   - 試験の窓の公開の名前: `kivact::test::WindowMode` を `MirrorMode { Off, Auto, Required }`、`RenderOptions.window` を `RenderOptions.mirror` にする（`Real` → `Required`、`Headless` → `Off`）。
+    `MirrorMode` は engine の再公開を通して `arvane-virtual` の正準型を再公開し、同じ enum を core に定義し直さない。
   - 環境変数は三つ: `KIVACT_TEST_MIRROR`（`off`/`auto`/`required`、既定 `auto`）、`KIVACT_TEST_GPU`（`1` で GPU）、`KIVACT_TEST_HOLD_MS`（今のまま）。`ARVANE_TEST_HEADLESS`・`KIVACT_TEST_HEADLESS`・`KIVACT_TEST_LIVE` を消す。`RenderOptions::default()` が `KIVACT_TEST_MIRROR` を読み、`from_env()` は `KIVACT_TEST_GPU` も読む。
   - feature の名前: `arvane-native` の `testing` を `test` と改名する。`kivact-engine` の feature は `testing` のまま（名前を変えない）で、中身を `testing = ["dep:arvane-virtual", "arvane-virtual/mirror", "dep:png"]` にする。`arvane-virtual` の `mirror = ["dep:arvane-native", "arvane-native/test"]`。`kivact-core` の `test = ["kivact-engine/testing"]`（facade・core の `test` は C-1 が扱う）。
   - `TestParent` は `kivact_engine::testing::TestParent`（`arvane_native::embed::TestParent` の再公開。cfg は今の `all(feature = "embed", any(windows, target_os = "linux"))` のまま）。core の `test/parent.rs` はそれを使う。
