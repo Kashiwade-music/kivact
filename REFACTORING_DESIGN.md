@@ -1420,7 +1420,7 @@ CI は既定で無効にしてある（作者の方針）。この再設計は `
 | `arvane-virtual` への移行で試験の挙動が変わる | 試験は本番に近づく方向に変わる（click の数え方、focus を失ったときの `Cancel`、支援技術の公開の時点）。差が出た試験は、本番の挙動を正として試験を直す |
 | crate の統合で build 時間が変わる | `[profile.dev.package]` を統合先（`kivact-runtime` は debug のまま、`kivact-engine` は opt-level 3）に付け直し、phase ごとに `cargo build` の時間を記録する |
 | kit の外部利用者の追従の量 | 公開 API の変更を Phase N〜K に集中させ、kit の README と `docs/for-kivact-ui-user` に、新しい書き方だけを書く（移行の手引きは作らない: CONTRIBUTING.md の方針） |
-| 作業量が大きく、途中で止まる | phase ごとに workspace の全 gate を通し、integration branch を push する。phase の途中でも main に入れられる単位にはしない（全部が終わってから main へ PR） |
+| 作業量が大きく、途中で止まる | checkpoint ごとに workspace の全 gate を通し、integration branch を push する。phase の途中でも main に入れられる単位にはしない（全部が終わってから、作者が main への PR を立てて squash merge する） |
 
 ### 16.3 作者の決定（2026-11-04 に全部決まった）
 

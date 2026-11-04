@@ -5,7 +5,7 @@
 - 設計: [`REFACTORING_DESIGN.md`](REFACTORING_DESIGN.md)（以下「設計書」）、付録 [`refactoring/A-state-machines.md`](refactoring/A-state-machines.md)（付録 A）、[`refactoring/B-public-api.md`](refactoring/B-public-api.md)（付録 B）、[`refactoring/C-kits.md`](refactoring/C-kits.md)（付録 C）
 - 起点: `main` @ `a3536ef`
 
-本書は **順序・作業の単位（unit）・各 unit の手順・検査・完了条件** を定める。**何をどの形にするか** は設計書が決める。本書と設計書が矛盾したら設計書に従い、本書を直す。
+本書は **順序・作業の単位（unit）・各 unit の手順・検査・完了条件** を定める。**作業の速度を優先する**（作者の方針、2026-11-04）: サブエージェントは同時に 6 つまで使い、integration branch は最後に作者が `main` への PR を立てて squash merge するので、途中の commit と途中の integration branch で build が壊れていてよい。検査は wave の区切り（checkpoint）でまとめて回す（0.6 節）。**何をどの形にするか** は設計書が決める。本書と設計書が矛盾したら設計書に従い、本書を直す。
 
 ---
 
@@ -34,38 +34,40 @@
 
 | 役割 | する | しない |
 |---|---|---|
-| オーケストレータ（Codex 主エージェント） | 本書の順に unit を進める。unit ごとに worktree を作り、サブエージェントに 0.4 節の形で指示する。差分を点検し、gate を回し、integration branch へ merge し、push する。設計書 0.3 節の M-1〜M-8（機械的な導出）の範囲で、サブエージェントへの指示を具体化する。`refactoring/PROGRESS.md` を更新する | 設計書の決定を変える。M-1〜M-8 の外の判断（公開の名前・公開の型と署名・振る舞い・crate と依存・新しい概念）をする。これらに当たる問いは作者（Kashiwade）に聞き、答えを決定記録に書いてから進める |
-| サブエージェント | 指示された unit の手順を、指示された worktree の中だけで実行する。自分の触った crate の gate を通してから報告する | 設計を決める（指示と code が食い違ったら、止めて報告する）。指示の範囲の外の file を変える。互換の wrapper・alias・旧 API を残す。push する |
+| オーケストレータ（Codex 主エージェント） | 本書の順に unit を進める。unit ごとに worktree を作り、サブエージェントに 0.4 節の形で指示する。差分を点検し、gate を回し、integration branch へ merge し、push する。設計書 0.3 節の M-1〜M-8（機械的な導出）の範囲で、サブエージェントへの指示を具体化する。`refactoring/PROGRESS.md` を更新する | 設計書の決定を変える。M-1〜M-8 の外の判断（公開の名前・公開の型と署名・振る舞い・crate と依存・新しい概念）をする。これらに当たる問いは作者（Kashiwade）に聞き、答えを決定記録に書いてから進める。PR を作る・`main` へ merge する・`main` へ push する（作者が行う） |
+| サブエージェント | 指示された unit の手順を、指示された worktree の中だけで実行する。0.6 節の「unit の確認」だけを回して報告する（workspace の全体の gate は回さない） | 設計を決める（指示と code が食い違ったら、止めて報告する）。指示の範囲の外の file を変える。互換の wrapper・alias・旧 API を残す。push する |
 
 設計の判断をサブエージェントに任せない。サブエージェントへの指示には、変える file、型と署名、data の形、振る舞いの規則、試験の名前と確かめる内容、直す文書を書き、選択肢を残さない。指示が code と合わないとサブエージェントが報告したら、オーケストレータが決めて返事をする。
 
 ### 0.2 守る規則
 
 - `CONTRIBUTING.md` の全部（module の `//! Role:` 行、`expect("invariant: ..")`、lint の `reason`、glob import の禁止、panic を隔離しない、など）。
-- **互換を残さない。** 旧い名前・旧い経路・二重の mode・「呼び出し元が壊れないように」の既定の実装を作らない。作業の途中の一時的な二重の経路（移行のための旧 API の併存）も作らない。大きな作業は、それ単独で build と試験が通る小さな unit の列に分ける（V-1a・V-1b、A-1a・A-1b のように）。workspace の中の呼び出し元（crate、例、雛形、kit、試験、文書）は同じ unit で新しい形に移す。
+- **互換を残さない。** 旧い名前・旧い経路・二重の mode・「呼び出し元が壊れないように」の既定の実装を作らない。作業の途中の一時的な二重の経路（移行のための旧 API の併存）も作らない。途中で build が壊れてよいので、旧い経路を残して build を保つ必要もない。workspace の中の呼び出し元（crate、例、雛形、kit、試験、文書）は、同じ unit か、0.10 節の追従の段（Phase N では N-9）で新しい形に移し、その wave の checkpoint までに旧い形を残さない。
 - **試験は実 window の E2E だけ**（`kivact::test`）。過去の不具合の再現だけの試験、画素や時間の厳密な比較、golden を足さない。例外は `dev/xtask` の検査の自分の試験（道具の試験）だけ。
 - **状態機械の unit は振る舞いを変えない**（設計書 16.2 節）。振る舞いを意図して変える unit（本書で「振る舞いの変更」と書いたもの）だけが E2E を足す。
-- window を開くコマンド（`cargo test` の大半）は必ず `bash dev/tools/window-lock.sh [--timeout 秒] -- <command>` を通す。終了コード 124 は時間切れ。出力が空でも終了コードを確かめる。
-- platform 固有の code（`arvane-native`、`cfg(target_os)`）を変えた unit は、Linux の gate を WSL（distro `Ubuntu-24.04`）でも回す（0.6 節）。
+- window を開くコマンド（mirror を有効にした `cargo test`）は必ず `bash dev/tools/window-lock.sh [--timeout 秒] -- <command>` を通す。`KIVACT_TEST_MIRROR=off` の `cargo test`（A-1b の後）は window を開かないので lock を通さない。終了コード 124 は時間切れ。出力が空でも終了コードを確かめる。
+- Linux の gate（WSL、distro `Ubuntu-24.04`）は checkpoint CP2 と最後の F-3 でだけ回す（0.6 節）。unit ごとには回さない。
 - GUI の OS 入力の harness、実機の IME・screen reader・browser の手動の確認は作者が行う。エージェントは行わない。
-- commit は conventional commits で目的ごとに分ける。公開 API を壊す commit は `!` を付ける（例: `refactor(core)!: ...`）。各 commit は workspace が build できる状態にする。
+- commit は conventional commits で目的ごとに分ける。公開 API を壊す commit は `!` を付ける（例: `refactor(core)!: ...`）。commit が build できる状態である必要はない（integration branch は最後に作者が squash merge する）。
 - `vendor/xtask-core` は変えない（検査は `dev/xtask` に足す）。
 - CI（`.github/workflows/`）は既定で無効にしてあり、変えない。CI に job・step・設定を足さない。
 
 ### 0.3 branch と worktree
 
-- integration branch: `refactor/kashiwade/foundation-v3`（`main` から作る）。全 unit の merge 先。phase の gate を通したら origin へ push する（force push はしない）。`main` への PR は全部が終わってから一つだけ作る。
+- integration branch: `refactor/kashiwade/foundation-v3`（`main` から作る）。全 unit の merge 先。checkpoint を通したら origin へ push する（force push はしない）。全部が終わったら、オーケストレータは F-3 で PR の説明の下書きを書き、integration branch を push して作者に知らせ、止まる。**`main` への PR を作るのと squash merge は作者（人間）が行う。** エージェントは PR を作らず、`main` へ merge も push もしない。
 - unit ごとに worktree を作る:
   ```text
   git worktree add .claude/worktrees/<unit-id> -b wt/<unit-id> refactor/kashiwade/foundation-v3
   ```
   サブエージェントにはその絶対 path を渡す。`wt/*` は push しない。merge したら worktree と branch を消す。
-- **同時に動かすサブエージェントは最大 3 つ。** 1 章の「並列」の欄にある組合せだけを並べる。
-- merge は `git merge --no-ff wt/<unit-id>`。`architecture/` の SVG の衝突は手で解かず、merge の後に `cargo xtask check` を回して作り直し、その結果を commit する。
+- **同時に動かすサブエージェントは最大 6 つ。** 1 章の wave の表のとおりに並べる。
+- merge は `git merge wt/<unit-id>`（fast-forward でよい。最後に作者が squash するので merge の形は問わない）。unit が終わったらすぐ merge する（wave の終わりを待たない）。
+- **生成物を unit で作らない:** サブエージェントは `architecture/` を書き換えない（`cargo xtask check` を write の mode で回さない。回すときは `--no-write`）。`architecture/` は checkpoint でオーケストレータが一度だけ作り直す。これで SVG の merge の衝突が起きない。
+- **build の cache:** 各 worktree は自分の target dir を使う（既定）。`sccache` が入っていれば `RUSTC_WRAPPER=sccache` を全 worktree で使う。サブエージェントは `cargo build` ではなく `cargo check` を使う（試験を回す unit だけ `cargo test`）。
 
 ### 0.4 サブエージェントへの指示の型
 
-次の形で書く（unit の節の「指示に含める」を埋める）。
+次の形で書く（unit の節の「指示に含める」を埋める）。オーケストレータは、サブエージェントが読む設計書の節を必要な範囲に絞り、決定済みの形（型・署名）は指示に直接写す（サブエージェントが設計書を通して読まなくてよいように）。
 
 ```text
 あなたは Kivact の実装担当です。設計はしません。指示と code が食い違ったら、作業を止めて報告してください。
@@ -80,50 +82,51 @@
 - 状態の点検表: 0.7 節（状態機械の unit のとき）
 - 試験: <足す E2E の名前と確かめる内容。足さないなら「足さない」>
 - 文書: <直す rustdoc・guide・README>
-- 規則: CONTRIBUTING.md、互換を残さない、push しない、window-lock.sh を通す
-- 完了の前に回す gate: 0.6 節の G-unit（<crate の列>）
+- 規則: CONTRIBUTING.md、互換を残さない、push しない、`architecture/` を書き換えない、読むのは「読む」に挙げた節だけ
+- build の期待: <「build 可」（この unit の後で <crate の列> が check を通るはず）か「build 不可」（ほかの並列の unit が終わるまで通らない）>
+- 完了の前に回す確認: 0.6 節の「unit の確認」（<crate の列>、<回す試験の名前>）
 - 報告: 0.8 節の形
 ```
 
 ### 0.5 記録
 
-オーケストレータは integration branch に次の二つの file を置き、unit を merge するたびに更新して同じ commit に含める。
+オーケストレータは integration branch に次の二つの file を置き、checkpoint ごとに更新する（unit の merge ごとには更新しない）。
 
 - `refactoring/PROGRESS.md`: unit の表（ID、状態 `todo`/`doing`/`merged`、merge の commit、gate の結果、時間、残った問題）。中断したら、ここから再開する。
 - `refactoring/DECISIONS.md`: (1) 作者に聞いた問いと答え（日付、unit、問い、答え）、(2) M-1〜M-8 の導出のうち後の unit が知るべきもの（例: 状態機械の event の一覧）。付録 A にない暗黙の状態機械を見つけたら、設計書 13.2 節の「解消の型」の表の一行に当てはまるものはその形で解消して付録 A に項目を足し、ここに一行書く。当てはまらないもの（公開の型が変わる、振る舞いが変わる）は作者に聞く。
 
 全 unit が終わったら、長く使う規則と根拠（crate の境界の表と根拠、S・API・VOC・DEP・KIT・B の規則、`Machine` の書き方、handler の語彙）を F-1 で `docs/for-kivact-developer/architecture.md` と `CONTRIBUTING.md` に移してから、`refactoring/` の 5 つの file（付録 A〜C、PROGRESS、DECISIONS）と設計書・本書を消す（F-3）。
 
-### 0.6 gate
+### 0.6 確認と gate
 
-**G-unit**（サブエージェントが自分の worktree で、報告の前に回す）:
+**unit の確認**（サブエージェントが自分の worktree で、報告の前に回す。workspace の全体は回さない）:
 
 ```text
-cargo fmt --all -- --check
-cargo xtask check                      # architecture/ を書き換える。差分は commit に含める
-cargo clippy -p <crate> [-p <crate> ...] --all-targets --all-features -- -D warnings
-bash dev/tools/window-lock.sh --timeout 3600 -- cargo test -p <crate> [-p <crate> ...] --all-features
+cargo fmt -p <crate> [-p <crate> ...]                       # 書き換える（--check ではない）
+cargo check -p <crate> [-p <crate> ...] --all-targets --all-features   # 指示が「build 可」のときだけ
+KIVACT_TEST_MIRROR=off cargo test -p <crate> <試験の名前>               # 試験を足した・回すと指示された unit だけ（A-1b の後）
+cargo xtask check --no-write --only state-fields --crate <crate> --module <module path>   # 状態機械の unit だけ
 ```
 
-- `<crate>` は、その unit が変えた crate と、それに直接依存する crate のうち試験を持つもの（例・kit・`kivact-public-api-tests`・`kivact-docs` を含む）。公開 API を変えた unit は `-p kivact-docs` を必ず含める（文書の doctest）。
-- 試験を足した unit は、その試験の名前を `cargo test` の filter で一度だけ単独でも回し、通ることを確かめる。
-- 状態機械の unit は、触った module だけに状態の検査を回す: `cargo xtask check --only state-fields --crate <crate> --module <module path>`（P-0 が作る CLI）。
-- **A-1b の後**の G-unit の `cargo test` は `KIVACT_TEST_MIRROR=off` で回し、`window-lock.sh` を通さない（窓を開かないので lock が要らず、三つの worktree が並べて回せる）。mirror の窓を開く試験は G-phase で `window-lock.sh` を通して回す。
-- **振る舞いを変えない unit**（付録 A の状態機械の unit、V-5、R-2、C-5 など、13 章の表で「振る舞いの変更」が「なし」のもの）は、unit の前と後で全 E2E を `KIVACT_TRACE=stage,semantics,host_events` で回し、P-2 の trace の出力を比べる。差があれば、意図した差（名前の変更など）だけであることを報告に書く。trace の出力は commit しない。
+- 指示が「build 不可」の unit（fan-out の並列の一つ、定義の段の unit など。0.10 節）は、`cargo fmt` だけを回して報告する。build の失敗は checkpoint で見る。
+- A-1b より前に試験を足した unit は、試験を書くだけにして回さない（checkpoint で回す）。
+- clippy は unit では回さない（checkpoint で回す）。
 
-**G-phase**（オーケストレータが、phase の全 unit を merge した後に integration branch で回す。`CONTRIBUTING.md` の merge 前の検査と同じ）:
+**checkpoint の gate**（オーケストレータが、wave の全 unit を merge した後に integration branch で回す。1 章の CP0〜CP8）:
 
 ```text
 cargo fmt --all -- --check
-cargo xtask check
-git diff --quiet -- architecture
+cargo xtask check                      # architecture/ をここで作り直して commit する
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-bash dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --all-features
-bash dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --no-default-features
+KIVACT_TEST_MIRROR=off cargo test --workspace --all-features          # A-1b の後。前は window-lock.sh を通す
+KIVACT_TEST_MIRROR=off cargo test --workspace --no-default-features
 bash dev/tools/check-features.sh
+KIVACT_TRACE=stage,semantics,host_events KIVACT_TEST_MIRROR=off cargo test --workspace --all-features   # 前の checkpoint の trace と比べる
 ```
 
-phase の中で platform 固有の code を変えたときは、WSL でも回す（Wayland と X11 の結果を分けて記録する）:
+- **trace の比較:** 振る舞いを変えない unit を含む wave では、前の checkpoint の trace（`target/kivact-trace/`、commit しない）と今の trace を比べる。差は、その wave の unit が意図した差（13 章の表の「振る舞いの変更」の列、名前の変更）だけであること。意図しない差があれば、差の出た試験の名前から原因の unit を特定する。
+- **失敗したとき:** オーケストレータは失敗を crate ごとにまとめ、0.10 節の crate の組ごとに直す unit（`fix/<cp>-<組>`）を作って、最大 6 つ並べて直させる。全部が通るまで次の wave に進まない。
+- **mirror と WSL:** CP2（Phase A・R・E の後）と F-3 では、上に加えて mirror を有効にした試験（`bash dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --all-features`）と、WSL の gate（Wayland と X11 を分けて記録）を回す:
 
 ```text
 wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && CARGO_TARGET_DIR=$HOME/kivact-target cargo clippy --workspace --all-targets --all-features -- -D warnings'
@@ -131,11 +134,11 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && CARGO_TARGET_DI
 wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && CARGO_TARGET_DIR=$HOME/kivact-target WAYLAND_DISPLAY= DISPLAY=:0 cargo test --workspace --all-features'
 ```
 
-（WSL の distro を聞かれたら `KIVACT_WSL_DISTRO=Ubuntu-24.04`。Phase A の A-1b の後は `KIVACT_TEST_MIRROR=off` で窓を開かずにも回せるが、Wayland と X11 の確認は mirror を有効にして行う。）
+（WSL の distro を聞かれたら `KIVACT_WSL_DISTRO=Ubuntu-24.04`。）
 
-G-phase が通ったら push し、`PROGRESS.md` に記録する。通らなければ、原因の unit を特定して直してから次の phase へ進む。
+checkpoint を通したら push し、`PROGRESS.md` を更新する。本書の unit の節の「完了条件」に書いた G-unit・G-phase は、それぞれ「unit の確認」と「その unit を含む wave の checkpoint の gate」と読む。
 
-**G-final**: 12 章。
+**G-final**: 12 章（F-3 で回す）。
 
 ### 0.7 状態の点検表（状態機械を扱う unit の完了の前に、サブエージェントが確かめて報告に書く）
 
@@ -154,20 +157,19 @@ G-phase が通ったら push し、`PROGRESS.md` に記録する。通らなけ�
 
 ### 0.8 サブエージェントの報告の形
 
+短く書く（変更の一覧は `git diff` で分かるので書かない）。
+
 ```text
 unit: <id>
 結果: 完了 / 止めた（理由）
-変更: <crate ごとの file の一覧と要約>
-gate: <コマンドごとの終了コード、試験の件数（passed/failed/ignored）>
-状態の点検表: <0.7 節の 1〜10 の答え>
-指示との違い: <なし / 何をなぜ>
-見つけたこと: <付録 A にない状態機械、設計書と code の食い違い、ほかの unit に影響すること>
-残った問題: <なし / 一覧>
+確認: <回したコマンドと終了コード、試験の件数>
+状態の点検表: <状態機械の unit だけ。0.7 節の 1〜10 を「OK」か内容で一行ずつ>
+指示との違い・見つけたこと: <なし / 一覧（付録 A にない状態機械、設計書と code の食い違い、ほかの unit に影響すること）>
 ```
 
 ### 0.9 crate の作成・統合・削除のときに一緒に直すもの
 
-crate を作る・統合する・消す unit は、同じ unit で次を全部直す。
+crate を作る・統合する・消す unit は、次を全部直す（大きな unit は 0.10 節の追従の段に分けてよい。その wave の checkpoint までに揃える）。
 
 - root の `Cargo.toml` の `members` と、`[profile.dev.package.<name>]`（engine 側の crate は opt-level 3 を付け直す。`kivact-runtime` は付けない: debug のまま）
 - `dev/xtask/policy/workspace.toml` の `visible_to`、`module_rules`、`api_packages`、`options_structs`、`[[style.exceptions]]` の path
@@ -175,35 +177,54 @@ crate を作る・統合する・消す unit は、同じ unit で次を全部�
 - 各 crate の `Cargo.toml` の依存と feature の伝播（DEP-1: feature の名前を全層で揃える）
 - `THIRD-PARTY-NOTICES.md`（依存が移る場合）
 - README・README_JP・`docs/` の crate 名の言及
-- `architecture/`（`cargo xtask check` が作り直す）
+- `architecture/`（unit では直さない。checkpoint でオーケストレータが `cargo xtask check` で作り直す）
+
+### 0.10 速く進めるための分け方
+
+**fan-out（定義の段と追従の段）:** 多くの crate にまたがる変更（型の移動、改名、公開 API の形の変更）は、一つの unit を二段に分ける。
+
+1. **定義の段**（サブエージェント一つ、または定義が別々の file にあれば複数）: 型・trait・関数の定義を変える。呼び出し元は直さない（build 不可でよい）。
+2. **追従の段**（下の crate の組ごとに一つ、最大 6 つを並べる）: それぞれの組の中の呼び出し元を、新しい定義に合わせて直す。並べている間は互いの結果を待たない（build 不可でよい）。全部を merge したら、オーケストレータが `cargo check --workspace --all-targets --all-features` を回し、残った error を組ごとの fix の unit に配る。
+
+**crate の組**（追従の段と、checkpoint の fix の分け方）:
+
+| 組 | crate |
+|---|---|
+| G1 engine | `kivact-engine`、`kivact-layout`、`kivact-lower`（`kivact-text` は統合まで） |
+| G2 arvane | `arvane`、`arvane-shell`、`arvane-native`、`arvane-render`、`arvane-text`、`arvane-asset`、`arvane-virtual`、`kivact-gpu-share`、`gpu-interop-producer` |
+| G3 core | `kivact-types`、`kivact-runtime`（統合までは reactive・task・motion）、`kivact-style`、`kivact-i18n`、`kivact-editing`、`kivact-core`、`kivact-test` |
+| G4 ui | `kivact-interaction`、`kivact-ui`、`kivact`（facade） |
+| G5 kit | 5 つの kit（kit ごとに分けてもよい: 一つの kit を一つのサブエージェントに） |
+| G6 外側 | `examples/`、catalog、`templates/`、`dev/tests/`（public-api、docs）、`docs/`、README |
+
+**公開の署名を固定して並べる:** 同じ crate の中の別々の module を並べるとき（E-2〜E-7、I-1〜I-6 など）、各 unit は、ほかの unit が使う公開の型・メソッドの署名を変えない（変えるのは中の状態の持ち方だけ）。署名を変える必要が分かったら、作業を止めて報告する（オーケストレータが順を決め直す）。
+
+**呼び出し元の追従をまとめる:** Phase N（公開 API）では、各 unit は中核の crate（G3・G4）だけを直し、kit・例・文書・試験（G5・G6）の追従は Phase N の最後の一度の追従の段（N-9）でまとめて行う（kit と文書を 8 回書き直さない）。
+
+**file の持ち主:** 並べる unit の指示には「変更しない」の欄に、同時に動くほかの unit の file を書く。共有の file（各 crate の `lib.rs` の `mod`・`pub use`、`dev/xtask/policy/workspace.toml`、`Cargo.toml` の `members`）は足すだけにし、merge の衝突はオーケストレータが手で合わせる。
 
 ---
 
-## 1. 全体の順序
+## 1. 全体の順序（wave）
 
-```text
-P-0 → P-1 → P-2
- └─ P-2 → V-1a → V-1b → V-2 → V-3 → V-4 → V-5 → V-6 → R-1（単独。core の全 import を書き換えるため）
-      ├─ A-0 → A-1a → A-1b → A-2 → A-3 → A-4 → A-5 → A-6 → E-1 → X-1（単独） → E-2 → E-3 → E-4 → E-5 → E-6 → E-7 → E-8 → E-9   （レーン 1、直列）
-      └─ R-2 → R-3 → R-4 → R-5 → R-6 → R-7                                                                  （レーン 2、直列）
-                                    └─ C-1（R-6、A-1b、E-2 の merge の後）→ C-2 → C-3（R-7 の merge の後） → C-4（E-3 の merge の後）→ C-5（E-8 の merge の後）
-                                                                    └─ N-1（C-5、E-9、A-6 の merge の後）→ N-2 → N-3 → N-4 → N-5 → N-6 → N-7 → N-8
-                                                                                                        └─ I-0 → {I-1, I-4} → {I-2, I-3} → {I-5, I-6} → {U-1, U-2} → I-7 → I-8
-                                                                                                                      （L-1 は C-2 の後、I-* と並べてよい。K-0 の前に merge する）
-           → T-1 → T-2 → {G-1, G-2, G-3, G-4, G-5}
-           → K-0 → {K-1, K-2, K-3, K-4, K-6} → K-8 → K-9 → K-5 → K-7
-           → F-1 → F-2 → F-3
-```
+同時に動かすサブエージェントは最大 6 つ。wave の中の `{..}` は並べてよい組（6 つまで）。`→` は前の unit の merge を待つ。wave の終わりの CP が checkpoint の gate（0.6 節）。
 
-| 並べてよい組合せ（同時に最大 3） | 理由 |
-|---|---|
-| レーン 1（A-0〜A-6、E-1〜E-8）の一つと、レーン 2（R-2〜R-7、その後の C-1〜C-3）の一つ | 触る crate が違う（Arvane・engine と、runtime・core）。衝突しうる file と扱い: `kivact-core/src/platform/window_loop.rs`（A-0）、`kivact-core/src/test/*`（A-1）、`kivact-core/src/client/*`（R-2）。A-0・A-1 は core の client を、R-2 は core の test と platform を変えない。C-1 は `kivact-core/src/test` を動かすので、A-1b の merge の後に始める。C-4 は E-3 の merge の後。E-9 と C-5 は core と style を変えるので、ほかの unit と並べない |
-| G-1〜G-5 のうち 3 つ、L-1 と I-* |  G は触る場所が別々（Path、pointer、モバイルの境界、style・scroll、ui の部品）。L-1 は `kivact-i18n` の中だけ |
-| {I-1, I-4}、その後 {I-2, I-3}、その後 {I-5, I-6} | popup・delayed（I-1）と list・roving（I-4）をほかの behavior が使い、drag（I-3）を値の family（I-5）が使うので、この順に二つずつ並べる |
-| U-1 と U-2 | file が分かれている |
-| K-1〜K-4、K-6 のうち 2 つ | 同じ kit の `recipes*.rs` と `lib.rs` に足すので、3 つ並べると衝突が多い。K-5 は K-1〜K-4・K-6 の後に単独で行う（soft の同じ file を K-3・K-6 も触るため） |
+| wave | 内容（順と並列） | 並列の数 | 終わり |
+|---|---|---|---|
+| W0 準備 | `{P-0, P-2}` → P-1 | 2 | CP0（出発点の gate は P-0 の前に一度、2 章） |
+| W1 語彙 | V-1a → V-1b（定義の段） → V-1b（追従の段 G1〜G6） → `{V-2, V-3, V-4, V-5, V-6}`（定義の段。`kivact-types` の別々の module） → V-2〜V-6 の追従の段（G1〜G6 を一度にまとめて） | 6 | CP1 |
+| W2 下層と runtime | `{R-1, A-0}` → `{A-1a, R-2}` → `{A-1b, R-3, R-4, R-5}` → `{A-2, R-6}` → `{A-3, A-4, A-5, R-7}` → A-6 → E-1 → X-1 → `{E-2, E-3, E-4, E-5, E-6, E-7}` → E-8 → E-9 | 6 | CP2（mirror と WSL も） |
+| W3 中核 | C-1 → `{C-2, C-3}` → `{C-4, L-1}` → C-5 | 2 | CP3 |
+| W4 公開 API | N-1（定義の段） → `{N-2, N-6}` → N-3 → `{N-4, N-5}` → N-7 → N-9（kit・例・文書・試験の追従の段。G5 を kit ごとに 5 つ ＋ G6 の 1 つ） → N-8 | 6 | CP4 |
+| W5 振る舞い | I-0 → `{I-1, I-2, I-3, I-4, I-5, I-6}`（公開の署名を固定して並べる） → `{U-1, U-2, I-7}` → I-8 | 6 | CP5 |
+| W6 拡張口と不足 | T-1 → `{T-2, G-1, G-2, G-3, G-4, G-5}` | 6 | CP6 |
+| W7 kit | K-0 → `{K-1, K-2, K-3, K-4, K-6, K-8}` → K-9 → K-5 → K-7 | 6 | CP7 |
+| W8 仕上げ | F-1（文書を 6 つに分ける: getting-started の en・jp、how-to の en、how-to の jp、kit の文書、`architecture.md`・`decisions.md`、README・CONTRIBUTING） → F-2 → F-3 | 6 | G-final |
 
-ほかの unit は直列に進める。各 phase の終わりに G-phase。
+- W2 の中の A の列と R の列は互いに待たない（触る crate が違う）。`{..}` の中に A と R が混ざっているのは、同じ時に動いてよいという意味で、並列の数の上限 6 を超えないように詰めたもの。
+- I-1〜I-6 を並べてよいのは、各 behavior の `*Api` の公開のメソッドの署名を W5 の間変えないから（0.10 節）。I-5 が I-3 の drag の `Pending`（slop）を使う所は、I-3 が `DragApi` に足すメソッドの署名（設計書 11.1 節の `slop`・`axis_lock`・`track_velocity`）が決まっているので、I-5 は I-3 の merge を待たずにその署名で書く（build 不可でよい）。
+- L-1 は `kivact-i18n` の中だけなので、C-2 の後の空いている枠に入れる。
+- 13 章の表の「依存」と「並列」の列は、この表が置き換える（13 章の表は unit の一覧と規模として読む）。
 
 ---
 
@@ -214,7 +235,7 @@ P-0 → P-1 → P-2
 - **目的**: integration branch、記録の file、検査の枠を用意し、出発点の gate の結果を記録する。
 - **手順**:
   1. `git switch -c refactor/kashiwade/foundation-v3 main`、`git submodule update --init`。
-  2. G-phase を一度回し、結果（各コマンドの終了コード、試験の件数、時間）を `refactoring/PROGRESS.md` の「出発点」の節に書く。失敗があれば記録し、直さない（作者に知らせる）。ただし後の unit の gate を妨げる失敗（build が通らないなど）は、オーケストレータが最小の修正をして `DECISIONS.md` に書く。
+  2. checkpoint の gate（0.6 節。この時点では window を開く試験は `window-lock.sh` を通す）を一度回し、結果（各コマンドの終了コード、試験の件数、時間）を `refactoring/PROGRESS.md` の「出発点」の節に書く。失敗があれば記録し、直さない（作者に知らせる）。ただし後の unit の gate を妨げる失敗（build が通らないなど）は、オーケストレータが最小の修正をして `DECISIONS.md` に書く。
   3. `refactoring/PROGRESS.md`（13 章の表を写して状態の列を足したもの）と `refactoring/DECISIONS.md`（空の表）を作る。
   4. 検査を設計書 18.20 節の表のとおりに用意する（14.1 節・17 章の検査の一覧は 18.20 節が置き換える）。`dev/xtask` に `state-fields`、`effect-writes`、`api-shape`（公開の field の `f32` を含む）、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` を実装し、各検査に `--report`（違反を error にせず一覧を出す）を付ける（P-1 が使う）。検査の対象は「全 crate から policy の `skip` の一覧を除いたもの」で、P-0 では全 crate を `skip` に入れる。例外は inline の目印 `// xtask-allow(<検査>): <理由>`（設計書 18.14 節）。各検査の module の rustdoc に規則と理由を書く。clippy の `too_many_lines`（`clippy.toml` に `too-many-lines-threshold = 80`）と `disallowed_types`（`OnceCell`、`OnceLock`、`LazyCell`、`LazyLock`）は、crate ごとに `lib.rs` の `#![deny(..)]` で有効にする（各 crate の最後の構造の unit が足す。F-2 で workspace の lint に移し、crate の `#![deny]` を消す）。
      - `dev/xtask/src/` に検査ごとの leaf module を足す（`state_fields.rs` など）。`syn` で crate の source を読む（既存の `module_rules.rs` と同じ読み方）。
@@ -249,7 +270,7 @@ P-0 → P-1 → P-2
      - 以下、`state-fields`・`effect-writes` を「状態の検査群」と呼ぶ。
      - 各検査の自分の試験を `dev/xtask` に足す（小さな source の文字列を与えて、違反を見つけること・見つけないことを確かめる。window を開かない道具の試験）。
   5. `CONTRIBUTING.md` の「merge 前の検査」の節に、新しい検査が `cargo xtask check` に含まれることを一文足す。
-- **完了条件**: G-phase が出発点と同じ結果。新しい検査は全 crate が `skip` に入っているので何も報告しない。xtask の試験が通る。
+- **完了条件**: CP0 の gate が出発点と同じ結果。新しい検査は全 crate が `skip` に入っているので何も報告しない。xtask の試験が通る。
 - **指示に含める**: 4 の検査の仕様は設計書 18.14・18.20 節と、14.1 節の表のうち 18.20 節が残した検査の行を写す。
 
 ### P-1 状態の全数調査
@@ -265,9 +286,9 @@ P-0 → P-1 → P-2
 
 ### P-2 比較用の trace
 
-- **目的**: 振る舞いを変えない unit の確認の道具（設計書 18.22 節の前提。作業手順書 0.6 節）。
+- **目的**: checkpoint の trace の比較の道具（0.6 節）。
 - **手順**: 現在の `kivact::diagnostics` の `TurnRecord` を元に、環境変数 `KIVACT_TRACE`（値は `stage`・`semantics`・`host_events` を `,` で並べる）で、turn の段階、node ごとの semantics の変化、host との event を一行ずつ text で `target/kivact-trace/<試験の名前>.txt` に書く機能を `kivact-core` に足す（debug build だけ）。試験の名前ごとに file を分け、並べ替えずに書く。
-- **完了条件**: `KIVACT_TRACE=stage,semantics,host_events` で public-api の E2E を回し、file ができる。G-unit（core、public-api）。
+- **完了条件**: `KIVACT_TRACE=stage,semantics,host_events` で public-api の E2E を回し、file ができる。unit の確認（core、public-api）。
 
 ---
 
@@ -278,7 +299,7 @@ P-0 → P-1 → P-2
 ### V-1a 名前の衝突を先に解く
 
 - **目的**: V-1b の前に、`kivact-types` の `NodeId`（支援技術の node の id、`kivact-types/src/geometry.rs:7`）を `SemanticsId` と改名し、`TextRunId` を newtype にする（V-1b の「名前の衝突の解消」の箇条を先に行う）。wire の `NodeId` はそのまま。
-- **完了条件**: G-unit（types、engine、arvane 系、core）。
+- **完了条件**: unit の確認（types、engine、arvane 系、core）。
 
 ### V-1b `kivact-wire` を解体する
 
@@ -299,8 +320,8 @@ P-0 → P-1 → P-2
   4. `crates/kivact-wire` を消す。0.9 節の一覧を直す（`[profile.dev.package.kivact-wire]` を消す）。
   5. `dev/xtask/policy/workspace.toml` の `[module_rules.kivact-types.uses]` に新しい module を足す（値の module は互いに参照してよい範囲を、現在の wire の内部の参照の向きから写す）。
 - **試験**: 足さない。
-- **完了条件**: G-unit（`-p kivact-types -p kivact-engine -p kivact-core -p kivact-public-api-tests -p kivact-docs` と、直した全 crate の build）。`grep -r kivact_wire crates dev examples templates docs` が 0 件。
-- **規模**: 大。機械的。サブエージェントは一つ（直列）。
+- **完了条件**: unit の確認（`-p kivact-types -p kivact-engine -p kivact-core -p kivact-public-api-tests -p kivact-docs` と、直した全 crate の build）。`grep -r kivact_wire crates dev examples templates docs` が 0 件。
+- **規模**: 大。機械的。0.10 節の fan-out で行う: 手順 1・2・4・5 を定義の段（サブエージェント一つ）、手順 3 の `use` の置き換えを crate の組 G1〜G6 ごとの追従の段（最大 6 つを並べる。手順 3 の依存の順は待たない）。
 
 ### V-2 semantics を一つの型にする
 
@@ -312,7 +333,7 @@ P-0 → P-1 → P-2
   3. `arvane-shell`（`a11y/validation.rs`、`a11y/state.rs`）と `arvane-native`（`a11y/conversion.rs`）を `Semantics<SemanticsId>` にする。
   4. core: `SemanticSources` は残し（N-3 で消す）、mount のときに `Semantics<FocusTarget>` を作って engine へ書く形にする。
 - **試験**: 足さない。既存の支援技術の E2E（`dev/tests/kivact-public-api/tests/e2e/` の accessibility 系、`crates/arvane/tests/e2e/accessibility.rs`）が回帰の網。
-- **完了条件**: G-unit（`-p kivact-types -p kivact-engine -p arvane -p arvane-shell -p arvane-native -p kivact-core -p kivact-public-api-tests`）。WSL の gate（`arvane-native` を変えるため）。
+- **完了条件**: unit の確認（`-p kivact-types -p kivact-engine -p arvane -p arvane-shell -p arvane-native -p kivact-core -p kivact-public-api-tests`）。
 
 ### V-3 環境・設定・option・platform の request を一つにする
 
@@ -325,7 +346,7 @@ P-0 → P-1 → P-2
   - `LayoutRule`・`LayoutLimit`・`LayoutFinding` は `kivact-types::check` の一つ。core の `test/screen/results.rs:189-220` の二つ目と変換を消す。
   - `ThemeHint` と `dark: bool` の変換（`events.rs:388-393`）を消し、`ThemeHint` だけにする。
 - **試験**: 足さない。
-- **完了条件**: G-unit（engine、arvane 系、core、public-api）。WSL の gate。
+- **完了条件**: unit の確認（engine、arvane 系、core、public-api）。
 - **18 章の追加**: 失敗の型を `kivact_types::Failure { kind: FailureKind, detail: String }` 一つにする（`ShellError::Failed(String)`、`PlatformResult::Failed`。設計書 18.21 節）。
 
 ### V-4 共通の部品と定数
@@ -338,7 +359,7 @@ P-0 → P-1 → P-2
   - `kivact_types::text_utf`: `floor_char_boundary`、`utf16_offset`、`byte_offset_from_utf16`。五つの重複（`kivact-editing/src/edit_state.rs:69,158,165`、`editing/geometry.rs:55`、`kivact-engine/src/model/edit/session.rs:126,148`、`model/interact/text_geometry.rs:278`、`kivact-text/src/pieces.rs:151`、`chunks.rs:326`、`excerpt.rs`）を置き換える。
   - premultiplied → straight の変換（`kivact-engine/src/offscreen.rs:162-170`、`kivact-gpu-share/src/pool.rs:192`）を `kivact_types::color::unpremultiply` 一つに。
   - この unit では部品を作り、上に挙げた重複だけを置き換える。各所の `Cell<bool>` の latch を `ReportOnce` に置き換えるのは各 phase の状態機械の unit が行う。
-- **完了条件**: G-unit（types と置き換えた crate）。
+- **完了条件**: unit の確認（types と置き換えた crate）。
 - **18 章の追加**: facade から届く型の公開の `f32` の field を全部 `f64` にする（`api-shape` の report で一覧を作り報告に書く。`Point`・`Size`・`Rect`・`Insets`・`Transform`・`Spring` など、設計書 18.4 節）。taffy の adapter と GPU の code の境界で f32 に変換する。
 
 ### V-5 入力 event を一つの形にする
@@ -346,7 +367,7 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 5.4 節。pointer の 4 つの形と key の 2 つの形を一つにする。
 - **決定済みの形**: `PointerSample`、`KeyInput`、`WheelInput`、`ImeInput`、`FileDrop`（`kivact-types::input`）。engine の `Routed<T> { target: NodeId, local: Point, captured: bool, activation: Option<Activation> }`（`kivact-engine::contract`）。`Activation` は、現在 `Reader::take_adopted_activation`（`kivact-core/src/client/dispatch/pointer.rs:178-184` が呼ぶ）が返す値をそのまま包む struct で、C-4 が使う。この unit では engine は常に `None` を入れる（core は今までどおり `take_adopted_activation` を呼ぶ。C-4 で置き換える）。core の `PointerEvent`・`KeyEvent`・`WheelEvent` は `Routed<..>` を包む型にし、field を写さない。`KeyEvent.region` の field を `region()` のメソッドにする。
 - **手順**: shell（`Mouse`・`ClickCounter`・`Contacts` が `PointerSample` を作る）→ arvane（`ShellEvent` の pointer・key の variant が新しい型を運ぶ）→ arvane-native の三つの経路（winit、Win32 embed、X11 embed）→ engine（`model/pointer/shell.rs` が `PointerSample` を受ける。`PointerSource` は `Track` の中の状態として残す）→ core（dispatch と event の型）→ interaction・ui・kit の event の field の読み方。
-- **完了条件**: G-unit（全 crate に及ぶので G-phase と同じ範囲）。WSL の gate。
+- **完了条件**: unit の確認（全 crate に及ぶので その wave の checkpoint の gate（unit の確認は crate の check まで））。
 
 ### V-6 描画の記録・render scene・画素・text style の名前と形
 
@@ -358,10 +379,9 @@ P-0 → P-1 → P-2
   - text style: `kivact_types::text::{TextStyle, ComputedTextStyle}` と `ComputedTextStyle::inherit`。wire の `TextProps`・`TextMore`・`ComputedText`、protocol の `TextStyle`、`kivact-engine/src/measure/inherited_text.rs` の継承、`kivact-lower/src/conversion.rs:47-141` の写しを消す。`arvane-text` は `ComputedTextStyle` を受け取る。
   - `DrawingShape::Path { even_odd: bool }` を `FillRule` にする（`scene_shape.rs:11-17` の変換を消す）。`path::transform([f32; 6])` の変換を消し、`Transform` 一つにする。`kivact_lower::conversion::insets`・`sanitize::color` の 1:1 の変換は、sanitize（範囲の clamp）だけの関数として `kivact-types` の型のメソッドにする。
 - **試験**: 足さない。text の E2E（`crates/arvane/tests/e2e/text*.rs`、public-api の text 系）が回帰の網。
-- **完了条件**: G-phase と同じ範囲。WSL の gate。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 - **18 章の追加**: VOC-5（設計書 18.16 節）: `motion::Transition` は types の型の再公開にする。types の側の path の記録は `PathData` と名付ける。
 
-- **Phase V の終わり**: G-phase、push。
 
 ---
 
@@ -372,7 +392,7 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 9.1 節の前半。
 - **決定済みの形**: 設計書 9.1 節の `Backend`（`capabilities`、`services`、`run`、`open_child`、`shutdown`）。`arvane::spi` は `arvane-shell` の `Backend`・`ShellWindow`・`ShellHandler`・`ShellError` を再公開する（engine はここから使う）。`SteppedBackend`・`SteppedLoop`・`StepOutcome` は A-1、`Services` は A-2 が作り、そのとき `arvane::spi` に足す。`services` は A-2 で足す（この unit の `Backend` は `services` 以外の 4 つのメソッドを持つ）。`arvane::Shell::new(backend: Box<dyn Backend>)`。`arvane_native::backend() -> Box<dyn Backend>`。`kivact_engine::run(backend, client, options)` と `kivact_engine::native_backend()`（`arvane_native::backend()` を返すだけ。core が arvane-native の名前を知らないため）。`arvane::embed::open` は `backend.open_child(..)` を呼ぶ（`arvane_native::embed::open` の直接の呼び出し、`arvane/src/embed.rs:96` を消す）。
 - **手順**: `arvane-shell` に trait、`arvane-native` に impl（既存の `Shell::new` の中身を `run` に、`embed::open` を `open_child` に）、`arvane` の `Shell` と `embed`、engine の `host/launch.rs:31` と `embed.rs:70-110`、core の `platform/window_loop.rs`（`run_native` → `kivact_engine::run(kivact_engine::native_backend(), ..)`）。policy の `visible_to`: `arvane-shell` に `arvane-virtual` を足す（A-1 のため先に）、`arvane-native` に `kivact-engine` を足す。arvane はまだ arvane-native に依存している（`retain_module`、`detached_threads`、`test_display`、`TestParent`）。依存を外すのは A-1。
-- **完了条件**: G-unit（arvane 系、engine、core、public-api）。WSL の gate。
+- **完了条件**: unit の確認（arvane 系、engine、core、public-api）。
 
 ### A-1a `arvane-virtual` と試験の経路
 
@@ -401,19 +421,19 @@ P-0 → P-1 → P-2
   5. `kivact-core/src/test` の driver（`test/screen/driver.rs`）を新しい試験 host に合わせる（`kivact-test` への分離は C-1）。
   6. 0.9 節の一覧を直す。
 - **注意**: 本番の挙動と試験の挙動の差（click の数え方、focus を失ったときの mouse の `Cancel`、支援技術の公開の時点）が出て試験が失敗したら、本番の挙動を正として試験を直す（設計書 16.2 節）。直した試験の一覧を報告する。
-- **完了条件**: G-phase と同じ範囲（全 E2E が新しい経路で回る）。`KIVACT_TEST_MIRROR=off` でも全 E2E が回る。WSL の gate（Wayland と X11、mirror の有無）。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）（全 E2E が新しい経路で回る）。`KIVACT_TEST_MIRROR=off` でも全 E2E が回る。
 - **規模**: 大。サブエージェントは一つ。手順 1〜3 と 4〜6 で commit を分ける。
 
 ### A-1b 試験の経路の名前と残り
 
 - **目的**: A-1 の内容のうち A-1a で行わなかったもの（上の「分け方」）。
-- **完了条件**: G-phase と同じ範囲。WSL の gate。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 
 ### A-2 サービスと capability
 
 - **目的**: 設計書 9.1 節の後半。付録 A の SM-A09。
 - **決定済みの形**: `ShellWindow` から clipboard・4 つの dialog・open・reveal を外し、`Services::perform(request: PlatformRequest, reply: Box<dyn FnOnce(PlatformResult)>)` 一つにする（reply は UI スレッドで呼ぶ）。`Backend::services(&self) -> Rc<dyn Services>`・`SteppedBackend::services`（`run`・`start` の前に engine が取り、backend は自分の clone を持つ）。`ShellError { unsupported: bool }` → `ShellError::Unsupported` と `ShellError::Failed(String)`。`Capabilities` を設計書 9.1 節の一覧にする（現在の 8 つの field に、`clipboard_text`、`file_dialogs`、`open_path`、`reveal_path`、`fullscreen`、`min_size`、`command_key: CommandKey::{Ctrl, Command}`、`context_menu_on: ContextMenuTrigger::{Press, Release}` を足す。これ以外は足さない）。embed の子 window の no-op（X11 の `set_min_size`・`set_soft_keyboard`・`set_ime_text`、Win32 の `set_min_size`・`set_soft_keyboard`、両方の `set_fullscreen`）は `false` を報告する。engine の `host/pump.rs:132-178` の request ごとの match は、`PlatformRequest` をそのまま `Services::perform` へ渡す一本にする。CPU の提示は `ShellWindow::cpu_format() -> CpuFormat` を足し、renderer がその形式で書く（`Xrgb8888` だけを今は定義する）。`Clipboard::{Unopened, Open, Failed}`（SM-A09）。
-- **完了条件**: G-unit（arvane 系、engine、core、public-api の platform services の E2E）。WSL の gate。
+- **完了条件**: unit の確認（arvane 系、engine、core、public-api の platform services の E2E）。
 
 ### A-3 native の runner と shell
 
@@ -424,19 +444,19 @@ P-0 → P-1 → P-2
   3. `ShellEvent::Wake(WakeReasons)`（SM-A10）。`Driver` は `GpuStep` のときだけ GPU を進める。
   4. shell の支援技術: engine が作る更新を検証して適用するだけにし、二つ目の diff を消す（SM-A13）。`ShellEvent::AccessibilityActivated`・`AccessibilityDeactivated` を足す（engine の使い方は E-6）。
   5. OS の分岐の移動（DEP-3）: `kivact-interaction/src/menu/handle.rs:295` の macOS の分岐を `Capabilities.context_menu_on` に、`arvane-native/src/runtime.rs:260` の `touch: !cfg!(target_os = "macos")` は arvane-native の中なのでそのまま、`kivact-ui-soft/src/kbd.rs:14` は K-6 で `ui::kbd` に移すときに `Capabilities.command_key` にする（この unit では interaction の分だけ）。
-- **完了条件**: G-unit。WSL の gate。
+- **完了条件**: unit の確認。
 
 ### A-4 embed の lifecycle
 
 - **目的**: 付録 A の SM-A01〜A06。設計書 9.4 節。
 - **手順**: `embed/child.rs` に `ChildLifecycle` と `HandlerSlot` を置き、`embed/session.rs` の `HandlerState`、Win32 の `Phase`、X11 の `opening: bool`・`exists: AtomicBool` を置き換える。Win32 の `Reentry`、`Utf16Decoder`、`Uia`、`WakeCoalescer`、`OpeningGuard`。X11 の `ChildRedraw`、`WindowFocus`、XIM の `ImeAllowance` と `Connection` の enum。engine 側の `closing` は E-2 で `CloseSignal` にする（この unit では arvane-native の中だけ）。
-- **完了条件**: G-unit（`-p arvane-native -p arvane -p kivact-public-api-tests --features embed`）。WSL の gate（X11 の embed の E2E を含む）。Windows の embed の E2E（`dev/tests/kivact-public-api` の embed 系、`crates/arvane/tests/e2e` の embed 系）。
+- **完了条件**: unit の確認（`-p arvane-native -p arvane -p kivact-public-api-tests --features embed`）。Windows の embed の E2E（`dev/tests/kivact-public-api` の embed 系、`crates/arvane/tests/e2e` の embed 系）。
 
 ### A-5 GPU の状態
 
 - **目的**: 付録 A の SM-A11・A12・A14。
 - **手順**: `FrameHealth` に CPU への fallback の段階を入れ、`Device.failures` を消す。`DeviceSurface`、`WorkerState`。arvane-render の `DeviceLost`、`Offscreen`、`Retain`、`LastConfigure`。gpu-share の `SlotState`、`PoolHealth`、`ExternalPass<'_>`。
-- **完了条件**: G-unit（`--features gpu-interop` を含む: `-p arvane -p arvane-render -p kivact-gpu-share -p gpu-interop-producer -p kivact-public-api-tests`）。WSL の gate。GPU のない環境の skip の扱いは変えない。
+- **完了条件**: unit の確認（`--features gpu-interop` を含む: `-p arvane -p arvane-render -p kivact-gpu-share -p gpu-interop-producer -p kivact-public-api-tests`）。GPU のない環境の skip の扱いは変えない。
 ### A-6 arvane-native の port と pipeline
 
 - **目的**: 設計書 17.2 節。
@@ -449,10 +469,9 @@ P-0 → P-1 → P-2
   5. `pipeline/cursor` に cursor の写像表を集める。
   6. a11y の conversion を `pipeline/a11y` へ移す。
 - **試験**: 足さない（入力・IME・DnD・embed の既存の E2E と、A-1 の smoke の試験が回帰の網）。
-- **完了条件**: G-unit（arvane 系、engine、public-api の embed・input・IME 系）。WSL の gate（Wayland、X11、X11 の embed）。Windows の embed の E2E。
+- **完了条件**: unit の確認（arvane 系、engine、public-api の embed・input・IME 系）。Windows の embed の E2E。
 - **18 章の追加**: OS を知らない pipeline（`ImeDriver`、`DropSession`、key の正規化、VK・keysym の写像表、cursor の写像表、`RawInput`）は `arvane-shell` の `pipeline` に置き、`arvane-native/port` には OS の呼び出しと winit からの写像だけを残す。`arvane-virtual` の台本に `Script::raw(RawInput)` を足し、key・IME・DnD の E2E を `Script::raw` で書く（`raw_key_mapping_reaches_handlers`、`raw_ime_composition_commits`、`raw_file_drop_reaches_dropzone`）（設計書 18.18 節）。
 
-- **Phase A の終わり**: G-phase、push。
 
 ---
 
@@ -466,7 +485,7 @@ P-0 → P-1 → P-2
   2. `kivact-lower` の公開を設計書 8.3 節の `Lowerer`・`LowerCx`・`LowerReport`・`shape` に絞る。engine の 19 file の import を `Lowerer` のメソッドの呼び出しに置き換える。`SceneOut`・`Tint`・`glyphs`・`conversion`・`sanitize` は `pub(crate)`。`Context` の latch（`error`、`dropped`、`failures`）を消し、`LowerReport` を返す。`ArvaneAssets` の `pending: Vec<HostEvent>` は V-1 の `AssetEvent` の列を `LowerReport.asset_events` として返す形にする。
   3. `Model` は host の start で本物の `AssetStore` を受け取って作る（`AssetStore::inline()` で始めて差し替える処理、`host/launch.rs:62-67`・`events.rs:110` を消す）。Offscreen は inline の store で作る（変わらない）。
   4. policy: `kivact-lower` の `visible_to` を `["kivact-engine"]`、`arvane` の `visible_to` を `["kivact-engine", "kivact-lower"]`。
-- **完了条件**: G-unit（engine、lower、core、public-api の offscreen と text 系）。
+- **完了条件**: unit の確認（engine、lower、core、public-api の offscreen と text 系）。
 - **18 章の追加**: `ArvaneAssets` と当たり判定の `shape` を engine へ移し、`BoxShape` を `kivact-types::paint` へ移す。lower の公開は `Lowerer`・`LowerCx`・`LowerReport`・`SceneCache` だけ（設計書 18.17 節）。
 
 ### E-2 host の状態機械
@@ -474,46 +493,46 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 8.2 節。付録 A の SM-E01〜E07、E18。
 - **手順**: `HostPhase`・`Run`・`AppPresence`・`Surface` を `host/` に置き、`Host` の field を置き換える（`HostPhase::Exiting` は締切を持たない。設計書 8.2 節）。`drawable()` を一つの関数にし、model の `Clock` と core への event の `surface_active` をそこから派生させる（V-3 の一時的な field を消す）。`CloseSignal`（`kivact_engine::contract`。embed の `AtomicBool` を包む）を pump の入口で一度だけ読み、立っていれば `HostEvent::CloseRequested` を core へ送る（14 か所の `closing()` を消す）。core の `client/dispatch.rs` に `CloseRequested` の arm を一つ足して `Runtime::request_exit`（R-2 が作る）を呼び、`AppClient.embed_closing` の読み出しを消す（core を変えるのはこの二点だけ。`ClientMode::Embedded` への整理は C-1）。`SurfaceLost` の往復をやめる。`FrameRequests`、`SmoothScroll`、`TickHistory`、`Host.last_frame` を `LastPresent` と改名。`PlatformRequest::RegisterFont` を engine の内部の request に分ける。`soft_keyboard`・`environment`・`adapter` を `Sent<T>`、`accessibility_noted` を `ReportOnce`。
 - **状態の点検表**: 0.7 節。
-- **完了条件**: G-unit（engine、core、public-api の lifecycle・window・embed 系）。
-- **並列の注意**: この unit は core の `client/dispatch.rs` を一行変えるので、レーン 2 の unit と同時に動かすときは merge で手で合わせる。
+- **完了条件**: unit の確認（engine、core、public-api の lifecycle・window・embed 系）。
+- **並列の注意**: この unit は core の `client/dispatch.rs` を一行変えるので、同時に動くほかの unit が同じ file を触るときは merge で手で合わせる。
 
 ### E-3 pointer と key
 
 - **目的**: 付録 A の SM-E10〜E17。
 - **手順**: `Track::{Mouse, Touch, Pen}` と variant ごとの gesture の enum（SM-E11）、`Route` の enum（SM-E10）、`MouseGesture::SelectText`（SM-E14）、`PointerState.mouse` の削除（SM-E13）、`Admission` の整理（SM-E15）、`KeyDownTargets`（SM-E16）、modifier の `Sent`（SM-E17）。
 - **振る舞いの変更**: `key_up` を `key_down` を受けた node へ送る。E2E を `dev/tests/kivact-public-api/tests/e2e/keyboard.rs`（なければ input の module）に足す: `key_up_goes_to_the_node_that_received_key_down`（node A で key を押し、押している間に focus を node B へ移し、離したとき A の `on_key_up` が呼ばれ B のは呼ばれないこと）。
-- **完了条件**: G-unit。足した試験を単独でも回す。
+- **完了条件**: unit の確認。足した試験は、A-1b の後なら unit の確認で名前を指定して回し、前なら checkpoint で回す。
 
 ### E-4 IME と編集
 
 - **目的**: 付録 A の SM-E19〜E22、E32。
 - **手順**: `ControlledValue`、`InputStart`、`ImeTarget`、`Sent<ImeAllowed>`・`Sent<SoftKeyboard>`、`EditState::take_damage(&mut self)`、`max_length` の明示の setter、editor の索引を一つに、`EditLines` の借用の失敗を `expect("invariant: ..")`。
-- **完了条件**: G-unit（engine、editing、core、public-api の text input・IME 系）。
+- **完了条件**: unit の確認（engine、editing、core、public-api の text input・IME 系）。
 
 ### E-5 layout と presence
 
 - **目的**: 設計書 8.4 節。付録 A の SM-E27〜E31。
 - **手順**: `kivact-layout` の型状態の pass（`Edit`・`Pending`・`Computed`）、`RecordState`。engine の `LayoutPending`、`Model::settle` を一つにして `handle` の 5 か所の `layout()` と `sync` の二重の `pack_child_orders` を消す、`Sent<LayoutReport>`・`Sent<ScrollReport>`・`Stacking`、`Presence` の enum と索引、`ColorChannels`。`kivact-layout/src/lib.rs:11-23` の呼び出し順の doc を消す（型が表す）。
-- **完了条件**: G-unit（layout、engine、core、public-api の layout 系と `LayoutCheck` を使う試験）。
+- **完了条件**: unit の確認（layout、engine、core、public-api の layout 系と `LayoutCheck` を使う試験）。
 
 ### E-6 支援技術
 
 - **目的**: 付録 A の SM-E23〜E26。
 - **手順**: `Dirt` に直接積む（`Changes` の a11y の field を消す）、`A11yPublish`、`SemanticsIdAllocator`、A-3 の activation の event で遷移、`Focused` の `FocusVisibility`・`Reveal`、`A11yState.focus` を消す。
-- **完了条件**: G-unit（engine、arvane 系、public-api の accessibility 系）。WSL の gate（AT-SPI）。
+- **完了条件**: unit の確認（engine、arvane 系、public-api の accessibility 系）。
 
 ### E-7 paint
 
 - **目的**: 付録 A の SM-E08・E09。
 - **手順**: `Redraw`、`ListState`、`ink_gen` の `Generation`。
-- **完了条件**: G-unit。
+- **完了条件**: unit の確認。
 ### E-8 engine の fragment
 
 - **目的**: 設計書 17.1 節の engine 側。
 - **主な crate**: engine、layout、style（`Display::Contents` の公開の variant）。
 - **手順**: `NodeKind::Fragment` を足す。`NodeTree::flat_children(id)`（topology の変化で無効になる cache）を作り、`layout/adapter.rs`、paint の walker、a11y の build、hit test、focus の navigation がこれだけを使うようにする。`Display::Contents` の box も `flat_children` で透明に扱う（支援技術では自分の semantics を出さない）。`Reader::parent(id)`・`Reader::children(id)` を足す。
 - **試験**: 足す。`dev/tests/kivact-public-api/tests/e2e/layout.rs`（なければ作る）に `display_contents_lays_out_children_in_the_parent`（`Display::Contents` の box の子が親の flex の項目として並ぶこと）。fragment そのものは core が C-5 で使い始めるので、この unit では core の flow を変えない。
-- **完了条件**: G-unit（engine、layout、public-api）。
+- **完了条件**: unit の確認（engine、layout、public-api）。
 - **18 章の追加**: engine の `tree` の生の `children` を module の外に出さず、`flat_children` だけを出す（`module_rules` で強制。設計書 18.21 節）。
 
 ### E-9 出現と退場の大きさ
@@ -521,9 +540,8 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 17.10 節の engine 側。
 - **手順**: `Style::enter_size(Axis)`・`exit_size(Axis)` を足し、engine の presence の遷移（`NodePresence`）が node の transition でその軸の大きさを 0 から・0 へ動かし、layout がその大きさを使う。`NodeRef::presence() -> Value<Presence>`（公開の `kivact::view::Presence`）を engine の presence の event から作る。
 - **試験**: 足す。`presence.rs`（public-api の E2E）に `exit_size_collapses_the_node_before_it_is_removed`（閉じた内容の高さが途中の frame で 0 と元の間にあり、退場の完了で node が消えること。`Screen::advance` で時刻を進める）と `presence_reports_entering_present_leaving`。
-- **完了条件**: G-unit（engine、style、core、public-api）。
+- **完了条件**: unit の確認（engine、style、core、public-api）。
 
-- **Phase E の終わり**: G-phase、push。
 
 ---
 
@@ -537,7 +555,7 @@ P-0 → P-1 → P-2
   2. motion の純粋な計算が `kivact-types::motion`（V-1 で wire から移ったもの）を使っていることを確かめる。`kivact-motion/src/transition.rs:95` の `as_wire` は残す（N-1 で消す）。
   3. 依存を直す: `kivact-style`・`kivact-i18n`・`kivact-core` が `kivact-runtime` に依存する。facade の `kivact::task`・`kivact::motion` などの再公開の path は変えない（core の再公開の module の中身だけ直す）。
   4. 0.9 節の一覧（三つの crate を消し、`kivact-runtime` を足す）。`visible_to` の `kivact-runtime` は `["kivact-style", "kivact-i18n", "kivact-core"]`。
-- **完了条件**: G-phase と同じ範囲（runtime を使う全部）。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）（runtime を使う全部）。
 
 ### R-2 host との境界と turn の状態機械
 
@@ -552,7 +570,7 @@ P-0 → P-1 → P-2
   6. executor の waker を `ThreadWaker` から構築時に渡す（SM-R19）。
 - **状態の点検表**: 0.7 節。
 - **試験**: 足さない。全 E2E が回帰の網（turn の順序を変えていないことの確認）。
-- **完了条件**: G-phase と同じ範囲。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 - **規模**: 大。サブエージェントは一つ。手順 1〜3（runtime の中）と 4〜6（core）で commit を分ける。
 
 ### R-3 reactive の内部の状態
@@ -560,7 +578,7 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 6.4 節。付録 A の SM-R01〜R03、R07、R08、R11、R12。
 - **手順**: `CompState`、`PassRuns`、`OwnerPhase`、`Frame`/`FrameKind`（`writer` を含む）、graph の `NodeData::Watcher` と、それで書き直した `effect_on`、`SelectorCache`。
 - **状態の点検表**: 0.7 節。
-- **完了条件**: G-unit（runtime、core、public-api の reactive 系・flow 系）。
+- **完了条件**: unit の確認（runtime、core、public-api の reactive 系・flow 系）。
 - **18 章の追加**: `FrameKind::Pure`（memo・selector の評価）の中の signal の書き込みを misuse の panic にする（設計書 18.20 節の memo の検査）。
 
 ### R-4 時間の仕組みを一つにする
@@ -568,13 +586,13 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 6.3 節。付録 A の SM-R16、R22〜R25、SM-C23（motion の Weak の表）。
 - **決定済みの形**: `Scheduler { timers, frames, cancel: CancelQueue }`、`SleepState`、`FrameClock`/`FramePhase`/`ClockOffset`、`next_frame()`（runtime の内部の future）、`frame_loop` を `next_frame().await` を繰り返す task にし `Signal<LoopState>` を持つ、`AnimatedCell` と `AnimPhase`（`running` は memo、完了は callback の列、初回の skip は `Watcher`）、`RuntimeConfig.reduced_motion` と `Runtime::set_reduced_motion`（`MotionEnv` と `attach_env` を消す）。`TurnReport.wants_frame` は「frame を待つ task があるか」。
 - **試験**: 足さない。animation・frame loop・timer の E2E が回帰の網。
-- **完了条件**: G-unit（runtime、core、interaction、ui、public-api の animation・motion・task 系、kit の動きの試験）。
+- **完了条件**: unit の確認（runtime、core、interaction、ui、public-api の animation・motion・task 系、kit の動きの試験）。
 
 ### R-5 非同期の状態
 
 - **目的**: 設計書 6.6 節。付録 A の SM-R13〜R15、R17、R18、R21。
 - **手順**: `AsyncCell`/`AsyncSnapshot`、`ActionPhase`/`Drain`（`Detached` は `Runner::Queue|All` からだけ作れる型にする）、`Latest`、`TaskCell::new(task)`、`PoolState`（`ShutDown` の後の `blocking` は `UiError`、`ErrorKind::Shutdown` を足す）、drain の queue の移動と `Registry<dyn Drain>`。
-- **完了条件**: G-unit（runtime、core、public-api の async・task 系、例の async）。
+- **完了条件**: unit の確認（runtime、core、public-api の async・task 系、例の async）。
 
 ### R-6 `Machine` と `Trigger` の公開
 
@@ -587,17 +605,16 @@ P-0 → P-1 → P-2
   - `a_machine_timer_is_canceled_with_its_owner`（`show` の分岐を閉じると timer の event が届かないこと）
   - `send_inside_a_transition_effect_is_queued_not_reentrant`
 - **文書**: rustdoc だけ。guide の節（`custom-controls.md` の「状態機械で振る舞いを書く」）は N-1 で足す。
-- **完了条件**: G-unit（runtime、core、public-api）。
+- **完了条件**: unit の確認（runtime、core、public-api）。
 - **18 章の追加**: `Machine` は設計書 18.13 節の形（`State`・`Event`・`Effect` の三つ、`transition(&self, ..)`、`Step::after`・`cancel`）。E2E の `a_machine_timer_fires_once_and_is_replaced_by_the_same_key` は「同じ event の variant の `Step::after` は前の timer を置き換える」を確かめる。
 
 ### R-7 内部の handler の型
 
 - **目的**: 設計書 17.5 節と 17.11 節の `AppStates`。
 - **手順**: `kivact_runtime::handler::Handler<E>` を作り、設計書 17.5 節の一覧の内部の slot を置き換える（core の `view/tree.rs`・`handler_layers.rs`・`editing_data.rs` は C-1 の後に触るので、この unit では runtime の中（motion の frame loop の関数、task の `DoneFn`）だけを置き換え、core の分は C-3 で行う）。`use_app_state` の保存を runtime の `AppStates`（型ごとの slot）にする。
-- **完了条件**: G-unit（runtime、core、public-api）。
+- **完了条件**: unit の確認（runtime、core、public-api）。
 - **18 章の追加**: `AppStates` は別の map にせず、`Extensions` に `use_app_state` が最初の呼び出しで入れる（設計書 18.21 節）。
 
-- **Phase R の終わり**: G-phase、push。
 
 ---
 
@@ -614,7 +631,7 @@ P-0 → P-1 → P-2
   4. `crates/kivact-test` を作り、`kivact-core/src/test/` の公開 API を移す。core の内部を読む箇所は `launch::Inspect` と engine の試験 host の API に置き換える。`RenderOptions` は `AppSettings` を包む。`render` は `ClientMode::Test` で `Launch` を通る（window の大きさ・最小の大きさ・blocking のスレッドの数を無視しない）。
   5. `kivact-core/src/test/screen/*_tests.rs` の内部の試験（10 file、37 試験）の扱い: 公開 API で書けるものは `dev/tests/kivact-public-api/tests/e2e/` の該当の module へ移す。core と engine の木の一致など内部の不変条件は `kivact-test` の debug の自己検査（現在 pump の debug にある検査）へ入れる。どちらでもないもの（`real_window_tests.rs:398` の `#[ignore]` の測定）は消し、消した試験の名前を報告に書く。embed の E2E（`TestParent`）は `native_unavailable()` で skip できるようにする。
   6. facade の `kivact` の feature `test` は `dep:kivact-test` を有効にし、`kivact::test` を `kivact_test` の再公開にする。`kivact-core` の feature `test` と `#[cfg(feature = "test")]` を消す。0.9 節の一覧。
-- **完了条件**: G-phase と同じ範囲。`grep -rn 'feature = "test"' crates/kivact-core` が 0 件。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。`grep -rn 'feature = "test"' crates/kivact-core` が 0 件。
 - **規模**: 大。サブエージェントは一つ。手順 1〜3 と 4〜6 で commit を分ける。
 - **18 章の追加**: `AppSettings` を `AppOptions` と改名する（設計書 18.12 節）。
 
@@ -629,14 +646,14 @@ P-0 → P-1 → P-2
   5. `static THEMED`（`kivact-style/src/theme/value.rs:527`）を `Theme` の値の中の表にする。
   6. `Theme` の文脈への設置を core の `view::boundary` が行う。`kivact_runtime::Owner` が `kivact-style` の公開の署名に出ないようにする。
 - **試験**: 足す。`dev/tests/kivact-public-api/tests/e2e/i18n.rs` に `en_us_formats_numbers_dates_and_names`（`Locale` の書式の関数の結果を text に出して確かめる）。
-- **完了条件**: G-unit（i18n、style、core、ui、public-api、docs）。
+- **完了条件**: unit の確認（i18n、style、core、ui、public-api、docs）。
 
 ### C-3 view の状態
 
 - **目的**: 付録 A の SM-C07、C09〜C14、C18〜C27。
 - **手順**: 付録 A の各項目の「解消後」のとおり。`ReportOnce`・`ReportOnceSet`・`Sent`・`Generation`・`Registry` は V-4 の部品を使う。core の内部の callback の slot（`view/tree.rs:64-99` の `Handlers`、`PartActions`、`EventHandlers<E>`、`SessionHandler`）を R-7 の `Handler<E>` にする。gpu-interop の状態の二つ目の置き場所（`ViewState.Started.adapter`）を消し、`gpu_interop::State` だけにする（設計書 17.11 節）。
 - **状態の点検表**: 0.7 節。
-- **完了条件**: G-unit（core、public-api、gpu-interop の feature を含む）。
+- **完了条件**: unit の確認（core、public-api、gpu-interop の feature を含む）。
 
 ### C-4 part の入力と事実の持ち主
 
@@ -646,22 +663,21 @@ P-0 → P-1 → P-2
   1. `PartInput`（`Press`・`Hover`）。disabled になる遷移で `Press::Idle`。focus の in/out は engine の既存の `HostEvent::FocusChanged`（現在 `kivact-wire/src/events.rs:181`、V-1 の後は `kivact_engine::contract`）で受ける。hover は engine の hover chain だけ（`view/part.rs:222-223` の observer を消す）。
   2. `RegionEntry`・`Adopted`・`RegionBinding`、変化の通知は `Trigger`。
   3. `PartCapture`・`CaptureTarget`。engine が activation を `Routed.activation` で渡し、`take_adopted_activation`（`Reader` の変更の呼び出し）を消す。
-- **完了条件**: G-unit（core、engine、interaction、ui、public-api の input・canvas region 系、kit の試験）。
+- **完了条件**: unit の確認（core、engine、interaction、ui、public-api の input・canvas region 系、kit の試験）。
 ### C-5 core の木を side table にする
 
 - **前提**: E-8。
 - **目的**: 設計書 17.1 節の core 側。
 - **手順**: core の flow が自分の位置に engine の fragment を作り、その中へ子を入れるようにする。`Tree` を `CoreNodes(IdMap<NodeId, CoreNode>)` にし、parent・children・順序を消す。`find_up` と挿入の位置を `Reader::parent`・`Reader::children` にする。`launch::Inspect::check_trees` と、試験の driver の二つの木の一致の検査を消す。
 - **試験**: 足さない（flow・list・virtual list・overlay・event の bubbling の既存の E2E が回帰の網）。
-- **完了条件**: G-phase と同じ範囲。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 
-- **Phase C の終わり**: G-phase、push。
 
 ---
 
 ## 8. Phase N: 公開 API
 
-この phase は公開 API を設計書 10 章と付録 B の形にする。どの unit も、workspace の中の全部の呼び出し元（core、interaction、ui、kit 5 つ、例、catalog、雛形、試験、`docs/` と README の code block）を同じ unit で直す。`-p kivact-docs` の doctest が漏れを見つける。
+この phase は公開 API を設計書 10 章・18 章と付録 B の形にする。N-1〜N-7 の各 unit は中核の crate（0.10 節の G3・G4）の定義と呼び出し元だけを直し、kit・例・catalog・雛形・試験・文書（G5・G6）は N-9 でまとめて直す。CP4 の `-p kivact-docs` の doctest が漏れを見つける。
 
 ### N-1 module と正準パス
 
@@ -675,7 +691,7 @@ P-0 → P-1 → P-2
   6. `Transition::as_wire`、`Signal::id`、`Menu::behavior`、`Button::into_node`、`TextInput::into_node`、`F64Signal` を消す（付録 B.3）。`IntoValue::into_prop`・`IntoText::into_text` を `#[doc(hidden)]` にし、`Prop` を `kivact::state::__private` から届くようにする（付録 B.3。sealed にはしない）。
   7. 全部の呼び出し元を直す。docs の import を直す。
   8. R-6 で作った `Machine` の E2E（`machine.rs` の 5 試験）と、`docs/for-kivact-user/{en,jp}/how-to-guide/custom-controls.md` の「状態機械で振る舞いを書く」の節（付録 B.7 の例を元に。doctest が通ること）を足す。
-- **完了条件**: G-phase と同じ範囲。足した試験を単独でも回す。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。足した試験は、A-1b の後なら unit の確認で名前を指定して回し、前なら checkpoint で回す。
 - **18 章の追加**: prelude は付録 B.2 の新しい一覧（設計書 18.6 節）。`kivact::geometry`（`Point`、`Size`、`Rect`、`Insets`、`Edge`）を新しく作り、`Asset` を `kivact::view` へ、`Reorder` を `kivact::interaction` へ移す（付録 B.8）。
 
 ### N-2 handler
@@ -683,7 +699,7 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 10.4 節、付録 B.4。
 - **手順**: `HandlerResult` を一つにして `kivact::view` に置く（`KeyHandlerResult` を消す）。payload のない event の handler の引数を `impl IntoAction<M>` にし、closure と `Callback<()>` の両方を受ける。payload のある event は `impl Fn(E) -> R + 'static` のまま（closure の引数の型の推論のため。設計書 17.6 節）。付録 B.4 の表の全部の handler の名前・引数・戻り値を直す。位置引数の callback を handler に（`menu`、`command_palette`、`tag_input`）。`a11y_action`、`on_dismiss_default`、`Action::on_complete` と `ActionOutcome`、`Reorder<K>`、`on_text_change`、`on_composition` と `Composition`、`leave_to`、`on_draft_commit`。
 - **試験**: 足さない（既存の E2E の書き方を新しい名前に直す）。
-- **完了条件**: G-phase と同じ範囲。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 - **18 章の追加**: payload のない handler の引数は `impl Into<Callback<()>>`（`From<F: Fn() -> R> for Callback<()>` を足す）。`IntoAction` は作らない（設計書 18.2 節）。
 
 ### N-3 modifier の語彙
@@ -695,14 +711,14 @@ P-0 → P-1 → P-2
   3. `Part<S>` を `Part::new(state, apply: impl FnOnce(Node) -> Node + 'static)` にし、約 40 の modifier の複製（`view/part.rs:390-742`）を消す。interaction の全 behavior の part の作り方を直す。`Part::on_bind` を `Node::on_mount` に。
   4. semantics を patch で組み立てる（設計書 7.4 節）。`SemanticSources`（`view/common.rs:267-289`）を消す。
   5. kit の builder（basic 43、pop 18、game 9、creative 23、soft 100 の `impl NodeBuilder`）と、`use kivact::primitive::NodeExt;` の全部の import を直す。
-- **完了条件**: G-phase と同じ範囲。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 - **18 章の追加**: part は mount のとき host の node の `disabled`・`invalid`・`name`・`labelled_by`・`described_by` を読んで machine の入力にし、`*Api` に状態の読み出し（`control_state()` など）を足す（設計書 18.10 節）。semantics の patch は、定数だけなら mount のときに畳み、reactive な patch があるときだけ render effect を作り、patch の位置を `why` の origin に記録する。`Node::on_mount(Fn(PartMount))` は `on_attach` と改名する。
 
 ### N-4 prop の形
 
 - **目的**: 設計書 10.5・10.6 節、付録 B.5。
 - **手順**: 付録 B.5 の表の全行。`IntoScalarRange` を消し、`ScalarRange` に `constant_value!`。構造の option を設計書 10.6 節の表のとおり引数なしのメソッドにする（既定が「する」だった `keep_focused` は `release_offscreen_focus()`、`decorative` は `essential()`）。`IntoValue<f64>` を `i32`・`u32`・`f32` に、`IntoValue<ScalarRange>` を `RangeInclusive<f64>`・`RangeInclusive<i32>` に足す（`From<RangeInclusive<f64>>` は足さない）。kit の同じ形の引数（`f32`、定数の bool）もこの unit で同じ規則で直す（付録 C.1 の表の KIT-6 の行の「inherent の `disabled`」「option の束」「型の alias」は K-7）。
-- **完了条件**: G-phase と同じ範囲。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 - **18 章の追加**: `IntoBinding<T>`（`IntoSelection<K>` は `Selection` を作る N-5）、`ItemKey`・`PropValue`、`Duration`・`PathBuf` の定数の prop、構造の option の新しい名前（`release_offscreen_focus`、`keep_focus`、`initially_expanded`、`track_velocity` など、付録 B.8）を行う（設計書 18.7 節）。policy の `structural_options` に 10.6 節の一覧を書き、`structural-options` の検査を有効にする。
 
 ### N-5 子・slot・選択・文脈・回復
@@ -715,7 +731,7 @@ P-0 → P-1 → P-2
   4. 文脈と ambient の読み出しの改名と戻り値（`use_context`、`try_use_context`、`use_theme`、`use_locale`、`use_direction` と、App 全体の `view::modifiers`、`view::pointer_position`。`platform` の環境の読み出しは全部 `Value<T>`）。`use_context` の文脈がないときの panic の message は設計書 3.4 節の API-12。公開の境界の trait の `#[diagnostic::on_unimplemented]`（API-11）もこの unit で付ける。`platform::pointer_settings`、`keyboard_inset` を足す。
   5. 付録 B.6 の表（`Rc`・`Arc`・`Box<dyn>`・`Location` を署名から消す。`Ext<T>`、`Recipe<S>` の struct、`TestFonts::Only(Vec<Asset>)`、`#[track_caller]`）。
   6. `constant()` を消す。
-- **完了条件**: G-phase と同じ範囲。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 - **18 章の追加**: `use_*` の読み出しを owner の下の closure から呼べるようにする（設計書 18.3 節）、`use_tokens`、`bind!`・`Signal::project`、`for_each` の行の `Binding<T>`（`Signal::item` の削除）、closure の子の `IntoView`、`Component`、`IntoViewFn`、`Theme::ext`・`ThemeRef`・reactive な `App::theme`、`Retry::run`（設計書 18.3・18.7〜18.9・18.11 節）。E2E を足す: `closure_child_updates_text`、`for_each_row_binding_edits_the_item`、`bind_macro_edits_a_nested_field`、`use_theme_reads_inside_a_style_closure`、`app_theme_follows_theme_hint`。
 
 ### N-6 `EditPhase` と `on_edit` の網羅
@@ -725,21 +741,26 @@ P-0 → P-1 → P-2
 - **振る舞いの変更**: E2E を `dev/tests/kivact-public-api/tests/e2e/edit_phase.rs`（既存の edit の試験の module があればそこ）に足す:
   - `every_value_writing_standard_component_reports_on_edit`（`checkbox`・`switch`・`select`・`tabs`・`toggle`・`tag_input` の値をそれぞれ一回変え、`on_edit` が `Begin` と `Commit` を一回ずつ受けること）
   - `text_input_reports_edit_phases_from_the_native_editor`
-- **完了条件**: G-unit（core、interaction、ui、kit、public-api、docs）。足した試験を単独でも回す。
+- **完了条件**: unit の確認（core、interaction、ui、kit、public-api、docs）。足した試験は、A-1b の後なら unit の確認で名前を指定して回し、前なら checkpoint で回す。
 
 ### N-7 interaction の名前と試験の API
 
 - **目的**: 付録 B.1 の interaction と test、B.3。
 - **手順**: interaction の handle を全部 `*Api` に（`Toggle` は `SwitchApi`・`ToggleButtonApi` に分ける）。`Element::read_only` を消し、`invalid` → `is_invalid`、`password` → `is_password`。`render_with_handle` を `render_with` に統合。`Screen::evidence`、`Screen::assert_layout_clean`、`RenderOptions::with_theme`・`reduced_motion` を足す（kit の写しの置き換えは K-7）。
-- **完了条件**: G-phase と同じ範囲。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。
 - **18 章の追加**: 付録 B.8 の改名の表のうち、この時点で存在する item の行を行う（`ViewportApi`、`pagination`、`heading`、`card`、`calendar`、`StepperItem`、`kbd_combo`、`StateTokens` のように後の unit（K-0〜K-9、G-*）が作る item は、その unit が B.8 の名前で作る）。
+
+### N-9 kit・例・文書・試験の追従
+
+- **目的**: Phase N の公開 API の変更（N-1〜N-7）を、G5（5 つの kit）と G6（例、catalog、雛形、`dev/tests`、`docs/`、README）に一度にまとめて当てる（0.10 節）。
+- **分け方**: kit ごとに一つ（basic、pop、game、creative、soft）と、G6 に一つの、6 つのサブエージェントを並べる。どれも build 不可から始めてよい。全部を merge したら、オーケストレータが `cargo check --workspace --all-targets --all-features` を回し、残った error を組ごとに直す。
+- **完了条件**: CP4 の gate。
 
 ### N-8 公開 API の検査を有効にする
 
 - **目的**: 設計書 14.1 節。
 - **手順**: `api-shape`・`canonical-path` の `skip` から `kivact`、`kivact-core`、`kivact-runtime`、`kivact-style`、`kivact-i18n`、`kivact-interaction`、`kivact-ui`、`kivact-test` を外す（api-shape は facade から届く item だけを見る）。状態の検査群の `skip` から、`kivact-interaction`・`kivact-ui`・kit を除く全 library crate（`kivact-types`、`kivact-runtime`、`kivact-i18n`、`kivact-editing`、`kivact-style`、`kivact-core`、`kivact-test`、`kivact-engine`、`kivact-lower`、`kivact-layout`、`arvane`、`arvane-shell`、`arvane-native`、`arvane-virtual`、`arvane-text`、`arvane-render`、`arvane-asset`、`kivact-gpu-share`）を外し、同じ crate の `lib.rs` に clippy の `#![deny(clippy::too_many_lines, clippy::disallowed_types)]` を足して違反を直す（関数を分けるのは M-4）。`os-branch` の `skip` から kit を除く全 library crate を外す。出た違反を直す（例外は inline の目印 `// xtask-allow(<検査>): <理由>` か `#[expect(.., reason = "..")]`。理由は状態でないことの説明か、10.11 節の列挙に限る）。
-- **完了条件**: G-phase。
-- **Phase N の終わり**: G-phase、push。
+- **完了条件**: その wave の checkpoint の gate。
 
 ---
 
@@ -755,7 +776,7 @@ P-0 → P-1 → P-2
   2. `kivact::interaction::InteractionPolicy` を、設計書 18.15 節の behavior ごとの入れ子の struct で作る。旧い theme の拡張の型（interaction の `MenuPress`・`SubmenuTiming`・`DisabledMenuFocus`、ui の `UiRecipes` を除く 11 型、`TooltipConfig`）は、振る舞いのものは入れ子の struct の field に、見た目の動きのもの（`ButtonBusyMotion`、`ProgressMotion`、`ToastRowMotion`、`ToggleLabelReservation`）は `UiTokens` の field にして、`ThemeExtension` の impl を外す。見た目の値（`DataTableStickyPaint`・`DataTableRowStatusPaint`）は recipe の表へ。`OverlayViewport` は `Theme::overlay_margin`。
   3. gesture の閾値の literal（`menu/press.rs:96-99` の 10.0・13.0 px、`ui/select.rs:258` の 10 px、`ui/toast_swipe.rs:11` の 8.0 px）を、設計書 11.1 節の `Policy` の field（`InteractionPolicy.menu.drift`、`InteractionPolicy.select.sheet_slop`、`InteractionPolicy.toast.swipe_slop`。設計書 18.15 節）の既定値に移す。値は変えない（振る舞いを変えない）。`platform::pointer_settings()` はこの unit では使わない。
   4. soft の theme が入れていた 15 の拡張（`kivact-ui-soft/src/theme.rs:70-167`）を、`InteractionPolicy`・`UiPolicy` の値と recipe の表と `Theme::overlay_margin` に直す（この unit で行う。kit の他の規約は K-7）。
-- **完了条件**: G-unit（interaction、ui、5 kit、public-api）。
+- **完了条件**: unit の確認（interaction、ui、5 kit、public-api）。
 - **18 章の追加**: `UiPolicy` を作らず、振る舞いの knob は全部 `InteractionPolicy` の behavior ごとの入れ子の struct に、見た目の動きは `UiTokens` に置く（設計書 18.15 節）。`Settings<S>` は `OptionsCell<S>` と名付け、behavior の `*Settings` は `*Options` にする。`*Api` の option の builder は setup の中だけにする（mount の後は API-12 の misuse）。
 
 ### I-1 開閉の family
@@ -798,7 +819,7 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 17.10 節。付録 A の SM-I01、SM-U02、SM-U06 の新しい形。
 - **手順**: `use_content_reveal` を消し、`disclosure`・`tree` の行の reveal・toast の swipe の閉じる動きを engine の presence（`enter_size`・`exit_size`、drag の位置からの退場）で書き直す。recipe の表に enter・exit の style を足す（5 kit の recipe も直す）。
 - **振る舞いの変更**: 閉じた disclosure の内容が unmount される、閉じる動きの仕組みが変わる。E2E を `dev/tests/kivact-public-api/tests/e2e/presence.rs` に足す: `disclosure_unmounts_closed_content_after_its_exit`、`toast_swipe_dismiss_exits_from_the_drag_offset`、`tree_row_reveal_expands_with_enter_size`。
-- **完了条件**: G-unit（interaction、ui、5 kit、public-api の disclosure・toast・tree 系）。足した試験を単独でも回す。
+- **完了条件**: unit の確認（interaction、ui、5 kit、public-api の disclosure・toast・tree 系）。足した試験は、A-1b の後なら unit の確認で名前を指定して回し、前なら checkpoint で回す。
 
 ### I-8 振る舞いを APG に合わせる
 
@@ -806,9 +827,9 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 17.9 節。
 - **手順**: 設計書 17.9 節の pattern ごとに、APG の Keyboard Interaction と Roles・States・Properties を、interaction と ui の対応する behavior と部品に一行ずつ当てる。違いは APG のとおりに直す（作者の決定は 17.9 節のとおり優先）。違いの表（pattern、現在、APG、直した内容）を報告に書く。
 - **振る舞いの変更**: 直した違いごとに E2E を `dev/tests/kivact-public-api/tests/e2e/apg_<pattern>.rs` に足す（名前は `<pattern>_<APG の操作>`。例: `tree_view_star_expands_all_siblings`）。
-- **完了条件**: G-phase と同じ範囲。足した試験を単独でも回す。
+- **完了条件**: その wave の checkpoint の gate（unit の確認は crate の check まで）。足した試験は、A-1b の後なら unit の確認で名前を指定して回し、前なら checkpoint で回す。
 
-**I・U の各 unit の共通の完了条件**: G-unit（interaction、ui、5 kit、public-api）。0.7 節の点検表。I-6 と U-2 の後に状態の検査群の `skip` から `kivact-interaction` と `kivact-ui` を外し（clippy の `#![deny]` も足す）、G-phase。push。
+**I・U の各 unit の共通の完了条件**: unit の確認（interaction、ui、5 kit、public-api）。0.7 節の点検表。I-6 と U-2 の後に状態の検査群の `skip` から `kivact-interaction` と `kivact-ui` を外し（clippy の `#![deny]` も足す）、G-phase。push。
 
 ---
 
@@ -819,13 +840,13 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 17.12 節。
 - **手順**: engine の editor の paint の後に node の draw layer を重ね、編集する node に `draw`・`draw_over`・inline の子を許す（`Unsupported` の報告を消す）。`LineColors` を `TextEditing::line_styles` にし、`TextEditing::decorations` と `Node::draw_with_layout` を足す。`kivact-core/src/primitive/text_editing.rs:12-14` の「native leaf」の doc を事実に直す。
 - **試験**: 足す。`text_editing.rs`（public-api の E2E）に `an_editing_node_draws_its_own_layer_over_the_text`、`line_styles_color_each_line`、`decorations_mark_a_range`。
-- **完了条件**: G-unit（engine、core、interaction、ui、public-api）。
+- **完了条件**: unit の確認（engine、core、interaction、ui、public-api）。
 
 ### T-2 公開 API だけの text field の証明
 
 - **目的**: 設計書 17.12 節の証明。
 - **手順**: `dev/tests/kivact-public-api/tests/e2e/custom_text_field.rs` に code editor の部品を `kivact::custom` と `kivact::interaction` だけで書き、`ui::text_input` の E2E と同じ操作（文字の入力、IME の変換と確定、選択、clipboard、undo の `EditPhase`、支援技術の text と選択）を確かめる試験を書く。足りない口が見つかったら、作業を止めて作者に聞く（新しい公開 API の概念になるため）。
-- **完了条件**: G-unit（public-api、docs）。
+- **完了条件**: unit の確認（public-api、docs）。
 
 ### G-1 Path と snapshot
 
@@ -855,7 +876,7 @@ P-0 → P-1 → P-2
 - **目的**: 設計書 17.14 節。
 - **手順**: `kivact-i18n` に ICU4X 2 系の crate（作業の時点の最新の 2.x）を足し、C-2 の書式の関数を ICU4X で実装する。手書きの表（`locale.rs:120-140` と C-2 の en-US の表）を消す。`plural_category`、`compare`、`Messages::with_plural` と `message_with` の plural を足す。`THIRD-PARTY-NOTICES.md` に ICU4X（Unicode License）を足す。全 locale の compiled data を含める（設計書 16.3 節の Q-07）。L-1 の前後で、`examples/kivact/counter` の release build の実行ファイルの大きさを測り、増えた大きさを `PROGRESS.md` に書く。
 - **試験**: 足す。`i18n.rs` に `ja_jp_and_de_de_format_numbers_and_dates`、`plural_forms_follow_the_locale`、`collation_sorts_by_locale`。
-- **完了条件**: G-unit（i18n、core、ui、kit、public-api、docs）。
+- **完了条件**: unit の確認（i18n、core、ui、kit、public-api、docs）。
 
 ---
 
@@ -872,7 +893,7 @@ P-0 → P-1 → P-2
   4. `ui::RadioGroupVariant::Segmented`（標準の variant）。
   5. kit の `Color` enum を `ColorName` に改名する（5 kit。soft は新しく作る）。game・creative の `ThemeOptions` trait を `theme_with(mode, ThemeOptions)` にする（付録 C.1 の KIT-1）。kit の `tokens()` を消す。
 - **試験**: 足す。`dev/tests/kivact-public-api/tests/e2e/node_ref.rs`（なければ作る）に `scroll_state_follows_the_scroll_position`、`image_status_reports_a_failed_image`。
-- **完了条件**: G-unit（core、ui、5 kit、catalog、public-api、docs）。
+- **完了条件**: unit の確認（core、ui、5 kit、catalog、public-api、docs）。
 - **18 章の追加**: 旧 K-10（recipe の token 化）をここで行う: `UiTokens` を部品ごとの入れ子の struct にし、token にするのは「現在いずれかの kit が上書きしている値」と「theme から読む値」だけにする（設計書 18.15 節）。pop と game の recipe の file を `UiTokens` の値と形の違う recipe だけにする。別の kit の theme の下の kit の variant は中核の既定の recipe で描き、`ReportOnce` の diagnostic を出す（18.11 節）。
 
 ### K-1 日付・carousel・dropzone
@@ -916,9 +937,9 @@ P-0 → P-1 → P-2
 
 - 付録 C.1 の表の残り全部（slot、children の trait、variant、固有の `disabled`、option の束、型の alias、message の key、literal の色、RTL、breakpoint、`provide((), ..)`、soft の rustdoc）と、付録 C.4 の改名、付録 C.6（kit の試験を一つの binary に、試験の helper を中核の API に、catalog の font を `examples/shared-assets/fonts/` に）。
 - `name-collision`・`kit-literal-color`・`api-shape`・状態の検査群・`os-branch` の `skip` から 5 kit を外し、kit の `lib.rs` に clippy の `#![deny(clippy::too_many_lines, clippy::disallowed_types)]` を足して、違反を直す。
-- **完了条件**: G-phase。push。
+- **完了条件**: その wave の checkpoint の gate。push。
 
-**K の各 unit の共通の完了条件**: G-unit（interaction、ui、触った kit とその catalog、public-api、docs）。中核へ上げた部品ごとに `UiTokens` の入れ子の struct（設計書 18.15 節）と recipe の表を作り、元の kit が上書きしていた値を kit の theme の `UiTokens` に入れる。中核の部品の rustdoc と、`docs/for-kivact-ui-user/{en,jp}/<kit>/` の該当の page を新しい書き方にする。
+**K の各 unit の共通の完了条件**: unit の確認（interaction、ui、触った kit とその catalog、public-api、docs）。中核へ上げた部品ごとに `UiTokens` の入れ子の struct（設計書 18.15 節）と recipe の表を作り、元の kit が上書きしていた値を kit の theme の `UiTokens` に入れる。中核の部品の rustdoc と、`docs/for-kivact-ui-user/{en,jp}/<kit>/` の該当の page を新しい書き方にする。
 
 ---
 
@@ -928,7 +949,7 @@ P-0 → P-1 → P-2
 
 - **目的**: 設計書 17.3 節（DEP-4）。
 - **手順**: 設計書 17.3 節の表のとおり、feature を実装の crate と公開 API の crate だけに残す。`gpu`・`gpu-interop`・`embed` について、間の crate（`kivact-style`、`kivact-engine`、`kivact-lower`、`arvane`）の `cfg(feature = ..)` と feature の定義を消す（creative kit の `gpu-interop` は、`viewport_surface` が中核へ移る K-8 で消す）（`test` は表の実装の crate の連鎖のまま）。間の crate では経路を常に compile する（実装がないときは `Unsupported`）。facade の `Cargo.toml` に anchor の optional の依存を足す。`dev/tools/check-features.sh` の一覧を新しい feature にする。policy の `visible_to` に anchor を足す（anchor の依存を code から使わないことは review で確かめる。`anchor-deps` の検査は作らない）。
-- **完了条件**: G-phase。`bash dev/tools/check-features.sh` が通る。`grep -rn 'feature = "gpu-interop"' crates` が実装と公開 API の crate と creative kit（K-8 まで）だけに出る。
+- **完了条件**: その wave の checkpoint の gate。`bash dev/tools/check-features.sh` が通る。`grep -rn 'feature = "gpu-interop"' crates` が実装と公開 API の crate と creative kit（K-8 まで）だけに出る。
 - **18 章の追加**: この unit は E-1 の後に単独で行う（以後の unit が `cfg(feature)` を二通りで保たなくてよいように。設計書 18.20 節の前提）。
 
 ---
@@ -942,8 +963,8 @@ P-0 → P-1 → P-2
   2. `docs/for-kivact-ui-user/{en,jp}/` の 5 kit の page を新しい部品（中核へ上がったものは `kivact::ui` と kit の variant）で書き直す。
   3. README・README_JP の crate の一覧と図。`dev/README.md`。`CONTRIBUTING.md`（試験の場所の表に `kivact-test` と `arvane-virtual`、新しい検査、`KIVACT_TEST_MIRROR`。CI の記述は変えない）。
   4. `docs/for-kivact-developer/architecture.md`（日本語、新規）を書く。中身は設計書から長く使うものだけ: crate の一覧と境界の根拠（設計書 4.1・4.3 節）、module の向きの考え方（4.4 節）、規則（3 章の B・VOC・S・API・DEP、12 章の KIT）、事実の持ち主の表（7.5 節）、`Machine` の書き方（6.5・11.1 節）、handler の語彙（10.4 節）、構造の option の一覧（10.6 節）。`CONTRIBUTING.md` の「判断の基準」と「コード」の節から、この文書を参照する。CONTRIBUTING の試験の節の「実ウィンドウの E2E」を「`kivact::test` による App 全体の E2E（`arvane-virtual` の上で、手元では実 window に mirror する）」と書き直す。
-  5. `docs/for-kivact-developer/strategy.md` は変えない。ただし 8 章「macOS 向けの分岐を入れない」が守られたこと、5 章の「アプリが描いた絵の表示」が中核の `viewport` になったことは、最後の PR の説明に書く。
-- **完了条件**: G-unit（`-p kivact-docs`）。英語と日本語が同じ file 名で対になっている。
+  5. `docs/for-kivact-developer/strategy.md` は変えない。ただし 8 章「macOS 向けの分岐を入れない」が守られたこと、5 章の「アプリが描いた絵の表示」が中核の `viewport` になったことは、F-3 の PR の説明の下書きに書く。
+- **完了条件**: unit の確認（`-p kivact-docs`）。英語と日本語が同じ file 名で対になっている。
 - **18 章の追加**: `docs/for-kivact-developer/decisions.md`（作者の決定の ADR の記録: 16.3 節、17.9 節の APG より優先する決定、17.20 節、`DECISIONS.md` の全部）を作る。`architecture.md` に、設計書 17.3 節の feature の表、6.2 節の `Stage` の表と 6.3 節の時間の仕組み、15 章と 18.23 節の表を「X を足すときに変える場所」の check list にしたもの、API の 15 の規則（3.4 節）を書く。guide の「Rust の 5 つの詳細」に、整数を返す closure は `IntoValue<f64>` に渡せない（`as f64`）ことと、prelude の名前を変数名にすると関数が隠れる（E0618。`text`、`row`、`list`、`field`、`Action`）ことを足す。coming-from-react に「`Machine` は `useReducer` に effect と timer を足したもの」を足す。
 
 ### F-2 検査の仕上げ
@@ -952,17 +973,17 @@ P-0 → P-1 → P-2
   1. xtask の全検査の `skip` が空であることを確かめる（設計書 18.20 節。`policy-coverage` は作らない）。
   3. `dev/tools/check-features.sh` に `kivact/gpu`、`kivact/gpu-interop`、`kivact/test` と新しい crate の feature を足す。
   4. `templates/basic/Cargo.toml` の「CI builds and tests it」の文を事実に合わせて消す（CI は既定で無効。`.github/workflows/` は変えない）。雛形に root の `[profile.dev.package]` の engine 側の opt-level の設定を写し、雛形の README に理由を書く（root の profile は workspace の外では効かないため）。
-- **完了条件**: G-phase。
+- **完了条件**: その wave の checkpoint の gate。
 - **18 章の追加**: N-8・I-6/U-2・K-7 で clippy の `#![deny]` を足していない crate（構造の unit が触らなかった crate。例: 例・catalog・雛形・試験の crate）の違反を直してから、clippy の `too_many_lines`・`disallowed_types` を workspace の lint（`[workspace.lints.clippy]`）に移し、crate ごとの `#![deny(..)]` を消す。xtask の全検査の `skip` が空であることを確かめる。
 
-### F-3 最後の確認と PR
+### F-3 最後の確認と PR の説明の下書き
 
 - **手順**:
   1. G-final（12 章）。P-1 の全数調査（1〜3）をもう一度回し、残りが 0 であることを `PROGRESS.md` に書く（設計書 17.8 節の 3）。
   2. `docs/for-kivact-developer/manual-verification.md`（なければ作る）に、作者が手で確かめる項目（IME、screen reader、embed の DAW、GPU の共有、mirror の窓）を、この再設計で変わった経路に絞って書く。
-  3. `refactoring/` と設計書・本書を消す前に（長く使う規則は F-1 で `docs/for-kivact-developer/architecture.md` に移してある）、PR の説明に次を書く: 31 の決定（設計書 1 章と 17 章）、crate の変化（4 章）、公開 API の変化の要約（付録 B.3 の表の要点）、消えた暗黙の状態機械の数、振る舞いを変えた点（`key_up` の宛先、`on_edit` の網羅、試験の経路の本番への一致、`blocking` の shutdown の後の error）、行わなかったもの（設計書 17.20 節の backend と理由）、`DECISIONS.md` の要点、作者の手動の確認の一覧。
+  3. `refactoring/` と設計書・本書を消す前に（長く使う規則は F-1 で `docs/for-kivact-developer/architecture.md` に移してある）、PR の説明の下書きを `.claude/pr/foundation-v3.md`（git の管理の外。`/.claude/` は `.gitignore` 済み）に書く。中身: 31 の決定（設計書 1 章と 17 章）、crate の変化（4 章）、公開 API の変化の要約（付録 B.3 の表の要点）、消えた暗黙の状態機械の数、振る舞いを変えた点（`key_up` の宛先、`on_edit` の網羅、試験の経路の本番への一致、`blocking` の shutdown の後の error）、行わなかったもの（設計書 17.20 節の backend と理由）、`DECISIONS.md` の要点、作者の手動の確認の一覧。
   4. `refactoring/`、`REFACTORING_DESIGN.md`、`REFACTORING_WORK_ORDER.md` を消す commit を作る（`SOFT_UI_WORK_ORDER.md` と `soft-ui-work-order/` は別の作業の文書なので、作者の指示がない限り残す）。
-  5. `main` への PR を作る。
+  5. integration branch を push し、作者に、G-final の結果と PR の説明の下書きの path を知らせて止まる。PR を作るのと `main` への squash merge は作者が行う（エージェントは行わない）。
 - **18 章の追加**: `docs/for-kivact-developer/decisions.md` と `architecture.md` は消さない（消すのは `refactoring/`、設計書、本書だけ）。12 章の試しに、paint の性質と標準部品を一つずつ足す試しを加え、crate の数と file の数を記録する（設計書 18.23 節）。
 
 ---
@@ -971,7 +992,7 @@ P-0 → P-1 → P-2
 
 全部を満たしたら完了とする。
 
-1. **G-phase** が integration branch で通る（Windows）。WSL で clippy と全試験が Wayland と X11 の両方で通る。
+1. **checkpoint の gate**（mirror の有無の両方）が integration branch で通る（Windows）。WSL で clippy と全試験が Wayland と X11 の両方で通る。
 2. **crate の構成** が設計書 4.1 節の表と一致する（`kivact-wire`・`kivact-reactive`・`kivact-task`・`kivact-motion`・`kivact-text` がなく、`kivact-runtime`・`kivact-test`・`arvane-virtual` がある）。`visible_to` が表のとおり。
 3. **検査**: 設計書 18.20 節の全検査の `skip` が空で、違反が 0。clippy の `too_many_lines`・`disallowed_types` が workspace の lint で通る。例外は inline の目印と `#[expect(.., reason)]` だけ。
 4. **付録 A の項目（169 と P-1 が足したもの）**と、作業中に追記した項目が全部「解消後」の形になっている（`PROGRESS.md` の unit ごとの点検表の報告で確かめる）。
@@ -985,6 +1006,8 @@ P-0 → P-1 → P-2
 ---
 
 ## 13. unit の一覧
+
+「依存」と「並列」の列は 1 章の wave の表が置き換える。この表は unit の一覧と規模として読む。
 
 | ID | 名前 | 依存 | 並列 | 主な crate | 振る舞いの変更 | 規模 |
 |---|---|---|---|---|---|---|
@@ -1023,7 +1046,7 @@ P-0 → P-1 → P-2
 | R-5 | 非同期の状態 | R-4 | A-*・E-* と | runtime | `blocking` の shutdown 後は error | 中 |
 | R-6 | `Machine` と `Trigger` | R-5 | A-*・E-* と | runtime、core、docs | 新しい API | 中 |
 | R-7 | 内部の handler の型 | R-6 | A-*・E-* と | runtime | なし | 小 |
-| C-1 | 起動の経路と `kivact-test` | R-6、A-1b、E-2 | レーン 1 の E-3〜E-7 と | core、test、facade | 試験が App の設定を使う | 大 |
+| C-1 | 起動の経路と `kivact-test` | R-6、A-1b、E-2 | E-3〜E-7 と | core、test、facade | 試験が App の設定を使う | 大 |
 | C-2 | i18n と style の純粋化 | C-1 | — | i18n、style、core、ui | 書式の関数 | 中 |
 | C-3 | view の状態 | C-2、R-7 | — | core | なし | 中 |
 | C-4 | part の入力と事実の持ち主 | C-3、E-3 | — | core、engine | なし | 中 |
@@ -1035,7 +1058,8 @@ P-0 → P-1 → P-2
 | N-5 | 子・slot・選択・文脈・回復 | N-4 | — | 全部 | 公開 API | 大 |
 | N-6 | `EditPhase` と `on_edit` | N-5 | — | core、interaction、ui | `on_edit` の網羅 | 中 |
 | N-7 | interaction の名前と試験の API | N-6 | — | interaction、ui、test、kit | 公開 API | 中 |
-| N-8 | 公開 API の検査 | N-7 | — | dev/xtask、全部 | なし | 中 |
+| N-9 | kit・例・文書・試験の追従 | N-7 | — | kit、例、docs、dev/tests | なし | 大 |
+| N-8 | 公開 API の検査 | N-9 | — | dev/xtask、全部 | なし | 中 |
 | I-0 | option と policy | N-8 | — | interaction、ui、kit | なし | 中 |
 | I-1 | 開閉の family | I-0 | I-4 と | interaction | なし | 中 |
 | I-2 | menu と選択の family | I-1、I-4 | I-3 と | interaction | なし | 大 |
@@ -1067,4 +1091,4 @@ P-0 → P-1 → P-2
 | K-7 | kit の規約の残り | K-5 | — | kit、catalog、dev/xtask | 公開 API | 大 |
 | F-1 | 文書 | K-7 | — | docs | なし | 大 |
 | F-2 | 検査の仕上げ | F-1 | — | dev/xtask、templates、例・catalog | なし | 中 |
-| F-3 | 最後の確認と PR | F-2 | — | — | なし | 小 |
+| F-3 | 最後の確認と PR の説明の下書き | F-2 | — | — | なし | 小 |
