@@ -1,15 +1,12 @@
 //! Role: Invalidate retained paint list entries and their recorded ink.
 
 use crate::model::changes::Dispatched;
-use crate::paint::state::{Ink, PaintList, PaintState};
+use crate::paint::state::{Ink, ListState, PaintList, PaintState, Redraw};
 use kivact_types::NodeId;
 
 impl PaintList {
     pub(crate) fn new() -> Self {
-        PaintList {
-            stale: true,
-            ..PaintList::default()
-        }
+        PaintList::default()
     }
 
     /// Note what `changes` outdated in the inks and the child indices:
@@ -25,7 +22,7 @@ impl PaintList {
         ink: &[std::cell::Cell<Option<Ink>>],
     ) {
         if changes.was_laid_out() {
-            self.pass += 1;
+            self.pass.next();
         }
         for id in changes.regrouped() {
             self.indices.remove(&id);
@@ -72,16 +69,16 @@ impl PaintList {
     pub(crate) fn note_backdrop(&mut self, reach: f64) {
         if reach.is_finite() && reach > self.backdrop_reach {
             self.backdrop_reach = reach;
-            self.stale = true;
+            self.state = ListState::Stale;
         }
     }
 
     /// Every node's measure may have changed (fonts were added): forget
     /// every ink and index.
     pub(crate) fn forget_inks(&mut self) {
-        self.ink_gen += 1;
+        self.ink_gen.next();
         self.indices.clear();
-        self.stale = true;
+        self.state = ListState::Stale;
     }
 }
 
@@ -97,13 +94,15 @@ impl PaintState {
         restack: bool,
     ) {
         if redraw {
-            self.needs_redraw = true;
+            self.redraw = Redraw::Needed;
         }
         let mut list = std::mem::take(&mut self.list);
         if fonts {
             list.forget_inks();
         }
-        list.stale |= restack;
+        if restack {
+            list.state = ListState::Stale;
+        }
         list.invalidate(changes, tree, &self.ink);
         self.list = list;
     }

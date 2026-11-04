@@ -4,8 +4,9 @@ use super::ink::{grow, ink, local_transform, overlaps, placed, reach};
 use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::transform::map_rect;
-use crate::paint::state::{ChildIndex, Entry, Look, Step};
+use crate::paint::state::{ChildIndex, Entry, ListState, Look, Step};
 use crate::tree::node::HostNode;
+use kivact_types::cell::Generation;
 use kivact_types::render::ColorMatrix;
 use kivact_types::{NodeId, Point, Rect};
 use std::collections::{HashMap, HashSet};
@@ -22,9 +23,9 @@ struct Walk<'a> {
     margin: f64,
     indices: &'a mut HashMap<NodeId, ChildIndex>,
     /// The layout pass the tree is laid out by.
-    pass: u64,
+    pass: Generation,
     /// The generation of the nodes' inks.
-    generation: u64,
+    generation: Generation,
     /// The containers whose index this walk used.
     used: HashSet<NodeId>,
     out: Vec<Entry>,
@@ -257,8 +258,11 @@ impl Model {
     pub(crate) fn paint_list(&mut self) {
         let mut list = std::mem::take(&mut self.paint.list);
         let window = self.window();
-        let key = Some((window, self.paint.scale));
-        if list.stale || list.built_for != key {
+        let key = ListState::Built {
+            size: window,
+            scale: self.paint.scale,
+        };
+        if list.state != key {
             let margin = MARGIN.max(1.0 / self.paint.scale.max(f64::MIN_POSITIVE));
             let reach = margin + list.backdrop_reach;
             let viewport = Rect {
@@ -297,8 +301,7 @@ impl Model {
             // culled with an ancestor) are built again when reached.
             list.indices.retain(|id, _| used.contains(id));
             list.entries = out;
-            list.stale = false;
-            list.built_for = key;
+            list.state = key;
         }
         self.paint.list = list;
     }
