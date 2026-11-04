@@ -28,7 +28,7 @@ pub struct DisclosureState {
 /// The disclosure edits one `bool`, the requested open state, through the
 /// caller's [`Binding`]. The caller draws the trigger and the content and
 /// decides whether the content is unmounted (`show(d.is_open(), ..)`) or kept
-/// mounted; the caller controls visibility of content kept mounted.
+/// mounted; [`content`](Self::content) hides mounted content while closed.
 ///
 /// The [`trigger`](Self::trigger) is a focusable `Role::Button` publishing
 /// `expanded` and `controls` to the content. A click, Enter, Space and the
@@ -194,8 +194,8 @@ impl DisclosureApi {
         })
     }
 
-    /// The content the trigger `controls`. Mount it with `show(is_open(), ..)`;
-    /// engine presence retains its exit paint after unmount.
+    /// The content the trigger `controls`, hidden while closed. With
+    /// `show(is_open(), ..)`, engine presence retains exit paint after unmount.
     #[track_caller]
     pub fn content(self) -> Part<DisclosureState> {
         let shown = self.shown;
@@ -206,8 +206,14 @@ impl DisclosureApi {
         let part_state = input.state();
         self.content_state.set(Some(part_state));
         let target = kivact_core::view::node_ref();
+        let presence = target.presence();
         Part::new(part_state, move |host| {
-            host.part(input).node_ref(target).node_ref(self.content)
+            host.part(input)
+                .node_ref(target)
+                .node_ref(self.content)
+                .hidden(move || {
+                    !shown.get() && presence.get() != kivact_core::view::Presence::Leaving
+                })
         })
     }
 }
