@@ -5,35 +5,138 @@
 use super::selection::merge_marquee;
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::{DragApi, DragPhase, DragUpdate};
-use kivact::state::{Signal, signal};
-use kivact::view::{ButtonPress, Modifiers, MouseButton, PointerEvent, PointerPhase};
+use kivact::state::{Machine, MachineHandle, Step, Value, machine};
+use kivact::view::{ButtonPress, MouseButton, PointerEvent, PointerPhase};
 use std::rc::Rc;
 
-#[derive(Clone)]
-struct Pressed<T, D> {
-    origin: Point,
+#[derive(Clone, PartialEq)]
+struct Decision<T, D> {
     current: Point,
     target: Option<T>,
     payload: D,
-    pending: Option<u64>,
-    modifiers: Modifiers,
-    double: bool,
-    moved: bool,
+    click: ClickIntent,
 }
 
-pub(crate) struct CanvasGesture<T: Copy + 'static, D: Clone + 'static> {
-    state: Signal<Option<Pressed<T, D>>>,
+#[derive(Clone, PartialEq)]
+enum ClickIntent {
+    None,
+    Single { selection: Option<u64> },
+    Double { selection: Option<u64> },
 }
-impl<T: Copy + 'static, D: Clone + 'static> Copy for CanvasGesture<T, D> {}
-impl<T: Copy + 'static, D: Clone + 'static> Clone for CanvasGesture<T, D> {
+impl ClickIntent {
+    fn selection(&self) -> Option<u64> {
+        match self {
+            Self::None => None,
+            Self::Single { selection } | Self::Double { selection } => *selection,
+        }
+    }
+    fn set_selection(&mut self, pending: Option<u64>) {
+        match self {
+            Self::None => {}
+            Self::Single { selection } | Self::Double { selection } => *selection = pending,
+        }
+    }
+}
+
+enum DecisionEvent<T, D> {
+    Begin(Decision<T, D>),
+    Payload(D),
+    Pending(Option<u64>),
+    Motion {
+        current: Point,
+        moved: bool,
+    },
+    Clear,
+    InputsChanged {
+        focused: bool,
+        visible: bool,
+        enabled: bool,
+        data_valid: bool,
+        rollback: Rc<dyn Fn()>,
+    },
+}
+struct DecisionMachine<T, D>(std::marker::PhantomData<(T, D)>);
+impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static> Machine
+    for DecisionMachine<T, D>
+{
+    type State = Option<Decision<T, D>>;
+    type Event = DecisionEvent<T, D>;
+    type Effect = Rc<dyn Fn()>;
+    fn transition(
+        &self,
+        state: &Self::State,
+        event: Self::Event,
+    ) -> Step<Self::State, Self::Event, Self::Effect> {
+        let mut next = state.clone();
+        match event {
+            DecisionEvent::Begin(decision) => return Step::to(Some(decision)),
+            DecisionEvent::Clear => return Step::to(None),
+            DecisionEvent::InputsChanged {
+                focused,
+                visible,
+                enabled,
+                data_valid,
+                rollback,
+            } => {
+                return if !focused || !visible || !enabled || !data_valid {
+                    Step::to(None).with(rollback)
+                } else {
+                    Step::stay()
+                };
+            }
+            DecisionEvent::Payload(payload) => {
+                if let Some(decision) = &mut next {
+                    decision.payload = payload;
+                }
+            }
+            DecisionEvent::Pending(pending) => {
+                if let Some(decision) = &mut next {
+                    decision.click.set_selection(pending);
+                }
+            }
+            DecisionEvent::Motion { current, moved } => {
+                if let Some(decision) = &mut next {
+                    decision.current = current;
+                    if moved {
+                        decision.click = ClickIntent::None;
+                    }
+                }
+            }
+        }
+        Step::to(next)
+    }
+}
+
+pub(crate) struct CanvasGesture<
+    T: Copy + PartialEq + 'static,
+    D: Clone + PartialEq + 'static,
+    S: Clone + PartialEq + 'static,
+> {
+    controller: MachineHandle<DecisionMachine<T, D>>,
+    snapshot: Value<Option<S>>,
+}
+impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + PartialEq + 'static>
+    Copy for CanvasGesture<T, D, S>
+{
+}
+impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + PartialEq + 'static>
+    Clone for CanvasGesture<T, D, S>
+{
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
-    pub(crate) fn new() -> Self {
+impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + PartialEq + 'static>
+    CanvasGesture<T, D, S>
+{
+    pub(crate) fn new(drag: DragApi<S>) -> Self {
         Self {
-            state: signal(None),
+            controller: machine(
+                None,
+                || DecisionMachine(std::marker::PhantomData),
+                |_, rollback| rollback(),
+            ),
+            snapshot: drag.active_payload(),
         }
     }
     pub(crate) fn begin(
@@ -43,80 +146,99 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
         payload: D,
         pending: Option<u64>,
     ) {
-        self.state.update(|state| {
-            *state = Some(Pressed {
-                origin: event.pos(),
-                current: event.pos(),
-                target,
-                payload,
-                pending,
-                modifiers: event.modifiers(),
-                double: matches!(
-                    event.phase(),
-                    PointerPhase::Down(ButtonPress {
-                        button: MouseButton::Primary,
-                        clicks: 2
-                    })
-                ),
-                moved: false,
+        let double = matches!(
+            event.phase(),
+            PointerPhase::Down(ButtonPress {
+                button: MouseButton::Primary,
+                clicks: 2
             })
+        );
+        self.controller.send(DecisionEvent::Begin(Decision {
+            current: event.pos(),
+            target,
+            payload,
+            click: if double {
+                ClickIntent::Double { selection: pending }
+            } else {
+                ClickIntent::Single { selection: pending }
+            },
+        }));
+    }
+
+    pub(crate) fn inputs_changed(
+        self,
+        focused: bool,
+        visible: bool,
+        enabled: bool,
+        data_valid: bool,
+        rollback: impl Fn() + 'static,
+    ) {
+        self.controller.send(DecisionEvent::InputsChanged {
+            focused,
+            visible,
+            enabled,
+            data_valid,
+            rollback: Rc::new(rollback),
         });
     }
     pub(crate) fn with_payload<R>(self, read: impl FnOnce(&D) -> R) -> Option<R> {
-        self.state
+        self.controller
+            .state()
             .with(|state| state.as_ref().map(|state| read(&state.payload)))
     }
     pub(crate) fn update_payload(self, change: impl FnOnce(&mut D)) {
-        self.state.update(|state| {
-            if let Some(state) = state {
-                change(&mut state.payload);
-            }
-        });
+        if let Some(mut payload) = self.with_payload(Clone::clone) {
+            change(&mut payload);
+            self.controller.send(DecisionEvent::Payload(payload));
+        }
     }
+
     pub(crate) fn pending(self) -> Option<u64> {
-        self.state
-            .with(|state| state.as_ref().and_then(|state| state.pending))
+        self.controller
+            .state()
+            .with(|state| state.as_ref().and_then(|state| state.click.selection()))
     }
     pub(crate) fn set_pending(self, pending: Option<u64>) {
-        self.state.update(|state| {
-            if let Some(state) = state {
-                state.pending = pending;
-            }
-        });
+        self.controller.send(DecisionEvent::Pending(pending));
     }
-    pub(crate) fn origin(self) -> Point {
-        self.state.with(|state| {
-            state
-                .as_ref()
-                .map_or(Point::new(0., 0.), |state| state.origin)
-        })
+
+    pub(crate) fn initial(self) -> Option<S> {
+        self.snapshot.get()
     }
     pub(crate) fn current(self) -> Point {
-        self.state.with(|state| {
+        self.controller.state().with(|state| {
             state
                 .as_ref()
                 .map_or(Point::new(0., 0.), |state| state.current)
         })
     }
     pub(crate) fn pressed(self) -> Option<T> {
-        self.state
+        self.controller
+            .state()
             .with(|state| state.as_ref().and_then(|state| state.target))
     }
     pub(crate) fn moved(self) -> bool {
-        self.state
-            .with(|state| state.as_ref().is_some_and(|state| state.moved))
+        self.controller.state().with(|state| {
+            state
+                .as_ref()
+                .is_some_and(|state| matches!(state.click, ClickIntent::None))
+        })
     }
-    pub(crate) fn update(self, pos: Point, motion: impl FnOnce(Point)) {
-        self.state.update(|state| {
-            if let Some(state) = state {
-                state.current = pos;
-                state.moved |= pos != state.origin;
-            }
+    pub(crate) fn update(
+        self,
+        pos: Point,
+        origin: Point,
+        snapshot: &S,
+        motion: impl FnOnce(Point, Point, &S),
+    ) {
+        self.controller.send(DecisionEvent::Motion {
+            current: pos,
+            moved: pos != origin,
         });
-        motion(pos);
+        motion(pos, origin, snapshot);
     }
     fn clear(self) {
-        self.state.update(|state| *state = None);
+        self.controller.send(DecisionEvent::Clear);
     }
     pub(crate) fn cancel(self, reset: impl FnOnce()) {
         reset();
@@ -124,36 +246,26 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
     }
     pub(crate) fn finish(
         self,
-        update: &DragUpdate<()>,
+        update: &DragUpdate<S>,
         marquee: impl Fn() -> bool,
         selection: &(impl Fn() -> Vec<u64>, impl Fn(Vec<u64>), impl Fn(u64)),
         callbacks: &(
-            impl Fn(Point),
+            impl Fn(Point, Point, &S),
             impl Fn(Rect) -> Vec<u64>,
             impl Fn(T),
             impl Fn(bool),
         ),
     ) {
-        self.state.update(|state| {
-            if let Some(state) = state {
-                state.modifiers = update.modifiers;
-            }
-        });
-        self.update(update.pos, &callbacks.0);
-        let activation = self.state.with(|state| {
+        self.update(update.pos, update.start_pos, &update.payload, &callbacks.0);
+        let activation = self.controller.state().with(|state| {
             state
                 .as_ref()
-                .filter(|state| state.double && !state.moved)
+                .filter(|state| matches!(state.click, ClickIntent::Double { .. }))
                 .and_then(|state| state.target)
         });
         if marquee() {
-            let hit = callbacks.1(Rect::from_points(self.origin(), self.current()));
-            let modifiers = self.state.with(|state| {
-                state
-                    .as_ref()
-                    .map_or(Modifiers::default(), |state| state.modifiers)
-            });
-            selection.1(merge_marquee(&selection.0(), hit, modifiers));
+            let hit = callbacks.1(Rect::from_points(update.start_pos, self.current()));
+            selection.1(merge_marquee(&selection.0(), hit, update.modifiers));
         }
         if !self.moved()
             && let Some(id) = self.pending()
@@ -170,7 +282,7 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
     /// `reset(true)` finalizes domain-only work; `reset(false)` cancels it.
     pub(crate) fn install(
         self,
-        drag: DragApi<()>,
+        drag: DragApi<S>,
         marquee: impl Fn() -> bool + 'static,
         selection: (
             impl Fn() -> Vec<u64> + 'static,
@@ -178,21 +290,23 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
             impl Fn(u64) + 'static,
         ),
         callbacks: (
-            impl Fn(Point) + 'static,
+            impl Fn(Point, Point, &S) + 'static,
             impl Fn(Rect) -> Vec<u64> + 'static,
             impl Fn(T) + 'static,
             impl Fn(bool) + 'static,
         ),
-    ) -> DragApi<()> {
+    ) -> DragApi<S> {
         let hooks = Rc::new((marquee, selection, callbacks));
         let updates = hooks.clone();
-        drag.on_update(move |update: DragUpdate<()>| self.update(update.pos, &updates.2.0))
-            .on_end(move |update: DragUpdate<()>| {
-                if update.phase == DragPhase::End {
-                    self.finish(&update, &hooks.0, &hooks.1, &hooks.2);
-                } else {
-                    self.cancel(|| hooks.2.3(false));
-                }
-            })
+        drag.on_update(move |update: DragUpdate<S>| {
+            self.update(update.pos, update.start_pos, &update.payload, &updates.2.0)
+        })
+        .on_end(move |update: DragUpdate<S>| {
+            if update.phase == DragPhase::End {
+                self.finish(&update, &hooks.0, &hooks.1, &hooks.2);
+            } else {
+                self.cancel(|| hooks.2.3(false));
+            }
+        })
     }
 }

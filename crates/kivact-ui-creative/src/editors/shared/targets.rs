@@ -1,9 +1,10 @@
 //! Role: Stable private region allocation independent of application identities.
 
 use kivact::UiError;
+use kivact::custom::Generation;
 use kivact::draw::RegionId;
-use kivact::state::Value;
 use kivact::state::callback;
+use kivact::state::{Machine, Step, Value, effect, machine, memo};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -28,15 +29,24 @@ impl<T: Eq + Hash> Scene<T> {
     }
 }
 
+#[derive(Clone, PartialEq)]
+struct RegionAllocator(Generation);
+impl RegionAllocator {
+    fn allocate(&mut self) -> RegionId {
+        RegionId(self.0.next().as_u64())
+    }
+}
+
+#[derive(Clone, PartialEq)]
 pub(crate) struct TargetTable<T: Eq + Hash + Clone> {
-    next: u64,
+    allocator: RegionAllocator,
     scene: Rc<Scene<T>>,
 }
 
 impl<T: Eq + Hash + Clone> Default for TargetTable<T> {
     fn default() -> Self {
         Self {
-            next: 1,
+            allocator: RegionAllocator(Generation::new()),
             scene: Rc::new(Scene {
                 ids: HashMap::new(),
                 targets: HashMap::new(),
@@ -56,14 +66,7 @@ impl<T: Eq + Hash + Clone> TargetTable<T> {
             }
             let id = match self.scene.ids.get(&target) {
                 Some(id) => *id,
-                None => {
-                    let id = RegionId(self.next);
-                    self.next = self
-                        .next
-                        .checked_add(1)
-                        .ok_or_else(|| UiError::msg("editor region IDs exhausted"))?;
-                    id
-                }
+                None => self.allocator.allocate(),
             };
             ids.insert(target.clone(), id);
             reverse.insert(id, target);
@@ -76,18 +79,49 @@ impl<T: Eq + Hash + Clone> TargetTable<T> {
     }
 }
 
+#[derive(Clone, PartialEq)]
+struct TargetState<T: kivact::state::ItemKey> {
+    table: TargetTable<T>,
+    result: Result<(), UiError>,
+}
+struct TargetController<T>(std::marker::PhantomData<T>);
+impl<T: kivact::state::ItemKey> Machine for TargetController<T> {
+    type State = TargetState<T>;
+    type Event = Result<Vec<T>, UiError>;
+    type Effect = UiError;
+    fn transition(
+        &self,
+        state: &Self::State,
+        source: Self::Event,
+    ) -> Step<Self::State, Self::Event, Self::Effect> {
+        let mut table = state.table.clone();
+        match source.and_then(|targets| table.synchronize(targets)) {
+            Ok(_) => Step::to(TargetState {
+                table,
+                result: Ok(()),
+            }),
+            Err(error) => Step::to(TargetState {
+                table: state.table.clone(),
+                result: Err(error.clone()),
+            })
+            .with(error),
+        }
+    }
+}
+
 pub(crate) fn targets<T: kivact::state::ItemKey>(
     source: impl Fn() -> Result<Vec<T>, UiError> + 'static,
 ) -> Value<Result<Rc<Scene<T>>, UiError>> {
-    let table = kivact::state::var(TargetTable::default());
-    let scene = kivact::state::memo(move || {
-        table.update(|table| source().and_then(|targets| table.synchronize(targets)))
-    });
     let report = callback(|error| -> kivact::Result<()> { Err(error) });
-    kivact::state::effect(move || {
-        if let Err(error) = scene.get() {
-            report.call(error);
-        }
-    });
-    scene
+    let controller = machine(
+        TargetState {
+            table: TargetTable::default(),
+            result: Ok(()),
+        },
+        || TargetController(std::marker::PhantomData),
+        move |_, error| report.call(error),
+    );
+    effect(move || controller.send(source()));
+    let state = controller.state();
+    memo(move || state.with(|state| state.result.clone().map(|()| state.table.scene.clone())))
 }

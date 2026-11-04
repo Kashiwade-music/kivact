@@ -10,7 +10,7 @@ use kivact::geometry::{Point, Size};
 use kivact::interaction::EditSession;
 use kivact::interaction::{ListApi, ListGesture};
 use kivact::state::{Binding, Callback, Signal, Value};
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) enum Snapshot {
     Clips(Vec<(u64, f64, f64)>),
     Automation(u64, u64, Option<AutomationPoint>),
@@ -21,7 +21,7 @@ pub(crate) enum Snapshot {
 }
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Drag {
-    Loop(LoopPart, (f64, f64)),
+    Loop(LoopPart),
     Playhead,
     Clips,
     Trim(u64, bool),
@@ -45,6 +45,7 @@ pub(crate) struct State {
     pub(crate) bounds: Value<kivact::interaction::ScalarRange>,
     pub(crate) min_duration: Value<f64>,
     pub(crate) loop_min_duration: Value<f64>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<
@@ -59,7 +60,9 @@ pub(crate) struct State {
     pub(crate) frame: Value<f64>,
     pub(crate) loop_range: Binding<(f64, f64)>,
     pub(crate) range: Value<(f64, f64)>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) cycle: Value<bool>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) cycling: Binding<bool>,
     pub(crate) zoom: Binding<f64>,
     pub(crate) pixels: Value<f64>,
@@ -68,16 +71,19 @@ pub(crate) struct State {
     pub(crate) tool_binding: Binding<TimelineTool>,
     pub(crate) tool: Value<TimelineTool>,
     pub(crate) markers: Value<Vec<TimelineMarker>>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) active_auto: Signal<Option<(u64, u64)>>,
     pub(crate) press: crate::editors::shared::gesture::CanvasGesture<
         crate::editors::arrangement::a11y::targets::Target,
-        (Option<Drag>, Option<Snapshot>),
+        Option<Drag>,
+        Snapshot,
     >,
     /// The arrangement's drag, without the callbacks its sources carry
     /// (`input::drag`).
-    pub(crate) gesture: kivact::interaction::DragApi<()>,
+    pub(crate) gesture: kivact::interaction::DragApi<Snapshot>,
     pub(crate) edit: EditSession<Snapshot>,
     pub(crate) regions: Value<Regions>,
     pub(crate) texts: ArrangementTexts,
@@ -118,18 +124,18 @@ impl State {
 
 impl State {
     pub(crate) fn drag_state(self) -> Option<Drag> {
-        self.press.with_payload(|payload| payload.0).flatten()
+        self.press.with_payload(|payload| *payload).flatten()
     }
     pub(crate) fn initial(self) -> Option<Snapshot> {
-        self.press
-            .with_payload(|payload| payload.1.clone())
-            .flatten()
+        self.press.initial()
     }
 }
 
 impl State {
     pub(crate) fn marquee(self) -> Option<(Point, Point)> {
-        matches!(self.drag_state(), Some(Drag::Marquee(..)))
-            .then(|| (self.press.origin(), self.press.current()))
+        match self.drag_state() {
+            Some(Drag::Marquee(from)) => Some((from, self.press.current())),
+            _ => None,
+        }
     }
 }

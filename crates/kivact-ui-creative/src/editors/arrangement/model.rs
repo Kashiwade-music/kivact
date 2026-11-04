@@ -55,9 +55,13 @@ pub struct TimelineTrack {
     pub name: String,
     pub kind: TrackKind,
     pub color: Color,
+    // xtask-allow(state-fields): Independent application-owned track presentation flag.
     pub muted: bool,
+    // xtask-allow(state-fields): Independent application-owned track presentation flag.
     pub solo: bool,
+    // xtask-allow(state-fields): Independent application-owned track presentation flag.
     pub armed: bool,
+    // xtask-allow(state-fields): Independent application-owned track presentation flag.
     pub automation_read: bool,
     pub automation: Vec<AutomationPoint>,
     /// Heading for the automation lane; empty hides the heading.
