@@ -114,7 +114,7 @@ impl Dropzone {
     }
     /// Receive the dropped or picked files. An `Err` goes to the nearest error handler.
     pub fn on_files<R: HandlerResult>(mut self, f: impl Fn(Vec<PathBuf>) -> R + 'static) -> Self {
-        self.on_files = Rc::new(move |files| f(files).into_result());
+        self.on_files = Rc::new(move |files| f(files).into_outcome().map(|_| ()));
         self
     }
 }
