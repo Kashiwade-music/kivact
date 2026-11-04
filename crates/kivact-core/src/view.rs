@@ -33,6 +33,7 @@ pub(crate) mod part;
 pub(crate) mod part_data;
 pub(crate) mod requests;
 pub(crate) mod root;
+pub(crate) mod semantics_data;
 pub(crate) mod span;
 pub(crate) mod state;
 pub(crate) mod sync_hook;

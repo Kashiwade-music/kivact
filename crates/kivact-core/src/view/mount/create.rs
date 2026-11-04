@@ -1,11 +1,10 @@
 //! Role: Mounting writes a host node's first properties and listener flags.
 
 use std::panic::Location;
-use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_runtime::Prop as InputProp;
-use kivact_types::{IntrinsicSize, NodeId, Role};
+use kivact_types::{IntrinsicSize, NodeId};
 
 use super::editing;
 use crate::view::descriptor::Mcx;
@@ -17,14 +16,10 @@ use crate::view::tree::Handlers;
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
     pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
-    pub(super) test_id: Option<Rc<str>>,
-    pub(super) role: Option<Role>,
-    pub(super) focusable: Option<InputProp<bool>>,
     pub(super) focusable_when_disabled: Option<InputProp<bool>>,
     pub(super) roving_focus: Option<kivact_engine::contract::RovingFocus>,
     pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
-    pub(super) actions: Vec<crate::view::A11yAction>,
     /// The final handlers (routed through the parts' defaults when the node has parts).
     pub(super) handlers: Handlers,
     pub(super) intrinsic: Option<IntrinsicSize>,
@@ -40,13 +35,9 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
     let FirstWrite {
         exit_layout,
         exit_complete,
-        test_id,
-        role,
-        focusable,
         focusable_when_disabled,
         roving_focus,
         hit_testable,
-        actions,
         handlers,
         intrinsic,
         observe_layout,
@@ -60,23 +51,14 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
     {
         let writer = cx.rt.running_effect();
         let mut tree = ViewState::tree_mut(cx.rt);
-        if let Some(t) = test_id {
-            tree.update(id, PropValue::TestId(t.to_string()), writer);
-        }
         if let Some(n) = tree.get_mut(id) {
             n.at = Some(at);
             n.exit_layout = exit_layout;
             n.exit_complete = exit_complete;
             n.handlers = Some(Box::new(handlers));
         }
-        if let Some(r) = role {
-            tree.update(id, PropValue::Role(r), writer);
-        }
         if let Some(roving_focus) = roving_focus {
             tree.update(id, PropValue::RovingFocus(roving_focus), writer);
-        }
-        if !actions.is_empty() {
-            tree.update(id, PropValue::Actions(actions), writer);
         }
         if listen_file {
             tree.update(id, PropValue::ListenFile(true), writer);
@@ -99,9 +81,6 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
     }
     if let Some(f) = focusable_when_disabled {
         cx.bind(id, f, PropValue::FocusableWhenDisabled, at);
-    }
-    if let Some(f) = focusable {
-        cx.bind(id, f, PropValue::Focusable, at);
     }
     if let Some(props) = editing {
         editing::bind(cx, id, props, report_session, at);

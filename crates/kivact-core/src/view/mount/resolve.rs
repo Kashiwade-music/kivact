@@ -23,7 +23,7 @@ use super::facts::{LocalPaintSource, NodeFacts};
 use super::parts::ConstraintSources;
 use super::semantics::SemanticProps;
 use super::{diagnostics, part_input, parts, regions};
-use crate::view::common::{Common, SemanticSources, StyleLayer};
+use crate::view::common::{Common, StyleLayer};
 use crate::view::descriptor::Mcx;
 use crate::view::editing_data::TextEditing;
 use crate::view::ime_session::ImeSession;
@@ -38,7 +38,7 @@ pub(super) struct Resolved {
     pub(super) style: Vec<StyleLayer>,
     pub(super) facts: NodeFacts,
     pub(super) draw: Option<DrawInput>,
-    pub(super) late_semantics: Option<Box<SemanticSources>>,
+    pub(super) late_semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
     pub(super) ime: Option<ImeSession>,
     pub(super) refs: Vec<NodeRef>,
     pub(super) attached: Option<Attached>,
@@ -58,32 +58,24 @@ pub(super) fn resolve(
         while !node.common.deferred_parts.is_empty() {
             let deferred = std::mem::take(&mut node.common.deferred_parts);
             for apply in deferred {
-                node = apply(node).resolve_modifiers();
+                node = node.apply_part(apply);
             }
         }
         node.common
     };
+    let role = common.role_source();
+    let disabled = common.disabled_source();
+    let hidden = common.hidden_source();
+    let focusable = common.focusable_source();
+    let selected = common.selected_source();
     let Common {
         deferred_parts: _,
         exit_layout,
         exit_complete,
-        test_id,
         node_ref,
         style,
         base_styles: _,
-        role,
-        name,
-        description,
-        value,
-        selected,
-        disabled,
-        hidden,
-        invalid,
-        semantics,
-        checked,
-        indeterminate,
-        expanded,
-        focusable,
+        mut semantics,
         focusable_when_disabled,
         roving_focus,
         hit_testable,
@@ -91,7 +83,7 @@ pub(super) fn resolve(
         mut handlers,
         text_editing,
         ime,
-        part_constraints,
+        mut part_constraints,
         part_actions,
         part_region_events: _,
         part_bindings,
@@ -104,6 +96,15 @@ pub(super) fn resolve(
         monochrome,
         at: _,
     } = common;
+    for patch in semantics.iter().filter(|p| p.part) {
+        use crate::view::semantics_data::SemanticInput;
+        match &patch.input {
+            SemanticInput::Disabled(v) => part_constraints.disabled.push(v.clone()),
+            SemanticInput::Hidden(v) => part_constraints.hidden.push(v.clone()),
+            SemanticInput::Focusable(v) => part_constraints.focusable.push(v.clone()),
+            _ => {}
+        }
+    }
     if part_modal {
         parts::report_modal_unsupported(cx, at);
     }
@@ -135,31 +136,35 @@ pub(super) fn resolve(
             actions.push(action);
         }
     }
-    let (attached, disabled, hidden, focusable) =
-        if part_bindings.is_empty() && declarations.is_empty() {
-            (None, disabled, hidden, focusable)
-        } else {
-            let sources = ConstraintSources {
-                disabled,
-                hidden,
-                focusable,
-                required: part_constraints,
-            };
-            let constraints = parts::constraints(sources, cx, at, None);
-            let root = part_input::root_target(&handlers, part_actions, constraints, cx);
-            let registry = regions::prepare(declarations, root, cx, id, at);
-            handlers = part_input::route(id, handlers, registry.clone());
-            (
-                Some(Attached {
-                    constraints,
-                    bindings: part_bindings,
-                    regions: registry,
-                }),
-                Some(Prop::value(constraints.disabled)),
-                Some(Prop::value(constraints.hidden)),
-                Some(Prop::value(constraints.focusable)),
-            )
+    let (attached, disabled, hidden, focusable) = if part_bindings.is_empty()
+        && declarations.is_empty()
+        && part_constraints.disabled.is_empty()
+        && part_constraints.hidden.is_empty()
+        && part_constraints.focusable.is_empty()
+    {
+        (None, disabled, hidden, focusable)
+    } else {
+        let sources = ConstraintSources {
+            disabled,
+            hidden,
+            focusable,
+            required: part_constraints,
         };
+        let constraints = parts::constraints(sources, cx, at, None);
+        let root = part_input::root_target(&handlers, part_actions, constraints, cx);
+        let registry = regions::prepare(declarations, root, cx, id, at);
+        handlers = part_input::route(id, handlers, registry.clone());
+        (
+            Some(Attached {
+                constraints,
+                bindings: part_bindings,
+                regions: registry,
+            }),
+            Some(Prop::value(constraints.disabled)),
+            Some(Prop::value(constraints.hidden)),
+            Some(Prop::value(constraints.focusable)),
+        )
+    };
     // A focus stop gets the theme's focus ring and disabled look (`kivact_style::internal::compile_style`).
     let focus_stop =
         focusable.as_ref().is_some_and(|f| f.fixed() != Some(false)) || editing.is_some();
@@ -182,39 +187,50 @@ pub(super) fn resolve(
             size,
         }
     });
-    let (early, late) = match semantics {
-        Some(s) if s.text.is_some() => (None, Some(s)),
-        s => (s, None),
+    // Constraint-derived values are the last layer; they are authoritative for
+    // semantics and input while the authored patch remains the only input source.
+    let mut final_semantics = Common::default();
+    if attached.is_some() {
+        if let Some(source) = disabled.clone() {
+            final_semantics.set_disabled(source);
+        }
+        if let Some(source) = hidden {
+            final_semantics.set_hidden(source);
+        }
+        if let Some(source) = focusable.clone() {
+            final_semantics.set_focusable(source);
+        }
+    }
+    if !actions.is_empty() {
+        final_semantics.semantic(Prop::constant(actions), |s, value| s.actions = Some(value));
+    }
+    let next = semantics.last().map_or(0, |p| p.layer + 1);
+    for patch in &mut final_semantics.semantics {
+        patch.layer += next;
+    }
+    semantics.append(&mut final_semantics.semantics);
+    let (early, late) = if semantics.iter().any(|p| p.text) {
+        (Vec::new(), semantics)
+    } else {
+        (semantics, Vec::new())
     };
     Resolved {
         first: FirstWrite {
             exit_layout: exit_layout.unwrap_or_default(),
             exit_complete,
-            test_id,
-            role,
-            focusable,
             focusable_when_disabled,
             roving_focus,
             hit_testable,
-            actions,
             handlers,
             intrinsic,
             observe_layout,
             editing,
         },
         semantics: SemanticProps {
-            name,
-            description,
-            value,
-            checked,
-            indeterminate,
-            expanded,
-            invalid,
-            hidden,
+            patches: early,
             image_fit,
             monochrome,
             focus_on_press,
-            sources: early,
         },
         disabled,
         selected,

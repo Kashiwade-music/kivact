@@ -89,7 +89,7 @@ fn dep(rt: &Runtime, key: GraphNode, depth: usize, seen: &mut Vec<GraphNode>) ->
 
 /// The [`Why`] of host node `id` in `rt` (also for removed nodes).
 pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
-    let (label, origins) = {
+    let (label, origins, semantic_origins) = {
         let tree = ViewState::tree(rt);
         match tree.get(id) {
             Some(n) => {
@@ -103,9 +103,13 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
                     (Some(s), _) | (None, Some(s)) => s,
                     _ => String::new(),
                 };
-                (format!("{role} {name:?}"), n.origins.clone())
+                (
+                    format!("{role} {name:?}"),
+                    n.origins.clone(),
+                    n.semantic_origins.clone(),
+                )
             }
-            None => ("(removed)".to_string(), Vec::new()),
+            None => ("(removed)".to_string(), Vec::new(), Vec::new()),
         }
     };
     let mut props = Vec::new();
@@ -122,6 +126,13 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
                 .into_iter()
                 .filter_map(|d| dep(rt, d, 1, &mut seen))
                 .collect(),
+        });
+    }
+    for at in semantic_origins {
+        props.push(WhyProp {
+            prop: "semantics patch".to_string(),
+            effect_at: at,
+            reads: Vec::new(),
         });
     }
     Why {
@@ -158,11 +169,15 @@ impl fmt::Display for Why {
             write!(f, "\n  (all props are static)")?;
         }
         for p in &self.props {
-            write!(
-                f,
-                "\n  {} set by the effect created at {}",
-                p.prop, p.effect_at
-            )?;
+            if p.prop == "semantics patch" {
+                write!(f, "\n  semantics patch declared at {}", p.effect_at)?;
+            } else {
+                write!(
+                    f,
+                    "\n  {} set by the effect created at {}",
+                    p.prop, p.effect_at
+                )?;
+            }
             deps(f, &p.reads, 2)?;
         }
         Ok(())

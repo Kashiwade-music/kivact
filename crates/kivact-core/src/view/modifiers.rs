@@ -28,23 +28,200 @@
 //! - `on_a11y` keeps one handler per action and a new registration replaces
 //!   it.
 //!
-//! The extra semantics (the value range, `live_region`,
-//! `sort`, `orientation`, `active_descendant`, `level`, `set_size`,
-//! `pos_in_set`, `multiselectable` and the relations `described_by`,
-//! `controls`, `labelled_by`) share one rarely allocated box of sources on
-//! the node (`SemanticSources`), so an ordinary node stores nothing extra
-//! for them; `mount::semantics` publishes them.
+//! Semantic modifiers retain ordered patches; mounting folds them once or subscribes
+//! one render effect for the complete semantic value.
 
-use crate::view::common::{Common, SemanticSources};
+use crate::view::common::Common;
 use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
+use crate::view::semantics_data::{Relation, SemanticInput, SemanticsPatch};
 use crate::view::{A11yAction, A11yEvent, A11yRequest, HandlerResult};
+use kivact_types::{FocusTarget, Semantics};
+use std::panic::Location;
+use std::rc::Rc;
 
 /// The shared bodies of the modifiers that are more than a field write.
 /// `NodeBuilder`, `Node` and `Part` forward to them.
 impl Common {
-    /// The rarely allocated box of extra semantic sources.
-    pub(crate) fn semantics_mut(&mut self) -> &mut SemanticSources {
-        self.semantics.get_or_insert_with(Default::default)
+    #[track_caller]
+    pub(crate) fn semantic<T: Clone + 'static>(
+        &mut self,
+        source: kivact_runtime::Prop<T>,
+        apply: impl Fn(&mut Semantics<FocusTarget>, T) + 'static,
+    ) {
+        let reactive = source.fixed().is_none();
+        self.semantics.push(SemanticsPatch {
+            part: false,
+            input: SemanticInput::None,
+            layer: self.semantics.last().map_or(0, |patch| patch.layer),
+            at: Location::caller(),
+            reactive,
+            text: false,
+            apply: Rc::new(move |semantics| apply(semantics, source.get())),
+            relation: None,
+            orientation: None,
+        });
+    }
+
+    #[track_caller]
+    pub(crate) fn semantic_relation(&mut self, relation: Relation, target: crate::view::NodeRef) {
+        let at = Location::caller();
+        self.semantic(
+            kivact_runtime::Prop::computed(Rc::new(move || target.target_value(at))),
+            move |s, target| {
+                let list = match relation {
+                    Relation::DescribedBy => &mut s.described_by,
+                    Relation::Controls => &mut s.controls,
+                    Relation::LabelledBy => &mut s.labelled_by,
+                };
+                list.extend(target);
+            },
+        );
+        self.semantics.last_mut().unwrap().relation = Some((relation, target));
+    }
+
+    #[track_caller]
+    pub(crate) fn semantic_orientation(
+        &mut self,
+        source: kivact_runtime::Prop<kivact_types::Orientation>,
+    ) {
+        self.semantic(source.clone(), |s, value| s.orientation = value);
+        self.semantics.last_mut().unwrap().orientation = Some(source);
+    }
+
+    pub(crate) fn append_semantics(&mut self, patches: &mut Vec<SemanticsPatch>) {
+        let next = self.semantics.last().map_or(0, |patch| patch.layer + 1);
+        for patch in patches.iter_mut() {
+            patch.layer += next;
+        }
+        self.semantics.append(patches);
+    }
+
+    #[track_caller]
+    pub(crate) fn set_role(&mut self, value: kivact_types::Role) {
+        self.semantic(kivact_runtime::Prop::constant(value), |s, v| {
+            s.role = Some(v)
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Role(value);
+    }
+    pub(crate) fn role_source(&self) -> Option<kivact_types::Role> {
+        self.semantics.iter().rev().find_map(|p| match p.input {
+            SemanticInput::Role(v) => Some(v),
+            _ => None,
+        })
+    }
+    #[track_caller]
+    pub(crate) fn set_name(&mut self, source: kivact_runtime::Prop<String>) {
+        self.semantic(source.clone(), |s, v| {
+            s.name = Some(v);
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Name(source);
+    }
+    #[track_caller]
+    pub(crate) fn set_description(&mut self, source: kivact_runtime::Prop<String>) {
+        self.semantic(source.clone(), |s, v| {
+            s.description = Some(v);
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Description(source);
+    }
+    #[track_caller]
+    pub(crate) fn set_value(&mut self, source: kivact_runtime::Prop<String>) {
+        self.semantic(source.clone(), |s, v| {
+            s.value_text = Some(v);
+        });
+    }
+    #[track_caller]
+    pub(crate) fn set_selected(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            s.selected = Some(v);
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Selected(source);
+    }
+    pub(crate) fn selected_source(&self) -> Option<kivact_runtime::Prop<bool>> {
+        self.semantics.iter().rev().find_map(|p| match &p.input {
+            SemanticInput::Selected(v) => Some(v.clone()),
+            _ => None,
+        })
+    }
+    #[track_caller]
+    pub(crate) fn set_disabled(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            s.disabled = v;
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Disabled(source);
+    }
+    pub(crate) fn disabled_source(&self) -> Option<kivact_runtime::Prop<bool>> {
+        self.semantics
+            .iter()
+            .rev()
+            .filter(|p| !p.part)
+            .find_map(|p| match &p.input {
+                SemanticInput::Disabled(v) => Some(v.clone()),
+                _ => None,
+            })
+    }
+    #[track_caller]
+    pub(crate) fn set_hidden(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            s.hidden = v;
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Hidden(source);
+    }
+    pub(crate) fn hidden_source(&self) -> Option<kivact_runtime::Prop<bool>> {
+        self.semantics
+            .iter()
+            .rev()
+            .filter(|p| !p.part)
+            .find_map(|p| match &p.input {
+                SemanticInput::Hidden(v) => Some(v.clone()),
+                _ => None,
+            })
+    }
+    #[track_caller]
+    pub(crate) fn set_invalid(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            s.invalid = Some(v);
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Invalid(source);
+    }
+    #[track_caller]
+    pub(crate) fn set_checked(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            s.checked = Some(kivact_types::CheckedState::from_bool(v));
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Checked(source);
+    }
+    #[track_caller]
+    pub(crate) fn set_indeterminate(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            if v {
+                s.checked = Some(kivact_types::CheckedState::Indeterminate);
+            };
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Indeterminate(source);
+    }
+    #[track_caller]
+    pub(crate) fn set_expanded(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            s.expanded = Some(v);
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Expanded(source);
+    }
+    #[track_caller]
+    pub(crate) fn set_focusable(&mut self, source: kivact_runtime::Prop<bool>) {
+        self.semantic(source.clone(), |s, v| {
+            s.focusable = v;
+        });
+        self.semantics.last_mut().unwrap().input = SemanticInput::Focusable(source);
+    }
+    pub(crate) fn focusable_source(&self) -> Option<kivact_runtime::Prop<bool>> {
+        self.semantics
+            .iter()
+            .rev()
+            .filter(|p| !p.part)
+            .find_map(|p| match &p.input {
+                SemanticInput::Focusable(v) => Some(v.clone()),
+                _ => None,
+            })
     }
 
     /// `on_key`: run before the key handlers already registered.

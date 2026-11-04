@@ -22,8 +22,8 @@ use crate::view::View;
 use crate::view::common::Common;
 use crate::view::descriptor::Mcx;
 use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
-use crate::view::node_modifiers::Modifier;
 use crate::view::node_ref::NodeRef;
+use crate::view::semantics_data::Modifier;
 use crate::view::span::Span;
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::{Callback, ErrorKind, UiError};
@@ -74,6 +74,8 @@ pub struct Node {
     pub(crate) common: Common,
     pub(crate) children: Vec<View>,
     pub(crate) modifiers: Vec<Modifier>,
+    /// Later caller patches visible to a part while its transformation runs.
+    pub(crate) semantic_reads: Vec<crate::view::semantics_data::SemanticsPatch>,
     /// Where the node was created; `None` for a plain string child, which
     /// diagnostics show with the location of its nearest located ancestor.
     pub(crate) at: Option<&'static Location<'static>>,
@@ -87,6 +89,7 @@ impl Node {
             common: Common::default(),
             children: Vec::new(),
             modifiers: Vec::new(),
+            semantic_reads: Vec::new(),
             at,
         }
     }
@@ -199,8 +202,13 @@ pub trait NodeBuilder: Sized {
     /// string (`"save"`, `format!("row-{id}")`). It is not scoped:
     /// a query matching several nodes fails and lists them all;
     /// narrow it with `Screen::within`.
+    #[track_caller]
     fn test_id(mut self, id: impl Into<String>) -> Self {
-        self.node_mut().common.test_id = Some(Rc::from(id.into()));
+        self.node_mut()
+            .common
+            .semantic(kivact_runtime::Prop::constant(id.into()), |s, value| {
+                s.test_id = Some(value)
+            });
         self
     }
 
@@ -226,14 +234,16 @@ pub trait NodeBuilder: Sized {
     }
 
     /// Accessible name.
+    #[track_caller]
     fn name(mut self, v: impl IntoText) -> Self {
-        self.node_mut().common.name = Some(v.into_text());
+        self.node_mut().common.set_name(v.into_text());
         self
     }
 
     /// Accessible description.
+    #[track_caller]
     fn description(mut self, v: impl IntoText) -> Self {
-        self.node_mut().common.description = Some(v.into_text());
+        self.node_mut().common.set_description(v.into_text());
         self
     }
 
@@ -247,16 +257,18 @@ pub trait NodeBuilder: Sized {
     /// Pointer Enter/Leave remain available for explanations, and Cancel
     /// ends an existing drag when the capturing node becomes disabled.
     /// Unhandled wheels continue to enabled ancestors and native scrolling.
+    #[track_caller]
     fn disabled(mut self, v: impl IntoValue<bool>) -> Self {
-        self.node_mut().common.disabled = Some(v.into_prop());
+        self.node_mut().common.set_disabled(v.into_prop());
         self
     }
 
     /// Report an invalid value to assistive technology. A component that
     /// draws an invalid look reads it with
     /// [`accessible_invalid`](crate::view::Node::accessible_invalid).
+    #[track_caller]
     fn invalid(mut self, value: impl IntoValue<bool>) -> Self {
-        self.node_mut().common.invalid = Some(value.into_prop());
+        self.node_mut().common.set_invalid(value.into_prop());
         self
     }
 
@@ -288,8 +300,9 @@ pub trait NodeBuilder: Sized {
     }
 
     /// Hide the node and its subtree.
+    #[track_caller]
     fn hidden(mut self, v: impl IntoValue<bool>) -> Self {
-        self.node_mut().common.hidden = Some(v.into_prop());
+        self.node_mut().common.set_hidden(v.into_prop());
         self
     }
 
@@ -307,8 +320,9 @@ pub trait NodeBuilder: Sized {
     /// Reactive values support a roving tab stop without replacing nodes:
     /// only the selected tab or segment is a Tab stop, and the stop moves
     /// while the nodes stay.
+    #[track_caller]
     fn focusable(mut self, on: impl IntoValue<bool>) -> Self {
-        self.node_mut().common.focusable = Some(on.into_prop());
+        self.node_mut().common.set_focusable(on.into_prop());
         self
     }
 

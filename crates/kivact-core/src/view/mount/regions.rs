@@ -22,7 +22,7 @@ impl Registry {
         while !node.common.deferred_parts.is_empty() {
             let deferred = std::mem::take(&mut node.common.deferred_parts);
             for apply in deferred {
-                node = apply(node).resolve_modifiers();
+                node = node.apply_part(apply);
             }
         }
         let mut template = node.common;
@@ -178,10 +178,21 @@ impl Registry {
             if std::mem::take(&mut common.part_modal) {
                 parts::report_modal_unsupported(&cx, self.at);
             }
+            for patch in common.semantics.iter().filter(|p| p.part) {
+                use crate::view::semantics_data::SemanticInput;
+                match &patch.input {
+                    SemanticInput::Disabled(v) => common.part_constraints.disabled.push(v.clone()),
+                    SemanticInput::Hidden(v) => common.part_constraints.hidden.push(v.clone()),
+                    SemanticInput::Focusable(v) => {
+                        common.part_constraints.focusable.push(v.clone())
+                    }
+                    _ => {}
+                }
+            }
             let sources = parts::ConstraintSources {
-                disabled: common.disabled.take(),
-                hidden: common.hidden.take(),
-                focusable: common.focusable.take(),
+                disabled: common.disabled_source(),
+                hidden: common.hidden_source(),
+                focusable: common.focusable_source(),
                 required: std::mem::take(&mut common.part_constraints),
             };
             let constraints =
@@ -286,32 +297,13 @@ impl Registry {
                     RegionEntry::Pending | RegionEntry::Shadowed { .. } => return None,
                 };
                 let common = &adopted.common;
-                let properties = common
-                    .semantics
-                    .as_ref()
-                    .map(|sources| super::semantics::resolve(sources, self.at))
-                    .unwrap_or_default();
+                let properties = super::semantics::resolve(&common.semantics);
                 Some((
                     entry.id,
                     RegionSemantics {
                         semantics: kivact_types::Semantics {
-                            role: Some(common.role.unwrap_or(crate::view::Role::Generic)),
-                            name: common
-                                .name
-                                .as_ref()
-                                .map(kivact_runtime::Prop::get)
-                                .map(Some)
-                                .unwrap_or_default(),
-                            description: common.description.as_ref().map(kivact_runtime::Prop::get),
-                            value_text: common.value.as_ref().map(kivact_runtime::Prop::get),
+                            role: properties.role.or(Some(crate::view::Role::Generic)),
                             actions: Some(adopted.target.actions.actions()),
-                            checked: super::semantics::checked_state(
-                                common.checked.as_ref().map(kivact_runtime::Prop::get),
-                                common.indeterminate.as_ref().map(kivact_runtime::Prop::get),
-                            ),
-                            selected: common.selected.as_ref().map(kivact_runtime::Prop::get),
-                            expanded: common.expanded.as_ref().map(kivact_runtime::Prop::get),
-                            invalid: common.invalid.as_ref().map(kivact_runtime::Prop::get),
                             disabled: adopted.target.constraints.disabled.get(),
                             hidden: adopted.target.constraints.hidden.get(),
                             focusable: adopted.target.constraints.focusable.get(),

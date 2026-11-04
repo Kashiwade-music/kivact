@@ -18,7 +18,6 @@ use crate::view::{MouseButton, PointerEvent, PointerId};
 use kivact_style::Style;
 use kivact_style::asset::ImageFit;
 use kivact_style::draw::{Draw, RegionId, Size};
-use kivact_types::Role;
 
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
@@ -29,8 +28,6 @@ pub(crate) struct Common {
         Vec<Box<dyn FnOnce(crate::view::node::Node) -> crate::view::node::Node>>,
     pub(crate) exit_layout: Option<super::exit_layout::ExitLayout>,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
-    /// Test identifier.
-    pub test_id: Option<Rc<str>>,
     /// NodeRefs bound at mount (each once, in order).
     pub node_ref: Vec<crate::view::node_ref::NodeRef>,
     /// Style layers, merged in order (a later layer wins per property).
@@ -38,31 +35,8 @@ pub(crate) struct Common {
     /// How many of the first layers of `style` are base layers
     /// (`Node::base_style`).
     pub base_styles: usize,
-    /// Role (a builder sets its own before the user's modifiers).
-    pub role: Option<Role>,
-    /// Accessible name.
-    pub name: Option<InputProp<String>>,
-    /// Accessible description.
-    pub description: Option<InputProp<String>>,
-    /// Accessible value text.
-    pub value: Option<InputProp<String>>,
-    /// Selected state.
-    pub selected: Option<InputProp<bool>>,
-    /// Disabled state.
-    pub disabled: Option<InputProp<bool>>,
-    /// Hidden subtree.
-    pub hidden: Option<InputProp<bool>>,
-    pub invalid: Option<InputProp<bool>>,
-    pub semantics: Option<Box<SemanticSources>>,
-    /// Checked state (toggles).
-    pub checked: Option<InputProp<bool>>,
-    /// Mixed checked state (HTML `indeterminate`).
-    pub indeterminate: Option<InputProp<bool>>,
-    /// Expanded state (disclosures).
-    pub expanded: Option<InputProp<bool>>,
-    /// Focusability, constant or reactive (a builder sets its own before the
-    /// user's modifiers).
-    pub focusable: Option<InputProp<bool>>,
+    /// Canonical authored semantic patches, in declaration order.
+    pub semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
     pub focusable_when_disabled: Option<InputProp<bool>>,
     pub roving_focus: Option<kivact_engine::contract::RovingFocus>,
     /// `Some(false)`: the pointer passes through the subtree.
@@ -293,29 +267,4 @@ pub(super) struct Constraints {
     pub(super) eligible: Value<bool>,
     pub(super) caller_disabled: Value<bool>,
     pub(super) caller_hidden: Value<bool>,
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct SemanticSources {
-    pub(crate) value_min: Option<InputProp<f64>>,
-    pub(crate) value_max: Option<InputProp<f64>>,
-    pub(crate) value_now: Option<InputProp<f64>>,
-    pub(crate) live_region: Option<InputProp<kivact_types::LiveRegion>>,
-    pub(crate) sort: Option<InputProp<kivact_types::SortDirection>>,
-    pub(crate) orientation: Option<InputProp<kivact_types::Orientation>>,
-    pub(crate) active_descendant: Option<InputProp<Option<crate::view::NodeRef>>>,
-    pub(crate) level: Option<InputProp<u32>>,
-    pub(crate) set_size: Option<InputProp<u32>>,
-    pub(crate) pos_in_set: Option<InputProp<u32>>,
-    pub(crate) multiselectable: Option<InputProp<bool>>,
-    pub(crate) busy: Option<InputProp<bool>>,
-    pub(crate) required: Option<InputProp<bool>>,
-    pub(crate) read_only: Option<InputProp<bool>>,
-    pub(crate) has_popup: Option<InputProp<Option<kivact_types::PopupKind>>>,
-    pub(crate) current_item: Option<InputProp<Option<kivact_types::CurrentItem>>>,
-    pub(crate) described_by: Vec<crate::view::NodeRef>,
-    pub(crate) controls: Vec<crate::view::NodeRef>,
-    pub(crate) labelled_by: Vec<crate::view::NodeRef>,
-    /// The node's own text runs for assistive technology.
-    pub(crate) text: Option<InputProp<kivact_types::SemanticsText>>,
 }

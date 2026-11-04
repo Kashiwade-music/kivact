@@ -282,6 +282,7 @@ pub(crate) struct CoreNode {
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     /// The effect that last set each dynamic prop (diagnostics::why).
     pub(crate) origins: Vec<(Prop, EffectId)>,
+    pub(crate) semantic_origins: Vec<&'static Location<'static>>,
 }
 
 impl CoreNode {
@@ -297,6 +298,7 @@ impl CoreNode {
             observation: None,
             presence: None,
             origins: Vec::new(),
+            semantic_origins: Vec::new(),
         }
     }
 }

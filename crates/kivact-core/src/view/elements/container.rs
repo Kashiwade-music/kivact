@@ -2,7 +2,7 @@
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{EffectKind, ErrorKind, Prop as InputProp, UiError};
+use kivact_runtime::{ErrorKind, Prop as InputProp, UiError};
 use kivact_types::{Dimension, Edges, LayoutProps, Position, ScrollAxes};
 use std::rc::Rc;
 
@@ -130,33 +130,39 @@ impl IntoView for Scroll {
             let caller = root
                 .common
                 .semantics
-                .as_mut()
-                .and_then(|sources| sources.orientation.take());
-            let semantic_axes = axes.clone();
-            root.common.semantics_mut().orientation =
-                Some(InputProp::computed(Rc::new(move || {
-                    scroll_orientation(semantic_axes.get()).unwrap_or_default()
-                })));
-            let at = root
-                .at
-                .expect("invariant: `scroll` is #[track_caller] and locates its root");
-            if let Some(caller) = caller {
-                let weak = cx.weak();
-                let owner = cx.owner;
-                let reported = kivact_types::cell::ReportOnce::new();
-                cx.effect(EffectKind::Render, at, move || {
-                    // Diagnose a later reactive disagreement too, once per mounted container.
-                    if Some(caller.get()) != scroll_orientation(axes.get()) && reported.note() {
-                        if let Some(rt) = weak.upgrade() {
-                            rt.report(Some(owner), UiError::new(
-                                ErrorKind::Unsupported,
-                                "`.orientation(..)` on a scroll container disagrees with `.axes(..)`: its accessibility orientation follows the axes (Vertical: vertical, Horizontal: horizontal, Both: none); ignored",
-                                Some(at),
-                            ));
-                        }
-                    }
-                });
-            }
+                .iter()
+                .rev()
+                .find_map(|patch| patch.orientation.clone());
+            let at = root.at.expect("invariant: `scroll` locates its root");
+            let weak = cx.weak();
+            let owner = cx.owner;
+            let reported = kivact_types::cell::ReportOnce::new();
+            let fixed = axes.fixed().is_some()
+                && caller
+                    .as_ref()
+                    .is_none_or(|source| source.fixed().is_some());
+            let derive = move || {
+                let orientation = scroll_orientation(axes.get());
+                if caller
+                    .as_ref()
+                    .is_some_and(|source| Some(source.get()) != orientation)
+                    && reported.note()
+                    && let Some(rt) = weak.upgrade()
+                {
+                    rt.report(Some(owner), UiError::new(
+                        ErrorKind::Unsupported,
+                        "`.orientation(..)` on a scroll container disagrees with `.axes(..)`: its accessibility orientation follows the axes (Vertical: vertical, Horizontal: horizontal, Both: none); ignored",
+                        Some(at),
+                    ));
+                }
+                orientation.unwrap_or_default()
+            };
+            let orientation = if fixed {
+                InputProp::constant(derive())
+            } else {
+                InputProp::computed(Rc::new(derive))
+            };
+            root.common.semantic_orientation(orientation);
             mount(root.child(self.child).into_view(), cx)
         })
     }

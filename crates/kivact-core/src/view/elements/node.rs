@@ -43,56 +43,100 @@ pub fn node() -> Node {
 }
 
 impl Node {
+    fn semantic_inputs(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &crate::view::semantics_data::SemanticsPatch> {
+        let mut inputs: Vec<&crate::view::semantics_data::SemanticsPatch> = Vec::new();
+        let declared = self
+            .modifiers
+            .iter()
+            .filter_map(|m| match m {
+                crate::view::semantics_data::Modifier::Caller(c) => Some(c.semantics.iter()),
+                _ => None,
+            })
+            .flatten()
+            .chain(self.common.semantics.iter())
+            .chain(self.semantic_reads.iter());
+        for patch in declared {
+            if !inputs
+                .iter()
+                .any(|prior| std::rc::Rc::ptr_eq(&prior.apply, &patch.apply))
+            {
+                inputs.push(patch);
+            }
+        }
+        inputs.into_iter()
+    }
     /// The accessible name set so far, if any (a menu names its panel after
     /// the trigger it opens from).
     pub(crate) fn name_source(&self) -> Option<InputProp<String>> {
-        self.common.name.clone()
+        self.semantic_inputs().rev().find_map(|p| match &p.input {
+            crate::view::semantics_data::SemanticInput::Name(v) => Some(v.clone()),
+            _ => None,
+        })
     }
 
     /// The role set so far, if any.
     pub(crate) fn role_source(&self) -> Option<crate::view::Role> {
-        self.common.role
+        self.semantic_inputs().rev().find_map(|p| match p.input {
+            crate::view::semantics_data::SemanticInput::Role(v) => Some(v),
+            _ => None,
+        })
     }
 
     /// The expanded state set so far, if any (a button that a popup or a
     /// disclosure attached its trigger to).
     pub(crate) fn expanded_source(&self) -> Option<InputProp<bool>> {
-        self.common.expanded.clone()
+        self.semantic_inputs().rev().find_map(|p| match &p.input {
+            crate::view::semantics_data::SemanticInput::Expanded(v) => Some(v.clone()),
+            _ => None,
+        })
     }
 
     /// The accessible description set so far, if any (a tooltip fills in its
     /// label only when the trigger has none of its own).
     pub(crate) fn description_source(&self) -> Option<InputProp<String>> {
-        self.common.description.clone()
+        self.semantic_inputs().rev().find_map(|p| match &p.input {
+            crate::view::semantics_data::SemanticInput::Description(v) => Some(v.clone()),
+            _ => None,
+        })
     }
 
     /// Preserved label relations after caller and part sources are merged.
     pub(crate) fn labelled_by_sources(&self) -> Vec<crate::view::NodeRef> {
-        self.common
-            .semantics
-            .as_ref()
-            .map(|sources| sources.labelled_by.clone())
-            .unwrap_or_default()
+        self.semantic_inputs()
+            .filter_map(|patch| match patch.relation {
+                Some((crate::view::semantics_data::Relation::LabelledBy, target)) => Some(target),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Preserved description relations after caller and part sources are merged.
     pub(crate) fn described_by_sources(&self) -> Vec<crate::view::NodeRef> {
-        self.common
-            .semantics
-            .as_ref()
-            .map(|sources| sources.described_by.clone())
-            .unwrap_or_default()
+        self.semantic_inputs()
+            .filter_map(|patch| match patch.relation {
+                Some((crate::view::semantics_data::Relation::DescribedBy, target)) => Some(target),
+                _ => None,
+            })
+            .collect()
     }
 
     /// The disabled state the caller set so far, if any.
     pub(crate) fn disabled_source(&self) -> Option<InputProp<bool>> {
-        self.common.disabled.clone()
+        self.semantic_inputs().rev().find_map(|p| match &p.input {
+            crate::view::semantics_data::SemanticInput::Disabled(v) => Some(v.clone()),
+            _ => None,
+        })
     }
 
     /// The invalid state set so far, if any (a text input or a switch draws
     /// itself as invalid from what the caller or a form field set on it).
     pub(crate) fn invalid_source(&self) -> Option<InputProp<bool>> {
-        self.common.invalid.clone()
+        self.semantic_inputs().rev().find_map(|p| match &p.input {
+            crate::view::semantics_data::SemanticInput::Invalid(v) => Some(v.clone()),
+            _ => None,
+        })
     }
 
     /// Declare behavior for a canvas region before painting its geometry.
@@ -192,6 +236,7 @@ impl IntoView for Node {
                 children,
                 at,
                 modifiers: _,
+                semantic_reads: _,
             } = self.resolve_modifiers();
             let kind = content.kind();
             let at = common.at.or(at);

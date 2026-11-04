@@ -8,6 +8,7 @@ use crate::view::node::Node;
 use crate::view::node_ref::NodeRef;
 use crate::view::part::Part;
 use crate::view::part_data::PartMount;
+use crate::view::semantics_data::Modifier;
 use crate::view::{
     A11yAction, A11yEvent, ExitLayout, HandlerResult, LiveRegion, Orientation, Role, SortDirection,
 };
@@ -23,8 +24,12 @@ impl Node {
     /// string (`"save"`, `format!("row-{id}")`). It is not scoped:
     /// a query matching several nodes fails and lists them all;
     /// narrow it with `Screen::within`.
+    #[track_caller]
     pub fn test_id(mut self, id: impl Into<String>) -> Self {
-        self.common.test_id = Some(Rc::from(id.into()));
+        self.common
+            .semantic(kivact_runtime::Prop::constant(id.into()), |s, value| {
+                s.test_id = Some(value)
+            });
         self
     }
 
@@ -50,14 +55,16 @@ impl Node {
     }
 
     /// Accessible name.
+    #[track_caller]
     pub fn name(mut self, v: impl IntoText) -> Self {
-        self.common.name = Some(v.into_text());
+        self.common.set_name(v.into_text());
         self
     }
 
     /// Accessible description.
+    #[track_caller]
     pub fn description(mut self, v: impl IntoText) -> Self {
-        self.common.description = Some(v.into_text());
+        self.common.set_description(v.into_text());
         self
     }
 
@@ -71,16 +78,18 @@ impl Node {
     /// Pointer Enter/Leave remain available for explanations, and Cancel
     /// ends an existing drag when the capturing node becomes disabled.
     /// Unhandled wheels continue to enabled ancestors and native scrolling.
+    #[track_caller]
     pub fn disabled(mut self, v: impl IntoValue<bool>) -> Self {
-        self.common.disabled = Some(v.into_prop());
+        self.common.set_disabled(v.into_prop());
         self
     }
 
     /// Report an invalid value to assistive technology. A component that
     /// draws an invalid look reads it with
     /// [`accessible_invalid`](crate::view::Node::accessible_invalid).
+    #[track_caller]
     pub fn invalid(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.invalid = Some(value.into_prop());
+        self.common.set_invalid(value.into_prop());
         self
     }
 
@@ -113,8 +122,9 @@ impl Node {
     }
 
     /// Hide the node and its subtree.
+    #[track_caller]
     pub fn hidden(mut self, v: impl IntoValue<bool>) -> Self {
-        self.common.hidden = Some(v.into_prop());
+        self.common.set_hidden(v.into_prop());
         self
     }
 
@@ -132,8 +142,9 @@ impl Node {
     /// Reactive values support a roving tab stop without replacing nodes:
     /// only the selected tab or segment is a Tab stop, and the stop moves
     /// while the nodes stay.
+    #[track_caller]
     pub fn focusable(mut self, on: impl IntoValue<bool>) -> Self {
-        self.common.focusable = Some(on.into_prop());
+        self.common.set_focusable(on.into_prop());
         self
     }
 
@@ -302,15 +313,17 @@ impl Node {
     }
 
     /// Accessibility role, overriding the builder's default role.
+    #[track_caller]
     pub fn role(mut self, r: Role) -> Self {
-        self.common.role = Some(r);
+        self.common.set_role(r);
         self
     }
 
     /// Accessible value text, as a string (`aria-valuetext`) of a slider or
     /// progress bar. A text input's value is its own, not this one.
+    #[track_caller]
     pub fn value_text(mut self, v: impl IntoText) -> Self {
-        self.common.value = Some(v.into_text());
+        self.common.set_value(v.into_text());
         self
     }
 
@@ -339,20 +352,23 @@ impl Node {
     }
 
     /// Selected state (semantics and the `selected` style).
+    #[track_caller]
     pub fn selected(mut self, v: impl IntoValue<bool>) -> Self {
-        self.common.selected = Some(v.into_prop());
+        self.common.set_selected(v.into_prop());
         self
     }
 
     /// Binary checked state for a check box or switch.
+    #[track_caller]
     pub fn checked(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.checked = Some(value.into_prop());
+        self.common.set_checked(value.into_prop());
         self
     }
 
     /// Expanded state of a disclosure, menu or combo box.
+    #[track_caller]
     pub fn expanded(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.expanded = Some(value.into_prop());
+        self.common.set_expanded(value.into_prop());
         self
     }
 
@@ -452,44 +468,59 @@ impl Node {
     /// component decides how to draw and clear its mixed state (a
     /// click clearing it, say). `kivact::test`'s `Element::checked` reads
     /// `Some(CheckedState::Indeterminate)`.
+    #[track_caller]
     pub fn indeterminate(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.indeterminate = Some(value.into_prop());
+        self.common.set_indeterminate(value.into_prop());
         self
     }
 
     /// Set value_min semantics, constant or reactive.
+    #[track_caller]
     pub fn value_min(mut self, value: impl IntoValue<f64>) -> Self {
-        self.common.semantics_mut().value_min = Some(value.into_prop());
+        self.common.semantic(value.into_prop(), |s, value| {
+            s.value_min = kivact_types::Finite::new(value)
+        });
         self
     }
 
     /// Set value_max semantics, constant or reactive.
+    #[track_caller]
     pub fn value_max(mut self, value: impl IntoValue<f64>) -> Self {
-        self.common.semantics_mut().value_max = Some(value.into_prop());
+        self.common.semantic(value.into_prop(), |s, value| {
+            s.value_max = kivact_types::Finite::new(value)
+        });
         self
     }
 
     /// Set value_now semantics, constant or reactive.
+    #[track_caller]
     pub fn value_now(mut self, value: impl IntoValue<f64>) -> Self {
-        self.common.semantics_mut().value_now = Some(value.into_prop());
+        self.common.semantic(value.into_prop(), |s, value| {
+            s.value_now = kivact_types::Finite::new(value)
+        });
         self
     }
 
     /// Set live_region semantics, constant or reactive.
+    #[track_caller]
     pub fn live_region(mut self, value: impl IntoValue<LiveRegion>) -> Self {
-        self.common.semantics_mut().live_region = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.live_region = Some(value));
         self
     }
 
     /// Set sort semantics, constant or reactive.
+    #[track_caller]
     pub fn sort(mut self, value: impl IntoValue<SortDirection>) -> Self {
-        self.common.semantics_mut().sort = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.sort = value);
         self
     }
 
     /// Set orientation semantics, constant or reactive.
+    #[track_caller]
     pub fn orientation(mut self, value: impl IntoValue<Orientation>) -> Self {
-        self.common.semantics_mut().orientation = Some(value.into_prop());
+        self.common.semantic_orientation(value.into_prop());
         self
     }
 
@@ -501,8 +532,16 @@ impl Node {
     /// `controls` (that node included), as in the ARIA combobox pattern
     /// of a search field and its sibling list; the engine drops any
     /// other.
+    #[track_caller]
     pub fn active_descendant(mut self, descendant: impl IntoValue<Option<NodeRef>>) -> Self {
-        self.common.semantics_mut().active_descendant = Some(descendant.into_prop());
+        let at = Location::caller();
+        let source = descendant.into_prop();
+        self.common.semantic(
+            kivact_runtime::Prop::computed(Rc::new(move || {
+                source.get().and_then(|r| r.target_value(at))
+            })),
+            |s, value| s.active_descendant = value,
+        );
         self
     }
 
@@ -511,8 +550,10 @@ impl Node {
     /// reactive. `0` means "not set" and is not published.
     /// `kivact::test`'s `Element::level` reads what the host published
     /// (`set_size`, `pos_in_set` and `is_multiselectable` likewise).
+    #[track_caller]
     pub fn level(mut self, value: impl IntoValue<u32>) -> Self {
-        self.common.semantics_mut().level = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.level = Some(value));
         self
     }
 
@@ -520,8 +561,10 @@ impl Node {
     /// (`aria-setsize`): a list's item count when only part of it is
     /// mounted, or the siblings of a tree item. Constant or reactive.
     /// `0` is published as an empty set.
+    #[track_caller]
     pub fn set_size(mut self, value: impl IntoValue<u32>) -> Self {
-        self.common.semantics_mut().set_size = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.set_size = Some(value));
         self
     }
 
@@ -529,48 +572,63 @@ impl Node {
     /// counted from 1 and not above `.set_size(..)`. Constant or
     /// reactive. `0` means "not set" and is not published; a position
     /// above the set size is not published either (the set size is).
+    #[track_caller]
     pub fn pos_in_set(mut self, value: impl IntoValue<u32>) -> Self {
-        self.common.semantics_mut().pos_in_set = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.pos_in_set = Some(value));
         self
     }
 
     /// State that this list, tree or grid allows more than one selected
     /// item (`aria-multiselectable`). Constant or reactive.
+    #[track_caller]
     pub fn multiselectable(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.semantics_mut().multiselectable = Some(value.into_prop());
+        self.common.semantic(value.into_prop(), |s, value| {
+            s.multiselectable = Some(value)
+        });
         self
     }
 
     /// Whether assistive technology should wait for updates to finish.
+    #[track_caller]
     pub fn busy(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.semantics_mut().busy = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.busy = Some(value));
         self
     }
 
     /// Whether a value is required.
+    #[track_caller]
     pub fn required(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.semantics_mut().required = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.required = Some(value));
         self
     }
 
     /// Whether assistive technology should report the value as read-only.
     /// This changes semantics only; configure editing behavior on the editor.
+    #[track_caller]
     pub fn semantics_read_only(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.semantics_mut().read_only = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.read_only = Some(value));
         self
     }
 
     /// The type of popup this control opens.
     /// Pass `None` to leave it unstated.
+    #[track_caller]
     pub fn has_popup(mut self, value: impl IntoValue<Option<crate::view::PopupKind>>) -> Self {
-        self.common.semantics_mut().has_popup = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.has_popup = value);
         self
     }
 
     /// The meaning of the current item in a related set.
     /// Pass `None` to leave it unstated.
+    #[track_caller]
     pub fn current_item(mut self, value: impl IntoValue<Option<crate::view::CurrentItem>>) -> Self {
-        self.common.semantics_mut().current_item = Some(value.into_prop());
+        self.common
+            .semantic(value.into_prop(), |s, value| s.current_item = value);
         self
     }
 
@@ -584,16 +642,20 @@ impl Node {
     /// unbound or disposed one is no error). `kivact::test`'s
     /// `Element::described_by` (and `controls`, `labelled_by`) returns
     /// the elements the host published.
+    #[track_caller]
     pub fn described_by(mut self, target: NodeRef) -> Self {
-        self.common.semantics_mut().described_by.push(target);
+        self.common
+            .semantic_relation(crate::view::semantics_data::Relation::DescribedBy, target);
         self
     }
 
     /// Name a node this one controls (`aria-controls`), such as the
     /// panel a button expands. Call it again to add more. A reference
     /// that is not bound to a mounted node is left out.
+    #[track_caller]
     pub fn controls(mut self, target: NodeRef) -> Self {
-        self.common.semantics_mut().controls.push(target);
+        self.common
+            .semantic_relation(crate::view::semantics_data::Relation::Controls, target);
         self
     }
 
@@ -601,8 +663,10 @@ impl Node {
     /// visible heading or caption that should be the accessible name.
     /// Call it again to add more. A reference that is not bound to a
     /// mounted node is left out.
+    #[track_caller]
     pub fn labelled_by(mut self, target: NodeRef) -> Self {
-        self.common.semantics_mut().labelled_by.push(target);
+        self.common
+            .semantic_relation(crate::view::semantics_data::Relation::LabelledBy, target);
         self
     }
 
@@ -704,8 +768,11 @@ impl Node {
     /// `ErrorKind::Unsupported` and not published. Give the node a role
     /// that reads text (`Role::TextBox`). Like [`ime_session`](Self::ime_session)
     /// it is published after the node's draw layers.
+    #[track_caller]
     pub fn semantics_text(mut self, text: impl IntoValue<SemanticsText>) -> Self {
-        self.common.semantics_mut().text = Some(text.into_prop());
+        self.common
+            .semantic(text.into_prop(), |s, value| s.text = Some(value));
+        self.common.semantics.last_mut().unwrap().text = true;
         self
     }
 
@@ -716,11 +783,6 @@ impl Node {
     }
 }
 
-/// Deferred part transformations interleaved with already declared caller properties.
-pub(crate) enum Modifier {
-    Caller(Common),
-    Part(Box<dyn FnOnce(Node) -> Node>),
-}
 impl Node {
     fn record_part<S: kivact_runtime::PropValue>(&mut self, part: Part<S>) {
         self.modifiers
@@ -733,15 +795,52 @@ impl Node {
             return self;
         }
         let final_caller = std::mem::take(&mut self.common);
-        for modifier in modifiers {
+        let later_callers: Vec<_> = (0..modifiers.len())
+            .map(|index| {
+                modifiers[index + 1..]
+                    .iter()
+                    .filter_map(|m| match m {
+                        Modifier::Caller(c) => Some(c.semantics.iter().cloned()),
+                        _ => None,
+                    })
+                    .flatten()
+                    .chain(final_caller.semantics.iter().cloned())
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let outer_reads = std::mem::take(&mut self.semantic_reads);
+        for (index, modifier) in modifiers.into_iter().enumerate() {
             match modifier {
                 Modifier::Caller(caller) => self.common.apply_caller(caller),
                 Modifier::Part(apply) => {
-                    self = apply(self).resolve_modifiers();
+                    self.semantic_reads = later_callers[index].clone();
+                    self.semantic_reads.extend(outer_reads.iter().cloned());
+                    self = self.apply_part(apply);
+                    self.semantic_reads.clear();
                 }
             }
         }
         self.common.apply_caller(final_caller);
+        self.semantic_reads = outer_reads;
+        self
+    }
+    /// Convert a transformation's handlers to behavior defaults while retaining
+    /// the caller's handlers and the semantic patches already declared.
+    pub(crate) fn apply_part(mut self, apply: Box<dyn FnOnce(Node) -> Node>) -> Self {
+        let handlers = std::mem::take(&mut self.common.handlers);
+        let actions = std::mem::take(&mut self.common.part_actions);
+        let region_events = std::mem::take(&mut self.common.part_region_events);
+        let start = self.common.semantics.len();
+        self = apply(self).resolve_modifiers();
+        for patch in self.common.semantics.iter_mut().skip(start) {
+            patch.part = true;
+        }
+        let mut transport = Common::default();
+        transport.handlers = std::mem::replace(&mut self.common.handlers, handlers);
+        transport.part_actions = std::mem::replace(&mut self.common.part_actions, actions);
+        transport.part_region_events =
+            std::mem::replace(&mut self.common.part_region_events, region_events);
+        self.common.attach_part(transport);
         self
     }
     /// Run after references are bound, under the mounted element's setup owner.

@@ -28,8 +28,8 @@ pub(super) struct States {
     selected: Option<Rc<dyn Fn() -> bool>>,
 }
 
-/// Stage 3: bind disabled and selected, which feed both semantics and the
-/// state styles.
+/// Stage 3: retain the semantic inputs read by the state style effect.
+/// The semantic publisher owns the corresponding engine writes.
 pub(super) fn bind_states(
     cx: &Mcx<'_>,
     id: NodeId,
@@ -37,8 +37,9 @@ pub(super) fn bind_states(
     selected: Option<InputProp<bool>>,
     at: &'static Location<'static>,
 ) -> States {
-    let disabled = disabled.map(|s| bind_state(cx, id, s, PropValue::Disabled, at));
-    let selected = selected.map(|s| bind_state(cx, id, s, PropValue::Selected, at));
+    let _ = (cx, id, at);
+    let disabled = disabled.map(InputProp::into_fn);
+    let selected = selected.map(InputProp::into_fn);
     States { disabled, selected }
 }
 
@@ -219,23 +220,4 @@ pub(crate) fn bind_style(
             );
         }
     });
-}
-
-/// Bind a state that semantics and the state styles both read: a value
-/// that never changes is set once (no effect), anything else gets one
-/// render effect. Returns the reader for the style effect.
-fn bind_state(
-    cx: &Mcx<'_>,
-    id: NodeId,
-    s: InputProp<bool>,
-    value: fn(bool) -> PropValue,
-    at: &'static Location<'static>,
-) -> Rc<dyn Fn() -> bool> {
-    if let Some(v) = s.fixed() {
-        cx.update(id, value(v));
-        return Rc::new(move || v);
-    }
-    let f = s.into_fn();
-    cx.bind(id, kivact_runtime::Prop::computed(f.clone()), value, at);
-    f
 }
