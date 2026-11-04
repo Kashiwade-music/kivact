@@ -334,7 +334,7 @@ impl Measure<'_> {
     pub(crate) fn measures_same(
         &mut self,
         tree: &NodeTree,
-        columns: &kivact_layout::NodeLayoutColumns,
+        columns: &kivact_layout::Layout,
         id: NodeId,
     ) -> bool {
         let Some(n) = tree.get(id) else {

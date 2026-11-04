@@ -146,7 +146,9 @@ impl Model {
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
             {
                 self.changes.a11y_subtrees.insert(*id);
-                self.changes.needs_layout = true;
+                self.changes
+                    .layout
+                    .insert(crate::model::changes::LayoutReasons::PASS);
                 self.changes.moved();
             }
             if done && let Some(n) = self.tree.get_mut(*id) {

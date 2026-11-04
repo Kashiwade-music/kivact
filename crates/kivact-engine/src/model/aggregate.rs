@@ -18,8 +18,7 @@ pub(crate) enum DeferredRequest {
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     pub(crate) tree: NodeTree,
-    pub(crate) layout_columns: kivact_layout::NodeLayoutColumns,
-    pub(crate) layout_state: kivact_layout::LayoutState,
+    pub(crate) layout: kivact_layout::Layout,
     pub(crate) measure: crate::measure::state::MeasureColumns,
     pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventQueue,
@@ -65,8 +64,7 @@ impl Model {
     pub(crate) fn new(viewport: Size, store: AssetStore) -> Self {
         Self {
             tree: NodeTree::default(),
-            layout_columns: Default::default(),
-            layout_state: Default::default(),
+            layout: Default::default(),
             measure: Default::default(),
             editors: Vec::new(),
             events: super::events::EventQueue::default(),
@@ -106,7 +104,7 @@ impl Model {
 
     /// Computed geometry from the retained node.
     pub(crate) fn computed_layout(&self, id: NodeId) -> Option<kivact_layout::NodeLayout> {
-        self.layout_columns.computed_layout(&self.tree, id)
+        self.layout.computed_layout(&self.tree, id)
     }
 
     /// The window size in logical pixels.

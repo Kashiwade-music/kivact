@@ -25,7 +25,7 @@
 //!   copied out of them.
 //! - A change to one node walks no whole tree: only touched nodes are
 //!   derived again, and only the changed layers of a scene are read.
-//! - [`Model::relayout`] syncs first, lays out only when something asks for
+//! - [`Model::settle`] syncs first, lays out only when something asks for
 //!   it, with the usual skip of unchanged content (`Measure::measures_same`),
 //!   records the geometry it changed in `Changes`, runs the debug layout
 //!   lint, then syncs again to dispatch that geometry.
@@ -37,6 +37,12 @@ use crate::model::changes::{Dirty, Geometry};
 use arvane::asset::AssetStore;
 use kivact_types::{NodeId, Size};
 
+/// Whether settling performed pending layout and geometry work.
+pub(crate) enum Settled {
+    Kept,
+    Updated,
+}
+
 impl Model {
     /// The window was resized.
     pub(crate) fn set_viewport(&mut self, window: Size) {
@@ -47,8 +53,12 @@ impl Model {
             } else {
                 self.a11y.invalidate();
             }
-            self.changes.layout_changed = true;
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::STYLE);
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
     }
 
@@ -59,13 +69,17 @@ impl Model {
     pub(crate) fn remeasure(&mut self, id: NodeId) {
         if self.tree.contains(id) {
             self.changes.mark(id, Dirty::MEASURE);
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
     }
 
     /// Whether the next [`Model::layout`] has work to do.
     pub(crate) fn needs_layout(&self) -> bool {
-        self.changes.needs_layout
+        self.changes
+            .layout
+            .contains(crate::model::changes::LayoutReasons::PASS)
     }
 
     /// Load images with `store` from now on (the shell's waker exists only
@@ -87,24 +101,28 @@ impl Model {
 
     /// Dispatch pending writes and input changes into derived work once.
     pub(crate) fn sync(&mut self) {
-        self.tree.pack_child_orders();
         self.retarget_frame();
         self.finish_exits();
         self.tree.pack_child_orders();
         for id in self.changes.take(Dirty::LAYOUT_STYLE) {
-            self.layout_columns
-                .rebuild_style(&self.tree, &mut self.layout_state, id);
+            self.layout.rebuild_style(&self.tree, id);
         }
         for id in self.changes.take(Dirty::LAYOUT_CHAIN) {
-            self.layout_columns
-                .invalidate_chain(&self.tree, &mut self.layout_state, id);
+            self.layout.invalidate_chain(&self.tree, id);
         }
-        if std::mem::take(&mut self.changes.viewport_chain) {
-            self.layout_columns
-                .invalidate_viewport(&mut self.layout_state);
+        if self
+            .changes
+            .layout
+            .take(crate::model::changes::LayoutReasons::VIEWPORT)
+        {
+            self.layout.invalidate_viewport();
         }
-        if std::mem::take(&mut self.changes.layout_changed) {
-            self.layout_state.topology_changed();
+        if self
+            .changes
+            .layout
+            .take(crate::model::changes::LayoutReasons::STYLE)
+        {
+            self.layout.topology_changed();
         }
         let tree = &self.tree;
         self.paint.forget_missing(|id| tree.contains(id));
@@ -203,7 +221,7 @@ impl Model {
     }
 
     /// Run pending layout work, then distribute its geometry changes.
-    pub(crate) fn relayout(&mut self, engine: &mut arvane::Engine) {
+    pub(crate) fn settle(&mut self, engine: &mut arvane::Engine) -> Settled {
         self.sync();
         if self.needs_layout() {
             #[cfg(debug_assertions)]
@@ -220,13 +238,16 @@ impl Model {
             #[cfg(debug_assertions)]
             self.lint_layout(engine, self.changes.was_laid_out(), &remeasured);
             self.sync();
+            Settled::Updated
+        } else {
+            Settled::Kept
         }
     }
 
     /// Apply the asset store's finished work: measure again the images
     /// whose natural size changed and redraw (a raster at a new size may
     /// have landed), report failures. Laying out is left to the next
-    /// [`Model::relayout`].
+    /// [`Model::settle`].
     pub(crate) fn poll_assets(&mut self) {
         let (changed, failed) = self.assets.get_mut().poll();
         if !changed && !failed {

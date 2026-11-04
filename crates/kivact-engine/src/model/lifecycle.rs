@@ -10,7 +10,7 @@ impl Model {
         debug_assert!(!self.tree.contains(id), "node ids are unique");
         let (index, fresh) = self.tree.nodes.reserve();
         if fresh {
-            self.layout_columns.push();
+            self.layout.push();
             self.measure.push();
             self.paint.push_slot();
             self.editors.push(None);
@@ -20,7 +20,7 @@ impl Model {
     pub(crate) fn remove_slots(&mut self, id: NodeId) -> Vec<NodeId> {
         let Self {
             tree,
-            layout_columns,
+            layout,
             measure,
             paint,
             editors,
@@ -36,7 +36,7 @@ impl Model {
                 editor,
                 extents,
             };
-            layout_columns.reset(index.0);
+            layout.reset(index.0);
             paint.reset_slot(index.0);
             payload
         })

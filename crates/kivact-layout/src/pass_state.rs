@@ -23,7 +23,7 @@ impl Epoch {
 /// Cloning all three produces independent derived state; mixing a state from an
 /// unrelated allocation is unsupported. It owns no authoritative links or nodes.
 #[derive(Clone, Debug)]
-pub struct LayoutState {
+pub(crate) struct LayoutState {
     pub(crate) no_grid: TStyle,
     pub(crate) changed: bool,
     /// The shared generation of derived child traversal cursors.
@@ -53,14 +53,14 @@ impl LayoutState {
     /// Call after every parent/child link, root, overlay or fixed-membership edit
     /// within this state's paired tree/columns allocation domain.
     /// Generation exhaustion is an invariant failure rather than a wrapped epoch.
-    pub fn topology_changed(&mut self) {
+    pub(crate) fn topology_changed(&mut self) {
         self.changed = true;
         self.epoch = self.epoch.next();
     }
 
     /// Consume the pending computation flag once before deciding whether to compute.
     /// Geometry reports and scrolling can still require work when this is false.
-    pub fn take_changed(&mut self) -> bool {
+    pub(crate) fn take_changed(&mut self) -> bool {
         std::mem::take(&mut self.changed)
     }
 }

@@ -11,7 +11,9 @@ impl Model {
     /// (after the next layout pass).
     pub(crate) fn reveal(&mut self, id: NodeId) {
         self.focus.reveal.push(id);
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// At a commit: a focus the host moved on its own is revealed, like a
@@ -176,7 +178,9 @@ impl Model {
         };
         self.set_focus_visible(Some(stops[next]), true);
         self.focus.reveal.push(stops[next].node);
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
         true
     }
 
@@ -194,7 +198,9 @@ impl Model {
         }
         self.set_focus_visible(Some(target), visible);
         self.focus.reveal.push(target.node);
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
         Ok(())
     }
 
@@ -255,7 +261,9 @@ impl Model {
             if self.tree.get(n).and_then(|x| x.states()).is_some_and(|s| {
                 (s.focus.is_some() || s.focus_visible.is_some()) && crate::tree::states_place(s)
             }) {
-                self.changes.needs_layout = true;
+                self.changes
+                    .layout
+                    .insert(crate::model::changes::LayoutReasons::PASS);
                 self.changes.moved();
             }
         }

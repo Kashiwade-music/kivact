@@ -59,27 +59,19 @@ impl Model {
         };
         let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
         for id in remeasure {
-            if measure.measures_same(&self.tree, &self.layout_columns, id) {
+            if measure.measures_same(&self.tree, &self.layout, id) {
                 continue;
             }
-            self.layout_columns
-                .invalidate_chain(&self.tree, &mut self.layout_state, id);
+            self.layout.invalidate_chain(&self.tree, id);
         }
         // Scrolls alone keep the main layout, but may change a tooltip's available room.
-        let computed = self.layout_state.take_changed() && self.tree.root.is_some();
-        if computed {
-            self.tree.pack_child_orders();
+        let computed = {
             let mut leaves = crate::measure::leaf::EngineMeasure {
                 tree: &self.tree,
                 measure: &mut measure,
             };
-            self.layout_columns.compute(
-                &self.tree,
-                &mut self.layout_state,
-                self.viewport,
-                &mut leaves,
-            );
-        }
+            self.layout.compute(&self.tree, self.viewport, &mut leaves)
+        };
         let reveal = self.focus.take_reveal();
         if !reveal.is_empty() {
             self.stick();
@@ -89,7 +81,7 @@ impl Model {
         }
         let fitted = self.refit_tooltips(engine, !computed);
         if computed || fitted {
-            let geometry: Vec<_> = self.layout_columns.drain_geometry_changes().collect();
+            let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             self.changes
                 .a11y_subtrees
                 .extend(geometry.iter().map(|change| change.id));
@@ -154,14 +146,8 @@ impl Model {
             tree: &self.tree,
             measure: &mut measure,
         };
-        self.layout_columns.compute_overlay(
-            &self.tree,
-            &self.layout_state,
-            id,
-            self.viewport,
-            limit,
-            &mut leaves,
-        );
+        self.layout
+            .compute_overlay(&self.tree, id, self.viewport, limit, &mut leaves);
     }
 
     /// Window-space border box of `id` (after the last layout pass), a
@@ -558,9 +544,8 @@ impl Model {
             let Some(n) = self.tree.get_mut(id) else {
                 continue;
             };
-            let state = (n.scroll, l.size, l.content_size);
-            if n.sent_scroll != Some(state) {
-                n.sent_scroll = Some(state);
+            let state = crate::tree::node::ScrollReport(n.scroll, l.size, l.content_size);
+            if n.sent_scroll.update(state).is_some() {
                 self.push(HostEvent::ScrollChanged {
                     node: id,
                     offset: state.0,
@@ -581,9 +566,18 @@ impl Model {
             let size = l.size;
             let text_truncated = super::text_geometry::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
-                && n.sent_layout != Some((rect, size, text_truncated))
+                && n.sent_layout
+                    .update(crate::tree::node::LayoutReport(
+                        rect,
+                        size,
+                        if text_truncated {
+                            crate::tree::node::Clipping::Yes
+                        } else {
+                            crate::tree::node::Clipping::No
+                        },
+                    ))
+                    .is_some()
             {
-                n.sent_layout = Some((rect, size, text_truncated));
                 self.push(HostEvent::LayoutChanged {
                     node: id,
                     rect,

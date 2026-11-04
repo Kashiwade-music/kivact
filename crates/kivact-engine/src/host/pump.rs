@@ -255,13 +255,13 @@ impl Host {
             return Ok(());
         }
         self.externals(window);
-        self.layout();
+        self.settle();
         Ok(())
     }
-    pub(super) fn layout(&mut self) {
+    pub(super) fn settle(&mut self) {
         self.model
             .borrow_mut()
-            .relayout(&mut self.engine.borrow_mut());
+            .settle(&mut self.engine.borrow_mut());
     }
     pub(super) fn pump(&mut self, window: &mut Window<'_>) -> Result<ShellControl, ShellError> {
         if self.closing() {
@@ -282,7 +282,7 @@ impl Host {
             let next = {
                 let mut model = self.model.borrow_mut();
                 model.poll_assets();
-                model.relayout(&mut self.engine.borrow_mut());
+                model.settle(&mut self.engine.borrow_mut());
                 if self.phase == Phase::Exiting || !model.has_events() {
                     None
                 } else if turns == TURN_LIMIT {

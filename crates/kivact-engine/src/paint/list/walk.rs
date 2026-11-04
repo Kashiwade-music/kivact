@@ -229,7 +229,7 @@ impl Walk<'_> {
         if reached.len() > before {
             reached.sort_by_key(|(order, _, _)| *order);
         }
-        if n.place.stacks {
+        if n.place.stacks == crate::tree::node::Stacking::Stacks {
             reached.sort_by_key(|(_, c, _)| host.stack_key(*c));
         }
         for (_, child, at) in reached {

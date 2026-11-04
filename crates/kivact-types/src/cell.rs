@@ -61,9 +61,15 @@ impl<K> Default for ReportOnceSet<K> {
 }
 
 /// Last value handed to an outside party, the deduplication cache of S-9.
+#[derive(Clone, Debug)]
 pub struct Sent<T>(Option<T>);
 
 impl<T> Sent<T> {
+    /// The last sent value, when one has been sent.
+    pub fn get(&self) -> Option<&T> {
+        self.0.as_ref()
+    }
+
     /// Start before any value has been sent.
     pub const fn new() -> Self {
         Self(None)

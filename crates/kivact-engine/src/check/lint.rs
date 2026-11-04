@@ -5,7 +5,7 @@
 //! advances and metrics only (no glyph outlines are read), and each defect
 //! found is queued as `HostEvent::LayoutWarning` (the node, the rule and
 //! how far), under the rules and defaults of `LayoutCheck::default`. It runs
-//! from `Model::relayout`, between the layout pass and the sync after it.
+//! from `Model::settle`, between the layout pass and the sync after it.
 //!
 //! Invariants:
 //! - A text is checked when its box key (its size and content box, and

@@ -29,7 +29,15 @@ pub struct NodeLayout {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Record {
     pub(crate) sizes: Vec<(MeasureRequest, LeafSize)>,
-    pub(crate) incomplete: bool,
+    pub(crate) state: RecordState,
+}
+
+/// Whether retained measurements cover the last computation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum RecordState {
+    #[default]
+    Complete,
+    Incomplete,
 }
 
 /// A disposable filtered index cursor (`None`: never counted); never owns links or child IDs.
@@ -133,7 +141,7 @@ impl Default for NodeLayoutValues {
 /// with the same mapping; unrelated trees or reordered slot allocations are not
 /// interchangeable. Slots in this API are zero-based, excluding the viewport.
 #[derive(Clone, Debug)]
-pub struct NodeLayoutColumns {
+pub(crate) struct NodeLayoutColumns {
     pub(crate) cursors: Vec<ChildCursor>,
     pub(crate) states: Vec<NodeLayoutState>,
     pub(crate) calcs: Calcs,
@@ -156,7 +164,7 @@ impl NodeLayoutColumns {
     /// Default columns already contain the synthetic viewport at slot zero.
     /// The new slot must match the next newly allocated slot of this instance's
     /// tree domain; reusing an existing reset slot does not append columns.
-    pub fn push(&mut self) {
+    pub(crate) fn push(&mut self) {
         self.cursors.push(ChildCursor::default());
         self.states.push(NodeLayoutState::default());
         let values = &mut self.values;
@@ -171,7 +179,7 @@ impl NodeLayoutColumns {
     /// `slot` must be a zero-based allocated slot in this instance's domain,
     /// still owned by the node being removed or replaced. Reset before publishing
     /// its availability for reuse; reset does not change authoritative links.
-    pub fn reset(&mut self, slot: usize) {
+    pub(crate) fn reset(&mut self, slot: usize) {
         let index = slot + 1;
         self.calcs
             .free
@@ -191,7 +199,7 @@ impl NodeLayoutColumns {
     /// Drain neutral changes once; dropping the drain discards unread changes.
     /// Consume after computation and before the next compute/reset/reuse of the
     /// paired tree domain.
-    pub fn drain_geometry_changes(&mut self) -> GeometryChanges<'_> {
+    pub(crate) fn drain_geometry_changes(&mut self) -> GeometryChanges<'_> {
         GeometryChanges {
             values: &mut self.values,
             at: 0,
