@@ -294,3 +294,23 @@ fn use_theme_reads_inside_a_style_closure() {
     assert!(distance(at(&screen, "theme-probe", 15.0, 15.0), BLUE) < 10);
     assert!(screen.errors().is_empty());
 }
+
+#[test]
+fn app_theme_follows_theme_hint() {
+    let options = kivact::test::RenderOptions::from_env().theme(|| {
+        Theme::light().with_mode(kivact::platform::theme_hint().get().into())
+    });
+    let screen = kivact::test::render_with(options, || {
+        text(|| format!("{:?}", use_theme().get().mode()))
+    });
+    screen.set_dark(false);
+    screen.run_until_idle();
+    screen.get_by_text("Light");
+    screen.set_dark(true);
+    screen.run_until_idle();
+    screen.get_by_text("Dark");
+    screen.set_dark(false);
+    screen.run_until_idle();
+    screen.get_by_text("Light");
+    assert!(screen.errors().is_empty());
+}

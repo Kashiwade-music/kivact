@@ -193,3 +193,9 @@ pub fn pointer_settings() -> Value<kivact_types::PointerSettings> {
 pub fn keyboard_inset() -> Value<Insets> {
     env_field("keyboard_inset", |e| e.keyboard_inset)
 }
+
+/// The host's preferred light or dark appearance.
+#[track_caller]
+pub fn theme_hint() -> Value<ThemeHint> {
+    env_field("theme_hint", |e| e.theme_hint)
+}

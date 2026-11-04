@@ -1,7 +1,7 @@
 //! Role: Verify reactive standard-control props preserve the mounted control.
 use crate::support::mount;
+use kivact::interaction::{RangeThumb, ScalarRange, use_range_scalar, use_scalar};
 use kivact::prelude::*;
-use kivact::interaction::{use_scalar, use_range_scalar, ScalarRange, RangeThumb};
 use kivact::ui::ControlSize;
 
 #[test]
@@ -15,12 +15,21 @@ fn reactive_component_props_update_without_remounting() {
         let range = ScalarRange::new(0.0, 100.0).unwrap();
         let scalar = use_scalar(value, range).key_step(step).unwrap();
         let ends = use_range_scalar(low, high, range).key_step(step).unwrap();
-        ((size, step, value, low, high), column((
-            button("Resize").size(size).test_id("resize"),
-            node().part(scalar.thumb()).name("Scalar").test_id("scalar"),
-            node().part(ends.thumb(RangeThumb::Low)).name("Low").test_id("low"),
-            node().part(ends.thumb(RangeThumb::High)).name("High").test_id("high"),
-        )))
+        (
+            (size, step, value, low, high),
+            column((
+                button("Resize").size(size).test_id("resize"),
+                node().part(scalar.thumb()).name("Scalar").test_id("scalar"),
+                node()
+                    .part(ends.thumb(RangeThumb::Low))
+                    .name("Low")
+                    .test_id("low"),
+                node()
+                    .part(ends.thumb(RangeThumb::High))
+                    .name("High")
+                    .test_id("high"),
+            )),
+        )
     });
     let button = screen.get_by_test_id("resize");
     button.focus();

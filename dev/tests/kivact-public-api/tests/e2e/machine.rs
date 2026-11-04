@@ -1,11 +1,17 @@
 //! Role: Exercise owner-scoped machines through the public facade.
 use crate::support::mount;
 use kivact::prelude::*;
-use kivact::state::{machine, Machine, Step};
+use kivact::state::{Machine, Step, machine};
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
 struct Counter;
-enum Event { Add, Arm(u32), Tick(u32), Input(u32), Chain }
+enum Event {
+    Add,
+    Arm(u32),
+    Tick(u32),
+    Input(u32),
+    Chain,
+}
 impl Machine for Counter {
     type State = u32;
     type Event = Event;
@@ -26,11 +32,20 @@ fn a_machine_renders_its_state_and_runs_effects_after_the_transition() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let out = log.clone();
     let (screen, counter) = mount(move || {
-        let counter = machine(0, || Counter, move |_, _| out.borrow_mut().push("effect"));
+        let handle = Rc::new(RefCell::new(None::<kivact::state::MachineHandle<Counter>>));
+        let observed = handle.clone();
+        let counter = machine(
+            0,
+            || Counter,
+            move |_, _| {
+                out.borrow_mut().push(observed.borrow().unwrap().get());
+            },
+        );
+        *handle.borrow_mut() = Some(counter);
         (counter, text(move || counter.get().to_string()))
     });
     counter.send(Event::Add);
-    assert_eq!(&*log.borrow(), &["effect"]);
+    assert_eq!(&*log.borrow(), &[1]);
     assert_eq!(counter.get(), 1);
     screen.run_until_idle();
     screen.get_by_text("1");
@@ -77,11 +92,14 @@ fn a_machine_timer_is_canceled_with_its_owner() {
     let out = calls.clone();
     let (screen, open) = mount(move || {
         let open = signal(true);
-        (open, show(open, move || {
-            let out = out.clone();
-            let counter = machine(0, || Counter, move |_, _| *out.borrow_mut() += 1);
-            button("Arm").on_press(move || counter.send(Event::Arm(1)))
-        }))
+        (
+            open,
+            show(open, move || {
+                let out = out.clone();
+                let counter = machine(0, || Counter, move |_, _| *out.borrow_mut() += 1);
+                button("Arm").on_press(move || counter.send(Event::Arm(1)))
+            }),
+        )
     });
     screen.get_by_role(Role::Button, "Arm").click();
     open.set(false);
@@ -96,13 +114,19 @@ fn send_inside_a_transition_effect_is_queued_not_reentrant() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let out = log.clone();
     let (_screen, counter) = mount(move || {
-        let counter = machine(0, || Counter, move |cx, chain| {
-            if chain {
-                out.borrow_mut().push("before");
-                cx.send(Event::Add);
-                out.borrow_mut().push("after");
-            } else { out.borrow_mut().push("effect"); }
-        });
+        let counter = machine(
+            0,
+            || Counter,
+            move |cx, chain| {
+                if chain {
+                    out.borrow_mut().push("before");
+                    cx.send(Event::Add);
+                    out.borrow_mut().push("after");
+                } else {
+                    out.borrow_mut().push("effect");
+                }
+            },
+        );
         (counter, text(move || counter.get().to_string()))
     });
     counter.send(Event::Chain);

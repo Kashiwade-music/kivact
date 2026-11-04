@@ -136,6 +136,7 @@ impl EnvState {
         state.field("window_size", |e| e.window_size);
         state.field("pointer_settings", |e| e.pointer);
         state.field("keyboard_inset", |e| e.keyboard_inset);
+        state.field("theme_hint", |e| e.theme_hint);
         state.field("locale", |e| e.locale.clone());
         state.field("frame_period_ns", |e| e.frame_period_ns);
         state
