@@ -1,8 +1,12 @@
-//! Role: The focus group's state: the focus target with its modality and pending reveal.
+//! Role: Keyboard focus, held-key targets, modality and pending focus reveal.
 
 use crate::tree::NodeTree;
-use kivact_types::{FocusTarget, NodeId};
+use kivact_types::{FocusTarget, KeyCode, NodeId};
 use std::collections::HashMap;
+
+/// Targets that received a physical key down, until its release.
+#[derive(Default)]
+pub(crate) struct KeyDownTargets(pub(crate) HashMap<KeyCode, FocusTarget>);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FocusVisibility {

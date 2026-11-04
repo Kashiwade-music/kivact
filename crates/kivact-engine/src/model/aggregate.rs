@@ -31,7 +31,7 @@ pub(crate) struct Model {
     pub(crate) admission: super::modal::state::Admission,
     /// The keyboard modifiers the shell reports held.
     pub(crate) modifiers: kivact_types::cell::Sent<Modifiers>,
-    pub(crate) key_down_targets: super::keys::KeyDownTargets,
+    pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,
     pub(crate) presence: super::presence::state::Presences,
@@ -80,7 +80,7 @@ impl Model {
                 sent.update(Modifiers::default());
                 sent
             },
-            key_down_targets: super::keys::KeyDownTargets::default(),
+            key_down_targets: super::focus::state::KeyDownTargets::default(),
             edits: super::edit::state::Edits::default(),
             motion: super::state_motion::state::StateMotion::default(),
             presence: super::presence::state::Presences::default(),
