@@ -168,23 +168,10 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                 })
             }),
         );
-        let press = crate::editors::shared::gesture::CanvasGesture::<
-            crate::editors::time::gesture::Target,
-            (
-                Option<crate::editors::time::gesture::Drag>,
-                Option<crate::editors::time::gesture::Snapshot>,
-            ),
-        >::new();
-        // A gesture begins its edit at its first change, from the press's
-        // snapshot; an empty one would restore nothing.
-        let gesture = use_drag::<()>(DragCoordinates::Local)
-            .buttons([MouseButton::Middle])
-            .edit_on_change(edit, move || {
-                press
-                    .with_payload(|payload| payload.1.clone())
-                    .flatten()
-                    .unwrap_or_else(|| crate::editors::time::gesture::Snapshot::Items(Vec::new()))
-            });
+        let gesture = use_drag::<crate::editors::time::gesture::Snapshot>(DragCoordinates::Local)
+            .buttons([MouseButton::Middle]);
+        let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
+        let gesture = gesture.edit_on_change(edit, move || press.initial().unwrap_or_else(|| crate::editors::time::gesture::Snapshot::Items(Vec::new())));
         let state = State {
             data,
             on_edit,
@@ -257,7 +244,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             .on_key(move |event| state.context_key(&event))
             .on_pointer_default(move |event| pointer(state, event))
             .on_wheel_default(move |event| wheel(state, event))
-            .part(gesture.source(()))
+            .part(gesture.source_with(move || state.source_snapshot()))
             // After the drag's sources, which take Escape during a drag.
             .part({
                 let input_part = part(|input| input);

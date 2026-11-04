@@ -1,6 +1,6 @@
 //! Role: Node canvas pointer, keyboard and drag finalization.
 use crate::editors::node::gesture::Target;
-use crate::editors::node::gesture::{DragMode, NodeMode, State};
+use crate::editors::node::gesture::{DragMode, DragSnapshot, NodeMode, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControlValue, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
@@ -8,10 +8,11 @@ use kivact::geometry::{Point, Rect};
 use kivact::interaction::{DragApi as Gesture, ListGesture};
 use kivact::view::{ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase};
 
-fn moved(state: State, point: Point) {
-    let start = state.point(state.press.origin());
+fn moved(state: State, point: Point, origin: Point) {
+    let start = state.point(origin);
     match state.drag_state() {
-        Some(DragMode::Items { origins }) => {
+        Some(DragMode::Items { .. }) => {
+            let Some(DragSnapshot::Items(origins)) = state.press.initial() else { return };
             let snap = |d: f64| {
                 if state.snap.get() {
                     (d / 10.0).round() * 10.0
@@ -38,8 +39,8 @@ fn moved(state: State, point: Point) {
         Some(DragMode::Control {
             node: id,
             index,
-            slot,
         }) => {
+            let Some(DragSnapshot::Control { slot, .. }) = state.press.initial() else { return };
             let dx = point.x - start.x;
             if dx == 0.0 && !state.edit.is_active() {
                 return;
@@ -122,12 +123,12 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                         selection::Press::Select(gesture) => state.select(id, gesture),
                     }
                     drag = Some(DragMode::Items {
-                        origins: state
+                        ids: state
                             .data()
                             .get()
                             .iter()
                             .filter(|n| state.selected.get().contains(&n.id))
-                            .map(|n| (n.id, n.position))
+                            .map(|n| n.id)
                             .collect(),
                     });
                 }
@@ -139,7 +140,6 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                         drag = Some(DragMode::Control {
                             node: id,
                             index,
-                            slot: control,
                         });
                     }
                 }
@@ -212,7 +212,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
 /// first change. Space and the middle button pan the view instead. The
 /// returned drag has the callbacks its sources need; `state.gesture` is the
 /// same session.
-pub(crate) fn drag(state: State) -> Gesture<()> {
+pub(crate) fn drag(state: State) -> Gesture<DragSnapshot> {
     state.press.install(
         state.gesture,
         move || matches!(state.drag_state(), Some(DragMode::Marquee { .. })),
@@ -222,7 +222,7 @@ pub(crate) fn drag(state: State) -> Gesture<()> {
             move |id| state.select(id, ListGesture::Replace),
         ),
         (
-            move |pos| moved(state, state.point(pos)),
+            move |pos, origin| moved(state, state.point(pos), origin),
             move |rect| {
                 let region = Rect::from_points(
                     state.point(Point::new(rect.x, rect.y)),
@@ -376,7 +376,7 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                     .get_untracked()
                     .iter()
                     .filter(|n| selected.contains(&n.id))
-                    .map(|n| (n.id, n.position))
+                    .map(|n| n.id)
                     .collect::<Vec<_>>();
                 let step = if event.modifiers().shift { 10.0 } else { 1.0 };
                 if !positions.is_empty() {

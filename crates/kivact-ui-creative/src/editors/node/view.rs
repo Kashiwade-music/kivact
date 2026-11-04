@@ -131,10 +131,6 @@ impl IntoView for NodeEditor {
                 }
             })),
         );
-        let press = crate::editors::shared::gesture::CanvasGesture::<
-            crate::editors::node::gesture::Target,
-            DragMode,
-        >::new();
         let bounds = memo(move || crate::editors::node::layout::bounds(&data.get()));
         let root_part = {
             let input_part = part(|input| input);
@@ -164,9 +160,10 @@ impl IntoView for NodeEditor {
         let (armed, gesturing) = (zoom.is_space_armed(), zoom.is_gesturing());
         // A gesture begins its edit at its first change. The view pans
         // instead while Space is held or a pan runs.
-        let gesture = use_drag::<()>(DragCoordinates::Local)
+        let gesture = use_drag::<crate::editors::node::gesture::DragSnapshot>(DragCoordinates::Local)
             .disabled(move || armed.get() || gesturing.get())
             .edit_on_change(edit, || ());
+        let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
         let state = State {
             on_edit: observer,
             can_connect,
@@ -249,7 +246,7 @@ impl IntoView for NodeEditor {
                     // A press on a region drags from there.
                     let mut control = {
                         let input_part = part(|input| input);
-                        let drag_source = gesture.source(());
+                        let drag_source = gesture.source_with(move || state.source_snapshot());
                         kivact::custom::Part::new(input_part.state(), move |node| {
                             node.part(input_part)
                                 .focusable(true)
@@ -344,7 +341,7 @@ impl IntoView for NodeEditor {
                     Handled::No
                 }
             });
-        root.part(gesture.source(()))
+        root.part(gesture.source_with(move || state.source_snapshot()))
             // After the drag's sources, which take Escape during a drag.
             .part({
                 let input_part = part(|input| input);

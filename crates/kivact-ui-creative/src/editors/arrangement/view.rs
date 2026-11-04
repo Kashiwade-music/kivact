@@ -217,23 +217,9 @@ impl IntoView for Arrangement {
                 })
             }),
         );
-        let press = crate::editors::shared::gesture::CanvasGesture::<
-            crate::editors::arrangement::a11y::targets::Target,
-            (
-                Option<crate::editors::arrangement::gesture::Drag>,
-                Option<crate::editors::arrangement::gesture::Snapshot>,
-            ),
-        >::new();
-        // A gesture begins its edit at its first change, from the press's
-        // snapshot; an empty one would restore nothing.
-        let gesture = kivact::interaction::use_drag::<()>(DragCoordinates::Local)
-            .buttons([MouseButton::Middle])
-            .edit_on_change(edit, move || {
-                press
-                    .with_payload(|payload| payload.1.clone())
-                    .flatten()
-                    .unwrap_or_else(|| super::gesture::Snapshot::Clips(Vec::new()))
-            });
+        let gesture = kivact::interaction::use_drag::<super::gesture::Snapshot>(DragCoordinates::Local).buttons([MouseButton::Middle]);
+        let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
+        let gesture = gesture.edit_on_change(edit, move || press.initial().unwrap_or_else(|| super::gesture::Snapshot::Clips(Vec::new())));
         let state = State {
             size: kivact::state::memo(move || {
                 let r = rect.get().unwrap_or_default();
@@ -308,7 +294,7 @@ impl IntoView for Arrangement {
                     info,
                     action,
                 );
-                let drag_source = gesture.source(());
+                let drag_source = gesture.source_with(move || super::input::source_snapshot(state));
                 kivact::custom::Part::new(attachment.state(), move |node| {
                     node.part(attachment).part(drag_source)
                 })
@@ -333,7 +319,7 @@ impl IntoView for Arrangement {
             .draw(move |d, size| super::paint::paint(d, size, state))
             .on_pointer(move |e| super::input::pointer(state, e))
             .on_wheel(move |e| super::input::wheel(state, e))
-            .part(gesture.source(()))
+            .part(gesture.source_with(move || super::input::source_snapshot(state)))
             // After the drag's sources, which take Escape during a drag.
             .part({
                 let input_part = kivact::custom::part(|input| input);

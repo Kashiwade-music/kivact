@@ -198,23 +198,9 @@ impl IntoView for GraphEditor {
                 })
             }),
         );
-        let press = crate::editors::shared::gesture::CanvasGesture::<
-            crate::editors::graph::gesture::Target,
-            (
-                Option<crate::editors::graph::gesture::Gesture>,
-                Option<crate::editors::graph::gesture::Snapshot>,
-            ),
-        >::new();
-        // A gesture begins its edit at its first change, from the press's
-        // snapshot; an empty one would restore nothing.
-        let gesture = use_drag::<()>(DragCoordinates::Local)
-            .buttons([MouseButton::Middle])
-            .edit_on_change(edit, move || {
-                press
-                    .with_payload(|payload| payload.1.clone())
-                    .flatten()
-                    .unwrap_or_else(|| crate::editors::graph::gesture::Snapshot::Keys(Vec::new()))
-            });
+        let gesture = use_drag::<crate::editors::graph::gesture::Snapshot>(DragCoordinates::Local).buttons([MouseButton::Middle]);
+        let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
+        let gesture = gesture.edit_on_change(edit, move || press.initial().unwrap_or_else(|| crate::editors::graph::gesture::Snapshot::Keys(Vec::new())));
         let state = State {
             curves,
             on_edit,
@@ -286,7 +272,7 @@ impl IntoView for GraphEditor {
             .on_pointer(move |event| state.context_pointer(event))
             .on_key(move |event| state.context_key(&event))
             .on_pointer_default(move |event| state.pointer(event))
-            .part(gesture.source(()))
+            .part(gesture.source_with(move || state.source_snapshot()))
             // After the drag's sources, which take Escape during a drag.
             .part({
                 let input_part = part(|input| input);

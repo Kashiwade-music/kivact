@@ -5,13 +5,12 @@
 use super::selection::merge_marquee;
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::{DragApi, DragPhase, DragUpdate};
-use kivact::state::{Signal, signal};
+use kivact::state::{Signal, Value, signal};
 use kivact::view::{ButtonPress, Modifiers, MouseButton, PointerEvent, PointerPhase};
 use std::rc::Rc;
 
 #[derive(Clone)]
 struct Pressed<T, D> {
-    origin: Point,
     current: Point,
     target: Option<T>,
     payload: D,
@@ -21,19 +20,21 @@ struct Pressed<T, D> {
     moved: bool,
 }
 
-pub(crate) struct CanvasGesture<T: Copy + 'static, D: Clone + 'static> {
+pub(crate) struct CanvasGesture<T: Copy + 'static, D: Clone + 'static, S: Clone + PartialEq + 'static = ()> {
     state: Signal<Option<Pressed<T, D>>>,
+    snapshot: Value<Option<S>>,
 }
-impl<T: Copy + 'static, D: Clone + 'static> Copy for CanvasGesture<T, D> {}
-impl<T: Copy + 'static, D: Clone + 'static> Clone for CanvasGesture<T, D> {
+impl<T: Copy + 'static, D: Clone + 'static, S: Clone + PartialEq + 'static> Copy for CanvasGesture<T, D, S> {}
+impl<T: Copy + 'static, D: Clone + 'static, S: Clone + PartialEq + 'static> Clone for CanvasGesture<T, D, S> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
-    pub(crate) fn new() -> Self {
+impl<T: Copy + 'static, D: Clone + 'static, S: Clone + PartialEq + 'static> CanvasGesture<T, D, S> {
+    pub(crate) fn new(drag: DragApi<S>) -> Self {
         Self {
             state: signal(None),
+            snapshot: drag.active_payload(),
         }
     }
     pub(crate) fn begin(
@@ -45,7 +46,6 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
     ) {
         self.state.update(|state| {
             *state = Some(Pressed {
-                origin: event.pos(),
                 current: event.pos(),
                 target,
                 payload,
@@ -84,12 +84,8 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
             }
         });
     }
-    pub(crate) fn origin(self) -> Point {
-        self.state.with(|state| {
-            state
-                .as_ref()
-                .map_or(Point::new(0., 0.), |state| state.origin)
-        })
+    pub(crate) fn initial(self) -> Option<S> {
+        self.snapshot.get()
     }
     pub(crate) fn current(self) -> Point {
         self.state.with(|state| {
@@ -106,14 +102,14 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
         self.state
             .with(|state| state.as_ref().is_some_and(|state| state.moved))
     }
-    pub(crate) fn update(self, pos: Point, motion: impl FnOnce(Point)) {
+    pub(crate) fn update(self, pos: Point, origin: Point, motion: impl FnOnce(Point, Point)) {
         self.state.update(|state| {
             if let Some(state) = state {
                 state.current = pos;
-                state.moved |= pos != state.origin;
+                state.moved |= pos != origin;
             }
         });
-        motion(pos);
+        motion(pos, origin);
     }
     fn clear(self) {
         self.state.update(|state| *state = None);
@@ -124,11 +120,11 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
     }
     pub(crate) fn finish(
         self,
-        update: &DragUpdate<()>,
+        update: &DragUpdate<S>,
         marquee: impl Fn() -> bool,
         selection: &(impl Fn() -> Vec<u64>, impl Fn(Vec<u64>), impl Fn(u64)),
         callbacks: &(
-            impl Fn(Point),
+            impl Fn(Point, Point),
             impl Fn(Rect) -> Vec<u64>,
             impl Fn(T),
             impl Fn(bool),
@@ -139,7 +135,7 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
                 state.modifiers = update.modifiers;
             }
         });
-        self.update(update.pos, &callbacks.0);
+        self.update(update.pos, update.start_pos, &callbacks.0);
         let activation = self.state.with(|state| {
             state
                 .as_ref()
@@ -147,7 +143,7 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
                 .and_then(|state| state.target)
         });
         if marquee() {
-            let hit = callbacks.1(Rect::from_points(self.origin(), self.current()));
+            let hit = callbacks.1(Rect::from_points(update.start_pos, self.current()));
             let modifiers = self.state.with(|state| {
                 state
                     .as_ref()
@@ -170,7 +166,7 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
     /// `reset(true)` finalizes domain-only work; `reset(false)` cancels it.
     pub(crate) fn install(
         self,
-        drag: DragApi<()>,
+        drag: DragApi<S>,
         marquee: impl Fn() -> bool + 'static,
         selection: (
             impl Fn() -> Vec<u64> + 'static,
@@ -178,16 +174,16 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
             impl Fn(u64) + 'static,
         ),
         callbacks: (
-            impl Fn(Point) + 'static,
+            impl Fn(Point, Point) + 'static,
             impl Fn(Rect) -> Vec<u64> + 'static,
             impl Fn(T) + 'static,
             impl Fn(bool) + 'static,
         ),
-    ) -> DragApi<()> {
+    ) -> DragApi<S> {
         let hooks = Rc::new((marquee, selection, callbacks));
         let updates = hooks.clone();
-        drag.on_update(move |update: DragUpdate<()>| self.update(update.pos, &updates.2.0))
-            .on_end(move |update: DragUpdate<()>| {
+        drag.on_update(move |update: DragUpdate<S>| self.update(update.pos, update.start_pos, &updates.2.0))
+            .on_end(move |update: DragUpdate<S>| {
                 if update.phase == DragPhase::End {
                     self.finish(&update, &hooks.0, &hooks.1, &hooks.2);
                 } else {

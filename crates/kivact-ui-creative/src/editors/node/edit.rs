@@ -1,6 +1,6 @@
 //! Role: Node edit proposals and accessible operations.
 use crate::editors::node::gesture::Target;
-use crate::editors::node::gesture::{DragMode, NodeMode, State};
+use crate::editors::node::gesture::{ NodeMode, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink, NodeRequest};
 use kivact::geometry::Point;
@@ -87,17 +87,10 @@ impl State {
     /// The control as it was when the drag pressed it or the popup opened or
     /// began its edit, which an edit changes from.
     pub(crate) fn slot_of(self, id: u64, index: usize) -> Option<NodeControl> {
-        let pressed = self
-            .press
-            .with_payload(|payload| match payload {
-                DragMode::Control {
-                    node,
-                    index: at,
-                    slot,
-                } if *node == id && *at == index => Some(slot.clone()),
-                _ => None,
-            })
-            .flatten();
+        let pressed = match self.press.initial() {
+            Some(crate::editors::node::gesture::DragSnapshot::Control { node, index: at, slot }) if node == id && at == index => Some(slot),
+            _ => None,
+        };
         pressed.or_else(|| {
             self.mode.with_untracked(|mode| match mode {
                 NodeMode::Popup {
@@ -113,13 +106,10 @@ impl State {
     /// The control whose original the drag or the popup holds, with its
     /// position. Tracked.
     pub(crate) fn held_slot(self) -> Option<(u64, usize, NodeControl)> {
-        let pressed = self
-            .press
-            .with_payload(|payload| match payload {
-                DragMode::Control { node, index, slot } => Some((*node, *index, slot.clone())),
-                _ => None,
-            })
-            .flatten();
+        let pressed = match self.press.initial() {
+            Some(crate::editors::node::gesture::DragSnapshot::Control { node, index, slot }) => Some((node, index, slot)),
+            _ => None,
+        };
         pressed.or_else(|| {
             self.mode.with(|mode| match mode {
                 NodeMode::Popup {

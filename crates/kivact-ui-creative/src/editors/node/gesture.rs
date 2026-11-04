@@ -86,13 +86,12 @@ pub(crate) enum NodeMode {
 pub(crate) enum DragMode {
     /// The selected nodes, from their positions at the press.
     Items {
-        origins: Vec<(u64, Point)>,
+        ids: Vec<u64>,
     },
     /// A number control, from the control at the press.
     Control {
         node: u64,
         index: usize,
-        slot: NodeControl,
     },
     /// A link from an output socket to `to`; `rewire` is the link re-routed
     /// from its input socket; `released` is the input socket under the
@@ -108,6 +107,13 @@ pub(crate) enum DragMode {
         from: Point,
         to: Point,
     },
+}
+
+#[derive(Clone, PartialEq)]
+pub(crate) enum DragSnapshot {
+    Items(Vec<(u64, Point)>),
+    Control { node: u64, index: usize, slot: NodeControl },
+    None,
 }
 
 #[derive(Clone, Copy)]
@@ -130,10 +136,10 @@ pub(crate) struct State {
     pub(crate) mode: Signal<NodeMode>,
     pub(crate) reference: NodeRef,
     pub(crate) texts: crate::editors::shared::texts::Texts,
-    pub(crate) press: crate::editors::shared::gesture::CanvasGesture<Target, DragMode>,
+    pub(crate) press: crate::editors::shared::gesture::CanvasGesture<Target, DragMode, DragSnapshot>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`node_input::drag`).
-    pub(crate) gesture: Gesture<()>,
+    pub(crate) gesture: Gesture<DragSnapshot>,
     /// The editor's edit. The application restores its own items on
     /// `Cancel`, so the session restores nothing.
     pub(crate) edit: EditSession<()>,
@@ -144,6 +150,13 @@ pub(crate) struct State {
 }
 
 impl State {
+    pub(crate) fn source_snapshot(self) -> DragSnapshot {
+        match self.drag_state() {
+            Some(DragMode::Items { ids }) => DragSnapshot::Items(self.nodes.with_untracked(|nodes| nodes.iter().filter(|node| ids.contains(&node.id)).map(|node| (node.id, node.position)).collect())),
+            Some(DragMode::Control { node, index }) => self.control(node, index).map_or(DragSnapshot::None, |slot| DragSnapshot::Control { node, index, slot }),
+            _ => DragSnapshot::None,
+        }
+    }
     /// What the pressed drag does; `None` while no press drags.
     pub(crate) fn drag_state(self) -> Option<DragMode> {
         self.press.with_payload(Clone::clone)

@@ -24,7 +24,7 @@ impl State {
                 }
                 let target = self.target(event.region());
                 let mut single = None;
-                let (kind, initial) = if pan {
+                let (kind, _initial) = if pan {
                     (DragKind::Pan, Some(Snapshot::View(self.view.get())))
                 } else {
                     match target {
@@ -71,7 +71,7 @@ impl State {
                     }
                 };
                 self.press
-                    .begin(&event, target, (Some(Gesture { kind }), initial), single);
+                    .begin(&event, target, Some(Gesture { kind }), single);
                 Handled::No
             }
             _ => Handled::No,
@@ -81,13 +81,13 @@ impl State {
     /// gesture the press chose, one edit from its first change. The returned
     /// drag has the callbacks its sources need; `self.gesture` is the same
     /// session.
-    pub(crate) fn drag(self) -> DragApi<()> {
-        let drag = self.gesture.on_start(move |_| {
+    pub(crate) fn drag(self) -> DragApi<Snapshot> {
+        let drag = self.gesture.on_start(move |update| {
             if self
                 .drag_state()
                 .is_some_and(|gesture| gesture.kind == DragKind::Playhead)
             {
-                let time = self.geometry().time(self.press.origin().x);
+                let time = self.geometry().time(update.start_pos.x);
                 self.gesture.change(|| self.playhead.set(time));
             }
         });
@@ -105,7 +105,7 @@ impl State {
                 },
             ),
             (
-                move |pos| self.motion(pos),
+                move |pos, origin| self.motion(pos, origin),
                 move |rect| {
                     let space = self.geometry();
                     self.visible.with(|keys| {
@@ -120,11 +120,10 @@ impl State {
             ),
         )
     }
-    fn motion(self, point: Point) {
+    fn motion(self, point: Point, origin: Point) {
         let Some(mut gesture) = self.drag_state() else {
             return;
         };
-        let origin = self.press.origin();
         if point == origin && !self.press.moved() {
             return;
         }
