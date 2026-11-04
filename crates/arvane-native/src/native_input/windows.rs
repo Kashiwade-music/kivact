@@ -496,7 +496,7 @@ fn char_position(hwnd: HWND, text: &ShellImeText, scale: f64, lparam: LPARAM) ->
     }
     // Saturating: the window procedure must not panic (debug overflow
     // checks), and a casting `as` saturates too.
-    let px = |v: f64| (f64::from(v) * scale).round() as i32;
+    let px = |v: f64| (v * scale).round() as i32;
     let at = |x: f64, y: f64| {
         (
             origin.x.saturating_add(px(x)),
@@ -610,6 +610,7 @@ pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
         primary: if unsafe {
             GetSystemMetrics(windows_sys::Win32::UI::WindowsAndMessaging::SM_MOUSEPRESENT)
         } == 0
+            // SAFETY: this call only queries the system's digitizer capabilities.
             && unsafe {
                 GetSystemMetrics(windows_sys::Win32::UI::WindowsAndMessaging::SM_DIGITIZER)
             } & 0x40
@@ -642,8 +643,8 @@ fn cursor_at(hwnd: HWND, scale: f64) -> Option<kivact_types::Point> {
         return None;
     }
     Some(kivact_types::Point {
-        x: (f64::from(point.x) / scale) as f64,
-        y: (f64::from(point.y) / scale) as f64,
+        x: (f64::from(point.x) / scale),
+        y: (f64::from(point.y) / scale),
     })
 }
 /// A window timer keeps tracking through Windows' modal OLE drag loop.

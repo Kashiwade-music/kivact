@@ -91,7 +91,7 @@ pub(super) enum Group {
     /// How many canvas layers it pushed, and the mask applied at its pop.
     Layer {
         pops: u8,
-        mask: Option<Mask>,
+        mask: Option<Box<Mask>>,
     },
     /// Opened before a backdrop's replay began: its push is not drawn
     /// again, and its pop is not replayed.
@@ -226,17 +226,15 @@ impl<C: Canvas> Painter<'_, C> {
             } => {
                 self.canvas.set_paint(PaintType::Solid(self.color(*color)));
                 let whole = convert::rect(*rect);
-                let blur = convert::blur_param(*std_dev) as f64;
+                let blur = convert::blur_param(*std_dev);
                 match convert::shadow_quarters(*rect, *radii, *std_dev) {
                     convert::ShadowParts::Whole(radius) => {
-                        self.canvas
-                            .fill_blurred_rounded_rect(&whole, radius as f64, blur);
+                        self.canvas.fill_blurred_rounded_rect(&whole, radius, blur);
                     }
                     convert::ShadowParts::Quarters(quarters) => {
                         for (quarter, radius) in quarters {
                             self.canvas.push_clip_layer(&quarter.to_path(0.1));
-                            self.canvas
-                                .fill_blurred_rounded_rect(&whole, radius as f64, blur);
+                            self.canvas.fill_blurred_rounded_rect(&whole, radius, blur);
                             self.canvas.pop_layer();
                         }
                     }
@@ -399,7 +397,7 @@ impl<C: Canvas> Painter<'_, C> {
                 }
                 self.stack.push(Group::Layer {
                     pops,
-                    mask: layer.mask.clone(),
+                    mask: layer.mask.clone().map(Box::new),
                 });
             }
             RenderCmd::Backdrop(backdrop) => {

@@ -10,8 +10,6 @@ use crate::ime::ShellImeText;
 use crate::types::{ShellControl, ShellError, ShellWaker};
 use kivact_types::{Cursor as ShellCursor, Rect, Size};
 
-/// The frame period of a display whose refresh rate is unknown (60 Hz).
-
 /// Window services implemented by a platform backend or an in-memory shell.
 /// This trait imposes no `Send` or `Sync` bound on the window itself.
 pub trait ShellWindow {

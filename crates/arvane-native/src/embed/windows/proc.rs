@@ -87,7 +87,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             }
         }
         WM_IME_REQUEST => {
-            state.input.scale.set(f64::from(state.shared.scale()));
+            state.input.scale.set(state.shared.scale());
             let result = crate::native_input::ime_request(hwnd, &state.input, w, l);
             if let Some((start, end)) = state.input.reconvert.take() {
                 state.event(ShellEvent::Ime(kivact_types::ImeInput::Selection(

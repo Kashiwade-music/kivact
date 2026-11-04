@@ -23,7 +23,7 @@ pub(super) fn get_object(state: &Rc<super::state::State>, w: usize, l: isize) ->
     })
 }
 pub(super) fn publish(state: &super::state::State) {
-    state.a11y.rescale(f64::from(state.shared.scale()));
+    state.a11y.rescale(state.shared.scale());
     if !state.a11y.has_pending(true) {
         return;
     }

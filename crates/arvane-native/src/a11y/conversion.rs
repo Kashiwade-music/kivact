@@ -180,7 +180,7 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
     if let Some(id) = &source.semantics.test_id {
         node.set_author_id(id.clone());
     }
-    let (sx, sy) = (f64::from(source.scroll.x), f64::from(source.scroll.y));
+    let (sx, sy) = (source.scroll.x, source.scroll.y);
     // Its descendants moved back by the scroll, then everything mapped by
     // its own transform (`SemanticsTree::window_bounds`).
     let t = source.transform;
@@ -189,10 +189,10 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
         node.set_transform(own * accesskit::Affine::translate((-sx, -sy)));
     }
     node.set_bounds(accesskit::Rect {
-        x0: f64::from(source.bounds.x) + sx,
-        y0: f64::from(source.bounds.y) + sy,
-        x1: f64::from(source.bounds.x) + f64::from(source.bounds.width) + sx,
-        y1: f64::from(source.bounds.y) + f64::from(source.bounds.height) + sy,
+        x0: source.bounds.x + sx,
+        y0: source.bounds.y + sy,
+        x1: source.bounds.x + source.bounds.width + sx,
+        y1: source.bounds.y + source.bounds.height + sy,
     });
     if source.semantics.disabled {
         node.set_disabled();
@@ -475,10 +475,10 @@ pub(super) fn text_run(
     let mut node = accesskit::Node::new(accesskit::Role::TextRun);
     node.set_value(run.value.clone());
     node.set_bounds(accesskit::Rect {
-        x0: f64::from(run.bounds.x),
-        y0: f64::from(run.bounds.y),
-        x1: f64::from(run.bounds.right()),
-        y1: f64::from(run.bounds.bottom()),
+        x0: run.bounds.x,
+        y0: run.bounds.y,
+        x1: run.bounds.right(),
+        y1: run.bounds.bottom(),
     });
     let first = run.carets.iter().min_by_key(|c| c.offset);
     let last = run.carets.iter().max_by_key(|c| c.offset);

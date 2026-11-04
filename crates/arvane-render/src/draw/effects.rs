@@ -176,23 +176,21 @@ impl<C: Canvas> Painter<'_, C> {
         if shape.is_circular() {
             let radii = shape.fitted_radii().map(|r| r.x);
             let whole = convert::rect(shape.rect);
-            let blur = convert::blur_param(std_dev) as f64;
+            let blur = convert::blur_param(std_dev);
             if remove {
                 self.canvas.set_blend_mode(dest_out);
             }
             self.canvas.set_paint(paint);
             match convert::shadow_quarters(shape.rect, radii, std_dev) {
                 convert::ShadowParts::Whole(radius) => {
-                    self.canvas
-                        .fill_blurred_rounded_rect(&whole, radius as f64, blur);
+                    self.canvas.fill_blurred_rounded_rect(&whole, radius, blur);
                 }
                 convert::ShadowParts::Quarters(quarters) => {
                     for (quarter, radius) in quarters {
                         // Clip paths, not layers: destination-out drawing
                         // must reach the enclosing layer.
                         self.canvas.push_clip_path(&quarter.to_path(0.1));
-                        self.canvas
-                            .fill_blurred_rounded_rect(&whole, radius as f64, blur);
+                        self.canvas.fill_blurred_rounded_rect(&whole, radius, blur);
                         self.canvas.pop_clip_path();
                     }
                 }

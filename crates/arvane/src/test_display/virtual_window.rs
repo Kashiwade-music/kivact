@@ -547,7 +547,7 @@ fn open_real(
             title: options.title.clone(),
             width,
             height,
-            scale: f64::from(options.scale),
+            scale: options.scale,
         })
     });
     match opened {
