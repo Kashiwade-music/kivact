@@ -34,6 +34,22 @@ use kivact_runtime::Runtime;
 pub(super) use pointer::run_requested_activations;
 
 pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
+    let mut prepared;
+    let host_event = if matches!(
+        host_event,
+        HostEvent::Activate {
+            pointer: Some(_),
+            ..
+        }
+    ) {
+        prepared = host_event.clone();
+        crate::view::state::ViewState::tree(rt)
+            .engine()
+            .prepare_input(&mut prepared);
+        &prepared
+    } else {
+        host_event
+    };
     common::track_modality(rt, host_event);
     common::track_modifiers(rt, host_event);
     match host_event {
@@ -64,7 +80,7 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             region,
             pointer,
         } => pointer::activate_event(rt, host_event, *node, *region, *pointer),
-        HostEvent::HoverChanged { target } => pointer::hover_changed(rt, target.map(|t| t.node)),
+        HostEvent::HoverChanged { target } => pointer::hover_changed(rt, *target),
         HostEvent::MousePosition(position) => crate::view::hover::set_mouse_position(rt, *position),
         HostEvent::Key(_) => key::key(rt, host_event),
         // Recorded by `track_modifiers` above; nothing else to deliver.

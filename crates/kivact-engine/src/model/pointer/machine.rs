@@ -41,10 +41,22 @@ impl Model {
         modifiers: Modifiers,
         at: Point,
     ) {
+        let event = self.pointer_sample(pointer, node, phase, modifiers, at);
+        self.push(HostEvent::Pointer(event));
+    }
+
+    fn pointer_sample(
+        &self,
+        pointer: PointerId,
+        node: NodeId,
+        phase: PointerPhase,
+        modifiers: Modifiers,
+        at: Point,
+    ) -> crate::contract::Routed<PointerSample> {
         let pos = self.to_local(node, at);
         let region = self.node(node).and_then(|n| n.region_at(pos));
         let source = *self.pointer.state.track(pointer).source();
-        self.push(HostEvent::Pointer(crate::contract::Routed {
+        crate::contract::Routed {
             target: Some(node),
             region,
             local: pos,
@@ -69,7 +81,7 @@ impl Model {
                 is_primary: source.primary,
                 time_ns: source.time_ns,
             },
-        }));
+        }
     }
 
     /// Follow a new contact, `source`, at the window position `at`.
@@ -471,7 +483,13 @@ impl Model {
             self.push(HostEvent::Activate {
                 node: a.node,
                 region: a.region,
-                pointer: Some(pointer),
+                pointer: Some(self.pointer_sample(
+                    pointer,
+                    a.node,
+                    PointerPhase::Up(press),
+                    modifiers,
+                    space.window(),
+                )),
             });
         }
     }

@@ -53,7 +53,6 @@
 //! declarations.
 
 use kivact_runtime::{IntoText, IntoValue};
-use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -68,8 +67,9 @@ use crate::view::{
     A11yAction, A11yEvent, ButtonPress, Key, LiveRegion, MouseButton, NodeRef, Orientation,
     PointerPhase, Role, SortDirection, node_ref,
 };
-use crate::{Signal, Value, memo, on_cleanup, signal};
+use crate::{Value, memo, on_cleanup, signal};
 
+// xtask-allow(state-fields): Public observation snapshot of independent input and availability facts.
 /// Actual input and availability state of an attached node or canvas region.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PartState {
@@ -107,29 +107,25 @@ pub struct Part<S: Clone + PartialEq + 'static> {
     binding: PartBinding,
 }
 
-#[derive(Clone, Copy)]
-struct InputState {
-    pointer_pressed: Signal<bool>,
-    key_pressed: Signal<bool>,
-    hovered: Signal<bool>,
-    disabled: Signal<bool>,
-    hidden: Signal<bool>,
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+struct PartInput {
+    press: Press,
+    hover: Hover,
 }
 
-impl InputState {
-    fn enabled(self) -> bool {
-        !self.disabled.get_untracked() && !self.hidden.get_untracked()
-    }
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum Press {
+    #[default]
+    Idle,
+    Pointer(crate::view::PointerId),
+    Key(Key),
+}
 
-    fn clear_pressed(self) {
-        self.pointer_pressed.set(false);
-        self.key_pressed.set(false);
-    }
-
-    fn clear(self) {
-        self.clear_pressed();
-        self.hovered.set(false);
-    }
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum Hover {
+    #[default]
+    Outside,
+    Inside,
 }
 
 /// Create a setup-owned semantic and input attachment for one target.
@@ -142,22 +138,23 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
     Owner::current("part");
     let node = node_ref();
     let focused = node.focused();
-    let hovered = node.hovered();
     let focus_visible = node.focus_visible();
-    let input = InputState {
-        pointer_pressed: signal(false),
-        key_pressed: signal(false),
-        hovered: signal(false),
-        disabled: signal(false),
-        hidden: signal(false),
+    let input = signal(PartInput::default());
+    let availability = signal(None::<(Value<bool>, Value<bool>)>);
+    let enabled = move || {
+        availability
+            .get_untracked()
+            .is_none_or(|(disabled, hidden)| !disabled.get_untracked() && !hidden.get_untracked())
     };
     let state = memo(move || {
-        let disabled = input.disabled.get();
-        let hidden = input.hidden.get();
-        let enabled = !disabled && !hidden;
+        let (disabled, hidden) = availability
+            .get()
+            .map(|(d, h)| (d.get(), h.get()))
+            .unwrap_or_default();
+        let input = input.get();
         state(PartState {
-            pressed: enabled && (input.pointer_pressed.get() || input.key_pressed.get()),
-            hovered: enabled && hovered.get(),
+            pressed: !disabled && !hidden && input.press != Press::Idle,
+            hovered: !disabled && !hidden && input.hover == Hover::Inside,
             focused: focused.get(),
             focus_visible: focus_visible.get(),
             disabled,
@@ -165,42 +162,51 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
         })
     });
     let mounted = Rc::new(move |mount: PartMount| {
-        input.disabled.set(mount.disabled.get_untracked());
-        input.hidden.set(mount.hidden.get_untracked());
-        let previously_focused = Cell::new(focused.get_untracked());
+        availability.set(Some((mount.disabled, mount.hidden)));
         let at = Location::caller();
         let owner = kivact_runtime::Owner::current("part binding", at);
+        let hover = node.hovered();
         owner.effect(
             EffectKind::Internal,
             move || {
                 let disabled = mount.disabled.get();
                 let hidden = mount.hidden.get();
-                input.disabled.set(disabled);
-                input.hidden.set(hidden);
-                let now = focused.get();
-                if disabled || hidden {
-                    input.clear();
-                } else if previously_focused.replace(now) && !now {
-                    input.clear_pressed();
-                }
+                let hovered = hover.get();
+                let focused = focused.get();
+                input.update(|input| {
+                    if disabled || hidden {
+                        *input = PartInput::default();
+                    } else {
+                        input.hover = if hovered {
+                            Hover::Inside
+                        } else {
+                            Hover::Outside
+                        };
+                        if !focused && matches!(input.press, Press::Key(_)) {
+                            input.press = Press::Idle;
+                        }
+                    }
+                });
             },
             at,
         );
-        on_cleanup(move || input.clear());
+        on_cleanup(move || {
+            input.set(PartInput::default());
+            availability.set(None);
+        });
     });
     let mut common = Common::default();
     common.handlers.key.observer(move |event| {
-        if matches!(event.key(), Key::Space | Key::Enter)
-            && focused.get_untracked()
-            && input.enabled()
-        {
-            input.key_pressed.set(true);
+        if matches!(event.key(), Key::Space | Key::Enter) && focused.get_untracked() && enabled() {
+            input.update(|input| input.press = Press::Key(event.key()));
         }
     });
     common.handlers.key_up.observer(move |event| {
-        if matches!(event.key(), Key::Space | Key::Enter) {
-            input.key_pressed.set(false);
-        }
+        input.update(|input| {
+            if input.press == Press::Key(event.key()) {
+                input.press = Press::Idle;
+            }
+        });
     });
     common
         .handlers
@@ -209,23 +215,28 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
             PointerPhase::Down(ButtonPress {
                 button: MouseButton::Primary,
                 ..
-            }) if input.enabled() => {
-                input.pointer_pressed.set(true);
+            }) if enabled() => {
+                input.update(|input| input.press = Press::Pointer(event.id()));
             }
             PointerPhase::Up(ButtonPress {
                 button: MouseButton::Primary,
                 ..
             }) => {
-                input.pointer_pressed.set(false);
+                input.update(|input| {
+                    if input.press == Press::Pointer(event.id()) {
+                        input.press = Press::Idle;
+                    }
+                });
             }
-            PointerPhase::Cancel => input.clear(),
-            PointerPhase::Enter if input.enabled() => input.hovered.set(true),
-            PointerPhase::Leave => input.hovered.set(false),
+            PointerPhase::Cancel => input.update(|input| {
+                if input.press == Press::Pointer(event.id()) {
+                    input.press = Press::Idle;
+                }
+            }),
             _ => {}
         });
     let binding = PartBinding {
         node,
-        hovered: input.hovered.into_value(),
         hooks: vec![Rc::new(move |mount| {
             mounted(mount);
             Ok(())

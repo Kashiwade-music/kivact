@@ -23,13 +23,13 @@ use std::panic::Location;
 use crate::draw::Point;
 use kivact_runtime::Runtime;
 use kivact_runtime::{Signal, Value, require_setup};
-use kivact_types::NodeId;
+use kivact_types::FocusTarget;
 
 use crate::view::state::{PointerObservation, ViewState};
 
 /// The hover source of `rt`'s App, created under the root owner by the first
 /// call (at the node the host reported last) and kept for the App's lifetime.
-pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Option<NodeId>> {
+pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Option<FocusTarget>> {
     let state = ViewState::of(rt);
     let last = match state.hover() {
         PointerObservation::Reactive(source) => return source,
@@ -43,8 +43,8 @@ pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Opt
 
 /// The host reported that `node` is under the pointer now; a node already
 /// unmounted on the core side hovers nothing.
-pub(crate) fn set_hovered(rt: &Runtime, node: Option<NodeId>) {
-    let node = node.filter(|id| ViewState::tree(rt).get(*id).is_some());
+pub(crate) fn set_hovered(rt: &Runtime, node: Option<FocusTarget>) {
+    let node = node.filter(|id| ViewState::tree(rt).get(id.node).is_some());
     let state = ViewState::of(rt);
     match state.hover() {
         PointerObservation::Plain(_) => state.set_hover(PointerObservation::Plain(node)),

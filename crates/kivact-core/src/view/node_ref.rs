@@ -84,19 +84,9 @@ impl NodeRef {
         id: NodeId,
         region: crate::draw::RegionId,
         owner: Owner,
-        hovered: Value<bool>,
         at: &'static Location<'static>,
     ) {
-        self.bind_target(
-            rt,
-            Bound::Region {
-                node: id,
-                region,
-                hovered,
-            },
-            Some(owner),
-            at,
-        );
+        self.bind_target(rt, Bound::Region { node: id, region }, Some(owner), at);
     }
 
     fn bind_target(
@@ -631,7 +621,10 @@ impl NodeRef {
                 return false;
             }
             match node.get().bound() {
-                Some(Bound::Region { hovered, .. }) => hovered.get(),
+                Some(Bound::Region { .. }) => node
+                    .get()
+                    .bound()
+                    .is_some_and(|bound| hover.get() == Some(bound.target())),
                 Some(Bound::Node(_)) => true,
                 None => false,
             }
@@ -684,7 +677,7 @@ fn resolved_scroll(app: AppId, binding: Signal<RefState>) -> Value<crate::draw::
 
 /// Whether the node `source` holds is the node a ref is bound to (through
 /// its node source `node`) or lies in its subtree, as a memo.
-fn within(app: AppId, node: Signal<RefState>, source: Signal<Option<NodeId>>) -> Value<bool> {
+fn within(app: AppId, node: Signal<RefState>, source: Signal<Option<FocusTarget>>) -> Value<bool> {
     kivact_runtime::memo(move || {
         let Some(me) = bound_node(app, node) else {
             return false;
@@ -696,7 +689,7 @@ fn within(app: AppId, node: Signal<RefState>, source: Signal<Option<NodeId>>) ->
             return false;
         };
         let tree = ViewState::tree(&rt);
-        let mut cur = Some(inner);
+        let mut cur = Some(inner.node);
         while let Some(id) = cur {
             if id == me.node {
                 return true;

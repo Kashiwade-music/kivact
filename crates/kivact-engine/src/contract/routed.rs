@@ -19,10 +19,8 @@ pub struct Routed<T> {
     pub input: T,
 }
 
-/// The exact result of `Reader::take_adopted_activation`.
-/// `true` skips activation because the pointer gesture was adopted at the
-/// region; `false` allows activation. Reading the original result consumes
-/// the pointer's adoption either way; a node action without a region is
-/// never skipped. Input routing leaves this absent until adoption is transferred.
+/// Whether the pointer's click was suppressed by its adopted gesture.
+/// The writer prepares this result immediately before activation dispatch,
+/// after the release callbacks, and consumes the adoption exactly once.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Activation(pub bool);

@@ -1,8 +1,7 @@
 //! Role: Engine client events contracts.
 use kivact_types::{
     A11yRequest, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent, Modifiers,
-    MotionClock, NodeId, PlatformResult, Point, PointerId, Rect, RegionId, RequestId, Revision,
-    Size,
+    MotionClock, NodeId, PlatformResult, Point, Rect, RegionId, RequestId, Revision, Size,
 };
 
 /// What the engine tells the client. Every kind goes into one ordered
@@ -44,10 +43,10 @@ pub enum HostEvent {
     Activate {
         node: NodeId,
         region: Option<RegionId>,
-        /// The pointer whose click produced it (`None`: assistive
+        /// The release sample whose click produced it (`None`: assistive
         /// technology), so the core can skip a click whose gesture a canvas
         /// adopted (`Writer::adopt_pointer`).
-        pointer: Option<PointerId>,
+        pointer: Option<super::Routed<kivact_types::PointerSample>>,
     },
     FocusChanged {
         node: Option<NodeId>,
