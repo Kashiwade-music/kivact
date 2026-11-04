@@ -537,7 +537,7 @@ fn gpu_frames_follow_a_scale_change() {
         eprintln!("SKIPPED gpu_frames_follow_a_scale_change: {reason}");
         return;
     }
-    let start = |gpu: bool, scale: f32| {
+    let start = |gpu: bool, scale: f64| {
         Screen::start(
             RenderOptions {
                 width: 480.0,

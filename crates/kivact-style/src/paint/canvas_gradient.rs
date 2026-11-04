@@ -35,12 +35,12 @@ pub(crate) enum CanvasShape {
     },
     Radial {
         c0: Point,
-        r0: f32,
+        r0: f64,
         c1: Point,
-        r1: f32,
+        r1: f64,
     },
     Conic {
-        start_deg: f32,
+        start_deg: f64,
         center: Point,
     },
 }
@@ -87,7 +87,7 @@ pub(crate) enum CanvasShape {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CanvasGradient {
     pub(crate) shape: CanvasShape,
-    pub(crate) stops: Vec<(f32, Color)>,
+    pub(crate) stops: Vec<(f64, Color)>,
     pub(crate) extend: GradientExtend,
 }
 
@@ -110,7 +110,7 @@ impl CanvasGradient {
     /// circle of radius `r1` around `c1`, and the circles between for the
     /// offsets between (`createRadialGradient(x0, y0, r0, x1, y1, r1)`).
     /// Radii are not negative.
-    pub fn radial(c0: Point, r0: f32, c1: Point, r1: f32) -> Self {
+    pub fn radial(c0: Point, r0: f64, c1: Point, r1: f64) -> Self {
         Self::of(CanvasShape::Radial { c0, r0, c1, r1 })
     }
 
@@ -119,13 +119,13 @@ impl CanvasGradient {
     /// `createConicGradient(startAngle, x, y)` with the angle in degrees).
     /// Beyond one turn it wraps, so [`extend`](CanvasGradient::extend) does
     /// not change it.
-    pub fn conic(start_deg: f32, center: Point) -> Self {
+    pub fn conic(start_deg: f64, center: Point) -> Self {
         Self::of(CanvasShape::Conic { start_deg, center })
     }
 
     /// A color at `offset` (`addColorStop`). A theme token is resolved with
     /// the theme in effect where the gradient is drawn.
-    pub fn stop(mut self, offset: f32, color: impl ThemeColor) -> Self {
+    pub fn stop(mut self, offset: f64, color: impl ThemeColor) -> Self {
         let at = self.stops.partition_point(|(o, _)| *o <= offset);
         self.stops.insert(at, (offset, Color::of(color)));
         self
@@ -151,7 +151,7 @@ mod tests {
             .stop(0.5, Color::BLACK)
             .stop(0.5, Color::TRANSPARENT)
             .stop(0.0, Color::WHITE);
-        let offsets: Vec<f32> = g.stops.iter().map(|s| s.0).collect();
+        let offsets: Vec<f64> = g.stops.iter().map(|s| s.0).collect();
         assert_eq!(offsets, [0.0, 0.5, 0.5, 1.0]);
         assert_eq!(g.stops[1].1, Color::BLACK);
         assert_eq!(g.stops[2].1, Color::TRANSPARENT);

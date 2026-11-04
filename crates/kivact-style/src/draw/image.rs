@@ -3,40 +3,10 @@ use super::recorder::Draw;
 use crate::asset::Asset;
 use crate::geometry::Rect;
 use kivact_types as p;
-use kivact_types::SceneCmd;
-use std::sync::Arc;
+use kivact_types::DrawCmd;
 
-/// Straight-alpha RGBA8 pixels. Keep the same Arc for unchanged pixels;
-/// a new frame uses a new Arc. Renderer conversions expire after unused frames.
-///
-/// Two `Pixels` are equal when their sizes match and they share the `Arc`
-/// (the contents are never compared), so a new `Arc` every frame is cheap.
-/// They bypass decoding and the asset store, and Arvane's conversion and GPU
-/// upload caches drop them after a frame that does not use them. A buffer
-/// whose length disagrees with its size draws nothing and is reported as
-/// `Unsupported`.
-#[derive(Clone, Debug)]
-pub struct Pixels {
-    pub width: u32,
-    pub height: u32,
-    pub rgba: Arc<[u8]>,
-}
-impl PartialEq for Pixels {
-    fn eq(&self, other: &Self) -> bool {
-        self.width == other.width
-            && self.height == other.height
-            && Arc::ptr_eq(&self.rgba, &other.rgba)
-    }
-}
-impl Pixels {
-    pub fn new(width: u32, height: u32, rgba: Arc<[u8]>) -> Self {
-        Self {
-            width,
-            height,
-            rgba,
-        }
-    }
-}
+pub use kivact_types::Pixels;
+
 /// Image sampling and opacity, applied to the whole drawn image
 /// (`Draw::image_with`, `Draw::pixels`).
 ///
@@ -50,7 +20,7 @@ pub struct ImageOptions {
     /// the whole image).
     pub source: Option<Rect>,
     /// Opacity of the whole image, 0 to 1.
-    pub opacity: f32,
+    pub opacity: f64,
     /// Nearest-neighbour sampling, on the CPU and the GPU alike.
     pub pixelated: bool,
 }
@@ -63,8 +33,6 @@ impl Default for ImageOptions {
         }
     }
 }
-
-kivact_reactive::constant_value!(Pixels);
 
 /// One frame of an image an external render engine shares with the window
 /// (feature `gpu-interop`), made by `kivact::gpu_interop::ExternalImage::frame`
@@ -123,7 +91,7 @@ impl Draw {
     /// It draws nothing until loaded, and a failure is never reported
     /// (only `image(..)` nodes report `ErrorKind::Asset`).
     pub fn image(&mut self, source: &Asset, rect: Rect) {
-        self.cmds.push(SceneCmd::Image {
+        self.cmds.push(DrawCmd::Image {
             source: source.clone(),
             rect,
         });
@@ -131,7 +99,7 @@ impl Draw {
 
     /// A source rectangle uses natural image pixel coordinates (Canvas drawImage's nine arguments).
     pub fn image_with(&mut self, source: &Asset, rect: Rect, options: ImageOptions) {
-        self.cmds.push(p::SceneCmd::ImagePart {
+        self.cmds.push(p::DrawCmd::ImagePart {
             source: source.clone(),
             rect,
             crop: options.source,
@@ -148,12 +116,8 @@ impl Draw {
             self.unsupported += 1;
             return;
         }
-        self.cmds.push(p::SceneCmd::Pixels {
-            image: p::Pixels {
-                width: source.width,
-                height: source.height,
-                rgba: source.rgba.clone(),
-            },
+        self.cmds.push(p::DrawCmd::Pixels {
+            image: source.clone(),
             rect,
             source: options.source,
             opacity: options.opacity,
@@ -177,7 +141,7 @@ impl Draw {
     /// frame over.
     #[cfg(feature = "gpu-interop")]
     pub fn gpu_frame(&mut self, frame: &GpuFrame, rect: Rect, options: ImageOptions) {
-        self.cmds.push(p::SceneCmd::External {
+        self.cmds.push(p::DrawCmd::External {
             frame: frame.frame,
             rect,
             source: options.source,

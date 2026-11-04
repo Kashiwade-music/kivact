@@ -68,27 +68,27 @@ impl Palette {
 /// Spacing scale (logical px).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Spacing {
-    pub xs: f32,
-    pub sm: f32,
-    pub md: f32,
-    pub lg: f32,
-    pub xl: f32,
+    pub xs: f64,
+    pub sm: f64,
+    pub md: f64,
+    pub lg: f64,
+    pub xl: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Radii {
-    pub sm: f32,
-    pub md: f32,
-    pub lg: f32,
+    pub sm: f64,
+    pub md: f64,
+    pub lg: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Typography {
     /// A family name, generic family, or ordered comma-separated CSS list.
     pub family: Option<String>,
-    pub size: f32,
-    pub size_small: f32,
-    pub size_large: f32,
+    pub size: f64,
+    pub size_small: f64,
+    pub size_large: f64,
     pub weight: u16,
     pub weight_strong: u16,
     /// The line height of text that sets none: the root's text style

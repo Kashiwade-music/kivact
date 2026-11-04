@@ -32,7 +32,7 @@ use std::panic::Location;
 #[derive(Clone)]
 pub struct Parent {
     window: Option<ParentWindow>,
-    scale: Option<f32>,
+    scale: Option<f64>,
     on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
 }
 impl std::fmt::Debug for Parent {
@@ -77,9 +77,9 @@ impl Parent {
     }
     /// Host-decided scale (CLAP `set_scale`, VST3 `setContentScaleFactor`).
     /// Without it the OS scale is used. Nonfinite or nonpositive values,
-    /// including values outside positive finite f32 range, are refused by `embed`.
+    /// including values outside positive finite f64 range, are refused by `embed`.
     pub fn scale(mut self, scale: f64) -> Parent {
-        self.scale = Some(scale as f32);
+        self.scale = Some(scale);
         self
     }
 }
@@ -132,12 +132,12 @@ impl Embedded {
     /// from the host (CLAP `request_resize`, VST3 `resizeView`). A nonfinite or
     /// nonpositive scale is ignored with a warning.
     pub fn set_scale(&self, scale: f64) {
-        self.host().set_scale(scale as f32);
+        self.host().set_scale(scale);
         self.panic.resume();
     }
     /// Last applied scale.
     pub fn scale(&self) -> f64 {
-        let scale = f64::from(self.host().scale());
+        let scale = self.host().scale();
         self.panic.resume();
         scale
     }
@@ -156,7 +156,7 @@ impl Drop for Embedded {
         // Dropping the host sets its close flag first: inside an App
         // callback, the rest of the current event batch is not delivered.
         drop(self.host.take());
-        if kivact_task::detached_threads() || kivact_engine::embed::detached_threads() {
+        if kivact_types::process::DetachedThreads::any() {
             kivact_engine::embed::retain_module();
         }
         if !std::thread::panicking() {
@@ -194,7 +194,7 @@ impl App {
         {
             return Err(UiError::new(
                 ErrorKind::Message,
-                "Parent::scale must be finite and positive in f32",
+                "Parent::scale must be finite and positive in f64",
                 Some(at),
             ));
         }
@@ -206,17 +206,22 @@ impl App {
             )
         })?;
         let panic = kivact_engine::embed::PanicSlot::default();
-        let options = kivact_engine::embed::EmbedOptions {
-            window_size: self.window_size,
+        let options = kivact_types::EmbedOptions {
+            size: self
+                .window_size
+                .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE),
             scale: parent.scale,
-            on_resize_request: parent.on_resize_request,
+            prefer_gpu: true,
             #[cfg(feature = "gpu-interop")]
             gpu_preference: self.gpu_preference,
             #[cfg(not(feature = "gpu-interop"))]
             gpu_preference: Default::default(),
+        };
+        let hooks = kivact_engine::embed::ChildHooks {
+            on_resize_request: parent.on_resize_request,
             panic: panic.clone(),
         };
-        let opened = kivact_engine::embed::embed_native(window, options, move |closing| {
+        let opened = kivact_engine::embed::embed_native(window, options, hooks, move |closing| {
             self.app_client(root, at)
                 .with_embed_closing(closing)
                 .into_client(None)

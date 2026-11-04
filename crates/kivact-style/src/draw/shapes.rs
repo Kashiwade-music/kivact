@@ -6,13 +6,13 @@ use crate::geometry::{Point, Rect};
 use crate::paint::Paint;
 use crate::path::Path;
 use kivact_types as p;
-use kivact_types::{SceneCmd, Stroke};
+use kivact_types::{DrawCmd, Stroke};
 
 impl Draw {
     /// Fill a rectangle with the element styles' paint vocabulary.
     pub fn fill_rect(&mut self, rect: Rect, fill: impl Into<Paint>) {
         let fill = self.fill_of(&fill.into());
-        self.cmds.push(SceneCmd::Rect { rect, fill });
+        self.cmds.push(DrawCmd::Rect { rect, fill });
     }
 
     /// Stroke a rectangle with the same stroke and paint vocabulary as paths.
@@ -20,7 +20,7 @@ impl Draw {
         let stroke = stroke.into();
         let paint = paint.into();
         if let Some(color) = paint.solid().filter(|_| plain_stroke(&stroke)) {
-            self.cmds.push(SceneCmd::StrokeRect {
+            self.cmds.push(DrawCmd::StrokeRect {
                 rect,
                 width: stroke.width,
                 color: self.color(color),
@@ -31,9 +31,9 @@ impl Draw {
         }
     }
 
-    pub fn rounded_rect(&mut self, rect: Rect, radius: f32, fill: impl Into<Paint>) {
+    pub fn rounded_rect(&mut self, rect: Rect, radius: f64, fill: impl Into<Paint>) {
         let fill = self.fill_of(&fill.into());
-        self.cmds.push(SceneCmd::RoundedRect { rect, radius, fill });
+        self.cmds.push(DrawCmd::RoundedRect { rect, radius, fill });
     }
 
     /// Stroke a line with the same stroke and paint vocabulary as paths.
@@ -47,7 +47,7 @@ impl Draw {
         let stroke = stroke.into();
         let paint = paint.into();
         if let Some(color) = paint.solid().filter(|_| plain_stroke(&stroke)) {
-            self.cmds.push(SceneCmd::Line {
+            self.cmds.push(DrawCmd::Line {
                 from,
                 to,
                 width: stroke.width,
@@ -64,7 +64,7 @@ impl Draw {
         paint: Paint,
         stroke: Option<&Stroke>,
     ) {
-        self.cmds.push(p::SceneCmd::Shape(Box::new(p::ShapePaint {
+        self.cmds.push(p::DrawCmd::Shape(Box::new(p::ShapePaint {
             shape,
             paint: self.fill_of(&paint),
             stroke: stroke.cloned(),
@@ -85,7 +85,7 @@ impl Draw {
     }
 
     pub fn circle(&mut self, center: Point, radius: impl Into<f64>, paint: impl Into<Paint>) {
-        let r = radius.into() as f32;
+        let r = radius.into();
         self.fill_shape(
             Rect::new(center.x - r, center.y - r, r * 2.0, r * 2.0),
             &Shape::circle(r),

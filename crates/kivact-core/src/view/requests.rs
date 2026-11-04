@@ -111,7 +111,7 @@ pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
     match w {
         EffectWaiter::Report { owner, at, failed } => {
             let err = match result {
-                PlatformResult::Failed(m) => Some(UiError::new(failed, m, Some(at))),
+                PlatformResult::Failed(m) => Some(UiError::new(failed, m.to_string(), Some(at))),
                 other => platform_result(other)
                     .err()
                     .map(|e| UiError::new(e.kind().clone(), e.message().to_string(), Some(at))),
@@ -236,7 +236,7 @@ pub(crate) fn has_activations(rt: &Runtime) -> bool {
 /// A platform result as `Ok`, or the error it reports.
 pub(crate) fn platform_result(r: PlatformResult) -> Result<PlatformResult, UiError> {
     match r {
-        PlatformResult::Failed(m) => Err(UiError::new(ErrorKind::Platform, m, None)),
+        PlatformResult::Failed(m) => Err(UiError::new(ErrorKind::Platform, m.to_string(), None)),
         PlatformResult::Unsupported => Err(UiError::new(
             ErrorKind::Unsupported,
             "the host does not support this platform request",

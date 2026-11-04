@@ -30,10 +30,10 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_types::{self as p, SceneCmd, ShapedText, TextLine};
+use kivact_types::{self as p, DrawCmd, ShapedText, TextLine};
 
+use super::TextStyle;
 use super::recorder::Draw;
-use super::text_run::{TextRun, TextStyle};
 use crate::geometry::{Point, Rect, Size};
 
 /// A shaped paragraph with positions for measured in-flow objects.
@@ -49,7 +49,7 @@ pub struct InlineParagraph {
 
 impl InlineParagraph {
     /// Convert a host shaping snapshot into a drawable paragraph and object positions.
-    pub fn from_shaped(text: &str, shaped: p::ShapedInlineText, max_width: Option<f32>) -> Self {
+    pub fn from_shaped(text: &str, shaped: p::ShapedInlineText, max_width: Option<f64>) -> Self {
         Self {
             text: TextParagraph::from_shaped(text, shaped.text, max_width),
             boxes: shaped.boxes,
@@ -95,7 +95,7 @@ pub struct TextParagraph(Rc<Shaped>);
 struct Shaped {
     text: Rc<str>,
     shaped: Arc<ShapedText>,
-    max_width: Option<f32>,
+    max_width: Option<f64>,
 }
 
 impl PartialEq for TextParagraph {
@@ -127,7 +127,7 @@ impl TextParagraph {
     pub fn from_shaped(
         text: impl Into<Rc<str>>,
         shaped: Arc<ShapedText>,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
     ) -> Self {
         TextParagraph(Rc::new(Shaped {
             text: text.into(),
@@ -142,7 +142,7 @@ impl TextParagraph {
     }
 
     /// The width it was wrapped at (`None`: not wrapped).
-    pub fn max_width(&self) -> Option<f32> {
+    pub fn max_width(&self) -> Option<f64> {
         self.0.max_width
     }
 
@@ -152,7 +152,7 @@ impl TextParagraph {
     }
 
     /// The first line's baseline, from the top.
-    pub fn baseline(&self) -> f32 {
+    pub fn baseline(&self) -> f64 {
         self.0.shaped.baseline
     }
 
@@ -291,14 +291,14 @@ impl Draw {
         &self,
         text: &str,
         style: &TextStyle,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = p::Point { x: 0.0, y: 0.0 };
-        let run = TextRun::from_style(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
+        let run = super::text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
         let shaped = self
             .measurer
             .as_ref()
-            .and_then(|shaper| shaper.shape(run.as_wire(), max_width))
+            .and_then(|shaper| shaper.shape(&run, max_width))
             .unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
@@ -309,10 +309,10 @@ impl Draw {
         &self,
         text: &str,
         style: &TextStyle,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
         boxes: &[p::InlineBox],
     ) -> Option<InlineParagraph> {
-        let run = TextRun::from_style(
+        let run = super::text_run(
             text,
             p::Point::default(),
             style,
@@ -323,7 +323,7 @@ impl Draw {
         let shaped = self
             .measurer
             .as_ref()?
-            .shape_inline(run.as_wire(), max_width, boxes)?;
+            .shape_inline(&run, max_width, boxes)?;
         Some(InlineParagraph::from_shaped(text, shaped, max_width))
     }
 
@@ -336,7 +336,7 @@ impl Draw {
         color: impl crate::theme::value::ThemeColor,
     ) {
         let color = self.color(color.resolve(&self.theme));
-        self.cmds.push(SceneCmd::Paragraph {
+        self.cmds.push(DrawCmd::Paragraph {
             shaped: paragraph.shaped(),
             origin,
             color,

@@ -43,7 +43,7 @@
 //! the host's changes (so does `kivact::test`'s `RenderOptions::locale`:
 //! `Some` wins over the host locale).
 //!
-//! The host locale arrives on the wire as `HostEnv::locale`
+//! The host locale arrives on the wire as `Environment::locale`
 //! (`Option<String>`, BCP 47; `None` reads as `en-US`), in `HostInfo::env`
 //! at start and in `HostEvent::EnvChanged` when it changes. A root without
 //! `App::locale` reads [`locale`] as a memo of that field; one with it

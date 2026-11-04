@@ -38,7 +38,7 @@ impl Path {
             && stroke.miter_limit >= 1.0
             && stroke.dash_offset.is_finite()
             && stroke.dash.iter().all(|d| d.is_finite() && *d >= 0.0)
-            && (stroke.dash.is_empty() || stroke.dash.iter().sum::<f32>() > 0.0);
+            && (stroke.dash.is_empty() || stroke.dash.iter().sum::<f64>() > 0.0);
         let Some(bez) = self.bez().filter(|_| valid) else {
             return Path::new();
         };

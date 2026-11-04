@@ -3,7 +3,7 @@
 
 use kivact_motion::MotionState;
 use kivact_reactive::Runtime;
-use kivact_types::{HostEnv, MotionClock, NodeId, Point, Rect, Size};
+use kivact_types::{Environment, MotionClock, NodeId, Point, Rect, Size};
 
 use super::common::{handler, node_owner, run_handler, stale};
 use crate::client::state::HostState;
@@ -12,10 +12,13 @@ use crate::view::tree::ScrollState;
 
 /// The host reports its environment, whole: the one signal changes, and
 /// only the readers of the fields that differ run again.
-pub(super) fn env_changed(rt: &Runtime, env: &HostEnv) {
+pub(super) fn env_changed(rt: &Runtime, env: &Environment, surface_active: bool) {
     let state = ViewState::of(rt).env();
     // Only the env signal is written here: no owner applies.
-    rt.enter(|| state.set(env.clone()));
+    rt.enter(|| {
+        state.set(env.clone());
+        state.surface_active.set(surface_active);
+    });
     // Reduced motion ends the running decorative values in this turn, not
     // at the next tick: nothing needs another frame to see it.
     if env.reduced_motion {

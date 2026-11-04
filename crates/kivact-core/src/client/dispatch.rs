@@ -38,25 +38,20 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
     common::track_modality(rt, host_event);
     common::track_modifiers(rt, host_event);
     match host_event {
-        HostEvent::Pointer {
-            node,
-            region,
-            event,
-        } => pointer::pointer(rt, host_event, *node, *region, *event),
-        HostEvent::Wheel {
-            node,
-            region,
-            delta,
-            pos,
-            modifiers,
-        } => pointer::wheel(rt, host_event, *node, *region, *delta, *pos, *modifiers),
-        HostEvent::File {
-            node,
-            phase,
-            files,
-            window_pos,
-            ..
-        } => pointer::file(rt, host_event, *node, *phase, files, *window_pos),
+        HostEvent::Pointer(route) => pointer::pointer(rt, host_event, *route),
+        HostEvent::Wheel(route) => pointer::wheel(rt, host_event, *route),
+        HostEvent::File(route) => {
+            if let Some(node) = route.target {
+                pointer::file(
+                    rt,
+                    host_event,
+                    node,
+                    route.input.phase,
+                    &route.input.files,
+                    route.input.position,
+                );
+            }
+        }
         HostEvent::Activate {
             node,
             region,
@@ -64,7 +59,7 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         } => pointer::activate_event(rt, host_event, *node, *region, *pointer),
         HostEvent::HoverChanged { node } => pointer::hover_changed(rt, *node),
         HostEvent::MousePosition(position) => crate::view::hover::set_mouse_position(rt, *position),
-        HostEvent::Key { .. } => key::key(rt, host_event),
+        HostEvent::Key(_) => key::key(rt, host_event),
         // Recorded by `track_modifiers` above; nothing else to deliver.
         HostEvent::ModifiersChanged(_) => {}
         HostEvent::TextChanged {
@@ -96,7 +91,10 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             region,
             request,
         } => a11y::a11y(rt, host_event, *node, *region, request),
-        HostEvent::EnvChanged(env) => env::env_changed(rt, env),
+        HostEvent::EnvChanged {
+            environment,
+            surface_active,
+        } => env::env_changed(rt, environment, *surface_active),
         HostEvent::FrameTick {
             now_ns,
             estimated_present_ns,

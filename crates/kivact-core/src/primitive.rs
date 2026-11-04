@@ -121,10 +121,10 @@
 //! /// A row of `n` dots, as wide as it has dots.
 //! fn dots(n: Signal<u32>) -> impl IntoView {
 //!     primitive()
-//!         .measure(n, |n: &u32, _: Constraints| Size::new(*n as f32 * 12.0, 12.0))
+//!         .measure(n, |n: &u32, _: Constraints| Size::new(*n as f64 * 12.0, 12.0))
 //!         .draw(move |d, size| {
 //!             for i in 0..n.get() {
-//!                 let x = i as f32 * 12.0;
+//!                 let x = i as f64 * 12.0;
 //!                 d.rounded_rect(Rect::new(x + 2.0, 2.0, 8.0, size.height - 4.0), 4.0, ColorToken::Accent);
 //!             }
 //!         })
@@ -138,7 +138,7 @@
 //! [`Draw`]: crate::draw::Draw
 
 pub use crate::view::descriptor::view_is_empty;
-pub use crate::view::ime_session::{ImeEvent, ImeSession};
+pub use crate::view::ime_session::{ImeInput, ImeSession};
 pub use kivact_style::draw::TextParagraph;
 pub use kivact_types::{EditLineLayout, SemanticsText, SemanticsTextRun, TextCaret, TextRunId};
 

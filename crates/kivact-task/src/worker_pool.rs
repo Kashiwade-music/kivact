@@ -117,7 +117,7 @@ pub(crate) fn wait_for_threads(handles: Vec<JoinHandle<()>>) {
                 std::panic::resume_unwind(payload);
             }
         } else {
-            crate::detached::DETACHED.store(true, std::sync::atomic::Ordering::Release);
+            kivact_types::process::DetachedThreads::note();
             detached += 1;
         }
     }

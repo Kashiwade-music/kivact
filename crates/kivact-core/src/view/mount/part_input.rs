@@ -157,8 +157,8 @@ pub(super) fn route(
         };
         let registry = registry.clone();
         let router = EventHandlers::router(move |event: KeyEvent| {
-            let own_canvas = event.origin.is_some_and(|origin| origin.node == node);
-            let selected = select(&registry, own_canvas, event.region);
+            let own_canvas = event.origin().is_some_and(|origin| origin.node == node);
+            let selected = select(&registry, own_canvas, event.region());
             deliver_selected(list, &own, &registry.root, &selected, &event)
         });
         if up {
@@ -170,7 +170,7 @@ pub(super) fn route(
     caller.pointer = super::part_pointer::route(registry.clone(), own_pointer);
     let wheel_registry = registry.clone();
     caller.wheel = EventHandlers::router(move |event: WheelEvent| {
-        let selected = select(&wheel_registry, event.origin.node == node, event.region());
+        let selected = select(&wheel_registry, event.origin().node == node, event.region());
         deliver_selected(
             wheel_list,
             &own_wheel,

@@ -114,7 +114,7 @@ impl Screen {
     }
 
     /// Resize the window to `width` × `height` logical pixels.
-    pub fn resize(&self, width: f32, height: f32) {
+    pub fn resize(&self, width: f64, height: f64) {
         self.log(format!("resize {width} x {height}"));
         self.host.borrow_mut().resize(width, height);
         self.run_until_idle();
@@ -122,7 +122,7 @@ impl Screen {
 
     /// Change the scale (physical pixels per logical pixel), as when the
     /// window moves to a monitor with another DPI.
-    pub fn set_scale(&self, scale: f32) {
+    pub fn set_scale(&self, scale: f64) {
         self.log(format!("scale {scale}"));
         self.scale.set(scale);
         self.host.borrow_mut().set_scale(scale);

@@ -57,7 +57,12 @@ pub(crate) fn start(
 ) {
     ViewState::of(rt).start(Started {
         tree: RefCell::new(Tree::new(engine, owner)),
-        env: Rc::new(EnvState::new(owner, info.env.clone(), at)),
+        env: Rc::new(EnvState::new(
+            owner,
+            info.env.clone(),
+            info.surface_active,
+            at,
+        )),
         capabilities: info.capabilities,
         focus: crate::view::focus::keys(owner, at),
         min_window_size,
@@ -81,7 +86,7 @@ pub(crate) fn mount_root(
 ) {
     let env = ViewState::of(rt).env();
     // The App's own locale is a constant; without one the locale is the
-    // host's, which follows `HostEnv::locale`.
+    // host's, which follows `Environment::locale`.
     let locale: Value<Locale> = match settings.locale.clone() {
         Some(named) => owner.constant(named, at),
         None => {
@@ -93,7 +98,7 @@ pub(crate) fn mount_root(
     };
     kivact_motion::MotionState::of(rt).attach_env(kivact_motion::MotionEnv {
         reduced_motion: env.field("reduced_motion", |e| e.reduced_motion),
-        surface_active: env.field("surface_active", |e| e.surface_active),
+        surface_active: env.surface_active.into_value(),
         frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
     });
     let theme: Signal<Theme> = owner.signal(settings.theme, at);

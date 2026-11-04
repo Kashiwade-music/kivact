@@ -194,10 +194,9 @@ impl App {
 /// A size of `width` by `height` logical pixels as the engine takes it
 /// (checked by `App::run`).
 fn size(width: f64, height: f64) -> Size {
-    // A value beyond f32 becomes infinite and is refused by the check.
     Size {
-        width: width as f32,
-        height: height as f32,
+        width: width,
+        height: height,
     }
 }
 

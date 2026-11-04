@@ -109,9 +109,7 @@ pub(crate) fn stage(rt: &Runtime, name: &str) {
     while let Some(id) = pending.pop() {
         if let Some(node) = tree.get(id) {
             pending.extend(node.children.iter().rev().copied());
-            let value = tree.with_node(id, |node| {
-                format!("{:?}", node.and_then(|n| n.semantics.as_deref()))
-            });
+            let value = tree.with_node(id, |node| format!("{:?}", node.map(|n| &n.semantics)));
             if previous_values.get(&id).copied() != Some(value.as_str()) {
                 sink.line(format_args!("semantics n{} {value}", id.0));
             }

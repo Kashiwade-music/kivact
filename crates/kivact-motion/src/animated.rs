@@ -23,9 +23,9 @@ pub(crate) struct AnimCell<T: 'static> {
     /// `set_phase`.
     pub(crate) running: Signal<bool>,
     pub(crate) transition: Transition,
-    pub(crate) from: RefCell<Vec<f32>>,
-    pub(crate) to: RefCell<Vec<f32>>,
-    pub(crate) current: RefCell<Vec<f32>>,
+    pub(crate) from: RefCell<Vec<f64>>,
+    pub(crate) to: RefCell<Vec<f64>>,
+    pub(crate) current: RefCell<Vec<f64>>,
     /// A spring's velocity, step time and iteration (`Transition::step`).
     pub(crate) spring: RefCell<SpringRun>,
     pub(crate) phase: Cell<Phase>,
@@ -69,14 +69,14 @@ fn shift(t: u64, paused: u64, now: u64) -> u64 {
     }
 }
 
-fn comps<T: Animatable>(v: &T) -> Vec<f32> {
+fn comps<T: Animatable>(v: &T) -> Vec<f64> {
     let mut c = Vec::with_capacity(T::COMPONENTS);
     v.to_components(&mut c);
     c
 }
 
 impl<T: Animatable> AnimCell<T> {
-    fn publish(&self, c: &[f32]) {
+    fn publish(&self, c: &[f64]) {
         let v = T::from_components(c);
         *self.current.borrow_mut() = c.to_vec();
         self.value.update(move |slot| *slot = v);
@@ -101,7 +101,7 @@ impl<T: Animatable> AnimCell<T> {
     /// to the current value starts no run, and under reduced motion a
     /// decorative run completes at once.
     fn begin(&self, start_ns: u64, reduced: bool) {
-        let wire = self.transition.as_wire();
+        let wire = &self.transition;
         if *self.from.borrow() == *self.to.borrow() && !matches!(wire.kind, Kind::Keyframes { .. })
         {
             self.finish(RunEnd::Cancelled);
@@ -147,7 +147,7 @@ impl<T: Animatable> Anim for AnimCell<T> {
     }
 
     fn finish_decorative(&self) {
-        if self.is_running() && self.transition.as_wire().decorative {
+        if self.is_running() && self.transition.decorative {
             self.finish(RunEnd::Completed);
         }
     }
@@ -179,7 +179,7 @@ impl<T: Animatable> Anim for AnimCell<T> {
             return;
         };
         let mut current = self.current.borrow().clone();
-        let done = self.transition.as_wire().step(
+        let done = self.transition.step(
             &self.from.borrow(),
             &self.to.borrow(),
             start_ns,

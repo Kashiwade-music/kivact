@@ -190,7 +190,7 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
     });
     let mut common = Common::default();
     common.handlers.key.observer(move |event| {
-        if matches!(event.key, Key::Space | Key::Enter)
+        if matches!(event.key(), Key::Space | Key::Enter)
             && focused.get_untracked()
             && input.enabled()
         {
@@ -198,14 +198,14 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
         }
     });
     common.handlers.key_up.observer(move |event| {
-        if matches!(event.key, Key::Space | Key::Enter) {
+        if matches!(event.key(), Key::Space | Key::Enter) {
             input.key_pressed.set(false);
         }
     });
     common
         .handlers
         .pointer
-        .observer(move |event| match event.phase {
+        .observer(move |event| match event.phase() {
             PointerPhase::Down(ButtonPress {
                 button: MouseButton::Primary,
                 ..

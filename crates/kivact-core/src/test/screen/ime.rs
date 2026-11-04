@@ -43,7 +43,7 @@ impl Screen {
 
     /// The platform ending its IME session without a commit
     /// (`ImeDisabled`): an open composition is gone, and a node with an IME
-    /// session (`NodeExt::ime_session`) gets `ImeEvent::End`.
+    /// session (`NodeExt::ime_session`) gets `ImeInput::End`.
     pub fn ime_disabled(&self) {
         self.send(ShellEvent::ImeDisabled);
         self.run_until_idle();

@@ -13,13 +13,12 @@ use crate::view::tree::Handlers;
 /// press to keyboard.
 pub(super) fn track_modality(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
-        HostEvent::Pointer { event, .. } if matches!(event.phase, PointerPhase::Down(_)) => {
-            ViewState::of(rt).set_pointer_modality(true);
+        HostEvent::Pointer(route) if matches!(route.input.phase, PointerPhase::Down(_)) => {
+            ViewState::of(rt).set_pointer_modality(true)
         }
-        HostEvent::Key {
-            phase: KeyPhase::Down { .. },
-            ..
-        } => ViewState::of(rt).set_pointer_modality(false),
+        HostEvent::Key(route) if matches!(route.input.phase, KeyPhase::Down { .. }) => {
+            ViewState::of(rt).set_pointer_modality(false)
+        }
         _ => {}
     }
 }
@@ -30,10 +29,10 @@ pub(super) fn track_modality(rt: &Runtime, host_event: &HostEvent) {
 /// drops still updates them.
 pub(super) fn track_modifiers(rt: &Runtime, host_event: &HostEvent) {
     let modifiers = match host_event {
-        HostEvent::Key { modifiers, .. }
-        | HostEvent::Wheel { modifiers, .. }
-        | HostEvent::ModifiersChanged(modifiers) => *modifiers,
-        HostEvent::Pointer { event, .. } => event.modifiers,
+        HostEvent::Key(route) => route.input.modifiers,
+        HostEvent::Wheel(route) => route.input.modifiers,
+        HostEvent::Pointer(route) => route.input.modifiers,
+        HostEvent::ModifiersChanged(modifiers) => *modifiers,
         _ => return,
     };
     ViewState::of(rt).set_modifiers(modifiers);

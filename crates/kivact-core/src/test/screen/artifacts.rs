@@ -85,7 +85,7 @@ impl Screen {
     }
 
     /// The scale (physical pixels per logical pixel) frames are drawn at.
-    pub fn scale(&self) -> f32 {
+    pub fn scale(&self) -> f64 {
         self.scale.get()
     }
 
@@ -115,33 +115,35 @@ impl Screen {
             let (x, y) = (b.x, b.y);
             let mut states = String::new();
             for (on, s) in [
-                (n.hidden, " hidden"),
-                (n.disabled, " disabled"),
-                (n.focusable, " focusable"),
-                (n.selected, " selected"),
+                (n.semantics.hidden, " hidden"),
+                (n.semantics.disabled, " disabled"),
+                (n.semantics.focusable, " focusable"),
+                (n.semantics.selected.unwrap_or(false), " selected"),
             ] {
                 if on {
                     states.push_str(s);
                 }
             }
-            if let Some(c) = n.checked {
+            if let Some(c) = n.semantics.checked {
                 let _ = write!(states, " checked={c:?}");
             }
-            if let Some(e) = n.expanded {
+            if let Some(e) = n.semantics.expanded {
                 let _ = write!(states, " expanded={e}");
             }
             let _ = writeln!(
                 out,
                 "{}{:?} {:?}{}{}{} [{} {} {}x{}]",
                 "  ".repeat(depth),
-                n.role,
-                n.label,
-                n.value
+                n.semantics.role.unwrap_or(kivact_types::Role::Generic),
+                n.semantics.name.clone().unwrap_or_default(),
+                n.semantics
+                    .value_text
                     .as_ref()
                     .map(|v| format!(" value={v:?}"))
                     .unwrap_or_default(),
                 states,
-                n.test_id
+                n.semantics
+                    .test_id
                     .as_ref()
                     .map(|t| format!(" #{t}"))
                     .unwrap_or_default(),
@@ -224,7 +226,7 @@ impl Element<'_> {
         let shot = self.screen.screenshot();
         let rect = self.rect().unwrap_or(Rect::new(0.0, 0.0, 0.0, 0.0));
         let scale = self.screen.scale();
-        let px = |v: f32| (v * scale).round().max(0.0) as u32;
+        let px = |v: f64| (v * scale).round().max(0.0) as u32;
         shot.crop(px(rect.x), px(rect.y), px(rect.width), px(rect.height))
     }
 }

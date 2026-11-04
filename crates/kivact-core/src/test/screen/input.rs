@@ -176,14 +176,14 @@ impl Screen {
     /// content forward, down), on whatever the hit test finds there (no
     /// actionability check). Move the pointer first with
     /// [`Self::mouse_move`]; [`Element::scroll`] moves it to an element.
-    pub fn scroll(&self, dx: f32, dy: f32) {
+    pub fn scroll(&self, dx: f64, dy: f64) {
         self.log(format!("scroll ({dx}, {dy}) at the pointer"));
         self.send(ShellEvent::Wheel { x: dx, y: dy });
         self.run_until_idle();
     }
 
     /// Move the pointer to the window point `(x, y)` (logical pixels).
-    pub fn mouse_move(&self, x: f32, y: f32) {
+    pub fn mouse_move(&self, x: f64, y: f64) {
         self.log(format!("move to ({x}, {y})"));
         self.mouse_to(Point::new(x, y));
         self.run_until_idle();
@@ -207,7 +207,7 @@ impl Screen {
 
     /// Click the primary button at the window point `(x, y)`, on whatever
     /// the hit test finds there (no actionability check).
-    pub fn click_at(&self, x: f32, y: f32) {
+    pub fn click_at(&self, x: f64, y: f64) {
         self.log(format!("click at ({x}, {y})"));
         self.pointer_click(Point::new(x, y), MouseButton::Primary);
         self.run_until_idle();
@@ -231,7 +231,7 @@ impl Screen {
     /// ```
     #[must_use = "the contact stays down until `contact_up` or `contact_cancel` names it"]
     #[track_caller]
-    pub fn contact_down(&self, kind: PointerKind, x: f32, y: f32) -> Contact {
+    pub fn contact_down(&self, kind: PointerKind, x: f64, y: f64) -> Contact {
         if kind == PointerKind::Mouse {
             self.fail("contact_down: the mouse is not a contact (use the mouse_* methods)");
         }
@@ -248,7 +248,7 @@ impl Screen {
 
     /// Move `contact` to the window point `(x, y)`.
     #[track_caller]
-    pub fn contact_move(&self, contact: Contact, x: f32, y: f32) {
+    pub fn contact_move(&self, contact: Contact, x: f64, y: f64) {
         self.current_contact("contact_move", contact);
         let at = Point::new(x, y);
         if let Some(entry) = self
@@ -562,14 +562,14 @@ impl<'a> Element<'a> {
         let published = self.published_any();
         let why = match &published {
             None => Some("is not in the accessibility tree".to_string()),
-            Some(n) if n.role == p::Role::Generic => Some(
+            Some(n) if n.semantics.role.unwrap_or(p::Role::Generic) == p::Role::Generic => Some(
                 "is not exposed to assistive technology (it has no role), so nothing can focus it \
                  but a click or Tab; give it a role"
                     .to_string(),
             ),
-            Some(n) if n.hidden => Some("is hidden".into()),
-            Some(n) if n.disabled => Some("is disabled".into()),
-            Some(n) if !n.focusable => {
+            Some(n) if n.semantics.hidden => Some("is hidden".into()),
+            Some(n) if n.semantics.disabled => Some("is disabled".into()),
+            Some(n) if !n.semantics.focusable => {
                 Some("is not focusable (not a tab stop, or outside the open modal)".to_string())
             }
             Some(_) => None,
@@ -672,7 +672,7 @@ impl<'a> Element<'a> {
     /// Wheel over the centre of the element (positive `dy` scrolls content
     /// forward, down).
     #[track_caller]
-    pub fn scroll(&self, dx: f32, dy: f32) {
+    pub fn scroll(&self, dx: f64, dy: f64) {
         let at = self.action_point("scroll", None, false);
         self.screen
             .log(format!("scroll ({dx}, {dy}) over {}", self.short()));

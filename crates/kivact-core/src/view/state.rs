@@ -16,7 +16,7 @@ use kivact_reactive::Selector;
 use kivact_reactive::{ErrorKind, UiError};
 use kivact_reactive::{Owner, Runtime};
 use kivact_reactive::{Signal, Value};
-use kivact_types::{HostEnv, Modifiers, NodeId, PlatformResult};
+use kivact_types::{Environment, Modifiers, NodeId, PlatformResult};
 
 use super::tree::Tree;
 use kivact_style::draw::Rect;
@@ -87,13 +87,14 @@ pub(crate) struct QueuedFocus {
     pub(crate) waiter: FocusWaiter,
 }
 
-/// The App's host environment: one signal holding the whole `HostEnv` the
+/// The App's host environment: one signal holding the whole `Environment` the
 /// client writes, and one memo per field a reader asked for, so a change of
 /// one field notifies only the readers of that field.
 pub(crate) struct EnvState {
     /// The root owner: the memos live as long as the App.
     owner: Owner,
-    env: Signal<HostEnv>,
+    env: Signal<Environment>,
+    pub(crate) surface_active: Signal<bool>,
     /// The memos made so far, by the name of the accessor that asked
     /// (each a `Value<T>` of its field's type).
     fields: RefCell<Vec<(&'static str, Box<dyn Any>)>>,
@@ -101,17 +102,23 @@ pub(crate) struct EnvState {
 
 impl EnvState {
     /// The environment `env` at start, as a signal of `owner`.
-    pub(crate) fn new(owner: Owner, env: HostEnv, at: &'static Location<'static>) -> Self {
+    pub(crate) fn new(
+        owner: Owner,
+        env: Environment,
+        surface_active: bool,
+        at: &'static Location<'static>,
+    ) -> Self {
         Self {
             owner,
             env: owner.signal(env, at),
+            surface_active: owner.signal(surface_active, at),
             fields: RefCell::new(Vec::new()),
         }
     }
 
     /// The host reports `env`; readers of the fields that differ are
     /// notified.
-    pub(crate) fn set(&self, env: HostEnv) {
+    pub(crate) fn set(&self, env: Environment) {
         self.env.set(env);
     }
 
@@ -122,7 +129,7 @@ impl EnvState {
     pub(crate) fn field<T: Clone + PartialEq + 'static>(
         &self,
         name: &'static str,
-        f: fn(&HostEnv) -> T,
+        f: fn(&Environment) -> T,
     ) -> Value<T> {
         if let Some((_, made)) = self.fields.borrow().iter().find(|(n, _)| *n == name) {
             return *made

@@ -75,9 +75,9 @@ use super::theme::value::Theme;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TextLength {
     /// Logical px.
-    Px(f32),
+    Px(f64),
     /// A multiple of the text's font size.
-    Em(f32),
+    Em(f64),
 }
 
 impl Default for TextLength {
@@ -88,32 +88,26 @@ impl Default for TextLength {
 
 impl From<i32> for TextLength {
     fn from(v: i32) -> Self {
-        TextLength::Px(v as f32)
+        TextLength::Px(v as f64)
     }
 }
 
 impl From<u32> for TextLength {
     fn from(v: u32) -> Self {
-        TextLength::Px(v as f32)
-    }
-}
-
-impl From<f32> for TextLength {
-    fn from(v: f32) -> Self {
-        TextLength::Px(v)
+        TextLength::Px(v as f64)
     }
 }
 
 impl From<f64> for TextLength {
     fn from(v: f64) -> Self {
-        TextLength::Px(v as f32)
+        TextLength::Px(v)
     }
 }
 
 /// `v` times the font size of the text it applies to (CSS `em`), for the
 /// text lengths: `letter_spacing(em(0.08))`, `text_underline_offset(em(0.2))`.
 pub fn em(v: impl Into<f64>) -> TextLength {
-    TextLength::Em(v.into() as f32)
+    TextLength::Em(v.into())
 }
 
 impl TextLength {
@@ -303,7 +297,7 @@ pub(crate) fn decoration(
 /// Fill `t` (the engine's text props of a style) with the extras `x` it
 /// sets, and return how many values were dropped (a feature tag that is
 /// not four ASCII characters, a text shadow's spread or inset).
-pub(crate) fn resolve_extras(t: &mut p::TextProps, x: &TextExtras, theme: &Theme) -> u32 {
+pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme) -> u32 {
     let mut dropped = 0;
     let features = x.features.as_deref().map(|settings| {
         let (features, bad) = self::features(Some(settings), false);
@@ -354,7 +348,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextProps, x: &TextExtras, theme: &Theme
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {
     /// Font size in logical px.
-    pub font_size: Option<f32>,
+    pub font_size: Option<f64>,
     /// Font weight.
     pub weight: Option<u16>,
     /// Color of the glyphs.

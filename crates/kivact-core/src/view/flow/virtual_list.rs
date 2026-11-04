@@ -52,10 +52,10 @@ use kivact_types::Role;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RowHeight {
     /// Every row has this height (logical px).
-    Fixed(f32),
+    Fixed(f64),
     /// Rows are measured by the host (`LayoutChanged`) and cached per key;
     /// `estimate` is used until a row has been measured.
-    Measured { estimate: f32 },
+    Measured { estimate: f64 },
 }
 
 /// Virtualized keyed list. Built by [`virtual_list`].
@@ -64,7 +64,7 @@ pub struct VirtualList<T: 'static, K: 'static> {
     key: Rc<dyn Fn(&T) -> K>,
     row: RowFn<K, T>,
     height: RowHeight,
-    overscan: f32,
+    overscan: f64,
     scroll_to: InputProp<Option<K>>,
     keep_focused: bool,
     /// Holds the modifiers (`NodeBuilder`); its content and children are unused.
@@ -109,7 +109,7 @@ impl<T: 'static, K: 'static> VirtualList<T, K> {
     }
 
     /// Extra pixels mounted above and below the viewport (default 200).
-    pub fn overscan(mut self, px: f32) -> Self {
+    pub fn overscan(mut self, px: f64) -> Self {
         self.overscan = px.max(0.0);
         self
     }
@@ -162,18 +162,18 @@ struct VRow<T: 'static> {
     owner: Owner,
     wrapper: NodeId,
     sig: Signal<T>,
-    top: f32,
+    top: f64,
 }
 
 /// What the host reported of the list's scroll box.
 #[derive(Clone, Copy, PartialEq)]
 struct Viewport {
-    offset: f32,
-    height: f32,
+    offset: f64,
+    height: f64,
 }
 
 /// The viewport height the visible range assumes until the host reports one.
-const UNREPORTED_HEIGHT: f32 = 600.0;
+const UNREPORTED_HEIGHT: f64 = 600.0;
 
 /// The `scroll_to` request in progress.
 enum Seek<K> {
@@ -190,13 +190,13 @@ enum Seek<K> {
 /// The last scroll the list asked for in a request: the offset it was at and the one it asked for.
 #[derive(Clone, Copy)]
 struct Issued {
-    from: f32,
-    to: f32,
+    from: f64,
+    to: f64,
 }
 
 struct VState<K: 'static, T: 'static> {
     rows: HashMap<K, VRow<T>>,
-    measured: HashMap<K, f32>,
+    measured: HashMap<K, f64>,
     /// The `scroll_to` request in progress.
     seek: Seek<K>,
     /// The row that holds the keyboard focus (`keep_focused`).
@@ -206,11 +206,11 @@ struct VState<K: 'static, T: 'static> {
 /// Rows mounted at once above which an unconstrained viewport is reported.
 const UNCONSTRAINED_ROWS: usize = 100;
 
-fn px(v: f32) -> Dimension {
+fn px(v: f64) -> Dimension {
     Dimension::Px(v)
 }
 
-fn wrapper_layout(top: f32, height: Option<f32>) -> LayoutProps {
+fn wrapper_layout(top: f64, height: Option<f64>) -> LayoutProps {
     LayoutProps {
         position: Position::Absolute,
         inset: Edges {
@@ -318,7 +318,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                 let lo = (offset - overscan).max(0.0);
                 let hi = offset + vh + overscan;
                 // Visible slice: (key, item clone if new or changed, top, height)
-                let mut visible: Vec<(K, Option<T>, f32, Option<f32>)> = Vec::new();
+                let mut visible: Vec<(K, Option<T>, f64, Option<f64>)> = Vec::new();
                 let mut dups = Vec::new();
                 // Items and keys only compute values: pure.
                 let total = kivact_reactive::pure(|| items.with(|list| {
@@ -339,7 +339,7 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                                     Some(r) => r.sig.with_untracked(|cur| cur != it),
                                     None => true,
                                 };
-                                visible.push((k, need.then(|| it.clone()), i as f32 * h, Some(h)));
+                                visible.push((k, need.then(|| it.clone()), i as f64 * h, Some(h)));
                             }
                             // The row with the focus stays mounted outside the range.
                             if let Some(fk) = focused_key.as_ref().filter(|fk| !seen.contains(*fk))
@@ -350,17 +350,17 @@ impl<T: Clone + PartialEq + 'static, K: Eq + Hash + Clone + 'static> IntoView
                                     Some(r) => r.sig.with_untracked(|cur| cur != it),
                                     None => true,
                                 };
-                                let top = i as f32 * h;
+                                let top = i as f64 * h;
                                 let at = visible.partition_point(|v| v.2 < top);
                                 visible.insert(
                                     at,
                                     (fk.clone(), need.then(|| it.clone()), top, Some(h)),
                                 );
                             }
-                            list.len() as f32 * h
+                            list.len() as f64 * h
                         }
                         RowHeight::Measured { estimate } => {
-                            let mut y = 0.0f32;
+                            let mut y = 0.0f64;
                             let mut seen = std::collections::HashSet::new();
                             for it in list {
                                 let k = key(it);
@@ -490,7 +490,7 @@ fn focused_row<K: Eq + Hash + Clone + 'static, T: 'static>(
 /// The scroll offset that brings the row `[top, top + height)` into the
 /// viewport `[offset, offset + view)` with the smallest move; a row taller
 /// than the viewport aligns to its top (as the host's scroll into view).
-fn reveal_offset(top: f32, height: f32, offset: f32, view: f32) -> f32 {
+fn reveal_offset(top: f64, height: f64, offset: f64, view: f64) -> f64 {
     if top < offset {
         top
     } else {
@@ -555,7 +555,7 @@ impl<K: Eq + Hash + Clone + 'static, T: Clone + 'static> Seeker<K, T> {
             self.items.with(|list| {
                 let s = self.state.borrow();
                 let mut found = None;
-                let mut y = 0.0f32;
+                let mut y = 0.0f64;
                 for it in list {
                     let k = (self.key)(it);
                     let h = match self.height {
@@ -609,7 +609,7 @@ fn apply_visible<K: Eq + Hash + Clone + 'static, T: Clone + 'static>(
     parent: Owner,
     spacer: NodeId,
     state: &Rc<RefCell<VState<K, T>>>,
-    visible: Vec<(K, Option<T>, f32, Option<f32>)>,
+    visible: Vec<(K, Option<T>, f64, Option<f64>)>,
     row: &dyn Fn(K, Value<T>) -> View,
     measured_version: Trigger,
     at: &'static Location<'static>,

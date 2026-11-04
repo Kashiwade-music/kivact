@@ -148,7 +148,7 @@ fn start<R: Send + 'static>(
                 if let Some(state) = state {
                     state.retain_fallback(handle);
                 } else {
-                    crate::detached::DETACHED.store(true, Ordering::Release);
+                    kivact_types::process::DetachedThreads::note();
                     drop(handle);
                 }
             }

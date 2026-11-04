@@ -103,7 +103,9 @@ impl Screen {
         let mut out = Vec::new();
         for n in &tree.nodes {
             // A node without a role is published as a bare structural node.
-            if n.label != name || n.role != wire {
+            if n.semantics.name.clone().unwrap_or_default() != name
+                || n.semantics.role.unwrap_or(kivact_types::Role::Generic) != wire
+            {
                 continue;
             }
             if let Some((node, region)) = host.semantics_target(n.id.0)

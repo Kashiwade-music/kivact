@@ -110,16 +110,16 @@ impl Screen {
             for s in scenes.iter().flatten() {
                 for r in &s.regions {
                     node.children.push(SemanticNode {
-                        role: Some(r.role),
-                        name: r.name.clone(),
-                        value: r.value.clone(),
+                        role: r.semantics.role,
+                        name: r.semantics.name.clone().unwrap_or_default(),
+                        value: r.semantics.value_text.clone(),
                         test_id: None,
                         focused: self.host.borrow().focused()
                             == Some(kivact_types::FocusTarget {
                                 node: id,
                                 region: Some(r.id),
                             }),
-                        disabled: node.disabled || r.disabled,
+                        disabled: node.disabled || r.semantics.disabled,
                         selected: false,
                         checked: None,
                         at: node.at,

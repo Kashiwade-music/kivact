@@ -308,10 +308,10 @@ pub trait NodeBuilder: Sized {
         common.roving_focus = Some(kivact_engine::contract::RovingFocus { orientation, rtl });
         common.node_ref.push(reference);
         self.on_key(move |event| {
-            if event.modifiers != Modifiers::default() {
+            if event.modifiers() != Modifiers::default() {
                 return Handled::No;
             }
-            let movement = match (orientation, event.key) {
+            let movement = match (orientation, event.key()) {
                 (Orientation::Horizontal, Key::ArrowLeft) if !rtl => RovingMove::Previous,
                 (Orientation::Horizontal, Key::ArrowRight) if rtl => RovingMove::Previous,
                 (Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => RovingMove::Next,

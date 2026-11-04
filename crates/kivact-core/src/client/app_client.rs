@@ -464,16 +464,16 @@ fn phase_name(phase: kivact_types::PointerPhase) -> &'static str {
 fn describe(e: &kivact_engine::contract::HostEvent) -> String {
     use kivact_engine::contract::HostEvent as E;
     match e {
-        E::Pointer { node, event, .. } => {
-            format!("Pointer {} n{}", phase_name(event.phase), node.0)
-        }
-        E::Wheel { node, .. } => format!("Wheel n{}", node.0),
-        E::Key {
-            node, key, region, ..
-        } => match node {
-            Some(n) => format!("Key {key:?} n{} region {:?}", n.0, region.map(|r| r.0)),
-            None => format!("Key {key:?}"),
-        },
+        E::Pointer(route) => format!(
+            "Pointer {} {:?}",
+            phase_name(route.input.phase),
+            route.target
+        ),
+        E::Wheel(route) => format!("Wheel {:?}", route.target),
+        E::Key(route) => format!(
+            "Key {:?} {:?} region {:?}",
+            route.input.key, route.target, route.region
+        ),
         E::Activate { node, region, .. } => {
             format!("Activate n{} region {:?}", node.0, region.map(|r| r.0))
         }

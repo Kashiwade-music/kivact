@@ -77,3 +77,6 @@ pub use text::{
     TextTransform, TextWrap,
 };
 pub use text_shaping::TextShaper;
+
+pub mod animatable;
+pub use animatable::Animatable;

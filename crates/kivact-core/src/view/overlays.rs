@@ -104,11 +104,11 @@ pub use kivact_types::OverlayAlign;
 /// try mirrored placements, spans and slides before clamping to the inset.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct OverlayViewport {
-    margin: Option<f32>,
+    margin: Option<f64>,
 }
 
 impl OverlayViewport {
-    pub fn new(margin: f32) -> Self {
+    pub fn new(margin: f64) -> Self {
         Self {
             margin: Some(margin),
         }
@@ -142,8 +142,8 @@ pub struct Overlay {
     place: Place,
     placement: Placement,
     align: OverlayAlign,
-    offset: f32,
-    viewport_margin: Option<f32>,
+    offset: f64,
+    viewport_margin: Option<f64>,
     keep_anchor_clear: bool,
     modal: bool,
     child: View,
@@ -223,10 +223,10 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
 ///     let at = signal(None::<Point>);
 ///     (
 ///         area.on_pointer(move |e: PointerEvent| {
-///             if let kivact::view::PointerPhase::Down(press) = e.phase
+///             if let kivact::view::PointerPhase::Down(press) = e.phase()
 ///                 && press.button == kivact::view::MouseButton::Secondary
 ///             {
-///                 at.set(Some(e.window_pos));
+///                 at.set(Some(e.window_pos()));
 ///             }
 ///         }),
 ///         show_some(at, move |p| {
@@ -274,13 +274,13 @@ impl Overlay {
     /// `top: calc(100% + 6px)` is `.offset(6)` below the anchor); it
     /// follows the overlay when it flips to the other side.
     pub fn offset(mut self, px: impl Into<f64>) -> Self {
-        self.offset = px.into() as f32;
+        self.offset = px.into();
         self
     }
 
     /// Inset the available window area by this many logical pixels.
     /// Overrides the theme's [`OverlayViewport`].
-    pub fn viewport_margin(mut self, px: f32) -> Self {
+    pub fn viewport_margin(mut self, px: f64) -> Self {
         self.viewport_margin = Some(px);
         self
     }
@@ -536,7 +536,7 @@ pub(crate) fn key_route(rt: &Runtime, named: Option<NodeId>) -> KeyRoute {
 /// overlay offering `Dismiss` (inside the modal when one is shown), as the
 /// engine decides.
 pub(crate) fn escape_dismisses(rt: &Runtime, e: &KeyEvent) -> Option<NodeId> {
-    if e.repeat || e.key != Key::Escape || e.modifiers != Modifiers::default() {
+    if e.repeat() || e.key() != Key::Escape || e.modifiers() != Modifiers::default() {
         return None;
     }
     ViewState::tree(rt).reader().dismiss_target()

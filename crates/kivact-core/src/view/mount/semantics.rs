@@ -12,7 +12,7 @@ use kivact_reactive::{EffectKind, ErrorKind, UiError};
 use kivact_style::asset::ImageFit;
 use kivact_types::{CheckedState, NodeId};
 
-use kivact_types::SemanticsProperties;
+use kivact_types::{Finite, FocusTarget, Semantics};
 /// The nodes `refs` are bound to now, in order, leaving out a reference
 /// that is unbound or whose node is gone (tracked: the relation follows
 /// them being bound and unmounted).
@@ -68,11 +68,31 @@ pub(super) fn bind(
                     ),
                 );
             }
-            ViewState::tree_mut(&rt).update(
-                id,
-                PropValue::Accessibility(props),
-                rt.running_effect(),
-            );
+            let mut current = ViewState::tree(&rt)
+                .reader()
+                .semantics(id)
+                .unwrap_or_default();
+            current.value_min = props.value_min;
+            current.value_max = props.value_max;
+            current.value_now = props.value_now;
+            current.live_region = props.live_region;
+            current.sort = props.sort;
+            current.orientation = props.orientation;
+            current.active_descendant = props.active_descendant;
+            current.level = props.level;
+            current.set_size = props.set_size;
+            current.pos_in_set = props.pos_in_set;
+            current.multiselectable = props.multiselectable;
+            current.busy = props.busy;
+            current.required = props.required;
+            current.read_only = props.read_only;
+            current.has_popup = props.has_popup;
+            current.current_item = props.current_item;
+            current.described_by = props.described_by;
+            current.controls = props.controls;
+            current.labelled_by = props.labelled_by;
+            current.text = props.text;
+            ViewState::tree_mut(&rt).update(id, PropValue::Semantics(current), rt.running_effect());
         }
     });
 }
@@ -109,11 +129,23 @@ pub(super) fn checked_state(
 pub(super) fn resolve(
     sources: &SemanticSources,
     at: &'static std::panic::Location<'static>,
-) -> SemanticsProperties {
-    SemanticsProperties {
-        value_min: sources.value_min.as_ref().map(kivact_reactive::Prop::get),
-        value_max: sources.value_max.as_ref().map(kivact_reactive::Prop::get),
-        value_now: sources.value_now.as_ref().map(kivact_reactive::Prop::get),
+) -> Semantics<FocusTarget> {
+    Semantics {
+        value_min: sources
+            .value_min
+            .as_ref()
+            .map(kivact_reactive::Prop::get)
+            .and_then(Finite::new),
+        value_max: sources
+            .value_max
+            .as_ref()
+            .map(kivact_reactive::Prop::get)
+            .and_then(Finite::new),
+        value_now: sources
+            .value_now
+            .as_ref()
+            .map(kivact_reactive::Prop::get)
+            .and_then(Finite::new),
         live_region: sources.live_region.as_ref().map(|s| s.get()),
         sort: sources.sort.as_ref().map(|s| s.get()).unwrap_or_default(),
         orientation: sources
@@ -148,6 +180,7 @@ pub(super) fn resolve(
         controls: bound(&sources.controls, at),
         labelled_by: bound(&sources.labelled_by, at),
         text: sources.text.as_ref().map(kivact_reactive::Prop::get),
+        ..Semantics::default()
     }
 }
 

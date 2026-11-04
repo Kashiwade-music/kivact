@@ -77,3 +77,11 @@ pub struct LayoutFinding {
     /// The box it was compared with.
     pub limit_rect: Rect,
 }
+
+impl LayoutCheck {
+    /// Leave out the element with this test id and its subtree.
+    pub fn ignore_test_id(mut self, test_id: impl Into<String>) -> Self {
+        self.ignore_test_ids.push(test_id.into());
+        self
+    }
+}

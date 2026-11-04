@@ -67,7 +67,7 @@ impl Screen {
         scope: Option<NodeId>,
     ) -> Vec<LayoutViolation> {
         self.run_until_idle();
-        let findings = self.host.borrow().layout_findings(&check.to_wire(), scope);
+        let findings = self.host.borrow().layout_findings(check, scope);
         findings
             .into_iter()
             .map(|f| {
@@ -99,15 +99,12 @@ impl Screen {
                 }
                 drop(tree);
                 LayoutViolation {
-                    rule: f.rule.into(),
+                    finding: f,
                     role,
                     name,
                     text,
                     test_id,
                     created_at: created_at.unwrap_or(self.at),
-                    text_rect: f.text_rect,
-                    limit: f.limit_rect,
-                    amount: f.amount,
                 }
             })
             .collect()

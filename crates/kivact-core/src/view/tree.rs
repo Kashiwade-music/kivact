@@ -37,7 +37,7 @@ use std::sync::Arc;
 use kivact_engine::api::{Prop, PropValue};
 use kivact_engine::api::{Reader, Writer};
 use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
-use kivact_types::{IdMap, NodeId, Rect, Scene, Size};
+use kivact_types::{DrawList, IdMap, NodeId, Rect, Size};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
@@ -77,7 +77,7 @@ pub(crate) struct Handlers {
     /// Wheel handlers.
     pub wheel: EventHandlers<WheelEvent>,
     /// The input method's events for the node's IME session.
-    pub ime: EventHandlers<kivact_types::ImeEvent>,
+    pub ime: EventHandlers<kivact_types::ImeInput>,
     /// Assistive-technology actions other than `Activate`, at most one
     /// handler per action (`on_a11y` replaces an earlier one).
     pub a11y: Vec<(
@@ -442,7 +442,7 @@ impl Tree {
 
     fn is_live_region(&self, id: NodeId) -> bool {
         self.with_node(id, |node| {
-            let semantics = node.and_then(|node| node.semantics.as_deref());
+            let semantics = node.map(|node| &node.semantics);
             semantics.is_some_and(|semantics| {
                 matches!(
                     semantics.role,
@@ -452,10 +452,7 @@ impl Tree {
                             | kivact_types::Role::Log
                     )
                 ) || matches!(
-                    semantics
-                        .accessibility
-                        .as_deref()
-                        .and_then(|a| a.live_region),
+                    semantics.live_region,
                     Some(kivact_types::LiveRegion::Polite | kivact_types::LiveRegion::Assertive)
                 )
             })
@@ -528,41 +525,41 @@ impl Tree {
     }
     pub(crate) fn name(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_ref())
+            node.map(|node| &node.semantics)
                 .and_then(|semantics| semantics.name.clone())
         })
     }
     pub(crate) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
         self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_ref())
+            node.map(|node| &node.semantics)
                 .and_then(|semantics| semantics.role)
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn value(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_ref())
-                .and_then(|semantics| semantics.value.clone())
+            node.map(|node| &node.semantics)
+                .and_then(|semantics| semantics.value_text.clone())
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn selected(&self, id: NodeId) -> Option<bool> {
         self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_ref())
+            node.map(|node| &node.semantics)
                 .and_then(|semantics| semantics.selected)
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn checked(&self, id: NodeId) -> Option<kivact_types::CheckedState> {
         self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_ref())
+            node.map(|node| &node.semantics)
                 .and_then(|semantics| semantics.checked)
         })
     }
     #[cfg(feature = "test")]
     pub(crate) fn expanded(&self, id: NodeId) -> Option<bool> {
         self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_ref())
+            node.map(|node| &node.semantics)
                 .and_then(|semantics| semantics.expanded)
         })
     }
@@ -605,7 +602,7 @@ impl Tree {
         let was_hidden = hides && self.hidden(id) == Some(true);
         let tracks_live = self
             .live_region_revision
-            .filter(|_| matches!(prop, Prop::Role | Prop::Accessibility));
+            .filter(|_| matches!(prop, Prop::Role | Prop::Semantics));
         let was_live = tracks_live.is_some() && self.is_live_region(id);
         let changed = self.engine().set(id, value);
         self.notify_visibility(hides && was_hidden != (self.hidden(id) == Some(true)));
@@ -644,11 +641,11 @@ impl Tree {
         std::mem::take(&mut self.removes)
     }
 
-    pub(crate) fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<Scene>> {
+    pub(crate) fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<DrawList>> {
         self.reader().scene(id, layer)
     }
 
-    pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Scene) {
+    pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: DrawList) {
         if self.scene(id, layer).as_deref() == Some(&scene) {
             return;
         }
@@ -668,7 +665,7 @@ impl Tree {
     #[cfg(feature = "test")]
     pub(crate) fn test_id(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_ref())
+            node.map(|node| &node.semantics)
                 .and_then(|semantics| semantics.test_id.clone())
         })
     }

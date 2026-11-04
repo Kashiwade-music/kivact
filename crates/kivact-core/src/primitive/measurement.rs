@@ -1,13 +1,13 @@
 //! Role: The measurement contract of a primitive: constraints, sizes and baselines.
 
-use kivact_style::draw::{Size, TextMetrics, TextParagraph, TextRun, TextStyle};
+use kivact_style::draw::{Size, TextMetrics, TextParagraph, TextStyle};
 use kivact_types::{self as values};
 
 /// Space available to a primitive along one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AvailableSpace {
     /// A definite number of logical pixels.
-    Definite(f32),
+    Definite(f64),
     /// As little as the content allows (the primitive's minimum size).
     MinContent,
     /// As much as the content wants (the primitive's preferred size).
@@ -21,9 +21,9 @@ pub enum AvailableSpace {
 #[derive(Clone, Copy)]
 pub struct Constraints<'a> {
     /// The width the layout already fixed.
-    pub known_width: Option<f32>,
+    pub known_width: Option<f64>,
     /// The height the layout already fixed.
-    pub known_height: Option<f32>,
+    pub known_height: Option<f64>,
     /// The width available.
     pub available_width: AvailableSpace,
     /// The height available.
@@ -35,7 +35,7 @@ impl Constraints<'_> {
     /// The widest the primitive can be: the known width, else a definite
     /// available width (`None`: unbounded, `Some(0.0)`: as narrow as it
     /// can).
-    pub fn max_width(&self) -> Option<f32> {
+    pub fn max_width(&self) -> Option<f64> {
         match (self.known_width, self.available_width) {
             (Some(w), _) | (None, AvailableSpace::Definite(w)) => Some(w),
             (None, AvailableSpace::MinContent) => Some(0.0),
@@ -67,8 +67,9 @@ impl Constraints<'_> {
     /// ```
     pub fn measure_text(&self, text: &str, style: &TextStyle) -> TextMetrics {
         let origin = values::Point { x: 0.0, y: 0.0 };
-        let run = TextRun::from_style(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
-        self.text.measure(run.as_wire())
+        let run =
+            kivact_style::draw::text_run(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
+        self.text.measure(&run)
     }
 
     /// `text` shaped in `style` and wrapped at `max_width` (`None`: at
@@ -98,14 +99,12 @@ impl Constraints<'_> {
         &self,
         text: &str,
         style: &TextStyle,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = values::Point { x: 0.0, y: 0.0 };
-        let run = TextRun::from_style(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
-        let shaped = self
-            .text
-            .shape(run.as_wire(), max_width)
-            .unwrap_or_default();
+        let run =
+            kivact_style::draw::text_run(text, origin, style, 1.0, values::Rgba::TRANSPARENT, None);
+        let shaped = self.text.shape(&run, max_width).unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
 
@@ -114,10 +113,10 @@ impl Constraints<'_> {
         &self,
         text: &str,
         style: &TextStyle,
-        max_width: Option<f32>,
+        max_width: Option<f64>,
         boxes: &[values::InlineBox],
     ) -> Option<kivact_style::draw::InlineParagraph> {
-        let run = TextRun::from_style(
+        let run = kivact_style::draw::text_run(
             text,
             values::Point::default(),
             style,
@@ -125,7 +124,7 @@ impl Constraints<'_> {
             values::Rgba::TRANSPARENT,
             None,
         );
-        let shaped = self.text.shape_inline(run.as_wire(), max_width, boxes)?;
+        let shaped = self.text.shape_inline(&run, max_width, boxes)?;
         Some(kivact_style::draw::InlineParagraph::from_shaped(
             text, shaped, max_width,
         ))
@@ -188,7 +187,7 @@ pub struct Measurement {
     /// The first baseline, in logical pixels below the top of the
     /// primitive's content box (inside its padding and border); `None`:
     /// the bottom of the box.
-    pub baseline: Option<f32>,
+    pub baseline: Option<f64>,
 }
 
 impl Measurement {
@@ -204,7 +203,7 @@ impl Measurement {
     /// content box (for example a label's [`TextMetrics::baseline`] plus
     /// the padding above it).
     #[must_use]
-    pub fn baseline(mut self, y: f32) -> Self {
+    pub fn baseline(mut self, y: f64) -> Self {
         self.baseline = Some(y);
         self
     }
@@ -219,7 +218,7 @@ impl From<Size> for Measurement {
 /// A size the layout can use: finite and not negative; a baseline it can
 /// use: finite.
 pub(super) fn sanitize(m: Measurement) -> values::LeafSize {
-    let clean = |v: f32| if v.is_finite() { v.max(0.0) } else { 0.0 };
+    let clean = |v: f64| if v.is_finite() { v.max(0.0) } else { 0.0 };
     values::LeafSize {
         size: values::Size {
             width: clean(m.size.width),

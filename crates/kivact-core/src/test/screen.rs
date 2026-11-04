@@ -47,7 +47,9 @@ mod window_tests;
 
 pub use artifacts::failure_dir;
 pub use model::{Contact, Element, Screen, Within};
-pub use results::{ImeText, LayoutCheck, LayoutRule, LayoutViolation, Screenshot, SemanticNode};
+pub use results::{
+    ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, Screenshot, SemanticNode,
+};
 
 #[cfg(test)]
 mod accessibility_tests;
