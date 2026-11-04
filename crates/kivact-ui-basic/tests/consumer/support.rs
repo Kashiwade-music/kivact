@@ -4,7 +4,7 @@ use kivact::test::{RenderOptions, Screen};
 use kivact_ui_basic as basic;
 
 /// The color of the logical point (`x`, `y`) of the last frame as `0xRRGGBB`.
-pub(crate) fn pixel(screen: &Screen, x: f32, y: f32) -> u32 {
+pub(crate) fn pixel(screen: &Screen, x: f64, y: f64) -> u32 {
     let scale = screen.scale();
     screen
         .screenshot()

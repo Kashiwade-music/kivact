@@ -12,7 +12,7 @@ impl State {
     /// The press decides what the editor's drag does; the drag's sources (the
     /// canvas and its regions) then follow the pointer until it ends.
     pub(crate) fn pointer(self, event: PointerEvent) -> Handled {
-        match event.phase {
+        match event.phase() {
             PointerPhase::Down(press) => {
                 if self.gesture.is_active() {
                     return Handled::Yes;
@@ -33,7 +33,7 @@ impl State {
                             match selection::press(
                                 &self.selected.get(),
                                 id,
-                                event.modifiers,
+                                event.modifiers(),
                                 &kivact::interaction::ListPolicy::default(),
                             ) {
                                 selection::Press::Pending(id) => single = Some(id),
@@ -66,7 +66,7 @@ impl State {
                         }
                         _ => {
                             self.active.set(None);
-                            (DragKind::Marquee(event.pos, event.pos), None)
+                            (DragKind::Marquee(event.pos(), event.pos()), None)
                         }
                     }
                 };
@@ -163,16 +163,16 @@ impl State {
             return Handled::Yes;
         }
         let target = self
-            .target(event.region)
+            .target(event.region())
             .or(self.active.get_untracked())
             .filter(|target| {
                 self.scene.with_untracked(|scene| {
                     scene.as_ref().ok().is_some_and(|scene| scene.live(target))
                 })
             });
-        match event.key {
+        match event.key() {
             Key::Enter => {
-                if !event.repeat
+                if !event.repeat()
                     && let Some(target) = target
                 {
                     self.activate(target);
@@ -191,7 +191,7 @@ impl State {
             Key::Home => self.fit(true),
             Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown => {
                 let step = self.step();
-                let (time, value) = match event.key {
+                let (time, value) = match event.key() {
                     Key::ArrowLeft => (-step.0, 0.0),
                     Key::ArrowRight => (step.0, 0.0),
                     Key::ArrowUp => (0.0, step.1),
@@ -233,15 +233,15 @@ impl State {
         if self.drag_state().is_some() {
             return Handled::Yes;
         }
-        if !(event.modifiers.ctrl || event.modifiers.meta)
-            || !event.delta.x.is_finite()
-            || !event.delta.y.is_finite()
+        if !(event.modifiers().ctrl || event.modifiers().meta)
+            || !event.delta().x.is_finite()
+            || !event.delta().y.is_finite()
         {
             return Handled::No;
         }
         let next = self
             .geometry()
-            .zoom(event.pos, event.delta.y, event.modifiers.shift);
+            .zoom(event.pos(), event.delta().y, event.modifiers().shift);
         if next != self.view.get() {
             self.set_view(next);
         }

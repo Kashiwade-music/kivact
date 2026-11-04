@@ -271,9 +271,9 @@ impl IntoView for Skeleton {
     fn into_view(self) -> View {
         let rows = self.rows;
 
-        let phase = signal(0_f32);
+        let phase = signal(0_f64);
         let node_ref = node_ref();
-        let clock = frame_loop(move |f| phase.set((f.now.as_secs_f32() / 1.4).fract()));
+        let clock = frame_loop(move |f| phase.set((f.now.as_secs_f64() / 1.4).fract()));
         kivact::effect(move || {
             let visible = node_ref.rect().get().is_some_and(|rect| {
                 rect.y < platform::window_size().height && rect.y + rect.height > 0.

@@ -53,7 +53,7 @@ impl MetadataItem {
         self
     }
 
-    fn render(self, position: LabelPosition, width: Value<Option<f32>>) -> View {
+    fn render(self, position: LabelPosition, width: Value<Option<f64>>) -> View {
         let (root, label, value) = self.parts();
         root.base_style(
             style()
@@ -166,7 +166,7 @@ pub struct MetadataList {
     items: Vec<MetadataItem>,
     columns: MetadataColumns,
     position: Option<LabelPosition>,
-    label_width: Option<f32>,
+    label_width: Option<f64>,
     max_items: Option<usize>,
     expanded: Option<Binding<bool>>,
     orientation: Orientation,
@@ -204,7 +204,7 @@ impl MetadataList {
         self
     }
 
-    pub fn label_width(mut self, width: f32) -> Self {
+    pub fn label_width(mut self, width: f64) -> Self {
         self.label_width = Some(width.max(0.0));
         self
     }
@@ -274,7 +274,7 @@ impl IntoView for MetadataList {
                 rects
                     .iter()
                     .filter_map(|rect| rect.get().map(|rect| rect.width))
-                    .reduce(f32::max)
+                    .reduce(f64::max)
             })
         } else {
             label_width.into_value()

@@ -6,8 +6,8 @@ use kivact::primitive::PartState;
 use kivact::style::{Align, Color, Direction, Overflow, Style, TextAlign, Theme, auto, pct, style};
 use kivact::ui::{CommandPaletteRecipes, Look};
 
-const PALETTE_WIDTH: f32 = 640.0;
-const PALETTE_MAX_HEIGHT: f32 = 480.0;
+const PALETTE_WIDTH: f64 = 640.0;
+const PALETTE_MAX_HEIGHT: f64 = 480.0;
 
 pub(crate) fn command_palette(r: CommandPaletteRecipes) -> CommandPaletteRecipes {
     r.scrim(|_| |t: &Theme, _: &Look<PartState>| scrim(&t.get::<Tokens>()))

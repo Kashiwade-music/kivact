@@ -13,7 +13,7 @@ use kivact::{effect, signal};
 use crate::Tokens;
 
 /// Two opposite cut corners, measured in logical pixels.
-pub fn cut_corner(cut: f32) -> Shape {
+pub fn cut_corner(cut: f64) -> Shape {
     Shape::polygon()
         .point(0, 0)
         .point(pct(100) - cut, 0)
@@ -117,9 +117,9 @@ pub fn section_heading(
 /// Concentric command halo with built-in decorative rotation, respecting reduced motion.
 #[track_caller]
 pub fn halo() -> Node {
-    let time = signal(0_f32);
+    let time = signal(0_f64);
     let node_ref = node_ref();
-    let clock = frame_loop(move |frame| time.set(frame.now.as_secs_f32()));
+    let clock = frame_loop(move |frame| time.set(frame.now.as_secs_f64()));
     effect(move || {
         let visible = node_ref.rect().get().is_some_and(|rect| {
             rect.y < platform::window_size().height && rect.y + rect.height > 0.
@@ -151,11 +151,11 @@ pub fn halo() -> Node {
                             } else {
                                 0.
                             };
-                            let start = i as f32 * 360. / count as f32 + rotation;
+                            let start = i as f64 * 360. / count as f64 + rotation;
                             let end = if count == 1 {
                                 359.8
                             } else {
-                                start + 360. / count as f32 * 0.66
+                                start + 360. / count as f64 * 0.66
                             };
                             let path = kivact::draw::Path::new().arc(c, radius, start, end, false);
                             d.stroke_path(

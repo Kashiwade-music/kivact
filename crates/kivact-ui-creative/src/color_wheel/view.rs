@@ -39,7 +39,7 @@ pub struct ColorWheel {
     fields: Value<bool>,
     swatches: Option<Binding<Vec<Color>>>,
     edit: Option<Callback<EditPhase>>,
-    size: Value<f32>,
+    size: Value<f64>,
 }
 
 /// Edit `color` using normalized RGB/HSV fields or a hexadecimal draft;
@@ -89,7 +89,7 @@ impl ColorWheel {
         self
     }
     /// Reactively set canvas height, at least 96 pixels; non-finite values use 220.
-    pub fn wheel_size(mut self, size: impl IntoValue<f32>) -> Self {
+    pub fn wheel_size(mut self, size: impl IntoValue<f64>) -> Self {
         self.size = size.into_value();
         self
     }
@@ -113,8 +113,8 @@ fn pair(text: &str) -> Option<(f64, f64)> {
 fn key(state: State, channel: Channel, event: KeyEvent) -> Handled {
     let (x, y) = state.channel(channel);
     let delta = if channel == Channel::Hue { 1.0 } else { 0.01 }
-        * if event.modifiers.shift { 10.0 } else { 1.0 };
-    let next = match event.key {
+        * if event.modifiers().shift { 10.0 } else { 1.0 };
+    let next = match event.key() {
         Key::ArrowLeft => (x - delta, y),
         Key::ArrowRight => (x + delta, y),
         Key::ArrowUp if channel == Channel::Sv => (x, y + delta),

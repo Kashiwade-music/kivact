@@ -448,7 +448,7 @@ fn controls_style() -> kivact::style::Style {
         .gap(tokens().spacing.s1)
 }
 
-fn dimension(size: ControlSize) -> f32 {
+fn dimension(size: ControlSize) -> f64 {
     let t = tokens();
     if size == ControlSize::Small {
         t.sizes.control_sm
@@ -574,7 +574,7 @@ fn dots(model: Model, total: u32, size: ControlSize) -> Node {
                     if model.disabled.get() {
                         return Handled::No;
                     }
-                    let forward = match event.key {
+                    let forward = match event.key() {
                         Key::ArrowLeft => rtl(),
                         Key::ArrowRight => !rtl(),
                         _ => return Handled::No,
@@ -647,7 +647,7 @@ fn page_input(model: Model, total: u32, size: ControlSize) -> impl IntoView {
     .node_ref(reference)
     .disabled(move || total == 0 || model.disabled.get())
     .on_key(move |event: KeyEvent| {
-        if event.key == Key::Enter && !model.disabled.get() && total > 0 {
+        if event.key() == Key::Enter && !model.disabled.get() && total > 0 {
             commit();
             Handled::Yes
         } else {

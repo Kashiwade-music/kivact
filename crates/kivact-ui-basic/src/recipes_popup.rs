@@ -126,7 +126,7 @@ pub(crate) fn tooltip(t: &Theme, _: &kivact::ui::Look<PopupState>) -> Style {
 /// tooltip.tsx's arrow: a `size-2.5` square in `bg-foreground`, turned 45°,
 /// half out of the edge toward the trigger.
 pub(crate) fn tooltip_arrow(t: &Theme, s: &kivact::ui::Look<TooltipArrowState>) -> Style {
-    const SIDE: f32 = 10.0;
+    const SIDE: f64 = 10.0;
     let p = t.get::<Tokens>();
     let base = style()
         .position(Position::Absolute)

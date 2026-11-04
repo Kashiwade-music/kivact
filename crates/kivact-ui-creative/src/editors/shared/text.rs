@@ -3,7 +3,7 @@
 use kivact::draw::{Draw, Point, TextStyle};
 use kivact::style::Color;
 
-pub(crate) fn label(d: &mut Draw, text: &str, x: f32, y: f32, size: f32, color: Color) {
+pub(crate) fn label(d: &mut Draw, text: &str, x: f64, y: f64, size: f64, color: Color) {
     d.text(
         text,
         Point::new(x, y),

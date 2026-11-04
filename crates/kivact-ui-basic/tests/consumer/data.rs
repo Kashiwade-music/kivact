@@ -170,7 +170,7 @@ fn mount_payments() -> (Screen, Handles) {
 }
 
 /// The window y of the text `what`.
-fn y_of(screen: &Screen, what: &str) -> f32 {
+fn y_of(screen: &Screen, what: &str) -> f64 {
     screen.get_by_text(what).rect().expect("laid out").y
 }
 

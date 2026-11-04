@@ -23,7 +23,7 @@ pub(super) fn plan_drop(
     items: &[TreeItem],
     dragged: u64,
     over: u64,
-    fraction: f32,
+    fraction: f64,
 ) -> Option<(Plan, TreeDrop)> {
     let parent_of = |id: u64| {
         items

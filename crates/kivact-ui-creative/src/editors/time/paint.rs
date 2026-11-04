@@ -35,7 +35,7 @@ pub(crate) fn paint_grid(
     zoom: f64,
     pan: Point,
     lanes: &[Lane],
-    layout: (f32, f32),
+    layout: (f64, f64),
 ) {
     let (height, cells_width) = layout;
     let p = draw.theme().get::<crate::tokens::Tokens>();
@@ -44,7 +44,7 @@ pub(crate) fn paint_grid(
         Rect::new(0.0, RULER, SIDEBAR, (size.height - RULER).max(0.0)),
         p.header,
     );
-    ruler.draw(draw, size, SIDEBAR, zoom as f32, pan, RULER);
+    ruler.draw(draw, size, SIDEBAR, zoom as f64, pan, RULER);
     for (index, lane) in lanes.iter().enumerate() {
         let rect = lane_rect(index, height);
         let y = rect.y;
@@ -97,7 +97,7 @@ pub(crate) fn paint<T: TimeItem>(
     size: Size,
     state: State<T>,
     ruler: &Ruler,
-    cells_width: f32,
+    cells_width: f64,
 ) {
     let scale = state.scale;
     let bounds = state.bounds;
@@ -155,7 +155,7 @@ pub(crate) fn paint<T: TimeItem>(
                 }
             }
         }
-        let x = SIDEBAR + (frame.get() * z) as f32 + offset.x;
+        let x = SIDEBAR + (frame.get() * z) + offset.x;
         draw.line(
             Point::new(x, RULER),
             Point::new(x, size.height),

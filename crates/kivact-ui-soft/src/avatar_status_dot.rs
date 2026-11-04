@@ -8,7 +8,7 @@ use kivact::{Signal, Value, effect, on_cleanup};
 
 #[derive(Clone, Copy)]
 pub(crate) struct AvatarStatusContext {
-    pub(crate) side: f32,
+    pub(crate) side: f64,
     pub(crate) label: Signal<Option<String>>,
 }
 
@@ -26,13 +26,13 @@ pub enum AvatarStatus {
 }
 
 pub(crate) struct StatusMetrics {
-    pub(crate) side: f32,
-    border: f32,
-    stroke: f32,
-    icon: f32,
+    pub(crate) side: f64,
+    border: f64,
+    stroke: f64,
+    icon: f64,
 }
 
-pub(crate) fn status_metrics(side: f32) -> StatusMetrics {
+pub(crate) fn status_metrics(side: f64) -> StatusMetrics {
     if side <= 36.0 {
         StatusMetrics {
             side: 10.0,

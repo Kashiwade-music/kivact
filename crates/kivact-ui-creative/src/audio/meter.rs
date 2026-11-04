@@ -104,21 +104,21 @@ impl IntoView for Meter {
             .draw(move |d, size| {
                 let (horizontal, segmented) = (horizontal.get(), segmented.get());
                 let p = d.theme().get::<crate::tokens::Tokens>();
-                let v = level.get().clamp(0.0, 1.0) as f32;
+                let v = level.get().clamp(0.0, 1.0);
                 let extent = if horizontal {
                     size.width - 10.0
                 } else {
                     size.height - 12.0
                 };
                 let width = if horizontal {
-                    (size.height - 4.0) / channels as f32
+                    (size.height - 4.0) / channels as f64
                 } else {
-                    (size.width - 4.0) / channels as f32
+                    (size.width - 4.0) / channels as f64
                 };
                 for ch in 0..channels {
                     let amp = v;
                     for i in 0..40 {
-                        let n = i as f32 / 40.0;
+                        let n = i as f64 / 40.0;
                         let color = if n >= amp {
                             Color::token(ColorToken::Raised)
                         } else if n > 0.9 {
@@ -131,13 +131,13 @@ impl IntoView for Meter {
                         let r = if horizontal {
                             Rect::new(
                                 2.0 + extent * n,
-                                2.0 + ch as f32 * width,
+                                2.0 + ch as f64 * width,
                                 (extent / 40.0 - if segmented { 1.0 } else { 0.0 }).max(1.0),
                                 width - 1.0,
                             )
                         } else {
                             Rect::new(
-                                2.0 + ch as f32 * width,
+                                2.0 + ch as f64 * width,
                                 size.height - 2.0 - extent * (n + 0.025),
                                 width - 1.0,
                                 (extent / 40.0 - if segmented { 1.0 } else { 0.0 }).max(1.0),

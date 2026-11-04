@@ -45,14 +45,14 @@ impl<T: Copy + 'static, D: Clone + 'static> CanvasGesture<T, D> {
     ) {
         self.state.update(|state| {
             *state = Some(Pressed {
-                origin: event.pos,
-                current: event.pos,
+                origin: event.pos(),
+                current: event.pos(),
                 target,
                 payload,
                 pending,
-                modifiers: event.modifiers,
+                modifiers: event.modifiers(),
                 double: matches!(
-                    event.phase,
+                    event.phase(),
                     PointerPhase::Down(ButtonPress {
                         button: MouseButton::Primary,
                         clicks: 2

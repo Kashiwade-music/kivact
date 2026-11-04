@@ -583,7 +583,7 @@ impl ListAppearance {
                         let (_, count) = position.get();
                         let width = if marker == ListMarker::Decimal {
                             let digits = (start + count.saturating_sub(1) as u64).to_string().len();
-                            digits as f32 * 8.0 + 8.0
+                            digits as f64 * 8.0 + 8.0
                         } else {
                             16.0
                         };

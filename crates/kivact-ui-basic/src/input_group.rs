@@ -376,7 +376,7 @@ impl IntoView for InputGroupButton {
 /// A single-line input (`height`) also follows the block addons of the group
 /// it is in: with an addon row below it, `pt-3`; with one above it, `pb-3`;
 /// and either way the full 32 px of `h-8`, since the group is `h-auto` then.
-pub(crate) fn borderless(input: TextInput, height: Option<f32>) -> TextInput {
+pub(crate) fn borderless(input: TextInput, height: Option<f64>) -> TextInput {
     input.style(move || {
         let s = style()
             .grow(1)

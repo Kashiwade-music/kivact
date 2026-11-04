@@ -48,9 +48,9 @@ pub enum SideNavCollapse {
 }
 
 pub struct SideNavResize {
-    pub default_width: f32,
-    pub min: f32,
-    pub max: f32,
+    pub default_width: f64,
+    pub min: f64,
+    pub max: f64,
     pub default_collapsed: bool,
     pub collapsed: Option<Binding<bool>>,
 }
@@ -861,7 +861,7 @@ pub(crate) fn side_row_style(
     let base = if rail {
         base.width(height).justify_content(Justify::Center)
     } else {
-        let start = pad + depth as f32 * t.spacing.s6;
+        let start = pad + depth as f64 * t.spacing.s6;
         let (left, right) = if rtl() { (pad, start) } else { (start, pad) };
         base.width(pct(100)).padding_left(left).padding_right(right)
     };

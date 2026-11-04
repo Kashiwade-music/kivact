@@ -12,7 +12,7 @@ use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, View, callback}
 use kivact::{Binding, Callback, Value, signal};
 
 /// How far a tab is dragged past its neighbor's edge before they swap.
-const SWAP_DISTANCE: f32 = 60.0;
+const SWAP_DISTANCE: f64 = 60.0;
 
 /// Document tabs: [`kivact::ui::tabs`] named `label` (for assistive
 /// technology) of `options` choosing `selected`, in
@@ -98,7 +98,7 @@ fn document_tab<K: Clone + Eq + Hash + 'static>(
 ) -> View {
     let key = item.with_untracked(|item| item.key().clone());
     // The travel the last swap used up, so each swap takes another 60 px.
-    let consumed = signal(0.0_f32);
+    let consumed = signal(0.0_f64);
     let reorder = use_drag::<K>(DragCoordinates::Window)
         .on_start(move |_| consumed.set(0.0))
         .on_update(move |update: DragUpdate<K>| -> kivact::Result<()> {

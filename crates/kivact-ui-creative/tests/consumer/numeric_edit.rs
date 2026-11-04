@@ -17,7 +17,7 @@ fn observer(value: Signal<f64>, log: &Log) -> impl Fn(EditPhase) + 'static {
     move |phase| log.borrow_mut().push((phase, value.get_untracked()))
 }
 
-fn center(screen: &Screen, role: Role, name: &str) -> (f32, f32) {
+fn center(screen: &Screen, role: Role, name: &str) -> (f64, f64) {
     let rect = screen.get_by_role(role, name).rect().expect("laid out");
     (rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
 }

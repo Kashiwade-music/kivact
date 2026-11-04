@@ -20,8 +20,8 @@ pub struct PropertyRow {
     value: View,
     leading: Option<Slot>,
     trailing: Option<Slot>,
-    label_width: f32,
-    row_height: f32,
+    label_width: f64,
+    row_height: f64,
 }
 
 /// A label with the control that edits its value, in one inspector row.
@@ -75,7 +75,7 @@ impl PropertyRow {
 
     /// The width of the label column in logical pixels. The default is 90.
     /// A negative or non-finite width keeps the earlier one.
-    pub fn label_width(mut self, px: f32) -> Self {
+    pub fn label_width(mut self, px: f64) -> Self {
         if px.is_finite() && px >= 0.0 {
             self.label_width = px;
         }
@@ -84,7 +84,7 @@ impl PropertyRow {
 
     /// The least height of the row in logical pixels. The default is 24 and
     /// anything under 20 is 20, so a number field always fits.
-    pub fn row_height(mut self, px: f32) -> Self {
+    pub fn row_height(mut self, px: f64) -> Self {
         if px.is_finite() {
             self.row_height = px.max(20.0);
         }

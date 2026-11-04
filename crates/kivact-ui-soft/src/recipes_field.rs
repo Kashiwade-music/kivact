@@ -7,7 +7,7 @@ use kivact::ui::{
     ControlSize, FieldRecipes, Look, NumberInputRecipes, TagInputRecipes, TextInputState,
 };
 
-pub(super) fn height(tokens: &Tokens, size: ControlSize) -> f32 {
+pub(super) fn height(tokens: &Tokens, size: ControlSize) -> f64 {
     match size {
         ControlSize::ExtraSmall | ControlSize::Small => tokens.sizes.control_sm,
         ControlSize::Medium => tokens.sizes.control_md,
@@ -75,7 +75,7 @@ pub(super) fn text_input(theme: &Theme, s: &Look<TextInputState>) -> Style {
 }
 
 pub(super) fn text_area(theme: &Theme, s: &Look<TextInputState>) -> Style {
-    const DEFAULT_ROWS: f32 = 3.0;
+    const DEFAULT_ROWS: f64 = 3.0;
     let t = theme.get::<Tokens>();
     let block = if s.size == ControlSize::Large {
         t.spacing.s2
@@ -217,7 +217,7 @@ pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
     })
     .input(|_| {
         |theme, _| {
-            const EMPTY_INPUT_MIN_WIDTH: f32 = 60.0;
+            const EMPTY_INPUT_MIN_WIDTH: f64 = 60.0;
             let t = theme.get::<Tokens>();
             flat(&t)
                 .grow(1)

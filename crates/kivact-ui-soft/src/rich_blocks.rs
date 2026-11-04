@@ -66,7 +66,7 @@ pub(super) fn edit_blocks(
 enum Command {
     Split,
     Merge,
-    Move { forward: bool, x: f32 },
+    Move { forward: bool, x: f64 },
     SelectAll,
     CopyAll,
     Clear,
@@ -188,7 +188,7 @@ impl Editor {
             )
             .style(move || editor_style(&style_kind, self.whole.get()))
             .on_pointer(move |event| {
-                if matches!(event.phase, PointerPhase::Down(_)) {
+                if matches!(event.phase(), PointerPhase::Down(_)) {
                     self.whole.set(false);
                 }
                 Handled::No
@@ -332,7 +332,7 @@ fn key_command(
     }
 }
 
-fn move_to(reference: NodeRef, forward: bool, x: f32) {
+fn move_to(reference: NodeRef, forward: bool, x: f64) {
     reference.focus();
     let Some(edit) = reference.edit_state() else {
         return;

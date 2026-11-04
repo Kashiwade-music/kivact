@@ -146,7 +146,7 @@ impl IntoView for Badge {
 pub struct Avatar {
     root: Node,
     initials: Value<String>,
-    size: f32,
+    size: f64,
     hue: f64,
     halo: Value<bool>,
     online: Value<bool>,
@@ -167,7 +167,7 @@ impl Avatar {
     /// pixel number rather than a length: the initials, the halo and the
     /// online dot are drawn in proportion to it.
     pub fn size(mut self, size: impl Into<f64>) -> Self {
-        self.size = (size.into() as f32).max(16.0);
+        self.size = (size.into() as f64).max(16.0);
         self
     }
     pub fn hue(mut self, hue: f64) -> Self {
@@ -217,8 +217,8 @@ impl IntoView for Avatar {
         );
         let halo = show(self.halo, move || {
             let offset = Animated::from(
-                0.0f32,
-                -3.0f32,
+                0.0f64,
+                -3.0f64,
                 Transition::tween(1600, Easing::EaseInOut)
                     .repeat(Repeat::Forever)
                     .alternate(),
@@ -279,12 +279,12 @@ pub fn progress_ring(value: impl IntoValue<f64>, label: impl IntoText, hue: Hue)
             .draw(move |d, s| {
                 let p = d.theme().get::<Tokens>();
                 let centre = s.to_rect().center();
-                let arc = |fraction: f32| {
+                let arc = |fraction: f64| {
                     let n = (fraction * 80.0).ceil().max(1.0) as usize;
                     let mut path = Path::new();
                     for i in 0..=n {
-                        let angle = -std::f32::consts::FRAC_PI_2
-                            + std::f32::consts::TAU * fraction * i as f32 / n as f32;
+                        let angle = -std::f64::consts::FRAC_PI_2
+                            + std::f64::consts::TAU * fraction * i as f64 / n as f64;
                         let pt = Point::new(
                             centre.x + 27.0 * angle.cos(),
                             centre.y + 27.0 * angle.sin(),
@@ -303,7 +303,7 @@ pub fn progress_ring(value: impl IntoValue<f64>, label: impl IntoText, hue: Hue)
                     p.surface_active,
                 );
                 d.stroke_path(
-                    &arc((animated.get().clamp(0.0, 100.0) / 100.0) as f32),
+                    &arc((animated.get().clamp(0.0, 100.0) / 100.0) as f64),
                     &Stroke::new(6.0).cap(LineCap::Round).join(LineJoin::Round),
                     p.accent(hue),
                 );
@@ -376,7 +376,7 @@ pub fn section_heading(
 }
 
 #[track_caller]
-pub fn sparkline(points: impl IntoValue<Vec<f32>>) -> Node {
+pub fn sparkline(points: impl IntoValue<Vec<f64>>) -> Node {
     let points = points.into_value();
     node()
         .style(style().height(52).min_width(1))
@@ -385,14 +385,14 @@ pub fn sparkline(points: impl IntoValue<Vec<f32>>) -> Node {
             if points.len() < 2 {
                 return;
             }
-            let min = points.iter().copied().fold(f32::INFINITY, f32::min);
-            let max = points.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+            let min = points.iter().copied().fold(f64::INFINITY, f64::min);
+            let max = points.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             let p = d.theme().get::<Tokens>();
             let mut line = Path::new();
             let mut area = kivact::draw::Path::new().move_to(Point::new(0.0, s.height));
             for (i, v) in points.iter().enumerate() {
                 let pt = Point::new(
-                    s.width * i as f32 / (points.len() - 1) as f32,
+                    s.width * i as f64 / (points.len() - 1) as f64,
                     6.0 + (1.0 - (*v - min) / (max - min).max(1.0)) * (s.height - 12.0),
                 );
                 line = if i == 0 {
@@ -436,7 +436,7 @@ pub struct StatCard {
     value: Value<String>,
     trend: Value<String>,
     glyph: Option<Value<kivact::style::Icon>>,
-    points: Value<Vec<f32>>,
+    points: Value<Vec<f64>>,
     trend_hue: Hue,
 }
 impl StatCard {
@@ -451,7 +451,7 @@ impl StatCard {
         self
     }
     /// Read-only sparkline samples; empty by default.
-    pub fn points(mut self, value: impl IntoValue<Vec<f32>>) -> Self {
+    pub fn points(mut self, value: impl IntoValue<Vec<f64>>) -> Self {
         self.points = value.into_value();
         self
     }
@@ -770,8 +770,8 @@ impl IntoView for Alert {
 #[track_caller]
 pub fn spinner() -> Node {
     let angle = Animated::from(
-        0.0f32,
-        360.0f32,
+        0.0f64,
+        360.0f64,
         Transition::tween(700, Easing::Linear)
             .repeat(Repeat::Forever)
             .decorative(false),
@@ -789,11 +789,11 @@ pub fn spinner() -> Node {
             };
             let centre = size.to_rect().center();
             let radius = (size.width.min(size.height) - thickness) / 2.0;
-            let arc = |fraction: f32| {
+            let arc = |fraction: f64| {
                 let mut path = Path::new();
                 for i in 0..=64 {
-                    let angle = -std::f32::consts::FRAC_PI_2
-                        + std::f32::consts::TAU * fraction * i as f32 / 64.0;
+                    let angle = -std::f64::consts::FRAC_PI_2
+                        + std::f64::consts::TAU * fraction * i as f64 / 64.0;
                     let point = Point::new(
                         centre.x + radius * angle.cos(),
                         centre.y + radius * angle.sin(),
@@ -826,8 +826,8 @@ pub fn spinner() -> Node {
 #[track_caller]
 pub fn dots_loader() -> Node {
     let phase = Animated::from(
-        0.0f32,
-        std::f32::consts::TAU,
+        0.0f64,
+        std::f64::consts::TAU,
         Transition::tween(1000, Easing::Linear)
             .repeat(Repeat::Forever)
             .decorative(false),
@@ -839,10 +839,10 @@ pub fn dots_loader() -> Node {
         .draw(move |draw, _| {
             let p = draw.theme().get::<Tokens>();
             for (i, color) in [p.blue, p.cyan, p.yellow].into_iter().enumerate() {
-                let bounce = (phase.get() - i as f32 * 0.95).sin().max(0.0) * 6.0;
+                let bounce = (phase.get() - i as f64 * 0.95).sin().max(0.0) * 6.0;
                 draw.rounded_rect(
                     Rect {
-                        x: i as f32 * 13.0,
+                        x: i as f64 * 13.0,
                         y: 10.0 - bounce,
                         width: 8.0,
                         height: 8.0,
@@ -881,8 +881,8 @@ impl IntoView for Skeleton {
     fn into_view(self) -> View {
         let rows = self.rows;
         let pulse = Animated::from(
-            1.0f32,
-            0.5f32,
+            1.0f64,
+            0.5f64,
             Transition::tween(1000, Easing::EaseInOut)
                 .repeat(Repeat::Forever)
                 .alternate(),
@@ -956,7 +956,7 @@ impl IntoView for EmptyState {
                     let p = d.theme().get::<Tokens>();
                     let mut halo = Path::new();
                     for i in 0..=64 {
-                        let a = std::f32::consts::TAU * i as f32 / 64.0;
+                        let a = std::f64::consts::TAU * i as f64 / 64.0;
                         let point = Point::new(80.0 + 34.0 * a.cos(), 22.0 + 9.0 * a.sin());
                         halo = if i == 0 {
                             halo.move_to(point)

@@ -121,7 +121,7 @@ pub(crate) fn menu_shortcut(p: &Tokens, lit: bool) -> Style {
 }
 
 /// A Lucide glyph as polylines in its 24-unit view box.
-pub(crate) type Glyph = &'static [&'static [(f32, f32)]];
+pub(crate) type Glyph = &'static [&'static [(f64, f64)]];
 
 /// Lucide `check`.
 pub(crate) const CHECK: Glyph = &[&[(20.0, 6.0), (9.0, 17.0), (4.0, 12.0)]];
@@ -132,7 +132,7 @@ pub(crate) const CHEVRON_DOWN: Glyph = &[&[(6.0, 9.0), (12.0, 15.0), (18.0, 9.0)
 
 /// Stroke `glyph` into the square at `origin` with side `side`, as Lucide
 /// draws it (2 units wide, round caps and joins).
-pub(crate) fn stroke_glyph(d: &mut Draw, origin: Point, side: f32, glyph: Glyph, color: Color) {
+pub(crate) fn stroke_glyph(d: &mut Draw, origin: Point, side: f64, glyph: Glyph, color: Color) {
     let k = side / 24.0;
     let stroke = Stroke::new(2.0 * k)
         .cap(LineCap::Round)
@@ -152,7 +152,7 @@ pub(crate) fn stroke_glyph(d: &mut Draw, origin: Point, side: f32, glyph: Glyph,
 }
 
 /// Lucide `loader-circle` turned by `phase` (0 to 1) in the square at `origin`.
-pub(crate) fn stroke_loader(d: &mut Draw, origin: Point, side: f32, phase: f32, color: Color) {
+pub(crate) fn stroke_loader(d: &mut Draw, origin: Point, side: f64, phase: f64, color: Color) {
     let k = side / 24.0;
     let start = phase * 360.0;
     let path = Path::new().arc(

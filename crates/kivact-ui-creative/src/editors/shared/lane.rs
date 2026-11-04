@@ -10,16 +10,16 @@ pub(crate) type CellRenderer = Rc<dyn Fn(Value<Lane>) -> View>;
 pub(crate) type MenuFactory = Rc<dyn Fn(Node, Value<EditorContext>) -> View>;
 #[derive(Default)]
 pub(crate) struct LaneExtensions {
-    pub(crate) cells: Vec<(f32, CellRenderer)>,
+    pub(crate) cells: Vec<(f64, CellRenderer)>,
     pub(crate) lane_activate: Option<Callback<u64>>,
     pub(crate) item_activate: Option<Callback<u64>>,
     pub(crate) menu: Option<MenuFactory>,
 }
-pub(crate) const GRAPH_LANE_WIDTH: f32 = crate::editors::shared::metrics::SIDEBAR - 72.0;
-pub(crate) fn graph_lane_y(index: usize) -> f32 {
+pub(crate) const GRAPH_LANE_WIDTH: f64 = crate::editors::shared::metrics::SIDEBAR - 72.0;
+pub(crate) fn graph_lane_y(index: usize) -> f64 {
     crate::editors::shared::metrics::RULER
         + crate::editors::shared::metrics::GRAPH_LANE_INSET
-        + index as f32 * crate::editors::shared::metrics::GRAPH_LANE_PITCH
+        + index as f64 * crate::editors::shared::metrics::GRAPH_LANE_PITCH
 }
 
 pub(crate) fn menu_factory<K: Clone + Eq + std::hash::Hash + 'static, R: HandlerResult>(
@@ -47,7 +47,7 @@ macro_rules! lane_extension_methods {
         /// Disabling the editor leaves enabled descendants interactive, as for ordinary nodes.
         /// Pass the same disabled value to a cell control when it should also be disabled.
         pub fn lane_cell<V: kivact::view::IntoView>(
-            mut self, width: f32,
+            mut self, width: f64,
             render: impl Fn(kivact::Value<$crate::editors::shared::model::Lane>) -> V + 'static,
         ) -> Self {
             let width = if width.is_finite() && width > 0.0 { width } else { 0.0 };
@@ -107,10 +107,7 @@ pub(crate) fn lane_cells(
                     .position(|l| l.id == lane.get().id)
                     .unwrap_or(0)
             });
-            let total = cells
-                .iter()
-                .map(|(width, _)| f64::from(*width))
-                .sum::<f64>();
+            let total = cells.iter().map(|(width, _)| (*width)).sum::<f64>();
             let mut offset = 0.0;
             let mut views = Vec::new();
             for (width, render) in cells.iter().filter(|(width, _)| *width > 0.0) {
@@ -125,9 +122,7 @@ pub(crate) fn lane_cells(
                 views.push(
                     cell.style(move || {
                         let rect = rect(index.get());
-                        let left = (f64::from(rect.width) - total + cell_offset)
-                            .clamp(-f64::from(f32::MAX), f64::from(f32::MAX))
-                            as f32;
+                        let left = (rect.width - total + cell_offset).clamp(-f64::MAX, f64::MAX);
                         let cell = style()
                             .position(Position::Absolute)
                             .left(left)
@@ -143,12 +138,12 @@ pub(crate) fn lane_cells(
                         }
                     })
                     .on_pointer_default(|_| Handled::Yes)
-                    .on_key_default(|event| match event.key {
+                    .on_key_default(|event| match event.key() {
                         Key::Tab | Key::Enter | Key::Space => Handled::No,
                         _ => Handled::Yes,
                     }),
                 );
-                offset += f64::from(width);
+                offset += width;
             }
             node().child(views).style(move || {
                 let rect = rect(index.get());

@@ -46,8 +46,8 @@ fn trigger(theme: &Theme, s: &Look<SelectTriggerState>) -> Style {
 }
 
 fn surface(theme: &Theme, _: &Look<PopupState>) -> Style {
-    const MAX_LIST_HEIGHT: f32 = 300.0;
-    const ENTER_SCALE: f32 = 0.95;
+    const MAX_LIST_HEIGHT: f64 = 300.0;
+    const ENTER_SCALE: f64 = 0.95;
     let t = theme.get::<Tokens>();
     let base = style()
         .max_height(MAX_LIST_HEIGHT)

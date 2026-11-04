@@ -315,7 +315,7 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
                 .focusable(true)
                 .style(style().size(640, 480))
                 .on_key(move |event| {
-                    if event.key == Key::Char('z') {
+                    if event.key() == Key::Char('z') {
                         state.set(ui::PieState::open_at(Point::new(300.0, 200.0), true));
                         Handled::Yes
                     } else {
@@ -323,7 +323,7 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
                     }
                 })
                 .on_key_up(move |event| {
-                    if event.key == Key::Char('z') && state.get_untracked().held {
+                    if event.key() == Key::Char('z') && state.get_untracked().held {
                         chosen.set(state.get_untracked().hot);
                         state.set(ui::PieState::default());
                         Handled::Yes

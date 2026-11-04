@@ -10,7 +10,7 @@ use kivact_ui_creative as ui;
 fn test_node(
     id: u64,
     label: &str,
-    x: f32,
+    x: f64,
     inputs: Vec<ui::NodeSocket>,
     outputs: Vec<ui::NodeSocket>,
 ) -> ui::NodeData {

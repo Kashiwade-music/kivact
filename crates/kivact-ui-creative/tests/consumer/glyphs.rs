@@ -8,7 +8,7 @@ use kivact::test::Screen;
 use kivact_ui_creative as ui;
 
 /// The screenshot pixel at `(x, y)` logical px (the window is not scaled).
-fn pixel_at(screen: &Screen, x: f32, y: f32) -> u32 {
+fn pixel_at(screen: &Screen, x: f64, y: f64) -> u32 {
     screen
         .screenshot()
         .pixel(x as u32, y as u32)
@@ -34,7 +34,7 @@ fn a_dope_sheet_key_is_drawn_with_its_glyph() {
         .0
     }
     // Logical time is the marker center; the row is centered below the ruler.
-    let sample = |screen: &Screen, dx: f32, dy: f32| {
+    let sample = |screen: &Screen, dx: f64, dy: f64| {
         let rect = screen.get_by_test_id("dope").rect().expect("drawn");
         pixel_at(screen, rect.x + 240.0 + dx, rect.y + 32.0 + dy)
     };

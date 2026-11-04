@@ -98,9 +98,9 @@ fn radio_description(t: &Theme, _: &kivact::ui::Look<CheckState>) -> Style {
 
 /// The thumb (`size-3`), the track's bar (`h-1`) and the slider's box
 /// across the track.
-const THUMB: f32 = 12.0;
-const BAR: f32 = 4.0;
-const ACROSS: f32 = 16.0;
+const THUMB: f64 = 12.0;
+const BAR: f64 = 4.0;
+const ACROSS: f64 = 16.0;
 
 pub(crate) fn slider(r: SliderRecipes) -> SliderRecipes {
     r.track(|_| slider_track)
@@ -167,9 +167,9 @@ fn slider_thumb(t: &Theme, _: &kivact::ui::Look<AxisState>) -> Style {
 
 /// The gap of an open stack and the offset of a toast behind the newest
 /// (sonner's `--gap`).
-const GAP: f32 = 14.0;
+const GAP: f64 = 14.0;
 /// How much each toast behind the newest is smaller than the one in front.
-const SCALE_STEP: f32 = 0.05;
+const SCALE_STEP: f64 = 0.05;
 /// How many toasts show behind the newest in a closed stack (sonner shows
 /// three in all).
 const BEHIND: usize = 2;
@@ -239,7 +239,7 @@ fn toast_card(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
     // Stretched over the newest toast, which sets the group's size, then
     // moved up by `k` gaps and shrunk toward its bottom edge.
     let k = s.depth;
-    let scale = 1.0 - SCALE_STEP * k as f32;
+    let scale = 1.0 - SCALE_STEP * k as f64;
     card.position(Position::Absolute)
         .top(0)
         .right(0)
@@ -248,7 +248,7 @@ fn toast_card(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
         .overflow(Overflow::Hidden)
         .z_index((BEHIND + 1).saturating_sub(k) as i32)
         .transform_origin(pct(50), pct(100))
-        .translate_y(-GAP * k as f32)
+        .translate_y(-GAP * k as f64)
         .scale_xy(scale, scale)
         .opacity(if k > BEHIND { 0.0 } else { 1.0 })
 }
@@ -316,8 +316,8 @@ fn toast_close(t: &Theme, s: &kivact::ui::Look<ToastState>) -> Style {
 
 /// The footprint of a handle in the flow (its 1 px line) and the hit area
 /// around it (the handle's `after:` strip).
-const LINE: f32 = 1.0;
-const HIT: f32 = 5.0;
+const LINE: f64 = 1.0;
+const HIT: f64 = 5.0;
 
 pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
     r.handle(|_| splitter_handle)
@@ -416,7 +416,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
     match state.value {
         Some(value) => style()
             .height(pct(100))
-            .width(pct(value as f32 * 100.0))
+            .width(pct(value as f64 * 100.0))
             .background(primary),
         None => style()
             .width(pct(100))

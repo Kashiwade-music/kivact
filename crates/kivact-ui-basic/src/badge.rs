@@ -149,7 +149,7 @@ fn badge_style(
     variant: BadgeVariant,
     pressable: bool,
     input: &PartState,
-    padding: (f32, f32),
+    padding: (f64, f64),
 ) -> kivact::style::Style {
     let (fill, fg, line) = colors(p, variant, false);
     let mut s = style()

@@ -42,7 +42,7 @@ impl Look {
 }
 
 /// Height, horizontal padding, gap and icon side of a button size.
-pub(crate) fn metrics(size: ControlSize) -> (f32, f32, f32, f32) {
+pub(crate) fn metrics(size: ControlSize) -> (f64, f64, f64, f64) {
     match size {
         ControlSize::ExtraSmall => (24.0, 8.0, 4.0, 12.0),
         ControlSize::Small => (28.0, 10.0, 4.0, 14.0),

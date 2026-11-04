@@ -307,9 +307,9 @@ impl<K: Clone + Eq + Hash + 'static> SearchPicker<K> {
     ///             .name("Viewer")
     ///             .focusable(true)
     ///             .on_key(move |e: KeyEvent| {
-    ///                 if e.key == Key::Char('Q') && e.modifiers.shift {
+    ///                 if e.key() == Key::Char('Q') && e.modifiers().shift {
     ///                     let center = bounds.get_untracked().map(|r| r.center());
-    ///                     at.set(e.pointer.or(center));
+    ///                     at.set(e.pointer().or(center));
     ///                     return Handled::Yes;
     ///                 }
     ///                 Handled::No
@@ -591,11 +591,15 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
         on_cleanup(move || session.outcomes.settle(PickerOutcome::Canceled));
         let count = titles.len();
         let search = search_field(session, placeholder, move |event| {
-            if !multiple || event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta {
+            if !multiple
+                || event.modifiers().ctrl
+                || event.modifiers().alt
+                || event.modifiers().meta
+            {
                 return Handled::No;
             }
-            let direction = match event.key {
-                Key::Tab if event.modifiers.shift => -1,
+            let direction = match event.key() {
+                Key::Tab if event.modifiers().shift => -1,
                 Key::Tab | Key::ArrowRight => 1,
                 Key::ArrowLeft => -1,
                 _ => return Handled::No,
@@ -670,7 +674,7 @@ impl<K: Clone + Eq + Hash + 'static> Parts<K> {
         // A press on a part that cannot take the focus (a disabled row, a
         // heading, the scroll bar) leaves the focus on the field.
         .on_pointer_default(move |event: PointerEvent| {
-            if matches!(event.phase, PointerPhase::Down(_)) {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
                 field.focus();
             }
             Handled::No
@@ -842,14 +846,14 @@ fn item_row<K: Clone + Eq + Hash + 'static>(
         .on_pointer_default(move |event: PointerEvent| {
             if !disabled.get()
                 && matches!(
-                    event.phase,
+                    event.phase(),
                     PointerPhase::Enter | PointerPhase::Move | PointerPhase::Down(_)
                 )
                 && let Some(column) = session.column
             {
                 column.set(Some(index));
             }
-            if matches!(event.phase, PointerPhase::Down(_)) && disabled.get() {
+            if matches!(event.phase(), PointerPhase::Down(_)) && disabled.get() {
                 session.field.focus();
             }
             Handled::No

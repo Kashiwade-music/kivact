@@ -61,8 +61,8 @@ fn radio_indicator(t: &Theme, s: &Look<CheckState>) -> Style {
 }
 
 /// The thickness of a slider's bar and the side of its thumb.
-const BAR: f32 = 4.0;
-const THUMB: f32 = 16.0;
+const BAR: f64 = 4.0;
+const THUMB: f64 = 16.0;
 pub(crate) fn slider(r: SliderRecipes) -> SliderRecipes {
     r.track(|_| slider_track)
         .range(|_| slider_range)
@@ -189,7 +189,7 @@ fn progress_fill(_: &Theme, look: &Look<ProgressState>) -> Style {
         .height(pct(100))
         .paint(move |d, size| {
             let (x, width) = if state.value.is_some() {
-                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f32)
+                (0.0, size.width * state.shown.get().clamp(0.0, 1.0))
             } else {
                 let (start, length) = state.sweep();
                 (size.width * start, size.width * length)

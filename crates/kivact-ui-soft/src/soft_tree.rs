@@ -237,7 +237,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for TreeList<K> {
                             style = style.paint(move |draw, size| {
                                 for (ancestor, extend) in lines.iter().enumerate() {
                                     if let Some(extend) = extend {
-                                        let inset = 16.0 + ancestor as f32 * 16.0;
+                                        let inset = 16.0 + ancestor as f64 * 16.0;
                                         let x = if rtl {
                                             size.width - inset - 0.5
                                         } else {

@@ -60,7 +60,7 @@ impl NavHeadingMenuItem {
 pub struct NavHeadingMenu {
     items: Rc<[NavHeadingMenuItem]>,
     size: ControlSize,
-    min_width: Option<f32>,
+    min_width: Option<f64>,
 }
 
 pub fn nav_heading_menu(items: impl IntoIterator<Item = NavHeadingMenuItem>) -> NavHeadingMenu {
@@ -76,7 +76,7 @@ impl NavHeadingMenu {
         self.size = size;
         self
     }
-    pub fn min_width(mut self, width: f32) -> Self {
+    pub fn min_width(mut self, width: f64) -> Self {
         self.min_width = Some(width);
         self
     }

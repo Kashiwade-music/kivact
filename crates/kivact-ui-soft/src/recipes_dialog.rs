@@ -6,8 +6,8 @@ use kivact::style::{
 };
 use kivact::ui::{DialogKind, DialogRecipes, DialogState, Look, Side};
 
-const DIALOG_WIDTH: f32 = 400.0;
-const DIALOG_MAX_HEIGHT_PERCENT: f32 = 75.0;
+const DIALOG_WIDTH: f64 = 400.0;
+const DIALOG_MAX_HEIGHT_PERCENT: f64 = 75.0;
 const LAYER_ENTER_SCALE: f64 = 0.95;
 
 pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
@@ -210,7 +210,7 @@ pub(crate) fn motion(base: Style, p: &Tokens, duration: u64) -> Style {
     )
 }
 
-pub(crate) fn anchored(base: Style, p: &Tokens, x: f32, y: f32) -> Style {
+pub(crate) fn anchored(base: Style, p: &Tokens, x: f64, y: f64) -> Style {
     // TODO(soft-core: C-21): Add the coarse-pointer reduced-motion fade.
     motion(base, p, p.motion.fast_max).enter(
         style()

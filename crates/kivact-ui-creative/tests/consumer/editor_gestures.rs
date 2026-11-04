@@ -46,7 +46,7 @@ impl Model {
                 .iter()
                 .enumerate()
                 .map(|(i, c)| Item {
-                    position: Point::new(c.start as f32, 60.0 + i as f32 * 60.0),
+                    position: Point::new(c.start as f64, 60.0 + i as f64 * 60.0),
                 })
                 .collect(),
             Kind::DopeSheet => self
@@ -55,7 +55,7 @@ impl Model {
                 .iter()
                 .enumerate()
                 .map(|(i, k)| Item {
-                    position: Point::new(k.time as f32, 60.0 + i as f32 * 60.0),
+                    position: Point::new(k.time, 60.0 + i as f64 * 60.0),
                 })
                 .collect(),
             Kind::Graph => self
@@ -64,7 +64,7 @@ impl Model {
                 .iter()
                 .flat_map(|c| {
                     c.keys.iter().map(|k| Item {
-                        position: Point::new(k.time as f32, -k.value as f32),
+                        position: Point::new(k.time, -k.value as f64),
                     })
                 })
                 .collect(),
@@ -134,7 +134,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             (0..3)
                 .map(|i| {
                     ui::NodeData::new(i + 1, format!("Item {}", i + 1), vec![], vec![])
-                        .position(Point::new(40.0 + i as f32 * 100.0, 60.0 + i as f32 * 60.0))
+                        .position(Point::new(40.0 + i as f64 * 100.0, 60.0 + i as f64 * 60.0))
                         .size(Size::new(80.0, 40.0))
                 })
                 .collect::<Vec<_>>(),
@@ -179,7 +179,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                                 id,
                                 format!("Track {id}"),
                                 ui::TrackKind::Audio,
-                                kivact::style::Color::from_rgba_f32(0.4, 0.5, 0.8, 1.0),
+                                kivact::style::Color::from_rgba_f64(0.4, 0.5, 0.8, 1.0),
                             )
                         })
                         .collect::<Vec<_>>(),

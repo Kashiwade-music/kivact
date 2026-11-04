@@ -26,7 +26,7 @@ use super::items::Item;
 use super::model::{DockLayout, DockPlacement, DockSide, DockTab, DockTabs};
 
 /// Pixels a pressed tab must travel before it becomes a drag.
-const DRAG_THRESHOLD: f32 = 5.0;
+const DRAG_THRESHOLD: f64 = 5.0;
 
 /// Application entries for the menu of a container.
 type AppEntries<K, C> = Rc<dyn Fn(&DockTabs<K>) -> Vec<MenuEntry<C>>>;
@@ -237,7 +237,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
     .style(style().size(16, 16).padding(0).radius(4))
     // Presses on the close button never start a tab drag or rename.
     .on_pointer_default(|event| {
-        if matches!(event.phase, PointerPhase::Down(_)) {
+        if matches!(event.phase(), PointerPhase::Down(_)) {
             Handled::Yes
         } else {
             Handled::No
@@ -263,7 +263,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         .child((glyph, label, editor, close))
         .on_pointer_default(move |event| {
             if matches!(
-                event.phase,
+                event.phase(),
                 PointerPhase::Down(ButtonPress {
                     button: MouseButton::Primary,
                     clicks: 2..
@@ -274,7 +274,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
                 // The panel's icon maximizes, its title renames.
                 if glyph_rect
                     .get()
-                    .is_some_and(|rect| rect.contains(event.window_pos))
+                    .is_some_and(|rect| rect.contains(event.window_pos()))
                 {
                     cx.toggle_maximize(&key.get());
                 } else {
@@ -288,7 +288,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         .part(tab_drag.source(()))
         // Before the tab's own activation keys, so Ctrl+Space is not a press.
         // Escape during a drag reaches the drag's source, which ends it.
-        .on_key(move |event| match event.key {
+        .on_key(move |event| match event.key() {
             Key::F(2) if !renaming() => {
                 start_rename();
                 Handled::Yes

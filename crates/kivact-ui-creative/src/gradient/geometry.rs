@@ -9,12 +9,12 @@ pub(super) struct Ramp {
 impl Ramp {
     pub(super) fn new(size: Size) -> Self {
         Self {
-            width: f64::from((size.width - 16.0).max(1.0)),
+            width: (size.width - 16.0).max(1.0),
         }
     }
     pub(super) fn hit(self, position: f64) -> Rect {
         Rect::new(
-            1.0 + (position_value(position) * self.width) as f32,
+            1.0 + (position_value(position) * self.width) as f64,
             24.0,
             14.0,
             20.0,
@@ -30,16 +30,13 @@ impl Ramp {
         let mut sorted = stops.iter().enumerate().collect::<Vec<_>>();
         sorted
             .sort_by(|a, b| position_value(a.1.position).total_cmp(&position_value(b.1.position)));
-        draw.fill_rect(
-            Rect::new(8.0, 0.0, self.width as f32, 24.0),
-            Color::TRANSPARENT,
-        );
+        draw.fill_rect(Rect::new(8.0, 0.0, self.width, 24.0), Color::TRANSPARENT);
         if let Some((_, first)) = sorted.first() {
             draw.fill_rect(
                 Rect::new(
                     8.0,
                     0.0,
-                    (position_value(first.position) * self.width) as f32,
+                    (position_value(first.position) * self.width) as f64,
                     24.0,
                 ),
                 display(first.color),
@@ -50,9 +47,9 @@ impl Ramp {
                 if b > a {
                     draw.fill_rect(
                         Rect::new(
-                            8.0 + (a * self.width) as f32,
+                            8.0 + (a * self.width) as f64,
                             0.0,
-                            ((b - a) * self.width) as f32,
+                            ((b - a) * self.width) as f64,
                             24.0,
                         ),
                         linear_gradient(90)
@@ -64,9 +61,9 @@ impl Ramp {
             let at = position_value(last.position);
             draw.fill_rect(
                 Rect::new(
-                    8.0 + (at * self.width) as f32,
+                    8.0 + (at * self.width) as f64,
                     0.0,
-                    ((1.0 - at) * self.width) as f32,
+                    ((1.0 - at) * self.width) as f64,
                     24.0,
                 ),
                 display(last.color),

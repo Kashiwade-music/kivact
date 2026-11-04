@@ -29,7 +29,7 @@ pub enum OverflowMeasure {
 }
 
 type ItemRenderer<T> = Box<dyn Fn(Value<T>) -> View>;
-type ItemWidth<T> = Box<dyn Fn(&T) -> f32>;
+type ItemWidth<T> = Box<dyn Fn(&T) -> f64>;
 type OverflowRenderer<T> = Box<dyn Fn(Value<Vec<T>>) -> View>;
 
 pub struct OverflowList<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> {
@@ -38,11 +38,11 @@ pub struct OverflowList<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + '
     key: Rc<dyn Fn(&T) -> K>,
     render: ItemRenderer<T>,
     item_width: Option<ItemWidth<T>>,
-    indicator_width: Box<dyn Fn(usize) -> f32>,
+    indicator_width: Box<dyn Fn(usize) -> f64>,
     indicator: OverflowRenderer<T>,
     on_overflow_change: Option<Callback<Vec<K>>>,
     measure: OverflowMeasure,
-    gap: f32,
+    gap: f64,
     min_visible: usize,
     max_visible: usize,
     max_rows: usize,
@@ -65,7 +65,7 @@ where
         key: Rc::new(key),
         render: Box::new(move |value| item(value).into_view()),
         item_width: None,
-        indicator_width: Box::new(|count| 18.0 + count.to_string().len() as f32 * 8.0),
+        indicator_width: Box::new(|count| 18.0 + count.to_string().len() as f64 * 8.0),
         indicator: Box::new(|hidden| {
             text(move || format!("+{}", hidden.with(Vec::len)))
                 .style(move || {
@@ -97,13 +97,13 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> NodeBuilder
 impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> OverflowList<T, K> {
     /// Provide item widths up front. By default, mounted items are measured and
     /// a provisional width of 80 px is used until each measurement arrives.
-    pub fn item_width(mut self, width: impl Fn(&T) -> f32 + 'static) -> Self {
+    pub fn item_width(mut self, width: impl Fn(&T) -> f64 + 'static) -> Self {
         self.item_width = Some(Box::new(width));
         self
     }
 
     /// Reserve this much horizontal space for a custom indicator.
-    pub fn indicator_width(mut self, width: impl Fn(usize) -> f32 + 'static) -> Self {
+    pub fn indicator_width(mut self, width: impl Fn(usize) -> f64 + 'static) -> Self {
         self.indicator_width = Box::new(width);
         self
     }
@@ -113,7 +113,7 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> OverflowLis
         self
     }
 
-    pub fn gap(mut self, gap: f32) -> Self {
+    pub fn gap(mut self, gap: f64) -> Self {
         self.gap = gap.max(0.0);
         self
     }
@@ -152,7 +152,7 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> OverflowLis
     }
 }
 
-fn fits(widths: impl IntoIterator<Item = f32>, available: f32, gap: f32, max_rows: usize) -> bool {
+fn fits(widths: impl IntoIterator<Item = f64>, available: f64, gap: f64, max_rows: usize) -> bool {
     let mut rows = 1;
     let mut used = 0.0;
     let mut started = false;
@@ -202,7 +202,7 @@ impl<T: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static> IntoView
             OverflowMeasure::ParentWidth(parent) => parent.rect(),
         };
         let measure_items = item_width.is_none();
-        let widths_cache = signal(HashMap::<K, f32>::new());
+        let widths_cache = signal(HashMap::<K, f64>::new());
         let widths_key = key.clone();
         let split = memo(move || {
             items.with(|items| {

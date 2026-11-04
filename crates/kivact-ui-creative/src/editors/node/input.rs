@@ -12,7 +12,7 @@ fn moved(state: State, point: Point) {
     let start = state.point(state.press.origin());
     match state.drag_state() {
         Some(DragMode::Items { origins }) => {
-            let snap = |d: f32| {
+            let snap = |d: f64| {
                 if state.snap.get() {
                     (d / 10.0).round() * 10.0
                 } else {
@@ -40,7 +40,7 @@ fn moved(state: State, point: Point) {
             index,
             slot,
         }) => {
-            let dx = f64::from(point.x - start.x);
+            let dx = (point.x - start.x);
             if dx == 0.0 && !state.edit.is_active() {
                 return;
             }
@@ -73,7 +73,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
     if state.zoom.is_gesturing().get_untracked() {
         return Handled::No;
     }
-    if event.phase.press().map(|press| press.button) == Some(MouseButton::Middle) {
+    if event.phase().press().map(|press| press.button) == Some(MouseButton::Middle) {
         return if state.busy() {
             Handled::Yes
         } else {
@@ -81,7 +81,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
         };
     }
     if matches!(
-        event.phase,
+        event.phase(),
         PointerPhase::Down(ButtonPress {
             button: MouseButton::Primary,
             ..
@@ -94,11 +94,11 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
             Handled::No
         };
     }
-    let point = state.point(event.pos);
+    let point = state.point(event.pos());
     let target = event
         .region()
         .and_then(|id| state.scene.get().ok()?.target(id).copied());
-    match event.phase {
+    match event.phase() {
         PointerPhase::Down(ButtonPress {
             button: MouseButton::Primary,
             ..
@@ -115,7 +115,7 @@ pub(crate) fn pointer(state: State, event: PointerEvent) -> Handled {
                     match selection::press(
                         &state.selected.get(),
                         id,
-                        event.modifiers,
+                        event.modifiers(),
                         &kivact::interaction::ListPolicy::default(),
                     ) {
                         selection::Press::Pending(id) => pending = Some(id),
@@ -279,7 +279,7 @@ fn finish_fields(state: State) {
     }
 }
 pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
-    if event.key == Key::Escape {
+    if event.key() == Key::Escape {
         if state.zoom.is_gesturing().get_untracked() {
             return Handled::No;
         }
@@ -295,23 +295,23 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
         return Handled::Yes;
     }
     if state.zoom.is_gesturing().get_untracked() {
-        if event.key == Key::Tab {
+        if event.key() == Key::Tab {
             return Handled::No;
         }
-        return if matches!(event.key, Key::Char('+' | '-' | '0') | Key::Space) {
+        return if matches!(event.key(), Key::Char('+' | '-' | '0') | Key::Space) {
             Handled::No
         } else {
             Handled::Yes
         };
     }
     if state.busy() {
-        return if event.key == Key::Tab {
+        return if event.key() == Key::Tab {
             Handled::No
         } else {
             Handled::Yes
         };
     }
-    match event.key {
+    match event.key() {
         Key::Delete | Key::Backspace => {
             if let Some(link) = state.selected_link.get_untracked() {
                 state.links_edit(Some(link), None);
@@ -363,7 +363,7 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                     id,
                     index,
                     None,
-                    if matches!(event.key, Key::ArrowLeft | Key::ArrowDown) {
+                    if matches!(event.key(), Key::ArrowLeft | Key::ArrowDown) {
                         -1.0
                     } else {
                         1.0
@@ -378,12 +378,12 @@ pub(crate) fn key(state: State, event: KeyEvent) -> Handled {
                     .filter(|n| selected.contains(&n.id))
                     .map(|n| (n.id, n.position))
                     .collect::<Vec<_>>();
-                let step = if event.modifiers.shift { 10.0 } else { 1.0 };
+                let step = if event.modifiers().shift { 10.0 } else { 1.0 };
                 if !positions.is_empty() {
                     let next = positions
                         .into_iter()
                         .map(|(id, mut point)| {
-                            match event.key {
+                            match event.key() {
                                 Key::ArrowLeft => point.x -= step,
                                 Key::ArrowRight => point.x += step,
                                 Key::ArrowUp => point.y -= step,

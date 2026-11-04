@@ -14,7 +14,7 @@ use kivact::{Asset, Value, signal};
 
 const PLACEHOLDER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2M8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-5.5z"/></svg>"#;
 const SPINNER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="white" opacity=".3" stroke-width="2"/><path d="M7 2a5 5 0 0 1 3.5355 8.5355" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>"#;
-const SIDE: f32 = 64.0;
+const SIDE: f64 = 64.0;
 
 /// When the remove button is visible.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -313,8 +313,8 @@ fn thumbnail_media(
         media = media.child(show(loading, || {
             let p = tokens();
             let pulse = Animated::from(
-                0.25f32,
-                0.925f32,
+                0.25f64,
+                0.925f64,
                 Transition::tween(p.motion.medium_max as f64, Easing::Linear)
                     .delay(1000)
                     .alternate()
@@ -353,7 +353,7 @@ fn upload_overlay() -> Node {
         tokens().motion.slow_min
     };
     let turn = Animated::from(
-        0.0f32,
+        0.0f64,
         360.0,
         Transition::tween(duration as f64, Easing::Linear)
             .repeat(Repeat::Forever)

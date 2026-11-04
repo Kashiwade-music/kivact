@@ -17,7 +17,7 @@ const KEYWORDS: &[&str] = &[
 
 /// The primitive types, highlighted as type names.
 const PRIMITIVES: &[&str] = &[
-    "bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "str", "u8", "u16",
+    "bool", "char", "f64", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "str", "u8", "u16",
     "u32", "u64", "u128", "usize",
 ];
 

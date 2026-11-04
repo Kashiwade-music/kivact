@@ -71,7 +71,7 @@ pub fn resizable_text_area(
         )
         .on_pointer(move |event| {
             if matches!(
-                event.phase,
+                event.phase(),
                 PointerPhase::Down(ButtonPress {
                     button: MouseButton::Primary,
                     ..

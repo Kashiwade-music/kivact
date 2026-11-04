@@ -12,7 +12,7 @@ use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPha
 /// The press decides what the editor's drag does; the drag's sources (the
 /// canvas and its regions) then follow the pointer until it ends.
 pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
-    let PointerPhase::Down(press) = e.phase else {
+    let PointerPhase::Down(press) = e.phase() else {
         return Handled::No;
     };
     if s.gesture.is_active() {
@@ -46,7 +46,7 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
                     match selection::press(
                         &s.selection.get(),
                         id,
-                        e.modifiers,
+                        e.modifiers(),
                         &kivact::interaction::ListPolicy::default(),
                     ) {
                         selection::Press::Pending(id) => pending = Some(id),
@@ -56,7 +56,13 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
                     }
                     start(s, Drag::Items, s.snapshot(&s.selection.get()), &e, pending);
                 }
-                None => start(s, Drag::Marquee(e.pos, e.pos), s.snapshot(&[]), &e, None),
+                None => start(
+                    s,
+                    Drag::Marquee(e.pos(), e.pos()),
+                    s.snapshot(&[]),
+                    &e,
+                    None,
+                ),
             }
         }
         _ => return Handled::No,
@@ -156,7 +162,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point) {
             }
         }
         (Drag::Items, Snapshot::Items(initial)) => {
-            let dx = f64::from(pos.x - origin.x) / s.scale.get().clamp(s.bounds.0, s.bounds.1);
+            let dx = (pos.x - origin.x) / s.scale.get().clamp(s.bounds.0, s.bounds.1);
             // The pressed item snaps and the others keep their spacing to it.
             let primary = match s.press.pressed() {
                 Some(Target::Item(id)) => initial.iter().find(|v| v.0 == id),
@@ -191,7 +197,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point) {
         }
         (Drag::Trim(id, right), Snapshot::Items(initial)) => {
             if let Some(v) = initial.iter().find(|v| v.0 == id) {
-                let dx = f64::from(pos.x - origin.x) / s.scale.get().clamp(s.bounds.0, s.bounds.1);
+                let dx = (pos.x - origin.x) / s.scale.get().clamp(s.bounds.0, s.bounds.1);
                 let (time, duration) = if right {
                     (v.1, (snap(v.1 + v.2 + dx) - v.1).max(s.min_duration))
                 } else {
@@ -212,12 +218,12 @@ pub(crate) fn wheel<T: TimeItem>(s: State<T>, e: WheelEvent) -> Handled {
     if s.drag_state().is_some() {
         return Handled::Yes;
     }
-    if !e.delta.x.is_finite() || !e.delta.y.is_finite() {
+    if !e.delta().x.is_finite() || !e.delta().y.is_finite() {
         return Handled::No;
     }
     let scale = s.scale.get().clamp(s.bounds.0, s.bounds.1);
     let offset = s.offset.get();
-    let zooms = e.modifiers.ctrl || e.modifiers.meta;
+    let zooms = e.modifiers().ctrl || e.modifiers().meta;
     let (next_scale, next_offset) = if zooms {
         wheel_zoom(
             scale,
@@ -227,7 +233,7 @@ pub(crate) fn wheel<T: TimeItem>(s: State<T>, e: WheelEvent) -> Handled {
             crate::editors::shared::metrics::SIDEBAR,
         )
     } else {
-        (scale, Point::new(offset.x - e.delta.y, offset.y))
+        (scale, Point::new(offset.x - e.delta().y, offset.y))
     };
     if (next_scale, next_offset) != (scale, offset) {
         s.edit.once(s.view_snapshot(), || {
@@ -244,18 +250,18 @@ pub(crate) fn key<T: TimeItem>(s: State<T>, e: KeyEvent) -> Handled {
         return Handled::No;
     }
     // The drag's sources take Escape during a drag.
-    if e.key == Key::Escape {
+    if e.key() == Key::Escape {
         s.choose.clear();
         return Handled::Yes;
     }
     if s.drag_state().is_some() {
         return Handled::Yes;
     }
-    let step = s.step() * if e.modifiers.shift { 10.0 } else { 1.0 };
-    match e.key {
+    let step = s.step() * if e.modifiers().shift { 10.0 } else { 1.0 };
+    match e.key() {
         Key::Enter => {
-            if !e.repeat
-                && let Some(target) = s.target(e.region).or(s.active.get_untracked())
+            if !e.repeat()
+                && let Some(target) = s.target(e.region()).or(s.active.get_untracked())
             {
                 s.activate(target);
             }
@@ -277,11 +283,15 @@ pub(crate) fn key<T: TimeItem>(s: State<T>, e: KeyEvent) -> Handled {
             }
         }
         Key::ArrowLeft | Key::ArrowRight => {
-            let dx = if e.key == Key::ArrowLeft { -step } else { step };
+            let dx = if e.key() == Key::ArrowLeft {
+                -step
+            } else {
+                step
+            };
             if !dx.is_finite() {
                 return Handled::Yes;
             }
-            let playhead = e.region.is_some_and(|id| {
+            let playhead = e.region().is_some_and(|id| {
                 s.scene.with_untracked(|v| {
                     v.as_ref().ok().and_then(|v| v.target(id)).copied() == Some(Target::Playhead)
                 })

@@ -44,7 +44,7 @@ fn inputs_and_tag_editor_commit_native_edits() {
     note.type_text("Keep this draft");
     let initial = note.rect().expect("note laid out");
     assert_eq!(initial.height, 80.0);
-    let resize = |delta: f32| {
+    let resize = |delta: f64| {
         let grip = screen.get_by_role(Role::Splitter, "Resize text area");
         grip.hover();
         let rect = grip.rect().expect("resize grip laid out");

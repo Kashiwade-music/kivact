@@ -33,9 +33,9 @@ pub struct Tokens {
     pub sidebar_alt: Color,
     pub sidebar_text: Color,
     pub sidebar_dim: Color,
-    pub control_height: f32,
-    pub row_height: f32,
-    pub padding: f32,
+    pub control_height: f64,
+    pub row_height: f64,
+    pub padding: f64,
 }
 
 impl Tokens {

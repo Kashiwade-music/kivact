@@ -29,7 +29,7 @@ pub struct Segmented;
 
 impl kivact::ui::Variant for Segmented {}
 
-const SELECT_OPTION_HEIGHT: f32 = 32.0;
+const SELECT_OPTION_HEIGHT: f64 = 32.0;
 
 pub(crate) fn select_option(t: &Theme) -> Style {
     let p = t.get::<Tokens>();

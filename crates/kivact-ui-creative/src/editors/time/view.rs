@@ -27,7 +27,7 @@ pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
     pub(crate) ruler: Ruler,
-    pub(crate) lane_height: f32,
+    pub(crate) lane_height: f64,
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<crate::editors::time::model::TimeRequest>,
@@ -40,7 +40,7 @@ impl<T: TimeItem> TimeEditor<T> {
     pub(crate) fn new(
         items: impl IntoValue<Vec<T>>,
         state: crate::TimeState,
-        lane_height: f32,
+        lane_height: f64,
     ) -> Self {
         Self {
             root: node().role(Role::Canvas).focusable(true).style(
@@ -141,7 +141,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             .cells
             .iter()
             .map(|(width, _)| *width)
-            .sum::<f32>()
+            .sum::<f64>()
             .min(SIDEBAR);
         let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
             visible,
@@ -261,7 +261,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             Some(menu) => menu(
                 root.on_a11y_event(A11yAction::ShowMenu, move |event| {
                     state.cancel();
-                    state.context_request(event.region);
+                    state.context_request(event.region());
                 }),
                 state.context.into_value(),
             ),

@@ -23,7 +23,7 @@ pub enum AvatarSize {
 }
 
 impl AvatarSize {
-    fn side(self) -> f32 {
+    fn side(self) -> f64 {
         match self {
             AvatarSize::Default => 32.0,
             AvatarSize::Sm => 24.0,
@@ -31,7 +31,7 @@ impl AvatarSize {
         }
     }
 
-    fn badge(self) -> f32 {
+    fn badge(self) -> f64 {
         match self {
             AvatarSize::Default => 10.0,
             AvatarSize::Sm => 8.0,

@@ -8,8 +8,8 @@ use kivact::style::{
 };
 use kivact::ui::{Look, ToastGroupState, ToastRecipes, Tone, TooltipRecipes};
 
-const TOOLTIP_CONTENT_MAX_WIDTH: f32 = 300.0;
-const TOAST_WIDTH: f32 = 400.0;
+const TOOLTIP_CONTENT_MAX_WIDTH: f64 = 300.0;
+const TOAST_WIDTH: f64 = 400.0;
 
 pub(crate) fn tooltip(r: TooltipRecipes) -> TooltipRecipes {
     r.surface(|_| {

@@ -52,7 +52,7 @@ pub struct Outline {
     items: Value<Vec<OutlineItem>>,
     active: Option<Binding<Option<String>>>,
     density: OutlineDensity,
-    offset: f32,
+    offset: f64,
     viewport: Option<NodeRef>,
     content: Option<NodeRef>,
     scroll_on_press: bool,
@@ -89,7 +89,7 @@ impl Outline {
         self.density = density;
         self
     }
-    pub fn offset(mut self, offset: f32) -> Self {
+    pub fn offset(mut self, offset: f64) -> Self {
         self.offset = offset;
         self
     }
@@ -143,7 +143,7 @@ struct Pending {
 #[derive(Clone, Copy)]
 struct Navigation {
     viewport: Option<NodeRef>,
-    offset: f32,
+    offset: f64,
     scroll_on_press: bool,
     controlled: Option<Binding<Option<String>>>,
     pending: Signal<Option<Pending>>,
@@ -370,7 +370,7 @@ fn outline_list(
                 .selected(selected)
                 .on_press(move || navigation.navigate(&item))
                 .on_key(move |event: KeyEvent| {
-                    let next = match event.key {
+                    let next = match event.key() {
                         Key::ArrowUp => index.saturating_sub(1),
                         Key::ArrowDown => (index + 1).min(items.len() - 1),
                         Key::Home => 0,

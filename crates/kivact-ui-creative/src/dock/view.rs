@@ -210,7 +210,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
         root.node_ref(reference)
             .on_key_default(move |event| {
                 let maximized = current.with(|layout| layout.maximized.is_some());
-                if event.key == Key::Escape && maximized {
+                if event.key() == Key::Escape && maximized {
                     cx.edit(DockLayout::restore);
                     Handled::Yes
                 } else {
@@ -292,7 +292,7 @@ fn divider<K: Clone + Eq + Hash + 'static>(
     let pair_extent = move || {
         let extent = state.with(|divider| {
             let divider = divider.as_ref()?;
-            Some(f64::from(divider.extent(cx.root.get()?)))
+            Some(divider.extent(cx.root.get()?))
         });
         let (first, second) = pair().unwrap_or((1.0, 0.0));
         ((first + second) * extent.unwrap_or(800.0)).max(1.0)
@@ -319,7 +319,7 @@ fn divider<K: Clone + Eq + Hash + 'static>(
     };
     // Each neighbor keeps MIN_EXTENT pixels, as a percentage of the pair.
     let range = move || {
-        let low = (f64::from(MIN_EXTENT) / pair_extent() * 100.0).min(50.0);
+        let low = (MIN_EXTENT / pair_extent() * 100.0).min(50.0);
         ScalarRange::new(low, 100.0 - low).expect("invariant: finite dock splitter bounds")
     };
     let cursor = match axis {

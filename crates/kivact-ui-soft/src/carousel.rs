@@ -48,7 +48,7 @@ pub fn use_carousel() -> CarouselHandle {
 }
 
 impl CarouselHandle {
-    fn boundaries(self) -> (f32, f32) {
+    fn boundaries(self) -> (f64, f64) {
         let width = self.viewport.rect().get().map_or(0.0, |rect| rect.width);
         let content = self.content.rect().get().map_or(0.0, |rect| rect.width);
         (
@@ -91,7 +91,7 @@ impl CarouselHandle {
         }
     }
 
-    fn go_to(self, x: f32) {
+    fn go_to(self, x: f64) {
         let motion = if kivact::platform::reduced_motion() {
             ScrollBehavior::Instant
         } else {
@@ -100,7 +100,7 @@ impl CarouselHandle {
         self.viewport.scroll_to(Point { x, y: 0.0 }, motion);
     }
 
-    fn slide_offset(self, index: usize) -> Option<f32> {
+    fn slide_offset(self, index: usize) -> Option<f64> {
         let viewport = self.viewport.rect().get()?;
         let slides = self.slides.get();
         let rect = slides.get(index)?.rect().get()?;
@@ -325,14 +325,14 @@ impl IntoView for Carousel {
                 .axis(ScrollAxis::Inline)
                 .node_ref(handle.viewport)
                 .on_wheel(move |event: WheelEvent| {
-                    if event.modifiers.shift
-                        && event.delta.y != 0.0
-                        && event.delta.x == 0.0
+                    if event.modifiers().shift
+                        && event.delta().y != 0.0
+                        && event.delta().x == 0.0
                         && overflow.any.get()
                     {
                         handle.viewport.scroll_by(
                             Point {
-                                x: event.delta.y,
+                                x: event.delta().y,
                                 y: 0.0,
                             },
                             ScrollBehavior::Instant,

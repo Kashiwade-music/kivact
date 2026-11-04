@@ -32,7 +32,7 @@ pub(crate) fn pressable(
 
 /// Show `view` (a 16 px icon) at `to` pixels: the layout box is `to` wide and the glyph is scaled.
 #[track_caller]
-pub(crate) fn sized_icon(view: impl IntoView, to: f32) -> Node {
+pub(crate) fn sized_icon(view: impl IntoView, to: f64) -> Node {
     let from = 16.0;
     node()
         .style(

@@ -13,7 +13,7 @@ use kivact::view::{IntoView, Role, View, show};
 use std::rc::Rc;
 
 /// The day size of `--cell-size`.
-const CELL: f32 = 28.0;
+const CELL: f64 = 28.0;
 
 /// A ghost icon button of the caption row, 28 px square, behind a paging part.
 fn nav_button(glyph: &'static str, name: kivact::Value<String>, paging: Part<PartState>) -> View {

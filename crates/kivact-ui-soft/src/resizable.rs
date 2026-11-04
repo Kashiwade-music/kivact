@@ -14,21 +14,21 @@ use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ResizeSize {
-    Px(f32),
+    Px(f64),
     Percent {
-        value: f32,
-        floor: Option<f32>,
-        ceil: Option<f32>,
+        value: f64,
+        floor: Option<f64>,
+        ceil: Option<f64>,
     },
 }
 
 impl ResizeSize {
-    fn resolve(self, basis: f32) -> f32 {
+    fn resolve(self, basis: f64) -> f64 {
         match self {
             Self::Px(px) => px,
             Self::Percent { value, floor, ceil } => {
                 let min = floor.unwrap_or(0.0);
-                let max = ceil.unwrap_or(f32::MAX).max(min);
+                let max = ceil.unwrap_or(f64::MAX).max(min);
                 (basis * value / 100.0).clamp(min, max)
             }
         }
@@ -42,8 +42,8 @@ pub struct ResizableConfig {
     pub container: Option<NodeRef>,
     pub axis: Orientation,
     pub collapsible: bool,
-    pub collapse_threshold: f32,
-    pub snaps: Vec<f32>,
+    pub collapse_threshold: f64,
+    pub snaps: Vec<f64>,
     pub default_collapsed: bool,
     pub collapsed: Option<Binding<bool>>,
 }
@@ -53,7 +53,7 @@ impl Default for ResizableConfig {
         Self {
             default_size: ResizeSize::Px(250.0),
             min_size: ResizeSize::Px(50.0),
-            max_size: ResizeSize::Px(f32::MAX),
+            max_size: ResizeSize::Px(f64::MAX),
             container: None,
             axis: Orientation::Horizontal,
             collapsible: false,
@@ -67,7 +67,7 @@ impl Default for ResizableConfig {
 
 #[derive(Clone)]
 pub struct ResizableState {
-    expanded_size: Signal<f32>,
+    expanded_size: Signal<f64>,
     collapsed: Binding<bool>,
     config: Rc<ResizableConfig>,
 }
@@ -85,7 +85,7 @@ pub fn use_resizable(config: ResizableConfig) -> ResizableState {
     }
 }
 
-fn basis(config: &ResizableConfig) -> f32 {
+fn basis(config: &ResizableConfig) -> f64 {
     let vertical = config.axis == Orientation::Vertical;
     if let Some(node) = config.container {
         return node.rect().get().map_or(
@@ -99,14 +99,14 @@ fn basis(config: &ResizableConfig) -> f32 {
 }
 
 impl ResizableState {
-    fn limits(&self) -> (f32, f32) {
+    fn limits(&self) -> (f64, f64) {
         let basis = basis(&self.config);
         let min = self.config.min_size.resolve(basis).max(0.0);
         let max = self.config.max_size.resolve(basis).max(min);
         (min, max)
     }
 
-    pub fn size(&self) -> f32 {
+    pub fn size(&self) -> f64 {
         if self.is_collapsed() {
             0.0
         } else {
@@ -129,7 +129,7 @@ impl ResizableState {
         self.collapsed.set(false);
     }
 
-    pub fn resize(&self, requested: f32) {
+    pub fn resize(&self, requested: f64) {
         if !requested.is_finite() {
             return;
         }
@@ -175,7 +175,7 @@ impl ResizableState {
                     }
             })
             .collect::<Vec<_>>();
-        points.sort_by(f32::total_cmp);
+        points.sort_by(f64::total_cmp);
         if !forward {
             points.reverse();
         }
@@ -292,17 +292,14 @@ impl IntoView for ResizeHandle {
             let scalar = {
                 let get = state.clone();
                 let set = state.clone();
-                binding(
-                    move || f64::from(get.size()),
-                    move |value| set.resize(value as f32),
-                )
+                binding(move || (get.size()), move |value| set.resize(value))
             };
             let range = {
                 let state = state.clone();
                 move || {
                     let (min, max) = state.limits();
                     let lower = if state.config.collapsible { 0.0 } else { min };
-                    ScalarRange::new(f64::from(lower), f64::from(max)).expect("valid resize range")
+                    ScalarRange::new((lower), (max)).expect("valid resize range")
                 }
             };
             let mut behavior = use_splitter(scalar, range, axis)
@@ -322,26 +319,26 @@ impl IntoView for ResizeHandle {
                 .part(handle)
                 .on_key(move |event: KeyEvent| {
                     if disabled.as_ref().is_some_and(|disabled| disabled())
-                        || event.modifiers.ctrl
-                        || event.modifiers.alt
-                        || event.modifiers.meta
+                        || event.modifiers().ctrl
+                        || event.modifiers().alt
+                        || event.modifiers().meta
                     {
                         return Handled::No;
                     }
-                    let forward = match (vertical, event.key) {
+                    let forward = match (vertical, event.key()) {
                         (false, Key::ArrowLeft) | (true, Key::ArrowUp) => false,
                         (false, Key::ArrowRight) | (true, Key::ArrowDown) => true,
                         (_, Key::Home) => {
                             key_state.resize(key_state.limits().0);
                             return Handled::Yes;
                         }
-                        (_, Key::End) if key_state.limits().1 < f32::MAX => {
+                        (_, Key::End) if key_state.limits().1 < f64::MAX => {
                             key_state.resize(key_state.limits().1);
                             return Handled::Yes;
                         }
                         (_, Key::End) => return Handled::Yes,
                         (_, Key::Enter) if key_state.config.collapsible => {
-                            if !event.repeat {
+                            if !event.repeat() {
                                 if key_state.is_collapsed() {
                                     key_state.expand();
                                 } else {
@@ -352,7 +349,7 @@ impl IntoView for ResizeHandle {
                         }
                         _ => return Handled::No,
                     };
-                    key_state.keyboard_resize(forward != mirror, event.modifiers.shift);
+                    key_state.keyboard_resize(forward != mirror, event.modifiers().shift);
                     Handled::Yes
                 })
                 .base_style(move || {

@@ -62,11 +62,11 @@ pub fn stepper(labels: impl IntoValue<Vec<String>>, current: impl IntoValue<usiz
             })
             .draw(move |d, size| {
                 let count = labels.with(Vec::len);
-                let width = size.width / count.max(1) as f32;
+                let width = size.width / count.max(1) as f64;
                 for index in 1..count {
                     d.line(
-                        kivact::draw::Point::new((index as f32 - 0.5) * width, 15.0),
-                        kivact::draw::Point::new((index as f32 + 0.5) * width, 15.0),
+                        kivact::draw::Point::new((index as f64 - 0.5) * width, 15.0),
+                        kivact::draw::Point::new((index as f64 + 0.5) * width, 15.0),
                         2.0,
                         if index <= current.get() {
                             ColorToken::Accent

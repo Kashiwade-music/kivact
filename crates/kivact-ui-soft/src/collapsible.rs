@@ -285,7 +285,7 @@ impl IntoView for Collapsible {
     }
 }
 
-fn padding_for(density: Option<DisclosureDensity>) -> f32 {
+fn padding_for(density: Option<DisclosureDensity>) -> f64 {
     let s = tokens().spacing;
     match density {
         Some(DisclosureDensity::Compact) => s.s1,

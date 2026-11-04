@@ -294,11 +294,11 @@ impl FocusTrack {
     }
 
     fn key(&self, index: usize, event: KeyEvent) -> Handled {
-        if event.modifiers.alt || event.modifiers.ctrl || event.modifiers.meta {
+        if event.modifiers().alt || event.modifiers().ctrl || event.modifiers().meta {
             return Handled::No;
         }
         let len = self.members.len();
-        let direction = match event.key {
+        let direction = match event.key() {
             Key::ArrowRight => {
                 if rtl() {
                     len - 1
@@ -319,7 +319,7 @@ impl FocusTrack {
             Key::End => len - 1,
             _ => return Handled::No,
         };
-        let next = match event.key {
+        let next = match event.key() {
             Key::Home => (0..len).find(|i| !self.members[*i].disabled.get()),
             Key::End => (0..len).rev().find(|i| !self.members[*i].disabled.get()),
             _ => (1..=len)
@@ -633,7 +633,7 @@ fn tab_style(look: Look, selected: bool, disabled: bool) -> kivact::style::Style
     }
 }
 
-fn tab_height(size: ControlSize) -> f32 {
+fn tab_height(size: ControlSize) -> f64 {
     let t = tokens();
     match size {
         ControlSize::Small => t.sizes.control_sm,
@@ -813,7 +813,7 @@ fn tab_menu_view<K: Clone + Eq + Hash + 'static>(
         .name(shown_label)
         .focusable(move || state.focusable(index))
         .on_key(move |event| {
-            if event.key == Key::ArrowDown || event.key == Key::ArrowUp {
+            if event.key() == Key::ArrowDown || event.key() == Key::ArrowUp {
                 Handled::No
             } else {
                 focus.key(index, event)

@@ -38,7 +38,7 @@ pub struct Slant;
 impl kivact::ui::Variant for Slant {}
 
 /// The skew of a slanted button's root.
-fn skew(slant: bool) -> f32 {
+fn skew(slant: bool) -> f64 {
     if slant { -12.0 } else { 0.0 }
 }
 
@@ -650,7 +650,7 @@ fn tab(_: &Theme, state: &Look<TabState>) -> Style {
 
 /// The outline of a diamond filling the `side` square at `(x, y)`, inset
 /// by `inset`.
-fn diamond(x: f32, y: f32, side: f32, inset: f32) -> Path {
+fn diamond(x: f64, y: f64, side: f64, inset: f64) -> Path {
     let (lo, mid, hi) = (inset, side / 2., side - inset);
     Path::new()
         .move_to(Point::new(x + mid, y + lo))
@@ -733,10 +733,10 @@ fn radio_description(t: &Theme, _: &Look<CheckState>) -> Style {
 }
 
 /// The thumb's 14 px run along the track and 18 px across it.
-const THUMB: (f32, f32) = (14., 18.);
+const THUMB: (f64, f64) = (14., 18.);
 /// A 4 px bar across the middle of a box, along its longer side, leaving
 /// `inset` at both ends.
-fn bar(size: kivact::draw::Size, inset: f32) -> Rect {
+fn bar(size: kivact::draw::Size, inset: f64) -> Rect {
     if size.width >= size.height {
         Rect::new(
             inset,

@@ -230,7 +230,7 @@ pub enum WindowPosition {
     #[default]
     Center,
     /// Insets from the right and top edges of the application window.
-    TopRight { right: f32, top: f32 },
+    TopRight { right: f64, top: f64 },
 }
 
 impl WindowPosition {
@@ -253,16 +253,16 @@ impl WindowPosition {
 #[derive(Clone, Debug)]
 pub struct WindowOptions {
     title: Option<String>,
-    width: f32,
+    width: f64,
     position: WindowPosition,
     modal: bool,
-    backdrop_blur: f32,
-    frame_padding: f32,
-    body_padding: f32,
-    gap: f32,
-    radius: f32,
-    titlebar_height: f32,
-    titlebar_padding: (f32, f32),
+    backdrop_blur: f64,
+    frame_padding: f64,
+    body_padding: f64,
+    gap: f64,
+    radius: f64,
+    titlebar_height: f64,
+    titlebar_padding: (f64, f64),
     icon: Option<Icon>,
 }
 impl Default for WindowOptions {
@@ -289,7 +289,7 @@ impl WindowOptions {
         self.title = Some(title.into());
         self
     }
-    pub fn width(mut self, width: f32) -> Self {
+    pub fn width(mut self, width: f64) -> Self {
         if width.is_finite() {
             self.width = width.max(80.0);
         }
@@ -312,32 +312,32 @@ impl WindowOptions {
         self
     }
     /// Blur the contained application's backdrop while a modal window is open.
-    pub fn backdrop_blur(mut self, blur: f32) -> Self {
+    pub fn backdrop_blur(mut self, blur: f64) -> Self {
         self.backdrop_blur = blur.max(0.0);
         self
     }
-    pub fn frame_padding(mut self, padding: f32) -> Self {
+    pub fn frame_padding(mut self, padding: f64) -> Self {
         self.frame_padding = padding.max(0.0);
         self
     }
-    pub fn body_padding(mut self, padding: f32) -> Self {
+    pub fn body_padding(mut self, padding: f64) -> Self {
         self.body_padding = padding.max(0.0);
         self
     }
-    pub fn gap(mut self, gap: f32) -> Self {
+    pub fn gap(mut self, gap: f64) -> Self {
         self.gap = gap.max(0.0);
         self
     }
-    pub fn radius(mut self, radius: f32) -> Self {
+    pub fn radius(mut self, radius: f64) -> Self {
         self.radius = radius.max(0.0);
         self
     }
-    pub fn titlebar_height(mut self, height: f32) -> Self {
+    pub fn titlebar_height(mut self, height: f64) -> Self {
         self.titlebar_height = height.max(24.0);
         self
     }
     /// Set the left and right insets of the title bar.
-    pub fn titlebar_padding(mut self, left: f32, right: f32) -> Self {
+    pub fn titlebar_padding(mut self, left: f64, right: f64) -> Self {
         self.titlebar_padding = (left.max(0.0), right.max(0.0));
         self
     }
@@ -561,7 +561,7 @@ fn window_layer<V: IntoView>(
                     .hide_label(true)
                     .icon(kivact::control::icon("chevron-down"))
                     .on_pointer_default(|event| {
-                        if matches!(event.phase, PointerPhase::Down(_)) {
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
                             Handled::Yes
                         } else {
                             Handled::No
@@ -574,7 +574,7 @@ fn window_layer<V: IntoView>(
                 .hide_label(true)
                 .icon(kivact::control::icon("x"))
                 .on_pointer_default(|event| {
-                    if matches!(event.phase, PointerPhase::Down(_)) {
+                    if matches!(event.phase(), PointerPhase::Down(_)) {
                         Handled::Yes
                     } else {
                         Handled::No
@@ -610,7 +610,7 @@ fn window_layer<V: IntoView>(
                 .on_a11y(A11yAction::Toggle, move || collapsed.update(|v| *v = !*v))
                 .on_pointer_default(move |e| {
                     if matches!(
-                        e.phase,
+                        e.phase(),
                         PointerPhase::Down(ButtonPress {
                             button: MouseButton::Primary,
                             clicks: 2..

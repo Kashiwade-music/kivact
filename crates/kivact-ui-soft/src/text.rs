@@ -357,7 +357,7 @@ fn metric_style(metrics: TextStyle) -> Style {
         .weight(metrics.weight)
 }
 
-fn font_size(t: &Typography, size: TextSize) -> f32 {
+fn font_size(t: &Typography, size: TextSize) -> f64 {
     match size {
         TextSize::Xs4 => t.size_4xs,
         TextSize::Xs3 => t.size_3xs,

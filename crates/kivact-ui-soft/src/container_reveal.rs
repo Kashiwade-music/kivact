@@ -25,7 +25,7 @@ pub struct RevealContent {
     pub preserve_layout: bool,
     pub force: Option<RevealVisibility>,
     pub container_force: Option<RevealForce>,
-    pub hover_delay_ms: f32,
+    pub hover_delay_ms: f64,
 }
 
 pub fn reveal_container(base: Style) -> Style {

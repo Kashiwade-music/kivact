@@ -46,9 +46,9 @@ pub enum SidebarCollapsible {
 }
 
 /// The width of an open sidebar.
-pub(crate) const WIDTH: f32 = 256.0;
+pub(crate) const WIDTH: f64 = 256.0;
 /// The width of an icon-collapsed sidebar.
-pub(crate) const WIDTH_ICON: f32 = 48.0;
+pub(crate) const WIDTH_ICON: f64 = 48.0;
 
 /// What the provider shares with the parts below it.
 #[derive(Clone, Copy)]

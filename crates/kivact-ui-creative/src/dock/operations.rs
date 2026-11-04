@@ -123,7 +123,7 @@ impl<K: Clone + Eq + Hash + 'static> DockCx<K> {
     }
     /// Ctrl or Cmd+Space toggles maximization of the container showing `id`.
     pub(super) fn maximize_key(self, id: &K, event: &KeyEvent) -> Handled {
-        if event.key == Key::Space && command_held(event.modifiers) {
+        if event.key() == Key::Space && command_held(event.modifiers()) {
             self.toggle_maximize(id);
             Handled::Yes
         } else {

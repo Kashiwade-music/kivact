@@ -68,7 +68,7 @@ impl State {
         }
         self.edit.once(owner, || self.snapshot(), write);
     }
-    pub(super) fn hsv(self) -> (f64, f64, f64, f32) {
+    pub(super) fn hsv(self) -> (f64, f64, f64, f64) {
         let color = self.color.into_value().get_untracked();
         let (_, s, v) = color_to_hsv(color);
         (self.hue.get_untracked(), s, v, color.components()[3])
@@ -78,7 +78,7 @@ impl State {
         match c {
             Channel::Hue => (h, h),
             Channel::Sv => (s, v),
-            Channel::Alpha => (f64::from(a), f64::from(a)),
+            Channel::Alpha => (a, a),
         }
     }
     pub(super) fn set(self, c: Channel, x: f64, y: f64) {
@@ -89,7 +89,7 @@ impl State {
                 s = x.clamp(0.0, 1.0);
                 v = y.clamp(0.0, 1.0)
             }
-            Channel::Alpha => a = x.clamp(0.0, 1.0) as f32,
+            Channel::Alpha => a = x.clamp(0.0, 1.0),
         }
         self.hue.set(h);
         self.color.set(color_from_hsv(h, s, v, a));

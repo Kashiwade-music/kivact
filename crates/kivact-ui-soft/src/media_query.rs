@@ -13,7 +13,7 @@ pub enum Breakpoint {
 }
 
 impl Breakpoint {
-    pub const fn px(self) -> f32 {
+    pub const fn px(self) -> f64 {
         match self {
             Self::Sm => 640.0,
             Self::Md => 768.0,
@@ -39,7 +39,7 @@ pub fn is_compact() -> Value<bool> {
     })
 }
 
-pub fn container_below(node: NodeRef, width: f32) -> Value<bool> {
+pub fn container_below(node: NodeRef, width: f64) -> Value<bool> {
     let rect = node.rect();
     memo(move || rect.get().is_some_and(|rect| rect.width < width))
 }

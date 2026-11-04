@@ -62,18 +62,13 @@ impl CubicBezier {
     }
 
     /// Sample 2..=513 evenly spaced times, including both exact endpoints.
-    /// Progress is clamped to the finite `f32` range when creating points.
+    /// Progress is clamped to the finite `f64` range when creating points.
     pub fn samples(&self, count: usize) -> Vec<Point> {
         let count = count.clamp(2, 513);
         (0..count)
             .map(|i| {
                 let time = i as f64 / (count - 1) as f64;
-                Point::new(
-                    time as f32,
-                    self.progress(time)
-                        .clamp(-f64::from(f32::MAX), f64::from(f32::MAX))
-                        as f32,
-                )
+                Point::new(time, self.progress(time).clamp(-f64::MAX, f64::MAX))
             })
             .collect()
     }

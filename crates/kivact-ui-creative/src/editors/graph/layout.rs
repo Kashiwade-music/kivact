@@ -25,11 +25,11 @@ pub(crate) fn number(value: f64, fallback: f64) -> f64 {
     if value.is_finite() { value } else { fallback }
 }
 
-fn coordinate(value: f64) -> f32 {
+fn coordinate(value: f64) -> f64 {
     if value.is_nan() {
         0.0
     } else {
-        value.clamp(-1e6, 1e6) as f32
+        value.clamp(-1e6, 1e6)
     }
 }
 
@@ -45,40 +45,37 @@ impl Space {
             plot: Rect::new(
                 SIDEBAR,
                 RULER,
-                number(f64::from(size.width - SIDEBAR), 1.0).clamp(1.0, 1e6) as f32,
-                number(f64::from(size.height - RULER), 1.0).clamp(1.0, 1e6) as f32,
+                number(size.width - SIDEBAR, 1.0).clamp(1.0, 1e6),
+                number(size.height - RULER, 1.0).clamp(1.0, 1e6),
             ),
         }
     }
     pub(crate) fn point(self, time: f64, value: f64) -> Point {
         Point::new(
             coordinate(
-                f64::from(self.plot.x)
+                self.plot.x
                     + (time - self.view.time.0) / (self.view.time.1 - self.view.time.0)
-                        * f64::from(self.plot.width),
+                        * self.plot.width,
             ),
             coordinate(
-                f64::from(self.plot.y + self.plot.height)
+                (self.plot.y + self.plot.height)
                     - (value - self.view.value.0) / (self.view.value.1 - self.view.value.0)
-                        * f64::from(self.plot.height),
+                        * self.plot.height,
             ),
         )
     }
-    pub(crate) fn time(self, x: f32) -> f64 {
+    pub(crate) fn time(self, x: f64) -> f64 {
         self.view.time.0
-            + f64::from(x - self.plot.x) / f64::from(self.plot.width)
-                * (self.view.time.1 - self.view.time.0)
+            + (x - self.plot.x) / self.plot.width * (self.view.time.1 - self.view.time.0)
     }
-    pub(crate) fn value(self, y: f32) -> f64 {
+    pub(crate) fn value(self, y: f64) -> f64 {
         self.view.value.1
-            - f64::from(y - self.plot.y) / f64::from(self.plot.height)
-                * (self.view.value.1 - self.view.value.0)
+            - (y - self.plot.y) / self.plot.height * (self.view.value.1 - self.view.value.0)
     }
     pub(crate) fn delta(self, delta: Point) -> (f64, f64) {
         (
-            f64::from(delta.x) / f64::from(self.plot.width) * (self.view.time.1 - self.view.time.0),
-            -f64::from(delta.y) / f64::from(self.plot.height)
-                * (self.view.value.1 - self.view.value.0),
+            delta.x / self.plot.width * (self.view.time.1 - self.view.time.0),
+            -delta.y / self.plot.height * (self.view.value.1 - self.view.value.0),
         )
     }
     pub(crate) fn key(self, key: &VisibleKey) -> Rect {
@@ -92,8 +89,8 @@ impl Space {
             value: (self.view.value.0 - dv, self.view.value.1 - dv),
         })
     }
-    pub(crate) fn zoom(self, at: Point, delta: f32, vertical: bool) -> GraphView {
-        let factor = (-f64::from(delta) * 0.001).clamp(-20.0, 20.0).exp();
+    pub(crate) fn zoom(self, at: Point, delta: f64, vertical: bool) -> GraphView {
+        let factor = (-delta * 0.001).clamp(-20.0, 20.0).exp();
         let mut next = self.view;
         let (range, anchor) = if vertical {
             (self.view.value, self.value(at.y))

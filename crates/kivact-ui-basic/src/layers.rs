@@ -47,7 +47,7 @@ pub(crate) fn description_style() -> Style {
 /// The ghost `icon-sm` close button's box, `top` and `right` px inside the
 /// corner of its panel, for the input state `input`; the button holds the
 /// theme's `x` icon. Call it inside a style closure or a recipe.
-pub(crate) fn close_box(input: &PartState, top: f32, right: f32) -> Style {
+pub(crate) fn close_box(input: &PartState, top: f64, right: f64) -> Style {
     let p = tokens();
     button_style(&p, Look::Ghost, ControlSize::Small, input)
         .position(Position::Absolute)

@@ -14,7 +14,7 @@ fn color_wheel_regions_keys_actions_and_gray_hue_preservation() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let seen = log.clone();
     let (screen, color) = kivact::test::render_with_handle(crate::support::options(), move || {
-        let color = signal(Color::from_rgba_f32(0.5, 0.5, 0.5, 0.4));
+        let color = signal(Color::from_rgba_f64(0.5, 0.5, 0.5, 0.4));
         (
             color,
             ui::color_wheel(color, signal(ui::ColorModel::Rgb))

@@ -46,7 +46,7 @@ fn item(
             let point = socket(node, outgoing, index);
             draw.circle(point, 4.5, entry.color);
             let x = if outgoing {
-                r.x + r.width - 10.0 - entry.label.len() as f32 * 4.8
+                r.x + r.width - 10.0 - entry.label.len() as f64 * 4.8
             } else {
                 r.x + 11.0
             };
@@ -57,10 +57,10 @@ fn item(
         }
     }
     let start = 58.0
-        + node.inputs.len().max(node.outputs.len()) as f32
+        + node.inputs.len().max(node.outputs.len()) as f64
             * crate::editors::shared::metrics::SOCKET_STEP;
     for (index, parameter) in node.parameters.iter().enumerate() {
-        let y = r.y + start + index as f32 * 27.0;
+        let y = r.y + start + index as f64 * 27.0;
         if y + 22.0 > r.y + r.height {
             break;
         }
@@ -91,9 +91,9 @@ fn item(
     }
     if let Some(image) = &node.preview {
         let preview = Rect::new(r.x + 10.0, r.y + r.height - 65.0, r.width - 20.0, 55.0);
-        let scale = (preview.width / image.width as f32).min(preview.height / image.height as f32);
-        let width = image.width as f32 * scale;
-        let height = image.height as f32 * scale;
+        let scale = (preview.width / image.width as f64).min(preview.height / image.height as f64);
+        let width = image.width as f64 * scale;
+        let height = image.height as f64 * scale;
         draw.pixels(
             image,
             Rect::new(
@@ -119,7 +119,7 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
     let p = draw.theme().get::<crate::tokens::Tokens>();
     for x in (0..size.width.max(0.0) as usize).step_by(20) {
         for y in (0..size.height.max(0.0) as usize).step_by(20) {
-            draw.rounded_rect(Rect::new(x as f32, y as f32, 2.0, 2.0), 1.0, p.hair);
+            draw.rounded_rect(Rect::new(x as f64, y as f64, 2.0, 2.0), 1.0, p.hair);
         }
     }
     let transform = state.transform.get();

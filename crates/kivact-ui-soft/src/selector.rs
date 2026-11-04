@@ -153,7 +153,7 @@ pub fn complex_selector_with_presentation<V: IntoView>(
         .expanded(open)
         .node_ref(target)
         .on_pointer(move |event| {
-            if matches!(event.phase, PointerPhase::Down(_)) {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
                 released.set(false);
             }
             if touch(event, !open.get_untracked() && presentation.uses_sheet()) {

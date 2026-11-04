@@ -171,7 +171,7 @@ fn text_input_edits_its_binding_and_rings_on_focus() {
 }
 
 /// The color `inset` logical pixels inside the left edge of `id`, at mid height.
-fn pixel_in(screen: &Screen, id: &str, inset: f32) -> u32 {
+fn pixel_in(screen: &Screen, id: &str, inset: f64) -> u32 {
     let rect = screen.get_by_test_id(id).rect().expect("laid out");
     pixel(screen, rect.x + inset, rect.y + rect.height / 2.0)
 }

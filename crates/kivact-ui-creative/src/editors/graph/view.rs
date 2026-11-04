@@ -135,7 +135,7 @@ impl IntoView for GraphEditor {
             .cells
             .iter()
             .map(|(width, _)| *width)
-            .sum::<f32>()
+            .sum::<f64>()
             .min(GRAPH_LANE_WIDTH);
         settings.ruler.report();
         let settings = Rc::new(settings);
@@ -294,7 +294,7 @@ impl IntoView for GraphEditor {
             Some(menu) => menu(
                 root.on_a11y_event(A11yAction::ShowMenu, move |event| {
                     state.cancel();
-                    state.context_request(event.region);
+                    state.context_request(event.region());
                 }),
                 state.context.into_value(),
             ),

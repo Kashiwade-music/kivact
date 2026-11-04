@@ -20,7 +20,7 @@ pub enum CardSize {
 }
 
 impl CardSize {
-    fn spacing(self) -> f32 {
+    fn spacing(self) -> f64 {
         match self {
             CardSize::Default => 16.0,
             CardSize::Sm => 12.0,
@@ -68,7 +68,7 @@ impl CardHeader {
         self
     }
 
-    fn build(self, spacing: f32) -> Node {
+    fn build(self, spacing: f64) -> Node {
         let titles = column((
             text(self.title).style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
             self.description.map(|description| {

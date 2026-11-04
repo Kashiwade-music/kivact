@@ -114,7 +114,7 @@ pub enum CodeBlockWidth {
     #[default]
     Fit,
     Fill,
-    Px(f32),
+    Px(f64),
 }
 /// Whether the code block has a card frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

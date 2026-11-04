@@ -9,7 +9,7 @@ use kivact::prelude::*;
 use kivact::test::{Element, Screen};
 use kivact_ui_creative as ui;
 
-fn width(element: &Element<'_>) -> f32 {
+fn width(element: &Element<'_>) -> f64 {
     element.rect().expect("laid out").width
 }
 

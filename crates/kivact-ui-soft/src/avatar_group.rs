@@ -13,7 +13,7 @@ use kivact::{Signal, Value, effect, on_cleanup, signal};
 
 #[derive(Clone)]
 pub(crate) struct AvatarGroupContext {
-    pub(crate) side: f32,
+    pub(crate) side: f64,
     pub(crate) shape: AvatarShape,
     active: Signal<Option<NodeRef>>,
     entries: Signal<Vec<(NodeRef, Value<bool>)>>,
@@ -153,7 +153,7 @@ impl<C: IntoChildren + 'static> IntoView for AvatarGroup<C> {
                 .align_items(Align::Center)
                 .shrink(0),
         )
-        .on_key(move |event| keyboard.navigate(event.key, rtl))
+        .on_key(move |event| keyboard.navigate(event.key(), rtl))
         .child(provide(context, move || {
             let children = children.into_views();
             let overlap = if children.is_empty() {

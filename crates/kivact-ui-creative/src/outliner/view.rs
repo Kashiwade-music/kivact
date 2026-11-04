@@ -59,8 +59,8 @@ pub struct Outliner {
     item_drop: Option<Callback<TreeDrop>>,
     active: Value<Option<u64>>,
     reveal_active: Value<bool>,
-    cells: Vec<(f32, CellRenderer)>,
-    row_height: Option<Value<f32>>,
+    cells: Vec<(f64, CellRenderer)>,
+    row_height: Option<Value<f64>>,
 }
 
 /// An outliner of `items` with the open, selected and renamed items of
@@ -158,7 +158,7 @@ impl Outliner {
     /// Non-finite or non-positive widths hide the cell.
     pub fn cell<V: IntoView>(
         mut self,
-        width: f32,
+        width: f64,
         render: impl Fn(Value<TreeItem>) -> V + 'static,
     ) -> Self {
         let width = if width.is_finite() && width > 0.0 {
@@ -171,7 +171,7 @@ impl Outliner {
         self
     }
     /// The height of a row (at least 20). The default is the density's row.
-    pub fn row_height(mut self, height: impl IntoValue<f32>) -> Self {
+    pub fn row_height(mut self, height: impl IntoValue<f64>) -> Self {
         self.row_height = Some(height.into_value());
         self
     }
@@ -400,7 +400,7 @@ impl IntoView for Outliner {
                             .on_key_default(|event| {
                                 // Enter/Space activate the focused child only after
                                 // key bubbling. Tree/List already ignore child focus.
-                                if matches!(event.key, Key::Tab | Key::Enter | Key::Space) {
+                                if matches!(event.key(), Key::Tab | Key::Enter | Key::Space) {
                                     Handled::No
                                 } else {
                                     Handled::Yes
@@ -548,14 +548,15 @@ impl IntoView for Outliner {
                 let body = body
                     .part(part)
                     .on_key(move |e: KeyEvent| {
-                        let plain = !e.modifiers.ctrl && !e.modifiers.alt && !e.modifiers.meta;
+                        let plain =
+                            !e.modifiers().ctrl && !e.modifiers().alt && !e.modifiers().meta;
                         // A key from the rename field or a cell is theirs.
                         if !focused.get() {
                             return Handled::No;
                         }
                         // Escape passes on: the list's own Escape ends a
                         // restriction paint, and the drag's source a drag.
-                        match e.key {
+                        match e.key() {
                             Key::F(2) if plain => {
                                 start_rename();
                                 Handled::Yes
@@ -573,7 +574,7 @@ impl IntoView for Outliner {
                     })
                     .part(kivact::primitive::part(|input| input).on_pointer(
                         move |e: PointerEvent| {
-                            if let PointerPhase::Down(press) = e.phase
+                            if let PointerPhase::Down(press) = e.phase()
                                 && press.button == MouseButton::Primary
                             {
                                 pressed.set(Some(id));
@@ -584,7 +585,7 @@ impl IntoView for Outliner {
                                     return Handled::Yes;
                                 }
                             }
-                            if matches!(e.phase, PointerPhase::Up(_) | PointerPhase::Cancel) {
+                            if matches!(e.phase(), PointerPhase::Up(_) | PointerPhase::Cancel) {
                                 released.set(None);
                             }
                             Handled::No
@@ -600,7 +601,7 @@ impl IntoView for Outliner {
         root.part(tree.list())
             .child(rows)
             .on_key(move |event| {
-                if event.key == Key::Escape && painter.cancel() {
+                if event.key() == Key::Escape && painter.cancel() {
                     Handled::Yes
                 } else {
                     Handled::No

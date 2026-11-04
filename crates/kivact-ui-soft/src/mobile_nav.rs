@@ -71,7 +71,7 @@ pub enum DrawerSide {
 pub struct MobileNav {
     root: Node,
     open: Option<Binding<bool>>,
-    width: f32,
+    width: f64,
     side: DrawerSide,
     label: Option<Value<String>>,
     header: Option<Value<String>>,
@@ -97,7 +97,7 @@ impl MobileNav {
         self.open = Some(open.into());
         self
     }
-    pub fn width(mut self, width: f32) -> Self {
+    pub fn width(mut self, width: f64) -> Self {
         self.width = width.max(0.0);
         self
     }

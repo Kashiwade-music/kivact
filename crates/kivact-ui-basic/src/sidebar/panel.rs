@@ -98,7 +98,7 @@ impl NodeBuilder for Sidebar {
 }
 
 /// The room a sidebar takes in the layout for the actual state.
-fn width_of(cx: SidebarCx) -> f32 {
+fn width_of(cx: SidebarCx) -> f64 {
     let framed = matches!(cx.variant, SidebarVariant::Floating | SidebarVariant::Inset);
     if cx.collapsible == SidebarCollapsible::None || cx.shown.get() {
         return WIDTH;
@@ -340,8 +340,8 @@ pub fn sidebar_provider(
             }
         })
         .on_key(move |event| {
-            let m = event.modifiers;
-            if (m.ctrl || m.meta) && !m.alt && !m.shift && event.key == Key::Char('b') {
+            let m = event.modifiers();
+            if (m.ctrl || m.meta) && !m.alt && !m.shift && event.key() == Key::Char('b') {
                 cx.toggle();
                 Handled::Yes
             } else {

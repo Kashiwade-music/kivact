@@ -22,7 +22,7 @@ pub(crate) fn socket(node: &NodeData, outgoing: bool, index: usize) -> Point {
     let y = sockets
         .get(index)
         .and_then(|s| s.offset)
-        .unwrap_or(SOCKET_START + index as f32 * SOCKET_STEP);
+        .unwrap_or(SOCKET_START + index as f64 * SOCKET_STEP);
     Point::new(
         node.position.x + if outgoing { node.size.width } else { 0.0 },
         node.position.y + y,
@@ -47,7 +47,7 @@ pub(crate) fn endpoints(nodes: &[NodeData], link: NodeLink) -> Option<(Point, Po
         socket(to, false, link.input),
     ))
 }
-pub(crate) fn curve(from: Point, to: Point, t: f32) -> Point {
+pub(crate) fn curve(from: Point, to: Point, t: f64) -> Point {
     let dx = (to.x - from.x).abs().max(80.0) * 0.5;
     let q = 1.0 - t;
     Point::new(
@@ -77,7 +77,7 @@ pub(crate) fn hit_link(nodes: &[NodeData], links: &[NodeLink], point: Point) -> 
         };
         let mut previous = from;
         for index in 1..=40 {
-            let next = curve(from, to, index as f32 / 40.0);
+            let next = curve(from, to, index as f64 / 40.0);
             let dx = next.x - previous.x;
             let dy = next.y - previous.y;
             let squared = dx * dx + dy * dy;

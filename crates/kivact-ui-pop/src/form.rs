@@ -134,8 +134,8 @@ impl IntoView for Dropzone {
         self.root
             .name(self.label)
             .on_file(move |e| {
-                hovered.set(matches!(e.phase, FilePhase::Enter | FilePhase::Over));
-                if e.phase == FilePhase::Drop {
+                hovered.set(matches!(e.phase(), FilePhase::Enter | FilePhase::Over));
+                if e.phase() == FilePhase::Drop {
                     callback.call(e.files);
                 }
                 Handled::Yes

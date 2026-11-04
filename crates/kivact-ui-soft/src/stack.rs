@@ -25,7 +25,7 @@ pub enum Space {
 
 impl Space {
     /// Resolve this spacing step against the current theme.
-    pub fn px(self) -> f32 {
+    pub fn px(self) -> f64 {
         let s = tokens().spacing;
         match self {
             Self::S0 => s.s0,
@@ -61,14 +61,14 @@ pub(crate) struct Padding {
 /// Logical insets announced by containers to their descendants.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ContainerInset {
-    pub start: f32,
-    pub end: f32,
-    pub top: f32,
-    pub bottom: f32,
+    pub start: f64,
+    pub end: f64,
+    pub top: f64,
+    pub bottom: f64,
 }
 
 impl ContainerInset {
-    pub(crate) fn uniform(px: f32) -> Self {
+    pub(crate) fn uniform(px: f64) -> Self {
         Self {
             start: px,
             end: px,
@@ -77,7 +77,7 @@ impl ContainerInset {
         }
     }
 
-    pub(crate) fn sides(self) -> (f32, f32) {
+    pub(crate) fn sides(self) -> (f64, f64) {
         if rtl() {
             (self.end, self.start)
         } else {
@@ -96,7 +96,7 @@ impl ContainerInset {
 }
 
 impl Padding {
-    pub(crate) fn resolve(self, default: f32) -> ContainerInset {
+    pub(crate) fn resolve(self, default: f64) -> ContainerInset {
         let side =
             |edge: Option<Space>, axis| edge.or(axis).or(self.all).map_or(default, Space::px);
         ContainerInset {

@@ -72,7 +72,7 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
                 _ => v,
             }
         } else {
-            f64::from(color.components()[index])
+            color.components()[index]
         }
     };
     let write = callback(move |next| {
@@ -88,10 +88,10 @@ fn numeric(state: State, hsv: bool, index: usize) -> crate::Numeric {
             };
         } else {
             let mut c = value.get().components();
-            c[index] = next as f32;
+            c[index] = next;
             state
                 .color
-                .set(Color::from_rgba_f32(c[0], c[1], c[2], c[3]));
+                .set(Color::from_rgba_f64(c[0], c[1], c[2], c[3]));
         }
     });
     number(
@@ -122,12 +122,12 @@ fn parse(text: &str, current: Color, alpha: bool) -> Option<Color> {
     }
     let mut c = current.components();
     for (i, channel) in c.iter_mut().enumerate().take(text.len() / 2) {
-        *channel = f32::from(u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).ok()?) / 255.0;
+        *channel = f64::from(u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).ok()?) / 255.0;
     }
     if !alpha {
         c[3] = current.components()[3];
     }
-    Some(Color::from_rgba_f32(c[0], c[1], c[2], c[3]))
+    Some(Color::from_rgba_f64(c[0], c[1], c[2], c[3]))
 }
 /// What the hexadecimal field shows: the color, or the text typed since.
 #[derive(Clone, PartialEq)]

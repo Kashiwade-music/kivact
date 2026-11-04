@@ -284,8 +284,8 @@ impl IntoView for Kpi {
                         .enumerate()
                         .map(|(i, y)| {
                             Point::new(
-                                i as f32 * s.width / values.len().saturating_sub(1).max(1) as f32,
-                                s.height * (1. - ((y - min) / span) as f32),
+                                i as f64 * s.width / values.len().saturating_sub(1).max(1) as f64,
+                                s.height * (1. - ((y - min) / span) as f64),
                             )
                         })
                         .collect();
@@ -441,7 +441,7 @@ pub fn ring(label: impl IntoText, value: impl IntoValue<f64>, tone: Tone) -> Nod
             &Stroke::new(8),
             d.theme().get::<Tokens>().surface_3,
         );
-        let end = -90. + animated.get() as f32 * 3.6;
+        let end = -90. + animated.get() as f64 * 3.6;
         if end > -90. {
             d.stroke_path(
                 &Path::new().arc(center, 36., -90., end, false),
@@ -491,13 +491,13 @@ pub fn avatar(initials: impl IntoText) -> Avatar {
 pub struct Avatar {
     root: Node,
     initials: Value<String>,
-    size: f32,
+    size: f64,
     color: Color,
     online: Option<Tone>,
 }
 impl Avatar {
     /// Side length in logical pixels; 36 by default.
-    pub fn size(mut self, size: f32) -> Self {
+    pub fn size(mut self, size: f64) -> Self {
         self.size = size;
         self
     }

@@ -39,10 +39,10 @@ pub struct Tokens {
     pub navy: Color,
     pub hue_backgrounds: [Color; 6],
     pub hue_foregrounds: [Color; 6],
-    pub panel_padding: f32,
-    pub control_height: f32,
-    pub control_radius: f32,
-    pub panel_radius: f32,
+    pub panel_padding: f64,
+    pub control_height: f64,
+    pub control_radius: f64,
+    pub panel_radius: f64,
 }
 
 impl Tokens {

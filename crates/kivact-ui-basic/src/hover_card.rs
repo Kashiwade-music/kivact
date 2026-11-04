@@ -17,7 +17,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 /// The 4 px gap between the trigger and the panel (`sideOffset`).
-const SIDE_OFFSET: f32 = 4.0;
+const SIDE_OFFSET: f64 = 4.0;
 
 /// A card that previews a link while the pointer or focus is on it
 /// (hover-card.tsx).

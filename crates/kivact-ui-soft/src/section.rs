@@ -39,7 +39,7 @@ impl std::ops::BitOr for Edges {
 }
 
 #[derive(Clone, Copy)]
-struct SectionPadding(f32);
+struct SectionPadding(f64);
 
 pub struct Section {
     root: Node,

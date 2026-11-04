@@ -185,7 +185,7 @@ pub(super) fn restriction(item: Value<TreeItem>, context: Context, column: usize
             toggle(&action_context, id, restriction_flag(column));
         })
         .on_pointer_default(move |event| {
-            match event.phase {
+            match event.phase() {
                 PointerPhase::Down(ButtonPress {
                     button: MouseButton::Primary,
                     ..
@@ -204,10 +204,10 @@ pub(super) fn restriction(item: Value<TreeItem>, context: Context, column: usize
                 PointerPhase::Move => {
                     let target = context.rows.borrow().iter().find_map(|(&id, mounted)| {
                         let rect = mounted.rect.get()?;
-                        (event.window_pos.x >= rect.x
-                            && event.window_pos.x <= rect.x + rect.width
-                            && event.window_pos.y >= rect.y
-                            && event.window_pos.y < rect.y + rect.height)
+                        (event.window_pos().x >= rect.x
+                            && event.window_pos().x <= rect.x + rect.width
+                            && event.window_pos().y >= rect.y
+                            && event.window_pos().y < rect.y + rect.height)
                             .then_some(id)
                     });
                     if let Some(id) = target {
@@ -269,17 +269,17 @@ pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> Node {
         .on_a11y(A11yAction::Toggle, move || expand(false))
         .on_pointer_default(move |event| {
             if matches!(
-                event.phase,
+                event.phase(),
                 PointerPhase::Down(ButtonPress {
                     button: MouseButton::Primary,
                     ..
                 })
             ) {
-                expand(event.modifiers.shift);
+                expand(event.modifiers().shift);
                 return Handled::Yes;
             }
             if matches!(
-                event.phase,
+                event.phase(),
                 PointerPhase::Up(_) | PointerPhase::Move | PointerPhase::Cancel
             ) {
                 Handled::Yes

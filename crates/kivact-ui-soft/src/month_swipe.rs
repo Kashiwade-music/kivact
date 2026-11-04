@@ -26,11 +26,11 @@ pub(super) struct MonthSwipe {
     month: Binding<CalendarMonth>,
     min: CalendarMonth,
     max: CalendarMonth,
-    sign: f32,
+    sign: f64,
     contact: Var<Option<Contact>>,
     velocity: Var<DragVelocity>,
-    pub(super) shift: Signal<f32>,
-    pub(super) entering: Signal<f32>,
+    pub(super) shift: Signal<f64>,
+    pub(super) entering: Signal<f64>,
     pub(super) suppress_choice: Signal<bool>,
 }
 
@@ -55,32 +55,36 @@ impl MonthSwipe {
     }
 
     pub(super) fn pointer(self, event: PointerEvent) -> Handled {
-        if event.kind != PointerKind::Touch || !event.is_primary {
+        if event.kind() != PointerKind::Touch || !event.is_primary() {
             return Handled::No;
         }
-        let position = event.window_pos;
+        let position = event.window_pos();
         let now = clock_now();
-        if matches!(event.phase, PointerPhase::Down(_)) {
+        if matches!(event.phase(), PointerPhase::Down(_)) {
             self.suppress_choice.set(false);
             self.entering.set(0.0);
             self.shift.set(0.0);
             self.velocity
                 .update(|velocity| velocity.reset(now, position));
             self.contact.set(Some(Contact {
-                id: event.id,
+                id: event.id(),
                 start: position,
                 axis: Axis::Pending,
             }));
             return Handled::No;
         }
-        let Some(mut contact) = self.contact.get().filter(|contact| contact.id == event.id) else {
+        let Some(mut contact) = self
+            .contact
+            .get()
+            .filter(|contact| contact.id == event.id())
+        else {
             return Handled::No;
         };
-        if event.phase == PointerPhase::Cancel {
+        if event.phase() == PointerPhase::Cancel {
             self.finish();
             return Handled::No;
         }
-        if !matches!(event.phase, PointerPhase::Move | PointerPhase::Up(_)) {
+        if !matches!(event.phase(), PointerPhase::Move | PointerPhase::Up(_)) {
             return Handled::No;
         }
         let (dx, dy) = (position.x - contact.start.x, position.y - contact.start.y);
@@ -94,14 +98,14 @@ impl MonthSwipe {
             self.suppress_choice.set(true);
         }
         if contact.axis != Axis::Inline {
-            if matches!(event.phase, PointerPhase::Up(_)) {
+            if matches!(event.phase(), PointerPhase::Up(_)) {
                 self.finish();
             }
             return Handled::No;
         }
         self.velocity
             .update(|velocity| velocity.record(now, position));
-        if matches!(event.phase, PointerPhase::Up(_)) {
+        if matches!(event.phase(), PointerPhase::Up(_)) {
             let speed = self.velocity.with(|velocity| velocity.pixels_per_ms(now).x);
             let projected = (dx + 499.0 * speed) * self.sign;
             let pages = if dx.abs() >= 32.0 {
@@ -117,7 +121,7 @@ impl MonthSwipe {
                 self.entering.set(if kivact::platform::reduced_motion() {
                     0.0
                 } else {
-                    pages.signum() as f32 * self.sign * 44.0
+                    pages.signum() as f64 * self.sign * 44.0
                 });
                 self.month.set(next);
             }

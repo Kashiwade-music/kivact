@@ -130,10 +130,10 @@ impl IntoView for DateInput {
             .expanded(open)
             .forward_keys(vec![Key::ArrowDown])
             .on_key(move |event: KeyEvent| {
-                if event.key == Key::ArrowDown
-                    && !event.modifiers.ctrl
-                    && !event.modifiers.meta
-                    && !event.modifiers.shift
+                if event.key() == Key::ArrowDown
+                    && !event.modifiers().ctrl
+                    && !event.modifiers().meta
+                    && !event.modifiers().shift
                     && !open.get_untracked()
                 {
                     opened_from_input.set(true);
