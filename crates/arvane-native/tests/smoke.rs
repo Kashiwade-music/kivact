@@ -33,6 +33,10 @@ impl ShellHandler for Smoke {
         Ok(ShellControl::Wait)
     }
 }
+#[allow(
+    clippy::print_stderr,
+    reason = "report an unavailable display explicitly when skipping the test"
+)]
 fn native_window_opens_presents_and_closes() {
     let backend = match arvane_native::backend(ShellOptions {
         width: 160.0,

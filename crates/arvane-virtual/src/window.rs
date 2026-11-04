@@ -137,13 +137,13 @@ impl ShellWindow for VirtualShell {
                 return result;
             }
         }
-        if !matches!(request, PlatformRequest::Fullscreen(_)) {
-            if let Err(error) = self.effect_result() {
-                return match error {
-                    ShellError::Unsupported(_) => PlatformResult::Unsupported,
-                    ShellError::Failed(failure) => PlatformResult::Failed(failure),
-                };
-            }
+        if !matches!(request, PlatformRequest::Fullscreen(_))
+            && let Err(error) = self.effect_result()
+        {
+            return match error {
+                ShellError::Unsupported(_) => PlatformResult::Unsupported,
+                ShellError::Failed(failure) => PlatformResult::Failed(failure),
+            };
         }
         match request {
             PlatformRequest::CopyText(text) => {
