@@ -22,7 +22,7 @@ use super::variants::Look;
 use kivact_core::view::CheckedState;
 
 /// The font size of a control.
-fn font_size(theme: &Theme, size: ControlSize) -> f32 {
+fn font_size(theme: &Theme, size: ControlSize) -> f64 {
     match size {
         ControlSize::ExtraSmall | ControlSize::Small => theme.text().size_small,
         ControlSize::Medium => theme.text().size,
@@ -32,7 +32,7 @@ fn font_size(theme: &Theme, size: ControlSize) -> f32 {
 
 /// The height of a control: the theme's `control_height`, 80% of it for
 /// a small one and 65% for an extra small one.
-pub(super) fn height(theme: &Theme, size: ControlSize) -> f32 {
+pub(super) fn height(theme: &Theme, size: ControlSize) -> f64 {
     match size {
         ControlSize::ExtraSmall => (theme.control_height() * 0.65).round(),
         ControlSize::Small => (theme.control_height() * 0.8).round(),
@@ -42,7 +42,7 @@ pub(super) fn height(theme: &Theme, size: ControlSize) -> f32 {
 }
 
 /// The gap between a control's parts.
-fn gap(theme: &Theme, size: ControlSize) -> f32 {
+fn gap(theme: &Theme, size: ControlSize) -> f64 {
     match size {
         ControlSize::ExtraSmall => theme.space().xs,
         ControlSize::Small => theme.space().sm,
@@ -126,17 +126,17 @@ pub(super) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
 }
 
 /// The side of a check box and the height of a switch's track.
-fn indicator(theme: &Theme, size: ControlSize) -> f32 {
+fn indicator(theme: &Theme, size: ControlSize) -> f64 {
     font_size(theme, size).round() + 2.0
 }
 
 /// The room a toggle keeps at its left edge for its drawing.
-fn leading(theme: &Theme) -> f32 {
+fn leading(theme: &Theme) -> f64 {
     theme.space().sm
 }
 
 /// The width of the drawn part of a toggle.
-fn indicator_width(theme: &Theme, size: ControlSize, switch: bool) -> f32 {
+fn indicator_width(theme: &Theme, size: ControlSize, switch: bool) -> f64 {
     let side = indicator(theme, size);
     if switch { (side * 1.8).round() } else { side }
 }
@@ -175,7 +175,7 @@ pub(super) fn draw_checkbox(theme: &Theme, look: &CheckState, d: &mut Draw, size
     let rect = Rect::new(leading(theme), (size.height - side) / 2.0, side, side);
     if look.checked != CheckedState::Unchecked {
         d.rounded_rect(rect, r, ColorToken::Accent);
-        let at = |x: f32, y: f32| Point::new(rect.x + side * x, rect.y + side * y);
+        let at = |x: f64, y: f64| Point::new(rect.x + side * x, rect.y + side * y);
         let mark = Stroke::new(2.0).cap(LineCap::Round).join(LineJoin::Round);
         if look.checked == CheckedState::Indeterminate {
             d.polyline(

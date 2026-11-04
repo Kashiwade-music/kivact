@@ -276,7 +276,7 @@ impl TextEdit {
                 let data = owned.get();
                 if lines == Lines::Single
                     && data.mounted.get() == Some(id)
-                    && event.key == Key::Enter
+                    && event.key() == Key::Enter
                 {
                     let submit = data.submit.borrow().clone();
                     if let Some(submit) = submit {

@@ -11,7 +11,7 @@ pub struct DataTableStickyPaint {
     pub hover: Color,
     pub selected: Color,
     pub shadow: Color,
-    pub shadow_width: f32,
+    pub shadow_width: f64,
     pub shadow_transition: Option<Transition>,
     pub overlay_transition: Option<Transition>,
 }
@@ -53,8 +53,8 @@ pub(super) fn surface(header: bool, selected: bool, tint: Option<Color>) -> Styl
 fn over(theme: &Theme, overlay: Color, surface: Color) -> Color {
     let top = overlay.resolve(theme);
     let base = surface.resolve(theme);
-    let mix = |a: f32, b: f32| a * top.a + b * (1.0 - top.a);
-    Color::from_rgba_f32(
+    let mix = |a: f64, b: f64| a * top.a + b * (1.0 - top.a);
+    Color::from_rgba_f64(
         mix(top.r, base.r),
         mix(top.g, base.g),
         mix(top.b, base.b),

@@ -327,7 +327,7 @@ impl SplitterApi {
                 let scale = settings
                     .with_untracked(|settings| settings.scale)
                     .map_or(1.0, |scale| scale.get());
-                self.ops.set(origin + f64::from(travel) * scale);
+                self.ops.set(origin + travel * scale);
             })
             .on_end(move |_| origin.set(None));
         let source = session.source(());
@@ -356,13 +356,13 @@ impl SplitterApi {
             if self.is_disabled() {
                 return Handled::No;
             }
-            let factor = if event.modifiers.shift {
+            let factor = if event.modifiers().shift {
                 self.settings
                     .with_untracked(|settings| settings.shift_step_factor.unwrap_or(1.0))
             } else {
                 1.0
             };
-            let accepted = match event.key {
+            let accepted = match event.key() {
                 key if key == shrink_key => once(&|ops, step| ops.step_by(-1.0, step * factor)),
                 key if key == grow_key => once(&|ops, step| ops.step_by(1.0, step * factor)),
                 Key::Home => once(&|ops, _| ops.set(range.get_untracked().min())),

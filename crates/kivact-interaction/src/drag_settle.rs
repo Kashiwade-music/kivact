@@ -13,7 +13,7 @@ pub enum DragAxis {
 
 impl DragAxis {
     /// The signed component on this axis, ignoring cross-axis movement.
-    pub fn component(self, delta: Point) -> f32 {
+    pub fn component(self, delta: Point) -> f64 {
         match self {
             Self::Horizontal => delta.x,
             Self::Vertical => delta.y,
@@ -21,7 +21,7 @@ impl DragAxis {
     }
 
     /// The full axis displacement once it strictly exceeds the slop in pixels.
-    pub fn past_slop(self, delta: Point, slop: f32) -> Option<f32> {
+    pub fn past_slop(self, delta: Point, slop: f64) -> Option<f64> {
         let displacement = self.component(delta);
         (displacement.abs() > slop).then_some(displacement)
     }
@@ -29,12 +29,12 @@ impl DragAxis {
 
 /// Project a release using its velocity in pixels per millisecond and a decay
 /// time constant. This predicts the destination without running an animation.
-pub fn project_release(position: f32, velocity: f32, decay: Duration) -> f32 {
-    position + velocity * (decay.as_secs_f64() * 1000.0) as f32
+pub fn project_release(position: f64, velocity: f64, decay: Duration) -> f64 {
+    position + velocity * (decay.as_secs_f64() * 1000.0)
 }
 
 /// Index of the closest stop. Ties select the first stop in the slice.
-pub fn nearest_snap(position: f32, stops: &[f32]) -> Option<usize> {
+pub fn nearest_snap(position: f64, stops: &[f64]) -> Option<usize> {
     stops
         .iter()
         .enumerate()
@@ -43,7 +43,7 @@ pub fn nearest_snap(position: f32, stops: &[f32]) -> Option<usize> {
 }
 
 /// Ease toward the closest stop inside a radius using quadratic falloff.
-pub fn pull_to_snap(position: f32, stops: &[f32], radius: f32) -> f32 {
+pub fn pull_to_snap(position: f64, stops: &[f64], radius: f64) -> f64 {
     if radius <= 0.0 {
         return position;
     }
@@ -56,7 +56,7 @@ pub fn pull_to_snap(position: f32, stops: &[f32], radius: f32) -> f32 {
 }
 
 /// Apply linear resistance to signed movement beyond an edge, with a hard cap.
-pub fn resist_overshoot(overshoot: f32, resistance: f32, limit: f32) -> f32 {
+pub fn resist_overshoot(overshoot: f64, resistance: f64, limit: f64) -> f64 {
     let limit = limit.max(0.0);
     (overshoot * resistance).clamp(-limit, limit)
 }

@@ -92,7 +92,7 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
     .on_key(move |event: KeyEvent| key_down(&keys, &id.get(), &event))
     .on_pointer(move |event: PointerEvent| {
         if matches!(
-            event.phase,
+            event.phase(),
             PointerPhase::Down(ButtonPress {
                 button: MouseButton::Primary,
                 ..
@@ -101,7 +101,7 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
             let (key, column) = id.get();
             pointers
                 .list
-                .select(key.clone(), pointers.list.gesture(event.modifiers));
+                .select(key.clone(), pointers.list.gesture(event.modifiers()));
             let cell = (key, column);
             if pointers
                 .target(&cell)
@@ -164,10 +164,10 @@ fn key_down<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
     if !node.holds_focus() {
         return Handled::No;
     }
-    let modifiers = event.modifiers;
+    let modifiers = event.modifiers();
     let command = modifiers.ctrl || modifiers.meta;
     let multiple = matches!(state.selection, ListSelection::Multiple(_));
-    match event.key {
+    match event.key() {
         Key::Space if !modifiers.alt => {
             state
                 .list
@@ -180,7 +180,7 @@ fn key_down<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
         }
         _ => {}
     }
-    let Some(movement) = GridMove::from_key(event.key, modifiers) else {
+    let Some(movement) = GridMove::from_key(event.key(), modifiers) else {
         return Handled::No;
     };
     let keys = state.keys.get();

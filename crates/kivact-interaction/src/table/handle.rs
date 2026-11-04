@@ -378,13 +378,13 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         })
         .on_press(move || activate(current_modifiers().shift))
         .on_key(move |event: KeyEvent| {
-            let modifiers = event.modifiers;
-            if !event.repeat
+            let modifiers = event.modifiers();
+            if !event.repeat()
                 && modifiers.shift
                 && !modifiers.ctrl
                 && !modifiers.alt
                 && !modifiers.meta
-                && matches!(event.key, Key::Enter | Key::Space)
+                && matches!(event.key(), Key::Enter | Key::Space)
                 && focused.get_untracked()
                 && multi_sort.get_untracked().is_some()
             {
@@ -456,7 +456,7 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                         })
                     })
                     .filter(|width| width.is_finite() && *width > 0.0)
-                    .unwrap_or_else(|| rect.get().map_or(100.0, |rect| f64::from(rect.width)))
+                    .unwrap_or_else(|| rect.get().map_or(100.0, |rect| rect.width))
             })
         });
         let write = move |width: f64| {

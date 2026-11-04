@@ -278,8 +278,8 @@ impl<T: 'static> Copy for Drag<T> {}
 /// # }
 /// use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
 /// use kivact::prelude::*;
-/// let offset = signal(0.0_f32);
-/// let started = signal(0.0_f32);
+/// let offset = signal(0.0_f64);
+/// let started = signal(0.0_f64);
 /// let session = use_drag::<()>(DragCoordinates::Window)
 ///     .on_start(move |_| started.set(offset.get_untracked()))
 ///     .on_update(move |update: DragUpdate<()>| offset.set(started.get_untracked() + update.delta.x));
@@ -355,8 +355,8 @@ impl<T: Clone + 'static> Drag<T> {
     /// # }
     /// use kivact::interaction::{DragCoordinates, DragUpdate, EditPhase, EditSession, use_drag};
     /// use kivact::prelude::*;
-    /// let x = signal(0.0_f32);
-    /// let origin = signal(0.0_f32);
+    /// let x = signal(0.0_f64);
+    /// let origin = signal(0.0_f64);
     /// let edit = EditSession::new(move |start| x.set(start))
     ///     .on_edit(|phase: EditPhase| println!("{phase:?}"));
     /// let source = use_drag::<()>(DragCoordinates::Window)
@@ -395,8 +395,8 @@ impl<T: Clone + 'static> Drag<T> {
     /// # }
     /// use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
     /// use kivact::prelude::*;
-    /// let x = signal(0.0_f32);
-    /// let origin = signal(0.0_f32);
+    /// let x = signal(0.0_f64);
+    /// let origin = signal(0.0_f64);
     /// let edit = EditSession::new(move |start| x.set(start));
     /// let drag = use_drag::<()>(DragCoordinates::Window)
     ///     .edit_on_change(edit, move || x.get_untracked())
@@ -651,7 +651,7 @@ impl<T: Clone + 'static> Drag<T> {
             }
         })
         .on_key(move |event: KeyEvent| -> kivact_core::Result<Handled> {
-            if event.key != Key::Escape {
+            if event.key() != Key::Escape {
                 return Ok(Handled::No);
             }
             let Some(active) = self.take_active() else {
@@ -660,7 +660,7 @@ impl<T: Clone + 'static> Drag<T> {
             let cancel = update(
                 active.start,
                 active.last,
-                event.modifiers,
+                event.modifiers(),
                 DragPhase::Cancel,
             );
             self.stop(Stop::Cancel, active.owns_edit, cancel)?;
@@ -686,18 +686,18 @@ impl<T: Clone + 'static> Drag<T> {
     /// Advance the session by one pointer event of source `id`.
     fn observe(self, id: u64, payload: &T, event: PointerEvent) -> Option<Step<T>> {
         let pos = match self.coordinates {
-            DragCoordinates::Local => event.pos,
-            DragCoordinates::Window => event.window_pos,
+            DragCoordinates::Local => event.pos(),
+            DragCoordinates::Window => event.window_pos(),
         };
         let valid = pos.x.is_finite() && pos.y.is_finite();
-        if let PointerPhase::Down(press) = event.phase {
+        if let PointerPhase::Down(press) = event.phase() {
             let button = press.button;
             let buttons = self.settings.with(|settings| settings.buttons);
             if buttons & bit(button) == 0 || !valid || self.is_disabled() || self.is_active() {
                 return None;
             }
             let start = DragStart {
-                pointer: event.id,
+                pointer: event.id(),
                 button,
                 pos,
                 payload: payload.clone(),
@@ -710,20 +710,20 @@ impl<T: Clone + 'static> Drag<T> {
                     owns_edit: false,
                 });
             });
-            return update(start, pos, event.modifiers, DragPhase::Start).map(Step::Update);
+            return update(start, pos, event.modifiers(), DragPhase::Start).map(Step::Update);
         }
         if !matches!(
-            event.phase,
+            event.phase(),
             PointerPhase::Move | PointerPhase::Up(_) | PointerPhase::Cancel
         ) {
             return None;
         }
         let (owned, releases) = self.session.with_untracked(|session| match session {
             DragSession::Active(active)
-                if active.source == id && active.start.pointer == event.id =>
+                if active.source == id && active.start.pointer == event.id() =>
             {
                 let releases = matches!(
-                    event.phase,
+                    event.phase(),
                     PointerPhase::Up(press) if press.button == active.start.button
                 );
                 (true, releases)
@@ -733,7 +733,7 @@ impl<T: Clone + 'static> Drag<T> {
         if !owned {
             return None;
         }
-        let phase = match event.phase {
+        let phase = match event.phase() {
             PointerPhase::Move => {
                 if self.is_disabled() {
                     if let Some(active) = self.take_active() {
@@ -759,7 +759,7 @@ impl<T: Clone + 'static> Drag<T> {
                 }
                 DragSession::Idle | DragSession::Releasing { .. } => None,
             })?;
-            return update(start, pos, event.modifiers, phase).map(Step::Update);
+            return update(start, pos, event.modifiers(), phase).map(Step::Update);
         }
         let active = self.take_active()?;
         // A terminal event with invalid coordinates still ends the drag,
@@ -773,7 +773,7 @@ impl<T: Clone + 'static> Drag<T> {
         Some(Step::Stop {
             stop,
             owns_edit: active.owns_edit,
-            update: update(active.start, pos, event.modifiers, phase),
+            update: update(active.start, pos, event.modifiers(), phase),
         })
     }
 }

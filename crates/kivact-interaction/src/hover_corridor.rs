@@ -131,7 +131,7 @@ struct Edge {
 
 impl Edge {
     fn facing(origin: Point, rect: Rect) -> Option<Self> {
-        const PAD: f32 = 8.0;
+        const PAD: f64 = 8.0;
         let right = rect.x + rect.width;
         let bottom = rect.y + rect.height;
         let vertical = |x| Self {
@@ -159,7 +159,7 @@ impl Edge {
         }
     }
 
-    fn distance(&self, point: Point) -> f32 {
+    fn distance(&self, point: Point) -> f64 {
         if self.vertical {
             (self.first.x - point.x).abs()
         } else {
@@ -168,7 +168,7 @@ impl Edge {
     }
 
     fn contains(&self, point: Point, origin: Point) -> bool {
-        fn cross(a: Point, b: Point, p: Point) -> f32 {
+        fn cross(a: Point, b: Point, p: Point) -> f64 {
             (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
         }
         let sides = [

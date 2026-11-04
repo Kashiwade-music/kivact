@@ -89,7 +89,7 @@ pub(super) fn item<K: Clone + Eq + Hash + 'static>(
         .disabled(disabled)
         .focusable(move || !retained_focus && active.get())
         .focusable_when_disabled(retain_disabled_focus)
-        .on_key(move |event| super::input::key(&keys, &key.get(), event))
+        .on_key(move |event| super::input::key(&keys, &key.get(), event, None))
         .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
     let invoke = move || {
         if bound.get_untracked() != ItemMount::Admitted {

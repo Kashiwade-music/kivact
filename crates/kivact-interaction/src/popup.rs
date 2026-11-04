@@ -303,7 +303,7 @@ impl Popup {
             // surface back to the trigger leaves the surface, which stays open
             // as the anchor is part of its focus range.
             .on_key_up(move |event: KeyEvent| {
-                if event.key == Key::Tab && self.shown().get() {
+                if event.key() == Key::Tab && self.shown().get() {
                     self.close(PopupCloseReason::Tab);
                 }
                 Handled::No

@@ -18,9 +18,9 @@ impl Press {
         source: Source,
         event: PointerEvent,
     ) -> Handled {
-        let position = event.window_pos;
-        if let PointerPhase::Down(press) = event.phase {
-            if !event.is_primary {
+        let position = event.window_pos();
+        if let PointerPhase::Down(press) = event.phase() {
+            if !event.is_primary() {
                 self.cancel();
                 return Handled::No;
             }
@@ -29,12 +29,12 @@ impl Press {
             }
             let opened = session.shown().get_untracked();
             if (source == Source::Menu) != opened
-                || (source == Source::Context && event.kind == PointerKind::Mouse)
+                || (source == Source::Context && event.kind() == PointerKind::Mouse)
             {
                 return Handled::No;
             }
-            let id = event.id;
-            let kind = event.kind;
+            let id = event.id();
+            let kind = event.kind();
             let phase = if source == Source::Menu || kind == PointerKind::Mouse {
                 event.suppress_activation();
                 if source == Source::Trigger {
@@ -84,14 +84,18 @@ impl Press {
                 Handled::No
             };
         }
-        let Some(mut gesture) = self.gesture.get().filter(|gesture| gesture.id == event.id) else {
+        let Some(mut gesture) = self
+            .gesture
+            .get()
+            .filter(|gesture| gesture.id == event.id())
+        else {
             return Handled::No;
         };
-        if matches!(event.phase, PointerPhase::Cancel) {
+        if matches!(event.phase(), PointerPhase::Cancel) {
             self.cancel();
             return Handled::No;
         }
-        match (event.phase, gesture.phase) {
+        match (event.phase(), gesture.phase) {
             (PointerPhase::Move, Phase::Pending { from, .. }) => {
                 let drift = if gesture.source == Source::Context {
                     10.0

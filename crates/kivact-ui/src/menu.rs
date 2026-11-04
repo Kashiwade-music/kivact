@@ -38,7 +38,7 @@ type ItemContent<K> = Rc<dyn Fn(Value<MenuEntry<K>>, Value<MenuItemState>) -> Vi
 pub struct Menu<K: Clone + Eq + Hash + 'static> {
     label: Value<String>,
     behavior: Behavior<K>,
-    offset: Option<f32>,
+    offset: Option<f64>,
     placement: Placement,
     align: Option<OverlayAlign>,
     at_least_trigger_width: bool,
@@ -94,7 +94,7 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
     /// Set the root surface's distance from its trigger (default 4 logical
     /// pixels; a context menu opens right at the pointer or its target, 0);
     /// submenus stay adjacent.
-    pub fn offset(mut self, offset: f32) -> Self {
+    pub fn offset(mut self, offset: f64) -> Self {
         self.offset = Some(offset);
         self
     }
@@ -263,7 +263,7 @@ struct Level<K: Clone + Eq + Hash + 'static> {
     /// A submenu's level, drawn with the submenu surface recipe.
     sub: bool,
     label: Value<String>,
-    offset: f32,
+    offset: f64,
     variants: Variants,
 }
 

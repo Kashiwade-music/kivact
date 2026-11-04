@@ -57,16 +57,16 @@ impl ViewTransform {
     pub fn to_content(&self, view: Point) -> Point {
         let scale = valid_scale(self.scale);
         Point::new(
-            ((f64::from(view.x) - f64::from(self.offset.x)) / scale) as f32,
-            ((f64::from(view.y) - f64::from(self.offset.y)) / scale) as f32,
+            (view.x - self.offset.x) / scale,
+            (view.y - self.offset.y) / scale,
         )
     }
     /// Map a content point into surface-local coordinates.
     pub fn to_view(&self, content: Point) -> Point {
         let scale = valid_scale(self.scale);
         Point::new(
-            (f64::from(content.x) * scale + f64::from(self.offset.x)) as f32,
-            (f64::from(content.y) * scale + f64::from(self.offset.y)) as f32,
+            content.x * scale + self.offset.x,
+            content.y * scale + self.offset.y,
         )
     }
     /// Uniformly fit the whole content into the view, centered.
@@ -78,13 +78,12 @@ impl ViewTransform {
         {
             return Self::default();
         }
-        let scale = (f64::from(view.width) / f64::from(content.width))
-            .min(f64::from(view.height) / f64::from(content.height));
+        let scale = (view.width / content.width).min(view.height / content.height);
         Self {
             scale,
             offset: Point::new(
-                ((f64::from(view.width) - f64::from(content.width) * scale) / 2.0) as f32,
-                ((f64::from(view.height) - f64::from(content.height) * scale) / 2.0) as f32,
+                (view.width - content.width * scale) / 2.0,
+                (view.height - content.height * scale) / 2.0,
             ),
         }
     }
@@ -193,7 +192,7 @@ fn midpoint(a: Point, b: Point) -> Point {
 }
 
 fn distance(a: Point, b: Point) -> f64 {
-    f64::from(a.x - b.x).hypot(f64::from(a.y - b.y))
+    (a.x - b.x).hypot(a.y - b.y)
 }
 
 impl ZoomPan {
@@ -262,10 +261,7 @@ impl ZoomPan {
         let anchor = midpoint(a.now, b.now);
         ViewTransform {
             scale,
-            offset: Point::new(
-                (f64::from(anchor.x) - f64::from(content.x) * scale) as f32,
-                (f64::from(anchor.y) - f64::from(content.y) * scale) as f32,
-            ),
+            offset: Point::new(anchor.x - content.x * scale, anchor.y - content.y * scale),
         }
     }
 
@@ -275,10 +271,7 @@ impl ZoomPan {
         let content = current.to_content(anchor);
         ViewTransform {
             scale,
-            offset: Point::new(
-                (f64::from(anchor.x) - f64::from(content.x) * scale) as f32,
-                (f64::from(anchor.y) - f64::from(content.y) * scale) as f32,
-            ),
+            offset: Point::new(anchor.x - content.x * scale, anchor.y - content.y * scale),
         }
     }
 
@@ -346,16 +339,16 @@ impl ZoomPan {
         });
         surface
             .on_pointer(move |event: PointerEvent| {
-                if event.kind == PointerKind::Touch
+                if event.kind() == PointerKind::Touch
                     && let Some(handled) = self.touch(event, state)
                 {
                     return handled;
                 }
-                if let PointerPhase::Down(press) = event.phase {
+                if let PointerPhase::Down(press) = event.phase() {
                     let button = press.button;
                     if self.gesturing.get_untracked()
                         || state.get().disabled
-                        || !finite(event.pos)
+                        || !finite(event.pos())
                         || !(button == MouseButton::Middle
                             || (button == MouseButton::Primary && self.armed.get_untracked()))
                     {
@@ -364,8 +357,8 @@ impl ZoomPan {
                     let transform = value.get();
                     self.gesture.update(|gesture| {
                         *gesture = Gesture::Pan(Pan {
-                            pointer: event.id,
-                            position: event.pos,
+                            pointer: event.id(),
+                            position: event.pos(),
                             transform,
                             button,
                         });
@@ -373,25 +366,25 @@ impl ZoomPan {
                     edit.begin(transform);
                     return Handled::Yes;
                 }
-                if event.phase == PointerPhase::Cancel {
+                if event.phase() == PointerPhase::Cancel {
                     self.space.disarm();
                 }
                 let Gesture::Pan(active) = self.gesture.get_untracked() else {
                     return Handled::No;
                 };
-                if event.id != active.pointer {
+                if event.id() != active.pointer {
                     return Handled::No;
                 }
-                match event.phase {
+                match event.phase() {
                     PointerPhase::Cancel => self.stop(false),
                     PointerPhase::Up(press) if press.button == active.button => {
-                        if finite(event.pos) {
-                            binding.set(panned(active, event.pos));
+                        if finite(event.pos()) {
+                            binding.set(panned(active, event.pos()));
                         }
                         self.stop(true);
                     }
-                    PointerPhase::Move if finite(event.pos) => {
-                        binding.set(panned(active, event.pos));
+                    PointerPhase::Move if finite(event.pos()) => {
+                        binding.set(panned(active, event.pos()));
                     }
                     _ => return Handled::No,
                 }
@@ -401,20 +394,16 @@ impl ZoomPan {
                 if self.gesturing.get_untracked() {
                     return Handled::Yes;
                 }
-                if !finite(event.pos)
-                    || !event.delta.y.is_finite()
-                    || event.delta.y == 0.0
+                if !finite(event.pos())
+                    || !event.delta().y.is_finite()
+                    || event.delta().y == 0.0
                     || state.get().disabled
                 {
                     return Handled::No;
                 }
                 let current = value.get();
                 edit.once(current, || {
-                    binding.set(self.zoom(
-                        current,
-                        event.pos,
-                        (-f64::from(event.delta.y) * 0.001).exp(),
-                    ));
+                    binding.set(self.zoom(current, event.pos(), (-event.delta().y * 0.001).exp()));
                 });
                 Handled::Yes
             })
@@ -427,11 +416,11 @@ impl ZoomPan {
                         Handled::PreventDefault
                     };
                 }
-                if event.key == Key::Escape && gesturing {
+                if event.key() == Key::Escape && gesturing {
                     self.stop(false);
                     return Handled::Yes;
                 }
-                if gesturing && matches!(event.key, Key::Char('+' | '-' | '0')) {
+                if gesturing && matches!(event.key(), Key::Char('+' | '-' | '0')) {
                     return Handled::Yes;
                 }
                 let current = value.get();
@@ -439,7 +428,7 @@ impl ZoomPan {
                     return Handled::No;
                 };
                 let anchor = Point::new(rect.width / 2.0, rect.height / 2.0);
-                let next = match event.key {
+                let next = match event.key() {
                     Key::Char('+') => self.zoom(current, anchor, 1.2),
                     Key::Char('-') => self.zoom(current, anchor, 1.0 / 1.2),
                     Key::Char('0') => {
@@ -456,8 +445,8 @@ impl ZoomPan {
                         let fit = ViewTransform {
                             scale: fit.scale,
                             offset: Point::new(
-                                fit.offset.x - bounds.x * fit.scale as f32,
-                                fit.offset.y - bounds.y * fit.scale as f32,
+                                fit.offset.x - bounds.x * fit.scale,
+                                fit.offset.y - bounds.y * fit.scale,
                             ),
                         };
                         self.zoom(fit, anchor, 1.0)
@@ -486,17 +475,17 @@ impl ZoomPan {
     /// ends (`Some`), or `None` to go on as any pointer's event (a pan with
     /// Space, else unhandled).
     fn touch(self, event: PointerEvent, state: Value<PartState>) -> Option<Handled> {
-        let finite = finite(event.pos);
+        let finite = finite(event.pos());
         let touches = self.touches;
-        match event.phase {
+        match event.phase() {
             PointerPhase::Down(_) => {
                 if finite {
-                    touches.update(|t| t.push((event.id, event.pos)));
+                    touches.update(|t| t.push((event.id(), event.pos())));
                 }
                 let others: Vec<(PointerId, Point)> = touches.with(|t| {
                     t.iter()
                         .copied()
-                        .filter(|(id, _)| *id != event.id)
+                        .filter(|(id, _)| *id != event.id())
                         .collect()
                 });
                 if !finite
@@ -517,9 +506,9 @@ impl ZoomPan {
                                 now: at,
                             },
                             Finger {
-                                pointer: event.id,
-                                start: event.pos,
-                                now: event.pos,
+                                pointer: event.id(),
+                                start: event.pos(),
+                                now: event.pos(),
                             },
                         ],
                         transform,
@@ -531,17 +520,20 @@ impl ZoomPan {
             PointerPhase::Move => {
                 if finite {
                     touches.update(|t| {
-                        if let Some(touch) = t.iter_mut().find(|(id, _)| *id == event.id) {
-                            touch.1 = event.pos;
+                        if let Some(touch) = t.iter_mut().find(|(id, _)| *id == event.id()) {
+                            touch.1 = event.pos();
                         }
                     });
                 }
                 let Gesture::Pinch(mut active) = self.gesture.get_untracked() else {
                     return None;
                 };
-                let finger = active.fingers.iter_mut().find(|f| f.pointer == event.id)?;
+                let finger = active
+                    .fingers
+                    .iter_mut()
+                    .find(|f| f.pointer == event.id())?;
                 if finite {
-                    finger.now = event.pos;
+                    finger.now = event.pos();
                     self.gesture
                         .update(|gesture| *gesture = Gesture::Pinch(active));
                     self.transform.set(self.pinched(active));
@@ -549,14 +541,17 @@ impl ZoomPan {
                 Some(Handled::Yes)
             }
             PointerPhase::Up(_) | PointerPhase::Cancel => {
-                touches.update(|t| t.retain(|(id, _)| *id != event.id));
+                touches.update(|t| t.retain(|(id, _)| *id != event.id()));
                 let Gesture::Pinch(mut active) = self.gesture.get_untracked() else {
                     return None;
                 };
-                let finger = active.fingers.iter_mut().find(|f| f.pointer == event.id)?;
-                if matches!(event.phase, PointerPhase::Up(_)) {
+                let finger = active
+                    .fingers
+                    .iter_mut()
+                    .find(|f| f.pointer == event.id())?;
+                if matches!(event.phase(), PointerPhase::Up(_)) {
                     if finite {
-                        finger.now = event.pos;
+                        finger.now = event.pos();
                         self.transform.set(self.pinched(active));
                     }
                     self.stop(true);

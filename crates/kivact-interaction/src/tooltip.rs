@@ -297,7 +297,7 @@ impl TooltipApi {
         .reference(self.anchor)
         .described_by(self.surface)
         .on_pointer(move |event: PointerEvent| {
-            if matches!(event.phase, PointerPhase::Down(_)) {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
                 self.dismiss();
             }
             Handled::No
@@ -307,7 +307,9 @@ impl TooltipApi {
             Handled::No
         })
         .on_key(move |event: KeyEvent| {
-            if event.key == Key::Escape && event.modifiers == Modifiers::default() && visible.get()
+            if event.key() == Key::Escape
+                && event.modifiers() == Modifiers::default()
+                && visible.get()
             {
                 self.dismiss();
                 Handled::Yes

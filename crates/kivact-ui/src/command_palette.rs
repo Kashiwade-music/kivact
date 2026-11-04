@@ -61,7 +61,7 @@ pub struct CommandPalette<K: Clone + Eq + Hash + 'static> {
 ///             dark.update(|dark| *dark = !*dark);
 ///         }
 ///     })
-///     .close_on(|key| key.modifiers.ctrl && key.key == Key::Char('k'))
+///     .close_on(|key| key.modifiers().ctrl && key.key() == Key::Char('k'))
 /// }
 /// ```
 #[track_caller]

@@ -1,7 +1,7 @@
 //! Role: Render panes sized by fractions with a themed splitter handle between each pair.
 //!
 //! The panes share the room the handles leave, by the fractions in the
-//! caller's `Binding<Vec<f32>>`, which only the handles write. A handle is an
+//! caller's `Binding<Vec<f64>>`, which only the handles write. A handle is an
 //! [`use_splitter`] whose value is the boundary after its pane, in percent of
 //! the shared room; the pixels the panes really take are read back from their
 //! rects, so a handle of any thickness (the theme's splitter recipe) moves the
@@ -29,10 +29,10 @@ const UNMEASURED: f64 = 800.0;
 pub struct Split {
     root: Node,
     orientation: Orientation,
-    sizes: Binding<Vec<f32>>,
+    sizes: Binding<Vec<f64>>,
     panes: Vec<View>,
     grip: Value<bool>,
-    min_size: f32,
+    min_size: f64,
     on_edit: Option<Callback<EditPhase>>,
     variants: Variants,
 }
@@ -65,14 +65,14 @@ pub struct Split {
 /// use kivact::ui::split;
 ///
 /// fn workspace() -> impl IntoView {
-///     let sizes = signal(vec![0.25f32, 0.75]);
+///     let sizes = signal(vec![0.25f64, 0.75]);
 ///     split((text("Files"), text("Editor")), sizes)
 ///         .grip(true)
 ///         .style(style().height(200).width(400))
 /// }
 /// ```
 #[track_caller]
-pub fn split(panes: impl IntoChildren, sizes: impl Into<Binding<Vec<f32>>>) -> Split {
+pub fn split(panes: impl IntoChildren, sizes: impl Into<Binding<Vec<f64>>>) -> Split {
     Split {
         root: node(),
         orientation: Orientation::Horizontal,
@@ -105,7 +105,7 @@ impl Split {
     }
 
     /// The smallest fraction of the group a pane may take (0.1 by default).
-    pub fn min_size(mut self, fraction: f32) -> Self {
+    pub fn min_size(mut self, fraction: f64) -> Self {
         self.min_size = if fraction.is_finite() {
             fraction.clamp(0.0, 0.5)
         } else {
@@ -145,26 +145,26 @@ impl NodeBuilder for Split {
 }
 
 /// The normalized shares of `count` panes from the application's `sizes`.
-fn shares(sizes: &[f32], count: usize) -> Vec<f64> {
+fn shares(sizes: &[f64], count: usize) -> Vec<f64> {
     let valid = sizes.len() == count
         && sizes.iter().all(|s| s.is_finite() && *s >= 0.0)
-        && sizes.iter().sum::<f32>() > 0.0;
+        && sizes.iter().sum::<f64>() > 0.0;
     if !valid {
         return vec![1.0 / count.max(1) as f64; count];
     }
-    let total: f64 = sizes.iter().map(|s| f64::from(*s)).sum();
-    sizes.iter().map(|s| f64::from(*s) / total).collect()
+    let total: f64 = sizes.iter().sum();
+    sizes.iter().map(|s| *s / total).collect()
 }
 
 /// What every handle of a group shares.
 #[derive(Clone)]
 struct Group {
-    sizes: Binding<Vec<f32>>,
+    sizes: Binding<Vec<f64>>,
     shares: Value<Vec<f64>>,
     shared: Value<f64>,
     axis: Orientation,
     grip: Value<bool>,
-    min_size: f32,
+    min_size: f64,
     on_edit: Option<Callback<EditPhase>>,
     disabled: Option<Rc<dyn Fn() -> bool>>,
     variants: Variants,
@@ -197,10 +197,7 @@ impl IntoView for Split {
         let shared = memo(move || {
             let lengths: Option<Vec<f64>> = rects
                 .iter()
-                .map(|rect| {
-                    rect.get()
-                        .map(|r| f64::from(if stacked { r.height } else { r.width }))
-                })
+                .map(|rect| rect.get().map(|r| if stacked { r.height } else { r.width }))
                 .collect();
             lengths
                 .map_or(UNMEASURED, |lengths| lengths.iter().sum())
@@ -280,13 +277,13 @@ fn handle(at: usize, group: &Group) -> Node {
         let first = (boundary / 100.0 - before).clamp(0.0, pair);
         next[at] = first;
         next[at + 1] = pair - first;
-        sizes.set(next.iter().map(|s| *s as f32).collect());
+        sizes.set(next);
     });
     let range = memo(move || {
         let s = shares_now.get();
         let low: f64 = s[..at].iter().sum::<f64>() * 100.0;
         let high: f64 = s[..at + 2].iter().sum::<f64>() * 100.0;
-        let least = f64::from(min_size) * 100.0;
+        let least = min_size * 100.0;
         ScalarRange::new(low + least, high - least)
             .or_else(|_| ScalarRange::new(low, high))
             .or_else(|_| ScalarRange::new(0.0, 100.0))

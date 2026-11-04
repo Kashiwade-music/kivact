@@ -60,7 +60,7 @@ pub struct ToastRowMotion {
     /// A decorative transition for showing and collapsing the row.
     pub transition: Option<Transition>,
     /// Space before each card, included in its animated height.
-    pub gap: f32,
+    pub gap: f64,
 }
 
 impl ThemeExtension for ToastRowMotion {

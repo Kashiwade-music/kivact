@@ -187,7 +187,7 @@ impl IntoView for TagInput {
                     }
                 })
                 .on_key_default(move |event| {
-                    if event.key == Key::Backspace && pending.with_untracked(String::is_empty) {
+                    if event.key() == Key::Backspace && pending.with_untracked(String::is_empty) {
                         if let Some(last) = tags.with_untracked(|tags| tags.len().checked_sub(1)) {
                             on_remove.call(last);
                         }
@@ -216,7 +216,7 @@ impl IntoView for TagInput {
         });
         root.child((field, chips))
             .on_pointer_default(move |event| {
-                if matches!(event.phase, PointerPhase::Down(_)) && !disabled.get() {
+                if matches!(event.phase(), PointerPhase::Down(_)) && !disabled.get() {
                     input_ref.focus();
                 }
                 Handled::No

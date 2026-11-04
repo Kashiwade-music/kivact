@@ -5,7 +5,7 @@ use super::state::State;
 use super::{input, parts, state, typeahead};
 use crate::axis::check_list_axis;
 use kivact_core::primitive::{Owned, Part, PartState, require_effectful, require_setup};
-use kivact_core::view::{Handled, HandlerResult, IntoValue, KeyEvent, callback};
+use kivact_core::view::{Handled, HandlerResult, IntoValue, Key, KeyEvent, callback};
 use kivact_core::{Binding, Value, Var};
 use std::hash::Hash;
 use std::panic::Location;
@@ -214,8 +214,13 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         state.typed.get().set(typeahead::Typeahead::default());
     }
 
-    pub(crate) fn route_focused_key(self, key: &K, event: KeyEvent) -> Handled {
-        input::key(&self.state(), key, event)
+    pub(crate) fn route_focused_key(
+        self,
+        key: &K,
+        event: KeyEvent,
+        command: Option<Key>,
+    ) -> Handled {
+        input::key(&self.state(), key, event, command)
     }
     #[track_caller]
     pub(crate) fn select_mounted(self, key: K) -> bool {

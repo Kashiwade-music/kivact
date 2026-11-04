@@ -34,7 +34,7 @@ pub enum SliderTouchMotion {
     /// Use touch-specific relative tracking and release motion.
     Direct {
         gesture: TouchSliderGesture,
-        lifted_scale: f32,
+        lifted_scale: f64,
         lift: Spring,
         drop: Spring,
     },
@@ -205,9 +205,9 @@ struct Geometry {
 impl Geometry {
     /// The offset of a thumb at `fraction` from the track's start edge
     /// (left, or top when vertical), and the thumb's offset across.
-    fn thumb_at(&self, fraction: f64) -> Option<(f32, f32)> {
+    fn thumb_at(&self, fraction: f64) -> Option<(f64, f64)> {
         let (track, thumb) = (self.track.get()?, self.thumb.get()?);
-        let f = fraction.clamp(0.0, 1.0) as f32;
+        let f = fraction.clamp(0.0, 1.0);
         Some(if self.vertical {
             (
                 (1.0 - f) * (track.height - thumb.height),

@@ -38,7 +38,7 @@ impl Target {
         }
     }
 
-    pub(crate) fn length(self, geometry: Geometry) -> f32 {
+    pub(crate) fn length(self, geometry: Geometry) -> f64 {
         self.rect.get().map_or(0.0, |rect| geometry.length(rect))
     }
 }
@@ -62,10 +62,10 @@ pub(crate) enum Grip {
 enum Grab {
     /// Thumb `index`; `offset` is the pointer's distance from its center
     /// along the axis (0 from the track).
-    Thumb { index: usize, offset: f32 },
+    Thumb { index: usize, offset: f64 },
     /// A range's body: the pointer along the axis at the press, and both
     /// thumbs' values then.
-    Body { from: f32, ends: [f64; 2] },
+    Body { from: f64, ends: [f64; 2] },
 }
 
 /// Where `value` lies in `range`, clamped to 0..=1.
@@ -88,11 +88,11 @@ pub(crate) struct Geometry {
 }
 
 impl Geometry {
-    pub(crate) fn along(self, p: Point) -> f32 {
+    pub(crate) fn along(self, p: Point) -> f64 {
         if self.axis.is_horizontal() { p.x } else { p.y }
     }
 
-    pub(crate) fn length(self, r: Rect) -> f32 {
+    pub(crate) fn length(self, r: Rect) -> f64 {
         if self.axis.is_horizontal() {
             r.width
         } else {
@@ -103,15 +103,15 @@ impl Geometry {
     /// Where `pos` (along the axis, in window coordinates) lies on the
     /// track of a thumb `thumb` long, from 0 at the minimum to 1 at the
     /// maximum.
-    pub(crate) fn fraction_at(self, pos: f32, thumb: f32) -> Option<f64> {
+    pub(crate) fn fraction_at(self, pos: f64, thumb: f64) -> Option<f64> {
         let rect = self.rect.get()?;
         let start = if self.axis.is_horizontal() {
             rect.x
         } else {
             rect.y
         };
-        let usable = f64::from(self.length(rect) - thumb);
-        let offset = f64::from(pos - start - thumb / 2.0);
+        let usable = self.length(rect) - thumb;
+        let offset = pos - start - thumb / 2.0;
         let f = if usable > 0.0 {
             (offset / usable).clamp(0.0, 1.0)
         } else {
@@ -157,7 +157,7 @@ impl Pointer {
     /// Move both thumbs from where they were at the press by the pointer's
     /// travel from `from` to `pos`, keeping their distance: the travel is
     /// quantized by the range's step and stops where an end meets a bound.
-    fn move_body(self, from: f32, ends: [f64; 2], pos: f32) {
+    fn move_body(self, from: f64, ends: [f64; 2], pos: f64) {
         let (Some(geometry), thumbs) = (self.geometry.get(), self.thumbs.get()) else {
             return;
         };
@@ -168,11 +168,11 @@ impl Pointer {
             return;
         };
         let range = low.range.get();
-        let usable = f64::from(geometry.length(rect) - low.length(geometry));
+        let usable = geometry.length(rect) - low.length(geometry);
         if usable <= 0.0 {
             return;
         }
-        let mut delta = f64::from(pos - from) / usable * (range.max() - range.min());
+        let mut delta = (pos - from) / usable * (range.max() - range.min());
         if geometry.rtl || !geometry.axis.is_horizontal() {
             delta = -delta;
         }
@@ -192,7 +192,7 @@ impl Pointer {
         }
     }
 
-    pub(crate) fn write(self, index: usize, pos: f32) {
+    pub(crate) fn write(self, index: usize, pos: f64) {
         let (Some(geometry), Some(thumb)) =
             (self.geometry.get(), self.thumbs.get().get(index).copied())
         else {

@@ -167,7 +167,7 @@ impl IntoView for Progress {
             animated(fill, transition)
         }
         .into_value();
-        let phase = signal(0.0f32);
+        let phase = signal(0.0f64);
         let period = memo(|| {
             let motion = current_theme().get::<ProgressMotion>();
             if reduced_motion() {
@@ -180,7 +180,7 @@ impl IntoView for Progress {
             if let Some(period) = period.get() {
                 let period = period.max(1) as f64;
                 let elapsed = frame.now.as_secs_f64() * 1000.0;
-                phase.set((elapsed.rem_euclid(period) / period) as f32);
+                phase.set(elapsed.rem_euclid(period) / period);
             }
         });
         effect(move || {

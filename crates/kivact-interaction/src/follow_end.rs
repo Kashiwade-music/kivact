@@ -11,8 +11,8 @@ use kivact_core::{Value, effect, memo};
 pub struct FollowEnd {
     viewport: NodeRef,
     offset: Value<Point>,
-    end: Value<Option<f32>>,
-    distance: Value<f32>,
+    end: Value<Option<f64>>,
+    distance: Value<f64>,
     state: Rc<Cell<FollowState>>,
 }
 
@@ -20,7 +20,7 @@ impl FollowEnd {
     /// The distance in pixels from the current offset to the end.
     ///
     /// Before layout establishes an end, this reports zero.
-    pub fn distance(&self) -> Value<f32> {
+    pub fn distance(&self) -> Value<f64> {
         self.distance
     }
 
@@ -48,7 +48,7 @@ impl FollowEnd {
 pub fn use_follow_end(
     viewport: NodeRef,
     content: NodeRef,
-    reattach_distance: f32,
+    reattach_distance: f64,
     history_revision: Option<Value<u64>>,
 ) -> FollowEnd {
     let viewport_rect = viewport.rect();
@@ -91,9 +91,9 @@ pub fn use_follow_end(
 #[derive(Clone, Copy)]
 struct FollowState {
     locked: bool,
-    geometry: Option<(f32, f32)>,
-    offset: f32,
-    expected: Option<f32>,
+    geometry: Option<(f64, f64)>,
+    offset: f64,
+    expected: Option<f64>,
     revision: Option<u64>,
     history_pending: bool,
 }
@@ -114,13 +114,13 @@ impl Default for FollowState {
 impl FollowState {
     fn observe(
         &mut self,
-        end: f32,
-        height: f32,
-        offset: f32,
+        end: f64,
+        height: f64,
+        offset: f64,
         revision: Option<u64>,
-        reattach: f32,
-    ) -> Option<f32> {
-        const EPSILON: f32 = 0.5;
+        reattach: f64,
+    ) -> Option<f64> {
+        const EPSILON: f64 = 0.5;
         let previous_geometry = self.geometry.replace((end, height));
         let previous_offset = std::mem::replace(&mut self.offset, offset);
         let acknowledged = self
@@ -160,7 +160,7 @@ impl FollowState {
         None
     }
 
-    fn request(&mut self, offset: f32, target: f32) -> Option<f32> {
+    fn request(&mut self, offset: f64, target: f64) -> Option<f64> {
         if (target - offset).abs() <= 0.5 {
             self.expected = None;
             None

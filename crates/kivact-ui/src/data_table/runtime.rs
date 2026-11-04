@@ -378,7 +378,7 @@ where
 /// and bound a resize handle's writes.
 fn share_widths<K: Clone + Eq + Hash + 'static>(
     behavior: kivact_interaction::Table<K, usize>,
-    sizes: Binding<Vec<f32>>,
+    sizes: Binding<Vec<f64>>,
     count: usize,
     range: ScalarRange,
 ) -> kivact_interaction::Table<K, usize> {
@@ -391,7 +391,7 @@ fn share_widths<K: Clone + Eq + Hash + 'static>(
                         current
                             .with(|widths| widths.get(i).copied())
                             .filter(|width| width.is_finite() && *width > 0.0)
-                            .map(|width| (i, f64::from(width)))
+                            .map(|width| (i, width))
                     })
                     .collect::<HashMap<_, _>>()
             }),
@@ -400,7 +400,7 @@ fn share_widths<K: Clone + Eq + Hash + 'static>(
                 next.resize(count, 0.0);
                 for (i, width) in values {
                     if i < count {
-                        next[i] = width as f32;
+                        next[i] = width;
                     }
                 }
                 sizes.set(next);

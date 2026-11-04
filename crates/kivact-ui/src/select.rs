@@ -238,25 +238,25 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Select<K> {
             });
             let trigger = trigger
                 .on_pointer(move |event| {
-                    if matches!(event.phase, PointerPhase::Down(_)) {
+                    if matches!(event.phase(), PointerPhase::Down(_)) {
                         released.set(None);
-                        if event.kind == PointerKind::Touch
-                            && event.is_primary
+                        if event.kind() == PointerKind::Touch
+                            && event.is_primary()
                             && !shown.get()
                             && !disabled.as_ref().is_some_and(|read| read())
                         {
-                            contact.set(Some((event.id, event.window_pos, false)));
+                            contact.set(Some((event.id(), event.window_pos(), false)));
                         }
                         return Handled::No;
                     }
                     let Some((id, start, moved)) =
-                        contact.get().filter(|(id, _, _)| *id == event.id)
+                        contact.get().filter(|(id, _, _)| *id == event.id())
                     else {
                         return Handled::No;
                     };
-                    let pos = event.window_pos;
+                    let pos = event.window_pos();
                     let moved = moved || (pos.x - start.x).hypot(pos.y - start.y) > 10.0;
-                    match event.phase {
+                    match event.phase() {
                         PointerPhase::Move => contact.set(Some((id, start, moved))),
                         PointerPhase::Up(_) => {
                             contact.set(None);

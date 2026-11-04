@@ -15,7 +15,7 @@ struct Slot {
 pub(super) fn animate(
     shown: Value<Vec<ToastId>>,
     transition: Transition,
-    gap: f32,
+    gap: f64,
     build: impl Fn(ToastId) -> View + 'static,
 ) -> View {
     let slots = signal(Vec::<Slot>::new());
@@ -64,7 +64,7 @@ pub(super) fn animate(
             let progress = animated(
                 move || {
                     if mounted.get() && live.get() {
-                        1.0_f32
+                        1.0_f64
                     } else {
                         0.0
                     }
@@ -73,7 +73,7 @@ pub(super) fn animate(
             );
             let measured = node_ref();
             let rect = measured.rect();
-            let height = signal(0.0_f32);
+            let height = signal(0.0_f64);
             effect(move || {
                 if live.get()
                     && let Some(rect) = rect.get()

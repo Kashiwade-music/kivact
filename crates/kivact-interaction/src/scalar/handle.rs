@@ -82,7 +82,7 @@ pub struct Scalar {
 ///     .part(slider.track(Orientation::Horizontal))
 ///     .style(style().size(160, 24))
 ///     .child(node().part(thumb).name("Volume").style(move || {
-///         let left = 144.0 * state.get().fraction as f32;
+///         let left = 144.0 * state.get().fraction;
 ///         style().size(16, 16).position(Position::Absolute).left(left).top(4)
 ///     }));
 /// ```
@@ -306,20 +306,20 @@ impl Scalar {
         .focusable(true)
         .value_now(value)
         .on_key(move |event: KeyEvent| {
-            if event.key == Key::Escape
+            if event.key() == Key::Escape
                 && (shared.finish_touch(true) || shared.drag.cancel().is_some())
             {
                 return Handled::Yes;
             }
             if role == Role::SpinButton
-                && (matches!(event.key, Key::ArrowLeft | Key::ArrowRight)
-                    || (matches!(event.key, Key::Home | Key::End)
-                        && event.modifiers != Modifiers::default()))
+                && (matches!(event.key(), Key::ArrowLeft | Key::ArrowRight)
+                    || (matches!(event.key(), Key::Home | Key::End)
+                        && event.modifiers() != Modifiers::default()))
             {
                 return Handled::No;
             }
             let mirror = role == Role::Slider && shared.mirrored();
-            match self.ops.key_op(event.key, mirror) {
+            match self.ops.key_op(event.key(), mirror) {
                 Some(op) if self.once(|| self.ops.apply(op, self.current_key_step())) => {
                     Handled::Yes
                 }
