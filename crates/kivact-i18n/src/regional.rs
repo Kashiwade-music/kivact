@@ -36,11 +36,11 @@ impl Locale {
     pub fn parse_date(&self, text: &str) -> Option<CalendarDate> {
         let text = text.trim();
         let iso: Vec<_> = text.split('-').collect();
-        if iso.len() == 3 && iso[0].len() >= 4 {
-            if let (Ok(year), Ok(month), Ok(day)) = (iso[0].parse(), iso[1].parse(), iso[2].parse())
-            {
-                return CalendarDate::checked(year, month, day);
-            }
+        if iso.len() == 3
+            && iso[0].len() >= 4
+            && let (Ok(year), Ok(month), Ok(day)) = (iso[0].parse(), iso[1].parse(), iso[2].parse())
+        {
+            return CalendarDate::checked(year, month, day);
         }
         let formatter = FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(
             self.icu().into(),
