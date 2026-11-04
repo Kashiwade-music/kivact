@@ -209,6 +209,9 @@ impl App {
     /// the same two-second limit per owned thread as drop; unfinished cleanup
     /// may continue under module retention after `Err` is returned. Title and
     /// fullscreen have no effect.
+    /// The App theme must be fixed. A reactive theme returns `ErrorKind::Unsupported`;
+    /// create it with [`view::provide_theme`](crate::view::provide_theme) inside
+    /// the `Send` root factory so it belongs to the App UI thread.
     /// `min_window_size` clamps `platform::request_window_size`, not the host.
     #[track_caller]
     #[cfg(feature = "embed")]
@@ -260,9 +263,10 @@ impl App {
             on_resize_request: parent.on_resize_request,
             panic: panic.clone(),
         };
+        let (settings, theme) = self.options.into_embed_settings(at)?;
         let opened = kivact_engine::embed::embed_native(window, options, hooks, move |closing| {
             crate::launch::Launch::new(
-                self.options,
+                settings.with_theme(theme),
                 crate::launch::ClientMode::Embedded(closing),
                 move || root().into_view(),
             )
