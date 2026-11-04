@@ -83,6 +83,13 @@ impl Writer {
         self.model.borrow().admission.forget_adoption(pointer);
     }
 
+    /// Set or release capture for an admitted, enabled pointer listener.
+    pub fn set_pointer_capture(&self, node: NodeId, pointer: PointerId, capture: bool) {
+        self.model
+            .borrow_mut()
+            .set_pointer_capture(node, pointer, capture);
+    }
+
     /// Keep an active touch contact routed to its initial control.
     pub fn reserve_touch_gesture(&self, pointer: PointerId) {
         self.model.borrow_mut().reserve_touch_gesture(pointer);

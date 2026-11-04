@@ -452,3 +452,5 @@ GPU 共有の frame には CPU の画素の表現がないため、呼び出し�
 - [キャンバスで GPU テクスチャを共有する](gpu-texture-sharing.md): 読み戻しなしで GPU レンダラーのフレームを表示します。
 - [アプリをテストする](testing.md): ロールでリージョンを探し、スクリーンショットを比べます。
 - API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::draw` と `kivact::view::canvas` を開いてください。
+
+pointer の handler 内で `event.capture()` を呼ぶと、その pointer が node の外へ動いても後続のイベントを受け取れます。`event.release_capture()` は後続のイベントを通常の当たり判定に戻します。明示の capture はボタンを押さない hover 中にも開始でき、最後のボタンの解放、キャンセル、node の削除で終了します。押している間の暗黙の capture は既定のままです。

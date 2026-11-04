@@ -143,8 +143,23 @@ impl Default for TouchGesture {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Route {
     // xtask-allow(state-fields): capture and primary press have independent lifetimes.
-    pub(crate) capture: Option<NodeId>,
+    pub(crate) capture: Option<Capture>,
     pub(crate) press: Option<Press>,
+}
+
+/// Capture retains both its target and the reason it survives a move.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Capture {
+    Implicit(NodeId),
+    Explicit(NodeId),
+}
+
+impl Capture {
+    pub(crate) fn target(self) -> NodeId {
+        match self {
+            Self::Implicit(target) | Self::Explicit(target) => target,
+        }
+    }
 }
 
 /// A primary press of a primary pointer.
@@ -312,7 +327,7 @@ impl Track {
     }
 
     pub(crate) fn capture(&self) -> Option<NodeId> {
-        self.route().and_then(|r| r.capture)
+        self.route().and_then(|r| r.capture).map(Capture::target)
     }
 
     pub(crate) fn pressed(&self) -> &[NodeId] {
@@ -407,7 +422,10 @@ impl PointerState {
                 track.set_over(None);
             }
             if let Some(route) = track.routed_mut() {
-                if route.capture.is_some_and(|n| !tree.live(n)) {
+                if route
+                    .capture
+                    .is_some_and(|capture| !tree.live(capture.target()))
+                {
                     route.capture = None;
                 }
                 if let Some(press) = &mut route.press {

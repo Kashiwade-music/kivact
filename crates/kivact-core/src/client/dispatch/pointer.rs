@@ -54,7 +54,7 @@ pub(super) fn pointer(
         return;
     }
     let event = routed.input;
-    let e = PointerEvent { routed };
+    let e = PointerEvent::from_routed(routed);
     let found = {
         let tree = ViewState::tree(rt);
         let stop = tree.modal_boundary(node);

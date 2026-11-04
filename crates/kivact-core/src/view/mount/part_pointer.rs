@@ -15,6 +15,15 @@ use crate::view::state::ViewState;
 use crate::view::{Handled, MouseButton, PointerButtons, PointerEvent, PointerId, PointerPhase};
 
 impl PointerEvent {
+    pub(crate) fn from_routed(
+        routed: kivact_engine::contract::Routed<kivact_types::PointerSample>,
+    ) -> Self {
+        Self {
+            routed,
+            capture_action,
+        }
+    }
+
     /// Keep this touch press routed to its control instead of starting native scrolling.
     /// Call during `Down` for controls that directly manipulate the same axis.
     pub fn reserve_touch_gesture(&self) {
@@ -41,6 +50,19 @@ impl PointerEvent {
                 self.id(),
             );
         }
+    }
+}
+
+fn capture_action(event: &PointerEvent, capture: bool) {
+    if capture && matches!(event.phase(), PointerPhase::Up(_) | PointerPhase::Cancel) {
+        return;
+    }
+    if let Some(runtime) = kivact_runtime::Runtime::current() {
+        ViewState::tree(&runtime).engine().set_pointer_capture(
+            event.origin().node,
+            event.id(),
+            capture,
+        );
     }
 }
 
@@ -383,6 +405,38 @@ pub(super) fn route(
             }
             Ok(handled)
         })();
+        // A handler can release engine capture before Up returns to this node.
+        // Drop the part's implicit retention with it, so a later press starts fresh.
+        if let Some(runtime) = root.runtime.upgrade()
+            && ViewState::tree(&runtime)
+                .reader()
+                .pointer_capture(event.id())
+                != Some(registry.node)
+        {
+            let released = {
+                let mut gestures = registry.gestures.borrow_mut();
+                let index = gestures
+                    .captures
+                    .iter()
+                    .position(|capture| capture.pointer == event.id());
+                index.map(|index| gestures.captures.remove(index))
+            };
+            if let Some(capture) = released
+                && let Some(target) = capture.state.target(&registry)
+            {
+                let cancelled = event_for(event, &target, PointerPhase::Cancel);
+                observe(&target, cancelled);
+                if let Err(error) = default(&target, cancelled) {
+                    runtime.report(Some(target.owner), error);
+                }
+                if capture.state.fallback().is_some() {
+                    if let Err(error) = fallback(root, cancelled) {
+                        runtime.report(Some(root.owner), error);
+                    }
+                    forget_adoption(&registry, event.id());
+                }
+            }
+        }
         // Consuming a terminal event cannot leave an adopted fallback gesture open.
         if finish_fallback && (!delivered_finish || result.is_err()) {
             let mut cancelled = event;

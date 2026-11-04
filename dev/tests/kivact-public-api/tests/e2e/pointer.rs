@@ -288,3 +288,98 @@ fn a_touch_tap_activates_a_button_and_leaves_no_hover() {
     assert_eq!(color(), Some(0x101010), "no hover style after the tap");
     assert_eq!(*presses.borrow(), 2);
 }
+
+#[test]
+fn captured_pointer_keeps_moving_events_outside_the_node() {
+    let moves = Rc::new(RefCell::new(Vec::new()));
+    let out = moves.clone();
+    let screen = render(move || {
+        let out = out.clone();
+        column((
+            node()
+                .test_id("capture")
+                .style(style().size(80, 40))
+                .on_pointer(move |event: PointerEvent| {
+                    if event.phase() == PointerPhase::Enter {
+                        event.capture();
+                    }
+                    if event.phase() == PointerPhase::Move {
+                        out.borrow_mut().push(event.window_pos());
+                    }
+                    Handled::Yes
+                }),
+            node().test_id("outside").style(style().size(80, 40)),
+        ))
+        .style(style().align_items(Align::Start))
+    });
+    let (x, y) = center(&screen, "capture");
+    let (ox, oy) = center(&screen, "outside");
+    screen.mouse_move(x, y);
+    moves.borrow_mut().clear();
+    // No press: only explicit capture can keep these moves at the first node.
+    screen.mouse_move(ox, oy);
+    screen.mouse_move(ox + 1.0, oy);
+    assert_eq!(moves.borrow().len(), 2);
+    // The final Up ends explicit capture just as it ends implicit capture.
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_up(MouseButton::Primary);
+    moves.borrow_mut().clear();
+    screen.mouse_move(ox + 2.0, oy);
+    assert!(moves.borrow().is_empty());
+}
+
+#[test]
+fn release_capture_returns_to_hit_testing() {
+    let log: Log = Rc::default();
+    let out = log.clone();
+    let (screen, state) = crate::support::mount(move || {
+        let first = out.clone();
+        let second = out.clone();
+        let behavior = kivact::custom::part(|state| state);
+        let state = behavior.state();
+        (
+            state,
+            column((
+                node()
+                    .part(behavior)
+                    .test_id("capture")
+                    .style(style().size(80, 40))
+                    .on_pointer(move |event: PointerEvent| {
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
+                            event.capture();
+                        }
+                        if event.phase() == PointerPhase::Move {
+                            first.borrow_mut().push("captured".into());
+                            event.release_capture();
+                        }
+                        Handled::Yes
+                    }),
+                node()
+                    .test_id("outside")
+                    .style(style().size(80, 40))
+                    .on_pointer(move |event: PointerEvent| {
+                        if event.phase() == PointerPhase::Move {
+                            second.borrow_mut().push("hit".into());
+                        }
+                        Handled::Yes
+                    }),
+            ))
+            .style(style().align_items(Align::Start)),
+        )
+    });
+    let (x, y) = center(&screen, "capture");
+    let (ox, oy) = center(&screen, "outside");
+    screen.mouse_move(x, y);
+    screen.mouse_down(MouseButton::Primary);
+    assert!(state.get().pressed);
+    log.borrow_mut().clear();
+    screen.mouse_move(ox, oy);
+    assert!(
+        !state.get().pressed,
+        "releasing capture ends the attached part press"
+    );
+    screen.mouse_move(ox + 1.0, oy);
+    assert_eq!(&*log.borrow(), &["captured", "hit"]);
+    screen.mouse_up(MouseButton::Primary);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
