@@ -7,7 +7,7 @@
 
 use arvane::test_display::VirtualWindow;
 use arvane::{ShellEvent, Window as _};
-use kivact_types::protocol::PointerInput;
+use kivact_types::PointerSample;
 use kivact_types::{
     ButtonPress, Key, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase,
 };
@@ -60,14 +60,14 @@ fn clicks(event: &ShellEvent) -> u8 {
 #[test]
 fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
     let mut window = open(200.0, 200.0);
-    let mouse = window.environment().mouse;
+    let mouse = window.environment().pointer;
     assert_eq!(mouse.double_click_ns, 500 * MS);
     assert_eq!(mouse.double_click_distance, (4.0, 4.0));
     let mut at = 0;
     let mut click = |window: &mut arvane::test_display::VirtualWindow,
                      after_ms: u64,
-                     x: f32,
-                     y: f32,
+                     x: f64,
+                     y: f64,
                      button: MouseButton| {
         at += after_ms * MS;
         window.set_now(at);
@@ -92,12 +92,16 @@ fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
         1
     );
     // Other pointer events pass unchanged.
-    let wheel = ShellEvent::Wheel { x: 0.0, y: -40.0 };
+    let wheel = ShellEvent::Wheel(kivact_types::WheelInput {
+        delta: kivact_types::Point { x: 0.0, y: -40.0 },
+        position: kivact_types::Point::default(),
+        modifiers: kivact_types::Modifiers::default(),
+    });
     assert_eq!(window.input(wheel.clone()), wheel);
 }
 
-fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f32) -> PointerInput {
-    PointerInput {
+fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f64) -> PointerSample {
+    PointerSample {
         id: PointerId(id),
         kind,
         phase,
@@ -108,6 +112,11 @@ fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f32) -> PointerIn
         ),
         pressure: Some(0.5),
         tilt: None,
+        button: None,
+        press: None,
+        time_ns: 0,
+        modifiers: kivact_types::Modifiers::default(),
+        is_primary: true,
     }
 }
 
@@ -119,7 +128,7 @@ const SINGLE: ButtonPress = ButtonPress {
 const DOWN: PointerPhase = PointerPhase::Down(SINGLE);
 const UP: PointerPhase = PointerPhase::Up(SINGLE);
 
-fn pointer(events: Vec<ShellEvent>) -> PointerInput {
+fn pointer(events: Vec<ShellEvent>) -> PointerSample {
     match events.as_slice() {
         [ShellEvent::Pointer(input)] => *input,
         other => panic!("not one pointer event: {other:?}"),
@@ -174,31 +183,37 @@ fn contacts_get_pointer_ids_and_kinds_of_their_own() {
 fn keys_and_the_ime_pass_through_in_order() {
     let mut window = open(100.0, 100.0);
     let events = [
-        ShellEvent::Key {
+        ShellEvent::Key(kivact_types::KeyInput {
             key: Key::Char('ф'),
-            physical: Some('a'),
             code: Default::default(),
-            repeat: false,
-            text: Some("ф".into()),
-        },
-        ShellEvent::Key {
+            phase: kivact_types::KeyPhase::Down {
+                repeat: false,
+                text: Some("ф".into()),
+            },
+            modifiers: kivact_types::Modifiers::default(),
+            pointer: None,
+        }),
+        ShellEvent::Key(kivact_types::KeyInput {
             key: Key::Enter,
-            physical: None,
             code: Default::default(),
-            repeat: true,
-            text: None,
-        },
-        ShellEvent::Preedit {
+            phase: kivact_types::KeyPhase::Down {
+                repeat: true,
+                text: None,
+            },
+            modifiers: kivact_types::Modifiers::default(),
+            pointer: None,
+        }),
+        ShellEvent::Ime(kivact_types::ImeInput::Preedit {
             text: "にほ".into(),
-            selection: Some((6, 6)),
-        },
-        ShellEvent::Preedit {
+            selection: (Some((6, 6))).map(|(start, end)| start..end),
+        }),
+        ShellEvent::Ime(kivact_types::ImeInput::Preedit {
             text: "日本".into(),
-            selection: None,
-        },
-        ShellEvent::Commit("日本".into()),
-        ShellEvent::ImeSelection { start: 0, end: 2 },
-        ShellEvent::ImeDisabled,
+            selection: (None).map(|(start, end)| start..end),
+        }),
+        ShellEvent::Ime(kivact_types::ImeInput::Commit("日本".into())),
+        ShellEvent::Ime(kivact_types::ImeInput::Selection(0..2)),
+        ShellEvent::Ime(kivact_types::ImeInput::End),
     ];
     let delivered: Vec<ShellEvent> = events.iter().cloned().map(|e| window.input(e)).collect();
     assert_eq!(delivered, events);

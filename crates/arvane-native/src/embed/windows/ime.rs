@@ -99,14 +99,14 @@ pub(super) fn area(state: &State, area: kivact_types::Rect) {
 }
 pub(super) fn message(state: &Rc<State>, message: u32, flags: isize) {
     if message == WM_IME_STARTCOMPOSITION {
-        state.event(ShellEvent::Preedit {
+        state.event(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
             text: String::new(),
             selection: None,
-        });
+        }));
         return;
     }
     if message == WM_IME_ENDCOMPOSITION {
-        state.event(ShellEvent::ImeDisabled);
+        state.event(ShellEvent::Ime(kivact_types::ImeInput::End));
         return;
     }
     let mut events = Vec::new();
@@ -115,11 +115,13 @@ pub(super) fn message(state: &Rc<State>, message: u32, flags: isize) {
         if flags as u32 & GCS_RESULTSTR != 0
             && let Some(text) = context.text(GCS_RESULTSTR)
         {
-            events.push(ShellEvent::Preedit {
+            events.push(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
                 text: String::new(),
                 selection: None,
-            });
-            events.push(ShellEvent::Commit(String::from_utf16_lossy(&text)));
+            }));
+            events.push(ShellEvent::Ime(kivact_types::ImeInput::Commit(
+                String::from_utf16_lossy(&text),
+            )));
         }
         if flags as u32 & (GCS_COMPSTR | GCS_CURSORPOS | GCS_COMPATTR) != 0
             && let Some(text) = context.text(GCS_COMPSTR)
@@ -133,10 +135,10 @@ pub(super) fn message(state: &Rc<State>, message: u32, flags: isize) {
                 .filter(|at| *at <= text.len())
                 .and_then(|at| String::from_utf16(&text[..at]).ok())
                 .map(|prefix| (prefix.len(), prefix.len()));
-            events.push(ShellEvent::Preedit {
+            events.push(ShellEvent::Ime(kivact_types::ImeInput::Preedit {
                 text: String::from_utf16_lossy(&text),
-                selection,
-            });
+                selection: (selection).map(|(start, end)| start..end),
+            }));
         }
     }
     for event in events {

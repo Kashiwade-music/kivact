@@ -5,36 +5,35 @@ use std::sync::Arc;
 
 /// Environmental error crossing a shell callback boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ShellError {
-    message: String,
-    /// The platform has no such service (rather than the service failing).
-    unsupported: bool,
+pub enum ShellError {
+    /// An available platform adapter failed, with its existing category.
+    Failed(kivact_types::Failure),
+    /// The platform has no implementation of this service.
+    Unsupported(String),
 }
 impl ShellError {
-    /// Construct an error with diagnostic context.
+    /// Construct a backend failure with diagnostic context.
     pub fn new(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-            unsupported: false,
-        }
+        Self::Failed(kivact_types::Failure::new(
+            kivact_types::FailureKind::Backend,
+            message,
+        ))
     }
-    /// An error saying the platform has no such service at all (an
-    /// operation Arvane does not implement there), as opposed to one that
-    /// failed this time.
+    /// The platform has no such service.
     pub fn unsupported(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-            unsupported: true,
-        }
+        Self::Unsupported(message.into())
     }
-    /// Whether the platform has no such service ([`ShellError::unsupported`]).
+    /// Whether the platform has no such service.
     pub fn is_unsupported(&self) -> bool {
-        self.unsupported
+        matches!(self, Self::Unsupported(_))
     }
 }
 impl fmt::Display for ShellError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.message.fmt(f)
+        match self {
+            Self::Failed(failure) => failure.detail.fmt(f),
+            Self::Unsupported(message) => message.fmt(f),
+        }
     }
 }
 impl std::error::Error for ShellError {}
@@ -45,9 +44,9 @@ pub struct ShellOptions {
     /// Initial title.
     pub title: String,
     /// Initial content width.
-    pub width: f32,
+    pub width: f64,
     /// Initial content height.
-    pub height: f32,
+    pub height: f64,
 }
 impl Default for ShellOptions {
     fn default() -> Self {

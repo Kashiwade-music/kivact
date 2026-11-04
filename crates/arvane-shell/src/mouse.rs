@@ -2,10 +2,10 @@
 //! A backend reports the mouse as separate messages (a move with a
 //! position, a button without one, a leave without either); [`Mouse`]
 //! keeps the last position and the held buttons, so every event it makes
-//! is a complete [`PointerInput`]. Hit testing and capture stay with the
+//! is a complete [`PointerSample`]. Hit testing and capture stay with the
 //! host.
 
-use kivact_types::protocol::PointerInput;
+use kivact_types::PointerSample;
 use kivact_types::{
     ButtonPress, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase,
 };
@@ -17,6 +17,7 @@ use kivact_types::{
 pub struct Mouse {
     position: Option<Point>,
     buttons: PointerButtons,
+    inside: bool,
 }
 
 impl Mouse {
@@ -25,9 +26,14 @@ impl Mouse {
         self.position
     }
 
+    /// Last reported position while the mouse is inside the window.
+    pub fn window_position(&self) -> Option<Point> {
+        self.inside.then_some(self.position).flatten()
+    }
+
     /// The `Cancel` that ends the gesture when the window loses focus with
     /// buttons held, or `None` when none is held (there is nothing to end).
-    pub fn cancel(&mut self) -> Option<PointerInput> {
+    pub fn cancel(&mut self) -> Option<PointerSample> {
         if self.buttons.is_empty() {
             return None;
         }
@@ -36,10 +42,11 @@ impl Mouse {
 
     /// Note a complete mouse event made elsewhere (one injected into a
     /// test window), so the next event made here continues from it.
-    pub fn observe(&mut self, input: PointerInput) {
+    pub fn observe(&mut self, input: PointerSample) {
         if input.kind == PointerKind::Mouse {
             self.position = Some(input.position);
             self.buttons = input.buttons;
+            self.inside = input.phase != PointerPhase::Leave;
         }
     }
 
@@ -51,7 +58,7 @@ impl Mouse {
         button: MouseButton,
         pressed: bool,
         position: Option<Point>,
-    ) -> Option<PointerInput> {
+    ) -> Option<PointerSample> {
         let press = ButtonPress { button, clicks: 1 };
         let phase = if pressed {
             PointerPhase::Down(press)
@@ -68,9 +75,13 @@ impl Mouse {
     /// Returns `None` when `position` is `None` and no position arrived yet: the platform reported a
     /// button or leave of a mouse it never placed in the window, so there is no point to report it at
     /// (its buttons stay unchanged).
-    pub fn event(&mut self, phase: PointerPhase, position: Option<Point>) -> Option<PointerInput> {
+    pub fn event(&mut self, phase: PointerPhase, position: Option<Point>) -> Option<PointerSample> {
         if let Some(position) = position {
             self.position = Some(position);
+            self.inside = true;
+        }
+        if phase == PointerPhase::Leave {
+            self.inside = false;
         }
         let at = self.position?;
         match phase {
@@ -79,7 +90,7 @@ impl Mouse {
             PointerPhase::Cancel => self.buttons = PointerButtons::NONE,
             PointerPhase::Move | PointerPhase::Enter | PointerPhase::Leave => {}
         }
-        Some(PointerInput {
+        Some(PointerSample {
             id: PointerId::MOUSE,
             kind: PointerKind::Mouse,
             phase,
@@ -87,6 +98,11 @@ impl Mouse {
             position: at,
             pressure: None,
             tilt: None,
+            button: None,
+            press: None,
+            time_ns: 0,
+            modifiers: kivact_types::Modifiers::default(),
+            is_primary: true,
         })
     }
 }

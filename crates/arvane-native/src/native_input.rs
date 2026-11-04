@@ -21,9 +21,10 @@
 //! (`RECONVERTSTRING`: a string and the offsets of the composition and the
 //! target in it). So an excerpt of the text answers it, not the whole
 //! document: offsets are UTF-16 code units of the excerpt and
-//! [`arvane_shell::ShellImeText::text_start`] is where the excerpt starts (the
-//! IME's selection, [`arvane_shell::ShellEvent::ImeSelection`], is in the
-//! excerpt too). winit offers no way to hand other platforms the
+//! [`arvane_shell::ShellImeText::text_start`] is where the excerpt starts in
+//! the complete document. Reconversion selections emitted as
+//! [`arvane_shell::ShellEvent::Ime`] use UTF-8 bytes relative to the excerpt.
+//! winit offers no way to hand other platforms the
 //! surrounding text (macOS's `NSTextInputClient` range queries, Wayland's
 //! text-input v3 `set_surrounding_text` are not used), so the excerpt is
 //! read on Windows only. text-input v3 takes up to 4000 bytes of
@@ -53,7 +54,7 @@
 //!   `MI_WP_SIGNATURE`) are dropped before winit sees them, so a touch is
 //!   never reported as the mouse as well.
 //! - A range the IME takes for reconversion is delivered as
-//!   [`arvane_shell::ShellEvent::ImeSelection`] before the IME event that follows
+//!   [`arvane_shell::ShellEvent::Ime`] before the IME event that follows
 //!   it (the reconversion's composition replaces that range).
 
 pub(crate) mod locale;
@@ -69,4 +70,4 @@ pub(crate) use windows::Subclass;
 #[cfg(all(windows, feature = "embed"))]
 pub(crate) use windows::ime_request;
 
-pub(crate) use system::{file_position, reduced_motion, track_files};
+pub(crate) use system::{file_position, pointer_settings, reduced_motion, track_files};

@@ -78,7 +78,7 @@ use winit::window::Window;
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
-use super::state::{ContactNote, MouseSettings, NativeInput};
+use super::state::{ContactNote, NativeInput};
 use arvane_shell::ShellImeText;
 use kivact_types::PointerKind;
 
@@ -224,7 +224,7 @@ unsafe extern "system" fn subclass(
             }
         }
         WM_SETTINGCHANGE => {
-            let mouse = mouse_settings();
+            let mouse = pointer_settings(input.scale.get());
             let mut changed = input.mouse.replace(mouse) != mouse;
             if let Some(reduce) = reduced_motion() {
                 changed |= input.reduced_motion.replace(reduce) != reduce;
@@ -327,7 +327,7 @@ fn note(info: &POINTER_INFO) -> Option<ContactNote> {
 }
 
 /// The tilt of the pen `id` (degrees along x and y), when it reports one.
-fn pen_tilt(id: u32) -> Option<(f32, f32)> {
+fn pen_tilt(id: u32) -> Option<(f64, f64)> {
     // SAFETY: `POINTER_PEN_INFO` is plain data; all zeros is a valid value.
     let mut pen: POINTER_PEN_INFO = unsafe { std::mem::zeroed() };
     // SAFETY: `pen` is a valid `POINTER_PEN_INFO` for the call to fill.
@@ -335,7 +335,7 @@ fn pen_tilt(id: u32) -> Option<(f32, f32)> {
         return None;
     }
     (pen.penMask & (PEN_MASK_TILT_X | PEN_MASK_TILT_Y) != 0)
-        .then_some((pen.tiltX as f32, pen.tiltY as f32))
+        .then_some((pen.tiltX as f64, pen.tiltY as f64))
 }
 
 /// The signed client or screen position packed into a mouse message.
@@ -378,7 +378,13 @@ pub(crate) fn ime_request(
             ))
         }
         IMR_CONFIRMRECONVERTSTRING => {
-            let range = confirmed(lparam, text.text.encode_utf16().collect::<Vec<u16>>().len());
+            let range = confirmed(lparam, text.text.encode_utf16().collect::<Vec<u16>>().len())
+                .map(|(start, end)| {
+                    (
+                        kivact_types::text_utf::byte_offset_from_utf16(&text.text, start),
+                        kivact_types::text_utf::byte_offset_from_utf16(&text.text, end),
+                    )
+                });
             input.reconvert.set(range.or(input.reconvert.get()));
             Some(LRESULT::from(range.is_some()))
         }
@@ -490,8 +496,8 @@ fn char_position(hwnd: HWND, text: &ShellImeText, scale: f64, lparam: LPARAM) ->
     }
     // Saturating: the window procedure must not panic (debug overflow
     // checks), and a casting `as` saturates too.
-    let px = |v: f32| (f64::from(v) * scale).round() as i32;
-    let at = |x: f32, y: f32| {
+    let px = |v: f64| (f64::from(v) * scale).round() as i32;
+    let at = |x: f64, y: f64| {
         (
             origin.x.saturating_add(px(x)),
             origin.y.saturating_add(px(y)),
@@ -572,29 +578,48 @@ fn parameter(action: u32) -> Option<u32> {
     (read != 0).then_some(value)
 }
 
-/// Windows' mouse settings (see `MouseSettings`; a value that cannot be
+/// Windows' pointer settings (see `PointerSettings`; a value that cannot be
 /// read keeps its default).
-pub(crate) fn mouse_settings() -> MouseSettings {
-    let defaults = MouseSettings::default();
+pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
+    let defaults = kivact_types::PointerSettings::default();
     // SAFETY: a plain query without arguments.
-    let double_click_ms = unsafe { GetDoubleClickTime() };
+    let milliseconds = unsafe { GetDoubleClickTime() };
     let metric = |index| {
         // SAFETY: a plain query of a system metric.
         let value = unsafe { GetSystemMetrics(index) };
-        u32::try_from(value).ok().filter(|v| *v > 0)
+        (value > 0).then_some(f64::from(value) / scale)
     };
-    MouseSettings {
-        double_click_ms: if double_click_ms > 0 {
-            double_click_ms
+    kivact_types::PointerSettings {
+        double_click_ns: if milliseconds > 0 {
+            u64::from(milliseconds) * 1_000_000
         } else {
-            defaults.double_click_ms
+            defaults.double_click_ns
         },
-        double_click_px: (
-            metric(SM_CXDOUBLECLK).unwrap_or(defaults.double_click_px.0),
-            metric(SM_CYDOUBLECLK).unwrap_or(defaults.double_click_px.1),
+        double_click_distance: (
+            metric(SM_CXDOUBLECLK).unwrap_or(defaults.double_click_distance.0 / scale),
+            metric(SM_CYDOUBLECLK).unwrap_or(defaults.double_click_distance.1 / scale),
         ),
         wheel_lines: parameter(SPI_GETWHEELSCROLLLINES).unwrap_or(defaults.wheel_lines),
         wheel_chars: parameter(SPI_GETWHEELSCROLLCHARS).unwrap_or(defaults.wheel_chars),
+        drag_slop: metric(windows_sys::Win32::UI::WindowsAndMessaging::SM_CXDRAG)
+            .zip(metric(
+                windows_sys::Win32::UI::WindowsAndMessaging::SM_CYDRAG,
+            ))
+            .map_or(defaults.drag_slop, |(x, y)| x.max(y)),
+        // SAFETY: both calls only query system metrics.
+        primary: if unsafe {
+            GetSystemMetrics(windows_sys::Win32::UI::WindowsAndMessaging::SM_MOUSEPRESENT)
+        } == 0
+            && unsafe {
+                GetSystemMetrics(windows_sys::Win32::UI::WindowsAndMessaging::SM_DIGITIZER)
+            } & 0x40
+                != 0
+        {
+            kivact_types::PointerClass::Coarse
+        } else {
+            kivact_types::PointerClass::Fine
+        },
+        ..defaults
     }
 }
 
@@ -617,8 +642,8 @@ fn cursor_at(hwnd: HWND, scale: f64) -> Option<kivact_types::Point> {
         return None;
     }
     Some(kivact_types::Point {
-        x: (f64::from(point.x) / scale) as f32,
-        y: (f64::from(point.y) / scale) as f32,
+        x: (f64::from(point.x) / scale) as f64,
+        y: (f64::from(point.y) / scale) as f64,
     })
 }
 /// A window timer keeps tracking through Windows' modal OLE drag loop.

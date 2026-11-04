@@ -11,7 +11,6 @@ use crate::types::{ShellControl, ShellError, ShellWaker};
 use kivact_types::{Cursor as ShellCursor, Rect, Size};
 
 /// The frame period of a display whose refresh rate is unknown (60 Hz).
-pub const DEFAULT_FRAME_PERIOD_NS: u64 = 16_666_667;
 
 /// Window services implemented by a platform backend or an in-memory shell.
 /// This trait imposes no `Send` or `Sync` bound on the window itself.
@@ -30,25 +29,25 @@ pub trait ShellWindow {
     /// Request one file; cancellation returns `None`.
     fn pick_file(
         &mut self,
-        request: &crate::services::ShellFileDialog,
+        request: &crate::services::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError>;
 
     /// Request multiple files; cancellation returns `None`.
     fn pick_files(
         &mut self,
-        request: &crate::services::ShellFileDialog,
+        request: &crate::services::FileDialog,
     ) -> Result<Option<Vec<std::path::PathBuf>>, ShellError>;
 
     /// Request a save path; cancellation returns `None`.
     fn save_file(
         &mut self,
-        request: &crate::services::ShellFileDialog,
+        request: &crate::services::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError>;
 
     /// Request one folder; cancellation returns `None`. File filters do not apply.
     fn pick_folder(
         &mut self,
-        request: &crate::services::ShellFileDialog,
+        request: &crate::services::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError>;
 
     /// Ask the platform to open a path. `Ok` acknowledges the request, not its completion.
@@ -70,13 +69,13 @@ pub trait ShellWindow {
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::protocol::SemanticsTree,
+        tree: &kivact_types::render::SemanticsTree,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Validate and apply a semantics update transactionally. A new root requires a complete tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::protocol::SemanticsUpdate,
+        update: &kivact_types::render::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Whether assistive technology currently requests this window's accepted semantics.
@@ -89,7 +88,7 @@ pub trait ShellWindow {
     fn physical_size(&self) -> (u32, u32);
 
     /// Physical pixels per logical pixel.
-    fn scale(&self) -> f32;
+    fn scale(&self) -> f64;
 
     /// Monotonic window clock in nanoseconds; comparable to this loop's wake deadlines.
     fn now_ns(&self) -> u64;
@@ -113,7 +112,7 @@ pub trait ShellWindow {
     fn reduced_motion(&self) -> bool;
 
     /// Current scale, refresh period, preferences, safe area, mouse settings and locale.
-    fn environment(&self) -> kivact_types::protocol::Environment;
+    fn environment(&self) -> kivact_types::Environment;
 
     /// Request a logical content size.
     fn request_size(&mut self, size: Size) -> Result<(), ShellError>;

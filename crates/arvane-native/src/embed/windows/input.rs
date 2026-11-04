@@ -60,8 +60,8 @@ pub(super) fn cancel(state: &Rc<State>) {
 fn position(state: &State, l: LPARAM) -> Point {
     let scale = state.shared.scale();
     Point {
-        x: (l as u16 as i16) as f32 / scale,
-        y: ((l as u32 >> 16) as u16 as i16) as f32 / scale,
+        x: (l as u16 as i16) as f64 / scale,
+        y: ((l as u32 >> 16) as u16 as i16) as f64 / scale,
     }
 }
 fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM) {
@@ -72,17 +72,16 @@ fn pointer(state: &Rc<State>, phase: PointerPhase, l: LPARAM) {
         return;
     };
     let mut event = ShellEvent::Pointer(input);
-    let settings = crate::native_input::state::MouseSettings::read();
-    let scale = state.shared.scale();
+    let settings = crate::native_input::pointer_settings(state.shared.scale());
     state.clicks.borrow_mut().count(
         &mut event,
         || state.now(),
         || {
             (
-                u64::from(settings.double_click_ms) * 1_000_000,
+                settings.double_click_ns,
                 (
-                    settings.double_click_px.0 as f32 / scale,
-                    settings.double_click_px.1 as f32 / scale,
+                    settings.double_click_distance.0,
+                    settings.double_click_distance.1,
                 ),
             )
         },
@@ -93,7 +92,7 @@ fn held(key: u16) -> bool {
     // SAFETY: GetKeyState reads this UI thread's keyboard state and retains nothing.
     unsafe { GetKeyState(i32::from(key)) < 0 }
 }
-fn modifiers() -> Modifiers {
+pub(super) fn modifiers() -> Modifiers {
     Modifiers {
         shift: held(VK_SHIFT),
         ctrl: held(VK_CONTROL),
@@ -208,8 +207,8 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             let event = mouse.event(
                 PointerPhase::Move,
                 Some(Point {
-                    x: point.x as f32 / scale,
-                    y: point.y as f32 / scale,
+                    x: point.x as f64 / scale,
+                    y: point.y as f64 / scale,
                 }),
             );
             state.mouse.set(mouse);
@@ -218,14 +217,14 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             {
                 state.event(ShellEvent::Pointer(event));
             }
-            let notch = (w >> 16) as u16 as i16 as f32 / 120.0;
+            let notch = (w >> 16) as u16 as i16 as f64 / 120.0;
             let (x, y) = if message == WM_MOUSEHWHEEL {
                 (-notch, 0.0)
             } else {
                 (0.0, notch)
             };
-            let settings = crate::native_input::state::MouseSettings::read();
-            let height = applied.height as f32 / scale;
+            let settings = crate::native_input::pointer_settings(state.shared.scale());
+            let height = applied.height as f64 / scale;
             let (x, y) = crate::wheel::lines(
                 x,
                 y,
@@ -234,7 +233,13 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 settings.wheel_lines,
                 settings.wheel_chars,
             );
-            state.event(ShellEvent::Wheel { x, y });
+            if let Some(position) = state.mouse.get().position() {
+                state.event(ShellEvent::Wheel(kivact_types::WheelInput {
+                    delta: kivact_types::Point { x, y },
+                    position,
+                    modifiers: self::modifiers(),
+                }));
+            }
             Some(0)
         }
         WM_KEYDOWN | WM_KEYUP => {
@@ -268,7 +273,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             if let Some(text) = text
                 && !text.chars().all(char::is_control)
             {
-                state.event(ShellEvent::Commit(text));
+                state.event(ShellEvent::Ime(kivact_types::ImeInput::Commit(text)));
             }
             Some(0)
         }
@@ -338,7 +343,13 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
         _ => fallback.chars().next().map_or(Key::Unidentified, Key::Char),
     };
     if matches!(message, WM_KEYUP | WM_SYSKEYUP) {
-        state.event(ShellEvent::KeyUp { key, code });
+        state.event(ShellEvent::Key(kivact_types::KeyInput {
+            key,
+            code,
+            phase: kivact_types::KeyPhase::Up,
+            modifiers: self::modifiers(),
+            pointer: state.mouse.get().window_position(),
+        }));
         return;
     }
     let mut units = Vec::new();
@@ -372,40 +383,14 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     } else {
         String::new()
     };
-    let physical = match code {
-        kivact_types::KeyCode::KeyA => Some('a'),
-        kivact_types::KeyCode::KeyB => Some('b'),
-        kivact_types::KeyCode::KeyC => Some('c'),
-        kivact_types::KeyCode::KeyD => Some('d'),
-        kivact_types::KeyCode::KeyE => Some('e'),
-        kivact_types::KeyCode::KeyF => Some('f'),
-        kivact_types::KeyCode::KeyG => Some('g'),
-        kivact_types::KeyCode::KeyH => Some('h'),
-        kivact_types::KeyCode::KeyI => Some('i'),
-        kivact_types::KeyCode::KeyJ => Some('j'),
-        kivact_types::KeyCode::KeyK => Some('k'),
-        kivact_types::KeyCode::KeyL => Some('l'),
-        kivact_types::KeyCode::KeyM => Some('m'),
-        kivact_types::KeyCode::KeyN => Some('n'),
-        kivact_types::KeyCode::KeyO => Some('o'),
-        kivact_types::KeyCode::KeyP => Some('p'),
-        kivact_types::KeyCode::KeyQ => Some('q'),
-        kivact_types::KeyCode::KeyR => Some('r'),
-        kivact_types::KeyCode::KeyS => Some('s'),
-        kivact_types::KeyCode::KeyT => Some('t'),
-        kivact_types::KeyCode::KeyU => Some('u'),
-        kivact_types::KeyCode::KeyV => Some('v'),
-        kivact_types::KeyCode::KeyW => Some('w'),
-        kivact_types::KeyCode::KeyX => Some('x'),
-        kivact_types::KeyCode::KeyY => Some('y'),
-        kivact_types::KeyCode::KeyZ => Some('z'),
-        _ => None,
-    };
-    state.event(ShellEvent::Key {
+    state.event(ShellEvent::Key(kivact_types::KeyInput {
         key,
         code,
-        physical,
-        repeat: l & (1 << 30) != 0,
-        text: (!text.is_empty()).then_some(text),
-    });
+        phase: kivact_types::KeyPhase::Down {
+            repeat: l & (1 << 30) != 0,
+            text: (!text.is_empty()).then_some(text),
+        },
+        modifiers: self::modifiers(),
+        pointer: state.mouse.get().window_position(),
+    }));
 }

@@ -12,7 +12,7 @@
 //! single default action, so a native click is reported as `Activate`; the
 //! receiver resolves it against the actions the node declared.
 
-use kivact_types::protocol::{SemanticsTree, SemanticsUpdate};
+use kivact_types::render::{SemanticsTree, SemanticsUpdate};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;

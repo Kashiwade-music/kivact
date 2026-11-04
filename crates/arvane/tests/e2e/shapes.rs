@@ -4,13 +4,14 @@
 //! their fill rule, what is drawn agreeing with `Shape::contains`, and
 //! stroke caps, joins, dashes and dots.
 
-use kivact_types::protocol::{DrawCommand, PathCmd, Shape};
+use kivact_types::render::RenderCmd;
+use kivact_types::scene::{PathCmd, Shape};
 use kivact_types::{FillRule, LineCap, LineJoin, Stroke};
 
 use crate::support::{gray, open, pixel, pt, show, solid};
 
-fn stroke_shape(shape: Shape, stroke: Stroke) -> DrawCommand {
-    DrawCommand::StrokeShape {
+fn stroke_shape(shape: Shape, stroke: Stroke) -> RenderCmd {
+    RenderCmd::StrokeShape {
         shape,
         stroke,
         paint: solid(0x000000),
@@ -27,20 +28,20 @@ fn path(cmds: Vec<PathCmd>) -> Shape {
 #[test]
 fn strokes_have_caps_joins_dashes_and_dots() {
     let mut window = open(200.0, 140.0);
-    let line = |y: f32| {
+    let line = |y: f64| {
         path(vec![
             PathCmd::MoveTo(pt(20.0, y)),
             PathCmd::LineTo(pt(40.0, y)),
         ])
     };
-    let open_corner = |x: f32| {
+    let open_corner = |x: f64| {
         path(vec![
             PathCmd::MoveTo(pt(x, 70.0)),
             PathCmd::LineTo(pt(x + 30.0, 70.0)),
             PathCmd::LineTo(pt(x + 30.0, 100.0)),
         ])
     };
-    let style = |width: f32, cap: LineCap, join: LineJoin| Stroke {
+    let style = |width: f64, cap: LineCap, join: LineJoin| Stroke {
         cap,
         join,
         ..Stroke::new(width)

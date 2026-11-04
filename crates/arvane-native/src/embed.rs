@@ -2,8 +2,8 @@
 //!
 //! Win32 uses the host GUI thread; X11 owns a joined connection thread.
 //! Other operating systems report Unsupported without constructing a handler.
-use arvane_shell::{ChildOptions, MakeHandler, ShellChild, ShellError};
-use kivact_types::protocol::ParentWindow;
+use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
+use kivact_types::ParentWindow;
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os = "linux")]
@@ -16,20 +16,21 @@ pub use x11::test_parent::TestParent;
 /// UI thread.
 pub fn open(
     parent: ParentWindow,
-    options: ChildOptions,
+    options: EmbedOptions,
+    hooks: ChildHooks,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
     #[cfg(windows)]
     {
-        windows::open(parent, options, make)
+        windows::open(parent, options, hooks, make)
     }
     #[cfg(target_os = "linux")]
     {
-        x11::open(parent, options, make)
+        x11::open(parent, options, hooks, make)
     }
     #[cfg(not(any(windows, target_os = "linux")))]
     {
-        let _ = (parent, options, make);
+        let _ = (parent, options, hooks, make);
         Err(ShellError::unsupported(
             "embedding a window is not implemented on this platform yet",
         ))

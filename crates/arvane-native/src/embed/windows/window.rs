@@ -3,7 +3,7 @@ use super::native::Native;
 use super::state::{CpuFrame, Hold, Phase, ScaleSource, State};
 use crate::embed::child::{Backend, Command, Shared};
 use crate::embed::session::{Session, negotiate};
-use arvane_shell::{AccessibilityError, ShellError, ShellFileDialog, ShellImeText, ShellWindow};
+use arvane_shell::{AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
@@ -25,22 +25,24 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 pub(super) struct Window(pub(super) Rc<State>);
 
-pub(super) fn environment(state: &State) -> kivact_types::protocol::Environment {
+pub(super) fn environment(state: &State) -> kivact_types::Environment {
     let scale = state.shared.scale();
-    let mouse = crate::native_input::state::MouseSettings::read();
-    kivact_types::protocol::Environment {
-        scale,
+    let mouse = crate::native_input::pointer_settings(state.shared.scale());
+    kivact_types::Environment {
+        scale_factor: scale,
+        window_size: kivact_types::Size {
+            width: f64::from(state.shared.size().0) / scale,
+            height: f64::from(state.shared.size().1) / scale,
+        },
         frame_period_ns: frame_period(state.native.hwnd()),
         reduced_motion: crate::native_input::reduced_motion(),
         locale: crate::native_input::locale::system_locale(),
-        mouse: kivact_types::protocol::MouseSettings {
-            double_click_ns: u64::from(mouse.double_click_ms) * 1_000_000,
-            double_click_distance: (
-                mouse.double_click_px.0 as f32 / scale,
-                mouse.double_click_px.1 as f32 / scale,
-            ),
+        pointer: kivact_types::PointerSettings {
+            double_click_ns: mouse.double_click_ns,
+            double_click_distance: (mouse.double_click_distance.0, mouse.double_click_distance.1),
             wheel_lines: mouse.wheel_lines,
             wheel_chars: mouse.wheel_chars,
+            ..mouse
         },
         ..Default::default()
     }
@@ -59,7 +61,7 @@ fn frame_period(hwnd: isize) -> u64 {
     // SAFETY: info is size-tagged writable MONITORINFOEXW storage.
     let found = unsafe { GetMonitorInfoW(monitor, (&mut info as *mut MONITORINFOEXW).cast()) };
     if found == 0 {
-        return arvane_shell::DEFAULT_FRAME_PERIOD_NS;
+        return kivact_types::defaults::FRAME_PERIOD_NS;
     }
     // SAFETY: device name comes from monitor info and mode declares its output size.
     let found =
@@ -67,7 +69,7 @@ fn frame_period(hwnd: isize) -> u64 {
     if found != 0 && mode.dmDisplayFrequency > 1 {
         1_000_000_000 / u64::from(mode.dmDisplayFrequency)
     } else {
-        arvane_shell::DEFAULT_FRAME_PERIOD_NS
+        kivact_types::defaults::FRAME_PERIOD_NS
     }
 }
 impl ShellWindow for Window {
@@ -90,19 +92,16 @@ impl ShellWindow for Window {
     fn read_text(&mut self) -> Result<String, ShellError> {
         self.0.services.borrow_mut().read_text()
     }
-    fn pick_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         super::services::pick_file(&super::services::Parent::new(self.0.native.hwnd()), request)
     }
-    fn pick_files(
-        &mut self,
-        request: &ShellFileDialog,
-    ) -> Result<Option<Vec<PathBuf>>, ShellError> {
+    fn pick_files(&mut self, request: &FileDialog) -> Result<Option<Vec<PathBuf>>, ShellError> {
         super::services::pick_files(&super::services::Parent::new(self.0.native.hwnd()), request)
     }
-    fn save_file(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn save_file(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         super::services::save_file(&super::services::Parent::new(self.0.native.hwnd()), request)
     }
-    fn pick_folder(&mut self, request: &ShellFileDialog) -> Result<Option<PathBuf>, ShellError> {
+    fn pick_folder(&mut self, request: &FileDialog) -> Result<Option<PathBuf>, ShellError> {
         super::services::pick_folder(&super::services::Parent::new(self.0.native.hwnd()), request)
     }
     fn open_path(&mut self, path: &Path) -> Result<(), ShellError> {
@@ -124,7 +123,7 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::protocol::SemanticsTree,
+        tree: &kivact_types::render::SemanticsTree,
     ) -> Result<(), AccessibilityError> {
         let result = self.0.a11y.replace(tree);
         if result.is_ok() {
@@ -134,7 +133,7 @@ impl ShellWindow for Window {
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::protocol::SemanticsUpdate,
+        update: &kivact_types::render::SemanticsUpdate,
     ) -> Result<(), AccessibilityError> {
         self.0
             .a11y
@@ -147,14 +146,14 @@ impl ShellWindow for Window {
     fn size(&self) -> Size {
         let applied = self.0.shared.applied();
         Size {
-            width: applied.width as f32 / applied.scale,
-            height: applied.height as f32 / applied.scale,
+            width: applied.width as f64 / applied.scale,
+            height: applied.height as f64 / applied.scale,
         }
     }
     fn physical_size(&self) -> (u32, u32) {
         self.0.shared.size()
     }
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.0.shared.scale()
     }
     fn now_ns(&self) -> u64 {
@@ -183,7 +182,7 @@ impl ShellWindow for Window {
     fn reduced_motion(&self) -> bool {
         self.environment().reduced_motion
     }
-    fn environment(&self) -> kivact_types::protocol::Environment {
+    fn environment(&self) -> kivact_types::Environment {
         environment(&self.0)
     }
     fn set_fullscreen(&self, _: bool) -> Result<(), ShellError> {
@@ -311,7 +310,7 @@ impl State {
             pending_surrogate: Cell::new(None),
             mouse: Cell::new(Mouse::default()),
             clicks: RefCell::new(ClickCounter::default()),
-            environment: RefCell::new(kivact_types::protocol::Environment::default()),
+            environment: RefCell::new(kivact_types::Environment::default()),
             scale_source: Cell::new(scale_source),
             frame: RefCell::new(None),
             scratch: RefCell::new(Vec::new()),
@@ -350,7 +349,13 @@ impl State {
             self.control();
         }
     }
-    pub(super) fn event(self: &Rc<Self>, event: ShellEvent) {
+    pub(super) fn event(self: &Rc<Self>, mut event: ShellEvent) {
+        if let ShellEvent::Pointer(sample) = &mut event {
+            sample.modifiers = super::input::modifiers();
+            sample.time_ns = self.now();
+            sample.press = sample.phase.press();
+            sample.button = sample.press.map(|press| press.button);
+        }
         if self.shared.stopped() {
             return;
         }

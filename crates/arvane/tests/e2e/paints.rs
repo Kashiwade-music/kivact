@@ -4,19 +4,20 @@
 //! reflected gradients with hard stops, and patterns tiling an image or a
 //! gradient tile in a constant number of commands.
 
-use kivact_types::protocol::{DrawCommand, Gradient, GradientShape, Paint, Shape};
+use kivact_types::render::{Gradient, GradientShape, Paint, RenderCmd};
+use kivact_types::scene::Shape;
 use kivact_types::{Extend, Rgba};
 
 use crate::support::{BLUE, RED, assert_near, color, open, pixel, pt, rect, show};
 
-fn fill_rect(x: f32, y: f32, width: f32, height: f32, paint: Paint) -> DrawCommand {
-    DrawCommand::FillShape {
+fn fill_rect(x: f64, y: f64, width: f64, height: f64, paint: Paint) -> RenderCmd {
+    RenderCmd::FillShape {
         shape: Shape::Rect(rect(x, y, width, height)),
         paint,
     }
 }
 
-fn gradient(shape: GradientShape, stops: Vec<(f32, Rgba)>, extend: Extend) -> Paint {
+fn gradient(shape: GradientShape, stops: Vec<(f64, Rgba)>, extend: Extend) -> Paint {
     Paint::Gradient(Gradient {
         shape,
         stops,

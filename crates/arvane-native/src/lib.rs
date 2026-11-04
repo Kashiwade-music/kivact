@@ -60,7 +60,6 @@ pub mod embed;
 mod a11y;
 mod contacts;
 mod cpu;
-mod detached;
 mod display;
 mod key_code;
 mod module;
@@ -73,6 +72,5 @@ pub mod test_display;
 mod wait;
 mod wheel;
 
-pub use detached::detached_threads;
 pub use module::retain_module;
 pub use runtime::{Shell, WinitWindow};

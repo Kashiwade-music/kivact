@@ -1,6 +1,6 @@
 //! Role: Platform-independent input vocabulary; pointer coordinates are logical pixels.
 
-use kivact_types::{FilePhase, Key, KeyCode, Modifiers};
+use kivact_types::{FileDrop, ImeInput, KeyInput, Modifiers, PointerSample, WheelInput};
 
 /// Ordered shell events delivered on the UI thread.
 #[derive(Clone, Debug, PartialEq)]
@@ -40,69 +40,17 @@ pub enum ShellEvent {
     /// A platform's mouse emulation of touch is not reported as the mouse
     /// as well; a pen hovering without contact is not reported. The wheel
     /// is [`ShellEvent::Wheel`].
-    Pointer(kivact_types::protocol::PointerInput),
-    /// Wheel delta in logical pixels (positive scrolls content forward).
-    Wheel {
-        /// Horizontal logical delta.
-        x: f32,
-        /// Vertical logical delta.
-        y: f32,
-    },
-    /// Logical key down.
-    Key {
-        /// Logical key identity (what the keyboard layout makes of it).
-        key: Key,
-        /// The letter (`a`..=`z`) the physical key has in the US layout
-        /// (`KeyA`..=`KeyZ`), `None` for other keys: what a shortcut falls
-        /// back to on a layout whose letters are not Latin.
-        physical: Option<char>,
-        /// Physical keyboard position.
-        code: KeyCode,
-        /// Whether this is an automatic repeat.
-        repeat: bool,
-        /// Printable keyboard text, independent of IME commits.
-        text: Option<String>,
-    },
-    /// Logical key release; it never edits text or activates a control.
-    KeyUp {
-        /// Logical key.
-        key: Key,
-        /// Physical keyboard position.
-        code: KeyCode,
-    },
-    /// Files dragged from the operating system, with logical position.
-    File {
-        /// Phase reported by the platform.
-        phase: FilePhase,
-        /// Paths supplied by the operating system.
-        files: Vec<std::path::PathBuf>,
-        /// Window logical coordinates. Never a placeholder: a file event whose position the
-        /// platform cannot tell is not sent.
-        position: kivact_types::Point,
-    },
+    Pointer(PointerSample),
+    /// A normalized wheel movement in logical window coordinates.
+    Wheel(WheelInput),
+    /// A normalized key press or release.
+    Key(KeyInput),
+    /// Files dragged from the operating system, with their window position.
+    File(FileDrop),
     /// Keyboard modifier state changed.
     Modifiers(Modifiers),
-    /// IME preedit with UTF-8 byte selection offsets.
-    Preedit {
-        /// Provisional text.
-        text: String,
-        /// UTF-8 selection offsets.
-        selection: Option<(usize, usize)>,
-    },
-    /// IME committed text.
-    Commit(String),
-    /// The IME took this range of the focused text for reconversion, in
-    /// UTF-16 code units of the text last given to
-    /// the backend as [`crate::ShellImeText`]: it becomes the selection,
-    /// which the reconversion's composition then replaces.
-    ImeSelection {
-        /// Start of the range.
-        start: usize,
-        /// End of the range.
-        end: usize,
-    },
-    /// IME session ended.
-    ImeDisabled,
+    /// IME text and selection operations, with UTF-8 byte offsets.
+    Ime(ImeInput),
     /// The window's environment may
     /// have changed: the theme, the reduce-motion preference, the refresh
     /// period (the window moved to another monitor), the safe area, the

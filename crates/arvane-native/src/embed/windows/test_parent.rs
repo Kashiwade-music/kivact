@@ -1,6 +1,7 @@
 //! Role: Real Win32 host window for embedding end-to-end tests.
 use arvane_shell::ShellError;
-use kivact_types::protocol::{CpuFrame, ParentWindow};
+use kivact_types::ParentWindow;
+use kivact_types::render::CpuFrame;
 use kivact_types::{KeyCode, MouseButton};
 use std::cell::Cell;
 use std::marker::PhantomData;
@@ -41,7 +42,7 @@ const NAME: &[u16] = &[
 static CLASS: Mutex<(usize, isize)> = Mutex::new((0, 0));
 /// A real top-level host. Use and drop it on the thread that opened it.
 pub struct TestParent {
-    point: Cell<(f32, f32)>,
+    point: Cell<(f64, f64)>,
     buttons: Cell<usize>,
     hwnd: HWND,
     owner: std::thread::ThreadId,
@@ -291,14 +292,14 @@ impl TestParent {
         }
     }
     /// Queue a button press in physical child-client coordinates.
-    pub fn press_button(&self, button: MouseButton, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn press_button(&self, button: MouseButton, x: f64, y: f64) -> Result<(), ShellError> {
         self.button(button, x, y, true)
     }
     /// Queue a button release in physical child-client coordinates.
-    pub fn release_button(&self, button: MouseButton, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn release_button(&self, button: MouseButton, x: f64, y: f64) -> Result<(), ShellError> {
         self.button(button, x, y, false)
     }
-    fn button(&self, button: MouseButton, x: f32, y: f32, down: bool) -> Result<(), ShellError> {
+    fn button(&self, button: MouseButton, x: f64, y: f64, down: bool) -> Result<(), ShellError> {
         use windows_sys::Win32::System::SystemServices::{
             MK_LBUTTON, MK_MBUTTON, MK_RBUTTON, MK_XBUTTON1, MK_XBUTTON2,
         };
@@ -324,27 +325,27 @@ impl TestParent {
         Ok(())
     }
     /// Queue a primary press in physical child-client coordinates.
-    pub fn press(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn press(&self, x: f64, y: f64) -> Result<(), ShellError> {
         self.press_button(MouseButton::Primary, x, y)
     }
     /// Queue pointer motion in physical child-client coordinates.
-    pub fn move_to(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn move_to(&self, x: f64, y: f64) -> Result<(), ShellError> {
         self.post(WM_MOUSEMOVE, self.buttons.get(), coordinates(x, y))?;
         self.point.set((x, y));
         Ok(())
     }
     /// Queue a primary release in physical child-client coordinates.
-    pub fn release(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn release(&self, x: f64, y: f64) -> Result<(), ShellError> {
         self.release_button(MouseButton::Primary, x, y)
     }
     /// Queue a complete primary click.
-    pub fn click(&self, x: f32, y: f32) -> Result<(), ShellError> {
+    pub fn click(&self, x: f64, y: f64) -> Result<(), ShellError> {
         self.press(x, y)?;
         self.release(x, y)
     }
     /// Queue wheel notches at the most recently injected mouse point.
     /// Positive values scroll right/down; units are native wheel notches.
-    pub fn wheel(&self, lines_x: f32, lines_y: f32) -> Result<(), ShellError> {
+    pub fn wheel(&self, lines_x: f64, lines_y: f64) -> Result<(), ShellError> {
         let child = self.child()?;
         let (x, y) = self.point.get();
         let mut point = POINT {
@@ -358,8 +359,8 @@ impl TestParent {
         for (message, count) in [(WM_MOUSEHWHEEL, lines_x), (WM_MOUSEWHEEL, -lines_y)] {
             let delta = count * 120.0;
             if !delta.is_finite()
-                || delta < i16::MIN as f32
-                || delta > i16::MAX as f32
+                || delta < i16::MIN as f64
+                || delta > i16::MAX as f64
                 || delta.fract() != 0.0
             {
                 return Err(ShellError::unsupported(
@@ -370,7 +371,7 @@ impl TestParent {
                 self.post(
                     message,
                     ((delta as i16 as u16 as u32) << 16) as usize,
-                    coordinates(point.x as f32, point.y as f32),
+                    coordinates(point.x as f64, point.y as f64),
                 )?;
             }
         }
@@ -570,7 +571,7 @@ impl Drop for TestParent {
         }
     }
 }
-fn coordinates(x: f32, y: f32) -> isize {
+fn coordinates(x: f64, y: f64) -> isize {
     ((x.round() as i16 as u16 as u32) | ((y.round() as i16 as u16 as u32) << 16)) as isize
 }
 fn virtual_key(code: KeyCode) -> Option<u16> {

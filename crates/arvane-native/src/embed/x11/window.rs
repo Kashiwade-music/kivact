@@ -6,7 +6,7 @@ use crate::cpu::CpuSurface;
 use crate::embed::child::{Backend as _, Shared};
 use crate::embed::session::negotiate;
 use arvane_shell::{ShellError, ShellWindow};
-use kivact_types::protocol::Environment;
+use kivact_types::Environment;
 use kivact_types::{Capabilities, Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
@@ -21,7 +21,7 @@ pub(super) struct Window {
     pub(super) opening: bool,
     pub(super) width: u32,
     pub(super) height: u32,
-    pub(super) scale: f32,
+    pub(super) scale: f64,
     on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
     pub(super) redraw: Cell<bool>,
     started: Instant,
@@ -41,7 +41,7 @@ impl Window {
         shared: Arc<Shared>,
         backend: Arc<Notifier>,
         size: (u32, u32),
-        scale: f32,
+        scale: f64,
         on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
         waker: arvane_shell::ShellWaker,
     ) -> Result<Self, ShellError> {
@@ -114,25 +114,25 @@ impl ShellWindow for Window {
     }
     fn pick_file(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError> {
         super::services::Services::pick_file(&self.native, request)
     }
     fn pick_files(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<Vec<std::path::PathBuf>>, ShellError> {
         super::services::Services::pick_files(&self.native, request)
     }
     fn save_file(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError> {
         super::services::Services::save_file(&self.native, request)
     }
     fn pick_folder(
         &mut self,
-        request: &arvane_shell::ShellFileDialog,
+        request: &arvane_shell::FileDialog,
     ) -> Result<Option<std::path::PathBuf>, ShellError> {
         super::services::Services::pick_folder(&self.native, request)
     }
@@ -154,13 +154,13 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::protocol::SemanticsTree,
+        tree: &kivact_types::render::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.replace(tree)
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::protocol::SemanticsUpdate,
+        update: &kivact_types::render::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.update(update).map(|_| ())
     }
@@ -169,14 +169,14 @@ impl ShellWindow for Window {
     }
     fn size(&self) -> Size {
         Size {
-            width: self.width as f32 / self.scale,
-            height: self.height as f32 / self.scale,
+            width: self.width as f64 / self.scale,
+            height: self.height as f64 / self.scale,
         }
     }
     fn physical_size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
-    fn scale(&self) -> f32 {
+    fn scale(&self) -> f64 {
         self.scale
     }
     fn now_ns(&self) -> u64 {
@@ -202,7 +202,8 @@ impl ShellWindow for Window {
     }
     fn environment(&self) -> Environment {
         Environment {
-            scale: self.scale,
+            scale_factor: self.scale,
+            window_size: self.size(),
             locale: sys_locale::get_locale(),
             ..Environment::default()
         }
@@ -231,7 +232,7 @@ impl ShellWindow for Window {
     }
     fn set_ime_text(&self, _: Option<arvane_shell::ShellImeText>) {}
     fn frame_period_ns(&self) -> u64 {
-        arvane_shell::DEFAULT_FRAME_PERIOD_NS
+        kivact_types::defaults::FRAME_PERIOD_NS
     }
     fn present_with(
         &mut self,

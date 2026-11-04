@@ -13,7 +13,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use kivact_types::protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate};
+use kivact_types::render::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 use kivact_types::{SemanticsId, SemanticsTextRun};
 
 use super::error::AccessibilityError;
@@ -124,15 +124,12 @@ impl AcceptedTree {
         // Every changed node hangs from the root, without a cycle.
         let limit = self.nodes.len() + incoming.len() + 1;
         for node in &changed {
-            if let Some(active) = node.properties.as_ref().and_then(|p| p.active_descendant) {
+            if let Some(active) = node.semantics.active_descendant {
                 if !incoming.contains_key(&active) && !self.nodes.contains_key(&active) {
                     return Err(AccessibilityError::MissingNode(active));
                 }
                 // Inside the node, or inside (or at) a node it controls.
-                let controls = node
-                    .properties
-                    .as_ref()
-                    .map_or(&[][..], |p| &p.controls[..]);
+                let controls = &node.semantics.controls[..];
                 let mut at = active;
                 let mut steps = 0;
                 loop {
@@ -165,14 +162,14 @@ impl AcceptedTree {
         if let Some(focus) = update.focus {
             let get = |id: SemanticsId| incoming.get(&id).copied().or_else(|| self.nodes.get(&id));
             let node = get(focus).ok_or(AccessibilityError::InvalidFocus(focus))?;
-            if node.disabled || (focus != update.root && !node.focusable) {
+            if node.semantics.disabled || (focus != update.root && !node.semantics.focusable) {
                 return Err(AccessibilityError::InvalidFocus(focus));
             }
             // Shown up to the root, through the parents after the update:
             // a focus in a subtree the update removes is invalid.
             let (mut at, mut steps) = (focus, 0);
             loop {
-                if get(at).is_none_or(|n| n.hidden) {
+                if get(at).is_none_or(|n| n.semantics.hidden) {
                     return Err(AccessibilityError::InvalidFocus(focus));
                 }
                 if at == update.root {
@@ -259,9 +256,7 @@ impl AcceptedTree {
             !dropped.contains(id) && (incoming.contains_key(id) || self.nodes.contains_key(id))
         };
         let check = |node: &SemanticsNode| -> Result<(), AccessibilityError> {
-            let Some(props) = &node.properties else {
-                return Ok(());
-            };
+            let props = &node.semantics;
             let targets = [&props.described_by, &props.controls, &props.labelled_by];
             match targets.into_iter().flatten().find(|id| !present(id)) {
                 Some(missing) => Err(AccessibilityError::MissingNode(*missing)),

@@ -4,14 +4,14 @@ use super::frame::Presented;
 #[cfg(feature = "gpu")]
 use super::gpu::Fallback;
 use super::health::FrameHealth;
-use crate::error::{self, Error, ErrorKind};
+use crate::error::{self, Failure, FailureKind};
 use crate::presentation::{Notes, Renderer, RendererChange};
 use crate::{ShellError, ShellWaker};
 #[cfg(feature = "gpu")]
 use arvane_render::RenderError;
 use arvane_shell::ShellWindow;
 use kivact_types::Size;
-use kivact_types::protocol::Scene;
+use kivact_types::render::RenderScene;
 use std::time::{Duration, Instant};
 
 /// What drawing one frame did, before the frame policy.
@@ -90,10 +90,10 @@ impl Presenter {
         &mut self,
         id: kivact_types::ExternalImageId,
         textures: kivact_types::SharedTextures,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Failure> {
         if self.gpu.adapter().is_none() {
-            return Err(Error::with(
-                ErrorKind::Unavailable,
+            return Err(Failure::new(
+                FailureKind::Unavailable,
                 "the window has no GPU device that can import shared textures \
                  (it draws on the CPU, its device is not ready, or the adapter cannot)",
             ));
@@ -176,11 +176,11 @@ impl Presenter {
     /// `recover` makes the window's surface again).
     pub(super) fn settle(
         &mut self,
-        drawn: Result<Drawn, Error>,
+        drawn: Result<Drawn, Failure>,
         now_ns: u64,
         period_ns: u64,
         recover: impl FnOnce() -> Result<(), ShellError>,
-    ) -> Result<Presented, Error> {
+    ) -> Result<Presented, Failure> {
         match drawn {
             Ok(drawn) if drawn.shown => {
                 self.health.shown();
@@ -199,11 +199,11 @@ impl Presenter {
                     retry_at_ns: now_ns.saturating_add(wait),
                 })
             }
-            Err(error) if error.kind() == ErrorKind::Surface => {
+            Err(error) if error.kind == FailureKind::Surface => {
                 if self.health.lost() {
                     return Err(error);
                 }
-                recover().map_err(|e| Error::with(ErrorKind::Surface, e.to_string()))?;
+                recover().map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
                 Ok(Presented::SurfaceLost(error))
             }
             Err(error) => Ok(Presented::Dropped(error)),
@@ -215,9 +215,9 @@ impl Presenter {
     pub(crate) fn present_native(
         &mut self,
         window: &mut dyn ShellWindow,
-        scene: &Scene,
+        scene: &RenderScene,
         plan: crate::FramePlan,
-    ) -> Result<Presented, Error> {
+    ) -> Result<Presented, Failure> {
         let drawn = self.draw_native(window, scene, plan.size, plan.scale);
         self.note_missed();
         let (now, period) = (window.now_ns(), window.frame_period_ns());
@@ -228,17 +228,17 @@ impl Presenter {
     /// `window`. A scene rasterized smaller than the window (a scale
     /// reduced to the frame budget) is enlarged to it.
     ///
-    /// Errors: [`ErrorKind::Content`] for a scene or size that cannot be
-    /// drawn (nothing is shown), [`ErrorKind::Surface`] when the window's
+    /// Errors: [`FailureKind::Content`] for a scene or size that cannot be
+    /// drawn (nothing is shown), [`FailureKind::Surface`] when the window's
     /// surface fails (the next frame makes a new GPU surface, and a window
     /// whose GPU surface keeps failing is drawn on the CPU).
     fn draw_native(
         &mut self,
         window: &mut dyn ShellWindow,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
-    ) -> Result<Drawn, Error> {
+        scale: f64,
+    ) -> Result<Drawn, Failure> {
         let physical = window.physical_size();
         #[cfg(feature = "gpu")]
         {
@@ -313,7 +313,7 @@ impl Presenter {
         if let Some(error) = render_error {
             return Err(error::render(error));
         }
-        let shown = backend.map_err(|e| Error::with(ErrorKind::Surface, e.to_string()))?;
+        let shown = backend.map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
         Ok(Drawn {
             renderer: Renderer::Cpu,
             shown,
@@ -323,15 +323,15 @@ impl Presenter {
     }
 
     /// Handle a failed GPU frame: a surface error that keeps the window on
-    /// the GPU is returned (`ErrorKind::Surface`: the frame policy makes the
+    /// the GPU is returned (`FailureKind::Surface`: the frame policy makes the
     /// surface again); after a device failure, a surface that kept failing
     /// or a scene beyond the GPU renderer's limits the frame is drawn on
     /// the CPU (`Ok`); any other error is returned.
     #[cfg(feature = "gpu")]
-    pub(super) fn gpu_failed(&mut self, failure: RenderError) -> Result<(), Error> {
+    pub(super) fn gpu_failed(&mut self, failure: RenderError) -> Result<(), Failure> {
         match self.gpu.failed(&failure, &mut self.notes) {
             Fallback::Cpu => Ok(()),
-            Fallback::Surface => Err(Error::with(ErrorKind::Surface, failure.to_string())),
+            Fallback::Surface => Err(Failure::new(FailureKind::Surface, failure.to_string())),
             // The CPU renderer draws what vello_hybrid cannot.
             Fallback::Other if matches!(failure, RenderError::GpuLimit(_)) => Ok(()),
             Fallback::Other => Err(error::render(failure)),

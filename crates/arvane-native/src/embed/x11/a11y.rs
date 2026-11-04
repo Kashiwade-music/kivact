@@ -55,7 +55,7 @@ impl Bridge {
         native: &Native,
         width: u32,
         height: u32,
-        scale: f32,
+        scale: f64,
     ) -> Result<(), ShellError> {
         self.tree.rescale(f64::from(scale));
         // Without an assistive client nothing is published, so the round trip

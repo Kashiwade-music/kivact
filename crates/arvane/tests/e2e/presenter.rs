@@ -6,7 +6,7 @@
 //! row); surfaces destroyed and
 //! made again; the renderer a window is forced to.
 
-use arvane::{ErrorKind, Presented, Renderer, Window as _};
+use arvane::{FailureKind, Presented, Renderer, Window as _};
 
 use crate::support::{PERIOD, RED, fill, open, pixel, present, show};
 
@@ -27,7 +27,7 @@ fn a_lost_surface_is_made_again_and_the_third_loss_in_a_row_is_an_error() {
     let mut window = open(32.0, 32.0);
     let frame = || vec![fill(0.0, 0.0, 32.0, 32.0, RED)];
     let lost = |presented: Presented| match presented {
-        Presented::SurfaceLost(error) => assert_eq!(error.kind(), ErrorKind::Surface),
+        Presented::SurfaceLost(error) => assert_eq!(error.kind, FailureKind::Surface),
         other => panic!("not lost: {other:?}"),
     };
     // Two losses, then a frame shown: the count starts again.
@@ -42,7 +42,7 @@ fn a_lost_surface_is_made_again_and_the_third_loss_in_a_row_is_an_error() {
     let error = window
         .present(&crate::support::scene(frame()), plan)
         .expect_err("the third loss in a row");
-    assert_eq!(error.kind(), ErrorKind::Surface);
+    assert_eq!(error.kind, FailureKind::Surface);
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn a_skipped_frame_ends_a_row_of_losses_and_a_loss_restarts_the_backoff() {
     let mut window = open(32.0, 32.0);
     let frame = || vec![fill(0.0, 0.0, 32.0, 32.0, RED)];
     let lost = |presented: Presented| match presented {
-        Presented::SurfaceLost(error) => assert_eq!(error.kind(), ErrorKind::Surface),
+        Presented::SurfaceLost(error) => assert_eq!(error.kind, FailureKind::Surface),
         other => panic!("not lost: {other:?}"),
     };
     let skipped = |presented: Presented| match presented {

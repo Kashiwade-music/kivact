@@ -60,11 +60,11 @@ mod window;
 pub mod asset;
 pub use arvane_render::{MAX_SCENE_DEPTH, glyph_ink_bounds};
 pub use arvane_shell::{
-    Accessibility, AccessibilityError, DEFAULT_FRAME_PERIOD_NS, ShellControl, ShellError,
-    ShellEvent, ShellFileDialog, ShellImeText, ShellOptions, ShellWaker,
+    Accessibility, AccessibilityError, FileDialog, ShellControl, ShellError, ShellEvent,
+    ShellImeText, ShellOptions, ShellWaker,
 };
 pub use engine::Engine;
-pub use error::{Error, ErrorKind};
+pub use error::{Failure, FailureKind};
 pub use presentation::{Renderer, RendererChange};
 pub use presenter::{FramePlan, Presented};
 pub use rasterizer::Rasterizer;
@@ -72,4 +72,3 @@ pub use rasterizer::Rasterizer;
 pub use window::{Handler, NativeWindow, Shell, Window};
 
 pub use arvane_native::retain_module;
-pub use shutdown::detached_threads;

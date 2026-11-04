@@ -8,9 +8,9 @@
 //! without the extensions, or `WGPU_BACKEND` choosing another API).
 
 use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
-use arvane::{ErrorKind, Renderer, RendererChange, Window as _};
+use arvane::{FailureKind, Renderer, RendererChange, Window as _};
 use gpu_interop_producer::{Producer, pattern};
-use kivact_types::protocol::DrawCommand;
+use kivact_types::render::RenderCmd;
 use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference};
 
 use crate::support::{options, rect, show};
@@ -30,11 +30,11 @@ fn gpu_window(backend: GpuBackend) -> Result<(VirtualWindow, GpuAdapter), String
             backend: Some(backend),
             ..GpuPreference::default()
         },
-        ..options(2.0 * W as f32, 2.0 * H as f32)
+        ..options(2.0 * W as f64, 2.0 * H as f64)
     });
     let window = match opened {
         Ok(window) => window,
-        Err(error) if error.kind() == ErrorKind::Unavailable => return Err(error.to_string()),
+        Err(error) if error.kind == FailureKind::Unavailable => return Err(error.to_string()),
         Err(error) => panic!("the GPU test window opens: {error}"),
     };
     let Some(adapter) = window.gpu_adapter() else {
@@ -64,10 +64,10 @@ fn imported(window: &mut VirtualWindow, adapter: &GpuAdapter, image: ExternalIma
 }
 
 /// `frame` drawn at its own size at `(x, y)`.
-fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> DrawCommand {
-    DrawCommand::External {
+fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> RenderCmd {
+    RenderCmd::External {
         frame,
-        rect: rect(x as f32, y as f32, W as f32, H as f32),
+        rect: rect(x as f64, y as f64, W as f64, H as f64),
         source: None,
         opacity: 1.0,
         pixelated,
@@ -78,7 +78,7 @@ fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> DrawComman
 const PLACES: [(u32, u32, bool); 4] = [(0, 0, true), (W, 0, true), (0, H, false), (W, H, false)];
 
 /// `frame` in all four places.
-fn four(frame: ExternalFrame) -> Vec<DrawCommand> {
+fn four(frame: ExternalFrame) -> Vec<RenderCmd> {
     PLACES
         .iter()
         .map(|&(x, y, pixelated)| external(frame, x, y, pixelated))

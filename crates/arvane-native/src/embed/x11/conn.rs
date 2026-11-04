@@ -61,10 +61,10 @@ impl Native {
 
     pub(super) fn create_unmapped(
         parent: u32,
-        logical_width: f32,
-        logical_height: f32,
-        requested_scale: Option<f32>,
-    ) -> Result<(Arc<Self>, u32, u32, f32), ShellError> {
+        logical_width: f64,
+        logical_height: f64,
+        requested_scale: Option<f64>,
+    ) -> Result<(Arc<Self>, u32, u32, f64), ShellError> {
         let (connection, _) = XCBConnection::connect(None).map_err(super::error::platform)?;
         let connection = Arc::new(connection);
         // A checked request reports stale or non-window host handles before start.
@@ -163,7 +163,7 @@ fn atom(connection: &XCBConnection, name: &[u8]) -> Result<u32, ShellError> {
         .atom)
 }
 
-fn resource_scale(connection: &XCBConnection, root: u32) -> Option<f32> {
+fn resource_scale(connection: &XCBConnection, root: u32) -> Option<f64> {
     let property = atom(connection, b"RESOURCE_MANAGER").ok()?;
     let reply = connection
         .get_property(false, root, property, AtomEnum::STRING, 0, 1_048_576)
@@ -176,7 +176,7 @@ fn resource_scale(connection: &XCBConnection, root: u32) -> Option<f32> {
         if name.trim() != "Xft.dpi" {
             return None;
         }
-        let scale = value.trim().parse::<f32>().ok()? / 96.0;
+        let scale = value.trim().parse::<f64>().ok()? / 96.0;
         (scale.is_finite() && scale > 0.0).then_some(scale)
     })
 }

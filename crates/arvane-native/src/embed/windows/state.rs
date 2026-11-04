@@ -72,7 +72,7 @@ pub(super) struct State {
     pub(super) pending_surrogate: Cell<Option<u16>>,
     pub(super) mouse: Cell<Mouse>,
     pub(super) clicks: RefCell<ClickCounter>,
-    pub(super) environment: RefCell<kivact_types::protocol::Environment>,
+    pub(super) environment: RefCell<kivact_types::Environment>,
     pub(super) scale_source: Cell<ScaleSource>,
     pub(super) frame: RefCell<Option<CpuFrame>>,
     /// The buffer the next frame is drawn into (the last frame's allocation, reused).

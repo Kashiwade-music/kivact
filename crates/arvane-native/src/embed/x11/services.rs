@@ -1,7 +1,7 @@
 //! Role: Uses the desktop clipboard and dialog services on the child UI thread.
 
 use super::conn::Native;
-use arvane_shell::{ShellError, ShellFileDialog};
+use arvane_shell::{FileDialog, ShellError};
 use std::path::PathBuf;
 
 #[derive(Default)]
@@ -18,28 +18,28 @@ impl Services {
     }
     pub(super) fn pick_file(
         native: &Native,
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<PathBuf>, ShellError> {
         crate::module::retain_module();
         crate::services::Services::pick_file(native, request)
     }
     pub(super) fn pick_files(
         native: &Native,
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<Vec<PathBuf>>, ShellError> {
         crate::module::retain_module();
         crate::services::Services::pick_files(native, request)
     }
     pub(super) fn pick_folder(
         native: &Native,
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<PathBuf>, ShellError> {
         crate::module::retain_module();
         crate::services::Services::pick_folder(native, request)
     }
     pub(super) fn save_file(
         native: &Native,
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<PathBuf>, ShellError> {
         crate::module::retain_module();
         crate::services::Services::save_file(native, request)
