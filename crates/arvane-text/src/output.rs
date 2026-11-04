@@ -552,7 +552,8 @@ fn decorations(
                 height,
             };
             let joins = out.iter_mut().rev().take(4).find(|d| {
-                d.line == line
+                d.style == decoration.style
+                    && d.line == line
                     && d.color == color
                     && (d.rect.y - rect.y).abs() < EPSILON
                     && (d.rect.height - rect.height).abs() < EPSILON
@@ -560,7 +561,12 @@ fn decorations(
             });
             match joins {
                 Some(d) => d.rect.width = rect.x + rect.width - d.rect.x,
-                None => out.push(TextDecorationRect { rect, color, line }),
+                None => out.push(TextDecorationRect {
+                    rect,
+                    color,
+                    line,
+                    style: decoration.style,
+                }),
             }
         }
     }

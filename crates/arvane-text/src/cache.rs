@@ -56,8 +56,8 @@ fn color_bits(c: Rgba) -> [u64; 4] {
     [c.r, c.g, c.b, c.a].map(f64::to_bits)
 }
 
-/// A decoration's lines, color, thickness and offset, as bits.
-type DecorationBits = (u8, Option<[u64; 4]>, Option<(u8, u64)>, (u8, u64));
+/// A decoration's pattern, lines, color, thickness and offset, as bits.
+type DecorationBits = (u8, u8, Option<[u64; 4]>, Option<(u8, u64)>, (u8, u64));
 
 fn decoration_bits(d: TextDecoration) -> DecorationBits {
     let lines = [
@@ -71,6 +71,7 @@ fn decoration_bits(d: TextDecoration) -> DecorationBits {
     .fold(0u8, |bits, (i, _)| bits | (1 << i));
     (
         lines,
+        d.style as u8,
         d.color.map(color_bits),
         d.thickness.map(text_len_bits),
         text_len_bits(d.underline_offset),

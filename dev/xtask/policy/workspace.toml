@@ -1,3 +1,4 @@
+# TextDecorationStyle and Visibility remain shared kivact-types values; style resolves them for the engine.
 # `cargo xtask check`（xtask-core）が読む workspace の規則（CONTRIBUTING.md）。
 
 output = "architecture"
@@ -304,7 +305,7 @@ options_structs = [
     "kivact-interaction::DismissOn",
     "kivact-interaction::ListOptions",
     "kivact-interaction::ListRangeOptions",
-    "kivact-interaction::TooltipConfig",
+    "kivact-interaction::TooltipTiming",
     "kivact-style::draw::ImageOptions",
     "kivact-style::draw::TextFormat",
     "kivact-types::GpuPreference",

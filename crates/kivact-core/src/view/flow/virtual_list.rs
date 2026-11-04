@@ -37,9 +37,9 @@ use kivact_types::{Dimension, Edges, LayoutProps, NodeId, Overflow, Point, Posit
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
+use crate::view::element_data::{Content, Node, NodeBuilder};
 use crate::view::flow::list::{RowFn, key_hash, lis};
 use crate::view::mount::mount_host_with;
-use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::state::ViewState;
 use kivact_runtime::{
     EffectKind, ErrorKind, IntoValue, Notifier, Owner, Prop as InputProp, Runtime, Signal, UiError,

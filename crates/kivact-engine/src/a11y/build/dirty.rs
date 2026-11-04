@@ -86,6 +86,14 @@ impl Model {
             } => (nodes, subtrees, removed),
             _ => (&empty, &empty, &empty),
         };
+        // Transparent ancestors are absent from the flattened accessibility order.
+        // Seed their contributing children so inherited visibility reaches them.
+        let mut subtree_roots = subtrees.clone();
+        for &id in subtrees {
+            if self.node(id).is_some_and(|node| node.is_transparent()) {
+                subtree_roots.extend(self.tree().flat_children(id));
+            }
+        }
         self.prepare_region_ids();
         let clipped = self.clipped_rows();
         let mut metadata = Metadata {
@@ -171,7 +179,7 @@ impl Model {
                 .get(&id)
                 .and_then(|p| *p)
                 .is_some_and(|p| inherited.contains(&p));
-            if modal_changed || parent_dirty || subtrees.contains(&id) {
+            if modal_changed || parent_dirty || subtree_roots.contains(&id) {
                 inherited.insert(id);
                 dirty.insert(id);
             }

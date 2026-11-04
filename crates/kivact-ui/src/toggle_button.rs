@@ -19,24 +19,6 @@ use kivact_core::view::{IntoView, View, dynamic, show};
 use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{ToggleState, use_toggle_button};
 
-/// Opt-in text measurement for a toggle_button whose label changes weight when pressed.
-/// Configure it through [`crate::UiTokens`] and use the same size as the toggle_button recipe.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum ToggleLabelReservation {
-    /// Let the visible label determine its own width.
-    #[default]
-    Natural,
-    /// Reserve space for the same label shaped at another weight.
-    Reserve {
-        /// The weight used in the pressed appearance.
-        weight: u16,
-        /// The recipe's font size in logical pixels.
-        size: f64,
-        /// The recipe's font size at [`ControlSize::ExtraSmall`].
-        extra_small_size: f64,
-    },
-}
-
 fn toggle_label(
     label: Value<String>,
     hidden: Option<Value<bool>>,
@@ -240,7 +222,4 @@ impl IntoView for ToggleButton {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ToggleButtonTokens {
-    pub label_reservation: ToggleLabelReservation,
-}
+pub use crate::toggle_button_tokens::{ToggleButtonTokens, ToggleLabelReservation};

@@ -44,11 +44,14 @@ pub use sheet::{
     Direction, Justify, Overflow, Position, ScrollbarWidth, Style, TransitionProp, style,
 };
 pub use text::{
-    FontFeature, FontKerning, LineHeight, SpanStyle, TextDecorationLine, TextLength, TextOverflow,
-    TextTransform, em,
+    FontFeature, FontKerning, LineHeight, SpanStyle, TextDecorationLine, TextDecorationStyle,
+    TextLength, TextOverflow, TextTransform, em,
 };
 pub use theme::value::{
     Theme, ThemeColor, ThemeExtension, ThemeMode, ThemeRef, use_theme, use_tokens,
 };
 
 pub(crate) use sheet::paint_transition;
+
+/// Visibility of a layout box and its subtree.
+pub use kivact_types::Visibility;

@@ -2,7 +2,8 @@
 use crate::Result;
 use crate::i18n::{Locale, Messages};
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_style::{Theme, asset::Asset};
+use kivact_style::Theme;
+use kivact_style::asset::Asset;
 use kivact_types::Size;
 use std::panic::Location;
 /// Application configuration with a required title and optional startup settings.

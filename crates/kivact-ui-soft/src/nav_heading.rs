@@ -1,5 +1,5 @@
 //! Role: Render navigation headings and their shared keyboard-operated menus.
-use crate::side_nav::logical_row;
+use crate::side_nav::items::logical_row;
 use crate::stack::rtl;
 use crate::tokens;
 use kivact::i18n::{message, message_with};
@@ -426,7 +426,7 @@ impl IntoView for SideNavHeading {
             sub_action,
         } = self;
         provide((), move || {
-            let rail = crate::side_nav::nav_is_rail();
+            let rail = crate::side_nav::context::nav_is_rail();
             let has_icon = glyph.is_some();
             let interactive = menu.is_some() || heading_action.is_some();
             let trigger = move |open: Value<bool>, menu: bool| {

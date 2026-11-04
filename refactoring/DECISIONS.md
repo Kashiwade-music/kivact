@@ -132,3 +132,5 @@
 | 2026-11-05 | N-8 | API8 が診断と実装 bridge から全 runtime を到達扱いにする | 診断/std Error interop を狭く明記。bridge は doc(hidden)+internal-contract 両方でのみ除外し、普通の hidden API は検査。利用者の text action は Into<String> に直す。 |
 | 2026-11-05 | CP4 | canonical facade の逆方向 reexport | state の boundary/owner と style の boundary への再公開だけを個別許可。実装依存と循環は source で除く。AppOptions は必須 title を持つ起動引数なので FRU Default の検査対象外。 |
 | 2026-11-05 | I-0 | OverlayViewport の None と f64 metric | 既定 0.0 inset で常時 fitting する。意味が一つの公開数値 metric を優先し、未設定の no-fit を廃止。既存 overlay assertions は維持。 |
+| 2026-11-05 | fix-G3-14 | W4 の意図した診断追加と既存期待 | N-G4 の semantics 宣言位置2行と N-F1 の eager pointer write を exact expected に追加。順序・型・発生源・no-op を検証し、既存診断の内容は省略しない。 |
+| 2026-11-05 | I-1/I-3 | 指示書の private/public 名の衝突 | 公開 EditSession handle は保持し private enum は EditSessionState。公開 DialogMode は appearance のまま、anchor を持つ private DialogOptionsMode で不正な組合せを除く。 |

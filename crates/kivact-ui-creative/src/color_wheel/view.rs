@@ -250,11 +250,12 @@ impl IntoView for ColorWheel {
                 };
                 let part = {
                     let input_part = part(|input| input);
+                    let label = message(label, fallback);
                     kivact::custom::Part::new(input_part.state(), move |node| {
                         node.part(input_part)
                             .role(Role::Slider)
                             .focusable(true)
-                            .name(message(label, fallback))
+                            .name(label)
                             .value_text(move || {
                                 value.get();
                                 state.hue.get();

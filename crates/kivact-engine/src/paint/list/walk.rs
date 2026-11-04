@@ -51,7 +51,7 @@ impl Walk<'_> {
         let Some(n) = host.node(id) else {
             return;
         };
-        if n.hidden() {
+        if !host.tree().drawn(id) {
             return;
         }
         let layout = host.layout_at(n.index).unwrap_or_default();

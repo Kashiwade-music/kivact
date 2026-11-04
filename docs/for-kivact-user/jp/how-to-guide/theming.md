@@ -141,8 +141,8 @@ fn main() -> kivact::Result<()> {
 
 標準コンポーネントはすべて新しいアクセントを使います。`with_space`、`with_radius`、`with_text`(文字サイズと既定のフォントファミリー)、`with_control_height`、`with_icons` も同じように使えます。`Theme::light()` ではなくキットのテーマから始めると、キットの recipe とトークンが保たれます。
 
-`Theme::with` で `kivact::view::OverlayViewport::new(16.0)` を設定すると、
-オーバーレイをウィンドウ端から 16 px 内側に配置します。アンカー付きの
+`theme.with_overlay_margin(16.0)` を設定すると、
+オーバーレイをウィンドウ端から 16 px 内側に配置します。既定は余白 0 で、ウィンドウ内への fitting は常に有効です。アンカー付きの
 オーバーレイは反転、整列範囲の拡張、スライドの順に試します。
 個別の余白は `Overlay::viewport_margin` で指定できます。
 

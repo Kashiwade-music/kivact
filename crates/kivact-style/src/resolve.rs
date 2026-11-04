@@ -138,6 +138,7 @@ fn layout(s: &Style) -> LayoutProps {
         overflow_x: ov_x,
         overflow_y: ov_y,
         hidden: false,
+        visibility: s.visibility.unwrap_or_default(),
         display: s.display.unwrap_or_default(),
         grid: super::grid::resolve(s.grid.as_deref(), s.display == Some(p::Display::Grid)),
     }
@@ -399,6 +400,7 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         justify,
         align_content,
         display,
+        visibility,
         grid,
         wrap,
         position,
@@ -480,6 +482,7 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
     add(justify.is_some(), "justify_content");
     add(align_content.is_some(), "align_content");
     add(display.is_some(), "display");
+    add(visibility.is_some(), "visibility");
     add(grid.is_some(), "grid");
     add(wrap.is_some(), "wrap");
     add(position.is_some(), "position");

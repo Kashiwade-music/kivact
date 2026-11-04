@@ -6,7 +6,8 @@ use crate::nav_heading::{
     NavHeadingMenuItem, NavMenuLook, nav_heading_menu, nav_heading_menu_item, nav_menu_view,
     popup_surface, supporting,
 };
-use crate::side_nav::{SideNavItem, logical_row, side_nav_item, side_row_style};
+use crate::side_nav::items::{logical_row, side_row_style};
+use crate::side_nav::{SideNavItem, side_nav_item};
 use crate::stack::{Space, rtl};
 use crate::tokens;
 use kivact::interaction::Delays;

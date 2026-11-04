@@ -14,7 +14,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::state::{Value, memo, on_cleanup, signal};
-use crate::view::node::Common;
+use crate::view::element_data::Common;
 use crate::view::owner::Owner;
 use crate::view::part_data::{PartBinding, PartMount};
 use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
@@ -27,7 +27,7 @@ pub use super::part_data::PartState;
 #[must_use]
 pub struct Part<S: kivact_runtime::PropValue> {
     state: Value<S>,
-    apply: Box<dyn FnOnce(crate::view::node::Node) -> crate::view::node::Node>,
+    apply: Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node>,
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -177,7 +177,7 @@ impl<S: kivact_runtime::PropValue> Part<S> {
     /// Describe behavior to apply when this attachment is mounted.
     pub fn new(
         state: Value<S>,
-        apply: impl FnOnce(crate::view::node::Node) -> crate::view::node::Node + 'static,
+        apply: impl FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node + 'static,
     ) -> Self {
         Self {
             state,
@@ -197,7 +197,7 @@ impl<S: kivact_runtime::PropValue> Part<S> {
     }
     pub(crate) fn into_apply(
         self,
-    ) -> Box<dyn FnOnce(crate::view::node::Node) -> crate::view::node::Node> {
+    ) -> Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node> {
         self.apply
     }
     pub(crate) fn into_common(self) -> Common {

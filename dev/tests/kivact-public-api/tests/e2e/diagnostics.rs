@@ -91,7 +91,9 @@ fn normalize(s: &str) -> String {
 const WHY: &str = "node 5 Text \"doubled: 4\"
   Content set by the effect created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
     reads memo i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
-      reads signal i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C, last written at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C (turn 4)";
+      reads signal i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C, last written at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C (turn 4)
+  semantics patch declared at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
+  semantics patch declared at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C";
 
 #[test]
 fn why_follows_the_prop_to_the_write_through_a_memo() {
@@ -128,30 +130,37 @@ fn trace_records_causes_writes_reruns_ops_and_duration() {
         .iter()
         .find(|t| t.causes.iter().any(|c| c.starts_with("Activate")))
         .unwrap_or_else(|| panic!("no activation turn in {trace:#?}"));
-    // The click moves the focus (the core's focus source) and writes the
-    // counter.
-    assert_eq!(t.writes.len(), 2, "{:#?}", t.writes);
-    assert!(
-        t.writes[0]
-            .ty
-            .ends_with("Option<kivact_types::ids::FocusTarget>")
+    // The click updates the pointer and focus sources, then the counter.
+    assert_eq!(t.writes.len(), 3, "{:#?}", t.writes);
+    assert_eq!(
+        t.writes.iter().map(|w| w.ty).collect::<Vec<_>>(),
+        [
+            "core::option::Option<kivact_types::geometry::Point>",
+            "core::option::Option<kivact_types::ids::FocusTarget>",
+            "i32",
+        ]
     );
-    assert_eq!(t.writes[1].ty, "i32");
-    assert_eq!(t.writes[1].at.file(), file!());
+    assert!(t.writes[0].at.file().ends_with("hover.rs"));
+    assert!(t.writes[1].at.file().ends_with("focus.rs"));
+    assert_eq!(t.writes[2].at.file(), file!());
     // Two text render effects and the memo re-ran; two SetProps were sent.
     let kinds: Vec<&str> = t.reruns.iter().map(|r| r.kind).collect();
     assert!(kinds.contains(&"memo") && kinds.iter().filter(|k| **k == "render").count() >= 2);
     assert_eq!(t.ops, 2);
     assert!(t.duration_ns > 0);
-    // Same-value write: nothing recorded but the focus move, no ops.
+    // Same-value write: only the pointer and focus moves are recorded, no ops.
     let before = screen.trace().len();
     screen.get_by_test_id("other").click();
     let after = screen.trace();
-    assert!(
-        after[before..]
-            .iter()
-            .all(|t| t.ops == 0 && t.writes.iter().all(|w| w.at.file().ends_with("focus.rs")))
-    );
+    assert!(after[before..].iter().all(|t| {
+        t.ops == 0
+            && t.writes.iter().all(|w| {
+                (w.ty == "core::option::Option<kivact_types::geometry::Point>"
+                    && w.at.file().ends_with("hover.rs"))
+                    || (w.ty == "core::option::Option<kivact_types::ids::FocusTarget>"
+                        && w.at.file().ends_with("focus.rs"))
+            })
+    }));
 }
 
 /// A running App reads the errors no boundary handled: a failing handler's

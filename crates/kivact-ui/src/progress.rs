@@ -8,40 +8,13 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, ProgressState};
 use super::variants::{Variant, Variants};
-use kivact_core::motion::{Animated, Easing, FrameRate, Transition, animated, frame_loop};
+use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{is_motion_reduced, is_surface_active};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, effect, memo, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{IntoView, Role, View};
 use kivact_core::view::{Node, NodeBuilder, node};
-
-/// Timing of standard progress bars. Configure it through [`crate::UiTokens`].
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ProgressMotion {
-    /// Whether the first determinate fill animates from zero.
-    pub animate_initial: bool,
-    /// Milliseconds for changes to the determinate fill.
-    pub determinate_ms: u64,
-    /// Easing of determinate fill changes.
-    pub determinate_easing: Easing,
-    /// Milliseconds per full cycle of the moving-fill clock.
-    pub period_ms: u64,
-    /// Optional full clock period in reduced motion. None leaves it still.
-    pub reduced_period_ms: Option<u64>,
-}
-
-impl Default for ProgressMotion {
-    fn default() -> Self {
-        Self {
-            animate_initial: true,
-            determinate_ms: 400,
-            determinate_easing: Easing::EaseOut,
-            period_ms: 1300,
-            reduced_period_ms: None,
-        }
-    }
-}
 
 /// A bar of the share done, created by [`progress`].
 pub struct Progress {
@@ -222,7 +195,4 @@ impl IntoView for Progress {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ProgressTokens {
-    pub motion: ProgressMotion,
-}
+pub use crate::progress_tokens::{ProgressMotion, ProgressTokens};

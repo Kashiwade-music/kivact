@@ -203,6 +203,7 @@ pub struct Style {
     /// Lays the children out as a grid (CSS `display: grid`; set by
     /// `grid(..)` only).
     pub(super) display: Option<kivact_types::Display>,
+    pub(super) visibility: Option<kivact_types::Visibility>,
     /// Grid tracks and placement (rare: boxed).
     pub(super) grid: Option<Box<GridStyle>>,
     pub(super) wrap: Option<bool>,
@@ -925,6 +926,25 @@ impl Style {
         self
     }
 
+    /// Keep layout space while hiding this subtree from painting and interaction.
+    pub fn visibility(mut self, visibility: kivact_types::Visibility) -> Self {
+        self.visibility = Some(visibility);
+        self
+    }
+
+    /// Set the text decoration pattern, tracking reactive inputs.
+    pub fn text_decoration_style(
+        mut self,
+        value: impl kivact_runtime::IntoValue<crate::text::TextDecorationStyle>,
+    ) -> Self {
+        let x = self.text.get_or_insert_with(Default::default);
+        if x.decoration_style.is_some() {
+            self.duplicates += 1;
+        }
+        x.decoration_style = Some(crate::text::DecorationStyleValue::new(value));
+        self
+    }
+
     /// Select flex, grid, or a transparent container that contributes no box.
     pub fn display(mut self, display: kivact_types::Display) -> Style {
         self.display = Some(display);
@@ -993,6 +1013,7 @@ impl Style {
             column_gap,
             align_content,
             display,
+            visibility,
             width,
             height,
             min_width,
