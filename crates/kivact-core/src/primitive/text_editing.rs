@@ -51,7 +51,7 @@ use crate::view::editing_data::{
     EditorProps, HighlightAt, TextEditEvent, TextEditing, TextHighlight,
 };
 use crate::view::state::ViewState;
-use crate::view::sync_hook::{Current, SyncHook};
+use crate::view::sync_hook::{Current, HookSlot, SyncHook};
 use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState, LineColors, LineState};
 use kivact_engine::api::PropValue;
 use kivact_runtime::EffectKind;
@@ -214,7 +214,7 @@ impl TextEditing {
         F: Fn(TextEditEvent) -> R + 'static,
         R: HandlerResult,
     {
-        self.on_edit = Some(Rc::new(move |event| f(event).into_result()));
+        self.on_edit = Some(kivact_runtime::Handler::from_fn(f));
         self
     }
     /// Observe the editor's session: `f` gets the selection and the
@@ -232,7 +232,7 @@ impl TextEditing {
         F: Fn(crate::view::editing_data::TextSession) -> R + 'static,
         R: HandlerResult,
     {
-        self.on_selection = Some(Rc::new(move |session| f(session).into_result()));
+        self.on_selection = Some(kivact_runtime::Handler::from_fn(f));
         self
     }
 }
@@ -264,24 +264,21 @@ where
         id,
         at,
     } = cx;
-    let current: Current<(T, Theme), Rc<F>> = Rc::new(RefCell::new(None));
+    let current: Current<(T, Theme), Rc<F>> = Rc::new(RefCell::new(HookSlot::Disposed));
     let held = current.clone();
-    owner.on_cleanup(move || drop(held.borrow_mut().take()));
+    owner.on_cleanup(move || drop(held.replace(HookSlot::Disposed)));
     let weak_rt = Rc::downgrade(&rt);
     let effect = move || {
         let content = src.get();
         let theme = theme.map_or_else(Theme::default, |theme| theme.get());
-        let same = current
-            .borrow()
-            .as_ref()
-            .is_some_and(|h| h.content.0 == content && h.content.1 == theme);
+        let same = matches!(&*current.borrow(), HookSlot::Live(h) if h.content.0 == content && h.content.1 == theme);
         if same {
             return;
         }
         let (hook, highlighted) = SyncHook::new(owner, (content, theme), f.clone());
         // The last content is dropped here, before the view tree is
         // borrowed: its `Drop` may read the tree.
-        *current.borrow_mut() = Some(highlighted);
+        *current.borrow_mut() = HookSlot::Live(highlighted);
         let colors = LineColors::new(move |line, input: &LineState| {
             let start = S::default();
             let state = input.get::<S>().unwrap_or(&start);

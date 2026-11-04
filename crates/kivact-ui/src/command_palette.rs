@@ -73,7 +73,7 @@ pub fn command_palette<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
     CommandPalette {
         open: open.into(),
         commands: commands.into_value(),
-        run: Rc::new(move |key| run(key).into_result()),
+        run: Rc::new(move |key| run(key).into_outcome().map(|_| ())),
         filter: None,
         close_on: None,
         placeholder: None,

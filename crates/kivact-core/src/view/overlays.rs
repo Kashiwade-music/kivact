@@ -352,14 +352,13 @@ impl Overlay {
             .iter()
             .find(|(a, _)| *a == action)
             .map(|(_, h)| h.clone());
-        let handler: Rc<dyn Fn(crate::view::A11yEvent) -> crate::Result<()>> =
-            Rc::new(move |event| {
-                let reason = dismiss_reason(&event);
-                if let Some(previous) = &previous {
-                    previous(event)?;
-                }
-                f(reason).into_result()
-            });
+        let handler = kivact_runtime::Handler::from_fn(move |event| {
+            let reason = dismiss_reason(&event);
+            if let Some(previous) = &previous {
+                previous.call(event)?;
+            }
+            f(reason).into_outcome().map(|_| ())
+        });
         match entries.iter_mut().find(|(a, _)| *a == action) {
             Some(entry) => entry.1 = handler,
             None => entries.push((action, handler)),
@@ -479,8 +478,29 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
         return;
     };
     let visible = ViewState::of(rt).focus_keys().visible.get_untracked();
-    let weak = Rc::downgrade(rt);
-    owner.on_cleanup(move || {
+    let scope = ModalScope {
+        rt: Rc::downgrade(rt),
+        opener,
+        id,
+        visible,
+    };
+    owner.store("ModalScope", Rc::new(scope), Location::caller());
+}
+struct ModalScope {
+    rt: std::rc::Weak<Runtime>,
+    opener: kivact_types::FocusTarget,
+    id: NodeId,
+    visible: bool,
+}
+impl Drop for ModalScope {
+    fn drop(&mut self) {
+        let Self {
+            rt: weak,
+            opener,
+            id,
+            visible,
+        } = self;
+        let (opener, id, visible) = (*opener, *id, *visible);
         let Some(rt) = weak.upgrade() else { return };
         let back = {
             let tree = ViewState::tree(&rt);
@@ -495,7 +515,7 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
         if back {
             requests::request_restore_focus(&rt, opener, None, visible);
         }
-    });
+    }
 }
 
 /// Where a key goes and where its handler chain stops (see [`key_route`]).

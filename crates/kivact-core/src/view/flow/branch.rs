@@ -53,7 +53,7 @@ pub(crate) fn unmount_branch(rt: &Runtime, b: Branch) {
     // The records (their handlers) drop after the tree borrow, while the
     // owner still lives: a `Drop` there may use the tree and the owner.
     let removed = ViewState::tree_mut(rt).remove(b.node);
-    drop(removed);
+    removed.commit(rt);
     b.owner.dispose();
 }
 
@@ -305,20 +305,25 @@ pub fn dynamic<T: Clone + PartialEq + 'static, V: IntoView>(
         let rt = cx.weak();
         let parent = cx.owner;
         // (value the current branch was built from, the branch)
-        let current: RefCell<Option<(T, Branch)>> = RefCell::new(None);
+        let current = RefCell::new(DynamicArm::Pending);
         cx.effect(EffectKind::Internal, at, move || {
             let Some(rt) = rt.upgrade() else { return };
             let value = kivact_runtime::pure(|| source.get());
-            if current.borrow().as_ref().is_some_and(|(v, _)| *v == value) {
+            if matches!(&*current.borrow(), DynamicArm::Mounted { value: previous, .. } if *previous == value) {
                 return;
             }
-            if let Some((_, b)) = current.borrow_mut().take() {
+            if let DynamicArm::Mounted { branch: b, .. } = current.replace(DynamicArm::Pending) {
                 unmount_branch(&rt, b);
             }
             let built_from = value.clone();
             let b = mount_branch(&rt, parent.child(at), frag, || child(value).into_view());
-            *current.borrow_mut() = Some((built_from, b));
+            *current.borrow_mut() = DynamicArm::Mounted { value: built_from, branch: b };
         });
         frag
     })
+}
+
+enum DynamicArm<T> {
+    Pending,
+    Mounted { value: T, branch: Branch },
 }

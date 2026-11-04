@@ -61,7 +61,7 @@ use kivact_runtime::EffectKind;
 use kivact_runtime::HandlerResult;
 
 use crate::view::common::Common;
-use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
+use crate::view::input::{KeyEvent, PointerEvent, WheelEvent};
 use crate::view::owner::Owner;
 use crate::view::part_data::{PartBinding, PartMount};
 use crate::view::{
@@ -357,7 +357,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     pub fn on_bind<R: HandlerResult>(mut self, f: impl Fn(PartMount) -> R + 'static) -> Self {
         self.binding
             .hooks
-            .push(Rc::new(move |mount| f(mount).into_result()));
+            .push(Rc::new(move |mount| f(mount).into_outcome().map(|_| ())));
         self
     }
 
@@ -649,7 +649,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     pub fn on_key<F, R>(mut self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.common.prepend_key(f);
         self
@@ -661,7 +661,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     pub fn on_key_up<F, R>(mut self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.common.prepend_key_up(f);
         self
@@ -675,10 +675,9 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     pub fn on_secondary_context<F, R>(mut self, handler: F) -> Self
     where
         F: Fn(PointerEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
-        self.common.handlers.secondary_context =
-            Some(Rc::new(move |event| handler(event).into_handled()));
+        self.common.handlers.secondary_context = Some(kivact_runtime::Handler::from_fn(handler));
         self
     }
 
@@ -686,7 +685,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     pub fn on_pointer<F, R>(mut self, f: F) -> Self
     where
         F: Fn(PointerEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.common.prepend_pointer(f);
         self
@@ -698,7 +697,7 @@ impl<S: Clone + PartialEq + 'static> Part<S> {
     pub fn on_wheel<F, R>(mut self, f: F) -> Self
     where
         F: Fn(WheelEvent) -> R + 'static,
-        R: KeyHandlerResult,
+        R: HandlerResult,
     {
         self.common.prepend_wheel(f);
         self

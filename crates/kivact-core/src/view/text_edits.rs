@@ -1,39 +1,45 @@
-//! Role: The text edits of a delivered batch that have not run yet.
+//! Role: Guard the undelivered native edits without borrowing the view tree.
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use kivact_engine::contract::HostEvent;
-use kivact_runtime::Runtime;
 
-use crate::view::state::ViewState;
+use crate::view::tree::{TextEditsInFlight, Tree};
 
-/// The `TextChanged` events of the batch being delivered that have not
-/// run yet, per node: while one waits for a node, a controlled write of
-/// its value is stale and dropped (`Tree::update`). Dropping it forgets
-/// what is left, so the next batch counts anew.
+/// Counts native edits already applied by the host until their delivery ends.
 #[must_use = "the counts are forgotten when the guard drops"]
-pub(crate) struct TextEditsAhead<'a> {
-    rt: &'a Runtime,
+pub(crate) struct TextEditsAhead {
+    counts: Rc<RefCell<TextEditsInFlight>>,
 }
 
-impl<'a> TextEditsAhead<'a> {
-    /// Count the `TextChanged` events of `events` per node.
-    pub(crate) fn count(rt: &'a Runtime, events: &[HostEvent]) -> Self {
-        ViewState::tree_mut(rt).count_text_edits(events.iter().filter_map(|event| match event {
-            HostEvent::TextChanged { node, .. } => Some(*node),
-            _ => None,
-        }));
-        TextEditsAhead { rt }
+impl TextEditsAhead {
+    /// Begin delivery while borrowing the tree only to acquire its count store.
+    pub(crate) fn begin(tree: &mut Tree, events: &[HostEvent]) -> Self {
+        let counts = tree.future_text_edits.clone();
+        for event in events {
+            if let HostEvent::TextChanged { node, .. } = event {
+                *counts.borrow_mut().0.entry(*node).or_default() += 1;
+            }
+        }
+        Self { counts }
     }
 
-    /// `event` runs now: a `TextChanged` no longer waits for its node.
+    /// Mark one native edit as delivered before its handlers run.
     pub(crate) fn deliver(&self, event: &HostEvent) {
         if let HostEvent::TextChanged { node, .. } = event {
-            ViewState::tree_mut(self.rt).consume_text_edit(*node);
+            let mut counts = self.counts.borrow_mut();
+            if let Some(count) = counts.0.get_mut(node) {
+                *count -= 1;
+                if *count == 0 {
+                    counts.0.remove(node);
+                }
+            }
         }
     }
 }
-
-impl Drop for TextEditsAhead<'_> {
+impl Drop for TextEditsAhead {
     fn drop(&mut self) {
-        ViewState::tree_mut(self.rt).clear_text_edits();
+        self.counts.borrow_mut().0.clear();
     }
 }

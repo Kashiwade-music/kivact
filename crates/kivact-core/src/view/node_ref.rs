@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 use kivact_types::{FocusTarget, NodeId};
 
-use crate::view::state::{Bound, NodeRefState, ViewState};
+use crate::view::state::{Bound, LayoutObservation, NodeRefState, RefState, ViewState};
 use kivact_runtime::{
     AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
     require_setup,
@@ -50,13 +50,13 @@ impl NodeRef {
     /// A reference stored under `owner`, disposed with it.
     pub(crate) fn owned_by(owner: Owner, at: &'static Location<'static>) -> Self {
         let app = owner.app();
-        let bound = owner.signal(None::<Bound>, at);
+        let bound = owner.signal(RefState::Unbound, at);
         let rect_value = resolved_rect(app, bound);
         let scroll_value = resolved_scroll(app, bound);
         let state = Rc::new(NodeRefState {
             owner,
             bound,
-            observes_layout: Cell::new(false),
+            observes_layout: Cell::new(LayoutObservation::NotRequested),
             rect_value,
             scroll_value,
         });
@@ -133,7 +133,7 @@ impl NodeRef {
             );
             return;
         };
-        if let Some(old) = state.bound.try_get_untracked().flatten()
+        if let Some(old) = state.bound.try_get_untracked().and_then(RefState::bound)
             && ViewState::tree(rt).get(old.node()).is_some()
         {
             rt.report(
@@ -151,20 +151,25 @@ impl NodeRef {
         if ViewState::tree_mut(rt).observe_node(id, at).is_none() {
             return;
         }
-        if state.observes_layout.get() {
+        if matches!(state.observes_layout.get(), LayoutObservation::Requested) {
             ViewState::tree_mut(rt).set_observe(id, true);
         }
-        state.bound.set(Some(bound));
+        ViewState::tree_mut(rt)
+            .get_mut(id)
+            .expect("invariant: the observed node exists")
+            .references
+            .push(state.bound);
+        state.bound.set(RefState::Bound(bound));
         if let Some(owner) = adoption_owner.or(node_owner) {
             let handle = self.state;
             owner.on_cleanup(move || {
                 let Some(state) = handle.find() else {
                     return;
                 };
-                if state.bound.try_get_untracked().flatten() != Some(bound) {
+                if state.bound.try_get_untracked().and_then(RefState::bound) != Some(bound) {
                     return;
                 }
-                state.bound.set(None);
+                state.bound.set(RefState::Detached);
             });
         }
     }
@@ -172,7 +177,7 @@ impl NodeRef {
     /// The bound node if it is still mounted.
     pub(crate) fn node(&self) -> Option<NodeId> {
         let s = self.state.find()?;
-        let bound = s.bound.try_get_untracked().flatten()?;
+        let bound = s.bound.try_get_untracked().and_then(RefState::bound)?;
         let rt = Runtime::get(self.app)?;
         ViewState::tree(&rt).get(bound.node()).map(|_| bound.node())
     }
@@ -182,7 +187,11 @@ impl NodeRef {
         let state = self.state.find()?;
         live_target(
             self.app,
-            state.bound.try_get_untracked().flatten()?.target(),
+            state
+                .bound
+                .try_get_untracked()
+                .and_then(RefState::bound)?
+                .target(),
         )
     }
 
@@ -194,7 +203,7 @@ impl NodeRef {
     /// The exact live binding, tracking rebinding and region scene changes.
     pub(crate) fn target_value(&self, at: &'static Location<'static>) -> Option<FocusTarget> {
         let (rt, s) = self.state(at);
-        let bound = s.bound.get()?;
+        let bound = s.bound.get().bound()?;
         if matches!(bound, Bound::Region { .. })
             && let Some(observation) = ViewState::tree(&rt)
                 .get(bound.node())
@@ -234,7 +243,7 @@ impl NodeRef {
         let binding = state.bound;
         let app = self.app;
         kivact_runtime::memo(move || {
-            let Some(bound) = binding.try_get().flatten() else {
+            let Some(bound) = binding.try_get().and_then(RefState::bound) else {
                 return kivact_types::Presence::Leaving;
             };
             let source = Runtime::get(app)
@@ -471,7 +480,7 @@ impl NodeRef {
         kivact_runtime::memo(move || {
             binding
                 .try_get()
-                .flatten()
+                .and_then(RefState::bound)
                 .filter(|bound| bound.target().region.is_none())
                 .and_then(|bound| observation(app, bound.target()))
                 .and_then(|observation| observation.text_truncated.try_get())
@@ -486,8 +495,8 @@ impl NodeRef {
     pub fn rect(&self) -> Value<Option<Rect>> {
         let at = Location::caller();
         let (rt, s) = self.state(at);
-        s.observes_layout.set(true);
-        if let Some(bound) = s.bound.try_get_untracked().flatten() {
+        s.observes_layout.set(LayoutObservation::Requested);
+        if let Some(bound) = s.bound.try_get_untracked().and_then(RefState::bound) {
             ViewState::tree_mut(&rt).set_observe(bound.node(), true);
         }
         s.rect_value
@@ -521,7 +530,7 @@ impl NodeRef {
         let node = s.bound;
         drop(rt);
         kivact_runtime::memo(move || {
-            let Some(bound) = node.get() else {
+            let Some(bound) = node.get().bound() else {
                 return false;
             };
             let id = bound.target();
@@ -621,7 +630,7 @@ impl NodeRef {
             if !owner_hover.get() {
                 return false;
             }
-            match node.get() {
+            match node.get().bound() {
                 Some(Bound::Region { hovered, .. }) => hovered.get(),
                 Some(Bound::Node(_)) => true,
                 None => false,
@@ -638,9 +647,9 @@ fn observation(app: AppId, target: FocusTarget) -> Option<crate::view::tree::Nod
 
 /// Resolve exact transformed region bounds without allocating during a read.
 #[track_caller]
-fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rect>> {
+fn resolved_rect(app: AppId, binding: Signal<RefState>) -> Value<Option<Rect>> {
     kivact_runtime::memo(move || {
-        let target = binding.try_get().flatten()?.target();
+        let target = binding.try_get().and_then(RefState::bound)?.target();
         let observation = observation(app, target)?;
         let owner_rect = observation.rect.try_get().flatten();
         let Some(region) = target.region else {
@@ -662,11 +671,11 @@ fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rec
 }
 
 #[track_caller]
-fn resolved_scroll(app: AppId, binding: Signal<Option<Bound>>) -> Value<crate::draw::Point> {
+fn resolved_scroll(app: AppId, binding: Signal<RefState>) -> Value<crate::draw::Point> {
     kivact_runtime::memo(move || {
         binding
             .try_get()
-            .flatten()
+            .and_then(RefState::bound)
             .and_then(|bound| observation(app, bound.target()))
             .and_then(|observation| observation.scroll.try_get())
             .unwrap_or_default()
@@ -675,7 +684,7 @@ fn resolved_scroll(app: AppId, binding: Signal<Option<Bound>>) -> Value<crate::d
 
 /// Whether the node `source` holds is the node a ref is bound to (through
 /// its node source `node`) or lies in its subtree, as a memo.
-fn within(app: AppId, node: Signal<Option<Bound>>, source: Signal<Option<NodeId>>) -> Value<bool> {
+fn within(app: AppId, node: Signal<RefState>, source: Signal<Option<NodeId>>) -> Value<bool> {
     kivact_runtime::memo(move || {
         let Some(me) = bound_node(app, node) else {
             return false;
@@ -700,8 +709,8 @@ fn within(app: AppId, node: Signal<Option<Bound>>, source: Signal<Option<NodeId>
 
 /// The node a ref is bound to (tracked through its node source), if it is
 /// still mounted; `None` once the ref or the App is gone.
-fn bound_node(app: AppId, node: Signal<Option<Bound>>) -> Option<FocusTarget> {
-    live_target(app, node.try_get().flatten()?.target())
+fn bound_node(app: AppId, node: Signal<RefState>) -> Option<FocusTarget> {
+    live_target(app, node.try_get().and_then(RefState::bound)?.target())
 }
 
 /// Check exact identity against the currently retained scenes.

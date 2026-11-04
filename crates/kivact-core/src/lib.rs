@@ -73,7 +73,6 @@ pub mod motion;
 pub mod platform;
 pub mod prelude;
 pub mod primitive;
-mod sealed;
 pub mod style;
 pub mod task;
 pub mod view;

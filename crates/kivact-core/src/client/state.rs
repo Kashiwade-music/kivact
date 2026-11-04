@@ -14,12 +14,11 @@ use kivact_runtime::Runtime;
 #[derive(Default)]
 pub(crate) struct HostState {
     /// Turns run so far.
-    pub(super) turns: Cell<u64>,
-    /// Events dropped because their node no longer exists.
-    pub(super) stale_events: Cell<u64>,
+    pub(super) stats: Cell<HostStats>,
     /// Asset failures reported so far, by node and message (each once);
     /// entries of removed nodes are dropped when the revision removing them
     /// is committed.
+    pub(crate) removed: RefCell<Vec<NodeId>>,
     pub(super) asset_failures: RefCell<HashSet<(NodeId, String)>>,
 }
 
@@ -32,11 +31,17 @@ impl HostState {
 
     /// Turns run so far.
     pub(crate) fn turns(&self) -> u64 {
-        self.turns.get()
+        self.stats.get().turns
     }
 
     /// Events dropped because their node no longer exists.
     pub(crate) fn stale_events(&self) -> u64 {
-        self.stale_events.get()
+        self.stats.get().stale_events
     }
+}
+
+#[derive(Clone, Copy, Default)]
+pub(super) struct HostStats {
+    pub(super) turns: u64,
+    pub(super) stale_events: u64,
 }

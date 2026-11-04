@@ -26,11 +26,12 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
+use crate::HandlerResult;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
     Binding, BindingRepr, Callback, CallbackFn, EffectKind, Runtime, Signal, Value, Var,
 };
-use crate::reactive::error::{ErrorKind, HandlerResult, misuse_at};
+use crate::reactive::error::{ErrorKind, misuse_at};
 use crate::reactive::props::IntoValue;
 use crate::reactive::registry::current_runtime;
 use crate::reactive::scope::{owner_scope, setup_scope};
@@ -122,7 +123,7 @@ pub fn callback<E: 'static, R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> C
     let (rt, owner) = setup_scope("callback", at);
     let cb: Rc<CallbackFn<E>> = Rc::new(CallbackFn {
         owner,
-        f: Box::new(move |e| f(e).into_result()),
+        f: Box::new(move |e| f(e).into_outcome().map(|_| ())),
     });
     Callback::from_key(rt.id(), rt.insert_object(owner, cb, None, at))
 }

@@ -1,7 +1,7 @@
 //! Role: `UiError`, handler results and misuse panics.
 //!
 //! Handlers and callbacks return `()` or `Result<(), UiError>` (sealed in
-//! [`HandlerResult`]; key handlers in `kivact-core` may also return
+//! [`crate::HandlerResult`]; event handlers may also return
 //! `Handled`), so `?` infers [`UiError`] without an annotation.
 //!
 //! A misuse (a setup-only call outside setup, a disposed handle, a write in
@@ -231,30 +231,3 @@ pub(crate) fn misuse_at(
 pub(crate) fn misuse(err: UiError) -> ! {
     panic!("kivact misuse: {err:?}")
 }
-
-/// Return type of handlers and callbacks: `()` or `Result<(), UiError>`.
-/// Handlers and callbacks run untracked: a `get` in one subscribes nothing.
-/// Sealed with exactly these two impls so that `?` infers `UiError`.
-#[diagnostic::on_unimplemented(
-    message = "a handler must return `()` or `Result<(), UiError>`",
-    note = "use `?` on other errors; they convert to `UiError`"
-)]
-pub trait HandlerResult: crate::reactive::sealed::HandlerResultSeal {
-    /// The result as `Result<(), UiError>`.
-    fn into_result(self) -> Result<()>;
-}
-
-impl HandlerResult for () {
-    fn into_result(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl HandlerResult for Result<()> {
-    fn into_result(self) -> Result<()> {
-        self
-    }
-}
-
-impl crate::reactive::sealed::HandlerResultSeal for () {}
-impl crate::reactive::sealed::HandlerResultSeal for Result<(), UiError> {}

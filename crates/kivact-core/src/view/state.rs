@@ -60,11 +60,11 @@ impl Bound {
 /// target and its reactive readers.
 pub(crate) struct NodeRefState {
     pub(crate) owner: Owner,
-    /// The one source of the binding (`None` while unbound). Tracked readers `get` it;
+    /// The one source of binding and detachment. Tracked readers `get` it;
     /// untracked paths use `try_get_untracked`, where a disposed signal reads as unbound.
-    pub(crate) bound: Signal<Option<Bound>>,
+    pub(crate) bound: Signal<RefState>,
     /// `NodeRef::rect` was called: every node the ref binds to has its layout observed.
-    pub(crate) observes_layout: Cell<bool>,
+    pub(crate) observes_layout: Cell<LayoutObservation>,
     pub(crate) rect_value: Value<Option<Rect>>,
     pub(crate) scroll_value: Value<crate::draw::Point>,
 }
@@ -223,13 +223,13 @@ pub(crate) struct ViewState {
     /// textures (`None` until the host reports one).
     pub(super) adapter: Signal<Option<kivact_types::GpuAdapter>>,
     /// Missing capabilities the App relied on and that were noted.
-    noted_missing: RefCell<std::collections::BTreeSet<&'static str>>,
+    noted_missing: kivact_types::cell::ReportOnceSet<&'static str>,
     /// The node the host reported under the pointer last.
     hover: Cell<PointerObservation<NodeId>>,
     pub(crate) mouse: Cell<PointerObservation<crate::draw::Point>>,
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
-    pointer_modality: Cell<bool>,
+    pointer_modality: Cell<Modality>,
     /// The modifier keys the host reported last (`view::current_modifiers`).
     modifiers: Cell<Modifiers>,
     /// Focus / platform requests waiting for the host.
@@ -253,10 +253,10 @@ impl ViewState {
             focus: crate::view::focus::keys(owner, at),
             min_window_size,
             adapter: owner.signal(None, at),
-            noted_missing: RefCell::new(Default::default()),
+            noted_missing: Default::default(),
             hover: Cell::new(PointerObservation::Plain(None)),
             mouse: Cell::new(PointerObservation::Plain(None)),
-            pointer_modality: Cell::new(false),
+            pointer_modality: Cell::new(Modality::Keyboard),
             modifiers: Cell::new(Modifiers::default()),
             requests: RefCell::new(Requests::default()),
         }
@@ -306,7 +306,7 @@ impl ViewState {
     /// Whether the missing capability `name` has not been noted yet (it
     /// is noted from now on).
     pub(crate) fn note_once_missing(&self, name: &'static str) -> bool {
-        self.noted_missing.borrow_mut().insert(name)
+        self.noted_missing.note(name)
     }
 
     /// The keyboard focus source.
@@ -328,12 +328,16 @@ impl ViewState {
 
     /// Whether the last key or pointer press was a pointer press.
     pub(crate) fn pointer_modality(&self) -> bool {
-        self.pointer_modality.get()
+        matches!(self.pointer_modality.get(), Modality::Pointer)
     }
 
     /// Record the modality of a key press (`false`) or pointer press (`true`).
     pub(crate) fn set_pointer_modality(&self, pointer: bool) {
-        self.pointer_modality.set(pointer);
+        self.pointer_modality.set(if pointer {
+            Modality::Pointer
+        } else {
+            Modality::Keyboard
+        });
     }
 
     /// The modifier keys the host reported last.
@@ -355,4 +359,30 @@ impl ViewState {
     pub(crate) fn set_hover(&self, hover: PointerObservation<NodeId>) {
         self.hover.set(hover);
     }
+}
+
+#[derive(Clone, Copy)]
+enum Modality {
+    Pointer,
+    Keyboard,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum RefState {
+    Unbound,
+    Bound(Bound),
+    Detached,
+}
+impl RefState {
+    pub(crate) fn bound(self) -> Option<Bound> {
+        match self {
+            Self::Bound(bound) => Some(bound),
+            Self::Unbound | Self::Detached => None,
+        }
+    }
+}
+#[derive(Clone, Copy)]
+pub(crate) enum LayoutObservation {
+    NotRequested,
+    Requested,
 }

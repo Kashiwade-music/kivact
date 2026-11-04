@@ -145,7 +145,7 @@ pub fn spawn<R: HandlerResult>(fut: impl Future<Output = R> + 'static) -> Task {
     require_effectful("spawn");
     let app = rt.id();
     let fut = async move {
-        if let Err(e) = fut.await.into_result()
+        if let Err(e) = fut.await.into_outcome().map(|_| ())
             && let Some(rt) = Runtime::get(app)
         {
             rt.report(Some(owner), e);

@@ -227,9 +227,10 @@ impl Node {
         mut self,
         handler: impl Fn(&str) -> R + 'static,
     ) -> Self {
-        self.common.handlers.image_error = Some(std::rc::Rc::new(move |reason| {
-            handler(reason).into_result()
-        }));
+        self.common.handlers.image_error =
+            Some(kivact_runtime::Handler::from_fn(move |reason: String| {
+                handler(&reason).into_outcome()
+            }));
         self
     }
 }
@@ -391,12 +392,12 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
     let at = Location::caller();
     let source = icon.into_prop();
-    let reported = std::cell::Cell::new(false);
+    let reported = kivact_types::cell::ReportOnce::new();
     image(move || {
         let icon = source.get();
         let theme = kivact_style::current_theme();
         theme.icons().resolve(&icon).unwrap_or_else(|| {
-            if cfg!(debug_assertions) && !reported.replace(true) {
+            if cfg!(debug_assertions) && reported.note() {
                 let owner = kivact_runtime::Owner::ambient("icon", at);
                 let rt = owner.runtime();
                 rt.report_later(
