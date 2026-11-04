@@ -26,7 +26,7 @@ use std::future::Future;
 use std::panic::Location;
 use std::path::PathBuf;
 
-use kivact_types::{FileDialogRequest, PlatformRequest, PlatformResult};
+use kivact_types::{PlatformRequest, PlatformResult};
 
 use crate::view::requests;
 use crate::view::requests::platform_result;
@@ -34,31 +34,7 @@ use crate::view::state::EffectWaiter;
 use kivact_reactive::{Owner, UiError, require_effectful};
 use kivact_task::Completion;
 
-/// Options of a file, save or folder dialog. A folder dialog
-/// ([`pick_folder`]) uses `title` and `directory` only:
-/// `file_name` and `filters` do not apply to a folder and are ignored.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct FileDialog {
-    /// Dialog window title.
-    pub title: String,
-    /// Directory the dialog opens in.
-    pub directory: Option<PathBuf>,
-    /// Suggested file name.
-    pub file_name: Option<String>,
-    /// (label, extensions without the dot)
-    pub filters: Vec<(String, Vec<String>)>,
-}
-
-impl FileDialog {
-    fn to_wire(&self) -> FileDialogRequest {
-        FileDialogRequest {
-            title: self.title.clone(),
-            directory: self.directory.clone(),
-            file_name: self.file_name.clone(),
-            filters: self.filters.clone(),
-        }
-    }
-}
+pub use kivact_types::FileDialog;
 
 /// Every platform request: the scope must be alive and the caller must
 /// not be a memo or render effect.
@@ -106,11 +82,11 @@ pub fn request_window_size(
     let (width, height) = (width.into(), height.into());
     let valid = [width, height]
         .into_iter()
-        .all(|v| v.is_finite() && v > 0.0 && (v as f32).is_finite() && (v as f32) > 0.0);
+        .all(|v| v.is_finite() && v > 0.0);
     let result = if valid {
         let mut size = kivact_types::Size {
-            width: width as f32,
-            height: height as f32,
+            width: width,
+            height: height,
         };
         if let Some(min) = crate::view::state::ViewState::of(&owner.runtime()).min_window_size() {
             size.width = size.width.max(min.width);
@@ -124,7 +100,7 @@ pub fn request_window_size(
     } else {
         Err(UiError::new(
             kivact_reactive::ErrorKind::Message,
-            "request_window_size dimensions must be finite and positive in f32",
+            "request_window_size dimensions must be finite and positive in f64",
             Some(at),
         ))
     };
@@ -193,7 +169,7 @@ pub fn pick_file(
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
     let slot = ask(
         "pick_file",
-        PlatformRequest::PickFile(opts.to_wire()),
+        PlatformRequest::PickFile(opts.clone()),
         Location::caller(),
     );
     async move {
@@ -212,7 +188,7 @@ pub fn pick_files(
 ) -> impl Future<Output = Result<Option<Vec<PathBuf>>, UiError>> + 'static {
     let slot = ask(
         "pick_files",
-        PlatformRequest::PickFiles(opts.to_wire()),
+        PlatformRequest::PickFiles(opts.clone()),
         Location::caller(),
     );
     async move {
@@ -234,7 +210,7 @@ pub fn pick_folder(
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
     let slot = ask(
         "pick_folder",
-        PlatformRequest::PickFolder(opts.to_wire()),
+        PlatformRequest::PickFolder(opts.clone()),
         Location::caller(),
     );
     async move {
@@ -252,7 +228,7 @@ pub fn save_file(
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
     let slot = ask(
         "save_file",
-        PlatformRequest::SaveFile(opts.to_wire()),
+        PlatformRequest::SaveFile(opts.clone()),
         Location::caller(),
     );
     async move {

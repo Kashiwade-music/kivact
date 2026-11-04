@@ -224,6 +224,26 @@ impl SpringRun {
 }
 
 impl Transition {
+    /// Play absolute component keyframes in offset order.
+    pub fn keyframes<T: crate::Animatable>(
+        frames: impl IntoIterator<Item = (f64, T)>,
+        ms: impl Into<f64>,
+    ) -> Self {
+        let mut frames: Vec<(f64, Vec<f64>)> = frames
+            .into_iter()
+            .map(|(offset, value)| {
+                let mut components = Vec::with_capacity(T::COMPONENTS);
+                value.to_components(&mut components);
+                (offset.clamp(0.0, 1.0), components)
+            })
+            .collect();
+        frames.sort_by(|a, b| a.0.total_cmp(&b.0));
+        Self::new(Kind::Keyframes {
+            frames,
+            ms: ms.into().max(0.0),
+        })
+    }
+
     fn new(kind: Kind) -> Self {
         Self {
             kind,

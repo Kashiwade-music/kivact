@@ -63,8 +63,10 @@ impl<'a> Element<'a> {
     /// The node the host published for this element, if it is exposed to
     /// assistive technology (it has a role).
     fn published(&self) -> Option<SemanticsNode> {
-        self.published_any()
-            .filter(|n| self.region.is_some() || n.role != p::Role::Generic)
+        self.published_any().filter(|n| {
+            self.region.is_some()
+                || n.semantics.role.unwrap_or(p::Role::Generic) != p::Role::Generic
+        })
     }
 
     /// Where assistive technology sees the element, in logical window
@@ -83,10 +85,13 @@ impl<'a> Element<'a> {
     /// Accessible name (or region name), as the host published it.
     pub fn name(&self) -> String {
         if let Some(n) = self.published() {
-            return n.label;
+            return n.semantics.name.unwrap_or_default();
         }
         match self.region {
-            Some(r) => self.region_info(r).map(|x| x.name).unwrap_or_default(),
+            Some(r) => self
+                .region_info(r)
+                .and_then(|x| x.semantics.name)
+                .unwrap_or_default(),
             None => self.screen.name_of(self.node),
         }
     }
@@ -94,7 +99,9 @@ impl<'a> Element<'a> {
     /// Accessible description, as the host published it (empty when the
     /// element is not exposed or has none).
     pub fn description(&self) -> String {
-        self.published().map(|n| n.description).unwrap_or_default()
+        self.published()
+            .map(|n| n.semantics.description.unwrap_or_default())
+            .unwrap_or_default()
     }
 
     /// The elements the host published as describing this one
@@ -119,11 +126,11 @@ impl<'a> Element<'a> {
     /// The elements of one relation of the published node, in order.
     fn related(
         &self,
-        pick: impl FnOnce(&kivact_engine::testing::SemanticsProperties) -> Vec<u64>,
+        pick: impl FnOnce(&p::Semantics<p::SemanticsId>) -> Vec<u64>,
     ) -> Vec<Element<'a>> {
         let ids = self
             .published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .map(|p| pick(&p))
             .unwrap_or_default();
         let host = self.screen.host.borrow();
@@ -150,10 +157,15 @@ impl<'a> Element<'a> {
     /// is an unnamed image without actions or regions).
     pub fn role(&self) -> Option<Role> {
         match self.published_any() {
-            Some(n) if self.region.is_none() && n.role == p::Role::Generic => None,
-            Some(n) => Some(n.role),
+            Some(n)
+                if self.region.is_none()
+                    && n.semantics.role.unwrap_or(p::Role::Generic) == p::Role::Generic =>
+            {
+                None
+            }
+            Some(n) => Some(n.semantics.role.unwrap_or(p::Role::Generic)),
             None => match self.region {
-                Some(r) => self.region_info(r).map(|x| x.role),
+                Some(r) => self.region_info(r).and_then(|x| x.semantics.role),
                 None => self.screen.role_of(self.node),
             },
         }
@@ -163,7 +175,9 @@ impl<'a> Element<'a> {
     /// now (none when it is not exposed, disabled, hidden or outside the
     /// open modal).
     pub fn a11y_actions(&self) -> Vec<A11yAction> {
-        self.published_any().map(|n| n.actions).unwrap_or_default()
+        self.published_any()
+            .map(|n| n.semantics.actions.unwrap_or_default())
+            .unwrap_or_default()
     }
 
     /// Text content of a text node.
@@ -178,7 +192,7 @@ impl<'a> Element<'a> {
     /// caret and those shown). Returns `None` when no editing snapshot is
     /// published, including passwords.
     pub fn text_selection(&self) -> Option<(u32, u32)> {
-        Some(self.published()?.properties?.text?.selection)
+        Some(self.published()?.semantics.text?.selection)
     }
 
     /// The text runs the element publishes to assistive technology, one
@@ -186,7 +200,7 @@ impl<'a> Element<'a> {
     /// runs a node gave with `NodeExt::semantics_text`), in reading order.
     /// `None` when it publishes none, including passwords.
     pub fn text_runs(&self) -> Option<Vec<String>> {
-        let text = self.published()?.properties?.text?;
+        let text = self.published()?.semantics.text?;
         Some(text.runs.iter().map(|run| run.value.clone()).collect())
     }
 
@@ -194,7 +208,7 @@ impl<'a> Element<'a> {
     /// published scrolls and transforms. Protected text has no public snapshot.
     pub fn text_caret(&self) -> Option<crate::draw::Rect> {
         let node = self.published()?;
-        let caret = node.properties.as_ref()?.text.as_ref()?.caret;
+        let caret = node.semantics.text.as_ref()?.caret;
         self.screen
             .host
             .borrow()
@@ -208,19 +222,17 @@ impl<'a> Element<'a> {
     /// it edits (`None` for a password).
     pub fn value(&self) -> Option<String> {
         if let Some(n) = self.published() {
-            let editor = self.region.is_none()
-                && n.properties
-                    .as_ref()
-                    .is_some_and(|p| p.text.is_some() || p.protected);
+            let editor =
+                self.region.is_none() && (n.semantics.text.is_some() || n.semantics.protected);
             if editor {
                 return ViewState::tree(&self.screen.rt)
                     .reader()
                     .edit_value(self.node);
             }
-            return n.value;
+            return n.semantics.value_text;
         }
         if let Some(r) = self.region {
-            return self.region_info(r).and_then(|x| x.value);
+            return self.region_info(r).and_then(|x| x.semantics.value_text);
         }
         match (
             ViewState::tree(&self.screen.rt).input_value(self.node),
@@ -233,7 +245,7 @@ impl<'a> Element<'a> {
 
     pub fn is_disabled(&self) -> bool {
         match self.published() {
-            Some(n) => n.disabled,
+            Some(n) => n.semantics.disabled,
             None => matches!(
                 ViewState::tree(&self.screen.rt).disabled(self.node),
                 Some(true)
@@ -243,7 +255,7 @@ impl<'a> Element<'a> {
 
     pub fn is_selected(&self) -> bool {
         match self.published() {
-            Some(n) => n.selected,
+            Some(n) => n.semantics.selected.unwrap_or(false),
             _ => matches!(
                 ViewState::tree(&self.screen.rt).selected(self.node),
                 Some(true)
@@ -256,14 +268,14 @@ impl<'a> Element<'a> {
     /// the App's binding.
     pub fn checked(&self) -> Option<CheckedState> {
         match self.published() {
-            Some(n) => n.checked,
+            Some(n) => n.semantics.checked,
             _ => ViewState::tree(&self.screen.rt).checked(self.node),
         }
     }
 
     pub fn is_expanded(&self) -> Option<bool> {
         match self.published() {
-            Some(n) => n.expanded,
+            Some(n) => n.semantics.expanded,
             _ => ViewState::tree(&self.screen.rt).expanded(self.node),
         }
     }
@@ -271,15 +283,13 @@ impl<'a> Element<'a> {
     /// The depth the host publishes for this element (`.level(..)`),
     /// counted from 1. `None` when not exposed or not set.
     pub fn level(&self) -> Option<u32> {
-        self.published()
-            .and_then(|n| n.properties)
-            .and_then(|p| p.level)
+        self.published().map(|n| n.semantics).and_then(|p| p.level)
     }
 
     /// The set size the host publishes for this element (`.set_size(..)`).
     pub fn set_size(&self) -> Option<u32> {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .and_then(|p| p.set_size)
     }
 
@@ -287,7 +297,7 @@ impl<'a> Element<'a> {
     /// (`.pos_in_set(..)`), counted from 1.
     pub fn pos_in_set(&self) -> Option<u32> {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .and_then(|p| p.pos_in_set)
     }
 
@@ -295,42 +305,42 @@ impl<'a> Element<'a> {
     /// selected item (`.multiselectable(true)`).
     pub fn is_multiselectable(&self) -> bool {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .is_some_and(|p| p.multiselectable == Some(true))
     }
 
     /// Whether the host reports that this element is updating.
     pub fn is_busy(&self) -> bool {
         self.published()
-            .and_then(|n| n.properties)
-            .is_some_and(|p| p.busy)
+            .map(|n| n.semantics)
+            .is_some_and(|p| p.busy == Some(true))
     }
 
     /// Whether the host reports that this element requires a value.
     pub fn is_required(&self) -> bool {
         self.published()
-            .and_then(|n| n.properties)
-            .is_some_and(|p| p.required)
+            .map(|n| n.semantics)
+            .is_some_and(|p| p.required == Some(true))
     }
 
     /// Whether the host reports that this element is read-only.
     pub fn is_read_only(&self) -> bool {
         self.published()
-            .and_then(|n| n.properties)
-            .is_some_and(|p| p.read_only)
+            .map(|n| n.semantics)
+            .is_some_and(|p| p.read_only == Some(true))
     }
 
     /// The kind of popup that this element opens.
     pub fn popup_kind(&self) -> Option<crate::view::PopupKind> {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .and_then(|p| p.has_popup)
     }
 
     /// The meaning of the current item that the host reports.
     pub fn current_item(&self) -> Option<crate::view::CurrentItem> {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .and_then(|p| p.current_item)
     }
 
@@ -372,46 +382,52 @@ impl Element<'_> {
     /// Numeric minimum, maximum and current value, as published to AT.
     pub fn value_range(&self) -> (Option<f64>, Option<f64>, Option<f64>) {
         self.published()
-            .and_then(|n| n.properties)
-            .map(|p| (p.value_min, p.value_max, p.value_now))
+            .map(|n| n.semantics)
+            .map(|p| {
+                (
+                    p.value_min.map(p::Finite::get),
+                    p.value_max.map(p::Finite::get),
+                    p.value_now.map(p::Finite::get),
+                )
+            })
             .unwrap_or_default()
     }
     /// Whether AT sees an invalid value.
     pub fn invalid(&self) -> bool {
         self.published()
-            .and_then(|n| n.properties)
-            .is_some_and(|p| p.invalid)
+            .map(|n| n.semantics)
+            .is_some_and(|p| p.invalid == Some(true))
     }
     /// Whether AT sees read-only text.
     pub fn read_only(&self) -> bool {
         self.published()
-            .and_then(|n| n.properties)
-            .is_some_and(|p| p.read_only)
+            .map(|n| n.semantics)
+            .is_some_and(|p| p.read_only == Some(true))
     }
     /// Whether AT sees protected text (the value is omitted).
     pub fn password(&self) -> bool {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .is_some_and(|p| p.protected)
     }
     /// Live announcement policy, as published to AT.
     pub fn live_region(&self) -> crate::view::LiveRegion {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .and_then(|p| p.live_region)
             .unwrap_or_default()
     }
     /// Sort direction, as published to AT.
     pub fn sort(&self) -> crate::view::SortDirection {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .map(|p| p.sort)
             .unwrap_or_default()
     }
     /// Orientation, as published to AT.
     pub fn orientation(&self) -> crate::view::Orientation {
         self.published()
-            .and_then(|n| n.properties)
+            .map(|n| n.semantics)
             .map(|p| p.orientation)
             .unwrap_or_default()
     }
@@ -421,7 +437,7 @@ impl Element<'_> {
         target.is_some()
             && self
                 .published()
-                .and_then(|n| n.properties)
+                .map(|n| n.semantics)
                 .and_then(|p| p.active_descendant)
                 == target
     }

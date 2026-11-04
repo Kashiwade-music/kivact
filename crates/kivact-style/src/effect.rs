@@ -28,9 +28,9 @@ use super::theme::value::{Theme, ThemeColor};
 pub struct Shadow {
     pub offset: Point,
     /// Blur radius (CSS: a gaussian of standard deviation `blur / 2`).
-    pub blur: f32,
+    pub blur: f64,
     /// Growth of the shadow's shape (negative shrinks it).
-    pub spread: f32,
+    pub spread: f64,
     pub color: Color,
     /// Inside the box (CSS `inset`).
     pub inset: bool,
@@ -45,8 +45,8 @@ impl Shadow {
         color: impl ThemeColor,
     ) -> Shadow {
         Shadow {
-            offset: Point::new(x.into() as f32, y.into() as f32),
-            blur: blur.into() as f32,
+            offset: Point::new(x.into(), y.into()),
+            blur: blur.into(),
             spread: 0.0,
             color: Color::of(color),
             inset: false,
@@ -55,7 +55,7 @@ impl Shadow {
 
     /// Grow (or, negative, shrink) the shadow's shape (CSS spread radius).
     pub fn spread(mut self, spread: impl Into<f64>) -> Shadow {
-        self.spread = spread.into() as f32;
+        self.spread = spread.into();
         self
     }
 
@@ -82,18 +82,18 @@ pub use kivact_types::BlendMode;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum FilterFn {
-    Brightness(f32),
-    Contrast(f32),
-    Saturate(f32),
-    Grayscale(f32),
-    Sepia(f32),
-    HueRotate(f32),
-    Invert(f32),
-    Opacity(f32),
-    Blur(f32),
+    Brightness(f64),
+    Contrast(f64),
+    Saturate(f64),
+    Grayscale(f64),
+    Sepia(f64),
+    HueRotate(f64),
+    Invert(f64),
+    Opacity(f64),
+    Blur(f64),
     DropShadow {
         offset: Point,
-        blur: f32,
+        blur: f64,
         color: Color,
     },
 }
@@ -124,7 +124,7 @@ macro_rules! filter_fn {
     ($(#[$m:meta])* $name:ident, $variant:ident) => {
         $(#[$m])*
         pub fn $name(mut self, amount: impl Into<f64>) -> Filter {
-            self.ops.push(FilterFn::$variant(amount.into() as f32));
+            self.ops.push(FilterFn::$variant(amount.into()));
             self
         }
     };
@@ -175,8 +175,8 @@ impl Filter {
         color: impl ThemeColor,
     ) -> Filter {
         self.ops.push(FilterFn::DropShadow {
-            offset: Point::new(x.into() as f32, y.into() as f32),
-            blur: blur.into() as f32,
+            offset: Point::new(x.into(), y.into()),
+            blur: blur.into(),
             color: Color::of(color),
         });
         self

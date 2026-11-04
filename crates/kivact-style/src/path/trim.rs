@@ -101,11 +101,11 @@ impl Path {
     /// let circle = Path::new().arc(Point::new(0.0, 0.0), 10, 0, 360, false).close();
     /// assert!((circle.length() - 62.83).abs() < 0.05);
     /// ```
-    pub fn length(&self) -> f32 {
+    pub fn length(&self) -> f64 {
         self.bez().map_or(0.0, |bez| {
             bez.segments()
                 .map(|segment| segment.arclen(ACCURACY))
-                .sum::<f64>() as f32
+                .sum::<f64>()
         })
     }
 
@@ -136,7 +136,7 @@ impl Path {
     /// let turned = line.trim(0.0, 0.25, 0.75);
     /// assert!((turned.length() - 25.0).abs() < 1e-3);
     /// ```
-    pub fn trim(&self, start: f32, end: f32, offset: f32) -> Path {
+    pub fn trim(&self, start: f64, end: f64, offset: f64) -> Path {
         let empty = Path {
             cmds: Vec::new(),
             even_odd: self.even_odd,
@@ -264,8 +264,8 @@ mod tests {
     fn an_empty_stretch_or_invalid_value_is_empty() {
         for (s, e, o) in [
             (0.5, 0.5, 0.0),
-            (f32::NAN, 1.0, 0.0),
-            (0.0, 0.5, f32::INFINITY),
+            (f64::NAN, 1.0, 0.0),
+            (0.0, 0.5, f64::INFINITY),
         ] {
             assert!(square().trim(s, e, o).cmds.is_empty(), "{s} {e} {o}");
         }

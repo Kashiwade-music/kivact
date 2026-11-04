@@ -268,35 +268,35 @@ impl Registry {
                 Some((
                     entry.id,
                     RegionSemantics {
-                        role: common.role.unwrap_or(crate::view::Role::Generic),
-                        name: common
-                            .name
-                            .as_ref()
-                            .map(kivact_reactive::Prop::get)
-                            .unwrap_or_default(),
-                        description: common.description.as_ref().map(kivact_reactive::Prop::get),
-                        value: common.value.as_ref().map(kivact_reactive::Prop::get),
-                        actions: adopted.target.actions.actions(),
-                        checked: super::semantics::checked_state(
-                            common.checked.as_ref().map(kivact_reactive::Prop::get),
-                            common
-                                .indeterminate
+                        semantics: kivact_types::Semantics {
+                            role: Some(common.role.unwrap_or(crate::view::Role::Generic)),
+                            name: common
+                                .name
+                                .as_ref()
+                                .map(kivact_reactive::Prop::get)
+                                .map(Some)
+                                .unwrap_or_default(),
+                            description: common
+                                .description
                                 .as_ref()
                                 .map(kivact_reactive::Prop::get),
-                        ),
-                        selected: common
-                            .selected
-                            .as_ref()
-                            .is_some_and(kivact_reactive::Prop::get),
-                        expanded: common.expanded.as_ref().map(kivact_reactive::Prop::get),
-                        invalid: common
-                            .invalid
-                            .as_ref()
-                            .is_some_and(kivact_reactive::Prop::get),
-                        properties: Some(Box::new(properties)),
-                        disabled: adopted.target.constraints.disabled.get(),
-                        hidden: adopted.target.constraints.hidden.get(),
-                        focusable: adopted.target.constraints.focusable.get(),
+                            value_text: common.value.as_ref().map(kivact_reactive::Prop::get),
+                            actions: Some(adopted.target.actions.actions()),
+                            checked: super::semantics::checked_state(
+                                common.checked.as_ref().map(kivact_reactive::Prop::get),
+                                common
+                                    .indeterminate
+                                    .as_ref()
+                                    .map(kivact_reactive::Prop::get),
+                            ),
+                            selected: common.selected.as_ref().map(kivact_reactive::Prop::get),
+                            expanded: common.expanded.as_ref().map(kivact_reactive::Prop::get),
+                            invalid: common.invalid.as_ref().map(kivact_reactive::Prop::get),
+                            disabled: adopted.target.constraints.disabled.get(),
+                            hidden: adopted.target.constraints.hidden.get(),
+                            focusable: adopted.target.constraints.focusable.get(),
+                            ..properties
+                        },
                         focus_order: order.min(u32::MAX as usize) as u32,
                         focus_on_press: common.focus_on_press.and_then(|r| r.target_value(self.at)),
                     },

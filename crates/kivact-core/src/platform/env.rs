@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use crate::view::state::{EnvState, ViewState};
 use kivact_style::draw::Size;
-use kivact_types::HostEnv;
+use kivact_types::Environment;
 #[doc(inline)]
 pub use kivact_types::{Capabilities, Insets};
 
@@ -25,7 +25,7 @@ fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
 /// notified only when that field changes. The accessor named `api` shares
 /// one memo of its field.
 #[track_caller]
-fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&HostEnv) -> T) -> T {
+fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&Environment) -> T) -> T {
     state(api, Location::caller()).field(api, f).get()
 }
 
@@ -70,14 +70,16 @@ pub fn reduced_motion() -> bool {
 
 /// The display scale factor, tracked.
 #[track_caller]
-pub fn scale_factor() -> f32 {
-    env_field("scale_factor", |e| e.scale)
+pub fn scale_factor() -> f64 {
+    env_field("scale_factor", |e| e.scale_factor)
 }
 
 /// Whether the window surface is visible and active, tracked.
 #[track_caller]
 pub fn surface_active() -> bool {
-    env_field("surface_active", |e| e.surface_active)
+    state("surface_active", Location::caller())
+        .surface_active
+        .get()
 }
 
 /// The part of each window edge that system UI may cover (a notch, a
@@ -130,7 +132,7 @@ pub fn safe_area() -> Insets {
 /// ```
 #[track_caller]
 pub fn window_size() -> Size {
-    env_field("window_size", |e| e.window)
+    env_field("window_size", |e| e.window_size)
 }
 
 /// What the platform the App runs on can do (fixed for the App's

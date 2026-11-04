@@ -7,7 +7,7 @@
 //! - There is one clock. Each flush computes the earliest deadline of what
 //!   moves by frames and writes one `Writer::request_frame(at_ns)` per
 //!   request; there is no fixed timer.
-//! - While nothing can be drawn (`HostEnv::surface_active` is false: no
+//! - While nothing can be drawn (`Environment::surface_active` is false: no
 //!   surface, an empty window, an App suspended to the background) no
 //!   frame is requested and the frame clock stops. The engine owns that
 //!   clock (`MotionClock`, carried by every `FrameTick`): when drawing

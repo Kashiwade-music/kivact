@@ -505,7 +505,6 @@ constant_value!(
     (),
     String,
     bool,
-    f32,
     f64,
     i8,
     i16,
@@ -524,6 +523,7 @@ constant_value!(Rc<str>);
 
 constant_value!(
     kivact_types::Asset,
+    kivact_types::Pixels,
     kivact_types::Point,
     kivact_types::Size,
     kivact_types::ImageFit,

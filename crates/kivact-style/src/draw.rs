@@ -4,7 +4,7 @@
 //! clips, through the renderer. Regions retain their shapes and transforms for hits.
 //! A style's `paint(..)` callback is kept here as a `LocalPaint` (see `CompiledStyle::paint_retained`).
 //!
-//! `canvas`, `draw` and `draw_over` build the wire `Scene`. A group opens
+//! `canvas`, `draw` and `draw_over` build the wire `DrawList`. A group opens
 //! only with `d.layer(Layer, closure)` and closes at the end of the
 //! closure; there is no public pop. A [`Layer`] holds a transform, a clip
 //! (a `Shape`, a [`Path`] or a rectangle) and opacity, blend, filter, mask
@@ -92,4 +92,6 @@ pub use kivact_types::TextMetrics;
 
 pub(crate) use local_paint::LocalPaint;
 pub use recorder::{Draw, Recording, RegionSemantics};
-pub use text_run::{TextBaseline, TextRun, TextStyle};
+pub use text_run::{DrawTextStyle as TextStyle, TextBaseline, text_run};
+
+pub use kivact_types::TextRun;

@@ -66,13 +66,7 @@ impl PartialEq for EditState {
 }
 
 /// The largest char boundary of `s` not after `x`.
-pub(crate) fn floor_boundary(s: &str, x: usize) -> usize {
-    let mut x = x.min(s.len());
-    while !s.is_char_boundary(x) {
-        x -= 1;
-    }
-    x
-}
+pub(crate) use kivact_types::text_utf::floor_char_boundary as floor_boundary;
 
 impl EditState {
     /// A state holding `value` with the caret at its end.
@@ -156,21 +150,12 @@ impl EditState {
 
     /// UTF-16 offset of a byte offset (platform IMEs count UTF-16 units).
     pub fn utf16_of_byte(&self, byte: usize) -> usize {
-        self.text[..floor_boundary(&self.text, byte)]
-            .encode_utf16()
-            .count()
+        kivact_types::text_utf::utf16_offset(&self.text, byte)
     }
 
     /// Byte offset of a UTF-16 offset (clamped to the value).
     pub fn byte_of_utf16(&self, units: usize) -> usize {
-        let mut seen = 0;
-        for (i, c) in self.text.char_indices() {
-            if seen >= units {
-                return i;
-            }
-            seen += c.len_utf16();
-        }
-        self.text.len()
+        kivact_types::text_utf::byte_offset_from_utf16(&self.text, units)
     }
 
     /// The grapheme boundary before `at` (0 at the start).

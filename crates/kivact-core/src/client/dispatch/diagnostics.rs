@@ -6,7 +6,7 @@ use kivact_types::{LayoutRule, NodeId};
 
 use crate::view::state::ViewState;
 
-pub(super) fn layout_warning(rt: &Runtime, node: NodeId, rule: LayoutRule, amount: f32) {
+pub(super) fn layout_warning(rt: &Runtime, node: NodeId, rule: LayoutRule, amount: f64) {
     // A lint of debug builds: where the node was created and what
     // it shows, in the `kivact::layout` tracing target.
     let tree = ViewState::tree(rt);

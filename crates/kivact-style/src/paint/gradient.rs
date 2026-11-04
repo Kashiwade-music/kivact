@@ -18,7 +18,7 @@ pub enum RadialExtent {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum GradientKind {
     Linear {
-        angle: f32,
+        angle: f64,
     },
     Radial {
         circle: bool,
@@ -26,7 +26,7 @@ pub(crate) enum GradientKind {
         at: (Length, Length),
     },
     Conic {
-        from: f32,
+        from: f64,
         at: (Length, Length),
     },
 }
@@ -67,7 +67,7 @@ pub struct Gradient {
 /// `to bottom` is 180).
 pub fn linear_gradient(angle: impl Into<f64>) -> Gradient {
     Gradient::new(GradientKind::Linear {
-        angle: angle.into() as f32,
+        angle: angle.into(),
     })
 }
 
@@ -102,7 +102,7 @@ pub fn radial_gradient() -> Gradient {
 /// positions are degrees (`.stop(c, 90)`) or percentages of the turn.
 pub fn conic_gradient(from: impl Into<f64>) -> Gradient {
     Gradient::new(GradientKind::Conic {
-        from: from.into() as f32,
+        from: from.into(),
         at: (Length::Percent(50.0), Length::Percent(50.0)),
     })
 }

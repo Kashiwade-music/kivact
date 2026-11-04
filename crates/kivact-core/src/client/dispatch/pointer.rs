@@ -6,7 +6,7 @@ use kivact_style::draw::RegionId;
 use kivact_types::{FilePhase, NodeId, Point};
 
 use super::common::{admitted, handler, is_disabled, node_owner, run_handler, stale};
-use crate::view::input::{Handled, Modifiers, pointer_event_from_wire, wheel_event};
+use crate::view::input::{Handled, PointerEvent, WheelEvent};
 use crate::view::requests;
 use crate::view::state::ViewState;
 
@@ -42,17 +42,19 @@ pub(crate) fn run_requested_activations(rt: &Runtime) -> bool {
 pub(super) fn pointer(
     rt: &Runtime,
     host_event: &HostEvent,
-    node: NodeId,
-    region: Option<RegionId>,
-    event: kivact_types::PointerEvent,
+    routed: kivact_engine::contract::Routed<kivact_types::PointerSample>,
 ) {
+    let Some(node) = routed.target else {
+        return;
+    };
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "pointer", node);
     }
     if !admitted(rt, host_event, "pointer", node) {
         return;
     }
-    let e = pointer_event_from_wire(event, node, region);
+    let event = routed.input;
+    let e = PointerEvent { routed };
     let found = {
         let tree = ViewState::tree(rt);
         let stop = tree.modal_boundary(node);
@@ -75,7 +77,7 @@ pub(super) fn pointer(
         }
     }
     if matches!(
-        e.phase,
+        e.phase(),
         crate::view::PointerPhase::Down(press) | crate::view::PointerPhase::Up(press)
             if press.button == crate::view::MouseButton::Secondary
     ) {
@@ -99,19 +101,19 @@ pub(super) fn pointer(
 pub(super) fn wheel(
     rt: &Runtime,
     host_event: &HostEvent,
-    node: NodeId,
-    region: Option<RegionId>,
-    delta: Point,
-    pos: Point,
-    modifiers: Modifiers,
+    routed: kivact_engine::contract::Routed<kivact_types::WheelInput>,
 ) {
+    let Some(node) = routed.target else {
+        return;
+    };
+    let delta = routed.input.delta;
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "wheel", node);
     }
     if !admitted(rt, host_event, "wheel", node) {
         return;
     }
-    let e = wheel_event(delta, pos, modifiers, node, region);
+    let e = WheelEvent { routed };
     let stop = ViewState::tree(rt).modal_boundary(node);
     let mut cur = Some(node);
     let mut handled = Handled::No;

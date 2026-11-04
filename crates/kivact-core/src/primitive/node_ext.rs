@@ -1,7 +1,7 @@
 //! Role: Semantic, handler and drawing extensions that every node builder gets.
 
 use crate::view::IntoValue;
-use crate::view::ime_session::{ImeEvent, ImeSession};
+use crate::view::ime_session::{ImeInput, ImeSession};
 use crate::view::input::{KeyEvent, KeyHandlerResult, PointerEvent, WheelEvent};
 use crate::view::node::NodeBuilder;
 use crate::view::part::Part;
@@ -455,7 +455,7 @@ pub trait NodeExt: NodeBuilder {
     /// `Yes` stops the rest.
     fn on_ime<F, R>(mut self, f: F) -> Self
     where
-        F: Fn(ImeEvent) -> R + 'static,
+        F: Fn(ImeInput) -> R + 'static,
         R: KeyHandlerResult,
     {
         self.node_mut().common.prepend_ime(f);

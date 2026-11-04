@@ -91,8 +91,8 @@ pub use options::{RenderOptions, TestFonts, WindowMode};
 pub use render::{gpu_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{
-    Contact, Element, ImeText, LayoutCheck, LayoutRule, LayoutViolation, Screen, Screenshot,
-    SemanticNode, Within, failure_dir,
+    Contact, Element, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, Screen,
+    Screenshot, SemanticNode, Within, failure_dir,
 };
 
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]

@@ -27,7 +27,7 @@ pub struct Screen {
     /// Failure artifacts were written (by a failing query).
     pub(super) artifacts_written: Cell<bool>,
     /// Physical pixels per logical pixel.
-    pub(super) scale: Cell<f32>,
+    pub(super) scale: Cell<f64>,
     /// The touch and pen contacts the test has down (`contact_*`), in the
     /// order they went down, each at its last position.
     pub(super) contacts: RefCell<Vec<(Contact, kivact_style::draw::Point)>>,

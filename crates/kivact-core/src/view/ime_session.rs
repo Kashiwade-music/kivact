@@ -21,7 +21,7 @@ use std::ops::Range;
 use kivact_reactive::{IntoValue, Value};
 use kivact_style::draw::Rect;
 
-pub use kivact_types::ImeEvent;
+pub use kivact_types::ImeInput;
 
 /// What a focusable node that edits its own text shows the input method
 /// (IME): its text, selection and caret. Attach it with
@@ -32,7 +32,7 @@ pub use kivact_types::ImeEvent;
 /// # use kivact_core as kivact;
 /// use kivact::prelude::*;
 /// use kivact::draw::Rect;
-/// use kivact::primitive::{ImeEvent, ImeSession, NodeExt};
+/// use kivact::primitive::{ImeInput, ImeSession, NodeExt};
 ///
 /// fn line_editor() -> impl IntoView {
 ///     let text = signal(String::new());
@@ -44,7 +44,7 @@ pub use kivact_types::ImeEvent;
 ///         .focusable(true)
 ///         .ime_session(ImeSession::new(text, selection, caret))
 ///         .on_ime(move |e| {
-///             if let ImeEvent::Commit(committed) = e {
+///             if let ImeInput::Commit(committed) = e {
 ///                 text.update(|t| t.push_str(&committed));
 ///             }
 ///         })

@@ -28,7 +28,7 @@ pub struct EditLine {
     /// The line's transformed outer bounds in logical window coordinates.
     pub rect: Rect,
     /// Window y coordinate of the baseline at the line origin.
-    pub baseline: f32,
+    pub baseline: f64,
 }
 
 /// One shaped caret stop in the editor's original value.

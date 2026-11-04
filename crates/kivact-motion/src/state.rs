@@ -108,11 +108,9 @@ impl MotionState {
     fn period(&self) -> Option<NonZeroU64> {
         let v = self.env().frame_period_ns;
         let ns = kivact_reactive::untrack(|| v.try_get())?;
-        Some(
-            NonZeroU64::new(ns).expect(
-                "invariant: hosts report a positive frame period (`HostEnv::frame_period_ns`)",
-            ),
-        )
+        Some(NonZeroU64::new(ns).expect(
+            "invariant: hosts report a positive frame period (`Environment::frame_period_ns`)",
+        ))
     }
 
     /// Track a frame loop (weakly; it is dropped with its owner).

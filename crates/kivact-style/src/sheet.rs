@@ -189,10 +189,10 @@ pub struct Style {
     pub(super) min_height: Option<Length>,
     pub(super) max_width: Option<Length>,
     pub(super) max_height: Option<Length>,
-    pub(super) grow: Option<f32>,
-    pub(super) shrink: Option<f32>,
+    pub(super) grow: Option<f64>,
+    pub(super) shrink: Option<f64>,
     pub(super) basis: Option<Length>,
-    pub(super) aspect_ratio: Option<f32>,
+    pub(super) aspect_ratio: Option<f64>,
     pub(super) direction: Option<Direction>,
     pub(super) align: Option<Align>,
     pub(super) align_self: Option<Align>,
@@ -210,19 +210,19 @@ pub struct Style {
     pub(super) scroll_axes: Option<ScrollAxes>,
     pub(super) background: Option<Background>,
     /// Border widths and colors, top, right, bottom, left.
-    pub(super) border_width: [Option<f32>; 4],
+    pub(super) border_width: [Option<f64>; 4],
     pub(super) border_color: [Option<Color>; 4],
     pub(super) border_style: Option<BorderStyle>,
-    pub(super) ring: Option<(f32, f32, Color)>,
+    pub(super) ring: Option<(f64, f64, Color)>,
     /// Corner radii, top left, top right, bottom right, bottom left.
     pub(super) radius: [Option<CornerRadius>; 4],
     pub(super) shadows: Option<Vec<Shadow>>,
-    pub(super) opacity: Option<f32>,
+    pub(super) opacity: Option<f64>,
     /// CSS `translate` (x, then y: each axis is set and merged on its own),
     /// `rotate`, `scale`, `transform`, `transform-origin`.
     pub(super) translate: [Option<Length>; 2],
-    pub(super) rotate: Option<f32>,
-    pub(super) scale: Option<(f32, f32)>,
+    pub(super) rotate: Option<f64>,
+    pub(super) scale: Option<(f64, f64)>,
     pub(super) transform: Option<Transform>,
     pub(super) transform_origin: Option<(Length, Length)>,
     pub(super) scrollbar: Option<Box<ScrollbarStyle>>,
@@ -234,7 +234,7 @@ pub struct Style {
     pub(super) blend: Option<BlendMode>,
     pub(super) mask: Option<Box<Paint>>,
     pub(super) clip_path: Option<Box<Shape>>,
-    pub(super) font_size: Option<f32>,
+    pub(super) font_size: Option<f64>,
     pub(super) weight: Option<u16>,
     pub(super) color: Option<Color>,
     pub(super) line_height: Option<LineHeight>,
@@ -371,9 +371,9 @@ impl Style {
     setter!(
         /// CSS `aspect-ratio`: width / height (`aspect_ratio(16.0 / 9.0)`). With
         /// one of width and height set (or stretched), the other follows.
-        aspect_ratio, aspect_ratio, impl Into<f64>, |v: f64| v as f32);
-    setter!(grow, grow, impl Into<f64>, |v: f64| v as f32);
-    setter!(shrink, shrink, impl Into<f64>, |v: f64| v as f32);
+        aspect_ratio, aspect_ratio, impl Into<f64>, |v: f64| v);
+    setter!(grow, grow, impl Into<f64>, |v: f64| v);
+    setter!(shrink, shrink, impl Into<f64>, |v: f64| v);
     setter!(direction, direction, Direction, |v| v);
     setter!(
         /// Cross-axis alignment of children.
@@ -402,7 +402,7 @@ impl Style {
         /// The opacity of the node and its subtree, as one group (CSS
         /// `opacity`: overlapping children do not show through each
         /// other).
-        opacity, opacity, f32, |v: f32| v.clamp(0.0, 1.0));
+        opacity, opacity, f64, |v: f64| v.clamp(0.0, 1.0));
     setter!(
         /// CSS `filter`: color functions recolor everything the subtree
         /// draws; `blur` and `drop_shadow` filter the subtree's pixels.
@@ -440,12 +440,12 @@ impl Style {
         /// CSS `rotate`: clockwise, in degrees, after `translate` and
         /// before `scale` and `transform` (CSS's order for the individual
         /// transform properties, whatever the call order).
-        rotate, rotate, impl Into<f64>, |v: f64| v as f32);
+        rotate, rotate, impl Into<f64>, |v: f64| v);
     setter!(
         /// CSS `scale` (uniform), applied after `translate` and `rotate`
         /// and before `transform`. A state style can set it alone:
         /// `.hover(style().scale(1.05))` keeps the node's rotation.
-        scale, scale, impl Into<f64>, |v: f64| (v as f32, v as f32));
+        scale, scale, impl Into<f64>, |v: f64| (v, v));
     setter!(
         /// CSS `z-index`: the order the node is painted and hit in among
         /// its siblings (higher on top; equal values keep the tree order).
@@ -472,7 +472,7 @@ impl Style {
         clip, clip, bool, |v| v);
     setter!(
         /// CSS `font-size` of the text in this node and below.
-        font_size, font_size, impl Into<f64>, |v: f64| v as f32);
+        font_size, font_size, impl Into<f64>, |v: f64| v);
     setter!(
         /// CSS `font-weight` (1 to 1000) of the text in this node and below.
         weight, weight, u16, |v| v);
@@ -586,7 +586,7 @@ impl Style {
         if self.scale.is_some() {
             self.duplicates += 1;
         }
-        self.scale = Some((x.into() as f32, y.into() as f32));
+        self.scale = Some((x.into(), y.into()));
         self
     }
 
@@ -610,33 +610,33 @@ impl Style {
     /// ...) a width is drawn but does not move the content: states change
     /// the paint only.
     pub fn border(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([0, 1, 2, 3], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([0, 1, 2, 3], width.into(), Some(Color::of(color)))
     }
 
     /// The top border (CSS `border-top: w solid c`).
     pub fn border_top(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([0], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([0], width.into(), Some(Color::of(color)))
     }
 
     /// The right border (CSS `border-right`).
     pub fn border_right(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([1], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([1], width.into(), Some(Color::of(color)))
     }
 
     /// The bottom border (CSS `border-bottom`).
     pub fn border_bottom(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([2], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([2], width.into(), Some(Color::of(color)))
     }
 
     /// The left border (CSS `border-left`).
     pub fn border_left(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([3], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([3], width.into(), Some(Color::of(color)))
     }
 
     /// Every side's border width (CSS `border-width`); a side without a
     /// color takes `ColorToken::Border`.
     pub fn border_width(self, width: impl Into<f64>) -> Self {
-        self.border_sides([0, 1, 2, 3], width.into() as f32, None)
+        self.border_sides([0, 1, 2, 3], width.into(), None)
     }
 
     /// Every side's border color (CSS `border-color`), keeping the widths
@@ -662,7 +662,7 @@ impl Style {
     fn border_sides<const N: usize>(
         mut self,
         sides: [usize; N],
-        width: f32,
+        width: f64,
         color: Option<Color>,
     ) -> Self {
         if sides.iter().any(|i| self.border_width[*i].is_some()) {
@@ -757,7 +757,7 @@ impl Style {
         if self.ring.is_some() {
             self.duplicates += 1;
         }
-        self.ring = Some((width.into() as f32, offset.into() as f32, Color::of(color)));
+        self.ring = Some((width.into(), offset.into(), Color::of(color)));
         self
     }
 
@@ -1082,16 +1082,16 @@ pub enum ScrollbarWidth {
     /// Hidden; scrolling still works.
     None,
     /// Explicit logical pixel width.
-    Px(f32),
+    Px(f64),
 }
-impl From<f32> for ScrollbarWidth {
-    fn from(px: f32) -> Self {
+impl From<f64> for ScrollbarWidth {
+    fn from(px: f64) -> Self {
         Self::Px(px)
     }
 }
 impl From<i32> for ScrollbarWidth {
     fn from(px: i32) -> Self {
-        Self::Px(px as f32)
+        Self::Px(px as f64)
     }
 }
 #[derive(Clone, Debug, Default, PartialEq)]

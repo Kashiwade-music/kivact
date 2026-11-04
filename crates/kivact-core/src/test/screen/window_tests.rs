@@ -66,7 +66,7 @@ fn resize_requests_are_clamped_to_the_apps_single_minimum() {
 }
 
 #[test]
-fn resize_dimensions_must_fit_finite_positive_f32() {
+fn resize_dimensions_must_fit_finite_positive_f64() {
     for bad in [
         f64::NAN,
         f64::INFINITY,

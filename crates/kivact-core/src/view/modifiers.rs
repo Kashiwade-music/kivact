@@ -88,7 +88,7 @@ impl Common {
     /// `on_ime`: run before the IME handlers already registered.
     pub(crate) fn prepend_ime<F, R>(&mut self, f: F)
     where
-        F: Fn(kivact_types::ImeEvent) -> R + 'static,
+        F: Fn(kivact_types::ImeInput) -> R + 'static,
         R: KeyHandlerResult,
     {
         self.handlers.ime.caller(move |e| f(e).into_handled());

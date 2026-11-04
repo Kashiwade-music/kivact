@@ -30,7 +30,7 @@
 use kivact_types as p;
 use kivact_types::{
     Border, Corners, Edges, Effects, ElementTransform, Fill, LayoutProps, PaintDelta, PaintProps,
-    Ring, ScrollAxes, StateStyles, TextProps,
+    Ring, ScrollAxes, StateStyles, TextStyle,
 };
 
 use super::color::ColorToken;
@@ -64,7 +64,7 @@ pub struct CompiledStyle {
     /// Text props: when the style sets any (only what it sets: the rest
     /// is inherited property by property), and always for the root, which
     /// carries the theme's text defaults that every node inherits.
-    pub text: Option<TextProps>,
+    pub text: Option<TextStyle>,
     /// Hover/pressed/focus/disabled overrides, if any.
     pub states: Option<StateStyles>,
     /// Properties set more than once (reported as diagnostics).
@@ -163,8 +163,8 @@ fn misplaced_content(s: &Style) -> u32 {
 /// `style::text::resolve_extras`). The host takes each unset one from the
 /// nearest ancestor that sets it, and the root carries the theme's
 /// ([`resolve`]).
-fn text(s: &Style, theme: &Theme) -> (TextProps, u32) {
-    let mut t = TextProps {
+fn text(s: &Style, theme: &Theme) -> (TextStyle, u32) {
+    let mut t = TextStyle {
         font_size: s.font_size,
         weight: s.weight,
         color: s.color.map(|c| c.resolve(theme)),
@@ -179,7 +179,7 @@ fn text(s: &Style, theme: &Theme) -> (TextProps, u32) {
         align: s.text_align,
         family: s.font_family.clone(),
         italic: s.italic,
-        ..TextProps::default()
+        ..TextStyle::default()
     };
     let dropped = match &s.text {
         Some(x) => super::text::resolve_extras(&mut t, x, theme),
@@ -309,8 +309,7 @@ fn compile(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
         t
     });
     let mut paint = paint(&s, theme);
-    paint.transition =
-        super::paint_transition(&s).map(|t| std::sync::Arc::new(t.as_wire().clone()));
+    paint.transition = super::paint_transition(&s).map(|t| std::sync::Arc::new(t.clone()));
     CompiledStyle {
         retained_paint,
         layout: layout(&s),
@@ -594,7 +593,7 @@ fn fill(b: &Background, theme: &Theme) -> Fill {
 
 /// The border's widths (0 where unset): the layout's border, as the
 /// paint's ([`border`]).
-fn border_widths(s: &Style) -> Edges<f32> {
+fn border_widths(s: &Style) -> Edges<f64> {
     let w = |i: usize| s.border_width[i].unwrap_or(0.0);
     Edges {
         top: w(0),

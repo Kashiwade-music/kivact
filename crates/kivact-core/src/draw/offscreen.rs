@@ -1,6 +1,6 @@
 //! Role: Fixed-resolution images drawn with the same `Draw` vocabulary as canvases.
 //!
-//! The path from a `Scene` through the engine's `paint::Context` to an
+//! The path from a `DrawList` through the engine's `paint::Context` to an
 //! Arvane scene is the window's. The context keeps the resources, the
 //! raster scale and the first failure; text is measured with a
 //! `bridge::TextMeasurer` that needs no node tree. Only the CPU
@@ -38,16 +38,7 @@ use kivact_style::asset::Asset;
 use kivact_style::draw::Recording;
 use std::panic::Location;
 
-/// A tightly packed image, top row first, in sRGB with straight
-/// (unassociated) alpha: exactly `width * height * 4` bytes in RGBA order,
-/// without row padding. It owns its allocation, independent of the
-/// [`Offscreen`] that drew it, and can move to another thread.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RgbaImage {
-    pub width: u32,
-    pub height: u32,
-    pub rgba: Vec<u8>,
-}
+pub use kivact_types::Pixels as RgbaImage;
 
 /// Draws into fixed-resolution RGBA images without an `App` or a window
 /// (for exporting artwork or a frame sequence). The `paint` closure of
@@ -133,7 +124,7 @@ impl Offscreen {
         let at = Location::caller();
         self.engine
             .font(&font.into())
-            .map_err(|message| failed(ErrorKind::Asset, message, at))
+            .map_err(|message| failed(ErrorKind::Asset, message.to_string(), at))
     }
 
     /// Draw `paint` into an image of exactly `width` × `height` pixels;
@@ -169,10 +160,10 @@ impl Offscreen {
                 at,
             ));
         }
-        let size = Size::new(width as f32, height as f32);
-        let inherited = kivact_types::ComputedText {
+        let size = Size::new(width as f64, height as f64);
+        let inherited = kivact_types::ComputedTextStyle {
             family: self.theme.text().family.clone(),
-            line_height: Some(self.theme.text().line_height),
+            line_height: self.theme.text().line_height,
             ..Default::default()
         };
         let measurer = self.engine.text_measurer(inherited.clone());
@@ -200,13 +191,13 @@ impl Offscreen {
             .map_err(|error| match error {
                 kivact_engine::api::OffscreenError::Dropped(_) => rejected(),
                 kivact_engine::api::OffscreenError::Failed(message) => {
-                    failed(ErrorKind::Asset, message, at)
+                    failed(ErrorKind::Asset, message.to_string(), at)
                 }
             })?;
         Ok(RgbaImage {
             width: image.width,
             height: image.height,
-            rgba: image.rgba,
+            rgba: image.rgba.into(),
         })
     }
 }

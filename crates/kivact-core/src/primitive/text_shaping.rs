@@ -13,10 +13,10 @@ use std::panic::Location;
 /// and width share the shaping cache with drawing and measurement. No engine
 /// borrow survives this call and no reactive engine state is allocated.
 #[track_caller]
-pub fn shape_paragraph(text: &str, style: &TextStyle, max_width: Option<f32>) -> TextParagraph {
+pub fn shape_paragraph(text: &str, style: &TextStyle, max_width: Option<f64>) -> TextParagraph {
     let measurer = paragraph_measurer("shape_paragraph", Location::caller());
     let run = text_run(text, style);
-    let shaped = measurer.shape(run.as_wire(), max_width).unwrap_or_default();
+    let shaped = measurer.shape(&run, max_width).unwrap_or_default();
     TextParagraph::from_shaped(text, shaped, max_width)
 }
 
@@ -25,28 +25,28 @@ pub fn shape_paragraph(text: &str, style: &TextStyle, max_width: Option<f32>) ->
 pub fn shape_inline_paragraph(
     text: &str,
     style: &TextStyle,
-    max_width: Option<f32>,
+    max_width: Option<f64>,
     boxes: &[values::InlineBox],
 ) -> Option<InlineParagraph> {
     let measurer = paragraph_measurer("shape_inline_paragraph", Location::caller());
     let run = text_run(text, style);
-    let shaped = measurer.shape_inline(run.as_wire(), max_width, boxes)?;
+    let shaped = measurer.shape_inline(&run, max_width, boxes)?;
     Some(InlineParagraph::from_shaped(text, shaped, max_width))
 }
 
 fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl TextShaper {
     let rt = kivact_reactive::Owner::ambient(api, at).runtime();
     let theme = kivact_style::current_theme();
-    let inherited = values::ComputedText {
+    let inherited = values::ComputedTextStyle {
         family: theme.text().family.clone(),
-        line_height: Some(theme.text().line_height),
+        line_height: theme.text().line_height,
         ..Default::default()
     };
     ViewState::tree(&rt).reader().paragraph_measurer(inherited)
 }
 
 fn text_run(text: &str, style: &TextStyle) -> TextRun {
-    TextRun::from_style(
+    kivact_style::draw::text_run(
         text,
         values::Point::default(),
         style,

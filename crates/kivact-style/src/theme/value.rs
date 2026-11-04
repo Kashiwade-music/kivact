@@ -175,10 +175,10 @@ pub struct Theme {
     space: Spacing,
     radius: Radii,
     text: Typography,
-    focus_ring: f32,
-    focus_ring_offset: f32,
-    disabled_opacity: f32,
-    control_height: f32,
+    focus_ring: f64,
+    focus_ring_offset: f64,
+    disabled_opacity: f64,
+    control_height: f64,
     icons: IconSet,
 }
 
@@ -229,12 +229,12 @@ impl Theme {
     /// visible focus, unless its style has a focus look of its own (a
     /// `focus` or `focus_visible` state;
     /// `style().focus_visible(style().ring_none())` draws none).
-    pub fn focus_ring(&self) -> f32 {
+    pub fn focus_ring(&self) -> f64 {
         self.focus_ring
     }
 
     /// The gap in logical pixels between the border box and the theme focus ring.
-    pub fn focus_ring_offset(&self) -> f32 {
+    pub fn focus_ring_offset(&self) -> f64 {
         self.focus_ring_offset
     }
 
@@ -244,12 +244,12 @@ impl Theme {
     /// not the tab stop (a disabled one never is) is dimmed too
     /// (`style().disabled(style().opacity(1.0))` keeps it opaque). A disabled
     /// focusable element also drops its hover and pressed looks.
-    pub fn disabled_opacity(&self) -> f32 {
+    pub fn disabled_opacity(&self) -> f64 {
         self.disabled_opacity
     }
 
     /// Minimum height of interactive controls (px).
-    pub fn control_height(&self) -> f32 {
+    pub fn control_height(&self) -> f64 {
         self.control_height
     }
 
@@ -299,13 +299,13 @@ impl Theme {
     /// The theme with the focus ring width `focus_ring` (px); see
     /// [`focus_ring`](Self::focus_ring).
     #[must_use]
-    pub fn with_focus_ring(mut self, focus_ring: f32) -> Self {
+    pub fn with_focus_ring(mut self, focus_ring: f64) -> Self {
         self.focus_ring = focus_ring;
         self
     }
 
     /// Set the gap in logical pixels before the theme focus ring.
-    pub fn with_focus_ring_offset(mut self, offset: f32) -> Self {
+    pub fn with_focus_ring_offset(mut self, offset: f64) -> Self {
         self.focus_ring_offset = offset;
         self
     }
@@ -313,14 +313,14 @@ impl Theme {
     /// The theme with the disabled opacity `disabled_opacity`; see
     /// [`disabled_opacity`](Self::disabled_opacity).
     #[must_use]
-    pub fn with_disabled_opacity(mut self, disabled_opacity: f32) -> Self {
+    pub fn with_disabled_opacity(mut self, disabled_opacity: f64) -> Self {
         self.disabled_opacity = disabled_opacity;
         self
     }
 
     /// The theme with the minimum control height `control_height` (px).
     #[must_use]
-    pub fn with_control_height(mut self, control_height: f32) -> Self {
+    pub fn with_control_height(mut self, control_height: f64) -> Self {
         self.control_height = control_height;
         self
     }
@@ -486,7 +486,7 @@ pub fn current_theme() -> Theme {
 /// The returned [`Color`] may itself be a token or carry an alpha; it is
 /// resolved against the same theme. An implementor is a small value type
 /// (a field-less enum): the process keeps one shared copy of each distinct
-/// value, so a value that is built from a number (`Gray(f32)`) would grow
+/// value, so a value that is built from a number (`Gray(f64)`) would grow
 /// that table without bound.
 pub trait ThemeColor: Copy + PartialEq + fmt::Debug + Send + Sync + 'static {
     /// The color this value stands for in `theme`.
@@ -586,12 +586,12 @@ impl Color {
     }
 
     /// Concrete components (tokens resolved against the default theme).
-    pub fn components(self) -> [f32; 4] {
+    pub fn components(self) -> [f64; 4] {
         self.components_in(&Theme::default())
     }
 
     /// Components resolved against the supplied theme, in sRGB.
-    pub fn components_in(self, theme: &Theme) -> [f32; 4] {
+    pub fn components_in(self, theme: &Theme) -> [f64; 4] {
         let c = self.resolve(theme);
         [c.r, c.g, c.b, c.a]
     }
@@ -604,7 +604,7 @@ impl Color {
 
     /// Mix after resolving both colors against the supplied theme.
     pub fn mix_in(self, other: Color, amount: impl Into<f64>, theme: &Theme) -> Color {
-        let t = (amount.into() as f32).clamp(0.0, 1.0);
+        let t = (amount.into()).clamp(0.0, 1.0);
         let a = self.components_in(theme);
         let b = other.components_in(theme);
         let alpha = a[3] + (b[3] - a[3]) * t;
@@ -615,18 +615,18 @@ impl Color {
                 0.0
             }
         };
-        Color::from_rgba_f32(component(0), component(1), component(2), alpha)
+        Color::from_rgba_f64(component(0), component(1), component(2), alpha)
     }
 }
 
 impl kivact_motion::Animatable for Color {
     const COMPONENTS: usize = 4;
-    fn to_components(&self, out: &mut Vec<f32>) {
+    fn to_components(&self, out: &mut Vec<f64>) {
         out.extend_from_slice(&self.components());
     }
-    fn from_components(c: &[f32]) -> Self {
+    fn from_components(c: &[f64]) -> Self {
         let g = |i: usize| c.get(i).copied().unwrap_or_default();
-        Color::from_rgba_f32(g(0), g(1), g(2), g(3))
+        Color::from_rgba_f64(g(0), g(1), g(2), g(3))
     }
 }
 

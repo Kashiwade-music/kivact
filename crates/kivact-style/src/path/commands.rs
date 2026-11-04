@@ -76,7 +76,7 @@ impl Path {
         angles: (impl Into<f64>, impl Into<f64>),
         counterclockwise: bool,
     ) -> Self {
-        let (start, end) = (angles.0.into() as f32, angles.1.into() as f32);
+        let (start, end) = (angles.0.into(), angles.1.into());
         let delta = end - start;
         let sweep =
             if (!counterclockwise && delta >= 360.0) || (counterclockwise && delta <= -360.0) {
@@ -88,9 +88,9 @@ impl Path {
             };
         self.cmds.push(p::PathCmd::Arc {
             center,
-            rx: radii.0.into() as f32,
-            ry: radii.1.into() as f32,
-            x_rotation_deg: rotation.into() as f32,
+            rx: radii.0.into(),
+            ry: radii.1.into(),
+            x_rotation_deg: rotation.into(),
             start_deg: start,
             sweep_deg: sweep,
         });
@@ -106,9 +106,9 @@ impl Path {
         to: Point,
     ) -> Self {
         self.cmds.push(p::PathCmd::ArcTo {
-            rx: radii.0.into() as f32,
-            ry: radii.1.into() as f32,
-            x_rotation_deg: rotation.into() as f32,
+            rx: radii.0.into(),
+            ry: radii.1.into(),
+            x_rotation_deg: rotation.into(),
             large_arc,
             sweep,
             to,
@@ -130,7 +130,7 @@ impl Path {
                 r.y.to_len().of(rect.height).max(0.0),
             )
         });
-        let ratio = |length: f32, sum: f32| if sum > length { length / sum } else { 1.0 };
+        let ratio = |length: f64, sum: f64| if sum > length { length / sum } else { 1.0 };
         let scale = ratio(rect.width, r[0].0 + r[1].0)
             .min(ratio(rect.width, r[3].0 + r[2].0))
             .min(ratio(rect.height, r[0].1 + r[3].1))

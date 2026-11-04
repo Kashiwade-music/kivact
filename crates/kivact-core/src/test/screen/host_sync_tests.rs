@@ -19,7 +19,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     use crate::view::{ButtonPress, Handled, MouseButton, PointerKind, PointerPhase};
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
-    use kivact_types::{Modifiers, PointerEvent};
+    use kivact_types::{Modifiers, PointerSample};
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
     let downs = Rc::new(Cell::new(0));
@@ -37,7 +37,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
                 part(|state| state)
                     .region_events()
                     .on_pointer(move |event| {
-                        if matches!(event.phase, PointerPhase::Down(_)) {
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
                             observed.set(observed.get() + 1);
                         }
                         Handled::Yes
@@ -60,23 +60,31 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     let dispatch = |id, phase| {
         // The first pointer is primary; the others are later contacts.
         let is_primary = id != 22;
-        screen.host.borrow_mut().inject(HostEvent::Pointer {
-            node,
-            region: Some(kivact_types::RegionId(1)),
-            event: PointerEvent {
-                id: kivact_types::PointerId(id),
-                phase,
-                pos: Point::new(20., 20.),
-                window_pos: Point::new(20., 20.),
-                buttons: kivact_types::PointerButtons::NONE
-                    .with(MouseButton::Primary, matches!(phase, PointerPhase::Down(_))),
-                modifiers: Modifiers::default(),
-                kind: PointerKind::Touch,
-                pressure: None,
-                tilt: None,
-                is_primary,
-            },
-        });
+        screen
+            .host
+            .borrow_mut()
+            .inject(HostEvent::Pointer(kivact_engine::contract::Routed {
+                target: Some(node),
+                local: Point::new(20., 20.),
+                captured: false,
+                activation: None,
+                region: Some(kivact_types::RegionId(1)),
+                input: PointerSample {
+                    id: kivact_types::PointerId(id),
+                    phase,
+                    position: Point::new(20., 20.),
+                    buttons: kivact_types::PointerButtons::NONE
+                        .with(MouseButton::Primary, matches!(phase, PointerPhase::Down(_))),
+                    modifiers: Modifiers::default(),
+                    kind: PointerKind::Touch,
+                    button: None,
+                    press: None,
+                    time_ns: 0,
+                    pressure: None,
+                    tilt: None,
+                    is_primary,
+                },
+            }));
     };
     let (down, up) = (PointerPhase::Down(press), PointerPhase::Up(press));
     dispatch(11, down);
@@ -85,7 +93,10 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     dispatch(11, up);
     dispatch(22, up);
     screen.host.borrow_mut().inject(HostEvent::Activate {
-        node,
+        target: Some(node),
+        local: Point::new(20., 20.),
+        captured: false,
+        activation: None,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(kivact_types::PointerId(22)),
     });
@@ -98,7 +109,10 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     disabled.set(false);
     screen.run_until_idle();
     screen.host.borrow_mut().inject(HostEvent::Activate {
-        node,
+        target: Some(node),
+        local: Point::new(20., 20.),
+        captured: false,
+        activation: None,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(kivact_types::PointerId(33)),
     });
@@ -113,7 +127,7 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     use crate::view::{ButtonPress, Handled, MouseButton, PointerKind, PointerPhase};
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
-    use kivact_types::{Modifiers, PointerEvent};
+    use kivact_types::{Modifiers, PointerSample};
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
     let downs = Rc::new(Cell::new(0));
@@ -127,7 +141,7 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
                 part(|state| state)
                     .region_events()
                     .on_pointer(move |event| {
-                        if !matches!(event.phase, PointerPhase::Down(_)) {
+                        if !matches!(event.phase(), PointerPhase::Down(_)) {
                             return Handled::No;
                         }
                         observed.set(observed.get() + 1);
@@ -149,25 +163,33 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     });
     let node = screen.get_by_role(Role::Canvas, "gesture canvas").node;
     // The mouse (pointer 1) starts a gesture whose Up never arrives.
-    screen.host.borrow_mut().inject(HostEvent::Pointer {
-        node,
-        region: Some(kivact_types::RegionId(1)),
-        event: PointerEvent {
-            id: kivact_types::PointerId(1),
-            phase: PointerPhase::Down(ButtonPress {
-                button: MouseButton::Primary,
-                clicks: 1,
-            }),
-            pos: Point::new(20., 20.),
-            window_pos: Point::new(20., 20.),
-            buttons: kivact_types::PointerButtons::NONE.with(MouseButton::Primary, true),
-            modifiers: Modifiers::default(),
-            kind: PointerKind::Mouse,
-            pressure: None,
-            tilt: None,
-            is_primary: true,
-        },
-    });
+    screen
+        .host
+        .borrow_mut()
+        .inject(HostEvent::Pointer(kivact_engine::contract::Routed {
+            target: Some(node),
+            local: Point::new(20., 20.),
+            captured: false,
+            activation: None,
+            region: Some(kivact_types::RegionId(1)),
+            input: PointerSample {
+                id: kivact_types::PointerId(1),
+                phase: PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    clicks: 1,
+                }),
+                position: Point::new(20., 20.),
+                buttons: kivact_types::PointerButtons::NONE.with(MouseButton::Primary, true),
+                modifiers: Modifiers::default(),
+                kind: PointerKind::Mouse,
+                button: None,
+                press: None,
+                time_ns: 0,
+                pressure: None,
+                tilt: None,
+                is_primary: true,
+            },
+        }));
     screen.run_until_idle();
     assert_eq!(downs.get(), 1);
     // Its next click is an ordinary press that the gesture does not decline.

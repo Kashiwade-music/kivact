@@ -53,12 +53,12 @@ pub struct RenderOptions {
     /// Start with the host reporting a dark system theme.
     pub dark: bool,
     /// Logical window width (default 800).
-    pub width: f32,
+    pub width: f64,
     /// Logical window height (default 600).
-    pub height: f32,
+    pub height: f64,
     /// Physical pixels per logical pixel (default 1; the test's, not the
     /// monitor's).
-    pub scale: f32,
+    pub scale: f64,
     /// The fonts text is shaped with (default: the bundled font only).
     pub fonts: TestFonts,
     /// Real window or headless (default: real when possible).

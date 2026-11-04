@@ -127,107 +127,13 @@ impl ImeText {
     }
 }
 
-/// What [`super::model::Screen::check_layout_with`] looks for.
-///
-/// Change the fields of [`LayoutCheck::default`] (or use
-/// [`LayoutCheck::ignore_test_id`]); new options are added to this struct.
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-pub struct LayoutCheck {
-    /// How far (px) a text may reach outside its limit before it counts as
-    /// [`LayoutRule::OverflowOwnBox`], [`LayoutRule::OverflowVisualParent`] or
-    /// [`LayoutRule::ClippedWithoutEllipsis`]
-    /// (default 1).
-    pub overflow_tolerance: f32,
-    /// How far (px) the middle of a line (half a capital above its
-    /// baseline) may be off the middle of its parent before it is
-    /// [`LayoutRule::OffCenter`] (`None`, the default: the larger of 1 px
-    /// and 0.08 of the font size). The layout is in whole pixels, so half a
-    /// pixel more is always allowed.
-    pub center_tolerance: Option<f32>,
-    /// The roles whose text must stay on one line ([`LayoutRule::Wrapped`]):
-    /// button, tab, menu item, menu item check box and radio, option, combo
-    /// box, switch, link and column header by default.
-    pub single_line_roles: Vec<Role>,
-    /// Elements with these test ids, and everything below them, are left
-    /// out.
-    pub ignore_test_ids: Vec<String>,
-}
-
-impl Default for LayoutCheck {
-    fn default() -> Self {
-        let wire = p::LayoutCheck::default();
-        LayoutCheck {
-            overflow_tolerance: wire.overflow_tolerance,
-            center_tolerance: wire.center_tolerance,
-            single_line_roles: wire.single_line_roles,
-            ignore_test_ids: Vec::new(),
-        }
-    }
-}
-
-impl LayoutCheck {
-    /// Also leave out the element with `test_id` and everything below it.
-    pub fn ignore_test_id(mut self, test_id: impl Into<String>) -> Self {
-        self.ignore_test_ids.push(test_id.into());
-        self
-    }
-
-    pub(super) fn to_wire(&self) -> p::LayoutCheck {
-        p::LayoutCheck {
-            overflow_tolerance: self.overflow_tolerance,
-            center_tolerance: self.center_tolerance,
-            single_line_roles: self.single_line_roles.clone(),
-            ignore_test_ids: self.ignore_test_ids.clone(),
-        }
-    }
-}
-
-/// A kind of layout defect.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum LayoutRule {
-    /// The text reaches outside the content box of its own element by more
-    /// than the tolerance.
-    OverflowOwnBox,
-    /// The text reaches outside the padding box of its visual parent (the
-    /// nearest ancestor with a background, a border, a clip or a
-    /// single-line role) by more than the tolerance.
-    OverflowVisualParent,
-    /// The text of a single-line role (a button, a tab, ..) is wrapped
-    /// into `lines` lines.
-    Wrapped {
-        /// How many lines it takes.
-        lines: u32,
-    },
-    /// A single line that every box up to its visual parent centers is not
-    /// in the middle of that parent.
-    OffCenter,
-    /// A clipping ancestor cuts the text, and no ellipsis marks the cut.
-    ClippedWithoutEllipsis,
-}
-
-impl From<p::LayoutRule> for LayoutRule {
-    fn from(rule: p::LayoutRule) -> Self {
-        match rule {
-            p::LayoutRule::Overflow {
-                into: p::LayoutLimit::OwnBox,
-            } => LayoutRule::OverflowOwnBox,
-            p::LayoutRule::Overflow {
-                into: p::LayoutLimit::VisualParent,
-            } => LayoutRule::OverflowVisualParent,
-            p::LayoutRule::Wrapped { lines } => LayoutRule::Wrapped { lines },
-            p::LayoutRule::OffCenter => LayoutRule::OffCenter,
-            p::LayoutRule::ClippedWithoutEllipsis => LayoutRule::ClippedWithoutEllipsis,
-        }
-    }
-}
+pub use kivact_types::{LayoutCheck, LayoutLimit, LayoutRule};
 
 /// A layout defect of one text.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayoutViolation {
-    /// What is wrong.
-    pub rule: LayoutRule,
+    /// Canonical geometry, rule and magnitude of the finding.
+    pub finding: p::LayoutFinding,
     /// The role the host publishes for the text (`None`: it is not
     /// exposed).
     pub role: Option<Role>,
@@ -241,35 +147,46 @@ pub struct LayoutViolation {
     /// Where the text was created: the call of the builder that created it,
     /// else of its nearest located ancestor.
     pub created_at: &'static Location<'static>,
-    /// The text, in layout coordinates (the window's, before any
-    /// transform): its lines' advances across, their ink down.
-    pub text_rect: Rect,
-    /// The box it was compared with.
-    pub limit: Rect,
-    /// How far (px) it is out of the limit or off center; for
-    /// [`LayoutRule::Wrapped`], the height of the lines after the first.
-    pub amount: f32,
+}
+
+impl LayoutViolation {
+    pub fn rule(&self) -> LayoutRule {
+        self.finding.rule
+    }
+    pub fn amount(&self) -> f64 {
+        self.finding.amount
+    }
+    pub fn text_rect(&self) -> Rect {
+        self.finding.text_rect
+    }
+    pub fn limit(&self) -> Rect {
+        self.finding.limit_rect
+    }
 }
 
 impl fmt::Display for LayoutViolation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let r = |r: Rect| format!("[{:.1} {:.1} {:.1}x{:.1}]", r.x, r.y, r.width, r.height);
-        let what = match self.rule {
-            LayoutRule::OverflowOwnBox => {
-                format!("overflows its own box by {:.1}px", self.amount)
+        let what = match self.rule() {
+            LayoutRule::Overflow {
+                into: LayoutLimit::OwnBox,
+            } => {
+                format!("overflows its own box by {:.1}px", self.amount())
             }
-            LayoutRule::OverflowVisualParent => {
-                format!("overflows its parent by {:.1}px", self.amount)
+            LayoutRule::Overflow {
+                into: LayoutLimit::VisualParent,
+            } => {
+                format!("overflows its parent by {:.1}px", self.amount())
             }
             LayoutRule::Wrapped { lines } => format!(
                 "is wrapped into {lines} lines ({:.1}px below the first)",
-                self.amount
+                self.amount()
             ),
             LayoutRule::OffCenter => {
-                format!("is {:.1}px off the center of its parent", self.amount)
+                format!("is {:.1}px off the center of its parent", self.amount())
             }
             LayoutRule::ClippedWithoutEllipsis => {
-                format!("is cut {:.1}px by a clip with no ellipsis", self.amount)
+                format!("is cut {:.1}px by a clip with no ellipsis", self.amount())
             }
         };
         write!(
@@ -281,8 +198,8 @@ impl fmt::Display for LayoutViolation {
                 .as_ref()
                 .map(|t| format!(" #{t}"))
                 .unwrap_or_default(),
-            r(self.text_rect),
-            r(self.limit),
+            r(self.text_rect()),
+            r(self.limit()),
         )?;
         if let Some(role) = self.role {
             write!(f, " ({role:?})")?;

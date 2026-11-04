@@ -60,7 +60,7 @@ impl From<String> for Span {
 impl Span {
     /// CSS `font-size`.
     pub fn font_size(mut self, v: impl Into<f64>) -> Self {
-        self.style.font_size = Some(v.into() as f32);
+        self.style.font_size = Some(v.into());
         self
     }
 

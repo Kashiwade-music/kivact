@@ -69,15 +69,15 @@ use crate::geometry::Size;
 #[derive(Clone, Copy, Debug)]
 pub struct Transform {
     /// Move in px.
-    translate: [f32; 2],
+    translate: [f64; 2],
     /// Move by fractions of the box: x by `[0]·w + [1]·h`, y by
     /// `[2]·w + [3]·h`.
-    per_size: [f32; 4],
+    per_size: [f64; 4],
     /// Degrees.
-    rotate: f32,
+    rotate: f64,
     /// Degrees along x.
-    skew: f32,
-    scale: [f32; 2],
+    skew: f64,
+    scale: [f64; 2],
     /// Which of rotate (1), skew (2) and scale (3) a function set last: a
     /// later function of an earlier part is composed by decomposition.
     stage: u8,
@@ -100,7 +100,7 @@ impl Default for Transform {
 }
 
 /// `tan` of `deg` degrees (exact at 0).
-fn tan_deg(deg: f32) -> f32 {
+fn tan_deg(deg: f64) -> f64 {
     if deg == 0.0 {
         0.0
     } else {
@@ -122,7 +122,7 @@ impl Transform {
     }
 
     /// The linear part `[a, b, c, d]` (`x' = a·x + c·y`, `y' = b·x + d·y`).
-    fn linear(&self) -> [f32; 4] {
+    fn linear(&self) -> [f64; 4] {
         let (sin, cos) = self.rotate.to_radians().sin_cos();
         let k = tan_deg(self.skew);
         let [sx, sy] = self.scale;
@@ -136,7 +136,7 @@ impl Transform {
 
     /// Replace the linear part by `[a, b, c, d]`, decomposed into rotate,
     /// skew and scale.
-    fn set_linear(&mut self, [a, b, c, d]: [f32; 4]) {
+    fn set_linear(&mut self, [a, b, c, d]: [f64; 4]) {
         let sx = a.hypot(b);
         if sx > 1e-12 {
             let (cos, sin) = (a / sx, b / sx);
@@ -164,7 +164,7 @@ impl Transform {
 
     /// Follow the linear part by `[a, b, c, d]` (CSS: this function after
     /// the ones so far).
-    fn then_linear(mut self, [a2, b2, c2, d2]: [f32; 4]) -> Self {
+    fn then_linear(mut self, [a2, b2, c2, d2]: [f64; 4]) -> Self {
         let [a, b, c, d] = self.linear();
         self.set_linear([
             a * a2 + c * b2,
@@ -177,7 +177,7 @@ impl Transform {
 
     /// Move by `px` and the fractions `per` of the box (`[x per w, x per h,
     /// y per w, y per h]`), mapped by the linear part so far.
-    fn moved(mut self, px: [f32; 2], per: [f32; 4]) -> Self {
+    fn moved(mut self, px: [f64; 2], per: [f64; 4]) -> Self {
         let [a, b, c, d] = self.linear();
         self.translate[0] += a * px[0] + c * px[1];
         self.translate[1] += b * px[0] + d * px[1];
@@ -208,7 +208,7 @@ impl Transform {
 
     /// CSS `rotate(deg)`: clockwise, in degrees.
     pub fn rotate(mut self, deg: impl Into<f64>) -> Self {
-        let deg = deg.into() as f32;
+        let deg = deg.into();
         if self.stage <= 1 {
             self.rotate += deg;
             self.stage = 1;
@@ -226,7 +226,7 @@ impl Transform {
 
     /// CSS `scale(x, y)`.
     pub fn scale_xy(mut self, x: impl Into<f64>, y: impl Into<f64>) -> Self {
-        let (x, y) = (x.into() as f32, y.into() as f32);
+        let (x, y) = (x.into(), y.into());
         self.scale = [self.scale[0] * x, self.scale[1] * y];
         self.stage = 3;
         self
@@ -244,7 +244,7 @@ impl Transform {
 
     /// CSS `skewX(deg)`.
     pub fn skew_x(mut self, deg: impl Into<f64>) -> Self {
-        let deg = deg.into() as f32;
+        let deg = deg.into();
         if self.stage <= 2 {
             self.skew = (tan_deg(self.skew) + tan_deg(deg)).atan().to_degrees();
             self.stage = 2;
@@ -255,7 +255,7 @@ impl Transform {
 
     /// CSS `skewY(deg)`.
     pub fn skew_y(self, deg: impl Into<f64>) -> Self {
-        let t = tan_deg(deg.into() as f32);
+        let t = tan_deg(deg.into());
         if t == 0.0 {
             return self;
         }
@@ -264,7 +264,7 @@ impl Transform {
 
     /// CSS `skew(x, y)`.
     pub fn skew(self, x: impl Into<f64>, y: impl Into<f64>) -> Self {
-        let (x, y) = (tan_deg(x.into() as f32), tan_deg(y.into() as f32));
+        let (x, y) = (tan_deg(x.into()), tan_deg(y.into()));
         if y == 0.0 {
             return self.skew_x(x.atan().to_degrees());
         }
@@ -282,13 +282,8 @@ impl Transform {
         e: impl Into<f64>,
         f: impl Into<f64>,
     ) -> Self {
-        let (a, b, c, d) = (
-            a.into() as f32,
-            b.into() as f32,
-            c.into() as f32,
-            d.into() as f32,
-        );
-        self.moved([e.into() as f32, f.into() as f32], [0.0; 4])
+        let (a, b, c, d) = (a.into(), b.into(), c.into(), d.into());
+        self.moved([e.into(), f.into()], [0.0; 4])
             .then_linear([a, b, c, d])
     }
 
@@ -309,7 +304,7 @@ impl Transform {
 
     /// The matrix `[a, b, c, d, e, f]` for a box of `size`, about its
     /// top-left corner.
-    pub(crate) fn matrix_for(&self, size: Size) -> [f32; 6] {
+    pub(crate) fn matrix_for(&self, size: Size) -> [f64; 6] {
         let [a, b, c, d] = self.linear();
         let p = self.per_size;
         [
@@ -341,7 +336,7 @@ impl Transform {
     }
 
     /// Its parts in a fixed order (animation).
-    pub(crate) fn components(&self) -> [f32; 10] {
+    pub(crate) fn components(&self) -> [f64; 10] {
         let [t0, t1] = self.translate;
         let [p0, p1, p2, p3] = self.per_size;
         let [sx, sy] = self.scale;
@@ -349,7 +344,7 @@ impl Transform {
     }
 
     /// The transform of the parts `c` ([`Transform::components`]).
-    pub(crate) fn from_components(c: [f32; 10]) -> Transform {
+    pub(crate) fn from_components(c: [f64; 10]) -> Transform {
         Transform {
             translate: [c[0], c[1]],
             per_size: [c[2], c[3], c[4], c[5]],
@@ -363,10 +358,10 @@ impl Transform {
 
 impl kivact_motion::Animatable for Transform {
     const COMPONENTS: usize = 10;
-    fn to_components(&self, out: &mut Vec<f32>) {
+    fn to_components(&self, out: &mut Vec<f64>) {
         out.extend_from_slice(&self.components());
     }
-    fn from_components(c: &[f32]) -> Self {
+    fn from_components(c: &[f64]) -> Self {
         let g = |i: usize| c.get(i).copied().unwrap_or_default();
         Transform::from_components(std::array::from_fn(g))
     }

@@ -27,10 +27,7 @@ pub(super) fn kp(p: WirePoint) -> KPoint {
 }
 
 pub(super) fn wire(p: KPoint) -> WirePoint {
-    WirePoint {
-        x: p.x as f32,
-        y: p.y as f32,
-    }
+    WirePoint { x: p.x, y: p.y }
 }
 
 /// The cubics of `arc` after `current`, which they move on.
@@ -50,7 +47,7 @@ impl Path {
     /// `tolerance` controls the flattening error; non-positive or non-finite
     /// values use 0.25. Closed contours omit the repeated start point and set
     /// [`PathContour::closed`]. Empty or invalid paths return no contours.
-    pub fn flattened(&self, tolerance: f32) -> Vec<PathContour> {
+    pub fn flattened(&self, tolerance: f64) -> Vec<PathContour> {
         let Some(path) = self.bez() else {
             return Vec::new();
         };
@@ -301,7 +298,7 @@ impl Path {
             .segments()
             .map(|segment| segment.bounding_box())
             .reduce(|a, b| a.union(b))?;
-        let (x, y) = (r.x0 as f32, r.y0 as f32);
-        Some(Rect::new(x, y, r.x1 as f32 - x, r.y1 as f32 - y))
+        let (x, y) = (r.x0, r.y0);
+        Some(Rect::new(x, y, r.x1 - x, r.y1 - y))
     }
 }

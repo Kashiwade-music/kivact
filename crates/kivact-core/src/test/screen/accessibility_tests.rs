@@ -37,7 +37,7 @@ fn empty_real_empty_and_replaced_roots_publish_without_stale_nodes() {
     settle(&mut host);
     let empty = host.semantics().expect("empty root published");
     assert_eq!(empty.nodes.len(), 1);
-    assert_eq!(empty.nodes[0].role, Role::Generic);
+    assert_eq!(empty.nodes[0].semantics.role, Some(Role::Generic));
     assert_eq!(empty.nodes[0].bounds.width, 320.0);
     assert!(empty.nodes[0].children.is_empty());
     assert!(empty.focus.is_none());

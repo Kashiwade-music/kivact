@@ -53,24 +53,24 @@ impl TestParent {
         self.0.pump(duration);
     }
     /// Send a native click.
-    pub fn click(&self, x: f32, y: f32) -> Result<()> {
+    pub fn click(&self, x: f64, y: f64) -> Result<()> {
         self.0.click(x, y).map_err(error)
     }
     /// Send a native pointer press.
-    pub fn press(&self, x: f32, y: f32) -> Result<()> {
+    pub fn press(&self, x: f64, y: f64) -> Result<()> {
         self.0.press(x, y).map_err(error)
     }
     /// Send native pointer movement.
-    pub fn move_to(&self, x: f32, y: f32) -> Result<()> {
+    pub fn move_to(&self, x: f64, y: f64) -> Result<()> {
         self.0.move_to(x, y).map_err(error)
     }
     /// Send a native pointer release.
-    pub fn release(&self, x: f32, y: f32) -> Result<()> {
+    pub fn release(&self, x: f64, y: f64) -> Result<()> {
         self.0.release(x, y).map_err(error)
     }
     /// Send native wheel notches at the most recently injected mouse point.
     /// Positive values scroll right/down.
-    pub fn wheel(&self, lines_x: f32, lines_y: f32) -> Result<()> {
+    pub fn wheel(&self, lines_x: f64, lines_y: f64) -> Result<()> {
         self.0.wheel(lines_x, lines_y).map_err(error)
     }
     /// Send a native key.
@@ -104,11 +104,11 @@ impl TestParent {
         })
     }
     /// Send a native mouse button press at physical child coordinates.
-    pub fn press_button(&self, button: crate::view::MouseButton, x: f32, y: f32) -> Result<()> {
+    pub fn press_button(&self, button: crate::view::MouseButton, x: f64, y: f64) -> Result<()> {
         self.0.press_button(button, x, y).map_err(error)
     }
     /// Send a native mouse button release at physical child coordinates.
-    pub fn release_button(&self, button: crate::view::MouseButton, x: f32, y: f32) -> Result<()> {
+    pub fn release_button(&self, button: crate::view::MouseButton, x: f64, y: f64) -> Result<()> {
         self.0.release_button(button, x, y).map_err(error)
     }
     /// Count native close requests received by the Windows host.
@@ -118,7 +118,7 @@ impl TestParent {
     }
     /// Send native file-drop messages to the Linux editor at physical coordinates.
     #[cfg(target_os = "linux")]
-    pub fn drop_files(&self, files: &[std::path::PathBuf], x: f32, y: f32) -> Result<()> {
+    pub fn drop_files(&self, files: &[std::path::PathBuf], x: f64, y: f64) -> Result<()> {
         self.0.drop_files(files, x, y).map_err(error)
     }
     /// Close the parent; a remaining embedded App stops safely.

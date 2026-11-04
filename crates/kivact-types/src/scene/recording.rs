@@ -57,6 +57,17 @@ pub struct Pixels {
     pub rgba: std::sync::Arc<[u8]>,
 }
 
+impl Pixels {
+    /// Construct an image without copying its shared pixel allocation.
+    pub fn new(width: u32, height: u32, rgba: std::sync::Arc<[u8]>) -> Self {
+        Self {
+            width,
+            height,
+            rgba,
+        }
+    }
+}
+
 impl PartialEq for Pixels {
     fn eq(&self, other: &Self) -> bool {
         self.width == other.width
