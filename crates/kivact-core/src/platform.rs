@@ -22,7 +22,8 @@ pub(crate) use env::missing_capabilities;
 #[doc(inline)]
 pub use env::{
     capabilities, font_families, is_fullscreen, is_initial_render, is_motion_reduced,
-    is_surface_active, keyboard_inset, pointer_settings, safe_area, scale_factor, theme_hint, window_size,
+    is_surface_active, keyboard_inset, pointer_settings, safe_area, scale_factor, theme_hint,
+    window_size,
 };
 #[doc(inline)]
 pub use services::{

@@ -1134,7 +1134,9 @@ mount のときに一度だけ読み、木の形や振る舞いの種類を選�
 | `row_height(RowHeight)` | `virtual_list` | — |
 | `variant(impl Variant)` | 全部品（look は theme が reactive に解決するが、variant の型自体は mount で決まる） | — |
 | `retain_focus()`（引数なし） | `use_list` | しない |
-| `modal()`（引数なし） | `overlay`、`Part`（mount のときに modal の範囲を作る） | しない（`kivact-core/src/view/overlays.rs:202`） |
+| `modal()`（引数なし） | `overlay`、`Node`（Part closure からも呼ぶ。mount 時の modal 範囲） | しない |
+| `region_events()`（引数なし） | `Node` の canvas region 入力の構築 | しない |
+| `located_at_caller()`（引数なし） | `Node` の診断用構築位置の操作。runtime flag ではなく metadata | constructor の位置 |
 | `release_offscreen_focus()`（引数なし） | `virtual_list`（現在の `keep_focused(false)`。既定は focus のある行を残す、`virtual_list.rs:98`） | 残す |
 | `multiline()`、`report_text()`（引数なし） | `custom::TextEditing` | しない（`text_editing.rs:152,154`） |
 | `expand_all()`（引数なし） | `data_table` の tree の行（初期の展開） | しない（`data_table/builder.rs:108`） |
@@ -1151,6 +1153,9 @@ mount のときに一度だけ読み、木の形や振る舞いの種類を選�
 | `groups(..)`・`pattern(..)` | InputOtp の固定入力 format・validation schema | 既存の format |
 | `side(..)` | Sidebar provider の構築 geometry | 既存の side |
 | `open_delay(..)`・`close_delay(..)` | HoverCard の構築 timing policy | 既存の timing |
+| `delay_ms(..)`・`hide_delay_ms(..)` | TopNavMenu/TopNavMegaMenu の Delays 構築 policy | 既存の timing |
+| `indicator(..)` | StepIndicator の slot 構築選択 | 既存の indicator |
+| `index(..)` | Skeleton の初期 stagger（Transition.delay の構築） | 既存の index |
 
 custom renderer を持つ `StepIndicator` は slot の構築設定として plain な enum にする。slot の Value 化だけを目的に equality を導入しない。既存 Toast の public field 比較には Callback の app/key identity と ViewFn の shared-factory identity の PartialEq を使い、追加の識別子を持たせない。Calendar の number_of_months/caption/week_start は表示の入力として reactive にし、再構築が必要な場合も navigation/selection binding は外側で保つ。
 
@@ -1207,6 +1212,10 @@ impl<K> From<Binding<Vec<K>>> for Selection<K> { .. }
 ### 10.11 API-8 の例外
 
 `kivact::custom::Constraints<'_>`（測定の引数を借りる）と `kivact::test::Element<'_>`（`Screen` を借りる）だけ、公開の署名に lifetime を出してよい。それ以外の `Rc`・`Arc`・`Box<dyn>`（`Theme::get -> Arc<T>`、`Recipe<S> = Arc<dyn Fn ..>`、`TestFonts::Only(Vec<Arc<[u8]>>)`、`Owner::store(name, Rc<T>)`）は、kivact の型で包むか、引数を値にする（付録 B.6）。
+
+診断と標準 Rust Error の境界は明示の例外にする。UiError/ErrorKind、diagnostics の Trace*/NodeInfo/Snapshot の source-location field・constructor は `std::panic::Location` を保ち、UiError::from_boxed は Rust Error interop の入口として保つ。通常の部品や behavior の引数・field に例外を広げない。診断情報を同じ意味の wrapper に複製せず、定義の inline 理由で範囲を明示する。
+
+`__private` namespace と cross-crate 実装用 bridge は利用者向け facade surface から分ける。`#[doc(hidden)]` と `// xtask-allow(internal-contract): <具体的な理由>` の両方がある実装 edge だけで到達性を止める（片方だけでは除外しない）。IntoValue::into_prop/IntoText::into_text、Prop の実装操作、Value/Binding の runtime/location bridge、TextParagraph::from_shaped の backend adapter が対象。通常の public method から runtime Owner 等を漏らさない。NodeBuilder::node_mut のような外部部品用の契約は単なる doc(hidden) だけで除外しない。
 
 ---
 

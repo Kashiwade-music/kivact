@@ -126,3 +126,7 @@
 | 2026-11-05 | fix-G3-8 | Prop theme は Rc/owner-bound Value を含み Send でない | 固定 theme と canonical Send startup data を UI thread に渡す。embedded reactive theme は root factory の provide_theme、caller-side reactive App theme は明示 Unsupported。Clone と run/test reactive 評価を保ち unsafe/snapshot を避ける。 |
 | 2026-11-05 | fix-G4-3 | key_step を get_untracked で固定すると prop が追従しない | Scalar/RangeScalar は Value を保持し動作時に読む。初期は既存 ScalarRangeError、後から不正なら設定 owner に報告して write しない。 |
 | 2026-11-05 | fix-G5-4 | scoped children のサイズ継承が失われる | input_group_with の FnOnce 初期化を group 文脈内で一度実行し eager 入口と mount 処理を共有。C は IntoChildren のまま、既存の継承/明示 size の assertion を保つ。 |
+| 2026-11-05 | N-G4 | Part の値が caller 制約へ逆流する | primary を含め semantics を patch に統一し、Part focus は required、caller focus は外部入力として分離。default handler 分類を保持して availability cycle を消す。 |
+| 2026-11-05 | fix-G4-5 | 合成 activation と登録解除の不一致 | Popup/List の private anatomy を共有し合成先が activation を一度所有。登録/cleanup は同じ mount.node identity を使い disposed Value を残さない。 |
+| 2026-11-05 | N-G5 / G-4c | theme_hint の試験が後の定義に依存 | hook の公開と eager field 登録だけ N-G5 へ前倒し、native pointer/fling/snap は G-4c のまま。 |
+| 2026-11-05 | N-8 | API8 が診断と実装 bridge から全 runtime を到達扱いにする | 診断/std Error interop を狭く明記。bridge は doc(hidden)+internal-contract 両方でのみ除外し、普通の hidden API は検査。利用者の text action は Into<String> に直す。 |

@@ -105,12 +105,13 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | N-F4 | merged | 39220fd | fmt 0、139 files、reactive Calendar/headless menubar |
 | N-F5 | merged | 50dd85c | fmt 0、117 files、typed builder/slot/prop 移行 |
 | N-F6 | merged | 60b6026 | fmt 0、139 files、runtime prop 残件なし/型確認へ |
-| N-G1 | doing | | examples/catalog/templates |
-| N-G2 | doing | | docs と既存 E2E の二担当、G1〜G5 check 通過 |
-| N-G3 | doing | | native EditPhase/on_edit |
-| N-G4 | doing | | semantics patch |
-| N-G5 | doing | | machine/binding/theme/reactive prop E2E |
-| N-8 | todo | | |
+| N-G1 | merged | 979d9d1 | examples/catalog/templates check 0 |
+| N-G2 | merged | 7a59eff | docs/public check 0、既知 docs 失敗は fix-G4-5 対象48 passed |
+| N-G3 | merged | 0fafc29 | native EditPhase/on_edit、対象4 passed |
+| N-G4 | merged | d248ec3 | semantics 単一 publisher、対象8 passed |
+| N-G5 | merged | a37cfd9 | machine/binding/theme/reactive prop E2E 11 passed |
+| N-8 | merged | a634983 | API/経路/構造検査 0、xtask36 passed、workspace check 0 |
+| fix-G4-5 | merged | 16be39b | composite activation/cleanup、docs48/public10 passed |
 | I-0 | todo | | |
 | I-1 | todo | | |
 | I-2a | todo | | |

@@ -1528,11 +1528,12 @@ N-F6 の補足: StepIndicator::Custom(ViewFn<()>) は plain な slot/config enum
 
 - **前提**: fan-out A と fix。
 - **手順**: 次の E2E を足す（どれも公開 API だけで書く）:
-  - `dev/tests/kivact-public-api/tests/e2e/machine.rs`（新しい module）: `a_machine_renders_its_state_and_runs_effects_after_the_transition`、`a_machine_timer_fires_once_and_is_replaced_by_the_same_key`（同じ event の variant の `Step::after` は前の timer を置き換える。`Screen::advance` で時刻を進める）、`feed_turns_an_input_change_into_one_event`、`a_machine_timer_is_canceled_with_its_owner`、`send_inside_a_transition_effect_is_queued_not_reentrant`。
+  - `dev/tests/kivact-public-api/tests/e2e/machine.rs`（新しい module）: `a_machine_renders_its_state_and_runs_effects_after_the_transition`、`a_machine_timer_fires_once_and_is_replaced_by_the_same_event_variant`（同じ event の variant の `Step::after` は前の timer を置き換える。`Screen::advance` で時刻を進める）、`feed_turns_an_input_change_into_one_event`、`a_machine_timer_is_canceled_with_its_owner`、`send_inside_a_transition_effect_is_queued_not_reentrant`。
   - `view.rs`: `closure_child_updates_text`。
   - `flows.rs`: `for_each_row_binding_edits_the_item`。
   - `setup_functions.rs`: `bind_macro_edits_a_nested_field`。
   - `ui_theming.rs`: `use_theme_reads_inside_a_style_closure`、`app_theme_follows_theme_hint`。
+    この試験のため G-4c C-20 の theme_hint hook の公開/eager field 登録を本 unit へ前倒しする（From<ThemeHint> は N-F1 済み）。native pointer/fling/snap は G-4c に残す。
   - `reactive_props.rs`（新しい module）: `reactive_component_props_update_without_remounting`。ControlSize の変更が表示に反映され focus を保つことと、ScalarApi の key_step の変更が次の操作に反映されることを公開 API で確かめる（厳密な pixel 比較はしない）。
 - **unit の確認**: `cargo check -p kivact-public-api-tests --all-targets --all-features`。`KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e -- machine:: reactive_props:: closure_child_updates_text for_each_row_binding_edits_the_item bind_macro_edits_a_nested_field use_theme_reads_inside_a_style_closure app_theme_follows_theme_hint`。
 - **規模**: S。
@@ -1545,6 +1546,7 @@ N-F6 の補足: StepIndicator::Custom(ViewFn<()>) は plain な slot/config enum
 - **手順**:
   1. `dev/xtask/policy/workspace.toml` の `api-shape`・`canonical-path` の `skip` から `kivact`、`kivact-core`、`kivact-runtime`、`kivact-style`、`kivact-i18n`、`kivact-interaction`、`kivact-ui`、`kivact-test` を外す（api-shape は facade から届く item だけを見る）。`api-shape` に「facade から届く型の公開の `f32` の field は error」を足す。
   2. `[structural_options] list` に設計書 10.6 節の一覧を付録 B.10 の名前で書き、`structural-options` の検査を有効にする。
+     この段の scope は上の八 crate。kit は K-7 後の H-G5 で skip を外す。passive な Style/Span/Path/CalendarDate/SortOrder と collection record/本当の Options bundle は UI runtime flag に分類しない。
   3. 出た違反を直す。例外は inline の目印 `// xtask-allow(<検査>): <理由>`（理由は設計書 10.11 節の列挙に限る）。
 - **unit の確認**: `cargo xtask check --no-write --only api-shape,canonical-path,structural-options`。`cargo check --workspace --all-targets --all-features`。
 - **規模**: M。
@@ -2053,7 +2055,7 @@ wave W5（I・U と同じ wave）。crate が I・U と重ならないので、9
 
 - **目的**: 設計書 17.18 節の C-20、C-21、C-37（18.11 節で変えた所を含む）。V-3 が `ThemeHint`、`PointerClass`、`PointerSettings.{primary, fling_deceleration, fling_min_velocity}` を作った。
 - **決定済みの形**:
-  - C-20: `platform::theme_hint() -> Value<ThemeHint>` と `From<ThemeHint> for ThemeMode`。`ThemeMode::System` は作らない。
+  - C-20: `platform::theme_hint() -> Value<ThemeHint>` は N-G5、`From<ThemeHint> for ThemeMode` は N-F1 で前倒し済み。この unit は native 追従を確認する。`ThemeMode::System` は作らない。
   - C-21: backend の判定。Windows は `GetSystemMetrics(SM_MOUSEPRESENT) == 0` かつ `SM_DIGITIZER` が `NID_READY` を含むとき `Coarse`、それ以外は `Fine`。X11・Wayland は `Fine`。`arvane-virtual` は台本で指定する。値は `Environment` の更新で変わる。
   - C-37: `Style::scroll_snap(ScrollSnap)`、touch の fling の慣性、`ScrollBehavior::Smooth(Easing)`（今の `Smooth` に easing を持たせる）。慣性は、離したときの速度（`DragVelocity` と同じ計算）から `PointerSettings.fling_deceleration` で減速し、`fling_min_velocity` を下回ったら止める。snap がある scroll は、止まる位置を `nearest_snap` で寄せる。
 - **手順**: core の `platform`、`arvane-native`（Windows の判定）、`arvane-virtual`、style、engine の scroll、`kivact-core/src/view/node_ref.rs` の `ScrollBehavior`。
