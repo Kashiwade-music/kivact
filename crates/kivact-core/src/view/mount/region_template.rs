@@ -1,7 +1,7 @@
 //! Role: Region templates retain one part while adoption lifetimes change.
 
+use crate::view::element_data::Common;
 use crate::view::handler_layers::Layer;
-use crate::view::node::Common;
 use crate::view::tree::{Handlers, PartActions};
 
 /// A region takes its part's observers and defaults. The node's fallback for

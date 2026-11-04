@@ -7,7 +7,7 @@ use std::panic::Location;
 
 use super::parts;
 use crate::view::descriptor::Mcx;
-use crate::view::node::{Constraints, Registry};
+use crate::view::element_data::{Constraints, Registry};
 use crate::view::node_ref::NodeRef;
 use crate::view::part_data::PartBinding;
 

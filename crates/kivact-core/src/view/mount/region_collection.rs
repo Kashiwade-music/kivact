@@ -5,7 +5,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::state::Value;
-use crate::view::node::{Common, Declaration, Entry};
+use crate::view::element_data::{Common, Declaration, Entry};
 use kivact_runtime::EffectKind;
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::keyed::{self, Diff, Plan, Rows};

@@ -30,7 +30,7 @@ pub(crate) mod regions;
 mod resolve;
 mod semantics;
 mod style;
-use super::node::Common;
+use super::element_data::Common;
 use resolve::Resolved;
 
 use kivact_engine::contract::NodeType;

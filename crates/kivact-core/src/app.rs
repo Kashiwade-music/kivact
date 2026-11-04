@@ -141,7 +141,8 @@ mod window_size_tests {
     //! need no window.
 
     use super::App;
-    use crate::{Result, launch::check_window_sizes};
+    use crate::Result;
+    use crate::launch::check_window_sizes;
     use kivact_runtime::ErrorKind;
     use kivact_types::Size;
     use std::panic::Location;
