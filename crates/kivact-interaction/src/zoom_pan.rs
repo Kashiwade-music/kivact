@@ -205,7 +205,7 @@ impl ZoomPanApi {
             self.observed
                 .get()
                 .map(|state| state.get())
-                .unwrap_or(PartState::default())
+                .unwrap_or_default()
         })
     }
 

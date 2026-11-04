@@ -103,7 +103,7 @@ pub(crate) fn install(draft: Draft, value: Binding<String>, mut node: Node) -> I
     };
     let focused = target.focused();
     let attachment = node.node_ref(target);
-    let blur_invalid = invalid.clone();
+    let blur_invalid = invalid;
     effect_on(focused, move |&now| {
         if now {
             // The focus came in: the draft starts from the text as it is.
