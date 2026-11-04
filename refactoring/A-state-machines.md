@@ -681,9 +681,9 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 - **解消後**:
   ```rust
   enum Track { Mouse(MouseTrack), Touch(TouchTrack), Pen(PenTrack) }
-  struct MouseTrack { source: PointerSource, at: Option<Point>, hover: Hover, gesture: MouseGesture }
-  struct TouchTrack { source: PointerSource, at: Point, hover: Option<Hover>, gesture: TouchGesture }
-  struct PenTrack { source: PointerSource, at: Point, hover: Option<Hover>, route: Route }
+  struct MouseTrack { source: PointerSource, at: Option<Point>, over: Option<NodeId>, hover: Hover, gesture: MouseGesture }
+  struct TouchTrack { source: PointerSource, at: Point, over: Option<NodeId>, hover: Option<Hover>, gesture: TouchGesture }
+  struct PenTrack { source: PointerSource, at: Point, over: Option<NodeId>, hover: Option<Hover>, route: Route }
   enum MouseGesture { Route(Route), Scrollbar(ScrollDrag), SelectText { editor: NodeId, route: Route } }
   enum TouchGesture { Route(Route), Pending { route: Route, candidate: TouchCandidate }, Pan(TouchPan) }
   ```
@@ -798,7 +798,7 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 
 ### SM-E33 lowering の latch と asset の store の差し替え
 - **場所**: `kivact-lower/src/context.rs:44-57`（`error: RefCell<Option<String>>`、`dropped: Cell<u32>`、`failures: Cell<u32>`、「non-reentrant」）、`kivact-lower/src/assets.rs:48-61`（`revision`、`reported_images`、`reported_families`、`pending: Vec<HostEvent>`）、`kivact-engine/src/host/launch.rs:62-67`、`events.rs:110`（`AssetStore::inline()` で始めて start で本物に替える）
-- **解消後**: `kivact-lower` は engine の `lower` module になり、`Context::finish(self) -> LowerReport`（`LowerReport { dropped: u32, failures: Vec<Failure> }`）で一回の lowering の報告を返す（設計書 19 章「`kivact-lower` を engine の module にする」）。`Model` は `enum Launch { Pending(LaunchArgs), Running(Host) }` の `start` で本物の store を受け取って作る（差し替えない。設計書 19 章「embed の閉じる要求は exit の turn にしない」）
+- **解消後**: `kivact-lower` は engine の `lower` module になり、`Context::finish(self) -> LowerReport`（`LowerReport { dropped: u32, failures: Vec<Failure> }`）で一回の lowering の報告を返す（設計書 19 章「`kivact-lower` を engine の module にする」）。`Model` は `enum Launch { Pending(LaunchArgs), Starting, Running(Host) }` の `start` で本物の store を受け取って作る（差し替えない。設計書 19 章「embed の閉じる要求は exit の turn にしない」）
 - **unit**: E-1（latch）、E-2（store の差し替え）
 
 ---

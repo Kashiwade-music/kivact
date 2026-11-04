@@ -2,7 +2,11 @@
 
 | Date | Unit | Question / derivation | Decision and reason |
 |---|---|---|---|
-| 2026-11-05 | X-1 | render の import は Failure ではなく RenderError を返す | 既存署名を維持し未対応は External、arvane の公開境界で Unsupported にする。新しい error variant は足さない。 |
+| 2026-11-05 | E-2 | Pending の所有値を Handler::start の mutable 借用から移す必要がある | Launch に実際の構築中状態 Starting を加える。dummy Client/Engine を作らず、再入は invariant 違反。Sent::get で前回の環境を読み挙動を維持。 |
+| 2026-11-05 | E-3 | secondary pointer も over で Enter/Leave/Move を配送する | Hover は primary の chain だけ、各 Track.over が hit target を一所有し secondary の既存配送を保つ。 |
+| 2026-11-05 | E-4 | paint/a11y/measure の共有読取りで damage を消費していた | 編集完了時に mutable editor から既存 EditLines cache へ damage を移譲。新 journal や二重保持なしに読み取り整形を維持。 |
+| 2026-11-05 | E-5a | 既存の geometry/query/diagnostic が旧 layout 型を利用する | 必要な既存メソッドだけ Layout に移し、旧型は crate private。Settled は private の Kept/Updated。 |
+| 2026-11-05 | X-1 | render の import は RenderError、FailureKind に Unsupported はない | 既存署名を維持し未対応は External、arvane の公開境界で Unavailable と具体的理由を返す。新しい error variant は足さない。 |
 | 2026-11-05 | A-3 | 遅延 activation と snapshot が最新 focus を要する | AcceptedTree の focus は削除し Shared の最新 update 値だけを保持。PlatformUpdate::focus() で渡し木の差分計算を除く。 |
 | 2026-11-05 | fix-G3-1 | core test と virtual backend が同じ MirrorMode を定義する | engine 経由で virtual の正準 enum を再公開し、環境読取りは core の private 関数へ。公開 path と設定挙動は維持。 |
 | 2026-11-05 | A-1b | 新しい描画経路で診断 turn と queue state の既存期待が変わる | why の turn を 3、待機中 queue を Pending に更新。残る順序・latest・回復 assertion は維持し公開 API E2E 285 件成功。 |

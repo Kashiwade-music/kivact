@@ -669,9 +669,9 @@ V-1a〜V-6（`kivact-wire` の解体、`kivact-types` への語彙の一本化�
     `Host` は `phase: HostPhase`、`presence: AppPresence`、`surface: Surface`、`last_present: LastPresent` を並べて持つ（`presence`・`surface` はどの phase でも事実なので phase の中に入れない）。`suspended: bool` を消す。`fn drawable(&self) -> bool` = `!matches!(self.phase, HostPhase::Closed) && self.presence == Foreground && matches!(self.surface, Surface::Drawable { .. })`。model の `Clock` と core への `surface_active` はここから turn ごとに渡し、保存しない（`model/frame/state.rs` の `surface_active` の field と `ticks.rs` の `debug_assert_eq!` を消す）。
   - `SurfaceLost`（`Presented::SurfaceLost`。窓は既に surface を作り直している）は、`HostFailure` を一度積んで paint を無効にするだけにする（`set_surface(false)` → `set_surface(true)` の往復を消す。状態は持たない）。
   - 閉じる要求: `pub struct CloseSignal(Arc<AtomicBool>)`（`kivact_engine::contract`。`Clone`、`new()`、`close(&self)`、`is_set(&self) -> bool`）。`EmbeddedHost::drop` が `close`。`Host` は `close: CloseSignal` を持ち（native も持つが立たない）、`fn observe_close(&mut self) -> bool` が立っていれば `phase = Closed` にして true を返す。呼ぶ所は「host の入口（`begin`・`handle`・`inject`）」と「client の呼び出し（start・turn）の直後」と「効果を一つ処理した直後」だけ（今の 14 か所の `closing()` をこの関数に置き換え、場所の数は今の再入の点だけに減らす）。`Closed` では turn も効果も行わず `ShellControl::Wait` を返す（今の振る舞い。exit の turn は走らせない）。core の `AppClient.embed_closing: Option<Arc<AtomicBool>>` は `Option<CloseSignal>` にし、event ごとの中断（今の `embed_closing()`）と drop の時の module の保持はそのまま。`HostEvent::CloseRequested` は作らない。
-  - 起動: `enum Launch { Pending(LaunchArgs), Running(Host) }`（`host/launch.rs`）が `arvane::Handler` を実装する。`LaunchArgs { client: Client, window_size: Size, engine: arvane::Engine, frame_log: Rc<RefCell<FrameLog>>, theme: ThemeHint, assets: AssetMode, close: CloseSignal }`、`enum AssetMode { Worker, Inline }`。`start` は waker から `AssetStore::new`（`Inline` なら `AssetStore::inline()`）を作り、`Model::new(size, store)` で model を作って `Host` を組み、`begin` を呼んで `Running(host)` になる。`Pending` のまま event が来るのは不変条件の違反（`expect("invariant: ..")`）。`ArvaneAssets::replace_store` と `Model::set_store` を消す。試験 host の `SharedHost` は `Rc<RefCell<Launch>>` を持ち、問い合わせは `Running` の `Host` を読む（`TestHostOptions` の theme と `inline_assets` は `LaunchArgs` へ）。Offscreen は今のまま inline の store。
+  - 起動: `enum Launch { Pending(LaunchArgs), Starting, Running(Host) }`（`host/launch.rs`）が `arvane::Handler` を実装する。`LaunchArgs { client: Client, window_size: Size, engine: arvane::Engine, frame_log: Rc<RefCell<FrameLog>>, theme: ThemeHint, assets: AssetMode, close: CloseSignal }`、`enum AssetMode { Worker, Inline }`。`start` は waker から `AssetStore::new`（`Inline` なら `AssetStore::inline()`）を作り、`Model::new(size, store)` で model を作って `Host` を組み、`begin` を呼んで `Running(host)` になる。引数の移動から構築中は `Starting` とし、dummy Client/Engine は作らない。`Pending` のまま event が来るのは不変条件の違反（`expect("invariant: ..")`）。`ArvaneAssets::replace_store` と `Model::set_store` を消す。試験 host の `SharedHost` は `Rc<RefCell<Launch>>` を持ち、問い合わせは `Running` の `Host` を読む（`TestHostOptions` の theme と `inline_assets` は `LaunchArgs` へ）。Offscreen は今のまま inline の store。
   - frame の状態: `frames: Vec<u64>` を `struct FrameRequests(BTreeSet<u64>)`、`SmoothScroll.began: Option<u64>` を `enum SmoothScroll { Scheduled { target }, Running { target, began_ns: u64 } }`、model の `last_frame: Option<u64>` を `enum TickHistory { NeverTicked, Ticked { last_ns: u64 } }`。
-  - `environment` を `Sent<Environment>`、`adapter` を `Sent<GpuAdapter>`、`accessibility_noted` を `ReportOnce`。`reduced_motion_override: Option<bool>` は設定の値として残す。`soft_keyboard` は E-4。
+  - `environment` を `Sent<Environment>`、`adapter` を `Sent<GpuAdapter>`、`accessibility_noted` を `ReportOnce`。`Sent::get(&self) -> Option<&T>` で前回値を読み、theme override と ReducedMotion(None) の挙動を保つ。`reduced_motion_override: Option<bool>` は設定の値として残す。`soft_keyboard` は E-4。
   - font の世代（V-3 の続き）: font の collection の持ち主（`lower::assets::ArvaneAssets::register_font`）が登録の成功で `Environment.fonts: Generation` を `next()` し、更新後の環境を `EnvChanged` で知らせる。native の環境の読み直しで世代を初期値へ戻さない（読み直しの値に今の世代を入れる）。
 - **手順**: `host/pump.rs`・`host/events.rs`・`host/launch.rs`・`host/testing/test_host.rs`・`model/frame/*`・`embed.rs` → core の `client/app_client.rs`・`embed.rs`（型の差し替えだけ）。
 - **試験**: 足さない。
@@ -684,15 +684,15 @@ V-1a〜V-6（`kivact-wire` の解体、`kivact-types` への語彙の一本化�
 - **決定済みの形**:
   - ```rust
     enum Track { Mouse(MouseTrack), Touch(TouchTrack), Pen(PenTrack) }
-    struct Hover { chain: Vec<NodeId>, over: Option<NodeId> }
-    struct MouseTrack { source: PointerSource, at: Option<Point>, hover: Hover, gesture: MouseGesture }
-    struct TouchTrack { source: PointerSource, at: Point, hover: Option<Hover>, gesture: TouchGesture }
-    struct PenTrack { source: PointerSource, at: Point, hover: Option<Hover>, route: Route }
+    struct Hover { chain: Vec<NodeId> }
+    struct MouseTrack { source: PointerSource, at: Option<Point>, over: Option<NodeId>, hover: Hover, gesture: MouseGesture }
+    struct TouchTrack { source: PointerSource, at: Point, over: Option<NodeId>, hover: Option<Hover>, gesture: TouchGesture }
+    struct PenTrack { source: PointerSource, at: Point, over: Option<NodeId>, hover: Option<Hover>, route: Route }
     enum MouseGesture { Route(Route), Scrollbar(ScrollDrag), SelectText { editor: NodeId, route: Route } }
     enum TouchGesture { Route(Route), Pending { route: Route, candidate: TouchCandidate }, Pan(TouchPan) }
     struct Route { capture: Option<NodeId>, press: Option<Press> }   // 二つは独立の事実なので struct のまま
     ```
-    touch・pen の `hover` は primary のときだけ `Some`（今の「primary でなければ空」の不変条件）。`PointerState.mouse` を消し、`MouseTrack.at` を読む（`None` になる規則は今の `PointerState.mouse` と同じ）。`SelectText` は press の時点で、今の推定（focus のある editor、primary の押下、押下の chain が focus を含む）が成り立つときに入る。button のない move の `Cancel` の合成は今のまま。
+    touch・pen の `hover` は primary のときだけ `Some`（今の「primary でなければ空」の不変条件）。`over` は各 pointer の Enter/Leave/Move の配送先として Track に一つだけ持ち、secondary の既存配送も保つ。`PointerState.mouse` を消し、`MouseTrack.at` を読む（`None` になる規則は今の `PointerState.mouse` と同じ）。`SelectText` は press の時点で、今の推定（focus のある editor、primary の押下、押下の chain が focus を含む）が成り立つときに入る。button のない move の `Cancel` の合成は今のまま。
   - SM-E15 は行わない: `Admission`（`model/modal/state.rs`）は client の dispatch の順で問われる表で、`Track` は入力の時点の状態なので、混ぜると振る舞いが変わる。付録 A の SM-E15 の「解消後」を「`Admission` のまま（dispatch の順の表）」と直す。
   - `struct KeyDownTargets(HashMap<KeyCode, FocusTarget>)`。`key_down` を受けた target を記録し、`key_up` はその target へ送る。記録がない・`KeyCode::Unidentified`・target の node がもうないときは、今と同じく focus のある node へ送る。focus を失ったとき（window の blur）に表を空にする。
   - modifier: `Model.modifiers` を `Sent<Modifiers>` にし、core への `Modifiers` の event は変わったときだけ送る（shell の `ModifierState` が正）。
@@ -710,7 +710,7 @@ V-1a〜V-6（`kivact-wire` の解体、`kivact-types` への語彙の一本化�
   - `ImeGiven::Input { source, start: Option<usize> }` の `start` を `enum InputStart { At(usize), NoText }`。`ime_select` は `NoText` を明示の分岐で扱う（今は黙って無視: 同じ振る舞い）。
   - `enum ImeTarget { None, Native(EditorSlot), Session(NodeId) }` を focus が変わったときに一度だけ決め、IME の全部の入口がこれを読む（`focused_session` と二つの経路の判定を置き換える）。
   - host の `set_ime_allowed` の毎 pump の呼び出しを `Sent<ImeAllowed>`（`enum ImeAllowed { No, Yes }`）、`soft_keyboard: bool` を `Sent<SoftKeyboard>`（`enum SoftKeyboard { Hidden, Shown }`）。
-  - `kivact-editing`: `damage: Cell<Option<Damage>>` を `damage: Option<Damage>`、`take_damage(&mut self)`。`max_length` は `EditState::set_max_length(&mut self, ..)` の明示の呼び出しだけで変える。engine の editor の索引は `editors` だけにし、`Edits.inputs: BTreeSet` を消す。`EditLines` の借用の失敗（今は黙って `Ok(None)`）は `expect("invariant: ..")`。
+  - `kivact-editing`: `damage: Cell<Option<Damage>>` を `damage: Option<Damage>`、`take_damage(&mut self)`。編集完了時に mutable editor から既存 EditLines cache へ damage を移譲し、paint/a11y/measure の共有読取りを維持する（二重保持や新 journal は作らない）。`max_length` は `EditState::set_max_length(&mut self, ..)` の明示の呼び出しだけで変える。engine の editor の索引は `editors` だけにし、`Edits.inputs: BTreeSet` を消す。`EditLines` の借用の失敗（今は黙って `Ok(None)`）は `expect("invariant: ..")`。
 - **手順**: `measure/editor.rs`・`measure/input.rs`、`model/edit/*`、`model/aggregate.rs`、`host/pump.rs`（IME と soft keyboard）、`kivact-editing/src/{edit_state.rs, editor.rs}`。
 - **試験**: 足さない。
 - **unit の確認**: build 可。`cargo check -p kivact-editing -p kivact-engine -p kivact-core --all-targets --all-features`。`KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e -- text_editing`。状態の点検表。
@@ -736,7 +736,7 @@ V-1a〜V-6（`kivact-wire` の解体、`kivact-types` への語彙の一本化�
         pub fn computed_layout<T: LayoutTree + ?Sized>(&self, tree: &T, id: NodeId) -> Option<..>;   // 今の戻り値
     }
     ```
-    `take_changed` は `compute` の中へ入り公開しない。型状態の pass（`Edit`・`Pending`・`Computed`）は作らない。`lib.rs` の呼び出し順の doc は「slot を再利用する前に `reset`」の一行だけにする。`columns.rs` の `Record.incomplete: bool` を `enum RecordState { Complete, Incomplete }`。
+    `take_changed` は `compute` の中へ入り公開しない。型状態の pass（`Edit`・`Pending`・`Computed`）は作らない。engine が要する既存 geometry/query/diagnostic は Layout に移し、`Settled` は private の Kept/Updated とする。`lib.rs` の呼び出し順の doc は「slot を再利用する前に `reset`」の一行だけにする。`columns.rs` の `Record.incomplete: bool` を `enum RecordState { Complete, Incomplete }`。
   - engine の `Model` は `layout: kivact_layout::Layout` 一つを持つ（`layout_columns`・`layout_state` を消す）。
   - engine の `Changes` の `needs_layout`・`layout_changed`・`viewport_chain` を `layout: LayoutReasons`（bit の集合: `PASS`、`STYLE`、`VIEWPORT`）にする。node ごとの `Dirty::MEASURE` の bit は残す（cache の無効化）。`settled()` は `PASS` だけを消す（今の規則）。
   - `Model::settle(&mut self, engine: &mut arvane::Engine) -> Settled` を一つの関数にし、今の `relayout`（sync → layout → lint → sync）の順を持つ。`sync` の中の二度の `pack_child_orders` は一度にする。host の `layout()` の呼び出し（hit test の前、file drop、redraw、wheel）は `settle()` の呼び出しに置き換える（何もなければすぐ返る）。呼び出しの場所は減らさない（入力の時点の幾何が要るため）。
@@ -2478,7 +2478,7 @@ wave W6。付録 C の作業。
     `arvane`・`kivact-engine` の `gpu`・`gpu-interop`・`embed`、`kivact-style` の `gpu-interop`、`kivact-core` の `gpu` を消す。facade の `arvane-render`・`arvane-native` は optional の直接の依存（feature を有効にするためだけ。code から使わない）。
   - 間の crate（`arvane`、`kivact-engine`、`kivact-style`、`kivact-core` の内部）は経路を常に compile する。実装がないときは実行時に `Unsupported` か「GPU なし」になる。
   - `arvane-render` は feature `gpu` がなくても `GpuContext`・`GpuSurface`・`GpuEnv` を同じ名前で公開する: `gpu` なしでは `pub enum GpuContext {}`・`pub enum GpuSurface {}`（値がない型。メソッドは `match *self {}`）、`GpuContext::new(..)` は `Err(RenderError::NoAdapter("built without the gpu feature".into()))`、`GpuEnv::from_env(..)` は値を読まない空の struct。`pub const GPU_BUILT: bool = cfg!(feature = "gpu");`（arvane の `Capabilities.gpu` は今の `cfg!(feature = "gpu")` の代わりにこれを読む）。外部の texture の import（`gpu-interop`）も同じく、feature なしでは `Unsupported` の `Failure` を返す関数を常に出す。
-  - render の外部 texture import の既存 `Result<(), RenderError>` は維持し、未対応は `RenderError::External`。`arvane` の公開境界で `FailureKind::Unsupported` を返す。
+  - render の外部 texture import の既存 `Result<(), RenderError>` は維持し、未対応は `RenderError::External`。`arvane` の公開境界は既存の `FailureKind::Unavailable` と未対応の理由を返す（`FailureKind` に `Unsupported` は足さない）。
   - `arvane-native` の `embed` なし: `arvane_native::embed::open` は常にあり、`Unsupported` を返す。
   - core の `gpu-interop`・`embed` の feature は公開 API（`kivact::gpu_interop`、`view::viewport(..).gpu_frame(..)`、`App::embed`、`kivact::embed`）の `cfg` だけを持つ。core の中の engine を呼ぶ経路は常に compile する。
 - **手順**:

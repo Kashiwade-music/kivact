@@ -2093,6 +2093,7 @@ impl FrameHealth { fn lost(&mut self, renderer: Renderer) -> LossAction; }
 
 - `arvane-render` は feature `gpu` がなくても `GpuContext`・`GpuSurface`・`GpuEnv` を公開する。feature がないときは `pub enum GpuContext {}`・`pub enum GpuSurface {}`（値がない型。メソッドは `match *self {}`）で、`GpuContext::new` は `Err(RenderError::NoAdapter(..))`。`pub const GPU_BUILT: bool`。外部の texture の import も、feature がないときは `Unsupported` を返す。arvane が使う arvane-render の GPU の item はこの三つだけ（`arvane_render::{GpuContext, GpuSurface, GpuEnv}`）なので、arvane の 28 か所の `cfg(feature = "gpu")` を stub の型なしに消せる。
 - `kivact-core` の feature `gpu` を消す（core は公開 API の `gpu-interop`・`embed` だけを持つ）。core の GPU の試験は、workspace で facade の `gpu` と同時に build されるときに GPU を使う（core だけを build したときは `gpu_unavailable()` で skip する）。
+- GPU import の未対応は render の既存 `RenderError::External`、arvane の公開境界では既存 `FailureKind::Unavailable` と具体的理由で示す。`FailureKind::Unsupported` は作らない。
 - `anchor-deps` の検査は作らない（18.20 節）。
 
 ### 19.8 embed の閉じる要求は exit の turn にしない
@@ -2106,13 +2107,14 @@ enum AppPresence { Foreground, Suspended }
 enum Surface { Drawable { generation: u64 }, Unavailable(Unavailable) }
 enum Unavailable { NoSurface, ZeroSize }
 enum LastPresent { Settled, Skipped { retry_at_ns: u64 } }
-enum Launch { Pending(LaunchArgs), Running(Host) }   // arvane::Handler の実装。start で Model を本物の store で作る
+enum Launch { Pending(LaunchArgs), Starting, Running(Host) }   // arvane::Handler の実装。start で Model を本物の store で作る
 ```
 
 - `Host` は `phase`・`presence`・`surface`・`last_present` を並べて持つ（`presence` と `surface` はどの phase でも事実）。`drawable()` はこれらから計算する唯一の関数。
 - 閉じる flag は host の thread から（X11 は別の thread、Win32 は再入の dialog の中から）いつでも立つ。今の規則は「flag が立ったら、新しい turn と効果を始めない。走っている turn は今の規則で終わる」（`kivact-engine/src/host/pump.rs:58-61` の comment）で、core も event ごとに中断する（`kivact-core/src/client/app_client.rs:208`）。pump の入口で一度だけ読むと、この規則が崩れ、embedder が drop した後に App の code が turn と exit の turn を走らせる。そこで `Host::observe_close()` を入口と、client の呼び出しの後と、効果ごとの後で呼び、立っていれば `Closed` へ進んで何もしない（今の振る舞い）。`HostEvent::CloseRequested` と、そのための `Runtime::request_exit` の呼び出しは作らない。core は `Option<CloseSignal>` を持ち、event ごとの中断を保つ。
 - `Presented::SurfaceLost` は窓が既に surface を作り直した後の報告なので、状態を持たずに `HostFailure` を一度積むだけにする（`set_surface(false)`→`(true)` の往復を消す）。`Unavailable::Lost` は作らない。
 - 起動: asset の store は shell の waker を要し、waker は `start` でしかない（`host/events.rs:55-57`）。`Launch` の enum が `start` で `Host` と `Model` を作るので、`AssetStore::inline()` で作って後で差し替える処理（`host/launch.rs:62`、`ArvaneAssets::replace_store`）が消える。
+- `Launch::Starting` は mutable な `start` から Pending の引数を移して Host を構築する間の状態。dummy Client/Engine を使わず、Starting の event は invariant 違反。環境の前回送信値は `Sent::get(&self) -> Option<&T>` で読み、theme override と reduced motion の挙動を保つ。
 
 ### 19.9 `kivact-lower` を engine の module にする
 
@@ -2145,6 +2147,7 @@ impl Layout {
 - 8.4 節の `LayoutState::edit()` などは、今の `push`・`rebuild_style`・`compute`・`drain` が `LayoutState` ではなく `NodeLayoutColumns` のメソッドである（`kivact-layout/src/lib.rs:11-23`）ことに合わない。また engine は「変化がなくても tooltip を合わせ直し（`compute_overlay`）、そのときも geometry を drain する」（`kivact-engine/src/model/interact/geometry.rs:69-92`）ので、`Edit → Pending → Computed` の一本の順では表せない。呼び出し順の規則の誤りは「columns と state を別々に渡す」と「`take_changed` を呼び忘れる」の二つなので、二つを一つの持ち主にし、`take_changed` を `compute` の中へ入れれば型で防げる。
 - engine の `Changes` の `needs_layout`・`layout_changed`・`viewport_chain` は `LayoutReasons`（bit の集合: `PASS`・`STYLE`・`VIEWPORT`）にする。`Computed(GeometryChanges)` の状態は作らない（geometry はその場で drain する）。
 - `Model::settle()` は今の `relayout` の順（sync → layout → lint → sync）を持つ唯一の関数。入力の時点の幾何が要る所（hit test の前、file drop、wheel、redraw）はそれぞれ `settle()` を呼ぶ（`host/events.rs:141-150`。何もなければすぐ返る）。
+- engine が必要とする既存の geometry/query/diagnostic は Layout に移す。旧二型は crate private、`Settled` は private の Kept/Updated で pass の実施を表す。
 
 ### 19.11 `Display`
 
@@ -2183,6 +2186,7 @@ struct KeyDownTargets(HashMap<KeyCode, FocusTarget>);
 - `Admission`（`model/modal/state.rs:17-29`）は client の dispatch の順で問われる表で、`Track` は入力の時点の状態なので、`Track` へ入れない（SM-E15 は行わない）。
 - `key_up` の宛先がないとき（記録がない、`KeyCode::Unidentified`、node がもうない）は、今と同じく focus のある node へ送る。
 - `HostEvent::HoverChanged { target: Option<FocusTarget> }`（canvas の region の hover を運ぶ）。
+- `Hover` は primary の chain だけを持ち、各 Track の `over` が hit target を一つだけ保存する。secondary touch/pen の Enter/Leave/非 capture Move の既存配送も保つ。
 
 ### 19.14 付録 A の直し
 
