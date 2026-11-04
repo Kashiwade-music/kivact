@@ -21,7 +21,7 @@
 //!   and `Leave` still are admitted; the end of any other drag outside the
 //!   modal is not.
 //! - Pointer, wheel and key handler chains that start inside the topmost
-//!   shown modal stop at it (`Tree::modal_boundary`, [`KeyRoute::stop`]): no
+//!   shown modal stop at it (`ViewNodes::modal_boundary`, [`KeyRoute::stop`]): no
 //!   handler behind the modal runs for input inside it.
 //! - A key goes to the node the host names, else the focused node, else
 //!   the topmost open modal, else the App's view (the first host node the
@@ -508,7 +508,7 @@ impl Drop for ModalScope {
                 let f = target.node;
                 // Already deleted with the overlay, or still under it.
                 !tree.contains(f)
-                    || std::iter::successors(Some(f), |n| tree.get(*n)?.parent).any(|n| n == id)
+                    || std::iter::successors(Some(f), |n| tree.reader().parent(*n)).any(|n| n == id)
             };
             tree.contains(opener.node) && focus::focused(&rt).is_none_or(inside)
         };
@@ -546,7 +546,9 @@ pub(crate) fn key_route(rt: &Runtime, named: Option<NodeId>) -> KeyRoute {
         .or(modal);
     KeyRoute {
         activates: target.is_some(),
-        target: target.or_else(|| tree.app_view()).unwrap_or(tree.root),
+        target: target
+            .or_else(|| tree.reader().children(tree.root).first().copied())
+            .unwrap_or(tree.root),
         stop: modal,
     }
 }

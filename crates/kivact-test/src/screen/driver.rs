@@ -93,10 +93,6 @@ impl Screen {
                 continue;
             }
             drop(host);
-            #[cfg(debug_assertions)]
-            if let Err(error) = self.inspect().check_trees() {
-                self.fail(&error);
-            }
             return;
         }
         self.fail("the App never settles (turns keep being due)");

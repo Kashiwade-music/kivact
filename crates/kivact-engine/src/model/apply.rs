@@ -381,8 +381,8 @@ impl Model {
         self.changes.mark(id, Dirty::WRITTEN);
     }
 
-    /// Attach a detached node under `parent`, before `before` (append if
-    /// `None`).
+    /// Attach or reparent a node under `parent`, before `before` (append if
+    /// `None`), invalidating both its old and new ancestry.
     pub(crate) fn insert(
         &mut self,
         parent: NodeId,
@@ -390,10 +390,13 @@ impl Model {
         before: Option<NodeId>,
         inherit: bool,
     ) {
-        // New subtrees have no layout cache. A detached tree surviving sync may
-        // have been measured as an overlay or fixed layer before attachment.
-        let inherited =
-            (inherit && self.computed_layout(id).is_some()).then(|| self.text_props(id));
+        // Read inheritance before detaching: transparent roots can have cached
+        // text descendants even though the root itself has no layout box.
+        let inherited = inherit.then(|| self.text_props(id));
+        if let Some(previous) = self.tree.detach(id) {
+            self.changes.mark(previous, Dirty::LAYOUT_CHAIN);
+            self.a11y.subtree(previous);
+        }
         self.a11y.request_publication(std::iter::empty());
         self.a11y.subtree(id);
         self.changes.restack = true;

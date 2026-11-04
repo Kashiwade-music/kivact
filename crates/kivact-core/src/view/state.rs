@@ -18,7 +18,7 @@ use kivact_runtime::{Owner, Runtime};
 use kivact_runtime::{Signal, Value};
 use kivact_types::{Environment, Modifiers, NodeId, PlatformResult};
 
-use super::tree::Tree;
+use super::tree::ViewNodes;
 use kivact_runtime::Completion;
 use kivact_style::draw::Rect;
 use kivact_types::Capabilities;
@@ -213,7 +213,7 @@ impl Requests {
 /// order.
 pub(crate) struct ViewState {
     /// The retained metadata and direct engine access of the whole App.
-    pub(super) tree: RefCell<Tree>,
+    pub(super) tree: RefCell<ViewNodes>,
     /// The host environment.
     pub(super) env: Rc<EnvState>,
     /// What the host's platform can do (fixed for the App's life).
@@ -247,7 +247,7 @@ impl ViewState {
         at: &'static Location<'static>,
     ) -> Self {
         Self {
-            tree: RefCell::new(Tree::new(engine, owner)),
+            tree: RefCell::new(ViewNodes::new(engine, owner)),
             env,
             capabilities: info.capabilities,
             focus: crate::view::focus::keys(owner, at),
@@ -280,14 +280,14 @@ impl ViewState {
 
     /// Read the retained tree of `rt`'s App.
     #[inline]
-    pub(crate) fn tree(rt: &Runtime) -> Ref<'_, Tree> {
+    pub(crate) fn tree(rt: &Runtime) -> Ref<'_, ViewNodes> {
         Self::of(rt).tree.borrow()
     }
 
     /// Change the retained tree of `rt`'s App. A prop written through the
-    /// borrow names its writer, `rt.running_effect()` (`Tree::update`).
+    /// borrow names its writer, `rt.running_effect()` (`ViewNodes::update`).
     #[inline]
-    pub(crate) fn tree_mut(rt: &Runtime) -> RefMut<'_, Tree> {
+    pub(crate) fn tree_mut(rt: &Runtime) -> RefMut<'_, ViewNodes> {
         Self::of(rt).tree.borrow_mut()
     }
 

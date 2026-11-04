@@ -53,7 +53,10 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
         owner.provide(value);
-        mount_in(cx.rt, owner, move || child().into_view())
+        let fragment = cx.fragment();
+        let child = mount_in(cx.rt, owner, move || child().into_view());
+        cx.append(fragment, child);
+        fragment
     })
 }
 
@@ -61,7 +64,7 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
 /// a closure, a memo) to switch it at runtime: every style re-resolves its
 /// paint and nothing is remounted. Siblings keep the theme from above.
 ///
-/// It makes no node, so it colors nothing by itself: text inherits its
+/// Its transparent box colors nothing by itself: text inherits its
 /// color from its ancestors (as CSS's `color`), and text under no colored
 /// node takes the App theme's. Give the subtree's top node the theme's
 /// colors (`.background(ColorToken::Surface).color(ColorToken::Text)`, or
@@ -82,7 +85,10 @@ pub fn provide_theme<V: IntoView>(
         let owner = cx.owner.child(at);
         let value = theme.into_value(owner, at);
         kivact_style::internal::install_theme(owner, value);
-        mount_in(cx.rt, owner, move || child().into_view())
+        let fragment = cx.fragment();
+        let child = mount_in(cx.rt, owner, move || child().into_view());
+        cx.append(fragment, child);
+        fragment
     })
 }
 
@@ -117,7 +123,10 @@ pub fn provide_locale<V: IntoView>(
         let owner = cx.owner.child(at);
         let value = locale.into_value(owner, at);
         install_locale(owner, value);
-        mount_in(cx.rt, owner, move || child().into_view())
+        let fragment = cx.fragment();
+        let child = mount_in(cx.rt, owner, move || child().into_view());
+        cx.append(fragment, child);
+        fragment
     })
 }
 
@@ -152,7 +161,10 @@ pub fn provide_messages<V: IntoView>(
         let own = messages.into_value(owner, at);
         // Layered over the messages `owner` inherits from `cx.owner`.
         install_layered_messages(owner, own, at);
-        mount_in(cx.rt, owner, move || child().into_view())
+        let fragment = cx.fragment();
+        let child = mount_in(cx.rt, owner, move || child().into_view());
+        cx.append(fragment, child);
+        fragment
     })
 }
 

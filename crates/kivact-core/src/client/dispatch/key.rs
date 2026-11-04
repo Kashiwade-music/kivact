@@ -73,7 +73,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         if Some(id) == route.stop {
             break; // keys do not leave an open modal
         }
-        cur = ViewState::tree(rt).get(id).and_then(|n| n.parent);
+        cur = ViewState::tree(rt).reader().parent(id);
     }
     // Every default action below is skipped by `Yes` and by
     // `PreventDefault`.

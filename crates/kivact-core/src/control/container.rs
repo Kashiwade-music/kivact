@@ -180,18 +180,18 @@ pub fn stack(children: impl IntoView) -> Node {
     let children = children.into_view();
     let layered = view_fn(move |cx: &Mcx<'_>| {
         let frag = mount(children, cx);
-        let items: Vec<_> = ViewState::tree(cx.rt)
-            .get(frag)
-            .map(|n| n.children.clone())
-            .unwrap_or_default();
-        let items = if items.is_empty()
-            && ViewState::tree(cx.rt)
-                .get(frag)
-                .is_some_and(|n| n.is_host())
-        {
-            vec![frag]
+        let reader = ViewState::tree(cx.rt).reader();
+        let transparent = reader.with_node(frag, |node| {
+            node.is_some_and(|node| {
+                node.layout
+                    .as_ref()
+                    .is_some_and(|layout| layout.display == kivact_types::Display::Contents)
+            })
+        });
+        let items = if transparent {
+            reader.children(frag)
         } else {
-            items
+            vec![frag]
         };
         let wrap = cx.fragment();
         // The children's own fragment loses its children to the layers; it
@@ -210,17 +210,6 @@ pub fn stack(children: impl IntoView) -> Node {
                 }
             };
             cx.update(w, PropValue::Layout(layout));
-            {
-                let mut tree = ViewState::tree_mut(cx.rt);
-                if let Some(p) = tree.get(c).and_then(|n| n.parent)
-                    && let Some(pn) = tree.get_mut(p)
-                {
-                    pn.children.retain(|x| *x != c);
-                }
-                if let Some(n) = tree.get_mut(c) {
-                    n.parent = None;
-                }
-            }
             cx.append(w, c);
             cx.append(wrap, w);
         }

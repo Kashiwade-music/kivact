@@ -71,7 +71,7 @@ pub(crate) fn mount_root(
     };
     bind_style(&Mcx { rt, owner }, root, NodeType::Root, style, at);
     let child = mount_in(rt, owner, build);
-    ViewState::tree_mut(rt).insert(root, child, None);
+    ViewState::tree(rt).engine().insert(root, child, None);
 }
 
 /// The locale the host reports (`en-US` when it names none).

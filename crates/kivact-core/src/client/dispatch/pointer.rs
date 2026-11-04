@@ -131,7 +131,7 @@ pub(super) fn wheel(
         if Some(id) == stop {
             break; // wheels do not leave an open modal
         }
-        cur = ViewState::tree(rt).get(id).and_then(|n| n.parent);
+        cur = ViewState::tree(rt).reader().parent(id);
     }
     if handled == Handled::No && ViewState::tree(rt).get(node).is_some() {
         // Default action: the host continues its native scroll

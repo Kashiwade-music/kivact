@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use kivact_engine::contract::HostEvent;
 
-use crate::view::tree::{TextEditsInFlight, Tree};
+use crate::view::tree::{TextEditsInFlight, ViewNodes};
 
 /// Counts native edits already applied by the host until their delivery ends.
 #[must_use = "the counts are forgotten when the guard drops"]
@@ -15,7 +15,7 @@ pub(crate) struct TextEditsAhead {
 
 impl TextEditsAhead {
     /// Begin delivery while borrowing the tree only to acquire its count store.
-    pub(crate) fn begin(tree: &mut Tree, events: &[HostEvent]) -> Self {
+    pub(crate) fn begin(tree: &mut ViewNodes, events: &[HostEvent]) -> Self {
         let counts = tree.future_text_edits.clone();
         for event in events {
             if let HostEvent::TextChanged { node, .. } = event {

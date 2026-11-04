@@ -25,17 +25,31 @@ pub(crate) struct Mcx<'a> {
 impl Mcx<'_> {
     /// A new fragment node.
     pub(crate) fn fragment(&self) -> NodeId {
-        ViewState::tree_mut(self.rt).create(None, self.owner)
+        let mut nodes = ViewState::tree_mut(self.rt);
+        let id = nodes.create(NodeType::Box, self.owner);
+        nodes.update(
+            id,
+            PropValue::Layout(kivact_types::LayoutProps {
+                display: kivact_types::Display::Contents,
+                ..Default::default()
+            }),
+            None,
+        );
+        nodes.update(id, PropValue::HitTestable(false), None);
+        nodes.update(id, PropValue::Focusable(false), None);
+        id
     }
 
     /// A new host node of `kind`.
     pub(crate) fn host(&self, kind: NodeType) -> NodeId {
-        ViewState::tree_mut(self.rt).create(Some(kind), self.owner)
+        ViewState::tree_mut(self.rt).create(kind, self.owner)
     }
 
     /// Append `child` to `parent`.
     pub(crate) fn append(&self, parent: NodeId, child: NodeId) {
-        ViewState::tree_mut(self.rt).insert(parent, child, None);
+        ViewState::tree(self.rt)
+            .engine()
+            .insert(parent, child, None);
     }
 
     /// Write `value` to node `id`.

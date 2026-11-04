@@ -694,7 +694,7 @@ fn within(app: AppId, node: Signal<RefState>, source: Signal<Option<FocusTarget>
             if id == me.node {
                 return true;
             }
-            cur = tree.get(id).and_then(|n| n.parent);
+            cur = tree.reader().parent(id);
         }
         false
     })

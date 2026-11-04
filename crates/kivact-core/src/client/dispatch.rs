@@ -102,10 +102,10 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         } => text::focus_changed(rt, *node, *region, *visible),
         HostEvent::ExitComplete { node } => {
             let callback = crate::view::state::ViewState::tree_mut(rt).take_exit_callback(*node);
-            if let Some(callback) = callback {
-                if let Err(error) = callback.call(()) {
-                    rt.report(None, error);
-                }
+            if let Some(callback) = callback
+                && let Err(error) = callback.call(())
+            {
+                rt.report(None, error);
             }
         }
         HostEvent::FocusResult { request, result } => {

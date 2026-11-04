@@ -107,8 +107,8 @@ pub(crate) fn stage(rt: &Runtime, name: &str) {
     let mut pending = vec![tree.root];
     let mut current = Vec::new();
     while let Some(id) = pending.pop() {
-        if let Some(node) = tree.get(id) {
-            pending.extend(node.children.iter().rev().copied());
+        if tree.contains(id) {
+            pending.extend(tree.reader().children(id).into_iter().rev());
             let value = tree.with_node(id, |node| format!("{:?}", node.map(|n| &n.semantics)));
             if previous_values.get(&id).copied() != Some(value.as_str()) {
                 sink.line(format_args!("semantics n{} {value}", id.0));

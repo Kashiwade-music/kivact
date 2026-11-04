@@ -105,23 +105,21 @@ impl Writer {
         self.model.borrow().writes.pending()
     }
 
-    /// Attach the detached node `id` under `parent`, before `before`
+    /// Attach or reparent node `id` under `parent`, before `before`
     /// (append if `None`).
     pub fn insert(&self, parent: NodeId, id: NodeId, before: Option<NodeId>) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         debug_assert!(m.tree.contains(parent) && m.tree.contains(id));
-        debug_assert!(
-            m.tree
-                .get(id)
-                .is_some_and(|node| m.tree.parent_id(node).is_none())
-        );
         debug_assert!(!m.tree.is_in_subtree(parent, id));
         debug_assert!(before.is_none_or(|before| {
             m.tree
                 .get(before)
                 .is_some_and(|node| m.tree.parent_id(node) == Some(parent))
         }));
+        if before == Some(id) {
+            return;
+        }
         m.insert(parent, id, before, true);
         m.writes.structural(id);
     }

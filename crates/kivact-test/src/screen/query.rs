@@ -39,9 +39,7 @@ impl Screen {
             if tree.hidden(id) == Some(true) {
                 continue;
             }
-            if n.is_host() {
-                out.push(id);
-            }
+            out.push(id);
             stack.extend(n.children.iter().rev().copied());
         }
         out

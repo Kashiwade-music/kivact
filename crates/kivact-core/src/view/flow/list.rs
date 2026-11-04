@@ -28,7 +28,7 @@ use std::rc::Rc;
 use kivact_types::NodeId;
 
 use crate::view::boundary::mount_in;
-use crate::view::descriptor::{IntoView, View, view_fn};
+use crate::view::descriptor::{IntoView, Mcx, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
 use kivact_runtime::keyed::{self, Diff, Plan, Rows};
@@ -177,7 +177,7 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
         if !keep_mark[i]
             && let Some(r) = slot.take()
         {
-            let removed = ViewState::tree_mut(rt).remove_unlinked(r.node);
+            let removed = ViewState::tree_mut(rt).remove(r.node);
             removed.commit(rt);
             r.row.owner().dispose();
         }
@@ -213,32 +213,31 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
                     continue;
                 };
                 let item = keyed.item();
-                let node = mount_in(rt, keyed.owner(), || row(k, item.into_value()));
-                if let Some(nd) = ViewState::tree_mut(rt).get_mut(node) {
-                    nd.parent = Some(frag);
-                }
+                let cx = Mcx {
+                    rt,
+                    owner: keyed.owner(),
+                };
+                let node = cx.fragment();
+                let child = mount_in(rt, keyed.owner(), || row(k, item.into_value()));
+                cx.append(node, child);
                 new_rows.push(Row { row: keyed, node });
                 fresh.push(true);
                 moved.push(false);
             }
         }
     }
-    let children: Vec<NodeId> = new_rows.iter().map(|r| r.node).collect();
-    ViewState::tree_mut(rt).set_children(frag, children);
     if live && (fresh.iter().any(|f| *f) || moved.iter().any(|m| *m)) {
-        let mut tree = ViewState::tree_mut(rt);
+        let tree = ViewState::tree(rt);
         // Place the already-created rows from right to left.
-        let mut next = tree.next_host_after(frag);
+        let mut next = None;
         for i in (0..new_rows.len()).rev() {
             let r = &new_rows[i];
             if fresh[i] {
-                tree.attach_writes_before(r.node, next);
+                tree.engine().insert(frag, r.node, next);
             } else if moved[i] {
-                tree.move_writes_before(r.node, next);
+                tree.engine().move_before(r.node, next);
             }
-            if let Some(h) = tree.first_host_of(r.node) {
-                next = Some(h);
-            }
+            next = Some(r.node);
         }
     }
     state.borrow_mut().replace(new_rows);
@@ -296,7 +295,15 @@ where
                 let i = rows.borrow().len();
                 let owner = parent.child(at);
                 let sig = owner.signal(item, at);
-                let b = mount_branch(&rt, owner, frag, || row(i, sig.into_value()).into_view());
+                let b = mount_branch(&rt, owner, frag, || {
+                    let child = row(i, sig.into_value()).into_view();
+                    view_fn(move |cx| {
+                        let fragment = cx.fragment();
+                        let child = cx.mount_child(child);
+                        cx.append(fragment, child);
+                        fragment
+                    })
+                });
                 rows.borrow_mut().push((b, sig));
             }
         });

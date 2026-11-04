@@ -6,7 +6,7 @@
 //! assistive technology) and whose `TextSpans` style their ranges; one
 //! render effect writes both, so they always agree.
 //!
-//! Invariant: a text node records where it was created (`TNode::at`): the
+//! Invariant: a text node records where it was created (`CoreNode::at`): the
 //! call of `text(..)` (or the location given by `.at(..)`), or nothing
 //! for a plain string child, which diagnostics
 //! show with the location of its nearest located ancestor.
