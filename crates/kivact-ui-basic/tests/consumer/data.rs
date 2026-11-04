@@ -22,13 +22,10 @@ fn page(child: impl IntoView) -> Node {
 }
 
 fn options(mode: kivact::style::ThemeMode) -> RenderOptions {
-    RenderOptions {
-        theme: basic::theme(mode),
-        width: 640.0,
-        height: 2400.0,
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(640.0, 2400.0)
+        .theme(basic::theme(mode))
+        .reduced_motion()
 }
 
 fn config() -> basic::ChartConfig {

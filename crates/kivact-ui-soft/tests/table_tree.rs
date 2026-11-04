@@ -10,11 +10,9 @@ use kivact::view::Role;
 #[test]
 fn tree_rows_keep_table_roles_and_expand_before_paging() {
     let (screen, (expanded, page)) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            mirror: MirrorMode::Off,
-            ..RenderOptions::default()
-        },
+        RenderOptions::default()
+            .theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .mirror(MirrorMode::Off),
         || {
             let rows = vec![
                 (1, None, "Work"),

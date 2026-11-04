@@ -14,12 +14,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        width: 800.0,
-        height: 600.0,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(800.0, 600.0)
+        .theme(kivact_ui_soft::theme(ThemeMode::Light))
 }
 
 #[test]

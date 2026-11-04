@@ -32,11 +32,7 @@ pub(crate) fn assert_rect(a: Rect, (x, y, w, h): (f64, f64, f64, f64), what: &st
 
 /// An 800 × 600 window (or `w × h`).
 pub(crate) fn window(w: f64, h: f64) -> RenderOptions {
-    RenderOptions {
-        width: w,
-        height: h,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().window_size(w, h)
 }
 
 #[test]

@@ -327,6 +327,11 @@ fn clipboard_requests_complete_through_the_host_pump() {
 
 #[test]
 fn opening_runs_root_once_and_delivers_click_key_and_text() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
@@ -335,6 +340,11 @@ fn opening_runs_root_once_and_delivers_click_key_and_text() {
 
 #[test]
 fn resize_negotiation_handles_acceptance_refusal_missing_callback_and_host_correction() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
@@ -345,6 +355,11 @@ fn resize_negotiation_handles_acceptance_refusal_missing_callback_and_host_corre
 
 #[test]
 fn parent_destruction_stops_the_app_without_an_error() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
@@ -353,6 +368,11 @@ fn parent_destruction_stops_the_app_without_an_error() {
 
 #[test]
 fn clipboard_text_round_trips_through_the_host_pump() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
@@ -370,6 +390,11 @@ fn explode() {
 #[test]
 #[should_panic(expected = "editor exploded")]
 fn a_panic_in_the_editor_resumes_in_the_wrappers_next_call() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let serial = SERIAL
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");

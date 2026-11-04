@@ -7,34 +7,25 @@
 //! `tests/assets.rs`); only the App's fonts
 //! need the crate-internal `Screen::start`.
 
-use std::panic::Location;
+use kivact::Asset;
+use kivact::{UiError, diagnostics::ErrorKind};
 
-use kivact_runtime::{ErrorKind, UiError};
-use kivact_style::asset::Asset;
+use kivact::prelude::{IntoView, NodeBuilder, column, style, text};
+use kivact::style::Align;
+use kivact::test::Screen;
+use kivact::test::{RenderOptions, TestFonts};
 
-use super::model::Screen;
-use crate::prelude::{IntoView, NodeBuilder, column, style, text};
-use crate::test::{RenderOptions, TestFonts};
-use kivact_style::Align;
-
-static TUFFY: &[u8] = include_bytes!("../../../../arvane/assets/fonts/Tuffy.ttf");
+static TUFFY: &[u8] = include_bytes!("../../../../../crates/arvane/assets/fonts/Tuffy.ttf");
 
 /// A screen whose App registers `fonts` like `App::font`, on a host that
 /// starts without any font.
 #[track_caller]
 fn screen<V: IntoView>(fonts: Vec<Asset>, root: impl FnOnce() -> V + 'static) -> Screen {
-    let at = Location::caller();
-    let fonts = fonts.into_iter().map(|f| (f, at)).collect();
-    Screen::start(
-        RenderOptions {
-            fonts: TestFonts::Only(Vec::new()),
-            ..RenderOptions::default()
-        },
-        false,
-        fonts,
-        Box::new(move || root().into_view()),
-        at,
-    )
+    let mut options = RenderOptions::default().fonts(TestFonts::Only(Vec::new()));
+    for font in fonts {
+        options = options.font(font);
+    }
+    kivact::test::render_with(options, root)
 }
 
 fn asset_errors(s: &Screen) -> Vec<UiError> {

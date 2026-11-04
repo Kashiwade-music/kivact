@@ -320,10 +320,7 @@ mod tests {
 
     #[test]
     fn reduced_motion_arrives_at_once() {
-        let options = RenderOptions {
-            reduced_motion: true,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().reduced_motion();
         let screen = render_with(options, progress);
         screen.get_by_role(Role::Button, "Fill").click();
         screen.get_by_text("100%");

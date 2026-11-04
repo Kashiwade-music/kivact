@@ -14,12 +14,9 @@ use std::time::Duration;
 #[test]
 fn compact_touch_uses_a_latched_dialog_and_keyboard_uses_the_popup() {
     let (screen, selected) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            width: 500.0,
-            height: 700.0,
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(500.0, 700.0)
+            .theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let selected = signal(Some("a"));
             let field = selector(
@@ -73,12 +70,9 @@ fn compact_touch_uses_a_latched_dialog_and_keyboard_uses_the_popup() {
 #[test]
 fn multi_selector_filters_and_commits_in_the_touch_sheet() {
     let (screen, selected) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            width: 500.0,
-            height: 700.0,
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(500.0, 700.0)
+            .theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let selected = signal(vec!["a"]);
             let field = multi_selector(
@@ -115,12 +109,9 @@ fn multi_selector_filters_and_commits_in_the_touch_sheet() {
 #[test]
 fn complex_selector_uses_the_same_search_binding_in_its_two_surfaces() {
     let (screen, query) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            width: 500.0,
-            height: 700.0,
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(500.0, 700.0)
+            .theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let query = signal(String::new());
             (

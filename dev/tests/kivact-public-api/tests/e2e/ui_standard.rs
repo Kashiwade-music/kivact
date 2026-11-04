@@ -29,11 +29,7 @@ fn theme_with(recipes: UiRecipes) -> Theme {
 }
 
 fn options(theme: Theme) -> RenderOptions {
-    RenderOptions {
-        theme,
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(theme).reduced_motion()
 }
 
 /// The pixel `dx` right of and `dy` below the top left of `id`.

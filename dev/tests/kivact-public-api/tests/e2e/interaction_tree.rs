@@ -20,10 +20,7 @@ struct Handles {
 }
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 /// src (lib.rs, util (mod.rs, fmt.rs), main.rs), docs (guide.md), README.md

@@ -132,17 +132,14 @@ impl Viewport {
 }
 
 fn gpu_options(backend: GpuBackend) -> RenderOptions {
-    RenderOptions {
-        width: (2 * W) as f64,
-        height: (H + 40) as f64,
-        gpu: true,
-        mirror: MirrorMode::Required,
-        gpu_preference: GpuPreference {
+    RenderOptions::from_env()
+        .window_size((2 * W) as f64, (H + 40) as f64)
+        .gpu()
+        .mirror(MirrorMode::Required)
+        .gpu_preference(GpuPreference {
             backend: Some(backend),
             ..GpuPreference::default()
-        },
-        ..RenderOptions::from_env()
-    }
+        })
 }
 
 /// A GPU viewport of `backend` that can import, and its adapter; why not

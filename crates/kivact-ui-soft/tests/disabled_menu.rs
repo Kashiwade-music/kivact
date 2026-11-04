@@ -10,10 +10,7 @@ use kivact::ui::{MenuEntry, menu};
 use kivact::view::{A11yAction, Key, Role};
 
 fn options(theme: Theme) -> RenderOptions {
-    RenderOptions {
-        theme,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(theme)
 }
 
 #[test]

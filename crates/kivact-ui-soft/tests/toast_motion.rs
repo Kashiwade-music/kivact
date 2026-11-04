@@ -9,11 +9,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        mirror: MirrorMode::Off,
-        ..RenderOptions::default()
-    }
+    RenderOptions::default()
+        .theme(kivact_ui_soft::theme(ThemeMode::Light))
+        .mirror(MirrorMode::Off)
 }
 
 #[test]

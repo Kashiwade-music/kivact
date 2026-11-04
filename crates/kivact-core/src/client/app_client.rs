@@ -152,6 +152,10 @@ impl AppOptions {
     pub fn check_window_sizes(&self) -> crate::Result<()> {
         crate::app::check_window_sizes(self.window_size, self.min_window_size, Location::caller())
     }
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = title.into();
+        self
+    }
     pub(crate) fn host_options(&self) -> kivact_engine::api::HostOptions {
         kivact_engine::api::HostOptions {
             window_size: self.window_size,
@@ -240,15 +244,6 @@ impl Launch {
                 panic!("invariant: runtime is available after host start")
             }
         }
-    }
-    #[cfg(debug_assertions)]
-    pub(crate) fn set_trace_name(&mut self, name: String) {
-        self.trace_name = Some(name);
-    }
-
-    /// Adapt the runtime owner to the engine's concrete callback bundle.
-    pub(crate) fn into_client(self, timing: Option<Rc<dyn Fn(u64)>>) -> Client {
-        Self::shared_client(Rc::new(RefCell::new(self)), timing)
     }
     pub(crate) fn shared_client(
         shared: Rc<RefCell<Self>>,

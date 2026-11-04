@@ -9,11 +9,9 @@ use std::collections::HashMap;
 type Score = (&'static str, u8);
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        mirror: MirrorMode::Off,
-        ..RenderOptions::default()
-    }
+    RenderOptions::default()
+        .theme(kivact_ui_soft::theme(ThemeMode::Light))
+        .mirror(MirrorMode::Off)
 }
 
 fn column() -> DataColumn<Score> {

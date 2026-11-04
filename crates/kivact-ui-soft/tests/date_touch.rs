@@ -10,10 +10,7 @@ use kivact_ui_soft::{
 use std::time::Duration;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: theme(ThemeMode::Light),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(theme(ThemeMode::Light))
 }
 
 #[test]

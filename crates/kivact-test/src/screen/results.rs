@@ -1,6 +1,6 @@
 //! Role: Define passive results returned by screen inspection.
 
-use crate::view::{CheckedState, Role};
+use kivact_core::view::{CheckedState, Role};
 use kivact_engine::testing::{ShellImeText, TestFrame};
 use kivact_style::draw::Rect;
 use kivact_types as p;

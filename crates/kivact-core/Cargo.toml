@@ -22,7 +22,6 @@ tracing = { workspace = true }
 [features]
 embed = []
 gpu-interop = []
-test = ["kivact-engine/testing"]
 
 [lints]
 workspace = true

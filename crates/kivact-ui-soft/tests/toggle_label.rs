@@ -18,23 +18,17 @@ fn soft_toggle_keeps_its_width_when_pressed_and_when_its_label_is_hidden() {
             extra_small_size: 12.0
         }
     );
-    let (screen, pressed) = render_with_handle(
-        RenderOptions {
-            theme,
-            ..RenderOptions::from_env()
-        },
-        || {
-            let pressed = signal(false);
-            let controls = column((
-                toggle("Highlight modified rows", pressed),
-                toggle("Icon toggle without a visible label", pressed)
-                    .icon(icon("check"))
-                    .hide_label(true),
-            ))
-            .style(style().align_items(Align::Start));
-            (pressed, controls)
-        },
-    );
+    let (screen, pressed) = render_with_handle(RenderOptions::from_env().theme(theme), || {
+        let pressed = signal(false);
+        let controls = column((
+            toggle("Highlight modified rows", pressed),
+            toggle("Icon toggle without a visible label", pressed)
+                .icon(icon("check"))
+                .hide_label(true),
+        ))
+        .style(style().align_items(Align::Start));
+        (pressed, controls)
+    });
     let width = |label| {
         screen
             .get_by_role(Role::Button, label)
@@ -77,14 +71,11 @@ fn width_measurement_is_opt_in_and_follows_label_changes() {
     // Use a deliberately larger measuring size to prove that the reservation
     // affects the layout even when the bundled test font has only one weight.
     let (reserved, label) = render_with_handle(
-        RenderOptions {
-            theme: Theme::light().with(ToggleLabelReservation::Reserve {
-                weight: 600,
-                size: 34.0,
-                extra_small_size: 34.0,
-            }),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(Theme::light().with(ToggleLabelReservation::Reserve {
+            weight: 600,
+            size: 34.0,
+            extra_small_size: 34.0,
+        })),
         || {
             let label = signal("Label".to_owned());
             (

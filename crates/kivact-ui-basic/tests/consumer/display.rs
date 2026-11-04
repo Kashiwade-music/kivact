@@ -20,13 +20,10 @@ fn page(child: impl IntoView) -> Node {
 }
 
 fn options(mode: kivact::style::ThemeMode) -> RenderOptions {
-    RenderOptions {
-        theme: basic::theme(mode),
-        width: 900.0,
-        height: 3200.0,
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(900.0, 3200.0)
+        .theme(basic::theme(mode))
+        .reduced_motion()
 }
 
 #[test]

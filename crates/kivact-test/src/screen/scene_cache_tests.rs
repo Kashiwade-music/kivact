@@ -2,29 +2,29 @@
 //! Public Screen fixes assets to inline execution and App fonts to startup.
 //! These cases use the same AppClient and production test host directly,
 //! with existing normal host operations, to exercise later resource changes.
-use crate::client::{AppClient, AppConfig};
-use crate::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
-use crate::view::View;
+use kivact_core::launch::{AppOptions, ClientMode, Launch};
+use kivact_core::prelude::{IntoView, NodeBuilder, Theme, rgb, style};
+use kivact_core::view::View;
 use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
-use kivact_runtime::Runtime;
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Point, Rect, TextStyle};
-use std::panic::Location;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 fn host(
     root: impl FnOnce() -> View + 'static,
     inline_assets: bool,
-) -> (ArvaneTestHost, Rc<Runtime>) {
-    let client = AppClient::new(
-        AppConfig::new("retained scene".into(), Theme::light(), Box::new(root)),
-        Some(2),
-        Location::caller(),
-    );
-    let shared = Rc::new(std::cell::RefCell::new(client));
+) -> (ArvaneTestHost, kivact_engine::api::Writer) {
+    let (client, _) = Launch::new(
+        AppOptions::new("retained scene")
+            .theme(Theme::light())
+            .blocking_threads(2),
+        ClientMode::Window,
+        root,
+    )
+    .into_engine_client();
     let host = ArvaneTestHost::new(
-        AppClient::shared_client(shared.clone(), None),
+        client,
         TestHostOptions {
             width: 160.,
             height: 60.,
@@ -34,8 +34,8 @@ fn host(
         },
     )
     .expect("real window");
-    let rt = shared.borrow().runtime().clone();
-    (host, rt)
+    let writer = host.writer();
+    (host, writer)
 }
 fn frame(host: &mut ArvaneTestHost) {
     while host.redraw() {}
@@ -67,7 +67,7 @@ fn pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reu
     static SVG:&[u8]=br##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="#0000ff"/></svg>"##;
     let (mut host, _) = host(
         || {
-            crate::control::canvas(|d, _| {
+            kivact_core::control::canvas(|d, _| {
                 d.fill_rect(Rect::new(0., 0., 4., 4.), rgb(0xff0000));
                 d.image(&Asset::from(SVG), Rect::new(8., 8., 12., 12.));
             })
@@ -110,7 +110,7 @@ fn pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reu
 fn registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping() {
     let (mut host, rt) = host(
         || {
-            crate::control::canvas(|d, _| {
+            kivact_core::control::canvas(|d, _| {
                 d.text(
                     "WWWWii",
                     Point::new(4., 4.),
@@ -134,13 +134,13 @@ fn registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping() {
     let before = host.frame().expect("fallback frame").pixels.to_vec();
     host.resize(161., 60.);
     frame(&mut host);
-    crate::view::requests::register_app_fonts(
-        &rt,
-        vec![(
-            Asset::from(&include_bytes!("../../../../arvane/tests/fonts/InterVariable.ttf")[..]),
-            Location::caller(),
-        )],
+    rt.effect(
+        kivact_types::RequestId(1),
+        kivact_engine::contract::HostRequest::RegisterFont(Asset::from(
+            &include_bytes!("../../../arvane/tests/fonts/InterVariable.ttf")[..],
+        )),
     );
+    rt.commit();
     host.wake();
     frame(&mut host);
     assert!(host.has_font_family("Inter Variable"));

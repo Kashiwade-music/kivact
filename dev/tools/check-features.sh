@@ -33,7 +33,8 @@ entries=(
   kivact-gpu-share/import
   kivact-gpu-share/wgpu
   kivact-core/gpu-interop
-  kivact-core/test
+  kivact-test/embed
+  kivact-test/gpu-interop
   kivact-engine/testing
   kivact-ui-creative/gpu-interop
 )

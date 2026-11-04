@@ -308,10 +308,7 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
     use kivact::view::Key;
 
     let (screen, nav) = crate::support::mount_with(
-        RenderOptions {
-            mirror: MirrorMode::Required,
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().mirror(MirrorMode::Required),
         || {
             let keys: Vec<u32> = (0..300).collect();
             let rows = signal(keys.clone());

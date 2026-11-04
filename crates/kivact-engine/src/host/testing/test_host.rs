@@ -126,6 +126,17 @@ fn make_host(
 }
 
 impl ArvaneTestHost {
+    /// Engine mutation access for existing backend contract E2E tests.
+    pub fn writer(&self) -> crate::api::Writer {
+        let launch = self.host.borrow();
+        let host = launch.host();
+        crate::api::Writer::new(&host.model, &host.engine)
+    }
+    /// Queue platform prerequisites and input for this host.
+    pub fn script(&self) -> arvane_virtual::Script {
+        self.script.clone()
+    }
+
     /// Start `client` on the host (its `start` runs here, and the turns its
     /// first revision asks for).
     pub fn new(client: Client, options: TestHostOptions) -> Result<Self, HostError> {

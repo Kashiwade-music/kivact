@@ -24,14 +24,13 @@ use kivact_engine::contract::NodeType;
 use kivact_types::NodeId;
 
 use super::model::{Element, FIND_TIMEOUT, Query, Screen, Within};
-use crate::view::Role;
-use crate::view::state::ViewState;
+use kivact_core::view::Role;
 use kivact_runtime::TurnRecord;
 use kivact_style::draw::RegionId;
 
 impl Screen {
     fn host_nodes(&self, scope: Option<NodeId>) -> Vec<NodeId> {
-        let tree = ViewState::tree(&self.rt);
+        let tree = self.facts();
         let mut out = Vec::new();
         let start = scope.unwrap_or(tree.root);
         let mut stack: Vec<NodeId> = vec![start];
@@ -49,7 +48,7 @@ impl Screen {
     }
 
     pub(super) fn name_of(&self, id: NodeId) -> String {
-        let tree = ViewState::tree(&self.rt);
+        let tree = self.facts();
         match (tree.name(id), tree.content(id)) {
             (Some(s), _) | (None, Some(s)) => s,
             _ => String::new(),
@@ -57,7 +56,7 @@ impl Screen {
     }
 
     pub(super) fn role_of(&self, id: NodeId) -> Option<Role> {
-        ViewState::tree(&self.rt).role(id)
+        self.facts().role(id)
     }
 
     fn matches(&self, q: &Query, scope: Option<NodeId>) -> Vec<(NodeId, Option<RegionId>)> {
@@ -66,7 +65,7 @@ impl Screen {
             return self.role_matches(*role, name, &visible);
         }
         let mut out = Vec::new();
-        let tree = ViewState::tree(&self.rt);
+        let tree = self.facts();
         for id in visible {
             let Some(n) = tree.get(id) else { continue };
             match q {
@@ -201,7 +200,7 @@ impl Screen {
 
     /// Where `id` was created, or its nearest located ancestor.
     fn location_of(&self, id: NodeId) -> Option<&'static Location<'static>> {
-        let tree = ViewState::tree(&self.rt);
+        let tree = self.facts();
         let mut cur = Some(id);
         while let Some(n) = cur.and_then(|c| tree.get(c)) {
             if n.at.is_some() {

@@ -26,9 +26,7 @@ pub(crate) fn assert_clean(screen: &Screen) {
 }
 
 pub(crate) fn options() -> RenderOptions {
-    RenderOptions {
-        theme: basic::theme(kivact::style::ThemeMode::Light),
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .theme(basic::theme(kivact::style::ThemeMode::Light))
+        .reduced_motion()
 }

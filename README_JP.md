@@ -123,4 +123,5 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 
 Copyright (c) 2026 Kashiwade。[MIT](LICENSE-MIT) または [Apache-2.0](LICENSE-APACHE) のいずれかを選んで利用できます。同梱するフォントとアイコンはそれぞれのライセンスに従います。[THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES.md) を参照してください。
 
+内部の `kivact-test` crate は、共通のアプリ起動経路を使って `kivact::test` を実装します。
 内部の `arvane-virtual` backend は、ネイティブ窓と同じ描画 driver で台本による E2E を実行し、必要に応じて実窓へ写します。

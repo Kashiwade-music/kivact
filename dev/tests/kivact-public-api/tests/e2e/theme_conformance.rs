@@ -4,7 +4,6 @@ use kivact::prelude::*;
 use kivact::style::{Align, ColorToken, Style, ThemeMode};
 use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render_with_handle};
 use kivact::ui::{self, ListItem, Look, Recipe, UiRecipes};
-use std::sync::Arc;
 
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 
@@ -76,14 +75,11 @@ type Handles = (
 );
 
 fn options(theme: Theme) -> RenderOptions {
-    RenderOptions {
-        theme,
-        fonts: TestFonts::Only(vec![Arc::from(INTER)]),
-        reduced_motion: true,
-        width: 720.0,
-        height: 960.0,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(720.0, 960.0)
+        .theme(theme)
+        .fonts(TestFonts::Only(vec![kivact::Asset::from(INTER)]))
+        .reduced_motion()
 }
 
 /// One standard component of every kind the kits restyle.

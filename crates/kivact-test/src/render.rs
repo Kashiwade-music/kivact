@@ -1,13 +1,13 @@
 //! Role: Start a test window: GPU availability and mounting a root view.
 
-use super::options::RenderOptions;
 use super::screen::Screen;
-use crate::view::IntoView;
+use crate::RenderOptions;
+use kivact_core::view::IntoView;
 
 /// Why a GPU test cannot start, or `None` when a hardware adapter is available.
 /// This probes availability without mounting a view or changing OS settings.
 pub fn gpu_unavailable() -> Option<String> {
-    if super::options::RenderOptions::default().mirror == super::options::MirrorMode::Off {
+    if crate::RenderOptions::default().is_headless() {
         return Some("GPU presentation requires a native mirror (KIVACT_TEST_MIRROR=off)".into());
     }
     kivact_engine::testing::gpu_unavailable()
@@ -33,7 +33,7 @@ pub fn render_with<V: IntoView>(
     options: RenderOptions,
     root: impl FnOnce() -> V + 'static,
 ) -> Screen {
-    let gpu = options.gpu;
+    let gpu = options.uses_gpu();
     Screen::start(
         options,
         gpu,
@@ -77,4 +77,15 @@ pub fn render_with_handle<H: 'static, V: IntoView>(
         .take()
         .expect("invariant: render executes root setup");
     (screen, handle)
+}
+
+/// Why a native embedded test cannot run on this platform.
+pub fn native_unavailable() -> Option<&'static str> {
+    if cfg!(target_os = "linux") && std::env::var_os("DISPLAY").is_none() {
+        Some("native embedded tests require an X11 display")
+    } else if cfg!(any(windows, target_os = "linux")) {
+        None
+    } else {
+        Some("native test windows are unavailable on this platform")
+    }
 }

@@ -45,9 +45,6 @@ pub use kivact_core::embed;
 #[cfg(feature = "gpu-interop")]
 #[doc(inline)]
 pub use kivact_core::gpu_interop;
-#[cfg(feature = "test")]
-#[doc(inline)]
-pub use kivact_core::test;
 #[doc(inline)]
 pub use kivact_core::{
     App, Asset, Binding, Callback, Result, Selector, Signal, UiError, Value, Var, binding, effect,
@@ -57,6 +54,9 @@ pub use kivact_core::{
 pub use kivact_core::{
     control, diagnostics, draw, i18n, motion, platform, primitive, style, task, view,
 };
+#[cfg(feature = "test")]
+#[doc(inline)]
+pub use kivact_test as test;
 
 /// Everyday names and standard UI functions used by the introductory guides.
 pub mod prelude;

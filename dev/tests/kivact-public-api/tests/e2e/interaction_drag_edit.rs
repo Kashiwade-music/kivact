@@ -29,10 +29,7 @@ struct Log {
 type Shared = Rc<RefCell<Log>>;
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 /// A handle whose drag moves `x` in whole steps of 10 and edits it from the

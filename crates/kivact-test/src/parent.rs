@@ -1,8 +1,8 @@
 //! Role: Public native parent-window driver without backend types.
 use super::Screenshot;
-use crate::embed::Parent;
-use crate::view::KeyCode;
-use crate::{Result, UiError};
+use kivact_core::embed::Parent;
+use kivact_core::view::KeyCode;
+use kivact_core::{Result, UiError};
 use kivact_runtime::ErrorKind;
 use std::ffi::c_void;
 use std::time::Duration;
@@ -104,11 +104,21 @@ impl TestParent {
         })
     }
     /// Send a native mouse button press at physical child coordinates.
-    pub fn press_button(&self, button: crate::view::MouseButton, x: f64, y: f64) -> Result<()> {
+    pub fn press_button(
+        &self,
+        button: kivact_core::view::MouseButton,
+        x: f64,
+        y: f64,
+    ) -> Result<()> {
         self.0.press_button(button, x, y).map_err(error)
     }
     /// Send a native mouse button release at physical child coordinates.
-    pub fn release_button(&self, button: crate::view::MouseButton, x: f64, y: f64) -> Result<()> {
+    pub fn release_button(
+        &self,
+        button: kivact_core::view::MouseButton,
+        x: f64,
+        y: f64,
+    ) -> Result<()> {
         self.0.release_button(button, x, y).map_err(error)
     }
     /// Count native close requests received by the Windows host.

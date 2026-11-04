@@ -21,12 +21,9 @@ use kivact::view::{
 #[test]
 fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
     let screen = render_with(
-        RenderOptions {
-            width: 240.0,
-            height: 180.0,
-            theme: Theme::light().with(OverlayViewport::new(16.0)),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(240.0, 180.0)
+            .theme(Theme::light().with(OverlayViewport::new(16.0))),
         || {
             let anchor = node_ref();
             let middle = node_ref();

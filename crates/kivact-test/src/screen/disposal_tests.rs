@@ -9,9 +9,9 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::Duration;
 
-use crate::prelude::{column, effect, show, text};
-use crate::task::spawn;
-use crate::test::render;
+use crate::render;
+use kivact_core::prelude::{column, effect, show, text};
+use kivact_core::task::spawn;
 use kivact_runtime::{Owner, on_cleanup, signal};
 
 type Log = Rc<RefCell<Vec<String>>>;
@@ -58,7 +58,7 @@ fn a_cleanup_writes_signals_and_registers_on_its_disposing_owner() {
         column((branch, text(move || format!("closed {}", closed.get()))))
     });
     let (open, closed) = slots.get().expect("setup ran");
-    let residue = |screen: &crate::test::Screen| {
+    let residue = |screen: &crate::Screen| {
         let stats = screen.stats();
         (
             stats.live_reactive,

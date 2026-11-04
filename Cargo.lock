@@ -1813,6 +1813,7 @@ dependencies = [
  "arvane-render",
  "kivact-core",
  "kivact-interaction",
+ "kivact-test",
  "kivact-ui",
 ]
 
@@ -1975,6 +1976,19 @@ name = "kivact-template-basic"
 version = "0.1.0"
 dependencies = [
  "kivact",
+]
+
+[[package]]
+name = "kivact-test"
+version = "0.1.0"
+dependencies = [
+ "arvane-virtual",
+ "kivact-core",
+ "kivact-engine",
+ "kivact-i18n",
+ "kivact-runtime",
+ "kivact-style",
+ "kivact-types",
 ]
 
 [[package]]

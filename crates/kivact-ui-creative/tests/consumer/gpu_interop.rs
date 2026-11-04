@@ -154,15 +154,14 @@ fn gpu_surface() -> Result<Surface, String> {
     if let Some(reason) = gpu_unavailable() {
         return Err(reason);
     }
-    let surface = Surface::mount(RenderOptions {
-        width: W as f64,
-        height: (H + 40) as f64,
-        theme: ui::theme(kivact::style::ThemeMode::Dark),
-        reduced_motion: true,
-        gpu: true,
-        mirror: MirrorMode::Required,
-        ..RenderOptions::from_env()
-    });
+    let surface = Surface::mount(
+        RenderOptions::from_env()
+            .window_size(W as f64, (H + 40) as f64)
+            .theme(ui::theme(kivact::style::ThemeMode::Dark))
+            .reduced_motion()
+            .gpu()
+            .mirror(MirrorMode::Required),
+    );
     if surface.adapter.get_untracked().is_none() {
         return Err("the window's GPU device cannot import shared textures".into());
     }

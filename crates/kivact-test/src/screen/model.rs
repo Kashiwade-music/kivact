@@ -1,9 +1,9 @@
 //! Role: Store screen handles, queries and core timing.
 
-use crate::view::Role;
-use crate::view::input::PointerKind;
+use kivact_core::launch::{Inspect, LaunchHandle};
+use kivact_core::view::PointerKind;
+use kivact_core::view::Role;
 use kivact_engine::testing::ArvaneTestHost;
-use kivact_runtime::Runtime;
 use kivact_style::draw::RegionId;
 use kivact_types::NodeId;
 use std::cell::{Cell, RefCell};
@@ -16,7 +16,8 @@ pub(super) const FIND_TIMEOUT: Duration = Duration::from_secs(5);
 /// A rendered App on a real window of the engine's test driver.
 pub struct Screen {
     pub(super) host: RefCell<ArvaneTestHost>,
-    pub(super) rt: Rc<Runtime>,
+    pub(super) launch: LaunchHandle,
+    pub(super) scripted: Rc<Cell<bool>>,
     pub(super) record: Rc<Record>,
     pub(super) actions: RefCell<Vec<String>>,
     /// The file name failure artifacts are written under.
@@ -94,4 +95,21 @@ pub struct Within<'a> {
 #[derive(Default)]
 pub(super) struct Record {
     pub(super) core_ns: Cell<u64>,
+}
+
+impl Screen {
+    pub fn script(&self) -> crate::Script {
+        crate::Script {
+            platform: self.host.borrow().script(),
+            queued: self.scripted.clone(),
+        }
+    }
+    pub(super) fn inspect(&self) -> Inspect<'_> {
+        self.launch
+            .inspect()
+            .expect("invariant: screen host started the app")
+    }
+    pub(super) fn facts(&self) -> crate::facts::Facts {
+        crate::facts::Facts::new(self.inspect())
+    }
 }

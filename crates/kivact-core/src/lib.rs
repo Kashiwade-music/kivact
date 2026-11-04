@@ -76,8 +76,6 @@ pub mod primitive;
 mod sealed;
 pub mod style;
 pub mod task;
-#[cfg(feature = "test")]
-pub mod test;
 pub mod view;
 
 pub use app::App;

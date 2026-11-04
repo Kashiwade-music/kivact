@@ -4,8 +4,6 @@
 //! `Offscreen`: the same pixels (the windowless behaviour of `Offscreen`
 //! is `tests/offscreen.rs`).
 
-use std::sync::Arc;
-
 use kivact::Asset;
 use kivact::control::canvas;
 use kivact::draw::Transform;
@@ -73,13 +71,10 @@ fn a_drawing_function_gives_the_same_pixels_on_a_canvas_and_in_an_offscreen_imag
     let image = Asset::from(SVG);
     let preview_image = image.clone();
     let screen = render_with(
-        RenderOptions {
-            width: 96.0,
-            height: 64.0,
-            theme: theme(),
-            fonts: TestFonts::Only(vec![Arc::from(TUFFY)]),
-            ..Default::default()
-        },
+        RenderOptions::default()
+            .window_size(96.0, 64.0)
+            .theme(theme())
+            .fonts(TestFonts::Only(vec![kivact::Asset::from(TUFFY)])),
         move || {
             canvas(move |draw, size| artwork(draw, size, &preview_image))
                 .style(style().size(96, 64))

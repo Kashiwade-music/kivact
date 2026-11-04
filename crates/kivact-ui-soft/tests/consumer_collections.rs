@@ -12,10 +12,7 @@ use kivact::view::{Key, Role};
 use kivact_ui_soft as soft;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: soft::theme(ThemeMode::Light),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(soft::theme(ThemeMode::Light))
 }
 
 #[test]

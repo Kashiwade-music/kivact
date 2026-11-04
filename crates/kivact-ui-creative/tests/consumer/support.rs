@@ -4,11 +4,9 @@ use kivact::test::{RenderOptions, Screen};
 use kivact_ui_creative as ui;
 
 pub(crate) fn options() -> RenderOptions {
-    RenderOptions {
-        theme: ui::theme(kivact::style::ThemeMode::Dark),
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .theme(ui::theme(kivact::style::ThemeMode::Dark))
+        .reduced_motion()
 }
 
 pub(crate) fn near(a: impl Into<f64>, b: impl Into<f64>, tolerance: f64) -> bool {

@@ -20,19 +20,13 @@ fn soft_progress_starts_at_its_value_and_animates_updates() {
         *Theme::light().get::<ProgressMotion>(),
         ProgressMotion::default()
     );
-    let (screen, value) = render_with_handle(
-        RenderOptions {
-            theme,
-            ..RenderOptions::from_env()
-        },
-        || {
-            let value = signal(Some(0.5));
-            (
-                value,
-                progress(value).name("Upload").style(style().width(100)),
-            )
-        },
-    );
+    let (screen, value) = render_with_handle(RenderOptions::from_env().theme(theme), || {
+        let value = signal(Some(0.5));
+        (
+            value,
+            progress(value).name("Upload").style(style().width(100)),
+        )
+    });
     let fill_at = |x| {
         screen
             .get_by_role(Role::ProgressBar, "Upload")
@@ -52,11 +46,9 @@ fn soft_progress_starts_at_its_value_and_animates_updates() {
 #[test]
 fn reduced_motion_progress_pulses_in_place() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            reduced_motion: true,
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .reduced_motion(),
         || {
             progress(None::<f64>)
                 .name("Preparing")

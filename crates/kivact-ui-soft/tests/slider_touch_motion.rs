@@ -10,10 +10,12 @@ use kivact::view::{MouseButton, PointerKind, Role};
 use std::time::Duration;
 
 fn options(reduced_motion: bool) -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        reduced_motion,
-        ..RenderOptions::from_env()
+    if reduced_motion {
+        RenderOptions::from_env()
+            .theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .reduced_motion()
+    } else {
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
     }
 }
 

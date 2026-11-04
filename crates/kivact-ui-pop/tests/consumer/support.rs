@@ -4,9 +4,7 @@ use kivact::test::RenderOptions;
 use kivact_ui_pop as ui;
 
 pub(crate) fn options() -> RenderOptions {
-    RenderOptions {
-        theme: ui::theme(kivact::style::ThemeMode::Light),
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .theme(ui::theme(kivact::style::ThemeMode::Light))
+        .reduced_motion()
 }

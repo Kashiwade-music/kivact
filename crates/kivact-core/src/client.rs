@@ -53,6 +53,3 @@ mod notice;
 pub(crate) mod state;
 #[cfg(debug_assertions)]
 pub(crate) mod trace;
-
-#[cfg(feature = "test")]
-pub(crate) use state::HostState;

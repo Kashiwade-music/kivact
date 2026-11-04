@@ -11,23 +11,19 @@ use kivact_types::NodeId;
 
 use super::model::Screen;
 use super::results::SemanticNode;
-use crate::client::HostState;
-use crate::diagnostics::Stats;
-use crate::view::state::ViewState;
-use kivact_runtime::MotionState;
-use kivact_runtime::TaskState;
+use kivact_core::diagnostics::Stats;
 use kivact_runtime::TurnRecord;
 use kivact_runtime::UiError;
 
 impl Screen {
     /// Errors that reached the App's default sink (no `on_error` handled them).
     pub fn errors(&self) -> Vec<UiError> {
-        self.rt.errors()
+        self.inspect().errors()
     }
 
     /// Recent turn records (events, ops, notes).
     pub fn trace(&self) -> Vec<TurnRecord> {
-        self.rt.turns()
+        self.inspect().turns()
     }
 
     /// The App's counters ([`Stats`] says how to read them): `batches` and
@@ -36,46 +32,21 @@ impl Screen {
     /// Notes recorded during setup go to a record of their own (`Turn::Setup`), so
     /// they add no turn.
     pub fn stats(&self) -> Stats {
-        let rec = &self.record;
-        let ts = ViewState::tree(&self.rt).engine().stats();
-        let host = HostState::of(&self.rt);
-        let live = self.rt.live_counts();
-        let motion = MotionState::of(&self.rt).stats();
-        Stats {
-            live_reactive: live.reactive,
-            live_owners: live.owners,
-            live_objects: live.objects,
-            live_constants: live.constants,
-            arena_slots: live.slots,
-            tree_nodes: ViewState::tree(&self.rt).len(),
-            timers: TaskState::of(&self.rt).stats().timers,
-            frame_loops: motion.loops,
-            animations: motion.animations,
-            batches: ts.batches,
-            a11y_constructed: ts.a11y_constructed,
-            a11y_published: ts.a11y_published,
-            ops: ts.ops,
-            last_batch_ops: ts.last_ops,
-            creates: ts.creates,
-            set_props: ts.set_props,
-            structural: ts.structural,
-            host_touched_last: ts.touched_last,
-            turns: host.turns(),
-            stale_events: host.stale_events(),
-            core_ns: rec.core_ns.get(),
-        }
+        let mut stats = self.inspect().stats();
+        stats.core_ns = self.record.core_ns.get();
+        stats
     }
 
     /// Semantic tree of the whole screen.
     pub fn snapshot(&self) -> SemanticNode {
-        let root = ViewState::tree(&self.rt).root;
+        let root = self.facts().root;
         self.semantic(root, None)
     }
 
     /// The semantic node of `id`; `parent_at` is the location of its nearest
     /// located ancestor.
     fn semantic(&self, id: NodeId, parent_at: Option<&'static Location<'static>>) -> SemanticNode {
-        let tree = ViewState::tree(&self.rt);
+        let tree = self.facts();
         let focused = self.host.borrow().focused()
             == Some(kivact_types::FocusTarget {
                 node: id,
