@@ -117,7 +117,7 @@ impl<T: Animatable> AnimCell<T> {
             return;
         }
         let timing = if matches!(phase, AnimPhase::Running { .. } | AnimPhase::Paused { .. }) {
-            self.timing.borrow().retargeted(
+            self.transition.retargeted(
                 &self.from.borrow(),
                 &self.to.borrow(),
                 &self.current.borrow(),

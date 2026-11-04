@@ -92,7 +92,6 @@ impl Model {
             let Some(timing) = target.transition.clone() else {
                 return false;
             };
-            let previous_timing = a.transition.clone();
             a.transition = timing;
             let colors_text = a.colors.contains(ColorChannels::TEXT)
                 || self
@@ -111,7 +110,7 @@ impl Model {
             if to == a.current || (reduced && a.transition.decorative) {
                 return false;
             }
-            a.transition = std::sync::Arc::new(previous_timing.retargeted(
+            a.transition = std::sync::Arc::new(a.transition.retargeted(
                 previous_from,
                 previous_to,
                 &a.current,
