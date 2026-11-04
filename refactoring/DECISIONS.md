@@ -117,3 +117,5 @@
 | 2026-11-05 | N-F2〜N-F6 | Part の参照と InlineEdit の focus 復帰 | 明示的 node_ref を実 node に束縛し Part getter は残さない。共有 TextEditApi の return_focus は既存の commit/cancel 復帰を保つ。 |
 | 2026-11-05 | N-F3 | tree_rows の builder 名が未定義 | 複数 root の TreeRows<K>: IntoView を公開し reveal(gap, transition) を持たせる。 |
 | 2026-11-05 | N-F2 | 正準 Selection を合成で渡す | sealed IntoSelection の四つの Signal/Binding 入力に Selection 自身の恒等変換を加え、cardinality の分岐と別経路を増やさない。 |
+| 2026-11-05 | N-F1 | custom text/semantics に公開 Rc が残る | TextEditing::new は IntoText、accessible_* bool は Option<Value<bool>> に統一。Rc は private 境界だけで使う。 |
+| 2026-11-05 | N-F4 | Menu::behavior 削除後の menubar | basic menubar は既存 headless parts と basic recipes で描画し、menu の状態/key 処理を複製しない。getter や別の注入 API は足さない。 |

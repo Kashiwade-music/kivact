@@ -1418,6 +1418,7 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
   4. `kivact-test`: `Screen::evidence(name)`（`KIVACT_CATALOG_EVIDENCE` のとき screenshot・支援技術の木・debug の木を保存）、`Screen::assert_layout_clean()`、`Element::read_only` の削除、`invalid` → `is_invalid`、`password` → `is_password`、そのほか付録 B.10 の `kivact::test` の行。
   5. core の内部の試験の helper（`kivact-test` の中）を新しい API に直す。
   6. `#[derive(Clone)] pub enum ActionOutcome<T> { Succeeded(T), Failed(UiError) }`。`Action::on_complete` は既存の完了通知をこの値で渡し、キャンセル時には従来どおり通知しない。
+  7. `Node::accessible_disabled`・`accessible_invalid`・`accessible_expanded` は `Option<Value<bool>>`。`TextEditing::new` は `impl IntoText` を受け、Rc への変換は private な使用境界だけで行う。
 - **unit の確認**: `cargo fmt` だけ（build 不可でよい）。
 - **規模**: L。
 - **並列**: N-F2〜N-F6 と同時（crate が別）。

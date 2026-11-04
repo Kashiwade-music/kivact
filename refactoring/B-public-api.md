@@ -154,6 +154,8 @@ data の record と `*Api` の、同じ名詞の setter と読み出し（例: `
 
 Part の参照が必要な呼出し側は `node_ref()` を作り、実 node に `Node::node_ref(target)` を付ける（Part closure または builder の `with_node`）。`Part::node_ref` は残さない。behavior 内部の参照も同じ実 node に束縛できる。
 
+`TextEditing::new(value: impl IntoText)`。node の宣言値を読む `accessible_name` は `Option<Value<String>>`、`accessible_disabled`・`accessible_invalid`・`accessible_expanded` は `Option<Value<bool>>`。公開の Rc closure/value は使わない。
+
 ### `kivact::test`（feature `test`、`kivact-test` crate）
 
 `render`、`render_with`、`render_with_handle`（残す。`-> (Screen, H)`）、`RenderOptions`、`Screen`、`Element`、`SemanticNode`、`Within`、`Contact`、`ImeText`、`Screenshot`、`LayoutCheck`、`LayoutRule`、`LayoutViolation`、`TestFonts`（`Only(Vec<Asset>)`）、`MirrorMode`（旧 `WindowMode`。`Off`/`Auto`/`Required`）、`Script`(新)、`gpu_unavailable`、`native_unavailable`(新)、`failure_dir`、`TestParent`（feature `embed`）
