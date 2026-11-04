@@ -1460,7 +1460,7 @@ CI は既定で無効にしてある（作者の方針）。この再設計は `
 
 - engine の `NodeKind` に `Fragment` を足す。fragment は自分の箱を持たず、layout・paint・支援技術・当たり判定・focus の移動では、その子が「fragment でない一番近い祖先」の子として順に並ぶ（透明な node）。透明の扱いは `NodeTree::flat_children(id) -> impl Iterator<Item = NodeId>`（topology が変わったときに無効になる親ごとの cache）一つに置き、`layout/adapter.rs` の `impl LayoutTree`、paint の walker、a11y の build、hit test、focus の navigation はこれだけを使う。
 - core の flow（`show`、`dynamic`、`for_each`、`virtual_list`、`error_boundary`、`provide*`）は、自分の位置に engine の fragment を一つ作り、その中へ子を入れる。core の側の fragment は消える。
-- core は構造を持たない。`Tree` を `CoreNodes(IdMap<NodeId, CoreNode>)` にし、`CoreNode` は core だけが持つ値（owner、`at`、handler、退場の callback、observation、`why` の origin）だけを持つ。parent・children・順序の問い合わせ（event の bubbling の `find_up`、挿入の位置）は `Reader::parent(id)`、`Reader::children(id)` で engine に聞く。
+- core は構造を持たない。`CoreNodes(IdMap<CoreNode>)` は core だけが持つ値（owner、`at`、handler、退場の callback、observation、`why` の origin、参照・presence の lifecycle source）を持つ。`ViewNodes` がこの side table と writer/root/id allocator/通知/文字編集 counter/退場 callback を所有する。parent・children・順序の問い合わせ（event の bubbling の `find_up`、挿入の位置）は `Reader::parent(id)`、`Reader::children(id)` で engine に聞く。`Writer::insert` が再配置も一元的に扱い、detach 前の継承値と旧・新親の layout/a11y を更新する。
 - 二つの木の一致の検査（`Inspect::check_trees`）は不要になり、消す。SM-C07 の削除の flag も、engine の削除の通知（`Writer::remove_with_exit` が返す id の列）で置き換わる。
 - `Style::display(Display::Contents)`（SOFT_UI_WORK_ORDER の C-38）は、box を layout・paint・当たり判定で fragment と同じに扱う（支援技術では自分の semantics を出さず、子を親へ上げる）。同じ `flat_children` を使う。
 - **unit:** E-8（engine）、C-5（core）。

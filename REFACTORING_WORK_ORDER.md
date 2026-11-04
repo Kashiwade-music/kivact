@@ -1301,8 +1301,10 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
   pub(crate) struct CoreNodes(IdMap<CoreNode>);
   pub(crate) struct CoreNode { owner: Owner, at: Option<&'static Location<'static>>, handlers: Option<Box<Handlers>>,
                                exit_layout: ExitLayout, exit_complete: Option<Handler<()>>,
-                               observation: Option<NodeObservation>, origins: Vec<(Prop, EffectId)> }
+                               observation: Option<NodeObservation>, origins: Vec<(Prop, EffectId)>,
+                               references: Vec<Signal<RefState>>, presence: Option<Signal<Presence>> }
   ```
+  C-3/E-9 の参照・presence の lifecycle source は metadata に保持する。所有 service は `ViewNodes { nodes: CoreNodes, next_id, root, engine, future_text_edits, leaving, visibility_revision, live_region_revision }`。engine の既存 `Writer::insert` は再配置にも対応し、detach 前の継承値を比較して旧・新親の layout と a11y を無効化する。
   `parent`・`children`・`kind: Option<NodeType>` を持たない。`Removed` の署名は C-3a のまま（`ids` は `Writer::remove_with_exit` の戻り値）。
 - **手順**:
   1. flow（`show`、`dynamic`、`for_each`、`for_index`、`virtual_list` の行、`error_boundary`、`provide*`）が自分の位置に透明な箱を一つ作り、その中へ子を入れる（`Writer::insert(fragment, child, before)`）。

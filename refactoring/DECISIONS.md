@@ -106,3 +106,4 @@
 | 2026-11-05 | C-4 | hover と activation envelope | node hover は子孫を含む既存挙動、region は厳密一致。Fallback は button/target を保持。Writer が各入力直前に準備し Activate は Routed pointer を保持、既存 admit bookkeeping を保つ。 |
 | 2026-11-05 | KL-soft | private 名と外部 editor port | AppShellMobileState/MobileNavState で公開型と衝突回避。PowerSearch 編集は original baseline を保持。rich-text toolbar の既存共有 target/composition port は Machine effect から投影し両 mode の連携を保つ。Timer/Timestamp は完成済 machine と lazy memo に構築設定を渡し既存 Text root modifier を保つ。 |
 | 2026-11-05 | W3 resource | disk が 40 GB 未満、unit target 使用中 | CP2 終了済みの非稼働 target-gate だけ cargo clean。target-wt の実行を妨げず空き 42.9 GB を確保。 |
+| 2026-11-05 | C-5 | side table の lifecycle 所有と再配置 | CoreNodes は metadata のみ、ViewNodes が writer/root/counter/通知を所有。参照・presence source を保ち、Writer::insert は detach 前の継承値と旧新親の layout/a11y を更新して再配置を一元化する。 |

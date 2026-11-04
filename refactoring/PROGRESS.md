@@ -9,6 +9,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP0 | b6e7ff2 | 0 | 0 | 0 | 0 | 1362 passed / 52 ignored | 1349 passed / 51 ignored | 634.8s / 405.6s | 通過 |
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
 | CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
+| CP3 | b0aad13 | 0 | 0 | — | — | 実行中 | — | Clippy 8.69s | 軽い gate 通過、背景 E2E を開始 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -69,7 +70,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | C-3a | merged | a9fa75e | 担当 check 0、kit2 caller は fix-G5-1 |
 | C-3b | merged | a7512f8 | check 0、focus/lifecycle/interop 単一所有 |
 | C-4 | merged | 589adb5 | check 0、parts/canvas/hover/pointer E2E15 passed |
-| C-5 | doing | | side table と透明な箱 |
+| C-5 | merged | 4785daa | check/state-fields 0、関連 E2E22 passed |
 | KL-basic | merged | 8056fb4 | check 0、E2E32/doctest40 passed |
 | KL-game | merged | 6332eb4 | check/state-fields 0、E2E12/doctest3 passed |
 | KL-creative | todo | | unit の明示依存 I-3 後へ（W5） |
@@ -79,6 +80,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G5-1 | merged | a0063b2 | kit HandlerResult caller 移行、check 0 |
 | fix-G6-4 | merged | 279b508 | 残る catalog/lookbook caller 移行、check 0 |
 | fix-G3-5 | merged | 71e7223 | i18n 条件式の Clippy 修正、check 0 |
+| fix-G6-5 | merged | b0aad13 | RenderOptions の Clippy 修正、check 0 |
 | N-D1 | todo | | |
 | N-D2 | todo | | |
 | N-F1 | todo | | |
