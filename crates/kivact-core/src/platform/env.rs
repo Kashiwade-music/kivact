@@ -11,11 +11,11 @@ use std::rc::Rc;
 use crate::view::state::{EnvState, ViewState};
 use kivact_runtime::Value;
 use kivact_style::draw::Size;
-use kivact_types::Environment;
 #[doc(inline)]
 pub use kivact_types::{
-    Capabilities, CommandKey, ContextMenuTrigger, Insets, PointerClass, PointerSettings, ThemeHint,
+    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
 };
+use kivact_types::{Environment, Insets};
 
 /// The App's environment as seen from the nearest owner at the call (`api`
 /// names the caller in misuse diagnostics).

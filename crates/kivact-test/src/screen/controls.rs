@@ -62,7 +62,7 @@ impl Screen {
     /// The window's safe area changes, as a phone's system UI (status bar,
     /// notch) does when it rotates (`EnvChanged`; read by
     /// `platform::safe_area`).
-    pub fn set_safe_area(&self, insets: kivact_core::platform::Insets) {
+    pub fn set_safe_area(&self, insets: kivact_core::geometry::Insets) {
         self.log(format!("safe area {insets:?}"));
         self.host.borrow_mut().set_safe_area(Insets {
             top: insets.top,

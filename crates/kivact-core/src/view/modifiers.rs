@@ -102,31 +102,6 @@ impl Common {
         self.handlers.activate = Some(kivact_runtime::Handler::from_fn(move |_region| f()));
     }
 
-    /// `on_a11y`: offer an action. `Activate` is reported and ignored (it
-    /// is `on_press`'s).
-    #[track_caller]
-    pub(crate) fn offer_a11y<F, R>(&mut self, action: A11yAction, f: F)
-    where
-        F: Fn() -> R + 'static,
-        R: HandlerResult,
-    {
-        if action == A11yAction::Activate {
-            let at = std::panic::Location::caller();
-            let owner = kivact_runtime::Owner::ambient("on_a11y", at);
-            let rt = owner.runtime();
-            rt.report(
-                Some(owner),
-                kivact_runtime::UiError::new(
-                    kivact_runtime::ErrorKind::Unsupported,
-                    "on_a11y(Activate, ..) is ignored; use on_press(..)",
-                    Some(at),
-                ),
-            );
-        } else {
-            self.offer_a11y_event(action, move |_| f());
-        }
-    }
-
     /// `on_a11y_event`: offer an action with the region and value of the
     /// request. A node has one handler per action; `Activate` shares the
     /// activation slot.
