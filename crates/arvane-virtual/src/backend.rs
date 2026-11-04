@@ -324,11 +324,11 @@ fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
         }
         Item::Action(node, request) => shell.accessibility().request_action(node, request),
     };
-    if matches!(event, Some(ShellEvent::Resized)) {
-        if let Some(real) = &shell.real {
-            let (w, h) = shell.physical_size();
-            real.resize(w, h, shell.scale());
-        }
+    if matches!(event, Some(ShellEvent::Resized))
+        && let Some(real) = &shell.real
+    {
+        let (w, h) = shell.physical_size();
+        real.resize(w, h, shell.scale());
     }
     event
 }
