@@ -52,8 +52,8 @@ use crate::key_code::{map_key, physical_code};
 use crate::native_input::state::NativeInput;
 use crate::services::Services;
 use arvane_shell::ShellImeText;
+use arvane_shell::{Backend, ShellEvent, ShellHandler, ShellWindow};
 use arvane_shell::{ShellControl, ShellError, ShellOptions, ShellWaker};
-use arvane_shell::{ShellEvent, ShellEventLoop, ShellHandler, ShellWindow};
 use kivact_types::{
     Cursor as ShellCursor, Modifiers as ShellModifiers, MouseButton as ShellButton,
 };
@@ -446,14 +446,18 @@ fn cpu_surface(window: &Arc<Window>) -> Result<WinitSurface, ShellError> {
 const SUSPENSION_DESTROYS_SURFACES: bool = cfg!(target_os = "android");
 /// Whether the platform has a software keyboard winit can show.
 pub(crate) const SOFT_KEYBOARD: bool = cfg!(any(target_os = "android", target_os = "ios"));
+/// Create the native window backend.
+pub fn backend(options: ShellOptions) -> Result<Box<dyn Backend>, ShellError> {
+    NativeBackend::new(options).map(|value| Box::new(value) as Box<dyn Backend>)
+}
 /// Main-thread window loop. Construct and run on the application's main thread.
-pub struct Shell {
+struct NativeBackend {
     event_loop: EventLoop<()>,
     options: ShellOptions,
 }
-impl Shell {
+impl NativeBackend {
     /// Create the native event loop, rejecting invalid geometry and OS failures.
-    pub fn new(options: ShellOptions) -> Result<Self, ShellError> {
+    fn new(options: ShellOptions) -> Result<Self, ShellError> {
         if !options.width.is_finite()
             || !options.height.is_finite()
             || options.width <= 0.0
@@ -1075,7 +1079,7 @@ impl WinitWindow {
     }
 }
 
-impl ShellEventLoop for Shell {
+impl Backend for NativeBackend {
     fn run(self: Box<Self>, handler: &mut dyn ShellHandler) -> Result<(), ShellError> {
         let proxy = self.event_loop.create_proxy();
         let waker = ShellWaker::new(move || {

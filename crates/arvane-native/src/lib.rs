@@ -51,7 +51,7 @@
 //!
 //! A panic in a callback propagates out of the loop: winit carries it across
 //! its window procedure (Win32, macOS) and resumes it after the loop
-//! ([`arvane_shell::ShellEventLoop::run`]).
+//! ([`arvane_shell::Backend::run`]).
 #![deny(unsafe_code)]
 
 #[cfg(feature = "embed")]
@@ -73,4 +73,4 @@ mod wait;
 mod wheel;
 
 pub use module::retain_module;
-pub use runtime::{Shell, WinitWindow};
+pub use runtime::{WinitWindow, backend};

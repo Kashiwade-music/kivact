@@ -2,7 +2,7 @@
 //!
 //! Invariants: snapshots describe applied values, never queued requests. Host
 //! sizes advance a generation so stale accepted negotiations cannot override
-//! corrections. Backend wake only schedules work and never invokes App code.
+//! corrections. ChildPort wake only schedules work and never invokes App code.
 //! Stopping cancels new App work immediately. A panic of the App is kept in
 //! the child's `PanicSlot` and stops the child like a failure; the host's next
 //! call resumes it. A panic is sticky: resuming its payload does not restart
@@ -297,7 +297,7 @@ impl Inner {
 ///   Off the UI thread, wait for cleanup at most `SHUTDOWN_WAIT`, then detach
 ///   the thread and retain the module. On the UI thread (inside a callback),
 ///   return at once, let the outer loop finish cleanup and retain the module.
-pub(super) trait Backend: Send + Sync + 'static {
+pub(super) trait ChildPort: Send + Sync + 'static {
     const MAX_DIMENSION: u32;
     fn wake(&self);
     fn close(&self, shared: &Shared);
@@ -305,11 +305,11 @@ pub(super) trait Backend: Send + Sync + 'static {
     /// whose App runs on its own thread; the Win32 backend has none).
     fn collect_panic(&self, shared: &Shared);
 }
-pub(super) struct Handle<B: Backend> {
+pub(super) struct Handle<B: ChildPort> {
     pub(super) shared: Arc<Shared>,
     pub(super) backend: B,
 }
-impl<B: Backend> ShellChild for Handle<B> {
+impl<B: ChildPort> ShellChild for Handle<B> {
     fn set_size(&self, width: u32, height: u32) {
         self.backend.collect_panic(&self.shared);
         if self.shared.stopped() {
@@ -347,7 +347,7 @@ impl<B: Backend> ShellChild for Handle<B> {
         self.shared.failure()
     }
 }
-impl<B: Backend> Drop for Handle<B> {
+impl<B: ChildPort> Drop for Handle<B> {
     fn drop(&mut self) {
         self.shared.request_close();
         self.backend.close(&self.shared);

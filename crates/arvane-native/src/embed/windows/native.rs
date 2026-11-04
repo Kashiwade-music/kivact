@@ -1,5 +1,5 @@
-//! Role: Keep Win32 identity, message ids and the host-facing Backend below dispatch.
-use crate::embed::child::{Backend, Shared};
+//! Role: Keep Win32 identity, message ids and the host-facing ChildPort below dispatch.
+use crate::embed::child::{ChildPort, Shared};
 use std::num::NonZeroIsize;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -23,7 +23,7 @@ impl Native {
 }
 /// Largest physical dimension a Win32 child window accepts (`i32` extents).
 pub(super) const MAX_DIMENSION: u32 = i32::MAX as u32;
-impl Backend for Arc<Native> {
+impl ChildPort for Arc<Native> {
     const MAX_DIMENSION: u32 = MAX_DIMENSION;
     fn wake(&self) {
         // SAFETY: posting the opaque child HWND never accesses UI-only state.

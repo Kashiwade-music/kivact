@@ -25,12 +25,14 @@ pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError>
     // `renderer=` notes); the first is the renderer the window starts
     // with.
     let log = frame_log.clone();
-    let shell = Shell::new(ShellOptions {
-        width: window_size.width,
-        height: window_size.height,
-        title: "Kivact".into(),
-    })
-    .map_err(|e| HostError::new(e.to_string()))?;
+    let shell = Shell::new(
+        arvane_native::backend(ShellOptions {
+            width: window_size.width,
+            height: window_size.height,
+            title: "Kivact".into(),
+        })
+        .map_err(|e| HostError::new(e.to_string()))?,
+    );
     #[cfg(feature = "gpu-interop")]
     let shell = shell.gpu_preference(options.gpu_preference);
     let shell = shell.on_renderer_change(move |change| {

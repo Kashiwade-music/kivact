@@ -37,9 +37,9 @@ use crate::presentation::{Notes, Observer};
 use crate::presenter::Presenter;
 use crate::{
     AccessibilityError, Failure, FileDialog, FramePlan, Presented, RendererChange, ShellControl,
-    ShellError, ShellEvent, ShellImeText, ShellOptions, ShellWaker,
+    ShellError, ShellEvent, ShellImeText, ShellWaker,
 };
-use arvane_shell::{ShellEventLoop, ShellHandler, ShellWindow};
+use arvane_shell::{Backend, ShellHandler, ShellWindow};
 use kivact_types::Environment;
 use kivact_types::GpuPreference;
 use kivact_types::render::{RenderScene, SemanticsTree, SemanticsUpdate};
@@ -335,22 +335,21 @@ pub trait Handler {
 /// thread; the first frames are drawn on the CPU), else on the CPU.
 /// Construct and run on the application's main thread.
 pub struct Shell {
-    shell: Box<dyn ShellEventLoop>,
+    shell: Box<dyn Backend>,
     prefer_gpu: bool,
     gpu_preference: GpuPreference,
     observer: Option<crate::presentation::Observer>,
 }
 
 impl Shell {
-    /// Create the native event loop, rejecting invalid geometry and OS
-    /// failures.
-    pub fn new(options: ShellOptions) -> Result<Self, ShellError> {
-        Ok(Self {
-            shell: Box::new(arvane_native::Shell::new(options)?),
+    /// Use the supplied window backend.
+    pub fn new(backend: Box<dyn Backend>) -> Self {
+        Self {
+            shell: backend,
             prefer_gpu: true,
             gpu_preference: GpuPreference::default(),
             observer: None,
-        })
+        }
     }
 
     /// Draw on the GPU when it is available (the default), falling back to
@@ -383,13 +382,7 @@ impl Shell {
 
     /// Run until requested exit. A callback panic propagates out of `run`.
     pub fn run(self, handler: impl Handler) -> Result<(), ShellError> {
-        let mut driver = driver(
-            handler,
-            self.prefer_gpu,
-            self.gpu_preference,
-            self.observer,
-            false,
-        );
+        let mut driver = driver(handler, self.prefer_gpu, self.gpu_preference, self.observer);
         self.shell.run(&mut driver)
     }
 }
@@ -400,7 +393,6 @@ pub(crate) fn driver<H: Handler>(
     prefer_gpu: bool,
     gpu_preference: GpuPreference,
     observer: Option<Observer>,
-    embedded: bool,
 ) -> Driver<H> {
     let env = crate::env::Env::read(gpu_preference);
     let gpu = crate::env::starts_gpu(env.renderer, prefer_gpu);
@@ -410,7 +402,6 @@ pub(crate) fn driver<H: Handler>(
         handler,
         presenter,
         gpu,
-        _retention: crate::shutdown::RetainOnDrop(embedded),
     }
 }
 
@@ -420,8 +411,6 @@ pub(crate) struct Driver<H> {
     presenter: Presenter,
     /// The window starts the GPU renderer.
     gpu: bool,
-    /// Dropped last (fields drop in declaration order): it retains the module only after the handler, its asset stores and the presenter dropped (`shutdown.rs`).
-    _retention: crate::shutdown::RetainOnDrop,
 }
 
 impl<H: Handler> ShellHandler for Driver<H> {

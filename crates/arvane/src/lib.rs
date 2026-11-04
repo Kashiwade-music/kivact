@@ -49,7 +49,7 @@ mod error;
 mod presentation;
 mod presenter;
 mod rasterizer;
-mod shutdown;
+pub mod spi;
 /// Windows for tests (feature `testing`).
 #[cfg(feature = "testing")]
 pub mod test_display;
@@ -70,5 +70,3 @@ pub use presenter::{FramePlan, Presented};
 pub use rasterizer::Rasterizer;
 
 pub use window::{Handler, NativeWindow, Shell, Window};
-
-pub use arvane_native::retain_module;

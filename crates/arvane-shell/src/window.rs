@@ -191,7 +191,7 @@ pub trait ShellHandler {
 }
 
 /// A UI-thread event loop consumed by one synchronous run.
-pub trait ShellEventLoop {
+pub trait Backend {
     /// Borrow the handler until exit, reporting backend or callback failures.
     /// A callback panic propagates out of `run`; a backend whose callbacks
     /// run under foreign frames carries it across them and resumes it after

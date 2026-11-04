@@ -3,8 +3,7 @@
 use crate::presentation::Observer;
 use crate::{Handler, RendererChange, ShellError};
 pub use arvane_shell::PanicSlot;
-use arvane_shell::ShellChild;
-use kivact_types::ParentWindow;
+use arvane_shell::{MakeHandler, ShellChild};
 
 pub use arvane_shell::ChildHooks;
 pub use kivact_types::EmbedOptions;
@@ -30,37 +29,32 @@ impl<H: Handler> Embedder<H> {
     }
 }
 
-/// Open a child of the host window `parent`, building its handler once on the
-/// UI thread.
-pub fn open<H, F>(
-    parent: ParentWindow,
-    options: EmbedOptions,
-    hooks: ChildHooks,
-    make: F,
-) -> Result<Embedded, ShellError>
-where
-    H: Handler + 'static,
-    F: FnOnce() -> Embedder<H> + Send + 'static,
-{
+/// Build the rendering driver on the embedded window UI thread.
+pub fn driver<H: Handler + 'static>(
+    options: &EmbedOptions,
+    make: impl FnOnce() -> Embedder<H> + Send + 'static,
+) -> MakeHandler {
     let prefer_gpu = options.prefer_gpu;
     let gpu_preference = options.gpu_preference;
-    let make = Box::new(move || {
+    Box::new(move || {
         let embedder = make();
         Box::new(crate::window::driver(
             embedder.handler,
             prefer_gpu,
             gpu_preference,
             embedder.observer,
-            true,
         )) as Box<dyn arvane_shell::ShellHandler>
-    });
-    arvane_native::embed::open(parent, options, hooks, make).map(Embedded)
+    })
 }
 
 /// A running child window. `Send` and `Sync`.
 /// Drop closes it according to backend thread rules.
 pub struct Embedded(Box<dyn ShellChild>);
 impl Embedded {
+    /// Own a running child window.
+    pub fn new(child: Box<dyn ShellChild>) -> Self {
+        Self(child)
+    }
     /// Resize in physical pixels.
     pub fn set_size(&self, width: u32, height: u32) {
         self.0.set_size(width, height);

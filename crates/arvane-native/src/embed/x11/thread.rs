@@ -6,7 +6,7 @@ use super::keyboard::Keyboard;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use super::poll::Waiter;
 use super::window::Window;
-use crate::embed::child::{Backend as ChildBackend, Command, Handle, Shared};
+use crate::embed::child::{ChildPort, Command, Handle, Shared};
 use crate::embed::session::Session;
 use arvane_shell::{
     ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker,
@@ -17,7 +17,7 @@ use std::sync::{Arc, mpsc};
 use std::thread::JoinHandle;
 use x11rb::connection::Connection;
 
-impl ChildBackend for Arc<Notifier> {
+impl ChildPort for Arc<Notifier> {
     const MAX_DIMENSION: u32 = MAX_DIMENSION;
     fn wake(&self) {
         super::poll::signal(&self.wake);
