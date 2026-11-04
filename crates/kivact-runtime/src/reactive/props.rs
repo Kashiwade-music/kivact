@@ -533,6 +533,9 @@ constant_value!(
     kivact_types::LiveRegion,
     kivact_types::SortDirection,
     kivact_types::Orientation,
+    kivact_types::ScrollAxes,
+    kivact_types::Placement,
+    kivact_types::OverlayAlign,
     kivact_types::Rect,
     kivact_types::SemanticsText,
     std::ops::Range<usize>

@@ -2,8 +2,9 @@
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{ErrorKind, UiError};
+use kivact_runtime::{EffectKind, ErrorKind, Prop as InputProp, UiError};
 use kivact_types::{Dimension, Edges, LayoutProps, Position, ScrollAxes};
+use std::rc::Rc;
 
 use super::node::node;
 use crate::state::IntoValue;
@@ -80,7 +81,7 @@ pub fn scroll(child: impl IntoView) -> Scroll {
     Scroll {
         root: node().role(Role::ScrollView),
         child: child.into_view(),
-        axes: ScrollAxes::Vertical,
+        axes: InputProp::constant(ScrollAxes::Vertical),
     }
 }
 
@@ -88,16 +89,16 @@ pub fn scroll(child: impl IntoView) -> Scroll {
 pub struct Scroll {
     root: Node,
     child: View,
-    axes: ScrollAxes,
+    axes: InputProp<ScrollAxes>,
 }
 
 impl Scroll {
     /// The axes the content scrolls along (default [`ScrollAxes::Vertical`]):
     /// `Horizontal` lays the content out in a row and scrolls sideways, `Both`
     /// scrolls both ways (a table or a code block wider and taller than the
-    /// container). A constant: fixed when the container is built.
-    pub fn axes(mut self, axes: ScrollAxes) -> Self {
-        self.axes = axes;
+    /// container). A reactive input updates layout and accessibility in place.
+    pub fn axes(mut self, axes: impl IntoValue<ScrollAxes>) -> Self {
+        self.axes = axes.into_prop();
         self
     }
 }
@@ -109,55 +110,63 @@ impl NodeBuilder for Scroll {
 }
 
 impl IntoView for Scroll {
-    fn into_view(mut self) -> View {
-        let direction = match self.axes {
-            ScrollAxes::Horizontal => Direction::Row,
-            ScrollAxes::Vertical | ScrollAxes::Both => Direction::Column,
-        };
-        let base =
-            kivact_style::internal::with_scroll_axes(style().direction(direction), self.axes);
-        // The base style is the first layer, so the caller's `.style(..)`
-        // wins whatever the order of the calls.
-        self.root.common.prepend_style(base.into_prop());
-        let derived = match self.axes {
-            ScrollAxes::Vertical => Some(Orientation::Vertical),
-            ScrollAxes::Horizontal => Some(Orientation::Horizontal),
-            ScrollAxes::Both => None,
-        };
-        // The caller's `.orientation(..)` (Node) is taken out and replaced
-        // by the axes' value.
-        let caller = self
-            .root
-            .common
-            .semantics
-            .as_mut()
-            .and_then(|sources| sources.orientation.take());
-        if let Some(orientation) = derived {
-            self.root.common.semantics_mut().orientation = Some(orientation.into_prop());
-        }
-        let at = self
-            .root
-            .at
-            .expect("invariant: `scroll` is #[track_caller] and locates its root");
-        let view = self.root.child(self.child).into_view();
-        let Some(caller) = caller else {
-            return view;
-        };
+    fn into_view(self) -> View {
         view_fn(move |cx| {
-            // A value that agrees with the axes (a list part names its own
-            // orientation) is redundant; one that disagrees is reported.
-            if Some(kivact_runtime::untrack(|| caller.get())) != derived {
-                cx.rt.report(
-                    Some(cx.owner),
-                    UiError::new(
-                        ErrorKind::Unsupported,
-                        "`.orientation(..)` on a scroll container disagrees with `.axes(..)`: its accessibility orientation follows the axes                          (Vertical: vertical, Horizontal: horizontal, Both: none); ignored",
-                        Some(at),
-                    ),
-                );
+            // Resolve deferred parts under the mounted owner before deriving the
+            // final scroll semantics, so parts receive the same conflict checks.
+            let mut root = self.root.resolve_modifiers();
+            let axes = self.axes;
+            let style_axes = axes.clone();
+            let base = InputProp::computed(Rc::new(move || {
+                let axes = style_axes.get();
+                let direction = match axes {
+                    ScrollAxes::Horizontal => Direction::Row,
+                    ScrollAxes::Vertical | ScrollAxes::Both => Direction::Column,
+                };
+                kivact_style::internal::with_scroll_axes(style().direction(direction), axes)
+            }));
+            // The first layer derives scrolling while caller style layers retain precedence.
+            root.common.prepend_style(base);
+            let caller = root
+                .common
+                .semantics
+                .as_mut()
+                .and_then(|sources| sources.orientation.take());
+            let semantic_axes = axes.clone();
+            root.common.semantics_mut().orientation =
+                Some(InputProp::computed(Rc::new(move || {
+                    scroll_orientation(semantic_axes.get()).unwrap_or_default()
+                })));
+            let at = root
+                .at
+                .expect("invariant: `scroll` is #[track_caller] and locates its root");
+            if let Some(caller) = caller {
+                let weak = cx.weak();
+                let owner = cx.owner;
+                let reported = kivact_types::cell::ReportOnce::new();
+                cx.effect(EffectKind::Render, at, move || {
+                    // Diagnose a later reactive disagreement too, once per mounted container.
+                    if Some(caller.get()) != scroll_orientation(axes.get()) && reported.note() {
+                        if let Some(rt) = weak.upgrade() {
+                            rt.report(Some(owner), UiError::new(
+                                ErrorKind::Unsupported,
+                                "`.orientation(..)` on a scroll container disagrees with `.axes(..)`: its accessibility orientation follows the axes (Vertical: vertical, Horizontal: horizontal, Both: none); ignored",
+                                Some(at),
+                            ));
+                        }
+                    }
+                });
             }
-            mount(view, cx)
+            mount(root.child(self.child).into_view(), cx)
         })
+    }
+}
+
+fn scroll_orientation(axes: ScrollAxes) -> Option<Orientation> {
+    match axes {
+        ScrollAxes::Vertical => Some(Orientation::Vertical),
+        ScrollAxes::Horizontal => Some(Orientation::Horizontal),
+        ScrollAxes::Both => None,
     }
 }
 

@@ -246,7 +246,13 @@ pub fn view_is_empty(view: &View) -> bool {
 }
 
 /// Store a reusable view factory, converting a closure with `ViewFn::from`.
+/// Equality compares factory identity: a clone is equal, a separately created factory is not.
 pub struct ViewFn<A = ()>(Rc<dyn Fn(A) -> View>);
+impl<A> PartialEq for ViewFn<A> {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
 impl<A> Clone for ViewFn<A> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
