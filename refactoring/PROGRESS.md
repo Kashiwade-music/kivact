@@ -10,6 +10,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
 | CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
 | CP3 | b0aad13 | 0 | 0 | — | — | 101→失敗4 target個別0、GPU6 passed | — | Clippy 8.69s / 固定public3.62s | 通過、固定 gate の公開308/Game3と対象 docs 0 |
+| CP4 | 19dfddc | 0 | 0 | 85 件の修正中 | 実行待ち | 実行中 | 実行待ち | Clippy 16.83s | 軽い gate 通過、重い gate は並行 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -112,7 +113,12 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | N-G5 | merged | a37cfd9 | machine/binding/theme/reactive prop E2E 11 passed |
 | N-8 | merged | a634983 | API/経路/構造検査 0、xtask36 passed、workspace check 0 |
 | fix-G4-5 | merged | 16be39b | composite activation/cleanup、docs48/public10 passed |
-| I-0 | todo | | |
+| fix-G3-11 | merged | 7478530 | core Clippy 18 件修正、check 0 |
+| fix-G4-6 | merged | c76cf0c | interaction/UI Clippy 修正、check 0 |
+| fix-G5-5 | merged | 19dfddc | basic/pop/game/creative Clippy 修正、check 0 |
+| fix-G5-6 | merged | f4b0be2 | Soft Clippy 修正、check 0 |
+| fix-G6-8 | merged | 3d97dc1 | canonical launch/app policy parse 0 |
+| I-0 | doing | | |
 | I-1 | todo | | |
 | I-2a | todo | | |
 | I-2b | todo | | |
