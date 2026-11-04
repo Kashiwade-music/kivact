@@ -126,7 +126,7 @@ impl AppClient {
         #[cfg(feature = "gpu-interop")]
         let extensions = extensions.with(crate::gpu_interop::State::default());
         #[cfg(debug_assertions)]
-        let extensions = extensions.with(crate::diagnostics::trace::Trace::default());
+        let extensions = extensions.with(crate::client::trace::Trace::default());
         let rt = Runtime::new(
             extensions
                 .with(TaskState::new(threads))
@@ -208,7 +208,7 @@ impl AppClient {
                 break;
             }
             #[cfg(debug_assertions)]
-            crate::diagnostics::trace::event(&self.rt, format_args!("host_events receive {e:?}"));
+            crate::client::trace::event(&self.rt, format_args!("host_events receive {e:?}"));
             edits.deliver(e);
             turn.cause(describe(e));
             crate::client::dispatch::dispatch(&self.rt, e);
@@ -245,7 +245,7 @@ impl AppClient {
             self.at,
         );
         #[cfg(debug_assertions)]
-        crate::diagnostics::trace::event(&rt, format_args!("host_events start {info:?}"));
+        crate::client::trace::event(&rt, format_args!("host_events start {info:?}"));
         writer.set_window(config.title, config.min_window_size);
         // The App's fonts precede the root's mount (the engine registers
         // a font when it is written, so the first layout uses them).
@@ -263,7 +263,7 @@ impl AppClient {
         debug_assert!(written > 0, "the first revision sets the window");
         rt.finish_setup_notes();
         #[cfg(debug_assertions)]
-        crate::diagnostics::trace::record(&rt);
+        crate::client::trace::record(&rt);
         let pending = rt.pending().user || TaskState::of(&rt).has_ready();
         rt.clear_turn_request();
         if pending {
@@ -300,7 +300,7 @@ impl AppClient {
         host.turns.set(host.turns.get() + 1);
         let turn = rt.turn(events.len());
         #[cfg(debug_assertions)]
-        crate::diagnostics::trace::stage(&rt, "Begin");
+        crate::client::trace::stage(&rt, "Begin");
         phases::drain(&rt, Phase::AfterCommit { revision: before });
         // Errors the engine's last layout raised (a primitive's measure
         // function) reach their handlers first, outside any engine borrow.
@@ -355,12 +355,12 @@ impl AppClient {
 
         let output = self.output(&rt);
         #[cfg(debug_assertions)]
-        crate::diagnostics::trace::stage(&rt, "End");
+        crate::client::trace::stage(&rt, "End");
         turn.finish(writes);
         #[cfg(debug_assertions)]
         {
-            crate::diagnostics::trace::record(&rt);
-            crate::diagnostics::trace::event(&rt, format_args!("host_events output {output:?}"));
+            crate::client::trace::record(&rt);
+            crate::client::trace::event(&rt, format_args!("host_events output {output:?}"));
         }
         // Requests made during the turn woke nobody (`HostLink`): ask again
         // only for work the turn left.

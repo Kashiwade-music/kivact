@@ -29,8 +29,6 @@
 
 mod errors;
 mod stats;
-#[cfg(debug_assertions)]
-pub(crate) mod trace;
 pub(crate) mod why;
 
 #[doc(inline)]
