@@ -384,7 +384,7 @@ impl<T: Animatable> Animated<T> {
                 move |phase| {
                     if matches!(phase, AnimPhase::Completed) {
                         owner.run_handler(|| {
-                            if let Err(err) = f().into_result() {
+                            if let Err(err) = f().into_outcome().map(|_| ()) {
                                 owner.report(err);
                             }
                         });

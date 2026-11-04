@@ -17,7 +17,7 @@ pub(super) fn activate(rt: &Runtime, id: NodeId, region: Option<RegionId>) -> bo
     let Some(h) = handler(rt, id, |h| h.activate.clone()) else {
         return false;
     };
-    run_handler(rt, node_owner(rt, id), || h(region));
+    run_handler(rt, node_owner(rt, id), || h.call(region));
     true
 }
 
@@ -93,7 +93,7 @@ pub(super) fn pointer(
         if let Some((id, handler)) = fallback
             && !is_disabled(rt, id)
         {
-            run_handler(rt, node_owner(rt, id), || handler(e));
+            run_handler(rt, node_owner(rt, id), || handler.call(e));
         }
     }
 }

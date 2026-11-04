@@ -1,6 +1,6 @@
 //! Role: Shared event outcomes and erased effectful handlers.
 
-use crate::reactive::error::{HandlerResult, UiError};
+use crate::reactive::error::UiError;
 use std::rc::Rc;
 
 /// What a key/pointer/wheel callback did with its event.
@@ -58,12 +58,44 @@ impl<E> Clone for Handler<E> {
 impl<E: 'static> Handler<E> {
     /// Erase a handler, preserving errors and letting successful events continue.
     pub fn from_fn<R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> Self {
-        Self(Rc::new(move |event| {
-            f(event).into_result().map(|()| Handled::No)
-        }))
+        Self(Rc::new(move |event| f(event).into_outcome()))
     }
     /// Invoke the handler.
     pub fn call(&self, event: E) -> Result<Handled, UiError> {
         (self.0)(event)
     }
 }
+
+/// Return values accepted by effectful handlers.
+#[diagnostic::on_unimplemented(
+    message = "a handler returns `()`, `Handled`, `Result<(), UiError>` or `Result<Handled, UiError>`",
+    note = "use `?` on other errors; they convert to `UiError`"
+)]
+pub trait HandlerResult: crate::reactive::sealed::HandlerResultSeal {
+    #[doc(hidden)]
+    fn into_outcome(self) -> Result<Handled, UiError>;
+}
+impl HandlerResult for () {
+    fn into_outcome(self) -> Result<Handled, UiError> {
+        Ok(Handled::No)
+    }
+}
+impl HandlerResult for Handled {
+    fn into_outcome(self) -> Result<Handled, UiError> {
+        Ok(self)
+    }
+}
+impl HandlerResult for Result<(), UiError> {
+    fn into_outcome(self) -> Result<Handled, UiError> {
+        self.map(|()| Handled::No)
+    }
+}
+impl HandlerResult for Result<Handled, UiError> {
+    fn into_outcome(self) -> Result<Handled, UiError> {
+        self
+    }
+}
+impl crate::reactive::sealed::HandlerResultSeal for () {}
+impl crate::reactive::sealed::HandlerResultSeal for Handled {}
+impl crate::reactive::sealed::HandlerResultSeal for Result<(), UiError> {}
+impl crate::reactive::sealed::HandlerResultSeal for Result<Handled, UiError> {}

@@ -178,7 +178,7 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
             && let Some(r) = slot.take()
         {
             let removed = ViewState::tree_mut(rt).remove_unlinked(r.node);
-            drop(removed);
+            removed.commit(rt);
             r.row.owner().dispose();
         }
     }

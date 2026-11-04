@@ -32,7 +32,7 @@ pub(crate) struct Hooked<C, F> {
 
 /// The [`Hooked`] the engine calls now, shared by the binding that
 /// replaces it and the owner's cleanup that drops it.
-pub(crate) type Current<C, F> = Rc<RefCell<Option<Rc<Hooked<C, F>>>>>;
+pub(crate) type Current<C, F> = Rc<RefCell<HookSlot<C, F>>>;
 
 /// What the engine's callback holds: a weak [`Hooked`] and the owner it
 /// runs for.
@@ -62,4 +62,9 @@ impl<C, F> SyncHook<C, F> {
                 .run_handler(|| pure(|| untrack(|| run(&hooked.content, &hooked.f)))),
         )
     }
+}
+
+pub(crate) enum HookSlot<C, F> {
+    Live(Rc<Hooked<C, F>>),
+    Disposed,
 }

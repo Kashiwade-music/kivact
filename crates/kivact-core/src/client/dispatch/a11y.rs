@@ -25,7 +25,7 @@ pub(super) fn run_a11y(rt: &Runtime, node: NodeId, region: Option<RegionId>, req
         && !is_disabled(rt, node)
     {
         run_handler(rt, node_owner(rt, node), || {
-            h(A11yEvent { request, region })
+            h.call(A11yEvent { request, region })
         });
     }
 }

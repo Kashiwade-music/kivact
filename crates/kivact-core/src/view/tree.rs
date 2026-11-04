@@ -41,7 +41,7 @@ use kivact_types::{DrawList, IdMap, NodeId, Rect, Size};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
-use kivact_runtime::{NodeId as EffectId, Owner, Signal, Trigger, UiError};
+use kivact_runtime::{Handler, NodeId as EffectId, Owner, Signal, Trigger};
 use kivact_types::A11yAction;
 
 /// Scroll position report of a scroll container.
@@ -53,7 +53,7 @@ pub(crate) struct ScrollState {
     pub viewport: kivact_types::Size,
 }
 
-type SecondaryContextHandler = Rc<dyn Fn(PointerEvent) -> Result<Handled, UiError>>;
+type SecondaryContextHandler = Handler<PointerEvent>;
 
 /// Event handlers of one host node.
 ///
@@ -63,7 +63,7 @@ type SecondaryContextHandler = Rc<dyn Fn(PointerEvent) -> Result<Handled, UiErro
 #[derive(Clone, Default)]
 pub(crate) struct Handlers {
     /// Default action (click, Enter, Space, `A11yAction::Activate`).
-    pub activate: Option<Rc<dyn Fn(Option<kivact_style::draw::RegionId>) -> Result<(), UiError>>>,
+    pub activate: Option<Handler<Option<kivact_style::draw::RegionId>>>,
     /// Key handlers.
     pub key: EventHandlers<KeyEvent>,
     /// OS file drag handler (one: `on_file` replaces it).
@@ -80,21 +80,18 @@ pub(crate) struct Handlers {
     pub ime: EventHandlers<kivact_types::ImeInput>,
     /// Assistive-technology actions other than `Activate`, at most one
     /// handler per action (`on_a11y` replaces an earlier one).
-    pub a11y: Vec<(
-        A11yAction,
-        Rc<dyn Fn(crate::view::A11yEvent) -> Result<(), UiError>>,
-    )>,
+    pub a11y: Vec<(A11yAction, Handler<crate::view::A11yEvent>)>,
     /// Text edits of a TextInput.
-    pub text: Option<Rc<dyn Fn(crate::view::editing_data::TextEditEvent) -> Result<(), UiError>>>,
+    pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
     /// Session changes of a TextInput (`TextEditing::on_selection`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
     /// Loading or decoding failed for the node's image source.
-    pub image_error: Option<Rc<dyn Fn(&str) -> Result<(), UiError>>>,
+    pub image_error: Option<Handler<String>>,
     /// Scroll reports.
-    pub scroll: Option<Rc<dyn Fn(ScrollState)>>,
+    pub scroll: Option<Handler<ScrollState>>,
     /// Layout reports (observed nodes): where the box is drawn (window
     /// bounds, its transforms applied) and its layout size.
-    pub layout: Option<Rc<dyn Fn(Rect, Size)>>,
+    pub layout: Option<Handler<(Rect, Size)>>,
 }
 
 impl Handlers {
@@ -116,22 +113,24 @@ impl Handlers {
     /// Add a layout observer after the ones already there (all run, in registration order).
     pub(crate) fn observe_layout(&mut self, f: impl Fn(Rect, Size) + 'static) {
         let previous = self.layout.take();
-        self.layout = Some(Rc::new(move |bounds, size| {
+        self.layout = Some(Handler::from_fn(move |(bounds, size)| {
             if let Some(previous) = &previous {
-                previous(bounds, size);
+                previous.call((bounds, size))?;
             }
             f(bounds, size);
+            Ok(Handled::No)
         }));
     }
 
     /// Add a scroll observer after the ones already there (all run, in registration order).
     pub(crate) fn observe_scroll(&mut self, f: impl Fn(ScrollState) + 'static) {
         let previous = self.scroll.take();
-        self.scroll = Some(Rc::new(move |state| {
+        self.scroll = Some(Handler::from_fn(move |state| {
             if let Some(previous) = &previous {
-                previous(state);
+                previous.call(state)?;
             }
             f(state);
+            Ok(Handled::No)
         }));
     }
 }
@@ -142,12 +141,9 @@ impl Handlers {
 /// have one handler each, so they are not layered.
 #[derive(Clone, Default)]
 pub(crate) struct PartActions {
-    pub activate: Option<Rc<dyn Fn(Option<kivact_style::draw::RegionId>) -> Result<(), UiError>>>,
-    pub text: Option<Rc<dyn Fn(crate::view::editing_data::TextEditEvent) -> Result<(), UiError>>>,
-    pub a11y: Vec<(
-        A11yAction,
-        Rc<dyn Fn(crate::view::A11yEvent) -> Result<(), UiError>>,
-    )>,
+    pub activate: Option<Handler<Option<kivact_style::draw::RegionId>>>,
+    pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
+    pub a11y: Vec<(A11yAction, Handler<crate::view::A11yEvent>)>,
 }
 
 impl PartActions {
@@ -155,28 +151,30 @@ impl PartActions {
     pub(crate) fn compose(&mut self, later: PartActions) {
         if let Some(handler) = later.text {
             let previous = self.text.take();
-            self.text = Some(Rc::new(move |event| {
-                if let Some(previous) = &previous {
-                    previous(event.clone())?;
-                }
-                handler(event)
-            }));
+            self.text = Some(Handler::from_fn(
+                move |event: crate::view::editing_data::TextEditEvent| {
+                    if let Some(previous) = &previous {
+                        previous.call(event.clone())?;
+                    }
+                    handler.call(event)
+                },
+            ));
         }
         if let Some(handler) = later.activate {
             let previous = self.activate.take();
-            self.activate = Some(Rc::new(move |region| {
+            self.activate = Some(Handler::from_fn(move |region| {
                 if let Some(previous) = &previous {
-                    previous(region)?;
+                    previous.call(region)?;
                 }
-                handler(region)
+                handler.call(region)
             }));
         }
         for (action, handler) in later.a11y {
             if let Some((_, previous)) = self.a11y.iter_mut().find(|(a, _)| *a == action) {
                 let before = previous.clone();
-                *previous = Rc::new(move |event| {
-                    before(event.clone())?;
-                    handler(event)
+                *previous = Handler::from_fn(move |event: crate::view::A11yEvent| {
+                    before.call(event.clone())?;
+                    handler.call(event)
                 });
             } else {
                 self.a11y.push((action, handler));
@@ -216,7 +214,23 @@ pub(crate) struct NodeObservation {
 /// user values: the caller drops them after the tree borrow ends, as the
 /// runtime drops what a disposal released (G-01, design §4「arena と
 /// handle」).
-pub(crate) struct Removed(#[allow(dead_code, reason = "held only to be dropped later")] Vec<TNode>);
+#[must_use]
+pub(crate) struct Removed {
+    pub(crate) ids: Vec<NodeId>,
+    #[allow(
+        dead_code,
+        reason = "removed user records must drop after the tree borrow"
+    )]
+    records: Vec<TNode>,
+}
+impl Removed {
+    pub(crate) fn commit(self, rt: &kivact_runtime::Runtime) {
+        crate::client::state::HostState::of(rt)
+            .removed
+            .borrow_mut()
+            .extend(self.ids);
+    }
+}
 
 /// One node of the retained tree (host node or fragment): only what the
 /// engine cannot hold. Everything the engine knows about a host node (its
@@ -225,6 +239,7 @@ pub(crate) struct Removed(#[allow(dead_code, reason = "held only to be dropped l
 pub(crate) struct TNode {
     /// `None` for fragments.
     pub kind: Option<NodeType>,
+    pub(crate) references: Vec<Signal<crate::view::state::RefState>>,
     /// Parent node, if attached. The engine links host nodes only; core
     /// keeps its own links because fragments sit between them: where a
     /// fragment's children go on the host (`top_hosts`, `next_host_after`)
@@ -245,7 +260,7 @@ pub(crate) struct TNode {
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
-    pub(crate) exit_complete: Option<kivact_runtime::Callback<()>>,
+    pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// The graph sources node references read (`Tree::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
     /// Created only when a reference observes this node's lifetime.
@@ -260,6 +275,7 @@ impl TNode {
     fn new(kind: Option<NodeType>, owner: Owner) -> TNode {
         TNode {
             kind,
+            references: Vec::new(),
             parent: None,
             children: Vec::new(),
             owner,
@@ -286,12 +302,11 @@ pub(crate) struct Tree {
     /// The root node (`NodeType::Root`), made with the tree; it lives as long as the App.
     pub root: NodeId,
     engine: Writer,
-    future_text_edits: IdMap<usize>,
-    exit_callbacks: IdMap<kivact_runtime::Callback<()>>,
-    removes: bool,
-    /// Lazily installed for choice candidates; only Hidden changes notify it.
-    visibility_revision: Option<Trigger>,
-    live_region_revision: Option<Trigger>,
+    pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
+    leaving: IdMap<Leaving>,
+    /// Choice candidate invalidation; only Hidden changes notify it.
+    visibility_revision: Trigger,
+    live_region_revision: Trigger,
 }
 
 impl Tree {
@@ -308,11 +323,12 @@ impl Tree {
             next_id: 1,
             root,
             engine,
-            future_text_edits: IdMap::default(),
-            exit_callbacks: IdMap::default(),
-            removes: false,
-            visibility_revision: None,
-            live_region_revision: None,
+            future_text_edits: Rc::new(std::cell::RefCell::new(
+                TextEditsInFlight(IdMap::default()),
+            )),
+            leaving: IdMap::default(),
+            visibility_revision: owner.trigger(Location::caller()),
+            live_region_revision: owner.trigger(Location::caller()),
         }
     }
 
@@ -335,7 +351,7 @@ impl Tree {
             node.origins.shrink_to_fit();
         }
         self.nodes.shrink_to_fit();
-        self.future_text_edits.shrink_to_fit();
+        self.future_text_edits.borrow_mut().0.shrink_to_fit();
     }
 
     /// A new node of `owner` (`None`: a fragment).
@@ -371,25 +387,16 @@ impl Tree {
     }
 
     /// A value-less visibility notification owned by the App root, created
-    /// only when a choice controller needs to track ancestor visibility.
+    /// for choice controllers tracking ancestor visibility.
     pub(crate) fn visibility_revision(&mut self, at: &'static Location<'static>) -> Trigger {
-        if let Some(revision) = self.visibility_revision {
-            return revision;
-        }
-        let owner = self.root_owner();
-        let revision = owner.trigger(at);
-        self.visibility_revision = Some(revision);
-        revision
+        let _ = at;
+        self.visibility_revision
     }
 
-    /// Lazily track changes to live-region ancestry.
+    /// Track changes to live-region ancestry.
     pub(crate) fn live_region_revision(&mut self, at: &'static Location<'static>) -> Trigger {
-        if let Some(revision) = self.live_region_revision {
-            return revision;
-        }
-        let revision = self.root_owner().trigger(at);
-        self.live_region_revision = Some(revision);
-        revision
+        let _ = at;
+        self.live_region_revision
     }
 
     /// Create the host-owned record before any reference publishes its binding.
@@ -491,8 +498,8 @@ impl Tree {
     }
 
     fn notify_visibility(&self, changed: bool) {
-        if changed && let Some(revision) = self.visibility_revision {
-            revision.notify_from_render();
+        if changed {
+            self.visibility_revision.notify_from_render();
         }
     }
 
@@ -569,6 +576,8 @@ impl Tree {
         if prop == Prop::InputValue
             && self
                 .future_text_edits
+                .borrow()
+                .0
                 .get(&id)
                 .is_some_and(|count| *count > 0)
         {
@@ -576,45 +585,14 @@ impl Tree {
         }
         let hides = prop == Prop::Hidden;
         let was_hidden = hides && self.hidden(id) == Some(true);
-        let tracks_live = self
-            .live_region_revision
-            .filter(|_| matches!(prop, Prop::Role | Prop::Semantics));
-        let was_live = tracks_live.is_some() && self.is_live_region(id);
+        let tracks_live = matches!(prop, Prop::Role | Prop::Semantics);
+        let was_live = tracks_live && self.is_live_region(id);
         let changed = self.engine().set(id, value);
         self.notify_visibility(hides && was_hidden != (self.hidden(id) == Some(true)));
-        if let Some(revision) = tracks_live
-            && changed
-            && was_live != self.is_live_region(id)
-        {
-            revision.notify_from_render();
+        if tracks_live && changed && was_live != self.is_live_region(id) {
+            self.live_region_revision.notify_from_render();
         }
         changed
-    }
-
-    pub(super) fn count_text_edits(&mut self, ids: impl Iterator<Item = NodeId>) {
-        debug_assert!(
-            self.future_text_edits.is_empty(),
-            "invariant: one batch is delivered at a time"
-        );
-        for id in ids {
-            *self.future_text_edits.entry(id).or_default() += 1;
-        }
-    }
-
-    pub(super) fn consume_text_edit(&mut self, id: NodeId) {
-        if let Some(count) = self.future_text_edits.get_mut(&id) {
-            *count -= 1;
-            if *count == 0 {
-                self.future_text_edits.remove(&id);
-            }
-        }
-    }
-
-    pub(super) fn clear_text_edits(&mut self) {
-        self.future_text_edits.clear();
-    }
-    pub(crate) fn take_removes(&mut self) -> bool {
-        std::mem::take(&mut self.removes)
     }
 
     pub(crate) fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<DrawList>> {
@@ -765,7 +743,10 @@ impl Tree {
     #[must_use = "drop the removed records after the tree borrow ends"]
     pub(crate) fn remove(&mut self, id: NodeId) -> Removed {
         let Some(n) = self.nodes.get(&id) else {
-            return Removed(Vec::new());
+            return Removed {
+                ids: Vec::new(),
+                records: Vec::new(),
+            };
         };
         let parent = n.parent;
         let mut tops = Vec::new();
@@ -800,37 +781,50 @@ impl Tree {
     }
 
     fn remove_host(&mut self, id: NodeId) {
-        self.removes = true;
         let Some(node) = self.nodes.get_mut(&id) else {
             return;
         };
         let pop = node.exit_layout == crate::view::ExitLayout::Pop;
         let callback = node.exit_complete.take();
-        if let Some(callback) = callback {
-            self.exit_callbacks.insert(id, callback);
+        let notify = callback.is_some();
+        if notify {
+            self.leaving.insert(id, Leaving { on_exit: callback });
         }
-        self.engine().remove_with_exit(id, pop, callback.is_some());
+        self.engine().remove_with_exit(id, pop, notify);
     }
 
-    pub(crate) fn take_exit_callback(
-        &mut self,
-        id: NodeId,
-    ) -> Option<kivact_runtime::Callback<()>> {
-        self.exit_callbacks.remove(&id)
+    pub(crate) fn take_exit_callback(&mut self, id: NodeId) -> Option<kivact_runtime::Handler<()>> {
+        self.leaving.remove(&id).and_then(|leaving| leaving.on_exit)
     }
 
     /// Delete core bookkeeping after the engine subtree has been removed.
     fn delete_records(&mut self, id: NodeId) -> Removed {
         let mut removed = Vec::new();
+        let mut ids = Vec::new();
         let mut stack = vec![id];
         while let Some(x) = stack.pop() {
             if let Some(mut n) = self.nodes.remove(&x) {
-                self.future_text_edits.remove(&x);
-                stack.append(&mut n.children);
+                self.future_text_edits.borrow_mut().0.remove(&x);
+                ids.push(x);
+                stack.extend(n.children.drain(..).rev());
                 removed.push(n);
             }
         }
-        Removed(removed)
+        for (id, record) in ids.iter().zip(&removed) {
+            for reference in &record.references {
+                if reference
+                    .try_get_untracked()
+                    .and_then(crate::view::state::RefState::bound)
+                    .is_some_and(|bound| bound.node() == *id)
+                {
+                    reference.set(crate::view::state::RefState::Detached);
+                }
+            }
+        }
+        Removed {
+            ids,
+            records: removed,
+        }
     }
 
     /// Replace a fragment's child order; the caller updates engine attachments.
@@ -950,3 +944,9 @@ impl Tree {
             .filter(|m| self.is_within(id, *m))
     }
 }
+
+struct Leaving {
+    on_exit: Option<kivact_runtime::Handler<()>>,
+}
+
+pub(super) struct TextEditsInFlight(pub(super) IdMap<u32>);

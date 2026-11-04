@@ -8,7 +8,6 @@ use kivact::draw::Point;
 use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{CheckedState, Key, Modifiers, Role, SortDirection};
 use kivact_ui_game_catalog::{catalog, fonts, locale, messages};
-use std::sync::Arc;
 use std::time::Duration;
 
 #[test]
@@ -35,16 +34,15 @@ fn game_source_specimens_scroll_in_the_original_shell() {
 
 fn mount() -> Screen {
     render_with(
-        RenderOptions {
-            width: 1846.,
-            height: 969.,
-            scale: 1.,
-            locale: Some(locale()),
-            messages: messages(),
-            reduced_motion: true,
-            fonts: TestFonts::Only(fonts().iter().map(|&bytes| Arc::from(bytes)).collect()),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(1846., 969.)
+            .scale(1.)
+            .locale(locale())
+            .messages(messages())
+            .reduced_motion()
+            .fonts(TestFonts::Only(
+                fonts().iter().map(|&bytes| bytes.into()).collect(),
+            )),
         catalog,
     )
 }

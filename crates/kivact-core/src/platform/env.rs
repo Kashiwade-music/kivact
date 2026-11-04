@@ -37,8 +37,7 @@ fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&Environme
 pub fn is_initial_render() -> bool {
     let rt =
         kivact_runtime::Owner::ambient("platform::is_initial_render", Location::caller()).runtime();
-    let revision = ViewState::tree(&rt).engine().stats().revision;
-    revision == 0
+    matches!(rt.turn(), kivact_runtime::Turn::Setup)
 }
 
 /// The window's available font families, sorted by name without duplicates.

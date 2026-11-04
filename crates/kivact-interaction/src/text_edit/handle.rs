@@ -177,7 +177,7 @@ impl TextEdit {
                 Location::caller(),
             );
         }
-        *data.submit.borrow_mut() = Some(Rc::new(move || f().into_result()));
+        *data.submit.borrow_mut() = Some(Rc::new(move || f().into_outcome().map(|_| ())));
         self
     }
 
@@ -189,7 +189,8 @@ impl TextEdit {
         R: HandlerResult,
     {
         let data = self.setup("TextEdit::on_composition_change");
-        *data.composition.borrow_mut() = Some(Rc::new(move |value| f(value).into_result()));
+        *data.composition.borrow_mut() =
+            Some(Rc::new(move |value| f(value).into_outcome().map(|_| ())));
         self
     }
     /// Create the focusable TextBox Part for this editor's native leaf.

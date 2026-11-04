@@ -25,7 +25,7 @@ pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 #[derive(Default)]
 pub(crate) struct Common {
     pub(crate) exit_layout: super::exit_layout::ExitLayout,
-    pub(crate) exit_complete: Option<kivact_runtime::Callback<()>>,
+    pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// Test identifier.
     pub test_id: Option<Rc<str>>,
     /// NodeRefs bound at mount (each once, in order).

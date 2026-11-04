@@ -39,7 +39,7 @@ pub(super) fn scroll_changed(rt: &Runtime, node: NodeId, offset: Point, viewport
     if let Some(h) = handler(rt, node, |h| h.scroll.clone()) {
         let s = ScrollState { offset, viewport };
         run_handler(rt, node_owner(rt, node), || {
-            h(s);
+            h.call(s)?;
             Ok(())
         });
     }
@@ -66,7 +66,7 @@ pub(super) fn layout_changed(
                 observation.text_truncated.set(text_truncated);
             }
             if let Some(layout) = layout {
-                layout(rect, size);
+                layout.call((rect, size))?;
             }
             Ok(())
         });
