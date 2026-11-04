@@ -258,15 +258,28 @@ pub(super) enum PrimaryHover {
 
 pub(super) struct Capture {
     pub(super) pointer: PointerId,
-    /// `None`: the gesture has no target until its release (pressed over no
-    /// enabled target, or cancelled).
-    pub(super) target: Option<Rc<Target>>,
-    pub(super) buttons: Vec<MouseButton>,
-    /// The pointer's last event, for a `Cancel` the part sends itself.
+    pub(super) state: PartCapture,
+    /// Last sample, retained only to deliver cancellation.
     pub(super) last: PointerEvent,
-    /// The button whose press the node's region fallback consumed: the
-    /// fallback's gesture ends with its release or a cancel.
-    pub(super) fallback: Option<MouseButton>,
+}
+
+#[derive(Default)]
+pub(super) enum PartCapture {
+    #[default]
+    None,
+    Captured {
+        target: CaptureTarget,
+        buttons: kivact_types::PointerButtons,
+    },
+}
+
+pub(super) enum CaptureTarget {
+    Part(Rc<Target>),
+    Region(RegionId),
+    Fallback {
+        button: MouseButton,
+        target: Rc<Target>,
+    },
 }
 
 /// Final values are shared by publication, input gating, and every bind hook.

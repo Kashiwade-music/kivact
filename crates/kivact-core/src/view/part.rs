@@ -69,6 +69,7 @@ use crate::view::{
 };
 use crate::{Value, memo, on_cleanup, signal};
 
+// xtask-allow(state-fields): Public observation snapshot of independent input and availability facts.
 /// Actual input and availability state of an attached node or canvas region.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PartState {
@@ -164,19 +165,13 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
         availability.set(Some((mount.disabled, mount.hidden)));
         let at = Location::caller();
         let owner = kivact_runtime::Owner::current("part binding", at);
-        let runtime = owner.runtime();
-        let hover = crate::view::hover::source(&runtime, at);
+        let hover = node.hovered();
         owner.effect(
             EffectKind::Internal,
             move || {
                 let disabled = mount.disabled.get();
                 let hidden = mount.hidden.get();
-                let target = node.target_value(at);
-                let hovered = hover.get().is_some_and(|hit| {
-                    target.is_some_and(|target| {
-                        hit.node == target.node && (target.region.is_none() || hit == target)
-                    })
-                });
+                let hovered = hover.get();
                 let focused = focused.get();
                 input.update(|input| {
                     if disabled || hidden {
@@ -195,7 +190,10 @@ pub fn part<S: Clone + PartialEq + 'static>(state: impl Fn(PartState) -> S + 'st
             },
             at,
         );
-        on_cleanup(move || input.set(PartInput::default()));
+        on_cleanup(move || {
+            input.set(PartInput::default());
+            availability.set(None);
+        });
     });
     let mut common = Common::default();
     common.handlers.key.observer(move |event| {

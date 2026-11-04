@@ -175,14 +175,11 @@ pub(super) fn activate_event(
     host_event: &HostEvent,
     node: NodeId,
     region: Option<RegionId>,
-    pointer: Option<crate::view::PointerId>,
+    pointer: Option<kivact_engine::contract::Routed<kivact_types::PointerSample>>,
 ) {
-    // A click whose gesture a canvas adopted (`part_pointer`) activates
-    // nothing; the engine remembers which, and answers once.
-    if let Some(pointer) = pointer
-        && ViewState::tree(rt)
-            .reader()
-            .take_adopted_activation(node, region, pointer)
+    if pointer
+        .and_then(|route| route.activation)
+        .is_some_and(|activation| activation.0)
     {
         return;
     }

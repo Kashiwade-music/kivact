@@ -44,10 +44,28 @@ impl Writer {
         model.writes.create(id);
     }
 
+    /// Prepare one event immediately before dispatch, after earlier callbacks.
+    /// Pointer activation consumes the gesture adoption into its routed sample.
+    pub fn prepare_input(&self, event: &mut HostEvent) {
+        if let HostEvent::Activate {
+            node,
+            region,
+            pointer: Some(route),
+        } = event
+        {
+            route.activation = Some(crate::contract::Activation(
+                self.model
+                    .borrow()
+                    .admission
+                    .take_adoption(route.input.id, *node, *region),
+            ));
+        }
+    }
+
     /// Record that `pointer`'s current primary gesture was adopted at
     /// `region` of `node` (a canvas gesture took the press over): the
     /// activation its click produces, `HostEvent::Activate`, is then
-    /// skipped (`Reader::take_adopted_activation`). The adoption ends at
+    /// skipped through the release sample's routing metadata. The adoption ends at
     /// that pointer's next primary `Down` or its `Cancel` (as dispatched,
     /// see [`Reader::admit_input`]), and when its activation is answered.
     pub fn adopt_pointer(&self, node: NodeId, region: RegionId, pointer: PointerId) {

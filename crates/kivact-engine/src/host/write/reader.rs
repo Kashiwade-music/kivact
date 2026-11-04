@@ -2,7 +2,7 @@
 
 use crate::contract::{HostEvent, NodeProperties, SceneLayer};
 use crate::model::Model;
-use kivact_types::{DrawList, FocusTarget, NodeId, Point, PointerId, RegionId};
+use kivact_types::{DrawList, FocusTarget, NodeId, Point};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -169,23 +169,6 @@ impl Reader {
     /// passes. The model is borrowed for the call only.
     pub fn admit_input(&self, event: &HostEvent) -> bool {
         self.model.borrow().admit_input(event)
-    }
-
-    /// Whether the activation of `region` of `node` that a click of
-    /// `pointer` produced must be skipped, because `pointer`'s gesture was
-    /// adopted at that region (`Writer::adopt_pointer`). Answers once: it
-    /// ends the pointer's adoption either way. An activation of the node's
-    /// own action (no region) is never skipped.
-    pub fn take_adopted_activation(
-        &self,
-        node: NodeId,
-        region: Option<RegionId>,
-        pointer: PointerId,
-    ) -> bool {
-        self.model
-            .borrow()
-            .admission
-            .take_adoption(pointer, node, region)
     }
 
     /// Borrow a node's typed values for one read callback.
