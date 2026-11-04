@@ -14,7 +14,7 @@
 //! (tracked), for a component that shows who owns the edit.
 //! [`EditSession::once`] wraps a single write in `Begin` and `Commit`, and
 //! inside an edit already in progress joins it without another phase. The
-//! scalar, the splitter, drags ([`Drag::edit`](crate::Drag::edit)) and zoom
+//! scalar, the splitter, drags ([`DragApi::edit`](crate::DragApi::edit)) and zoom
 //! and pan all report through it.
 
 use kivact_core::ErrorKind;
@@ -37,7 +37,13 @@ use kivact_core::view::{EditPhase, HandlerResult};
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{control, prelude, view, Callback};
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::prelude::*;
@@ -162,7 +168,7 @@ impl<T: Clone + 'static> EditSession<T> {
     /// is ignored and no further phase is reported.
     ///
     /// ```no_run
-    /// use kivact_core::prelude::*;
+    /// use kivact_core::state::{signal, Signal};
     /// use kivact_interaction::EditSession;
     /// // The session must be created during component setup.
     /// let value = signal(10.0);

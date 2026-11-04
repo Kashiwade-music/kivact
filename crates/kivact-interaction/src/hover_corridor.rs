@@ -8,9 +8,9 @@ use kivact_core::geometry::{Point, Rect};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, effect, signal};
 use kivact_core::task::{Task, sleep, spawn};
-use kivact_core::view::{NodeRef, mouse_position};
+use kivact_core::view::{NodeRef, pointer_position};
 
-use crate::{Delayed, Delays, use_delayed};
+use crate::{DelayedApi, Delays, use_delayed};
 
 /// Hold a submenu while the mouse moves from an anchor toward the surface.
 ///
@@ -23,14 +23,15 @@ pub fn use_hover_corridor(
     surface: impl IntoValue<Option<Rect>>,
     enabled: impl IntoValue<bool>,
     timeout: Duration,
-) -> Value<bool> {
-    hover_corridor(
+) -> HoverCorridorApi {
+    let holding = hover_corridor(
         anchor.into_value(),
         surface.into_value(),
         enabled.into_value(),
         timeout,
     )
-    .0
+    .0;
+    HoverCorridorApi { holding }
 }
 
 /// Delay opening and closing a hover surface. A diagonal path from the
@@ -41,7 +42,7 @@ pub fn use_hover_surface(
     surface: NodeRef,
     enabled: impl IntoValue<bool>,
     delays: Delays,
-) -> Delayed {
+) -> HoverSurfaceApi {
     let enabled = enabled.into_value();
     let over_anchor = anchor.hovered();
     let over_surface = surface.hovered();
@@ -49,7 +50,7 @@ pub fn use_hover_surface(
         move || enabled.get() && (over_anchor.get() || over_surface.get()),
         delays,
     );
-    let shown = delayed.shown();
+    let shown = delayed.is_open();
     let (_, progress) = hover_corridor(
         anchor.rect(),
         surface.rect(),
@@ -66,7 +67,7 @@ pub fn use_hover_surface(
             delayed.pulse();
         }
     });
-    delayed
+    HoverSurfaceApi { delayed }
 }
 
 fn hover_corridor(
@@ -75,7 +76,7 @@ fn hover_corridor(
     enabled: Value<bool>,
     timeout: Duration,
 ) -> (Value<bool>, Value<u64>) {
-    let mouse = mouse_position();
+    let mouse = pointer_position();
     let holding = signal(false);
     let progress = signal(0_u64);
     let path = Rc::new(Cell::new(None::<(Point, Point)>));
@@ -178,5 +179,40 @@ impl Edge {
             cross(self.last, origin, point),
         ];
         sides.iter().all(|&side| side >= 0.0) || sides.iter().all(|&side| side <= 0.0)
+    }
+}
+
+/// Tracks whether travel towards the surface currently holds it open.
+#[derive(Clone, Copy)]
+pub struct HoverCorridorApi {
+    holding: Value<bool>,
+}
+impl HoverCorridorApi {
+    /// Whether the pointer is advancing through the corridor.
+    pub fn is_holding(self) -> Value<bool> {
+        self.holding
+    }
+}
+/// Delayed visibility of a hover surface, including its travel corridor.
+#[derive(Clone, Copy)]
+pub struct HoverSurfaceApi {
+    delayed: DelayedApi,
+}
+impl HoverSurfaceApi {
+    /// Whether the surface is open.
+    pub fn is_open(self) -> Value<bool> {
+        self.delayed.is_open()
+    }
+    /// Observe the visibility transition.
+    pub fn phase(self) -> Value<crate::DelayedPhase> {
+        self.delayed.phase()
+    }
+    /// Close until the pointer leaves and enters again.
+    pub fn dismiss(self) {
+        self.delayed.dismiss();
+    }
+    /// Renew the close delay.
+    pub fn pulse(self) {
+        self.delayed.pulse();
     }
 }

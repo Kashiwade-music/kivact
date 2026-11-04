@@ -1,16 +1,16 @@
 //! Role: Binding-backed scalar operations and semantic control parts.
 //!
-//! A [`Scalar`] has no value of its own: the finite range, the min-anchored
+//! A [`ScalarApi`] has no value of its own: the finite range, the min-anchored
 //! step, the key step and assistive technology all write through the
-//! caller's binding. A slider attaches [`Scalar::thumb`] and
-//! [`Scalar::track`]; a number field attaches [`Scalar::input`] to its text
+//! caller's binding. A slider attaches [`ScalarApi::thumb`] and
+//! [`ScalarApi::track`]; a number field attaches [`ScalarApi::input`] to its text
 //! field; a canvas declares the thumb as a region and maps the pointer itself
-//! with [`Scalar::scrub`]. The slider's thumb and the spin button share this
+//! with [`ScalarApi::scrub`]. The slider's thumb and the spin button share this
 //! private implementation, except that the spin button leaves the value text
-//! to the native editor. [`RangeScalar`](crate::RangeScalar) builds two ends
+//! to the native editor. [`RangeScalarApi`](crate::RangeScalarApi) builds two ends
 //! on the same plumbing. The reading direction a horizontal track mirrors in
 //! comes from `kivact::view::ReadingDirection` (`provide_direction`,
-//! `current_direction`).
+//! `use_direction`).
 //!
 //! A spin button takes Up/Down, PageUp/PageDown (ten steps) and unmodified
 //! Home/End; Left/Right and modified Home/End stay the native editor's caret
@@ -53,7 +53,7 @@ mod touch;
 mod track;
 
 pub(crate) use edit_state::{Edit, Shared};
-pub use handle::{Scalar, ScalarState, use_scalar};
+pub use handle::{ScalarApi, ScalarState, use_scalar};
 pub(crate) use ops::ScalarOps;
 
 pub(crate) use range::{follow_range, pulled_inside};

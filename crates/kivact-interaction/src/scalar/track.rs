@@ -1,13 +1,13 @@
 //! Role: Map the pointer along a slider's track to the value of a thumb.
 
 use crate::axis::Axis;
-use crate::drag::{Drag, DragCoordinates, DragUpdate, use_drag};
+use crate::drag::{DragApi, DragCoordinates, DragUpdate, use_drag};
 use crate::edit::EditSession;
 use crate::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
 use crate::policy::scalar::ScalarRange;
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::state::{Binding, Signal, Value, Var, memo, signal, var};
-use kivact_core::view::{NodeRef, ReadingDirection, current_direction};
+use kivact_core::view::{NodeRef, ReadingDirection, use_direction};
 
 /// One thumb as the pointer moves it: its writer, range and element.
 #[derive(Clone, Copy)]
@@ -21,7 +21,7 @@ pub(crate) struct Target {
 
 impl Target {
     /// Normalize by the current range and invoke the writer, as
-    /// [`Scalar::set`](super::Scalar::set) does.
+    /// [`ScalarApi::set`](super::ScalarApi::set) does.
     pub(crate) fn set(self, value: f64) {
         if let Some(value) = self.range.get_untracked().normalize(value) {
             self.binding.set(value);
@@ -50,10 +50,10 @@ pub(crate) enum Grip {
     Track,
     /// The thumb with this index.
     Thumb(usize),
-    /// A range's body ([`RangeScalar::body`]): the span between the two
+    /// A range's body ([`RangeScalarApi::body`]): the span between the two
     /// thumbs, which moves both.
     ///
-    /// [`RangeScalar::body`]: crate::RangeScalar::body
+    /// [`RangeScalarApi::body`]: crate::RangeScalarApi::body
     Body,
 }
 
@@ -138,7 +138,7 @@ pub(crate) struct Pointer {
 
 impl Pointer {
     pub(crate) fn attach_track(self, rect: Value<Option<Rect>>, axis: Axis) {
-        let rtl = axis.is_horizontal() && current_direction() == ReadingDirection::Rtl;
+        let rtl = axis.is_horizontal() && use_direction().get() == ReadingDirection::Rtl;
         self.geometry.set(Some(Geometry { rect, axis, rtl }));
         self.attached.set(true);
     }
@@ -271,7 +271,7 @@ pub(crate) fn drag(
     snapshot: Value<[f64; 2]>,
     pointer: Pointer,
     disabled: Signal<Option<Value<bool>>>,
-) -> Drag<Grip> {
+) -> DragApi<Grip> {
     let off = memo(move || !pointer.attached.get() || disabled.get().is_some_and(|d| d.get()));
     use_drag::<Grip>(DragCoordinates::Window)
         .disabled(off)

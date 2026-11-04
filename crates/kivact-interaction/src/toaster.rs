@@ -31,7 +31,7 @@ use std::time::Duration;
 
 use kivact_core::ErrorKind;
 use kivact_core::UiError;
-use kivact_core::custom::{NodeToken, Owner, Part, PartState, app_state, part, raise};
+use kivact_core::custom::{NodeToken, Owner, Part, PartState, part, raise};
 
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
@@ -67,7 +67,7 @@ struct ToastFocus {
 #[derive(Clone, Default)]
 pub struct ToastOptions {
     key: Option<String>,
-    on_hide: Option<Rc<dyn Fn()>>,
+    on_dismiss: Option<kivact_core::state::Callback<kivact_core::view::DismissReason>>,
 }
 
 impl ToastOptions {
@@ -77,10 +77,13 @@ impl ToastOptions {
         self
     }
 
-    /// Run `on_hide` once after a shown toast is removed from the queue.
+    /// Run `on_dismiss` once after a shown toast is removed from the queue.
     /// Removing a waiting toast does not run this callback.
-    pub fn on_hide(mut self, on_hide: impl Fn() + 'static) -> Self {
-        self.on_hide = Some(Rc::new(on_hide));
+    pub fn on_dismiss<R: HandlerResult>(
+        mut self,
+        on_dismiss: impl Fn(kivact_core::view::DismissReason) -> R + 'static,
+    ) -> Self {
+        self.on_dismiss = Some(kivact_core::state::callback(on_dismiss));
         self
     }
 }
@@ -126,10 +129,10 @@ pub struct Toast {
         clippy::type_complexity,
         reason = "a plain owned closure, named where it is read"
     )]
-    pub action: Option<(String, Rc<dyn Fn() -> Result<(), UiError>>)>,
+    pub action: Option<(String, kivact_core::state::Callback<()>)>,
     /// A view a kit draws as the toast's icon instead of the icon of its
     /// tone, if there is one. It is called once, when the toast is shown.
-    pub icon: Option<Rc<dyn Fn() -> View>>,
+    pub icon: Option<kivact_core::view::ViewFn<()>>,
 }
 
 /// Toasts are equal when their text, tone and duration are, and their action
@@ -137,19 +140,8 @@ pub struct Toast {
 /// as for a [`ColumnDef`](crate::ColumnDef).
 impl PartialEq for Toast {
     fn eq(&self, other: &Self) -> bool {
-        fn same<T: ?Sized>(a: &Rc<T>, b: &Rc<T>) -> bool {
-            Rc::ptr_eq(a, b)
-        }
-        let action = match (&self.action, &other.action) {
-            (None, None) => true,
-            (Some((a, f)), Some((b, g))) => a == b && same(f, g),
-            _ => false,
-        };
-        let icon = match (&self.icon, &other.icon) {
-            (None, None) => true,
-            (Some(a), Some(b)) => same(a, b),
-            _ => false,
-        };
+        let action = self.action == other.action;
+        let icon = self.icon == other.icon;
         self.title == other.title
             && self.body == other.body
             && self.tone == other.tone
@@ -201,23 +193,20 @@ impl Toast {
     /// included. `on` may return `()` or `Result<(), UiError>`; an error, or
     /// a panic such as writing a signal whose component is gone, is
     /// reported where the action button's press is.
-    pub fn action<R: HandlerResult>(
+    pub fn action(
         mut self,
         label: impl Into<String>,
-        on: impl Fn() -> R + 'static,
+        on: impl Into<kivact_core::state::Callback<()>>,
     ) -> Self {
-        self.action = Some((
-            label.into(),
-            Rc::new(move || on().into_outcome().map(|_| ())),
-        ));
+        self.action = Some((label.into(), on.into()));
         self
     }
 
     /// An icon for this toast, which a kit draws instead of the icon of its
     /// tone. `icon` is called once, when the toast is shown, in the toast's
     /// owner.
-    pub fn icon<V: IntoView>(mut self, icon: impl Fn() -> V + 'static) -> Self {
-        self.icon = Some(Rc::new(move || icon().into_view()));
+    pub fn icon<V: IntoView>(mut self, icon: impl kivact_core::view::IntoViewFn<V>) -> Self {
+        self.icon = Some(icon.into_view_fn());
         self
     }
 
@@ -227,7 +216,7 @@ impl Toast {
     pub fn activate(&self, id: ToastId) -> Result<(), UiError> {
         toaster().dismiss(id);
         match &self.action {
-            Some((_, on)) => on(),
+            Some((_, on)) => on.try_call(()),
             None => Ok(()),
         }
     }
@@ -254,7 +243,13 @@ impl Toast {
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::prelude;
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{Toast, Tone, toaster};
@@ -308,7 +303,7 @@ pub struct Toaster {
 /// whenever a toast is due.
 #[track_caller]
 pub fn toaster() -> Toaster {
-    app_state("toaster", || {
+    kivact_core::state::use_app_state(|| {
         let queue = signal(Vec::<QueuedToast>::new());
         let limit = signal(DEFAULT_MAX_VISIBLE);
         Toaster {
@@ -367,6 +362,10 @@ impl Toaster {
     /// Remove a toast, shown or waiting. If focus is inside it, request its
     /// return to the last focused element outside the toast.
     pub fn dismiss(self, id: ToastId) {
+        self.dismiss_for(id, kivact_core::view::DismissReason::Accessibility);
+    }
+
+    fn dismiss_for(self, id: ToastId, reason: kivact_core::view::DismissReason) {
         let Some((index, focus)) = self.queue.with_untracked(|queue| {
             queue
                 .iter()
@@ -384,8 +383,8 @@ impl Toaster {
         if let Some(previous) = previous {
             previous.restore_focus();
         }
-        if shown && let Some(on_hide) = entry.options.on_hide {
-            on_hide();
+        if shown && let Some(on_dismiss) = entry.options.on_dismiss {
+            on_dismiss.call(reason);
         }
     }
 
@@ -427,7 +426,7 @@ impl Toaster {
     }
 
     /// The toast `id` if it is shown now.
-    fn shown(self, id: ToastId) -> Option<Toast> {
+    fn is_open(self, id: ToastId) -> Option<Toast> {
         self.visible.with_untracked(|visible| {
             visible
                 .iter()
@@ -444,7 +443,7 @@ impl Toaster {
                 .map(|entry| entry.focus.clone())
         });
         let Some(slot) = slot else { return };
-        let owner = Owner::current("toast focus return");
+        let owner = Owner::current();
         let previous = signal(None);
         slot.set(Some(ToastFocus { within, previous }));
         on_cleanup(move || slot.set(None));
@@ -475,7 +474,7 @@ pub struct ToastState {
 impl Toaster {
     /// The toast `id` while it is shown, for drawing it.
     pub fn toast(self, id: ToastId) -> Option<Toast> {
-        self.shown(id)
+        self.is_open(id)
     }
 
     /// The ids of the toasts shown now whose tone is announced assertively
@@ -496,7 +495,15 @@ impl Toaster {
     /// is the caller's layout.
     #[track_caller]
     pub fn region(self, live: LiveRegion) -> Part<PartState> {
-        part(|input| input).role(Role::Group).live_region(live)
+        let input = part(|input| input);
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .role(Role::Group)
+                .live_region(live)
+        })
     }
 
     /// One shown toast: a `Role::Status` (polite) or `Role::Alert`
@@ -522,7 +529,7 @@ impl Toaster {
     }
 
     fn item_with_hold(self, id: ToastId, held: Option<Value<bool>>) -> Part<ToastState> {
-        let toast = self.shown(id);
+        let toast = self.is_open(id);
         let tone = toast.as_ref().map_or(Tone::Neutral, |toast| toast.tone);
         let duration = toast.as_ref().and_then(|toast| toast.duration);
         let title = toast.map(|toast| toast.title).unwrap_or_default();
@@ -536,39 +543,44 @@ impl Toaster {
                     .map_or(0, |at| same.len() - 1 - at)
             })
         });
-        let attachment = part(move |input| ToastState {
+        let input = part(move |input| ToastState {
             input,
             tone,
             engaged: engaged.get(),
             depth: depth.get(),
         });
-        let anchor = attachment.node_ref();
-        attachment
-            .role(if tone.is_urgent() {
-                Role::Alert
-            } else {
-                Role::Status
-            })
-            .name(title)
-            .on_key(move |event: KeyEvent| {
-                if event.key() == Key::Escape && event.modifiers() == Modifiers::default() {
-                    self.dismiss(id);
-                    Handled::Yes
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            let attachment = host.part(input).node_ref(target);
+            let anchor = target;
+            attachment
+                .role(if tone.is_urgent() {
+                    Role::Alert
                 } else {
-                    Handled::No
-                }
-            })
-            .on_bind(move |_| {
-                let hover = anchor.hovered();
-                let focus = anchor.focus_within();
-                self.track_focus(id, focus);
-                let within = memo(move || hover.get() || focus.get());
-                let stopped = memo(move || {
-                    within.get() || self.holds.get() > 0 || held.is_some_and(|held| held.get())
-                });
-                effect(move || engaged.set(stopped.get()));
-                count_down(self, id, duration, stopped);
-            })
+                    Role::Status
+                })
+                .name(title)
+                .on_key(move |event: KeyEvent| {
+                    if event.key() == Key::Escape && event.modifiers() == Modifiers::default() {
+                        self.dismiss_for(id, kivact_core::view::DismissReason::Escape);
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
+                .on_attach(move |_| {
+                    let hover = anchor.hovered();
+                    let focus = anchor.focus_within();
+                    self.track_focus(id, focus);
+                    let within = memo(move || hover.get() || focus.get());
+                    let stopped = memo(move || {
+                        within.get() || self.holds.get() > 0 || held.is_some_and(|held| held.get())
+                    });
+                    effect(move || engaged.set(stopped.get()));
+                    count_down(self, id, duration, stopped);
+                })
+        })
     }
 }
 
@@ -581,7 +593,7 @@ fn ids(shown: &[(ToastId, Toast)], assertive: bool) -> Vec<ToastId> {
         .collect()
 }
 
-/// Dismiss `id` after `duration` of time not `engaged`. The time already
+/// DismissOn `id` after `duration` of time not `engaged`. The time already
 /// counted is kept while it is engaged and the rest resumes after it.
 fn count_down(toaster: Toaster, id: ToastId, duration: Option<Duration>, engaged: Value<bool>) {
     let Some(duration) = duration else { return };
@@ -596,7 +608,7 @@ fn count_down(toaster: Toaster, id: ToastId, duration: Option<Duration>, engaged
         let wait = Duration::from_nanos(left.get());
         let task = spawn(async move {
             sleep(wait).await;
-            toaster.dismiss(id);
+            toaster.dismiss_for(id, kivact_core::view::DismissReason::Timeout);
         });
         let left = left.clone();
         on_cleanup(move || {

@@ -2,7 +2,7 @@
 
 use super::data::{TableCellState, TableFocus, TableRowState};
 use super::state::State;
-use crate::ListSelection;
+use crate::Selection;
 use crate::policy::grid::GridMove;
 use crate::roving::Member;
 use kivact_core::ErrorKind;
@@ -11,11 +11,10 @@ use kivact_core::state::{Value, Var, memo, var};
 use kivact_core::view::{
     ButtonPress, Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, Role,
 };
-use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;
 
-fn row_name<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
+fn row_name<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     state: &Rc<State<K, C>>,
     key: Var<K>,
 ) -> Value<String> {
@@ -29,7 +28,7 @@ fn row_name<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
 }
 
 /// A row whose cells hold the focus.
-pub(super) fn row<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
+pub(super) fn row<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     state: Rc<State<K, C>>,
     key: K,
 ) -> Part<TableRowState> {
@@ -40,22 +39,43 @@ pub(super) fn row<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static
     let is_active = memo(move || {
         key.with(|key| active.with(|active| active.as_ref().is_some_and(|(row, _)| row == key)))
     });
-    let row = part(move |input| TableRowState {
+    let input = part(move |input| TableRowState {
         input,
         selected: is_selected.get(),
         active: is_active.get(),
+    });
+    let part_state = input.state();
+    let observed = state.row_states;
+    observed.update(|states| {
+        states.insert(key.get(), part_state);
+    });
+    kivact_core::state::on_cleanup(move || {
+        if observed.try_get_untracked().is_some() {
+            observed.update(|states| {
+                let key = key.get();
+                if states.get(&key) == Some(&part_state) {
+                    states.remove(&key);
+                }
+            });
+        }
+    });
+    let target = kivact_core::view::node_ref();
+    Part::new(part_state, move |host| {
+        let row = host
+            .part(input)
+            .node_ref(target)
+            .role(Role::Row)
+            .name(row_name(&state, key));
+        if state.focus == TableFocus::None {
+            row
+        } else {
+            row.selected(is_selected)
+        }
     })
-    .role(Role::Row)
-    .name(row_name(&state, key));
-    if state.focus == TableFocus::None {
-        row
-    } else {
-        row.selected(is_selected)
-    }
 }
 
 /// A cell: with cell focus it is a grid cell with the roving tab stop.
-pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
+pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     state: Rc<State<K, C>>,
     key: K,
     column: C,
@@ -70,90 +90,128 @@ pub(super) fn cell<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'stati
         } else {
             Role::GridCell
         };
-        return part(move |input| TableCellState {
+        let input = part(move |input| TableCellState {
             input,
             selected: is_selected.get(),
             active: false,
-        })
-        .role(role);
+        });
+        let part_state = input.state();
+        let observed = state.cell_states;
+        observed.update(|states| {
+            states.insert(id.get(), part_state);
+        });
+        kivact_core::state::on_cleanup(move || {
+            if observed.try_get_untracked().is_some() {
+                observed.update(|states| {
+                    let key = id.get();
+                    if states.get(&key) == Some(&part_state) {
+                        states.remove(&key);
+                    }
+                });
+            }
+        });
+        let target = kivact_core::view::node_ref();
+        return Part::new(part_state, move |host| {
+            host.part(input).node_ref(target).role(role)
+        });
     }
     let active = state.active;
     let is_active = memo(move || id.with(|id| active.with(|active| active.as_ref() == Some(id))));
     let keys = state.clone();
     let pointers = state.clone();
-    part(move |input| TableCellState {
+    let input = part(move |input| TableCellState {
         input,
         selected: is_selected.get(),
         active: is_active.get(),
-    })
-    .role(Role::GridCell)
-    .selected(is_selected)
-    .focusable(is_active)
-    .on_key(move |event: KeyEvent| key_down(&keys, &id.get(), &event))
-    .on_pointer(move |event: PointerEvent| {
-        if matches!(
-            event.phase(),
-            PointerPhase::Down(ButtonPress {
-                button: MouseButton::Primary,
-                ..
+    });
+    let part_state = input.state();
+    let observed = state.cell_states;
+    observed.update(|states| {
+        states.insert(id.get(), part_state);
+    });
+    kivact_core::state::on_cleanup(move || {
+        if observed.try_get_untracked().is_some() {
+            observed.update(|states| {
+                let key = id.get();
+                if states.get(&key) == Some(&part_state) {
+                    states.remove(&key);
+                }
+            });
+        }
+    });
+    Part::new(part_state, move |host| {
+        host.part(input)
+            .role(Role::GridCell)
+            .selected(is_selected)
+            .focusable(is_active)
+            .on_key(move |event: KeyEvent| key_down(&keys, &id.get(), &event))
+            .on_pointer(move |event: PointerEvent| {
+                if matches!(
+                    event.phase(),
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        ..
+                    })
+                ) {
+                    let (key, column) = id.get();
+                    pointers
+                        .list
+                        .select(key.clone(), pointers.list.gesture(event.modifiers()));
+                    let cell = (key, column);
+                    if pointers
+                        .target(&cell)
+                        .is_some_and(|node| node.holds_focus_within())
+                    {
+                        pointers.roving.requested.set(Some(cell));
+                    } else {
+                        pointers.focus_cell(cell);
+                    }
+                }
+                Handled::No
             })
-        ) {
-            let (key, column) = id.get();
-            pointers
-                .list
-                .select(key.clone(), pointers.list.gesture(event.modifiers()));
-            let cell = (key, column);
-            if pointers
-                .target(&cell)
-                .is_some_and(|node| node.holds_focus_within())
-            {
-                pointers.roving.requested.set(Some(cell));
-            } else {
-                pointers.focus_cell(cell);
-            }
-        }
-        Handled::No
-    })
-    .on_bind(move |mount| {
-        let owner = Owner::current("Table::cell");
-        if Owner::root("Table::cell") != state.root {
-            owner.report(ErrorKind::WrongApp, "Table cell belongs to another App", at);
-            return;
-        }
-        let cell = id.get();
-        if state.roving.contains(&cell) {
-            owner.report(
-                ErrorKind::Message,
-                "Table: a cell with this row and column is already mounted",
-                state.at,
-            );
-            return;
-        }
-        let node = mount.node;
-        state.roving.insert(
-            cell.clone(),
-            Member {
-                node,
-                eligible: mount.eligible,
-                disabled: mount.disabled,
-                hidden: mount.hidden,
-            },
-        );
-        let mounted = node.mounted_node();
-        let weak = Rc::downgrade(&state);
-        owner.on_cleanup(move || {
-            let Some(state) = weak.upgrade() else {
-                return;
-            };
-            let focused = mounted.is_some() && state.owner.focused_node() == mounted;
-            if state.roving.remove(&cell, node) && focused {
-                state.roving.restore_from.set(mounted);
-            }
-        });
+            .on_attach(move |mount| {
+                let owner = Owner::current();
+                if Owner::root() != state.root {
+                    owner.report(
+                        ErrorKind::WrongApp,
+                        "DataTableApi cell belongs to another App",
+                    );
+                    return;
+                }
+                let cell = id.get();
+                if state.roving.contains(&cell) {
+                    owner.report(
+                        ErrorKind::Message,
+                        "DataTableApi: a cell with this row and column is already mounted",
+                    );
+                    return;
+                }
+                let node = mount.node;
+                state.roving.insert(
+                    cell.clone(),
+                    Member {
+                        node,
+                        eligible: mount.eligible,
+                        disabled: mount.disabled,
+                        hidden: mount.hidden,
+                    },
+                );
+                let mounted = node.mounted_node();
+                let weak = Rc::downgrade(&state);
+                owner.on_cleanup(move || {
+                    let Some(state) = weak.upgrade() else {
+                        return;
+                    };
+                    let focused = mounted.is_some() && state.owner.focused_node() == mounted;
+                    if state.roving.remove(&cell, node) && focused {
+                        state.roving.restore_from.set(mounted);
+                    }
+                });
+            })
     })
 }
 
-fn key_down<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
+fn key_down<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     state: &State<K, C>,
     (key, column): &(K, C),
     event: &KeyEvent,
@@ -166,7 +224,7 @@ fn key_down<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static>(
     }
     let modifiers = event.modifiers();
     let command = modifiers.ctrl || modifiers.meta;
-    let multiple = matches!(state.selection, ListSelection::Multiple(_));
+    let multiple = matches!(state.selection, Selection::Multiple(_));
     match event.key() {
         Key::Space if !modifiers.alt => {
             state

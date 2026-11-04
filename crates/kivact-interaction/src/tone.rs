@@ -41,7 +41,7 @@ pub enum Tone {
     Accent,
 }
 
-kivact_core::view::constant_value!(Tone);
+kivact_core::state::constant_value!(Tone);
 
 impl Tone {
     /// Whether the tone asks for the user's attention at once

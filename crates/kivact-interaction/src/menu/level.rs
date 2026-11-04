@@ -1,6 +1,7 @@
 //! Role: The levels of an open menu: rows, focus, keys and pointer.
 
-use std::hash::Hash;
+use crate::Selection;
+use kivact_core::state::IntoBinding;
 use std::time::Duration;
 
 use super::order::{Rows, edge_item, rows};
@@ -8,14 +9,14 @@ use super::state::{
     Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Session, Target, Want,
 };
 use crate::{
-    Delays, List, ListItem, ListPolicy, ListSelection, PopupCloseReason, PopupState, use_delayed,
+    Delays, ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_delayed,
     use_hover_corridor, use_list,
 };
 use kivact_core::custom::{Part, part};
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
-use kivact_core::style::{Theme, ThemeExtension, current_theme};
+use kivact_core::style::{Theme, ThemeExtension, use_theme};
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 
 /// Whether disabled menu entries participate in roving keyboard focus.
@@ -49,28 +50,30 @@ impl ThemeExtension for SubmenuTiming {
 }
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
-pub(super) struct Level<K: Clone + Eq + Hash + 'static> {
+pub(super) struct Level<K: kivact_core::state::ItemKey> {
+    pub(super) content_state: Signal<Option<Value<PopupState>>>,
+    pub(super) item_states: Signal<std::collections::HashMap<K, Value<MenuItemState>>>,
     session: Session<K>,
     pub(super) depth: usize,
     /// The keys of the submenu items that lead to this level.
     pub(super) prefix: Value<Vec<K>>,
     pub(super) shown: Value<bool>,
     pub(super) rows: Value<Rows<K>>,
-    group: List<K>,
+    group: ListApi<K>,
     anchors: Signal<Vec<(K, Rect)>>,
     aiming: Value<bool>,
     timing: SubmenuTiming,
     retain_disabled_focus: bool,
 }
 
-impl<K: Clone + Eq + Hash + 'static> Clone for Level<K> {
+impl<K: kivact_core::state::ItemKey> Clone for Level<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Copy for Level<K> {}
+impl<K: kivact_core::state::ItemKey> Copy for Level<K> {}
 
-impl<K: Clone + Eq + Hash + 'static> Level<K> {
+impl<K: kivact_core::state::ItemKey> Level<K> {
     /// Setup only.
     #[track_caller]
     pub(super) fn new(session: Session<K>, prefix: Vec<K>, shown: Value<bool>) -> Self {
@@ -78,7 +81,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         let entries = session.entries;
         let prefix = prefix.into_value();
         let retain_disabled_focus =
-            *current_theme().get::<DisabledMenuFocus>() == DisabledMenuFocus::Retain;
+            *use_theme().get().ext::<DisabledMenuFocus>() == DisabledMenuFocus::Retain;
         let level_rows = memo(move || prefix.with(|prefix| entries.with(|e| rows(e, prefix))));
         // A level the entries no longer keep offers no items, so its group does not
         // move focus to a sibling that is about to go away with it.
@@ -103,12 +106,12 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         });
         let group = use_list(
             items,
-            ListSelection::Single(signal(None::<K>).into()),
-            ListPolicy::menu(),
+            Selection::Single(signal(None::<K>).into_binding()),
+            ListOptions::menu(),
         )
         .shared_typeahead(session.typed);
         let anchors = signal(Vec::<(K, Rect)>::new());
-        let timing = *current_theme().get::<SubmenuTiming>();
+        let timing = *use_theme().get().ext::<SubmenuTiming>();
         let aiming = if timing.close.is_zero() {
             false.into_value()
         } else {
@@ -134,9 +137,11 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     })
                 })
             });
-            use_hover_corridor(anchor, surface, shown, timing.close)
+            use_hover_corridor(anchor, surface, shown, timing.close).is_holding()
         };
         Self {
+            content_state: signal(None),
+            item_states: signal(std::collections::HashMap::new()),
             session,
             depth,
             prefix,
@@ -152,7 +157,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
 
     /// The level's keys and focus requests on the caller's surface part.
     #[track_caller]
-    pub(super) fn content(self, base: Part<PopupState>) -> Part<PopupState> {
+    pub(super) fn content(self, base: kivact_core::view::Node) -> kivact_core::view::Node {
         let Level {
             session,
             depth,
@@ -163,14 +168,15 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             retain_disabled_focus,
             ..
         } = self;
+        let surface = kivact_core::view::node_ref();
+        let base = base.node_ref(surface);
         if depth > 0 && !timing.close.is_zero() {
             observe_rect(
                 session.surface_rects,
                 prefix.get_untracked(),
-                base.node_ref().rect(),
+                surface.rect(),
             );
         }
-        let surface = base.node_ref();
         let base = if let Some(press) = session.press {
             base.on_pointer(move |event| {
                 press.event(session, super::press_state::Source::Menu, event)
@@ -205,7 +211,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                     Handled::No
                 }
             })
-            .on_bind(move |_| {
+            .on_attach(move |_| {
                 if let Some(press) = session.press {
                     press.surface(surface);
                 }
@@ -290,7 +296,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         let shortcut = memo(move || {
             entry.with(|e| {
                 e.as_ref()
-                    .map(|e| e.shortcut_value().to_string())
+                    .map(|e| e.shortcut().to_string())
                     .unwrap_or_default()
             })
         });
@@ -298,7 +304,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
             if retain_disabled_focus
                 && disabled.get()
                 && let Some(reason) =
-                    entry.with(|entry| entry.as_ref().and_then(MenuEntry::disabled_reason_value))
+                    entry.with(|entry| entry.as_ref().and_then(MenuEntry::disabled_reason))
             {
                 return reason;
             }
@@ -314,7 +320,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
         };
 
         let member = group.item_with_disabled_focus(key.clone(), self.retain_disabled_focus);
-        let item_ref = member.node_ref();
+        let item_ref = kivact_core::view::node_ref();
         if let Some(press) = session.press {
             press.row(item_ref, disabled);
         }
@@ -343,7 +349,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 },
             );
             effect(move || {
-                if rest.shown().get() && !aiming.get() {
+                if rest.is_open().get() && !aiming.get() {
                     session.open_hover(depth, key.clone());
                 }
             });
@@ -366,7 +372,7 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 },
             );
             effect(move || {
-                if rest.shown().get() && !aiming.get() && shown.get_untracked() {
+                if rest.is_open().get() && !aiming.get() && shown.get_untracked() {
                     session.close_below(depth);
                 }
             });
@@ -386,64 +392,83 @@ impl<K: Clone + Eq + Hash + 'static> Level<K> {
                 session.hover(depth, hover_key.clone());
             }
         });
+        let observed_key = key.clone();
         let invoke_key = key;
-        let member = member
-            .map_state(move |state| MenuItemState {
-                pressed_over: pressed_over.get(),
-                input: state.input,
-                check: check.get(),
-                expanded: expanded.get(),
-                destructive: destructive.get(),
-            })
-            .role(match kind {
-                Some(MenuItemKind::Radio) => Role::MenuItemRadio,
-                Some(MenuItemKind::Checkbox) => Role::MenuItemCheckBox,
-                _ => Role::MenuItem,
-            })
-            .with(part(|input| input).disabled(disabled))
-            .description(description)
-            .on_pointer(move |event: PointerEvent| {
-                if let Some(press) = session.press {
-                    let handled = press.event(session, super::press_state::Source::Menu, event);
-                    if handled == Handled::Yes {
-                        return handled;
+        let member = member.map_state(move |state| MenuItemState {
+            pressed_over: pressed_over.get(),
+            input: state.input,
+            check: check.get(),
+            expanded: expanded.get(),
+            destructive: destructive.get(),
+        });
+        let part_state = member.state();
+        let observed = self.item_states;
+        observed.update(|states| {
+            states.insert(observed_key.clone(), part_state);
+        });
+        on_cleanup(move || {
+            if observed.try_get_untracked().is_some() {
+                observed.update(|states| {
+                    if states.get(&observed_key) == Some(&part_state) {
+                        states.remove(&observed_key);
                     }
-                }
-                match event.phase() {
-                    PointerPhase::Enter => hovered.set(true),
-                    PointerPhase::Leave => hovered.set(false),
-                    _ => {}
-                }
-                Handled::No
-            })
-            .on_press(move || {
-                if disabled.get() {
-                    return Ok(());
-                }
-                if submenu {
-                    session.open_submenu(depth, invoke_key.clone());
-                    return Ok(());
-                }
-                session.choose.try_call(invoke_key.clone())?;
-                if !keep_open.get() {
-                    session.close(PopupCloseReason::Selection);
-                }
-                Ok::<_, kivact_core::UiError>(())
-            });
-        let member = if matches!(kind, Some(MenuItemKind::Checkbox | MenuItemKind::Radio)) {
-            member.checked(move || check.get().is_some_and(MenuCheck::is_checked))
-        } else {
-            member
-        };
-        if submenu {
-            member.expanded(expanded).selected(expanded)
-        } else {
-            member
-        }
+                });
+            }
+        });
+        Part::new(part_state, move |host| {
+            let member = host
+                .part(member)
+                .node_ref(item_ref)
+                .role(match kind {
+                    Some(MenuItemKind::Radio) => Role::MenuItemRadio,
+                    Some(MenuItemKind::Checkbox) => Role::MenuItemCheckBox,
+                    _ => Role::MenuItem,
+                })
+                .disabled(disabled)
+                .description(description)
+                .on_pointer(move |event: PointerEvent| {
+                    if let Some(press) = session.press {
+                        let handled = press.event(session, super::press_state::Source::Menu, event);
+                        if handled == Handled::Yes {
+                            return handled;
+                        }
+                    }
+                    match event.phase() {
+                        PointerPhase::Enter => hovered.set(true),
+                        PointerPhase::Leave => hovered.set(false),
+                        _ => {}
+                    }
+                    Handled::No
+                })
+                .on_press(move || {
+                    if disabled.get() {
+                        return Ok(());
+                    }
+                    if submenu {
+                        session.open_submenu(depth, invoke_key.clone());
+                        return Ok(());
+                    }
+                    session.choose.get().try_call(invoke_key.clone())?;
+                    if !keep_open.get() {
+                        session.close(PopupCloseReason::Selection);
+                    }
+                    Ok::<_, kivact_core::UiError>(())
+                });
+            let member = if matches!(kind, Some(MenuItemKind::Checkbox | MenuItemKind::Radio)) {
+                member.checked(move || check.get().is_some_and(MenuCheck::is_checked))
+            } else {
+                member
+            };
+            if submenu {
+                member.expanded(expanded).selected(expanded)
+            } else {
+                member
+            }
+        })
     }
 }
 
-fn on_key<K: Clone + Eq + Hash + 'static>(
+fn on_key<K: kivact_core::state::ItemKey>(
     session: Session<K>,
     depth: usize,
     rows: Value<Rows<K>>,
@@ -485,7 +510,7 @@ fn on_key<K: Clone + Eq + Hash + 'static>(
     }
 }
 
-fn observe_rect<K: Clone + PartialEq + 'static>(
+fn observe_rect<K: kivact_core::state::PropValue>(
     rects: Signal<Vec<(K, Rect)>>,
     key: K,
     rect: Value<Option<Rect>>,

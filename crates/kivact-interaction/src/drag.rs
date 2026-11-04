@@ -3,12 +3,12 @@
 //! [`use_drag`] keeps only the pointer identity and the start of one session
 //! in its owner; the caller takes any snapshot of its own value in
 //! `on_start`, and an external binding write does not take it again. A drag
-//! is one edit of an [`EditSession`] through [`Drag::edit`] (begun at the
-//! press) or [`Drag::edit_on_change`] (begun at the first [`Drag::change`],
+//! is one edit of an [`EditSession`] through [`DragApi::edit`] (begun at the
+//! press) or [`DragApi::edit_on_change`] (begun at the first [`DragApi::change`],
 //! so a press that only selects reports nothing). The splitter and the
 //! slider's track use `edit`; Creative's domain editors use `edit_on_change`
 //! with a source on the canvas and on each region, and take a middle-button
-//! pan in the same drag with [`Drag::buttons`]. Zoom and pan does not use a
+//! pan in the same drag with [`DragApi::buttons`]. Zoom and pan does not use a
 //! drag: the middle button, Space with the primary button and a two-finger
 //! pinch do not fit one primary-button session, so it drives the same
 //! `EditSession` itself (see `crate::zoom_pan`).
@@ -103,7 +103,7 @@ pub struct DragState {
     pub active: bool,
 }
 
-/// One drag of a [`Drag`]: nothing, a pointer moving, or the release's
+/// One drag of a [`DragApi`]: nothing, a pointer moving, or the release's
 /// `on_end` running.
 enum DragSession<T> {
     Idle,
@@ -120,8 +120,8 @@ struct Active<T> {
     source: u64,
     /// The last valid position, where a drag that Escape stops ends.
     last: Point,
-    /// This drag began the edit given to [`Drag::edit`] or
-    /// [`Drag::edit_on_change`]; only then does it commit or cancel it.
+    /// This drag began the edit given to [`DragApi::edit`] or
+    /// [`DragApi::edit_on_change`]; only then does it commit or cancel it.
     owns_edit: bool,
 }
 
@@ -137,7 +137,7 @@ enum Stop {
     /// The disabled value became true: no callback, the drag's own edit
     /// commits where it is.
     Disabled,
-    /// [`Drag::cancel`]: no callback, the drag's own edit cancels.
+    /// [`DragApi::cancel`]: no callback, the drag's own edit cancels.
     Dropped,
 }
 
@@ -176,7 +176,7 @@ impl<V: Clone + 'static> DragEdit for SessionEdit<V> {
     }
 }
 
-/// What the setters of a [`Drag`] store; read at the event, so the setters
+/// What the setters of a [`DragApi`] store; read at the event, so the setters
 /// work in any order and after the sources are made.
 struct DragSettings<T: 'static> {
     buttons: u8,
@@ -198,7 +198,7 @@ impl<T: 'static> Default for DragSettings<T> {
     }
 }
 
-/// The bit of `button` in [`Drag`]'s set of starting buttons.
+/// The bit of `button` in [`DragApi`]'s set of starting buttons.
 fn bit(button: MouseButton) -> u8 {
     match button {
         MouseButton::Primary => 1,
@@ -249,7 +249,8 @@ enum Step<T> {
 /// effect, [`cancel`](Self::cancel) and owner disposal discard the session
 /// without calling a callback. The setters work in any order, before or
 /// after the sources are made.
-pub struct Drag<T: 'static> {
+pub struct DragApi<T: 'static> {
+    observed: Signal<Option<Value<DragState>>>,
     session: Signal<DragSession<T>>,
     /// The source of the active drag, derived from `session`.
     active_source: Value<Option<u64>>,
@@ -259,13 +260,13 @@ pub struct Drag<T: 'static> {
     disabled: Signal<Option<Value<bool>>>,
 }
 
-impl<T: 'static> Clone for Drag<T> {
+impl<T: 'static> Clone for DragApi<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: 'static> Copy for Drag<T> {}
+impl<T: 'static> Copy for DragApi<T> {}
 
 /// Create a drag session under the current setup owner, reporting positions in
 /// `coordinates`. Setup only.
@@ -273,7 +274,13 @@ impl<T: 'static> Copy for Drag<T> {}
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::prelude;
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
@@ -290,7 +297,7 @@ impl<T: 'static> Copy for Drag<T> {}
 ///     .style(move || style().size(40, 20).opacity(if dragging.get().active { 0.5 } else { 1.0 }));
 /// ```
 #[track_caller]
-pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> Drag<T> {
+pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> {
     let session = signal(DragSession::<T>::Idle);
     let active_source = memo(move || {
         session.with(|session| match session {
@@ -298,7 +305,8 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> Drag<T> {
             DragSession::Idle | DragSession::Releasing { .. } => None,
         })
     });
-    let drag = Drag {
+    let drag = DragApi {
+        observed: signal(None),
         session,
         active_source,
         sources: var(0),
@@ -321,7 +329,20 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> Drag<T> {
     drag
 }
 
-impl<T: Clone + 'static> Drag<T> {
+impl<T: Clone + 'static> DragApi<T> {
+    /// Drawing state of the actual attached input target.
+    pub fn source_state(self) -> Value<DragState> {
+        kivact_core::state::memo(move || {
+            self.observed
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(DragState {
+                    input: PartState::default(),
+                    active: self.is_active(),
+                })
+        })
+    }
+
     /// Cancel when this source becomes disabled, and refuse new starts while disabled.
     ///
     /// The source's element stays enabled. Setup only. This is an
@@ -350,10 +371,16 @@ impl<T: Clone + 'static> Drag<T> {
     /// ```no_run
     /// # mod kivact {
     /// #     //! Role: Supply facade paths for this documentation example.
-    /// #     pub use kivact_core::prelude;
+    /// # pub use kivact_core::{view, state, style};
+    /// # pub mod prelude {
+    /// # //! Role: Supply the canonical imports used by this documentation example.
+    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+    /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+    /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+    /// # }
     /// #     pub extern crate kivact_interaction as interaction;
     /// # }
-    /// use kivact::interaction::{DragCoordinates, DragUpdate, EditPhase, EditSession, use_drag};
+    /// use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
     /// use kivact::prelude::*;
     /// let x = signal(0.0_f64);
     /// let origin = signal(0.0_f64);
@@ -390,7 +417,13 @@ impl<T: Clone + 'static> Drag<T> {
     /// ```no_run
     /// # mod kivact {
     /// #     //! Role: Supply facade paths for this documentation example.
-    /// #     pub use kivact_core::prelude;
+    /// # pub use kivact_core::{view, state, style};
+    /// # pub mod prelude {
+    /// # //! Role: Supply the canonical imports used by this documentation example.
+    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+    /// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+    /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+    /// # }
     /// #     pub extern crate kivact_interaction as interaction;
     /// # }
     /// use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
@@ -628,43 +661,56 @@ impl<T: Clone + 'static> Drag<T> {
             *count
         });
         let active_source = self.active_source;
-        part(move |input| DragState {
+        let input = part(move |input| DragState {
             input,
             active: active_source.get() == Some(id),
-        })
-        .on_pointer(move |event: PointerEvent| -> kivact_core::Result<Handled> {
-            match self.observe(id, &payload, event) {
-                None => Ok(Handled::No),
-                Some(Step::Update(update)) => {
-                    self.report(update)?;
+        });
+        let part_state = input.state();
+        self.observed.set(Some(part_state));
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |mut host| {
+            let caller_disabled = host.accessible_disabled();
+            let own_disabled = self.disabled.get_untracked();
+            self.disabled.set(Some(kivact_core::state::memo(move || {
+                caller_disabled.is_some_and(|value| value.get())
+                    || own_disabled.is_some_and(|value| value.get())
+            })));
+            host.part(input)
+                .node_ref(target)
+                .on_pointer(move |event: PointerEvent| -> kivact_core::Result<Handled> {
+                    match self.observe(id, &payload, event) {
+                        None => Ok(Handled::No),
+                        Some(Step::Update(update)) => {
+                            self.report(update)?;
+                            Ok(Handled::Yes)
+                        }
+                        Some(Step::Stop {
+                            stop,
+                            owns_edit,
+                            update,
+                        }) => {
+                            let handled = update.is_some();
+                            self.stop(stop, owns_edit, update)?;
+                            Ok(if handled { Handled::Yes } else { Handled::No })
+                        }
+                    }
+                })
+                .on_key(move |event: KeyEvent| -> kivact_core::Result<Handled> {
+                    if event.key() != Key::Escape {
+                        return Ok(Handled::No);
+                    }
+                    let Some(active) = self.take_active() else {
+                        return Ok(Handled::No);
+                    };
+                    let cancel = update(
+                        active.start,
+                        active.last,
+                        event.modifiers(),
+                        DragPhase::Cancel,
+                    );
+                    self.stop(Stop::Cancel, active.owns_edit, cancel)?;
                     Ok(Handled::Yes)
-                }
-                Some(Step::Stop {
-                    stop,
-                    owns_edit,
-                    update,
-                }) => {
-                    let handled = update.is_some();
-                    self.stop(stop, owns_edit, update)?;
-                    Ok(if handled { Handled::Yes } else { Handled::No })
-                }
-            }
-        })
-        .on_key(move |event: KeyEvent| -> kivact_core::Result<Handled> {
-            if event.key() != Key::Escape {
-                return Ok(Handled::No);
-            }
-            let Some(active) = self.take_active() else {
-                return Ok(Handled::No);
-            };
-            let cancel = update(
-                active.start,
-                active.last,
-                event.modifiers(),
-                DragPhase::Cancel,
-            );
-            self.stop(Stop::Cancel, active.owns_edit, cancel)?;
-            Ok(Handled::Yes)
+                })
         })
     }
 

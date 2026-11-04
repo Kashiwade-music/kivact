@@ -1,7 +1,5 @@
 //! Role: Menu session operations coordinate opening, focus and closing.
 
-use std::hash::Hash;
-
 use super::order::{item_enabled, kept_levels};
 use super::press_state::{MenuPress, Press};
 use super::state::{Edge, MenuEntry, MenuOrigin, Opened, Session, Target, Want};
@@ -9,7 +7,7 @@ use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupCloseReason, ReasonSet, use_popup};
 use kivact_core::state::{Callback, Value, effect, memo, signal, var};
 
-impl<K: Clone + Eq + Hash + 'static> Session<K> {
+impl<K: kivact_core::state::ItemKey> Session<K> {
     /// Setup only.
     #[track_caller]
     pub(super) fn new(entries: Value<Vec<MenuEntry<K>>>, choose: Callback<K>) -> Self {
@@ -35,7 +33,7 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
         });
         let this = Self {
             entries,
-            choose,
+            choose: kivact_core::state::var(choose),
             popup,
             anchor,
             opened,
@@ -46,8 +44,7 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
             want,
             typed: var(Typeahead::default()),
             surface_rects: signal(Vec::new()),
-            press: kivact_core::style::current_theme()
-                .get::<MenuPress>()
+            press: (*kivact_core::style::use_theme().get().ext::<MenuPress>())
                 .0
                 .then(Press::new),
         };
@@ -105,15 +102,15 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
         this
     }
 
-    pub(super) fn shown(&self) -> Value<bool> {
-        self.popup.shown()
+    pub(super) fn is_open(&self) -> Value<bool> {
+        self.popup.is_open()
     }
 
     /// Close the whole menu as `reason`. After Escape, Selection and
     /// Accessibility the focus goes back to the element that had it before a
     /// context menu opened, or else to the trigger.
     pub(super) fn close(&self, reason: PopupCloseReason) {
-        if !self.shown().get_untracked() {
+        if !self.is_open().get_untracked() {
             return;
         }
         if let Some(press) = self.press {
@@ -146,7 +143,7 @@ impl<K: Clone + Eq + Hash + 'static> Session<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> Session<K> {
+impl<K: kivact_core::state::ItemKey> Session<K> {
     /// The key of the focused item if the focus is on the level at `depth`.
     pub(super) fn focused_at(&self, depth: usize) -> Option<K> {
         self.focus_key.with(|focus| match focus {

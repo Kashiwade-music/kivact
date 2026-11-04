@@ -8,7 +8,7 @@ use kivact_core::state::{Value, effect, memo};
 use kivact_core::view::{NodeRef, ScrollBehavior};
 
 /// Queries and commands for a vertical viewport that follows growing content.
-pub struct FollowEnd {
+pub struct FollowEndApi {
     viewport: NodeRef,
     offset: Value<Point>,
     end: Value<Option<f64>>,
@@ -16,7 +16,7 @@ pub struct FollowEnd {
     state: Rc<Cell<FollowState>>,
 }
 
-impl FollowEnd {
+impl FollowEndApi {
     /// The distance in pixels from the current offset to the end.
     ///
     /// Before layout establishes an end, this reports zero.
@@ -48,9 +48,10 @@ impl FollowEnd {
 pub fn use_follow_end(
     viewport: NodeRef,
     content: NodeRef,
-    reattach_distance: f64,
+    reattach_distance: impl Into<f64>,
     history_revision: Option<Value<u64>>,
-) -> FollowEnd {
+) -> FollowEndApi {
+    let reattach_distance = reattach_distance.into();
     let viewport_rect = viewport.rect();
     let content_rect = content.rect();
     let offset = viewport.scroll_offset();
@@ -79,7 +80,7 @@ pub fn use_follow_end(
             viewport.scroll_to(Point::new(offset.x, y), ScrollBehavior::Instant);
         }
     });
-    FollowEnd {
+    FollowEndApi {
         viewport,
         offset,
         end,

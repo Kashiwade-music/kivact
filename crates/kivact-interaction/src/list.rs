@@ -1,17 +1,17 @@
 //! Role: One list behavior attaches selection and navigation through parts.
 //!
-//! [`use_list`] takes a reactive `Vec<ListItem<K>>` and a [`ListSelection`]
+//! [`use_list`] takes a reactive `Vec<ListItem<K>>` and a [`Selection`]
 //! (`Single` over `Binding<Option<K>>`, `Multiple` over `Binding<Vec<K>>`).
 //! The order and the selection stay the caller's: a writer that refuses a
 //! selection is not replaced by an internal one, and a selected key that a
-//! filter or virtualization hides is not cleared. [`List::list`] is the
-//! `ListBox` and [`List::item`] the `Option` part with its name, selection,
+//! filter or virtualization hides is not cleared. [`ListApi::list`] is the
+//! `ListBox` and [`ListApi::item`] the `Option` part with its name, selection,
 //! input state and roving focus. A node's `.part(..)` and a canvas region
 //! share one registry, and an item's cleanup registers in the owner that
 //! actually mounts it. Tabs, radio groups, menus, selects, tables and trees
 //! are built on a list.
 //!
-//! [`ListPolicy`] holds the axis, boundary, activation, mode, typeahead
+//! [`ListOptions`] holds the axis, boundary, activation, mode, typeahead
 //! and range policy. The default is vertical, clamped, automatic, Select and
 //! no typeahead; the `tabs`, `radio`, `menu` and `listbox` presets use
 //! Activate, and `menu` and `listbox` add typeahead. With Select a primary
@@ -21,16 +21,16 @@
 //! applies to explicit moves only. When the active item disappears, Select
 //! clamps from its old position and Activate recovers to a valid selected key
 //! or the first one. The policy is the third argument of `use_list`;
-//! `page_size`, `on_leave`, `scroll_with` and `anchor` may be set before or
+//! `page_size`, `leave_to`, `scroll_with` and `anchor` may be set before or
 //! after the parts are made, and reactive items and external binding writes
 //! reach existing parts.
 //!
-//! [`List::select`] offers a gesture for a valid logical key, mounted or
-//! not; [`List::choose`] selects and focuses a mounted candidate, and
-//! [`List::focus`] focuses without selecting. Ranges, the command modifier
+//! [`ListApi::select`] offers a gesture for a valid logical key, mounted or
+//! not; [`ListApi::choose`] selects and focuses a mounted candidate, and
+//! [`ListApi::focus`] focuses without selecting. Ranges, the command modifier
 //! and a missing anchor follow the shared range policy, and
-//! [`List::anchor`] may share the anchor between lists. [`List::clear`]
-//! empties the selection and the anchor; [`List::select_all`] selects the
+//! [`ListApi::anchor`] may share the anchor between lists. [`ListApi::clear`]
+//! empties the selection and the anchor; [`ListApi::select_all`] selects the
 //! enabled logical keys of a `Multiple` list in order. Menus and selects use
 //! a private mounted selection path (so an option that disappears with the
 //! choice gets no extra focus request) and share a private typeahead slot
@@ -73,6 +73,6 @@ pub(crate) mod typeahead;
 
 pub use data::{
     ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
-    ListMissingAnchor, ListMode, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection,
+    ListMissingAnchor, ListMode, ListOptions, ListRangeMode, ListRangeOptions,
 };
-pub use handle::{List, use_list};
+pub use handle::{ListApi, use_list};

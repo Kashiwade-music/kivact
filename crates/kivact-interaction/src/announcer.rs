@@ -1,7 +1,7 @@
 //! Role: Expose reusable live regions for imperative announcements.
-use kivact_core::custom::NodeExt;
 use kivact_core::state::{Signal, signal};
 use kivact_core::style::{Position, style};
+use kivact_core::view::NodeBuilder;
 use kivact_core::view::{IntoView, LiveRegion, Role, View, dynamic};
 use kivact_core::view::{Node, NodeBuilder, node, text};
 

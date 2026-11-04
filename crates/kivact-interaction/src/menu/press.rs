@@ -5,14 +5,13 @@ use crate::PopupCloseReason;
 use kivact_core::custom::clock_now;
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerKind, PointerPhase};
-use std::hash::Hash;
 use std::time::Duration;
 
 const HOLD: Duration = Duration::from_millis(500);
 const SETTLE_NS: u64 = 300_000_000;
 
 impl Press {
-    pub(super) fn event<K: Clone + Eq + Hash + 'static>(
+    pub(super) fn event<K: kivact_core::state::ItemKey>(
         self,
         session: Session<K>,
         source: Source,
@@ -27,7 +26,7 @@ impl Press {
             if press.button != MouseButton::Primary || self.gesture.get().is_some() {
                 return Handled::No;
             }
-            let opened = session.shown().get_untracked();
+            let opened = session.is_open().get_untracked();
             if (source == Source::Menu) != opened
                 || (source == Source::Context && event.kind() == PointerKind::Mouse)
             {
@@ -52,7 +51,7 @@ impl Press {
                     if let Some(mut gesture) = self.gesture.get()
                         && gesture.id == id
                         && matches!(gesture.phase, Phase::Pending { .. })
-                        && !session.shown().get_untracked()
+                        && !session.is_open().get_untracked()
                     {
                         event.suppress_activation();
                         gesture.phase = Phase::Open {
