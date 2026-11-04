@@ -3,7 +3,7 @@
 use super::data::GradientStop;
 use super::data::position_value;
 use super::geometry::Ramp;
-use super::state::{GradientOwner, State};
+use super::state::{GradientOwner, Model, State};
 use kivact::custom::part;
 use kivact::geometry::Size;
 use kivact::i18n::message;
@@ -11,7 +11,7 @@ use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
 use kivact::state::callback;
-use kivact::state::{Binding, Callback, binding, effect, memo, var};
+use kivact::state::{Binding, Callback, binding, memo};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
@@ -116,53 +116,46 @@ impl IntoView for GradientEditor {
         let scene =
             crate::editors::shared::targets::targets(move || Ok((0..stops.get().len()).collect()));
         let valid = memo(move || scene.get().is_ok());
-        let state = State::new(self.stops, selection, valid, self.edit);
         let root_part = part(|input| input);
         let input = root_part.state();
+        let blocked = memo(move || {
+            let input = input.get();
+            input.disabled || input.hidden
+        });
+        let drag = use_drag::<(usize, f64, f64)>(DragCoordinates::Local);
+        let state = Model::new(self.stops, selection, valid, self.edit, blocked, drag);
         let reference = node_ref();
         let rect = reference.rect();
-        let snapshot = var((0.0, 1.0));
-        let apply = move |update: DragUpdate<usize>| {
+        let apply = move |update: DragUpdate<(usize, f64, f64)>| {
             if state.enabled() && state.edit.owner() == Some(GradientOwner::Stop) {
-                let (position, width) = snapshot.get();
-                state.position(update.payload, position + update.delta.x / width);
+                let (id, position, width) = update.payload;
+                state.position(id, position + update.delta.x / width);
             }
         };
         // Each drag of a stop is one edit of the shared session; Escape, an
         // engine Cancel and `State::cancel` write the stops from the press
         // back. A press during a field's edit joins that edit and moves
         // nothing.
-        let gesture = use_drag::<usize>(DragCoordinates::Local)
-            .edit(state.edit.session(), move || {
-                (GradientOwner::Stop, state.snapshot())
-            })
-            .on_start(move |update: DragUpdate<usize>| {
+        let gesture = drag
+            .on_start(move |update: DragUpdate<(usize, f64, f64)>| {
+                state.edit.begin(GradientOwner::Stop, state.snapshot());
                 if !state.enabled() || state.edit.owner() != Some(GradientOwner::Stop) {
                     return;
                 }
-                if let Some(stop) = stops.with(|stops| stops.get(update.payload).copied()) {
-                    let size = rect
-                        .get()
-                        .map_or(Size::new(240.0, 44.0), |r| Size::new(r.width, r.height));
-                    snapshot.set((position_value(stop.position), Ramp::new(size).width));
-                    selection.set(Some(update.payload));
-                }
+                selection.set(Some(update.payload.0));
             })
             .on_update(apply)
-            .on_end(move |update: DragUpdate<usize>| {
-                if update.phase != DragPhase::Cancel {
+            .on_end(move |update: DragUpdate<(usize, f64, f64)>| {
+                if update.phase == DragPhase::Cancel {
+                    state.edit.cancel_owned(GradientOwner::Stop);
+                } else {
                     apply(update);
+                    state.edit.commit(GradientOwner::Stop);
                 }
             });
-        state.drag.set(Some(gesture));
-        effect(move || {
-            let input = input.get();
-            let blocked = input.disabled || input.hidden;
-            state.blocked.set(blocked);
-            if blocked || !valid.get() {
-                state.cancel();
-            }
-        });
+        let state = State::new(state, gesture);
+        let group = node_ref();
+        state.observe(group.focus_within());
         let disabled = memo(move || state.blocked.get() || !valid.get());
         let infos = memo(move || {
             scene.with(|scene| {
@@ -259,7 +252,17 @@ impl IntoView for GradientEditor {
                             state.change_position(id, next);
                         }
                     };
-                    let drag_source = gesture.source(id);
+                    let drag_source = gesture.source_with(move || {
+                        let position = stops.with_untracked(|stops| {
+                            stops
+                                .get(id)
+                                .map_or(0.0, |stop| position_value(stop.position))
+                        });
+                        let size = rect
+                            .get_untracked()
+                            .map_or(Size::new(240.0, 44.0), |r| Size::new(r.width, r.height));
+                        (id, position, Ramp::new(size).width)
+                    });
                     kivact::custom::Part::new(part.state(), move |node| {
                         node.part(part)
                             .part(drag_source)
@@ -273,6 +276,7 @@ impl IntoView for GradientEditor {
                 },
             );
         self.root
+            .node_ref(group)
             .part(root_part)
             .child((ramp, fields(state, self.to_display, self.from_display)))
             .into_view()

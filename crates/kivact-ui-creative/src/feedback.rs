@@ -10,7 +10,7 @@ use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
 use kivact::platform;
 use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
 
-use kivact::state::{Binding, Value, signal, var};
+use kivact::state::{Binding, Value, signal};
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Icon, Position, rgba, style};
@@ -546,13 +546,9 @@ fn window_layer<V: IntoView>(
         let collapsed = signal(false);
         let offset = signal(Point::new(0.0, 0.0));
         // The offset and box at the press, which the drag moves from.
-        let grabbed = var(None::<(Point, Rect)>);
-        let mover = use_drag::<()>(DragCoordinates::Window)
-            .on_start(move |_| {
-                grabbed.set(bounds.get().map(|rect| (offset.get(), rect)));
-            })
-            .on_update(move |update: DragUpdate<()>| {
-                let Some((initial, rect)) = grabbed.get() else {
+        let mover = use_drag::<Option<(Point, Rect)>>(DragCoordinates::Window).on_update(
+            move |update: DragUpdate<Option<(Point, Rect)>>| {
+                let Some((initial, rect)) = update.payload else {
                     return;
                 };
                 let viewport = platform::window_size().get();
@@ -568,8 +564,8 @@ fn window_layer<V: IntoView>(
                     ) - base.x,
                     proposed.y.clamp(0.0, (viewport.height - 30.0).max(0.0)) - base.y,
                 ));
-            })
-            .on_end(move |_| grabbed.set(None));
+            },
+        );
         let (minimize_label, close_label) = (
             message("creative.window.minimize", "Minimize window"),
             message("creative.window.close", "Close window"),
@@ -652,7 +648,11 @@ fn window_layer<V: IntoView>(
                     }
                     Handled::No
                 })
-                .part(mover.source(()));
+                .part(mover.source_with(move || {
+                    bounds
+                        .get_untracked()
+                        .map(|rect| (offset.get_untracked(), rect))
+                }));
         }
         let window = overlay(
             node_ref(),

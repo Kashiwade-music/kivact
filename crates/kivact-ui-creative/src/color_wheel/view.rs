@@ -1,15 +1,14 @@
 //! Role: The ColorWheel builder and its wheel, sliders, fields and swatches.
 
-use super::conversion::color_to_hsv;
 use super::data::ColorModel;
 use super::geometry::{Channel, Geometry};
-use super::state::{ColorOwner, State};
+use super::state::{ColorOwner, Model, State};
 use kivact::custom::part;
 use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
 use kivact::state::IntoBinding;
-use kivact::state::{Binding, Callback, Value, effect};
+use kivact::state::{Binding, Callback, Value, memo};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
@@ -37,6 +36,9 @@ pub struct ColorWheel {
     root: Node,
     color: Binding<Color>,
     model: Binding<ColorModel>,
+    options: ColorWheelOptions,
+}
+struct ColorWheelOptions {
     alpha: Value<bool>,
     fields: Value<bool>,
     swatches: Option<Binding<Vec<Color>>>,
@@ -58,11 +60,13 @@ pub fn color_wheel(
             .style(style().min_width(0).width(pct(100)).gap(8)),
         color: color.into_binding(),
         model: model.into_binding(),
-        alpha: true.into_value(),
-        fields: true.into_value(),
-        swatches: None,
-        edit: None,
-        size: 220.0.into_value(),
+        options: ColorWheelOptions {
+            alpha: true.into_value(),
+            fields: true.into_value(),
+            swatches: None,
+            edit: None,
+            size: 220.0.into_value(),
+        },
     }
 }
 
@@ -70,29 +74,29 @@ impl ColorWheel {
     /// Reactively show model selection and channel input fields (default true).
     /// Removing an edited field cancels its edit and restores the starting color.
     pub fn fields(mut self, fields: impl IntoValue<bool>) -> Self {
-        self.fields = fields.into_value();
+        self.options.fields = fields.into_value();
         self
     }
 
     /// Reactively show the alpha strip and field (default true).
     /// Hiding them cancels their current edit and otherwise preserves alpha.
     pub fn alpha(mut self, alpha: impl IntoValue<bool>) -> Self {
-        self.alpha = alpha.into_value();
+        self.options.alpha = alpha.into_value();
         self
     }
     /// Bind editable swatches. Local swatch selection is not an edit.
     pub fn swatches(mut self, swatches: impl IntoBinding<Vec<Color>>) -> Self {
-        self.swatches = Some(swatches.into_binding());
+        self.options.swatches = Some(swatches.into_binding());
         self
     }
     /// Observe each continuous edit, including palette additions and removals.
     pub fn on_edit<R: HandlerResult>(mut self, edit: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.edit = Some(callback(edit));
+        self.options.edit = Some(callback(edit));
         self
     }
     /// Reactively set canvas height, at least 96 pixels; non-finite values use 220.
     pub fn wheel_size(mut self, size: impl IntoValue<f64>) -> Self {
-        self.size = size.into_value();
+        self.options.size = size.into_value();
         self
     }
 }
@@ -132,17 +136,24 @@ fn key(state: State, channel: Channel, event: KeyEvent) -> Handled {
 
 impl IntoView for ColorWheel {
     fn into_view(self) -> View {
-        let state = State::new(self.color, self.swatches, self.edit);
-        let value = self.color.into_value();
-        effect(move || {
-            let (h, s, v) = color_to_hsv(value.get());
-            if s > 0.00001 && v > 0.00001 {
-                state.hue.set(h);
-            }
+        let root_part = part(|input| input);
+        let root_state = root_part.state();
+        let blocked = memo(move || {
+            let input = root_state.get();
+            input.disabled || input.hidden
         });
-        let alpha = self.alpha;
+        let alpha = self.options.alpha;
+        let drag = use_drag::<Channel>(DragCoordinates::Local);
+        let state = Model::new(
+            self.color,
+            self.options.swatches,
+            self.options.edit,
+            blocked,
+            drag,
+        );
+        let value = self.color.into_value();
         let size = kivact::state::memo(move || {
-            let size = self.size.get();
+            let size = self.options.size.get();
             if size.is_finite() {
                 size.max(96.0)
             } else {
@@ -161,63 +172,59 @@ impl IntoView for ColorWheel {
             )
         };
         let apply = move |update: DragUpdate<Channel>| {
+            if state.blocked.get_untracked() || state.edit.owner() != Some(ColorOwner::Wheel) {
+                return;
+            }
             let (next, h) = geometry().update(
                 update.payload,
                 update.pos,
                 value.get_untracked(),
                 state.hue.get_untracked(),
             );
-            state.hue.set(h);
+            state
+                .controls
+                .send(super::state::controls_machine::Event::Hue(h));
             state.color.set(next);
         };
-        let active = kivact::state::signal(Channel::Hue);
+        let active = memo(move || state.controls.get().channel);
         // Each drag is one edit of the shared session; Escape on the wheel,
         // an engine Cancel and `cancel` write the color from the press back.
-        let gesture = use_drag::<Channel>(DragCoordinates::Local)
-            .edit(state.edit.session(), move || {
-                (ColorOwner::Wheel, state.snapshot())
-            })
+        let gesture = drag
             .on_start(move |update: DragUpdate<Channel>| {
-                active.set(update.payload);
+                state.edit.begin(ColorOwner::Wheel, state.snapshot());
+                state
+                    .controls
+                    .send(super::state::controls_machine::Event::Channel(
+                        update.payload,
+                    ));
                 apply(update);
             })
             .on_update(apply)
             .on_end(move |update: DragUpdate<Channel>| {
-                if update.phase != DragPhase::Cancel {
+                if update.phase == DragPhase::Cancel {
+                    state.edit.cancel_owned(ColorOwner::Wheel);
+                } else {
                     apply(update);
+                    state.edit.commit(ColorOwner::Wheel);
                 }
             });
-        state.drag.set(Some(gesture));
-        let cancel = move || state.cancel();
-        let root_part = part(|input| input);
-        let root_state = root_part.state();
-        effect(move || {
-            let input = root_state.get();
-            let blocked = input.disabled || input.hidden;
-            state.blocked.set(blocked);
-            if blocked {
-                cancel();
-            }
-        });
+        let state = State::new(state, gesture);
         let canvas_part = {
             let input_part = part(|input| input);
             kivact::custom::Part::new(input_part.state(), move |node| {
                 node.part(input_part).focusable(true)
             })
         };
-        effect(move || {
-            if !alpha.get() && active.get_untracked() == Channel::Alpha {
-                cancel();
-                active.set(Channel::Hue);
-            }
-        });
         let canvas_state = canvas_part.state();
-        effect(move || {
-            let s = canvas_state.get();
-            if s.disabled || s.hidden {
-                cancel();
-            }
-        });
+        let group = node_ref();
+        state.observe(
+            group.focus_within(),
+            memo(move || {
+                let input = canvas_state.get();
+                input.disabled || input.hidden
+            }),
+            alpha,
+        );
         let canvas = node()
             .role(Role::Canvas)
             .name(message("creative.color.wheel", "Color wheel"))
@@ -281,7 +288,9 @@ impl IntoView for ColorWheel {
                 });
                 let action = move |event: A11yEvent| {
                     if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
-                        active.set(channel);
+                        state
+                            .controls
+                            .send(super::state::controls_machine::Event::Channel(channel));
                         target.focus();
                         return;
                     }
@@ -307,7 +316,9 @@ impl IntoView for ColorWheel {
                     node.part(part)
                         .part(drag_source)
                         .on_key(move |event| {
-                            active.set(channel);
+                            state
+                                .controls
+                                .send(super::state::controls_machine::Event::Channel(channel));
                             key(state, channel, event)
                         })
                         .a11y_action(A11yAction::Select, action)
@@ -320,10 +331,11 @@ impl IntoView for ColorWheel {
         );
         let model = self.model;
         self.root
+            .node_ref(group)
             .part(root_part)
             .child((
                 canvas,
-                show(self.fields, move || {
+                show(self.options.fields, move || {
                     super::fields::fields(state, model, alpha)
                 }),
                 super::fields::swatches(state, alpha),

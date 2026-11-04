@@ -5,14 +5,13 @@ use kivact::ui::button;
 use kivact::view::NodeBuilder;
 
 use crate::color_wheel;
-use kivact::interaction::{EditSession, use_popup};
+use kivact::interaction::use_popup;
 
-use kivact::state::{IntoText, effect, signal};
+use kivact::state::{IntoText, binding, machine, memo, signal};
 use kivact::style::{ColorToken, style};
 use kivact::view::{Role, column, show, text};
 
 use kivact::style::{Color, pct, rgba};
-use kivact::view::A11yAction;
 use kivact::view::{DismissReason, Placement, overlay};
 
 /// A live color edit transaction: Escape restores the opening color; outside dismissal commits.
@@ -24,13 +23,25 @@ pub fn color_popup(
     let label = label.into_text_value();
     let color = color.into_binding();
     let value = color.into_value();
-    let session = EditSession::new(move |initial| color.set(initial));
-    let open = signal(false);
-    effect(move || {
-        if !open.get() {
-            session.commit();
-        }
-    });
+    let phase = machine(
+        machine::ColorPopupPhase::Closed,
+        move || machine::Machine {
+            color: value.get_untracked(),
+        },
+        move |_, effect| match effect {
+            machine::Effect::Restore(initial) => color.set(initial),
+        },
+    );
+    let open = binding(
+        memo(move || matches!(phase.get(), machine::ColorPopupPhase::Editing { .. })),
+        move |open| {
+            phase.send(if open {
+                machine::Event::Open
+            } else {
+                machine::Event::Close
+            })
+        },
+    );
     let popup = use_popup(open);
     let trigger = popup.trigger();
     let anchor = kivact::view::node_ref();
@@ -61,16 +72,11 @@ pub fn color_popup(
         .offset(4)
         .on_dismiss(move |reason| {
             if reason == DismissReason::Escape {
-                session.cancel();
+                phase.send(machine::Event::Escape);
             }
         })
         .with_node(move |node| node.part(popup.content()))
     });
-    let snapshot = move || {
-        if !open.get_untracked() {
-            session.begin(value.get_untracked());
-        }
-    };
     let opener = button(label)
         .variant(kivact::ui::ButtonVariant::Secondary)
         .with_node(move |node| node.part(trigger))
@@ -85,10 +91,53 @@ pub fn color_popup(
                     .pressed(swatch.clone())
                     .focus(swatch)
             })
-        })
-        .on_press(snapshot)
-        .with_node(move |node| node.a11y_action(A11yAction::Expand, move |_| snapshot()));
+        });
     column((opener, layer))
         .role(Role::Group)
         .style(style().gap(0))
+}
+
+mod machine {
+    //! Role: Own the popup edit snapshot and decide commit or rollback on closing.
+    use kivact::state::Step;
+    use kivact::style::Color;
+    #[derive(Clone, Copy, PartialEq)]
+    pub(super) enum ColorPopupPhase {
+        Closed,
+        Editing { initial: Color },
+    }
+    pub(super) struct Machine {
+        pub(super) color: Color,
+    }
+    pub(super) enum Event {
+        Open,
+        Close,
+        Escape,
+    }
+    pub(super) enum Effect {
+        Restore(Color),
+    }
+    impl kivact::state::Machine for Machine {
+        type State = ColorPopupPhase;
+        type Event = Event;
+        type Effect = Effect;
+        fn transition(
+            &self,
+            state: &Self::State,
+            event: Event,
+        ) -> Step<Self::State, Event, Effect> {
+            match (state, event) {
+                (ColorPopupPhase::Closed, Event::Open) => Step::to(ColorPopupPhase::Editing {
+                    initial: self.color,
+                }),
+                (ColorPopupPhase::Editing { initial }, Event::Escape) => {
+                    Step::to(ColorPopupPhase::Closed).with(Effect::Restore(*initial))
+                }
+                (ColorPopupPhase::Editing { .. }, Event::Close) => {
+                    Step::to(ColorPopupPhase::Closed)
+                }
+                _ => Step::stay(),
+            }
+        }
+    }
 }

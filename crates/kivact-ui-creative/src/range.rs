@@ -7,7 +7,7 @@ use kivact::i18n::{interpolate, message};
 use kivact::interaction::ScalarRange;
 use kivact::interaction::{RangeThumb, use_range_scalar};
 use kivact::state::IntoBinding;
-use kivact::state::{Binding, Callback, Value, binding, effect, memo, signal, var};
+use kivact::state::{Binding, Callback, Value, binding, machine, memo};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Cursor, pct, style};
 use kivact::view::EditPhase;
@@ -44,6 +44,9 @@ pub struct Range {
     root: Node,
     label: Value<String>,
     state: Binding<(f64, f64)>,
+    options: RangeOptions,
+}
+struct RangeOptions {
     min: Value<f64>,
     max: Value<f64>,
     step: Value<f64>,
@@ -76,45 +79,47 @@ pub fn range(label: impl IntoText, value: impl IntoBinding<(f64, f64)>) -> Range
             .style(style().width(pct(100)).height(24).cursor(Cursor::EwResize)),
         label,
         state: value.into_binding(),
-        min: 0.0.into_value(),
-        max: 240.0.into_value(),
-        step: 1.0.into_value(),
-        interval: None,
-        movable: false.into_value(),
-        on_edit: None,
+        options: RangeOptions {
+            min: 0.0.into_value(),
+            max: 240.0.into_value(),
+            step: 1.0.into_value(),
+            interval: None,
+            movable: false.into_value(),
+            on_edit: None,
+        },
     }
 }
 impl Range {
     /// Present the interval as a flat colored block with edge handles.
     pub fn interval(mut self, color: impl IntoValue<kivact::style::Color>) -> Self {
-        self.interval = Some(color.into_value());
+        self.options.interval = Some(color.into_value());
         self
     }
     /// Drag the interval body without changing its duration or crossing the
     /// bounds while true (constant or reactive).
     #[track_caller]
     pub fn movable(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.movable = enabled.into_value();
+        self.options.movable = enabled.into_value();
         self
     }
     /// Report the start and end of each edit as an [`EditPhase`]: a drag of
     /// an endpoint or of the body from the press to the release, or one key
     /// press or action.
     pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.on_edit = Some(callback(f));
+        self.options.on_edit = Some(callback(f));
         self
     }
     /// Inclusive finite bounds; invalid configurations keep the default bounds.
     pub fn limits(mut self, range: impl IntoValue<ScalarRange>) -> Self {
         let range = range.into_value();
-        self.min = memo(move || range.get().min());
-        self.max = memo(move || range.get().max());
+        self.options.min = memo(move || range.get().min());
+        self.options.max = memo(move || range.get().max());
         self
     }
     /// Keyboard and wheel increment.
     pub fn step(mut self, step: impl IntoValue<f64>) -> Self {
         let step = step.into_value();
-        self.step = memo(move || {
+        self.options.step = memo(move || {
             let step = step.get();
             if step.is_finite() && step > 0.0 {
                 step
@@ -138,19 +143,20 @@ impl IntoView for Range {
             root,
             label,
             state,
-            min,
-            max,
-            step,
-            interval,
-            movable,
-            on_edit,
+            options:
+                RangeOptions {
+                    min,
+                    max,
+                    step,
+                    interval,
+                    movable,
+                    on_edit,
+                },
         } = self;
         let interval_template = message("creative.range.interval", "{label} interval");
         let start_template = message("creative.range.start", "{label} start");
         let end_template = message("creative.range.end", "{label} end");
         let value = state.into_value();
-        // What the root's keys and actions edit.
-        let active = signal(RangePart::Start);
         let range = memo(move || {
             ScalarRange::new(min.get(), max.get()).expect("invariant: finite endpoint bounds")
         });
@@ -170,6 +176,21 @@ impl IntoView for Range {
             };
             (a, b)
         };
+        let controller = machine(
+            machine::State {
+                active: RangePart::Start,
+                value: bounded(value.get_untracked()),
+            },
+            || machine::Machine,
+            |_, ()| {},
+        );
+        let active = memo(move || controller.get().active);
+        controller.feed(memo(move || bounded(value.get())), move |now| {
+            machine::Event::ValueChanged {
+                before: controller.state().get_untracked().value,
+                now,
+            }
+        });
         // One end of the value. The range scalar stops each end at the
         // other, so neither crosses nor hides the other.
         let end = |side: usize| {
@@ -221,26 +242,11 @@ impl IntoView for Range {
         let track = ends.track(Orientation::Horizontal);
         let pressed = |state: Value<PartState>| memo(move || state.get().pressed);
         let follow_press = move |pressed: Value<bool>, part: RangePart| {
-            effect(move || {
-                if pressed.get() {
-                    active.set(part);
-                }
+            controller.feed(pressed, move |pressed| machine::Event::Press {
+                part,
+                pressed,
             });
         };
-        let moved = var(None::<(f64, f64)>);
-        effect(move || {
-            let now = bounded(value.get());
-            match moved.get() {
-                Some(before) if before.0 != now.0 && before.1 == now.1 => {
-                    active.set(RangePart::Start)
-                }
-                Some(before) if before.0 == now.0 && before.1 != now.1 => {
-                    active.set(RangePart::End)
-                }
-                _ => {}
-            }
-            moved.set(Some(now));
-        });
         use crate::editors::shared::region_parts::{self as region_parts, Kind, RegionInfo};
         let mut root = root;
         if interval.is_some() {
@@ -251,7 +257,8 @@ impl IntoView for Range {
                     interpolate(&interval_template.get(), &[("label", &label.get())]),
                 )
             });
-            let select = callback(move |_| active.set(RangePart::Body));
+            let select =
+                callback(move |_| controller.send(machine::Event::Select(RangePart::Body)));
             let body = region_parts::attachment(Kind::RangeBody, info, select);
             let body = kivact::custom::Part::new(body.state(), move |node| {
                 node.part(body).part(ends.body())
@@ -273,7 +280,9 @@ impl IntoView for Range {
                 node.part(control)
                     .focusable(false)
                     .name(move || interpolate(&template.get(), &[("label", &label.get())]))
-                    .a11y_action(A11yAction::Select, move |_| active.set(part))
+                    .a11y_action(A11yAction::Select, move |_| {
+                        controller.send(machine::Event::Select(part))
+                    })
             });
             let state = control.state();
             follow_press(memo(move || state.get().input.pressed), part);
@@ -364,5 +373,47 @@ impl IntoView for Range {
                 Handled::Yes
             })
             .into_view()
+    }
+}
+
+mod machine {
+    //! Role: Keep the active range endpoint and its last value in one transition snapshot.
+    use super::RangePart;
+    use kivact::state::Step;
+    #[derive(Clone, Copy, PartialEq)]
+    pub(super) struct State {
+        pub(super) active: RangePart,
+        pub(super) value: (f64, f64),
+    }
+    pub(super) struct Machine;
+    pub(super) enum Event {
+        Press { part: RangePart, pressed: bool },
+        Select(RangePart),
+        ValueChanged { before: (f64, f64), now: (f64, f64) },
+    }
+    impl kivact::state::Machine for Machine {
+        type State = State;
+        type Event = Event;
+        type Effect = ();
+        fn transition(&self, state: &State, event: Event) -> Step<State, Event, ()> {
+            match event {
+                Event::Select(active)
+                | Event::Press {
+                    part: active,
+                    pressed: true,
+                } => Step::to(State { active, ..*state }),
+                Event::Press { pressed: false, .. } => Step::stay(),
+                Event::ValueChanged { before, now } => {
+                    let active = if before.0 != now.0 && before.1 == now.1 {
+                        RangePart::Start
+                    } else if before.0 == now.0 && before.1 != now.1 {
+                        RangePart::End
+                    } else {
+                        state.active
+                    };
+                    Step::to(State { active, value: now })
+                }
+            }
+        }
     }
 }
