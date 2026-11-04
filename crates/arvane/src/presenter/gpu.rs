@@ -39,12 +39,9 @@
 //! failed restart or a foreground device's failure leaves the presenter on
 //! the CPU.
 
-#[cfg(feature = "testing")]
-use crate::error::{self, Failure};
 use crate::presentation::{Notes, RendererChange};
 use arvane_render::{GpuContext, GpuEnv, GpuSurface, Presentation, RenderError};
 use kivact_types::Size;
-#[cfg(feature = "testing")]
 use kivact_types::render::CpuFrame;
 use kivact_types::render::RenderScene;
 use std::sync::Arc;
@@ -241,16 +238,6 @@ enum State {
     Off,
     /// Started on worker threads.
     Background(Background),
-    /// Made on the window's thread ([`Gpu::enable`]): ready at once, never
-    /// restarted.
-    #[cfg_attr(
-        not(feature = "testing"),
-        expect(
-            dead_code,
-            reason = "only a test window makes the GPU in the foreground"
-        )
-    )]
-    Foreground(Device),
     /// CPU for the rest of the session.
     Failed,
 }
@@ -298,8 +285,7 @@ impl Gpu {
     /// Release rebuildable validation metadata under memory pressure.
     pub(crate) fn release_caches(&mut self) {
         match &mut self.state {
-            State::Foreground(device)
-            | State::Background(Background {
+            State::Background(Background {
                 step: Step::Ready(device),
                 ..
             }) => device.context.release_caches(),
@@ -314,8 +300,7 @@ impl Gpu {
 
     fn device(&self) -> Option<&Device> {
         match &self.state {
-            State::Foreground(device)
-            | State::Background(Background {
+            State::Background(Background {
                 step: Step::Ready(device),
                 ..
             }) => Some(device),
@@ -325,8 +310,7 @@ impl Gpu {
 
     fn device_mut(&mut self) -> Option<&mut Device> {
         match &mut self.state {
-            State::Foreground(device)
-            | State::Background(Background {
+            State::Background(Background {
                 step: Step::Ready(device),
                 ..
             }) => Some(device),
@@ -365,21 +349,6 @@ impl Gpu {
             }),
             None => cpu_session(notes, "the GPU worker thread cannot start"),
         };
-    }
-
-    /// Create the device now, on the calling thread (test windows,
-    /// offscreen frames); the window's first frame makes its surface.
-    #[cfg(feature = "testing")]
-    pub(crate) fn enable(&mut self, notes: &mut Notes) -> Result<(), Failure> {
-        assert!(
-            matches!(self.state, State::Off),
-            "invariant: a test window enables the GPU once, on a new presenter"
-        );
-        let since = Instant::now();
-        let context = Box::new(GpuContext::new(&self.env).map_err(error::render)?);
-        notes.note(ready_note(&context, since.elapsed(), None));
-        self.state = State::Foreground(Device::new(context));
-        Ok(())
     }
 
     /// Move a background start along for the window (`make` makes its
@@ -555,8 +524,7 @@ impl Gpu {
     /// hands it back (the device is kept).
     pub(crate) fn drop_surface(&mut self) {
         match &mut self.state {
-            State::Foreground(device)
-            | State::Background(Background {
+            State::Background(Background {
                 step: Step::Ready(device),
                 ..
             }) => device.surface = None,
@@ -638,19 +606,7 @@ impl Gpu {
             .map_or_else(Vec::new, |device| device.context.take_missed_external())
     }
 
-    /// Render offscreen and read back; `None` when the GPU is not ready.
-    #[cfg(feature = "testing")]
-    pub(crate) fn render(
-        &mut self,
-        scene: &RenderScene,
-        size: Size,
-        scale: f64,
-    ) -> Option<Result<CpuFrame, RenderError>> {
-        Some(self.device_mut()?.context.render(scene, size, scale))
-    }
-
     /// Read back the last frame presented to the window.
-    #[cfg(feature = "testing")]
     pub(crate) fn read_back(&self) -> Option<Result<CpuFrame, RenderError>> {
         let device = self.device()?;
         Some(device.context.read_back(device.surface.as_ref()?))

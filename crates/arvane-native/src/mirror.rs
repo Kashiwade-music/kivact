@@ -4,7 +4,7 @@
 //! owns the only winit event loop the process may ever create (winit
 //! refuses a second one, even after the first is dropped). Tests keep their
 //! host model, engine and renderer on their own thread and hand finished
-//! frames and accessibility trees to their [`TestWindow`]; the UI thread
+//! frames and accessibility trees to their [`MirrorWindow`]; the UI thread
 //! shows them in a real window that assistive technology (UI Automation)
 //! can read.
 //!
@@ -13,14 +13,14 @@
 //!   title and size, and at most one wake-up of the UI thread is in flight
 //!   per window, so a busy UI thread coalesces frames instead of queueing
 //!   them. A test changes its window's accessibility tree on its own thread
-//!   ([`TestWindow::accessibility`]); the UI thread hands the platform the
+//!   ([`MirrorWindow::accessibility`]); the UI thread hands the platform the
 //!   nodes changed since it last did, so changes coalesce too and none is
 //!   lost.
 //! - Windows open inactive (they never take the keyboard focus), are sized
 //!   in physical pixels to the frames (independent of the monitor's scale)
 //!   and are tiled over the primary monitor.
 //! - A closed window returns to a pool and is reused by the next test,
-//!   unless a GPU surface presented to it ([`TestWindow::gpu_presents`]):
+//!   unless a GPU surface presented to it ([`MirrorWindow::gpu_presents`]):
 //!   such a window shows the test's GPU frames instead of the frames
 //!   handed to it, and is destroyed when closed.
 //! - OS input and assistive technology's action requests on test windows
@@ -67,7 +67,7 @@ const BLANK: u32 = 0x0080_8080;
 ///
 /// The default is an untitled 800 by 600 window at scale 1.
 #[derive(Clone, Debug)]
-pub struct TestWindowOptions {
+pub struct MirrorWindowOptions {
     /// Window title.
     pub title: String,
     /// Content width in physical pixels (the frame width).
@@ -79,7 +79,7 @@ pub struct TestWindowOptions {
     pub scale: f64,
 }
 
-impl Default for TestWindowOptions {
+impl Default for MirrorWindowOptions {
     fn default() -> Self {
         Self {
             title: String::new(),
@@ -92,7 +92,7 @@ impl Default for TestWindowOptions {
 
 /// Counters of a [`TestDisplay`] since the process started.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct TestDisplayStats {
+pub struct MirrorStats {
     /// Native windows created.
     pub created: u64,
     /// Pooled windows handed to a new test.
@@ -110,7 +110,7 @@ struct Counters {
 
 /// What a test window shows next; the UI thread takes it all at once.
 #[derive(Default)]
-struct Pending {
+struct MirrorBatch {
     frame: Option<Frame>,
     /// The accessibility tree changed: hand the platform what it lacks.
     accessibility: bool,
@@ -118,8 +118,6 @@ struct Pending {
     resize: Option<(u32, u32, f64)>,
     /// A GPU surface presents to the window from now on.
     gpu: bool,
-    /// A flush of this window is queued on the UI thread.
-    scheduled: bool,
 }
 
 #[derive(Clone)]
@@ -129,9 +127,15 @@ struct Frame {
     pixels: Arc<[u32]>,
 }
 
-type Slot = Arc<Mutex<Pending>>;
+#[derive(Default)]
+enum MirrorPending {
+    #[default]
+    Idle,
+    Scheduled(MirrorBatch),
+}
+type Slot = Arc<Mutex<MirrorPending>>;
 
-fn lock(slot: &Mutex<Pending>) -> MutexGuard<'_, Pending> {
+fn lock(slot: &Mutex<MirrorPending>) -> MutexGuard<'_, MirrorPending> {
     slot.lock()
         .expect("test display lock poisoned: a panic already happened")
 }
@@ -139,7 +143,7 @@ fn lock(slot: &Mutex<Pending>) -> MutexGuard<'_, Pending> {
 enum Command {
     Open {
         id: u64,
-        options: TestWindowOptions,
+        options: MirrorWindowOptions,
         slot: Slot,
         reply: mpsc::Sender<Result<PlatformTree, ShellError>>,
     },
@@ -180,7 +184,7 @@ impl TestDisplay {
     }
 
     /// Open a window (a pooled one when available) without activating it.
-    pub fn open(&'static self, options: TestWindowOptions) -> Result<TestWindow, ShellError> {
+    pub fn open(&'static self, options: MirrorWindowOptions) -> Result<MirrorWindow, ShellError> {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let slot = Slot::default();
         let (reply, answer) = mpsc::channel();
@@ -197,7 +201,7 @@ impl TestDisplay {
             let slot = slot.clone();
             move || schedule(self, id, &slot, |pending| pending.accessibility = true)
         };
-        Ok(TestWindow {
+        Ok(MirrorWindow {
             display: self,
             id,
             slot,
@@ -206,8 +210,8 @@ impl TestDisplay {
     }
 
     /// Counters since the process started.
-    pub fn stats(&self) -> TestDisplayStats {
-        TestDisplayStats {
+    pub fn stats(&self) -> MirrorStats {
+        MirrorStats {
             created: self.counters.created.load(Ordering::Relaxed),
             reused: self.counters.reused.load(Ordering::Relaxed),
             presented: self.counters.presented.load(Ordering::Relaxed),
@@ -286,14 +290,14 @@ fn event_loop() -> Result<EventLoop<Command>, ShellError> {
 }
 
 /// A test's real window (`Send`); it returns to the pool when dropped.
-pub struct TestWindow {
+pub struct MirrorWindow {
     display: &'static TestDisplay,
     id: u64,
     slot: Slot,
     accessibility: Accessibility,
 }
 
-impl TestWindow {
+impl MirrorWindow {
     /// Show a `width` × `height` frame of 0x00RRGGBB pixels. Asynchronous;
     /// a frame not shown yet is replaced by the next one.
     pub fn present(&self, width: u32, height: u32, pixels: Arc<[u32]>) {
@@ -352,23 +356,29 @@ impl TestWindow {
         self.schedule(|pending| pending.gpu = true);
     }
 
-    fn schedule(&self, change: impl FnOnce(&mut Pending)) {
+    fn schedule(&self, change: impl FnOnce(&mut MirrorBatch)) {
         schedule(self.display, self.id, &self.slot, change);
     }
 }
 
 /// Change what test window `id` shows next, queueing its flush unless one
 /// is queued already.
-fn schedule(display: &TestDisplay, id: u64, slot: &Slot, change: impl FnOnce(&mut Pending)) {
+fn schedule(display: &TestDisplay, id: u64, slot: &Slot, change: impl FnOnce(&mut MirrorBatch)) {
     let mut pending = lock(slot);
-    change(&mut pending);
-    if !std::mem::replace(&mut pending.scheduled, true) {
-        drop(pending);
+    let schedule = matches!(*pending, MirrorPending::Idle);
+    if schedule {
+        *pending = MirrorPending::Scheduled(MirrorBatch::default());
+    }
+    if let MirrorPending::Scheduled(batch) = &mut *pending {
+        change(batch);
+    }
+    drop(pending);
+    if schedule {
         let _ = display.send(Command::Flush { id });
     }
 }
 
-impl Drop for TestWindow {
+impl Drop for MirrorWindow {
     fn drop(&mut self) {
         let _ = self.display.send(Command::Close { id: self.id });
     }
@@ -402,7 +412,7 @@ impl Display {
         &mut self,
         el: &ActiveEventLoop,
         id: u64,
-        options: TestWindowOptions,
+        options: MirrorWindowOptions,
         slot: Slot,
     ) -> Result<PlatformTree, ShellError> {
         let size = PhysicalSize::new(options.width.max(1), options.height.max(1));
@@ -443,7 +453,7 @@ impl Display {
     fn create(
         &mut self,
         el: &ActiveEventLoop,
-        options: &TestWindowOptions,
+        options: &MirrorWindowOptions,
         size: PhysicalSize<u32>,
     ) -> Result<Entry, ShellError> {
         let position = self.tile(el, size);
@@ -498,7 +508,9 @@ impl Display {
         let Some((_, slot)) = &entry.owner else {
             return;
         };
-        let pending = std::mem::take(&mut *lock(slot));
+        let MirrorPending::Scheduled(pending) = std::mem::take(&mut *lock(slot)) else {
+            return;
+        };
         if let Some(title) = pending.title {
             entry.window.set_title(&title);
         }

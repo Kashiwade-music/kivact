@@ -142,3 +142,5 @@ Report vulnerabilities privately as described in [SECURITY](SECURITY.md).
 Copyright (c) 2026 Kashiwade. Licensed under either of [MIT](LICENSE-MIT) or
 [Apache-2.0](LICENSE-APACHE) at your option. Bundled fonts and icons keep
 their own licenses; see [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES.md).
+
+The internal `arvane-virtual` backend runs scripted end-to-end tests through the same rendering driver as native windows, with optional native mirrors.

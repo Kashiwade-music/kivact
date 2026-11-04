@@ -6,8 +6,9 @@
 
 use std::sync::Arc;
 
+use crate::support::Harness;
 use arvane::Renderer;
-use arvane::test_display::{VirtualWindow, gpu_unavailable};
+use arvane::gpu_unavailable;
 use kivact_types::render::{Paint, RenderCmd};
 use kivact_types::{ComputedTextStyle, Pixels};
 use kivact_types::{Point, Size};
@@ -21,7 +22,7 @@ use crate::support::{
 fn a_solid_rect_covers_exactly_its_pixels() {
     let mut window = open(64.0, 48.0);
     show(&mut window, vec![fill(10.0, 8.0, 20.0, 12.0, RED)]);
-    let (width, height, _) = window.frame().expect("a frame");
+    let (width, height, _) = window.probe().frame().expect("a frame");
     assert_eq!((width, height), (64, 48));
     assert_eq!(pixel(&window, 10, 8), RED);
     assert_eq!(pixel(&window, 29, 19), RED);
@@ -54,7 +55,7 @@ fn a_clip_bounds_what_it_encloses_until_it_is_popped() {
 
 /// Shape `text` and draw its runs with the layout's origin at `origin`;
 /// returns the shaped size and the first line's baseline.
-fn draw_text(window: &mut VirtualWindow, text: &str, origin: Point) -> (Size, f64) {
+fn draw_text(window: &mut Harness, text: &str, origin: Point) -> (Size, f64) {
     let style = ComputedTextStyle {
         font_size: 20.0,
         ..ComputedTextStyle::default()

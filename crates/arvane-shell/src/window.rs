@@ -13,6 +13,12 @@ use kivact_types::{Cursor as ShellCursor, Rect, Size};
 /// Window services implemented by a platform backend or an in-memory shell.
 /// This trait imposes no `Send` or `Sync` bound on the window itself.
 pub trait ShellWindow {
+    /// Whether the backend retains presented frames for inspection.
+    fn keeps_frames(&self) -> bool;
+
+    /// Retain a frame read back by the presenter.
+    fn keep_frame(&mut self, frame: kivact_types::render::CpuFrame);
+
     /// Wait for UI-thread work to finish, up to `limit`. Windows backends
     /// dispatch only sent messages while waiting, never input or posted
     /// messages; other backends sleep for one millisecond between polls.
@@ -197,4 +203,38 @@ pub trait Backend {
     /// run under foreign frames carries it across them and resumes it after
     /// the loop.
     fn run(self: Box<Self>, handler: &mut dyn ShellHandler) -> Result<(), ShellError>;
+}
+
+/// A backend driven explicitly by its caller.
+pub trait SteppedBackend {
+    /// Create the window and call the handler before returning.
+    fn start(
+        self: Box<Self>,
+        handler: Box<dyn ShellHandler>,
+    ) -> Result<Box<dyn SteppedLoop>, ShellError>;
+}
+
+/// A running backend with independently controlled input, wake and redraw turns.
+pub trait SteppedLoop {
+    fn step(&mut self, step: Step) -> StepOutcome;
+}
+
+/// The event source to advance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Step {
+    Input,
+    Wake,
+    Redraw,
+}
+
+/// The state after a backend turn.
+#[derive(Clone, Debug)]
+pub enum StepOutcome {
+    Idle {
+        next_deadline: Option<u64>,
+        redraw_requested: bool,
+        woken: bool,
+    },
+    Exited,
+    Failed(ShellError),
 }

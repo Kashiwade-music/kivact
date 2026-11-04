@@ -245,6 +245,7 @@ dependencies = [
  "arvane-render",
  "arvane-shell",
  "arvane-text",
+ "arvane-virtual",
  "gpu-interop-producer",
  "kivact-types",
  "tracing",
@@ -319,6 +320,15 @@ dependencies = [
  "fontique",
  "kivact-types",
  "parley",
+]
+
+[[package]]
+name = "arvane-virtual"
+version = "0.1.0"
+dependencies = [
+ "arvane-native",
+ "arvane-shell",
+ "kivact-types",
 ]
 
 [[package]]

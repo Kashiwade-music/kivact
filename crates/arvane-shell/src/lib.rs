@@ -46,12 +46,15 @@ pub use contacts::Contacts;
 pub use events::ShellEvent;
 pub use ime::ShellImeText;
 pub use kivact_types::FilePhase;
+pub use kivact_types::render::CpuFrame;
 pub use mouse::Mouse;
 pub use services::FileDialog;
 pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker};
 
 pub use target::{GpuTarget, GpuWindow};
-pub use window::{Backend, ShellHandler, ShellWindow};
+pub use window::{
+    Backend, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
+};
 
 pub use child::{ChildHooks, MakeHandler, PanicSlot, ShellChild};
 pub use kivact_types::EmbedOptions;

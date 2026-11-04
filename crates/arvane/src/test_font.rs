@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 /// The bundled test font (Tuffy, public domain; its license is
 /// `assets/fonts/Tuffy-LICENSE.txt`). It has no CJK glyphs.
-static TEST_FONT: &[u8] = include_bytes!("../../assets/fonts/Tuffy.ttf");
+static TEST_FONT: &[u8] = include_bytes!("../assets/fonts/Tuffy.ttf");
 
 /// The bundled test font (Tuffy, one family, no CJK glyphs): an
 /// [`crate::Engine::with_fonts_only`] given it shapes, lays out and draws
