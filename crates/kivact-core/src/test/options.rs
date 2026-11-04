@@ -92,7 +92,7 @@ impl Default for RenderOptions {
             fonts: TestFonts::Bundled,
             window: WindowMode::Auto,
             gpu: false,
-            frame_period_ns: 16_666_667,
+            frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             title: None,
             #[cfg(feature = "gpu-interop")]
             gpu_preference: Default::default(),

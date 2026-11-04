@@ -52,8 +52,8 @@ impl Default for ShellOptions {
     fn default() -> Self {
         Self {
             title: "Arvane".into(),
-            width: 960.0,
-            height: 720.0,
+            width: kivact_types::defaults::DEFAULT_WINDOW_SIZE.width,
+            height: kivact_types::defaults::DEFAULT_WINDOW_SIZE.height,
         }
     }
 }

@@ -7,9 +7,9 @@ use arvane_native::test_display::TestWindow;
 use arvane_shell::{
     Accessibility, AccessibilityError, FileDialog, ShellError, ShellImeText, ShellWindow,
 };
+use kivact_types::Environment;
 use kivact_types::render::{SemanticsTree, SemanticsUpdate};
-use kivact_types::{Capabilities, Cursor, Insets, Rect, Size};
-use kivact_types::{Environment, PointerSettings};
+use kivact_types::{Capabilities, Cursor, Modifiers, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::num::NonZeroU64;
@@ -18,17 +18,9 @@ use std::sync::Arc;
 
 pub(super) struct VirtualShell {
     pub(super) now: u64,
-    pub(super) size: Size,
+    /// The single snapshot of the window's environment and preferences.
+    pub(super) env: RefCell<Environment>,
     pub(super) requested_sizes: Vec<Size>,
-    pub(super) scale: f64,
-    /// The display's refresh period (ns).
-    pub(super) period: u64,
-    pub(super) reduced_motion: bool,
-    pub(super) dark: bool,
-    /// The system's locale the test gives the window.
-    pub(super) locale: Option<String>,
-    /// The safe area the test gives the window.
-    pub(super) safe_area: Insets,
     pub(super) clipboard: String,
     pub(super) dialogs: VecDeque<Option<Vec<PathBuf>>>,
     /// Paths asked to be opened, in order.
@@ -45,7 +37,6 @@ pub(super) struct VirtualShell {
     pub(super) ime_text: RefCell<Option<ShellImeText>>,
     /// The cursor shown over the content.
     pub(super) cursor: Cell<Cursor>,
-    pub(super) fullscreen: Cell<bool>,
     /// The software keyboard is shown; how often it was shown or hidden.
     pub(super) soft_keyboard: (Cell<bool>, Cell<u32>),
     pub(super) frame: Option<(u32, u32, Arc<[u32]>)>,
@@ -58,6 +49,8 @@ pub(super) struct VirtualShell {
     pub(super) clicks: arvane_shell::ClickCounter,
     /// The mouse's position and held buttons (`mouse`, `input`).
     pub(super) mouse: arvane_shell::Mouse,
+    /// Modifier facts at the virtual platform input source.
+    pub(super) modifiers: Modifiers,
     /// The touch and pen contacts injected (`contact`).
     pub(super) contacts: arvane_shell::Contacts,
     /// The platform hides the window: it has no buffer for frames.
@@ -179,10 +172,10 @@ impl ShellWindow for VirtualShell {
         true
     }
     fn size(&self) -> Size {
-        self.size
+        self.env.borrow().window_size
     }
     fn scale(&self) -> f64 {
-        self.scale
+        self.env.borrow().scale_factor
     }
     fn now_ns(&self) -> u64 {
         self.now
@@ -212,34 +205,14 @@ impl ShellWindow for VirtualShell {
         self.min_size.set(size);
     }
     fn environment(&self) -> Environment {
-        let (double_click_ns, double_click_distance) = kivact_types::defaults::DOUBLE_CLICK;
-        Environment {
-            scale_factor: self.scale,
-            frame_period_ns: self.period,
-            reduced_motion: self.reduced_motion,
-            theme_hint: if self.dark {
-                kivact_types::ThemeHint::Dark
-            } else {
-                kivact_types::ThemeHint::Light
-            },
-            safe_area: self.safe_area,
-            pointer: PointerSettings {
-                double_click_ns,
-                double_click_distance,
-                ..PointerSettings::default()
-            },
-            locale: self.locale.clone(),
-            window_size: self.size(),
-            fullscreen: self.fullscreen.get(),
-            ..Default::default()
-        }
+        self.env.borrow().clone()
     }
     fn set_fullscreen(&self, fullscreen: bool) -> Result<(), ShellError> {
-        self.fullscreen.set(fullscreen);
+        self.env.borrow_mut().fullscreen = fullscreen;
         Ok(())
     }
     fn fullscreen(&self) -> bool {
-        self.fullscreen.get()
+        self.env.borrow().fullscreen
     }
     fn set_cursor(&self, cursor: Cursor) {
         self.cursor.set(cursor);
@@ -261,13 +234,13 @@ impl ShellWindow for VirtualShell {
         *self.ime_text.borrow_mut() = text;
     }
     fn physical_size(&self) -> (u32, u32) {
-        physical(self.size, self.scale)
+        physical(self.size(), self.scale())
     }
     fn reduced_motion(&self) -> bool {
-        self.reduced_motion
+        self.env.borrow().reduced_motion
     }
     fn frame_period_ns(&self) -> u64 {
-        self.period
+        self.env.borrow().frame_period_ns
     }
     fn recover_surface(&mut self) -> Result<(), ShellError> {
         Ok(())

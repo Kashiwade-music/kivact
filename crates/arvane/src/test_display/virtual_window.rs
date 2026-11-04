@@ -12,7 +12,9 @@ use arvane_native::test_display::{TestDisplay, TestWindow, TestWindowOptions};
 use arvane_shell::ShellWindow;
 use kivact_types::Environment;
 use kivact_types::render::{RenderScene, SemanticsTree, SemanticsUpdate};
-use kivact_types::{Capabilities, Cursor, GpuPreference, Insets, Rect, Size};
+use kivact_types::{
+    Capabilities, Cursor, GpuPreference, Insets, Modifiers, Point, Rect, Size, ThemeHint,
+};
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 use std::cell::{Cell, RefCell};
@@ -80,7 +82,7 @@ impl Default for VirtualWindowOptions {
                 height: 600.0,
             },
             scale: 1.0,
-            frame_period_ns: 16_666_667,
+            frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             reduced_motion: false,
             dark: false,
             locale: None,
@@ -135,14 +137,20 @@ impl VirtualWindow {
         Ok(Self {
             shell: VirtualShell {
                 now: 0,
-                size: options.size,
+                env: RefCell::new(Environment {
+                    window_size: options.size,
+                    scale_factor: options.scale,
+                    frame_period_ns: options.frame_period_ns.max(1),
+                    reduced_motion: options.reduced_motion,
+                    theme_hint: if options.dark {
+                        ThemeHint::Dark
+                    } else {
+                        ThemeHint::Light
+                    },
+                    locale: options.locale.clone(),
+                    ..Environment::default()
+                }),
                 requested_sizes: Vec::new(),
-                scale: options.scale,
-                period: options.frame_period_ns.max(1),
-                reduced_motion: options.reduced_motion,
-                dark: options.dark,
-                locale: options.locale.clone(),
-                safe_area: Insets::default(),
                 clipboard: String::new(),
                 dialogs: VecDeque::new(),
                 opened: Vec::new(),
@@ -154,7 +162,6 @@ impl VirtualWindow {
                 ime: Cell::new(None),
                 ime_text: RefCell::new(None),
                 cursor: Cell::new(Cursor::Default),
-                fullscreen: Cell::new(false),
                 soft_keyboard: (Cell::new(false), Cell::new(0)),
                 frame: None,
                 gpu,
@@ -162,6 +169,7 @@ impl VirtualWindow {
                 headless: Accessibility::new(),
                 clicks: arvane_shell::ClickCounter::default(),
                 mouse: arvane_shell::Mouse::default(),
+                modifiers: Modifiers::default(),
                 contacts: arvane_shell::Contacts::default(),
                 occluded: false,
                 failing: 0,
@@ -181,18 +189,32 @@ impl VirtualWindow {
         &self.shell.requested_sizes
     }
 
+    /// The virtual platform's last mouse position while inside the window.
+    pub fn mouse_position(&self) -> Option<Point> {
+        self.shell.mouse.window_position()
+    }
+
+    /// Current modifiers reported by the virtual platform.
+    pub fn modifiers(&self) -> Modifiers {
+        self.shell.modifiers
+    }
+
     /// An event injected into the window as the platform would deliver it:
     /// its presses are counted ([`crate::ShellEvent::Pointer`]'s
     /// `clicks`) at the virtual time with Windows' default double-click
     /// time and distance (500 ms, 4 logical pixels). A mouse event becomes
     /// the window's mouse state ([`Self::mouse`] continues from it).
     pub fn input(&mut self, mut event: crate::ShellEvent) -> crate::ShellEvent {
+        if let crate::ShellEvent::Modifiers(modifiers) = &event {
+            self.shell.modifiers = *modifiers;
+        }
         if let crate::ShellEvent::Pointer(input) = &event {
             self.shell.mouse.observe(*input);
         }
         // A focus loss injected as it is (not through `focus`) releases the
         // mouse's buttons all the same.
         if matches!(&event, crate::ShellEvent::Focused(false)) {
+            self.shell.modifiers = Modifiers::default();
             let _ = self.shell.mouse.cancel();
         }
         let now = self.shell.now;
@@ -212,10 +234,10 @@ impl VirtualWindow {
         phase: kivact_types::PointerPhase,
         position: Option<kivact_types::Point>,
     ) -> Option<crate::ShellEvent> {
-        self.shell
-            .mouse
-            .event(phase, position)
-            .map(crate::ShellEvent::Pointer)
+        self.shell.mouse.event(phase, position).map(|mut input| {
+            input.modifiers = self.shell.modifiers;
+            crate::ShellEvent::Pointer(input)
+        })
     }
 
     /// A touch or pen contact as the platform reports it, delivered as a
@@ -251,7 +273,7 @@ impl VirtualWindow {
         for event in &mut events {
             *event = self.input(event.clone());
         }
-        events.push(crate::ShellEvent::Focused(focused));
+        events.push(self.input(crate::ShellEvent::Focused(focused)));
         events
     }
 
@@ -292,45 +314,49 @@ impl VirtualWindow {
     /// Resize the content to `size` logical pixels (deliver
     /// [`crate::ShellEvent::Resized`] after it).
     pub fn resize(&mut self, size: Size) {
-        self.shell.size = size;
+        self.shell.env.get_mut().window_size = size;
         self.resized();
     }
 
     /// Change the scale (deliver [`crate::ShellEvent::Resized`] after it).
     pub fn set_scale(&mut self, scale: f64) {
-        self.shell.scale = scale;
+        self.shell.env.get_mut().scale_factor = scale;
         self.resized();
     }
 
     fn resized(&self) {
         if let Some(real) = &self.shell.real {
             let (width, height) = self.physical();
-            real.resize(width, height, f64::from(self.shell.scale));
+            real.resize(width, height, self.shell.scale());
         }
     }
 
     /// Move to a display refreshing every `period_ns` ns (deliver
     /// [`crate::ShellEvent::EnvironmentChanged`] after it).
     pub fn set_frame_period(&mut self, period_ns: u64) {
-        self.shell.period = period_ns.max(1);
+        self.shell.env.get_mut().frame_period_ns = period_ns.max(1);
     }
 
     /// Change the system's reduce-motion preference (deliver
     /// [`crate::ShellEvent::EnvironmentChanged`] after it).
     pub fn set_reduced_motion(&mut self, reduce: bool) {
-        self.shell.reduced_motion = reduce;
+        self.shell.env.get_mut().reduced_motion = reduce;
     }
 
     /// Change the system's theme preference (deliver
     /// [`crate::ShellEvent::EnvironmentChanged`] after it).
     pub fn set_dark(&mut self, dark: bool) {
-        self.shell.dark = dark;
+        self.shell.env.get_mut().theme_hint = if dark {
+            ThemeHint::Dark
+        } else {
+            ThemeHint::Light
+        };
     }
 
     /// Change the system's locale (deliver
     /// [`crate::ShellEvent::EnvironmentChanged`] after it).
     pub fn set_locale(&mut self, locale: Option<&str>) {
-        self.shell.locale = locale.map(str::to_owned);
+        self.shell.env.get_mut().locale = locale.map(str::to_owned);
     }
 
     /// The platform destroys the window's surface, as Android does while
@@ -358,7 +384,7 @@ impl VirtualWindow {
     /// Change the safe area, as a phone's system UI does when it rotates
     /// (deliver [`crate::ShellEvent::EnvironmentChanged`] after it).
     pub fn set_safe_area(&mut self, insets: Insets) {
-        self.shell.safe_area = insets;
+        self.shell.env.get_mut().safe_area = insets;
     }
 
     /// The in-memory clipboard.
@@ -499,7 +525,7 @@ impl VirtualWindow {
     }
 
     fn physical(&self) -> (u32, u32) {
-        physical(self.shell.size, self.shell.scale)
+        physical(self.shell.size(), self.shell.scale())
     }
 }
 
@@ -593,7 +619,7 @@ impl Window for VirtualWindow {
         self.presenter.release_caches();
     }
     fn frame_plan(&self) -> FramePlan {
-        FramePlan::new(self.physical(), self.shell.scale)
+        FramePlan::new(self.physical(), self.shell.scale())
     }
     fn present(&mut self, scene: &RenderScene, plan: FramePlan) -> Result<Presented, Failure> {
         if self.shell.surface.generation().is_none() {
@@ -605,18 +631,20 @@ impl Window for VirtualWindow {
         if self.shell.occluded {
             return self
                 .presenter
-                .refused(None, self.shell.now, self.shell.period);
+                .refused(None, self.shell.now, self.shell.frame_period_ns());
         }
         if self.shell.failing > 0 {
             self.shell.failing -= 1;
             let lost = Failure::new(FailureKind::Surface, "the window's surface was lost");
-            return self
-                .presenter
-                .refused(Some(lost), self.shell.now, self.shell.period);
+            return self.presenter.refused(
+                Some(lost),
+                self.shell.now,
+                self.shell.frame_period_ns(),
+            );
         }
         let (width, height) = self.physical();
         let gpu = self.shell.real.is_some() && self.shell.gpu;
-        let clock = (self.shell.now, self.shell.period);
+        let clock = (self.shell.now, self.shell.frame_period_ns());
         let (presented, frame) = self.presenter.present_test(
             &mut self.shell,
             gpu,
