@@ -195,7 +195,6 @@ mod slider;
 mod splitter;
 mod tabs;
 mod toast;
-mod toast_rows;
 mod toast_swipe;
 mod tooltip;
 pub use dialog::{Dialog, DialogCenter, DialogTokens, dialog};

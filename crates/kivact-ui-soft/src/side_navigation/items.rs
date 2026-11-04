@@ -9,7 +9,6 @@ use crate::tokens;
 use kivact::i18n::message_with;
 use kivact::interaction::Delays;
 use kivact::interaction::DialogMode;
-use kivact::interaction::use_content_reveal;
 use kivact::interaction::use_dialog;
 use kivact::interaction::use_disclosure;
 use kivact::interaction::use_hover_surface;
@@ -180,20 +179,9 @@ impl IntoView for SideNavItem {
             let open = collapse.map(|collapse: Binding<bool>| {
                 binding(move || !collapse.get(), move |open| collapse.set(!open))
             });
-            let (disclosure, reveal) = if let Some(open) = open.filter(|_| has_children) {
-                let disclosure = use_disclosure(open).disabled(disabled);
-                let motion = tokens().motion;
-                let reveal = use_content_reveal(
-                    disclosure.is_open(),
-                    Transition::tween(motion.medium as f64, motion.ease_standard),
-                );
-                (
-                    Some(disclosure.leaving(move || reveal.leaving())),
-                    Some(reveal),
-                )
-            } else {
-                (None, None)
-            };
+            let disclosure = open
+                .filter(|_| has_children)
+                .map(|open| use_disclosure(open).disabled(disabled));
             let independent = disclosure.is_some() && action.is_some();
             let anchor = node_ref();
             let popup_ref = node_ref();
@@ -363,7 +351,11 @@ impl IntoView for SideNavItem {
                 )
             });
             let nested = show(
-                move || !cx.rail() && has_children && reveal.is_none_or(|reveal| reveal.present()),
+                move || {
+                    !cx.rail()
+                        && has_children
+                        && disclosure.is_none_or(|disclosure| disclosure.is_open().get())
+                },
                 move || {
                     let child = child_slot.clone();
                     let cx = SideNavCx {
@@ -373,13 +365,24 @@ impl IntoView for SideNavItem {
                     provide(cx, move || {
                         let group = column(child.map(|slot| slot.call(())))
                             .style(|| style().gap(tokens().spacing.s0_5));
-                        if let Some((disclosure, reveal)) = disclosure.zip(reveal) {
-                            let measured = node_ref();
-                            let height = reveal.container_style(measured);
-                            column(group.node_ref(measured).style(style().shrink(0)))
+                        if let Some(disclosure) = disclosure {
+                            let motion = tokens().motion;
+                            group
                                 .with_node(move |node| node.role(Role::Group))
                                 .with_node(move |node| node.part(disclosure.content()))
-                                .style(move || height.get())
+                                .style(
+                                    style()
+                                        .shrink(0)
+                                        .enter_size(kivact::view::Orientation::Vertical)
+                                        .exit_size(kivact::view::Orientation::Vertical)
+                                        .transition(
+                                            TransitionProp::Size,
+                                            Transition::tween(
+                                                motion.medium as f64,
+                                                motion.ease_standard,
+                                            ),
+                                        ),
+                                )
                         } else {
                             group.with_node(move |node| node.role(Role::Group))
                         }
