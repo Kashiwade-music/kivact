@@ -8,12 +8,12 @@ use kivact::ui::ButtonVariant;
 use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
-fn near(a: f32, b: f32, tolerance: f32) -> bool {
+fn near(a: f64, b: f64, tolerance: f64) -> bool {
     (a - b).abs() <= tolerance
 }
 
 /// Drag `element` by `dx` along x from its own center (points are local to the element).
-fn drag_by(element: &kivact::test::Element<'_>, dx: f32) {
+fn drag_by(element: &kivact::test::Element<'_>, dx: f64) {
     let rect = element.rect().expect("laid out");
     let from = kivact::draw::Point::new(rect.width / 2.0, rect.height / 2.0);
     element.drag(from, kivact::draw::Point::new(from.x + dx, from.y));
@@ -21,9 +21,9 @@ fn drag_by(element: &kivact::test::Element<'_>, dx: f32) {
 
 fn mount_resizable(
     orientation: Orientation,
-    start: Vec<f32>,
+    start: Vec<f64>,
     grip: bool,
-) -> (Screen, Signal<Vec<f32>>) {
+) -> (Screen, Signal<Vec<f64>>) {
     kivact::test::render_with_handle(light(), move || {
         let sizes = signal(start);
         (
@@ -107,7 +107,7 @@ fn split_drags_and_keys_move_the_boundary_within_min_sizes() {
 
 fn mount_carousel(
     looped: bool,
-    per_view: f32,
+    per_view: f64,
     orientation: Orientation,
 ) -> (Screen, Signal<usize>) {
     kivact::test::render_with_handle(light(), move || {
@@ -318,7 +318,7 @@ fn mount_sidebar(
     })
 }
 
-fn width_of(screen: &Screen, id: &str) -> f32 {
+fn width_of(screen: &Screen, id: &str) -> f64 {
     screen.get_by_test_id(id).rect().expect("laid out").width
 }
 

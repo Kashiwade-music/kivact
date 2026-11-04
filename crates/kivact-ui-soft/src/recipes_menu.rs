@@ -6,8 +6,8 @@ use kivact::primitive::PartState;
 use kivact::style::{Align, Direction, Style, Theme, auto, style};
 use kivact::ui::{Look, MenuRecipes};
 
-const MENU_MIN_FLYOUT_WIDTH: f32 = 160.0;
-const MENU_MAX_HEIGHT: f32 = 300.0;
+const MENU_MIN_FLYOUT_WIDTH: f64 = 160.0;
+const MENU_MAX_HEIGHT: f64 = 300.0;
 
 pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
     r.trigger(|_| trigger)

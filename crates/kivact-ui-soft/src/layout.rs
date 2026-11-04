@@ -4,12 +4,12 @@ use crate::stack::ContainerInset;
 /// Insets inherited by Layout regions from a parent surface.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInset {
-    pub outer_x: Option<f32>,
-    pub outer_y: Option<f32>,
-    pub inner_x: Option<f32>,
-    pub inner_y: Option<f32>,
-    pub own_outer_x: Option<f32>,
-    pub own_outer_y: Option<f32>,
+    pub outer_x: Option<f64>,
+    pub outer_y: Option<f64>,
+    pub inner_x: Option<f64>,
+    pub inner_y: Option<f64>,
+    pub own_outer_x: Option<f64>,
+    pub own_outer_y: Option<f64>,
 }
 
 impl LayoutInset {
@@ -473,7 +473,7 @@ impl IntoView for LayoutRegion {
     }
 }
 
-fn center_gutter(root: NodeRef, width: f32) -> f32 {
+fn center_gutter(root: NodeRef, width: f64) -> f64 {
     root.rect()
         .get()
         .map_or(0.0, |rect| ((rect.width - width) / 2.0).max(0.0))

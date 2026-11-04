@@ -89,8 +89,8 @@ impl<T: TimeItem> State<T> {
             });
         }
     }
-    pub(crate) fn time(self, x: f32) -> f64 {
-        f64::from(x - crate::editors::shared::metrics::SIDEBAR - self.offset.get_untracked().x)
+    pub(crate) fn time(self, x: f64) -> f64 {
+        (x - crate::editors::shared::metrics::SIDEBAR - self.offset.get_untracked().x)
             / self
                 .scale
                 .get_untracked()

@@ -50,7 +50,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
         .height(pct(100))
         .paint(move |d, size| {
             let (x, width) = if state.value.is_some() {
-                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f32)
+                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f64)
             } else {
                 let (start, length) = state.sweep();
                 (size.width * start, size.width * length)

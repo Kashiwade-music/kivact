@@ -174,8 +174,8 @@ pub fn kbd_group(children: impl IntoView) -> Node {
 #[track_caller]
 pub fn spinner() -> Node {
     let turn = Animated::from(
-        0.0f32,
-        360.0f32,
+        0.0f64,
+        360.0f64,
         Transition::tween(1000, Easing::Linear)
             .repeat(Repeat::Forever)
             .decorative(false),
@@ -219,8 +219,8 @@ impl IntoView for Skeleton {
     fn into_view(self) -> View {
         let rows = self.rows;
         let pulse = Animated::from(
-            1.0f32,
-            0.5f32,
+            1.0f64,
+            0.5f64,
             Transition::tween(1000, Easing::EaseInOut)
                 .repeat(Repeat::Forever)
                 .alternate(),
@@ -254,7 +254,7 @@ impl IntoView for Skeleton {
 /// The child is stretched to the box's width; give it `height(pct(100))`
 /// to fill the box.
 #[track_caller]
-pub fn aspect_ratio(ratio: f32, child: impl IntoView) -> Node {
+pub fn aspect_ratio(ratio: f64, child: impl IntoView) -> Node {
     node()
         .style(
             style()

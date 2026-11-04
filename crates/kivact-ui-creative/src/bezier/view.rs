@@ -205,15 +205,15 @@ impl IntoView for BezierCurve {
             let attachment = attachment
                 .with(gesture.source(index))
                 .on_key(move |event: KeyEvent| {
-                    let step = if event.modifiers.ctrl {
+                    let step = if event.modifiers().ctrl {
                         0.001
-                    } else if event.modifiers.shift {
+                    } else if event.modifiers().shift {
                         0.1
                     } else {
                         0.01
                     };
                     let (x, y) = value.get().clean().point(index);
-                    let next = match event.key {
+                    let next = match event.key() {
                         Key::ArrowLeft => (x - step, y),
                         Key::ArrowRight => (x + step, y),
                         Key::ArrowUp => (x, y + step),

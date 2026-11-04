@@ -18,12 +18,12 @@ use kivact::{Binding, binding};
 #[derive(Clone, Debug, PartialEq)]
 pub struct PieEntry {
     pub label: String,
-    pub angle: f32,
+    pub angle: f64,
     /// The icon of the command: a name in the theme's icon set or an image.
     pub icon: Icon,
 }
 impl PieEntry {
-    pub fn new(label: impl Into<String>, angle: f32, icon: impl Into<Icon>) -> Self {
+    pub fn new(label: impl Into<String>, angle: f64, icon: impl Into<Icon>) -> Self {
         Self {
             label: label.into(),
             angle,
@@ -120,12 +120,12 @@ pub fn pie_menu<R: HandlerResult>(
                         .size(96, 36)
                 })
                 .on_pointer_default(move |event| {
-                    if matches!(event.phase, PointerPhase::Move | PointerPhase::Enter) {
+                    if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
                         let mut next = current.get();
-                        next.pointer(event.window_pos, &button_entries.get());
+                        next.pointer(event.window_pos(), &button_entries.get());
                         state.set(next);
                     }
-                    if matches!(event.phase, PointerPhase::Down(_)) {
+                    if matches!(event.phase(), PointerPhase::Down(_)) {
                         Handled::Yes
                     } else {
                         Handled::No
@@ -158,12 +158,12 @@ pub fn pie_menu<R: HandlerResult>(
                     )
                 })
                 .on_pointer_default(move |event| {
-                    if matches!(event.phase, PointerPhase::Move | PointerPhase::Enter) {
+                    if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
                         let mut next = current.get();
-                        next.pointer(event.window_pos, &pointer_entries.get());
+                        next.pointer(event.window_pos(), &pointer_entries.get());
                         state.set(next);
                     } else if matches!(
-                        event.phase,
+                        event.phase(),
                         PointerPhase::Down(ButtonPress {
                             button: MouseButton::Primary,
                             ..
@@ -182,7 +182,7 @@ pub fn pie_menu<R: HandlerResult>(
         .focusable(true)
         .on_key_default(move |event| {
             let mut next = current.get();
-            match event.key {
+            match event.key() {
                 Key::Char(key) if ('1'..='9').contains(&key) => {
                     let index = (key as u8 - b'1') as usize;
                     if index < key_entries.with(Vec::len) {
@@ -194,7 +194,7 @@ pub fn pie_menu<R: HandlerResult>(
                         return Handled::No;
                     }
                     let index = next.hot.unwrap_or(0).min(key_entries.with(Vec::len) - 1);
-                    next.hot = Some(if matches!(event.key, Key::ArrowRight | Key::ArrowDown) {
+                    next.hot = Some(if matches!(event.key(), Key::ArrowRight | Key::ArrowDown) {
                         (index + 1) % key_entries.with(Vec::len)
                     } else {
                         (index + key_entries.with(Vec::len) - 1) % key_entries.with(Vec::len)

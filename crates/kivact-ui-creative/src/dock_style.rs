@@ -2,7 +2,7 @@
 use kivact::style::{Style, Theme, style};
 /// The thickness of a splitter between two panes, in logical pixels. The
 /// theme's splitter recipe, which `kivact::ui::split` draws too, uses it.
-pub(crate) const SPLITTER_THICKNESS: f32 = 6.0;
+pub(crate) const SPLITTER_THICKNESS: f64 = 6.0;
 
 /// How the dock draws a splitter: transparent, accent while hovered or
 /// focused, above the panes it separates. The splitter recipe shares it.

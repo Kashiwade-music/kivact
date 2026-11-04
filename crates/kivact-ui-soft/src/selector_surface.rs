@@ -63,22 +63,22 @@ pub(super) fn touch_tap(anchor: NodeRef) -> impl Fn(PointerEvent, bool) -> bool 
     let contact = var(None::<(PointerId, Point, bool)>);
     let rect = anchor.rect();
     move |event, eligible| {
-        if let PointerPhase::Down(press) = event.phase {
+        if let PointerPhase::Down(press) = event.phase() {
             contact.set(
                 (eligible
-                    && event.kind == PointerKind::Touch
-                    && event.is_primary
+                    && event.kind() == PointerKind::Touch
+                    && event.is_primary()
                     && press.button == MouseButton::Primary)
-                    .then_some((event.id, event.window_pos, false)),
+                    .then_some((event.id(), event.window_pos(), false)),
             );
             return false;
         }
-        let Some((id, start, moved)) = contact.get().filter(|(id, _, _)| *id == event.id) else {
+        let Some((id, start, moved)) = contact.get().filter(|(id, _, _)| *id == event.id()) else {
             return false;
         };
-        let pos = event.window_pos;
+        let pos = event.window_pos();
         let moved = moved || (pos.x - start.x).hypot(pos.y - start.y) > 10.0;
-        match event.phase {
+        match event.phase() {
             PointerPhase::Move => contact.set(Some((id, start, moved))),
             PointerPhase::Cancel => contact.set(None),
             PointerPhase::Up(_) => {

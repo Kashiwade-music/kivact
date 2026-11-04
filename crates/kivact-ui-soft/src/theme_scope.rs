@@ -29,7 +29,7 @@ pub fn media_theme<V: IntoView>(mode: MediaMode, content: impl FnOnce() -> V + '
                     let foreground = t.colors.text_primary.resolve(&outer);
                     let surface = surface.resolve(&outer);
                     let background = t.colors.bg_surface.resolve(&outer);
-                    let mix = |channel: f32, background: f32| {
+                    let mix = |channel: f64, background: f64| {
                         channel * surface.a + background * (1.0 - surface.a)
                     };
                     let surface_luminance = luminance(
@@ -91,8 +91,8 @@ pub fn syntax_theme<V: IntoView>(
     )
 }
 
-fn luminance(r: f32, g: f32, b: f32) -> f32 {
-    let linear = |channel: f32| {
+fn luminance(r: f64, g: f64, b: f64) -> f64 {
+    let linear = |channel: f64| {
         if channel <= 0.04045 {
             channel / 12.92
         } else {
@@ -102,6 +102,6 @@ fn luminance(r: f32, g: f32, b: f32) -> f32 {
     0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
 }
 
-fn contrast(first: f32, second: f32) -> f32 {
+fn contrast(first: f64, second: f64) -> f64 {
     (first.max(second) + 0.05) / (first.min(second) + 0.05)
 }

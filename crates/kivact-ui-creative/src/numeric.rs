@@ -527,7 +527,7 @@ impl IntoView for Numeric {
                     };
                     let start = origin.get();
                     if kind == NumericKind::Number {
-                        scalar.set(start + f64::from(delta) * step * factor);
+                        scalar.set(start + delta * step * factor);
                     } else {
                         let extent = rect
                             .get()
@@ -539,9 +539,7 @@ impl IntoView for Numeric {
                                 }
                             })
                             .max(60.0);
-                        scalar.set(from_n(
-                            normalized(start) + f64::from(delta / extent) * factor,
-                        ));
+                        scalar.set(from_n(normalized(start) + (delta / extent) * factor));
                     }
                     moved.set(true);
                 }
@@ -587,17 +585,12 @@ impl IntoView for Numeric {
                     }
                     NumericKind::Slider => {
                         d.rounded_rect(
-                            Rect::new(0.0, 0.0, size.width * n as f32, size.height),
+                            Rect::new(0.0, 0.0, size.width * n, size.height),
                             7.0,
                             color.with_alpha(0.3),
                         );
                         d.rounded_rect(
-                            Rect::new(
-                                size.width * n as f32 - 1.0,
-                                4.0,
-                                2.0,
-                                (size.height - 8.0).max(0.0),
-                            ),
+                            Rect::new(size.width * n - 1.0, 4.0, 2.0, (size.height - 8.0).max(0.0)),
                             1.0,
                             color,
                         );
@@ -612,7 +605,7 @@ impl IntoView for Numeric {
                             2.0,
                             p.strong,
                         );
-                        let x = 8.0 + (size.width - 16.0) * n as f32;
+                        let x = 8.0 + (size.width - 16.0) * n;
                         d.rounded_rect(
                             Rect::new(x - 7.0, y - 10.0, 14.0, 20.0),
                             5.0,
@@ -626,7 +619,7 @@ impl IntoView for Numeric {
             })
             .on_key_default(move |e| {
                 let adjusts = matches!(
-                    e.key,
+                    e.key(),
                     Key::ArrowRight
                         | Key::ArrowUp
                         | Key::ArrowLeft
@@ -642,25 +635,25 @@ impl IntoView for Numeric {
                     return if adjusts { Handled::Yes } else { Handled::No };
                 }
                 let text_field = matches!(kind, NumericKind::Number | NumericKind::Slider);
-                if e.key == Key::Enter && !text_field {
+                if e.key() == Key::Enter && !text_field {
                     return Handled::No;
                 }
                 // A scrub owns the value until it ends, and a mixed value
                 // takes only typed text, which Enter opens.
-                if (adjusts || e.key == Key::Enter)
+                if (adjusts || e.key() == Key::Enter)
                     && (pointer.is_active() || (mixed.get() && adjusts))
                 {
                     return Handled::Yes;
                 }
-                let factor = if e.modifiers.ctrl {
+                let factor = if e.modifiers().ctrl {
                     0.1
-                } else if e.modifiers.shift {
+                } else if e.modifiers().shift {
                     10.0
                 } else {
                     1.0
                 };
-                match e.key {
-                    Key::Enter if e.repeat => {}
+                match e.key() {
+                    Key::Enter if e.repeat() => {}
                     Key::Enter => begin_text(),
                     Key::ArrowRight | Key::ArrowUp => set(value.get() + step * factor),
                     Key::ArrowLeft | Key::ArrowDown => set(value.get() - step * factor),
@@ -678,8 +671,8 @@ impl IntoView for Numeric {
                 if pointer.is_active() {
                     return Handled::Yes;
                 }
-                let direction = if e.delta.y > 0.0 { -1.0 } else { 1.0 };
-                set(value.get() + step * direction * if e.modifiers.ctrl { 0.1 } else { 1.0 });
+                let direction = if e.delta().y > 0.0 { -1.0 } else { 1.0 };
+                set(value.get() + step * direction * if e.modifiers().ctrl { 0.1 } else { 1.0 });
                 Handled::Yes
             })
             // Runs before the scrub source below; `Yes` keeps the press from it.
@@ -689,7 +682,7 @@ impl IntoView for Numeric {
                 }
                 if mixed.get() {
                     if matches!(
-                        e.phase,
+                        e.phase(),
                         PointerPhase::Down(ButtonPress {
                             button: MouseButton::Primary,
                             ..
@@ -701,7 +694,7 @@ impl IntoView for Numeric {
                     return Handled::Yes;
                 }
                 if matches!(
-                    e.phase,
+                    e.phase(),
                     PointerPhase::Down(ButtonPress {
                         button: MouseButton::Primary,
                         clicks: 2..
@@ -758,17 +751,17 @@ fn draw_knob(
     let p = d.theme().get::<crate::tokens::Tokens>();
     let scale = (size.width / 58.0).clamp(0.5, 1.0);
     let center = Point::new(size.width / 2.0, 24.0 * scale);
-    let point = |a: f32, radius: f32| {
+    let point = |a: f64, radius: f64| {
         Point::new(
             center.x + radius * scale * a.sin(),
             center.y - radius * scale * a.cos(),
         )
     };
     let a0 = -2.35;
-    let arc = |start: f32, end: f32| {
+    let arc = |start: f64, end: f64| {
         let mut path = Path::new().move_to(point(start, 19.0));
         for i in 1..=48 {
-            path = path.line_to(point(start + (end - start) * i as f32 / 48.0, 19.0));
+            path = path.line_to(point(start + (end - start) * i as f64 / 48.0, 19.0));
         }
         path
     };
@@ -777,7 +770,7 @@ fn draw_knob(
         .join(LineJoin::Round);
     d.stroke_path(&arc(a0, 2.35), &stroke, p.hair_strong);
     d.stroke_path(
-        &arc(if bipolar { 0.0 } else { a0 }, a0 + n as f32 * 4.7),
+        &arc(if bipolar { 0.0 } else { a0 }, a0 + n * 4.7),
         &stroke,
         color,
     );
@@ -792,8 +785,8 @@ fn draw_knob(
         linear_gradient(180).colors([p.strong, Color::token(ColorToken::Raised)]),
     );
     d.line(
-        point(a0 + n as f32 * 4.7, 7.0),
-        point(a0 + n as f32 * 4.7, 12.0),
+        point(a0 + n * 4.7, 7.0),
+        point(a0 + n * 4.7, 12.0),
         2.6,
         p.text_high,
     );
@@ -824,17 +817,12 @@ fn draw_fader(d: &mut Draw, size: Size, n: f64, color: kivact::style::Color, val
     let height = (size.height - 30.0).max(1.0);
     d.rounded_rect(Rect::new(x - 3.0, top, 6.0, height), 3.0, p.canvas);
     d.rounded_rect(
-        Rect::new(
-            x - 2.0,
-            top + height * (1.0 - n as f32),
-            4.0,
-            height * n as f32,
-        ),
+        Rect::new(x - 2.0, top + height * (1.0 - n), 4.0, height * n),
         2.0,
         color.with_alpha(0.6),
     );
     for i in 0..=10 {
-        let y = top + i as f32 * height / 10.0;
+        let y = top + i as f64 * height / 10.0;
         d.line(
             Point::new(x - 17.0, y),
             Point::new(x - 10.0, y),
@@ -842,7 +830,7 @@ fn draw_fader(d: &mut Draw, size: Size, n: f64, color: kivact::style::Color, val
             p.hair_strong,
         );
     }
-    let y = top + height * (1.0 - n as f32);
+    let y = top + height * (1.0 - n);
     d.rounded_rect(
         Rect::new(x - 11.0, y - 5.0, 22.0, 11.0),
         3.0,

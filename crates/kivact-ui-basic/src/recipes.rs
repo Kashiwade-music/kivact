@@ -137,31 +137,31 @@ fn button_busy(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
 }
 
 /// The side of the check box and the gap before its label.
-const CHECK_SIDE: f32 = 16.0;
-const LABEL_GAP: f32 = 8.0;
+const CHECK_SIDE: f64 = 16.0;
+const LABEL_GAP: f64 = 8.0;
 /// The switch track (`h-[18.4px] w-[32px]`, `sm` and extra small: `h-[14px] w-[24px]`)
 /// and its thumb (`size-4`, `sm`: `size-3`).
-const TRACK: (f32, f32) = (32.0, 18.4);
-const THUMB: f32 = 16.0;
-const TRACK_SM: (f32, f32) = (24.0, 14.0);
-const THUMB_SM: f32 = 12.0;
+const TRACK: (f64, f64) = (32.0, 18.4);
+const THUMB: f64 = 16.0;
+const TRACK_SM: (f64, f64) = (24.0, 14.0);
+const THUMB_SM: f64 = 12.0;
 
 /// The track and thumb of a switch of `size` (`sm` for Small).
-fn switch_metrics(size: ControlSize) -> ((f32, f32), f32) {
+fn switch_metrics(size: ControlSize) -> ((f64, f64), f64) {
     match size {
         ControlSize::ExtraSmall | ControlSize::Small => (TRACK_SM, THUMB_SM),
         ControlSize::Medium | ControlSize::Large => (TRACK, THUMB),
     }
 }
 /// Room left of the drawn part so its 1 px focus ring is not cut.
-const LEAD: f32 = 1.0;
+const LEAD: f64 = 1.0;
 
 /// A label row with the room its drawn part needs on the left. The drawn
 /// box or track shows the focus ring itself, so the row draws none.
 ///
 /// The box is local paint of the row, which a state style cannot carry, so
 /// its border and ring follow the row's state in the paint.
-fn toggle_row(p: &Tokens, drawn: f32) -> Style {
+fn toggle_row(p: &Tokens, drawn: f64) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -186,9 +186,9 @@ fn switch(t: &Theme, state: &kivact::ui::Look<CheckState>) -> Style {
 
 /// The 1 px border inside `rect` and, when `halo` is given, the 1 px ring
 /// outside it: stroked, so a transparent fill shows what is behind.
-fn edge(d: &mut Draw, rect: Rect, radius: f32, border: Color, halo: Option<Color>) {
+fn edge(d: &mut Draw, rect: Rect, radius: f64, border: Color, halo: Option<Color>) {
     let stroke = Stroke::new(1.0);
-    let corners = |r: f32| [CornerRadius::from(r.max(0.0)); 4];
+    let corners = |r: f64| [CornerRadius::from(r.max(0.0)); 4];
     if let Some(halo) = halo {
         let out = Rect::new(
             rect.x - 0.5,

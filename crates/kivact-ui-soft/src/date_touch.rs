@@ -56,7 +56,7 @@ pub(super) fn trigger(
         .node_ref(target)
         .on_press(press)
         .on_key(move |event: KeyEvent| {
-            if event.key == Key::ArrowDown {
+            if event.key() == Key::ArrowDown {
                 target.activate();
                 Handled::Yes
             } else {
@@ -294,13 +294,13 @@ fn two_digits(value: i32) -> String {
 #[derive(Clone, Copy)]
 struct Contact {
     pointer: PointerId,
-    y: f32,
+    y: f64,
     dragging: bool,
 }
 
-const WHEEL_ROW: f32 = 28.0;
-const WHEEL_HEIGHT: f32 = 264.0;
-const RELEASE_STOPS: [f32; 17] = [
+const WHEEL_ROW: f64 = 28.0;
+const WHEEL_HEIGHT: f64 = 264.0;
+const RELEASE_STOPS: [f64; 17] = [
     -224.0, -196.0, -168.0, -140.0, -112.0, -84.0, -56.0, -28.0, 0.0, 28.0, 56.0, 84.0, 112.0,
     140.0, 168.0, 196.0, 224.0,
 ];
@@ -333,7 +333,7 @@ fn wheel(
     let offset = animated(
         move || {
             release.get();
-            0.0f32
+            0.0f64
         },
         Transition::spring(Spring {
             stiffness: 246.7,
@@ -341,7 +341,7 @@ fn wheel(
             mass: 1.0,
         }),
     );
-    let settle = move |from: f32| {
+    let settle = move |from: f64| {
         if kivact::platform::reduced_motion() {
             offset.jump_to(0.0);
         } else {
@@ -358,10 +358,10 @@ fn wheel(
         .on_a11y(A11yAction::Increment, move || step(1))
         .on_a11y(A11yAction::Decrement, move || step(-1))
         .on_key(move |event: KeyEvent| {
-            if event.modifiers.ctrl || event.modifiers.meta || event.modifiers.alt {
+            if event.modifiers().ctrl || event.modifiers().meta || event.modifiers().alt {
                 return Handled::No;
             }
-            match event.key {
+            match event.key() {
                 Key::ArrowUp => step(-1),
                 Key::ArrowDown => step(1),
                 Key::PageUp => step(-10),
@@ -374,32 +374,32 @@ fn wheel(
             Handled::Yes
         })
         .on_wheel(move |event: WheelEvent| {
-            if !event.delta.y.is_finite() || event.delta.y == 0.0 {
+            if !event.delta().y.is_finite() || event.delta().y == 0.0 {
                 return Handled::No;
             }
-            step(event.delta.y.signum() as i32);
+            step(event.delta().y.signum() as i32);
             offset.jump_to(0.0);
             Handled::Yes
         })
         .on_pointer(move |event: PointerEvent| {
-            let pos = event.window_pos;
+            let pos = event.window_pos();
             let now = clock_now();
             if !pos.y.is_finite() {
                 return Handled::No;
             }
-            match event.phase {
-                PointerPhase::Down(_) if event.is_primary => {
+            match event.phase() {
+                PointerPhase::Down(_) if event.is_primary() => {
                     event.reserve_touch_gesture();
                     offset.jump_to(0.0);
                     velocity.update(|velocity| velocity.reset(now, pos));
                     contact.set(Some(Contact {
-                        pointer: event.id,
+                        pointer: event.id(),
                         y: pos.y,
                         dragging: false,
                     }));
                 }
                 PointerPhase::Move => {
-                    let Some(mut drag) = contact.get().filter(|drag| drag.pointer == event.id)
+                    let Some(mut drag) = contact.get().filter(|drag| drag.pointer == event.id())
                     else {
                         return Handled::No;
                     };
@@ -410,14 +410,14 @@ fn wheel(
                         let steps = (travel / WHEEL_ROW).trunc() as i32;
                         if steps != 0 {
                             step(steps);
-                            drag.y -= steps as f32 * WHEEL_ROW;
+                            drag.y -= steps as f64 * WHEEL_ROW;
                         }
                         offset.jump_to(pos.y - drag.y);
                     }
                     contact.set(Some(drag));
                 }
                 PointerPhase::Up(_) => {
-                    let Some(drag) = contact.get().filter(|drag| drag.pointer == event.id) else {
+                    let Some(drag) = contact.get().filter(|drag| drag.pointer == event.id()) else {
                         return Handled::No;
                     };
                     contact.set(None);
@@ -439,19 +439,20 @@ fn wheel(
                         } else {
                             after - before
                         };
-                        settle(applied as f32 * WHEEL_ROW - residual);
+                        settle(applied as f64 * WHEEL_ROW - residual);
                     } else {
-                        let delta = ((event.pos.y - WHEEL_HEIGHT / 2.0) / WHEEL_ROW).round() as i32;
+                        let delta =
+                            ((event.pos().y - WHEEL_HEIGHT / 2.0) / WHEEL_ROW).round() as i32;
                         let steps = delta.clamp(-4, 4);
                         let before = value.get_untracked();
                         step(steps);
                         if before != value.get_untracked() {
-                            settle(steps as f32 * WHEEL_ROW);
+                            settle(steps as f64 * WHEEL_ROW);
                         }
                     }
                 }
                 PointerPhase::Cancel => {
-                    if contact.get().is_some_and(|drag| drag.pointer == event.id) {
+                    if contact.get().is_some_and(|drag| drag.pointer == event.id()) {
                         contact.set(None);
                         settle(offset.get_untracked());
                     }
@@ -488,14 +489,14 @@ fn wheel(
                 .child(text(shown))
                 .style(move || {
                     let t = tokens();
-                    let distance = delta as f32 * WHEEL_ROW + offset.get();
+                    let distance = delta as f64 * WHEEL_ROW + offset.get();
                     let falloff = (distance.abs() / 146.0).min(1.0);
                     let selected = distance.abs() <= WHEEL_ROW / 2.0;
                     let base = style()
                         .position(Position::Absolute)
                         .left(0)
                         .right(0)
-                        .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0 + delta as f32 * WHEEL_ROW)
+                        .top((WHEEL_HEIGHT - WHEEL_ROW) / 2.0 + delta as f64 * WHEEL_ROW)
                         .height(WHEEL_ROW)
                         .translate_y(offset.get())
                         .align_items(Align::Center)

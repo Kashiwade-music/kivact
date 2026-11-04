@@ -54,7 +54,7 @@ pub(crate) struct State<T: TimeItem> {
     pub step: Value<f64>,
     pub bounds: (f64, f64),
     pub min_duration: f64,
-    pub lane_height: f32,
+    pub lane_height: f64,
     pub active: Signal<Option<Target>>,
     pub child_focus: Value<bool>,
     pub context: Signal<EditorContext>,

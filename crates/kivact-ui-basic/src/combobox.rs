@@ -406,7 +406,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Combobox<K> {
             .part(input_part)
             .expanded(open.into_value())
             .on_pointer(move |event: kivact::view::PointerEvent| {
-                if matches!(event.phase, kivact::view::PointerPhase::Down(_))
+                if matches!(event.phase(), kivact::view::PointerPhase::Down(_))
                     && !off.get()
                     && mode.get_untracked() == ComboMode::Closed
                 {

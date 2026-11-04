@@ -15,7 +15,7 @@ pub(crate) struct Settings {
     pub(crate) ruler: Ruler,
     pub(crate) value_format: Rc<dyn Fn(f64) -> String>,
     pub(crate) step: (Value<f64>, Value<f64>),
-    pub(crate) cells_width: f32,
+    pub(crate) cells_width: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

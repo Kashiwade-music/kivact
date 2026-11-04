@@ -252,7 +252,7 @@ impl IntoView for Avatar {
     }
 }
 
-pub(crate) fn group_frame(look: Style, side: f32, rtl: bool) -> Style {
+pub(crate) fn group_frame(look: Style, side: f64, rtl: bool) -> Style {
     let look = look
         .border(2, tokens().colors.bg_surface)
         .background(tokens().colors.bg_surface);
@@ -274,7 +274,7 @@ pub(crate) fn avatar_focus(look: Style) -> Style {
 }
 
 fn avatar_content(
-    side: f32,
+    side: f64,
     shape: AvatarShape,
     name: Option<Value<String>>,
     fallback: Option<Asset>,

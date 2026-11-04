@@ -556,12 +556,12 @@ impl IntoView for Calendar {
                                                 .part(part)
                                                 .on_pointer(move |event: PointerEvent| {
                                                     if let Some(swipe) = swipe
-                                                        && event.kind == PointerKind::Touch
+                                                        && event.kind() == PointerKind::Touch
                                                     {
                                                         return swipe.pointer(event);
                                                     }
-                                                    if event.kind != PointerKind::Touch {
-                                                        match event.phase {
+                                                    if event.kind() != PointerKind::Touch {
+                                                        match event.phase() {
                                                             PointerPhase::Enter
                                                             | PointerPhase::Move
                                                                 if pending

@@ -45,8 +45,8 @@ impl ThemeExtension for Tokens {
 /// A typography role's size, line height, weight and family.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextStyle {
-    pub size_px: f32,
-    pub line_height_px: f32,
+    pub size_px: f64,
+    pub line_height_px: f64,
     pub weight: u16,
     pub family: &'static str,
 }
@@ -61,18 +61,18 @@ pub struct Typography {
     pub weight_medium: u16,
     pub weight_semibold: u16,
     pub weight_bold: u16,
-    pub size_4xs: f32,
-    pub size_3xs: f32,
-    pub size_2xs: f32,
-    pub size_xs: f32,
-    pub size_sm: f32,
-    pub size_md: f32,
-    pub size_lg: f32,
-    pub size_xl: f32,
-    pub size_2xl: f32,
-    pub size_3xl: f32,
-    pub size_4xl: f32,
-    pub size_5xl: f32,
+    pub size_4xs: f64,
+    pub size_3xs: f64,
+    pub size_2xs: f64,
+    pub size_xs: f64,
+    pub size_sm: f64,
+    pub size_md: f64,
+    pub size_lg: f64,
+    pub size_xl: f64,
+    pub size_2xl: f64,
+    pub size_3xl: f64,
+    pub size_4xl: f64,
+    pub size_5xl: f64,
     pub display1: TextStyle,
     pub display2: TextStyle,
     pub display3: TextStyle,
@@ -87,7 +87,7 @@ pub struct Typography {
     pub label: TextStyle,
     pub code: TextStyle,
     pub supporting: TextStyle,
-    pub letter_spacing: f32,
+    pub letter_spacing: f64,
 }
 
 impl Typography {
@@ -202,25 +202,25 @@ impl Typography {
 /// Neutral spacing steps in logical pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Spacing {
-    pub s0: f32,
-    pub s0_5: f32,
-    pub s1: f32,
-    pub s1_5: f32,
-    pub s2: f32,
-    pub s3: f32,
-    pub s4: f32,
-    pub s5: f32,
-    pub s6: f32,
-    pub s7: f32,
-    pub s8: f32,
-    pub s9: f32,
-    pub s10: f32,
-    pub s11: f32,
-    pub s12: f32,
-    pub card_padding: f32,
-    pub section_padding: f32,
-    pub dialog_padding: f32,
-    pub layer_viewport_gutter: f32,
+    pub s0: f64,
+    pub s0_5: f64,
+    pub s1: f64,
+    pub s1_5: f64,
+    pub s2: f64,
+    pub s3: f64,
+    pub s4: f64,
+    pub s5: f64,
+    pub s6: f64,
+    pub s7: f64,
+    pub s8: f64,
+    pub s9: f64,
+    pub s10: f64,
+    pub s11: f64,
+    pub s12: f64,
+    pub card_padding: f64,
+    pub section_padding: f64,
+    pub dialog_padding: f64,
+    pub layer_viewport_gutter: f64,
 }
 
 impl Spacing {
@@ -250,13 +250,13 @@ impl Spacing {
 /// Neutral corner radii in logical pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Radius {
-    pub none: f32,
-    pub inner: f32,
-    pub element: f32,
-    pub container: f32,
-    pub page: f32,
-    pub chat: f32,
-    pub full: f32,
+    pub none: f64,
+    pub inner: f64,
+    pub element: f64,
+    pub container: f64,
+    pub page: f64,
+    pub chat: f64,
+    pub full: f64,
 }
 
 impl Radius {
@@ -274,22 +274,22 @@ impl Radius {
 /// Neutral control metrics and state amounts.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sizes {
-    pub control_xs: f32,
-    pub control_sm: f32,
-    pub control_md: f32,
-    pub control_lg: f32,
-    pub border_width: f32,
-    pub focus_ring_width: f32,
-    pub focus_ring_offset: f32,
-    pub icon_xsm: f32,
-    pub icon_sm: f32,
-    pub icon_md: f32,
-    pub icon_lg: f32,
-    pub icon_stroke_ratio: f32,
-    pub badge_height: f32,
-    pub min_touch_target: f32,
-    pub disabled_opacity: f32,
-    pub press_scale: f32,
+    pub control_xs: f64,
+    pub control_sm: f64,
+    pub control_md: f64,
+    pub control_lg: f64,
+    pub border_width: f64,
+    pub focus_ring_width: f64,
+    pub focus_ring_offset: f64,
+    pub icon_xsm: f64,
+    pub icon_sm: f64,
+    pub icon_md: f64,
+    pub icon_lg: f64,
+    pub icon_stroke_ratio: f64,
+    pub badge_height: f64,
+    pub min_touch_target: f64,
+    pub disabled_opacity: f64,
+    pub press_scale: f64,
 }
 
 impl Sizes {

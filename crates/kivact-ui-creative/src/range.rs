@@ -14,7 +14,7 @@ use kivact::view::{
 use kivact::{Binding, Callback, Value, binding, effect, memo, signal, var};
 
 /// The side of an end's square region, which the pointer grabs.
-const THUMB: f32 = 20.0;
+const THUMB: f64 = 20.0;
 
 /// What the keys and actions on the root of a range edit.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -266,7 +266,7 @@ impl IntoView for Range {
                 // The center of an end's 20 px region, where the track puts
                 // the value: the track's length less one region.
                 let x =
-                    |v| THUMB / 2.0 + ((v - min) / (max - min)) as f32 * (s.width - THUMB).max(0.0);
+                    |v| THUMB / 2.0 + ((v - min) / (max - min)) as f64 * (s.width - THUMB).max(0.0);
                 if let Some(color) = interval {
                     let r = Rect::new(x(a), y - 7.0, (x(b) - x(a)).max(1.0), 14.0);
                     d.rounded_rect(r, 3.0, color.get().with_alpha(0.35));
@@ -306,16 +306,16 @@ impl IntoView for Range {
             .on_a11y_event(A11yAction::Decrement, act)
             .on_key_default(move |e| {
                 let part = active.get();
-                let factor = if e.modifiers.ctrl {
+                let factor = if e.modifiers().ctrl {
                     0.1
-                } else if e.modifiers.shift {
+                } else if e.modifiers().shift {
                     10.0
                 } else {
                     1.0
                 };
                 if part == RangePart::Body && movable.get() {
                     let v = bounded(value.get());
-                    let delta = match e.key {
+                    let delta = match e.key() {
                         Key::ArrowLeft | Key::ArrowDown => -step * factor,
                         Key::ArrowRight | Key::ArrowUp => step * factor,
                         Key::Home => min - v.0,
@@ -330,7 +330,7 @@ impl IntoView for Range {
                     return Handled::Yes;
                 }
                 let scalar = endpoint_of(part);
-                match e.key {
+                match e.key() {
                     Key::ArrowLeft | Key::ArrowDown => ends.once(|| scalar.step_by(-factor)),
                     Key::ArrowRight | Key::ArrowUp => ends.once(|| scalar.step_by(factor)),
                     Key::Home => ends.once(|| scalar.set(min)),

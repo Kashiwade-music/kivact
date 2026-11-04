@@ -138,7 +138,7 @@ pub fn tree_row(label: impl IntoText, depth: usize) -> Button {
             style()
                 .height(p.row)
                 .gap(6)
-                .padding_left(8.0 + depth.min(32) as f32 * 16.0)
+                .padding_left(8.0 + depth.min(32) as f64 * 16.0)
                 .padding_right(8)
                 .radius(5)
                 .align_items(Align::Center)

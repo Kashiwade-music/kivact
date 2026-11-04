@@ -164,7 +164,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for SegmentedControl<K> {
             (
                 radio.on_key(move |event| {
                     if matches!(
-                        event.key,
+                        event.key(),
                         kivact::view::Key::ArrowUp
                             | kivact::view::Key::ArrowDown
                             | kivact::view::Key::ArrowLeft

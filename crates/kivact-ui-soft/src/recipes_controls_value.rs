@@ -102,7 +102,7 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
     style().size(pct(100), pct(100)).paint(move |d, size| {
         let ease = Easing::CubicBezier(0.42, 0.0, 0.58, 1.0);
         let (start, length, ink) = if indeterminate {
-            const BAND: f32 = 0.4;
+            const BAND: f64 = 0.4;
             let phase = phase.get();
             if reduced_motion() {
                 // The 4000 ms cycle alternates two 2000 ms opacity passes.
@@ -113,7 +113,7 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
                 (-BAND + (1.0 + BAND) * ease.apply(phase), BAND, ink)
             }
         } else {
-            (0.0, shown.get().clamp(0.0, 1.0) as f32, ink)
+            (0.0, shown.get().clamp(0.0, 1.0) as f64, ink)
         };
         if length > 0.0 {
             let start = if rtl { 1.0 - start - length } else { start };

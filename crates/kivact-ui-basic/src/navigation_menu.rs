@@ -292,7 +292,7 @@ fn menu_item(
         .name(label)
         .style(move || trigger_style(&tokens(), shown.get()))
         .on_pointer(move |event| {
-            if event.phase == PointerPhase::Enter {
+            if event.phase() == PointerPhase::Enter {
                 open.update(|state| {
                     if *state != NavOpen::Pinned(at) {
                         *state = NavOpen::Hover(at);
@@ -302,12 +302,12 @@ fn menu_item(
             Handled::No
         })
         .on_key(move |event| {
-            if event.key == Key::Escape && shown.get_untracked() {
+            if event.key() == Key::Escape && shown.get_untracked() {
                 open.set(NavOpen::Closed);
                 return Handled::Yes;
             }
-            if event.key == Key::ArrowDown
-                && !event.modifiers.alt
+            if event.key() == Key::ArrowDown
+                && !event.modifiers().alt
                 && open.get_untracked() != NavOpen::Pinned(at)
             {
                 open.set(NavOpen::Pinned(at));

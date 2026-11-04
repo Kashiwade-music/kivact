@@ -16,7 +16,7 @@ pub struct Carousel {
     items: Vec<View>,
     index: Binding<usize>,
     orientation: Orientation,
-    per_view: f32,
+    per_view: f64,
     looped: Value<bool>,
 }
 
@@ -81,7 +81,7 @@ impl Carousel {
     }
 
     /// Show this many slides at once (1 by default; fractions show a peek of the next slide).
-    pub fn items_per_view(mut self, count: f32) -> Self {
+    pub fn items_per_view(mut self, count: f64) -> Self {
         self.per_view = if count.is_finite() && count >= 1.0 {
             count
         } else {
@@ -105,7 +105,7 @@ impl NodeBuilder for Carousel {
     }
 }
 
-const GAP: f32 = 16.0;
+const GAP: f64 = 16.0;
 
 impl IntoView for Carousel {
     fn into_view(self) -> View {
@@ -169,7 +169,7 @@ impl IntoView for Carousel {
             .style(move || {
                 // The track is one gap wider than the viewport, so each slide
                 // (its basis is a share of the track) moves by its own width.
-                let along = -(shown.get() as f32) * 100.0 / per_view;
+                let along = -(shown.get() as f64) * 100.0 / per_view;
                 let s = style()
                     .direction(match (vertical, rtl) {
                         (true, _) => Direction::Column,
@@ -243,11 +243,11 @@ impl IntoView for Carousel {
             });
 
         root.on_key(move |event| {
-            let m = event.modifiers;
+            let m = event.modifiers();
             if m.ctrl || m.alt || m.meta || m.shift {
                 return Handled::No;
             }
-            let step = match (vertical, event.key) {
+            let step = match (vertical, event.key()) {
                 (false, Key::ArrowRight) => {
                     if rtl {
                         -1

@@ -22,7 +22,7 @@ use std::rc::Rc;
 pub struct RulerTicks {
     pub(crate) major: Vec<f64>,
     pub(crate) minor: u32,
-    pub(crate) min_spacing: f32,
+    pub(crate) min_spacing: f64,
 }
 
 impl RulerTicks {
@@ -54,7 +54,7 @@ impl RulerTicks {
     /// The smallest distance between two major ticks in logical pixels
     /// (default 56, at least 8). A value that is not finite keeps the
     /// current setting.
-    pub fn min_spacing(mut self, px: f32) -> Self {
+    pub fn min_spacing(mut self, px: f64) -> Self {
         if px.is_finite() {
             self.min_spacing = px.max(8.0);
         }
@@ -63,7 +63,7 @@ impl RulerTicks {
 
     /// The major interval in logical units when one unit spans `scale` pixels.
     pub(crate) fn interval(&self, scale: f64) -> f64 {
-        let fits = |interval: f64| interval * scale >= f64::from(self.min_spacing);
+        let fits = |interval: f64| interval * scale >= self.min_spacing;
         let Some(&last) = self.major.last() else {
             let mut decade = 1.0;
             loop {
@@ -131,7 +131,7 @@ impl Ruler {
     }
 
     /// The playhead's badge centered on `x`, wide enough for its label.
-    pub(crate) fn badge(&self, d: &mut Draw, x: f32, time: f64) {
+    pub(crate) fn badge(&self, d: &mut Draw, x: f64, time: f64) {
         let p = d.theme().get::<crate::tokens::Tokens>();
         let text = self.label(time);
         let style = TextStyle {
@@ -151,10 +151,10 @@ impl Ruler {
 
     /// Grid lines, ticks and labels of the area right of `left`, below the
     /// ruler band `0..top`.
-    pub(crate) fn draw(&self, d: &mut Draw, size: Size, left: f32, z: f32, pan: Point, top: f32) {
+    pub(crate) fn draw(&self, d: &mut Draw, size: Size, left: f64, z: f64, pan: Point, top: f64) {
         let p = d.theme().get::<crate::tokens::Tokens>();
-        let interval = self.ticks.interval(f64::from(z));
-        let step = (interval * f64::from(z)) as f32;
+        let interval = self.ticks.interval(z);
+        let step = interval * z;
         if !step.is_finite() || step <= 0.0 {
             return;
         }
@@ -162,9 +162,9 @@ impl Ruler {
         let first = ((left - origin) / step).ceil() as i64;
         let last = ((size.width - origin) / step).ceil() as i64;
         let minors = self.ticks.minor;
-        let minor_step = step / (minors + 1) as f32;
+        let minor_step = step / (minors + 1) as f64;
         for i in first..=last {
-            let x = origin + (i as f64 * interval) as f32 * z;
+            let x = origin + (i as f64 * interval) * z;
             d.line(Point::new(x, top), Point::new(x, size.height), 1.0, p.hair);
             label(
                 d,
@@ -176,7 +176,7 @@ impl Ruler {
             );
             if minor_step >= 3.0 {
                 for k in 1..=i64::from(minors) {
-                    let mx = x + k as f32 * minor_step;
+                    let mx = x + k as f64 * minor_step;
                     if mx < left || mx > size.width {
                         continue;
                     }

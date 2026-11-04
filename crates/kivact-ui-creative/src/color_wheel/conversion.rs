@@ -16,13 +16,13 @@ pub fn color_to_hsv(color: Color) -> (f64, f64, f64) {
         (r - g) / d + 4.0
     };
     (
-        f64::from((hue * 60.0).rem_euclid(360.0)),
-        if max > 0.0 { f64::from(d / max) } else { 0.0 },
-        f64::from(max),
+        (hue * 60.0).rem_euclid(360.0),
+        if max > 0.0 { d / max } else { 0.0 },
+        max,
     )
 }
 /// Build an sRGB color from HSV and alpha, with finite bounded channels.
-pub fn color_from_hsv(hue: f64, saturation: f64, value: f64, alpha: f32) -> Color {
+pub fn color_from_hsv(hue: f64, saturation: f64, value: f64, alpha: f64) -> Color {
     let finite = |v: f64, default: f64| if v.is_finite() { v } else { default };
     let h = finite(hue, 0.0).rem_euclid(360.0) / 60.0;
     let s = finite(saturation, 0.0).clamp(0.0, 1.0);
@@ -38,10 +38,10 @@ pub fn color_from_hsv(hue: f64, saturation: f64, value: f64, alpha: f32) -> Colo
         4 => (x, 0.0, c),
         _ => (c, 0.0, x),
     };
-    Color::from_rgba_f32(
-        (r + m) as f32,
-        (g + m) as f32,
-        (b + m) as f32,
+    Color::from_rgba_f64(
+        (r + m),
+        (g + m),
+        (b + m),
         if alpha.is_finite() {
             alpha.clamp(0.0, 1.0)
         } else {

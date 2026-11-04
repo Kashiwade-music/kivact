@@ -7,9 +7,9 @@ use kivact::view::{IntoValue, Key, KeyEvent, Modifiers};
 
 /// Whether the key press is Ctrl+A or Meta+A (without Alt).
 pub(crate) fn select_all(event: &KeyEvent) -> bool {
-    (event.modifiers.ctrl || event.modifiers.meta)
-        && !event.modifiers.alt
-        && matches!(event.key, Key::Char('a' | 'A'))
+    (event.modifiers().ctrl || event.modifiers().meta)
+        && !event.modifiers().alt
+        && matches!(event.key(), Key::Char('a' | 'A'))
 }
 
 pub(crate) fn controller(

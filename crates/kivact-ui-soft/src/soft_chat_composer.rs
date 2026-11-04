@@ -149,7 +149,7 @@ impl IntoView for ChatSendButton {
                 .direction(Direction::Row)
                 .size(side, side)
                 .shrink(0)
-                .radius(side as f32 / 2.0)
+                .radius(side as f64 / 2.0)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
                 .font_size(18)
@@ -345,15 +345,15 @@ impl IntoView for ChatComposer {
                 .node_ref(input_ref)
                 .forward_keys(vec![Key::Enter])
                 .on_key(move |event: KeyEvent| {
-                    if event.key == Key::Enter && event.modifiers == Modifiers::default() {
+                    if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
                         send.call(());
                         Handled::Yes
-                    } else if event.modifiers == Modifiers::default()
-                        && matches!(event.key, Key::ArrowUp | Key::ArrowDown)
+                    } else if event.modifiers() == Modifiers::default()
+                        && matches!(event.key(), Key::ArrowUp | Key::ArrowDown)
                         && let Some(history) = &history
                         && let Some(editor) = input_ref.edit_state()
                         && let Some(mut recalled) =
-                            history.borrow_mut().navigate(event.key, &editor)
+                            history.borrow_mut().navigate(event.key(), &editor)
                     {
                         recalled.move_to(0, false);
                         recalled.move_to(recalled.value().len(), true);
@@ -591,8 +591,8 @@ impl IntoView for ChatComposerDrawer {
 pub struct DictationState {
     pub supported: bool,
     pub listening: bool,
-    pub volume: f32,
-    pub bands: Vec<f32>,
+    pub volume: f64,
+    pub bands: Vec<f64>,
 }
 
 pub struct ChatDictationButton {
@@ -695,7 +695,7 @@ impl IntoView for ChatDictationButton {
             style()
                 .direction(Direction::Row)
                 .size(side, side)
-                .radius(side as f32 / 2.0)
+                .radius(side as f64 / 2.0)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
                 .color(p.colors.text_primary)

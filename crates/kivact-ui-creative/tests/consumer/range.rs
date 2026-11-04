@@ -19,7 +19,7 @@ fn a_range_track_press_moves_the_nearer_end_which_the_keys_then_edit() {
     let range = screen.get_by_test_id("range");
     let owner = range.rect().expect("range");
     // The value at a point: the track less one end's 20 px region spans 0..100.
-    let at = |x: f32| f64::from((x - 10.0) / (owner.width - 20.0)) * 100.0;
+    let at = |x: f64| ((x - 10.0) / (owner.width - 20.0)) * 100.0;
     range.focus();
     let x = owner.width * 0.9;
     range.drag(
@@ -44,7 +44,7 @@ fn a_range_track_press_moves_the_nearer_end_which_the_keys_then_edit() {
         .expect("start");
     let grab = Point::new(start.center().x - owner.x + 3.0, owner.height / 2.0);
     range.drag(grab, Point::new(grab.x + owner.width * 0.2, grab.y));
-    let moved = f64::from(owner.width * 0.2 / (owner.width - 20.0)) * 100.0;
+    let moved = (owner.width * 0.2 / (owner.width - 20.0)) * 100.0;
     assert!((span.get_untracked().0 - 20.0 - moved).abs() < 1e-3);
     screen.press_key(Key::ArrowRight);
     assert!((span.get_untracked().0 - 21.0 - moved).abs() < 1e-3);

@@ -10,7 +10,7 @@ pub struct NodeSocket {
     pub type_name: String,
     pub color: Color,
     /// Optional vertical placement within the node, in logical pixels.
-    pub offset: Option<f32>,
+    pub offset: Option<f64>,
 }
 impl NodeSocket {
     pub fn new(label: impl Into<String>, type_name: impl Into<String>, color: Color) -> Self {
@@ -21,7 +21,7 @@ impl NodeSocket {
             offset: None,
         }
     }
-    pub fn at(mut self, offset: f32) -> Self {
+    pub fn at(mut self, offset: f64) -> Self {
         if offset.is_finite() && offset >= 30.0 {
             self.offset = Some(offset);
         }
@@ -112,7 +112,7 @@ impl NodeData {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeControl {
     pub label: String,
-    pub offset: f32,
+    pub offset: f64,
     pub value: NodeControlValue,
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -132,7 +132,7 @@ pub enum NodeControlValue {
 impl NodeControl {
     pub fn number(
         label: impl Into<String>,
-        offset: f32,
+        offset: f64,
         value: f64,
         min: f64,
         max: f64,
@@ -151,7 +151,7 @@ impl NodeControl {
     }
     pub fn choice(
         label: impl Into<String>,
-        offset: f32,
+        offset: f64,
         options: impl IntoIterator<Item = impl Into<String>>,
         selected: usize,
     ) -> Self {
@@ -166,7 +166,7 @@ impl NodeControl {
     }
     /// A toggle control. A constant: `checked` is plain data inside the node's
     /// control list, so a changed state is a new list.
-    pub fn toggle(label: impl Into<String>, offset: f32, checked: bool) -> Self {
+    pub fn toggle(label: impl Into<String>, offset: f64, checked: bool) -> Self {
         Self {
             label: label.into(),
             offset,

@@ -92,9 +92,9 @@ fn key(state: State, id: usize, event: KeyEvent) -> Handled {
     else {
         return Handled::No;
     };
-    let step = if event.modifiers.shift { 0.1 } else { 0.01 };
+    let step = if event.modifiers().shift { 0.1 } else { 0.01 };
     let position = position_value(stop.position);
-    match event.key {
+    match event.key() {
         Key::ArrowLeft | Key::ArrowDown => state.change_position(id, position - step),
         Key::ArrowRight | Key::ArrowUp => state.change_position(id, position + step),
         Key::Home => state.change_position(id, 0.0),
@@ -122,7 +122,7 @@ impl IntoView for GradientEditor {
         let apply = move |update: DragUpdate<usize>| {
             if state.enabled() && state.edit.owner() == Some(GradientOwner::Stop) {
                 let (position, width) = snapshot.get();
-                state.position(update.payload, position + f64::from(update.delta.x) / width);
+                state.position(update.payload, position + update.delta.x / width);
             }
         };
         // Each drag of a stop is one edit of the shared session; Escape, an

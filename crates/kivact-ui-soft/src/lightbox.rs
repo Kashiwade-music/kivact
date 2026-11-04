@@ -117,7 +117,7 @@ impl IntoView for Lightbox {
         let behavior = use_dialog(open, DialogKind::Modal).initial_focus(close_ref);
         show(open, move || {
             let zoomed = signal(false);
-            let pan = signal((0.0f32, 0.0f32));
+            let pan = signal((0.0f64, 0.0f64));
             let zoom = self.zoom;
             let step = move |delta: isize| {
                 let next = active().saturating_add_signed(delta);
@@ -156,7 +156,7 @@ impl IntoView for Lightbox {
                                 )
                         });
                     let photo = if zoom {
-                        let drag_start = kivact::var((0.0f32, 0.0f32));
+                        let drag_start = kivact::var((0.0f64, 0.0f64));
                         let drag = kivact::interaction::use_drag::<()>(
                             kivact::interaction::DragCoordinates::Window,
                         )
@@ -170,7 +170,7 @@ impl IntoView for Lightbox {
                             },
                         );
                         photo.part(drag.source(())).on_pointer(move |event| {
-                            if let kivact::view::PointerPhase::Up(press) = event.phase
+                            if let kivact::view::PointerPhase::Up(press) = event.phase()
                                 && press.clicks == 2
                                 && press.button == kivact::view::MouseButton::Primary
                             {
@@ -263,7 +263,7 @@ impl IntoView for Lightbox {
                     style().size(viewport.width, viewport.height)
                 })
                 .on_key(move |event| {
-                    let (dx, dy) = match event.key {
+                    let (dx, dy) = match event.key() {
                         Key::Char('+' | '=') if zoom => {
                             set_zoom(true);
                             return Handled::Yes;
@@ -280,8 +280,8 @@ impl IntoView for Lightbox {
                     };
                     if zoomed.get() {
                         pan.update(|(x, y)| {
-                            *x -= dx as f32 * 50.0;
-                            *y -= dy as f32 * 50.0;
+                            *x -= dx as f64 * 50.0;
+                            *y -= dy as f64 * 50.0;
                         });
                     } else if dx != 0 {
                         step(if rtl { -dx } else { dx });

@@ -218,7 +218,7 @@ impl IntoView for TableCell {
             }
             match width {
                 Some(width) => cell.width(width.get()).shrink(0),
-                None => cell.basis(0).grow(f32::from(span)).shrink(1),
+                None => cell.basis(0).grow(f64::from(span)).shrink(1),
             }
         })
         .child(content)

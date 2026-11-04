@@ -20,10 +20,10 @@ use kivact::ui::{ButtonState, ButtonVariant, CheckState, ControlSize, TextInputS
 use kivact::view::CheckedState;
 
 /// The size of a check box's box and the room a switch's track takes.
-const CHECK: (f32, f32) = (16.0, 16.0);
-const SWITCH: (f32, f32) = (32.0, 18.0);
+const CHECK: (f64, f64) = (16.0, 16.0);
+const SWITCH: (f64, f64) = (32.0, 18.0);
 /// The gap between the drawn part and the label, as in `ui::checkbox`.
-const GAP: f32 = 12.0;
+const GAP: f64 = 12.0;
 
 /// The recipes of the kit's look.
 ///
@@ -98,7 +98,7 @@ fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
 }
 
 /// A kit check row with the room its drawn part needs on the left.
-fn row(theme: &Theme, drawn: (f32, f32)) -> Style {
+fn row(theme: &Theme, drawn: (f64, f64)) -> Style {
     check_style(theme).weight(500).padding_left(drawn.0 + GAP)
 }
 
@@ -113,7 +113,7 @@ fn switch(theme: &Theme, state: &Look<CheckState>) -> Style {
 }
 
 /// Draw `part` centered vertically at the left edge.
-fn drawn(d: &mut Draw, size: Size, part: (f32, f32), paint: impl FnOnce(&mut Draw, Size)) {
+fn drawn(d: &mut Draw, size: Size, part: (f64, f64), paint: impl FnOnce(&mut Draw, Size)) {
     d.layer(
         Layer::new()
             .transform(Transform::new().translate(0, ((size.height - part.1) / 2.0).round())),

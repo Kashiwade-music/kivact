@@ -25,7 +25,7 @@ pub struct FieldStatus {
     kind: StatusKind,
     text: Value<String>,
     variant: FieldStatusVariant,
-    overlap: f32,
+    overlap: f64,
     announce: bool,
 }
 
@@ -46,7 +46,7 @@ impl FieldStatus {
         self
     }
 
-    pub fn overlap(mut self, overlap: f32) -> Self {
+    pub fn overlap(mut self, overlap: f64) -> Self {
         self.overlap = overlap.max(0.0);
         self
     }

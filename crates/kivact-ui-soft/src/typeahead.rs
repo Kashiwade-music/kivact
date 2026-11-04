@@ -270,8 +270,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
             .part(input_part)
             .expanded(open)
             .on_key(move |event: KeyEvent| {
-                if event.key == Key::Backspace
-                    && event.modifiers == Modifiers::default()
+                if event.key() == Key::Backspace
+                    && event.modifiers() == Modifiers::default()
                     && query.get_untracked().is_empty()
                     && !disabled.get_untracked()
                     && let Some(chips) = chips
@@ -290,9 +290,9 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Typeahead<K> {
                 if touch(event, sheet_eligible && !open.get_untracked()) {
                     sheet_open.set(true);
                     open.set(true);
-                } else if matches!(event.phase, PointerPhase::Down(_))
+                } else if matches!(event.phase(), PointerPhase::Down(_))
                     && enabled
-                    && !(sheet_eligible && event.kind == kivact::view::PointerKind::Touch)
+                    && !(sheet_eligible && event.kind() == kivact::view::PointerKind::Touch)
                 {
                     open.set(true);
                 }

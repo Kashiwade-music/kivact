@@ -90,8 +90,8 @@ impl State {
             .get_untracked()
             .clamp(self.bounds.0, self.bounds.1)
     }
-    pub(crate) fn beat(self, x: f32) -> f64 {
-        f64::from((x - ARRANGEMENT_SIDEBAR - self.offset.get().x) / self.scale() as f32)
+    pub(crate) fn beat(self, x: f64) -> f64 {
+        ((x - ARRANGEMENT_SIDEBAR - self.offset.get().x) / self.scale())
             .clamp(0.0, self.length.get())
     }
     /// The step in beats; an invalid one falls back to 1.

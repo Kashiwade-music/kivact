@@ -23,10 +23,7 @@ fn axes(draw: &mut Draw, space: Space, settings: &Settings) {
         } else {
             space.plot.width
         };
-        let interval = settings
-            .ruler
-            .ticks
-            .interval(f64::from(pixels) / (range.1 - range.0));
+        let interval = settings.ruler.ticks.interval(pixels / (range.1 - range.0));
         let first = (range.0 / interval).ceil() * interval;
         // Bounded index iteration avoids non-progressing float addition at extreme ranges.
         for index in 0..256 {

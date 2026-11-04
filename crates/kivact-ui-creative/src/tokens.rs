@@ -98,8 +98,8 @@ pub struct Tokens {
     pub z: Color,
     pub success: Color,
     pub warning: Color,
-    pub row: f32,
-    pub gap: f32,
+    pub row: f64,
+    pub gap: f64,
 }
 
 impl Tokens {
@@ -109,7 +109,7 @@ impl Tokens {
     pub fn new(mode: ThemeMode, accent: Accent, density: Density) -> Self {
         let dark = mode == ThemeMode::Dark;
         let pick = |dark_value: u32, light: u32| rgb(if dark { dark_value } else { light });
-        let ink = |alpha_dark: f32, alpha_light: f32| {
+        let ink = |alpha_dark: f64, alpha_light: f64| {
             if dark {
                 rgba(0xffffff, alpha_dark)
             } else {

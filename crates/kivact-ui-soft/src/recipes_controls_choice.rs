@@ -11,7 +11,7 @@ fn small(size: ControlSize) -> bool {
     matches!(size, ControlSize::ExtraSmall | ControlSize::Small)
 }
 
-fn check_side(t: &Tokens, s: &Look<CheckState>) -> f32 {
+fn check_side(t: &Tokens, s: &Look<CheckState>) -> f64 {
     if small(s.size) {
         t.spacing.s5
     } else {
@@ -19,7 +19,7 @@ fn check_side(t: &Tokens, s: &Look<CheckState>) -> f32 {
     }
 }
 
-fn switch_size(t: &Tokens, s: &Look<CheckState>) -> (f32, f32) {
+fn switch_size(t: &Tokens, s: &Look<CheckState>) -> (f64, f64) {
     (
         if small(s.size) {
             t.spacing.s8
@@ -30,7 +30,7 @@ fn switch_size(t: &Tokens, s: &Look<CheckState>) -> (f32, f32) {
     )
 }
 
-fn inline_start(base: Style, offset: f32) -> Style {
+fn inline_start(base: Style, offset: f64) -> Style {
     if current_direction() == ReadingDirection::Rtl {
         base.right(offset)
     } else {
@@ -38,7 +38,7 @@ fn inline_start(base: Style, offset: f32) -> Style {
     }
 }
 
-fn label_row(t: &Tokens, width: f32, height: f32) -> Style {
+fn label_row(t: &Tokens, width: f64, height: f64) -> Style {
     let text = t.typography.label;
     let base = style()
         .position(Position::Relative)
@@ -79,7 +79,7 @@ fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckState>, fill: Color) ->
     }
 }
 
-fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckState>, radius: f32) -> Style {
+fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckState>, radius: f64) -> Style {
     let c = &t.colors;
     let on = s.checked != CheckedState::Unchecked;
     let hovered = s.input.hovered && !s.input.disabled;
@@ -116,7 +116,7 @@ pub(super) fn checkbox_indicator(theme: &Theme, s: &Look<CheckState>) -> Style {
     inline_start(check_surface(theme, &t, s, t.radius.inner), 0.0).top(pct(50) - side / 2.0)
 }
 
-fn centered_mark(width: f32, height: f32, visible: bool) -> Style {
+fn centered_mark(width: f64, height: f64, visible: bool) -> Style {
     style()
         .position(Position::Absolute)
         .left(pct(50) - width / 2.0)
@@ -269,7 +269,7 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckState>) -> Style {
     }
 }
 
-fn spring(stiffness: f32, damping: f32) -> kivact::motion::Transition {
+fn spring(stiffness: f64, damping: f64) -> kivact::motion::Transition {
     kivact::motion::Transition::spring(kivact::motion::Spring {
         stiffness,
         damping,

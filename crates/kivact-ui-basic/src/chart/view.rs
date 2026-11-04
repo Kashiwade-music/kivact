@@ -231,13 +231,13 @@ impl IntoView for Chart {
                     if !with_tooltip.get_untracked() {
                         return;
                     }
-                    match event.phase {
+                    match event.phase() {
                         PointerPhase::Down(_) | PointerPhase::Move | PointerPhase::Enter => {
                             let next = data.with_untracked(|rows| {
                                 let frame = options.frame(&config, rows, "", &*format);
-                                hit_test(plot.get(), &frame, event.pos)
+                                hit_test(plot.get(), &frame, event.pos())
                             });
-                            at.set(event.pos);
+                            at.set(event.pos());
                             hit.set(next);
                         }
                         PointerPhase::Leave | PointerPhase::Cancel => hit.set(None),

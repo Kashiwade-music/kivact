@@ -52,7 +52,7 @@ impl NodeBuilder for MessageScroller {
 }
 
 /// How close to the end, in pixels, counts as at the end.
-const SLACK: f32 = 1.5;
+const SLACK: f64 = 1.5;
 
 impl IntoView for MessageScroller {
     fn into_view(self) -> View {

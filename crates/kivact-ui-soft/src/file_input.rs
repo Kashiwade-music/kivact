@@ -247,8 +247,8 @@ impl IntoView for FileInput {
                 if !dropzone || disabled.get_untracked() || pending.get_untracked() {
                     return Handled::No;
                 }
-                dragging.set(matches!(event.phase, FilePhase::Enter | FilePhase::Over));
-                if event.phase == FilePhase::Drop {
+                dragging.set(matches!(event.phase(), FilePhase::Enter | FilePhase::Over));
+                if event.phase() == FilePhase::Drop {
                     accept(event.files);
                 }
                 Handled::Yes

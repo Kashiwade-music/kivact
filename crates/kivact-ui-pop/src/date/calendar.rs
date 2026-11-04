@@ -398,8 +398,8 @@ impl IntoView for Calendar {
                                     for (index, color) in colors.into_iter().enumerate() {
                                         draw.rounded_rect(
                                             kivact::draw::Rect::new(
-                                                (size.width - (count as f32 * 6.0 - 2.0)) / 2.0
-                                                    + index as f32 * 6.0,
+                                                (size.width - (count as f64 * 6.0 - 2.0)) / 2.0
+                                                    + index as f64 * 6.0,
                                                 size.height - 8.0,
                                                 4.0,
                                                 4.0,

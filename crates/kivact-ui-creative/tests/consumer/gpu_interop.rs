@@ -155,8 +155,8 @@ fn gpu_surface() -> Result<Surface, String> {
         return Err(reason);
     }
     let surface = Surface::mount(RenderOptions {
-        width: W as f32,
-        height: (H + 40) as f32,
+        width: W as f64,
+        height: (H + 40) as f64,
         theme: ui::theme(kivact::style::ThemeMode::Dark),
         reduced_motion: true,
         gpu: true,

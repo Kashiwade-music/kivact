@@ -153,13 +153,13 @@ impl IntoView for Card {
                     let state = part.state();
                     let input = kivact::memo(move || state.get().input);
                     let root = root.part(part).on_key(move |event: KeyEvent| {
-                        if event.key == Key::Enter
+                        if event.key() == Key::Enter
                             && input.get().focused
-                            && !event.repeat
+                            && !event.repeat()
                             && !disabled.get()
-                            && !event.modifiers.alt
-                            && !event.modifiers.ctrl
-                            && !event.modifiers.meta
+                            && !event.modifiers().alt
+                            && !event.modifiers().ctrl
+                            && !event.modifiers().meta
                         {
                             selected.set(!selected.get());
                             Handled::Yes

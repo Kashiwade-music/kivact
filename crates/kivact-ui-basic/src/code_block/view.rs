@@ -30,13 +30,13 @@ pub enum CodeBlockSize {
 }
 
 impl CodeBlockSize {
-    fn font(self) -> f32 {
+    fn font(self) -> f64 {
         match self {
             CodeBlockSize::Default => 14.0,
             CodeBlockSize::Sm => 12.0,
         }
     }
-    fn pad(self) -> f32 {
+    fn pad(self) -> f64 {
         match self {
             CodeBlockSize::Default => 12.0,
             CodeBlockSize::Sm => 8.0,
@@ -44,7 +44,7 @@ impl CodeBlockSize {
     }
     /// The line height in pixels (`leading-relaxed`, 1.625, rounded), so
     /// the code's lines and the gutter's numbers lie the same distance apart.
-    fn line(self) -> f32 {
+    fn line(self) -> f64 {
         match self {
             CodeBlockSize::Default => 23.0,
             CodeBlockSize::Sm => 20.0,
@@ -271,7 +271,7 @@ fn code_view(lines: Value<Vec<CodeLine>>, name: Value<String>, size: CodeBlockSi
         style()
             .grow(1)
             .shrink(0)
-            .height(count() as f32 * size.line())
+            .height(count() as f64 * size.line())
     })
 }
 

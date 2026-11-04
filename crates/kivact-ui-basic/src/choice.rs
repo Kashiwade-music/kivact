@@ -133,7 +133,7 @@ pub struct ToggleGroup<K: Clone + Eq + Hash + 'static> {
     variant: ToggleVariant,
     size: ControlSize,
     orientation: Orientation,
-    spacing: f32,
+    spacing: f64,
     icon_only: Value<bool>,
 }
 
@@ -204,7 +204,7 @@ impl<K: Clone + Eq + Hash + 'static> ToggleGroup<K> {
     }
 
     /// The gap between items in 4 px units (default 2); 0 joins the items.
-    pub fn spacing(mut self, spacing: f32) -> Self {
+    pub fn spacing(mut self, spacing: f64) -> Self {
         self.spacing = spacing.max(0.0);
         self
     }

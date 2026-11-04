@@ -94,9 +94,9 @@ impl Drawer {
 }
 
 /// The share of the panel's size a swipe has to pass to close it.
-const CLOSE_FRACTION: f32 = 0.3;
+const CLOSE_FRACTION: f64 = 0.3;
 /// The speed in px per millisecond that closes the drawer whatever the distance.
-const FLICK_SPEED: f32 = 0.6;
+const FLICK_SPEED: f64 = 0.6;
 
 impl Drawer {
     fn horizontal(&self) -> bool {
@@ -119,11 +119,11 @@ impl IntoView for Drawer {
         show(behavior.shown(), move || {
             let surface = behavior.content();
             // How far the panel is pulled toward its edge, in px.
-            let pulled = signal(0.0f32);
+            let pulled = signal(0.0f64);
             let panel_ref = node_ref();
             let rect = panel_ref.rect();
-            let last = var((0.0f32, 0u64));
-            let speed = var(0.0f32);
+            let last = var((0.0f64, 0u64));
+            let speed = var(0.0f64);
             let session = use_drag::<()>(DragCoordinates::Window)
                 .on_start(move |_| {
                     last.set((0.0, clock_now()));
@@ -140,7 +140,7 @@ impl IntoView for Drawer {
                     let now = clock_now();
                     let (before, at) = last.get();
                     if now > at {
-                        let millis = (now - at) as f32 / 1_000_000.0;
+                        let millis = (now - at) as f64 / 1_000_000.0;
                         speed.set((toward - before) / millis);
                     }
                     last.set((toward, now));

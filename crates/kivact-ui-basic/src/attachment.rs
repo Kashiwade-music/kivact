@@ -166,7 +166,7 @@ impl NodeBuilder for Attachment {
     }
 }
 
-fn media_side(size: AttachmentSize) -> f32 {
+fn media_side(size: AttachmentSize) -> f64 {
     match size {
         AttachmentSize::Default => 40.0,
         AttachmentSize::Sm => 32.0,

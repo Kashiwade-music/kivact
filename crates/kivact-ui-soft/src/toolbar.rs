@@ -35,7 +35,7 @@ pub struct Toolbar {
     center: Option<Slot>,
     end: Option<Slot>,
     size: ControlSize,
-    gap: f32,
+    gap: f64,
     orientation: Orientation,
     variant: SectionVariant,
     dividers: Vec<Edge>,
@@ -77,7 +77,7 @@ impl Toolbar {
         self
     }
 
-    pub fn gap(mut self, gap: f32) -> Self {
+    pub fn gap(mut self, gap: f64) -> Self {
         self.gap = gap;
         self
     }
@@ -212,7 +212,7 @@ impl IntoView for Toolbar {
                 .roving_focus(orientation)
                 .on_key(move |event| {
                     if matches!(
-                        event.key,
+                        event.key(),
                         Key::ArrowUp | Key::ArrowDown | Key::ArrowLeft | Key::ArrowRight
                     ) {
                         hint_anchor.set(None);

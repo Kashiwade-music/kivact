@@ -37,12 +37,8 @@ pub fn curve_preview(samples: impl IntoValue<Vec<Point>>) -> CurvePreview {
             .take(513)
             .map(|p| Point::new(p.x.clamp(0.0, 1.0), p.y))
             .collect::<Vec<_>>();
-        let low = samples
-            .iter()
-            .fold(0.0_f64, |low, p| low.min(f64::from(p.y)));
-        let high = samples
-            .iter()
-            .fold(1.0_f64, |high, p| high.max(f64::from(p.y)));
+        let low = samples.iter().fold(0.0_f64, |low, p| low.min(p.y));
+        let high = samples.iter().fold(1.0_f64, |high, p| high.max(p.y));
         let area = Plane::new(size, low, high);
         let p = current_theme().get::<crate::tokens::Tokens>();
         for y in [0.0, 0.25, 0.5, 0.75, 1.0] {
@@ -93,7 +89,7 @@ pub fn curve_preview(samples: impl IntoValue<Vec<Point>>) -> CurvePreview {
         );
         let mut path = Path::new();
         for (i, point) in samples.into_iter().enumerate() {
-            let point = area.point(f64::from(point.x), f64::from(point.y));
+            let point = area.point(point.x, point.y);
             path = if i == 0 {
                 path.move_to(point)
             } else {

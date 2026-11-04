@@ -14,7 +14,7 @@ use super::layout::{automation_y, clamp_pan_y, track_layout};
 pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     let tracks = state.track_data.get();
     let data = state.data.get();
-    let scale = state.pixels.get().clamp(state.bounds.0, state.bounds.1) as f32;
+    let scale = state.pixels.get().clamp(state.bounds.0, state.bounds.1);
     let pan = state.offset.get();
     let pan_y = clamp_pan_y(&tracks, size.height, pan.y);
     let selected = state.selection.get();
@@ -22,12 +22,12 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     let p = d.theme().get::<crate::tokens::Tokens>();
     d.fill_rect(size.to_rect(), p.canvas);
     let first = ((-pan.x / scale).floor().max(0.0)) as u64;
-    let last = f64::from((size.width - LEFT - pan.x) / scale)
+    let last = ((size.width - LEFT - pan.x) / scale)
         .ceil()
         .max(0.0)
         .min(state.length.get()) as u64;
     for b in first..=last {
-        let x = LEFT + b as f32 * scale + pan.x;
+        let x = LEFT + b as f64 * scale + pan.x;
         d.line(
             Point::new(x, ARRANGEMENT_TOP),
             Point::new(x, size.height),
@@ -45,8 +45,8 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
         state.length.get(),
         state.loop_min_duration,
     );
-    let lx = LEFT + lo as f32 * scale + pan.x;
-    let hx = LEFT + hi as f32 * scale + pan.x;
+    let lx = LEFT + lo as f64 * scale + pan.x;
+    let hx = LEFT + hi as f64 * scale + pan.x;
     d.rounded_rect(
         Rect::new(lx, 1.0, (hx - lx).max(1.0), 9.0),
         4.0,
@@ -71,9 +71,9 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
         ruler_region(d, regions.id(target), x - 5.0, x + 5.0, size.width);
     }
     for marker in state.markers.get() {
-        let x = LEFT + marker.beat as f32 * scale + pan.x;
+        let x = LEFT + marker.beat * scale + pan.x;
         d.rounded_rect(
-            Rect::new(x, 13.0, marker.label.len() as f32 * 6.0 + 8.0, 14.0),
+            Rect::new(x, 13.0, marker.label.len() as f64 * 6.0 + 8.0, 14.0),
             4.0,
             marker.color,
         );
@@ -104,7 +104,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
                         + TrackFlag::ALL
                             .iter()
                             .position(|candidate| *candidate == tag)
-                            .expect("invariant: switch is in ALL") as f32
+                            .expect("invariant: switch is in ALL") as f64
                             * 24.0;
                     d.rounded_rect(
                         Rect::new(x, y + 29.0, 20.0, 18.0),
@@ -128,9 +128,9 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
                 }
                 for clip in data.iter().filter(|c| c.lane == track.id && drawable(c)) {
                     let r = Rect::new(
-                        LEFT + clip.start as f32 * scale + pan.x,
+                        LEFT + clip.start * scale + pan.x,
                         y + 3.0,
-                        clip.duration as f32 * scale,
+                        clip.duration * scale,
                         h - 6.0,
                     );
                     let mut paint = clip.clone();
@@ -170,7 +170,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
                         .enumerate()
                     {
                         let point = Point::new(
-                            LEFT + knot.beat as f32 * scale + pan.x,
+                            LEFT + knot.beat * scale + pan.x,
                             automation_y(knot.value, top),
                         );
                         path = if n == 0 {
@@ -203,7 +203,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
     );
     d.fill_rect(Rect::new(0.0, 0.0, LEFT, ARRANGEMENT_TOP), p.header);
     label(d, &state.texts.tracks(tracks.len()), 8.0, 16.0, p.dim);
-    let x = LEFT + state.frame.get() as f32 * scale + pan.x;
+    let x = LEFT + state.frame.get() as f64 * scale + pan.x;
     label(d, "+", LEFT - 22.0, 16.0, p.text);
     if let Some(id) = regions.id(Target::AddTrack) {
         d.region(RegionId(id), Rect::new(LEFT - 30.0, 8.0, 24.0, 24.0));
@@ -238,7 +238,7 @@ pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
 }
 
 // Region geometry must be clipped explicitly, including its hit target.
-fn ruler_region(d: &mut Draw, id: Option<u64>, left: f32, right: f32, width: f32) {
+fn ruler_region(d: &mut Draw, id: Option<u64>, left: f64, right: f64, width: f64) {
     if let Some(id) = id {
         let left = left.max(LEFT);
         let right = right.min(width);
@@ -248,7 +248,7 @@ fn ruler_region(d: &mut Draw, id: Option<u64>, left: f32, right: f32, width: f32
     }
 }
 
-fn label(d: &mut Draw, text: &str, x: f32, y: f32, color: Color) {
+fn label(d: &mut Draw, text: &str, x: f64, y: f64, color: Color) {
     d.text(
         text,
         Point::new(x, y),

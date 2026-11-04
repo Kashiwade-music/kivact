@@ -16,7 +16,7 @@ pub enum GridRepeat {
 pub enum GridColumns {
     Fixed(u16),
     Responsive {
-        min_width: f32,
+        min_width: f64,
         max: Option<u16>,
         repeat: GridRepeat,
     },
@@ -28,7 +28,7 @@ pub struct Grid {
     gap: Space,
     row_gap: Option<Space>,
     column_gap: Option<Space>,
-    row_height: Option<f32>,
+    row_height: Option<f64>,
 }
 
 pub fn grid(children: impl IntoView) -> Grid {
@@ -59,7 +59,7 @@ impl Grid {
         self.column_gap = Some(gap);
         self
     }
-    pub fn row_height(mut self, px: f32) -> Self {
+    pub fn row_height(mut self, px: f64) -> Self {
         self.row_height = Some(px);
         self
     }
@@ -103,7 +103,7 @@ impl IntoView for Grid {
                         if let Some(max) = max.filter(|max| *max > 0)
                             && let Some(rect) = reference.rect().get()
                         {
-                            let max = f32::from(max);
+                            let max = f64::from(max);
                             let capped = (rect.width - (max - 1.0) * column_gap) / max;
                             min_width = rect.width.min(min_width.max(capped));
                         }

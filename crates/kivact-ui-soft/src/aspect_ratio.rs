@@ -24,13 +24,13 @@ pub enum RatioFit {
 pub struct AspectRatio {
     root: Node,
     children: View,
-    ratio: Value<f32>,
+    ratio: Value<f64>,
     shape: RatioShape,
     fit: RatioFit,
 }
 
 /// A full-width box whose height follows the supplied width-to-height ratio.
-pub fn aspect_ratio(ratio: impl IntoValue<f32>, children: impl IntoView) -> AspectRatio {
+pub fn aspect_ratio(ratio: impl IntoValue<f64>, children: impl IntoView) -> AspectRatio {
     AspectRatio {
         root: node(),
         children: children.into_view(),

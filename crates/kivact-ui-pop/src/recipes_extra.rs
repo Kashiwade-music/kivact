@@ -33,11 +33,11 @@ pub(crate) fn button_busy(t: &Theme, _: &Look<ButtonState>) -> Style {
     let color = t.get::<Tokens>().blue;
     let background = t.get::<Tokens>().surface_active;
     style().size(16, 16).shrink(0).paint(move |d, size| {
-        let arc = |fraction: f32| {
+        let arc = |fraction: f64| {
             let mut path = Path::new();
             for i in 0..=64 {
-                let a = -std::f32::consts::FRAC_PI_2
-                    + std::f32::consts::TAU * (phase + fraction * i as f32 / 64.0);
+                let a = -std::f64::consts::FRAC_PI_2
+                    + std::f64::consts::TAU * (phase + fraction * i as f64 / 64.0);
                 let p = Point::new(
                     size.width / 2.0 + 7.0 * a.cos(),
                     size.height / 2.0 + 7.0 * a.sin(),
@@ -304,8 +304,8 @@ fn radio_indicator(t: &Theme, s: &Look<CheckState>) -> Style {
         .color(p.blue)
 }
 /// The height of a slider's track and the side of its thumb.
-const TRACK: f32 = 20.0;
-const BAR: f32 = 6.0;
+const TRACK: f64 = 20.0;
+const BAR: f64 = 6.0;
 pub(crate) fn slider(r: SliderRecipes) -> SliderRecipes {
     r.track(|_| slider_track)
         .range(|_| slider_range)

@@ -58,7 +58,7 @@ struct Options {
     level: u32,
     on_link: Option<LinkAction>,
     citation_style: CitationVariant,
-    width: Option<f32>,
+    width: Option<f64>,
     align: ContentAlign,
     heading_links: Option<HeadingLinks>,
     soft_breaks: bool,
@@ -132,7 +132,7 @@ impl Markdown {
         self
     }
     /// Set the prose width limit.
-    pub fn content_width(mut self, value: Option<f32>) -> Self {
+    pub fn content_width(mut self, value: Option<f64>) -> Self {
         self.options.width = value;
         self
     }
@@ -256,7 +256,7 @@ struct Renderer<'a> {
 
 impl Renderer<'_> {
     fn blocks(&mut self, blocks: &[Block<'_>], depth: usize) -> Node {
-        let mut previous = 0.0f32;
+        let mut previous = 0.0f64;
         let children = blocks
             .iter()
             .enumerate()
@@ -282,7 +282,7 @@ impl Renderer<'_> {
         column(children)
     }
 
-    fn spacing(&self, block: &Block<'_>) -> (f32, f32) {
+    fn spacing(&self, block: &Block<'_>) -> (f64, f64) {
         let p = tokens();
         let s = p.spacing;
         let compact = self.options.density == MarkdownDensity::Compact;
@@ -492,7 +492,7 @@ impl Renderer<'_> {
                     .enumerate()
                     .map(|(column, cell)| {
                         let content = self.inline(cell, index == 0, false);
-                        let width = widths[column] as f32;
+                        let width = widths[column] as f64;
                         let justify = match align[column] {
                             Alignment::Start => Justify::Start,
                             Alignment::Center => Justify::Center,

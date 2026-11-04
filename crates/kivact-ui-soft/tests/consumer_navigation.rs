@@ -6,7 +6,7 @@ use kivact::test::{RenderOptions, render_with};
 use kivact::view::{IntoView, Key, ReadingDirection, Role, node_ref, provide_direction};
 use kivact_ui_soft as soft;
 
-fn options(width: f32) -> RenderOptions {
+fn options(width: f64) -> RenderOptions {
     RenderOptions {
         width,
         height: 650.0,

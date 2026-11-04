@@ -18,9 +18,9 @@ use kivact::ui::MenuRecipes;
 #[derive(Clone, Copy)]
 struct MenuLook {
     /// The least width of the top level (`min-w-32`, `min-w-36`).
-    min_width: f32,
+    min_width: f64,
     /// The least width of a submenu.
-    sub_min_width: f32,
+    sub_min_width: f64,
     /// The menu bar's rows: check marks at the start, margins around
     /// separators and a wider inset (`pl-8`).
     bar: bool,
@@ -32,7 +32,7 @@ const DROPDOWN: MenuLook = MenuLook {
     bar: false,
 };
 /// context-menu.tsx's top level (`min-w-36`).
-const CONTEXT_MIN_WIDTH: f32 = 144.0;
+const CONTEXT_MIN_WIDTH: f64 = 144.0;
 const BAR: MenuLook = MenuLook {
     min_width: 144.0,
     sub_min_width: 128.0,

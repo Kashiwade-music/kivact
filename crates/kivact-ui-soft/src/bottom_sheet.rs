@@ -18,13 +18,13 @@ use std::rc::Rc;
 use std::time::Duration;
 
 const VELOCITY_WINDOW: Duration = Duration::from_millis(100);
-const PROJECTION_MIN_TRAVEL: f32 = 48.0;
+const PROJECTION_MIN_TRAVEL: f64 = 48.0;
 const PROJECTION_DECAY: Duration = Duration::from_millis(499);
 const SHEET_AXIS: DragAxis = DragAxis::Vertical;
-const DISMISS_FRACTION: f32 = 0.4;
-const OVERSHOOT_RESISTANCE: f32 = 0.35;
-const OVERSHOOT_LIMIT: f32 = 48.0;
-const SNAP_PULL_RADIUS: f32 = 40.0;
+const DISMISS_FRACTION: f64 = 0.4;
+const OVERSHOOT_RESISTANCE: f64 = 0.35;
+const OVERSHOOT_LIMIT: f64 = 48.0;
+const SNAP_PULL_RADIUS: f64 = 40.0;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum SheetHeight {
@@ -32,14 +32,14 @@ pub enum SheetHeight {
     #[default]
     Capped,
     Tall,
-    Px(f32),
-    Fraction(f32),
+    Px(f64),
+    Fraction(f64),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SnapPoint {
-    Px(f32),
-    Fraction(f32),
+    Px(f64),
+    Fraction(f64),
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -57,7 +57,7 @@ pub struct BottomSheet {
     height: SheetHeight,
     snap_points: Vec<SnapPoint>,
     scrim: bool,
-    padding: f32,
+    padding: f64,
     final_focus: Option<NodeRef>,
     content: Option<Rc<dyn Fn() -> View>>,
 }
@@ -120,7 +120,7 @@ impl BottomSheet {
     }
 
     pub fn padding(mut self, step: u8) -> Self {
-        self.padding = f32::from(step) * 4.0;
+        self.padding = f64::from(step) * 4.0;
         self
     }
 
@@ -160,7 +160,7 @@ impl IntoView for BottomSheet {
         };
         let behavior = use_dialog(open, kind).dismiss(dismiss);
         show(open, move || {
-            let dragged = signal(None::<f32>);
+            let dragged = signal(None::<f64>);
             let selected = signal(0usize);
             let velocity = var(DragVelocity::new(VELOCITY_WINDOW));
             let body_ref = node_ref();
@@ -355,7 +355,7 @@ impl IntoView for BottomSheet {
     }
 }
 
-fn sheet_height(height: SheetHeight, viewport: f32, content: f32) -> f32 {
+fn sheet_height(height: SheetHeight, viewport: f64, content: f64) -> f64 {
     let height = match height {
         SheetHeight::Hug => content,
         SheetHeight::Capped => viewport * 0.62,
@@ -366,7 +366,7 @@ fn sheet_height(height: SheetHeight, viewport: f32, content: f32) -> f32 {
     height.max(0.0).min(viewport.max(0.0) * 0.92)
 }
 
-fn offsets(full: f32, viewport: f32, points: &[SnapPoint]) -> Vec<f32> {
+fn offsets(full: f64, viewport: f64, points: &[SnapPoint]) -> Vec<f64> {
     let mut offsets: Vec<_> = points
         .iter()
         .filter_map(|point| {
@@ -378,7 +378,7 @@ fn offsets(full: f32, viewport: f32, points: &[SnapPoint]) -> Vec<f32> {
         })
         .collect();
     offsets.push(0.0);
-    offsets.sort_by(f32::total_cmp);
+    offsets.sort_by(f64::total_cmp);
     offsets.dedup_by(|later, earlier| *later - *earlier < 48.0);
     offsets
 }

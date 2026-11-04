@@ -64,7 +64,7 @@ pub enum MessageAlign {
 /// The room a bubble keeps for its reactions: three quarters of a pill
 /// (12 px text on a 16 px line and 2 px padding, `translate-y-3/4`) and its
 /// 2 px ring.
-const REACTIONS_OVERHANG: f32 = 18.0;
+const REACTIONS_OVERHANG: f64 = 18.0;
 
 /// A chat bubble (bubble.tsx). Created by [`bubble`].
 pub struct Bubble {
@@ -148,10 +148,10 @@ impl NodeBuilder for Bubble {
 /// 0.93, 0.88 (light) and 0.30, 0.35 (dark).
 fn tinted(p: &Tokens, hovered: bool) -> Color {
     match (p.is_dark(), hovered) {
-        (false, false) => Color::from_rgba_f32(0.910, 0.910, 0.910, 1.0),
-        (false, true) => Color::from_rgba_f32(0.843, 0.843, 0.843, 1.0),
-        (true, false) => Color::from_rgba_f32(0.180, 0.180, 0.180, 1.0),
-        (true, true) => Color::from_rgba_f32(0.227, 0.227, 0.227, 1.0),
+        (false, false) => Color::from_rgba_f64(0.910, 0.910, 0.910, 1.0),
+        (false, true) => Color::from_rgba_f64(0.843, 0.843, 0.843, 1.0),
+        (true, false) => Color::from_rgba_f64(0.180, 0.180, 0.180, 1.0),
+        (true, true) => Color::from_rgba_f64(0.227, 0.227, 0.227, 1.0),
     }
 }
 

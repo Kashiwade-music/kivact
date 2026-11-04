@@ -522,7 +522,7 @@ pub struct ChatMessageList {
     loading_top: Value<bool>,
     streaming: Value<bool>,
     density: ChatDensity,
-    gap: Option<f32>,
+    gap: Option<f64>,
     align: ChatListAlign,
 }
 
@@ -573,7 +573,7 @@ impl ChatMessageList {
         self.density = density;
         self
     }
-    pub fn gap(mut self, gap: f32) -> Self {
+    pub fn gap(mut self, gap: f64) -> Self {
         self.gap = Some(gap.max(0.0));
         self
     }
@@ -610,7 +610,7 @@ impl IntoView for ChatMessageList {
                     })
                     .padding_y(density.gap())
                     .padding_x(density.gap().max(12))
-                    .gap(gap.unwrap_or(density.gap() as f32)),
+                    .gap(gap.unwrap_or(density.gap() as f64)),
             )
             .child((
                 show(loading_top, || {
@@ -727,8 +727,8 @@ impl IntoView for ChatLayout {
         } = self;
         let scroller = viewport.unwrap_or_else(node_ref);
         let content = node_ref();
-        const REATTACH: f32 = 10.0;
-        const SHOW_BUTTON: f32 = 100.0;
+        const REATTACH: f64 = 10.0;
+        const SHOW_BUTTON: f64 = 100.0;
         let follow = use_follow_end(scroller, content, REATTACH, history_revision);
         let distance = follow.distance();
         let can_jump = memo(move || distance.get() > SHOW_BUTTON);

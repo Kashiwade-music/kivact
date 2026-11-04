@@ -195,13 +195,13 @@ pub(crate) fn roving_item<T: NodeBuilder>(
     item.node_ref(reference)
         .focusable(move || tab_stop(&items, active.get()) == Some(index))
         .on_pointer(move |event| {
-            if matches!(event.phase, PointerPhase::Down(_)) && !disabled.get() {
+            if matches!(event.phase(), PointerPhase::Down(_)) && !disabled.get() {
                 active.set(index);
             }
         })
 }
 
-fn corners(vertical: bool, rtl: bool, first: bool, last: bool, r: f32) -> [f32; 4] {
+fn corners(vertical: bool, rtl: bool, first: bool, last: bool, r: f64) -> [f64; 4] {
     let (first, last) = (if first { r } else { 0.0 }, if last { r } else { 0.0 });
     match (vertical, rtl) {
         (true, _) => [first, first, last, last],
@@ -283,7 +283,7 @@ impl IntoView for ButtonGroup {
         let elevation = self.elevation;
         self.root
             .disabled(disabled)
-            .on_key(move |event| move_focus(&items, active, event.key, vertical, rtl))
+            .on_key(move |event| move_focus(&items, active, event.key(), vertical, rtl))
             .base_style(move || {
                 let t = tokens();
                 elevation.apply(

@@ -352,7 +352,7 @@ impl IntoView for ChatToolCalls {
                         .part(disclosure.content())
                         .hidden(move || !rows_visible.get() || !expanded.get())
                         .on_key(move |event: KeyEvent| {
-                            if event.key == Key::Escape {
+                            if event.key() == Key::Escape {
                                 expanded.set(false);
                                 trigger_ref.restore_focus();
                                 Handled::Yes

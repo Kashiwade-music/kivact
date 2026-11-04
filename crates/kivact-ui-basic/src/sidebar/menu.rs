@@ -143,7 +143,7 @@ pub enum SidebarMenuButtonSize {
 }
 
 impl SidebarMenuButtonSize {
-    fn height(self) -> f32 {
+    fn height(self) -> f64 {
         match self {
             SidebarMenuButtonSize::Default => 32.0,
             SidebarMenuButtonSize::Sm => 28.0,
@@ -152,7 +152,7 @@ impl SidebarMenuButtonSize {
     }
 
     /// The top of the badge and the action, centered in the row.
-    fn corner(self) -> f32 {
+    fn corner(self) -> f64 {
         match self {
             SidebarMenuButtonSize::Default => 6.0,
             SidebarMenuButtonSize::Sm => 4.0,
@@ -595,7 +595,7 @@ pub fn sidebar_input(label: impl IntoText, value: impl Into<Binding<String>>) ->
 #[track_caller]
 pub fn sidebar_menu_skeleton() -> Node {
     let at = std::panic::Location::caller();
-    let width = 50.0 + ((at.line() * 7 + at.column()) % 41) as f32;
+    let width = 50.0 + ((at.line() * 7 + at.column()) % 41) as f64;
     row(skeleton().style(style().height(16).grow(1).max_width(pct(width)))).style(
         style()
             .align_items(Align::Center)

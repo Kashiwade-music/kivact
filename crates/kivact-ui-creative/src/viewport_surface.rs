@@ -23,7 +23,7 @@ pub struct SurfaceSize {
     pub logical: Size,
     pub physical_width: u32,
     pub physical_height: u32,
-    pub scale_factor: f32,
+    pub scale_factor: f64,
 }
 
 /// Pointer input in image coordinates, after the display transform is inverted.
@@ -88,7 +88,7 @@ impl Shown {
             #[cfg(feature = "gpu-interop")]
             Self::Gpu(frame) => (frame.width(), frame.height()),
         };
-        Size::new(width as f32, height as f32)
+        Size::new(width as f64, height as f64)
     }
 }
 
@@ -294,10 +294,10 @@ impl IntoView for ViewportSurface {
             .on_pointer_default(move |event| {
                 if let Some(callback) = pointer {
                     callback.call(SurfacePointer {
-                        position: view.get().to_content(event.pos),
-                        phase: event.phase,
-                        modifiers: event.modifiers,
-                        pointer_id: event.id,
+                        position: view.get().to_content(event.pos()),
+                        phase: event.phase(),
+                        modifiers: event.modifiers(),
+                        pointer_id: event.id(),
                         region: event.region().and_then(|id| {
                             scene.with(|scene| {
                                 scene

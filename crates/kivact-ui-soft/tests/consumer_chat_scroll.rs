@@ -8,7 +8,7 @@ use kivact::ui::button;
 use kivact::view::{Role, node_ref};
 use kivact_ui_soft as soft;
 
-fn offset(screen: &Screen) -> f32 {
+fn offset(screen: &Screen) -> f64 {
     screen
         .get_by_test_id("offset")
         .text()

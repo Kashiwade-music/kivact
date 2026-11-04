@@ -83,7 +83,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
         .height(pct(100))
         .paint(move |d, size| {
             let (x, width) = if state.value.is_some() {
-                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f32)
+                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f64)
             } else {
                 let (start, length) = state.sweep();
                 (size.width * start, size.width * length)
@@ -95,7 +95,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
             );
             if striped && state.value.is_some() {
                 for i in 0..((width / 16.0) as usize + 1) {
-                    let x = i as f32 * 16.0;
+                    let x = i as f64 * 16.0;
                     d.fill_path(
                         &Path::new()
                             .move_to(Point::new(x, 0.0))
@@ -108,7 +108,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
                 }
             }
             for i in 1..segments {
-                let x = size.width * f32::from(i) / f32::from(segments);
+                let x = size.width * f64::from(i) / f64::from(segments);
                 d.fill_rect(Rect::new(x - 1.0, 0.0, 2.0, size.height), surface);
             }
         })

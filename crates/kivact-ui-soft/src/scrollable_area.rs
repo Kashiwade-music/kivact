@@ -230,15 +230,15 @@ pub fn use_scroll_overflow(viewport: NodeRef, content: NodeRef) -> ScrollOverflo
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct OverflowOptions {
-    pub gap: f32,
+    pub gap: f64,
     pub min_visible_items: usize,
     pub collapse_from_start: bool,
 }
 
 pub fn use_overflow(
-    widths: Value<Vec<f32>>,
-    available: Value<f32>,
-    indicator: Value<f32>,
+    widths: Value<Vec<f64>>,
+    available: Value<f64>,
+    indicator: Value<f64>,
     options: OverflowOptions,
 ) -> Value<usize> {
     memo(move || {
@@ -274,20 +274,20 @@ fn scroll_key(viewport: NodeRef, state: ScrollState, event: KeyEvent) -> Handled
     };
     let inline = state.inline.is_scrollable.get();
     let block = state.block.is_scrollable.get();
-    if event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta {
+    if event.modifiers().ctrl || event.modifiers().alt || event.modifiers().meta {
         return Handled::No;
     }
-    let (x, y) = match event.key {
+    let (x, y) = match event.key() {
         Key::ArrowLeft if inline => (-40.0, 0.0),
         Key::ArrowRight if inline => (40.0, 0.0),
         Key::ArrowUp if block => (0.0, -40.0),
         Key::ArrowDown if block => (0.0, 40.0),
         Key::PageUp | Key::PageDown | Key::Space | Key::Home | Key::End if inline || block => {
-            let backward = matches!(event.key, Key::PageUp | Key::Home)
-                || event.key == Key::Space && event.modifiers.shift;
+            let backward = matches!(event.key(), Key::PageUp | Key::Home)
+                || event.key() == Key::Space && event.modifiers().shift;
             let sign = if backward { -1.0 } else { 1.0 };
-            let distance = if matches!(event.key, Key::Home | Key::End) {
-                f32::MAX
+            let distance = if matches!(event.key(), Key::Home | Key::End) {
+                f64::MAX
             } else if block {
                 rect.height
             } else {

@@ -114,7 +114,7 @@ impl IntoView for Badge {
     }
 }
 
-pub(crate) fn icon_box(icon: View, size: f32) -> Node {
+pub(crate) fn icon_box(icon: View, size: f64) -> Node {
     node().style(style().size(size, size).shrink(0)).child(icon)
 }
 
@@ -169,8 +169,8 @@ impl IntoView for Skeleton {
     fn into_view(self) -> View {
         let radius = self.radius;
         let pulse = Animated::from(
-            0.25f32,
-            1.0f32,
+            0.25f64,
+            1.0f64,
             Transition::tween(400, Easing::steps_end(10))
                 .delay(1000.0 + self.index as f64 * 100.0)
                 .repeat(Repeat::Forever)
@@ -252,8 +252,8 @@ impl IntoView for StatusDot {
         let variant = self.variant;
         let pulse = self.pulsing.then(|| {
             Animated::from(
-                1.0f32,
-                0.5f32,
+                1.0f64,
+                0.5f64,
                 Transition::tween(1000, Easing::CubicBezier(0.42, 0.0, 0.58, 1.0))
                     .repeat(Repeat::Forever)
                     .alternate(),

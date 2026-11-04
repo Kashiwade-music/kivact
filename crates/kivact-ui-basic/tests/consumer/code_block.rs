@@ -19,7 +19,7 @@ fn page(child: impl IntoView) -> Node {
 }
 
 /// The 23 px line of the default size.
-const LINE: f32 = 23.0;
+const LINE: f64 = 23.0;
 
 #[test]
 fn code_block_reports_copy_requests_and_shows_copied_for_two_seconds() {

@@ -143,9 +143,9 @@ pub struct Stepper {
     action: Option<Callback<usize>>,
     density: StepDensity,
     position: StepIndicatorPosition,
-    min_width: f32,
+    min_width: f64,
     collapsed: StepCollapsedVariant,
-    connector_gap: f32,
+    connector_gap: f64,
 }
 
 pub fn stepper(active: impl IntoValue<usize>, steps: impl IntoIterator<Item = Step>) -> Stepper {
@@ -183,7 +183,7 @@ impl Stepper {
         self.position = position;
         self
     }
-    pub fn min_step_width(mut self, width: f32) -> Self {
+    pub fn min_step_width(mut self, width: f64) -> Self {
         self.min_width = width.max(0.0);
         self
     }
@@ -191,7 +191,7 @@ impl Stepper {
         self.collapsed = variant;
         self
     }
-    pub fn connector_gap(mut self, gap: f32) -> Self {
+    pub fn connector_gap(mut self, gap: f64) -> Self {
         self.connector_gap = gap.clamp(0.0, 8.0);
         self
     }
@@ -211,7 +211,7 @@ struct StepperCx {
     action: Option<Callback<usize>>,
     density: StepDensity,
     position: StepIndicatorPosition,
-    connector_gap: f32,
+    connector_gap: f64,
 }
 
 impl IntoView for Stepper {
@@ -238,7 +238,7 @@ impl IntoView for Stepper {
                     && count > 0
                     && rect
                         .get()
-                        .is_some_and(|r| r.width / (count as f32) < min_width)
+                        .is_some_and(|r| r.width / (count as f64) < min_width)
             });
             let cx = StepperCx {
                 active,
@@ -693,7 +693,7 @@ fn indicator_colors(status: StepStatus) -> (Color, Color) {
     }
 }
 
-fn density_padding(density: StepDensity) -> f32 {
+fn density_padding(density: StepDensity) -> f64 {
     let t = tokens();
     match density {
         StepDensity::Compact => t.spacing.s1,

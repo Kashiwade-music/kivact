@@ -69,7 +69,7 @@ impl NodeBuilder for Marker {
 }
 
 /// A 1 px line that takes the free space of the marker's row.
-fn rule(margin_right: f32, margin_left: f32) -> Node {
+fn rule(margin_right: f64, margin_left: f64) -> Node {
     node().style(
         style()
             .grow(1)

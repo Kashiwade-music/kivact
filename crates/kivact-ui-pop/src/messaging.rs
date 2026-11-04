@@ -130,8 +130,8 @@ impl IntoView for Thread {
 #[track_caller]
 pub fn typing_message(initials: impl IntoText) -> Node {
     let phase = Animated::from(
-        0.0f32,
-        std::f32::consts::TAU,
+        0.0f64,
+        std::f64::consts::TAU,
         Transition::tween(1000, Easing::Linear)
             .repeat(Repeat::Forever)
             .decorative(false),
@@ -144,10 +144,10 @@ pub fn typing_message(initials: impl IntoText) -> Node {
             .draw(move |draw, _| {
                 let color = draw.theme().get::<Tokens>().text_faint;
                 for index in 0..3 {
-                    let bounce = (phase.get() - index as f32 * 0.95).sin().max(0.0) * 3.0;
+                    let bounce = (phase.get() - index as f64 * 0.95).sin().max(0.0) * 3.0;
                     draw.rounded_rect(
                         kivact::draw::Rect::new(
-                            14.0 + index as f32 * 10.0,
+                            14.0 + index as f64 * 10.0,
                             12.0 - bounce,
                             6.0,
                             6.0,

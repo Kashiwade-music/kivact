@@ -36,7 +36,7 @@ pub struct Link {
     external: bool,
     standalone: bool,
     kind: TextKind,
-    size: Option<f32>,
+    size: Option<f64>,
     weight: Option<u16>,
     color: LinkColor,
     max_lines: u32,
@@ -119,7 +119,7 @@ impl Link {
         self
     }
 
-    pub fn text_size(mut self, px: f32) -> Self {
+    pub fn text_size(mut self, px: f64) -> Self {
         self.size = Some(px);
         self
     }
@@ -169,7 +169,7 @@ impl IntoView for Link {
                 });
             if !self.as_button {
                 root = root.on_key(|event| {
-                    if event.key == Key::Space {
+                    if event.key() == Key::Space {
                         Handled::Yes
                     } else {
                         Handled::No

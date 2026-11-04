@@ -13,7 +13,7 @@ use kivact::view::{IntoView, Role};
 use std::rc::Rc;
 
 /// The distance between the pointer and the card.
-const OFFSET: f32 = 14.0;
+const OFFSET: f64 = 14.0;
 
 /// The tooltip card for `hit` (chart.tsx `ChartTooltipContent`), placed beside the pointer `at` in a plot of `size`.
 ///
@@ -63,8 +63,8 @@ pub(super) fn tooltip(
     });
     let height = 14.0
         + hit.title.as_ref().map_or(0.0, |_| 22.0)
-        + hit.rows.len() as f32 * 16.0
-        + hit.rows.len().saturating_sub(1) as f32 * 6.0;
+        + hit.rows.len() as f64 * 16.0
+        + hit.rows.len().saturating_sub(1) as f64 * 6.0;
     column((
         hit.title
             .clone()
