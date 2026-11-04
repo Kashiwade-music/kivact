@@ -270,6 +270,10 @@ fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
             shell.env.get_mut().reduced_motion = value;
             Some(ShellEvent::EnvironmentChanged)
         }
+        Item::Pointer(settings) => {
+            shell.env.get_mut().pointer = settings;
+            Some(ShellEvent::EnvironmentChanged)
+        }
         Item::Dark(value) => {
             shell.env.get_mut().theme_hint = if value {
                 ThemeHint::Dark

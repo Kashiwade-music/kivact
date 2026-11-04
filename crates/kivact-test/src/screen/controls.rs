@@ -40,6 +40,12 @@ impl Screen {
     }
 
     /// The host reports a dark (or light) system theme (`EnvChanged`).
+    /// Report platform pointer preferences and primary device precision.
+    pub fn set_pointer_settings(&self, settings: p::PointerSettings) {
+        self.host.borrow_mut().set_pointer_settings(settings);
+        self.run_until_idle();
+    }
+
     pub fn set_dark(&self, dark: bool) {
         self.log(format!("dark {dark}"));
         self.host.borrow_mut().set_theme(if dark {

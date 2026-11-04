@@ -791,7 +791,7 @@ fn tab_scroll_arrow(
                     if kivact::platform::is_motion_reduced().get() {
                         ScrollBehavior::Instant
                     } else {
-                        ScrollBehavior::Smooth
+                        ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut)
                     },
                 );
             }

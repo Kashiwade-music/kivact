@@ -1383,7 +1383,7 @@ useOutlineFromDOM / useOutlineFromMarkdown: DOM / Markdown から items を作�
 ### 13.7 Kivact 実装方針
 - `soft::outline(items)`: `row((track, list, indicator))`。list は `kivact::interaction::use_list` を vertical・roving・activation=Enter/Space で(`ListActivation`)。項目は `Role::Link` 相当 + 選択状態(current)。
 - scroll-spy: `scroll_container.scroll_offset()` と各 `item.target.rect()` を読む `memo` で active を算出(上記ルール、offset と 1px/2px 許容)。容器の高さと内容高さは container の `rect()` と内容の rect。
-- navigate: `scroll_container.scroll_to(Point{ y: target_top - offset }, ScrollBehavior::Smooth)`(crates/kivact-core/src/view/node_ref.rs:229)→ `target.focus()`。hash 更新は native では不要(破棄)。`on_navigate_end` はスクロール終了検知(offset が目標に達する or ユーザー入力で中断 or 1200ms)で 1 回呼ぶ。
+- navigate: `scroll_container.scroll_to(Point{ y: target_top - offset }, ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut))`(crates/kivact-core/src/view/node_ref.rs:229)→ `target.focus()`。hash 更新は native では不要(破棄)。`on_navigate_end` はスクロール終了検知(offset が目標に達する or ユーザー入力で中断 or 1200ms)で 1 回呼ぶ。
 - indicator: active 項目の rect を list 基準に変換し、`translate_y` + 高さを animated で追従。
 - 最も近い basic: なし(roving list の作法は crates/kivact-ui-basic/src/sidebar.rs と `kivact::ui::list`)。
 
@@ -2620,7 +2620,7 @@ root (div role=region aria-roledescription="carousel" aria-label)   .astryx-caro
 - ボタンによるスクロール: `scrollBy({left: ±max(clientWidth - firstItemWidth*0.5, firstItemWidth), behavior: smooth})`(ブラウザの smooth 曲線。値は UNRESOLVED: ブラウザ依存)。reduced motion は即時(`auto`)。loop で端なら `scrollBy(∓scrollWidth)` で反対端へ smooth に戻る。
 - scrollTo(i): 項目の開始端を viewport 開始端に合わせる smooth scroll。
 - edge fade の切替は即時(transition 指定なし)。
-- Kivact: `NodeRef::scroll_by(delta, ScrollBehavior::Smooth)`(crates/kivact-core/src/view/node_ref.rs:234)。kivact の smooth 曲線は engine 既定(UNRESOLVED: 時間)。snap は kivact の scroll に snap 機能が無ければ、ホイール/ドラッグ終了時に最寄り項目開始位置へ `scroll_to(.., Smooth)`(UNRESOLVED: scroll end イベントの有無)。
+- Kivact: `NodeRef::scroll_by(delta, ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut))`(crates/kivact-core/src/view/node_ref.rs:234)。kivact の smooth 曲線は engine 既定(UNRESOLVED: 時間)。snap は kivact の scroll に snap 機能が無ければ、ホイール/ドラッグ終了時に最寄り項目開始位置へ `scroll_to(.., Smooth)`(UNRESOLVED: scroll end イベントの有無)。
 
 ### 25.6 Behaviour & a11y
 - root `role=region` + `aria-roledescription="carousel"` + 名前。scroller `role=group` + 同じ名前、**溢れているときだけ tabindex 0**(矢印キーでネイティブ横スクロール)。各項目 `role=group` + `aria-roledescription="slide"` + "Slide {n} of {total}"。

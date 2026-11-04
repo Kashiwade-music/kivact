@@ -172,8 +172,10 @@ pub(crate) struct TouchCandidate {
 }
 
 /// A touch that scrolls natively along `axis`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TouchPan {
+    pub(super) samples: kivact_types::DragVelocity,
+    pub(super) scroller: NodeId,
     pub(super) last: Point,
     pub(super) target: TouchTarget,
     pub(super) axis: Axis,

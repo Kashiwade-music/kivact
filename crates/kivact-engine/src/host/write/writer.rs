@@ -181,7 +181,13 @@ impl Writer {
     }
 
     /// Scroll one container with optional smooth interpolation.
-    pub fn scroll(&self, id: NodeId, point: Point, relative: bool, smooth: bool) {
+    pub fn scroll(
+        &self,
+        id: NodeId,
+        point: Point,
+        relative: bool,
+        easing: Option<kivact_types::Easing>,
+    ) {
         let mut m = self.model.borrow_mut();
         m.writes.command(Some(id));
         let Some(n) = m.node(id) else { return };
@@ -219,7 +225,7 @@ impl Writer {
                 0.0
             },
         };
-        m.scroll_smoothly(id, start, target, smooth);
+        m.scroll_smoothly(id, start, target, easing);
     }
     /// Select every character of a text input.
     pub fn select_all(&self, id: NodeId) {
