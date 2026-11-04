@@ -16,13 +16,13 @@ use std::time::Duration;
 #[test]
 fn soft_progress_starts_at_its_value_and_animates_updates() {
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
-    let motion = theme.ext::<ProgressMotion>();
+    let motion = theme.ext::<kivact::ui::UiTokens>().progress.motion;
     assert!(!motion.animate_initial);
     assert_eq!(motion.determinate_ms, 300);
     assert_eq!(motion.period_ms, 1500);
     assert_eq!(motion.reduced_period_ms, Some(4000));
     assert_eq!(
-        *Theme::light().ext::<ProgressMotion>(),
+        Theme::light().ext::<kivact::ui::UiTokens>().progress.motion,
         ProgressMotion::default()
     );
     let (screen, value) = render_with_handle(RenderOptions::from_env().theme(theme), || {

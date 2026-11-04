@@ -371,9 +371,11 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         let state = part.state();
         let slot = slot.clone();
         let looks = variants.clone();
-        let retain_disabled_focus = *kivact_core::style::use_theme()
+        let retain_disabled_focus = kivact_core::style::use_theme()
             .get()
-            .ext::<kivact_interaction::DisabledMenuFocus>()
+            .ext::<kivact_interaction::InteractionPolicy>()
+            .menu
+            .disabled_focus
             == kivact_interaction::DisabledMenuFocus::Retain;
         let rows = for_each(
             behavior.entries(),

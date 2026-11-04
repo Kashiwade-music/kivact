@@ -4,46 +4,22 @@ use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Rect;
-use kivact_core::motion::{Spring, Transition};
+use kivact_core::motion::Transition;
 use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
-use kivact_core::style::{
-    Length, Position, Style, Theme, ThemeExtension, TransitionProp, style, use_theme,
-};
+use kivact_core::style::{Length, Position, Style, TransitionProp, style, use_theme};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, node};
-use kivact_interaction::{
-    RangeThumb, ScalarApi, ScalarRange, TouchSliderGesture, use_range_scalar, use_scalar,
-};
+use kivact_interaction::SliderTouchMotion;
+use kivact_interaction::{RangeThumb, ScalarApi, ScalarRange, use_range_scalar, use_scalar};
 
 /// The values a slider edits: one, or the two ends of a range.
 enum Values {
     One(Binding<f64>),
     Two(Binding<f64>, Binding<f64>),
-}
-
-/// Optional touch behavior and thumb motion installed by a slider theme.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum SliderTouchMotion {
-    /// Keep standard mouse-style pointer tracking for all pointer kinds.
-    #[default]
-    Standard,
-    /// Use touch-specific relative tracking and release motion.
-    Direct {
-        gesture: TouchSliderGesture,
-        lifted_scale: f64,
-        lift: Spring,
-        drop: Spring,
-    },
-}
-
-impl ThemeExtension for SliderTouchMotion {
-    fn fallback(_: &Theme) -> Self {
-        Self::Standard
-    }
 }
 
 /// A themed slider, created by [`slider`] or [`range_slider`].
@@ -329,7 +305,11 @@ impl IntoView for Slider {
             None => scalar,
         };
         let thumb_ref = node_ref();
-        let touch = *use_theme().get().ext::<SliderTouchMotion>();
+        let touch = use_theme()
+            .get()
+            .ext::<kivact_interaction::InteractionPolicy>()
+            .slider
+            .touch;
         // A range's filled span drags both ends.
         let mut body = None;
         let (track_part, thumbs, fractions): (_, Vec<(ScalarApi, Value<String>)>, _) = match values

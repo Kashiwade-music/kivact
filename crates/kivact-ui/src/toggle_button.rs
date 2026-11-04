@@ -14,13 +14,13 @@ use kivact_core::geometry::Size;
 use kivact_core::state::Binding;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::style::{Align, TextAlign, Theme, ThemeExtension, style, use_theme};
+use kivact_core::style::{Align, TextAlign, style, use_theme};
 use kivact_core::view::{IntoView, View, dynamic, show};
 use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{ToggleState, use_toggle_button};
 
 /// Opt-in text measurement for a toggle_button whose label changes weight when pressed.
-/// Install it with [`Theme::with`] and use the same size as the toggle_button recipe.
+/// Configure it through [`crate::UiTokens`] and use the same size as the toggle_button recipe.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ToggleLabelReservation {
     /// Let the visible label determine its own width.
@@ -37,12 +37,6 @@ pub enum ToggleLabelReservation {
     },
 }
 
-impl ThemeExtension for ToggleLabelReservation {
-    fn fallback(_: &Theme) -> Self {
-        Self::Natural
-    }
-}
-
 fn toggle_label(
     label: Value<String>,
     hidden: Option<Value<bool>>,
@@ -51,7 +45,11 @@ fn toggle_label(
     dynamic(
         move || {
             (
-                *use_theme().get().ext::<ToggleLabelReservation>(),
+                use_theme()
+                    .get()
+                    .ext::<crate::UiTokens>()
+                    .toggle_button
+                    .label_reservation,
                 size.get(),
             )
         },
@@ -240,4 +238,9 @@ impl IntoView for ToggleButton {
         .child(toggle_label(self.label, self.hide_label, size))
         .into_view()
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ToggleButtonTokens {
+    pub label_reservation: ToggleLabelReservation,
 }

@@ -123,7 +123,7 @@ pub use toggle::{
     use_switch, use_toggle_button,
 };
 pub use tone::Tone;
-pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip};
+pub use tooltip::{TooltipApi, TooltipTiming, use_tooltip};
 pub use tree::{
     TreeApi, TreeBranch, TreeItemState, TreeNode, TreeRow, flatten_tree_rows, use_tree,
 };
@@ -133,4 +133,11 @@ pub use text_edit::{TextEditApi, text_edit_policy, use_text_area, use_text_edit}
 pub use zoom_pan::{ViewTransform, ZoomPanApi, use_zoom_pan};
 
 mod inline_edit;
+mod interaction_policy;
+mod options_cell;
 pub use inline_edit::{InlineEditApi, use_inline_edit};
+
+pub use interaction_policy::{
+    ButtonPolicy, DisabledButtonFocus, InteractionPolicy, MenuPolicy, PressDrift, SelectPolicy,
+    SliderPolicy, SliderTouchMotion, SwitchDrag, SwitchPolicy, ToastPolicy, ToastSwipe,
+};

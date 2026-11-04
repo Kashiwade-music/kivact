@@ -24,7 +24,7 @@ use kivact_core::custom::Part;
 use kivact_core::geometry::Edge;
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::style::{Length, Position, Theme, ThemeExtension, pct, style, use_theme};
+use kivact_core::style::{Length, Position, pct, style, use_theme};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_core::view::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
@@ -37,11 +37,6 @@ pub enum DialogCenter {
     Window,
 }
 
-impl ThemeExtension for DialogCenter {
-    fn fallback(_: &Theme) -> Self {
-        Self::default()
-    }
-}
 pub struct Dialog {
     open: Binding<bool>,
     title: Value<String>,
@@ -397,7 +392,7 @@ impl Dialog {
             }
             let popover = kind == DialogMode::Popover;
             let position_anchor = if matches!(kind, DialogMode::Modal | DialogMode::AlertModal)
-                && *use_theme().get().ext::<DialogCenter>() == DialogCenter::Window
+                && use_theme().get().ext::<crate::UiTokens>().dialog.center == DialogCenter::Window
             {
                 node_ref()
             } else {
@@ -444,4 +439,9 @@ fn edge(side: Edge) -> kivact_core::style::Style {
         Edge::Top => fixed.left(0).right(0).top(0).width(pct(100)),
         Edge::Bottom => fixed.left(0).right(0).bottom(0).width(pct(100)),
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct DialogTokens {
+    pub center: DialogCenter,
 }

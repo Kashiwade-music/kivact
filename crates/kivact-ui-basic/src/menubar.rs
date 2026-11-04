@@ -261,9 +261,11 @@ fn menu_surface<K: kivact::state::ItemKey>(
                                 }
                             })
                         });
-                        let retain_disabled = *kivact::style::use_theme()
+                        let retain_disabled = kivact::style::use_theme()
                             .get()
-                            .ext::<kivact::interaction::DisabledMenuFocus>()
+                            .ext::<kivact::interaction::InteractionPolicy>()
+                            .menu
+                            .disabled_focus
                             == kivact::interaction::DisabledMenuFocus::Retain;
                         let item = if retain_disabled {
                             kivact::ui::tooltip(move || reason.get().unwrap_or_default())

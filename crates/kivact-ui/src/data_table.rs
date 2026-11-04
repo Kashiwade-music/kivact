@@ -25,3 +25,6 @@ pub use group_state::DataTableGroupState;
 pub use row_status::{DataTableRowStatusPaint, RowStatus};
 pub use sticky_paint::DataTableStickyPaint;
 pub use types::{DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent};
+
+mod tokens;
+pub use tokens::DataTableTokens;

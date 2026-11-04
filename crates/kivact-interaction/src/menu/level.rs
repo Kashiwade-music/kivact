@@ -16,7 +16,7 @@ use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
-use kivact_core::style::{Theme, ThemeExtension, use_theme};
+use kivact_core::style::use_theme;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
 
 /// Whether disabled menu entries participate in roving keyboard focus.
@@ -27,12 +27,6 @@ pub enum DisabledMenuFocus {
     Retain,
 }
 
-impl ThemeExtension for DisabledMenuFocus {
-    fn fallback(_: &Theme) -> Self {
-        Self::default()
-    }
-}
-
 /// Pointer delays for opening a submenu or leaving it for a sibling item.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SubmenuTiming {
@@ -40,8 +34,8 @@ pub struct SubmenuTiming {
     pub close: Duration,
 }
 
-impl ThemeExtension for SubmenuTiming {
-    fn fallback(_: &Theme) -> Self {
+impl Default for SubmenuTiming {
+    fn default() -> Self {
         Self {
             open: Duration::from_millis(140),
             close: Duration::ZERO,
@@ -80,8 +74,12 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         let depth = prefix.len();
         let entries = session.entries;
         let prefix = prefix.into_value();
-        let retain_disabled_focus =
-            *use_theme().get().ext::<DisabledMenuFocus>() == DisabledMenuFocus::Retain;
+        let retain_disabled_focus = use_theme()
+            .get()
+            .ext::<crate::InteractionPolicy>()
+            .menu
+            .disabled_focus
+            == DisabledMenuFocus::Retain;
         let level_rows = memo(move || prefix.with(|prefix| entries.with(|e| rows(e, prefix))));
         // A level the entries no longer keep offers no items, so its group does not
         // move focus to a sibling that is about to go away with it.
@@ -111,7 +109,11 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         )
         .shared_typeahead(session.typed);
         let anchors = signal(Vec::<(K, Rect)>::new());
-        let timing = *use_theme().get().ext::<SubmenuTiming>();
+        let timing = use_theme()
+            .get()
+            .ext::<crate::InteractionPolicy>()
+            .menu
+            .submenu;
         let aiming = if timing.close.is_zero() {
             false.into_value()
         } else {

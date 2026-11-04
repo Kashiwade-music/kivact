@@ -49,13 +49,16 @@ fn soft_disabled_button_can_show_its_tooltip_with_keyboard_focus() {
 #[test]
 fn soft_delays_the_spinner_but_disables_input_immediately() {
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
-    let timing = theme.ext::<ButtonBusyMotion>();
+    let timing = theme.ext::<kivact::ui::UiTokens>().button.busy_motion;
     assert_eq!(timing.spin_ms, 525);
     assert_eq!(timing.reduced_spin_ms, 3000);
     assert_eq!(timing.reveal_delay_ms, 225);
     assert_eq!(timing.reveal_fade_ms, 125);
     assert_eq!(
-        *Theme::light().ext::<ButtonBusyMotion>(),
+        Theme::light()
+            .ext::<kivact::ui::UiTokens>()
+            .button
+            .busy_motion,
         ButtonBusyMotion::default()
     );
 
