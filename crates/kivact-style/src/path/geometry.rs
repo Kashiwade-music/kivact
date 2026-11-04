@@ -23,7 +23,7 @@ pub struct PathContour {
 /// huge radius, so the count of cubics stays bounded).
 const ARC_TOLERANCE: f64 = 0.01;
 pub(super) fn kp(p: WirePoint) -> KPoint {
-    KPoint::new(f64::from(p.x), f64::from(p.y))
+    KPoint::new(p.x, p.y)
 }
 
 pub(super) fn wire(p: KPoint) -> WirePoint {
@@ -52,7 +52,7 @@ impl Path {
             return Vec::new();
         };
         let tolerance = if tolerance.is_finite() && tolerance > 0.0 {
-            f64::from(tolerance)
+            tolerance
         } else {
             0.25
         };
@@ -133,10 +133,10 @@ impl Path {
                     }
                     let arc = Arc::new(
                         kp(center),
-                        Vec2::new(f64::from(rx.abs()), f64::from(ry.abs())),
-                        f64::from(from_deg).to_radians(),
-                        f64::from(sweep).to_radians().clamp(-TAU, TAU),
-                        f64::from(rotation).to_radians(),
+                        Vec2::new(rx.abs(), ry.abs()),
+                        from_deg.to_radians(),
+                        sweep.to_radians().clamp(-TAU, TAU),
+                        rotation.to_radians(),
                     );
                     let first = arc.eval(0.0);
                     if current.is_some() {
@@ -172,8 +172,8 @@ impl Path {
                     let svg = SvgArc {
                         from,
                         to: end,
-                        radii: Vec2::new(f64::from(rx), f64::from(ry)),
-                        x_rotation: f64::from(rotation).to_radians(),
+                        radii: Vec2::new(rx, ry),
+                        x_rotation: rotation.to_radians(),
                         large_arc,
                         sweep,
                     };
@@ -261,7 +261,7 @@ impl Path {
     pub fn transformed(&self, t: Transform) -> Path {
         let [a, b, c, d, e, f] = t.matrix_for(Size::default()).map(f64::from);
         let map = |p: WirePoint| {
-            let (x, y) = (f64::from(p.x), f64::from(p.y));
+            let (x, y) = (p.x, p.y);
             wire(KPoint::new(a * x + c * y + e, b * x + d * y + f))
         };
         let cmds = self

@@ -145,10 +145,7 @@ impl Path {
             return empty;
         }
         let (start, end) = {
-            let (a, b) = (
-                f64::from(start).clamp(0.0, 1.0),
-                f64::from(end).clamp(0.0, 1.0),
-            );
+            let (a, b) = (start.clamp(0.0, 1.0), end.clamp(0.0, 1.0));
             (a.min(b), a.max(b))
         };
         let Some(bez) = self.bez() else { return empty };
@@ -163,7 +160,7 @@ impl Path {
             contours.iter().for_each(|c| c.emit_all(&mut all));
             return Path::from_bez(&all, self.even_odd);
         }
-        let begin = (start + f64::from(offset)).rem_euclid(1.0) * total;
+        let begin = (start + offset).rem_euclid(1.0) * total;
         let stop = begin + (end - start) * total;
         let intervals: Vec<(f64, f64)> = if stop > total {
             vec![(begin, total), (0.0, stop - total)]
