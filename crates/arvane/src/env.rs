@@ -5,10 +5,8 @@
 //! path.
 //!
 //! - `ARVANE_RENDERER`: `cpu` draws a native window on the CPU, `gpu` on
-//!   the GPU, overriding the host's preference. Test windows do not read
-//!   it (their frames are the same whatever the environment); their
-//!   option `VirtualWindowOptions::renderer` stands for it, by the same
-//!   rule ([`starts_gpu`]).
+//!   the GPU, overriding the host's preference. Stepped shells read
+//!   it through the same rendering driver.
 //! - `WGPU_BACKEND`, `WGPU_POWER_PREF` and the instance flags wgpu reads
 //!   (`WGPU_VALIDATION`, `WGPU_DEBUG` ..): how GPU devices are made
 //!   (feature `gpu`; read by `arvane-render`, which alone knows wgpu). The
@@ -17,7 +15,7 @@
 use crate::presentation::Renderer;
 
 /// Whether a window starts the GPU renderer: as `forced` says
-/// (`ARVANE_RENDERER`, or a test window's option standing for it), else as
+/// (`ARVANE_RENDERER`), else as
 /// the host prefers (`prefer_gpu`).
 pub(crate) fn starts_gpu(forced: Option<Renderer>, prefer_gpu: bool) -> bool {
     forced.map_or(prefer_gpu, |renderer| renderer == Renderer::Gpu)

@@ -15,6 +15,52 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// GPU presentation policy for a virtual window.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GpuMode {
+    #[default]
+    Off,
+    Required,
+}
+/// Whether virtual output must be mirrored to a native window.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MirrorMode {
+    Off,
+    #[default]
+    Auto,
+    Required,
+}
+/// Initial virtual platform environment.
+#[derive(Clone, Debug)]
+pub struct VirtualOptions {
+    pub title: String,
+    pub size: Size,
+    pub scale: f64,
+    pub frame_period_ns: u64,
+    pub reduced_motion: bool,
+    pub dark: bool,
+    pub locale: Option<String>,
+    pub gpu: GpuMode,
+    pub mirror: MirrorMode,
+}
+impl Default for VirtualOptions {
+    fn default() -> Self {
+        Self {
+            title: String::new(),
+            size: Size {
+                width: 800.0,
+                height: 600.0,
+            },
+            scale: 1.0,
+            frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
+            reduced_motion: false,
+            dark: false,
+            locale: None,
+            gpu: GpuMode::Off,
+            mirror: MirrorMode::Auto,
+        }
+    }
+}
 pub(crate) struct VirtualShell {
     pub(crate) now: u64,
     /// The single snapshot of the window's environment and preferences.

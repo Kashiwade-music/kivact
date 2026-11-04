@@ -1,6 +1,6 @@
 //! Role: Adapt native mirror output without introducing native input.
 
-use crate::backend::{GpuMode, MirrorMode, VirtualOptions};
+use crate::window::{GpuMode, MirrorMode, VirtualOptions};
 use crate::window::{Mirror, physical};
 use arvane_native::mirror::{MirrorStats, MirrorWindow, MirrorWindowOptions, TestDisplay};
 use arvane_shell::{Accessibility, GpuTarget, ShellError};
@@ -56,29 +56,29 @@ impl Mirror for Adapter {
         self.window.gpu_presents();
     }
 }
-pub(crate) fn open(options: &VirtualOptions) -> Result<Option<Box<dyn Mirror>>, ShellError> {
-    if options.mirror == MirrorMode::Off {
-        return Ok(None);
-    }
-    let (width, height) = physical(options.size, options.scale);
-    match TestDisplay::global().and_then(|display| {
-        display.open(MirrorWindowOptions {
-            title: options.title.clone(),
-            width,
-            height,
-            scale: options.scale,
-        })
-    }) {
-        Ok(window) => Ok(Some(Box::new(Adapter {
-            window,
-            pending: RefCell::new(MirrorPending::Idle),
-        }))),
-        Err(error)
-            if options.mirror == MirrorMode::Required || options.gpu == GpuMode::Required =>
-        {
-            Err(error)
+impl VirtualOptions {
+    pub(crate) fn open_mirror(&self) -> Result<Option<Box<dyn Mirror>>, ShellError> {
+        if self.mirror == MirrorMode::Off {
+            return Ok(None);
         }
-        Err(_) => Ok(None),
+        let (width, height) = physical(self.size, self.scale);
+        match TestDisplay::global().and_then(|display| {
+            display.open(MirrorWindowOptions {
+                title: self.title.clone(),
+                width,
+                height,
+                scale: self.scale,
+            })
+        }) {
+            Ok(window) => Ok(Some(Box::new(Adapter {
+                window,
+                pending: RefCell::new(MirrorPending::Idle),
+            }))),
+            Err(error) if self.mirror == MirrorMode::Required || self.gpu == GpuMode::Required => {
+                Err(error)
+            }
+            Err(_) => Ok(None),
+        }
     }
 }
 /// Counters for the process-wide native mirror, if it can be started.

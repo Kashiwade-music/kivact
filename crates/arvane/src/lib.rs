@@ -3,8 +3,8 @@
 //! Responsibility: the only crate outside Arvane may depend on (via
 //! `kivact-engine`). It wires the adapter crates together; the
 //! adapters share `kivact-types` values and portable `arvane-shell` contracts. Text is the [`Engine`]'s; windows ([`Window`]: the native
-//! [`Window`] run by [`Shell`], and the test windows) present scenes
-//! through their own presenters, which own the renderers, the GPU life
+//! [`Window`] run by [`Shell`], including explicitly stepped backends) present scenes
+//! through the shared presenter, which owns the renderers, the GPU life
 //! cycle and the frame policy (`presenter.rs`).
 //!
 //! Invariants:

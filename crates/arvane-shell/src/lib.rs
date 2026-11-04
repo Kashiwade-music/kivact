@@ -46,6 +46,7 @@ pub use contacts::Contacts;
 pub use events::ShellEvent;
 pub use ime::ShellImeText;
 pub use kivact_types::FilePhase;
+pub use kivact_types::render::CpuFrame;
 pub use mouse::Mouse;
 pub use services::FileDialog;
 pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker};

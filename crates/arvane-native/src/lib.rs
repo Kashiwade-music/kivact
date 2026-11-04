@@ -62,13 +62,13 @@ mod contacts;
 mod cpu;
 mod display;
 mod key_code;
+#[cfg(feature = "testing")]
+pub mod mirror;
 mod module;
 mod native_input;
 mod open;
 mod runtime;
 mod services;
-#[cfg(feature = "testing")]
-pub mod mirror;
 mod wait;
 mod wheel;
 

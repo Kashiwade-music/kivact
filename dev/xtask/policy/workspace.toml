@@ -286,7 +286,6 @@ api_packages = [
 ]
 # 関数に渡す「option の束」。必須の値（親 window、texture の大きさ）は束に入れず引数で渡す。
 options_structs = [
-    "arvane::test_display::VirtualWindowOptions",
     "arvane-native::mirror::MirrorWindowOptions",
     "arvane-virtual::VirtualOptions",
     "arvane::ShellSetup",

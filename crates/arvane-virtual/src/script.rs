@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 pub(crate) enum Item {
     Event(ShellEvent),
+    Time(u64),
     Resize(Size),
     Scale(f64),
     Period(u64),
@@ -74,7 +75,10 @@ impl Script {
         self.push(Item::Action(node, request));
     }
     pub fn set_now(&self, ns: u64) {
-        self.0.borrow().clock.set(ns);
+        let mut input = self.0.borrow_mut();
+        input.clock.set(ns);
+        let now = input.clock.now();
+        input.queue.push_back(Item::Time(now));
     }
     pub fn resize(&self, size: Size) {
         self.push(Item::Resize(size));

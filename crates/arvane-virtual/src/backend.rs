@@ -3,6 +3,7 @@
 use crate::script::{Input, Item, Script};
 use crate::surface::TestSurface;
 use crate::window::VirtualShell;
+pub use crate::window::{GpuMode, MirrorMode, VirtualOptions};
 use arvane_shell::{
     Accessibility, ShellControl, ShellError, ShellEvent, ShellHandler, ShellImeText, ShellWaker,
     ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
@@ -19,52 +20,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-/// GPU presentation policy for a virtual window.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum GpuMode {
-    #[default]
-    Off,
-    Required,
-}
-/// Whether virtual output must be mirrored to a native window.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum MirrorMode {
-    Off,
-    #[default]
-    Auto,
-    Required,
-}
-/// Initial virtual platform environment.
-#[derive(Clone, Debug)]
-pub struct VirtualOptions {
-    pub title: String,
-    pub size: Size,
-    pub scale: f64,
-    pub frame_period_ns: u64,
-    pub reduced_motion: bool,
-    pub dark: bool,
-    pub locale: Option<String>,
-    pub gpu: GpuMode,
-    pub mirror: MirrorMode,
-}
-impl Default for VirtualOptions {
-    fn default() -> Self {
-        Self {
-            title: String::new(),
-            size: Size {
-                width: 800.0,
-                height: 600.0,
-            },
-            scale: 1.0,
-            frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
-            reduced_motion: false,
-            dark: false,
-            locale: None,
-            gpu: GpuMode::Off,
-            mirror: MirrorMode::Auto,
-        }
-    }
-}
 /// Backend whose input and clock are advanced explicitly.
 pub struct VirtualBackend {
     options: VirtualOptions,
@@ -140,7 +95,7 @@ impl SteppedBackend for VirtualBackend {
         }
         #[cfg(feature = "mirror")]
         {
-            self.shell.borrow_mut().real = crate::mirror::open(&self.options)?;
+            self.shell.borrow_mut().real = self.options.open_mirror()?;
         }
         #[cfg(not(feature = "mirror"))]
         if self.options.mirror == MirrorMode::Required || self.options.gpu == GpuMode::Required {
@@ -157,13 +112,13 @@ impl SteppedBackend for VirtualBackend {
             handler,
             control: ShellControl::Wait,
             state: State::Live,
-            woken: Arc::new(AtomicBool::new(false)),
+            woken: Arc::new(WakePending::default()),
         };
         let wake = Arc::clone(&running.woken);
         let result = running.handler.start(
             &mut *running.shell.borrow_mut(),
             ShellWaker::new(move || {
-                wake.store(true, Ordering::Release);
+                wake.request();
             }),
         );
         match result {
@@ -181,6 +136,20 @@ impl SteppedBackend for VirtualBackend {
         Ok(Box::new(running))
     }
 }
+/// Latest-wins wake mailbox shared with background workers.
+#[derive(Default)]
+struct WakePending(AtomicBool);
+impl WakePending {
+    fn request(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+    fn take(&self) {
+        self.0.store(false, Ordering::Release);
+    }
+    fn pending(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+}
 enum State {
     Live,
     Exited,
@@ -192,7 +161,7 @@ struct Running {
     handler: Box<dyn ShellHandler>,
     control: ShellControl,
     state: State,
-    woken: Arc<AtomicBool>,
+    woken: Arc<WakePending>,
 }
 impl Running {
     fn finish(&mut self, state: State) {
@@ -239,7 +208,7 @@ impl SteppedLoop for Running {
                     }
                 },
                 Step::Wake => {
-                    self.woken.store(false, Ordering::Release);
+                    self.woken.take();
                     self.deliver(ShellEvent::Wake);
                 }
                 Step::Redraw => {
@@ -254,7 +223,7 @@ impl SteppedLoop for Running {
             State::Live => StepOutcome::Idle {
                 next_deadline: self.control.deadline(),
                 redraw_requested: self.shell.borrow().redraw.get(),
-                woken: self.woken.load(Ordering::Acquire),
+                woken: self.woken.pending(),
             },
             State::Exited => StepOutcome::Exited,
             State::Failed(error) => StepOutcome::Failed(error.clone()),
@@ -264,6 +233,10 @@ impl SteppedLoop for Running {
 fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
     let event = match item {
         Item::Event(event) => Some(event),
+        Item::Time(ns) => {
+            shell.now = ns;
+            None
+        }
         Item::Resize(size) => {
             shell.env.get_mut().window_size = size;
             Some(ShellEvent::Resized)

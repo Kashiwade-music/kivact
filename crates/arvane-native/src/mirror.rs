@@ -110,7 +110,7 @@ struct Counters {
 
 /// What a test window shows next; the UI thread takes it all at once.
 #[derive(Default)]
-struct Pending {
+struct MirrorBatch {
     frame: Option<Frame>,
     /// The accessibility tree changed: hand the platform what it lacks.
     accessibility: bool,
@@ -118,8 +118,6 @@ struct Pending {
     resize: Option<(u32, u32, f64)>,
     /// A GPU surface presents to the window from now on.
     gpu: bool,
-    /// A flush of this window is queued on the UI thread.
-    scheduled: bool,
 }
 
 #[derive(Clone)]
@@ -129,9 +127,15 @@ struct Frame {
     pixels: Arc<[u32]>,
 }
 
-type Slot = Arc<Mutex<Pending>>;
+#[derive(Default)]
+enum MirrorPending {
+    #[default]
+    Idle,
+    Scheduled(MirrorBatch),
+}
+type Slot = Arc<Mutex<MirrorPending>>;
 
-fn lock(slot: &Mutex<Pending>) -> MutexGuard<'_, Pending> {
+fn lock(slot: &Mutex<MirrorPending>) -> MutexGuard<'_, MirrorPending> {
     slot.lock()
         .expect("test display lock poisoned: a panic already happened")
 }
@@ -352,18 +356,24 @@ impl MirrorWindow {
         self.schedule(|pending| pending.gpu = true);
     }
 
-    fn schedule(&self, change: impl FnOnce(&mut Pending)) {
+    fn schedule(&self, change: impl FnOnce(&mut MirrorBatch)) {
         schedule(self.display, self.id, &self.slot, change);
     }
 }
 
 /// Change what test window `id` shows next, queueing its flush unless one
 /// is queued already.
-fn schedule(display: &TestDisplay, id: u64, slot: &Slot, change: impl FnOnce(&mut Pending)) {
+fn schedule(display: &TestDisplay, id: u64, slot: &Slot, change: impl FnOnce(&mut MirrorBatch)) {
     let mut pending = lock(slot);
-    change(&mut pending);
-    if !std::mem::replace(&mut pending.scheduled, true) {
-        drop(pending);
+    let schedule = matches!(*pending, MirrorPending::Idle);
+    if schedule {
+        *pending = MirrorPending::Scheduled(MirrorBatch::default());
+    }
+    if let MirrorPending::Scheduled(batch) = &mut *pending {
+        change(batch);
+    }
+    drop(pending);
+    if schedule {
         let _ = display.send(Command::Flush { id });
     }
 }
@@ -498,7 +508,9 @@ impl Display {
         let Some((_, slot)) = &entry.owner else {
             return;
         };
-        let pending = std::mem::take(&mut *lock(slot));
+        let MirrorPending::Scheduled(pending) = std::mem::take(&mut *lock(slot)) else {
+            return;
+        };
         if let Some(title) = pending.title {
             entry.window.set_title(&title);
         }
