@@ -9,7 +9,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP0 | b6e7ff2 | 0 | 0 | 0 | 0 | 1362 passed / 52 ignored | 1349 passed / 51 ignored | 634.8s / 405.6s | 通過 |
 | CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
 | CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
-| CP3 | b0aad13 | 0 | 0 | — | — | 実行中 | — | Clippy 8.69s | 軽い gate 通過、背景 E2E を開始 |
+| CP3 | b0aad13 | 0 | 0 | — | — | 101（失敗4 target）、GPU6 passed | — | Clippy 8.69s | 軽い gate 通過、失敗対象を個別修正中 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -81,8 +81,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G6-4 | merged | 279b508 | 残る catalog/lookbook caller 移行、check 0 |
 | fix-G3-5 | merged | 71e7223 | i18n 条件式の Clippy 修正、check 0 |
 | fix-G6-5 | merged | b0aad13 | RenderOptions の Clippy 修正、check 0 |
-| N-D1 | todo | | |
-| N-D2 | todo | | |
+| N-D1 | doing | | module/facade/prelude の定義 |
+| N-D2 | doing | | trait/型/Node/Part の定義 |
 | N-F1 | todo | | |
 | N-F2 | todo | | |
 | N-F3 | todo | | |

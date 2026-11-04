@@ -222,7 +222,7 @@ data の record と `*Api` の、同じ名詞の setter と読み出し（例: `
 | `Action` | `on_complete(Fn(ActionOutcome<T>))`（builder、`self -> Self`） | `on_done(&self, Fn(&Result<..>))` から |
 | `ToastOptions` | `on_dismiss(Fn(DismissReason))`（`DismissReason::Timeout` を足す） | `on_hide(Fn())` から |
 | `TextEditApi`、`ui::TextInput` | `on_submit(impl Into<Callback<()>>)`、`on_composition_change(Fn(Composition))`、`on_edit(Fn(EditPhase))`、`on_draft_commit(Fn(String))` | `on_composition_change(Fn(bool))` の payload を `Composition` に。`TextInput::draft(on_commit)` を `on_draft_commit` に |
-| `InlineEditApi` | `field(key, label, draft).on_draft_commit(Fn(String))` | 位置引数の `on_commit` から |
+| `InlineEditApi` | `field(key, label, draft) -> TextEditApi`、その `.on_draft_commit(Fn(String)).control()` を描画 node に付ける | interaction は ui に依存しない。label は control の名前、commit/cancel/blur/cleanup は既存動作を保つ |
 | `custom::TextEditing` | `on_text_change(Fn(TextEditEvent))`、`on_selection_change(Fn(TextSession))` | `on_edit(TextEditEvent)`（`EditPhase` の `on_edit` と衝突）と `on_selection` を改名 |
 | `SelectApi`、`ui::Select` | `on_active_change(Fn(Option<K>))`、`on_edit(Fn(EditPhase))`(新) | `on_preview` を改名。`on_edit` を足す |
 | `MenuApi`、`ui::Menu` | `on_activate(Fn(K))` | 位置引数の `choose` から |
@@ -721,7 +721,7 @@ pub fn my_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Compo
 | `ui::TextInput::draft(on_commit)` | `ui::TextInput::on_draft_commit(Fn(String))` | 改名 | N-F/N-G（付録 B.10 の fan-out） |
 | `ui::TextInput::password(..)` | `purpose(impl IntoValue<InputPurpose>)` | 改名・署名の変更 | G-3 |
 | `ui::TextInput::wrap(bool)` | `wrap(impl IntoValue<bool>)` | 署名の変更 | N-F/N-G（付録 B.10 の fan-out） |
-| `ui::InlineEdit::field(key, label, draft, on_commit)` | `InlineEditApi::field(key, label, draft).on_draft_commit(..)` | 署名の変更 | N-F/N-G（付録 B.10 の fan-out） |
+| `ui::InlineEdit::field(key, label, draft, on_commit)` | `InlineEditApi::field(key, label, draft).on_draft_commit(..).control()` を描画 node に付ける | 署名の変更、field は TextEditApi | N-F/N-G（付録 B.10 の fan-out） |
 | `ui::DataTable::on_reorder(Fn((K, usize)) -> T)` | `on_reorder(Fn(Reorder<K>) -> R)`（`kivact::interaction::Reorder`） | 署名の変更 | N-F/N-G（付録 B.10 の fan-out） |
 | `ui::DataTable::tree_expand_all(bool)` | `initially_expanded()` | 改名・署名の変更 | N-F/N-G（付録 B.10 の fan-out） |
 | `ui::DataColumn::{text_of, cell_of, has_cell, is_sortable, is_filtered, is_numeric, width_value, definition}` | `pub(crate)` | 削除 | N-D1 |

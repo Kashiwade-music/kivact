@@ -1429,6 +1429,7 @@ fan-out の各 unit は、自分の crate の全部の file に Phase N の変�
   1. hook の handle を付録 B.10 の `*Api` の名前にする（`Toggle` は `SwitchApi`・`ToggleButtonApi` に分け、`use_switch`・`use_toggle_button` が返す。`toaster()`・`announcer()` の handle は `Toaster`・`Announcer`）。
   2. 全 behavior の part の作り方を `Part::new(state, apply)` にする。part は mount のとき host の node の `disabled`・`invalid`・`name`・`labelled_by`・`described_by` を読んで machine の入力にし、`*Api` に状態の読み出し（例: `SwitchApi::control_state() -> Value<ToggleState>`）を足す（設計書 18.10 節）。
   3. `Selection`・`IntoSelection` を一覧系の behavior の入力にする。`IntoValue<ScalarRange>` を scalar 系の入力にする。`use_inline_edit` を受け入れる。`Reorder<K> { key, to }` をここに置く。
+  4. `InlineEditApi::field(key, label, draft) -> TextEditApi`。既存 ui の text_draft を interaction に移して TextEditApi と ui TextInput が同じ commit/cancel/blur/cleanup の実装を使う。field の label は control に設定し、ui への依存を作らない。fan-out の描画側は `.on_draft_commit(..).control()` を node に付ける。
 - **unit の確認**: `cargo fmt` だけ（build 不可でよい）。
 - **規模**: L。
 - **並列**: N-F1、N-F3〜N-F6 と同時。
