@@ -162,24 +162,36 @@ fn content_width(line: &parley::Line<'_, u32>) -> f64 {
     f64::from(m.advance) - f64::from(m.trailing_whitespace)
 }
 
-/// The width of a line's content in a layout aligned with
-/// [`parley::Alignment::Justify`]: the line's metrics keep the width it
-/// had before its spaces widened, the glyphs' advances do not.
-fn justified_width(line: &parley::Line<'_, u32>) -> f64 {
+/// Import an uncut line's inline endpoints in Parley's native precision.
+///
+/// Alignment offsets and advances are rounded f32 metrics. Adding them only
+/// after widening can expose their rounding residual as an apparent overflow
+/// (for example, 91.000001907 pixels for a native 91-pixel right edge).
+/// Establish both native edges first, then derive the shared f64 width from
+/// those edges. Custom ellipsis shifts and widths stay in f64 in the caller.
+fn native_inline_bounds(line: &parley::Line<'_, u32>, justified: bool) -> (f64, f64) {
     let m = line.metrics();
-    let advance: f64 = line
-        .items()
-        .map(|item| match item {
-            PositionedLayoutItem::GlyphRun(run) => {
-                run.glyphs().map(|g| f64::from(g.advance)).sum::<f64>()
-            }
-            PositionedLayoutItem::InlineBox(item) if item.kind == parley::InlineBoxKind::InFlow => {
-                f64::from(item.width)
-            }
-            PositionedLayoutItem::InlineBox(_) => 0.0,
-        })
-        .sum();
-    advance - f64::from(m.trailing_whitespace)
+    let advance = if justified {
+        // Justification widens glyph advances without updating the line's
+        // pre-justification advance metric, so sum the native placed items.
+        line.items()
+            .map(|item| match item {
+                PositionedLayoutItem::GlyphRun(run) => run.glyphs().map(|g| g.advance).sum::<f32>(),
+                PositionedLayoutItem::InlineBox(item)
+                    if item.kind == parley::InlineBoxKind::InFlow =>
+                {
+                    item.width
+                }
+                PositionedLayoutItem::InlineBox(_) => 0.0,
+            })
+            .sum::<f32>()
+    } else {
+        m.advance
+    };
+    let left = m.inline_min_coord + m.offset;
+    let right = left + (advance - m.trailing_whitespace);
+    let (left, right) = (f64::from(left), f64::from(right));
+    (left, right - left)
 }
 
 /// Whether `style` cuts a line of `layout` broken at `max_width` (an
@@ -313,14 +325,7 @@ pub(crate) fn lines(
                     f64::from(m.inline_min_coord) + f64::from(m.offset) + c.shift,
                     c.width,
                 ),
-                None if justified => (
-                    f64::from(m.inline_min_coord) + f64::from(m.offset),
-                    justified_width(&line),
-                ),
-                None => (
-                    f64::from(m.inline_min_coord) + f64::from(m.offset),
-                    content_width(&line),
-                ),
+                None => native_inline_bounds(&line, justified),
             };
             // The tallest letters of the line's fonts.
             let (mut cap_height, mut x_height) = (0.0f64, 0.0f64);
