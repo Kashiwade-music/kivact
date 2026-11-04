@@ -186,12 +186,7 @@ mod tests {
     use kivact::test::{RenderOptions, render_with};
 
     fn options() -> RenderOptions {
-        RenderOptions {
-            theme: theme(ThemeMode::Light),
-            width: 1000.0,
-            height: 800.0,
-            ..RenderOptions::default()
-        }
+        RenderOptions::default().window_size(1000.0, 800.0).theme(theme(ThemeMode::Light))
     }
 
     #[test]

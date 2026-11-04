@@ -372,12 +372,7 @@ mod tests {
 
     #[test]
     fn a_phone_sized_window_at_double_density() {
-        let options = RenderOptions {
-            width: 390.0,
-            height: 844.0,
-            scale: 2.0,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().window_size(390.0, 844.0).scale(2.0);
         let screen = render_with(options, size_label);
         screen.get_by_text("390 x 844");
         assert_eq!(screen.screenshot().width, 780); // 物理ピクセル
@@ -392,7 +387,7 @@ mod tests {
 
 画面が動いている間は、テストがシステムの役を演じられます: `resize`・`set_scale`・`set_dark`・`set_reduced_motion`・`set_host_locale`・`set_safe_area`・`set_window_focused`・`suspend` と `resume`・`memory_warning`・`lose_surface` と `restore_surface`・`request_close`。プラットフォームのサービスもスクリプト化されています: `clipboard` と `set_clipboard`・`respond_file_dialog`・`respond_files_dialog`・`opened_paths`・`revealed_paths`・`fail_next_platform_request`。[プラットフォームのサービスを使う](platform-services.md) を参照してください。
 
-文字は、既定では**同梱フォント**（Tuffy）で組まれるので、レイアウトと画素はどのマシンでも同じになります。このフォントには日本語などの CJK の字形がありません。そのような文字はどのマシンでも同じ幅を取りますが、空の四角として描かれます。実際の字形でテストするには、同梱するフォントのファイルを使って `fonts: TestFonts::Only(vec![bytes])` を指定するか、`TestFonts::System` でマシンのフォントを使います（その場合、レイアウトはマシンに依存します）。
+文字は、既定では**同梱フォント**（Tuffy）で組まれるので、レイアウトと画素はどのマシンでも同じになります。このフォントには日本語などの CJK の字形がありません。そのような文字はどのマシンでも同じ幅を取りますが、空の四角として描かれます。実際の字形でテストするには、同梱するフォントのファイルを使って `.fonts(TestFonts::Only(vec![Asset::from(bytes)]))` を指定するか、`TestFonts::System` でマシンのフォントを使います（その場合、レイアウトはマシンに依存します）。
 
 ## スクリーンショット
 
@@ -416,11 +411,7 @@ mod tests {
 
     #[test]
     fn the_badge_is_drawn_in_blue() {
-        let options = RenderOptions {
-            width: 200.0,
-            height: 100.0,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().window_size(200.0, 100.0);
         let screen = render_with(options, badge);
         let shot = screen.screenshot();
         assert_eq!((shot.width, shot.height), (200, 100));

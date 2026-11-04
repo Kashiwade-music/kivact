@@ -15,3 +15,5 @@ Kivact is Copyright (c) 2026 Kashiwade <kashiwade@outlook.com> and is licensed u
 Test fixture and font references across packages are test inputs, not permission to expose internal crates through the public facade. License and provenance records must move with assets.
 
 This inventory covers material in this repository. Licenses of Cargo dependencies are declared in their own packages and are not repeated here.
+
+The internal `kivact-test` harness uses the same bundled Tuffy test font and upstream font notices as `kivact-engine`; this move adds no third-party assets.

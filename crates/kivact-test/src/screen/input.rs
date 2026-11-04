@@ -48,10 +48,8 @@ use kivact_types::PointerSample;
 use kivact_types::{self as p, NodeId};
 
 use super::model::{Contact, Element, Screen};
-use crate::view::input::{ButtonPress, Modifiers, MouseButton, PointerKind};
-#[cfg(test)]
-use crate::view::state::ViewState;
-use crate::view::{A11yAction, Key, Role};
+use kivact_core::view::{A11yAction, Key, Role};
+use kivact_core::view::{ButtonPress, Modifiers, MouseButton, PointerKind};
 use kivact_style::draw::{Point, Rect};
 
 /// The text a key types, as the platform reports it with the key.
@@ -802,7 +800,7 @@ impl Screen {
 
     /// The host reports a failure after the last revision it applied.
     pub(crate) fn queue_host_failure(&self, reason: &str) {
-        let revision = kivact_types::Revision(ViewState::tree(&self.rt).engine().stats().revision);
+        let revision = kivact_types::Revision(self.inspect().reader().stats().revision);
         self.host
             .borrow_mut()
             .inject(kivact_engine::contract::HostEvent::HostFailure {

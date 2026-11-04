@@ -1,11 +1,11 @@
 //! Role: Portable platform event injection through the real test window.
 use super::model::Screen;
-use crate::draw::Point;
-use crate::view::{FilePhase, Key, KeyCode, Modifiers};
+use kivact_core::draw::Point;
+use kivact_core::view::{FilePhase, Key, KeyCode, Modifiers};
 use kivact_engine::testing::ShellEvent;
 impl Screen {
     /// Normalize raw platform input through the production shell pipeline.
-    pub fn raw_input(&self, input: crate::test::raw::RawInput) {
+    pub fn raw_input(&self, input: crate::raw::RawInput) {
         self.host.borrow_mut().raw_input(input);
         self.run_until_idle();
     }

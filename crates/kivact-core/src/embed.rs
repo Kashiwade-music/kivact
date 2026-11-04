@@ -17,7 +17,6 @@
 //! # }
 //! ```
 
-use crate::app::check_window_sizes;
 use crate::view::IntoView;
 use crate::{App, Result, UiError};
 use kivact_runtime::ErrorKind;
@@ -31,7 +30,9 @@ use std::panic::Location;
 /// If the parent dies first, the child stops safely without undefined behavior.
 #[derive(Clone)]
 pub struct Parent {
+    // xtask-allow(state-fields): optional validated constructor input, independent of parent scale.
     window: Option<ParentWindow>,
+    // xtask-allow(state-fields): optional host scale configuration, independent of callback presence.
     scale: Option<f64>,
     on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
 }
@@ -106,25 +107,22 @@ impl Parent {
 /// after closure, Kivact keeps its code module mapped until process exit. The
 /// host may unload the plugin after closing the editor.
 pub struct Embedded {
-    host: Option<kivact_engine::embed::EmbeddedHost>,
-    panic: kivact_engine::embed::PanicSlot,
+    // Fields drop in declaration order: stop the host before retaining code
+    // for detached threads and resuming a captured panic.
+    host: kivact_engine::embed::EmbeddedHost,
+    guard: EmbeddedGuard,
 }
 impl Embedded {
-    fn host(&self) -> &kivact_engine::embed::EmbeddedHost {
-        self.host
-            .as_ref()
-            .expect("invariant: host is present until Embedded::drop")
-    }
     /// Set physical size (CLAP `set_size`, VST3 `onSize`). A zero or
     /// platform-oversized dimension is ignored with a warning.
     pub fn set_size(&self, width: u32, height: u32) {
-        self.host().set_size(width, height);
-        self.panic.resume();
+        self.host.set_size(width, height);
+        self.guard.resume();
     }
     /// Last applied physical size (CLAP `get_size`, VST3 `getSize`).
     pub fn size(&self) -> (u32, u32) {
-        let size = self.host().size();
-        self.panic.resume();
+        let size = self.host.size();
+        self.guard.resume();
         size
     }
     /// Set physical pixels per logical pixel, keeping physical size until the
@@ -132,35 +130,64 @@ impl Embedded {
     /// from the host (CLAP `request_resize`, VST3 `resizeView`). A nonfinite or
     /// nonpositive scale is ignored with a warning.
     pub fn set_scale(&self, scale: f64) {
-        self.host().set_scale(scale);
-        self.panic.resume();
+        self.host.set_scale(scale);
+        self.guard.resume();
     }
     /// Last applied scale.
     pub fn scale(&self) -> f64 {
-        let scale = self.host().scale();
-        self.panic.resume();
+        let scale = self.host.scale();
+        self.guard.resume();
         scale
     }
     /// Why the App stopped (a platform failure), or `None`.
     pub fn error(&self) -> Option<UiError> {
         let error = self
-            .host()
+            .host
             .failure()
             .map(|e| UiError::new(ErrorKind::Platform, e.message, None));
-        self.panic.resume();
+        self.guard.resume();
         error
     }
 }
-impl Drop for Embedded {
+type PanicPayload = Box<dyn std::any::Any + Send>;
+enum EmbeddedState {
+    Running,
+    Panicked(PanicPayload),
+    Closed,
+}
+struct EmbeddedGuard {
+    panic: kivact_engine::embed::PanicSlot,
+    state: std::sync::Mutex<EmbeddedState>,
+}
+impl EmbeddedGuard {
+    fn resume(&self) {
+        let mut state = self
+            .state
+            .lock()
+            .expect("invariant: embedded state is not poisoned");
+        if matches!(*state, EmbeddedState::Running)
+            && let Some(payload) = self.panic.take()
+        {
+            *state = EmbeddedState::Panicked(payload);
+        }
+        if matches!(*state, EmbeddedState::Panicked(_)) {
+            let EmbeddedState::Panicked(payload) =
+                std::mem::replace(&mut *state, EmbeddedState::Closed)
+            else {
+                unreachable!("invariant: panicked state contains the original payload")
+            };
+            drop(state);
+            std::panic::resume_unwind(payload);
+        }
+    }
+}
+impl Drop for EmbeddedGuard {
     fn drop(&mut self) {
-        // Dropping the host sets its close flag first: inside an App
-        // callback, the rest of the current event batch is not delivered.
-        drop(self.host.take());
         if kivact_types::process::DetachedThreads::any() {
             kivact_engine::embed::retain_module();
         }
         if !std::thread::panicking() {
-            self.panic.resume();
+            self.resume();
         }
     }
 }
@@ -190,13 +217,14 @@ impl App {
         self.embed_impl(parent, root, Location::caller())
     }
 
+    #[track_caller]
     pub(crate) fn embed_impl<V: IntoView>(
         self,
         parent: Parent,
         root: impl FnOnce() -> V + Send + 'static,
         at: &'static Location<'static>,
     ) -> Result<Embedded> {
-        check_window_sizes(self.window_size, self.min_window_size, at)?;
+        self.options.check_window_sizes()?;
         if parent
             .scale
             .is_some_and(|scale| !scale.is_finite() || scale <= 0.0)
@@ -217,26 +245,35 @@ impl App {
         let panic = kivact_engine::embed::PanicSlot::default();
         let options = kivact_types::EmbedOptions {
             size: self
+                .options
+                .host_options()
                 .window_size
                 .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE),
             scale: parent.scale,
             prefer_gpu: true,
-            gpu_preference: self.gpu_preference,
+            gpu_preference: self.options.host_options().gpu_preference,
         };
         let hooks = kivact_engine::embed::ChildHooks {
             on_resize_request: parent.on_resize_request,
             panic: panic.clone(),
         };
         let opened = kivact_engine::embed::embed_native(window, options, hooks, move |closing| {
-            self.app_client(root, at)
-                .with_embed_closing(closing)
-                .into_client(None)
+            crate::launch::Launch::new(
+                self.options,
+                crate::launch::ClientMode::Embedded(closing),
+                move || root().into_view(),
+            )
+            .into_engine_client()
+            .0
         });
         match opened {
             Ok(host) => {
                 let embedded = Embedded {
-                    host: Some(host),
-                    panic: panic.clone(),
+                    host,
+                    guard: EmbeddedGuard {
+                        panic: panic.clone(),
+                        state: std::sync::Mutex::new(EmbeddedState::Running),
+                    },
                 };
                 // A pending payload unwinds from here; dropping `embedded`
                 // closes the host first.

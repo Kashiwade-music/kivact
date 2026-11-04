@@ -11,10 +11,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
 }
 
 #[test]

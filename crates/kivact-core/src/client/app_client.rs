@@ -9,10 +9,9 @@ use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
 use kivact_types::Size;
 
 use crate::client::state::HostState;
-use crate::i18n::Messages;
+use crate::i18n::{Locale, Messages};
 use crate::view::View;
 use crate::view::requests;
-use crate::view::root::AppSettings;
 use crate::view::state::ViewState;
 use crate::view::text_edits::TextEditsAhead;
 use kivact_runtime::TaskState;
@@ -27,46 +26,162 @@ use kivact_style::asset::Asset;
 /// the rest is cut as a `Cycle`.
 const USER_EFFECT_ROUNDS: usize = 100;
 
-/// What an App starts with (its `App` settings and root view);
-/// `AppClient::start` consumes it.
-pub(crate) struct AppConfig {
-    pub(crate) title: String,
-    pub(crate) settings: AppSettings,
-    /// Fonts registered before the root is mounted (`App::font`): their
-    /// `RegisterFont` effects come first in the first revision, so the first
-    /// layout measures with them. A rejected font is reported as
-    /// `ErrorKind::Asset`.
-    pub(crate) fonts: Vec<(Asset, &'static Location<'static>)>,
-    /// The window's minimum size (`None`: no minimum), validated by `App::run`.
-    pub(crate) min_window_size: Option<Size>,
-    /// Builds the root view, in a setup frame of the root owner.
-    pub(crate) root: Box<dyn FnOnce() -> View>,
+/// An application: title, window size, theme, fonts and the root
+/// component.
+#[derive(Clone)]
+pub struct AppOptions {
+    title: String,
+    theme: Theme,
+    /// `None`: the system's locale (`App::locale`).
+    locale: Option<Locale>,
+    messages: Messages,
+    /// The window's first size (`window_size`); the engine's default when
+    /// `None`.
+    window_size: Option<Size>,
+    /// The window's minimum size (`min_window_size`).
+    min_window_size: Option<Size>,
+    blocking_threads: Option<usize>,
+    fonts: Vec<(Asset, &'static Location<'static>)>,
+    /// How the window's GPU device is made (`gpu_preference`).
+    gpu_preference: kivact_types::GpuPreference,
 }
 
-impl AppConfig {
-    /// An App titled `title` with `theme`, the host's locale, the default
-    /// messages, no fonts and no minimum size.
-    pub(crate) fn new(title: String, theme: Theme, root: Box<dyn FnOnce() -> View>) -> Self {
-        AppConfig {
-            title,
-            settings: AppSettings {
-                theme,
-                locale: None,
-                messages: Messages::new(),
-            },
-            fonts: Vec::new(),
+impl AppOptions {
+    /// An app whose window is titled `title`, with the default theme.
+    pub fn new(title: impl Into<String>) -> AppOptions {
+        AppOptions {
+            title: title.into(),
+            theme: Theme::default(),
+            locale: None,
+            messages: Messages::new(),
+            window_size: None,
             min_window_size: None,
-            root,
+            blocking_threads: None,
+            fonts: Vec::new(),
+            gpu_preference: kivact_types::GpuPreference::default(),
         }
+    }
+
+    /// Theme of the whole App (to switch it at runtime, wrap the root in
+    /// `view::provide_theme` with a `Signal<Theme>`).
+    pub fn theme(mut self, theme: Theme) -> Self {
+        self.theme = theme;
+        self
+    }
+
+    /// The App's locale: the language and region components format for.
+    /// Without it the App speaks the system's locale (`en-US` where the
+    /// system names none) and follows it when the user changes it while
+    /// the App runs; with it the App keeps this locale whatever the system
+    /// says. To switch it at runtime, wrap the root in
+    /// [`view::provide_locale`](crate::view::provide_locale) with a `Signal<Locale>`. Read it with
+    /// [`i18n::locale`](crate::i18n::locale).
+    pub fn locale(mut self, locale: Locale) -> Self {
+        self.locale = Some(locale);
+        self
+    }
+
+    /// The App's texts: the replacements for the default (English) texts
+    /// of components, by key (`"dialog.close"`). Each component lists its
+    /// keys. To switch them at runtime, wrap the root in
+    /// [`view::provide_messages`](crate::view::provide_messages) with a `Signal<Messages>`.
+    pub fn messages(mut self, messages: Messages) -> Self {
+        self.messages = messages;
+        self
+    }
+
+    /// The window's first content size in logical pixels (default 960 by
+    /// 720), e.g. `.window_size(1280, 800)`. The user can resize the
+    /// window afterwards; read the current size with
+    /// [`platform::window_size`](crate::platform::window_size) (to save it for the next start, say).
+    /// Both values must be finite, at least one logical pixel, fit the native
+    /// window extent, and not be smaller than
+    /// [`crate::App::min_window_size`]: otherwise [`crate::App::run`] returns an error
+    /// of kind `ErrorKind::Message` without opening the window.
+    pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
+        self.window_size = Some(Size::new(width.into(), height.into()));
+        self
+    }
+
+    /// The smallest content size in logical pixels the user can resize the
+    /// window to, e.g. `.min_window_size(480, 320)` (default: no minimum).
+    /// Both values must be finite, at least one logical pixel, fit the native
+    /// window extent, and not be larger than
+    /// [`crate::App::window_size`] when that is set: otherwise [`crate::App::run`]
+    /// returns an error of kind `ErrorKind::Message` without opening the
+    /// window.
+    pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
+        self.min_window_size = Some(Size::new(width.into(), height.into()));
+        self
+    }
+
+    /// Register the fonts of a TTF, OTF or TTC file before the first
+    /// screen, so text can name their families with
+    /// `style().font_family(..)` from the start (like CSS `@font-face`).
+    /// Call it once per file; a family is the name written in the font,
+    /// not the file name. Usually embedded:
+    /// `.font(include_bytes!("../assets/Inter-Regular.ttf"))`. A file that
+    /// is not a usable font (WOFF, unreadable) is reported as
+    /// `ErrorKind::Asset`, located here; the App starts anyway.
+    #[track_caller]
+    pub fn font(mut self, font: impl Into<Asset>) -> Self {
+        self.fonts.push((font.into(), Location::caller()));
+        self
+    }
+
+    /// What the App wishes of the window's GPU device (experimental,
+    /// feature `gpu-interop`): the kind of adapter, the graphics API and
+    /// the adapter itself (default: Arvane's own choice). A wish: the
+    /// device is made on another adapter or API when the one asked for is
+    /// not there, and the environment variables `WGPU_BACKEND` and
+    /// `WGPU_POWER_PREF` override it. Read the adapter the device is on
+    /// with [`gpu_interop::adapter`](crate::gpu_interop::adapter).
+    #[cfg(feature = "gpu-interop")]
+    pub fn gpu_preference(mut self, preference: crate::gpu_interop::GpuPreference) -> Self {
+        self.gpu_preference = preference;
+        self
+    }
+
+    /// Size of the blocking pool (default `min(4, CPUs)`).
+    pub fn blocking_threads(mut self, n: usize) -> Self {
+        self.blocking_threads = Some(n.max(1));
+        self
+    }
+
+    #[track_caller]
+    pub fn check_window_sizes(&self) -> crate::Result<()> {
+        crate::app::check_window_sizes(self.window_size, self.min_window_size, Location::caller())
+    }
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = title.into();
+        self
+    }
+    /// Initial engine settings, derived from the application options.
+    pub fn host_options(&self) -> kivact_engine::api::HostOptions {
+        #[cfg(feature = "gpu-interop")]
+        let gpu_preference = self.gpu_preference;
+        #[cfg(not(feature = "gpu-interop"))]
+        let gpu_preference = kivact_types::GpuPreference::default();
+        kivact_engine::api::HostOptions {
+            window_size: self.window_size,
+            gpu_preference,
+        }
+    }
+    /// The single title used for both engine startup and later window effects.
+    pub fn window_title(&self) -> &str {
+        &self.title
+    }
+    pub(crate) fn into_view_settings(self) -> (Theme, Option<crate::i18n::Locale>, Messages) {
+        (self.theme, self.locale, self.messages)
     }
 }
 
 /// Whether the host started the App.
-enum Launch {
+enum LaunchState {
     /// Waiting for the host's `start`, which consumes the config.
     Waiting {
-        config: Box<AppConfig>,
-        threads: Option<usize>,
+        options: Box<AppOptions>,
+        root: Box<dyn FnOnce() -> View>,
     },
     /// The host started the App.
     Started(Started),
@@ -85,73 +200,55 @@ impl kivact_runtime::Host for ClientHost {
     }
 }
 
-pub(crate) struct AppClient {
-    #[cfg(debug_assertions)]
-    trace_name: Option<String>,
+pub struct Launch {
     /// Where the App was started: the location of the root owner.
     at: &'static Location<'static>,
-    launch: Launch,
-    /// The embedder's close flag, set by `Embedded::drop`: the turn in
-    /// progress finishes, but the rest of its event batch is not delivered.
-    /// `None`: the App has a window of its own.
-    embed_closing: Option<kivact_engine::contract::CloseSignal>,
+    launch: LaunchState,
+    /// Host mode and its close/timing protocol for this application.
+    mode: ClientMode,
 }
 
-impl AppClient {
-    /// An App started with `config` when the host starts; `threads` sizes
-    /// the blocking pool (default `min(4, CPUs)`). `at` is where the App
-    /// was started (`App::run`, `test::render`): diagnostics name the root
-    /// owner by it.
-    pub(crate) fn new(
-        config: AppConfig,
-        threads: Option<usize>,
-        at: &'static Location<'static>,
+impl Launch {
+    /// Prepare an application; the engine constructs its runtime at start.
+    #[track_caller]
+    pub fn new(
+        options: AppOptions,
+        mode: ClientMode,
+        root: impl FnOnce() -> View + 'static,
     ) -> Self {
-        AppClient {
-            at,
-            launch: Launch::Waiting {
-                config: Box::new(config),
-                threads,
+        Self {
+            at: Location::caller(),
+            launch: LaunchState::Waiting {
+                options: Box::new(options),
+                root: Box::new(root),
             },
-            #[cfg(debug_assertions)]
-            trace_name: None,
-            embed_closing: None,
+            mode,
         }
     }
 
-    pub(crate) fn with_embed_closing(
-        mut self,
-        closing: kivact_engine::contract::CloseSignal,
-    ) -> Self {
-        self.embed_closing = Some(closing);
-        self
-    }
-
-    fn embed_closing(&self) -> bool {
-        if let Some(closing) = &self.embed_closing {
-            return closing.is_set();
-        }
-        false
+    pub fn into_engine_client(self) -> (Client, LaunchHandle) {
+        let timing = match &self.mode {
+            ClientMode::Test(TestTiming(timing)) => Some(timing.clone()),
+            _ => None,
+        };
+        let shared = Rc::new(RefCell::new(self));
+        (
+            Self::shared_client(shared.clone(), timing),
+            LaunchHandle(shared),
+        )
     }
 
     /// The App's runtime (the Testing Library reads the tree and the
     /// extensions through it).
-    pub(crate) fn runtime(&self) -> &Rc<Runtime> {
+    fn runtime(&self) -> &Rc<Runtime> {
         match &self.launch {
-            Launch::Started(started) => &started.rt,
-            Launch::Waiting { .. } => panic!("invariant: runtime is available after host start"),
+            LaunchState::Started(started) => &started.rt,
+            LaunchState::Waiting { .. } => {
+                panic!("invariant: runtime is available after host start")
+            }
         }
     }
-    #[cfg(debug_assertions)]
-    pub(crate) fn set_trace_name(&mut self, name: String) {
-        self.trace_name = Some(name);
-    }
-
-    /// Adapt the runtime owner to the engine's concrete callback bundle.
-    pub(crate) fn into_client(self, timing: Option<Rc<dyn Fn(u64)>>) -> Client {
-        Self::shared_client(Rc::new(RefCell::new(self)), timing)
-    }
-    pub(crate) fn shared_client(
+    fn shared_client(
         shared: Rc<RefCell<Self>>,
         timing: Option<Rc<dyn Fn(u64)>>,
     ) -> Client {
@@ -170,22 +267,19 @@ impl AppClient {
     }
 }
 
-impl AppClient {
+impl Launch {
     fn start(&mut self, info: &HostInfo, waker: HostWaker, writer: Writer) {
-        let (config, threads) = match &mut self.launch {
-            Launch::Waiting { config, threads } => (config, *threads),
-            Launch::Started(_) => unreachable!("invariant: host starts an App once"),
+        let (options, _) = match &mut self.launch {
+            LaunchState::Waiting { options, root } => (options, root),
+            LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        #[cfg(debug_assertions)]
-        let trace_name = self.trace_name.clone();
         let ready = waker.clone();
-        let mut built_env = None;
         let rt = Runtime::new(
             Rc::new(ClientHost(waker)),
             ThreadWaker::new(move || ready.wake()),
             RuntimeConfig {
                 start_ns: info.now_ns,
-                blocking_threads: threads,
+                blocking_threads: options.blocking_threads,
                 at: self.at,
             },
             |_rt, root| {
@@ -200,15 +294,19 @@ impl AppClient {
                     surface_active: kivact_runtime::Value::from(env.surface_active),
                     frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
                 };
-                built_env = Some(env);
-                let extensions = Extensions::new().with(ViewState::new()).with(motion_env);
+                let view = ViewState::new(
+                    root,
+                    info,
+                    writer.clone(),
+                    env,
+                    options.min_window_size,
+                    self.at,
+                );
+                let extensions = Extensions::new().with(view).with(motion_env);
                 let extensions = extensions.with(crate::gpu_interop::State::default());
                 #[cfg(debug_assertions)]
                 let extensions = {
                     let trace = crate::client::trace::Trace::default();
-                    if let Some(name) = &trace_name {
-                        trace.open(name);
-                    }
                     extensions.with(trace)
                 };
                 extensions
@@ -218,31 +316,20 @@ impl AppClient {
         );
         let setup = rt.begin_setup();
         let root_owner = rt.root();
-        // The tree (with the root node), the environment, the focus source
-        // and the capabilities exist before anything writes or reads them.
-        crate::view::root::start(
-            &rt,
-            root_owner,
-            info,
-            writer.clone(),
-            built_env.expect("invariant: runtime construction builds the environment"),
-            config.min_window_size,
-            self.at,
-        );
         #[cfg(debug_assertions)]
         crate::client::trace::event(&rt, format_args!("host_events start {info:?}"));
-        writer.set_window(std::mem::take(&mut config.title), config.min_window_size);
+        writer.set_window(std::mem::take(&mut options.title), options.min_window_size);
         // The App's fonts precede the root's mount (the engine registers
         // a font when it is written, so the first layout uses them).
-        requests::register_app_fonts(&rt, std::mem::take(&mut config.fonts));
-        let config = match std::mem::replace(
+        requests::register_app_fonts(&rt, std::mem::take(&mut options.fonts));
+        let (options, root) = match std::mem::replace(
             &mut self.launch,
-            Launch::Started(Started { rt: rt.clone() }),
+            LaunchState::Started(Started { rt: rt.clone() }),
         ) {
-            Launch::Waiting { config, .. } => *config,
-            Launch::Started(_) => unreachable!("invariant: host starts an App once"),
+            LaunchState::Waiting { options, root } => (*options, root),
+            LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        crate::view::root::mount_root(&rt, root_owner, config.settings, config.root, self.at);
+        crate::view::root::mount_root(&rt, root_owner, options, root, self.at);
         // What the platform cannot do is diagnosed, not silently ignored:
         // `tracing` says it at start, and the turn trace when the App
         // relies on it (`platform::safe_area`).
@@ -298,7 +385,7 @@ impl AppClient {
         acknowledge(0);
         let mut delivered = 0;
         for event in events {
-            if self.embed_closing() {
+            if matches!(&self.mode, ClientMode::Embedded(closing) if closing.is_set()) {
                 break;
             }
             turn.stage(Stage::Dispatch);
@@ -372,9 +459,9 @@ fn output(report: TurnReport) -> TurnOutput {
     }
 }
 
-impl Drop for AppClient {
+impl Drop for Launch {
     fn drop(&mut self) {
-        let Launch::Started(started) = &self.launch else {
+        let LaunchState::Started(started) = &self.launch else {
             return;
         };
         let rt = &started.rt;
@@ -398,7 +485,9 @@ impl Drop for AppClient {
         }
         // Opening may fail before an Embedded is returned, or its drop may
         // precede deferred callback cleanup. Record task retention here too.
-        if self.embed_closing.is_some() && kivact_types::process::DetachedThreads::any() {
+        if matches!(self.mode, ClientMode::Embedded(_))
+            && kivact_types::process::DetachedThreads::any()
+        {
             kivact_engine::embed::retain_module();
         }
     }
@@ -497,4 +586,181 @@ fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
     }
     turn.stamp_mounts(kivact_types::Revision(revision));
     writes
+}
+
+/// The engine host driving this application.
+pub enum ClientMode {
+    Window,
+    Embedded(kivact_engine::contract::CloseSignal),
+    Test(TestTiming),
+}
+/// Reports the duration of each core turn to the test harness.
+pub struct TestTiming(pub Rc<dyn Fn(u64)>);
+/// Read-only handle shared with an engine client.
+pub struct LaunchHandle(Rc<RefCell<Launch>>);
+pub struct Inspect<'a> {
+    launch: std::cell::Ref<'a, Launch>,
+}
+impl LaunchHandle {
+    pub fn inspect(&self) -> Option<Inspect<'_>> {
+        let launch = self.0.borrow();
+        if matches!(launch.launch, LaunchState::Started(_)) {
+            Some(Inspect { launch })
+        } else {
+            None
+        }
+    }
+}
+impl Inspect<'_> {
+    fn rt(&self) -> &Runtime {
+        self.launch.runtime()
+    }
+    pub fn reader(&self) -> kivact_engine::api::Reader {
+        ViewState::tree(self.rt()).reader()
+    }
+    pub fn root(&self) -> kivact_types::NodeId {
+        ViewState::tree(self.rt()).root
+    }
+    pub fn app_view(&self) -> Option<kivact_types::NodeId> {
+        ViewState::tree(self.rt())
+            .get(self.root())
+            .and_then(|n| n.children.first().copied())
+    }
+    pub fn located_at(&self, node: kivact_types::NodeId) -> Option<&'static Location<'static>> {
+        ViewState::tree(self.rt()).get(node).and_then(|n| n.at)
+    }
+    pub fn contains(&self, node: kivact_types::NodeId) -> bool {
+        ViewState::tree(self.rt()).contains(node)
+    }
+    pub fn why(&self, node: kivact_types::NodeId) -> crate::diagnostics::Why {
+        crate::diagnostics::why::explain(self.rt(), node)
+    }
+    pub fn turns(&self) -> Vec<kivact_runtime::TurnRecord> {
+        self.rt().turns()
+    }
+    #[cfg(debug_assertions)]
+    pub fn open_trace(&self, name: &str) {
+        crate::client::trace::Trace::of(self.rt()).open(name);
+    }
+}
+
+impl Inspect<'_> {
+    pub fn stats(&self) -> crate::diagnostics::Stats {
+        let ts = ViewState::tree(self.rt()).engine().stats();
+        let host = HostState::of(self.rt());
+        let live = self.rt().live_counts();
+        let motion = kivact_runtime::MotionState::of(self.rt()).stats();
+        crate::diagnostics::Stats {
+            live_reactive: live.reactive,
+            live_owners: live.owners,
+            live_objects: live.objects,
+            live_constants: live.constants,
+            arena_slots: live.slots,
+            tree_nodes: ViewState::tree(self.rt()).len(),
+            timers: TaskState::of(self.rt()).stats().timers,
+            frame_loops: motion.loops,
+            animations: motion.animations,
+            batches: ts.batches,
+            a11y_constructed: ts.a11y_constructed,
+            a11y_published: ts.a11y_published,
+            ops: ts.ops,
+            last_batch_ops: ts.last_ops,
+            creates: ts.creates,
+            set_props: ts.set_props,
+            structural: ts.structural,
+            host_touched_last: ts.touched_last,
+            turns: host.turns(),
+            stale_events: host.stale_events(),
+            core_ns: 0,
+        }
+    }
+}
+
+impl Inspect<'_> {
+    pub fn errors(&self) -> Vec<UiError> {
+        self.rt().errors()
+    }
+    pub fn pending(&self) -> bool {
+        let pending = self.rt().pending();
+        pending.turn_requested
+            || pending.user
+            || pending.render
+            || TaskState::of(self.rt()).has_ready()
+    }
+    pub fn outstanding_blocking(&self) -> usize {
+        TaskState::of(self.rt()).stats().outstanding_blocking
+    }
+    pub fn motion_ticks(&self) -> u64 {
+        kivact_runtime::MotionState::of(self.rt()).stats().ticks
+    }
+}
+
+#[cfg(debug_assertions)]
+impl Inspect<'_> {
+    pub fn check_trees(&self) -> Result<(), String> {
+        let tree = ViewState::tree(self.rt());
+        let reader = tree.reader();
+        let mut seen = std::collections::HashSet::new();
+        let mut stack = vec![tree.root];
+        let mut host_ids = std::collections::HashSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                return Err(format!("core node {} is reachable twice", id.0));
+            }
+            let node = tree
+                .get(id)
+                .ok_or_else(|| format!("core child {} has no record", id.0))?;
+            stack.extend(node.children.iter().copied());
+            if !node.is_host() {
+                continue;
+            }
+            host_ids.insert(id);
+            let kind = reader.with_node(id, |n| n.map(|n| n.kind.node_type()));
+            if node.kind != kind {
+                return Err(format!("node {} kind {:?} vs {:?}", id.0, node.kind, kind));
+            }
+            let mut children = Vec::new();
+            let mut pending: Vec<_> = node.children.iter().rev().copied().collect();
+            while let Some(child) = pending.pop() {
+                let child_node = tree
+                    .get(child)
+                    .ok_or_else(|| format!("core child {} has no record", child.0))?;
+                if child_node.is_host() {
+                    children.push(child);
+                } else {
+                    pending.extend(child_node.children.iter().rev().copied());
+                }
+            }
+            if children != reader.children(id) {
+                return Err(format!(
+                    "node {} children {:?} vs {:?}",
+                    id.0,
+                    children,
+                    reader.children(id)
+                ));
+            }
+        }
+        if seen.len() != tree.len() {
+            return Err(format!(
+                "core tree holds {} records, {} reachable",
+                tree.len(),
+                seen.len()
+            ));
+        }
+        let mut engine_ids = std::collections::HashSet::new();
+        let mut stack = vec![tree.root];
+        while let Some(id) = stack.pop() {
+            if !engine_ids.insert(id) {
+                return Err(format!("engine node {} reachable twice", id.0));
+            }
+            stack.extend(reader.children(id));
+        }
+        if engine_ids != host_ids {
+            return Err(format!(
+                "core host nodes {:?} differ from engine {:?}",
+                host_ids, engine_ids
+            ));
+        }
+        Ok(())
+    }
 }

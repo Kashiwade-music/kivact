@@ -8,11 +8,9 @@ use kivact::view::{LiveRegion, Role, show};
 use kivact_ui_soft::empty_state;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        mirror: MirrorMode::Off,
-        ..RenderOptions::default()
-    }
+    RenderOptions::default()
+        .theme(kivact_ui_soft::theme(ThemeMode::Light))
+        .mirror(MirrorMode::Off)
 }
 
 #[test]

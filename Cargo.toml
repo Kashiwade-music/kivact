@@ -2,6 +2,7 @@
 members = [
     "crates/kivact",
     "crates/kivact-core",
+    "crates/kivact-test",
     "dev/tests/kivact-public-api",
     "crates/kivact-runtime",
     "crates/kivact-i18n",

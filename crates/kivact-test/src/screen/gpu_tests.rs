@@ -13,8 +13,8 @@
 
 use std::panic::Location;
 
-use crate::control::image;
-use crate::draw::{
+use kivact_core::control::image;
+use kivact_core::draw::{
     BlendMode, Filter, Shadow, Shape, Transform, conic_gradient, linear_gradient, radial_gradient,
 };
 use kivact_engine::testing::{Renderer, gpu_unavailable};
@@ -24,18 +24,18 @@ use kivact_style::{BorderStyle, Direction, Position, rgb};
 use super::model::Screen;
 use super::results::Screenshot;
 use super::support::button_box;
-use crate::control::canvas;
-use crate::draw::{Point, Rect};
-use crate::prelude::{IntoView, NodeBuilder, column, node, row, style, text};
-use crate::test::{MirrorMode, RenderOptions};
+use crate::{MirrorMode, RenderOptions};
+use kivact_core::control::canvas;
+use kivact_core::draw::{Point, Rect};
+use kivact_core::prelude::{IntoView, NodeBuilder, column, node, row, style, text};
 use kivact_style::{Align, Color, Justify, pct, rgba};
 
 /// A 2 × 2 RGBA PNG (stretched and sampled bilinearly) and a two-color
 /// SVG with a translucent half (rasterized at its drawn size).
 static PNG: &[u8] =
-    include_bytes!("../../../../../dev/tests/kivact-public-api/tests/fixtures/rgba.png");
+    include_bytes!("../../../../dev/tests/kivact-public-api/tests/fixtures/rgba.png");
 static SVG: &[u8] =
-    include_bytes!("../../../../../dev/tests/kivact-public-api/tests/fixtures/shapes.svg");
+    include_bytes!("../../../../dev/tests/kivact-public-api/tests/fixtures/shapes.svg");
 
 /// Text, rounded and bordered boxes with blurred shadows, a gradient, a
 /// translucent layer, a clipped overflow and images (stretched, faded):
@@ -304,14 +304,11 @@ fn shot(gpu: bool) -> (Screenshot, Option<Renderer>) {
 }
 
 #[track_caller]
-fn shot_of(gpu: bool, scene: fn() -> crate::view::View) -> (Screenshot, Option<Renderer>) {
+fn shot_of(gpu: bool, scene: fn() -> kivact_core::view::View) -> (Screenshot, Option<Renderer>) {
     let screen = Screen::start(
-        RenderOptions {
-            width: 480.0,
-            height: 360.0,
-            mirror: MirrorMode::Required,
-            ..RenderOptions::default()
-        },
+        RenderOptions::default()
+            .window_size(480.0, 360.0)
+            .mirror(MirrorMode::Required),
         gpu,
         Vec::new(),
         Box::new(scene),
@@ -360,12 +357,9 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
     }
     let shot = |gpu| {
         let screen = Screen::start(
-            RenderOptions {
-                width: 180.0,
-                height: 100.0,
-                mirror: MirrorMode::Required,
-                ..RenderOptions::default()
-            },
+            RenderOptions::default()
+                .window_size(180.0, 100.0)
+                .mirror(MirrorMode::Required),
             gpu,
             Vec::new(),
             Box::new(|| {
@@ -379,9 +373,9 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
                             .hover(style().background(rgb(0x0000ff)).translate(20, 0))
                             .transition(
                                 kivact_style::TransitionProp::Paint,
-                                crate::motion::Transition::tween(
+                                kivact_core::motion::Transition::tween(
                                     200,
-                                    crate::motion::Easing::Linear,
+                                    kivact_core::motion::Easing::Linear,
                                 ),
                             ),
                     )
@@ -403,8 +397,8 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
 }
 
 fn canvas_vocabulary() -> impl IntoView {
-    use crate::draw::{ImageOptions, Layer, Path, Pixels, TextBaseline, TextStyle};
-    use crate::draw::{LineCap, Stroke};
+    use kivact_core::draw::{ImageOptions, Layer, Path, Pixels, TextBaseline, TextStyle};
+    use kivact_core::draw::{LineCap, Stroke};
     use kivact_style::TextAlign;
     canvas(|d, size| {
         d.layer(
@@ -539,13 +533,10 @@ fn gpu_frames_follow_a_scale_change() {
     }
     let start = |gpu: bool, scale: f64| {
         Screen::start(
-            RenderOptions {
-                width: 480.0,
-                height: 360.0,
-                scale,
-                mirror: MirrorMode::Required,
-                ..RenderOptions::default()
-            },
+            RenderOptions::default()
+                .window_size(480.0, 360.0)
+                .scale(scale)
+                .mirror(MirrorMode::Required),
             gpu,
             Vec::new(),
             Box::new(|| representative().into_view()),

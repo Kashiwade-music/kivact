@@ -517,22 +517,7 @@ impl Tree {
             })
         })
     }
-    #[cfg(feature = "test")]
-    pub(crate) fn input_value(&self, id: NodeId) -> Option<String> {
-        self.reader()
-            .edit_state(id)
-            .map(kivact_editing::EditState::into_value)
-    }
-    #[cfg(feature = "test")]
-    pub(crate) fn placeholder(&self, id: NodeId) -> Option<String> {
-        self.with_node(id, |node| {
-            node.and_then(|node| {
-                node.editing
-                    .as_ref()
-                    .and_then(|data| data.placeholder.clone())
-            })
-        })
-    }
+
     pub(crate) fn overlay(&self, id: NodeId) -> Option<kivact_types::OverlayProps> {
         self.with_node(id, |node| {
             node.and_then(|node| match &node.kind {
@@ -553,34 +538,7 @@ impl Tree {
                 .and_then(|semantics| semantics.role)
         })
     }
-    #[cfg(feature = "test")]
-    pub(crate) fn value(&self, id: NodeId) -> Option<String> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.value_text.clone())
-        })
-    }
-    #[cfg(feature = "test")]
-    pub(crate) fn selected(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.selected)
-        })
-    }
-    #[cfg(feature = "test")]
-    pub(crate) fn checked(&self, id: NodeId) -> Option<kivact_types::CheckedState> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.checked)
-        })
-    }
-    #[cfg(feature = "test")]
-    pub(crate) fn expanded(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.expanded)
-        })
-    }
+
     pub(crate) fn hidden(&self, id: NodeId) -> Option<bool> {
         self.with_node(id, |node| node.and_then(|node| node.input.hidden))
     }
@@ -677,15 +635,6 @@ impl Tree {
         if self.nodes.contains_key(&id) {
             self.engine().observe_layout(id, on);
         }
-    }
-
-    /// The test id of node `id` (`.test_id(..)`), as the engine holds it.
-    #[cfg(feature = "test")]
-    pub(crate) fn test_id(&self, id: NodeId) -> Option<String> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.test_id.clone())
-        })
     }
 
     /// Whether node `id` has a record: it was created and not removed (it may be a
@@ -912,7 +861,6 @@ impl Tree {
     }
 
     /// Number of nodes (the Testing Library's `Stats`).
-    #[cfg(feature = "test")]
     pub(crate) fn len(&self) -> usize {
         self.nodes.len()
     }

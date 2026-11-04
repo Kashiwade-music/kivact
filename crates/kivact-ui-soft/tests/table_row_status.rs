@@ -9,10 +9,7 @@ use std::time::Duration;
 fn row_status_has_a_named_tooltip_and_a_logical_leading_lane() {
     for direction in [ReadingDirection::Ltr, ReadingDirection::Rtl] {
         let screen = render_with(
-            RenderOptions {
-                theme: kivact_ui_soft::theme(ThemeMode::Light),
-                ..RenderOptions::from_env()
-            },
+            RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
             move || {
                 provide_direction(direction, || {
                     data_table(

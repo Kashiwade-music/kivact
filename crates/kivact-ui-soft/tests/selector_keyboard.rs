@@ -7,10 +7,7 @@ use kivact::view::{Key, Role};
 use kivact_ui_soft::{selector, theme};
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: theme(ThemeMode::Light),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(theme(ThemeMode::Light))
 }
 
 fn choices() -> Vec<ListItem<&'static str>> {

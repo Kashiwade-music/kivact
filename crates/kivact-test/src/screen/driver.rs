@@ -9,15 +9,12 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use kivact_engine::testing::GpuMode;
-use kivact_engine::testing::{ArvaneTestHost, TestFonts as HostFonts, TestHostOptions};
-use kivact_types as p;
+use kivact_engine::testing::ArvaneTestHost;
 
 use super::model::{FIND_TIMEOUT, Record, Screen};
-use crate::client::{AppClient, AppConfig};
-use crate::test::options::{RenderOptions, TestFonts};
-use crate::view::View;
-use kivact_runtime::TaskState;
+use crate::RenderOptions;
+use kivact_core::launch::{ClientMode, Launch, TestTiming};
+use kivact_core::view::View;
 use kivact_style::asset::Asset;
 
 /// Turns a settle may run before the App is declared never settling.
@@ -27,6 +24,7 @@ impl Screen {
     /// Mount `root` on the test driver with `options`, the App fonts
     /// `fonts` (as `App::font` passes them), drawing on the GPU when `gpu`
     /// (the GPU smoke test), and settle.
+    #[track_caller]
     pub(crate) fn start(
         options: RenderOptions,
         gpu: bool,
@@ -34,64 +32,24 @@ impl Screen {
         root: Box<dyn FnOnce() -> View>,
         at: &'static Location<'static>,
     ) -> Screen {
-        let mut config = AppConfig::new("test".into(), options.theme.clone(), root);
-        config.settings.locale = options.locale.clone();
-        config.settings.messages = options.messages.clone();
-        config.fonts = fonts;
-        let client = AppClient::new(config, Some(2), at);
-        Screen::start_client(options, gpu, client, at)
-    }
-
-    /// Mount the App of `client` (built as `Screen::start` builds it, with
-    /// any further App settings) on the test driver and settle.
-    pub(crate) fn start_client(
-        options: RenderOptions,
-        gpu: bool,
-        mut client: AppClient,
-        at: &'static Location<'static>,
-    ) -> Screen {
         let record = Rc::new(Record::default());
         let name = super::artifacts::test_name(at);
-        #[cfg(debug_assertions)]
-        client.set_trace_name(name.clone());
-        let scale = options.scale;
-        let host_options = TestHostOptions {
-            width: options.width,
-            height: options.height,
-            scale: options.scale,
-            fonts: match options.fonts {
-                TestFonts::Bundled => HostFonts::Bundled,
-                TestFonts::Only(fonts) => HostFonts::Only(fonts),
-                TestFonts::System => HostFonts::System,
-            },
-            mirror: options.mirror,
-            title: options.title.unwrap_or_else(|| name.clone()),
-            frame_period_ns: options.frame_period_ns,
-            theme: if options.dark {
-                p::ThemeHint::Dark
-            } else {
-                p::ThemeHint::Light
-            },
-            reduced_motion: options.reduced_motion,
-            locale: options.host_locale.clone(),
-            inline_assets: true,
-            gpu: if gpu { GpuMode::Required } else { GpuMode::Off },
-            gpu_preference: options.gpu_preference,
-        };
+        let (app, host_options) = options.into_host(gpu, fonts);
+        let scale = host_options.scale;
         let timed = record.clone();
-        let shared = Rc::new(RefCell::new(client));
-        let client = AppClient::shared_client(
-            shared.clone(),
-            Some(Rc::new(move |elapsed| {
+        let (client, launch) = Launch::new(
+            app,
+            ClientMode::Test(TestTiming(Rc::new(move |elapsed| {
                 timed.core_ns.set(timed.core_ns.get() + elapsed);
-            })),
-        );
+            }))),
+            root,
+        )
+        .into_engine_client();
         let host = ArvaneTestHost::new(client, host_options)
             .unwrap_or_else(|e| panic!("kivact test: the Arvane test host did not start: {e}"));
-        let rt = shared.borrow().runtime().clone();
         let s = Screen {
             host: RefCell::new(host),
-            rt,
+            launch,
             record,
             actions: RefCell::new(Vec::new()),
             name,
@@ -101,6 +59,8 @@ impl Screen {
             contacts: RefCell::new(Vec::new()),
             last_contact: Cell::new(0),
         };
+        #[cfg(debug_assertions)]
+        s.inspect().open_trace(&s.name);
         s.run_until_idle();
         s
     }
@@ -108,11 +68,7 @@ impl Screen {
     /// Work the core has without an event: a requested turn, ready tasks,
     /// queued effects.
     fn pending(&self) -> bool {
-        let pending = self.rt.pending();
-        pending.turn_requested
-            || TaskState::of(&self.rt).has_ready()
-            || pending.user
-            || pending.render
+        self.inspect().pending()
     }
 
     /// Run turns until nothing is due (virtual time frozen). The host
@@ -137,23 +93,9 @@ impl Screen {
                 continue;
             }
             drop(host);
-            if cfg!(debug_assertions) {
-                // After every settle the core's host nodes must be the
-                // engine's tree; a divergence fails at once (debug builds).
-                let m = self.structure_mismatch();
-                if !m.is_empty() {
-                    self.fail(&format!(
-                        "the core's host nodes and the engine's tree diverged:\n{}",
-                        m.join("\n")
-                    ));
-                }
-            }
             #[cfg(debug_assertions)]
-            {
-                let errors = self.host.borrow_mut().self_check();
-                if !errors.is_empty() {
-                    self.fail(&format!("engine self-check failed:\n{}", errors.join("\n")));
-                }
+            if let Err(error) = self.inspect().check_trees() {
+                self.fail(&error);
             }
             return;
         }
@@ -164,9 +106,7 @@ impl Screen {
     pub fn run_until_idle(&self) {
         self.pump();
         let start = Instant::now();
-        while TaskState::of(&self.rt).stats().outstanding_blocking > 0
-            || TaskState::of(&self.rt).has_ready()
-        {
+        while self.inspect().outstanding_blocking() > 0 || self.inspect().pending() {
             if start.elapsed() > FIND_TIMEOUT {
                 break;
             }

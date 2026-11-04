@@ -1,0 +1,24 @@
+[package]
+name = "kivact-test"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Public Kivact end-to-end test harness"
+
+[dependencies]
+arvane-virtual = { path = "../arvane-virtual", version = "0.1.0" }
+kivact-core = { path = "../kivact-core", version = "0.1.0" }
+kivact-engine = { path = "../kivact-engine", version = "0.1.0", features = ["testing"] }
+kivact-runtime = { path = "../kivact-runtime", version = "0.1.0" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
+kivact-style = { path = "../kivact-style", version = "0.1.0" }
+kivact-i18n = { path = "../kivact-i18n", version = "0.1.0" }
+
+[features]
+embed = ["kivact-core/embed"]
+gpu-interop = ["kivact-core/gpu-interop"]
+
+[lints]
+workspace = true

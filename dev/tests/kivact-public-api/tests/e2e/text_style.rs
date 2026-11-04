@@ -11,7 +11,6 @@
 //! Checked on the frame's pixels at scale 1.
 
 use std::rc::Rc;
-use std::sync::Arc;
 
 use kivact::control::{Span, rich_text, span};
 use kivact::draw::Rect;
@@ -26,10 +25,7 @@ use crate::paint::{BLACK, BLUE, GREEN, RED, WHITE, at, canvas_of, distance, pixe
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 
 fn inter() -> RenderOptions {
-    RenderOptions {
-        fonts: TestFonts::Only(vec![Arc::from(INTER)]),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::Asset::from(INTER)]))
 }
 
 fn rect(screen: &Screen, id: &str) -> Rect {

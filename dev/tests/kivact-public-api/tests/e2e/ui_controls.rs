@@ -20,11 +20,9 @@ use EditPhase::{Begin, Cancel, Commit};
 type Log = Rc<RefCell<Vec<EditPhase>>>;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .mirror(MirrorMode::Required)
+        .reduced_motion()
 }
 
 fn logger(log: &Log) -> impl Fn(EditPhase) + 'static {

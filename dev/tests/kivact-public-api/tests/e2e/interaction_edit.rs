@@ -19,10 +19,7 @@ use kivact::view::MouseButton;
 type Log = Rc<RefCell<Vec<(EditPhase, f64)>>>;
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 fn range() -> ScalarRange {

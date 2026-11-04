@@ -7,12 +7,9 @@ use kivact::view::{IntoView, Key, ReadingDirection, Role, node_ref, provide_dire
 use kivact_ui_soft as soft;
 
 fn options(width: f64) -> RenderOptions {
-    RenderOptions {
-        width,
-        height: 650.0,
-        theme: soft::theme(ThemeMode::Light),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(width, 650.0)
+        .theme(soft::theme(ThemeMode::Light))
 }
 
 #[test]

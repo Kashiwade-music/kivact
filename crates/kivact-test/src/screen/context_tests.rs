@@ -1,6 +1,6 @@
 //! Role: Real-window regressions for layer context entry.
-use crate::prelude::{Value, memo, signal, text};
-use crate::test::{MirrorMode, RenderOptions, render_with, render_with_handle};
+use crate::{MirrorMode, RenderOptions, render_with, render_with_handle};
+use kivact_core::prelude::{Value, memo, signal, text};
 use kivact_runtime::{pure, untrack};
 use std::cell::Cell;
 
@@ -8,10 +8,7 @@ use std::cell::Cell;
 #[should_panic(expected = "WriteInPureContext")]
 fn pure_setup_rejects_writes_even_through_untrack() {
     render_with(
-        RenderOptions {
-            mirror: MirrorMode::Required,
-            ..RenderOptions::default()
-        },
+        RenderOptions::default().mirror(MirrorMode::Required),
         || {
             let value = signal(0);
             pure(|| untrack(|| value.set(99)));
@@ -23,10 +20,7 @@ fn pure_setup_rejects_writes_even_through_untrack() {
 #[test]
 fn pure_section_inside_a_memo_keeps_tracking() {
     let (screen, (a, b, c)) = render_with_handle(
-        RenderOptions {
-            mirror: MirrorMode::Required,
-            ..RenderOptions::default()
-        },
+        RenderOptions::default().mirror(MirrorMode::Required),
         || {
             let (a, b, c) = (signal(1), signal(10), signal(100));
             let sum = memo(move || a.get() + pure(|| b.get()) + c.get());
@@ -50,10 +44,7 @@ fn pure_section_inside_a_memo_keeps_tracking() {
 #[should_panic(expected = "memo reads itself (dependency cycle)")]
 fn a_memo_cycle_through_copied_contexts_panics() {
     render_with(
-        RenderOptions {
-            mirror: MirrorMode::Required,
-            ..RenderOptions::default()
-        },
+        RenderOptions::default().mirror(MirrorMode::Required),
         || {
             let slot = std::rc::Rc::new(Cell::new(None::<Value<i32>>));
             let read = slot.clone();

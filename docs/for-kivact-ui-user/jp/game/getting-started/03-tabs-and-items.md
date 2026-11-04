@@ -131,11 +131,7 @@ mod tests {
     use kivact::test::{RenderOptions, Screen, render_with};
 
     fn mount() -> Screen {
-        let options = RenderOptions {
-            theme: game::theme(ThemeMode::Dark).density(Density::Comfortable),
-            height: 800.0,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().window_size(800., 800.0).theme(game::theme(ThemeMode::Dark).density(Density::Comfortable));
         render_with(options, loadout)
     }
 

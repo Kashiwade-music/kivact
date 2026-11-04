@@ -61,7 +61,8 @@
 //! ```no_run
 //! # #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 //! # fn example() -> kivact_core::Result<()> {
-//! use kivact_core::{App, prelude::*, test::TestParent};
+//! use kivact_core::{App, prelude::*};
+//! use kivact_test::TestParent;
 //! let parent = TestParent::open(320, 240)?;
 //! let editor = App::new("Editor").window_size(320, 240)
 //!     .embed(parent.parent(), || text("Editor"))?;
@@ -82,12 +83,15 @@
 )]
 
 mod options;
+mod script;
+pub use script::Script;
+mod facts;
 pub mod raw;
 mod render;
 mod screen;
 
 pub use options::{MirrorMode, RenderOptions, TestFonts};
-pub use render::{gpu_unavailable, render, render_with, render_with_handle};
+pub use render::{gpu_unavailable, native_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{
     Contact, Element, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, Screen,

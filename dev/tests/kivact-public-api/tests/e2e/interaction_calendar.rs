@@ -80,10 +80,7 @@ fn single(
     configure: impl FnOnce(CalendarPolicy) -> CalendarPolicy + 'static,
 ) -> (Screen, Single) {
     mount_with(
-        RenderOptions {
-            locale: Some(Locale::new("en-US")),
-            ..Default::default()
-        },
+        RenderOptions::default().locale(Locale::new("en-US")),
         move || {
             let value = signal(selected);
             let month = signal(selected.unwrap_or(day(2026, 10, 1)).month_of());
@@ -187,10 +184,7 @@ fn the_selected_day_holds_the_tab_stop_and_arrows_home_and_end_move_it() {
 /// A range calendar over October 2026 starting from `initial`.
 fn range(initial: Option<DateRange>) -> (Screen, Signal<Option<DateRange>>) {
     mount_with(
-        RenderOptions {
-            locale: Some(Locale::new("en-US")),
-            ..Default::default()
-        },
+        RenderOptions::default().locale(Locale::new("en-US")),
         move || {
             let value = signal(initial);
             let month = signal(day(2026, 10, 1).month_of());

@@ -31,13 +31,11 @@ impl HostState {
     }
 
     /// Turns run so far.
-    #[cfg(feature = "test")]
     pub(crate) fn turns(&self) -> u64 {
         self.turns.get()
     }
 
     /// Events dropped because their node no longer exists.
-    #[cfg(feature = "test")]
     pub(crate) fn stale_events(&self) -> u64 {
         self.stale_events.get()
     }

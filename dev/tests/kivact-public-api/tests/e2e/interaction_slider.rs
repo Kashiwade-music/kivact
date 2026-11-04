@@ -28,10 +28,7 @@ const TRACK: f64 = 200.0;
 const THUMB: f64 = 20.0;
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 fn range() -> ScalarRange {

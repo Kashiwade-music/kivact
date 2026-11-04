@@ -4,9 +4,11 @@ use kivact::test::RenderOptions;
 use kivact_ui_game as g;
 
 pub(crate) fn options(reduced_motion: bool) -> RenderOptions {
-    RenderOptions {
-        theme: g::theme(kivact::style::ThemeMode::Light),
-        reduced_motion,
-        ..RenderOptions::from_env()
+    if reduced_motion {
+        RenderOptions::from_env()
+            .theme(g::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion()
+    } else {
+        RenderOptions::from_env().theme(g::theme(kivact::style::ThemeMode::Light))
     }
 }

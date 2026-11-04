@@ -11,10 +11,7 @@ use std::time::Duration;
 #[test]
 fn soft_disabled_button_can_show_its_tooltip_with_keyboard_focus() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let attempts = signal(0);
             kivact::control::column((
@@ -63,13 +60,9 @@ fn soft_delays_the_spinner_but_disables_input_immediately() {
                 .background(rgb(0xff0000))
         }
     });
-    let screen = render_with(
-        RenderOptions {
-            theme: theme.with(recipes),
-            ..RenderOptions::from_env()
-        },
-        || button("Loading example").loading(true),
-    );
+    let screen = render_with(RenderOptions::from_env().theme(theme.with(recipes)), || {
+        button("Loading example").loading(true)
+    });
     let red_is_visible = || screen.screenshot().pixels.contains(&0xff0000);
     assert!(
         screen

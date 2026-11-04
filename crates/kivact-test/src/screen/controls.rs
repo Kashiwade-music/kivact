@@ -15,12 +15,12 @@ use kivact_style::Cursor;
 
 impl Screen {
     /// Logical content sizes requested through `platform::request_window_size`.
-    pub fn requested_sizes(&self) -> Vec<crate::draw::Size> {
+    pub fn requested_sizes(&self) -> Vec<kivact_core::draw::Size> {
         self.host
             .borrow()
             .requested_sizes()
             .iter()
-            .map(|s| crate::draw::Size {
+            .map(|s| kivact_core::draw::Size {
                 width: s.width,
                 height: s.height,
             })
@@ -62,7 +62,7 @@ impl Screen {
     /// The window's safe area changes, as a phone's system UI (status bar,
     /// notch) does when it rotates (`EnvChanged`; read by
     /// `platform::safe_area`).
-    pub fn set_safe_area(&self, insets: crate::platform::Insets) {
+    pub fn set_safe_area(&self, insets: kivact_core::platform::Insets) {
         self.log(format!("safe area {insets:?}"));
         self.host.borrow_mut().set_safe_area(Insets {
             top: insets.top,
@@ -240,7 +240,7 @@ impl Screen {
 
     /// Number of frame ticks the App has been given.
     pub fn frame_ticks(&self) -> u64 {
-        kivact_runtime::MotionState::of(&self.rt).stats().ticks
+        self.inspect().motion_ticks()
     }
 
     /// Whether the screen is shown in a real window (not headless).

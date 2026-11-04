@@ -18,10 +18,7 @@ use kivact::view::{A11yAction, Placement, overlay};
 type Opt = ListItem<&'static str>;
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 fn action(name: &'static str) -> Node {

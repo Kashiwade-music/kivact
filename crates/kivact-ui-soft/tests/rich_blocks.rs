@@ -6,11 +6,9 @@ use kivact::view::{Key, Role};
 use kivact_ui_soft::rich_text_editor;
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        mirror: MirrorMode::Off,
-        ..RenderOptions::default()
-    }
+    RenderOptions::default()
+        .theme(kivact_ui_soft::theme(ThemeMode::Light))
+        .mirror(MirrorMode::Off)
 }
 
 #[test]

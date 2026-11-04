@@ -10,13 +10,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact_runtime::{ErrorKind, UiError};
+use kivact::{UiError, diagnostics::ErrorKind};
 
-use super::support::button_box;
-use crate::platform;
-use crate::prelude::{NodeBuilder, Role};
-use crate::task::spawn;
-use crate::test::render;
+use super::launch_support::button_box;
+use kivact::platform;
+use kivact::prelude::{NodeBuilder, Role};
+use kivact::task::spawn;
+use kivact::test::render;
 
 #[test]
 fn an_unsupported_service_is_an_unsupported_error() {
@@ -30,7 +30,9 @@ fn an_unsupported_service_is_an_unsupported_error() {
             });
         })
     });
-    screen.with_host(|h| h.fail_next_effect_unsupported("cannot open C:/media: unsupported"));
+    screen
+        .script()
+        .fail_next_effect_unsupported("cannot open C:/media: unsupported");
     screen.get_by_role(Role::Button, "open").click();
     let error = result
         .borrow_mut()
@@ -38,5 +40,5 @@ fn an_unsupported_service_is_an_unsupported_error() {
         .expect("answered")
         .expect_err("unsupported");
     assert_eq!(*error.kind(), ErrorKind::Unsupported);
-    assert!(screen.with_host(|h| h.opened_paths().is_empty()));
+    assert!(screen.opened_paths().is_empty());
 }

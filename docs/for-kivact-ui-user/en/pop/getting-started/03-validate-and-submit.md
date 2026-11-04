@@ -129,11 +129,7 @@ mod tests {
     use kivact::view::Modifiers;
 
     fn mount() -> Screen {
-        let options = RenderOptions {
-            theme: pop::theme(ThemeMode::Light),
-            height: 1000.0,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().window_size(800., 1000.0).theme(pop::theme(ThemeMode::Light));
         render_with(options, || sign_up(CalendarDate::new(2026, 11, 1)))
     }
 

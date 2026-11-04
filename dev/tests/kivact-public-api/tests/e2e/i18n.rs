@@ -22,10 +22,7 @@ fn locale_tag() -> impl IntoView {
 #[test]
 fn the_apps_messages_replace_the_default() {
     let screen = render_with(
-        RenderOptions {
-            messages: Messages::new().with("dialog.close", "閉じる"),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().messages(Messages::new().with("dialog.close", "閉じる")),
         || {
             column((
                 close_label(),
@@ -84,13 +81,13 @@ fn switching_the_locale_and_the_messages_at_runtime_updates_what_reads_them() {
 #[test]
 fn a_subtree_has_its_own_locale_and_messages_and_siblings_keep_the_outer() {
     let screen = render_with(
-        RenderOptions {
-            locale: Some(Locale::new("en-US")),
-            messages: Messages::new()
-                .with("dialog.close", "Close it")
-                .with("dialog.cancel", "Cancel it"),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .locale(Locale::new("en-US"))
+            .messages(
+                Messages::new()
+                    .with("dialog.close", "Close it")
+                    .with("dialog.cancel", "Cancel it"),
+            ),
         || {
             column((
                 provide_locale(Locale::new("fr-FR"), || {

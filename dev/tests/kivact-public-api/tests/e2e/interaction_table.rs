@@ -11,10 +11,7 @@ use kivact::view::{Modifiers, for_each};
 #[test]
 fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
     let (screen, (rows, selected)) = mount_with(
-        RenderOptions {
-            mirror: MirrorMode::Required,
-            ..Default::default()
-        },
+        RenderOptions::default().mirror(MirrorMode::Required),
         || {
             let rows = signal(vec![1u32, 2, 3, 4, 5, 6, 7, 8]);
             let selected = signal(Vec::new());
@@ -133,10 +130,7 @@ fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
 #[test]
 fn headers_sort_and_resize_through_caller_bindings() {
     let (screen, (sort, widths)) = mount_with(
-        RenderOptions {
-            mirror: MirrorMode::Required,
-            ..Default::default()
-        },
+        RenderOptions::default().mirror(MirrorMode::Required),
         || {
             let sort = signal(None);
             let widths = signal(std::collections::HashMap::from([(0usize, 100.0)]));

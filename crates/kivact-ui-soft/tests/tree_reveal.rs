@@ -11,10 +11,7 @@ use std::time::Duration;
 #[test]
 fn branch_exit_keeps_its_paint_but_removes_the_child_from_navigation() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             kivact_ui_soft::tree_list(
                 "Files",

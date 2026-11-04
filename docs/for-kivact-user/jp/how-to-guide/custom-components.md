@@ -439,7 +439,7 @@ mod tests {
     use super::*;
 
     fn dot_color(theme: Theme) -> u32 {
-        let options = RenderOptions { theme, ..RenderOptions::default() };
+        let options = RenderOptions::default().theme(theme);
         let screen = render_with(options, || row(status_dot(true)).style(style().padding(8)));
         let dot = screen.get_by_role(Role::Status, "online").rect().expect("laid out");
         let shot = screen.screenshot();
@@ -502,7 +502,7 @@ mod tests {
     #[test]
     fn the_theme_resolves_the_name() {
         let theme = Theme::light().with_icon("search", SEARCH);
-        let options = RenderOptions { theme, ..RenderOptions::default() };
+        let options = RenderOptions::default().theme(theme);
         let screen = render_with(options, || icon_button("search", "Search"));
         screen.get_by_role(Role::Button, "Search");
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());

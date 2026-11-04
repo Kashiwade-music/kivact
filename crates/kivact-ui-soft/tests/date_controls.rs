@@ -6,10 +6,7 @@ use kivact::test::{RenderOptions, render_with_handle};
 use kivact::view::{Key, LiveRegion, Modifiers, Role};
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        theme: kivact_ui_soft::theme(ThemeMode::Light),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
 }
 
 fn date(day: u8) -> CalendarDate {

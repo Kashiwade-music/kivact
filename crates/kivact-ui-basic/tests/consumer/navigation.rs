@@ -22,13 +22,10 @@ pub(super) fn page(child: impl IntoView) -> Node {
 }
 
 pub(super) fn options(mode: kivact::style::ThemeMode) -> RenderOptions {
-    RenderOptions {
-        theme: basic::theme(mode),
-        width: 900.0,
-        height: 700.0,
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(900.0, 700.0)
+        .theme(basic::theme(mode))
+        .reduced_motion()
 }
 
 pub(super) fn light() -> RenderOptions {

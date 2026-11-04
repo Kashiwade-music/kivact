@@ -13,10 +13,7 @@ fn text_tooltip_opens_only_while_native_layout_cuts_text() {
     const LONG: &str = "Longer content needs several lines in this narrow box.";
     for max_lines in [1, 2] {
         let (screen, truncated) = render_with_handle(
-            RenderOptions {
-                theme: theme(ThemeMode::Light),
-                ..RenderOptions::from_env()
-            },
+            RenderOptions::from_env().theme(theme(ThemeMode::Light)),
             move || {
                 let content = signal("Short".to_owned());
                 let reference = node_ref();

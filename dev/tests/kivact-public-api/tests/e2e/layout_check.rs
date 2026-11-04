@@ -8,8 +8,6 @@
 //! width; `Element::check_layout` looks at a subtree; and
 //! `assert_layout` fails listing every violation.
 
-use std::sync::Arc;
-
 use kivact::prelude::*;
 use kivact::style::{Align, Justify};
 use kivact::style::{Overflow, TextOverflow};
@@ -22,10 +20,7 @@ static NOTO: &[u8] = include_bytes!(
 const GRAY: u32 = 0xdddddd;
 
 fn japanese() -> RenderOptions {
-    RenderOptions {
-        fonts: TestFonts::Only(vec![Arc::from(NOTO)]),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::Asset::from(NOTO)]))
 }
 
 /// A fixed-width button whose label does not fit (its label is located at

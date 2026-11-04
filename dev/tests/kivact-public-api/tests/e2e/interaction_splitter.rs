@@ -16,10 +16,7 @@ use kivact::view::{Handled, KeyEvent};
 use kivact::view::{MouseButton, Orientation};
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 fn range() -> ScalarRange {

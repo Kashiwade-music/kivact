@@ -136,10 +136,7 @@ fn counter_app() -> (Screen, (FrameLoop, Rc<Cell<u64>>)) {
 /// at their own rate (a 60 Hz display caps them at 60 Hz, as the host
 /// paces ticks at most once per refresh).
 fn fast_display() -> RenderOptions {
-    RenderOptions {
-        frame_period_ns: 1_000_000,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().frame_period_ns(1_000_000)
 }
 
 fn counter_app_with(opts: RenderOptions) -> (Screen, (FrameLoop, Rc<Cell<u64>>)) {

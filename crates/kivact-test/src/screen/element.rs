@@ -9,15 +9,14 @@ use kivact_engine::testing::SemanticsNode;
 use kivact_types::{self as p};
 
 use super::model::{Element, Query};
-use crate::diagnostics::Why;
-use crate::view::state::ViewState;
-use crate::view::{A11yAction, CheckedState, Role};
+use kivact_core::diagnostics::Why;
+use kivact_core::view::{A11yAction, CheckedState, Role};
 use kivact_style::draw::RegionId;
 
 impl<'a> Element<'a> {
     /// Why this element's props have their values (effects, reads, writes).
     pub fn why(&self) -> Why {
-        crate::diagnostics::why::explain(&self.screen.rt, self.node)
+        self.screen.inspect().why(self.node)
     }
 
     /// Search within this element's subtree.
@@ -73,7 +72,7 @@ impl<'a> Element<'a> {
     /// coordinates: the bounds the host published, mapped by the
     /// published scrolls and transforms of its ancestors and its own, as
     /// platforms (AccessKit) map them. `None` when it was not published.
-    pub fn accessibility_bounds(&self) -> Option<crate::draw::Rect> {
+    pub fn accessibility_bounds(&self) -> Option<kivact_core::draw::Rect> {
         let host = self.screen.host.borrow();
         let id = host.semantics_id(self.node, self.region)?;
         let tree = host.semantics()?;
@@ -145,7 +144,7 @@ impl<'a> Element<'a> {
     }
 
     fn region_info(&self, r: RegionId) -> Option<p::Region> {
-        let tree = ViewState::tree(&self.screen.rt);
+        let tree = self.screen.facts();
         [SceneLayer::Draw, SceneLayer::DrawOver]
             .into_iter()
             .filter_map(|layer| tree.scene(self.node, layer))
@@ -182,9 +181,7 @@ impl<'a> Element<'a> {
 
     /// Text content of a text node.
     pub fn text(&self) -> String {
-        ViewState::tree(&self.screen.rt)
-            .content(self.node)
-            .unwrap_or_default()
+        self.screen.facts().content(self.node).unwrap_or_default()
     }
 
     /// The published editor's `(anchor, caret)` in Unicode scalar offsets
@@ -206,7 +203,7 @@ impl<'a> Element<'a> {
 
     /// The published editing caret in logical window coordinates, after the
     /// published scrolls and transforms. Protected text has no public snapshot.
-    pub fn text_caret(&self) -> Option<crate::draw::Rect> {
+    pub fn text_caret(&self) -> Option<kivact_core::draw::Rect> {
         let node = self.published()?;
         let caret = node.semantics.text.as_ref()?.caret;
         self.screen
@@ -225,9 +222,7 @@ impl<'a> Element<'a> {
             let editor =
                 self.region.is_none() && (n.semantics.text.is_some() || n.semantics.protected);
             if editor {
-                return ViewState::tree(&self.screen.rt)
-                    .reader()
-                    .edit_value(self.node);
+                return self.screen.facts().reader().edit_value(self.node);
             }
             return n.semantics.value_text;
         }
@@ -235,8 +230,8 @@ impl<'a> Element<'a> {
             return self.region_info(r).and_then(|x| x.semantics.value_text);
         }
         match (
-            ViewState::tree(&self.screen.rt).input_value(self.node),
-            ViewState::tree(&self.screen.rt).value(self.node),
+            self.screen.facts().input_value(self.node),
+            self.screen.facts().value(self.node),
         ) {
             (Some(v), _) | (None, Some(v)) => Some(v),
             _ => None,
@@ -246,20 +241,14 @@ impl<'a> Element<'a> {
     pub fn is_disabled(&self) -> bool {
         match self.published() {
             Some(n) => n.semantics.disabled,
-            None => matches!(
-                ViewState::tree(&self.screen.rt).disabled(self.node),
-                Some(true)
-            ),
+            None => matches!(self.screen.facts().disabled(self.node), Some(true)),
         }
     }
 
     pub fn is_selected(&self) -> bool {
         match self.published() {
             Some(n) => n.semantics.selected.unwrap_or(false),
-            _ => matches!(
-                ViewState::tree(&self.screen.rt).selected(self.node),
-                Some(true)
-            ),
+            _ => matches!(self.screen.facts().selected(self.node), Some(true)),
         }
     }
 
@@ -269,14 +258,14 @@ impl<'a> Element<'a> {
     pub fn checked(&self) -> Option<CheckedState> {
         match self.published() {
             Some(n) => n.semantics.checked,
-            _ => ViewState::tree(&self.screen.rt).checked(self.node),
+            _ => self.screen.facts().checked(self.node),
         }
     }
 
     pub fn is_expanded(&self) -> Option<bool> {
         match self.published() {
             Some(n) => n.semantics.expanded,
-            _ => ViewState::tree(&self.screen.rt).expanded(self.node),
+            _ => self.screen.facts().expanded(self.node),
         }
     }
 
@@ -331,14 +320,14 @@ impl<'a> Element<'a> {
     }
 
     /// The kind of popup that this element opens.
-    pub fn popup_kind(&self) -> Option<crate::view::PopupKind> {
+    pub fn popup_kind(&self) -> Option<kivact_core::view::PopupKind> {
         self.published()
             .map(|n| n.semantics)
             .and_then(|p| p.has_popup)
     }
 
     /// The meaning of the current item that the host reports.
-    pub fn current_item(&self) -> Option<crate::view::CurrentItem> {
+    pub fn current_item(&self) -> Option<kivact_core::view::CurrentItem> {
         self.published()
             .map(|n| n.semantics)
             .and_then(|p| p.current_item)
@@ -355,7 +344,7 @@ impl<'a> Element<'a> {
 
     /// Whether the element is still mounted.
     pub fn exists(&self) -> bool {
-        ViewState::tree(&self.screen.rt).get(self.node).is_some()
+        self.screen.facts().get(self.node).is_some()
             && self.region.is_none_or(|r| self.region_info(r).is_some())
     }
 
@@ -369,7 +358,7 @@ impl<'a> Element<'a> {
 
     /// Number of draw commands in the node's scene (canvas/draw layers).
     pub fn scene_len(&self) -> usize {
-        let tree = ViewState::tree(&self.screen.rt);
+        let tree = self.screen.facts();
         [SceneLayer::Draw, SceneLayer::DrawOver]
             .into_iter()
             .filter_map(|layer| tree.scene(self.node, layer))
@@ -411,21 +400,21 @@ impl Element<'_> {
             .is_some_and(|p| p.protected)
     }
     /// Live announcement policy, as published to AT.
-    pub fn live_region(&self) -> crate::view::LiveRegion {
+    pub fn live_region(&self) -> kivact_core::view::LiveRegion {
         self.published()
             .map(|n| n.semantics)
             .and_then(|p| p.live_region)
             .unwrap_or_default()
     }
     /// Sort direction, as published to AT.
-    pub fn sort(&self) -> crate::view::SortDirection {
+    pub fn sort(&self) -> kivact_core::view::SortDirection {
         self.published()
             .map(|n| n.semantics)
             .map(|p| p.sort)
             .unwrap_or_default()
     }
     /// Orientation, as published to AT.
-    pub fn orientation(&self) -> crate::view::Orientation {
+    pub fn orientation(&self) -> kivact_core::view::Orientation {
         self.published()
             .map(|n| n.semantics)
             .map(|p| p.orientation)

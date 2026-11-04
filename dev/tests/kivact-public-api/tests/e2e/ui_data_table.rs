@@ -42,13 +42,10 @@ fn columns() -> Vec<DataColumn<Person>> {
 }
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        mirror: MirrorMode::Required,
-        reduced_motion: true,
-        width: 720.0,
-        height: 600.0,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(720.0, 600.0)
+        .mirror(MirrorMode::Required)
+        .reduced_motion()
 }
 
 /// The names shown by the rows, top to bottom.

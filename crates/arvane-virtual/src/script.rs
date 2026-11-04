@@ -46,6 +46,10 @@ pub(crate) struct Input {
 #[derive(Clone)]
 pub struct Script(pub(crate) Rc<RefCell<Input>>);
 impl Script {
+    /// Whether all queued platform prerequisites and inputs have been consumed.
+    pub fn is_empty(&self) -> bool {
+        self.0.borrow().queue.is_empty()
+    }
     /// Override requests; the newest responder returning a result wins.
     pub fn respond(
         &self,

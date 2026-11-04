@@ -7,7 +7,7 @@
 //! extension when the App is created.
 
 use std::any::Any;
-use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::panic::Location;
 use std::rc::Rc;
@@ -206,9 +206,9 @@ impl Requests {
     }
 }
 
-/// What the host's start establishes for the App's whole life
-/// ([`ViewState::start`]): set once, before any App code or host event runs.
-pub(crate) struct Started {
+/// Everything the view layer keeps per App. Fields drop in declaration
+/// order.
+pub(crate) struct ViewState {
     /// The retained metadata and direct engine access of the whole App.
     pub(super) tree: RefCell<Tree>,
     /// The host environment.
@@ -222,13 +222,6 @@ pub(crate) struct Started {
     /// The adapter of the window's GPU device that can import shared
     /// textures (`None` until the host reports one).
     pub(super) adapter: Signal<Option<kivact_types::GpuAdapter>>,
-}
-
-/// Everything the view layer keeps per App. Fields drop in declaration
-/// order.
-pub(crate) struct ViewState {
-    /// What the host's start established (`Started`).
-    started: OnceCell<Started>,
     /// Missing capabilities the App relied on and that were noted.
     noted_missing: RefCell<std::collections::BTreeSet<&'static str>>,
     /// The node the host reported under the pointer last.
@@ -243,18 +236,24 @@ pub(crate) struct ViewState {
     pub(super) requests: RefCell<Requests>,
 }
 
-impl Default for ViewState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ViewState {
-    /// A view state the host has not started yet.
-    pub(crate) fn new() -> Self {
-        ViewState {
-            started: OnceCell::new(),
-            noted_missing: RefCell::new(std::collections::BTreeSet::new()),
+    /// Construct the complete state before mounting any application code.
+    pub(crate) fn new(
+        owner: Owner,
+        info: &kivact_engine::contract::HostInfo,
+        engine: kivact_engine::api::Writer,
+        env: Rc<EnvState>,
+        min_window_size: Option<kivact_types::Size>,
+        at: &'static Location<'static>,
+    ) -> Self {
+        Self {
+            tree: RefCell::new(Tree::new(engine, owner)),
+            env,
+            capabilities: info.capabilities,
+            focus: crate::view::focus::keys(owner, at),
+            min_window_size,
+            adapter: owner.signal(None, at),
+            noted_missing: RefCell::new(Default::default()),
             hover: Cell::new(PointerObservation::Plain(None)),
             mouse: Cell::new(PointerObservation::Plain(None)),
             pointer_modality: Cell::new(false),
@@ -263,24 +262,10 @@ impl ViewState {
         }
     }
 
-    /// Install what the host's start established (`view::root::start`).
-    pub(crate) fn start(&self, started: Started) {
-        assert!(
-            self.started.set(started).is_ok(),
-            "invariant: the host starts an App once"
-        );
-    }
-
-    fn started(&self) -> &Started {
-        self.started
-            .get()
-            .expect("invariant: App code and host events run only after the host started the App")
-    }
-
     /// Release spare request/tree capacity. Environment memos and live
     /// reactive/user resources are authority, not rebuildable caches.
     pub(crate) fn release_capacity(&self) {
-        self.started().tree.borrow_mut().release_capacity();
+        self.tree.borrow_mut().release_capacity();
         let mut requests = self.requests.borrow_mut();
         requests.queued_focus.shrink_to_fit();
         requests.sent_focus.shrink_to_fit();
@@ -297,25 +282,25 @@ impl ViewState {
     /// Read the retained tree of `rt`'s App.
     #[inline]
     pub(crate) fn tree(rt: &Runtime) -> Ref<'_, Tree> {
-        Self::of(rt).started().tree.borrow()
+        Self::of(rt).tree.borrow()
     }
 
     /// Change the retained tree of `rt`'s App. A prop written through the
     /// borrow names its writer, `rt.running_effect()` (`Tree::update`).
     #[inline]
     pub(crate) fn tree_mut(rt: &Runtime) -> RefMut<'_, Tree> {
-        Self::of(rt).started().tree.borrow_mut()
+        Self::of(rt).tree.borrow_mut()
     }
 
     /// The host environment.
     #[inline]
     pub(crate) fn env(&self) -> Rc<EnvState> {
-        self.started().env.clone()
+        self.env.clone()
     }
 
     /// What the host's platform can do.
     pub(crate) fn capabilities(&self) -> Capabilities {
-        self.started().capabilities
+        self.capabilities
     }
 
     /// Whether the missing capability `name` has not been noted yet (it
@@ -327,18 +312,18 @@ impl ViewState {
     /// The keyboard focus source.
     #[inline]
     pub(crate) fn focus_keys(&self) -> FocusKeys {
-        self.started().focus
+        self.focus
     }
 
     /// The window's minimum size (`None`: no minimum).
     pub(crate) fn min_window_size(&self) -> Option<kivact_types::Size> {
-        self.started().min_window_size
+        self.min_window_size
     }
 
     /// The adapter of the window's GPU device that can import shared
     /// textures.
     pub(crate) fn adapter(&self) -> Signal<Option<kivact_types::GpuAdapter>> {
-        self.started().adapter
+        self.adapter
     }
 
     /// Whether the last key or pointer press was a pointer press.

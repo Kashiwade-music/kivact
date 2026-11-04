@@ -9,10 +9,7 @@ use kivact::view::{Key, PointerKind, Role};
 #[test]
 fn switch_touch_commits_once_and_vertical_or_cancelled_contacts_do_not_toggle() {
     let (screen, (on, writes)) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let on = signal(false);
             let writes = signal(0);

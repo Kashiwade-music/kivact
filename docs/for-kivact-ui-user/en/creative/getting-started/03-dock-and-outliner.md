@@ -170,10 +170,7 @@ mod tests {
 
     #[test]
     fn the_inspector_edits_the_selected_layer() {
-        let options = RenderOptions {
-            theme: ui::theme(ThemeMode::Dark),
-            ..RenderOptions::from_env()
-        };
+        let options = RenderOptions::from_env().theme(ui::theme(ThemeMode::Dark));
         let (screen, layers) = render_with_handle(options, || {
             let layers = signal(sample_layers());
             (layers, editor(layers))

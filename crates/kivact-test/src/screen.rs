@@ -23,27 +23,6 @@ mod model;
 mod query;
 mod results;
 mod state;
-mod structure;
-
-#[cfg(test)]
-mod asset_tests;
-#[cfg(test)]
-mod context_tests;
-#[cfg(test)]
-mod disposal_tests;
-#[cfg(test)]
-mod gpu_tests;
-#[cfg(test)]
-mod host_sync_tests;
-#[cfg(test)]
-#[cfg(test)]
-mod platform_tests;
-#[cfg(test)]
-mod real_window_tests;
-#[cfg(test)]
-mod support;
-#[cfg(test)]
-mod window_tests;
 
 pub use artifacts::failure_dir;
 pub use model::{Contact, Element, Screen, Within};
@@ -53,6 +32,20 @@ pub use results::{
 
 #[cfg(test)]
 mod accessibility_tests;
-
+#[cfg(test)]
+mod context_tests;
+#[cfg(test)]
+mod disposal_tests;
+#[cfg(test)]
+mod gpu_tests;
+#[cfg(test)]
+mod host_sync_tests;
+#[cfg(test)]
+mod real_window_tests;
 #[cfg(test)]
 mod scene_cache_tests;
+#[cfg(test)]
+mod support;
+
+#[cfg(test)]
+mod window_tests;

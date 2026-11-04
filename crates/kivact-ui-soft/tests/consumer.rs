@@ -17,10 +17,7 @@ use std::time::Duration;
 #[test]
 fn markdown_wraps_a_live_link_with_the_surrounding_paragraph() {
     let (screen, opened) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let opened = signal(String::new());
             let paragraph = kivact_ui_soft::markdown(
@@ -45,11 +42,7 @@ fn markdown_wraps_a_live_link_with_the_surrounding_paragraph() {
 #[test]
 fn code_block_disclosure_releases_its_height_as_it_closes() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            reduced_motion: false,
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             column((
                 code_block("let a = 1;\nlet b = 2;\nlet c = 3;".to_owned())
@@ -78,10 +71,7 @@ fn code_block_disclosure_releases_its_height_as_it_closes() {
 #[test]
 fn input_group_inherits_size_without_overriding_an_explicit_member() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             input_group_with("Actions", || {
                 (
@@ -102,10 +92,7 @@ fn input_group_inherits_size_without_overriding_an_explicit_member() {
 #[test]
 fn dismissing_a_banner_restores_the_previous_external_focus() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             column((
                 button("Continue"),
@@ -129,10 +116,7 @@ fn the_neutral_theme_mounts_standard_buttons_in_both_appearances() {
         let clicks = Rc::new(Cell::new(0));
         let pressed = Rc::clone(&clicks);
         let screen = render_with(
-            RenderOptions {
-                theme: kivact_ui_soft::theme(mode),
-                ..RenderOptions::from_env()
-            },
+            RenderOptions::from_env().theme(kivact_ui_soft::theme(mode)),
             move || button("Continue").on_press(move || pressed.set(pressed.get() + 1)),
         );
         screen.get_by_role(Role::Button, "Continue").click();
@@ -144,10 +128,7 @@ fn the_neutral_theme_mounts_standard_buttons_in_both_appearances() {
 #[test]
 fn content_components_publish_their_names_and_roles() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Dark),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Dark)),
         || {
             column((
                 heading(2, "Workspace"),
@@ -167,10 +148,7 @@ fn content_components_publish_their_names_and_roles() {
 #[test]
 fn date_and_time_fields_commit_through_the_public_bindings() {
     let (screen, (date, time)) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let date = signal(None::<CalendarDate>);
             let time = signal(None::<kivact_ui_soft::TimeOfDay>);
@@ -201,10 +179,7 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
 #[test]
 fn rich_text_source_toolbar_wraps_and_unwraps_native_unicode_selection() {
     let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let source = signal("café 東京".to_owned());
             kivact_ui_soft::rich_text_editor("Markdown source", source)

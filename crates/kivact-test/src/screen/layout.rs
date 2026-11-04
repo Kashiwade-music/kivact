@@ -16,7 +16,6 @@ use kivact_types::NodeId;
 
 use super::model::{Element, Screen};
 use super::results::{LayoutCheck, LayoutViolation};
-use crate::view::state::ViewState;
 
 impl Screen {
     /// The layout defects of every text and text input on the screen, in
@@ -77,7 +76,7 @@ impl Screen {
                     region: None,
                 };
                 let (role, name) = (element.role(), element.name());
-                let tree = ViewState::tree(&self.rt);
+                let tree = self.facts();
                 let test_id = tree.test_id(f.node);
                 let text = match tree.content(f.node) {
                     Some(c) => c,
