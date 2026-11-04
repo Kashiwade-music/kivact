@@ -1,11 +1,17 @@
 //! Role: Diagnostics: error tracking and turn records.
 //!
+//! In debug builds, test screens can also write comparison traces under
+//! `target/kivact-trace/<test-name>.txt`. `KIVACT_TRACE` selects `stage`,
+//! `semantics`, and `host_events` with a comma-separated list. These traces
+//! include semantic and host event values, in observed order, and omit wall
+//! clock durations. Multiple screens use the same suffixes as failure artifacts.
+//!
 //! Diagnostics: errors routed to the default sink (read back with
 //! [`errors`]), a ring buffer of
 //! structured turn records (causes, writes, re-evaluations, ops, duration),
 //! mirrored to `tracing`, [`why`](fn@why) chains explaining a node's props, and the
 //! [`Stats`] counters a test screen reports. Recording never changes
-//! behaviour. Values are never recorded: only type names and source
+//! behaviour. Structured turn records never record values: only type names and source
 //! locations. The ring lives in the reactive runtime, `why` with the views.
 //!
 //! A turn record holds the causes of the turn, the writes that changed a
@@ -17,6 +23,8 @@
 
 mod errors;
 mod stats;
+#[cfg(debug_assertions)]
+pub(crate) mod trace;
 pub(crate) mod why;
 
 #[doc(inline)]

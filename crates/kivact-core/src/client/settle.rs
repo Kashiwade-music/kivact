@@ -11,6 +11,8 @@ const SETTLE_ROUNDS: usize = 1000;
 /// after [`SETTLE_ROUNDS`] is reported (a `Cycle` to the default sink) and
 /// runs in the next turn.
 pub(super) fn settle_async(rt: &Runtime, turn: &TurnRecorder<'_>) {
+    #[cfg(debug_assertions)]
+    crate::diagnostics::trace::stage(rt, "SettleAsync");
     for _ in 0..SETTLE_ROUNDS {
         let wakers = TaskState::of(rt).take_due_timers(rt.now_ns());
         let woke = !wakers.is_empty();
