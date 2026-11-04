@@ -140,7 +140,7 @@ impl Host {
                 | ShellEvent::Wheel(_)
                 | ShellEvent::Modifiers(_)
                 | ShellEvent::Key(KeyInput {
-                    phase: KeyPhase::Down,
+                    phase: KeyPhase::Down { .. },
                     ..
                 })
                 | ShellEvent::Ime(_)
