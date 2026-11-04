@@ -1,165 +1,130 @@
 # Foundation v3 progress
 
-Integration: `refactor/kashiwade/foundation-v3`
-Date: 2026-11-04
+Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手順書 0.5 節（表の一行ずつ。checkpoint に添える文は 3 行まで）。
 
-## ユーザー指示による中断（CP1 未通過）
+## Checkpoints
 
-- 2026-11-04 の中断・記録・commit/push 指示に従い、W1 の source と回帰修正までを保存する。通常の checkpoint push と違い、ユーザーが明示的に依頼した途中保存である。**CP1 は PASS にしない。W2 の実装は始めていない。**
-- 検証済み Rust source: `97689c4`（以降は記録の変更のみ）。W0/CP0 完了、V-1a〜V-6 の定義・追従は merged。最近の修正は native text endpoints `342a2d0`、pointer fixture metadata `22aa80b`、継承 decoration の font basis `fcd40ae`、KeyUp turn 境界 `44d752d` + `130ee3e`、cubic easing の正確な端点 `38641d4`。
-- 最終 static/feature gate: fmt exit 0 (3.88s)、全 workspace Clippy / warnings denied exit 0 (18.93s)、xtask exit 0 (141.37s; 42 crates / 143 graphs)、feature 検査 exit 0 (96.76s)。architecture は更新済みで追加差分なし。
-- 最終 trace all-features: exit 0、1365 passed / 0 failed / 51 ignored (602.87s)。no-default: exit 0、1352 passed / 0 failed / 50 ignored (355.01s)。通常 all-features も exit 0、1365 passed / 0 failed / 51 ignored (519.05s; window-lock 待ちを含む)。receipt は `checkpoint-cp1/checks.json`、原 log は `target/foundation-v3/cp1/`。
-- 原 trace: `target/foundation-v3/traces/cp0/` と `cp1-after-boundary/`。後者は 915 files / 113,524,027 bytes、全 manifest hash 検証済み。古い試行も保存。raw、大きな JSON、build/test log は commit しない。
-- 最終 strict 比較 `comparison-final/`: **REVIEW_REQUIRED / 58,176 records**。parse/adapter/malformed metadata/alignment-unresolved error は 0。schema 531,150 件、type/cause/source location の全件 review 記録はあるが、数値・実行順序・通知差の同値性は未完了。
-- 主要な残件: FrameTick epoch を跨ぐ誤った対応付け 24 件、同 epoch 内の touch rect 10 件、既存 f64 semantic sink の upstream 計算 replay、f32MAX→f64MAX の sentinel、counter 609 / list length 45、113 sequence spans（29 files）。8 files に実際の receive-event 順序差の候補が残る。微小な差や f32 投影だけで受理していない。
-- 再開用の比較ツールと軽量 review 記録を [`checkpoint-cp1/`](checkpoint-cp1/README.md) に保存。詳細 raw/全件 JSON は `target/foundation-v3/cp1/`。既存結果を保持し、epoch-aware alignment を修正 → baseline 自己比較 → 新しい出力先へ再比較 → 残件の因果確認 → CP1 PASS の順で再開する。
-- W2 は read-only 準備のみ。R-1/A-0 の決定事項は DECISIONS と work order に反映済み。R-2 の construction / DAG / turn-order 調査 packet は `target/foundation-v3/w2-preparation/` にある。CP1 通過前に実装しない。
-- 作業 worktree は全て取り込み・削除済み。main/PR は変更していない。push 後はユーザーの再開指示まで停止する。
+| CP | commit | fmt | clippy | xtask | features | E2E all-features | E2E no-default | 時間 | 備考 |
+|---|---|---|---|---|---|---|---|---|---|
+| CP0 | b6e7ff2 | 0 | 0 | 0 | 0 | 1362 passed / 52 ignored | 1349 passed / 51 ignored | 634.8s / 405.6s | 通過 |
+| CP1 | 97689c4 | 0 | 0 | 0 | 0 | 1365 passed / 51 ignored | 1352 passed / 50 ignored | 519.1s / 355.0s | 通過（2026-11-05 の改訂の基準。trace の比較は廃止） |
 
-## Baseline
-
-Baseline gates completed (serial E2E as documented below). Logs: `target/foundation-v3/baseline/` (not committed).
-
-| Gate | Result |
-|---|---|
-| fmt | exit 0 |
-| initial xtask / E2E | Interrupted after disk-full errors during compilation; no E2E result. |
-| no-default-features E2E + doctest | exit 0; 1325 passed, 51 ignored; cumulative elapsed 830.5 seconds (includes preceding all-features attempt). |
-| individual features | exit 0; cumulative elapsed 956.9 seconds (preceding suite attempts included). |
-| xtask | exit 0; 43 workspace crates, 145 graphs; 1203.1 seconds including first build and Node shim shutdown wait. |
-| clippy all targets/features | exit 0; 31.54 seconds after xtask. |
-| all-features serial E2E + doctest | exit 0; 1338 passed, 52 ignored; 960.0 seconds including lock wait. |
-| resource settings | Completed with CARGO_INCREMENTAL=0, CARGO_PROFILE_DEV_DEBUG=0, CARGO_PROFILE_TEST_DEBUG=0, CARGO_BUILD_JOBS=2. |
-| all-features E2E | wrapper exit 127, 390.5 seconds; arvane 33 + native 6 passed; GPU read_back passed 5/6 before STATUS_HEAP_CORRUPTION (0xc0000374). Serial rerun passed; retained as the existing GPU concurrency issue. |
+- 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
 ## Units
 
-| ID | Unit | Status | Merge commit | Gates | Time | Issues |
-|---|---|---|---|---|---|---|
-| P-0 | 準備 | merged | 19e720f (+ fixes below) | CP0 pass; 28 tool tests | see gate logs | none |
-| P-1 | 状態の全数調査 | merged | 6758cb4 | 34 new / 203 total; unprocessed 0 | reports 173s; clippy 153s | none |
-| P-2 | 比較用の trace | merged | ab50865 (+ 35375f9, 468deac) | CP0 trace pass | full trace 503.1s | documented GPU empty polls |
-| V-1a | 名前の衝突を先に解く | merged | b53d30c | targeted check pass; CP1 pending | see logs | none |
-| V-1b | `kivact-wire` の解体 | merged | 0dbd396 | workspace check pass before V2–V6 | 16.82s | none |
-| V-2 | semantics を一つに | merged | 8576b8a + W1 grouped merges | CP1 in progress | see logs | engine follow-up check |
-| V-3 | 環境・設定・option・request | merged | 69ec6f4 + W1 grouped merges | targeted Arvane check pass; CP1 pending | see logs | font generation owner tracked in E2 |
-| V-4 | 共通の部品と定数 | merged | 6b75ec9, c78783c + grouped merges | types/layout check pass; public f32 diagnostics 115→0 | see logs | CP1 pending |
-| V-5 | 入力 event を一つに | merged | 52e7934 + W1 grouped merges | targeted Arvane check pass; CP1 pending | see logs | engine follow-up check |
-| V-6 | 描画の記録・render・画素・text style | merged | bcb6f69 + W1 grouped merges | render/text/asset check pass; CP1 pending | see logs | engine follow-up check |
-| A-0 | `Backend` と注入 | todo | — | — | — | — |
-| A-1a | `arvane-virtual` と試験の経路 | todo | — | — | — | — |
-| A-1b | 試験の経路の名前と残り | todo | — | — | — | — |
-| A-2 | サービスと capability | todo | — | — | — | — |
-| A-3 | native の runner と shell | todo | — | — | — | — |
-| A-4 | embed の lifecycle | todo | — | — | — | — |
-| A-5 | GPU の状態 | todo | — | — | — | — |
-| A-6 | arvane-native の port と pipeline | todo | — | — | — | — |
-| E-1 | text の統合と lower の公開面 | todo | — | — | — | — |
-| X-1 | feature の閉じ込め | todo | — | — | — | — |
-| E-2 | host の状態機械 | todo | — | — | — | — |
-| E-3 | pointer と key | todo | — | — | — | — |
-| E-4 | IME と編集 | todo | — | — | — | — |
-| E-5 | layout と presence | todo | — | — | — | — |
-| E-6 | 支援技術 | todo | — | — | — | — |
-| E-7 | paint | todo | — | — | — | — |
-| E-8 | engine の fragment | todo | — | — | — | — |
-| E-9 | 出現と退場の大きさ | todo | — | — | — | — |
-| R-1 | `kivact-runtime` を作る | todo | — | — | — | — |
-| R-2 | host との境界と turn | todo | — | — | — | — |
-| R-3 | reactive の内部 | todo | — | — | — | — |
-| R-4 | 時間の仕組み | todo | — | — | — | — |
-| R-5 | 非同期の状態 | todo | — | — | — | — |
-| R-6 | `Machine` と `Trigger` | todo | — | — | — | — |
-| R-7 | 内部の handler の型 | todo | — | — | — | — |
-| C-1 | 起動の経路と `kivact-test` | todo | — | — | — | — |
-| C-2 | i18n と style の純粋化 | todo | — | — | — | — |
-| C-3 | view の状態 | todo | — | — | — | — |
-| C-4 | part の入力と事実の持ち主 | todo | — | — | — | — |
-| C-5 | core の木を side table に | todo | — | — | — | — |
-| N-1 | module と正準パス | todo | — | — | — | — |
-| N-2 | handler | todo | — | — | — | — |
-| N-3 | modifier の語彙 | todo | — | — | — | — |
-| N-4 | prop の形 | todo | — | — | — | — |
-| N-5 | 子・slot・選択・文脈・回復 | todo | — | — | — | — |
-| N-6 | `EditPhase` と `on_edit` | todo | — | — | — | — |
-| N-7 | interaction の名前と試験の API | todo | — | — | — | — |
-| N-9 | kit・例・文書・試験の追従 | todo | — | — | — | — |
-| N-8 | 公開 API の検査 | todo | — | — | — | — |
-| I-0 | option と policy | todo | — | — | — | — |
-| I-1 | 開閉の family | todo | — | — | — | — |
-| I-2 | menu と選択の family | todo | — | — | — | — |
-| I-3 | 編集・drag・文字編集・toggle | todo | — | — | — | — |
-| I-4 | 一覧の family | todo | — | — | — | — |
-| I-5 | 値の family | todo | — | — | — | — |
-| I-6 | 通知と追従の family | todo | — | — | — | — |
-| U-1 | ui の gesture | todo | — | — | — | — |
-| U-2 | ui の開閉と編集 | todo | — | — | — | — |
-| I-7 | 出現と退場の一本化 | todo | — | — | — | — |
-| I-8 | 振る舞いを APG に合わせる | todo | — | — | — | — |
-| T-1 | 編集する node の制約の解除 | todo | — | — | — | — |
-| T-2 | 公開 API だけの text field | todo | — | — | — | — |
-| G-1 | Path と snapshot | todo | — | — | — | — |
-| G-2 | 明示の pointer の capture | todo | — | — | — | — |
-| G-3 | モバイルの境界 | todo | — | — | — | — |
-| G-4 | soft kit が求めた中核の不足 | todo | — | — | — | — |
-| G-5 | 非同期の標準部品 | todo | — | — | — | — |
-| L-1 | ICU4X による地域書式 | todo | — | — | — | — |
-| K-0 | kit のための中核の部品 | todo | — | — | — | — |
-| K-1 | 日付・carousel・dropzone | todo | — | — | — | — |
-| K-2 | 開閉と hover と選択の入力 | todo | — | — | — | — |
-| K-3 | navigation と focus の部品 | todo | — | — | — | — |
-| K-4 | collection と creative と game | todo | — | — | — | — |
-| K-5 | soft に残る状態と hook | todo | — | — | — | — |
-| K-6 | 見た目の部品 | todo | — | — | — | — |
-| K-8 | `viewport` を中核へ | todo | — | — | — | — |
-| K-9 | Tier 3 の部品を中核へ | todo | — | — | — | — |
-| K-7 | kit の規約の残り | todo | — | — | — | — |
-| F-1 | 文書 | todo | — | — | — | — |
-| F-2 | 検査の仕上げ | todo | — | — | — | — |
-| F-3 | 最後の確認と PR の説明の下書き | todo | — | — | — | — |
-
-## CP0
-
-Initial integrated checks: fmt exit 0; xtask exit 1 (three client-to-diagnostics module edges); clippy exit 101 (eight new tool style diagnostics). Logs: `target/foundation-v3/cp0/`.
-
-- `fix-cp0-xtask` c47fceb: separate policy helpers from check dispatch to preserve the module DAG; 28 tool tests pass.
-- `fix-cp0-core` 35375f9: move private tracing to client; core all-targets/all-features check passes.
-- Tool Clippy syntax fixes 09952b2 are merged; the phased lint configuration 5a24aee is merged and its crate-deny override was checked with a scratch compiler fixture.
-- CP0 all-features E2E/doctest: exit 0, 634.8 seconds. Remaining checks restarted after the lint configuration merge; interrupted logs are retained.
-- Checkpoint resources: jobs 4, incremental/debug symbols off, bundled XTASK_NODE; RUST_TEST_THREADS=1 for GPU concurrency; RUSTDOCFLAGS=--test-args=--test-threads=4 for doctest concurrency.
-- P-1 raw report logs archived under `target/foundation-v3/p1/`. State inventory: 34 new / 203 total; 521 checker lines and 43 unique Clippy locations classified, unprocessed 0.
-
-- Final CP0 fmt/xtask/Clippy: all exit 0 (257.3 seconds to xtask, 276.0 cumulative to Clippy); 43 crates / 145 graphs. Final E2E/feature/trace results are recorded below.
-
-- Trace-only performance fix 468deac: buffered writes and ephemeral O(n) snapshot lookup, preserving DFS/removal order. Tool checks and core Clippy pass; final fmt/xtask/full Clippy rechecked with exit 0 (154.1 seconds cumulative).
-- Unbuffered trace run interrupted at the large Creative catalog; partial reference files retained at target/foundation-v3/cp0/trace-before-buffering/. One restart hit an executable lock from the orphaned catalog test; the verified old test process was stopped and the final trace run restarted.
-
-### CP0 result: PASS
-
-- Final fmt, xtask, full Clippy, feature checks: exit 0.
-- All features: 1362 passed / 52 ignored (634.8s). No default features: 1349 passed / 51 ignored (405.6s). Trace all features: 1362 passed / 52 ignored (503.1s).
-- 915 trace files, 87,069,573 bytes, saved at target/foundation-v3/traces/cp0/ with SHA-256 manifest beside it.
-- Buffered trace content: 781/782 completed reference files byte-identical; one DX12 async poll difference classified and normalized as documented in DECISIONS/work order. Creative catalog all 3 tests passed in 132.13s with tracing.
-- W0 complete. Next: W1 V-1a → V-1b definition/follow-up → V-2–V-6 definition/follow-up → CP1.
-
-## CP1 (in progress; not passed)
-
-- Definitions and grouped consumers merged. G1 engine/lower/text 9494f22; layout 620bad4; G2 Arvane/native 11bf078; G2 renderer/text/assets b278d5f + 1a59dbc; G3 core/style/runtime 2427f59 + 8e88be0; G4 UI cedcbfa; G5 kits 23276c3; G6 examples/docs/tests a6dbd7c.
-- Types check passes with f64 scalar math. Public-source reachability now includes signature and field types without creating extra export paths; 32 tooling tests pass. Improved numeric report: 115 diagnostics before → 0 after (7 existing ownership findings remain for N8).
-- Targeted all-targets/all-features checks pass for Arvane/shell/native, renderer/text/assets/GPU sharing, and layout. Style/motion/task/editing library checks pass after scalar adapter/path fixes.
-- Full workspace check logs: `target/foundation-v3/w1/workspace-check*.log`. First integration error was an AssetError-to-Failure detail conversion, corrected in 25b5b3a. The next check found five engine reference/import errors and one unused parameter; `fix-w1-g1` is validating those fixes before further workspace checking.
-- Full fmt/xtask/Clippy, E2E suites, feature checks, and CP0 trace comparison are still pending. Do not start W2 or push CP1 until all pass.
-- W1 reconciliation decisions are in DECISIONS.md. Font generation publication is explicitly assigned to E2 after the font owner moves in E1; the existing registration event order is preserved in W1.
-- Integration compiler follow-ups 744ec0d (engine), afd6a99 (core), and dc585ec (kits) are merged. Full workspace all-targets/all-features check passes with zero warnings (`workspace-check-6.log`).
-- VirtualShell completion 0c39900 stores one Environment and owns injected mouse/modifier facts; core's added duplicate input caches are removed. Raw complete samples retain their supplied information. Targeted Arvane/core check passes.
-- All six lint groups completed. Final full workspace all-targets/all-features Clippy with warnings denied passes in 15.99s (`cp1/clippy-final.log`); full fmt check passes. Unit logs are archived under `target/foundation-v3/unit-logs/`, merged worktrees removed.
-- Initial full xtask generated 42-crate/143-graph architecture, then rejected an overlong Role description and a missing embed-to-frame_log policy edge. Both corrected in 34b4677; final write-mode xtask is in progress. E2E/feature/trace gates have not run yet.
-- Final xtask passes (`cp1/xtask-final.log`): 42 crates / 143 target/configuration graphs. Architecture regenerated from the integrated source.
-- All-feature E2E/doctest gate is running with serial window/GPU tests and four doctest threads. Initial sandboxed Git Bash launch failed before tests with signal-pipe Win32 error 5; the identical authorized command is running with native execution permissions. Current log: `cp1/all-features.log`. No-default/individual-feature/trace gates remain pending.
-- First all-feature run stopped after 103.68s: Arvane/native/GPU preceding suites passed; core had 38 passed / 1 failed / 1 ignored. The existing tiny-positive resize fixture exposed loss of f32-underflow rejection. Corrected the shared window predicate in 110eebe with an explicit one-logical-pixel minimum; fixture retained. Initial log preserved as `cp1/all-features-initial.log`. Targeted existing fixture is being rerun before a full `--no-fail-fast` retry.
-- Tiny-window fixture passes (45.18s build, 0.04s execution). The full no-fail-fast retry completed in 350.79s: 1359 passed / 6 failed / 51 ignored, with all failures in two catalogs sharing native line-endpoint rounding. Raw failed log is `cp1/all-features-before-layout-fix.log`; precise measurements are in `cp1/layout-precision-diagnostic.log`.
-- Native endpoint fix 342a2d0 is merged. Targeted creative/game catalog rerun passes all six existing tests (22.20s + 6.89s execution). Full all-feature retry, no-default suite, feature checks, final source checks, and trace comparison remain pending.
-- Final integrated gates pass: all features 1365 passed / 51 ignored (365.05s); no default features 1352 passed / 50 ignored (355.41s); individual features (94.12s); fmt (4.15s); full Clippy with warnings denied (19.82s); write-mode xtask, 42 crates / 143 graphs (139.79s). All exit 0. Logs: `target/foundation-v3/cp1/`.
-- Trace all-feature gate also passes (479.05s). All 915 raw files / 105,307,327 bytes are archived at `target/foundation-v3/traces/cp1/`, with SHA-256 manifest beside it. Strict CP0 comparison and review are in progress; CP1 is not yet passed and W2 implementation has not started.
-- Trace review found twelve inconsistent new button/press metadata values in two migrated direct-injection fixtures. Fix 22aa80b derives them from the existing phase without changing the test flow/assertions. Independent review also found inherited paragraph em decoration was incorrectly resolved against a rich span's font size; fcd40ae restores the paragraph basis unless the span explicitly overrides decoration. Both fixes are merged (5c87cd0); full trace/all-feature retry is running in `cp1/trace-after-audit.log`. Original raw traces remain archived.
-- The after-audit trace gate passes (618.55s), retained at `traces/cp1-after-audit/`. Comparison exposed a real KeyUp deferral regression: unified key matching batched characters across the former release boundary. Fix 44d752d + pattern correction 130ee3e restores Down-only deferral. Easing fix 38641d4 returns exact cubic endpoints, removing the zero-time bisection residual newly observable at f64 precision. Both are merged; final static/feature/trace/no-default retry is running via `cp1/run-after-boundary.ps1`, receipts `cp1/after-boundary-gates.json`. W2 still waits for CP1.
+| ID | 状態 | merge | 残件 |
+|---|---|---|---|
+| P-0 | merged | 19e720f | |
+| P-1 | merged | 6758cb4 | |
+| P-2 | merged | ab50865 | |
+| V-1a | merged | b53d30c | |
+| V-1b | merged | 0dbd396 | |
+| V-2 | merged | 8576b8a | |
+| V-3 | merged | 69ec6f4 | |
+| V-4 | merged | c78783c | |
+| V-5 | merged | 52e7934 | |
+| V-6 | merged | bcb6f69 | |
+| A-0 | todo | | |
+| A-1a | todo | | |
+| A-1b | todo | | |
+| A-2 | todo | | |
+| A-3 | todo | | |
+| A-4 | todo | | |
+| A-5 | todo | | |
+| A-6a | todo | | |
+| A-6b | todo | | |
+| E-1 | todo | | |
+| E-2 | todo | | |
+| E-3 | todo | | |
+| E-4 | todo | | |
+| E-5a | todo | | |
+| E-5b | todo | | |
+| E-6 | todo | | |
+| E-7 | todo | | |
+| E-8 | todo | | |
+| E-9a | todo | | |
+| E-9b | todo | | |
+| X-1 | todo | | |
+| R-1 | todo | | |
+| R-2 | todo | | |
+| R-3 | todo | | |
+| R-4 | todo | | |
+| R-5 | todo | | |
+| R-6 | todo | | |
+| C-1 | todo | | |
+| C-2 | todo | | |
+| L-1 | todo | | |
+| C-3a | todo | | |
+| C-3b | todo | | |
+| C-4 | todo | | |
+| C-5 | todo | | |
+| KL-basic | todo | | |
+| KL-game | todo | | |
+| KL-creative | todo | | |
+| KL-soft | todo | | |
+| N-D1 | todo | | |
+| N-D2 | todo | | |
+| N-F1 | todo | | |
+| N-F2 | todo | | |
+| N-F3 | todo | | |
+| N-F4 | todo | | |
+| N-F5 | todo | | |
+| N-F6 | todo | | |
+| N-G1 | todo | | |
+| N-G2 | todo | | |
+| N-G3 | todo | | |
+| N-G4 | todo | | |
+| N-G5 | todo | | |
+| N-8 | todo | | |
+| I-0 | todo | | |
+| I-1 | todo | | |
+| I-2a | todo | | |
+| I-2b | todo | | |
+| I-3 | todo | | |
+| I-4a | todo | | |
+| I-4b | todo | | |
+| I-5a | todo | | |
+| I-5b | todo | | |
+| I-6 | todo | | |
+| U-1 | todo | | |
+| U-2 | todo | | |
+| I-7 | todo | | |
+| T-1 | todo | | |
+| T-2 | todo | | |
+| G-1a | todo | | |
+| G-1b | todo | | |
+| G-2 | todo | | |
+| G-3 | todo | | |
+| G-4a | todo | | |
+| G-4b | todo | | |
+| G-4c | todo | | |
+| G-5 | todo | | |
+| K-0 | todo | | |
+| K-1a | todo | | |
+| K-1b | todo | | |
+| K-2a | todo | | |
+| K-2b | todo | | |
+| K-3a | todo | | |
+| K-3b | todo | | |
+| K-4 | todo | | |
+| K-5 | todo | | |
+| K-6a | todo | | |
+| K-6b | todo | | |
+| K-8 | todo | | |
+| K-9a | todo | | |
+| K-9b | todo | | |
+| K-7a | todo | | |
+| K-7b | todo | | |
+| K-7c | todo | | |
+| K-7d | todo | | |
+| K-7e | todo | | |
+| H-G1 | todo | | |
+| H-G2 | todo | | |
+| H-G3 | todo | | |
+| H-G4 | todo | | |
+| H-G5 | todo | | |
+| H-G6 | todo | | |
+| F-1 | todo | | |
+| F-2 | todo | | |
+| F-3 | todo | | |

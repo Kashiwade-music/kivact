@@ -1,6 +1,6 @@
 # Kivact 基盤再設計（Foundation v3）設計書
 
-- 発行: 2026-11-04（Claude Code が `main` @ `a3536ef` を調査して作成）
+- 発行: 2026-11-04（Claude Code が `main` @ `a3536ef` を調査して作成）。2026-11-05 改訂（19 章: W0・W1 の実装の結果と、W2 以降の unit を code に当てた調べによる）
 - 実装担当: ChatGPT Codex（主エージェント = オーケストレータ）と、Codex が起動するサブエージェント
 - 作業手順: [`REFACTORING_WORK_ORDER.md`](REFACTORING_WORK_ORDER.md)
 - 付録:
@@ -32,6 +32,7 @@
 16. [やらないこと・リスク・要確認事項](#16-やらないことリスク要確認事項)
 17. [根本解決の追加](#17-根本解決の追加2026-11-04-の改訂)
 18. [第 4 回のレビューによる改訂](#18-第-4-回のレビューによる改訂2026-11-04)
+19. [実装の結果による改訂](#19-実装の結果による改訂2026-11-05)
 
 ---
 
@@ -1703,7 +1704,7 @@ SOFT_UI_WORK_ORDER の 7 章のうち未実装のもの:
 
 ### 18.0 優先の順
 
-**18 章 → 17 章 → 1〜16 章 → 付録 の順に優先する。** 18 章と食い違う古い記述は、18 章のとおりに読む（選択肢ではない）。付録 B の名前は B.8 の改名の表を当てたものが正である。作業手順書の各 unit は、自分の範囲の 18 章の決定を、その unit の「18 章の追加」に従って同時に行う。
+**19 章 → 18 章 → 17 章 → 1〜16 章 → 付録 の順に優先する**（19 章は 2026-11-05 に足した）。新しい章と食い違う古い記述は、新しい章のとおりに読む（選択肢ではない）。付録 B の名前は B.1〜B.6 と B.10 が正である（B.8 は B.1〜B.6 に反映済み）。作業手順書の unit の節は、18 章と 19 章を反映した最終の形で書いてある。
 
 ### 18.1 API の規則
 
@@ -1907,3 +1908,837 @@ OS の backend は全部 `arvane-native/port/<os>` に置き、cfg で選ぶ（�
 | 新しい OS | `arvane-native/port/<os>` を一つ（pipeline は `arvane-shell` で共有） |
 
 作業手順書 12 章の試し（8 番）に、paint の性質と標準部品の追加を足し、crate の数に加えて file の数も記録する。
+
+---
+
+## 19. 実装の結果による改訂（2026-11-05）
+
+W0・W1 を実装した結果と、W2 以降の各 unit を現在の code に当てた調べ（2026-11-05）から、設計の不足と、code の事実に合わない所を決め直した。**この章は 1〜18 章と付録より優先する**（優先の順は 19 > 18 > 17 > 1〜16 > 付録）。各節の冒頭に、置き換える節を書いた。作業手順書の unit の節は、この章の節を題で参照する。
+
+主な変更:
+
+- **turn の順序は core に残す**（19.17 節）。runtime は turn の状態・段・exit と部品だけを出す。`TurnClient` は作らない。
+- **`kivact-lower` は engine の module にする**（19.9 節）。crate の数がさらに一つ減る。
+- **`Backend` は既存の `ShellEventLoop` の改名**（19.1 節）。`arvane-virtual` は `SteppedBackend` だけを実装する。
+- **振る舞いを保つための形の直し**: frame loop は同期のまま（19.18 節）、`Watcher` は比較しない（19.19 節）、pointer の経路は capture と press を別に持つ（19.13 節）、fragment は `Display::Contents` の箱（19.29 節）。
+- **公開 API の名前の正は付録 B**（B.1〜B.6 が最終の表、B.10 が旧→新の一覧）。
+- **APG への合わせは各 behavior の unit の中で行う**（19.40 節）。独立の unit はない。
+
+### 19.0 そのほかの決定
+
+（16.2 節・付録 B・3.4 節に足す）
+
+- **trace の比較をやめる**（16.2 節の「振る舞いを変えない」の確かめ方を置き換える）: 振る舞いを保ったことの確かめは、既存の E2E が全部通ることだけで行う。`KIVACT_TRACE` の trace は、失敗した試験の原因を調べる道具として残す（作業手順書 0.6 節）。理由: f32→f64 の統一で全部の数値と型名が変わり、trace の厳密な一致は原理的に作れない（CP1 で 58,176 件の差が残った）。
+- **API-15 の補足:** `InteractionPolicy` の入れ子の field の型（`MenuPolicy`、`ButtonPolicy` など、18.15 節）は `*Policy` の名前を使ってよい。
+- **`calendar` の選択:** `calendar(selection: impl IntoBinding<CalendarSelection>)`。`CalendarSelection` は値の enum（一つの日付、範囲、複数）で、`IntoSelection`（集合の選択）は使わない。
+- **`AppOptions::theme(impl IntoValue<Theme>)`**: `App::theme`（18.11 節）と同じ形。
+- **`Disclosure::animated(bool)` は残す**: `UiTokens.disclosure.motion` の、一つの部品の上書き（19.37 節）。
+- **軸の型は `Orientation`**: 出現と退場の大きさ（19.12 節）も `Orientation` を使う。`Axis` は作らない。
+- **`ClientMode::Embedded(CloseSignal)`**（7.2 節の `ClientMode` を置き換える）: core は engine の `CloseSignal` を持ち、event ごとの中断を保つ（19.8 節）。`HostEvent::CloseRequested` による embed の exit の turn は作らない。
+
+### 19.1 `Backend` は既存の `ShellEventLoop` の改名にする
+
+（9.1 節の `Backend` trait の code、「A-0 の実コードとの照合による補足」、9.1 節の箇条の一つ目と二つ目、4.1 節の `kivact-engine` の行の依存 `arvane-virtual（feature test）` 以外を置き換える）
+
+```rust
+// arvane_shell
+pub trait Backend {
+    /// Run the event loop until the handler exits (blocks on desktop).
+    fn run(self: Box<Self>, handler: &mut dyn ShellHandler) -> Result<(), ShellError>;
+}
+// arvane_native
+pub fn backend(options: ShellOptions) -> Result<Box<dyn Backend>, ShellError>;
+pub mod embed { pub fn open(parent: ParentWindow, options: EmbedOptions, hooks: ChildHooks, make: MakeHandler) -> Result<Box<dyn ShellChild>, ShellError>; }
+// arvane
+impl Shell { pub fn new(backend: Box<dyn Backend>) -> Shell; /* prefer_gpu, gpu_preference, on_renderer_change, run は今のまま */ }
+pub mod embed {
+    pub fn driver<H: Handler + 'static>(options: &EmbedOptions, make: impl FnOnce() -> Embedder<H> + Send + 'static) -> MakeHandler;
+    impl Embedded { pub fn new(child: Box<dyn ShellChild>) -> Embedded; }
+}
+pub mod spi { pub use arvane_shell::{Backend, ShellWindow, ShellHandler, ShellError, ShellEvent, ShellChild, MakeHandler, ChildHooks, SteppedBackend, SteppedLoop, Step, StepOutcome}; }
+```
+
+- `Backend` は `capabilities`・`open_child`・`shutdown` を持たない。生成前の capability は誰も読まない（`HostInfo` は窓の `capabilities()` を読む、`kivact-engine/src/host/events.rs:94`）。`shutdown(&self)` は、embed の handler が backend より長く生きるので呼べない。module の保持は今も embed だけで、native が持つ（`arvane/src/shutdown.rs:8-15`、`arvane-native/src/embed/session.rs:99`）ので、`RetainOnDrop` を native の embed の `Session` へ移す（handler を drop した直後に `DetachedThreads::any()` なら `retain_module()`）。
+- 同じ形の trait が既にある（`arvane-shell/src/window.rs:194` の `ShellEventLoop`）ので、新しい trait を作らずに改名する。`ShellOptions` は native の構築の引数にし、窓の大きさの検査を今の場所（native の構築）に保つ（`arvane/src/window.rs:347`）。
+- embed は backend の trait に入れず、native の自由関数のまま engine が呼ぶ。外から backend を差し込む口を作らない（18.19 節）ので、embed の第二の実装はない。
+- arvane-native の中の同名の `trait Backend`（`arvane-native/src/embed/child.rs:300`）は `ChildPort` と改名する。
+- `VirtualBackend` は `SteppedBackend` だけを実装する（`Backend::run` を virtual で使う所がない）。
+
+### 19.2 `arvane-virtual` の台本・読み出し・段
+
+（9.3 節の code と最初の二つの箇条、9.1 節の `SteppedBackend`・`SteppedLoop`・`StepOutcome` の code、9.2 節の三つ目の箇条を置き換える）
+
+```rust
+// arvane_shell
+pub trait SteppedBackend {
+    /// Create the window and call `handler.start` before returning.
+    fn start(self: Box<Self>, handler: Box<dyn ShellHandler>) -> Result<Box<dyn SteppedLoop>, ShellError>;
+}
+pub trait SteppedLoop { fn step(&mut self, step: Step) -> StepOutcome; }
+pub enum Step { Input, Wake, Redraw }
+pub enum StepOutcome { Idle { next_deadline: Option<u64>, redraw_requested: bool, woken: bool }, Exited, Failed(ShellError) }
+pub trait ShellWindow { /* .. */ fn keeps_frames(&self) -> bool; fn keep_frame(&mut self, frame: CpuFrame); }
+// arvane
+impl Shell { pub fn start_stepped(backend: Box<dyn SteppedBackend>, setup: ShellSetup, handler: impl Handler + 'static) -> Result<SteppedShell, ShellError>; }
+pub struct ShellSetup { pub prefer_gpu: bool, pub gpu_preference: GpuPreference, pub observer: Option<Observer> }
+// arvane_virtual
+pub struct VirtualOptions { pub title: String, pub size: Size, pub scale: f64, pub frame_period_ns: u64, pub reduced_motion: bool, pub dark: bool, pub locale: Option<String>, pub gpu: GpuMode, pub mirror: MirrorMode }
+pub enum GpuMode { Off, Required }
+pub enum MirrorMode { Off, Auto, Required }
+impl VirtualBackend { pub fn new(options: VirtualOptions) -> Self; pub fn script(&self) -> Script; pub fn probe(&self) -> Probe; }
+```
+
+- `Script` は今の `VirtualWindow` の書き換えのメソッドを、`Probe` は読み出しのメソッドを同じ名前で持つ（`Probe` は所有の値を返す）。試験は窓の状態を読まずには書けない（`kivact-engine/src/host/testing/test_host.rs:388-653` が clipboard・frame・木などを読む）ので、書く口と読む口を分ける。
+- `step(Step)` を三つに分ける: core の driver は turn・wake・redraw を別々に進めている（`kivact-core/src/test/screen/driver.rs:131-179`）。失敗は `StepOutcome::Failed` で返す（今の試験 host の `failure()`）。
+- 試験 host は handler を `Rc<RefCell<..>>` で loop と共有し、node の問い合わせはその `Rc` から読む（今は host と窓を直接持つ: `test_host.rs:45-52`）。`inject(HostEvent)` は試験専用の engine の口として残す。
+- 支援技術の公開は本番と同じく frame の後（`defers_accessibility` を消す、`kivact-engine/src/host/pump.rs:391`）。そのため core の driver は turn の後、redraw の要求があれば毎回描く（今の「見たときだけ描く」と `KIVACT_TEST_LIVE` をやめる）。
+- GPU の試験も本番と同じ背景の起動を通る（試験だけの同期の起動 `State::Foreground` を消す、`arvane/src/presenter/gpu.rs:372-381`）。試験 host は renderer の通知が来るまで wake を回す（5 秒まで）。GPU の frame の screenshot は、`keeps_frames()` の窓にだけ presenter が read back して `keep_frame` で渡す。
+- mirror の実 window と process に一つの UI スレッドは `arvane-native`（feature `test`、`arvane_native::mirror`）に残し、`arvane-virtual` の feature `mirror` は写しの adapter だけを持つ（17.3 節の表のとおり。winit を arvane-virtual に入れない）。
+- `test_font()`・`gpu_unavailable()` は `arvane` の root へ移す（`Presenter` と text engine を使うため）。arvane は feature `test` を持たず、arvane-native に依存しない。
+- arvane の e2e（33 試験、`crates/arvane/tests/e2e/support.rs:32` が窓を直接操作する）は、`Harness::with(|w: &mut arvane::Window| ..)`（handler の中で closure を走らせる）、`script()`、`probe()` で書き直す。
+
+### 19.3 入力の pipeline の置き場所
+
+（17.2 節の module の図と `RawInput` の箇条、18.18 節を置き換える）
+
+```text
+arvane-shell/src/pipeline/   raw（RawInput）、keys（KeyPipeline と VK・keysym・X keycode の表）、cursor（cursor の表）、ime（ImeDriver、ImePort）、dnd（DropSession）
+arvane-native/src/
+├── port/winit/   winit の型からの写像（Key・KeyCode・Win32 の scancode は winit の表を使う）
+├── port/win32/   埋め込みの子 window
+├── port/x11/     埋め込みの子 window（XIM の protocol と handshake を含む）
+├── port/embed/   child・session・geometry（Win32 と X11 が共有）
+├── present.rs    CPU の提示（三つの port とも softbuffer）
+├── a11y/         AccessKit の conversion（今の共有のまま）
+├── services.rs、display/、mirror.rs
+```
+
+```rust
+pub enum RawInput { Key(RawKey), Ime(RawIme), Drop(RawDrop) }
+pub struct RawKey { pub key: PlatformKey, pub pressed: bool, pub repeat: Option<bool>, pub text: Option<String> }
+pub enum PlatformKey {
+    Vk { vk: u16, chr: Option<char>, code: KeyCode },
+    Keysym { keysym: u32, chr: Option<char>, keycode: u8 },
+    Code { key: Key, code: KeyCode },
+}
+pub enum RawIme { Preedit { text: String, caret: Option<(usize, usize)> }, Commit(String), End, Reconvert { selection: (usize, usize) } }
+pub trait ImePort { fn allow(&mut self, allowed: bool); fn cursor_area(&mut self, area: Rect); fn surrounding(&mut self, text: Option<&ShellImeText>); }
+pub enum RawDrop { Hover { files: Vec<PathBuf>, at: Option<Point> }, Move(Point), Drop, Leave }
+pub enum DropSession { Idle, Hovering { files: Vec<PathBuf>, at: Option<Point> }, Dropped { files: Vec<PathBuf>, at: Option<Point> } }
+```
+
+- arvane-shell は winit・softbuffer・AccessKit に依存しない（4.1 節）ので、`PlatformKey::Winit(KeyCode)`（17.2 節）、`present`、`a11y` は shell に置けない。winit の写像は port に残し、`PlatformKey::Code` で渡す。Win32 の物理の code は今も winit の scancode の表で作っている（`arvane-native/src/embed/windows/input.rs` の `keyboard`）ので、port が `code` を作って `Vk` に入れる。
+- `repeat: None` は pipeline が押下中の集合から決める（今の X11 の規則）。Win32 と winit は今の値を `Some` で渡す（振る舞いを変えない）。
+- policy: `[module_rules.arvane-shell.uses]` に `pipeline = ["events", "types"]`。`[module_rules.arvane-native.uses]` は `port = ["present", "a11y", "services", "display"]`、`mirror = ["port", "present", "a11y"]`、ほかは `[]`。
+- 公開の E2E は `Screen::raw_input(RawInput)`（`kivact::test` の試験専用のメソッド。型は `kivact::test::raw` に再公開）から `Script::raw` を通す。
+
+### 19.4 OS のサービスは窓の同期のメソッド一つ
+
+（9.1 節の `Services` trait と `ShellWindow::services`、「A-2 の所有権の訂正」、9.1 節のサービスの箇条を置き換える）
+
+```rust
+pub trait ShellWindow {
+    /// Every OS service (D-05), answered on the UI thread.
+    fn perform(&mut self, request: PlatformRequest) -> PlatformResult;
+    fn cpu_format(&self) -> CpuFormat;
+    /* copy_text・read_text・pick_*・save_file・open_path・reveal_path・request_size・set_fullscreen は消える */
+}
+pub enum CpuFormat { Xrgb8888 }
+// kivact_engine::contract
+pub enum HostRequest { Platform(PlatformRequest), RegisterFont(Asset), ReducedMotion(Option<bool>) }
+```
+
+- 今の実装は全部同期で答える（native の `services.rs`、二つの embed、virtual）。非同期の reply が要るのは mobile・Web で、これらは対象外（16.3 節）。同期にすると、reply から `Host` と窓へ戻る経路と、結果の順の問題がなくなる（今の順は `host/pump.rs:132-178` の一回の loop のまま）。window 一つに一つの service という A-2 の所有の考えは、窓のメソッドにすることでそのまま満たされる。
+- `RegisterFont`・`ReducedMotion` は OS の request ではないので `PlatformRequest` から外し、engine の契約 `HostRequest` で core から渡す（`Writer::effect(request, HostRequest)`）。
+- `Capabilities` の追加の field は 9.1 節のとおり。`CommandKey` の既定は `Ctrl`、`ContextMenuTrigger` の既定は `Release`（`Capabilities` は `Default` を derive している）。
+- virtual は今の既定の振る舞い（memory の clipboard、dialog の queue、記録）を持ち、`Script::respond(f: impl FnMut(&PlatformRequest) -> Option<PlatformResult> + 'static)` で上書きする。種類の enum（`PlatformRequestKind`）は作らない。
+
+### 19.5 embed の子 window の lifecycle は thread ごとに二つ
+
+（9.4 節の一つ目と二つ目の箇条、付録 A の SM-A01・SM-A02 の「解消後」を置き換える）
+
+```rust
+// thread をまたぐ（Shared の Mutex の中。host の thread が failure() で読む）
+enum ChildStatus { Running, Stopped { cause: Stop, window: NativeWindow } }
+// UI スレッドだけ（embed の Session）
+enum ChildLifecycle { Opening(HandlerSlot), Live(HandlerSlot), Disposed, Leaked }
+enum HandlerSlot { Unstarted, Running { handler: Box<dyn ShellHandler>, control: ShellControl } }
+// Win32 の再入: 二つの guard は重なる
+struct ReentryGuard(Cell<Held>);
+struct DrainGuard(Cell<Held>);
+enum Held { Free, Held }
+```
+
+- `Live { handler }` を一つの enum に入れると、`Send` でない handler（`arvane-native/src/embed/session.rs:13`）が host の thread と共有する `Mutex` の中（`embed/child.rs:44`）に入ってしまう。
+- Win32 では command の drain の中で event が callback を走らせる（`embed/windows/window.rs` の `commands` が `self.event(ShellEvent::Resized)` を呼ぶ）ので、`Reentry::{Idle, InCallback, Draining}` の一つの enum では表せない。
+- X11 の `exists: AtomicBool` は thread の間の guard なので `ConnectionAlive(AtomicBool)` に名前を付けるだけにする。
+
+### 19.6 surface の失敗の数え方
+
+（付録 A の SM-A11 の「解消後」の一つ目の文を置き換える）
+
+```rust
+enum FrameHealth { Healthy, Skipping { frames: NonZeroU32 }, Losing { losses: NonZeroU8 } }
+enum LossAction { Recover, FallbackToCpu, Fail }
+impl FrameHealth { fn lost(&mut self, renderer: Renderer) -> LossAction; }
+```
+
+- 続けての失敗が GPU で 2 回なら CPU へ、どの renderer でも 3 回なら error（今の二つの閾値: `arvane/src/presenter/gpu.rs:63` の `SURFACE_FAILURES = 2`、`presenter/health.rs:5` の `LOSSES = 3`）。数え直しは `shown`（と `skipped`）だけ。今は GPU の数は GPU の成功でだけ戻る（`gpu.rs` の `present` の `*failures = 0`）ので、「GPU の失敗の間の skip が数を戻す」点だけが変わる。この差は受け入れる。
+
+### 19.7 GPU の型は feature がなくても同じ名前で出す
+
+（17.3 節に足す）
+
+- `arvane-render` は feature `gpu` がなくても `GpuContext`・`GpuSurface`・`GpuEnv` を公開する。feature がないときは `pub enum GpuContext {}`・`pub enum GpuSurface {}`（値がない型。メソッドは `match *self {}`）で、`GpuContext::new` は `Err(RenderError::NoAdapter(..))`。`pub const GPU_BUILT: bool`。外部の texture の import も、feature がないときは `Unsupported` を返す。arvane が使う arvane-render の GPU の item はこの三つだけ（`arvane_render::{GpuContext, GpuSurface, GpuEnv}`）なので、arvane の 28 か所の `cfg(feature = "gpu")` を stub の型なしに消せる。
+- `kivact-core` の feature `gpu` を消す（core は公開 API の `gpu-interop`・`embed` だけを持つ）。core の GPU の試験は、workspace で facade の `gpu` と同時に build されるときに GPU を使う（core だけを build したときは `gpu_unavailable()` で skip する）。
+- `anchor-deps` の検査は作らない（18.20 節）。
+
+### 19.8 embed の閉じる要求は exit の turn にしない
+
+（8.2 節の `CloseSignal` の箇条、`HostPhase` の code、`SurfaceLost` の箇条、付録 A の SM-E02・SM-E03 と SM-C の `ClientMode::Embedded` の項の「閉じる要求は…`Runtime::request_exit` を呼ぶ」を置き換える）
+
+```rust
+pub struct CloseSignal(Arc<AtomicBool>);          // kivact_engine::contract。Clone、new、close、is_set
+enum HostPhase { Starting, Running, Exiting, Closed }
+enum AppPresence { Foreground, Suspended }
+enum Surface { Drawable { generation: u64 }, Unavailable(Unavailable) }
+enum Unavailable { NoSurface, ZeroSize }
+enum LastPresent { Settled, Skipped { retry_at_ns: u64 } }
+enum Launch { Pending(LaunchArgs), Running(Host) }   // arvane::Handler の実装。start で Model を本物の store で作る
+```
+
+- `Host` は `phase`・`presence`・`surface`・`last_present` を並べて持つ（`presence` と `surface` はどの phase でも事実）。`drawable()` はこれらから計算する唯一の関数。
+- 閉じる flag は host の thread から（X11 は別の thread、Win32 は再入の dialog の中から）いつでも立つ。今の規則は「flag が立ったら、新しい turn と効果を始めない。走っている turn は今の規則で終わる」（`kivact-engine/src/host/pump.rs:58-61` の comment）で、core も event ごとに中断する（`kivact-core/src/client/app_client.rs:208`）。pump の入口で一度だけ読むと、この規則が崩れ、embedder が drop した後に App の code が turn と exit の turn を走らせる。そこで `Host::observe_close()` を入口と、client の呼び出しの後と、効果ごとの後で呼び、立っていれば `Closed` へ進んで何もしない（今の振る舞い）。`HostEvent::CloseRequested` と、そのための `Runtime::request_exit` の呼び出しは作らない。core は `Option<CloseSignal>` を持ち、event ごとの中断を保つ。
+- `Presented::SurfaceLost` は窓が既に surface を作り直した後の報告なので、状態を持たずに `HostFailure` を一度積むだけにする（`set_surface(false)`→`(true)` の往復を消す）。`Unavailable::Lost` は作らない。
+- 起動: asset の store は shell の waker を要し、waker は `start` でしかない（`host/events.rs:55-57`）。`Launch` の enum が `start` で `Host` と `Model` を作るので、`AssetStore::inline()` で作って後で差し替える処理（`host/launch.rs:62`、`ArvaneAssets::replace_store`）が消える。
+
+### 19.9 `kivact-lower` を engine の module にする
+
+（8.3 節、18.17 節、4.1 節の `kivact-lower` の行、4.3 節の `kivact-lower` の行、8.1 節の構成の図、4.4 節の `[module_rules.kivact-engine.uses]` を置き換える。付録 A の SM-E33 の「`LowerReport` を呼び出しごとに返す」はこの節の形で行う）
+
+- **4.1 節:** `kivact-lower` の行を消す。`kivact-engine` の行の状態を「拡張（`kivact-text` と `kivact-lower` を統合、`contract` を追加）」、依存から `kivact-lower` を消す。`arvane` の行の `visible_to` を `kivact-engine` だけにする。「消える crate」に `kivact-lower`（`kivact-engine::lower`）を足す。
+- **4.3 節:** `kivact-lower` の行を「engine へ統合 | 使うのは engine だけで、engine は lower の 12 種類の item を `tree`・`measure`・`model`・`paint`・`check`・`text_measure`・`offscreen` から使う（文字の測定の `glyphs::shape_run`・`measure_run`、当たり判定の `shape::hits`、`sanitize::paint`、ink の `filter_reach`・`backdrop_reach`、font の `text_style`・`family`）。`Lowerer` の三つのメソッド（8.3 節）ではこの使い方を覆えず、`paint/frame_scene.rs` は layers・backdrop・border・影を自分の木の walk の中で順に呼ぶ。境界は module の向きで守る」にする。
+- **8.1 節:** 図に `lower`（解決済みの style・`DrawList`・text の run を render scene へ下ろす。木・入力を知らない）を足す。
+- **形:** `crates/kivact-lower/src` → `kivact-engine/src/lower/`。中の `pub` は `pub(crate)`。latch は、`Context` の dropped・failures を外から読む getter を消し、`Context::finish(self) -> LowerReport`（`LowerReport { dropped: u32, failures: Vec<Failure> }`）で一回の lowering の報告として返す。Context の中の `Cell`・`RefCell` は一回の lowering の範囲の値なので残す（今の型は既に `failures: RefCell<Vec<Failure>>`、`kivact-lower/src/context.rs:51-56`）。`ArvaneAssets`・`AssetEvent`・`BoxShape`・`shape` は `lower` の中に残す（`BoxShape` を `kivact-types` へ移さない）。
+- **4.4 節の engine の向き:** 今の行に `lower = []`、`text_input = []` を足し、`tree`・`measure`・`model`・`text_measure`・`paint`・`check`・`offscreen` に `"lower"`、`measure`・`model`・`host` に `"text_input"` を足す。lower を `paint` の下に置かないのは、`tree` と `model` が lower を使い、`paint` を使えない向きだから。
+
+### 19.10 layout は一つの持ち主、型状態の pass は作らない
+
+（8.4 節、付録 A の SM-E27・SM-E28 の「解消後」を置き換える）
+
+```rust
+// kivact_layout
+pub struct Layout { /* NodeLayoutColumns と LayoutState（どちらも crate の中だけ） */ }
+impl Layout {
+    pub fn push(&mut self); pub fn reset(&mut self, slot: usize);
+    pub fn rebuild_style<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId); pub fn rebuild_all<T: LayoutTree + ?Sized>(&mut self, tree: &T);
+    pub fn topology_changed(&mut self); pub fn invalidate_chain<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId);
+    pub fn compute<T: LayoutTree + ?Sized>(&mut self, tree: &T, available: Size, measure: &mut dyn LeafMeasurer) -> bool;  // 変化があったときだけ計算する
+    pub fn compute_overlay<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId, available: Size, limit: Option<Size>, measure: &mut dyn LeafMeasurer);
+    pub fn drain_geometry_changes(&mut self) -> GeometryChanges<'_>;
+    pub fn set_presence_scale(&mut self, slot: usize, scale: Option<(Orientation, f64)>);   // 19.12 節
+}
+```
+
+- 8.4 節の `LayoutState::edit()` などは、今の `push`・`rebuild_style`・`compute`・`drain` が `LayoutState` ではなく `NodeLayoutColumns` のメソッドである（`kivact-layout/src/lib.rs:11-23`）ことに合わない。また engine は「変化がなくても tooltip を合わせ直し（`compute_overlay`）、そのときも geometry を drain する」（`kivact-engine/src/model/interact/geometry.rs:69-92`）ので、`Edit → Pending → Computed` の一本の順では表せない。呼び出し順の規則の誤りは「columns と state を別々に渡す」と「`take_changed` を呼び忘れる」の二つなので、二つを一つの持ち主にし、`take_changed` を `compute` の中へ入れれば型で防げる。
+- engine の `Changes` の `needs_layout`・`layout_changed`・`viewport_chain` は `LayoutReasons`（bit の集合: `PASS`・`STYLE`・`VIEWPORT`）にする。`Computed(GeometryChanges)` の状態は作らない（geometry はその場で drain する）。
+- `Model::settle()` は今の `relayout` の順（sync → layout → lint → sync）を持つ唯一の関数。入力の時点の幾何が要る所（hit test の前、file drop、wheel、redraw）はそれぞれ `settle()` を呼ぶ（`host/events.rs:141-150`。何もなければすぐ返る）。
+
+### 19.11 `Display`
+
+（17.1 節の `Style::display(Display::Contents)` の箇条に足す）
+
+```rust
+// kivact_types::layout
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Display { #[default] Flex, Grid, Contents }
+// kivact_style
+impl Style { pub fn display(self, display: Display) -> Style; }   // display_grid() を置き換える
+```
+
+- 今は display の型がない（`LayoutProps.hidden: bool`、`kivact-types/src/layout.rs:413`、grid は `Style::display_grid()`、`kivact-style/src/sheet.rs:914`、と grid の container の有無）。`grid_box: Option<bool>` を `display: Option<Display>` にし、解決済みの `LayoutProps` に `display: Display` を足す。`hidden`（display: none）は表示の切り替えなので別に残す。`Contents` は engine の `flat_children` が平らにするので Taffy に届かない。`Display` は prelude に入れない（`std::fmt::Display` との衝突を避ける）。
+
+### 19.12 出現と退場の大きさは layout の hook で倍にする
+
+（17.10 節の `Style::enter_size`・`exit_size` の箇条に足す）
+
+- 軸は既存の `Orientation` を使う（`Axis` は作らない。付録 B.1）。`TransitionProp::Size` を足す（今の `TransitionProp` は `Paint` だけ、`kivact-style/src/sheet.rs:150`）。
+- 「二度目の layout をせず、子は自然な大きさ、親は倍にした大きさ」は、`kivact-layout` の `compute_cached_layout` の hook（`kivact-layout/src/tree.rs:207`）で、その node の出力の大きさの軸だけに倍率を掛けて実現する（cache の key に倍率を含める）。倍率は engine の presence の遷移が毎 frame `Layout::set_presence_scale` で渡す。`ExitLayout::Pop` の node では `exit_size` を無視する（退場の始めに場所を手放すため）。
+- 公開の値: `kivact_types::Presence { Entering, Present, Leaving }`（正準パス `kivact::view::Presence`）。engine は `HostEvent::PresenceChanged { node, presence }` と `Reader::presence(id) -> Presence` を出し、core の `NodeRef::presence() -> Value<Presence>` は最初の呼び出しで signal を作る。
+
+### 19.13 pointer の経路と modal の受け入れ
+
+（8.5 節の pointer の箇条、付録 A の SM-E10・SM-E15 の「解消後」を置き換える）
+
+```rust
+struct Route { capture: Option<NodeId>, press: Option<Press> }
+enum MouseGesture { Route(Route), Scrollbar(ScrollDrag), SelectText { editor: NodeId, route: Route } }
+enum TouchGesture { Route(Route), Pending { route: Route, candidate: TouchCandidate }, Pan(TouchPan) }
+struct KeyDownTargets(HashMap<KeyCode, FocusTarget>);
+```
+
+- `Route` の `capture` と `press` は独立の事実で、四つの組み合わせが全部ある（副 button の押下は capture だけ、listener のない所の押下は press だけ）。touch の候補は両方と同時にある（`kivact-engine/src/model/pointer/state.rs:114-122`）。SM-E10 の enum ではこれが表せないので、`Route` は struct のまま、touch の候補だけを `TouchGesture::Pending` に移す。
+- `Admission`（`model/modal/state.rs:17-29`）は client の dispatch の順で問われる表で、`Track` は入力の時点の状態なので、`Track` へ入れない（SM-E15 は行わない）。
+- `key_up` の宛先がないとき（記録がない、`KeyCode::Unidentified`、node がもうない）は、今と同じく focus のある node へ送る。
+- `HostEvent::HoverChanged { target: Option<FocusTarget> }`（canvas の region の hover を運ぶ）。
+
+### 19.14 付録 A の直し
+
+（付録 A に足す）
+
+- SM-A01・A02 → 19.5 節。SM-A11 の数え方 → 19.6 節。SM-A13 の「shell は検証と適用だけ」は「`AcceptedTree` を残し、差分の計算だけをやめる」（支援技術の起動の木と action の検査に要る、`arvane-shell/src/a11y/shared.rs:62-80`）。SM-A16 → 19.1 節（native の embed の `Session`）。
+- SM-E02・E03 → 19.8 節。SM-E10・E15 → 19.13 節。SM-E27・E28 → 19.10 節。SM-E01 の `soft_keyboard` は SM-E22（E-4）だけが扱う。SM-E18 は A-2 で済む（19.4 節）。
+
+### 19.15 `kivact-runtime` の module の向き
+
+（4.4 節の `[module_rules.kivact-runtime.uses]` を置き換える）
+
+```toml
+[module_rules.kivact-runtime.uses]
+reactive = []                      # 旧 kivact-reactive。handler（HandlerResult, Handled, Handler<E>）と、Host, ThreadWaker, TurnState, Stage, ExitState, TurnReport, TurnGuard の型もここ
+task = ["reactive"]                # 旧 kivact-task。timer の heap（Scheduler）もここ
+motion = ["reactive"]              # 旧 kivact-motion。FrameClock, LoopState, AnimPhase
+machine = ["reactive", "task"]     # Machine, Step, machine, MachineHandle, MachineCx
+host = ["reactive", "task", "motion"]  # RuntimeConfig, Runtime::new, TurnGuard の settle_async・check_draining・plan_frame・finish（inherent impl）
+```
+
+- `handler`・`turn`・`time` の module は作らない。理由: reactive の `callback`・`binding` が既に `HandlerResult` を使う（`kivact-reactive/src/setup.rs:72,120`）ので、`handler = ["reactive"]` では循環する。`Runtime` は reactive の中の struct（`kivact-reactive/src/data.rs:47-80`）で、host・turn の状態を field に持つので、その型も reactive に置く。motion は task を使わない（現在の motion の src に `kivact_task` の import はない）。
+- `Runtime` は一つ。上の層の処理（`Runtime::new`、`TurnGuard` の一部）は `host` の module に `impl Runtime` / `impl TurnGuard<'_>` として書く（同じ crate なので書ける）。
+
+### 19.16 host との境界と構築
+
+（6.1 節を置き換える）
+
+```rust
+// kivact_runtime（定義は reactive、root から再公開）
+/// What the runtime needs from whoever runs it (kivact-core's client).
+pub trait Host: 'static {
+    /// Ask for a turn soon. Called only on the `TurnState::Quiet → WakeSent` edge.
+    fn wake(&self);
+}
+/// A wake usable from any thread (executor, blocking jobs). Never touches `TurnState`.
+#[derive(Clone)]
+pub struct ThreadWaker(Arc<dyn Fn() + Send + Sync>);
+impl ThreadWaker {
+    pub fn new(f: impl Fn() + Send + Sync + 'static) -> Self;
+    pub fn wake(&self);
+}
+
+// kivact_runtime（定義は host）
+pub struct RuntimeConfig {
+    /// The host clock when the App starts (`HostInfo::now_ns`).
+    pub start_ns: u64,
+    /// Workers of the blocking pool (`None`: `min(4, CPUs)`).
+    pub blocking_threads: Option<usize>,
+    /// Where the App was started (`App::run`, `test::render`): the root owner's location.
+    pub at: &'static Location<'static>,
+}
+impl Runtime {
+    /// Registers the App, creates the root owner, runs `build` as setup of the root
+    /// owner, installs the returned extensions (and the runtime's own: task, motion),
+    /// and returns. `ext()` called before `build` returned is a misuse panic.
+    pub fn new(
+        host: Rc<dyn Host>,
+        waker: ThreadWaker,
+        config: RuntimeConfig,
+        build: impl FnOnce(&Rc<Runtime>, Owner) -> Extensions,
+    ) -> Rc<Runtime>;
+    pub fn root(&self) -> Owner;                 // Option ではない
+    pub fn now_ns(&self) -> u64;                 // runtime の時計（clock_now も同じ値）
+    /// Move the clock forward to `ns` (a turn's time, a `FrameTick`); it never goes back.
+    pub fn advance_clock(&self, ns: u64);
+    /// The host asked to close: `Running → Draining { now + DEFAULT_DRAIN_NS }`; later calls keep the deadline.
+    pub fn request_exit(&self);
+}
+```
+
+- 構築の順: (1) registry に `Rc<Runtime>` を登録する（`TurnState::Running(Stage::Setup)`、`ext` は空の内部の `OnceCell<Extensions>`）。(2) root owner を作る。(3) root の setup の frame で `build(&rt, root)` を呼ぶ。(4) `build` の戻り値に runtime 自身の entry（`TaskState::new(blocking_threads, waker)`、`MotionState`）を足して `ext` に入れる。(5) `TurnState::Quiet` にして返す。`build` が panic したら registry から外す。
+- `ext` の `OnceCell` は `Runtime::new` が返る前に必ず埋まり、外から空の状態は見えない（S-7 に反しない）。`build` の中で signal・trigger・selector（root の下）は作れる。理由: signal・trigger・selector の作成は registry と arena だけを使い、`ext` を読まない（`kivact-reactive/src/owner_handle.rs:140-155`、`selector.rs` の Internal effect は `try_runtime` と source だけを読む）。
+- `Driver` trait、`driver: OnceCell`、`root_owner: Cell<Option<Key>>`、`turn_requested: Cell<bool>`、core の `HostLink`、`TaskState::set_waker` は消える。core の `ClientHost(HostWaker)` が `Host` を実装する。`ThreadWaker` も同じ `HostWaker` を呼ぶ。
+- 時刻の持ち主は runtime の時計一つ（`RuntimeConfig.start_ns` で始まり、`advance_clock` で進む）。理由: 現在 root の setup が既に host の時刻を読み（`kivact-core/src/client/app_client.rs:236`）、`FrameTick` が batch の途中で時計を進める（`client/dispatch/env.rs:35`）ので、turn の入力一つでは運べない。
+- runtime は `Launch::Started` を作るとき（core の `start` の中）に作る。
+
+### 19.17 turn の順序は core の一つの関数が持つ
+
+（6.2 節を置き換える）
+
+turn の順序は `kivact-core` の `AppClient::turn` の一つの関数の上から下への並びが持つ（`client/phases.rs`・`client/settle.rs` はその関数と runtime に吸収して消す）。runtime は turn の状態（`TurnState`・`Stage`）・mount・報告・async の settle・exit を部品として出す。理由: 現在の turn は core だけが知るものと交互に進む。要求された activation と、その後の条件付きの stabilize と settle（`phases.rs:57-63`）、`before`/`done` の revision（`app_client.rs:296,312`）、batch 全体の `TextEditsAhead::count`（`:192`）、embed の close の打ち切り（`:208`）、commit の中の frame → focus → 削除 → commit → mount の stamp の順（`phases.rs:73-104`）、setup の turn（`:228-273`）。`TurnClient` の二つのメソッドでは表せず、hook を足すと順序が二つの crate に分かれる。
+
+```rust
+// kivact_runtime（定義は reactive、root から再公開）
+pub enum Stage { Setup, Begin, Reports, Dispatch, Async, Commit, Mounts, UserEffects, Output }
+enum TurnState { Quiet, WakeSent, Running(Stage) }       // 非公開
+pub enum ExitState { Running, Draining { deadline: u64 }, Exited }
+pub struct TurnReport {
+    /// The earliest timer or drain deadline (ns).
+    pub next_deadline: Option<u64>,
+    pub exit: ExitState,
+}
+#[must_use] pub struct TurnGuard<'a> { /* &Runtime, 記録中の turn */ }
+
+impl Runtime {
+    pub fn begin_setup(&self) -> TurnGuard<'_>;               // Quiet → Running(Setup)
+    pub fn begin_turn(&self, events: usize) -> TurnGuard<'_>; // Quiet|WakeSent → Running(Begin)
+    /// Exit transition and deadline without a turn (the early return of a batch with nothing to do).
+    pub fn report_now(&self) -> TurnReport;
+    pub fn mounts_due(&self, acked: Revision) -> bool;
+    pub fn pending(&self) -> Pending;                          // turn_requested = (TurnState == WakeSent)
+}
+impl TurnGuard<'_> {
+    pub fn stage(&self, stage: Stage);              // core が Dispatch・Commit を記す
+    pub fn cause(&self, cause: String);
+    pub fn stabilize(&self);                        // Stage を変えない
+    pub fn deliver_reports(&self);                  // Stage::Reports。始めの snapshot だけ
+    pub fn run_mounts(&self, acked: Revision);      // Stage::Mounts
+    pub fn stamp_mounts(&self, revision: Revision); // Stage::Commit の中だけ（ほかは misuse）
+    pub fn check_draining(&self);                   // Stage::Async
+    pub fn settle_async(&self);                     // Stage::Async。1000 round
+    pub fn plan_frame(&self) -> Option<u64>;        // Writer::request_frame に渡す時刻
+    pub fn run_user_effects(&self) -> bool;         // Stage::UserEffects。一 round
+    pub fn abandon_user_effects(&self) -> Vec<NodeId>;
+    /// Stage::Output: exit transition, deadline, the turn record; then
+    /// WakeSent (and `Host::wake`) if user effects, ready tasks, later reports
+    /// or `client_pending` remain, else Quiet.
+    pub fn finish(self, ops: usize, client_pending: bool) -> TurnReport;
+    /// Setup: WakeSent if user effects or ready tasks remain, else Quiet.
+    pub fn finish_setup(self);
+}
+```
+
+- **misuse は三つだけ:** turn の入れ子（`Running` の間の `begin_turn`・`begin_setup`）、`Stage::Commit` の外の `stamp_mounts`、`Runtime::new` の `build` の中の `ext()`。段階ごとの signal の書き込みの禁止は作らない。理由: commit の中の `flush_focus` が失敗した focus を `rt.report` に送り、利用者の `on_error` が走って書き込む（`kivact-core/src/view/requests.rs:64-77,180-188`）。
+- `RunningRequested` はない。turn の中の要求は wake しない（現在の `client/link.rs:73-82` と同じ）。turn の後に wake するかは `finish` の pending の判定だけで決まる（`app_client.rs:366-376`）。
+- `wants_frame` はない。frame の要求は時刻を持ち、revision の write でもある（`Writer::request_frame` は write の command を足す。`kivact-engine/src/host/write/writer.rs:315-319`）ので、core が commit の中で `plan_frame()` の値を `request_frame` に渡す。`TurnInput`・`TurnItem`・`TurnClient` は作らない。`FrameTick` は今までどおり batch の中の順序のある event。
+- `on_mount` の待ちは二つの型付きの queue（`unstamped: Vec<Mount>`、`awaiting: VecDeque<(Revision, Mount)>`、SM-R05）。後の報告は `deliver_reports` が届ける（SM-R06）。`ExitPhase` は runtime の `ExitState` になり、遷移は `request_exit` と `finish`・`report_now` だけ（SM-C02）。
+- core の `AppClient::turn` の並び（この順を変えない）:
+  1. `advance_clock(now)`。event がなく、最後の boundary で mount も出ないなら `report_now()` を返す。
+  2. `before` を求め、`begin_turn`、`run_mounts(before)`、`deliver_reports`、`stabilize`。
+  3. event ごとに（embed の close なら打ち切り）`stage(Dispatch)`・dispatch・要求された activation（あれば `stabilize`）・`stabilize`・boundary ごとに `run_mounts` と `stabilize`。最後に残りの boundary を全部。
+  4. `done` を一度だけ読む。`check_draining`、`settle_async`。
+  5. loop: activation（あれば `stabilize` と `settle_async`）→ commit（`stage(Commit)`、`plan_frame` → `request_frame`、focus、削除と asset の失敗の掃除、`Writer::commit`、`stamp_mounts`）→ `mounts_due(done)` も user effect もなければ抜ける → 100 round を越えたら `abandon_user_effects` と `Cycle` の報告で抜ける → `run_mounts(done)`・`stabilize`・`run_user_effects`・`stabilize`・`settle_async`。
+  6. `finish(writes, has_activations)`。
+
+### 19.18 frame と animation の時間
+
+（6.3 節の表の `MotionState.frames`・`FrameLoop`・`Animated` の行と、`TurnReport.wants_frame` の文を置き換える）
+
+```rust
+// kivact_runtime::motion（非公開）
+struct FrameClock { phase: FramePhase, offset: ClockOffset, ticks: u64 }
+enum FramePhase {
+    Idle,
+    Requested { at: u64, last_tick: Option<u64> },
+    Ticked { last: u64 },
+}
+enum LoopState { Stopped, Running(LoopRun) }   // LoopCell { owner, f: Handler<FrameInfo>, state: Signal<LoopState>, frames: Cell<u64> }
+pub(crate) enum AnimPhase { Idle, Running { start_ns: u64 }, Paused { start_ns: u64, at_ns: u64 }, Completed }
+
+// kivact_runtime（公開。core が build の中で Extensions に入れる）
+#[derive(Clone, Copy)]
+pub struct MotionEnv { pub reduced_motion: Value<bool>, pub surface_active: Value<bool>, pub frame_period_ns: Value<u64> }
+```
+
+- frame loop は今までどおり `FrameTick` の event の中で同期に走る（`MotionState::on_frame_tick`）。`next_frame()` と「`next_frame().await` を繰り返す task」は作らない。理由: task にすると loop の callback が tick の位置（`kivact-motion/src/state.rs:179-221`）から batch の後の async の settle へ移り、順序が変わる。
+- `FramePhase` は要求と最後の tick を一緒に持つ。理由: 要求中も前の tick の時刻を読む（`state.rs:239,248`）。
+- `MotionEnv` は core が `Runtime::new` の `build` の中で（環境の signal を作った後で）`Extensions` に入れ、motion は `ext::<MotionEnv>()` で読む。`attach_env`、`env: Cell<Option<MotionEnv>>`、`RuntimeConfig.reduced_motion`、`Runtime::set_reduced_motion` は作らない・消す。理由: `MotionEnv` は reduced motion のほかに surface と frame の周期も読み（`state.rs:41-48`）、`set_reduced_motion` は `Environment.reduced_motion` の写しになる（S-4）。reduced motion が有効になったときの `reduce_motion()` の呼び出しは今のまま。
+- `Animated` は `phase: Signal<AnimPhase>` 一つ（`running: Signal<bool>` と `phase: Cell` と `completed: Signal<u64>` を消す）。`is_running()` は `matches!(phase, Running { .. })` の memo。自然に終わった run は `Completed`（止まっている状態。`Idle` と同じく `to` にある）へ移る。`on_complete` は `phase` の Internal の Watcher（19.x の reactive）で、見た値が `Completed` のときに callback を handler の frame で呼ぶ。理由: 遷移の中で callback を呼ぶと、利用者の code が `rt.enter` の中の step の loop で走る（`state.rs:222-229`）。現在の通知は stabilize の中の Internal effect（`kivact-motion/src/animated.rs:368-392`）。同じ stabilize の中で完了と再開の両方が起きたら通知しない（現在は通知する。記録して受け入れる）。
+- 初回の skip（`first_cell`、`animated.rs:262-270`）は Watcher（`explicit_start` のときは普通の Internal effect）。
+- timer（`Sleep`）: `SleepState { Unregistered { deadline }, Registered { id }, Fired }`、`Drop` は `CancelQueue` に id を積む。`CancelQueue` は timer の heap を読むところ（`take_due`、`next_deadline`）の前に必ず空にする。理由: 消した timer が締切に残ると余分な wake と turn になる（`kivact-task/src/state.rs:120-124`）。
+
+### 19.19 reactive の frame と Watcher
+
+（6.4 節の `Ctx`→`Frame` の項と `Watcher` の項を置き換える）
+
+```rust
+struct Frame { owner: Option<Key>, kind: FrameKind, tracking: Option<CollectorSlot>, pure: bool, writer: Option<Key> }
+enum FrameKind { Handler, Setup(Key), Computation { node: Key, effect: bool } }
+```
+
+- `pure_section`・`untracked_frame`・`callback_frame` は親の frame の `kind` を写し、`pure`・`tracking`・`owner` だけを変える。理由: 現在この三つは親の文脈を受け継ぎ（`kivact-reactive/src/frame.rs:68-89` の `..self.context()`）、setup の中で呼んだ callback は setup の関数を使え、effect の中の untracked は `on_cleanup` の effect を保つ。一つの enum の variant にすると失われる。
+- `Watcher`（graph の node の種類）は、自分の queue（`effect_on` は User、`Animated` は Internal）の最初の実行で source を pure・tracking で評価して依存を取るだけで `f` を呼ばない。以後の再実行のたびに source を評価して `f` を untracked で呼ぶ。前の値との比較はしない。理由: `effect_on<T: Clone>` は `PartialEq` を求めず（`setup.rs:166`）、生成時に評価すると初期値が最初の user の round の値から setup の時の値に変わる。
+- `FrameKind`・pure の中の書き込みの misuse は既にある（`ErrorKind::WriteInPureContext`、`graph.rs:252`）。変えない。
+
+### 19.20 非同期の状態
+
+（6.6 節を置き換える）
+
+```rust
+struct AsyncCell<T> { state: Signal<AsyncState<T>>, latest: Signal<Option<T>> }
+impl<T: Clone> AsyncCell<T> {
+    fn start(&self);                          // state = Pending
+    fn finish(&self, result: Result<T, UiError>); // Ready なら latest も書く。Failed は latest を保つ
+    fn reset(&self);                          // Idle
+}
+enum Latest { Idle, Running { task: Owned<TaskCell>, generation: Generation } }
+enum ActionPhase<I> { Open { worker: Worker, waiting: VecDeque<Submitted<I>> }, Closed, Detached(Drain) }
+enum PoolState { NotStarted, Running(Arc<Pool>), ShutDown }
+```
+
+- `AsyncCell` は二つの signal を持ち、書くのは上の三つのメソッドだけ。`state()`・`latest()` は memo にしない。理由: memo は `PartialEq` を求めるが、`Resource`・`Action` の `T` は `Clone` だけ（`kivact-task/src/resource.rs:47-52`）。一つの signal にすると `latest` の読み手が state の変化のたびに再実行される。
+- `Drain` は `Runner::Queue`・`Runner::All` からだけ作れる型。`queues` の Weak の表は `kivact_types::Registry<dyn Drain>`。
+- `PoolState::ShutDown` の後の `blocking` は invariant の panic（`expect("invariant: no App code runs after the blocking pool shut down")`）。`ErrorKind::Shutdown` は足さない。理由: `blocking` は `impl Future<Output = R>` を返し（`blocking.rs:187-193`）`UiError` を返せない。pool の shutdown は `AppClient::drop` が root の破棄と task の最後の poll の後に呼ぶので、App の code から届かない。
+- `TaskCell.task: OnceCell` は残す（SM-R17 は行わない）。理由: task の future は owner に保存した後の object の key を持つ必要があり（`spawn.rs:48-62`）、key は cell を保存して初めてできる。cell は同じ関数の中で最初の poll の前に埋まり、空の状態は外から見えない。
+
+### 19.21 App 全体の状態
+
+（6.7 節の `use_app_state` の文、17.11 節の `AppStates`、18.21 節の「App 全体の型の map を一つに」を置き換える）
+
+- App 全体の状態の置き場所は二つ: `Extensions`（`Runtime::new` の `build` が全部入れ、以後変わらない）と、root の owner の文脈（`use_app_state::<T>(init)`。最初の呼び出しで root の setup として `init` を実行し、root に `provide` する。現在の `app_state` と同じ、`kivact-core/src/view/owner.rs:147-155`）。`AppStates` は作らない。理由: `ext() -> &T` は変わらない storage を前提にし（`kivact-reactive/src/ext.rs:1-9`）、`#![forbid(unsafe_code)]` の下で後から entry を足せない。名前の変更（`use_app_state`）は Phase N。
+
+### 19.22 内部の handler の型の置き場所と unit
+
+（17.5 節の定義の場所と unit の行を置き換える）
+
+- `Handled`（core の `view/input.rs` から移す）と `Handler<E>`（`Rc<dyn Fn(E) -> Result<Handled, UiError>>` を包む `Clone` の型、`from_fn`、`call`）は `kivact_runtime` の reactive の `handler.rs` に置く（R-3）。`HandlerResult` は既に reactive（`error.rs`）にあり、`handler.rs` への移動と `KeyHandlerResult` との統合は C-3a。
+- runtime の中の置き換え: frame loop の関数は R-4、task の `DoneFn` は R-5（`Handler<Result<T, UiError>>`。handler ごとに結果を clone して渡す。`on_done` は既に `T: Clone` の impl の中）。core の slot は C-3a。
+
+### 19.23 `Machine` の実装の規則
+
+（18.13 節に足す）
+
+```rust
+pub struct MachineCx<M: Machine> { /* MachineHandle<M> */ }
+impl<M: Machine> MachineCx<M> { pub fn send(&self, event: M::Event); }
+pub struct MachineHandle<M: Machine> { /* Owned<MachineCell<M>> */ }
+// Step<S, Ev, Ef> の field は非公開（stay・to・with・after・cancel だけで作る）
+```
+
+- `send` は、その machine の遷移の実行中なら queue に積む。そうでなければその場で: `input()` を untracked で作る → `transition` → `next` があれば state の signal に書く → timer の操作 → effect を順に `run` で実行（machine の owner の handler の frame）→ queue の event を同じ順で処理する。実行中かどうかと queue は `enum Dispatch { Idle, Running(VecDeque<Ev>) }` 一つで持つ。
+- timer は event の variant（`std::mem::discriminant`）ごとに一つの `Task`。`after` は同じ variant の前の task を `cancel` してから、`let wait = sleep(delay);` を先に作り（締切は `after` の時刻から数える）、`spawn_in(owner, async move { wait.await; handle.send(event) })` で作る。owner の破棄で task が消えるので timer も消える。
+- `feed(source, to_event)` は `effect_on(source, move |v| handle.send(to_event(v.clone())))` と同じ。
+- 破棄された machine への `send` は、破棄された `Signal` への書き込みと同じ misuse（`Disposed`）。
+
+### 19.24 `AppOptions` と起動の経路
+
+（7.2 節の `AppSettings` の struct と、18.12 節の `AppSettings` → `AppOptions` の行を置き換える）
+
+```rust
+// kivact_core::launch（kivact-test だけが使う公開の module。facade は再公開しない）
+pub struct AppOptions { /* 全部 private */
+    title: String, window_size: Option<Size>, min_window_size: Option<Size>,
+    theme: Theme, locale: Option<Locale>, messages: Messages,
+    fonts: Vec<(Asset, &'static Location<'static>)>,
+    blocking_threads: Option<usize>,   // None: min(4, CPU の数)
+    gpu_preference: GpuPreference,     // feature gpu-interop がないときは読まない
+}
+impl AppOptions {
+    pub fn new(title: impl Into<String>) -> Self;
+    pub fn window_size(self, width: impl Into<f64>, height: impl Into<f64>) -> Self;
+    pub fn min_window_size(self, width: impl Into<f64>, height: impl Into<f64>) -> Self;
+    pub fn theme(self, theme: Theme) -> Self;
+    pub fn locale(self, locale: Locale) -> Self;
+    pub fn messages(self, messages: Messages) -> Self;
+    #[track_caller] pub fn font(self, font: impl Into<Asset>) -> Self;
+    pub fn blocking_threads(self, n: usize) -> Self;
+    #[cfg(feature = "gpu-interop")] pub fn gpu_preference(self, p: GpuPreference) -> Self;
+    pub fn check_window_sizes(&self) -> Result<()>;
+}
+```
+
+- `App` は `AppOptions` を一つ持ち、builder のメソッドは同名の `AppOptions` のメソッドを呼ぶ。`kivact::test::RenderOptions` は `AppOptions` を包む builder（field は private）で、同名のメソッドと試験だけのメソッド（`host_locale`、`reduced_motion()`、`dark()`、`scale`、`fonts`、`mirror`、`gpu()`、`frame_period_ns`、`title`、`from_env()`、`with_theme(theme)`）を持つ。
+- **理由:** 7.2 節の公開の field の形では事実が落ちる。font は拒まれたときの報告のために登録した位置を持ち（`kivact-core/src/client/app_client.rs:67`）、blocking の数は「指定なし」を持ち（`app_client.rs:117`、`threads: Option<usize>`）、`RenderOptions` は 15 の公開の field を別に持っていた（`kivact-core/src/test/options.rs:36-78`）。field を private にすれば `Location` が facade から届く署名に出ない。
+- `render_with_handle(options, || (handle, view)) -> (Screen, H)` は残す（付録 B.3 の「`render_with` に統合」の行を消す）。**理由:** 戻り値の形が違うので、新しい trait なしには一つの関数にできない（`kivact-core/src/test/render.rs:61`）。
+- engine の試験の feature の名前は `testing` のまま（`kivact-engine/Cargo.toml:33`。7.3 節の「feature `test`」を読み替える）。
+
+### 19.25 `Inspect` のメソッド
+
+（7.3 節の「`Inspect` は core の内部の値ごとに読み出しのメソッドを一つ」を置き換える）
+
+```rust
+impl LaunchHandle { pub fn inspect(&self) -> Option<Inspect<'_>>; }   // Started のときだけ Some
+impl Inspect<'_> {
+    pub fn reader(&self) -> kivact_engine::Reader;   // engine の事実は全部これで読む
+    pub fn root(&self) -> NodeId;
+    pub fn app_view(&self) -> Option<NodeId>;
+    pub fn located_at(&self, node: NodeId) -> Option<&'static Location<'static>>;
+    pub fn contains(&self, node: NodeId) -> bool;
+    pub fn why(&self, node: NodeId) -> Why;
+    pub fn stats(&self) -> Stats;                    // core_ns は kivact-test が埋める
+    pub fn turns(&self) -> Vec<TurnRecord>;
+    #[cfg(debug_assertions)] pub fn open_trace(&self, name: &str);
+    #[cfg(debug_assertions)] pub fn check_trees(&self) -> Result<(), String>;   // C-5 で消す
+}
+```
+
+- **理由:** 試験が `Tree` から読んでいる値（`content`、`role`、`name`、`value`、`checked`、`selected`、`expanded`、`disabled`、`hidden`、`input_value`、`placeholder`、`scene`、`test_id`）は、どれも engine の `Reader` を包んでいるだけである（`kivact-core/src/view/tree.rs:494-575` の `with_node`・`reader()`）。core だけが答えられるのは、node の位置・owner・`why`・runtime の統計（`kivact-core/src/test/screen/state.rs:38-66`）と turn の記録だけである。semantics の snapshot は `reader()` の host の木を辿る（C-5 までは、`check_trees` が core の木と同じであることを保証する）。
+
+### 19.26 style の内部の口と `THEMED`
+
+（7.6 節の第 3・第 4 項目と、付録 B.1 の `kivact::style` の「公開しない」の文を置き換える）
+
+```rust
+// kivact_style::internal（#[doc(hidden)] pub mod。kivact-core だけが使う）
+pub fn install_theme(owner: Owner, theme: Value<Theme>);
+pub fn theme_of(owner: Owner) -> Option<Value<Theme>>;
+pub fn compile_style(style: &Style, theme: &Theme, state: Interactive) -> CompiledStyle;
+pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle;
+pub fn record(size: Size, theme: &Theme, f: impl FnOnce(&mut Draw)) -> Recording;
+pub fn with_scroll_axes(style: Style, axes: ScrollAxes) -> Style;
+// kivact::style（公開）
+impl Style {
+    pub fn merge(self, other: &Style) -> Style;          // 公開のまま
+    pub fn display(self, display: Display) -> Style;     // Display::{Flex, Grid, Contents}。display_grid を置き換える
+}
+```
+
+- 固有メソッドは module に移せないので、host 側の口は自由関数にして、同名の固有メソッドを消す（`Theme::install`・`Theme::of` は `kivact-style/src/theme/value.rs:450,459`、`Style::compile` は `resolve.rs:240`、`Draw::record` は `draw/recorder.rs:48`）。
+- **`Style::merge` は公開する。** kit が recipe を合わせるのに使っている（`kivact-ui-basic/src/recipes_controls.rs:85` ほか basic・game・soft の約 10 file）。kit は小さくしない。
+- **`display_grid` は `display(Display)` にする。** soft は style の closure の中で条件付きで grid にしている（`kivact-ui-soft/src/form_layout.rs:73,79`、`aspect_ratio.rs:81`、`toolbar.rs:242`）。`view::grid` だけでは書けない。E-8 が足す `Display::Contents` も同じメソッドで選ぶ。`with_scroll_axes` の利用者は core の `scroll` だけなので内部にする（`kivact-core/src/control/container.rs:123`）。
+- **`static THEMED` は残す**（7.6 節の第 5 項目を消す）。`Color::of(color)` は theme なしで Copy の `Color(Repr::Themed(u32, alpha))` を作るので（`kivact-style/src/theme/value.rs:577-586`）、表を `Theme` の値に入れられない。表は `ThemeColor` の値ごとに一つの、縮まない interning の cache である（rustdoc にそう書き、`#[expect]` の理由にする）。
+
+### 19.27 地域書式は ICU4X で一度だけ作る
+
+（7.6 節の第 2 項目の「en-US の表へ移す」と、17.14 節の「C-2 で作る en-US の表を消す」を置き換える）
+
+- 書式の API（付録 B.1 の `kivact::i18n`）は最初から ICU4X で実装する（unit L-1）。en-US だけの手書きの表は作らない。**理由:** その表は同じ wave の L-1 ですぐ消える。
+- 暦の計算の根は `CalendarDate::from_days(i64)`・`CalendarDate::to_days(self) -> i64`（`kivact-i18n/src/date.rs:78,89` の `days_from_civil`・`civil_from_days` を公開する。soft の写し `kivact-ui-soft/src/timestamp.rs:489,498` は K の unit で消す）。
+
+### 19.28 削除の結果の型
+
+（付録 A の SM-C07、SM-C14 の「`Tree::remove` が id の列を返す」と、17.1 節の「`Writer::remove_with_exit` が返す id の列」を一つにする）
+
+```rust
+#[must_use = "drop the removed records after the tree borrow ends"]
+pub(crate) struct Removed { pub(crate) ids: Vec<NodeId>, records: Vec<CoreNode> }   // ids: 消した部分木の全 node（前順）
+pub(crate) fn remove(&mut self, id: NodeId) -> Removed;
+// engine
+impl Writer { pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) -> Vec<NodeId>; }
+```
+
+- C-3a はこの署名を core の木で作り（`ids` は core の記録から）、C-5 は `ids` を `Writer::remove_with_exit` の戻り値にする。commit の `asset_failures` の掃除（SM-C07）と `NodeRef` の `Detached`（SM-C14）は `ids` だけを読む。
+- `Writer::remove_with_exit` が返すのは**論理的に**消した id で、退場の動きのために engine に残る node も含む。core の記録（handler など）は論理的な削除のときに消す。**理由:** 退場中の node は engine の木に残る（`kivact-engine/src/model/apply.rs:405-411` の `begin_exit`）ので、物理的な削除まで待つと handler が退場中も生きる。現在の戻り値は `()`（`kivact-engine/src/host/write/writer.rs:126`）。
+- SM-C12 の `Leaving.on_exit` は `Option<Handler<()>>`（17.5 節の「内部の callback は `Handler` だけ」に合わせる。付録 A の `Rc<dyn Fn()>` を置き換える）。`IdMap<V>` は `NodeId` の key だけなので（`kivact-types/src/ids.rs:37`）、`RequestId` など別の key は `HashMap` にする。
+
+### 19.29 fragment は `Display::Contents` の箱
+
+（17.1 節の第 1・第 2 項目を置き換える。unit E-8・C-5）
+
+- engine に `NodeKind::Fragment` を足さない。core の flow（`show`、`dynamic`、`for_each`、`for_index`、`virtual_list` の行、`error_boundary`、`provide*`）は、自分の位置に箱を一つ作り、style は `display(Display::Contents)`、semantics なし、`hit_testable(false)`、focus しないものにする。
+- 透明の扱いは一つの判定 `is_transparent(node) = style の display が Contents` と、それを使う `NodeTree::flat_children(id)` だけ。layout の adapter、paint の walker、a11y の build（semantics を出さず子を親へ上げる）、hit test、focus の移動はこれだけを使う。
+- engine の読み出し: `Reader::parent(id) -> Option<NodeId>`、`Reader::children(id) -> Vec<NodeId>`（退場中の node を含まない。core の挿入の位置と event の bubbling は退場中の node を見ない）。透明な箱は、退場中の子孫がいる間は残り、最後の子孫の退場が終わったときに消える。
+- 組み立て途中の部分木（まだ挿入していない list の行）は engine で親なしの箱として作り、その下へ子を挿入する（`NodeTree::insert` は親が未接続でも受ける。`kivact-engine/src/tree/node_tree.rs:256`、Writer は即時に model を書く `writer.rs:93-108`）。
+- **理由:** fragment を別の種類にすると、透明の扱いが `Display::Contents`（soft の要求 C-38）と二つになる。一つの判定にすれば E-8 の walker の変更は一度で、core の木の連結の code（`kivact-core/src/view/tree.rs:680-900` の `host_parent`・`top_hosts`・`next_host_after`・`attach_writes*`・`move_writes_before`・`set_children`）は全部消える。C-5 は CP4 の後へ遅らせてよい（Phase N は C-5 に依らない）。
+
+### 19.30 part の hover は engine の hover の target から
+
+（7.5 節の表の「hover の chain」の行に足す。unit E-3・C-4）
+
+- engine の `HostEvent::HoverChanged { node: Option<NodeId> }` を `HoverChanged { target: Option<FocusTarget> }`（node と canvas の region）にする。canvas の region の part の hover は `target == FocusTarget { node, region: Some(region) }` で決まる。
+- **理由:** 現在 region の part の hover の情報源は pointer の Enter/Leave の observer だけ（`kivact-core/src/view/part.rs:222-223` が作り、`view/mount/regions.rs:217-222` が region へ渡す）で、engine の event は node しか持たない（`kivact-engine/src/contract/events.rs:57`）。observer を消すと region の hover がなくなる。
+
+### 19.31 `HandlerResult` は四つの impl を持つ一つの trait
+
+（10.4 節に足す。unit C-3a）
+
+```rust
+// kivact_runtime::handler（正準パスは kivact::view）
+pub enum Handled { Yes, No }
+pub trait HandlerResult: Sealed { #[doc(hidden)] fn into_outcome(self) -> Result<Handled, UiError>; }
+impl HandlerResult for () {}
+impl HandlerResult for Handled {}
+impl HandlerResult for Result<(), UiError> {}
+impl HandlerResult for Result<Handled, UiError> {}
+```
+
+- `KeyHandlerResult` を消す（`kivact-core/src/view/input.rs:98`。core の中だけが使っている）。四つの impl でも `?` は `UiError` を推論する: closure の `Ok(..)` の値の型で impl が一つに決まる。現在の trait は二つの impl（`kivact-reactive/src/error.rs:242`）。
+- 移動は C-3a で行い（R-7 はなくなった）、core の内部の slot を `Handler<E>` にするのと同じ unit にする。
+
+### 19.32 payload のない handler の `Callback` はどの owner の下でも作れる
+
+（18.2 節の第 1 項目に足す）
+
+- `impl<F, R> From<F> for Callback<()> where F: Fn() -> R + 'static, R: HandlerResult` は、今の owner の種類（setup、handler、effect）を問わずその下に `Callback` を作る。owner がないときだけ API-12 の panic。
+- **理由:** 現在の `callback()` は setup の文脈を要求する（`kivact-reactive/src/setup.rs:120-122` の `setup_scope("callback", ..)`）。そのままでは handler の中で作る data の record（`Toast::action(label, ..)` など）に closure を渡せない。
+
+### 19.33 `NodeBuilder::node_mut` は公開で文書に出さない
+
+（7.4 節の表の `trait NodeBuilder` の行の「必須の実装は `node_mut`（今のまま公開）」を補う。作業手順書の旧 N-3 の「`node_mut` を sealed にする」を消す）
+
+```rust
+pub trait NodeBuilder: Sized {
+    #[doc(hidden)] fn node_mut(&mut self) -> &mut Node;
+    fn with_node(self, f: impl FnOnce(Node) -> Node) -> Self;
+    // 既定のメソッドは 7.4 節の表の集合
+}
+```
+
+- **理由:** kit が約 190 の builder で `NodeBuilder` を実装している（basic 43、pop 18、game 9、creative 22、soft 100）。sealed にすると kit と外部の部品の作者（戦略 P-07）が実装できない。`#[doc(hidden)]` で、文書に出る口は `with_node` だけになる。
+
+### 19.34 公開 API の phase の進め方
+
+（作業手順書の旧 N-1〜N-7・N-9 を置き換える。設計の形は変えない）
+
+- 名前と path の変更は付録 B.10（旧→新の表）一つにまとめ、新しい trait と型は定義の段（N-D1・N-D2）で一度に作る。その後、crate の組ごとの unit（N-F1〜N-F6、N-G1〜N-G2）が、自分の file に Phase N の全部の変更を一度に当てる。
+- **理由:** 旧 N-1〜N-7 は、同じ ui・interaction・kit の builder の file を一つずつ最大 6 回書き直す順だった。旧 N-3・N-4 の「kit も直す」と、0.10 節の「kit は N-9 で一度に」が食い違っていた。
+- 関数の長さ（`too_many_lines`）と状態の検査の有効化は公開 API の検査ではないので、N-8 から Phase K の H-G1〜H-G6 へ移す。今の code では、ui・interaction・kit を除く library crate に、80 行を超える関数が約 90 ある（engine 22、arvane-native 19、core 18 ほか）。
+
+### 19.35 `InteractionPolicy` の形と置き場所
+
+（18.15 節の `InteractionPolicy` の field の一覧を置き換える）
+
+```rust
+pub struct InteractionPolicy {           // theme の拡張。Clone・Debug・PartialEq・Default。全 field が pub。FRU で一部を上書きする
+    pub menu: MenuPolicy,                // { press: MenuPress, drift: PressDrift, submenu: SubmenuTiming, disabled_focus: DisabledMenuFocus }
+    pub tooltip: TooltipTiming,          // 旧 TooltipConfig { delay: 500 ms, skip_delay: 300 ms }
+    pub button: ButtonPolicy,            // { disabled_focus: DisabledButtonFocus }
+    pub slider: SliderPolicy,            // { touch: SliderTouchMotion }
+    pub switch: SwitchPolicy,            // { drag: SwitchDrag }
+    pub toast: ToastPolicy,              // { swipe: ToastSwipe, swipe_slop: f64 = 8.0 }
+    pub select: SelectPolicy,            // { sheet_slop: f64 = 10.0 }
+    pub hover_card: HoverCardTiming,     // K-2a が足す。{ open_delay: 600 ms, close_delay: 300 ms }
+    pub drawer: DrawerPolicy,            // K-2a が足す。{ swipe: DrawerSwipe { close_fraction: 0.3, flick_speed: 0.6, flick_distance: 4.0 } }
+}
+pub struct PressDrift { pub context: f64, pub other: f64 }   // 10.0, 13.0
+```
+
+- **interaction へ移す型**: `DisabledButtonFocus`、`SliderTouchMotion`、`SwitchDrag`、`ToastSwipe` の定義を `kivact-ui` から `kivact-interaction` へ移す。公開の path は `kivact::interaction` になる。
+  - 理由: `InteractionPolicy` は `kivact-interaction` にあり、interaction は ui に依存しない（`kivact-interaction/Cargo.toml` の依存は `kivact-core` だけ）。今の定義の場所は `kivact-ui/src/button.rs`、`slider.rs`、`switch_drag.rs`、`toast_swipe.rs`。
+- **`TooltipTiming` は policy の field**: 文脈で渡す経路（`provide(TooltipConfig { .. })`）は消す。
+  - 理由: 今は `try_context::<TooltipConfig>()`（`kivact-interaction/src/tooltip.rs` の `use_tooltip_when`）で読み、crate の外に使う所がない。theme と文脈の二つの経路を残さない。
+- **`hover_card` と `drawer` の field は K-2a が足す**: その時まで、読む部品がない。
+- **hover card の遅延の上書き**: hover card は、部品ごとの `.open_delay(Duration)`・`.close_delay(Duration)` も持つ。basic の今の builder の option で、kit を縮めないため。
+
+### 19.36 `UiTokens` の作り方と範囲
+
+（18.15 節の `UiTokens` の段落、17.7 節、付録 C.6 の「pop と game の recipe」の行、11.1 節の `DataTableStickyPaint`・`DataTableRowStatusPaint` の行き先を置き換える）
+
+- **I-0 が作る**: `UiTokens` は I-0 が作り、最初の field は次の七つだけにする。
+  ```rust
+  pub struct UiTokens {
+      pub button: ButtonTokens,               // { busy_motion: ButtonBusyMotion }
+      pub progress: ProgressTokens,           // { motion: ProgressMotion }
+      pub toast: ToastTokens,                 // { row_motion: ToastRowMotion }
+      pub toggle_button: ToggleButtonTokens,  // { label_reservation: ToggleLabelReservation }
+      pub dialog: DialogTokens,               // { center: DialogCenter }
+      pub disclosure: DisclosureTokens,       // { motion: DisclosureMotion }
+      pub data_table: DataTableTokens,        // { sticky: DataTableStickyPaint, row_status: DataTableRowStatusPaint }
+  }
+  ```
+  入れ子の struct は、その部品の file に置く。`UiTokens` は `kivact-ui/src/tokens.rs` に置く。
+- **K の各 unit が足す**: 中核へ上げた部品の分を、上げた unit が足す。token にするのは、元の kit が上書きしていた値と、theme から読む値だけ。
+- **今ある recipe を後から token にしない**: pop と game の recipe の file を「値だけが違う recipe を token に」減らす作業もしない（file の構成を揃えるだけ）。
+  - 理由: 5 kit の recipe（約 8.8k 行）と既定の recipe を全部比べる調査が要るが、kit の作者が触る面（`Theme`、kit の `Tokens`、`UiTokens`、`UiRecipes`、`InteractionPolicy`）は、これをしなくても揃う。後で kit が上書きしたくなった値は、field を一つ足せばよい（18.15 節の規則のまま）。
+- **data table の二つの paint は `UiTokens.data_table`**: `UiRecipes` には入れない。
+  - 理由: どちらも kit が上書きする値で（soft の `theme.rs` の `.with(kivact::ui::DataTableStickyPaint { .. })`）、style の関数ではない。
+
+### 19.37 `DisclosureMotion` の既定と `animated`
+
+（18.15 節の `disclosure.motion` と 11.1 節の `DisclosureMotion` の既定、付録 A の SM-U06 を置き換える）
+
+```rust
+pub struct DisclosureMotion { pub animate: bool, pub duration: Duration }  // 既定 animate: false, duration: 200 ms
+```
+
+- **既定は `false`**: 理由は、今の `ui::disclosure` の既定が `animated: false`（`kivact-ui/src/disclosure.rs` の `disclosure(..)` の初期値）だから。11.1 節の「true」は事実と違う。
+- **`ui::disclosure(..).animated(bool)` は残す**: その一つの部品の `motion.animate` の上書きとして使う。
+  - 理由: basic の catalog（`examples/kivact-ui-basic/src/docs/accordion.rs`）と試験が、部品ごとに `.animated(true)` を付けている。theme の値だけにすると、部品ごとの選択ができなくなる。
+
+### 19.38 `Theme::overlay_margin`
+
+（11.1 節の `OverlayViewport` の行き先を具体にする）
+
+- `kivact-core/src/view/overlays.rs` の `OverlayViewport` の theme の拡張を消し、`Theme` の metric にする: `Theme::with_overlay_margin(f64) -> Theme`、`Theme::overlay_margin(&self) -> f64`。既定は今の `OverlayViewport` の fallback の値。
+- 理由: ほかの metric（`with_focus_ring`、`with_control_height` など）と同じ形にする。
+
+### 19.39 `DragApi` の追加と touch だけの gesture
+
+（11.1 節の「gesture は一つの部品」の段落を置き換える）
+
+```rust
+impl<T: Clone + 'static> DragApi<T> {
+    pub fn slop(self, distance: impl Into<f64>) -> Self;  // 既定 0。越えるまで Pending
+    pub fn axis_lock(self) -> Self;      // 構造の option。slop を越えた最初の向きの軸に固定し、交わる軸の delta を 0 にする
+    pub fn track_velocity(self) -> Self; // 構造の option。DragUpdate.velocity を埋める（窓 100 ms）
+}
+pub struct DragUpdate<T> { /* 今の field */ pub velocity: Point }  // px/ms。track_velocity がなければ Point::ZERO
+```
+
+- **`DragVelocity` は公開のまま残す**: `DragApi` は中でそれを使う。
+  - 理由: soft の `date_touch.rs` と interaction の `scalar/touch.rs` が、drag なしで使っている。
+- **`DragApi` を使う範囲**: `slop`・`axis_lock`・`track_velocity` を使うのは、今 `use_drag` の上にある部品だけ: basic の drawer（`drawer.rs`）、soft の bottom sheet（`bottom_sheet.rs`）、creative の drag（`editors/*`、`bezier`、`gradient`、`numeric` など）、carousel。
+- **touch だけの gesture は `DragApi` の上に作り直さない**: 対象は switch の drag、toast の swipe、select の touch の sheet、scalar の touch の slider、soft の month swipe。
+  - これらは、今の raw pointer の handler を `Machine` の event にする。slop の判定は `DragAxis::past_slop`、速度は `DragVelocity`。
+  - 理由: これらは全部、`PointerKind::Touch`（と pen）だけを受け、primary の pointer だけを受け、押した時から `suppress_activation` を呼ぶ時を自分で決めている。
+    - 場所: `kivact-ui/src/switch_drag.rs`、`toast_swipe.rs`、`select.rs` の touch の部分、`kivact-interaction/src/scalar/touch.rs`、`kivact-ui-soft/src/month_swipe.rs`。
+    - `use_drag` には pointer の種類の filter も、slop の前の見た目の状態も、activation の抑止もない。作り直すには `DragApi` に新しい概念を三つ足す必要がある。状態を machine にするという目的は、raw pointer のままで果たせる。
+- **閾値の値は変えない**: policy の field にするのは `toast.swipe_slop`（8.0）と `select.sheet_slop`（10.0）と `menu.drift` だけ。switch の 10 px と soft の month swipe の 6 px は、名前の付いた private の定数にする。
+
+### 19.40 APG への合わせを振る舞いの unit に入れる
+
+（17.9 節の「unit: I-8」と、作業手順書の I-8 を置き換える）
+
+- **I・U の unit の二つ目の commit**: I・U の各 unit は、一つ目の commit で状態を `Machine` に移し（振る舞いを変えない）、二つ目の commit で、その behavior に当たる APG の pattern に合わせる（振る舞いの変更と E2E）。I-8 の unit はない。
+  - 理由: 同じ file を二度読み直さない。移設と変更は commit で分かれるので、回帰の切り分けは今と同じにできる。
+- **pattern と unit の対応**:
+
+  | pattern | unit |
+  |---|---|
+  | Disclosure、Dialog (Modal)、Alert Dialog、Tooltip | I-1 |
+  | Combobox、Listbox（select） | I-2a |
+  | Menu・Menubar・Menu Button | I-2b |
+  | Button、Checkbox、Switch | I-3 |
+  | Listbox（list）、Tree View（behavior）、Tabs、Radio Group | I-4a |
+  | Grid・Table | I-4b |
+  | Slider・Multi-Thumb Slider | I-5a |
+  | Window Splitter | I-5b |
+  | Spinbutton | U-2 |
+  | Carousel | K-1b |
+  | Accordion | K-2a |
+  | Toolbar | K-3a |
+  | Breadcrumb | K-3b |
+  | Tree View（`ui::tree` の役割と状態） | K-4 |
+  | Alert | K-6b |
+
+  Carousel、Accordion（disclosure group）、Toolbar、Breadcrumb、Alert の部品は Phase K で中核にできるので、その K の unit で合わせる。
+- 作者の決定（右クリックのメニュー、閉じた select の矢印、tooltip の時間）と、試験の名前と置き場所（`apg_<pattern>.rs`、`<pattern>_<APG の操作>`）は 17.9 節のまま。
+
+### 19.41 toast の行と tree の行の出現と退場も presence で描く
+
+（17.10 節に足す。付録 A の SM-U04 と SM-U903 の「解消後」を置き換える）
+
+- **toast の行**: 行の node の `exit_size(Orientation::Vertical)` で縮める。`kivact-ui/src/toast_rows.rs` の、退場中を含む `slots` と live の `live_slots` の二重の列、世代の counter、`animated` の高さを消す。
+- **tree の行の reveal**: 子の行の node の `enter_size`・`exit_size` で描く。`kivact-ui/src/tree.rs` の memo の中の `previous_open` の書き込みと `last_height` を消す。`RowReveal`・`ToastRowPhase` の enum は作らない。
+- 理由: どちらも「行が出る・消える間の高さの動き」で、17.10 節の presence の規則（自然な大きさ × 進み具合）と同じもの。先に machine にしてから presence に置き換えると、作った machine を捨てることになる。
+
+### 19.42 編集する node の行の見た目の API
+
+（17.12 節の `line_styles` と `decorations` の署名を置き換える）
+
+```rust
+impl TextEditing {
+    pub fn line_styles<T, S, F>(self, content: impl IntoValue<T>, f: F) -> Self
+    where T: Clone + PartialEq + 'static, S: PartialEq + Default + 'static,
+          F: Fn(&T, &str, &S) -> (Vec<StyledRange>, S) + 'static;          // 旧 highlight
+    pub fn decorations<T: Clone + PartialEq + 'static>(self, content: impl IntoValue<T>, f: impl Fn(&T) -> Vec<Decoration> + 'static) -> Self;
+}
+pub struct StyledRange { pub range: Range<usize>, pub color: Option<Color>, pub background: Option<Color>, pub decoration: Option<TextDecoration> }  // 旧 TextHighlight
+pub struct Decoration { pub range: Range<usize>, pub kind: DecorationKind, pub color: Color }   // range は文書の byte
+pub enum DecorationKind { Underline(TextDecorationStyle), Outline, Background }
+```
+
+- 理由: 今の `TextEditing::highlight`（`kivact-core/src/primitive/text_editing.rs`）は、content の値 `T` と行をまたぐ状態 `S`（block comment など）を受け渡している。basic の `code_block` がそれを使っている。17.12 節の `Fn(LineIndex, &str)` の形では、この二つが落ちる。
+- `ui::code_block(..).highlight(..)`（K-9a）の引数も同じ形にする。
+
+### 19.43 設計書 17.18 節の C-05 と C-35
+
+（17.18 節の表の C-05 と C-35 の行を置き換える）
+
+- **C-05**: 新しい `TransitionProp` の variant は足さない。
+  - 理由: 文字色の補間は、既存の `TransitionProp::Paint` が既に含む（`kivact-style/src/sheet.rs` の `TransitionProp::Paint` の doc の「border and text colors」）。G-4a は、これを確かめる E2E だけを足す。
+- **C-35**: G-4 から K-2b へ移す。
+  - 足す option は、soft の engine（`typeahead.rs`、`selector.rs`、`multi_selector`、`tokenizer`、`calendar.rs`）を消して `use_combobox`・`use_select`・`use_calendar_grid` に置き換えるのに要るものだけにする。名前は soft の今の option の名前にする。
+  - 理由: soft-ui-work-order の付録 02 の「Kivact 実装方針」の節は部品ごとに散らばっていて、option の一覧になっていない。soft の engine を消す作業の中でなら、要る option が code から決まる。
+
+### 19.44 日付の入力の表示の仕方を中核へ
+
+（付録 C.2 の date inputs の行の「soft の touch の wheel」の記述を置き換える）
+
+- soft の `DatePresentation::{Adaptive, Desktop, BottomSheet}`（`kivact-ui-soft/src/date_touch.rs`）を `kivact::ui::DatePresentation` にし、`ui::date_input`・`date_range_input`・`time_input`・`date_time_input` の構造の option `.presentation(DatePresentation)` にする。`Adaptive` は `Capabilities.touch` で sheet を選ぶ。
+- sheet の wheel の panel は `kivact-ui` へ移し、`use_scalar` の上に作り直す。
+- 理由: wheel は soft の date input の `.presentation(..)`（`date_input.rs` の `presentation`）で選ぶ部品の構造で、recipe（style の関数）では選べない。中核の部品は kit の版の機能の和集合を持つ（11.3 節）。
+
+### 19.45 creative の picker は creative に残す
+
+（付録 C.2 の combobox 系の「元の kit の版」から creative の `picker.rs` を外す）
+
+- creative の `picker.rs` は creative に残す。中は既に `use_combobox` を使っている。
+- 理由: 付録 C.5 の creative の「残す」に `search_picker` があり、C.2 と食い違っていた。picker は列の追従（SM-K905）などの creative 固有の振る舞いを持つ。
