@@ -205,6 +205,66 @@ impl NodeRef {
         self.target()
     }
 
+    /// Render this node and its descendants into straight-alpha RGBA pixels.
+    ///
+    /// Coordinates are logical pixels at scale 1, cropped to the node's layout
+    /// size. Rendering uses the CPU, including when the window uses a GPU.
+    /// Shared GPU frames without CPU pixels return `ErrorKind::Unsupported`.
+    /// The binding is resolved when the future is polled; unbound or removed
+    /// nodes return a located error, and a rebound reference follows its node.
+    #[track_caller]
+    pub fn snapshot(
+        &self,
+    ) -> impl std::future::Future<Output = Result<kivact_types::Pixels, UiError>> + use<> {
+        let at = Location::caller();
+        let reference = *self;
+        async move {
+            let fail = |kind, message| UiError::new(kind, message, Some(at));
+            if Runtime::current().is_some_and(|rt| rt.id() != reference.app) {
+                return Err(fail(
+                    ErrorKind::WrongApp,
+                    "snapshot reference belongs to another App",
+                ));
+            }
+            let disposed = || {
+                fail(
+                    ErrorKind::Disposed {
+                        created_at: None,
+                        disposed_by: None,
+                    },
+                    "snapshot reference owner was disposed",
+                )
+            };
+            let state = reference.state.try_get().ok_or_else(disposed)?;
+            let rt = Runtime::get(reference.app).ok_or_else(disposed)?;
+            let id = state
+                .bound
+                .try_get_untracked()
+                .and_then(RefState::bound)
+                .map(Bound::node)
+                .filter(|id| ViewState::tree(&rt).get(*id).is_some())
+                .ok_or_else(|| {
+                    fail(
+                        ErrorKind::Message,
+                        "snapshot reference is not bound to a mounted node",
+                    )
+                })?;
+            let image = ViewState::tree(&rt).reader().snapshot(id)
+                .ok_or_else(|| fail(ErrorKind::Message, "snapshot node has no layout"))?
+                .map_err(|error| match error {
+                    kivact_engine::api::OffscreenError::Dropped(_) => fail(ErrorKind::Unsupported,
+                        "snapshot contains an unsupported command or a GPU frame without CPU pixels"),
+                    kivact_engine::api::OffscreenError::Failed(message) =>
+                        UiError::new(ErrorKind::Asset, message.to_string(), Some(at)),
+                })?;
+            Ok(kivact_types::Pixels {
+                width: image.width,
+                height: image.height,
+                rgba: image.rgba.into(),
+            })
+        }
+    }
+
     /// Whether the frontmost hit at a window point belongs to this node or its descendants.
     #[track_caller]
     pub fn hit_test(&self, point: crate::geometry::Point) -> bool {

@@ -188,6 +188,16 @@ impl Reader {
         f(model.node(id).map(|node| &node.properties))
     }
 
+    /// CPU pixels of the current subtree; absent when the node has no layout.
+    pub fn snapshot(
+        &self,
+        id: NodeId,
+    ) -> Option<Result<crate::offscreen::OffscreenImage, crate::offscreen::OffscreenError>> {
+        self.model
+            .borrow_mut()
+            .snapshot(id, &mut self.engine.borrow_mut())
+    }
+
     /// The scene of node `id`'s draw `layer`, if it has one.
     pub fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<DrawList>> {
         let model = self.model.borrow();

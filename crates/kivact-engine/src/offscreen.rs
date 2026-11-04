@@ -159,9 +159,26 @@ impl OffscreenRenderer {
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
         let lowered = lowered.into_scene();
+        self.render_scene(&lowered, size)
+    }
+
+    /// Rasterize already lowered window content with the same CPU renderer.
+    pub(crate) fn render_scene(
+        &mut self,
+        scene: &kivact_types::render::RenderScene,
+        size: (u32, u32),
+    ) -> Result<OffscreenImage, OffscreenError> {
+        // External frames have no CPU representation. Never silently omit them.
+        if scene
+            .commands
+            .iter()
+            .any(|command| matches!(command, kivact_types::render::RenderCmd::External { .. }))
+        {
+            return Err(OffscreenError::Dropped(1));
+        }
         let mut frame = self
             .rasterizer
-            .render(&lowered, size.0, size.1)
+            .render(scene, size.0, size.1)
             .map_err(OffscreenError::Failed)?;
         // PNG and Draw::pixels are straight alpha; Arvane's frame is
         // premultiplied.
