@@ -1,13 +1,12 @@
 //! Role: Numbered steps, breadcrumbs and pagination.
 use kivact::i18n::message;
-use kivact::state::IntoBinding;
 use kivact::style::use_theme;
 
 use kivact::state::IntoValue;
-use kivact::state::{Binding, Value, var};
+use kivact::state::{Value, var};
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::view::{IntoView, Role, for_index, node_ref};
-use kivact::view::{Node, NodeBuilder, row, text};
+use kivact::view::{NodeBuilder, row, text};
 
 /// Connected numbered steps; indices before the current step are complete.
 #[track_caller]
@@ -201,7 +200,7 @@ pub fn pagination(
                                     .color(ColorToken::AccentText),
                             ),
                         )
-                        .selected(n == p)
+                        .with_node(|root| root.selected(n == p))
                         .on_press(move || set_page(n))
                         .into_view(),
                 );

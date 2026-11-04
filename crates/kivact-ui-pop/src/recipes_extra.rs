@@ -118,7 +118,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
                 style().height(1).margin_y(4).background(ColorToken::Border)
             }
         })
-        .with_shortcut(|_| {
+        .shortcut(|_| {
             |_: &Theme, _: &Look<MenuItemState>| style().font_size(12).color(ColorToken::TextMuted)
         })
         .check(|_| menu_check)

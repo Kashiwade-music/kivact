@@ -86,7 +86,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
         }
     })
     .label(|_| label)
-    .with_shortcut(|_| shortcut)
+    .shortcut(|_| shortcut)
     .description(|_| {
         |_: &Theme, _: &kivact::ui::Look<MenuItemState>| style().color(Color::MutedForeground)
     })

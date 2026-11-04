@@ -2,7 +2,6 @@
 
 use crate::theme_access::{field_fill, tokens};
 use kivact::interaction::use_text_edit;
-use kivact::state::IntoBinding;
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 

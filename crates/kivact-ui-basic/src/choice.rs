@@ -7,7 +7,7 @@ use kivact::view::{Node, NodeBuilder, node, text};
 
 use kivact::interaction::ListItem;
 use kivact::state::IntoValue;
-use kivact::state::{Binding, Signal, Value, binding, memo, signal};
+use kivact::state::{Value, binding, memo, signal};
 use kivact::style::{Align, Color, Direction, Justify, Style, style};
 use kivact::ui::{ControlSize, Variant};
 use kivact::view::{IntoView, Orientation, Role, View, dynamic, for_each, show};
@@ -31,7 +31,7 @@ impl Variant for ToggleVariant {}
 pub(crate) fn toggle_style(
     p: &Tokens,
     variant: ToggleVariant,
-    size: kivact::state::Value<ControlSize>,
+    size: ControlSize,
     pressed: bool,
     icon_start: bool,
     joined: bool,
@@ -205,7 +205,8 @@ impl<K: kivact::state::ItemKey> IntoView for ToggleGroup<K> {
         let rows = for_each(
             items,
             |item| item.key().clone(),
-            move |key, item| {
+            move |item| {
+                let key = item.get().key().clone();
                 let member = nav.item(key.clone());
                 let at = key.clone();
                 let first_key = key.clone();

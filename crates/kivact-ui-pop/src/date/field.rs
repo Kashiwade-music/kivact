@@ -67,7 +67,7 @@ pub(super) fn date_text_field(
                 .shadow(Shadow::new(0, 0, 0, Color::TRANSPARENT)),
         );
     for node in described_by {
-        field = field.described_by(*node);
+        field = field.with_node(|root| root.described_by(*node));
     }
     field
 }

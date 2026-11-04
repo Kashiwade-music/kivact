@@ -3,7 +3,6 @@
 use super::state::{current, deferred};
 use kivact::i18n::message;
 use kivact::state::Callback;
-use kivact::state::callback;
 use kivact::ui::{ButtonVariant, ControlSize, button};
 use kivact::view::{IntoView, View};
 use kivact::view::{Node, NodeBuilder, icon};

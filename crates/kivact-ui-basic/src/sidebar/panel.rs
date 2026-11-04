@@ -6,10 +6,9 @@ use crate::theme_access::tokens;
 use kivact::draw::Shadow;
 use kivact::geometry::Rect;
 use kivact::i18n::message;
-use kivact::state::IntoBinding;
 use kivact::view::{Node, NodeBuilder, column, node, row, scroll};
 
-use kivact::state::{Binding, Value};
+use kivact::state::Value;
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
 use kivact::view::{Handled, IntoView, Key, Role, show};

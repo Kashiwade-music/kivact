@@ -27,7 +27,7 @@
 //! `Command`), and the helper [`attachment_action`] take the name. Every per-item function argument is
 //! `impl Fn(..) + 'static`.
 //!
-//! Install [`theme`] on the App or a `kivact::state::provide_theme`
+//! Install [`theme`] on the App or a `kivact::style::provide_theme`
 //! boundary: it carries the typed [`Tokens`] and the recipes that draw every
 //! standard component of `kivact::ui` (`button`, `toggle`, `checkbox`,
 //! `switch`, `text_input`, `text_area`, `select`, `menu`, `dialog`, `tooltip`,

@@ -4,7 +4,7 @@ use kivact::draw::{Shape, Transform};
 use kivact::geometry::{Point, Rect};
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::platform;
-use kivact::view::{Node, NodeBuilder, node, row, text};
+use kivact::view::{NodeBuilder, node, row, text};
 
 use kivact::state::IntoText;
 use kivact::state::{effect, signal};

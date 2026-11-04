@@ -11,7 +11,6 @@ use crate::theme_access::tokens;
 use kivact::interaction::{DragCoordinates, DragPhase, use_dialog, use_drag};
 use kivact::motion::{Easing, Transition};
 use kivact::prelude::NodeBuilder;
-use kivact::state::IntoBinding;
 use kivact::view::{column, node, row, scroll, text};
 
 use kivact::custom::clock_now;

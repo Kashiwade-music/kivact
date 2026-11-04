@@ -142,7 +142,7 @@ impl IntoView for ButtonGroup {
 pub fn button_group_separator() -> impl kivact::view::Component {
     let across = || {
         try_use_context::<GroupAxis>()
-            .is_some_and(|GroupAxis(orientation)| orientation.get() == Orientation::Vertical)
+            .is_some_and(|axis| axis.get().0.get() == Orientation::Vertical)
     };
     node()
         .with_node(|root| root.role(Role::Separator))
@@ -199,6 +199,7 @@ pub(crate) fn joined(style: kivact::style::Style) -> kivact::style::Style {
     let Some(position) = try_use_context::<GroupPosition>() else {
         return style;
     };
+    let position = position.get();
     match (
         position.index,
         position.orientation.get() == Orientation::Vertical,

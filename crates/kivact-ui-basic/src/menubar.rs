@@ -183,7 +183,8 @@ fn menu_surface<K: kivact::state::ItemKey>(
         let rows = kivact::view::for_each(
             menu.entries(),
             |(row, _)| row.clone(),
-            move |key, entry| {
+            move |entry| {
+                let key = entry.get().0;
                 use kivact::interaction::{MenuCheck, MenuItemKind, MenuRow};
                 match key {
                     MenuRow::Item { key, kind } => {

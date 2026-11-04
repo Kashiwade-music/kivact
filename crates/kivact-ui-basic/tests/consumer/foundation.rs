@@ -28,7 +28,7 @@ fn theme_switch_restyles_mounted_components_and_keeps_their_state() {
             let name = signal(String::from("Ada"));
             (
                 (dark, checked, name),
-                kivact::state::provide_theme(
+                kivact::style::provide_theme(
                     move || {
                         basic::theme(if dark.get() {
                             kivact::style::ThemeMode::Dark

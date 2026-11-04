@@ -3,7 +3,6 @@
 use crate::parts::{pressable, sized_icon};
 use crate::theme_access::tokens;
 use crate::tokens::Tokens;
-use kivact::custom::part;
 use kivact::i18n::message;
 use kivact::interaction::{ListActivation, ListItem};
 use kivact::interaction::{
@@ -411,7 +410,7 @@ impl IntoView for NavLink {
                 user.call(());
             }
             if let Some(panel) = panel {
-                panel.close.call(());
+                panel.get().close.call(());
             }
         });
         let (link, _) = pressable(self.root, Role::Link, Some(press));

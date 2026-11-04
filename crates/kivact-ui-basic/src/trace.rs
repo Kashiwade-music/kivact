@@ -8,7 +8,7 @@ use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 use kivact::state::IntoText;
-use kivact::state::{Binding, Value};
+use kivact::state::Value;
 use kivact::style::{Align, Cursor, Direction, pct, style};
 use kivact::view::{IntoView, View};
 

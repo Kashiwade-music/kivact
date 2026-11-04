@@ -6,7 +6,6 @@ use crate::input_group::{
 };
 use crate::list_popup::{row_style, surface_style};
 use crate::theme_access::{field_fill, tokens};
-use kivact::custom::part;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::ListItem;
 use kivact::interaction::{
@@ -181,7 +180,8 @@ fn popup<K: kivact::state::ItemKey>(
         let rows = for_each(
             list.visible(),
             |key| key.clone(),
-            move |key, _| {
+            move |entry| {
+                let key = entry.get();
                 let part = list.item(key.clone());
                 let state = part.state();
                 let label = memo({
@@ -238,7 +238,8 @@ fn chips_field<K: kivact::state::ItemKey>(
     let chips = for_each(
         values.into_value(),
         |key| key.clone(),
-        move |key, _| {
+        move |entry| {
+            let key = entry.get();
             let label = memo({
                 let key = key.clone();
                 move || label_of(options, &key)

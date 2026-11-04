@@ -5,7 +5,7 @@ use kivact::i18n::message;
 use kivact::view::{Node, NodeBuilder, column, grid, icon, node, row, text};
 
 use kivact::state::{Callback, Value};
-use kivact::state::{IntoText, IntoValue, callback};
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, Track, style};
 use kivact::ui::{ButtonVariant, button};

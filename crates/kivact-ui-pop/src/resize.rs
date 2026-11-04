@@ -7,7 +7,7 @@ use kivact::interaction::use_splitter;
 use kivact::state::signal;
 use kivact::style::{ColorToken, Cursor, Position, pct, style};
 use kivact::view::{ButtonPress, Handled, MouseButton, Orientation, PointerPhase, node_ref};
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{NodeBuilder, node};
 
 /// The tallest a resizable field becomes, in logical pixels. A minimum above
 /// this raises the maximum to the minimum.

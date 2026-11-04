@@ -3,7 +3,6 @@ use crate::{Hue, Tokens};
 use kivact::custom::{Part, PartState};
 use kivact::i18n::{CalendarDate, CalendarMonth, Weekday, message, message_with};
 use kivact::interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
-use kivact::state::IntoBinding;
 use kivact::state::{Binding, Callback, Value, signal};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, Track, style, use_theme};
