@@ -1,53 +1,27 @@
-//! Role: Concrete client callbacks and the reactive turn loop.
-//!
-//! turn(events, boundaries), the one entry after `start` (design §4「turn」):
-//!   0. `AfterCommit` (on_mount of the revisions whose boundaries were
-//!      delivered before), `NextTurn` (errors kept from the last layout,
-//!      `Runtime::report_later`, are routed to their handlers)
-//!   1. each event: resolve node (stale → dropped), run handler untracked,
-//!      `AfterHandler` (requested activations), stabilise (Render/Internal
-//!      effects write directly to the engine); at each commit boundary,
-//!      `AfterCommit` of its revision
-//!   2. timers, ready tasks, stabilise (≤ 1000 rounds, then a Cycle
-//!      diagnostic and the rest in the next turn)
-//!   3. `AfterHandler`, then `phases::commit` (frame request, focus
-//!      requests, removed nodes, the commit of the engine's pending changes
-//!      and the mount token; revision + 1, nothing if empty)
-//!   4. `AfterCommit` of laid-out revisions, user effects; their changes
-//!      loop back to step 3 for a further revision (≤ 100 rounds, then a
-//!      Cycle diagnostic)
-//!   5. next wake = earliest timer / drain deadline; frames via
-//!      `Writer::request_frame`
-//!
-//! What each phase drains, in which order and why there is
-//! `client::phases`.
-//!
-//! Every turn runs these steps: the events of commit boundaries (focus
-//! results ..) are committed, with their effects, in their own turn too.
-//! Effects write directly to the owned `Writer` the client got at start.
-//! Which events a turn carries is described in `crate::client`.
+//! Role: Concrete host callbacks and the ordered App turn loop.
 
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
+#[cfg(feature = "embed")]
 use std::sync::Arc;
 
 use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
 use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
 use kivact_types::Size;
 
-use crate::client::phases::{self, Phase};
-use crate::client::settle::settle_async;
-use crate::client::state::{ExitPhase, HostState};
+use crate::client::state::HostState;
 use crate::i18n::Messages;
 use crate::view::View;
 use crate::view::requests;
 use crate::view::root::AppSettings;
 use crate::view::state::ViewState;
 use crate::view::text_edits::TextEditsAhead;
-use kivact_runtime::MotionState;
 use kivact_runtime::TaskState;
-use kivact_runtime::{ErrorKind, Extensions, Runtime, TurnRecorder, UiError};
+use kivact_runtime::{
+    ErrorKind, ExitState, Extensions, Runtime, RuntimeConfig, Stage, ThreadWaker, TurnGuard,
+    TurnReport, UiError,
+};
 use kivact_style::Theme;
 use kivact_style::asset::Asset;
 
@@ -92,15 +66,30 @@ impl AppConfig {
 /// Whether the host started the App.
 enum Launch {
     /// Waiting for the host's `start`, which consumes the config.
-    Waiting(Box<AppConfig>),
+    Waiting {
+        config: Box<AppConfig>,
+        threads: Option<usize>,
+    },
     /// The host started the App.
-    Started,
+    Started(Started),
 }
 
 /// The App side of the host boundary: owns the App's runtime and implements
 /// concrete callbacks for the engine window loop or test driver.
-pub(crate) struct AppClient {
+struct Started {
     rt: Rc<Runtime>,
+}
+
+struct ClientHost(HostWaker);
+impl kivact_runtime::Host for ClientHost {
+    fn wake(&self) {
+        self.0.wake();
+    }
+}
+
+pub(crate) struct AppClient {
+    #[cfg(debug_assertions)]
+    trace_name: Option<String>,
     /// Where the App was started: the location of the root owner.
     at: &'static Location<'static>,
     launch: Launch,
@@ -121,25 +110,14 @@ impl AppClient {
         threads: Option<usize>,
         at: &'static Location<'static>,
     ) -> Self {
-        let host = HostState::default();
-        let driver = host.link.clone();
-        let extensions = Extensions::new().with(ViewState::new());
-        #[cfg(feature = "gpu-interop")]
-        let extensions = extensions.with(crate::gpu_interop::State::default());
-        #[cfg(debug_assertions)]
-        let extensions = extensions.with(crate::client::trace::Trace::default());
-        let rt = Runtime::new(
-            extensions
-                .with(TaskState::new(threads))
-                .with(MotionState::default())
-                .with(crate::platform::lifecycle::LifecycleState::default())
-                .with(host),
-            driver,
-        );
         AppClient {
-            rt,
             at,
-            launch: Launch::Waiting(Box::new(config)),
+            launch: Launch::Waiting {
+                config: Box::new(config),
+                threads,
+            },
+            #[cfg(debug_assertions)]
+            trace_name: None,
             #[cfg(feature = "embed")]
             embed_closing: None,
         }
@@ -164,14 +142,25 @@ impl AppClient {
 
     /// The App's runtime (the Testing Library reads the tree and the
     /// extensions through it).
-    #[cfg(feature = "test")]
     pub(crate) fn runtime(&self) -> &Rc<Runtime> {
-        &self.rt
+        match &self.launch {
+            Launch::Started(started) => &started.rt,
+            Launch::Waiting { .. } => panic!("invariant: runtime is available after host start"),
+        }
+    }
+    #[cfg(debug_assertions)]
+    pub(crate) fn set_trace_name(&mut self, name: String) {
+        self.trace_name = Some(name);
     }
 
     /// Adapt the runtime owner to the engine's concrete callback bundle.
     pub(crate) fn into_client(self, timing: Option<Rc<dyn Fn(u64)>>) -> Client {
-        let shared = Rc::new(RefCell::new(self));
+        Self::shared_client(Rc::new(RefCell::new(self)), timing)
+    }
+    pub(crate) fn shared_client(
+        shared: Rc<RefCell<Self>>,
+        timing: Option<Rc<dyn Fn(u64)>>,
+    ) -> Client {
         let start = shared.clone();
         Client::new(
             move |info, waker, writer| start.borrow_mut().start(info, waker, writer),
@@ -185,56 +174,44 @@ impl AppClient {
             },
         )
     }
-
-    /// Deliver `events` in order; a revision's `on_mount` callbacks run
-    /// once the events before its boundary ran.
-    fn dispatch_all(&self, turn: &TurnRecorder<'_>, events: &[HostEvent], boundaries: &[Boundary]) {
-        let edits = TextEditsAhead::count(&self.rt, events);
-        let mut boundaries = boundaries.iter().peekable();
-        let mut acknowledge = |delivered: usize| {
-            while let Some(b) = boundaries.next_if(|b| b.events <= delivered) {
-                phases::drain(
-                    &self.rt,
-                    Phase::AfterCommit {
-                        revision: b.revision.0,
-                    },
-                );
-                self.rt.stabilize();
-            }
-        };
-        acknowledge(0);
-        let mut delivered = 0;
-        for e in events {
-            if self.embed_closing() {
-                break;
-            }
-            #[cfg(debug_assertions)]
-            crate::client::trace::event(&self.rt, format_args!("host_events receive {e:?}"));
-            edits.deliver(e);
-            turn.cause(describe(e));
-            crate::client::dispatch::dispatch(&self.rt, e);
-            phases::drain(&self.rt, Phase::AfterHandler { settle: None });
-            self.rt.stabilize();
-            delivered += 1;
-            acknowledge(delivered);
-        }
-        // Every boundary lies within the batch: those after an embedder's
-        // close are released too.
-        acknowledge(events.len());
-    }
 }
 
 impl AppClient {
     fn start(&mut self, info: &HostInfo, waker: HostWaker, writer: Writer) {
-        let config = match std::mem::replace(&mut self.launch, Launch::Started) {
-            Launch::Waiting(config) => *config,
-            Launch::Started => unreachable!("invariant: the host starts an App once"),
+        let (config, threads) = match &mut self.launch {
+            Launch::Waiting { config, threads } => (config, *threads),
+            Launch::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        let rt = self.rt.clone();
+        #[cfg(debug_assertions)]
+        let trace_name = self.trace_name.clone();
         let ready = waker.clone();
-        TaskState::of(&rt).set_waker(Arc::new(move || ready.wake()));
-        HostState::of(&rt).link.start(info.now_ns, waker);
-        let root_owner = rt.create_root(self.at);
+        let rt = Runtime::new(
+            Rc::new(ClientHost(waker)),
+            ThreadWaker::new(move || ready.wake()),
+            RuntimeConfig {
+                start_ns: info.now_ns,
+                blocking_threads: threads,
+                at: self.at,
+            },
+            |_rt, _root| {
+                let extensions = Extensions::new().with(ViewState::new());
+                #[cfg(feature = "gpu-interop")]
+                let extensions = extensions.with(crate::gpu_interop::State::default());
+                #[cfg(debug_assertions)]
+                let extensions = {
+                    let trace = crate::client::trace::Trace::default();
+                    if let Some(name) = &trace_name {
+                        trace.open(name);
+                    }
+                    extensions.with(trace)
+                };
+                extensions
+                    .with(crate::platform::lifecycle::LifecycleState::default())
+                    .with(HostState::default())
+            },
+        );
+        let setup = rt.begin_setup();
+        let root_owner = rt.root();
         // The tree (with the root node), the environment, the focus source
         // and the capabilities exist before anything writes or reads them.
         crate::view::root::start(
@@ -247,10 +224,17 @@ impl AppClient {
         );
         #[cfg(debug_assertions)]
         crate::client::trace::event(&rt, format_args!("host_events start {info:?}"));
-        writer.set_window(config.title, config.min_window_size);
+        writer.set_window(std::mem::take(&mut config.title), config.min_window_size);
         // The App's fonts precede the root's mount (the engine registers
         // a font when it is written, so the first layout uses them).
-        requests::register_app_fonts(&rt, config.fonts);
+        requests::register_app_fonts(&rt, std::mem::take(&mut config.fonts));
+        let config = match std::mem::replace(
+            &mut self.launch,
+            Launch::Started(Started { rt: rt.clone() }),
+        ) {
+            Launch::Waiting { config, .. } => *config,
+            Launch::Started(_) => unreachable!("invariant: host starts an App once"),
+        };
         crate::view::root::mount_root(&rt, root_owner, config.settings, config.root, self.at);
         // What the platform cannot do is diagnosed, not silently ignored:
         // `tracing` says it at start, and the turn trace when the App
@@ -259,17 +243,12 @@ impl AppClient {
         if !missing.is_empty() {
             super::notice::inform(&format!("the platform lacks: {}", missing.join(", ")));
         }
-        rt.stabilize();
-        let written = phases::commit(&rt, &writer);
+        setup.stabilize();
+        let written = commit(&setup, &rt, &writer);
         debug_assert!(written > 0, "the first revision sets the window");
-        rt.finish_setup_notes();
+        setup.finish_setup();
         #[cfg(debug_assertions)]
         crate::client::trace::record(&rt);
-        let pending = rt.pending().user || TaskState::of(&rt).has_ready();
-        rt.clear_turn_request();
-        if pending {
-            rt.request_turn();
-        }
     }
 
     /// One turn (design §4「turn」): every queued event, then everything
@@ -278,59 +257,75 @@ impl AppClient {
     /// boundaries among the events only decide when the `on_mount`
     /// callbacks of their revisions run.
     fn turn(&mut self, events: &[HostEvent], boundaries: &[Boundary], now_ns: u64) -> TurnOutput {
-        let rt = self.rt.clone();
+        let rt = self.runtime().clone();
         let host = HostState::of(&rt);
-        host.advance_clock(now_ns);
+        rt.advance_clock(now_ns);
         let tree = ViewState::tree(&rt).engine().clone();
         // Commit boundaries that carry no event and release no callback
         // make no turn.
         if events.is_empty()
             && boundaries
                 .last()
-                .is_some_and(|b| !rt.mounts().due(b.revision.0))
+                .is_some_and(|b| !rt.mounts_due(b.revision))
         {
-            return self.output(&rt);
+            return output(rt.report_now());
         }
         // The revisions done before the events: all but those whose
         // boundaries this turn delivers.
         let before = boundaries
             .first()
             .map_or(tree.stats().revision, |b| b.revision.0.saturating_sub(1));
-        rt.clear_turn_request();
-        let in_turn = host.link.enter_turn();
         host.turns.set(host.turns.get() + 1);
-        let turn = rt.turn(events.len());
-        #[cfg(debug_assertions)]
-        crate::client::trace::stage(&rt, "Begin");
-        phases::drain(&rt, Phase::AfterCommit { revision: before });
-        // Errors the engine's last layout raised (a primitive's measure
-        // function) reach their handlers first, outside any engine borrow.
-        phases::drain(&rt, Phase::NextTurn);
-        rt.stabilize();
-        self.dispatch_all(&turn, events, boundaries);
-        // Every revision so far is laid out and its events delivered.
-        let done = tree.stats().revision;
-        TaskState::of(&rt).check_draining(&rt);
-        settle_async(&rt, &turn);
+        let turn = rt.begin_turn(events.len());
+        turn.run_mounts(kivact_types::Revision(before));
+        turn.deliver_reports();
+        turn.stabilize();
+        let edits = TextEditsAhead::count(&rt, events);
+        let mut boundaries = boundaries.iter().peekable();
+        let mut acknowledge = |delivered: usize| {
+            while let Some(b) = boundaries.next_if(|b| b.events <= delivered) {
+                turn.run_mounts(b.revision);
+                turn.stabilize();
+            }
+        };
+        acknowledge(0);
+        let mut delivered = 0;
+        for event in events {
+            if self.embed_closing() {
+                break;
+            }
+            turn.stage(Stage::Dispatch);
+            #[cfg(debug_assertions)]
+            crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
+            edits.deliver(event);
+            turn.cause(describe(event));
+            crate::client::dispatch::dispatch(&rt, event);
+            if crate::client::dispatch::run_requested_activations(&rt) {
+                turn.stabilize();
+            }
+            turn.stabilize();
+            delivered += 1;
+            acknowledge(delivered);
+        }
+        acknowledge(events.len());
+        let done = kivact_types::Revision(tree.stats().revision);
+        turn.check_draining();
+        turn.settle_async();
         let mut writes = 0;
         let mut round = 0;
         loop {
-            phases::drain(
-                &rt,
-                Phase::AfterHandler {
-                    settle: Some(&turn),
-                },
-            );
-            writes += phases::commit(&rt, &tree);
-            // A setup that wrote nothing waits for a revision laid out
-            // already: its callbacks run in this turn.
-            let mounts = rt.mounts().due(done);
+            if crate::client::dispatch::run_requested_activations(&rt) {
+                turn.stabilize();
+                turn.settle_async();
+            }
+            writes += commit(&turn, &rt, &tree);
+            let mounts = rt.mounts_due(done);
             if !mounts && !rt.pending().user {
                 break;
             }
             round += 1;
             if round > USER_EFFECT_ROUNDS {
-                let abandoned = rt.abandon_user_effects();
+                let abandoned = turn.abandon_user_effects();
                 let path: Vec<_> = abandoned
                     .iter()
                     .filter_map(|k| rt.node_info(*k).map(|n| n.at))
@@ -346,96 +341,53 @@ impl AppClient {
                 break;
             }
             if mounts {
-                phases::drain(&rt, Phase::AfterCommit { revision: done });
+                turn.run_mounts(done);
                 rt.stabilize();
             }
-            rt.run_user_effects();
+            turn.run_user_effects();
             rt.stabilize();
-            settle_async(&rt, &turn);
+            turn.settle_async();
         }
 
-        let output = self.output(&rt);
-        #[cfg(debug_assertions)]
-        crate::client::trace::stage(&rt, "End");
-        turn.finish(writes);
+        let output = output(turn.finish(writes, requests::has_activations(&rt)));
         #[cfg(debug_assertions)]
         {
             crate::client::trace::record(&rt);
             crate::client::trace::event(&rt, format_args!("host_events output {output:?}"));
         }
-        // Requests made during the turn woke nobody (`HostLink`): ask again
-        // only for work the turn left.
-        drop(in_turn);
-        let pending = rt.pending().user
-            || TaskState::of(&rt).has_ready()
-            || rt.pending().later
-            || requests::has_activations(&rt);
-        rt.clear_turn_request();
-        if pending {
-            rt.request_turn();
-        }
         output
     }
-
-    /// Whether the App may exit now (a requested close whose queued
-    /// actions drained, or whose drain deadline passed) and when the host
-    /// must wake next.
-    fn output(&self, rt: &Runtime) -> TurnOutput {
-        let host = HostState::of(rt);
-        let tasks = TaskState::of(rt);
-        let phase = match host.exit.get() {
-            ExitPhase::Draining { .. } if !tasks.queues_busy() => ExitPhase::Exited,
-            ExitPhase::Draining { deadline_ns } if rt.now_ns() >= deadline_ns => {
-                let n = tasks.abandon_all_queues();
-                rt.report(
-                    None,
-                    UiError::new(
-                        ErrorKind::Closed,
-                        format!("exit drain deadline passed; {n} queued run(s) abandoned"),
-                        None,
-                    ),
-                );
-                ExitPhase::Exited
-            }
-            phase => phase,
-        };
-        host.exit.set(phase);
-        let next_wake_ns = match phase {
-            ExitPhase::Draining { deadline_ns } => Some(
-                tasks
-                    .next_deadline()
-                    .map_or(deadline_ns, |t| t.min(deadline_ns)),
-            ),
-            ExitPhase::Running | ExitPhase::Exited => tasks.next_deadline(),
-        };
-        TurnOutput {
-            next_wake_ns,
-            exit: phase == ExitPhase::Exited,
-        }
+}
+fn output(report: TurnReport) -> TurnOutput {
+    TurnOutput {
+        next_wake_ns: report.next_deadline,
+        exit: matches!(report.exit, ExitState::Exited),
     }
 }
 
 impl Drop for AppClient {
     fn drop(&mut self) {
-        let tasks = TaskState::of(&self.rt);
+        let Launch::Started(started) = &self.launch else {
+            return;
+        };
+        let rt = &started.rt;
+        let tasks = TaskState::of(rt);
         // A propagating panic ends the App: run no more App code. Only the
         // worker threads are stopped.
         if !std::thread::panicking() {
-            if let Some(root) = self.rt.root() {
-                root.dispose();
-            }
+            rt.root().dispose();
             tasks.abandon_all_queues();
             // async-task schedules cancellation when its handle is dropped.
             // Release those futures on the UI thread before the executor
             // stops; their channel wakers can otherwise retain its queue and
             // receivers.
             if tasks.has_ready() {
-                tasks.poll_tasks(&self.rt);
+                tasks.poll_tasks(rt);
             }
         }
         tasks.shutdown();
         if !std::thread::panicking() {
-            self.rt.shutdown();
+            rt.shutdown();
         }
         // Opening may fail before an Embedded is returned, or its drop may
         // precede deferred callback cleanup. Record task retention here too.
@@ -502,4 +454,39 @@ fn describe(e: &kivact_engine::contract::HostEvent) -> String {
                 .to_string()
         }
     }
+}
+
+fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
+    turn.stage(Stage::Commit);
+    if let Some(at_ns) = turn.plan_frame() {
+        writer.request_frame(at_ns);
+    }
+    requests::flush_focus(rt);
+    if ViewState::tree_mut(rt).take_removes() {
+        // Removed nodes report nothing more: forget their failures,
+        // so the set stays as small as the live tree.
+        let tree = ViewState::tree(rt);
+        HostState::of(rt)
+            .asset_failures
+            .borrow_mut()
+            .retain(|(id, _)| tree.contains(*id));
+    }
+    let writes = writer.pending_writes();
+    // The new `on_mount` callbacks wait for the revision these writes
+    // become, or for the last one when nothing was written.
+    let revision = if writes == 0 {
+        writer.stats().revision
+    } else {
+        writer.commit().0
+    };
+    #[cfg(debug_assertions)]
+    {
+        crate::client::trace::stage(rt, "Commit");
+        crate::client::trace::event(
+            rt,
+            format_args!("host_events commit revision={revision} writes={writes}"),
+        );
+    }
+    turn.stamp_mounts(kivact_types::Revision(revision));
+    writes
 }
