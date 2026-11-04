@@ -1,9 +1,9 @@
 //! Role: Attach the toast swipe machine and its visual dismissal to the card.
-use super::machine::{self, Event, State, Visual, edge_sign};
+use super::machine::{self, Event, edge_sign};
 use kivact_core::custom::clock_now;
 use kivact_core::geometry::{Edge, Rect};
-use kivact_core::motion::{FrameRate, Transition, frame_loop};
-use kivact_core::state::{MachineHandle, Signal, Value, effect, machine};
+use kivact_core::motion::Transition;
+use kivact_core::state::{MachineHandle, Signal, Value, machine};
 use kivact_core::style::{Style, TransitionProp, pct, style, use_theme};
 use kivact_core::view::{Handled, PointerEvent, PointerPhase};
 use kivact_interaction::{InteractionPolicy, ToastId, Toaster};
@@ -21,10 +21,7 @@ impl Swipe {
         id: ToastId,
     ) -> Self {
         let session = machine(
-            State {
-                swipe: machine::Swipe::Rest,
-                exit: Visual::Rest,
-            },
+            machine::Swipe::Rest,
             move || machine::Machine {
                 edge,
                 rect: rect.get(),
@@ -37,21 +34,9 @@ impl Swipe {
             },
             move |_, effect| match effect {
                 machine::Effect::Hold(value) => held.set(value),
+                machine::Effect::Dismiss => toaster.dismiss(id),
             },
         );
-        // Preserve the committed exit target until I-7 replaces visual dismissal.
-        let clock = frame_loop(move |_| {
-            if matches!(session.get().exit, Visual::DismissOn { .. }) {
-                toaster.dismiss(id);
-            }
-        });
-        effect(move || {
-            if matches!(session.get().exit, Visual::DismissOn { .. }) {
-                clock.start(FrameRate::Display);
-            } else {
-                clock.stop();
-            }
-        });
         Self { edge, session }
     }
     pub(crate) fn protect_action(self, event: PointerEvent) {
@@ -67,48 +52,42 @@ impl Swipe {
             kivact_core::view::PointerKind::Touch | kivact_core::view::PointerKind::Pen
         ) || !event.window_pos().x.is_finite()
             || !event.window_pos().y.is_finite()
-            || matches!(before.exit, Visual::DismissOn { .. })
+            || matches!(before, machine::Swipe::Released { .. })
         {
             return Handled::No;
         }
         let handled = match event.phase() {
             PointerPhase::Move => {
-                matches!(self.session.get().swipe, machine::Swipe::Dragging { contact, .. } if contact.pointer == event.id())
+                matches!(self.session.get(), machine::Swipe::Dragging { contact, .. } if contact.pointer == event.id())
             }
             PointerPhase::Up(_) => {
-                matches!(before.swipe, machine::Swipe::Dragging { contact, .. } if contact.pointer == event.id())
+                matches!(before, machine::Swipe::Dragging { contact, .. } if contact.pointer == event.id())
             }
             _ => false,
         };
         if handled { Handled::Yes } else { Handled::No }
     }
     pub(crate) fn style(self, transition: &Transition) -> Style {
-        let visual = self.session.get().visual();
-        let timing = if matches!(visual, Visual::Drag { .. }) {
+        let swipe = self.session.get();
+        let timing = if matches!(swipe, machine::Swipe::Dragging { .. }) {
             Transition::tween(0.0, kivact_core::motion::Easing::Linear)
         } else {
             transition.clone()
         };
-        let base = style().transition(TransitionProp::Paint, timing);
-        match visual {
-            Visual::Rest => base,
-            Visual::Drag { travel, height } | Visual::DismissOn { travel, height } => {
-                let progress = (travel / height).clamp(0.0, 1.0);
-                let card = base
-                    .translate_y(travel * edge_sign(self.edge))
-                    .opacity(1.0 - 0.4 * progress)
-                    .scale(1.0 - 0.02 * progress);
-                if matches!(visual, Visual::DismissOn { .. }) {
-                    card.exit(
-                        style()
-                            .opacity(0.0)
-                            .translate_y(pct(120.0 * edge_sign(self.edge)))
-                            .scale(1.0),
-                    )
-                } else {
-                    card
-                }
-            }
-        }
+        let base = style().transition(TransitionProp::Paint, timing).exit(
+            style()
+                .opacity(0.0)
+                .translate_y(pct(120.0 * edge_sign(self.edge)))
+                .scale(1.0),
+        );
+        let (travel, height) = match swipe {
+            machine::Swipe::Dragging { contact, offset } => (offset, contact.height),
+            machine::Swipe::Released { travel, height } => (travel, height),
+            _ => return base,
+        };
+        let progress = (travel / height).clamp(0.0, 1.0);
+        base.translate_y(travel * edge_sign(self.edge))
+            .opacity(1.0 - 0.4 * progress)
+            .scale(1.0 - 0.02 * progress)
     }
 }

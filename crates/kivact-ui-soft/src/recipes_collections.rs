@@ -51,6 +51,8 @@ pub(crate) fn tree(recipes: TreeRecipes) -> TreeRecipes {
                 let rtl = use_direction().get() == ReadingDirection::Rtl;
                 let indent = 8 + row.level.saturating_sub(1) * 16;
                 style()
+                    .enter_size(Orientation::Vertical)
+                    .exit_size(Orientation::Vertical)
                     .direction(if rtl {
                         Direction::RowReverse
                     } else {
@@ -192,6 +194,8 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
             |t: &Theme, _: &_| {
                 let p = t.ext::<Tokens>();
                 style()
+                    .enter_size(Orientation::Vertical)
+                    .exit_size(Orientation::Vertical)
                     .direction(Direction::Column)
                     .padding_top(p.spacing.s1)
                     .font_size(p.typography.body.size_px)

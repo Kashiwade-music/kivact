@@ -221,3 +221,124 @@ fn p2b_resource_source_change_refetch_cancel_matches_the_model() {
         }
     }
 }
+
+#[test]
+fn async_view_shows_loading_then_ready() {
+    #[derive(Clone)]
+    struct Record(String);
+    let screen = render(|| {
+        let value = resource((), |_| async {
+            kivact::task::sleep(Duration::from_millis(10)).await;
+            Ok(Record(String::from("Loaded")))
+        });
+        async_view(value, |record| text(record.0)).loading(|| text("Please wait"))
+    });
+    screen.get_by_text("Please wait");
+    screen.advance(Duration::from_millis(10));
+    screen.get_by_text("Loaded");
+}
+
+#[test]
+fn async_view_fallback_retries() {
+    let screen = render(|| {
+        let attempts = Rc::new(Cell::new(0));
+        let load = action(ActionMode::Latest, move || {
+            let n = attempts.get();
+            attempts.set(n + 1);
+            async move {
+                if n == 0 {
+                    Err(UiError::msg("Offline"))
+                } else {
+                    Ok("Recovered")
+                }
+            }
+        });
+        column((
+            button("Load").on_press(move || load.run(())),
+            async_view(load, text),
+        ))
+    });
+    assert!(
+        screen.query_by_text("Loading…").is_none(),
+        "an idle action has no loading view"
+    );
+    screen.get_by_role(Role::Button, "Load").click();
+    screen.get_by_text("Error: Offline");
+    screen.get_by_role(Role::Button, "Retry").click();
+    screen.get_by_text("Recovered");
+}
+
+#[cfg(feature = "tokio")]
+#[test]
+fn on_tokio_future_resolves_and_wakes_the_ui() {
+    let (send, receive) = async_channel::bounded(1);
+    let receive = Rc::new(RefCell::new(Some(receive)));
+    let screen = render(move || {
+        let receiver = receive.borrow_mut().take().expect("setup runs once");
+        let value = resource((), move |_| {
+            let receiver = receiver.clone();
+            async move {
+                Ok(kivact::task::on_tokio(
+                    async move { receiver.recv().await.expect("sender lives") },
+                )
+                .await)
+            }
+        });
+        async_view(value, text)
+    });
+    screen.get_by_text("Loading…");
+    send.send_blocking(String::from("Worker result"))
+        .expect("receiver lives");
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        screen.run_until_idle();
+        if screen.query_by_text("Worker result").is_some() {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "Tokio completion must wake the UI"
+        );
+        std::thread::yield_now();
+    }
+}
+
+#[cfg(feature = "tokio")]
+#[test]
+fn on_tokio_task_is_aborted_with_its_owner() {
+    struct Dropped(std::sync::mpsc::Sender<()>);
+    impl Drop for Dropped {
+        fn drop(&mut self) {
+            let _ = self.0.send(());
+        }
+    }
+    let (started, observed_start) = std::sync::mpsc::channel();
+    let (dropped, observed_drop) = std::sync::mpsc::channel();
+    let screen = render(move || {
+        let visible = signal(true);
+        column((
+            button("Remove").on_press(move || visible.set(false)),
+            show(visible, move || {
+                let started = started.clone();
+                let dropped = dropped.clone();
+                spawn(async move {
+                    kivact::task::on_tokio(async move {
+                        let _guard = Dropped(dropped);
+                        started.send(()).expect("test waits for start");
+                        std::future::pending::<()>().await;
+                    })
+                    .await;
+                });
+                text("Owner")
+            }),
+        ))
+    });
+    observed_start
+        .recv_timeout(Duration::from_secs(5))
+        .expect("task starts");
+    screen.get_by_role(Role::Button, "Remove").click();
+    observed_drop
+        .recv_timeout(Duration::from_secs(5))
+        .expect("owner disposal aborts task");
+    assert!(screen.query_by_text("Owner").is_none());
+}

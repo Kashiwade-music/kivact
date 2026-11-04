@@ -45,3 +45,5 @@ pub use crate::ui::{
     DataColumn, button, checkbox, data_table, dialog, field, list, menu, radio_group, select,
     slider, switch, tabs, text_area, text_input, toast_region, tooltip,
 };
+
+pub use crate::ui::async_view;

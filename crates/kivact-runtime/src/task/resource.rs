@@ -102,7 +102,16 @@ impl<T: Clone + 'static> Resource<T> {
     /// `Failed` with an error whose `is_cancelled()` is true.
     #[track_caller]
     pub fn state(&self) -> AsyncState<T> {
-        self.cell(Location::caller()).async_state.state.get()
+        self.cell(Location::caller())
+            .async_state
+            .state
+            .get()
+            .as_ref()
+            .clone()
+    }
+
+    pub(super) fn snapshot(&self) -> super::async_source::AsyncSnapshot<T> {
+        super::async_source::AsyncSnapshot(self.cell(Location::caller()).async_state.state.get())
     }
 
     /// Last successful value, kept while refetching, after errors and

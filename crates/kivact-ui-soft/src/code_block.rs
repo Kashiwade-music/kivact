@@ -1,7 +1,6 @@
 //! Role: Render syntax-highlighted code with line and copy controls.
 use crate::{IconSize, SyntaxColors, icon, tokens, visually_hidden};
 use kivact::i18n::message;
-use kivact::interaction::use_content_reveal;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
 use kivact::state::Callback;
@@ -43,7 +42,6 @@ use kivact::view::LiveRegion;
 use kivact::view::Role;
 use kivact::view::View;
 use kivact::view::dynamic;
-use kivact::view::node_ref;
 use kivact::view::show;
 use std::cell::Cell;
 use std::ops::Range;
@@ -366,11 +364,6 @@ impl IntoView for CodeBlock {
             move |open| expanded.set(open),
         ));
         let motion = tokens().motion;
-        let reveal = use_content_reveal(
-            disclosure.is_open(),
-            Transition::tween(motion.medium as f64, motion.ease_standard),
-        );
-        let disclosure = disclosure.leaving(move || reveal.leaving());
         let copied = signal(false);
         let copied_label = message("soft.code_block.copied", "Copied");
         let controls = row((
@@ -447,21 +440,23 @@ impl IntoView for CodeBlock {
                     None => style(),
                 })
         };
-        let measured = node_ref();
-        let body = column(show(
-            move || reveal.present(),
-            move || {
-                let content = content.clone();
-                column(dynamic(wrap, move |_| content()))
-                    .node_ref(measured)
-                    .style(style().shrink(0))
-            },
-        ))
-        .with_node(move |node| node.role(Role::Group))
-        .name(viewport_label)
-        .with_node(move |node| node.part(disclosure.content()))
-        .style(style().clip(true))
-        .style(reveal.container_style(measured));
+        let body = show(disclosure.is_open(), move || {
+            let content = content.clone();
+            column(dynamic(wrap, move |_| content()))
+                .with_node(move |node| node.role(Role::Group))
+                .name(viewport_label)
+                .with_node(move |node| node.part(disclosure.content()))
+                .style(
+                    style()
+                        .shrink(0)
+                        .enter_size(kivact::view::Orientation::Vertical)
+                        .exit_size(kivact::view::Orientation::Vertical)
+                        .transition(
+                            TransitionProp::Size,
+                            Transition::tween(motion.medium as f64, motion.ease_standard),
+                        ),
+                )
+        });
         let inside = if has_header {
             column((
                 row((header_title, controls)).style(move || {
