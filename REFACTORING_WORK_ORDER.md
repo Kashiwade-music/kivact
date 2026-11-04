@@ -311,6 +311,7 @@ crate を作る・統合する・消す unit は、次を全部直す（大き�
   - **名前の衝突の解消（この unit で行う）**: `kivact-types` の既存の `NodeId`（支援技術の node の id、`kivact-types/src/geometry.rs:7`）を `SemanticsId` と改名する。wire の `TextRunId`（`kivact_types::NodeId` の alias、`kivact-wire/src/lib.rs:54`）は `kivact-types::ids::TextRunId` の newtype にする。wire の `NodeId` は `kivact_types::NodeId` になる。
   - **lower の `HostEvent` の使用**: `kivact-lower` は engine の contract に依存できない（循環）。lower が `HostEvent` を作っている asset の報告は、lower の型 `kivact_lower::AssetEvent`（variant は今の `HostEvent` の asset の variant の中身）の列を返す形にし、engine が `HostEvent` に包む（設計書 8.3 節の `LowerReport.asset_events` の先取り）。
   - `kivact-layout` の trait `LeafMeasure` を `LeafMeasurer` と改名する（contract の struct `LeafMeasure` と名前を分ける、設計書 5.2 節）。
+  - **実コードに基づく訂正（2026-11-04）**: 上の値の一覧の `BoxData` は `measure: Option<LeafMeasure>` に closure を持つため `kivact-engine::contract` に移す。types から contract への依存は作らない。wire の grid の `Repeat` は `kivact_types::layout::GridRepeat` と改名し、motion の `Repeat` と区別する。旧い alias は残さず、追従の段で全呼び出し元を直す。
   - `kivact-core` は `kivact-types` に直接依存する（現在は wire の再公開で受け取っている）。
   - policy: `visible_to` から `kivact-wire` の行を消す。`kivact-types` の `visible_to` を外す（制限なし）。`kivact-engine` の `visible_to` は `["kivact-core"]` のまま。
 - **手順**（一つの worktree で順に。途中で workspace が build できない状態があってよいのは、この unit の commit の中だけ）:

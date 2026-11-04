@@ -401,7 +401,7 @@ kivact-core の `prelude` は消える（prelude は facade の `kivact::prelude
 
 `kivact-wire` の次のものは語彙ではない（closure・trait・`Rc` を含む、または kivact-editing の型を field に持つ、core と engine の二者だけの取り決め）。`kivact-engine::contract` へ移し、`kivact-core` だけが使う。
 
-- `NodeProperties`、`NodeKind`、`NodeType`、`EditingData`、`ImeSession`、`RovingFocus`、`SceneLayer`、`NodeSemantics`、`NodeInput`
+- `NodeProperties`、`NodeKind`、`NodeType`、`BoxData`、`EditingData`、`ImeSession`、`RovingFocus`、`SceneLayer`、`NodeSemantics`、`NodeInput`
 - `HostEvent`、`HostInfo`、`TurnOutput`、`HostError`
 - `LeafMeasure`（struct）、`LeafTextMeasurer`、`TextShaper`（trait）
 - `CloseSignal`（embed の「閉じて」を host へ伝える `Arc<AtomicBool>` の包み。8.2 節）
@@ -409,7 +409,7 @@ kivact-core の `prelude` は消える（prelude は facade の `kivact::prelude
 
 `contract` は値と trait だけを持ち、engine のほかの module に依存しない（4.4 節の `contract = []`）。core が使う handle（`Writer`、`Reader`、`Client`、`Boundary`、`HostWaker`、`OffscreenRenderer`（現在の engine の `Offscreen`。core の公開の `draw::Offscreen` と名前を分ける）、`TextMeasurer`、`WriteStats`）は、それを定義する module（`host`、`offscreen`、`text_measure`、`mutation`）に置いたまま、`kivact_engine::api` が再公開する（現在の `bridge.rs` と同じ役割の、再公開だけの module）。`ImeSession` は core の公開の `custom::ImeSession` と名前を分けて `ImeSessionProps` と改名する（VOC-3）。
 
-値の `BoxData`、`TextData`、`ImageData`（node の props）、`OverlayProps`、`OverlayFit`、`OverlayAt`、`IntrinsicSize`、`MeasureRequest`、`LeafSize`、`AvailableSpace`、`Baseline`、`FileDialogRequest`、`PlatformRequest`、`PlatformResult` は `kivact-types` へ（作業手順書 V-1 の一覧が正）。
+値の `TextData`、`ImageData`（node の props）、`OverlayProps`、`OverlayFit`、`OverlayAt`、`IntrinsicSize`、`MeasureRequest`、`LeafSize`、`AvailableSpace`、`Baseline`、`FileDialogRequest`、`PlatformRequest`、`PlatformResult` は `kivact-types` へ。`BoxData` は `measure: Option<LeafMeasure>` に closure を持つため contract に置く（2026-11-04、実コードに基づく訂正）。grid の反復は `GridRepeat` とし、motion の `Repeat` と名前を分ける。
 
 `kivact-layout` の trait `LeafMeasure` は `LeafMeasurer` と改名し、struct と名前を分ける（VOC-3。作業手順書 V-1 で行う）。
 

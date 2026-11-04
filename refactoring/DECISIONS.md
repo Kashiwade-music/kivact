@@ -2388,3 +2388,12 @@ P-1は文書のみの変更で、runtime/kitの実装を変更せず、新しい
 - SM-K919: cached は候補 options ではなく、検索から消えた選択済み item の label を保持する cache。211〜224行の options は resource.state の Ready を直接読む memo。S-9 の LabelCache<K> が検索完了 event で既存と同じ保持規則を更新し、labels は source+cache の memo、options は resource 状態の直接 memo を維持する。現在の検索結果を別 controller に複製せず、callback/表示契約を変えない。
 - SM-U905: progress の Running に開始時刻を追加しない。既存と同じ clock の絶対時刻から位相を計算し、再開/period変更で開始時刻相対へ変えない。停止中の扱いとbuttonの待ちの契約も保存する。
 - 文書の正確化だけで、追加34件/総203件、検査結果と分類件数は変えない。指示どおりchecker/clippyを再実行しない。
+
+## Orchestrator follow-up decisions
+
+| Date | Unit | Question / derivation | Decision and reason |
+|---|---|---|---|
+| 2026-11-04 | V-1a | Shared accessibility node/run numeric identity space | Define TextRunId in types::ids and reexport it from types/wire; retain node/run collision rejection with explicit SemanticsId(run.id.0) conversions at validation/error boundaries. |
+| 2026-11-04 | V-1b | BoxData.measure contains LeafMeasure, an Rc closure | Put BoxData in engine::contract, not types. This follows the closure boundary and avoids types-to-engine dependency cycles; correct the design/work order. |
+| 2026-11-04 | V-1b | Grid repetition and animation repetition are distinct Repeat enums | Rename grid repetition to layout::GridRepeat; retain motion::Repeat and update all consumers without compatibility aliases. |
+| 2026-11-04 | CP0 | Trace calls would introduce client-to-diagnostics module dependencies | Keep debug tracing implementation under client::trace; diagnostics documents the public diagnostic workflow without adding a dependency exception. |
