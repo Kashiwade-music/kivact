@@ -1,4 +1,7 @@
 //! Role: Convert layout properties into taffy styles, allocating calc lengths.
+//!
+//! Shared dimensions stay f64 until this adapter constructs Taffy's f32 style.
+//! Percentages use the shared 0..100 units; Taffy receives fractions in 0..1.
 
 use taffy::prelude::{
     Dimension as TDim, FlexDirection as TDir, JustifyContent, LengthPercentage,
@@ -26,7 +29,7 @@ impl Lengths<'_, '_> {
     fn dim(&mut self, d: Dimension) -> TDim {
         match d {
             Dimension::Auto => TDim::auto(),
-            Dimension::Px(v) => TDim::length((v) as f32),
+            Dimension::Px(v) => TDim::length(v as f32),
             Dimension::Percent(v) => TDim::percent((v / 100.0) as f32),
             Dimension::Calc { percent, px } => TDim::calc(self.alloc.calc(percent, px)),
             Dimension::MinContent => TDim::min_content(),
@@ -38,11 +41,11 @@ impl Lengths<'_, '_> {
     fn lp(&mut self, d: Dimension) -> LengthPercentage {
         match d {
             Dimension::Percent(v) => LengthPercentage::percent((v / 100.0) as f32),
-            Dimension::Px(v) => LengthPercentage::length((v) as f32),
+            Dimension::Px(v) => LengthPercentage::length(v as f32),
             Dimension::Auto
             | Dimension::MinContent
             | Dimension::MaxContent
-            | Dimension::FitContent => LengthPercentage::length((0.0) as f32),
+            | Dimension::FitContent => LengthPercentage::length(0.0),
             Dimension::Calc { percent, px } => LengthPercentage::calc(self.alloc.calc(percent, px)),
         }
     }
@@ -53,7 +56,7 @@ impl Lengths<'_, '_> {
             | Dimension::MinContent
             | Dimension::MaxContent
             | Dimension::FitContent => LengthPercentageAuto::auto(),
-            Dimension::Px(v) => LengthPercentageAuto::length((v) as f32),
+            Dimension::Px(v) => LengthPercentageAuto::length(v as f32),
             Dimension::Percent(v) => LengthPercentageAuto::percent((v / 100.0) as f32),
             Dimension::Calc { percent, px } => {
                 LengthPercentageAuto::calc(self.alloc.calc(percent, px))
@@ -164,10 +167,13 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
             width: x.lpa(l.max_width),
             height: x.lpa(l.max_height),
         },
-        flex_grow: l.grow,
-        flex_shrink: l.shrink,
+        flex_grow: l.grow as f32,
+        flex_shrink: l.shrink as f32,
         flex_basis: x.dim(l.basis),
-        aspect_ratio: l.aspect_ratio.filter(|r| r.is_finite() && *r > 0.0),
+        aspect_ratio: l
+            .aspect_ratio
+            .map(|r| r as f32)
+            .filter(|r| r.is_finite() && *r > 0.0),
         // A sticky box is laid out in flow (its insets move it after
         // layout, by the integration); a fixed one is an absolute child of the
         // window's synthetic viewport.
@@ -270,8 +276,8 @@ impl Lengths<'_, '_> {
     fn min_track(&mut self, b: Breadth) -> MinTrackSizingFunction {
         type M = MinTrackSizingFunction;
         match b {
-            Breadth::Size(Dimension::Px(v)) => M::length(v),
-            Breadth::Size(Dimension::Percent(v)) => M::percent(v / 100.0),
+            Breadth::Size(Dimension::Px(v)) => M::length(v as f32),
+            Breadth::Size(Dimension::Percent(v)) => M::percent((v / 100.0) as f32),
             Breadth::Size(Dimension::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
             Breadth::Size(Dimension::MinContent) => M::min_content(),
             Breadth::Size(Dimension::MaxContent) => M::max_content(),
@@ -284,16 +290,18 @@ impl Lengths<'_, '_> {
     fn max_track(&mut self, b: Breadth) -> MaxTrackSizingFunction {
         type M = MaxTrackSizingFunction;
         match b {
-            Breadth::Size(Dimension::Px(v)) => M::length(v),
-            Breadth::Size(Dimension::Percent(v)) => M::percent(v / 100.0),
+            Breadth::Size(Dimension::Px(v)) => M::length(v as f32),
+            Breadth::Size(Dimension::Percent(v)) => M::percent((v / 100.0) as f32),
             Breadth::Size(Dimension::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
             Breadth::Size(Dimension::Auto) => M::auto(),
             Breadth::Size(Dimension::MinContent) => M::min_content(),
             Breadth::Size(Dimension::MaxContent) => M::max_content(),
             Breadth::Size(Dimension::FitContent) => M::fit_content_percent(1.0),
-            Breadth::Fr(f) => M::fr(f.max(0.0)),
-            Breadth::FitContent(Dimension::Px(v)) => M::fit_content_px(v),
-            Breadth::FitContent(Dimension::Percent(v)) => M::fit_content_percent(v / 100.0),
+            Breadth::Fr(f) => M::fr(f.max(0.0) as f32),
+            Breadth::FitContent(Dimension::Px(v)) => M::fit_content_px(v as f32),
+            Breadth::FitContent(Dimension::Percent(v)) => {
+                M::fit_content_percent((v / 100.0) as f32)
+            }
             Breadth::FitContent(_) => M::fit_content_percent(1.0),
         }
     }

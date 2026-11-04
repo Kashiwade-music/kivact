@@ -607,7 +607,7 @@ impl NodeLayoutColumns {
         let index = usize::from(overlay);
         let Some(fit) = tree.overlay_fit(slot) else {
             let values = &mut self.values;
-            if values.styles[index].set_min_width_floor(floor) {
+            if values.styles[index].set_min_width_floor(floor as f32) {
                 values.caches[index].clear();
             }
             self.compute_at(tree, state, overlay, available, false, measure);
