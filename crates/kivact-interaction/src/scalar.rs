@@ -64,6 +64,6 @@ pub(crate) use edit_state::{Edit, Shared};
 pub use handle::{ScalarApi, use_scalar};
 pub(crate) use ops::ScalarOps;
 
-pub(crate) use range::follow_ranges;
+pub(crate) use range::{follow_range, follow_ranges};
 pub use touch::TouchSliderGesture;
 pub(crate) use track::Grip;
