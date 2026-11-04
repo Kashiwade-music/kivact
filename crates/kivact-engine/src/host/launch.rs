@@ -7,6 +7,7 @@ use crate::FrameLog;
 use crate::contract::HostError;
 use crate::model::Model;
 use arvane::{RendererChange, Shell, ShellOptions};
+use kivact_types::Size;
 use std::cell::RefCell;
 use std::rc::Rc;
 

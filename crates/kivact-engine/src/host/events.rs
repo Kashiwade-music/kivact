@@ -380,7 +380,7 @@ impl Host {
         let before = std::mem::replace(&mut self.environment, now.clone());
         let mut model = self.model.borrow_mut();
         let period_before = model.frame.period_ns();
-        model.update_env(|env, surface_active| {
+        model.update_env(|env, _| {
             if now.theme_hint != before.theme_hint {
                 env.theme_hint = now.theme_hint;
             }

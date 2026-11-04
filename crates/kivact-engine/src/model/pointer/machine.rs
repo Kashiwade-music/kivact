@@ -314,7 +314,7 @@ impl Model {
             if let Some(region) = space.region(self, h, space.local(self, h)) {
                 let node = self.node(h)?;
                 let declared = node.region(region)?;
-                if declared.disabled {
+                if declared.semantics.disabled {
                     return None;
                 }
                 if self.region_activatable(h, region) {
@@ -434,7 +434,11 @@ impl Model {
                     && node.region(region).is_some_and(|region| {
                         !region.semantics.disabled
                             && !region.semantics.hidden
-                            && region.semantics.actions.contains(&A11yAction::Activate)
+                            && region
+                                .semantics
+                                .actions
+                                .as_ref()
+                                .is_some_and(|actions| actions.contains(&A11yAction::Activate))
                     })
             })
     }
