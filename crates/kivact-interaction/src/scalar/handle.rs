@@ -401,7 +401,19 @@ impl ScalarApi {
                     .value_max(move || range.get().max()),
             };
             if role == Role::Slider {
-                control = control.value_text(move || value.get().to_string());
+                control = control
+                    .value_text(move || value.get().to_string())
+                    .orientation(move || {
+                        if shared
+                            .pointer
+                            .geometry()
+                            .is_some_and(|geometry| !geometry.axis.is_horizontal())
+                        {
+                            Orientation::Vertical
+                        } else {
+                            Orientation::Horizontal
+                        }
+                    });
             }
             for action in [
                 A11yAction::Increment,
