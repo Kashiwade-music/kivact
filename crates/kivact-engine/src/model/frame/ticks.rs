@@ -181,7 +181,7 @@ impl Model {
                     velocity.y *= retention;
                     let active = moved
                         && !self.frame.reduced_motion()
-                        && velocity.x.hypot(velocity.y) >= settings.fling_min_velocity.max(0.001);
+                        && velocity.x.hypot(velocity.y) >= settings.fling_min_velocity;
                     if !active {
                         self.settle_scroll_snap(*id);
                     }
