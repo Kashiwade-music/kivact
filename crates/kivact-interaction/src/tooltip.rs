@@ -17,7 +17,6 @@
 use std::time::Duration;
 
 use kivact_core::custom::{Owner, Part, part};
-use kivact_core::state::try_use_context;
 
 use super::delayed::{DelayedApi, delayed};
 use super::popup::PopupState;
@@ -28,27 +27,9 @@ use kivact_core::view::{
     node_ref,
 };
 
-/// App-wide timing of [`TooltipApi`], read when a tooltip is created.
-///
-/// Provide it with [`provide`](kivact_core::view::provide) to change the timing of
-/// every tooltip below it; a tooltip outside any provider uses
-/// [`TooltipConfig::default`]. It is read once, when [`use_tooltip`] runs, so it
-/// has to be provided above the code that creates the tooltip.
-///
-/// ```no_run
-/// use std::time::Duration;
-/// use kivact_core::{view::{NodeBuilder, node}, view::{Role, provide}};
-/// use kivact_interaction::{TooltipConfig, use_tooltip};
-/// let view = provide(
-///     TooltipConfig { delay: Duration::from_millis(200), ..TooltipConfig::default() },
-///     || {
-///         let tip = use_tooltip();
-///         node().part(tip.trigger()).role(Role::Button).name("Save").focusable(true)
-///     },
-/// );
-/// ```
+/// Theme-wide tooltip timing, configured through [`crate::InteractionPolicy`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TooltipConfig {
+pub struct TooltipTiming {
     /// How long the pointer or the keyboard focus has to stay before a
     /// tooltip shows. Zero shows it at once.
     pub delay: Duration,
@@ -58,7 +39,7 @@ pub struct TooltipConfig {
     pub skip_delay: Duration,
 }
 
-impl Default for TooltipConfig {
+impl Default for TooltipTiming {
     fn default() -> Self {
         Self {
             delay: Duration::from_millis(500),
@@ -157,7 +138,7 @@ fn now_ns() -> u64 {
 /// caller's content, and so is the overlay's accessible name.
 ///
 /// It shows when the pointer is over the trigger or the keyboard focus is on
-/// it or inside it, after the [`TooltipConfig::delay`] (500 ms by default).
+/// it or inside it, after the [`TooltipTiming::delay`] (500 ms by default).
 /// The pointer is judged by what the host hits ([`NodeRef::hovered`]),
 /// so a child with its own `on_pointer` or a pointer captured elsewhere does
 /// not change it. When the condition stops it hides at once.
@@ -172,7 +153,7 @@ fn now_ns() -> u64 {
 /// outside still hide the tooltip.
 ///
 /// One tooltip is shown at a time in an App: showing a tooltip hides the one
-/// before it. When a tooltip hid less than [`TooltipConfig::skip_delay`] ago
+/// before it. When a tooltip hid less than [`TooltipTiming::skip_delay`] ago
 /// (300 ms by default), or another is shown, the next one shows without the
 /// delay. A tooltip that another one took over while it was still engaged
 /// shows again when that one hides. This state is created by the first
@@ -210,14 +191,14 @@ pub struct TooltipApi {
     surface: NodeRef,
 }
 
-/// Create a tooltip under the current setup owner, reading [`TooltipConfig`].
+/// Create a tooltip under the current setup owner, reading [`TooltipTiming`].
 ///
 /// The first tooltip of an App creates the App's shared one-at-a-time state.
 /// Setup only.
 #[track_caller]
 pub fn use_tooltip() -> TooltipApi {
     let disabled = signal(None::<Value<bool>>);
-    let config = try_use_context::<TooltipConfig>();
+    let config = kivact_core::style::use_theme();
     let hub = Hub::of_app();
     let id = hub.take_id();
 
@@ -237,13 +218,14 @@ pub fn use_tooltip() -> TooltipApi {
             if hub.warm_for(
                 id,
                 config
-                    .map(|value| value.get())
-                    .unwrap_or_default()
+                    .get()
+                    .ext::<crate::InteractionPolicy>()
+                    .tooltip
                     .skip_delay,
             ) {
                 Duration::ZERO
             } else {
-                config.map(|value| value.get()).unwrap_or_default().delay
+                config.get().ext::<crate::InteractionPolicy>().tooltip.delay
             }
         },
         Duration::ZERO,

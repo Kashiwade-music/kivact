@@ -273,7 +273,13 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
                             return Handled::No;
                         };
                         let pos = event.window_pos();
-                        let moved = moved || (pos.x - start.x).hypot(pos.y - start.y) > 10.0;
+                        let moved = moved
+                            || (pos.x - start.x).hypot(pos.y - start.y)
+                                > kivact_core::style::use_theme()
+                                    .get()
+                                    .ext::<kivact_interaction::InteractionPolicy>()
+                                    .select
+                                    .sheet_slop;
                         match event.phase() {
                             PointerPhase::Move => contact.set(Some((id, start, moved))),
                             PointerPhase::Up(_) => {

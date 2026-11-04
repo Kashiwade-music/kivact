@@ -98,29 +98,6 @@ pub use kivact_types::Placement;
 #[doc(inline)]
 pub use kivact_types::OverlayAlign;
 
-/// Theme-wide viewport margin for overlays, in logical pixels.
-///
-/// Set with `Theme::with(OverlayViewport::new(16.0))`. Fitted overlays
-/// try mirrored placements, spans and slides before clamping to the inset.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct OverlayViewport {
-    margin: Option<f64>,
-}
-
-impl OverlayViewport {
-    pub fn new(margin: f64) -> Self {
-        Self {
-            margin: Some(margin),
-        }
-    }
-}
-
-impl kivact_style::ThemeExtension for OverlayViewport {
-    fn fallback(_: &kivact_style::Theme) -> Self {
-        Self::default()
-    }
-}
-
 /// Where an overlay is placed, chosen by its constructor: the reactive source
 /// of [`kivact_types::OverlayAt`] (the same two cases).
 enum Place {
@@ -285,7 +262,7 @@ impl Overlay {
     }
 
     /// Inset the available window area by this many logical pixels.
-    /// Overrides the theme's [`OverlayViewport`].
+    /// Overrides the theme's [`kivact_style::Theme::overlay_margin`].
     pub fn viewport_margin(mut self, px: impl IntoValue<f64>) -> Self {
         self.viewport_margin = Some(px.into_prop());
         self
@@ -444,12 +421,7 @@ impl IntoView for Overlay {
                         fit: viewport_margin
                             .as_ref()
                             .map(InputProp::get)
-                            .or_else(|| {
-                                kivact_style::use_theme()
-                                    .get()
-                                    .ext::<OverlayViewport>()
-                                    .margin
-                            })
+                            .or_else(|| Some(kivact_style::use_theme().get().overlay_margin()))
                             .map(|margin| kivact_types::OverlayFit {
                                 margin,
                                 keep_anchor_clear,

@@ -212,6 +212,7 @@ pub struct Theme {
     focus_ring_offset: f64,
     disabled_opacity: f64,
     control_height: f64,
+    overlay_margin: f64,
     icons: IconSet,
 }
 
@@ -286,6 +287,16 @@ impl Theme {
     /// Minimum height of interactive controls (px).
     pub fn control_height(&self) -> f64 {
         self.control_height
+    }
+    /// Viewport inset used to fit overlays, in logical pixels.
+    pub fn overlay_margin(&self) -> f64 {
+        self.overlay_margin
+    }
+    /// Set the viewport inset used to fit overlays, in logical pixels.
+    #[must_use]
+    pub fn with_overlay_margin(mut self, margin: f64) -> Self {
+        self.overlay_margin = margin;
+        self
     }
 
     /// The images an [`Icon`](crate::Icon) name resolves to. The
@@ -431,6 +442,7 @@ impl Theme {
             focus_ring_offset: 0.0,
             disabled_opacity: 0.5,
             control_height: 28.0,
+            overlay_margin: 0.0,
             icons: IconSet::standard(),
         }
     }

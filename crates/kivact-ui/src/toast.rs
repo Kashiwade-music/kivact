@@ -1,16 +1,17 @@
 //! Role: Render the App's toasts in themed live regions.
 use super::layer::with_recipe_style;
-use super::toast_swipe::{Swipe, ToastSwipe};
+use super::toast_swipe::Swipe;
 use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
 use kivact_core::custom::part;
 use kivact_core::motion::Transition;
 use kivact_core::state::signal;
 use kivact_core::state::{IntoValue, Value};
-use kivact_core::style::{Theme, ThemeExtension, use_theme};
+use kivact_core::style::use_theme;
 use kivact_core::view::NodeBuilder;
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
 use kivact_core::view::{column, node, text};
+use kivact_interaction::ToastSwipe;
 use kivact_interaction::{ToastId, Toaster, Tone};
 
 /// Where the toasts of `toaster` show: two live regions (polite and
@@ -65,12 +66,6 @@ pub struct ToastRowMotion {
     pub gap: f64,
 }
 
-impl ThemeExtension for ToastRowMotion {
-    fn fallback(_: &Theme) -> Self {
-        Self::default()
-    }
-}
-
 /// The live regions of a [`Toaster`], created by [`toast_region`].
 pub struct ToastRegion {
     toaster: Toaster,
@@ -114,7 +109,12 @@ impl IntoView for ToastRegion {
             hold_all,
         } = self;
         let polite = toaster.visible(false);
-        let row_motion = use_theme().get().ext::<ToastRowMotion>();
+        let row_motion = use_theme()
+            .get()
+            .ext::<crate::UiTokens>()
+            .toast
+            .row_motion
+            .clone();
         let (rows, groups) = (variants.clone(), variants.clone());
         let group = move |assertive: bool, live: LiveRegion| {
             let rows = rows.clone();
@@ -188,8 +188,13 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
         return ().into_view();
     };
     let card_ref = kivact_core::view::node_ref();
-    let swipe = use_theme().get().ext::<ToastSwipe>();
-    let (part, swipe) = match &*swipe {
+    let swipe = use_theme()
+        .get()
+        .ext::<kivact_interaction::InteractionPolicy>()
+        .toast
+        .swipe
+        .clone();
+    let (part, swipe) = match &swipe {
         ToastSwipe::Disabled => (toaster.item(id), None),
         ToastSwipe::Enabled { edge, transition } => {
             let held = signal(false);
@@ -273,4 +278,9 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
     } else {
         card.into_view()
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ToastTokens {
+    pub row_motion: ToastRowMotion,
 }

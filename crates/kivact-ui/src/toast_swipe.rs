@@ -4,32 +4,15 @@ use kivact_core::custom::clock_now;
 use kivact_core::geometry::{Edge, Point, Rect};
 use kivact_core::motion::{FrameRate, Transition, frame_loop};
 use kivact_core::state::{Signal, Value, Var, effect, signal, var};
-use kivact_core::style::{Style, Theme, ThemeExtension, TransitionProp, pct, style};
+use kivact_core::style::{Style, TransitionProp, pct, style};
 use kivact_core::view::{Handled, MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase};
+use kivact_interaction::InteractionPolicy;
 use kivact_interaction::{DragAxis, ToastId, Toaster};
 
-const SLOP: f64 = 8.0;
 const VERTICAL_RATIO: f64 = 1.2;
 const DISMISS_RATIO: f64 = 0.4;
 const FLICK_DISTANCE: f64 = 48.0;
 const FLICK_SPEED: f64 = 1.2;
-
-/// Theme opt-in for touch and pen dismissal of standard toast cards.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub enum ToastSwipe {
-    #[default]
-    Disabled,
-    Enabled {
-        edge: Edge,
-        transition: Transition,
-    },
-}
-
-impl ThemeExtension for ToastSwipe {
-    fn fallback(_: &Theme) -> Self {
-        Self::Disabled
-    }
-}
 
 #[derive(Clone, Copy)]
 struct Contact {
@@ -151,7 +134,15 @@ impl Swipe {
         match event.phase() {
             PointerPhase::Move => {
                 if !contact.promoted {
-                    match intent(delta, sign) {
+                    match intent(
+                        delta,
+                        sign,
+                        kivact_core::style::use_theme()
+                            .get()
+                            .ext::<InteractionPolicy>()
+                            .toast
+                            .swipe_slop,
+                    ) {
                         Intent::Pending => return Handled::No,
                         Intent::Reject => {
                             self.reset();
@@ -232,11 +223,11 @@ enum Intent {
     Promote,
 }
 
-fn intent(delta: Point, sign: f64) -> Intent {
-    if delta.x.abs() > SLOP && delta.x.abs() > delta.y.abs() {
+fn intent(delta: Point, sign: f64, slop: f64) -> Intent {
+    if delta.x.abs() > slop && delta.x.abs() > delta.y.abs() {
         return Intent::Reject;
     }
-    let Some(dy) = DragAxis::Vertical.past_slop(delta, SLOP) else {
+    let Some(dy) = DragAxis::Vertical.past_slop(delta, slop) else {
         return Intent::Pending;
     };
     if dy.abs() <= delta.x.abs() * VERTICAL_RATIO {
@@ -267,12 +258,12 @@ mod tests {
 
     #[test]
     fn intent_and_flick_thresholds_match_the_edge() {
-        assert_eq!(intent(Point::new(0.0, 8.0), 1.0), Intent::Pending);
-        assert_eq!(intent(Point::new(12.0, 10.0), 1.0), Intent::Reject);
-        assert_eq!(intent(Point::new(10.0, 12.0), 1.0), Intent::Pending);
-        assert_eq!(intent(Point::new(10.0, 13.0), 1.0), Intent::Promote);
-        assert_eq!(intent(Point::new(0.0, -12.0), 1.0), Intent::Reject);
-        assert_eq!(intent(Point::new(0.0, -12.0), -1.0), Intent::Promote);
+        assert_eq!(intent(Point::new(0.0, 8.0), 1.0, 8.0), Intent::Pending);
+        assert_eq!(intent(Point::new(12.0, 10.0), 1.0, 8.0), Intent::Reject);
+        assert_eq!(intent(Point::new(10.0, 12.0), 1.0, 8.0), Intent::Pending);
+        assert_eq!(intent(Point::new(10.0, 13.0), 1.0, 8.0), Intent::Promote);
+        assert_eq!(intent(Point::new(0.0, -12.0), 1.0, 8.0), Intent::Reject);
+        assert_eq!(intent(Point::new(0.0, -12.0), -1.0, 8.0), Intent::Promote);
         assert!(!qualifies(47.0, 200.0, 1.0));
         assert!(!qualifies(48.0, 200.0, 40.0));
         assert!(qualifies(48.0, 200.0, 39.0));

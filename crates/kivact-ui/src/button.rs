@@ -21,17 +21,18 @@ use super::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Value, on_cleanup, signal};
-use kivact_core::style::{Theme, ThemeExtension, style, use_theme};
+use kivact_core::style::{style, use_theme};
 use kivact_core::task::{sleep, spawn};
 use kivact_core::view::{IntoView, View, show};
 use kivact_core::view::{Node, NodeBuilder, node, row};
+use kivact_interaction::DisabledButtonFocus;
 use kivact_interaction::use_button;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
-/// Timing for the standard button's busy indicator. Install it with
-/// [`Theme::with`]; the default turns every 700 ms and reveals immediately.
+/// Timing for the standard button's busy indicator, configured through
+/// [`crate::UiTokens`]; the default turns every 700 ms and reveals immediately.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ButtonBusyMotion {
     /// Milliseconds per revolution. A zero period is treated as 1 ms.
@@ -53,26 +54,6 @@ impl Default for ButtonBusyMotion {
             reveal_delay_ms: 0,
             reveal_fade_ms: 0,
         }
-    }
-}
-
-impl ThemeExtension for ButtonBusyMotion {
-    fn fallback(_: &Theme) -> Self {
-        Self::default()
-    }
-}
-
-/// Whether a theme keeps disabled buttons in keyboard focus order.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum DisabledButtonFocus {
-    #[default]
-    Skip,
-    Retain,
-}
-
-impl ThemeExtension for DisabledButtonFocus {
-    fn fallback(_: &Theme) -> Self {
-        Self::default()
     }
 }
 
@@ -142,7 +123,11 @@ pub fn button(label: impl IntoText) -> Button {
             .style(super::helpers::single_line_text())
             .part(part)
             .focusable_when_disabled(matches!(
-                *use_theme().get().ext::<DisabledButtonFocus>(),
+                use_theme()
+                    .get()
+                    .ext::<kivact_interaction::InteractionPolicy>()
+                    .button
+                    .disabled_focus,
                 DisabledButtonFocus::Retain
             ))
             .name(label),
@@ -282,7 +267,11 @@ impl Button {
             move || {
                 let phase = signal(0.0f64);
                 let period = kivact_core::state::memo(|| {
-                    let motion = use_theme().get().ext::<ButtonBusyMotion>();
+                    let motion = use_theme()
+                        .get()
+                        .ext::<crate::UiTokens>()
+                        .button
+                        .busy_motion;
                     if kivact_core::platform::is_motion_reduced().get() {
                         motion.reduced_spin_ms
                     } else {
@@ -302,7 +291,11 @@ impl Button {
                         clock.stop();
                     }
                 });
-                let motion = use_theme().get().ext::<ButtonBusyMotion>();
+                let motion = use_theme()
+                    .get()
+                    .ext::<crate::UiTokens>()
+                    .button
+                    .busy_motion;
                 let delay = if kivact_core::platform::is_motion_reduced().get() {
                     0
                 } else {
@@ -351,4 +344,9 @@ impl IntoView for Button {
     fn into_view(self) -> View {
         self.finish().into_view()
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ButtonTokens {
+    pub busy_motion: ButtonBusyMotion,
 }

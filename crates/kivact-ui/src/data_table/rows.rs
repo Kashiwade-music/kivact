@@ -1,5 +1,5 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
-use super::sticky_paint::{DataTableStickyPaint, surface};
+use super::sticky_paint::surface;
 use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
     StickyEdges,
@@ -212,7 +212,12 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
         let visible = self.visible;
         let on_left = start != sticky.rtl;
         Some(node().hit_testable(false).style(move || {
-            let paint = use_theme().get().ext::<DataTableStickyPaint>();
+            let paint = use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .data_table
+                .sticky
+                .clone();
             let width = paint.shadow_width;
             let boundary = visible.with(|columns| {
                 let mut pinned = columns

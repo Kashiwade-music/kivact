@@ -1,7 +1,7 @@
 //! Role: Menu session operations coordinate opening, focus and closing.
 
 use super::order::{item_enabled, kept_levels};
-use super::press_state::{MenuPress, Press};
+use super::press_state::Press;
 use super::state::{Edge, MenuEntry, MenuOrigin, Opened, Session, Target, Want};
 use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupCloseReason, ReasonSet, use_popup};
@@ -44,7 +44,11 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             want,
             typed: var(Typeahead::default()),
             surface_rects: signal(Vec::new()),
-            press: (*kivact_core::style::use_theme().get().ext::<MenuPress>())
+            press: (kivact_core::style::use_theme()
+                .get()
+                .ext::<crate::InteractionPolicy>()
+                .menu
+                .press)
                 .0
                 .then(Press::new),
         };

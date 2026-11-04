@@ -3,23 +3,13 @@ use crate::values::{ControlSize, SwitchDragState};
 use kivact_core::custom::{Part, clock_now};
 use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, Signal, Value, Var, signal, var};
-use kivact_core::style::{Theme, ThemeExtension, use_theme};
+use kivact_core::style::use_theme;
 use kivact_core::view::{
     Handled, MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase, ReadingDirection,
     use_direction,
 };
 use kivact_interaction::ToggleState;
 use std::time::Duration;
-
-/// Whether switches in this theme use direct manipulation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SwitchDrag(pub bool);
-
-impl ThemeExtension for SwitchDrag {
-    fn fallback(_: &Theme) -> Self {
-        Self(false)
-    }
-}
 
 #[derive(Clone, Copy)]
 struct Contact {
@@ -106,7 +96,13 @@ pub(super) fn switch(
     size: Value<ControlSize>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
 ) -> (Part<ToggleState>, Visual) {
-    if !use_theme().get().ext::<SwitchDrag>().0 {
+    if !use_theme()
+        .get()
+        .ext::<kivact_interaction::InteractionPolicy>()
+        .switch
+        .drag
+        .0
+    {
         return (control, None);
     }
     let edit = kivact_interaction::EditSession::new(move |initial| value.set(initial));

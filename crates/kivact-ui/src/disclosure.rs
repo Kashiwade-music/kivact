@@ -11,10 +11,11 @@ use super::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::IntoText;
 use kivact_core::state::{Binding, Value, memo};
-use kivact_core::style::{Overflow, style};
+use kivact_core::style::{Overflow, style, use_theme};
 use kivact_core::view::{IntoView, View, node_ref, show};
 use kivact_core::view::{Node, NodeBuilder, icon, node, text};
 use kivact_interaction::{use_content_reveal, use_disclosure};
+use std::time::Duration;
 
 /// A trigger and the content it opens, created by [`disclosure`].
 pub struct Disclosure {
@@ -23,7 +24,7 @@ pub struct Disclosure {
     open: Binding<bool>,
     content: kivact_core::view::ViewFn,
     keep_mounted: bool,
-    animated: bool,
+    motion: DisclosureMotion,
     variants: Variants,
 }
 
@@ -78,7 +79,12 @@ pub fn disclosure(
         open: open.into_binding(),
         content: kivact_core::view::ViewFn::from(|()| ()),
         keep_mounted: false,
-        animated: false,
+        motion: use_theme()
+            .get()
+            .ext::<crate::UiTokens>()
+            .disclosure
+            .motion
+            .clone(),
         variants: Variants::default(),
     }
 }
@@ -103,7 +109,7 @@ impl Disclosure {
     /// decorative motion that reduced motion skips (default: the content
     /// appears and disappears at once). A constant.
     pub fn animated(mut self, animated: bool) -> Self {
-        self.animated = animated;
+        self.motion.animate = animated;
         self
     }
 
@@ -138,9 +144,12 @@ impl IntoView for Disclosure {
             details = details.disabled(move || disabled.get());
         }
         let shown = details.is_open();
-        let reveal = self
-            .animated
-            .then(|| use_content_reveal(shown, Transition::tween(200, Easing::EaseOut)));
+        let reveal = self.motion.animate.then(|| {
+            use_content_reveal(
+                shown,
+                Transition::tween(self.motion.duration.as_secs_f64() * 1000.0, Easing::EaseOut),
+            )
+        });
         let present = memo(move || reveal.map_or_else(|| shown.get(), |reveal| reveal.present()));
         if let Some(reveal) = reveal {
             details = details.leaving(move || reveal.leaving());
@@ -207,5 +216,23 @@ impl IntoView for Disclosure {
         .child(trigger)
         .child(body)
         .into_view()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct DisclosureTokens {
+    pub motion: DisclosureMotion,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct DisclosureMotion {
+    pub animate: bool,
+    pub duration: Duration,
+}
+impl Default for DisclosureMotion {
+    fn default() -> Self {
+        Self {
+            animate: false,
+            duration: Duration::from_millis(200),
+        }
     }
 }

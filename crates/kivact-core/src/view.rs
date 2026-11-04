@@ -73,7 +73,7 @@ pub use kivact_types::{
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 #[doc(inline)]
-pub use overlays::{Overlay, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at};
+pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
 
 pub(crate) use part::Part;
 

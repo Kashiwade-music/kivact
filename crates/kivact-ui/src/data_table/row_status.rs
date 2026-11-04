@@ -2,9 +2,7 @@
 use crate::tooltip;
 use kivact_core::i18n::message;
 use kivact_core::state::Value;
-use kivact_core::style::{
-    Align, Color, ColorToken, Icon, Justify, Theme, ThemeExtension, style, use_theme,
-};
+use kivact_core::style::{Align, Color, ColorToken, Icon, Justify, style, use_theme};
 use kivact_core::view::{Node, icon, node};
 use kivact_core::view::{Role, View, dynamic};
 use kivact_interaction::Tone;
@@ -54,8 +52,8 @@ pub struct DataTableRowStatusPaint {
     pub header_key: &'static str,
 }
 
-impl ThemeExtension for DataTableRowStatusPaint {
-    fn fallback(_: &Theme) -> Self {
+impl Default for DataTableRowStatusPaint {
+    fn default() -> Self {
         Self {
             neutral: ColorToken::TextMuted.into(),
             info: ColorToken::Accent.into(),
@@ -80,7 +78,12 @@ fn lane() -> Node {
 }
 
 pub(super) fn header() -> Node {
-    let paint = use_theme().get().ext::<DataTableRowStatusPaint>();
+    let paint = use_theme()
+        .get()
+        .ext::<crate::UiTokens>()
+        .data_table
+        .row_status
+        .clone();
     lane()
         .role(Role::ColumnHeader)
         .name(message(paint.header_key, "Row status"))
@@ -117,7 +120,12 @@ fn marker(status: RowStatus) -> View {
         .focusable(true)
         .child(glyph.map(icon))
         .style(move || {
-            let paint = use_theme().get().ext::<DataTableRowStatusPaint>();
+            let paint = use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .data_table
+                .row_status
+                .clone();
             let color = color.unwrap_or(match tone {
                 Tone::Neutral => paint.neutral,
                 Tone::Info => paint.info,

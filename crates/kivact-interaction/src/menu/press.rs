@@ -97,9 +97,19 @@ impl Press {
         match (event.phase(), gesture.phase) {
             (PointerPhase::Move, Phase::Pending { from, .. }) => {
                 let drift = if gesture.source == Source::Context {
-                    10.0
+                    kivact_core::style::use_theme()
+                        .get()
+                        .ext::<crate::InteractionPolicy>()
+                        .menu
+                        .drift
+                        .context
                 } else {
-                    13.0
+                    kivact_core::style::use_theme()
+                        .get()
+                        .ext::<crate::InteractionPolicy>()
+                        .menu
+                        .drift
+                        .other
                 };
                 if (position.x - from.x).hypot(position.y - from.y) > drift {
                     event.suppress_activation();
