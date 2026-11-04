@@ -268,17 +268,18 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 - **解消後**:
   ```rust
   struct FocusRequests { requests: HashMap<RequestId, FocusRequest>, order: Vec<RequestId> }
-  struct FocusRequest { target: FocusTarget, reply: FocusReply, stage: RequestStage }
+  struct FocusRequest { target: FocusTarget, reply: FocusReply, stage: RequestStage, visible: bool }
   enum RequestStage { Queued, Sent }
-  enum FocusReply { Report(Completion), Restore, RestoreAndReport(Completion) }
+  struct FocusCompletion { owner: Owner, at: &'static Location<'static> } // private
+  enum FocusReply { Report(FocusCompletion), Restore, RestoreAndReport(FocusCompletion) }
   ```
-  `IdMap` は `NodeId` の key だけなので、`RequestId` の表は `HashMap`（設計書 19 章「削除の結果の型」）。flush のときに restore を取り消す条件は、現在の `view/requests.rs` の条件をそのまま `FocusRequest` の遷移（`Queued → 消える`）として書き、取り消したら `Report` には `Canceled` を返す
+  `RequestId` の表は `HashMap`。flush の restore 取消条件は既存のまま `Queued → 消える` とする。取消は内部の `Canceled` で、既存どおり callback・UiError を発生させない。host の拒否だけを保存した owner/location に報告する。visible は独立入力、FocusCompletion は runtime の future 用 Completion とは別。
 - **unit**: C-3b
 
 ### SM-C11 先に届いた文字の編集
 - **場所**: `view/tree.rs:287,597-643`（`future_text_edits: IdMap<usize>`）、`view/text_edits.rs:13-39`（guard）
 - **現在**: 「N 件が engine で先に適用済み」の counter。「一度に一 batch」は `debug_assert`
-- **解消後**: `struct TextEditsInFlight(IdMap<NodeId, u32>)`（名前の付いた counter の型、S-9）と、既存の guard `TextEditsAhead` を型状態にする（`begin(&mut Tree) -> TextEditsAhead<'_>`、drop で終わる。二つ目の `begin` は借用で不可能）
+- **解消後**: `TextEditsInFlight` は単一の共有 counter store（`Rc<RefCell<IdMap<u32>>>`）、`TextEditsAhead` は独立した所有 guard（begin/drop）。dispatch 中に Tree の可変借用を保持せず、store の二重 begin を拒否する。
 - **unit**: C-3a
 
 ### SM-C12 node の退場
@@ -330,8 +331,8 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 - **現在**: engine にも同じ capture がある（`adopt_pointer`/`forget_adopted_pointer`）
 - **解消後**:
   ```rust
-  enum PartCapture { None, Captured { target: CaptureTarget, buttons: ButtonSet } }
-  enum CaptureTarget { Part(Rc<Target>), Region(RegionId), Fallback(MouseButton) }
+  enum PartCapture { None, Captured { target: CaptureTarget, buttons: PointerButtons } }
+  enum CaptureTarget { Part(Rc<Target>), Region(RegionId), Fallback { button: MouseButton, target: Rc<Target> } }
   ```
   node 単位の capture は engine だけが持つ。engine は activation を `Routed<PointerSample>` の field として渡し、`take_adopted_activation`（`Reader` を通した変更の呼び出し）を消す（設計書 7.5 節）
 - **unit**: C-4
@@ -937,7 +938,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 ### SM-K09 soft の mobile の app shell
 - **場所**: `kivact-ui-soft/src/mobile_nav.rs:17-28`（`AppShellMobile` の 5 つの `Option`）
-- **解消後**: `enum AppShellMobile { Desktop, Mobile { nav: MobileNav } }`、`enum MobileNav { Closed, Open }`
+- **解消後**: private `enum AppShellMobileState { Desktop, Mobile { nav: MobileNavState } }`、`enum MobileNavState { Closed, Open }`（既存の公開 AppShellMobile/MobileNav と名前を分ける）
 - **unit**: KL-soft
 
 ### SM-K10 手で作った roving focus
@@ -997,7 +998,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 ### SM-K21 soft の power search
 - **場所**: `kivact-ui-soft/src/power_search.rs:60-64`（`open`、`editing: Option<(usize, filter)>`、`field`、`operator`、`value`）
-- **解消後**: soft に残す。`enum PowerSearchState { Closed, Composing { draft: FilterDraft }, Editing { index: usize, draft: FilterDraft } }`、`FilterDraft { field, operator, value }`
+- **解消後**: soft に残す。`enum PowerSearchState<K> { Closed, Composing { draft: FilterDraft }, Editing { index: usize, original: SearchFilter<K>, draft: FilterDraft } }`、`FilterDraft { field, operator, value }`。original は外部で変わった filter を上書きしないための編集 baseline。
 - **unit**: KL-soft
 
 ### SM-K22 soft の banner の focus の復元

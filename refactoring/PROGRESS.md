@@ -63,17 +63,21 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | R-4 | merged | 5340dd7 | runtime check 0、E2E は A-1b 合流で |
 | R-5 | merged | 85c6f7f | 統合 runtime check 0、E2E は A-1b 合流で |
 | R-6 | merged | e4a39b3 | check/doc test 0 |
-| C-1 | doing | | 起動経路の一本化と kivact-test 分離 |
-| C-2 | todo | | |
-| L-1 | todo | | |
-| C-3a | todo | | |
-| C-3b | todo | | |
-| C-4 | todo | | |
-| C-5 | todo | | |
-| KL-basic | todo | | |
-| KL-game | todo | | |
-| KL-creative | todo | | |
-| KL-soft | todo | | |
+| C-1 | merged | cc3b9d4 | check 0、公開12/private24 E2E 0、cost1削除 |
+| C-2 | merged | ba2b938 | 指定 check 0、i18n/style の内部境界 |
+| L-1 | merged | c13faed | check 0、i18n E2E8 passed、ICU4X2.4.0 |
+| C-3a | merged | a9fa75e | 担当 check 0、kit2 caller は fix-G5-1 |
+| C-3b | merged | a7512f8 | check 0、focus/lifecycle/interop 単一所有 |
+| C-4 | merged | 589adb5 | check 0、parts/canvas/hover/pointer E2E15 passed |
+| C-5 | doing | | side table と透明な箱 |
+| KL-basic | merged | 8056fb4 | check 0、E2E32/doctest40 passed |
+| KL-game | merged | 6332eb4 | check/state-fields 0、E2E12/doctest3 passed |
+| KL-creative | todo | | unit の明示依存 I-3 後へ（W5） |
+| KL-soft | merged | c2a8a74 | check 0、全 soft E2E85 passed、最終 rich_blocks2 passed |
+| fix-G3-4 | merged | 5189902 | Machine の正準 state 経路を公開 |
+| fix-G6-3 | merged | 65f313f | Game/Pop catalog の C1 caller 移行 |
+| fix-G5-1 | merged | a0063b2 | kit HandlerResult caller 移行、check 0 |
+| fix-G6-4 | merged | 279b508 | 残る catalog/lookbook caller 移行、check 0 |
 | N-D1 | todo | | |
 | N-D2 | todo | | |
 | N-F1 | todo | | |

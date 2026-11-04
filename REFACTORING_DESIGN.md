@@ -2549,7 +2549,7 @@ impl Writer { pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notif
 
 ```rust
 // kivact_runtime::handler（正準パスは kivact::view）
-pub enum Handled { Yes, No }
+pub enum Handled { Yes, No, PreventDefault } // and による既存の伝播・既定動作の合成も保つ
 pub trait HandlerResult: Sealed { #[doc(hidden)] fn into_outcome(self) -> Result<Handled, UiError>; }
 impl HandlerResult for () {}
 impl HandlerResult for Handled {}

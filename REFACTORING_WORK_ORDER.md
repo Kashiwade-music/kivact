@@ -326,7 +326,7 @@ C-1
 C-2, L-1, C-3a, C-3b ← C-1
 C-4  ← C-3a
 C-5  ← C-4
-KL-basic, KL-game, KL-creative, KL-soft   （R-6 の後ならいつでも。W3 の空いた枠に入れる。KL-pop は項目がない）
+KL-basic, KL-game, KL-soft   （R-6 の後、W3 の空いた枠。KL-creative は I-3 merge 後の W5。KL-pop は項目がない）
 ```
 
 - C-5 が W3 の終わりに間に合わなければ、CP4 の後（W5 の空いた枠）に回してよい（Phase N は C-5 に依らない）。W4 の間は動かさない（N-F1 と同じ core の file を触る）。
@@ -1195,7 +1195,10 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
       pub fn plural_category(&self, n: f64) -> PluralCategory;
       pub fn compare(&self, a: &str, b: &str) -> std::cmp::Ordering;
   }
-  impl Messages { pub fn with_plural(self, key: &'static str, forms: PluralForms) -> Self; }
+  impl Messages {
+      pub fn with_plural(self, key: &'static str, forms: PluralForms) -> Self;
+      pub fn get_plural(&self, key: &str, category: PluralCategory) -> Option<&str>;
+  }
   ```
   新しい値の型には `constant_value!` を付ける。`message_with` は引数に `("count", n)` があり key が plural のとき `plural_category(n)` で形を選ぶ。`kivact-i18n/src/date.rs` の `days_from_civil`・`civil_from_days` を公開の暦の計算（`CalendarDate::from_days(i64)`、`CalendarDate::to_days(self) -> i64`）にする。
 - **手順**:
@@ -1214,7 +1217,7 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
 - **決定済みの形**:
   - `kivact_runtime::handler` に `Handled` と `HandlerResult` を移して一つにする（`KeyHandlerResult` を消す。core の中だけが使っている）:
     ```rust
-    pub enum Handled { Yes, No }
+    pub enum Handled { Yes, No, PreventDefault } // and による既存の伝播・既定動作の合成も保つ
     pub trait HandlerResult: Sealed { #[doc(hidden)] fn into_outcome(self) -> Result<Handled, UiError>; }
     impl HandlerResult for () {}                   // Ok(Handled::No)
     impl HandlerResult for Handled {}
@@ -1230,7 +1233,7 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
     ```
     commit の段階で `Removed.ids` を `asset_failures` から消す（`removes: bool`・`take_removes` を消す。SM-C07）。同じ ids で `NodeRef` を `Detached` にする（SM-C14）。
   - SM-C12: `leaving: IdMap<Leaving>`、`struct Leaving { on_exit: Option<Handler<()>> }`。
-  - SM-C11: `struct TextEditsInFlight(IdMap<u32>)` と `TextEditsAhead<'_>`（`begin(&mut Tree)`、drop で終わる）。
+  - SM-C11: `TextEditsInFlight` は単一の共有 counter store（`Rc<RefCell<IdMap<u32>>>`）、`TextEditsAhead` は独立した所有 guard（begin/drop）。dispatch 中に Tree の可変借用を保持せず、store の二重 begin を拒否する。
   - `IdMap<V>` は `NodeId` の key だけ（`kivact-types/src/ids.rs`）。ほかの key は `HashMap`。
   - そのほかは付録 A の各項目の「解消後」の形（`Modality`、`DynamicArm<T>`、`Held<K>` と `Trigger`、`HookSlot`、`ModalScope`、`ReportOnce`/`ReportOnceSet`、`HostStats`、`is_initial_render() = matches!(turn, Turn::Setup)`、revision の trigger は `Tree::new` で作る）。
 - **手順**:
@@ -1250,11 +1253,12 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
 - **決定済みの形**:
   ```rust
   struct FocusRequests { requests: HashMap<RequestId, FocusRequest>, order: Vec<RequestId> }
-  struct FocusRequest { target: FocusTarget, reply: FocusReply, stage: RequestStage }
+  struct FocusRequest { target: FocusTarget, reply: FocusReply, stage: RequestStage, visible: bool }
   enum RequestStage { Queued, Sent }
-  enum FocusReply { Report(Completion), Restore, RestoreAndReport(Completion) }
+  struct FocusCompletion { owner: Owner, at: &'static Location<'static> } // private
+  enum FocusReply { Report(FocusCompletion), Restore, RestoreAndReport(FocusCompletion) }
   ```
-  flush のときに restore を取り消す条件は現在の `view/requests.rs` の条件をそのまま `Queued → 消える` の遷移として書き、取り消したら `Report` に `Canceled` を返す。`platform/lifecycle.rs` の `LifecycleState` は `Registry<T>`、登録の id は `Generation`。SM-C26 の `enum Issue { NotIssued, Issued { mode: ShareMode, size: Size, generation: Generation } }`。SM-C27 の `Open.pixels` は `Mailbox<Pixels>`。`ViewState` の `adapter: Signal<Option<GpuAdapter>>` を消し、`gpu_interop::State` だけが持つ。
+  flush の restore 取消条件は既存のまま `Queued → 消える` とする。取消は内部の `Canceled` で、既存どおり callback・UiError を発生させない。host の拒否だけを保存した owner/location に報告する。`FocusCompletion` は runtime の future 用 Completion とは別。`platform/lifecycle.rs` の `LifecycleState` は `Registry<T>`、登録の id は `Generation`。SM-C26 の `enum Issue { NotIssued, Issued { mode: ShareMode, size: Size, generation: Generation } }`。SM-C27 の `Open.pixels` は `Mailbox<Pixels>`。`ViewState` の `adapter: Signal<Option<GpuAdapter>>` を消し、`gpu_interop::State` だけが持つ。
 - **手順**: 上のとおり（`view/state.rs`・`view/requests.rs`、`platform/lifecycle.rs`、`gpu_interop/share/app_side.rs`・`link.rs`、`view/state.rs` の `adapter` と読む箇所）。
 - **状態の点検表**: 0.7 節。
 - **試験**: 足さない。
@@ -1274,14 +1278,14 @@ W3 の順: C-1 → `{C-2, L-1, C-3a, C-3b}` → C-4 → C-5。C-5 は CP4 の後
   enum RegionEntry { Pending, Adopted(Adopted), Shadowed { by: RegionKey } }
   struct Adopted { owner: Owner, generation: Generation, binding: RegionBinding }
   enum RegionBinding { Unbound, Bound }
-  enum PartCapture { None, Captured { target: CaptureTarget, buttons: ButtonSet } }
-  enum CaptureTarget { Part(Rc<Target>), Region(RegionId), Fallback(MouseButton) }
+  enum PartCapture { None, Captured { target: CaptureTarget, buttons: PointerButtons } }
+  enum CaptureTarget { Part(Rc<Target>), Region(RegionId), Fallback { button: MouseButton, target: Rc<Target> } }
   ```
-  disabled と hidden は状態ではなく入力（`Value<bool>`、mount の `PartMount` から読む）。disabled か hidden になる遷移が `Press::Idle` と `Hover::Outside` にする。focus の in/out は `NodeRef::focused()`（engine の `FocusChanged`）だけで読み、`previously_focused` の edge の検出を消す。hover は engine の `HoverChanged.target` だけ: node の part は `target.node == node`、canvas の region の part は `target == FocusTarget { node, region: Some(region) }` のとき `Inside`。
+  disabled と hidden は状態ではなく入力（`Value<bool>`、mount の `PartMount` から読む）。disabled か hidden になる遷移が `Press::Idle` と `Hover::Outside` にする。focus の in/out は `NodeRef::focused()`（engine の `FocusChanged`）だけで読み、`previously_focused` の edge の検出を消す。hover は engine の `HoverChanged.target` だけ: node の part は target.node が自分またはその子孫（engine の ancestry）、canvas の region の part は `target == FocusTarget { node, region: Some(region) }` のとき `Inside`。
 - **手順**:
   1. `view/part.rs` の `InputState` の 5 つの `Signal<bool>` を `PartInput` にする。pointer の Enter/Leave の observer による hover を消す。`view/mount/regions.rs` の region の hover を `HoverChanged.target` から作る。
   2. `view/common.rs` と `view/mount/regions.rs` の region の登録を `RegionEntry` にする。変化の通知は `Trigger`、重複の報告は `ReportOnceSet`。
-  3. `view/common.rs` と `view/mount/part_pointer.rs` の capture を `PartCapture` にする。engine は adopt された pointer の activation を抑えたかを `Routed.activation` に入れて渡し、`Reader::take_adopted_activation` と core の `client/dispatch/pointer.rs` の呼び出しを消す。
+  3. `view/common.rs` と `view/mount/part_pointer.rs` の capture を `PartCapture` にする。engine は adopt された pointer の activation を抑えたかを `Routed.activation` に入れて渡し、`Reader::take_adopted_activation` と core の `client/dispatch/pointer.rs` の呼び出しを消す。`Writer::prepare_input` を各入力の dispatch 直前に一度呼ぶ（既存の `Reader::admit_input` bookkeeping は保つ）。`HostEvent::Activate.pointer` は `Option<Routed<PointerSample>>`（AT は None）とし、Up handler 後の採用・抑止を保持する。
 - **状態の点検表**: 0.7 節。
 - **試験**: 足さない（`parts.rs`、`canvas.rs`、`hover.rs`、`pointer.rs` の E2E が回帰の網）。
 - **unit の確認**: `cargo check -p kivact-engine -p kivact-core -p kivact-interaction -p kivact-ui -p kivact-public-api-tests --all-targets --all-features`。`KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e -- parts:: canvas:: hover:: pointer::`。
@@ -2128,17 +2132,18 @@ wave W5（I・U と同じ wave）。crate が I・U と重ならないので、9
 - **目的**: 付録 A の SM-K08、SM-K09、SM-K10（`outline.rs` の部分）、SM-K21、SM-K26、SM-K909、SM-K910、SM-K915。
 - **決定済みの形**:
   - SM-K08: `enum Stream { Idle, Revealing { shown: usize }, Done }`。進みは `Step::after`。
-  - SM-K09: `enum AppShellMobile { Desktop, Mobile { nav: MobileNav } }`、`enum MobileNav { Closed, Open }`。
+  - SM-K09: private `enum AppShellMobileState { Desktop, Mobile { nav: MobileNavState } }`、`enum MobileNavState { Closed, Open }`（既存の公開 AppShellMobile/MobileNav と名前を分ける）。
   - SM-K10（outline）: 端で止まる振る舞いのまま、`enum OutlineFocus { Unset, At(String) }`。
   - SM-K21:
     ```rust
-    enum PowerSearchState { Closed, Composing { draft: FilterDraft }, Editing { index: usize, draft: FilterDraft } }
+    enum PowerSearchState<K> { Closed, Composing { draft: FilterDraft }, Editing { index: usize, original: SearchFilter<K>, draft: FilterDraft } }
     struct FilterDraft { field, operator, value }
     ```
   - SM-K26: `enum OutlineScroll { Idle, Scrolling { target: String } }`。抜けるのは今と同じく 250 ms の `Step::after`。
   - SM-K909: `enum BlockEditPhase { Idle, Focused { target: NodeRef, selection: BlockSelection, composition: BlockComposition }, AwaitingMount { block: usize } }`、`BlockSelection::{Caret, Whole}`、`BlockComposition::{Idle, Composing}`。
   - SM-K910: timer は `enum ElapsedTimer { Running { start: SystemTime, next: Duration } }` が tick を `Step::after` で出す。文字は memo。timestamp も同じ形。
   - SM-K915: `enum SkipFocus { Idle, Requested }`。
+  - rich_blocks は Machine が状態を所有し、既存 rich_text toolbar と共有する target/composition port に effect から投影する。Timer/Timestamp は constructor で完成した Machine と lazy memo を作り、構築 option だけの Settings を builder が変更する（表示の後付け初期化 slot を作らない）。
 - **手順**: `soft_chat_tools.rs`（streaming text の部分）、`mobile_nav.rs`、`outline.rs`、`power_search.rs`、`rich_blocks.rs`、`timer.rs`、`timestamp.rs`、`app_shell.rs`。
 - **試験**: 足さない（soft の試験が回帰の網）。
 - **unit の確認**:
@@ -2629,7 +2634,7 @@ wave W7。
 | W3 | C-3b focus の要求・lifecycle・gpu-interop の状態 | M | |
 | W3 | C-4 part の入力と事実の持ち主 | M | |
 | W3 | C-5 core の木を side table にする | M | |
-| W3 | KL-basic・KL-game・KL-creative・KL-soft kit の中の状態 | S・S・L・M | |
+| W3/W5 | KL-basic・KL-game・KL-soft（W3）、KL-creative（I-3 後の W5）kit の中の状態 | S・S・M・L | |
 | W4 | N-D1 module・facade・prelude・geometry | M | |
 | W4 | N-D2 新しい trait と型の定義 | M | |
 | W4 | N-F1〜N-F6 fan-out A（core、interaction、ui、basic・pop・game、creative、soft） | 各 L | |

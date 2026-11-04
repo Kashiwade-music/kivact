@@ -96,3 +96,13 @@
 | 2026-11-04 | V-2 | SemanticsText is both declared and computed, contains float geometry, and cannot support Eq without changing existing equality | Derive PartialEq/Hash, not Eq, for Semantics<R>. Add value Hash to existing text snapshot types with canonical signed-zero hashes; preserve their PartialEq and NaN behavior. Finite::new canonicalizes signed zero. No second text property/transport. |
 | 2026-11-04 | V-1b | Style recorder also consumes TextShaper, so engine-only placement would add a forbidden style-to-engine dependency | Keep one backend-neutral pure-query trait in types::text_shaping, depending only on shared values/std; LeafTextMeasurer and closure-owning LeafMeasure remain engine contracts. No duplicate trait or compatibility reexport. |
 | 2026-11-04 | CP0 trace | Buffered tracing preserves 781/782 completed reference files byte-for-byte; remaining DX12 file has one extra empty GPU poll | Empty poll counts 4→5; after excluding only fully empty turns and normalizing their turn-number offset, all remaining bytes/order match. Keep raw logs and apply this narrowly documented comparison rule. |
+| 2026-11-05 | C-2 | THEMED の lint expect | 既存 Mutex interning を維持し、存在しない expect を追加しない。 |
+| 2026-11-05 | C-3a | handler と文字編集 guard | Handled::PreventDefault/and を保持。TextEditsAhead は単一 counter store の所有 guard として dispatch 中の Tree 再借用を可能にする。Runtime::turn は診断 accessor。 |
+| 2026-11-05 | C-3b | focus completion と取消 | private FocusCompletion は owner/location、visible は独立入力。取消は内部 Canceled で既存どおり無通知、host 拒否のみ報告。 |
+| 2026-11-05 | R-6 / KL | Machine の公開経路 | KL の前提として state::{Machine,Step,MachineHandle,MachineCx,machine} を先に公開。N-D1 の正準経路と同じで alias を作らない。 |
+| 2026-11-05 | KL-creative | W3 表と unit の依存 | unit の明示依存 I-3 を優先し W5 へ配置。 |
+| 2026-11-05 | L-1 | plural query と ICU hour cycle | Messages::get_plural を純粋 query として公開し境界が利用。ICU 2.4 の private pattern 観測だけ unstable を使用、公開型には漏らさない。 |
+| 2026-11-05 | L-1 | Counter release の測定 | 前 64.3068073s / 21,171,200 bytes、後 13.8211922s / 20,431,872 bytes。warm shared target の参考値、formatter 未使用の Counter は dead strip され全 data の容量比較ではない。 |
+| 2026-11-05 | C-4 | hover と activation envelope | node hover は子孫を含む既存挙動、region は厳密一致。Fallback は button/target を保持。Writer が各入力直前に準備し Activate は Routed pointer を保持、既存 admit bookkeeping を保つ。 |
+| 2026-11-05 | KL-soft | private 名と外部 editor port | AppShellMobileState/MobileNavState で公開型と衝突回避。PowerSearch 編集は original baseline を保持。rich-text toolbar の既存共有 target/composition port は Machine effect から投影し両 mode の連携を保つ。Timer/Timestamp は完成済 machine と lazy memo に構築設定を渡し既存 Text root modifier を保つ。 |
+| 2026-11-05 | W3 resource | disk が 40 GB 未満、unit target 使用中 | CP2 終了済みの非稼働 target-gate だけ cargo clean。target-wt の実行を妨げず空き 42.9 GB を確保。 |
