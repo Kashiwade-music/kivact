@@ -48,14 +48,13 @@ impl Screen {
     pub(crate) fn start_client(
         options: RenderOptions,
         gpu: bool,
-        client: AppClient,
+        mut client: AppClient,
         at: &'static Location<'static>,
     ) -> Screen {
-        let rt = client.runtime().clone();
         let record = Rc::new(Record::default());
         let name = super::artifacts::test_name(at);
         #[cfg(debug_assertions)]
-        crate::client::trace::Trace::of(&rt).open(&name);
+        client.set_trace_name(name.clone());
         let scale = options.scale;
         let host_options = TestHostOptions {
             width: options.width,
@@ -88,11 +87,16 @@ impl Screen {
             gpu_preference: Default::default(),
         };
         let timed = record.clone();
-        let client = client.into_client(Some(Rc::new(move |elapsed| {
-            timed.core_ns.set(timed.core_ns.get() + elapsed);
-        })));
+        let shared = Rc::new(RefCell::new(client));
+        let client = AppClient::shared_client(
+            shared.clone(),
+            Some(Rc::new(move |elapsed| {
+                timed.core_ns.set(timed.core_ns.get() + elapsed);
+            })),
+        );
         let host = ArvaneTestHost::new(client, host_options)
             .unwrap_or_else(|e| panic!("kivact test: the Arvane test host did not start: {e}"));
+        let rt = shared.borrow().runtime().clone();
         let s = Screen {
             host: RefCell::new(host),
             rt,

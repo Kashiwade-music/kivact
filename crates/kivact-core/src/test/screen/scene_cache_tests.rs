@@ -22,9 +22,9 @@ fn host(
         Some(2),
         Location::caller(),
     );
-    let rt = client.runtime().clone();
+    let shared = Rc::new(std::cell::RefCell::new(client));
     let host = ArvaneTestHost::new(
-        client.into_client(None),
+        AppClient::shared_client(shared.clone(), None),
         TestHostOptions {
             width: 160.,
             height: 60.,
@@ -34,6 +34,7 @@ fn host(
         },
     )
     .expect("real window");
+    let rt = shared.borrow().runtime().clone();
     (host, rt)
 }
 fn frame(host: &mut ArvaneTestHost) {

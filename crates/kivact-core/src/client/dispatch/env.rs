@@ -6,7 +6,6 @@ use kivact_runtime::Runtime;
 use kivact_types::{Environment, MotionClock, NodeId, Point, Rect, Size};
 
 use super::common::{handler, node_owner, run_handler, stale};
-use crate::client::state::HostState;
 use crate::view::state::ViewState;
 use crate::view::tree::ScrollState;
 
@@ -32,7 +31,7 @@ pub(super) fn frame_tick(
     estimated_present_ns: u64,
     clock: &MotionClock,
 ) {
-    HostState::of(rt).advance_clock(now_ns);
+    rt.advance_clock(now_ns);
     MotionState::of(rt).on_frame_tick(rt, now_ns, estimated_present_ns, clock);
 }
 
@@ -75,5 +74,5 @@ pub(super) fn layout_changed(
 }
 
 pub(super) fn close_requested(rt: &Runtime) {
-    HostState::of(rt).request_close(rt.now_ns());
+    rt.request_exit();
 }

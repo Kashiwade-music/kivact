@@ -4,7 +4,7 @@
 //! graph, owners, turn), the public handle types, the setup functions
 //! (`signal`, `memo`, `effect`, `effect_on`, `context`, ...), errors, the trace
 //! ring, `IntoValue` and per-App extensions. The runtime knows no host:
-//! its driver (the client) supplies the clock and runs the turns.
+//! the host advances its clock and runs the turns.
 //!
 //! The API has three audiences:
 //! - applications and component authors, through the `kivact` facade: the
@@ -13,28 +13,28 @@
 //! - the layers above (view, task, motion, style): [`Owner`] and [`Owned`]
 //!   for owners and the objects stored under them, [`Trigger`], [`Prop`],
 //!   [`keyed`], [`pure`], [`require_setup`] and [`require_effectful`];
-//! - the host that runs an App's turns: [`Runtime`] and [`Driver`].
+//! - the host that runs an App's turns: [`Runtime`] and [`Host`].
 //!
 //! [`Runtime`] is defined in `data`; each module adds the methods of one
 //! concern: `registry` (the thread-local App registry and handle lookup),
 //! `frame` (the frame stack: tracking, purity, setup, owners), `graph`
 //! (nodes and edges, push-pull), `owner` (owners and disposal), `object`
 //! (owner-bound objects), `report` (error routing), `turn` (effect
-//! scheduling), `mounts` (`on_mount`), `driver` (clock and turn requests),
+//! scheduling), `mounts` (`on_mount`), `clock` (clock and turn requests),
 //! `ext` (per-App extensions), `diag` (the trace ring), `host` (the host's
 //! entry points).
 
 mod arena;
+mod clock;
 mod data;
 mod diag;
-mod driver;
 mod error;
 mod execution;
 mod ext;
 mod frame;
 mod graph;
 mod handles;
-mod host;
+pub(crate) mod host;
 mod identity;
 pub mod keyed;
 mod mounts;
@@ -52,14 +52,14 @@ mod setup;
 mod trigger;
 mod turn;
 
+pub use clock::clock_now;
 pub use data::{
-    Binding, Callback, Driver, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
+    Binding, Callback, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
     TraceRun, TraceWrite, Turn, TurnRecord, UiThreadOnly, Value, Var,
 };
-pub use driver::clock_now;
 pub use error::{ErrorKind, HandlerResult, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
-pub use host::{Mounts, Pending, TurnRecorder};
+pub use host::{ExitState, Host, Pending, Stage, ThreadWaker, TurnGuard, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};
 pub use props::{IntoReactive, IntoText, IntoValue, Prop, Reactive};

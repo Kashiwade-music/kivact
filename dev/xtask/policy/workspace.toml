@@ -126,6 +126,7 @@ context = ["locale", "messages"]
 
 [module_rules.kivact-runtime.uses]
 machine = ["reactive", "task"]
+host = ["reactive", "task", "motion"]
 reactive = []
 task = ["reactive"]
 motion = ["reactive"]

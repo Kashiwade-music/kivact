@@ -4,12 +4,14 @@ use crate::reactive::AppId;
 use std::cell::{Cell, OnceCell, RefCell};
 
 use crate::reactive::arena::Arena;
-use crate::reactive::data::{Diag, Extensions, LiveCounts, Runtime, Sched};
+use crate::reactive::data::{Diag, LiveCounts, Runtime, Sched};
+use crate::reactive::host::{ExitState, Host, Stage, TurnState};
+use std::rc::Rc;
 
 impl Runtime {
     /// A runtime for App `id` with its extensions (registered by
     /// [`Runtime::register`]).
-    pub(crate) fn with_id(id: AppId, ext: Extensions) -> Runtime {
+    pub(crate) fn with_id(id: AppId, host: Rc<dyn Host>, start_ns: u64) -> Runtime {
         Runtime {
             id,
             graph: RefCell::new(Arena::new()),
@@ -22,13 +24,21 @@ impl Runtime {
             scratch: RefCell::new(Vec::new()),
             seq: Cell::new(0),
             write_epoch: Cell::new(0),
-            root_owner: Cell::new(None),
-            ext,
-            mounts: RefCell::new(Vec::new()),
-            driver: OnceCell::new(),
+            // Registration precedes root creation, which always takes the first fresh slot.
+            root: crate::reactive::arena::Key {
+                slot: 0,
+                generation: 0,
+            },
+            ext: OnceCell::new(),
+            mount_revision: Cell::new(kivact_types::Revision(0)),
+            unstamped: RefCell::new(Vec::new()),
+            awaiting: RefCell::new(std::collections::VecDeque::new()),
+            host,
+            state: Cell::new(TurnState::Running(Stage::Setup)),
+            exit: Cell::new(ExitState::Running),
+            clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
-            turn_requested: Cell::new(false),
             writer: Cell::new(None),
             stab_epoch: Cell::new(0),
         }

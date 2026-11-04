@@ -14,8 +14,13 @@ impl Runtime {
     /// The extension of type `T` installed at creation. A missing extension
     /// is a composition bug of the App, not a user error: it panics.
     #[inline]
+    #[track_caller]
     pub fn ext<T: 'static>(&self) -> &T {
-        match self.ext.get::<T>() {
+        let at = std::panic::Location::caller();
+        let extensions = self.ext.get().unwrap_or_else(|| {
+            panic!("kivact misuse: invariant: extension read while the App is being constructed at {at}")
+        });
+        match extensions.get::<T>() {
             Some(t) => t,
             None => missing_extension::<T>(),
         }

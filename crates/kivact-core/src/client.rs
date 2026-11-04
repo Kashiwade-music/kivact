@@ -1,7 +1,6 @@
 //! Role: The core side of the engine boundary.
 //! [`AppClient`] assembles the
-//! runtime of one App (its per-App state extensions), drives it (it owns
-//! the host clock and waker), supplies concrete engine callbacks (the turn loop) and
+//! runtime of one App (its per-App state extensions), advances its clock and supplies concrete engine callbacks (the turn loop) and
 //! delivers host events. Effects write directly through the retained tree
 //! (`view::tree`) using the engine's owned `Writer`.
 //!
@@ -41,7 +40,7 @@
 //!   which the client reports to the default sink as a `Cycle` (`dispatch`).
 //! - A turn requested during a turn (a handler's write, ...) wakes nobody:
 //!   the turn settles it, and asks again at its end only for work left
-//!   over (user effects, ready tasks, due `on_mount` callbacks; `link`).
+//!   over (user effects, ready tasks and deferred reports).
 
 #![allow(
     clippy::type_complexity,
@@ -50,10 +49,7 @@
 
 pub(crate) mod app_client;
 mod dispatch;
-mod link;
 mod notice;
-mod phases;
-mod settle;
 pub(crate) mod state;
 #[cfg(debug_assertions)]
 pub(crate) mod trace;
