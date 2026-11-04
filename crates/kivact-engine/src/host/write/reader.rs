@@ -92,6 +92,17 @@ impl Reader {
         )
     }
 
+    /// Editing geometry in the node's untransformed canvas coordinates.
+    pub fn editing_canvas_layout(&self, id: NodeId) -> Option<kivact_editing::TextLayout> {
+        crate::model::interact::text_geometry::layout_snapshot(
+            &self.model.borrow(),
+            id,
+            0..usize::MAX,
+            &mut self.engine.borrow_mut(),
+            true,
+        )
+    }
+
     /// The value of the text input `id` (`None`: it is none, or a
     /// password). A text input publishes no accessible value (only its text
     /// runs), so this is where its value is read.

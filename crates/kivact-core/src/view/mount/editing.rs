@@ -39,7 +39,10 @@ pub(super) fn bind(
             ..EditingData::default()
         })),
     );
-    if let Some(bind) = editing.highlight {
+    for bind in [editing.highlight, editing.decorations]
+        .into_iter()
+        .flatten()
+    {
         bind(crate::view::editing_data::HighlightAt {
             rt: cx.rt.clone(),
             owner: cx.owner,

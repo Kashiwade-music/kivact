@@ -433,3 +433,22 @@ impl PartialEq for DecorationStyleValue {
         }
     }
 }
+
+/// Paint overrides for a UTF-8 byte range within one editing line.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StyledRange {
+    pub range: std::ops::Range<usize>,
+    pub color: Option<Color>,
+    pub background: Option<Color>,
+    pub decoration: Option<TextDecoration>,
+}
+
+/// Lines, pattern and dimensions of a text decoration.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct TextDecoration {
+    pub lines: TextDecorationLine,
+    pub color: Option<Color>,
+    pub thickness: Option<TextLength>,
+    pub underline_offset: TextLength,
+    pub style: TextDecorationStyle,
+}

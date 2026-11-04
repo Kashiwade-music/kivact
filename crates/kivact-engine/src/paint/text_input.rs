@@ -127,7 +127,56 @@ impl Model {
             None => lines.uncolor(),
         }
         let base = kivact_types::Rgba::sanitize(color);
+        let decorations = n
+            .input_data()
+            .and_then(|data| data.decorations.as_deref())
+            .unwrap_or(&[]);
         for i in rows {
+            let content = lines.content(i).unwrap_or(0..0);
+            let backgrounds = lines
+                .line(i)
+                .and_then(|(line, _)| line.colors())
+                .map(|colors| colors.spans.clone())
+                .unwrap_or_default();
+            for style in backgrounds {
+                if let Some(color) = style.background {
+                    for rect in lines.spans(
+                        shown,
+                        i,
+                        (
+                            content.start + style.range.start,
+                            content.start + style.range.end,
+                        ),
+                        area.width,
+                        engine,
+                    ) {
+                        out.push(D::Rect {
+                            rect: place(rect),
+                            fill: kivact_types::render::Paint::Solid(tint.color(color)),
+                        });
+                    }
+                }
+            }
+            if lines.shows_value() && !n.password() {
+                for decoration in decorations {
+                    let range = clamp_range(shown, &decoration.range);
+                    if range.start >= range.end
+                        || range.start > content.end
+                        || range.end < content.start
+                    {
+                        continue;
+                    }
+                    for rect in lines.spans(shown, i, (range.start, range.end), area.width, engine)
+                    {
+                        paint_decoration(
+                            out,
+                            place(rect),
+                            decoration.kind,
+                            tint.color(decoration.color),
+                        );
+                    }
+                }
+            }
             let (x, y) = (
                 left + lines.offset(shown, i, area.width, engine),
                 line.y + i as f64 * lines.height(),
@@ -137,7 +186,23 @@ impl Model {
                 .and_then(|_| lines.painted(shown, i, base, engine))
             {
                 // Each run keeps its span's color, drawn through the tint.
-                Some(painted) => push_runs(out, Some(&painted), x, y, |run| tint.arvane(run)),
+                Some(painted) => {
+                    push_runs(out, Some(&painted), x, y, |run| tint.arvane(run));
+                    // Decoration geometry comes from the same shaped ranges as the glyphs.
+                    for decoration in &painted.decorations {
+                        let rect = Rect {
+                            x: x + decoration.rect.x,
+                            y: y + decoration.rect.y,
+                            ..decoration.rect
+                        };
+                        crate::lower::glyphs::decoration(
+                            out,
+                            rect,
+                            kivact_types::render::Paint::Solid(tint.color(decoration.color)),
+                            decoration.style,
+                        );
+                    }
+                }
                 None => {
                     let color = tint.color(color);
                     let shaped = lines.shaped(shown, i, engine);
@@ -164,5 +229,64 @@ fn push_runs(
             origin: Point { x, y },
             color: Some(color(run.color)),
         });
+    }
+}
+
+fn clamp_range(text: &str, range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let floor = |offset: usize| {
+        let mut offset = offset.min(text.len());
+        while !text.is_char_boundary(offset) {
+            offset -= 1;
+        }
+        offset
+    };
+    floor(range.start)..floor(range.end)
+}
+
+fn paint_decoration(
+    out: &mut crate::lower::SceneOut,
+    rect: Rect,
+    kind: kivact_editing::RangeDecorationKind,
+    color: Rgba,
+) {
+    use kivact_editing::RangeDecorationKind;
+    use kivact_types::render::Paint;
+    let fill = Paint::Solid(color);
+    match kind {
+        RangeDecorationKind::Background => out.push(D::Rect { rect, fill }),
+        RangeDecorationKind::Underline(style) => crate::lower::glyphs::decoration(
+            out,
+            Rect {
+                y: rect.bottom() - 1.0,
+                height: 1.0,
+                ..rect
+            },
+            fill,
+            style,
+        ),
+        RangeDecorationKind::Outline => {
+            for band in [
+                Rect {
+                    height: 1.0,
+                    ..rect
+                },
+                Rect {
+                    y: rect.bottom() - 1.0,
+                    height: 1.0,
+                    ..rect
+                },
+                Rect { width: 1.0, ..rect },
+                Rect {
+                    x: rect.right() - 1.0,
+                    width: 1.0,
+                    ..rect
+                },
+            ] {
+                out.push(D::Rect {
+                    rect: band,
+                    fill: fill.clone(),
+                });
+            }
+        }
     }
 }
