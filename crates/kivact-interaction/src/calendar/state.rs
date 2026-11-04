@@ -1,6 +1,6 @@
 //! Role: Calendar state shares the shown months, the selection and the day registry.
 
-use super::policy::{CalendarPolicy, CalendarSelection};
+use super::policy::{CalendarOptions, CalendarSelection};
 use crate::policy::grid::GridMove;
 use crate::roving::{Observation, Roving};
 use kivact_core::custom::{Owned, Owner};
@@ -33,6 +33,9 @@ pub(super) enum Choice {
 }
 
 pub(super) struct State {
+    pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
+    pub(super) cell_states:
+        Signal<std::collections::HashMap<CalendarDate, Value<super::handle::CalendarDayState>>>,
     pub(super) owner: Owner,
     /// The App's root when the grid was created: a day of another App has
     /// another root.
@@ -41,7 +44,7 @@ pub(super) struct State {
     pub(super) alive: Owned<()>,
     pub(super) month: Binding<CalendarMonth>,
     pub(super) choice: Choice,
-    pub(super) policy: CalendarPolicy,
+    pub(super) policy: CalendarOptions,
     pub(super) first_day: Value<Weekday>,
     /// The mounted days, the day the keyboard or pointer last moved to and
     /// the focus bookkeeping.
@@ -53,11 +56,11 @@ pub(super) struct State {
 pub(super) fn create(
     month: Binding<CalendarMonth>,
     selection: CalendarSelection,
-    policy: CalendarPolicy,
-) -> Owned<State> {
-    let owner = Owner::current("use_calendar_grid");
-    let root = Owner::root("use_calendar_grid");
-    let alive = owner.store("CalendarGrid", Rc::new(()));
+    policy: CalendarOptions,
+) -> Owned<Rc<State>> {
+    let owner = Owner::current();
+    let root = Owner::root();
+    let alive = owner.store("CalendarGridApi", ());
     let roving = Roving::<CalendarDate>::new();
     let requested = roving.requested;
     let registry = roving.clone();
@@ -84,7 +87,7 @@ pub(super) fn create(
     let disabled = policy.disabled.clone();
     let initial = policy.initial_focus;
     let first_day = policy.week_start.unwrap_or_else(|| {
-        let locale = kivact_core::i18n::locale();
+        let locale = kivact_core::i18n::use_locale();
         memo(move || locale.get().first_day_of_week())
     });
     let active = memo(move || {
@@ -94,7 +97,7 @@ pub(super) fn create(
         let shown =
             |day: &CalendarDate| (0..count as i32).contains(&first.months_until(day.month_of()));
         let available = |day: &CalendarDate| {
-            shown(day)
+            is_open(day)
                 && !disabled(*day)
                 && registry
                     .with_members(|members| members.get(day).is_some_and(|entry| entry.available()))
@@ -117,6 +120,8 @@ pub(super) fn create(
             })
     });
     let state = Rc::new(State {
+        grid_state: signal(None),
+        cell_states: signal(std::collections::HashMap::new()),
         owner,
         root,
         alive,
@@ -127,7 +132,7 @@ pub(super) fn create(
         roving,
         active,
     });
-    let stored = owner.store("CalendarGrid", state.clone());
+    let stored = owner.store("CalendarGridApi", state.clone());
     effect(move || reconcile(&state));
     stored
 }

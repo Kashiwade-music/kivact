@@ -1,5 +1,6 @@
-//! Role: The `TextEdit` handle: native editing options and the control part.
+//! Role: The `TextEditApi` handle: native editing options and the control part.
 
+use super::draft::{self, Draft};
 use super::policy::text_edit_policy;
 use kivact_core::ErrorKind;
 use kivact_core::Result;
@@ -7,8 +8,11 @@ use kivact_core::custom::{
     EditLineLayout, NodeRefExt, Owned, Owner, Part, PartState, TextEditing, part, raise,
     require_setup,
 };
+use kivact_core::state::IntoBinding;
 use kivact_core::state::{Binding, Signal, Value, on_cleanup, signal};
+use kivact_core::state::{Callback, callback};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{Composition as CompositionState, EditPhase, NodeRef, node_ref};
 use kivact_core::view::{Handled, HandlerResult, Key, Role};
 use std::cell::{Cell, RefCell};
 use std::panic::Location;
@@ -21,8 +25,8 @@ use std::rc::Rc;
 /// `control()` and reaches the mounted editor. A disposed control may be
 /// attached again; simultaneous controls report a diagnostic.
 #[derive(Clone, Copy)]
-pub struct TextEdit {
-    data: Owned<Data>,
+pub struct TextEditApi {
+    data: Owned<Rc<Data>>,
 }
 
 /// Whether Enter submits or inserts a line break.
@@ -33,7 +37,7 @@ enum Lines {
 }
 
 /// Create native editing behavior for an application-owned string binding,
-/// one line: Enter submits ([`TextEdit::on_submit`]).
+/// one line: Enter submits ([`TextEditApi::on_submit`]).
 ///
 /// Preedit remains in the native editor; the binding receives committed
 /// values. Changes are observed through the binding: pass
@@ -42,23 +46,24 @@ enum Lines {
 /// Each committed edit copies the whole value into the binding; an editor
 /// for long documents takes range edits from `TextEditing` instead. Setup only.
 #[track_caller]
-pub fn use_text_edit(value: impl Into<Binding<String>>) -> TextEdit {
-    create(value.into(), Lines::Single)
+pub fn use_text_edit(value: impl kivact_core::state::IntoBinding<String>) -> TextEditApi {
+    create(value.into_binding(), Lines::Single)
 }
 
 /// Create native editing behavior for an application-owned string binding,
 /// several lines: Enter inserts a line break. Otherwise as [`use_text_edit`].
 /// Setup only.
 #[track_caller]
-pub fn use_text_area(value: impl Into<Binding<String>>) -> TextEdit {
-    create(value.into(), Lines::Multiple)
+pub fn use_text_area(value: impl kivact_core::state::IntoBinding<String>) -> TextEditApi {
+    create(value.into_binding(), Lines::Multiple)
 }
 
 #[track_caller]
-fn create(binding: Binding<String>, lines: Lines) -> TextEdit {
-    let owner = Owner::current("text_edit");
+fn create(binding: Binding<String>, lines: Lines) -> TextEditApi {
+    let owner = Owner::current();
     let data = Rc::new(Data {
         owner,
+        observed: signal(None),
         binding,
         lines,
         forward_keys: signal(None),
@@ -68,22 +73,36 @@ fn create(binding: Binding<String>, lines: Lines) -> TextEdit {
         max_length: signal(None),
         placeholder: signal(None),
         submit: RefCell::new(None),
+        draft_commit: Cell::new(None),
+        draft_edit: Cell::new(None),
+        draft_end: Cell::new(None),
+        return_focus: Cell::new(None),
+        label: Cell::new(None),
+        auto_focus: Cell::new(false),
         composition: RefCell::new(None),
         mounted: Cell::new(None),
         next_control: Cell::new(0),
         was_composing: Cell::new(false),
     });
-    TextEdit {
-        data: owner.store("TextEdit", data),
+    TextEditApi {
+        data: owner.store("TextEditApi", data),
     }
 }
 
-impl TextEdit {
+impl TextEditApi {
+    /// Drawing state of the actual mounted control.
+    pub fn control_state(self) -> Value<PartState> {
+        let observed = self.data.get().observed;
+        kivact_core::state::memo(move || {
+            observed.get().map(|state| state.get()).unwrap_or_default()
+        })
+    }
+
     /// Soft-wrap multiline content at the field's content width.
-    pub fn wrap(self, on: bool) -> Self {
-        self.setup("TextEdit::wrap")
-            .line_layout
-            .update(|layout| layout.wrap = on);
+    pub fn wrap(self, on: impl IntoValue<bool>) -> Self {
+        let on = on.into_value();
+        let layout = self.setup("TextEditApi::wrap").line_layout;
+        kivact_core::state::effect(move || layout.update(|layout| layout.wrap = on.get()));
         self
     }
 
@@ -91,7 +110,7 @@ impl TextEdit {
     pub fn rows(self, rows: std::ops::RangeInclusive<usize>) -> Self {
         let min = (*rows.start()).max(1);
         let max = (*rows.end()).max(min);
-        self.setup("TextEdit::rows")
+        self.setup("TextEditApi::rows")
             .line_layout
             .update(|layout| layout.rows = Some((min, max)));
         self
@@ -113,7 +132,7 @@ impl TextEdit {
     /// ArrowRight, while a single-column picker leaves Tab to close its popup.
     #[track_caller]
     pub fn forward_keys(self, keys: impl IntoValue<Vec<Key>>) -> Self {
-        let data = self.setup("TextEdit::forward_keys");
+        let data = self.setup("TextEditApi::forward_keys");
         let keys = keys.into_value();
         data.forward_keys.update(|slot| *slot = Some(keys));
         self
@@ -129,7 +148,7 @@ impl TextEdit {
     /// Mask the value and omit its text from clipboard and a11y snapshots.
     #[track_caller]
     pub fn password(self, value: impl IntoValue<bool>) -> Self {
-        let data = self.setup("TextEdit::password");
+        let data = self.setup("TextEditApi::password");
         let value = value.into_value();
         data.password.update(|slot| *slot = Some(value));
         self
@@ -138,7 +157,7 @@ impl TextEdit {
     /// Permit selection while rejecting user edits and new compositions.
     #[track_caller]
     pub fn read_only(self, value: impl IntoValue<bool>) -> Self {
-        let data = self.setup("TextEdit::read_only");
+        let data = self.setup("TextEditApi::read_only");
         let value = value.into_value();
         data.read_only.update(|slot| *slot = Some(value));
         self
@@ -147,7 +166,7 @@ impl TextEdit {
     /// Limit committed text by Unicode scalar count; preedit is not truncated.
     #[track_caller]
     pub fn max_length(self, value: impl IntoValue<usize>) -> Self {
-        let data = self.setup("TextEdit::max_length");
+        let data = self.setup("TextEditApi::max_length");
         let value = value.into_value();
         data.max_length.update(|slot| *slot = Some(value));
         self
@@ -156,7 +175,7 @@ impl TextEdit {
     /// Show hint text while the editor is empty.
     #[track_caller]
     pub fn placeholder(self, value: impl IntoText) -> Self {
-        let data = self.setup("TextEdit::placeholder");
+        let data = self.setup("TextEditApi::placeholder");
         let value = value.into_text_value();
         data.placeholder.update(|slot| *slot = Some(value));
         self
@@ -166,20 +185,48 @@ impl TextEdit {
     /// A text area ([`use_text_area`]) takes Enter as a line break, so giving
     /// it a submit handler is a usage error.
     #[track_caller]
-    pub fn on_submit<F, R>(self, f: F) -> Self
-    where
-        F: Fn() -> R + 'static,
-        R: HandlerResult,
-    {
-        let data = self.setup("TextEdit::on_submit");
+    pub fn on_submit(self, f: impl Into<Callback<()>>) -> Self {
+        let data = self.setup("TextEditApi::on_submit");
         if data.lines == Lines::Multiple {
             raise(
                 ErrorKind::Message,
-                "TextEdit::on_submit: a text area (use_text_area) takes Enter as a line break",
-                Location::caller(),
+                "TextEditApi::on_submit: a text area takes Enter as a line break",
             );
         }
-        *data.submit.borrow_mut() = Some(Rc::new(move || f().into_outcome().map(|_| ())));
+        let f = f.into();
+        *data.submit.borrow_mut() = Some(Rc::new(move || f.try_call(())));
+        self
+    }
+
+    /// Commit a draft on Enter or a valid changed blur; Escape restores it.
+    pub fn on_draft_commit<R: HandlerResult>(self, f: impl Fn(String) -> R + 'static) -> Self {
+        self.setup("TextEditApi::on_draft_commit")
+            .draft_commit
+            .set(Some(callback(f)));
+        self
+    }
+
+    /// Observe the beginning, commit and cancellation of a draft.
+    pub fn on_edit<R: HandlerResult>(self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
+        self.setup("TextEditApi::on_edit")
+            .draft_edit
+            .set(Some(callback(f)));
+        self
+    }
+
+    /// Return focus after Enter or Escape ends the draft.
+    pub fn return_focus(self, target: NodeRef) -> Self {
+        self.setup("TextEditApi::return_focus")
+            .return_focus
+            .set(Some(target));
+        self
+    }
+
+    pub(crate) fn inline(self, label: impl IntoText, ended: Callback<()>) -> Self {
+        let data = self.setup("TextEditApi::inline");
+        data.label.set(Some(label.into_text_value()));
+        data.draft_end.set(Some(ended));
+        data.auto_focus.set(true);
         self
     }
 
@@ -187,12 +234,19 @@ impl TextEdit {
     #[track_caller]
     pub fn on_composition_change<F, R>(self, f: F) -> Self
     where
-        F: Fn(bool) -> R + 'static,
+        F: Fn(CompositionState) -> R + 'static,
         R: HandlerResult,
     {
-        let data = self.setup("TextEdit::on_composition_change");
-        *data.composition.borrow_mut() =
-            Some(Rc::new(move |value| f(value).into_outcome().map(|_| ())));
+        let data = self.setup("TextEditApi::on_composition_change");
+        *data.composition.borrow_mut() = Some(Rc::new(move |value| {
+            f(if value {
+                CompositionState::Composing
+            } else {
+                CompositionState::Idle
+            })
+            .into_outcome()
+            .map(|_| ())
+        }));
         self
     }
     /// Create the focusable TextBox Part for this editor's native leaf.
@@ -200,114 +254,161 @@ impl TextEdit {
     pub fn control(self) -> Part<PartState> {
         let at = Location::caller();
         self.data.get();
-        require_setup("TextEdit::control");
-        let control = part(|state| state).role(Role::TextBox).focusable(true);
-        let node = control.node_ref();
-        let owned = self.data;
-        let (binding, lines) = {
-            let data = owned.get();
-            (data.binding, data.lines)
-        };
-        // Only the control mounted now writes; each control has its own id.
-        let id = {
-            let data = owned.get();
-            let id = data.next_control.get();
-            data.next_control.set(id + 1);
-            id
-        };
-        let value = binding.into_value();
-        let editing = TextEditing::new(move || Rc::<str>::from(value.get()))
-            .report_text(true)
-            .behavior(text_edit_policy)
-            .forward_keys(move || {
-                owned
-                    .get()
-                    .forward_keys
-                    .with(|keys| keys.map_or_else(Vec::new, |keys| keys.get()))
-            })
-            .multiline(lines == Lines::Multiple)
-            .line_layout(owned.get().line_layout)
-            .password(move || {
-                owned
-                    .get()
-                    .password
-                    .with(|value| value.is_some_and(|value| value.get()))
-            })
-            .read_only(move || {
-                owned
-                    .get()
-                    .read_only
-                    .with(|value| value.is_some_and(|value| value.get()))
-            })
-            .max_length(move || {
-                owned
-                    .get()
-                    .max_length
-                    .with(|limit| limit.map(|limit| limit.get()))
-            })
-            .placeholder(move || {
-                owned
-                    .get()
-                    .placeholder
-                    .with(|value| value.map_or_else(String::new, |value| value.get()))
-            })
-            .on_edit(move |edit| {
-                let data = owned.get();
-                if data.mounted.get() != Some(id) {
-                    return Ok(());
-                }
-                let composing = edit.composition().is_some();
-                let composition = (data.was_composing.replace(composing) != composing)
-                    .then(|| data.composition.borrow().clone())
-                    .flatten();
-                if composing {
-                    return composition.map_or(Ok(()), |f| f(true));
-                }
-                let edited = edit.text.unwrap_or_default();
-                binding.set(edited.clone());
-                let result = composition.map_or(Ok(()), |f| f(false));
-                if let Some(value) = value.try_get()
-                    && value != edited
-                {
-                    node.set_edit_value(value);
-                }
-                result
-            });
-        control
-            .text_editing(editing)
-            .on_key(move |event| {
-                let data = owned.get();
-                if lines == Lines::Single
-                    && data.mounted.get() == Some(id)
-                    && event.key() == Key::Enter
-                {
-                    let submit = data.submit.borrow().clone();
-                    if let Some(submit) = submit {
-                        submit()?;
-                        return Ok(Handled::Yes);
-                    }
-                }
-                Ok(Handled::No)
-            })
-            .on_bind(move |_| {
-                let data = owned.get();
-                if data.mounted.get().is_some() {
-                    data.owner.report(
-                        ErrorKind::Message,
-                        "TextEdit supports only one mounted control",
-                        at,
+        require_setup("TextEditApi::control");
+        let input = part(|state| state);
+        let state = input.state();
+        self.data.get().observed.set(Some(state));
+        let node = node_ref();
+        Part::new(state, move |host| {
+            let mut control = host
+                .part(input)
+                .node_ref(node)
+                .role(Role::TextBox)
+                .focusable(true);
+            let data = self.data.get();
+            if let Some(label) = data.label.get() {
+                control = control.name(label);
+            }
+            let (control, draft_submit, draft_edited) =
+                if let Some(commit) = data.draft_commit.get() {
+                    let installed = draft::install(
+                        Draft {
+                            commit,
+                            on_edit: data.draft_edit.get(),
+                            return_focus: data.return_focus.get(),
+                            ended: data.draft_end.get(),
+                        },
+                        data.binding,
+                        control,
                     );
-                    return;
-                }
-                data.mounted.set(Some(id));
-                data.was_composing.set(false);
-                on_cleanup(move || {
-                    if data.mounted.get() == Some(id) {
-                        data.mounted.set(None);
+                    (
+                        installed.node,
+                        Some(installed.submit),
+                        Some(installed.edited),
+                    )
+                } else {
+                    (control, None, None)
+                };
+            let owned = self.data;
+            let (binding, lines) = {
+                let data = owned.get();
+                (data.binding, data.lines)
+            };
+            // Only the control mounted now writes; each control has its own id.
+            let id = {
+                let data = owned.get();
+                let id = data.next_control.get();
+                data.next_control.set(id + 1);
+                id
+            };
+            let value = binding.into_value();
+            let editing = TextEditing::new(move || value.get())
+                .report_text()
+                .behavior(text_edit_policy)
+                .forward_keys(move || {
+                    owned
+                        .get()
+                        .forward_keys
+                        .with(|keys| keys.map_or_else(Vec::new, |keys| keys.get()))
+                })
+                .line_layout(owned.get().line_layout)
+                .password(move || {
+                    owned
+                        .get()
+                        .password
+                        .with(|value| value.is_some_and(|value| value.get()))
+                })
+                .read_only(move || {
+                    owned
+                        .get()
+                        .read_only
+                        .with(|value| value.is_some_and(|value| value.get()))
+                })
+                .max_length(move || {
+                    owned
+                        .get()
+                        .max_length
+                        .with(|limit| limit.map(|limit| limit.get()))
+                })
+                .placeholder(move || {
+                    owned
+                        .get()
+                        .placeholder
+                        .with(|value| value.map_or_else(String::new, |value| value.get()))
+                })
+                .on_text_change(move |edit| {
+                    let data = owned.get();
+                    if data.mounted.get() != Some(id) {
+                        return Ok(());
                     }
-                    data.was_composing.set(false);
+                    let composing = edit.composition().is_some();
+                    let composition = (data.was_composing.replace(composing) != composing)
+                        .then(|| data.composition.borrow().clone())
+                        .flatten();
+                    if composing {
+                        return composition.map_or(Ok(()), |f| f(true));
+                    }
+                    let edited = edit.text.unwrap_or_default();
+                    if let Some(edited) = &draft_edited {
+                        edited();
+                    }
+                    binding.set(edited.clone());
+                    let result = composition.map_or(Ok(()), |f| f(false));
+                    if let Some(value) = value.try_get()
+                        && value != edited
+                    {
+                        node.set_edit_value(value);
+                    }
+                    result
                 });
-            })
+            let editing = if lines == Lines::Multiple {
+                editing.multiline()
+            } else {
+                editing
+            };
+            control
+                .text_editing(editing)
+                .on_key(move |event| {
+                    let data = owned.get();
+                    if lines == Lines::Single
+                        && data.mounted.get() == Some(id)
+                        && event.key() == Key::Enter
+                    {
+                        if let Some(submit) = &draft_submit {
+                            submit();
+                            return Ok(Handled::Yes);
+                        }
+                        let submit = data.submit.borrow().clone();
+                        if let Some(submit) = submit {
+                            submit()?;
+                            return Ok(Handled::Yes);
+                        }
+                    }
+                    Ok(Handled::No)
+                })
+                .on_attach(move |_| {
+                    let data = owned.get();
+                    if data.mounted.get().is_some() {
+                        data.owner.report(
+                            ErrorKind::Message,
+                            "TextEditApi supports only one mounted control",
+                        );
+                        return;
+                    }
+                    if data.auto_focus.get() {
+                        node.focus();
+                        node.select_all();
+                    }
+                    data.mounted.set(Some(id));
+                    data.was_composing.set(false);
+                    on_cleanup(move || {
+                        if data.mounted.get() == Some(id) {
+                            data.mounted.set(None);
+                        }
+                        data.was_composing.set(false);
+                    });
+                })
+        })
     }
 }
 
@@ -317,6 +418,7 @@ type Composition = Rc<dyn Fn(bool) -> Result<()>>;
 
 struct Data {
     owner: Owner,
+    observed: Signal<Option<Value<PartState>>>,
     binding: Binding<String>,
     lines: Lines,
     forward_keys: Signal<Option<Value<Vec<Key>>>>,
@@ -326,6 +428,12 @@ struct Data {
     max_length: Signal<Option<Value<usize>>>,
     placeholder: Signal<Option<Value<String>>>,
     submit: RefCell<Option<Submit>>,
+    draft_commit: Cell<Option<Callback<String>>>,
+    draft_edit: Cell<Option<Callback<EditPhase>>>,
+    draft_end: Cell<Option<Callback<()>>>,
+    return_focus: Cell<Option<NodeRef>>,
+    label: Cell<Option<Value<String>>>,
+    auto_focus: Cell<bool>,
     composition: RefCell<Option<Composition>>,
     /// The control that is mounted now; others' edits are not written.
     mounted: Cell<Option<u64>>,

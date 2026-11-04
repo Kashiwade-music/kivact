@@ -4,22 +4,22 @@
 //! a delay and the App-wide rule of one shown tooltip. Its parts are the
 //! trigger and the content, with [`PopupState`]; it adds
 //! no wrapper box, so the trigger part binds beside the caller's own
-//! `NodeRef`. The delay is a [`Delayed`](crate::Delayed) on a task timer (no polling), and
+//! `NodeRef`. The delay is a [`DelayedApi`](crate::DelayedApi) on a task timer (no polling), and
 //! the hover reading is the host's hit test, so it works the same with the
 //! keyboard focus and is not changed by a child's pointer handler or
 //! capture. Because the press and wheel handling runs after the caller's
 //! handlers, a press a child handles never reaches it. The text, the name,
 //! the look and the placement are the caller's; `kivact::ui::tooltip` adds
 //! the hint as the trigger's description only when the trigger has no
-//! explicit description, and mounts the hint with `show(tooltip.shown(), ..)`
+//! explicit description, and mounts the hint with `show(tooltip.is_open(), ..)`
 //! in a new owner while it is shown.
 
 use std::time::Duration;
 
-use kivact_core::custom::{Owner, Part, app_state, part};
-use kivact_core::view::try_context;
+use kivact_core::custom::{Owner, Part, part};
+use kivact_core::state::try_use_context;
 
-use super::delayed::{Delayed, delayed};
+use super::delayed::{DelayedApi, delayed};
 use super::popup::PopupState;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
@@ -37,7 +37,7 @@ use kivact_core::view::{
 ///
 /// ```no_run
 /// use std::time::Duration;
-/// use kivact_core::{control::{NodeBuilder, node}, view::{Role, provide}};
+/// use kivact_core::{view::{NodeBuilder, node}, view::{Role, provide}};
 /// use kivact_interaction::{TooltipConfig, use_tooltip};
 /// let view = provide(
 ///     TooltipConfig { delay: Duration::from_millis(200), ..TooltipConfig::default() },
@@ -85,8 +85,8 @@ impl Hub {
     /// The App's hub, made on first use. Setup only.
     #[track_caller]
     fn of_app() -> Self {
-        Owner::current("tooltip");
-        app_state("tooltip", || Hub {
+        Owner::current();
+        kivact_core::state::use_app_state(|| Hub {
             wanting: signal(Vec::<u64>::new()),
             hidden: signal(None::<(u64, u64)>),
             next: signal(0u64),
@@ -166,7 +166,7 @@ fn now_ns() -> u64 {
 /// the tooltip then and goes on as usual otherwise), on a pointer press on the
 /// trigger and on a wheel over it. Tab and modifier keys alone do not hide
 /// it. After one of these it stays hidden until the condition stops and
-/// becomes true again, as [`Delayed::dismiss`](crate::Delayed::dismiss) does. A child
+/// becomes true again, as [`DelayedApi::dismiss`](crate::DelayedApi::dismiss) does. A child
 /// of the trigger that handles pointer presses itself is the one that receives
 /// them, so a press on it does not reach the trigger; Escape and a press
 /// outside still hide the tooltip.
@@ -184,15 +184,15 @@ fn now_ns() -> u64 {
 ///
 /// ```no_run
 /// use kivact_core::view::{NodeBuilder, node, text};
-/// use kivact_core::custom::NodeExt;
+/// use kivact_core::view::NodeBuilder;
 /// use kivact_core::view::{Placement, Role, overlay, show};
 /// use kivact_interaction::use_tooltip;
 /// let tip = use_tooltip();
 /// let trigger = tip.trigger();
-/// let anchor = trigger.node_ref();
+/// let anchor = node_ref();
 /// let view = (
 ///     node().part(trigger).role(Role::Button).name("Save").focusable(true).child(text("Save")),
-///     show(tip.shown(), move || {
+///     show(tip.is_open(), move || {
 ///         overlay(anchor, Placement::Below, text("Save the document"))
 ///             .part(tip.content())
 ///             .name("Save the document")
@@ -201,7 +201,10 @@ fn now_ns() -> u64 {
 /// ```
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
-    delayed: Delayed,
+    disabled: Signal<Option<Value<bool>>>,
+    trigger_state: Signal<Option<Value<PopupState>>>,
+    content_state: Signal<Option<Value<PopupState>>>,
+    delayed: DelayedApi,
     visible: Value<bool>,
     anchor: NodeRef,
     surface: NodeRef,
@@ -213,22 +216,18 @@ pub struct TooltipApi {
 /// Setup only.
 #[track_caller]
 pub fn use_tooltip() -> TooltipApi {
-    use_tooltip_when(true)
-}
-
-/// Create a tooltip that participates in the shared delay and visibility
-/// policy only while enabled.
-#[track_caller]
-pub fn use_tooltip_when(enabled: impl IntoValue<bool>) -> TooltipApi {
-    let enabled = enabled.into_value();
-    let config = try_context::<TooltipConfig>().unwrap_or_default();
+    let disabled = signal(None::<Value<bool>>);
+    let config = try_use_context::<TooltipConfig>().unwrap_or_default();
     let hub = Hub::of_app();
     let id = hub.take_id();
 
     let anchor = node_ref();
     let hover = anchor.hovered();
     let focus = anchor.focus_within();
-    let engaged = memo(move || enabled.get() && (hover.get() || focus.get()));
+    let engaged = memo(move || {
+        !disabled.with(|disabled| disabled.is_some_and(|disabled| disabled.get()))
+            && (hover.get() || focus.get())
+    });
 
     // The delay, or none while another tooltip is warm; both end with the
     // engagement.
@@ -247,13 +246,13 @@ pub fn use_tooltip_when(enabled: impl IntoValue<bool>) -> TooltipApi {
     // One tooltip at a time: the one that was shown last is visible, and one
     // that another took over shows again when that one hides.
     effect(move || {
-        if delayed.shown().get() {
+        if delayed.is_open().get() {
             hub.want(id);
         } else {
             hub.release(id);
         }
     });
-    let visible = memo(move || delayed.shown().get() && hub.current() == Some(id));
+    let visible = memo(move || delayed.is_open().get() && hub.current() == Some(id));
     on_cleanup(move || {
         if hub
             .wanting
@@ -264,6 +263,9 @@ pub fn use_tooltip_when(enabled: impl IntoValue<bool>) -> TooltipApi {
         }
     });
     TooltipApi {
+        trigger_state: signal(None),
+        content_state: signal(None),
+        disabled,
         delayed,
         visible,
         anchor,
@@ -272,8 +274,39 @@ pub fn use_tooltip_when(enabled: impl IntoValue<bool>) -> TooltipApi {
 }
 
 impl TooltipApi {
+    /// Drawing state of the actual mounted trigger.
+    pub fn trigger_state(self) -> Value<PopupState> {
+        memo(move || {
+            self.trigger_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(PopupState {
+                    input: kivact_core::custom::PartState::default(),
+                    open: self.visible.get(),
+                })
+        })
+    }
+    /// Drawing state of the actual mounted hint.
+    pub fn content_state(self) -> Value<PopupState> {
+        memo(move || {
+            self.content_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(PopupState {
+                    input: kivact_core::custom::PartState::default(),
+                    open: self.visible.get(),
+                })
+        })
+    }
+
+    /// Suppress the hint while disabled.
+    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
+        self.disabled.set(Some(disabled.into_value()));
+        self
+    }
+
     /// Whether the hint is shown now.
-    pub fn shown(self) -> Value<bool> {
+    pub fn is_open(self) -> Value<bool> {
         self.visible
     }
 
@@ -291,32 +324,45 @@ impl TooltipApi {
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
         let visible = self.visible;
-        part(move |input| PopupState {
+        let input = part(move |input| PopupState {
             input,
             open: visible.get(),
-        })
-        .reference(self.anchor)
-        .described_by(self.surface)
-        .on_pointer(move |event: PointerEvent| {
-            if matches!(event.phase(), PointerPhase::Down(_)) {
-                self.dismiss();
-            }
-            Handled::No
-        })
-        .on_wheel(move |_| {
-            self.dismiss();
-            Handled::No
-        })
-        .on_key(move |event: KeyEvent| {
-            if event.key() == Key::Escape
-                && event.modifiers() == Modifiers::default()
-                && visible.get()
-            {
-                self.dismiss();
-                Handled::Yes
-            } else {
-                Handled::No
-            }
+        });
+        let part_state = input.state();
+        self.trigger_state.set(Some(part_state));
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |mut host| {
+            let caller_disabled = host.accessible_disabled();
+            let own_disabled = self.disabled.get_untracked();
+            self.disabled.set(Some(memo(move || {
+                caller_disabled.is_some_and(|value| value.get())
+                    || own_disabled.is_some_and(|value| value.get())
+            })));
+            host.part(input)
+                .node_ref(target)
+                .node_ref(self.anchor)
+                .described_by(self.surface)
+                .on_pointer(move |event: PointerEvent| {
+                    if matches!(event.phase(), PointerPhase::Down(_)) {
+                        self.dismiss();
+                    }
+                    Handled::No
+                })
+                .on_wheel(move |_| {
+                    self.dismiss();
+                    Handled::No
+                })
+                .on_key(move |event: KeyEvent| {
+                    if event.key() == Key::Escape
+                        && event.modifiers() == Modifiers::default()
+                        && visible.get()
+                    {
+                        self.dismiss();
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
         })
     }
 
@@ -327,12 +373,19 @@ impl TooltipApi {
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
         let visible = self.visible;
-        part(move |input| PopupState {
+        let input = part(move |input| PopupState {
             input,
             open: visible.get(),
+        });
+        let part_state = input.state();
+        self.content_state.set(Some(part_state));
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .node_ref(self.surface)
+                .role(Role::Tooltip)
+                .a11y_action(A11yAction::Dismiss, move |_| self.dismiss())
         })
-        .reference(self.surface)
-        .role(Role::Tooltip)
-        .on_a11y(A11yAction::Dismiss, move || self.dismiss())
     }
 }

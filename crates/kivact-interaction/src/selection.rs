@@ -1,12 +1,20 @@
 //! Role: Single and multiple selections share one binding input contract.
 
-use kivact_core::state::{Binding, IntoBinding, Signal};
+use kivact_core::state::IntoBinding;
+use kivact_core::state::{Binding, Signal};
 
 /// Selection cardinality is determined by the binding's value type.
 pub enum Selection<K: 'static> {
     Single(Binding<Option<K>>),
     Multiple(Binding<Vec<K>>),
 }
+impl<K: 'static> Copy for Selection<K> {}
+impl<K: 'static> Clone for Selection<K> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
 /// Pass a Signal or Binding of `Option<K>` for one key, or `Vec<K>` for many keys.
 #[diagnostic::on_unimplemented(
     message = "selection needs a binding of Option<K> or Vec<K>",
@@ -37,5 +45,12 @@ impl<K: 'static> IntoSelection<K> for Binding<Option<K>> {
 impl<K: 'static> IntoSelection<K> for Binding<Vec<K>> {
     fn into_selection(self) -> Selection<K> {
         Selection::Multiple(self)
+    }
+}
+
+impl<K: 'static> crate::sealed::IntoSelectionSeal<K> for Selection<K> {}
+impl<K: 'static> IntoSelection<K> for Selection<K> {
+    fn into_selection(self) -> Selection<K> {
+        self
     }
 }

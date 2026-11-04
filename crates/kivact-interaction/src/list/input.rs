@@ -1,26 +1,26 @@
-//! Role: List input enters the shared selection and navigation state.
+//! Role: ListApi input enters the shared selection and navigation state.
 
-use super::data::{ListActivation, ListGesture, ListMode, ListSelection};
+use super::data::{ListActivation, ListGesture, ListMode};
 use super::order::Movement;
 use super::state::{State, selected};
 use super::typeahead::typeahead_find;
+use crate::Selection;
 use kivact_core::view::{
     ButtonPress, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation, PointerEvent,
     PointerPhase,
 };
-use std::hash::Hash;
 
-pub(super) fn gesture<K: Clone + Eq + Hash + 'static>(
+pub(super) fn gesture<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     modifiers: Modifiers,
 ) -> ListGesture {
-    if matches!(state.selection, ListSelection::Single(_)) {
+    if matches!(state.selection, Selection::Single(_)) {
         return ListGesture::Replace;
     }
     ListGesture::from_modifiers(modifiers, &state.policy())
 }
 
-pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
+pub(super) fn pointer<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     key: &K,
     event: PointerEvent,
@@ -51,7 +51,7 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
 }
 
 /// Where an arrow, Home or End moves. In a right-to-left subtree
-/// ([`current_direction`](kivact_core::view::current_direction)) the rows of
+/// ([`use_direction`](kivact_core::view::use_direction)) the rows of
 /// a horizontal order run from the right, so ArrowLeft moves to the next
 /// row and ArrowRight to the previous one.
 fn movement(
@@ -63,7 +63,7 @@ fn movement(
     if mode == ListMode::Activate && (modifiers.ctrl || modifiers.alt || modifiers.meta) {
         return None;
     }
-    let rtl = kivact_core::view::current_direction() == kivact_core::view::ReadingDirection::Rtl;
+    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
     let (right, left) = if rtl {
         (Movement::Previous, Movement::Next)
     } else {
@@ -80,7 +80,7 @@ fn movement(
     }
 }
 
-pub(super) fn key<K: Clone + Eq + Hash + 'static>(
+pub(super) fn key<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: &K,
     event: KeyEvent,
@@ -152,7 +152,7 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
 }
 
 /// Share printable-key eligibility and search without exposing raw input publicly.
-pub(super) fn key_typeahead<K: Clone + Eq + Hash + 'static>(
+pub(super) fn key_typeahead<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: &K,
     event: &KeyEvent,
@@ -179,7 +179,7 @@ pub(super) fn key_typeahead<K: Clone + Eq + Hash + 'static>(
     Handled::No
 }
 
-fn destination<K: Clone + Eq + Hash + 'static>(
+fn destination<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: Option<&K>,
     movement: Option<Movement>,
@@ -211,7 +211,7 @@ fn destination<K: Clone + Eq + Hash + 'static>(
     })
 }
 
-pub(super) fn typed<K: Clone + Eq + Hash + 'static>(
+pub(super) fn typed<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: Option<&K>,
     c: char,
@@ -246,7 +246,7 @@ pub(super) fn typed<K: Clone + Eq + Hash + 'static>(
     Handled::Yes
 }
 
-pub(super) fn key_selection<K: Clone + Eq + Hash + 'static>(
+pub(super) fn key_selection<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     event: &KeyEvent,
 ) -> Handled {
@@ -272,8 +272,8 @@ pub(super) fn key_selection<K: Clone + Eq + Hash + 'static>(
     Handled::No
 }
 
-pub(super) fn select_all<K: Clone + Eq + Hash + 'static>(state: &State<K>) {
-    if let ListSelection::Multiple(binding) = state.selection {
+pub(super) fn select_all<K: kivact_core::state::ItemKey>(state: &State<K>) {
+    if let Selection::Multiple(binding) = state.selection {
         let keys = state.order.with_untracked(|order| {
             order
                 .keys()

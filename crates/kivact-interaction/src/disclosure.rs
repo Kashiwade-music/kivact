@@ -1,18 +1,19 @@
-//! Role: Disclosure attaches an expandable trigger and its optionally delayed content.
+//! Role: DisclosureApi attaches an expandable trigger and its optionally delayed content.
 //!
 //! A disclosure is the first link of the opening chain: a popup
 //! (`crate::popup`) adds overlay rules to it, and a tooltip and a dialog add
 //! theirs to a popup. Its shown state is the requested state, the caller's
-//! `Binding<bool>`; [`Disclosure::close`] writes `false` to it. A delayed
-//! shown state is a [`Delayed`](crate::Delayed).
+//! `Binding<bool>`; [`DisclosureApi::close`] writes `false` to it. A delayed
+//! shown state is a [`DelayedApi`](crate::DelayedApi).
 //! The parts are the trigger and the content, with [`DisclosureState`]
 //! (`input`, `open`). Whether the content is unmounted with `show` or kept
 //! mounted and hidden is the caller's choice; the kits' toggles and
 //! accordions share these rules. A content that animates its closing (an
-//! accordion's height) stays visible while [`Disclosure::leaving`] says the
+//! accordion's height) stays visible while [`DisclosureApi::leaving`] says the
 //! animation runs; the trigger's `expanded` follows the shown state at once.
 
 use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Signal, Value, signal};
 use kivact_core::view::{A11yAction, NodeRef, Role, node_ref};
@@ -29,7 +30,7 @@ pub struct DisclosureState {
 ///
 /// The disclosure edits one `bool`, the requested open state, through the
 /// caller's [`Binding`]. The caller draws the trigger and the content and
-/// decides whether the content is unmounted (`show(d.shown(), ..)`) or kept
+/// decides whether the content is unmounted (`show(d.is_open(), ..)`) or kept
 /// mounted; [`content`](Self::content) hides a mounted content while closed.
 ///
 /// The [`trigger`](Self::trigger) is a focusable `Role::Button` publishing
@@ -39,20 +40,22 @@ pub struct DisclosureState {
 /// disclosure accepts no input or assistive technology action.
 ///
 /// ```no_run
-/// use kivact_core::{signal, control::{NodeBuilder, column, node, text}, view::show};
+/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, show}};
 /// use kivact_interaction::use_disclosure;
 /// let open = signal(false);
 /// let details = use_disclosure(open);
 /// let section = column((
 ///     node().part(details.trigger()).name("Details").child(text("Details")),
-///     show(details.shown(), move || node().part(details.content()).child(text("The details"))),
+///     show(details.is_open(), move || node().part(details.content()).child(text("The details"))),
 /// ));
 /// ```
 #[derive(Clone, Copy)]
-pub struct Disclosure {
+pub struct DisclosureApi {
     pub(crate) open: Binding<bool>,
     /// The shown state: the requested state.
     shown: Value<bool>,
+    trigger_state: Signal<Option<Value<DisclosureState>>>,
+    content_state: Signal<Option<Value<DisclosureState>>>,
     settings: Signal<DisclosureSettings>,
     pub(crate) content: NodeRef,
 }
@@ -69,17 +72,44 @@ struct DisclosureSettings {
 ///
 /// Creation does not write the state. Setup only.
 #[track_caller]
-pub fn use_disclosure(open: impl Into<Binding<bool>>) -> Disclosure {
-    let open = open.into();
-    Disclosure {
+pub fn use_disclosure(open: impl kivact_core::state::IntoBinding<bool>) -> DisclosureApi {
+    let open = open.into_binding();
+    DisclosureApi {
         open,
         shown: open.into_value(),
+        trigger_state: signal(None),
+        content_state: signal(None),
         settings: signal(DisclosureSettings::default()),
         content: node_ref(),
     }
 }
 
-impl Disclosure {
+impl DisclosureApi {
+    /// Drawing state of the mounted trigger.
+    pub fn trigger_state(self) -> Value<DisclosureState> {
+        kivact_core::state::memo(move || {
+            self.trigger_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(DisclosureState {
+                    input: PartState::default(),
+                    open: self.shown.get(),
+                })
+        })
+    }
+    /// Drawing state of the mounted content.
+    pub fn content_state(self) -> Value<DisclosureState> {
+        kivact_core::state::memo(move || {
+            self.content_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(DisclosureState {
+                    input: PartState::default(),
+                    open: self.shown.get(),
+                })
+        })
+    }
+
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the trigger disabled and makes it unfocusable. Setup only.
@@ -103,7 +133,7 @@ impl Disclosure {
     }
 
     /// Whether the content is shown: the requested state.
-    pub fn shown(self) -> Value<bool> {
+    pub fn is_open(self) -> Value<bool> {
         self.shown
     }
 
@@ -127,7 +157,7 @@ impl Disclosure {
 
     /// Trigger semantics shared with the popups built on a disclosure.
     #[track_caller]
-    pub(crate) fn base_trigger<S: Clone + PartialEq + 'static>(
+    pub(crate) fn base_trigger<S: kivact_core::state::PropValue>(
         self,
         state: impl Fn(PartState, bool) -> S + 'static,
     ) -> Part<S> {
@@ -136,12 +166,26 @@ impl Disclosure {
         let disabled = move || {
             settings.with(|settings| settings.disabled.is_some_and(|disabled| disabled.get()))
         };
-        part(move |input| state(input, shown.get()))
-            .role(Role::Button)
-            .expanded(shown)
-            .controls(self.content)
-            .disabled(disabled)
-            .focusable(move || !disabled())
+        let input = part(move |input| state(input, shown.get()));
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |mut host| {
+            let caller_disabled = host.accessible_disabled();
+            let own_disabled = settings.get_untracked().disabled;
+            settings.update(|settings| {
+                settings.disabled = Some(kivact_core::state::memo(move || {
+                    caller_disabled.is_some_and(|value| value.get())
+                        || own_disabled.is_some_and(|value| value.get())
+                }))
+            });
+            host.part(input)
+                .node_ref(target)
+                .role(Role::Button)
+                .expanded(shown)
+                .controls(self.content)
+                .disabled(disabled)
+                .focusable(move || !disabled())
+        })
     }
 
     /// The trigger: a button publishing `expanded` that toggles the state.
@@ -150,11 +194,16 @@ impl Disclosure {
     /// Toggle, Expand and Collapse run after the caller's own handlers.
     #[track_caller]
     pub fn trigger(self) -> Part<DisclosureState> {
-        self.base_trigger(|input, open| DisclosureState { input, open })
-            .on_press(move || self.write(None))
-            .on_a11y(A11yAction::Toggle, move || self.write(None))
-            .on_a11y(A11yAction::Expand, move || self.write(Some(true)))
-            .on_a11y(A11yAction::Collapse, move || self.write(Some(false)))
+        let base = self.base_trigger(|input, open| DisclosureState { input, open });
+        let part_state = base.state();
+        self.trigger_state.set(Some(part_state));
+        Part::new(part_state, move |host| {
+            host.part(base)
+                .on_press(move || self.write(None))
+                .a11y_action(A11yAction::Toggle, move |_| self.write(None))
+                .a11y_action(A11yAction::Expand, move |_| self.write(Some(true)))
+                .a11y_action(A11yAction::Collapse, move |_| self.write(Some(false)))
+        })
     }
 
     /// The content the trigger `controls`, hidden while not shown (nor
@@ -163,16 +212,23 @@ impl Disclosure {
     pub fn content(self) -> Part<DisclosureState> {
         let shown = self.shown;
         let settings = self.settings;
-        part(move |input| DisclosureState {
+        let input = part(move |input| DisclosureState {
             input,
             open: shown.get(),
-        })
-        .reference(self.content)
-        .hidden(move || {
-            let leaving = settings
-                .with(|settings| settings.leaving)
-                .is_some_and(|leaving| leaving.get());
-            !shown.get() && !leaving
+        });
+        let part_state = input.state();
+        self.content_state.set(Some(part_state));
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .node_ref(self.content)
+                .hidden(move || {
+                    let leaving = settings
+                        .with(|settings| settings.leaving)
+                        .is_some_and(|leaving| leaving.get());
+                    !shown.get() && !leaving
+                })
         })
     }
 }

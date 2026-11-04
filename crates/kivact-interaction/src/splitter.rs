@@ -1,22 +1,24 @@
 //! Role: Unstyled behavior and semantics of a splitter between two panes.
 //!
 //! [`use_splitter`] edits the leading pane's size with the same normalized
-//! writer as a [`Scalar`], and its drag is a window-coordinate
-//! [`Drag`](crate::Drag) made one edit with `Drag::edit`. Every kit's grip,
+//! writer as a [`ScalarApi`], and its drag is a window-coordinate
+//! [`DragApi`](crate::DragApi) made one edit with `DragApi::edit`. Every kit's grip,
 //! pane, dock split and column resize shares this part instead of copying
-//! its keys: the table's [`resize`](crate::Table::resize) is a splitter, and
+//! its keys: the table's [`resize`](crate::DataTableApi::resize) is a splitter, and
 //! [`SplitterApi::handle`] is what `kivact::ui::splitter` draws. The cursor is
 //! the caller's style.
 
 use super::drag::{DragCoordinates, DragUpdate, use_drag};
-use super::edit::{EditPhase, EditSession};
-use super::scalar::{IntoScalarRange, ScalarOps, follow_range};
+use super::scalar::{ScalarOps, follow_range};
+use crate::EditSession;
 use crate::axis::Axis;
 use crate::policy::scalar::ScalarRangeError;
 use crate::press::is_double_press;
 use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Signal, Value, memo, signal, var};
+use kivact_core::view::EditPhase;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, Key, KeyEvent, Orientation, PointerEvent, Role,
@@ -55,14 +57,14 @@ pub struct SplitterState {
 /// While focused, side by side panes use ArrowLeft (shrink) and ArrowRight
 /// (grow); stacked panes use ArrowUp (shrink) and ArrowDown (grow), because the
 /// leading pane is on top. In a right-to-left subtree
-/// ([`current_direction`](kivact_core::view::current_direction)) side by side
+/// ([`use_direction`](kivact_core::view::use_direction)) side by side
 /// panes lead from the right: the caller lays the leading pane out on the
 /// right, ArrowRight shrinks it, ArrowLeft grows it, and a drag to the left
 /// grows it. The arrows of the other axis are not handled. Home
 /// and End jump to the range's minimum and maximum, and Enter moves to the
 /// [`reset_to`](Self::reset_to) value, if any. Every write is normalized by the
 /// [`ScalarRange`](crate::ScalarRange) and offered to the binding's writer, exactly as
-/// [`Scalar::set`](crate::Scalar::set) does. Increment, Decrement and SetValue from assistive
+/// [`ScalarApi::set`](crate::ScalarApi::set) does. Increment, Decrement and SetValue from assistive
 /// technology take the same path.
 ///
 /// A primary-button drag in window coordinates moves the value by the pointer's
@@ -74,7 +76,7 @@ pub struct SplitterState {
 /// technology action and cancels a drag in progress.
 ///
 /// The range may follow the layout: pass a constant [`ScalarRange`](crate::ScalarRange), or a
-/// closure, a `Signal` or a `Value` of one ([`IntoScalarRange`]). The published
+/// closure, a `Signal` or a `Value` of one ([``]). The published
 /// `value_min` and `value_max`, the key step (when not overridden), Home, End
 /// and drag clamping all follow the current range. When the range changes and
 /// the value is now outside it, the handle writes the value back inside
@@ -84,7 +86,13 @@ pub struct SplitterState {
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{control, prelude, style};
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{ScalarRange, use_splitter};
@@ -110,6 +118,7 @@ pub struct SplitterState {
 /// ```
 #[derive(Clone, Copy)]
 pub struct SplitterApi {
+    observed: Signal<Option<Value<SplitterState>>>,
     ops: ScalarOps,
     axis: Axis,
     settings: Signal<SplitterSettings>,
@@ -137,15 +146,16 @@ struct SplitterSettings {
 /// Setup only.
 #[track_caller]
 pub fn use_splitter(
-    value: impl Into<Binding<f64>>,
-    range: impl IntoScalarRange,
+    value: impl kivact_core::state::IntoBinding<f64>,
+    range: impl IntoValue<ScalarRange>,
     axis: Orientation,
 ) -> SplitterApi {
-    let binding = value.into();
+    let binding = value.into_binding();
     SplitterApi {
+        observed: signal(None),
         ops: ScalarOps {
             binding,
-            range: range.into_range(),
+            range: range.into_value(),
         },
         axis: Axis::of(axis, "use_splitter"),
         settings: signal(SplitterSettings::default()),
@@ -154,14 +164,29 @@ pub fn use_splitter(
 }
 
 impl SplitterApi {
+    /// Drawing state of the actual mounted handle.
+    pub fn control_state(self) -> Value<SplitterState> {
+        memo(move || {
+            self.observed
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(SplitterState {
+                    input: PartState::default(),
+                    value: self.ops.binding.get(),
+                    dragging: false,
+                })
+        })
+    }
+
     /// Override the positive keyboard and accessibility increment.
     ///
     /// The default is the current range's step, or one percent of the range
     /// when it is continuous. A non-finite or non-positive step is rejected as
-    /// [`ScalarRange::with_step`](crate::ScalarRange::with_step) and [`Scalar::key_step`](crate::Scalar::key_step) do.
+    /// [`ScalarRange::with_step`](crate::ScalarRange::with_step) and [`ScalarApi::key_step`](crate::ScalarApi::key_step) do.
     /// Setup only.
     #[track_caller]
-    pub fn key_step(self, step: f64) -> Result<Self, ScalarRangeError> {
+    pub fn key_step(self, step: impl Into<f64>) -> Result<Self, ScalarRangeError> {
+        let step = step.into();
         if !step.is_finite() || step <= 0.0 {
             return Err(ScalarRangeError::InvalidStep);
         }
@@ -279,7 +304,7 @@ impl SplitterApi {
         let value = self.ops.binding.into_value();
         let (range, side_by_side) = (self.ops.range, self.side_by_side());
         let rtl = side_by_side
-            && kivact_core::view::current_direction() == kivact_core::view::ReadingDirection::Rtl;
+            && kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
         follow_range(self.ops.binding, range);
         let edit = self.edit;
         // One key press or assistive technology action is a whole edit.
@@ -337,53 +362,77 @@ impl SplitterApi {
             (true, true) => (Key::ArrowRight, Key::ArrowLeft),
             (false, _) => (Key::ArrowUp, Key::ArrowDown),
         };
-        let handle = part(move |input| SplitterState {
+        let input = part(move |input| SplitterState {
             input,
             value: value.get(),
             dragging: dragging.get().active,
+        });
+        let part_state = input.state();
+        self.observed.set(Some(part_state));
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |mut host| {
+            let caller_disabled = host.accessible_disabled();
+            let own_disabled = settings.get_untracked().disabled;
+            settings.update(|settings| {
+                settings.disabled = Some(memo(move || {
+                    caller_disabled.is_some_and(|value| value.get())
+                        || own_disabled.is_some_and(|value| value.get())
+                }))
+            });
+            let handle = host
+                .part(input)
+                .node_ref(target)
+                .role(Role::Splitter)
+                .orientation(if side_by_side {
+                    Orientation::Vertical
+                } else {
+                    Orientation::Horizontal
+                })
+                .focusable(true)
+                .value_min(move || range.get().min())
+                .value_max(move || range.get().max())
+                .value_now(value)
+                .on_key(move |event: KeyEvent| {
+                    if self.is_disabled() {
+                        return Handled::No;
+                    }
+                    let factor = if event.modifiers().shift {
+                        self.settings
+                            .with_untracked(|settings| settings.shift_step_factor.unwrap_or(1.0))
+                    } else {
+                        1.0
+                    };
+                    let accepted = match event.key() {
+                        key if key == shrink_key => {
+                            once(&|ops, step| ops.step_by(-1.0, step * factor))
+                        }
+                        key if key == grow_key => {
+                            once(&|ops, step| ops.step_by(1.0, step * factor))
+                        }
+                        Key::Home => once(&|ops, _| ops.set(range.get_untracked().min())),
+                        Key::End => once(&|ops, _| ops.set(range.get_untracked().max())),
+                        Key::Enter => reset(),
+                        _ => false,
+                    };
+                    if accepted { Handled::Yes } else { Handled::No }
+                })
+                // A double click resets before the drag source sees the press.
+                .on_pointer(move |event: PointerEvent| {
+                    if is_double_press(&event)
+                        && !self.is_disabled()
+                        && !session.is_active()
+                        && reset()
+                    {
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
+                .a11y_action(A11yAction::Increment, act)
+                .a11y_action(A11yAction::Decrement, act)
+                .a11y_action(A11yAction::SetValue, act)
+                .disabled(disabled);
+            handle.part(source)
         })
-        .role(Role::Splitter)
-        .orientation(if side_by_side {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        })
-        .focusable(true)
-        .value_min(move || range.get().min())
-        .value_max(move || range.get().max())
-        .value_now(value)
-        .on_key(move |event: KeyEvent| {
-            if self.is_disabled() {
-                return Handled::No;
-            }
-            let factor = if event.modifiers().shift {
-                self.settings
-                    .with_untracked(|settings| settings.shift_step_factor.unwrap_or(1.0))
-            } else {
-                1.0
-            };
-            let accepted = match event.key() {
-                key if key == shrink_key => once(&|ops, step| ops.step_by(-1.0, step * factor)),
-                key if key == grow_key => once(&|ops, step| ops.step_by(1.0, step * factor)),
-                Key::Home => once(&|ops, _| ops.set(range.get_untracked().min())),
-                Key::End => once(&|ops, _| ops.set(range.get_untracked().max())),
-                Key::Enter => reset(),
-                _ => false,
-            };
-            if accepted { Handled::Yes } else { Handled::No }
-        })
-        // A double click resets before the drag source sees the press.
-        .on_pointer(move |event: PointerEvent| {
-            if is_double_press(&event) && !self.is_disabled() && !session.is_active() && reset() {
-                Handled::Yes
-            } else {
-                Handled::No
-            }
-        })
-        .on_a11y_event(A11yAction::Increment, act)
-        .on_a11y_event(A11yAction::Decrement, act)
-        .on_a11y_event(A11yAction::SetValue, act)
-        .disabled(disabled);
-        handle.with(source)
     }
 }

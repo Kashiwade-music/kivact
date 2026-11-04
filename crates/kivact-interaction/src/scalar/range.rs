@@ -16,7 +16,6 @@ impl IntoValue<ScalarRange> for RangeInclusive<f64> {
             raise(
                 ErrorKind::Message,
                 format!("the range {min}..={max} is not valid: {error:?}"),
-                Location::caller(),
             )
         });
         kivact_core::state::__private::Prop::constant(range)
@@ -52,4 +51,4 @@ pub(crate) fn follow_range(binding: Binding<f64>, range: Value<ScalarRange>) {
     });
 }
 
-kivact_core::view::constant_value!(ScalarRange);
+kivact_core::state::constant_value!(ScalarRange);

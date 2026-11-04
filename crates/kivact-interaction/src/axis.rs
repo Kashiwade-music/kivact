@@ -46,9 +46,8 @@ pub(crate) fn check_list_axis(axis: Option<Orientation>, api: &'static str) {
         raise(
             ErrorKind::Message,
             format!(
-                "{api}: ListPolicy::axis is Some(Orientation::Unspecified); use None for all four arrow keys"
+                "{api}: ListOptions::axis is Some(Orientation::Unspecified); use None for all four arrow keys"
             ),
-            Location::caller(),
         );
     }
 }
@@ -59,6 +58,5 @@ fn unspecified(api: &'static str, at: &'static Location<'static>) -> ! {
         format!(
             "{api}: Orientation::Unspecified is not a direction; pass Orientation::Horizontal or Orientation::Vertical"
         ),
-        at,
     )
 }

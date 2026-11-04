@@ -1,11 +1,11 @@
 //! Role: Passive table inputs, the focus pattern and observable part state.
 
-use crate::{ListPolicy, ListRangePolicy};
+use crate::{ListOptions, ListRangeOptions};
 use kivact_core::custom::PartState;
 use kivact_core::view::{Reactive, SortDirection};
 
 /// The row-erased projection of a [`ColumnDef`](crate::ColumnDef) that a
-/// [`Table`](crate::Table) reads: its key, label, whether a header
+/// [`DataTableApi`](crate::DataTableApi) reads: its key, label, whether a header
 /// activation sorts by it and its starting width. It is derived from the
 /// current definitions and owns no order or configuration of its own.
 #[derive(Clone, Debug, PartialEq)]
@@ -48,7 +48,7 @@ impl From<SortOrder> for SortDirection {
     }
 }
 
-/// Which elements of a [`Table`](crate::Table) take the keyboard focus, with
+/// Which elements of a [`DataTableApi`](crate::DataTableApi) take the keyboard focus, with
 /// the policy they use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TableFocus {
@@ -59,18 +59,18 @@ pub enum TableFocus {
     /// cells. Use it when cells hold data a user reads or edits one by one.
     /// `range` reads the selection modifiers; the cell keys replace the list's
     /// navigation.
-    Cells(ListRangePolicy),
+    Cells(ListRangeOptions),
     /// A list of rows: one row is the tab stop, the list keys move between
     /// rows and select them, and the pointer selects rows. Use it when a row
     /// is the unit a user picks, like files or layers. The policy's mode must
     /// be [`ListMode::Select`](crate::ListMode::Select); a different mode is a
     /// usage error.
-    Rows(ListPolicy),
+    Rows(ListOptions),
 }
 
 impl Default for TableFocus {
     fn default() -> Self {
-        Self::Cells(ListRangePolicy::default())
+        Self::Cells(ListRangeOptions::default())
     }
 }
 

@@ -20,7 +20,7 @@ pub enum CalendarSelection {
 /// Every method is a builder step; the default shows one month, starts the
 /// week on the locale's first day of the week and disables nothing.
 #[derive(Clone)]
-pub struct CalendarPolicy {
+pub struct CalendarOptions {
     pub(super) disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     pub(super) months: usize,
     pub(super) week_start: Option<Value<Weekday>>,
@@ -29,7 +29,7 @@ pub struct CalendarPolicy {
     pub(super) on_commit: Option<Callback<CalendarDate>>,
 }
 
-impl Default for CalendarPolicy {
+impl Default for CalendarOptions {
     fn default() -> Self {
         Self {
             disabled: Rc::new(|_| false),
@@ -42,7 +42,7 @@ impl Default for CalendarPolicy {
     }
 }
 
-impl CalendarPolicy {
+impl CalendarOptions {
     /// The default policy.
     pub fn new() -> Self {
         Self::default()
@@ -86,7 +86,7 @@ impl CalendarPolicy {
     /// Run `f` with the day whose choice completes a selection: every choice
     /// of a single day (a day that is already chosen too), the second choice
     /// of a range. Arrow keys never commit.
-    pub fn on_commit<R: kivact_core::view::HandlerResult>(
+    pub fn on_activate<R: kivact_core::view::HandlerResult>(
         mut self,
         f: impl Fn(CalendarDate) -> R + 'static,
     ) -> Self {

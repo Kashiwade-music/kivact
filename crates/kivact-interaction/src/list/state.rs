@@ -1,17 +1,17 @@
-//! Role: List state shares one registry, selection writer and focus authority.
+//! Role: ListApi state shares one registry, selection writer and focus authority.
 
-use super::data::{ListGesture, ListItem, ListMode, ListPolicy, ListSelection};
+use super::data::{ListGesture, ListItem, ListMode, ListOptions};
 use super::order::Order;
 use super::selection::selection_transition;
 use super::typeahead::Typeahead;
+use crate::Selection;
 use crate::roving::{Observation, Roving};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, NodeToken, Owned, Owner};
-use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Callback, Signal, Value, Var, effect, memo, signal, var};
+use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::view::NodeRef;
 use std::cell::{Cell, RefCell};
-use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -39,14 +39,16 @@ fn pending_kept<K>(pending: &Pending<K>, current: Option<NodeToken>) -> bool {
 
 type Selectable<K> = Rc<dyn Fn(&K) -> bool>;
 
-pub(super) struct State<K: Clone + Eq + Hash + 'static> {
+pub(super) struct State<K: kivact_core::state::ItemKey> {
+    pub(super) item_states: Signal<std::collections::HashMap<K, Value<super::data::ListItemState>>>,
+    pub(super) container_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) owner: Owner,
     /// The App's root when the list was created: an item of another App has
     /// another root.
     pub(super) root: Owner,
     pub(super) items: Value<Vec<ListItem<K>>>,
     pub(super) order: Value<Order<K>>,
-    pub(super) selection: ListSelection<K>,
+    pub(super) selection: Selection<K>,
     pub(super) selectable: Signal<Option<Selectable<K>>>,
     pub(super) selected: Value<Vec<K>>,
     pub(super) anchor_value: Value<Option<K>>,
@@ -56,8 +58,8 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static> {
     pub(super) active: Value<Option<K>>,
     /// What choosing an item does; fixed by `use_list`.
     pub(super) mode: ListMode,
-    pub(super) retained_focus: Cell<bool>,
-    pub(super) policy: Signal<ListPolicy>,
+    pub(super) retained_focus: Signal<bool>,
+    pub(super) policy: Signal<ListOptions>,
     pub(super) page: Cell<Value<usize>>,
     pub(super) leave: Rc<RefCell<Option<Leave<K>>>>,
     pub(super) scroll: RefCell<Option<Scroll<K>>>,
@@ -66,27 +68,27 @@ pub(super) struct State<K: Clone + Eq + Hash + 'static> {
     pub(super) at: &'static Location<'static>,
 }
 
-pub(super) fn selected<K: Clone + PartialEq + 'static>(selection: ListSelection<K>) -> Vec<K> {
+pub(super) fn selected<K: kivact_core::state::PropValue>(selection: Selection<K>) -> Vec<K> {
     match selection {
-        ListSelection::Single(binding) => binding.get().into_iter().collect(),
-        ListSelection::Multiple(binding) => binding.get(),
+        Selection::Single(binding) => binding.get().into_iter().collect(),
+        Selection::Multiple(binding) => binding.get(),
     }
 }
 
-pub(super) fn create<K: Clone + Eq + Hash + 'static>(
+pub(super) fn create<K: kivact_core::state::ItemKey>(
     items: Value<Vec<ListItem<K>>>,
-    selection: ListSelection<K>,
-    policy: ListPolicy,
+    selection: Selection<K>,
+    policy: ListOptions,
     at: &'static Location<'static>,
-) -> Owned<State<K>> {
-    let owner = Owner::current("list");
-    let root = Owner::root("list");
-    let alive = owner.store("List", Rc::new(()));
+) -> Owned<Rc<State<K>>> {
+    let owner = Owner::current();
+    let root = Owner::root();
+    let alive = owner.store("ListApi", ());
     let order = memo(move || Order::new(items.get()));
     let selected_value = memo(move || selected(selection));
     let roving = Roving::<K>::new();
     let requested = roving.requested;
-    let anchor = signal(Binding::from(signal(None::<K>)));
+    let anchor = signal(signal(None::<K>).into_binding());
     let anchor_value = memo(move || anchor.get().get());
     let mode = policy.mode;
     let policy = signal(policy);
@@ -149,6 +151,8 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
         })
     });
     let state = Rc::new(State {
+        item_states: signal(std::collections::HashMap::new()),
+        container_state: signal(None),
         owner,
         root,
         items,
@@ -161,7 +165,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
         roving,
         active,
         mode,
-        retained_focus: Cell::new(false),
+        retained_focus: signal(false),
         policy,
         page: Cell::new((10).into_value()),
         leave,
@@ -170,7 +174,7 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
         pending: RefCell::new(None),
         at,
     });
-    let stored = owner.store("List", state.clone());
+    let stored = owner.store("ListApi", state.clone());
     let duplicates = RefCell::new(Vec::<K>::new());
     effect(move || {
         if alive.try_get().is_none() {
@@ -182,10 +186,9 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
                 owner.report(
                     ErrorKind::Message,
                     format!(
-                        "List: {} duplicate logical key(s); first occurrence wins",
+                        "ListApi: {} duplicate logical key(s); first occurrence wins",
                         next.len()
                     ),
-                    at,
                 );
             }
             *duplicates.borrow_mut() = next;
@@ -197,9 +200,9 @@ pub(super) fn create<K: Clone + Eq + Hash + 'static>(
     stored
 }
 
-impl<K: Clone + Eq + Hash + 'static> State<K> {
+impl<K: kivact_core::state::ItemKey> State<K> {
     /// The policy as set now (untracked).
-    pub(super) fn policy(&self) -> ListPolicy {
+    pub(super) fn policy(&self) -> ListOptions {
         self.policy.get_untracked()
     }
     /// Whether the order lets `key` take the focus or a selection.
@@ -220,11 +223,11 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         }
         let anchor = self.anchor.get_untracked();
         match self.selection {
-            ListSelection::Single(binding) => {
+            Selection::Single(binding) => {
                 binding.set(Some(key.clone()));
                 anchor.set(Some(key));
             }
-            ListSelection::Multiple(binding) => {
+            Selection::Multiple(binding) => {
                 let visible = self.order.with_untracked(|order| {
                     order
                         .keys()
@@ -331,7 +334,7 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
     }
 }
 
-fn reconcile<K: Clone + Eq + Hash + 'static>(state: &State<K>) {
+fn reconcile<K: kivact_core::state::ItemKey>(state: &State<K>) {
     let active = state.active.get();
     let current = state.owner.focused_node();
     if state

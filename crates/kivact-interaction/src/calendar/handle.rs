@@ -1,12 +1,13 @@
-//! Role: The `CalendarGrid` handle: grid, rows, paging buttons and day cells.
+//! Role: The `CalendarGridApi` handle: grid, rows, paging buttons and day cells.
 
-use super::policy::{CalendarPolicy, CalendarSelection};
+use super::policy::{CalendarOptions, CalendarSelection};
 use super::state;
 use super::state::{Choice, State};
 use crate::roving::Member;
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owned, Owner, Part, PartState, part, raise, require_setup};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
+use kivact_core::state::IntoBinding;
 use kivact_core::state::{Binding, Value, memo};
 use kivact_core::view::{Handled, KeyEvent, Role};
 use std::panic::Location;
@@ -27,7 +28,7 @@ pub enum CalendarSpan {
     None,
 }
 
-/// The reactive drawing state of a [`cell`](CalendarGrid::cell).
+/// The reactive drawing state of a [`cell`](CalendarGridApi::cell).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CalendarDayState {
     pub input: PartState,
@@ -49,8 +50,8 @@ pub struct CalendarDayState {
 /// [`previous_month`](Self::previous_month), [`next_month`](Self::next_month),
 /// [`previous_year`](Self::previous_year) and [`next_year`](Self::next_year).
 #[derive(Clone, Copy)]
-pub struct CalendarGrid {
-    state: Owned<State>,
+pub struct CalendarGridApi {
+    state: Owned<Rc<State>>,
 }
 
 /// Create a setup-owned calendar grid without rendering any elements.
@@ -59,24 +60,49 @@ pub struct CalendarGrid {
 /// authority: paging writes it. Setup only.
 #[track_caller]
 pub fn use_calendar_grid(
-    month: impl Into<Binding<CalendarMonth>>,
+    month: impl kivact_core::state::IntoBinding<CalendarMonth>,
     selection: CalendarSelection,
-    policy: CalendarPolicy,
-) -> CalendarGrid {
+    policy: CalendarOptions,
+) -> CalendarGridApi {
     require_setup("use_calendar_grid");
     if policy.select_on_move && matches!(selection, CalendarSelection::Range(_)) {
         raise(
             ErrorKind::Message,
-            "use_calendar_grid: CalendarPolicy::select_on_move applies to a single day",
-            Location::caller(),
+            "use_calendar_grid: CalendarOptions::select_on_move applies to a single day",
         );
     }
-    CalendarGrid {
-        state: state::create(month.into(), selection, policy),
+    CalendarGridApi {
+        state: state::create(month.into_binding(), selection, policy),
     }
 }
 
-impl CalendarGrid {
+impl CalendarGridApi {
+    /// Drawing state of the mounted calendar grid.
+    pub fn grid_state(self) -> Value<PartState> {
+        let observed = self.state().grid_state;
+        memo(move || observed.get().map(|state| state.get()).unwrap_or_default())
+    }
+    /// Drawing state and logical selection marks of a calendar day.
+    pub fn cell_state(self, day: CalendarDate) -> Value<CalendarDayState> {
+        let shared = self.state();
+        memo(move || {
+            shared
+                .cell_states
+                .with(|states| states.get(&day).copied())
+                .map(|state| state.get())
+                .unwrap_or_else(|| {
+                    let (selected, edge, span) = marks(shared.choice, day);
+                    CalendarDayState {
+                        input: PartState::default(),
+                        selected,
+                        edge,
+                        span,
+                        disabled: (shared.policy.disabled)(day),
+                    }
+                })
+        })
+    }
+
     fn state(self) -> Rc<State> {
         self.state.get()
     }
@@ -99,15 +125,27 @@ impl CalendarGrid {
     #[track_caller]
     pub fn grid(self) -> Part<PartState> {
         let multiple = matches!(self.state().choice, Choice::Range { .. });
-        part(|input| input)
-            .role(Role::Grid)
-            .multiselectable(multiple)
+        let input = part(|input| input);
+        let part_state = input.state();
+        self.state().grid_state.set(Some(part_state));
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .role(Role::Grid)
+                .multiselectable(multiple)
+        })
     }
 
     /// One week of a shown month: a `Row`.
     #[track_caller]
     pub fn row(self) -> Part<PartState> {
-        part(|input| input).role(Role::Row)
+        let input = part(|input| input);
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input).node_ref(target).role(Role::Row)
+        })
     }
 
     /// A button that moves the shown months back by one month.
@@ -136,10 +174,16 @@ impl CalendarGrid {
 
     fn page(self, months: i32) -> Part<PartState> {
         let month = self.state().month;
-        part(|input| input)
-            .role(Role::Button)
-            .focusable(true)
-            .on_press(move || month.set(month.get_untracked().add_months(months)))
+        let input = part(|input| input);
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .role(Role::Button)
+                .focusable(true)
+                .on_press(move || month.set(month.get_untracked().add_months(months)))
+        })
     }
 
     /// One day of the shown month `month`, which the caller draws as a node
@@ -159,7 +203,7 @@ impl CalendarGrid {
         };
         let choice = state.choice;
         let marks = memo(move || marks(choice, day));
-        let attachment = part(move |input| {
+        let input = part(move |input| {
             let (selected, edge, span) = marks.get();
             CalendarDayState {
                 input,
@@ -168,62 +212,80 @@ impl CalendarGrid {
                 span,
                 disabled: disabled.get(),
             }
-        })
-        .role(Role::GridCell)
-        .name(day.to_string())
-        .selected(memo(move || marks.get().0))
-        .disabled(disabled);
-        let pointers = state.clone();
-        let attachment = attachment.on_press(move || pointers.pick(day));
-        if day.month_of() != month {
-            return attachment;
-        }
-        let active = state.active;
-        let is_active = memo(move || active.get() == Some(day));
-        let keys = state.clone();
-        attachment
-            .focusable(is_active)
-            .on_key(move |event: KeyEvent| -> Handled { keys.key(day, &event) })
-            .on_bind(move |mount| {
-                let owner = Owner::current("CalendarGrid::cell");
-                if Owner::root("CalendarGrid::cell") != state.root {
-                    owner.report(
-                        ErrorKind::WrongApp,
-                        "CalendarGrid cell belongs to another App",
-                        at,
-                    );
-                    return;
-                }
-                if state.roving.contains(&day) {
-                    owner.report(
-                        ErrorKind::Message,
-                        "CalendarGrid: a cell for this day is already mounted",
-                        at,
-                    );
-                    return;
-                }
-                let node = mount.node;
-                state.roving.insert(
-                    day,
-                    Member {
-                        node,
-                        eligible: mount.eligible,
-                        disabled: mount.disabled,
-                        hidden: mount.hidden,
-                    },
-                );
-                let mounted = node.mounted_node();
-                let weak = Rc::downgrade(&state);
-                owner.on_cleanup(move || {
-                    let Some(state) = weak.upgrade() else {
-                        return;
-                    };
-                    let focused = mounted.is_some() && state.owner.focused_node() == mounted;
-                    if state.roving.remove(&day, node) && focused {
-                        state.roving.restore_from.set(mounted);
+        });
+        let part_state = input.state();
+        let observed = state.cell_states;
+        observed.update(|states| {
+            states.insert(day, part_state);
+        });
+        kivact_core::state::on_cleanup(move || {
+            if observed.try_get_untracked().is_some() {
+                observed.update(|states| {
+                    if states.get(&day) == Some(&part_state) {
+                        states.remove(&day);
                     }
                 });
-            })
+            }
+        });
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            let attachment = host
+                .part(input)
+                .node_ref(target)
+                .role(Role::GridCell)
+                .name(day.to_string())
+                .selected(memo(move || marks.get().0))
+                .disabled(disabled);
+            let pointers = state.clone();
+            let attachment = attachment.on_press(move || pointers.pick(day));
+            if day.month_of() != month {
+                return attachment;
+            }
+            let active = state.active;
+            let is_active = memo(move || active.get() == Some(day));
+            let keys = state.clone();
+            attachment
+                .focusable(is_active)
+                .on_key(move |event: KeyEvent| -> Handled { keys.key(day, &event) })
+                .on_attach(move |mount| {
+                    let owner = Owner::current();
+                    if Owner::root() != state.root {
+                        owner.report(
+                            ErrorKind::WrongApp,
+                            "CalendarGridApi cell belongs to another App",
+                        );
+                        return;
+                    }
+                    if state.roving.contains(&day) {
+                        owner.report(
+                            ErrorKind::Message,
+                            "CalendarGridApi: a cell for this day is already mounted",
+                        );
+                        return;
+                    }
+                    let node = mount.node;
+                    state.roving.insert(
+                        day,
+                        Member {
+                            node,
+                            eligible: mount.eligible,
+                            disabled: mount.disabled,
+                            hidden: mount.hidden,
+                        },
+                    );
+                    let mounted = node.mounted_node();
+                    let weak = Rc::downgrade(&state);
+                    owner.on_cleanup(move || {
+                        let Some(state) = weak.upgrade() else {
+                            return;
+                        };
+                        let focused = mounted.is_some() && state.owner.focused_node() == mounted;
+                        if state.roving.remove(&day, node) && focused {
+                            state.roving.restore_from.set(mounted);
+                        }
+                    });
+                })
+        })
     }
 }
 

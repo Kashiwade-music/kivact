@@ -5,7 +5,7 @@ use kivact_core::view::{Key, Modifiers};
 /// One keyboard move between the cells of a grid of rows and columns.
 ///
 /// [`from_key`](Self::from_key) maps the conventional grid keys; callers
-/// decide what a move means for their data. A [`Table`](crate::Table) applies
+/// decide what a move means for their data. A [`DataTableApi`](crate::DataTableApi) applies
 /// it with [`apply`](Self::apply) to bounded rows and columns, and a
 /// [calendar grid](crate::use_calendar_grid) maps it onto dates, where moving past the edge of a month continues into
 /// the next one.

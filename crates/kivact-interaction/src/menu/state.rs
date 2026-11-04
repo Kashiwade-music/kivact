@@ -2,7 +2,7 @@
 
 use std::panic::Location;
 
-use crate::Popup;
+use crate::PopupApi;
 use crate::list::typeahead::Typeahead;
 use kivact_core::ErrorKind;
 use kivact_core::custom::{PartState, raise};
@@ -267,22 +267,21 @@ impl<K> MenuEntry<K> {
             _ => raise(
                 ErrorKind::Message,
                 format!("MenuEntry::{name}: a {what} has no {name}"),
-                at,
             ),
         }
     }
 
     /// Show `icon` before the label: a name the theme resolves (`"check"`)
-    /// or an image [`Asset`](kivact_core::Asset). Items only.
+    /// or an image [`Asset`](kivact_core::view::Asset). Items only.
     #[track_caller]
-    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
+    pub fn with_icon(mut self, icon: impl Into<Icon>) -> Self {
         self.item_for("icon", Location::caller()).icon = Some(icon.into());
         self
     }
 
     /// A secondary line of text under the label. Items only.
     #[track_caller]
-    pub fn description(mut self, text: impl IntoText) -> Self {
+    pub fn with_description(mut self, text: impl IntoText) -> Self {
         self.item_for("description", Location::caller()).description =
             Some(Reactive::new(text.into_text()));
         self
@@ -292,7 +291,7 @@ impl<K> MenuEntry<K> {
     /// published as the item's accessible description. It only displays: the
     /// menu binds no key. Items only.
     #[track_caller]
-    pub fn shortcut(mut self, text: impl Into<String>) -> Self {
+    pub fn with_shortcut(mut self, text: impl Into<String>) -> Self {
         self.item_for("shortcut", Location::caller()).shortcut = text.into();
         self
     }
@@ -308,7 +307,7 @@ impl<K> MenuEntry<K> {
     /// Explain why the item is unavailable. Themes retaining disabled menu
     /// focus can show this reason as a tooltip. This does not disable the item.
     #[track_caller]
-    pub fn disabled_reason(mut self, reason: impl IntoText) -> Self {
+    pub fn with_disabled_reason(mut self, reason: impl IntoText) -> Self {
         self.item_for("disabled_reason", Location::caller())
             .disabled_reason = Some(Reactive::new(reason.into_text()));
         self
@@ -333,7 +332,6 @@ impl<K> MenuEntry<K> {
             raise(
                 ErrorKind::Message,
                 "MenuEntry::inset: a separator has no inset",
-                Location::caller(),
             );
         }
         self.inset = inset;
@@ -351,7 +349,6 @@ impl<K> MenuEntry<K> {
             raise(
                 ErrorKind::Message,
                 "MenuEntry::keep_open: a submenu has no keep_open",
-                at,
             );
         }
         item.keep_open = keep_open;
@@ -379,7 +376,7 @@ impl<K> MenuEntry<K> {
     }
 
     /// The shortcut text ([`shortcut`](Self::shortcut)); empty without one.
-    pub fn shortcut_value(&self) -> &str {
+    pub fn shortcut(&self) -> &str {
         self.item_data().map_or("", |item| item.shortcut.as_str())
     }
 
@@ -390,7 +387,7 @@ impl<K> MenuEntry<K> {
 
     /// The explanation supplied by [`disabled_reason`](Self::disabled_reason).
     #[track_caller]
-    pub fn disabled_reason_value(&self) -> Option<String> {
+    pub fn disabled_reason(&self) -> Option<String> {
         self.item_data()?
             .disabled_reason
             .as_ref()
@@ -459,14 +456,14 @@ impl<K> MenuEntry<K> {
     }
 
     /// The icon given to [`icon`](Self::icon).
-    pub fn icon_value(&self) -> Option<&Icon> {
+    pub fn icon(&self) -> Option<&Icon> {
         self.item_data()?.icon.as_ref()
     }
 
     /// The description's current text; tracked when read inside a
     /// computation.
     #[track_caller]
-    pub fn description_value(&self) -> Option<String> {
+    pub fn description(&self) -> Option<String> {
         self.item_data()?.description.as_ref().map(Reactive::get)
     }
 
@@ -619,9 +616,9 @@ pub(super) enum Opened {
 /// State shared by every level of one menu. All handles are `Copy`.
 pub(super) struct Session<K: 'static> {
     pub(super) entries: Value<Vec<MenuEntry<K>>>,
-    pub(super) choose: Callback<K>,
+    pub(super) choose: Var<Callback<K>>,
     /// The top level's popup; its anchor is the trigger.
-    pub(super) popup: Popup,
+    pub(super) popup: PopupApi,
     pub(super) anchor: NodeRef,
     /// How the open menu was opened; `None` while it is closed.
     pub(super) opened: Signal<Option<Opened>>,

@@ -13,7 +13,6 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 use kivact_core::custom::{NodeRefExt, NodeToken};
@@ -58,7 +57,7 @@ pub(crate) struct Observation<'a, Id> {
 /// A clone shares the registry and the focus bookkeeping, so a memo can follow
 /// the members without borrowing its owner's state.
 #[derive(Clone)]
-pub(crate) struct Roving<Id: Clone + Eq + Hash + 'static> {
+pub(crate) struct Roving<Id: kivact_core::state::ItemKey> {
     /// The mounted members; changed only through `insert` and `remove`.
     members: Rc<RefCell<HashMap<Id, Member>>>,
     /// Notified by every insertion and removal of a member.
@@ -71,7 +70,7 @@ pub(crate) struct Roving<Id: Clone + Eq + Hash + 'static> {
     pub(crate) restore_from: Rc<Cell<Option<NodeToken>>>,
 }
 
-impl<Id: Clone + Eq + Hash + 'static> Roving<Id> {
+impl<Id: kivact_core::state::ItemKey> Roving<Id> {
     /// Setup only.
     #[track_caller]
     pub(crate) fn new() -> Self {

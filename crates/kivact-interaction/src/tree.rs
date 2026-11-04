@@ -1,19 +1,20 @@
-//! Role: Tree navigation with expansion and selection.
+//! Role: TreeApi navigation with expansion and selection.
 //!
 //! Unstyled behavior and semantics of a tree view: a flattened, expandable,
 //! selectable list of rows with the keys of the ARIA authoring practices.
 //!
 //! [`use_tree`] derives the shown rows from the [`TreeNode`] parents, the
 //! expanded keys (`Binding<Vec<K>>`) and the selection, and runs them through
-//! one [`List`]: its registry, selection and navigation. The
-//! rows are metadata ([`TreeRow`]); `list` and `item` are the `Tree` and
+//! one [`ListApi`]: its registry, selection and navigation. The
+//! rows are metadata ([`TreeRow`]); `list` and `item` are the `TreeApi` and
 //! `TreeItem` parts, with [`TreeItemState`] (`input`, `selected`, `active`,
 //! `branch`, `level`). Only a parent has Expand/Collapse, so a row's part
 //! is built for its `(key, has_children)` identity while the other metadata stays reactive. The tree adds no
 //! `scroll_with` or `page_size` of its own; single selection is
-//! `ListSelection::Single`. The Creative outliner is built on a
-//! `Tree<u64>`.
+//! `Selection::Single`. The Creative outliner is built on a
+//! `TreeApi<u64>`.
 
+use kivact_core::state::IntoBinding;
 use kivact_core::view::HandlerResult;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -24,13 +25,13 @@ use std::rc::Rc;
 use kivact_core::custom::{Owned, Owner, Part, PartState};
 
 use super::press::is_double_press;
-use super::{List, ListItem, ListPolicy, ListRangePolicy, ListSelection, use_list};
+use super::{ListApi, ListItem, ListOptions, ListRangeOptions, use_list};
 use kivact_core::state::{Binding, Callback, Signal, Value, memo, signal};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::A11yAction;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Reactive, Role};
 
-/// One node of the data a [`Tree`] shows: its key, the key of its parent,
+/// One node of the data a [`TreeApi`] shows: its key, the key of its parent,
 /// its label and whether it is disabled.
 ///
 /// A tree is described by a flat list of nodes, so the application's data can
@@ -308,10 +309,10 @@ fn flatten<K: Clone + Eq + Hash>(
 
 type TreeMarker<K> = PhantomData<(fn() -> K, kivact_core::custom::UiThreadOnly)>;
 
-struct Shared<K: Clone + Eq + Hash + 'static> {
+struct Shared<K: kivact_core::state::ItemKey> {
     nodes: Value<Vec<TreeNode<K>>>,
     expanded: Binding<Vec<K>>,
-    list: List<K>,
+    list: ListApi<K>,
     filter: Signal<Reactive<String>>,
     rows: Value<Vec<TreeRow<K>>>,
     info: Value<HashMap<K, Entry<K>>>,
@@ -334,14 +335,14 @@ pub struct TreeItemState {
 ///
 /// The application owns the expanded keys and the selected keys through two
 /// bindings, and the data through the nodes. A kit decides how a row looks
-/// (its indentation, its marker, its button to open and close) and `Tree`
-/// adds the role, the state and the behavior. `Tree` is `Copy`, so one value
+/// (its indentation, its marker, its button to open and close) and `TreeApi`
+/// adds the role, the state and the behavior. `TreeApi` is `Copy`, so one value
 /// serves the container and every row. [`rows`](Self::rows) is the list to
 /// draw, in tree order. Key the `for_each` by `(key, branch.has_children())`: a row
 /// reads its level, position, expanded state and label as they change, but
 /// whether it is a parent is decided when it is built.
 ///
-/// Roving: the tree is one tab stop. The supplied [`ListSelection`] chooses
+/// Roving: the tree is one tab stop. The supplied [`Selection`] chooses
 /// single or multiple selection. Disabled nodes are shown, but the keys
 /// skip them and they cannot be selected.
 ///
@@ -376,10 +377,16 @@ pub struct TreeItemState {
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::prelude;
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
-/// use kivact::interaction::{use_tree, ListSelection, TreeNode};
+/// use kivact::interaction::{use_tree, TreeNode};
 /// use kivact::prelude::*;
 ///
 /// fn files() -> impl IntoView {
@@ -390,7 +397,7 @@ pub struct TreeItemState {
 ///     ]);
 ///     let expanded = signal(vec!["src"]);
 ///     let selected = signal(Vec::<&str>::new());
-///     let tree = use_tree(nodes, expanded, ListSelection::Multiple(selected.into()));
+///     let tree = use_tree(nodes, expanded, Selection::Multiple(selected.into_binding()));
 ///     let rows = for_each(
 ///         tree.rows(),
 ///         |row| (row.key, row.branch.has_children()),
@@ -406,29 +413,30 @@ pub struct TreeItemState {
 ///     node().part(tree.list()).name("Files").child(rows)
 /// }
 /// ```
-pub struct Tree<K: 'static> {
+pub struct TreeApi<K: 'static> {
     state: Owned<Rc<dyn std::any::Any>>,
     _m: TreeMarker<K>,
 }
 
-impl<K: 'static> Clone for Tree<K> {
+impl<K: 'static> Clone for TreeApi<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: 'static> Copy for Tree<K> {}
+impl<K: 'static> Copy for TreeApi<K> {}
 
 /// Create a tree with caller-owned expansion and selection bindings.
 /// Missing or hidden keys remain in the bindings. Setup only.
 #[track_caller]
-pub fn use_tree<K: Clone + Eq + Hash + 'static>(
+pub fn use_tree<K: kivact_core::state::ItemKey>(
     nodes: impl IntoValue<Vec<TreeNode<K>>>,
-    expanded: impl Into<Binding<Vec<K>>>,
-    selection: ListSelection<K>,
-) -> Tree<K> {
-    let owner = Owner::current("tree");
+    expanded: impl kivact_core::state::IntoBinding<Vec<K>>,
+    selection: impl crate::IntoSelection<K>,
+) -> TreeApi<K> {
+    let selection = selection.into_selection();
+    let owner = Owner::current();
     let nodes = nodes.into_value();
-    let expanded = expanded.into();
+    let expanded = expanded.into_binding();
     let filter = signal(Reactive::<String>::new(String::new()));
     let entries = {
         memo(move || {
@@ -471,14 +479,14 @@ pub fn use_tree<K: Clone + Eq + Hash + 'static>(
     let list = use_list(
         items,
         selection,
-        ListPolicy {
+        ListOptions {
             typeahead: true,
-            ..ListPolicy::default()
+            ..ListOptions::default()
         },
     );
     // The active row that a closing parent hid is replaced by the
     // nearest ancestor that is still shown.
-    let list = list.on_leave(move |gone: &K| {
+    let list = list.leave_to(move |gone: &K| {
         nodes.with(|nodes| {
             let forest = Forest::build(nodes);
             let mut at = forest.index.get(gone).copied();
@@ -502,26 +510,46 @@ pub fn use_tree<K: Clone + Eq + Hash + 'static>(
         info,
         activate: Cell::new(None),
     });
-    Tree {
-        state: owner.store("Tree", Rc::new(shared as Rc<dyn std::any::Any>)),
+    TreeApi {
+        state: owner.store("TreeApi", shared as Rc<dyn std::any::Any>),
         _m: PhantomData,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> Tree<K> {
+impl<K: kivact_core::state::ItemKey> TreeApi<K> {
+    /// Drawing state of the mounted tree container.
+    pub fn list_state(self) -> Value<PartState> {
+        self.state().list.list_state()
+    }
+    /// Drawing state and branch metadata of a tree item.
+    pub fn item_state(self, key: K) -> Value<TreeItemState> {
+        let shared = self.state();
+        let input = shared.list.item_state(key.clone());
+        memo(move || {
+            let input = input.get();
+            shared.info.with(|info| TreeItemState {
+                input: input.input,
+                selected: input.selected,
+                active: input.active,
+                branch: info
+                    .get(&key)
+                    .map_or(TreeBranch::Leaf, |entry| entry.row.branch),
+                level: info.get(&key).map_or(0, |entry| entry.row.level),
+            })
+        })
+    }
+
     #[track_caller]
     fn state(self) -> Rc<Shared<K>> {
         self.state
             .get()
-            .as_ref()
-            .clone()
             .downcast::<Shared<K>>()
             .expect("invariant: controller state has its original type")
     }
 
     /// Configure modifier gestures for multiple selection. Setup only.
     #[track_caller]
-    pub fn policy(self, policy: ListRangePolicy) -> Self {
+    pub fn policy(self, policy: ListRangeOptions) -> Self {
         self.state().list.retune(|list| list.range = policy);
         self
     }
@@ -655,7 +683,7 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
         });
         let for_key = key.clone();
         let for_pointer = key.clone();
-        let mut part = state
+        let base = state
             .list
             .item(key.clone())
             .map_state(move |state| TreeItemState {
@@ -668,47 +696,54 @@ impl<K: Clone + Eq + Hash + 'static> Tree<K> {
                         .map_or(TreeBranch::Leaf, |entry| entry.row.branch)
                 }),
                 level: live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.level)),
-            })
-            .role(Role::TreeItem)
-            .hidden(move || hide_absent && live.with(Option::is_none))
-            .level(move || live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.level)))
-            .set_size(move || {
-                live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.set_size))
-            })
-            .pos_in_set(move || {
-                live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.pos_in_set))
-            })
-            .on_key(move |event: KeyEvent| this.on_key(&for_key, &event))
-            .on_pointer(move |event: PointerEvent| {
-                if is_double_press(&event) {
-                    this.activate(&for_pointer);
-                }
-                Handled::No
             });
-        if parent {
-            let for_open = key.clone();
-            part = part
-                .expanded(move || {
-                    live.with(|entry| {
-                        entry
-                            .as_ref()
-                            .is_some_and(|entry| entry.row.branch.is_expanded())
-                    })
+        let part_state = base.state();
+        Part::new(part_state, move |host| {
+            let mut part = host
+                .part(base)
+                .role(Role::TreeItem)
+                .hidden(move || hide_absent && live.with(Option::is_none))
+                .level(move || live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.level)))
+                .set_size(move || {
+                    live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.set_size))
                 })
-                .on_a11y(A11yAction::Expand, move || {
-                    Self::set_open(&this.state(), &for_open, true);
+                .pos_in_set(move || {
+                    live.with(|entry| entry.as_ref().map_or(0, |entry| entry.row.pos_in_set))
                 })
-                .on_a11y(A11yAction::Collapse, move || {
-                    Self::set_open(&this.state(), &key, false);
+                .on_key(move |event: KeyEvent| this.on_key(&for_key, &event))
+                .on_pointer(move |event: PointerEvent| {
+                    if is_double_press(&event) {
+                        this.activate(&for_pointer);
+                    }
+                    Handled::No
                 });
-        }
-        part
+            if parent {
+                let for_open = key.clone();
+                part = part
+                    .expanded(move || {
+                        live.with(|entry| {
+                            entry
+                                .as_ref()
+                                .is_some_and(|entry| entry.row.branch.is_expanded())
+                        })
+                    })
+                    .a11y_action(A11yAction::Expand, move |_| {
+                        Self::set_open(&this.state(), &for_open, true);
+                    })
+                    .a11y_action(A11yAction::Collapse, move |_| {
+                        Self::set_open(&this.state(), &key, false);
+                    });
+            }
+            part
+        })
     }
 
     /// Attach the tree role and list container semantics. The caller names it.
     #[track_caller]
     pub fn list(self) -> Part<PartState> {
-        self.state().list.list().role(Role::Tree)
+        let base = self.state().list.list();
+        let part_state = base.state();
+        Part::new(part_state, move |host| host.part(base).role(Role::Tree))
     }
 
     #[track_caller]

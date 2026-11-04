@@ -59,7 +59,9 @@ pub struct ScalarRange {
 
 impl ScalarRange {
     /// Construct continuous bounds. No quantization is applied.
-    pub fn new(min: f64, max: f64) -> Result<Self, ScalarRangeError> {
+    pub fn new(min: impl Into<f64>, max: impl Into<f64>) -> Result<Self, ScalarRangeError> {
+        let min = min.into();
+        let max = max.into();
         if !min.is_finite() || !max.is_finite() {
             return Err(ScalarRangeError::NonFiniteBounds);
         }
@@ -81,7 +83,8 @@ impl ScalarRange {
     ///
     /// Keyboard increments can be configured separately by the facade's
     /// scalar control; a keyboard increment need not quantize pointer values.
-    pub fn with_step(mut self, step: f64) -> Result<Self, ScalarRangeError> {
+    pub fn with_step(mut self, step: impl Into<f64>) -> Result<Self, ScalarRangeError> {
+        let step = step.into();
         if !step.is_finite() || step <= 0.0 || !((self.max - self.min) / step).is_finite() {
             return Err(ScalarRangeError::InvalidStep);
         }
@@ -105,7 +108,8 @@ impl ScalarRange {
     }
 
     /// Reject non-finite input, otherwise quantize and clamp it.
-    pub fn normalize(self, value: f64) -> Option<f64> {
+    pub fn normalize(self, value: impl Into<f64>) -> Option<f64> {
+        let value = value.into();
         if !value.is_finite() {
             return None;
         }
@@ -126,7 +130,9 @@ impl ScalarRange {
     }
 
     /// Shift a normalized value by a finite amount, saturating at the bounds.
-    pub fn offset(self, value: f64, amount: f64) -> Option<f64> {
+    pub fn offset(self, value: impl Into<f64>, amount: impl Into<f64>) -> Option<f64> {
+        let value = value.into();
+        let amount = amount.into();
         if !amount.is_finite() {
             return None;
         }
@@ -145,7 +151,9 @@ impl ScalarRange {
     ///
     /// Non-finite step counts are rejected. A finite count whose multiplication
     /// overflows saturates in its direction rather than writing infinity.
-    pub fn step_by(self, value: f64, steps: f64) -> Option<f64> {
+    pub fn step_by(self, value: impl Into<f64>, steps: impl Into<f64>) -> Option<f64> {
+        let value = value.into();
+        let steps = steps.into();
         if !steps.is_finite() {
             return None;
         }

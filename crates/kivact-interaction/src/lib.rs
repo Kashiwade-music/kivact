@@ -14,7 +14,7 @@
 //! container `list()`, a table has `grid()`, `header`, `row` and `cell`, the
 //! zoom and pan surface is `viewport()`, a slider has `thumb()` and
 //! `track(axis)`, a number field `input()`, and a one-element behavior
-//! `control()`. The open query is `shown()` and the commands are `open()`,
+//! `control()`. The open query is `is_open()` and the commands are `open()`,
 //! `close()` and `toggle()` on a Copy `self`. State a caller may own is a
 //! builder of that name taking a `Binding` (`sort(binding)`,
 //! `widths(binding)`, `anchor(binding)`), read back with `<name>_value()`.
@@ -22,9 +22,9 @@
 //! Opening and closing is one chain: a disclosure edits the requested open
 //! state, a popup adds the overlay's focus and dismissal rules to it, and a
 //! tooltip and a dialog add their own rules to a popup. A delayed shown state
-//! is a [`Delayed`]. The content of a
+//! is a [`DelayedApi`]. The content of a
 //! popup, tooltip or dialog is mounted with the free function
-//! `show(handle.shown(), factory)`, in a fresh owner on every opening. A menu
+//! `show(handle.is_open(), factory)`, in a fresh owner on every opening. A menu
 //! and a command palette keep their own `show`: a menu's top level builds its
 //! content again when a request changes between the pointer and the anchor
 //! origin, and a submenu mounts its level in a new owner while it is open.
@@ -54,6 +54,7 @@ mod policy;
 mod popup;
 mod press;
 mod range_scalar;
+mod reorder;
 mod roving;
 mod scalar;
 mod sealed;
@@ -74,57 +75,62 @@ mod zoom_pan;
 
 pub use announcer::{Announcer, announcer};
 pub use calendar::{
-    CalendarDayState, CalendarGrid, CalendarPolicy, CalendarSelection, CalendarSpan,
+    CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
     use_calendar_grid,
 };
-pub use combobox::{Combobox, use_combobox};
+pub use combobox::{ComboboxApi, use_combobox};
 pub use content_reveal::{ContentReveal, use_content_reveal};
-pub use delayed::{Delayed, DelayedPhase, Delays, use_delayed};
-pub use dialog::{DialogApi, DialogKind, Dismiss, use_dialog};
-pub use disclosure::{Disclosure, DisclosureState, use_disclosure};
-pub use drag::{Drag, DragCoordinates, DragPhase, DragStart, DragState, DragUpdate, use_drag};
+pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
+pub use dialog::{DialogApi, DialogMode, DismissOn, use_dialog};
+pub use disclosure::{DisclosureApi, DisclosureState, use_disclosure};
+pub use drag::{DragApi, DragCoordinates, DragPhase, DragStart, DragState, DragUpdate, use_drag};
 pub use drag_settle::{DragAxis, nearest_snap, project_release, pull_to_snap, resist_overshoot};
 pub use drag_velocity::DragVelocity;
 pub use edit::EditSession;
 pub use focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
-pub use follow_end::{FollowEnd, use_follow_end};
-pub use hover_corridor::{use_hover_corridor, use_hover_surface};
+pub use follow_end::{FollowEndApi, use_follow_end};
+pub use hover_corridor::{
+    HoverCorridorApi, HoverSurfaceApi, use_hover_corridor, use_hover_surface,
+};
 pub use list::{
-    List, ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
-    ListMissingAnchor, ListMode, ListPolicy, ListRangeMode, ListRangePolicy, ListSelection,
+    ListActivation, ListApi, ListBoundary, ListCommandModifier, ListGesture, ListItem,
+    ListItemState, ListMissingAnchor, ListMode, ListOptions, ListRangeMode, ListRangeOptions,
     use_list,
 };
 pub use menu::{
     DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin,
     MenuPress, MenuRow, SubmenuTiming, use_menu,
 };
-pub use menubar::{Menubar, use_menubar};
-pub use palette::{Command, CommandGroup, CommandPalette, filter_commands, use_command_palette};
+pub use menubar::{MenubarApi, use_menubar};
+pub use palette::{Command, CommandGroup, CommandPaletteApi, filter_commands, use_command_palette};
 pub use policy::grid::GridMove;
 pub use policy::scalar::{ScalarRange, ScalarRangeError};
-pub use popup::{Popup, PopupState, use_popup};
-pub use range_scalar::{RangeScalar, RangeThumb, use_range_scalar};
-pub use scalar::{Scalar, ScalarState, TouchSliderGesture, use_scalar};
+pub use popup::{PopupApi, PopupState, use_popup};
+pub use range_scalar::{RangeScalarApi, RangeThumb, use_range_scalar};
+pub use reorder::Reorder;
+pub use scalar::{ScalarApi, ScalarState, TouchSliderGesture, use_scalar};
 pub use select::{SelectApi, use_select};
-pub use space_pan::{SpacePan, use_space_pan};
+pub use space_pan::{SpacePanApi, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use table::{
-    ColumnDef, FilterValue, SortOrder, Table, TableCellState, TableFocus, TableHeaderState,
-    TableModel, TableRowState, use_table, use_table_model,
+    ColumnDef, DataTableApi, DataTableModelApi, FilterValue, SortOrder, TableCellState, TableFocus,
+    TableHeaderState, TableRowState, use_data_table, use_data_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
 pub use toaster::{Toast, ToastId, ToastOptions, ToastState, Toaster, toaster};
 pub use toggle::{
-    ButtonApi, CheckboxApi, Toggle, ToggleState, use_button, use_checkbox, use_switch,
-    use_toggle_button,
+    ButtonApi, CheckboxApi, SwitchApi, ToggleButtonApi, ToggleState, use_button, use_checkbox,
+    use_switch, use_toggle_button,
 };
 pub use tone::Tone;
-pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip, use_tooltip_when};
-pub use tree::{Tree, TreeBranch, TreeItemState, TreeNode, TreeRow, flatten_tree_rows, use_tree};
+pub use tooltip::{TooltipApi, TooltipConfig, use_tooltip};
+pub use tree::{
+    TreeApi, TreeBranch, TreeItemState, TreeNode, TreeRow, flatten_tree_rows, use_tree,
+};
 
-pub use text_edit::{TextEdit, text_edit_policy, use_text_area, use_text_edit};
+pub use text_edit::{TextEditApi, text_edit_policy, use_text_area, use_text_edit};
 
-pub use zoom_pan::{ViewTransform, ZoomPan, use_zoom_pan};
+pub use zoom_pan::{ViewTransform, ZoomPanApi, use_zoom_pan};
 
 mod inline_edit;
-pub use inline_edit::{InlineEdit, use_inline_edit};
+pub use inline_edit::{InlineEditApi, use_inline_edit};

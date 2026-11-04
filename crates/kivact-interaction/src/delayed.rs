@@ -1,9 +1,9 @@
 //! Role: One delayed show and hide machine for tooltips, submenus and hover surfaces.
 //!
-//! [`Delayed`] follows a `wanted` condition late: it shows `open` after the
+//! [`DelayedApi`] follows a `wanted` condition late: it shows `open` after the
 //! condition turns true and hides `close` after it turns false, on host-clock
-//! task timers (no polling). [`Delayed::dismiss`] hides it at once and keeps it
-//! hidden until the condition goes false, and [`Delayed::pulse`] shows it at
+//! task timers (no polling). [`DelayedApi::dismiss`] hides it at once and keeps it
+//! hidden until the condition goes false, and [`DelayedApi::pulse`] shows it at
 //! once and hides it after the close delay (a "Copied" mark).
 
 use std::time::Duration;
@@ -12,7 +12,7 @@ use kivact_core::state::IntoValue;
 use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal, untrack};
 use kivact_core::task::{Task, sleep, spawn};
 
-/// How long a [`Delayed`] waits.
+/// How long a [`DelayedApi`] waits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Delays {
     /// From `wanted` becoming true to shown. Zero shows at once.
@@ -21,7 +21,7 @@ pub struct Delays {
     pub close: Duration,
 }
 
-/// Where a [`Delayed`] is.
+/// Where a [`DelayedApi`] is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DelayedPhase {
     /// Not wanted, not shown.
@@ -50,7 +50,7 @@ enum State {
 ///
 /// ```no_run
 /// use std::time::Duration;
-/// use kivact_core::{signal, control::{NodeBuilder, column, node, text}, view::show};
+/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, show}};
 /// use kivact_interaction::{Delays, use_delayed};
 /// let hovered = signal(false);
 /// let card = use_delayed(hovered, Delays {
@@ -59,11 +59,11 @@ enum State {
 /// });
 /// let view = column((
 ///     node().child(text("Hover me")),
-///     show(card.shown(), move || node().child(text("The card"))),
+///     show(card.is_open(), move || node().child(text("The card"))),
 /// ));
 /// ```
 #[derive(Clone, Copy)]
-pub struct Delayed {
+pub struct DelayedApi {
     state: Signal<State>,
     phase: Value<DelayedPhase>,
     shown: Value<bool>,
@@ -76,18 +76,18 @@ pub struct Delayed {
 /// Nothing is shown until `wanted` is true (and the open delay passed). Setup
 /// only.
 #[track_caller]
-pub fn use_delayed(wanted: impl IntoValue<bool>, delays: Delays) -> Delayed {
+pub fn use_delayed(wanted: impl IntoValue<bool>, delays: Delays) -> DelayedApi {
     delayed(wanted.into_value(), move || delays.open, delays.close)
 }
 
-/// A [`Delayed`] whose open delay is read at each false-to-true change of
+/// A [`DelayedApi`] whose open delay is read at each false-to-true change of
 /// `wanted` (the tooltip's skip delay). Setup only.
 #[track_caller]
 pub(crate) fn delayed(
     wanted: Value<bool>,
     open: impl Fn() -> Duration + 'static,
     close: Duration,
-) -> Delayed {
+) -> DelayedApi {
     let state = signal(State::Hidden);
     let phase = memo(move || {
         state.with(|state| match state {
@@ -99,7 +99,7 @@ pub(crate) fn delayed(
         })
     });
     let shown = memo(move || matches!(phase.get(), DelayedPhase::Shown | DelayedPhase::Closing));
-    let this = Delayed {
+    let this = DelayedApi {
         state,
         phase,
         shown,
@@ -120,10 +120,10 @@ pub(crate) fn delayed(
     this
 }
 
-impl Delayed {
+impl DelayedApi {
     /// Whether the content is shown: the phase is `Shown` or `Closing`
     /// (tracked).
-    pub fn shown(self) -> Value<bool> {
+    pub fn is_open(self) -> Value<bool> {
         self.shown
     }
 

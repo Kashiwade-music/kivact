@@ -18,7 +18,7 @@
 //! the surface's first focusable one through `focus_first_inside`) is
 //! requested after the mount through the core's restore path, which checks
 //! the target when the request is sent. A surface dismissal is admitted by
-//! the [`Dismiss`] rules (assistive technology always; an alert modal's
+//! the [`DismissOn`] rules (assistive technology always; an alert modal's
 //! default refuses an outside press), and an admitted one only writes `false`
 //! to the open binding, without passing the reason on. Whatever closes a
 //! popover while the focus is inside it, the focus goes back to the anchor
@@ -41,11 +41,11 @@ use kivact_core::state::{Binding, Value, Var, on_mount, var};
 use kivact_core::view::{A11yAction, A11yRequest, DismissReason, NodeRef, Role, node_ref};
 
 use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
-use super::popup::{Popup, PopupState, use_popup};
+use super::popup::{PopupApi, PopupState, use_popup};
 
 /// What a [`DialogApi`] is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DialogKind {
+pub enum DialogMode {
     /// A modal dialog in the middle of the window (`Role::Dialog`).
     Modal,
     /// A modal dialog that asks for an answer (`Role::AlertDialog`): an
@@ -57,17 +57,17 @@ pub enum DialogKind {
     Popover,
 }
 
-/// Which requests close a [`DialogApi`]. Assistive technology's Dismiss always
+/// Which requests close a [`DialogApi`]. Assistive technology's DismissOn always
 /// does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Dismiss {
+pub struct DismissOn {
     /// An unhandled Escape closes it.
     pub escape: bool,
     /// A pointer press outside it (and outside its anchor) closes it.
     pub outside: bool,
 }
 
-impl Default for Dismiss {
+impl Default for DismissOn {
     fn default() -> Self {
         Self {
             escape: true,
@@ -80,7 +80,7 @@ impl Default for Dismiss {
 /// work in any order.
 #[derive(Clone, Copy, Default)]
 struct DialogSettings {
-    dismiss: Option<Dismiss>,
+    dismiss: Option<DismissOn>,
     initial_focus: Option<NodeRef>,
 }
 
@@ -94,10 +94,10 @@ struct DialogSettings {
 ///
 /// | kind | role | modal |
 /// |---|---|---|
-/// | [`DialogKind::Modal`] | `Role::Dialog` | yes |
-/// | [`DialogKind::AlertModal`] | `Role::AlertDialog` | yes |
-/// | [`DialogKind::Drawer`] | `Role::Dialog` | yes |
-/// | [`DialogKind::Popover`] | `Role::Dialog` | no |
+/// | [`DialogMode::Modal`] | `Role::Dialog` | yes |
+/// | [`DialogMode::AlertModal`] | `Role::AlertDialog` | yes |
+/// | [`DialogMode::Drawer`] | `Role::Dialog` | yes |
+/// | [`DialogMode::Popover`] | `Role::Dialog` | no |
 ///
 /// Attach [`content`](Self::content) to the caller's `overlay(..)`: centered
 /// for a modal, at an edge for a drawer, at the anchor for a popover (the
@@ -115,18 +115,18 @@ struct DialogSettings {
 /// that had it when it opened: the engine and the overlay do that, and the
 /// dialog adds nothing to it. The focus starts on the
 /// [`initial_focus`](Self::initial_focus), or else on the first focusable
-/// node of the surface. A popover is a [`Popup`]: it also closes when the
+/// node of the surface. A popover is a [`PopupApi`]: it also closes when the
 /// focus leaves both it and its anchor, and the focus goes back to the anchor
 /// whenever it closes while the focus is inside, except after an outside
 /// press, which keeps the pressed destination.
 ///
 /// ```no_run
-/// use kivact_core::{signal, control::{NodeBuilder, column, node, text}, view::{Placement, Role, node_ref, overlay, show}};
-/// use kivact_interaction::{DialogKind, use_dialog};
-/// use kivact_core::custom::NodeExt;
+/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, Placement, Role, node_ref, overlay, show}};
+/// use kivact_interaction::{DialogMode, use_dialog};
+/// use kivact_core::view::NodeBuilder;
 /// let open = signal(false);
-/// let confirm = use_dialog(open, DialogKind::AlertModal);
-/// let view = show(confirm.shown(), move || {
+/// let confirm = use_dialog(open, DialogMode::AlertModal);
+/// let view = show(confirm.is_open(), move || {
 ///     overlay(node_ref(), Placement::Center, column((
 ///         text("Delete file").part(confirm.title()),
 ///         text("This cannot be undone.").part(confirm.description()),
@@ -138,8 +138,9 @@ struct DialogSettings {
 /// ```
 #[derive(Clone, Copy)]
 pub struct DialogApi {
-    popup: Popup,
-    kind: DialogKind,
+    popup: PopupApi,
+    content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
+    kind: DialogMode,
     settings: Var<DialogSettings>,
     /// Whether a popover has its anchor: a [`trigger`](Self::trigger) part
     /// or an [`anchor`](Self::anchor).
@@ -150,9 +151,10 @@ pub struct DialogApi {
 
 /// Create a dialog of `kind`, shown while `open` is true. Setup only.
 #[track_caller]
-pub fn use_dialog(open: impl Into<Binding<bool>>, kind: DialogKind) -> DialogApi {
+pub fn use_dialog(open: impl kivact_core::state::IntoBinding<bool>, kind: DialogMode) -> DialogApi {
     DialogApi {
         popup: use_popup(open),
+        content_state: kivact_core::state::signal(None),
         kind,
         settings: var(DialogSettings::default()),
         anchored: var(false),
@@ -162,6 +164,23 @@ pub fn use_dialog(open: impl Into<Binding<bool>>, kind: DialogKind) -> DialogApi
 }
 
 impl DialogApi {
+    /// Drawing state of the mounted trigger.
+    pub fn trigger_state(self) -> Value<PopupState> {
+        self.popup.trigger_state()
+    }
+    /// Drawing state of the mounted dialog surface.
+    pub fn content_state(self) -> Value<PopupState> {
+        kivact_core::state::memo(move || {
+            self.content_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(PopupState {
+                    input: PartState::default(),
+                    open: self.is_open().get(),
+                })
+        })
+    }
+
     /// Put the focus on this node when the dialog opens, instead of the first
     /// focusable one. The content has to mount the node.
     pub fn initial_focus(self, target: NodeRef) -> Self {
@@ -175,14 +194,14 @@ impl DialogApi {
     }
 
     /// Choose which requests close it. The default is Escape and an outside
-    /// press; for [`DialogKind::AlertModal`] it is Escape only.
-    pub fn dismiss(self, dismiss: Dismiss) -> Self {
+    /// press; for [`DialogMode::AlertModal`] it is Escape only.
+    pub fn dismiss(self, dismiss: DismissOn) -> Self {
         self.settings
             .update(|settings| settings.dismiss = Some(dismiss));
         self
     }
 
-    /// The node a [`DialogKind::Popover`] is placed at, for a popover opened
+    /// The node a [`DialogMode::Popover`] is placed at, for a popover opened
     /// by a node without the [`trigger`](Self::trigger) part. A popover needs
     /// an anchor or a trigger; the other kinds ignore it. Setup only.
     pub fn anchor(self, anchor: NodeRef) -> Self {
@@ -202,23 +221,23 @@ impl DialogApi {
     }
 
     /// The application's open state.
-    pub fn shown(self) -> Value<bool> {
-        self.popup.shown()
+    pub fn is_open(self) -> Value<bool> {
+        self.popup.is_open()
     }
 
     fn popover(self) -> bool {
-        self.kind == DialogKind::Popover
+        self.kind == DialogMode::Popover
     }
 
-    fn rules(self) -> Dismiss {
+    fn rules(self) -> DismissOn {
         self.settings
             .with(|settings| settings.dismiss)
             .unwrap_or(match self.kind {
-                DialogKind::AlertModal => Dismiss {
+                DialogMode::AlertModal => DismissOn {
                     outside: false,
-                    ..Dismiss::default()
+                    ..DismissOn::default()
                 },
-                _ => Dismiss::default(),
+                _ => DismissOn::default(),
             })
     }
 
@@ -231,7 +250,7 @@ impl DialogApi {
     }
 
     fn state(self) -> impl Fn(PartState) -> PopupState + 'static {
-        let open = self.shown();
+        let open = self.is_open();
         move |input| PopupState {
             input,
             open: open.get(),
@@ -261,31 +280,46 @@ impl DialogApi {
                 self.rules().outside
             }
             DismissReason::Accessibility => true,
+            DismissReason::Timeout => false,
         };
+        let open = self.popup.open_binding();
         let surface = if self.popover() {
             self.popup.content_with(allowed)
         } else {
-            let open = self.popup.open_binding();
-            part(self.state())
-                .reference(self.popup.content_ref())
-                .on_a11y_event(A11yAction::Dismiss, move |event| {
-                    let A11yRequest::Dismiss(reason) = event.request else {
-                        unreachable!("invariant: the Dismiss slot receives only Dismiss requests")
-                    };
-                    if allowed(reason) {
-                        open.set(false);
-                    }
-                })
-        };
-        surface
-            .role(match self.kind {
-                DialogKind::AlertModal => Role::AlertDialog,
-                _ => Role::Dialog,
+            let input = part(self.state());
+            Part::new(input.state(), move |host| {
+                host.part(input)
+                    .node_ref(self.popup.content_ref())
+                    .a11y_action(A11yAction::Dismiss, move |event| {
+                        let A11yRequest::Dismiss(reason) = event.request else {
+                            unreachable!(
+                                "invariant: a dismissal action receives a dismissal request"
+                            )
+                        };
+                        if allowed(reason) {
+                            open.set(false);
+                        }
+                    })
             })
-            .modal(!self.popover())
-            .labelled_by(self.title)
-            .described_by(self.description)
-            .on_bind(move |mount| self.bind(mount.node, at))
+        };
+        let part_state = surface.state();
+        self.content_state.set(Some(part_state));
+        Part::new(part_state, move |host| {
+            let surface = host.part(surface);
+            let surface = if self.popover() {
+                surface
+            } else {
+                surface.modal()
+            };
+            surface
+                .role(match self.kind {
+                    DialogMode::AlertModal => Role::AlertDialog,
+                    _ => Role::Dialog,
+                })
+                .labelled_by(self.title)
+                .described_by(self.description)
+                .on_attach(move |mount| self.bind(mount.node, at))
+        })
     }
 
     /// Per-opening focus: the start and, for a popover, the return. Setup
@@ -295,7 +329,6 @@ impl DialogApi {
             raise(
                 ErrorKind::Message,
                 "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
-                at,
             );
         }
         if self.popover() {
@@ -323,16 +356,27 @@ impl DialogApi {
     /// The title: a level 2 heading the surface is `labelled_by`.
     #[track_caller]
     pub fn title(self) -> Part<PopupState> {
-        part(self.state())
-            .reference(self.title)
-            .role(Role::Heading)
-            .level(2_u32)
+        let input = part(self.state());
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .node_ref(self.title)
+                .role(Role::Heading)
+                .level(2_u32)
+        })
     }
 
     /// A description the surface is `described_by`.
     #[track_caller]
     pub fn description(self) -> Part<PopupState> {
-        part(self.state()).reference(self.description)
+        let input = part(self.state());
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input).node_ref(target).node_ref(self.description)
+        })
     }
 
     /// A button whose activation closes the dialog.
@@ -341,9 +385,15 @@ impl DialogApi {
     /// it when it opened.
     #[track_caller]
     pub fn close_trigger(self) -> Part<PopupState> {
-        part(self.state())
-            .role(Role::Button)
-            .focusable(true)
-            .on_press(move || self.close(PopupCloseReason::Selection))
+        let input = part(self.state());
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .role(Role::Button)
+                .focusable(true)
+                .on_press(move || self.close(PopupCloseReason::Selection))
+        })
     }
 }

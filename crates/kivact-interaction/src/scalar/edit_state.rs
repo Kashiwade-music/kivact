@@ -2,24 +2,23 @@
 
 use super::touch::{Touch, TouchSliderGesture};
 use super::track::{self, Grip, Pointer};
-use crate::drag::Drag;
+use crate::drag::DragApi;
 use crate::edit::EditSession;
-use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
 use kivact_core::state::{Signal, Value, Var, effect, effect_on, memo, on_cleanup, signal, var};
 use kivact_core::view::{Handled, NodeRef, node_ref};
 
-/// The edit plumbing one [`Scalar`] or both thumbs of a
-/// [`RangeScalar`](crate::RangeScalar) share: the session, what it restores,
+/// The edit plumbing one [`ScalarApi`] or both thumbs of a
+/// [`RangeScalarApi`](crate::RangeScalarApi) share: the session, what it restores,
 /// the track's geometry and the one drag of the thumbs and the track.
 #[derive(Clone, Copy)]
 pub(crate) struct Shared {
     pub(crate) session: EditSession<[f64; 2]>,
     pub(crate) snapshot: Value<[f64; 2]>,
     pub(crate) pointer: Pointer,
-    pub(crate) drag: Drag<Grip>,
+    pub(crate) drag: DragApi<Grip>,
     pub(crate) touch: Var<Option<Touch>>,
-    /// The caller's disabled value, given to [`Scalar::disabled`].
+    /// The caller's disabled value, given to [`ScalarApi::disabled`].
     pub(crate) disabled: Signal<Option<Value<bool>>>,
     /// The keyboard increment given to `key_step`; the range's step else.
     pub(crate) key_step: Var<Option<f64>>,
@@ -71,11 +70,11 @@ impl Shared {
         self.touch.get().is_some_and(|touch| touch.finish(restore))
     }
 
-    pub(crate) fn touch_source<S: Clone + PartialEq + 'static>(
+    pub(crate) fn touch_source(
         self,
-        part: Part<S>,
+        part: kivact_core::view::Node,
         grip: Grip,
-    ) -> Part<S> {
+    ) -> kivact_core::view::Node {
         if let Some(touch) = self.touch.get() {
             part.on_pointer(move |event| {
                 if self.disabled.get().is_some_and(|disabled| disabled.get()) {
@@ -111,6 +110,7 @@ impl Shared {
 /// The edit plumbing of one thumb.
 #[derive(Clone, Copy)]
 pub(crate) struct Edit {
+    pub(crate) observed: Signal<Option<Value<super::handle::ScalarState>>>,
     pub(crate) shared: Shared,
     /// Which thumb of the slider this is, from 0.
     pub(crate) index: usize,
@@ -131,6 +131,7 @@ impl Edit {
     ) -> Self {
         let thumb = node_ref();
         Edit {
+            observed: signal(None),
             shared,
             index,
             thumb,

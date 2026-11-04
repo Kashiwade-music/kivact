@@ -1,4 +1,4 @@
-//! Role: Popup adds overlay focus, dismissal and restoration to a disclosure.
+//! Role: PopupApi adds overlay focus, dismissal and restoration to a disclosure.
 //!
 //! The trigger binds the anchor, opens and closes on activation, takes
 //! Expand and Collapse, and closes as `Tab` when Tab is released on it; the
@@ -43,7 +43,7 @@ use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
 };
 
-use super::disclosure::{Disclosure, use_disclosure};
+use super::disclosure::{DisclosureApi, use_disclosure};
 use super::focus_return::{FocusReturn, PopupCloseReason};
 
 /// The open state and actual input state of a popup's trigger or surface.
@@ -81,16 +81,16 @@ pub struct PopupState {
 /// before the next flush is skipped, and an explicit live focus request wins.
 ///
 /// ```no_run
-/// use kivact_core::{signal, control::{NodeBuilder, node, text}, view::{Placement, Role, overlay, show}};
+/// use kivact_core::{state::signal, view::{NodeBuilder, node, text, Placement, Role, overlay, show}};
 /// use kivact_interaction::use_popup;
-/// use kivact_core::custom::NodeExt;
+/// use kivact_core::view::NodeBuilder;
 /// let open = signal(false);
 /// let menu = use_popup(open);
 /// let trigger = menu.trigger();
-/// let anchor = trigger.node_ref();
+/// let anchor = node_ref();
 /// let view = (
-///     node().part(trigger).name("Options").child(text("Options")),
-///     show(menu.shown(), move || {
+///     node().node_ref(anchor).part(trigger).name("Options").child(text("Options")),
+///     show(menu.is_open(), move || {
 ///         overlay(anchor, Placement::Below, text("Contents"))
 ///             .part(menu.content())
 ///             .role(Role::Dialog)
@@ -99,21 +99,23 @@ pub struct PopupState {
 /// );
 /// ```
 #[derive(Clone, Copy)]
-pub struct Popup {
-    disclosure: Disclosure,
+pub struct PopupApi {
+    disclosure: DisclosureApi,
+    content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
+    trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
     settings: Var<PopupSettings>,
     opening: Var<Option<Opening>>,
 }
 
-/// What the setters of a [`Popup`] store; read when a surface binds.
+/// What the setters of a [`PopupApi`] store; read when a surface binds.
 #[derive(Clone, Copy, Default)]
 struct PopupSettings {
     anchor: Option<NodeRef>,
     initial_focus: Option<NodeRef>,
     focus_return: Option<FocusReturn>,
-    anchor_starts_focus_range: bool,
+    anchor_starts_focus_range: Option<Value<bool>>,
 }
 
 /// What one opening of the surface remembers, from its bind to its removal.
@@ -135,16 +137,43 @@ struct Opening {
 /// No implicit open signal is created and creation does not write it. Setup
 /// only.
 #[track_caller]
-pub fn use_popup(open: impl Into<Binding<bool>>) -> Popup {
-    Popup {
+pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
+    PopupApi {
         disclosure: use_disclosure(open),
+        content_state: kivact_core::state::signal(None),
+        trigger_state: kivact_core::state::signal(None),
         own_anchor: node_ref(),
         settings: var(PopupSettings::default()),
         opening: var(None),
     }
 }
 
-impl Popup {
+impl PopupApi {
+    /// Drawing state of the mounted trigger.
+    pub fn trigger_state(self) -> Value<PopupState> {
+        memo(move || {
+            self.trigger_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(PopupState {
+                    input: PartState::default(),
+                    open: self.is_open().get(),
+                })
+        })
+    }
+    /// Drawing state of the mounted surface.
+    pub fn content_state(self) -> Value<PopupState> {
+        memo(move || {
+            self.content_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(PopupState {
+                    input: PartState::default(),
+                    open: self.is_open().get(),
+                })
+        })
+    }
+
     /// Use this node as the anchor instead of the trigger part's node.
     ///
     /// The anchor is the node focus returns to and part of the popup's focus
@@ -165,9 +194,10 @@ impl Popup {
         self
     }
 
-    pub(crate) fn anchor_starts_focus_range(self, enabled: bool) -> Self {
+    pub(crate) fn anchor_starts_focus_range(self, enabled: impl IntoValue<bool>) -> Self {
+        let enabled = enabled.into_value();
         self.settings
-            .update(|settings| settings.anchor_starts_focus_range = enabled);
+            .update(|settings| settings.anchor_starts_focus_range = Some(enabled));
         self
     }
 
@@ -219,8 +249,8 @@ impl Popup {
     }
 
     /// The application's authoritative open state.
-    pub fn shown(self) -> Value<bool> {
-        self.disclosure.shown()
+    pub fn is_open(self) -> Value<bool> {
+        self.disclosure.is_open()
     }
 
     /// The anchor: the node given to [`anchor`](Self::anchor), else the
@@ -245,7 +275,7 @@ impl Popup {
     /// controlled binding accepts it. A missing target receives no focus request.
     #[track_caller]
     pub fn close(self, reason: PopupCloseReason) {
-        if !self.shown().get_untracked() {
+        if !self.is_open().get_untracked() {
             return;
         }
         self.finish_close(reason);
@@ -253,7 +283,7 @@ impl Popup {
 
     fn finish_close(self, reason: PopupCloseReason) {
         let modal = self.content_ref().is_modal();
-        let open = self.shown();
+        let open = self.is_open();
         if open.get_untracked() {
             self.disclosure.open.set(false);
         }
@@ -279,7 +309,7 @@ impl Popup {
     }
 
     fn toggle(self) {
-        if self.shown().get() {
+        if self.is_open().get() {
             self.close(PopupCloseReason::Programmatic);
         } else {
             self.disclosure.open.set(true);
@@ -295,24 +325,30 @@ impl Popup {
     /// handlers. The part binds the popup's anchor.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
-        self.disclosure
-            .base_trigger(|input, open| PopupState { input, open })
-            .reference(self.own_anchor)
-            // The host consumes Tab to move focus, so only its release is
-            // seen, by the element that has the focus now. Shift+Tab from the
-            // surface back to the trigger leaves the surface, which stays open
-            // as the anchor is part of its focus range.
-            .on_key_up(move |event: KeyEvent| {
-                if event.key() == Key::Tab && self.shown().get() {
-                    self.close(PopupCloseReason::Tab);
-                }
-                Handled::No
-            })
-            .on_press(move || self.toggle())
-            .on_a11y(A11yAction::Expand, move || self.disclosure.open.set(true))
-            .on_a11y(A11yAction::Collapse, move || {
-                self.close(PopupCloseReason::Accessibility)
-            })
+        let base = self
+            .disclosure
+            .base_trigger(|input, open| PopupState { input, open });
+        let part_state = base.state();
+        self.trigger_state.set(Some(part_state));
+        Part::new(part_state, move |host| {
+            host.part(base)
+                .node_ref(self.own_anchor)
+                // The host consumes Tab to move focus, so only its release is
+                // seen, by the element that has the focus now. Shift+Tab from the
+                // surface back to the trigger leaves the surface, which stays open
+                // as the anchor is part of its focus range.
+                .on_key_up(move |event: KeyEvent| {
+                    if event.key() == Key::Tab && self.is_open().get() {
+                        self.close(PopupCloseReason::Tab);
+                    }
+                    Handled::No
+                })
+                .on_press(move || self.toggle())
+                .a11y_action(A11yAction::Expand, move |_| self.disclosure.open.set(true))
+                .a11y_action(A11yAction::Collapse, move |_| {
+                    self.close(PopupCloseReason::Accessibility)
+                })
+        })
     }
 
     /// The floating surface, for the caller's `overlay(..)`.
@@ -335,29 +371,39 @@ impl Popup {
         allow: impl Fn(DismissReason) -> bool + 'static,
     ) -> Part<PopupState> {
         let at = Location::caller();
-        let open = self.shown();
-        part(move |input| PopupState {
+        let open = self.is_open();
+        let input = part(move |input| PopupState {
             input,
             open: open.get(),
+        });
+        let part_state = input.state();
+        self.content_state.set(Some(part_state));
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .node_ref(self.content_ref())
+                .a11y_action(A11yAction::Dismiss, move |event| {
+                    let A11yRequest::Dismiss(reason) = event.request else {
+                        unreachable!(
+                            "invariant: the DismissOn slot receives only DismissOn requests"
+                        )
+                    };
+                    if !allow(reason) {
+                        return;
+                    }
+                    // An earlier caller dismissal handler may already have closed the
+                    // binding. Its surface is still mounted during this same handler
+                    // chain, so the reason's focus policy still applies.
+                    self.finish_close(match reason {
+                        DismissReason::Escape => PopupCloseReason::Escape,
+                        DismissReason::OutsidePress => PopupCloseReason::OutsidePress,
+                        DismissReason::Accessibility => PopupCloseReason::Accessibility,
+                        DismissReason::Timeout => PopupCloseReason::Programmatic,
+                    });
+                })
+                .on_attach(move |_| self.watch(at))
         })
-        .reference(self.content_ref())
-        .on_a11y_event(A11yAction::Dismiss, move |event| {
-            let A11yRequest::Dismiss(reason) = event.request else {
-                unreachable!("invariant: the Dismiss slot receives only Dismiss requests")
-            };
-            if !allow(reason) {
-                return;
-            }
-            // An earlier caller dismissal handler may already have closed the
-            // binding. Its surface is still mounted during this same handler
-            // chain, so the reason's focus policy still applies.
-            self.finish_close(match reason {
-                DismissReason::Escape => PopupCloseReason::Escape,
-                DismissReason::OutsidePress => PopupCloseReason::OutsidePress,
-                DismissReason::Accessibility => PopupCloseReason::Accessibility,
-            });
-        })
-        .on_bind(move |_| self.watch(at))
     }
 
     /// Per-mount focus range, anchor removal and initial focus. Setup only,
@@ -366,11 +412,10 @@ impl Popup {
         if self.opening.with(Option::is_some) {
             raise(
                 ErrorKind::Message,
-                "Popup: one surface at a time; create one popup per simultaneous surface",
-                at,
+                "PopupApi: one surface at a time; create one popup per simultaneous surface",
             );
         }
-        let owner = Owner::current("Popup::watch");
+        let owner = Owner::current();
         self.opening.set(Some(Opening {
             opener: focused_node(),
             policy: self.base_policy(),
@@ -394,7 +439,7 @@ impl Popup {
         let within = self.content_ref().focus_within();
         let anchor = self.anchor_ref();
         let anchor_focused = anchor.focused();
-        let open = self.shown();
+        let open = self.is_open();
         let anchor_starts = self
             .settings
             .with(|settings| settings.anchor_starts_focus_range);
@@ -405,13 +450,15 @@ impl Popup {
                 return;
             }
             let focused = owner.focused_node();
-            if anchor.tracked_node(at).is_some() {
+            if anchor.tracked_node().is_some() {
                 anchor_seen.set(true);
             } else if anchor_seen.get() {
                 self.close(PopupCloseReason::AnchorRemoved);
                 return;
             }
-            if within.get() || (anchor_starts && anchor_focused.get()) {
+            if within.get()
+                || (anchor_starts.is_some_and(|enabled| enabled.get()) && anchor_focused.get())
+            {
                 entered.set(true);
             } else if entered.get() && !anchor_focused.get() && focused.is_some() {
                 self.close(PopupCloseReason::Tab);

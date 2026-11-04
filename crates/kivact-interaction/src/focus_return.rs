@@ -5,6 +5,7 @@
 //! decides whether the target may take the focus (liveness, hiding, the open
 //! modal): a request submits `restore_focus()` and nothing else.
 
+use crate::Selection;
 use kivact_core::custom::NodeToken;
 use kivact_core::view::NodeRef;
 

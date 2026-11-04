@@ -3,12 +3,12 @@
 //! Unstyled behavior and semantics of a command palette: a modal with a
 //! search field over a filtered, grouped list of commands.
 //!
-//! [`use_command_palette`] is a Copy handle joining a [`Combobox`] and a
+//! [`use_command_palette`] is a Copy handle joining a [`ComboboxApi`] and a
 //! modal [`DialogApi`]. Its parts are `content`, `input`, `list`,
 //! `group(index)` and `item(key)`, and its state is `visible` (a
 //! `Value<Vec<CommandGroup<K>>>`), `active` and `query`; the parts add the
 //! input's `controls` and `active_descendant`, the group names and the
-//! options' `selected`. [`CommandPalette::show`] only manages the content's
+//! options' `selected`. [`CommandPaletteApi::show`] only manages the content's
 //! lifetime. A [`Command`] is plain data (key, reactive label, group, hint,
 //! keywords, disabled), and the caller draws its icon from the key. The
 //! default search is [`filter_commands`] (a substring of the label, group,
@@ -18,13 +18,14 @@
 //! `close_on`. The search field, the empty result, the headings, the footer,
 //! the scroll height and the look are the caller's drawing.
 
+use crate::Selection;
+use kivact_core::state::IntoBinding;
 use kivact_core::view::HandlerResult;
-use std::hash::Hash;
 use std::rc::Rc;
 
 use super::{
-    Combobox, DialogApi, DialogKind, ListItem, ListItemState, ListSelection, PopupState,
-    use_combobox, use_dialog,
+    ComboboxApi, DialogApi, DialogMode, ListItem, ListItemState, PopupState, use_combobox,
+    use_dialog,
 };
 use kivact_core::UiError;
 use kivact_core::custom::{Part, PartState, part};
@@ -34,7 +35,7 @@ use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::Icon;
 use kivact_core::view::{Handled, IntoView, KeyEvent, Reactive, Role, View};
 
-/// One command a [`CommandPalette`] lists.
+/// One command a [`CommandPaletteApi`] lists.
 ///
 /// A command is plain data. The key is the application's identity for it:
 /// the palette looks rows up by key, hands the key of the chosen command to
@@ -96,26 +97,26 @@ impl<K> Command<K> {
 
     /// Put the command under this heading. Neighbouring commands with the
     /// same group share one heading.
-    pub fn group(mut self, group: impl IntoText) -> Self {
+    pub fn with_group(mut self, group: impl IntoText) -> Self {
         self.group = Some(Reactive::new(group.into_text()));
         self
     }
 
     /// Show this text on the row, such as a shortcut.
-    pub fn hint(mut self, hint: impl IntoText) -> Self {
+    pub fn with_hint(mut self, hint: impl IntoText) -> Self {
         self.hint = Some(Reactive::new(hint.into_text()));
         self
     }
 
     /// Words only the search matches.
-    pub fn keywords(mut self, words: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    pub fn with_keywords(mut self, words: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.keywords = words.into_iter().map(Into::into).collect();
         self
     }
 
     /// Show `icon` at the start of the row: a name the theme's icon set
     /// resolves (`"file"`) or an image.
-    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
+    pub fn with_icon(mut self, icon: impl Into<Icon>) -> Self {
         self.icon = Some(icon.into());
         self
     }
@@ -140,23 +141,23 @@ impl<K> Command<K> {
 
     /// The heading's current text ([`group`](Self::group)); tracked.
     #[track_caller]
-    pub fn group_value(&self) -> Option<String> {
+    pub fn group(&self) -> Option<String> {
         self.group.as_ref().map(Reactive::get)
     }
 
     /// The hint's current text ([`hint`](Self::hint)); tracked.
     #[track_caller]
-    pub fn hint_value(&self) -> Option<String> {
+    pub fn hint(&self) -> Option<String> {
         self.hint.as_ref().map(Reactive::get)
     }
 
     /// The words only the search matches ([`keywords`](Self::keywords)).
-    pub fn keywords_value(&self) -> &[String] {
+    pub fn keywords(&self) -> &[String] {
         &self.keywords
     }
 
     /// The icon given to [`icon`](Self::icon).
-    pub fn icon_value(&self) -> Option<&Icon> {
+    pub fn icon(&self) -> Option<&Icon> {
         self.icon.as_ref()
     }
 
@@ -204,7 +205,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// when it closes. The shortcut that opens it (Ctrl K in most apps) is the
 /// application's to bind.
 ///
-/// It joins a modal [`DialogApi`] and a [`Combobox`]: [`show`](Self::show)
+/// It joins a modal [`DialogApi`] and a [`ComboboxApi`]: [`show`](Self::show)
 /// mounts the caller's content while it is open, with
 /// [`content`](Self::content) on the caller's centered `overlay(..)`,
 /// [`input`](Self::input) on a caller-owned editing node bound to [`query`](Self::query),
@@ -216,7 +217,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// fails the error is reported and the palette stays open.
 ///
 /// When it opens the query is empty, the focus is on the field and the active
-/// row is the first enabled one. Keys and pointer follow [`Combobox`]: the
+/// row is the first enabled one. Keys and pointer follow [`ComboboxApi`]: the
 /// arrow keys move the active row and wrap at the ends, Home and End move the
 /// caret, typing makes the first enabled match active again. Escape closes it,
 /// and so does a key that [`close_on`](Self::close_on) matches. A press inside
@@ -231,20 +232,26 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{prelude, view};
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{Command, use_command_palette};
-/// use kivact_core::custom::NodeExt;
+/// use kivact_core::view::NodeBuilder;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
 /// fn palette(open: Signal<bool>, last: Signal<Option<&'static str>>) -> impl IntoView {
 ///     let commands = vec![
-///         Command::new("save", "Save").group("File").hint("Ctrl S"),
-///         Command::new("theme", "Toggle theme").keywords(["dark", "light"]),
+///         Command::new("save", "Save").with_group("File").with_hint("Ctrl S"),
+///         Command::new("theme", "Toggle theme").with_keywords(["dark", "light"]),
 ///     ];
-///     let p = use_command_palette(open, commands, move |key| last.set(Some(key)));
+///     let p = use_command_palette(commands, open).on_activate(move |key| last.set(Some(key)));
 ///     p.show(move || {
 ///         let rows = for_each(p.visible(), |g| g.index, move |_, group| {
 ///             let commands = memo(move || group.with(|g| g.commands.clone()));
@@ -262,33 +269,33 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///     })
 /// }
 /// ```
-pub struct CommandPalette<K: Clone + Eq + Hash + 'static> {
+pub struct CommandPaletteApi<K: kivact_core::state::ItemKey> {
     open: Binding<bool>,
+    run: kivact_core::state::Var<kivact_core::state::Callback<K>>,
     dialog: DialogApi,
-    combobox: Combobox<K>,
+    combobox: ComboboxApi<K>,
     filter: Signal<CommandFilter<K>>,
     close_on: Signal<Option<CloseOn>>,
     groups: Value<Vec<CommandGroup<K>>>,
 }
 
-impl<K: Clone + Eq + Hash + 'static> Clone for CommandPalette<K> {
+impl<K: kivact_core::state::ItemKey> Clone for CommandPaletteApi<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Copy for CommandPalette<K> {}
+impl<K: kivact_core::state::ItemKey> Copy for CommandPaletteApi<K> {}
 
 /// A palette shown while `open` is true over `commands`, calling `run` with
 /// the key of the command the user chooses. Setup only.
 #[track_caller]
-pub fn use_command_palette<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
-    open: impl Into<Binding<bool>>,
+pub fn use_command_palette<K: kivact_core::state::ItemKey>(
     commands: impl IntoValue<Vec<Command<K>>>,
-    run: impl Fn(K) -> R + 'static,
-) -> CommandPalette<K> {
-    let open = open.into();
+    open: impl kivact_core::state::IntoBinding<bool>,
+) -> CommandPaletteApi<K> {
+    let open = open.into_binding();
     let commands = commands.into_value();
-    let run = callback(run);
+    let run = kivact_core::state::var(callback(|_: K| ()));
     let filter = signal::<CommandFilter<K>>(Rc::new(filter_commands));
     let options = memo(move || {
         commands.with(|all| {
@@ -309,20 +316,19 @@ pub fn use_command_palette<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
         None::<K>.into_value(),
         move |key: Option<K>| -> Result<(), UiError> {
             if let Some(key) = key {
-                run.try_call(key)?;
+                run.get().try_call(key)?;
                 open.set(false);
             }
             Ok(())
         },
     );
-    let combobox =
-        use_combobox(options, ListSelection::Single(chosen)).filter(move |query, option| {
-            commands.with(|all| {
-                all.iter()
-                    .find(|command| command.key == option.key)
-                    .is_some_and(|command| filter.with(|filter| filter(query, command)))
-            })
-        });
+    let combobox = use_combobox(options, Selection::Single(chosen)).filter(move |query, option| {
+        commands.with(|all| {
+            all.iter()
+                .find(|command| command.key == option.key)
+                .is_some_and(|command| filter.with(|filter| filter(query, command)))
+        })
+    });
     let shown = open.into_value();
     effect(move || {
         if !shown.get() {
@@ -356,9 +362,10 @@ pub fn use_command_palette<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
         });
         out
     });
-    CommandPalette {
+    CommandPaletteApi {
+        run,
         open,
-        dialog: use_dialog(open, DialogKind::Modal).initial_focus(combobox.input_ref()),
+        dialog: use_dialog(open, DialogMode::Modal).initial_focus(combobox.input_ref()),
         combobox,
         filter,
         close_on: signal(None),
@@ -366,7 +373,34 @@ pub fn use_command_palette<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> CommandPalette<K> {
+impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
+    /// Drawing state of the mounted palette surface.
+    pub fn content_state(self) -> Value<PopupState> {
+        self.dialog.content_state()
+    }
+    /// Drawing state of the mounted query editor.
+    pub fn input_state(self) -> Value<PartState> {
+        self.combobox.input_state()
+    }
+    /// Drawing state of the mounted result list.
+    pub fn list_state(self) -> Value<PartState> {
+        self.combobox.content_state()
+    }
+    /// Drawing state of a mounted command.
+    pub fn item_state(self, key: K) -> Value<ListItemState> {
+        self.combobox.item_state(key)
+    }
+
+    /// Handle activation of a command.
+    pub fn on_activate<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
+        self.run.set(callback(f));
+        self
+    }
+    /// Whether the palette is open.
+    pub fn is_open(self) -> Value<bool> {
+        self.open.into_value()
+    }
+
     /// Choose which commands the query shows. It receives the query as typed
     /// and a command, and reads the command's reactive texts with `get()`, so
     /// the list follows a locale switch. The default is [`filter_commands`].
@@ -410,10 +444,13 @@ impl<K: Clone + Eq + Hash + 'static> CommandPalette<K> {
     /// `Role::Dialog` named by the message `palette.label`. Setup only.
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
-        self.dialog
-            .content()
-            .name(message("palette.label", "Command palette"))
-            .focus_on_press(self.combobox.input_ref())
+        let base = self.dialog.content();
+        let part_state = base.state();
+        Part::new(part_state, move |host| {
+            host.part(base)
+                .name(message("palette.label", "Command palette"))
+                .focus_on_press(self.combobox.input_ref())
+        })
     }
 
     /// The search field, named by the message `palette.search`, with
@@ -423,24 +460,30 @@ impl<K: Clone + Eq + Hash + 'static> CommandPalette<K> {
     pub fn input(self) -> Part<PartState> {
         let close_on = self.close_on;
         let open = self.open;
-        self.combobox
-            .input()
-            .name(message("palette.search", "Search commands"))
-            .on_key(move |event: KeyEvent| {
-                if close_on.get().is_some_and(|matches| matches(&event)) {
-                    open.set(false);
-                    return Handled::Yes;
-                }
-                Handled::No
-            })
+        let base = self.combobox.input();
+        let part_state = base.state();
+        Part::new(part_state, move |host| {
+            host.part(base)
+                .name(message("palette.search", "Search commands"))
+                .on_key(move |event: KeyEvent| {
+                    if close_on.get().is_some_and(|matches| matches(&event)) {
+                        open.set(false);
+                        return Handled::Yes;
+                    }
+                    Handled::No
+                })
+        })
     }
 
     /// The list box that holds the rows, named like the dialog. Setup only.
     #[track_caller]
     pub fn list(self) -> Part<PartState> {
-        self.combobox
-            .content()
-            .name(message("palette.label", "Command palette"))
+        let base = self.combobox.content();
+        let part_state = base.state();
+        Part::new(part_state, move |host| {
+            host.part(base)
+                .name(message("palette.label", "Command palette"))
+        })
     }
 
     /// The run `index` of [`visible`](Self::visible), which has a heading:
@@ -448,18 +491,26 @@ impl<K: Clone + Eq + Hash + 'static> CommandPalette<K> {
     #[track_caller]
     pub fn group(self, index: usize) -> Part<PartState> {
         let groups = self.groups;
-        part(|input| input).role(Role::Group).name(move || {
-            groups.with(|groups| {
-                groups
-                    .get(index)
-                    .and_then(|group| group.heading.as_ref())
-                    .map(|heading| heading.get())
-                    .unwrap_or_default()
-            })
+        let input = part(|input| input);
+        let part_state = input.state();
+        let target = kivact_core::view::node_ref();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(target)
+                .role(Role::Group)
+                .name(move || {
+                    groups.with(|groups| {
+                        groups
+                            .get(index)
+                            .and_then(|group| group.heading.as_ref())
+                            .map(|heading| heading.get())
+                            .unwrap_or_default()
+                    })
+                })
         })
     }
 
-    /// The row of the command `key`; see [`Combobox::item`]. Its state's
+    /// The row of the command `key`; see [`ComboboxApi::item`]. Its state's
     /// `active` is whether it is the active command. Setup only.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {
@@ -471,9 +522,10 @@ impl<K: Clone + Eq + Hash + 'static> CommandPalette<K> {
     ///
     /// The palette keeps its open state with its dialog, so this method,
     /// like [`MenuApi::show`](crate::MenuApi::show), is how its content mounts;
-    /// the other overlays mount theirs with `show(x.shown(), ..)`.
+    /// the other overlays mount theirs with `show(x.is_open(), ..)`.
     #[track_caller]
-    pub fn show<V: IntoView>(self, factory: impl Fn() -> V + 'static) -> View {
-        kivact_core::view::show(self.dialog.shown(), factory).into_view()
+    pub fn show<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
+        let factory = factory.into_view_fn();
+        kivact_core::view::show(self.dialog.is_open(), move || factory.call(())).into_view()
     }
 }
