@@ -494,11 +494,11 @@ fn decorations(
 ) -> Vec<TextDecorationRect> {
     let mut out: Vec<TextDecorationRect> = Vec::new();
     for s in segments {
-        let decoration: TextDecoration = s
+        let span_decoration = s
             .span
             .and_then(|i| spans.get(i))
-            .and_then(|span| span.style.decoration)
-            .unwrap_or(style.decoration);
+            .and_then(|span| span.style.decoration);
+        let decoration: TextDecoration = span_decoration.unwrap_or(style.decoration);
         if decoration.lines.is_empty() || s.x1 <= s.x0 {
             continue;
         }
@@ -506,8 +506,13 @@ fn decorations(
         let m = s.metrics;
         // Fonts without the metrics get a line of a fourteenth of their size.
         let fallback = (s.font_size / 14.0).max(0.5);
+        // Inherited decoration lengths keep the paragraph's font basis.
         let own = ComputedTextStyle {
-            font_size: s.font_size,
+            font_size: if span_decoration.is_some() {
+                s.font_size
+            } else {
+                style.font_size
+            },
             decoration,
             ..style.clone()
         };
