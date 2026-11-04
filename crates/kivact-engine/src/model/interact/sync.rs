@@ -48,7 +48,7 @@ impl Model {
         if self.viewport != window {
             self.viewport = window;
             if let Some(root) = self.tree.root() {
-                self.changes.a11y_subtrees.insert(root);
+                self.a11y.subtree(root);
             } else {
                 self.a11y.invalidate();
             }
@@ -165,30 +165,6 @@ impl Model {
         let restack = changes.restack || moved || restyled;
         self.paint
             .outdate_paint(&self.tree, &changes, redraw, changes.fonts, restack);
-        for id in changes.marked(Dirty::WRITTEN.union(Dirty::REDRAW)) {
-            let flags = changes.flags(id);
-            if flags.contains(Dirty::A11Y_LOCAL_TEXT) && !flags.contains(Dirty::A11Y_METADATA) {
-                self.a11y.local_text(id);
-            } else {
-                self.a11y.node(id);
-            }
-            if self
-                .node(id)
-                .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
-            {
-                self.a11y.subtree(id);
-            }
-        }
-        for id in changes
-            .marked(Dirty::SCROLLED.union(Dirty::STUCK))
-            .chain(changes.a11y_subtrees.iter().copied())
-        {
-            self.a11y.subtree(id);
-        }
-        if changes.a11y_structure || changes.a11y_focus || !changes.a11y_removed.is_empty() {
-            self.a11y
-                .request_publication(changes.a11y_removed.iter().copied());
-        }
         self.report_sessions();
     }
 
@@ -254,8 +230,8 @@ impl Model {
                 let image = node.and_then(|n| n.image());
                 if self.assets.get_mut().natural_changed(image, used) {
                     self.remeasure(*id);
-                    self.changes
-                        .mark(*id, Dirty::REDRAW.union(Dirty::A11Y_METADATA));
+                    self.changes.mark(*id, Dirty::REDRAW);
+                    self.a11y.node(*id);
                 }
             }
             self.changes.paint = true;

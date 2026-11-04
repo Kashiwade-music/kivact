@@ -132,7 +132,7 @@ impl Model {
         if pop_layout {
             self.pop_exit_layout(id);
         }
-        self.changes.a11y_subtrees.insert(id);
+        self.a11y.subtree(id);
         self.changes.restack = true;
         self.revalidate_hover();
         self.focus.forget_missing(&self.tree);

@@ -32,7 +32,7 @@
 //! - Positions are one [`Geometry`]. `sync` takes what it dispatches with
 //!   [`Changes::dispatch`], which leaves `MEASURE` and `LayoutReasons` for the layout pass.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use kivact_types::NodeId;
 
@@ -57,11 +57,6 @@ impl Dirty {
     pub(crate) const SCROLLED: Self = Self(1 << 5);
     /// Its sticky shift changed (it and its subtree moved).
     pub(crate) const STUCK: Self = Self(1 << 6);
-
-    /// Proven content/session-only writes; mixed unknown changes override this.
-    pub(crate) const A11Y_LOCAL_TEXT: Self = Self(1 << 8);
-    /// An unclassified or metadata-affecting change on this same node.
-    pub(crate) const A11Y_METADATA: Self = Self(1 << 9);
 
     /// Whether every bit of `bits` is set.
     pub(crate) const fn contains(self, bits: Self) -> bool {
@@ -138,10 +133,6 @@ pub(crate) struct Changes {
     pub(super) paint: bool,
     pub(super) restack: bool,
     pub(super) fonts: bool,
-    pub(super) a11y_structure: bool,
-    pub(super) a11y_subtrees: HashSet<NodeId>,
-    pub(super) a11y_removed: HashSet<NodeId>,
-    pub(super) a11y_focus: bool,
 }
 
 /// What one sync dispatches into derived work (`Changes::dispatch`).
@@ -151,10 +142,6 @@ pub(crate) struct Dispatched {
     pub(crate) paint: bool,
     pub(crate) restack: bool,
     pub(crate) fonts: bool,
-    pub(crate) a11y_structure: bool,
-    pub(crate) a11y_subtrees: HashSet<NodeId>,
-    pub(crate) a11y_removed: HashSet<NodeId>,
-    pub(crate) a11y_focus: bool,
 }
 
 impl Dispatched {
@@ -169,11 +156,6 @@ impl Dispatched {
             .iter()
             .filter(move |(_, d)| d.intersects(bits))
             .map(|(id, _)| *id)
-    }
-
-    /// What is pending for `id`.
-    pub(crate) fn flags(&self, id: NodeId) -> Dirty {
-        self.dirty.get(&id).copied().unwrap_or_default()
     }
 
     /// Whether the layout was computed.
@@ -239,10 +221,6 @@ impl Changes {
             paint: std::mem::take(&mut self.paint),
             restack: std::mem::take(&mut self.restack),
             fonts: std::mem::take(&mut self.fonts),
-            a11y_structure: std::mem::take(&mut self.a11y_structure),
-            a11y_subtrees: std::mem::take(&mut self.a11y_subtrees),
-            a11y_removed: std::mem::take(&mut self.a11y_removed),
-            a11y_focus: std::mem::take(&mut self.a11y_focus),
         }
     }
 

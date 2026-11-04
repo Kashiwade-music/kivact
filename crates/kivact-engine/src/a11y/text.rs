@@ -58,7 +58,12 @@ impl Model {
             })
             .expect("invariant: editing node has editing state");
         let value = edit.value();
-        let mut ids = || a11y.next_identity(tree);
+        let mut ids = || loop {
+            let id = a11y.ids.next().0;
+            if !tree.contains(NodeId(id)) {
+                break id;
+            }
+        };
         let (mut lines, _) = crate::measure::input::edit_lines(
             tree,
             &self.measure,
@@ -114,7 +119,7 @@ impl Model {
                 let key = (id, run.id.0);
                 let native = match self.a11y.authored.get(&key) {
                     Some(native) => *native,
-                    None => self.a11y.next_identity(&self.tree),
+                    None => self.next_semantics_identity(),
                 };
                 self.a11y.authored.insert(key, native);
                 let shown = SemanticsTextRun {

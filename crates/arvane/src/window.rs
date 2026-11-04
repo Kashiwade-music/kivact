@@ -94,9 +94,6 @@ impl Window<'_> {
         }
         self.presenter.present_native(self.shell, scene, plan)
     }
-    pub fn accessibility_active(&self) -> bool {
-        self.shell.accessibility_active()
-    }
     pub fn replace_accessibility(
         &mut self,
         tree: &SemanticsTree,

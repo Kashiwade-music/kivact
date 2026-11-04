@@ -58,9 +58,6 @@ pub trait ShellWindow {
         update: &kivact_types::render::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
-    /// Whether assistive technology currently requests this window's accepted semantics.
-    fn accessibility_active(&self) -> bool;
-
     /// Current logical content extent in pixels.
     fn size(&self) -> Size;
 

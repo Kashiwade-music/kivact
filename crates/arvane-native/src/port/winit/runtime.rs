@@ -223,9 +223,6 @@ impl ShellWindow for WinitWindow {
     /// let go of it (AT-SPI deactivates when the screen reader stops).
     /// Otherwise nothing reads the tree, so the application need not build
     /// it; the next activation wakes it to hand over the whole tree.
-    fn accessibility_active(&self) -> bool {
-        self.accessibility.active()
-    }
     /// Current logical content size.
     fn size(&self) -> Size {
         let s = self

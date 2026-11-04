@@ -208,9 +208,6 @@ impl ShellWindow for VirtualShell {
     fn update_accessibility(&mut self, update: &SemanticsUpdate) -> Result<(), AccessibilityError> {
         self.accessibility().update(update)
     }
-    fn accessibility_active(&self) -> bool {
-        true
-    }
     fn size(&self) -> Size {
         self.env.borrow().window_size
     }

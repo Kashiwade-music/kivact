@@ -21,7 +21,7 @@
 //!   above a node undone); a scroll container carries its offset and a
 //!   transformed node the transform around its box, the one it is drawn
 //!   and hit with (G-07), so the platform maps it as it is drawn (`build`).
-//! - Sync records one `Dirt` level (clean, local text, metadata with its
+//! - Changes record one `Dirt` level (clean, local text, metadata with its
 //!   own-node, subtree and removed sets, or full). Publication enumerates
 //!   identity/order metadata, constructs only dirty payloads, and compares
 //!   complete fingerprints; the build returns the metadata it was built with,

@@ -2,7 +2,7 @@
 
 use super::build::Built;
 use super::hash;
-use super::state::Dirt;
+use super::state::{A11yPublish, Dirt};
 use crate::model::Model;
 
 impl Model {
@@ -16,19 +16,23 @@ impl Model {
     pub(crate) fn accessibility(
         &mut self,
         window: &mut arvane::Window<'_>,
-        active: bool,
         engine: &mut arvane::Engine,
     ) {
-        if !active {
-            self.a11y.root = None;
-            self.a11y.invalidate();
-            return;
-        }
-        if self.a11y.dirt == Dirt::Clean && self.a11y.root.is_some() {
+        let root = match self.a11y.publish {
+            A11yPublish::Inactive => return,
+            A11yPublish::AwaitingFirstTree => None,
+            A11yPublish::Published { root } => Some(root),
+        };
+        if self.a11y.dirt == Dirt::Clean && root.is_some() {
             return;
         }
         let mut dirt = std::mem::replace(&mut self.a11y.dirt, Dirt::Clean);
-        if self.tree().root().map(|id| kivact_types::SemanticsId(id.0)) != self.a11y.root {
+        if root.is_none()
+            || self
+                .tree()
+                .root()
+                .is_some_and(|id| Some(kivact_types::SemanticsId(id.0)) != root)
+        {
             dirt = Dirt::Full;
         }
         let Built {
@@ -40,7 +44,7 @@ impl Model {
             .iter()
             .map(|node| (node.id.0, hash::fingerprint(node)))
             .collect();
-        let replace = dirt == Dirt::Full || self.a11y.root != Some(candidate.root);
+        let replace = dirt == Dirt::Full || root != Some(candidate.root);
         if !replace {
             candidate
                 .nodes
@@ -51,18 +55,15 @@ impl Model {
             self.a11y.published += candidate.nodes.len() as u64;
         }
         let (root, focus) = (candidate.root, candidate.focus);
-        let accepted =
-            if !replace && candidate.nodes.is_empty() && self.a11y.focus == candidate.focus {
-                Ok(())
-            } else if replace {
-                window.replace_accessibility(&candidate)
-            } else {
-                window.update_accessibility(&kivact_types::render::SemanticsUpdate {
-                    root,
-                    focus,
-                    nodes: candidate.nodes,
-                })
-            };
+        let accepted = if replace {
+            window.replace_accessibility(&candidate)
+        } else {
+            window.update_accessibility(&kivact_types::render::SemanticsUpdate {
+                root,
+                focus,
+                nodes: candidate.nodes,
+            })
+        };
         if accepted.is_ok() {
             self.a11y.hashes.extend(hashes);
             if let Some(metadata) = metadata {
@@ -78,8 +79,7 @@ impl Model {
                     .retain(|key, _| metadata.authored.contains(key));
                 self.a11y.metadata = std::rc::Rc::new(metadata);
             }
-            self.a11y.root = Some(root);
-            self.a11y.focus = focus;
+            self.a11y.publish = A11yPublish::Published { root };
         } else {
             self.a11y.invalidate();
         }

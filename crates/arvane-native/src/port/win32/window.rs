@@ -172,9 +172,6 @@ impl ShellWindow for Window {
             .update(update)
             .map(|_| super::a11y::publish(&self.0))
     }
-    fn accessibility_active(&self) -> bool {
-        self.0.a11y.active()
-    }
     fn size(&self) -> Size {
         let applied = self.0.shared.applied();
         Size {

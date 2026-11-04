@@ -1,6 +1,6 @@
 //! Role: Focus processing: tab stops, Tab order, focus requests and automatic moves.
 
-use super::state::Focused;
+use super::state::{FocusVisibility, Focused, Reveal};
 use crate::contract::{HostEvent, RovingFocus};
 use crate::model::Model;
 use kivact_types::{FocusTarget, NodeId};
@@ -22,7 +22,7 @@ impl Model {
         let Some(f) = &mut self.focus.focused else {
             return;
         };
-        if std::mem::take(&mut f.reveal_at_commit) {
+        if std::mem::take(&mut f.reveal) == Reveal::AtCommit {
             let node = f.target.node;
             self.reveal(node);
         }
@@ -239,13 +239,21 @@ impl Model {
     ) {
         let new = target.map(|target| Focused {
             target,
-            visible,
-            reveal_at_commit: host_move,
+            visibility: if visible {
+                FocusVisibility::Visible
+            } else {
+                FocusVisibility::Hidden
+            },
+            reveal: if host_move {
+                Reveal::AtCommit
+            } else {
+                Reveal::No
+            },
         });
         let old = self.focus.focused;
-        if old.map(|f| (f.target, f.visible)) == new.map(|f| (f.target, f.visible)) {
+        if old.map(|f| (f.target, f.visibility)) == new.map(|f| (f.target, f.visibility)) {
             if host_move && let Some(f) = &mut self.focus.focused {
-                f.reveal_at_commit = true;
+                f.reveal = Reveal::AtCommit;
             }
             return;
         }
@@ -292,13 +300,15 @@ impl Model {
                 self.restyled(id);
             }
         }
-        self.changes.a11y_focus |= old_target != target;
+        if old_target != target {
+            self.a11y.request_publication(std::iter::empty());
+        }
         self.focus.focused = new;
         self.update_ime_target();
         self.push(HostEvent::FocusChanged {
             node: target.map(|t| t.node),
             region: target.and_then(|t| t.region),
-            visible: new.is_some_and(|f| f.visible),
+            visible: new.is_some_and(|f| f.visibility == FocusVisibility::Visible),
         });
     }
 
