@@ -1,7 +1,7 @@
 //! Role: Converts gradient paints without renderer cache state.
 
 use crate::convert;
-use kivact_types::protocol::{ColorMatrix, Gradient, GradientShape};
+use kivact_types::render::{ColorMatrix, Gradient, GradientShape};
 use kivact_types::{Extend, Rgba};
 use vello_cpu::PaintType;
 use vello_cpu::kurbo::Affine;
@@ -22,13 +22,13 @@ pub(crate) fn color(color: Rgba, matrix: Option<&ColorMatrix>) -> Rgba {
 /// the stops at that offset. Then (`pad`) the stops move inwards by a
 /// hair and the outer color ends the list.
 pub(crate) fn stops_of(
-    stops: &[(f32, Rgba)],
+    stops: &[(f64, Rgba)],
     matrix: Option<&ColorMatrix>,
     pad: bool,
 ) -> Vec<RasterStop> {
     let mut out: Vec<RasterStop> = stops
         .iter()
-        .map(|(offset, c)| (*offset, convert::color(color(*c, matrix))))
+        .map(|(offset, c)| (*offset as f32, convert::color(color(*c, matrix))))
         .collect();
     let n = out.len();
     if !pad || n < 2 {
@@ -97,15 +97,15 @@ fn gradient_shape(shape: &GradientShape) -> (RasterGradient, Option<Affine>) {
         } => {
             if radius_x == radius_y {
                 (
-                    RasterGradient::new_radial(convert::point(center), radius_x),
+                    RasterGradient::new_radial(convert::point(center), radius_x as f32),
                     None,
                 )
             } else {
                 (
                     RasterGradient::new_radial((0.0, 0.0), 1.0),
                     Some(
-                        Affine::translate((f64::from(center.x), f64::from(center.y)))
-                            * Affine::scale_non_uniform(f64::from(radius_x), f64::from(radius_y)),
+                        Affine::translate((center.x, center.y))
+                            * Affine::scale_non_uniform(radius_x, radius_y),
                     ),
                 )
             }
@@ -118,9 +118,9 @@ fn gradient_shape(shape: &GradientShape) -> (RasterGradient, Option<Affine>) {
         } => (
             RasterGradient::new_two_point_radial(
                 convert::point(start_center),
-                start_radius,
+                start_radius as f32,
                 convert::point(end_center),
-                end_radius,
+                end_radius as f32,
             ),
             None,
         ),
@@ -131,8 +131,8 @@ fn gradient_shape(shape: &GradientShape) -> (RasterGradient, Option<Affine>) {
         } => (
             RasterGradient::new_sweep(
                 convert::point(center),
-                start_deg.to_radians(),
-                end_deg.to_radians(),
+                start_deg.to_radians() as f32,
+                end_deg.to_radians() as f32,
             ),
             None,
         ),

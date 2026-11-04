@@ -32,13 +32,13 @@ pub struct FitRect {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Region {
     /// Left edge, as a fraction of the drawn width.
-    pub x: f32,
+    pub x: f64,
     /// Top edge, as a fraction of the drawn height.
-    pub y: f32,
+    pub y: f64,
     /// Width, as a fraction of the drawn width.
-    pub width: f32,
+    pub width: f64,
     /// Height, as a fraction of the drawn height.
-    pub height: f32,
+    pub height: f64,
 }
 
 impl Region {
@@ -102,13 +102,13 @@ impl FitRect {
 /// Places an image of `natural` size in `bounds` by `fit` (see the module
 /// invariants).
 pub fn fit_image(fit: ImageFit, natural: Size, bounds: Rect) -> FitRect {
-    let center = |width: f32, height: f32| Rect {
+    let center = |width: f64, height: f64| Rect {
         x: bounds.x + (bounds.width - width) / 2.0,
         y: bounds.y + (bounds.height - height) / 2.0,
         width,
         height,
     };
-    let usable = |v: f32| v.is_finite() && v > 0.0;
+    let usable = |v: f64| v.is_finite() && v > 0.0;
     if !usable(natural.width)
         || !usable(natural.height)
         || !usable(bounds.width)

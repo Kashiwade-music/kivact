@@ -8,9 +8,10 @@ use crate::error::AssetError;
 use crate::fit::Region;
 use crate::limits::ENTRY_BYTES;
 use crate::limits::MAX_SVG_RASTER_EDGE;
-use crate::pixels::{self, Bitmap, PixelSize, Pixels, Tint};
+use crate::pixels::{self, AssetImage, PixelSize, Tint};
 use crate::svg::Svg;
 use kivact_types::Asset;
+use kivact_types::Pixels;
 use kivact_types::{Rgba, Size};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -137,7 +138,7 @@ impl AssetStore {
         asset: &Asset,
         device: PixelSize,
         tint: Option<Rgba>,
-    ) -> Option<Pixels> {
+    ) -> Option<AssetImage> {
         self.draw(asset, device, Region::WHOLE, tint, true)
             .map(|(pixels, _)| pixels)
     }
@@ -160,7 +161,7 @@ impl AssetStore {
         device: PixelSize,
         visible: Region,
         tint: Option<Rgba>,
-    ) -> Option<(Pixels, Region)> {
+    ) -> Option<(AssetImage, Region)> {
         self.draw(asset, device, visible, tint, false)
     }
 
@@ -172,7 +173,7 @@ impl AssetStore {
         visible: Region,
         tint: Option<Rgba>,
         whole: bool,
-    ) -> Option<(Pixels, Region)> {
+    ) -> Option<(AssetImage, Region)> {
         let asset = key(asset);
         let asset = asset.as_ref();
         if !matches!(self.image(asset), ImageState::Ready { .. }) {
@@ -428,21 +429,21 @@ impl AssetStore {
     /// The state for a decoded raster source (first load or reload): ready
     /// when it fits the budget (making room for it), else a `TooLarge`
     /// failure. The pixels count as drawn now: they were asked for.
-    fn admit_source(&mut self, asset: &Asset, bitmap: Bitmap) -> Result<State, AssetError> {
+    fn admit_source(&mut self, asset: &Asset, bitmap: Pixels) -> Result<State, AssetError> {
         let retained = self.entries.get(asset).map_or(0, |e| e.retained);
-        if ENTRY_BYTES + retained + bitmap.bytes() > self.budget {
+        if ENTRY_BYTES + retained + bitmap.rgba.len() > self.budget {
             return Err(super::job::over_budget(
                 asset,
                 bitmap.width,
                 bitmap.height,
-                bitmap.bytes() as u64,
+                bitmap.rgba.len() as u64,
                 self.budget,
             ));
         }
-        self.make_room(bitmap.bytes());
+        self.make_room(bitmap.rgba.len());
         let natural = Size {
-            width: bitmap.width as f32,
-            height: bitmap.height as f32,
+            width: bitmap.width as f64,
+            height: bitmap.height as f64,
         };
         let drawn = self.stamp();
         Ok(State::Raster {
@@ -458,7 +459,7 @@ impl AssetStore {
     /// it. A raster no longer asked for (not in the current or the previous
     /// frame) is dropped when the asset has another ready raster to fall
     /// back on. Returns whether it was stored.
-    fn land_raster(&mut self, asset: &Asset, key: VariantKey, bitmap: Bitmap) -> bool {
+    fn land_raster(&mut self, asset: &Asset, key: VariantKey, bitmap: Pixels) -> bool {
         let Some(entry) = self.entries.get(asset) else {
             return false;
         };
@@ -486,16 +487,16 @@ impl AssetStore {
         &mut self,
         asset: &Asset,
         key: VariantKey,
-        bitmap: Bitmap,
+        bitmap: Pixels,
         used: Stamp,
-    ) -> Option<Pixels> {
-        if bitmap.bytes() > self.budget {
+    ) -> Option<AssetImage> {
+        if bitmap.rgba.len() > self.budget {
             if let Some(entry) = self.entries.get_mut(asset) {
                 entry.variants.insert(key, Variant::Rejected);
             }
             return None;
         }
-        self.make_room(bitmap.bytes());
+        self.make_room(bitmap.rgba.len());
         let pixels = self.new_pixels(bitmap);
         let entry = self.entries.get_mut(asset)?;
         self.bytes += pixels.bytes();
@@ -513,14 +514,14 @@ impl AssetStore {
         Some(pixels)
     }
 
-    fn new_pixels(&mut self, bitmap: Bitmap) -> Pixels {
+    fn new_pixels(&mut self, bitmap: Pixels) -> AssetImage {
         let id = self.next_id;
         self.next_id += 1;
-        Pixels::new(id, bitmap)
+        AssetImage::new(id, bitmap)
     }
 
     /// The ready variant `key` of `asset`, marked used now.
-    fn ready_variant(&mut self, asset: &Asset, key: VariantKey) -> Option<Pixels> {
+    fn ready_variant(&mut self, asset: &Asset, key: VariantKey) -> Option<AssetImage> {
         let now = self.stamp();
         match self.entries.get_mut(asset)?.variants.get_mut(&key)? {
             Variant::Ready { pixels, used } => {
@@ -537,9 +538,9 @@ impl AssetStore {
         &mut self,
         asset: &Asset,
         from: VariantKey,
-        base: Pixels,
+        base: AssetImage,
         tint: Option<Tint>,
-    ) -> Option<Pixels> {
+    ) -> Option<AssetImage> {
         let Some(t) = tint else {
             return Some(base);
         };
@@ -570,7 +571,7 @@ impl AssetStore {
         asset: &Asset,
         tint: Option<Tint>,
         whole: bool,
-    ) -> Option<(Pixels, Region)> {
+    ) -> Option<(AssetImage, Region)> {
         let entry = self.entries.get(asset)?;
         let newest = |want: Option<Tint>| {
             entry

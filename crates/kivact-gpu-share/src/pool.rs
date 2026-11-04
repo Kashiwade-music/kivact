@@ -182,25 +182,3 @@ impl Slots {
         self.last
     }
 }
-
-/// Premultiplied RGBA8 pixels made straight in place (a pixel of alpha 0
-/// becomes transparent black).
-#[cfg_attr(
-    not(any(windows, target_os = "linux")),
-    allow(dead_code, reason = "no backend on this platform")
-)]
-pub(crate) fn straighten(rgba: &mut [u8]) {
-    for pixel in rgba.as_chunks_mut::<4>().0 {
-        let alpha = u32::from(pixel[3]);
-        match alpha {
-            255 => {}
-            0 => pixel[..3].fill(0),
-            _ => {
-                for channel in &mut pixel[..3] {
-                    let straight = (u32::from(*channel) * 255 + alpha / 2) / alpha;
-                    *channel = straight.min(255) as u8;
-                }
-            }
-        }
-    }
-}

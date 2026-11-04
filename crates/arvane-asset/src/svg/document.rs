@@ -1,7 +1,9 @@
 //! Role: A parsed SVG: parsing, memory estimate and exact-size rasterization.
 
-use crate::pixels::{Bitmap, Crop, PixelSize};
+use crate::pixels::{Crop, PixelSize};
+use kivact_types::Pixels;
 use kivact_types::Size;
+use kivact_types::color::unpremultiply;
 use resvg::{tiny_skia, usvg};
 
 /// A parsed SVG, shared between the store and the worker for re-rasters.
@@ -67,14 +69,14 @@ impl Svg {
     pub(crate) fn natural(&self) -> Size {
         let size = self.tree.size();
         Size {
-            width: size.width(),
-            height: size.height(),
+            width: f64::from(size.width()),
+            height: f64::from(size.height()),
         }
     }
 
     /// The drawing scaled to exactly `size` device pixels (both edges
     /// non-zero), only the part `crop` of it when given, as RGBA.
-    pub(crate) fn rasterize(&self, size: PixelSize, crop: Option<Crop>) -> Bitmap {
+    pub(crate) fn rasterize(&self, size: PixelSize, crop: Option<Crop>) -> Pixels {
         let area = crop.unwrap_or(Crop {
             x: 0,
             y: 0,
@@ -95,26 +97,10 @@ impl Svg {
         resvg::render(&self.tree, transform, &mut pixmap.as_mut());
         let mut rgba = pixmap.take();
         unpremultiply(&mut rgba);
-        Bitmap {
+        Pixels {
             width: area.width,
             height: area.height,
             rgba: rgba.into(),
-        }
-    }
-}
-
-/// Premultiplied RGBA8 to straight alpha, rounding to nearest.
-fn unpremultiply(rgba: &mut [u8]) {
-    for px in rgba.as_chunks_mut::<4>().0 {
-        let a = u32::from(px[3]);
-        match a {
-            0 => px[..3].fill(0),
-            255 => {}
-            _ => {
-                for c in &mut px[..3] {
-                    *c = ((u32::from(*c) * 255 + a / 2) / a).min(255) as u8;
-                }
-            }
         }
     }
 }

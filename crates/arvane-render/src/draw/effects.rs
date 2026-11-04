@@ -54,10 +54,10 @@
 use super::canvas::Canvas;
 use super::painter::{Area, Group, Mode, Painter};
 use crate::convert;
-use kivact_types::protocol::{
-    Backdrop, BoxShadow, DrawCommand, Mask, Radius, RoundedRect as Rounded, SHADOW_REACH, Shape,
-    Transform,
-};
+use kivact_types::geometry::Transform;
+use kivact_types::render::{Backdrop, BoxShadow, Mask, RenderCmd, SHADOW_REACH};
+use kivact_types::scene::RoundedRect as Rounded;
+use kivact_types::scene::{Radius, Shape};
 use kivact_types::{Rect as LogicalRect, Rgba};
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
 use vello_cpu::PaintType;
@@ -155,7 +155,7 @@ impl<C: Canvas> Painter<'_, C> {
 
     /// `shape` blurred by a gaussian of `std_dev`, in `color`, removed from
     /// what is beneath when `remove`.
-    fn blurred(&mut self, shape: &Rounded, std_dev: f32, color: Rgba, remove: bool) {
+    fn blurred(&mut self, shape: &Rounded, std_dev: f64, color: Rgba, remove: bool) {
         let dest_out = convert::dest_out();
         let paint = PaintType::Solid(convert::color(color));
         if shape.rect.width <= 0.0 || shape.rect.height <= 0.0 {
@@ -176,7 +176,7 @@ impl<C: Canvas> Painter<'_, C> {
         if shape.is_circular() {
             let radii = shape.fitted_radii().map(|r| r.x);
             let whole = convert::rect(shape.rect);
-            let blur = convert::blur_param(std_dev) as f32;
+            let blur = convert::blur_param(std_dev) as f64;
             if remove {
                 self.canvas.set_blend_mode(dest_out);
             }
@@ -184,7 +184,7 @@ impl<C: Canvas> Painter<'_, C> {
             match convert::shadow_quarters(shape.rect, radii, std_dev) {
                 convert::ShadowParts::Whole(radius) => {
                     self.canvas
-                        .fill_blurred_rounded_rect(&whole, radius as f32, blur);
+                        .fill_blurred_rounded_rect(&whole, radius as f64, blur);
                 }
                 convert::ShadowParts::Quarters(quarters) => {
                     for (quarter, radius) in quarters {
@@ -192,7 +192,7 @@ impl<C: Canvas> Painter<'_, C> {
                         // must reach the enclosing layer.
                         self.canvas.push_clip_path(&quarter.to_path(0.1));
                         self.canvas
-                            .fill_blurred_rounded_rect(&whole, radius as f32, blur);
+                            .fill_blurred_rounded_rect(&whole, radius as f64, blur);
                         self.canvas.pop_clip_path();
                     }
                 }
@@ -204,7 +204,7 @@ impl<C: Canvas> Painter<'_, C> {
         }
         // Elliptical corners: the shape through a blur.
         let blur = Filter::from_primitive(FilterPrimitive::GaussianBlur {
-            std_deviation: std_dev,
+            std_deviation: std_dev as f32,
             edge_mode: EdgeMode::None,
         });
         self.canvas
@@ -239,7 +239,7 @@ impl<C: Canvas> Painter<'_, C> {
         let blurred = backdrop.std_dev > 0.0;
         if blurred {
             let blur = Filter::from_primitive(FilterPrimitive::GaussianBlur {
-                std_deviation: backdrop.std_dev,
+                std_deviation: backdrop.std_dev as f32,
                 edge_mode: EdgeMode::None,
             });
             self.canvas.push_layer(None, None, None, Some(blur));
@@ -279,14 +279,14 @@ impl<C: Canvas> Painter<'_, C> {
         &mut self,
         at: usize,
         region: LogicalRect,
-        matrix: Option<kivact_types::protocol::ColorMatrix>,
+        matrix: Option<kivact_types::render::ColorMatrix>,
     ) {
         let frame = self.frame;
         let entry = self.transform;
         // The parts of one axis: before the frame (reflected about its
         // start), across it, after it (about its end), each at most the
         // frame long (one reflection), with its reflection.
-        let parts = |start: f32, end: f32, low: f32, high: f32| {
+        let parts = |start: f64, end: f64, low: f64, high: f64| {
             let length = high - low;
             [
                 (start.max(low - length), end.min(low), Some(low)),
@@ -335,7 +335,7 @@ impl<C: Canvas> Painter<'_, C> {
         &mut self,
         at: usize,
         region: LogicalRect,
-        matrix: Option<kivact_types::protocol::ColorMatrix>,
+        matrix: Option<kivact_types::render::ColorMatrix>,
     ) {
         let Some(index) = self.index else {
             return;
@@ -350,9 +350,7 @@ impl<C: Canvas> Painter<'_, C> {
         while i < at {
             let command = &scene.commands[i];
             match command {
-                DrawCommand::PushClip(_)
-                | DrawCommand::PushLayer(_)
-                | DrawCommand::PushTransform(_) => {
+                RenderCmd::PushClip(_) | RenderCmd::PushLayer(_) | RenderCmd::PushTransform(_) => {
                     let close = index.close[i];
                     if close < at {
                         if !reaches(i) {
@@ -360,7 +358,7 @@ impl<C: Canvas> Painter<'_, C> {
                             continue;
                         }
                         self.command(i, command);
-                    } else if let DrawCommand::PushTransform(_) = command {
+                    } else if let RenderCmd::PushTransform(_) = command {
                         // Open around the backdrop: its transform applies
                         // to what it holds.
                         self.command(i, command);
@@ -369,7 +367,7 @@ impl<C: Canvas> Painter<'_, C> {
                         self.stack.push(Group::Ancestor);
                     }
                 }
-                DrawCommand::PopClip | DrawCommand::PopTransform | DrawCommand::PopLayer => {
+                RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopLayer => {
                     self.command(i, command);
                 }
                 _ => {
@@ -394,7 +392,7 @@ impl<C: Canvas> Painter<'_, C> {
 /// A corner radius of an outer shadow grown by `spread` (CSS Backgrounds
 /// 3: a radius smaller than the spread grows by less, so sharp corners stay
 /// sharp).
-fn spread_radius(r: f32, spread: f32) -> f32 {
+fn spread_radius(r: f64, spread: f64) -> f64 {
     if r <= 0.0 {
         return 0.0;
     }

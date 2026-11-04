@@ -18,7 +18,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use kivact_types::protocol::{ColorMatrix, Gradient, GradientShape, ImageData};
+use kivact_types::render::{ColorMatrix, Gradient, GradientShape};
+use kivact_types::scene::Pixels;
 use kivact_types::{Extend, Rect};
 use vello_cpu::kurbo::{Affine, Rect as RasterRect};
 use vello_cpu::peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler};
@@ -30,11 +31,11 @@ use crate::gradient;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 
 /// A filtered image: source address and size, and the matrix's bits.
-type FilterKey = (usize, u32, u32, [u32; 20]);
+type FilterKey = (usize, u32, u32, [u64; 20]);
 
 /// A gradient tile: the gradient's and the tile's values as bits, and the
 /// pixel size.
-type TileKey = (Vec<u32>, u16, u16);
+type TileKey = (Vec<u64>, u16, u16);
 
 /// A resampled image: source address and size, and the new size.
 type ResampleKey = (usize, u32, u32, u16, u16);
@@ -42,7 +43,7 @@ type ResampleKey = (usize, u32, u32, u16, u16);
 struct Entry {
     /// Keeps a filtered image's source address from being reused.
     _source: Option<Arc<[u8]>>,
-    image: ImageData,
+    image: Pixels,
     frame: u64,
 }
 
@@ -82,12 +83,12 @@ impl Derived {
     }
 
     /// `image`'s pixels through `matrix` (straight alpha).
-    pub(crate) fn filtered(&mut self, image: &ImageData, matrix: &ColorMatrix) -> ImageData {
+    pub(crate) fn filtered(&mut self, image: &Pixels, matrix: &ColorMatrix) -> Pixels {
         let key = (
             Arc::as_ptr(&image.rgba).cast::<u8>() as usize,
             image.width,
             image.height,
-            matrix.0.map(f32::to_bits),
+            matrix.0.map(f64::to_bits),
         );
         if let Some(entry) = self.filtered.get_mut(&key) {
             entry.frame = self.frame;
@@ -95,10 +96,10 @@ impl Derived {
         }
         let mut rgba = Vec::with_capacity(image.rgba.len());
         for px in image.rgba.as_chunks::<4>().0 {
-            let c = px.map(|v| f32::from(v) / 255.0);
+            let c = px.map(|v| f64::from(v) / 255.0);
             rgba.extend(matrix.apply_array(c).map(|v| (v * 255.0).round() as u8));
         }
-        let out = ImageData {
+        let out = Pixels {
             width: image.width,
             height: image.height,
             rgba: rgba.into(),
@@ -122,7 +123,7 @@ impl Derived {
         gradient: &Gradient,
         tile: Rect,
         (width, height): (u16, u16),
-    ) -> ImageData {
+    ) -> Pixels {
         let key = (tile_bits(gradient, tile), width, height);
         if let Some(entry) = self.tiles.get_mut(&key) {
             entry.frame = self.frame;
@@ -130,20 +131,15 @@ impl Derived {
         }
         let out = self.raster((width, height), |context| {
             context.set_transform(Affine::scale_non_uniform(
-                f64::from(width) / f64::from(tile.width),
-                f64::from(height) / f64::from(tile.height),
+                f64::from(width) / tile.width,
+                f64::from(height) / tile.height,
             ));
             let (brush, transform) = gradient::gradient(gradient, None);
             context.set_paint(brush);
             if let Some(transform) = transform {
                 context.set_paint_transform(transform);
             }
-            context.fill_rect(&RasterRect::new(
-                0.0,
-                0.0,
-                f64::from(tile.width),
-                f64::from(tile.height),
-            ));
+            context.fill_rect(&RasterRect::new(0.0, 0.0, tile.width, tile.height));
         });
         Self::keep(
             &mut self.tiles,
@@ -159,11 +155,7 @@ impl Derived {
     /// `image` resampled (bilinear, edges clamped) to `size` pixels
     /// (straight alpha): a pattern tile at its device size, so both
     /// rasterizers repeat it pixel for pixel.
-    pub(crate) fn resampled(
-        &mut self,
-        image: &ImageData,
-        (width, height): (u16, u16),
-    ) -> ImageData {
+    pub(crate) fn resampled(&mut self, image: &Pixels, (width, height): (u16, u16)) -> Pixels {
         if (image.width, image.height) == (u32::from(width), u32::from(height)) {
             return image.clone();
         }
@@ -224,7 +216,7 @@ impl Derived {
         &mut self,
         (width, height): (u16, u16),
         draw: impl FnOnce(&mut RenderContext),
-    ) -> ImageData {
+    ) -> Pixels {
         let (context, resources) = self.context.get_or_insert_with(|| {
             let settings = RenderSettings {
                 level: vello_cpu::Level::new(),
@@ -242,22 +234,11 @@ impl Derived {
         let mut pixmap = Pixmap::new(width, height);
         context.render(&mut pixmap, resources);
         let mut rgba = Vec::with_capacity(usize::from(width) * usize::from(height) * 4);
-        for p in pixmap.data() {
-            let unpremultiply = |c: u8| {
-                if p.a == 0 {
-                    0
-                } else {
-                    ((u32::from(c) * 255 + u32::from(p.a) / 2) / u32::from(p.a)).min(255) as u8
-                }
-            };
-            rgba.extend([
-                unpremultiply(p.r),
-                unpremultiply(p.g),
-                unpremultiply(p.b),
-                p.a,
-            ]);
+        for pixel in pixmap.data() {
+            rgba.extend([pixel.r, pixel.g, pixel.b, pixel.a]);
         }
-        ImageData {
+        kivact_types::color::unpremultiply(&mut rgba);
+        Pixels {
             width: u32::from(width),
             height: u32::from(height),
             rgba: rgba.into(),
@@ -270,7 +251,7 @@ impl Derived {
         frame: u64,
         key: K,
         source: Option<Arc<[u8]>>,
-        image: &ImageData,
+        image: &Pixels,
     ) {
         let size = image.rgba.len();
         if *bytes + size <= MAX_BYTES {
@@ -288,9 +269,9 @@ impl Derived {
 }
 
 /// A gradient tile's values as bits.
-fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u32> {
+fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u64> {
     let mut bits = Vec::with_capacity(12 + g.stops.len() * 5);
-    bits.extend([tile.width, tile.height].map(f32::to_bits));
+    bits.extend([tile.width, tile.height].map(f64::to_bits));
     bits.push(match g.extend {
         Extend::Pad => 0,
         Extend::Repeat => 1,
@@ -299,7 +280,7 @@ fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u32> {
     match g.shape {
         GradientShape::Linear { start, end } => {
             bits.push(0);
-            bits.extend([start.x, start.y, end.x, end.y].map(f32::to_bits));
+            bits.extend([start.x, start.y, end.x, end.y].map(f64::to_bits));
         }
         GradientShape::Radial {
             center,
@@ -307,7 +288,7 @@ fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u32> {
             radius_y,
         } => {
             bits.push(1);
-            bits.extend([center.x, center.y, radius_x, radius_y].map(f32::to_bits));
+            bits.extend([center.x, center.y, radius_x, radius_y].map(f64::to_bits));
         }
         GradientShape::RadialTwoCircle {
             start_center,
@@ -325,7 +306,7 @@ fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u32> {
                     end_center.y,
                     end_radius,
                 ]
-                .map(f32::to_bits),
+                .map(f64::to_bits),
             );
         }
         GradientShape::Conic {
@@ -334,11 +315,11 @@ fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u32> {
             end_deg,
         } => {
             bits.push(2);
-            bits.extend([center.x, center.y, start_deg, end_deg].map(f32::to_bits));
+            bits.extend([center.x, center.y, start_deg, end_deg].map(f64::to_bits));
         }
     }
     for (offset, c) in &g.stops {
-        bits.extend([*offset, c.r, c.g, c.b, c.a].map(f32::to_bits));
+        bits.extend([*offset, c.r, c.g, c.b, c.a].map(f64::to_bits));
     }
     bits
 }

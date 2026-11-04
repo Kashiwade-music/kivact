@@ -11,7 +11,7 @@
 
 use super::raw::{FORMAT, transition, wait};
 use crate::common::{Error, api};
-use crate::pool::straighten;
+use kivact_types::color::unpremultiply;
 use std::time::Duration;
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE,
@@ -152,7 +152,7 @@ pub unsafe fn read_back(
     }
     // SAFETY: the mapped buffer; nothing was written.
     unsafe { readback.Unmap(0, None) };
-    straighten(&mut rgba);
+    unpremultiply(&mut rgba);
     Ok(rgba)
 }
 

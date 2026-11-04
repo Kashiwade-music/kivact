@@ -4,7 +4,7 @@ use super::state::GpuContext;
 use super::texture::target_texture;
 use crate::error::RenderError;
 use kivact_types::Size;
-use kivact_types::protocol::{CpuFrame, Scene};
+use kivact_types::render::{CpuFrame, RenderScene};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -14,9 +14,9 @@ impl GpuContext {
     /// [`GpuContext::present`]).
     pub fn render(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
     ) -> Result<CpuFrame, RenderError> {
         self.with_external(scene, |context| context.render_frame(scene, size, scale))
     }
@@ -24,9 +24,9 @@ impl GpuContext {
     /// [`GpuContext::render`] between the external frames' hand-offs.
     fn render_frame(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
     ) -> Result<CpuFrame, RenderError> {
         let ((width, height), info) = self.dimensions(scene, size, scale)?;
         let reuse = self

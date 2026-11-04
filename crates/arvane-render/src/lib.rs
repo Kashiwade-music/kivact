@@ -5,7 +5,7 @@
 //! The CPU path is deterministic and backs the tests' frames; the GPU path
 //! (feature `gpu`) presents to window surfaces.
 //! Images arrive decoded, as straight-alpha RGBA8
-//! `ImageData`; this crate reads no encoded image. The
+//! `Pixels`; this crate reads no encoded image. The
 //! CPU renderer keeps an image's premultiplied copy while consecutive
 //! frames draw it (`images`), so a photo left on screen is not converted
 //! again every frame; pixels made from a scene's values (images through a
@@ -15,7 +15,7 @@
 //! both rasterizers have (`draw/effects.rs`), and a scene with backdrops
 //! is indexed by where its commands draw (`backdrop`). With the feature
 //! `gpu-interop`, the GPU path also draws the textures an application's
-//! render engine shares (`DrawCommand::External`, `gpu/external.rs`),
+//! render engine shares (`RenderCmd::External`, `gpu/external.rs`),
 //! imported through `kivact-gpu-share`, which holds the `unsafe` below
 //! wgpu that needs; the CPU path never draws them.
 //!

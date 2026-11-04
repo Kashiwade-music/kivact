@@ -20,36 +20,35 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use kivact_types::protocol::{
-    Glyph, GlyphRun, TextDecoration, TextDecorationRect, TextHighlight, TextLine, TextSpan,
-    TextStyle,
-};
+use kivact_types::render::TextSpan;
+use kivact_types::render::{Glyph, GlyphRun, TextDecorationRect, TextHighlight, TextLine};
+use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rect, Size, TextAlign, TextOverflow};
 use parley::{Layout, PositionedLayoutItem};
 
 /// Slack for comparing positions that sum float advances.
-const EPSILON: f32 = 0.01;
+const EPSILON: f64 = 0.01;
 
 /// The vertical metrics of a run's font that decorations and bands use.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Metrics {
-    ascent: f32,
-    descent: f32,
-    underline_offset: f32,
-    underline_size: f32,
-    strikethrough_offset: f32,
-    strikethrough_size: f32,
+    ascent: f64,
+    descent: f64,
+    underline_offset: f64,
+    underline_size: f64,
+    strikethrough_offset: f64,
+    strikethrough_size: f64,
 }
 
 impl Metrics {
     fn of(m: &parley::RunMetrics) -> Self {
         Self {
-            ascent: m.ascent,
-            descent: m.descent,
-            underline_offset: m.underline_offset,
-            underline_size: m.underline_size,
-            strikethrough_offset: m.strikethrough_offset,
-            strikethrough_size: m.strikethrough_size,
+            ascent: f64::from(m.ascent),
+            descent: f64::from(m.descent),
+            underline_offset: f64::from(m.underline_offset),
+            underline_size: f64::from(m.underline_size),
+            strikethrough_offset: f64::from(m.strikethrough_offset),
+            strikethrough_size: f64::from(m.strikethrough_size),
         }
     }
 }
@@ -59,7 +58,7 @@ impl Metrics {
 #[derive(Clone, Debug)]
 pub(crate) struct Ellipsis {
     run: Option<GlyphRun>,
-    advance: f32,
+    advance: f64,
     metrics: Metrics,
 }
 
@@ -84,11 +83,11 @@ impl Ellipsis {
                 .map(|g| {
                     let glyph = Glyph {
                         id: g.id,
-                        x: pen + g.x,
-                        y: g.y,
-                        advance: g.advance,
+                        x: pen + f64::from(g.x),
+                        y: f64::from(g.y),
+                        advance: f64::from(g.advance),
                     };
-                    pen += g.advance;
+                    pen += f64::from(g.advance);
                     glyph
                 })
                 .collect();
@@ -106,10 +105,10 @@ impl Ellipsis {
 /// (aligned again by the cut width).
 #[derive(Clone, Copy, Debug)]
 struct Cut {
-    x: f32,
-    shift: f32,
+    x: f64,
+    shift: f64,
     /// The kept text with the ellipsis.
-    width: f32,
+    width: f64,
 }
 
 /// The lines a paragraph shows and how they are cut.
@@ -120,12 +119,16 @@ pub(crate) struct Plan {
     cuts: Vec<Option<Cut>>,
     pub(crate) size: Size,
     /// The first line's baseline.
-    pub(crate) baseline: f32,
+    pub(crate) baseline: f64,
 }
 
 impl Plan {
     /// Vertical edges of the visible cap-to-baseline box in layout coordinates.
-    pub(crate) fn cap_edges(&self, layout: &Layout<u32>, style: &TextStyle) -> Option<(f32, f32)> {
+    pub(crate) fn cap_edges(
+        &self,
+        layout: &Layout<u32>,
+        style: &ComputedTextStyle,
+    ) -> Option<(f64, f64)> {
         if !style.capsize {
             return None;
         }
@@ -133,14 +136,19 @@ impl Plan {
         let last = layout.get(self.visible.checked_sub(1)?)?;
         let cap = first
             .runs()
-            .filter_map(|run| run.metrics().cap_height)
-            .fold(0.0f32, f32::max);
-        (cap > 0.0).then(|| (first.metrics().baseline - cap, last.metrics().baseline))
+            .filter_map(|run| run.metrics().cap_height.map(f64::from))
+            .fold(0.0f64, f64::max);
+        (cap > 0.0).then(|| {
+            (
+                f64::from(first.metrics().baseline) - cap,
+                f64::from(last.metrics().baseline),
+            )
+        })
     }
 }
 
 /// The lines `style` shows of `layout`.
-fn visible_lines(layout: &Layout<u32>, style: &TextStyle) -> usize {
+fn visible_lines(layout: &Layout<u32>, style: &ComputedTextStyle) -> usize {
     let total = layout.len();
     style
         .max_lines
@@ -149,32 +157,38 @@ fn visible_lines(layout: &Layout<u32>, style: &TextStyle) -> usize {
 
 /// The width of a line's content (trailing white space aside) from its
 /// start.
-fn content_width(line: &parley::Line<'_, u32>) -> f32 {
+fn content_width(line: &parley::Line<'_, u32>) -> f64 {
     let m = line.metrics();
-    m.advance - m.trailing_whitespace
+    f64::from(m.advance) - f64::from(m.trailing_whitespace)
 }
 
 /// The width of a line's content in a layout aligned with
 /// [`parley::Alignment::Justify`]: the line's metrics keep the width it
 /// had before its spaces widened, the glyphs' advances do not.
-fn justified_width(line: &parley::Line<'_, u32>) -> f32 {
+fn justified_width(line: &parley::Line<'_, u32>) -> f64 {
     let m = line.metrics();
-    let advance: f32 = line
+    let advance: f64 = line
         .items()
         .map(|item| match item {
-            PositionedLayoutItem::GlyphRun(run) => run.glyphs().map(|g| g.advance).sum::<f32>(),
+            PositionedLayoutItem::GlyphRun(run) => {
+                run.glyphs().map(|g| f64::from(g.advance)).sum::<f64>()
+            }
             PositionedLayoutItem::InlineBox(item) if item.kind == parley::InlineBoxKind::InFlow => {
-                item.width
+                f64::from(item.width)
             }
             PositionedLayoutItem::InlineBox(_) => 0.0,
         })
         .sum();
-    advance - m.trailing_whitespace
+    advance - f64::from(m.trailing_whitespace)
 }
 
 /// Whether `style` cuts a line of `layout` broken at `max_width` (an
 /// ellipsis is needed).
-pub(crate) fn needs_cut(layout: &Layout<u32>, style: &TextStyle, max_width: Option<f32>) -> bool {
+pub(crate) fn needs_cut(
+    layout: &Layout<u32>,
+    style: &ComputedTextStyle,
+    max_width: Option<f64>,
+) -> bool {
     if !style.ellipsizes() {
         return false;
     }
@@ -194,32 +208,34 @@ pub(crate) fn needs_cut(layout: &Layout<u32>, style: &TextStyle, max_width: Opti
 /// `style`, cut for `ellipsis` (given when [`needs_cut`]).
 pub(crate) fn plan(
     layout: &Layout<u32>,
-    style: &TextStyle,
-    max_width: Option<f32>,
+    style: &ComputedTextStyle,
+    max_width: Option<f64>,
     ellipsis: Option<&Ellipsis>,
 ) -> Plan {
-    let baseline = layout.get(0).map_or(0.0, |l| l.metrics().baseline);
+    let baseline = layout
+        .get(0)
+        .map_or(0.0, |l| f64::from(l.metrics().baseline));
     let total = layout.len();
     let Some(ellipsis) = ellipsis else {
         return Plan {
             visible: total,
             cuts: Vec::new(),
             size: Size {
-                width: layout.width(),
-                height: layout.height(),
+                width: f64::from(layout.width()),
+                height: f64::from(layout.height()),
             },
             baseline,
         };
     };
     let visible = visible_lines(layout, style);
-    let limit = max_width.unwrap_or(f32::INFINITY);
+    let limit = max_width.unwrap_or(f64::INFINITY);
     let factor = match style.align {
         TextAlign::Start | TextAlign::Justify => 0.0,
         TextAlign::Center => 0.5,
         TextAlign::End => 1.0,
     };
     let mut cuts = Vec::with_capacity(visible);
-    let mut width = 0.0f32;
+    let mut width = 0.0f64;
     for (i, line) in layout.lines().take(visible).enumerate() {
         let m = *line.metrics();
         let full = content_width(&line);
@@ -227,15 +243,15 @@ pub(crate) fn plan(
         let overflows = style.overflow == TextOverflow::Ellipsis && full > limit + EPSILON;
         if !(clamped || overflows) {
             cuts.push(None);
-            width = width.max(m.inline_min_coord + full);
+            width = width.max(f64::from(m.inline_min_coord) + full);
             continue;
         }
         // Keep whole clusters while they leave room for the ellipsis.
         let room = limit - ellipsis.advance;
-        let (mut x, mut end) = (0.0f32, 0.0f32);
+        let (mut x, mut end) = (0.0f64, 0.0f64);
         'line: for run in line.runs() {
             for cluster in run.visual_clusters() {
-                let advance = cluster.advance();
+                let advance = f64::from(cluster.advance());
                 if x + advance > room + EPSILON {
                     break 'line;
                 }
@@ -246,26 +262,28 @@ pub(crate) fn plan(
             }
         }
         let cut_width = end + ellipsis.advance;
-        let container = m.inline_max_coord - m.inline_min_coord;
+        let container = f64::from(m.inline_max_coord) - f64::from(m.inline_min_coord);
         let offset = if container.is_finite() {
             factor * (container - cut_width).max(0.0)
         } else {
             0.0
         };
-        let start = m.inline_min_coord + m.offset;
+        let start = f64::from(m.inline_min_coord) + f64::from(m.offset);
         cuts.push(Some(Cut {
             x: start + end,
-            shift: m.inline_min_coord + offset - start,
+            shift: f64::from(m.inline_min_coord) + offset - start,
             width: cut_width,
         }));
-        width = width.max(m.inline_min_coord + cut_width);
+        width = width.max(f64::from(m.inline_min_coord) + cut_width);
     }
     let height = if visible < total {
         layout
             .get(visible - 1)
-            .map_or(layout.height(), |l| l.metrics().block_max_coord)
+            .map_or(f64::from(layout.height()), |l| {
+                f64::from(l.metrics().block_max_coord)
+            })
     } else {
-        layout.height()
+        f64::from(layout.height())
     };
     Plan {
         visible,
@@ -291,28 +309,37 @@ pub(crate) fn lines(
             let m = *line.metrics();
             let cut = plan.cuts.get(i).copied().flatten();
             let (x, width) = match cut {
-                Some(c) => (m.inline_min_coord + m.offset + c.shift, c.width),
-                None if justified => (m.inline_min_coord + m.offset, justified_width(&line)),
-                None => (m.inline_min_coord + m.offset, content_width(&line)),
+                Some(c) => (
+                    f64::from(m.inline_min_coord) + f64::from(m.offset) + c.shift,
+                    c.width,
+                ),
+                None if justified => (
+                    f64::from(m.inline_min_coord) + f64::from(m.offset),
+                    justified_width(&line),
+                ),
+                None => (
+                    f64::from(m.inline_min_coord) + f64::from(m.offset),
+                    content_width(&line),
+                ),
             };
             // The tallest letters of the line's fonts.
-            let (mut cap_height, mut x_height) = (0.0f32, 0.0f32);
+            let (mut cap_height, mut x_height) = (0.0f64, 0.0f64);
             for run in line.runs() {
                 let run = run.metrics();
-                cap_height = cap_height.max(run.cap_height.unwrap_or(0.0));
-                x_height = x_height.max(run.x_height.unwrap_or(0.0));
+                cap_height = cap_height.max(f64::from(run.cap_height.unwrap_or(0.0)));
+                x_height = x_height.max(f64::from(run.x_height.unwrap_or(0.0)));
             }
             TextLine {
                 range: range(line.text_range()),
                 rect: Rect {
                     x,
-                    y: m.block_min_coord,
+                    y: f64::from(m.block_min_coord),
                     width: width.max(0.0),
-                    height: m.block_max_coord - m.block_min_coord,
+                    height: f64::from(m.block_max_coord) - f64::from(m.block_min_coord),
                 },
-                baseline: m.baseline,
-                ascent: m.ascent,
-                descent: m.descent,
+                baseline: f64::from(m.baseline),
+                ascent: f64::from(m.ascent),
+                descent: f64::from(m.descent),
                 cap_height,
                 x_height,
                 cut: cut.is_some(),
@@ -326,10 +353,10 @@ struct Segment {
     line: usize,
     /// Its span (`None`: the paragraph's style).
     span: Option<usize>,
-    x0: f32,
-    x1: f32,
-    baseline: f32,
-    font_size: f32,
+    x0: f64,
+    x1: f64,
+    baseline: f64,
+    font_size: f64,
     color: kivact_types::Rgba,
     metrics: Metrics,
 }
@@ -345,7 +372,7 @@ pub(crate) struct Drawn {
 /// `plan` shows it.
 pub(crate) fn draw(
     layout: &Layout<u32>,
-    style: &TextStyle,
+    style: &ComputedTextStyle,
     spans: &[TextSpan],
     plan: &Plan,
     ellipsis: Option<&Ellipsis>,
@@ -363,21 +390,21 @@ pub(crate) fn draw(
             let span = (run.style().brush as usize).checked_sub(1);
             let span_style = span.and_then(|s| spans.get(s)).map(|s| &s.style);
             let color = span_style.and_then(|s| s.color).unwrap_or(style.color);
-            let baseline = run.baseline();
-            let mut pen = run.offset();
+            let baseline = f64::from(run.baseline());
+            let mut pen = f64::from(run.offset());
             let (mut x0, mut x1) = (None, pen);
             let mut glyphs = Vec::new();
             for g in run.glyphs() {
                 let start = pen;
-                pen += g.advance;
+                pen += f64::from(g.advance);
                 if cut.is_some_and(|c| start >= c.x - EPSILON) {
                     continue;
                 }
                 glyphs.push(Glyph {
                     id: g.id,
-                    x: start + g.x + shift,
-                    y: baseline + g.y,
-                    advance: g.advance,
+                    x: start + f64::from(g.x) + shift,
+                    y: baseline + f64::from(g.y),
+                    advance: f64::from(g.advance),
                 });
                 x0.get_or_insert(start + shift);
                 x1 = pen + shift;
@@ -401,7 +428,7 @@ pub(crate) fn draw(
             && let Some(template) = &ellipsis.run
         {
             let x = cut.x + cut.shift;
-            let baseline = line.metrics().baseline;
+            let baseline = f64::from(line.metrics().baseline);
             let mut run = template.clone();
             run.color = style.color;
             for glyph in &mut run.glyphs {
@@ -442,12 +469,12 @@ fn glyph_run(
     GlyphRun {
         font: Arc::clone(font),
         font_index: run.font().index,
-        font_size: run.font_size(),
-        color: TextStyle::default().color,
+        font_size: f64::from(run.font_size()),
+        color: ComputedTextStyle::default().color,
         normalized_coords: run
             .normalized_coords()
             .iter()
-            .map(|value| f32::from(*value) / 16384.0)
+            .map(|value| f64::from(*value) / 16384.0)
             .collect(),
         glyphs,
     }
@@ -457,7 +484,7 @@ fn glyph_run(
 /// same kind, color and position joined (no seam between spans).
 fn decorations(
     segments: &[Segment],
-    style: &TextStyle,
+    style: &ComputedTextStyle,
     spans: &[TextSpan],
 ) -> Vec<TextDecorationRect> {
     let mut out: Vec<TextDecorationRect> = Vec::new();
@@ -474,10 +501,13 @@ fn decorations(
         let m = s.metrics;
         // Fonts without the metrics get a line of a fourteenth of their size.
         let fallback = (s.font_size / 14.0).max(0.5);
-        let thickness = |font: f32| {
-            decoration
-                .thickness
-                .filter(|t| t.is_finite() && *t > 0.0)
+        let own = ComputedTextStyle {
+            font_size: s.font_size,
+            decoration,
+            ..style.clone()
+        };
+        let thickness = |font: f64| {
+            own.decoration_thickness_px()
                 .unwrap_or(if font > 0.0 { font } else { fallback })
         };
         for (line, top, height) in [
@@ -488,7 +518,7 @@ fn decorations(
             ),
             (
                 DecorationLines::UNDERLINE,
-                s.baseline - m.underline_offset + decoration.underline_offset,
+                s.baseline - m.underline_offset + own.resolve(decoration.underline_offset),
                 thickness(m.underline_size),
             ),
             (

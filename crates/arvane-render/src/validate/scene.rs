@@ -3,13 +3,15 @@
 use super::Fonts;
 use crate::error::RenderError;
 use crate::limits::{MAX_BLUR, MAX_DASHES, MAX_SCENE_DEPTH};
-use kivact_types::protocol::{
-    Backdrop, BoxShadow, ColorMatrix, DrawCommand, Gradient, GradientShape, ImageData, Layer,
-    LayerFilter, Paint, PathCmd, PatternSource, RoundedRect, Scene, Shape, Transform,
+use kivact_types::geometry::Transform;
+use kivact_types::render::{
+    Backdrop, BoxShadow, ColorMatrix, Gradient, GradientShape, Layer, LayerFilter, Paint,
+    PatternSource, RenderCmd, RenderScene,
 };
+use kivact_types::scene::{PathCmd, Pixels, RoundedRect, Shape};
 use kivact_types::{Point, Rect, Rgba, Stroke};
 
-fn finite(values: &[f32]) -> bool {
+fn finite(values: &[f64]) -> bool {
     values.iter().all(|value| value.is_finite())
 }
 
@@ -35,11 +37,11 @@ fn color(value: Rgba) -> bool {
         .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
 }
 
-fn stroke(width: f32) -> bool {
+fn stroke(width: f64) -> bool {
     width.is_finite() && width >= 0.0
 }
 
-fn stops(stops: &[(f32, Rgba)]) -> bool {
+fn stops(stops: &[(f64, Rgba)]) -> bool {
     !stops.is_empty()
         && stops.iter().all(|(offset, value)| {
             offset.is_finite() && (0.0..=1.0).contains(offset) && color(*value)
@@ -123,10 +125,10 @@ fn line_style(value: &Stroke) -> bool {
         && value.dash_offset.is_finite()
         && value.dash.len() <= MAX_DASHES
         && value.dash.iter().all(|d| stroke(*d))
-        && (value.dash.is_empty() || value.dash.iter().sum::<f32>() > 0.0)
+        && (value.dash.is_empty() || value.dash.iter().sum::<f64>() > 0.0)
 }
 
-fn blur(std_dev: f32) -> bool {
+fn blur(std_dev: f64) -> bool {
     std_dev.is_finite() && (0.0..=MAX_BLUR).contains(&std_dev)
 }
 
@@ -213,7 +215,7 @@ fn path(commands: &[PathCmd]) -> bool {
 /// layer's decode limit). There is no byte cap beyond that: the 64 MiB cap
 /// mirrored the removed decoder's allocation limit, and
 /// a photo the caller decoded must not fail the whole frame.
-pub(crate) fn image(value: &ImageData) -> Result<(), RenderError> {
+pub(crate) fn image(value: &Pixels) -> Result<(), RenderError> {
     let bytes = usize::try_from(value.width)
         .ok()
         .and_then(|w| {
@@ -262,32 +264,32 @@ fn close(groups: &mut Vec<Group>, group: Group) -> Result<bool, RenderError> {
     }
 }
 
-pub(crate) fn scene(scene: &Scene, fonts: &mut Fonts) -> Result<SceneInfo, RenderError> {
+pub(crate) fn scene(scene: &RenderScene, fonts: &mut Fonts) -> Result<SceneInfo, RenderError> {
     let mut groups: Vec<Group> = Vec::new();
     let mut backdrops = false;
     for command in &scene.commands {
         let valid = match command {
-            DrawCommand::Rect {
+            RenderCmd::Rect {
                 rect: bounds,
                 fill: paint,
             } => rect(*bounds) && fill(paint)?,
-            DrawCommand::RoundedRect {
+            RenderCmd::RoundedRect {
                 rect: bounds,
                 radius,
                 fill: paint,
             } => rect(*bounds) && stroke(*radius) && fill(paint)?,
-            DrawCommand::RoundedRectCorners {
+            RenderCmd::RoundedRectCorners {
                 rect: bounds,
                 radii,
                 fill: paint,
             } => rect(*bounds) && radii.iter().all(|radius| stroke(*radius)) && fill(paint)?,
-            DrawCommand::StrokeRect {
+            RenderCmd::StrokeRect {
                 rect: bounds,
                 width,
                 color: paint,
                 radius,
             } => rect(*bounds) && stroke(*width) && stroke(*radius) && color(*paint),
-            DrawCommand::StrokeRoundedRectCorners {
+            RenderCmd::StrokeRoundedRectCorners {
                 rect: bounds,
                 radii,
                 width,
@@ -298,7 +300,7 @@ pub(crate) fn scene(scene: &Scene, fonts: &mut Fonts) -> Result<SceneInfo, Rende
                     && stroke(*width)
                     && color(*paint)
             }
-            DrawCommand::Shadow {
+            RenderCmd::Shadow {
                 rect: bounds,
                 radii,
                 std_dev,
@@ -310,13 +312,13 @@ pub(crate) fn scene(scene: &Scene, fonts: &mut Fonts) -> Result<SceneInfo, Rende
                     && *std_dev > 0.0
                     && color(*paint)
             }
-            DrawCommand::Line {
+            RenderCmd::Line {
                 from,
                 to,
                 width,
                 color: paint,
             } => point(*from) && point(*to) && stroke(*width) && color(*paint),
-            DrawCommand::Path {
+            RenderCmd::Path {
                 cmds,
                 fill,
                 stroke: line,
@@ -325,7 +327,7 @@ pub(crate) fn scene(scene: &Scene, fonts: &mut Fonts) -> Result<SceneInfo, Rende
                     && fill.is_none_or(color)
                     && line.is_none_or(|(width, paint)| stroke(width) && color(paint))
             }
-            DrawCommand::Glyphs {
+            RenderCmd::Glyphs {
                 run,
                 origin,
                 color: override_color,
@@ -351,20 +353,20 @@ pub(crate) fn scene(scene: &Scene, fonts: &mut Fonts) -> Result<SceneInfo, Rende
                 }
                 point(*origin) && override_color.is_none_or(color) && color(run.color)
             }
-            DrawCommand::Image {
+            RenderCmd::Image {
                 image: value,
                 rect: bounds,
                 opacity,
                 color_matrix,
             }
-            | DrawCommand::ImageSampled {
+            | RenderCmd::ImageSampled {
                 image: value,
                 rect: bounds,
                 opacity,
                 color_matrix,
                 ..
             } => {
-                if let DrawCommand::ImageSampled {
+                if let RenderCmd::ImageSampled {
                     source: Some(source),
                     ..
                 } = command
@@ -380,7 +382,7 @@ pub(crate) fn scene(scene: &Scene, fonts: &mut Fonts) -> Result<SceneInfo, Rende
             }
             // A frame that is not imported or not ready draws nothing; its
             // values are checked as an image's.
-            DrawCommand::External {
+            RenderCmd::External {
                 rect: bounds,
                 source,
                 opacity,
@@ -391,32 +393,32 @@ pub(crate) fn scene(scene: &Scene, fonts: &mut Fonts) -> Result<SceneInfo, Rende
                     && opacity.is_finite()
                     && (0.0..=1.0).contains(opacity)
             }
-            DrawCommand::FillShape { shape: s, paint } => shape(s) && fill(paint)?,
-            DrawCommand::StrokeShape {
+            RenderCmd::FillShape { shape: s, paint } => shape(s) && fill(paint)?,
+            RenderCmd::StrokeShape {
                 shape: s,
                 stroke: style,
                 paint,
             } => shape(s) && line_style(style) && fill(paint)?,
-            DrawCommand::BoxShadow(value) => box_shadow(value),
-            DrawCommand::Backdrop(value) => {
+            RenderCmd::BoxShadow(value) => box_shadow(value),
+            RenderCmd::Backdrop(value) => {
                 backdrops = true;
                 backdrop(value)
             }
-            DrawCommand::PushClip(bounds) => {
+            RenderCmd::PushClip(bounds) => {
                 open(&mut groups, Group::Clip)?;
                 rect(*bounds)
             }
-            DrawCommand::PushTransform(value) => {
+            RenderCmd::PushTransform(value) => {
                 open(&mut groups, Group::Transform)?;
                 transform(value)
             }
-            DrawCommand::PushLayer(value) => {
+            RenderCmd::PushLayer(value) => {
                 open(&mut groups, Group::Layer)?;
                 layer(value)?
             }
-            DrawCommand::PopClip => close(&mut groups, Group::Clip)?,
-            DrawCommand::PopTransform => close(&mut groups, Group::Transform)?,
-            DrawCommand::PopLayer => close(&mut groups, Group::Layer)?,
+            RenderCmd::PopClip => close(&mut groups, Group::Clip)?,
+            RenderCmd::PopTransform => close(&mut groups, Group::Transform)?,
+            RenderCmd::PopLayer => close(&mut groups, Group::Layer)?,
         };
         if !valid {
             return Err(RenderError::InvalidGeometry);

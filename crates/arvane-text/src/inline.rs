@@ -1,9 +1,8 @@
 //! Role: Shape one paragraph around caller-measured in-flow objects.
 use crate::text_engine::{TextEngine, crlf_as_one_break, crlf_spans};
 use crate::{TextError, build, metrics, output, transform};
-use kivact_types::protocol::{
-    InlineBox, InlineBoxPlacement, RichText, ShapedInlineText, ShapedText, TextStyle,
-};
+use kivact_types::ComputedTextStyle;
+use kivact_types::render::{InlineBox, InlineBoxPlacement, RichText, ShapedInlineText, ShapedText};
 use kivact_types::{Rect, TextAlign};
 use parley::{Alignment, AlignmentOptions, InlineBoxKind, PositionedLayoutItem};
 use std::collections::HashSet;
@@ -21,8 +20,8 @@ impl TextEngine {
     pub fn shape_inline(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         boxes: &[InlineBox],
     ) -> Result<ShapedInlineText, TextError> {
         if boxes.is_empty() {
@@ -63,8 +62,8 @@ impl TextEngine {
                     id: item.id,
                     kind: InlineBoxKind::InFlow,
                     index,
-                    width: item.size.width,
-                    height: item.size.height,
+                    width: item.size.width as f32,
+                    height: item.size.height as f32,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -80,7 +79,7 @@ impl TextEngine {
             height,
             &boxes,
         );
-        layout.break_all_lines(max_width);
+        layout.break_all_lines(max_width.map(|value| value as f32));
         layout.align(
             match style.align {
                 TextAlign::Start => Alignment::Start,
@@ -122,10 +121,10 @@ impl TextEngine {
                         id: item.id,
                         line,
                         rect: Rect {
-                            x: item.x,
-                            y: item.y,
-                            width: item.width,
-                            height: item.height,
+                            x: f64::from(item.x),
+                            y: f64::from(item.y),
+                            width: f64::from(item.width),
+                            height: f64::from(item.height),
                         },
                     });
                 }

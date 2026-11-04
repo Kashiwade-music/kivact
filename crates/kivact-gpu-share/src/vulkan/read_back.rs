@@ -11,8 +11,8 @@
 
 use super::raw::{COLOR, barrier, memory_type};
 use crate::common::{Error, api};
-use crate::pool::straighten;
 use ash::vk;
+use kivact_types::color::unpremultiply;
 use std::time::Duration;
 
 /// An engine's image to read back ([`read_back`]): a 2D image of
@@ -158,7 +158,7 @@ pub unsafe fn read_back(
     // SAFETY: the mapping holds `size` bytes, written and made visible to
     // the host (the barrier and the fence).
     unsafe { std::ptr::copy_nonoverlapping(mapped.cast::<u8>(), rgba.as_mut_ptr(), len) };
-    straighten(&mut rgba);
+    unpremultiply(&mut rgba);
     Ok(rgba)
 }
 

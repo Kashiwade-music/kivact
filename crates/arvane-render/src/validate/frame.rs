@@ -6,7 +6,7 @@ use kivact_types::Size;
 
 /// The pixel dimensions of a frame of logical `size` at `scale`, or why the
 /// renderers do not draw it: the one place the frame budget is decided.
-pub fn dimensions(size: Size, scale: f32) -> Result<(u16, u16), RenderError> {
+pub fn dimensions(size: Size, scale: f64) -> Result<(u16, u16), RenderError> {
     if !scale.is_finite()
         || scale <= 0.0
         || !size.width.is_finite()
@@ -34,9 +34,9 @@ pub fn dimensions(size: Size, scale: f32) -> Result<(u16, u16), RenderError> {
 /// extent never rasterizes beyond the window, and a window beyond the
 /// frame budget is drawn at a reduced scale (the frame is enlarged to the
 /// window).
-pub fn raster_plan(width: u32, height: u32, scale: f32) -> (Size, f32) {
+pub fn raster_plan(width: u32, height: u32, scale: f64) -> (Size, f64) {
     let size = raster_size(width, height, scale);
-    let fits = |scale: f32| {
+    let fits = |scale: f64| {
         let width = (size.width * scale).ceil();
         let height = (size.height * scale).ceil();
         width <= MAX_SIDE && height <= MAX_SIDE && width * height <= MAX_PIXELS
@@ -44,7 +44,7 @@ pub fn raster_plan(width: u32, height: u32, scale: f32) -> (Size, f32) {
     if !scale.is_finite() || scale <= 0.0 || fits(scale) {
         return (size, scale);
     }
-    let (w, h) = (width as f32, height as f32);
+    let (w, h) = (width as f64, height as f64);
     let mut reduced = scale
         * (MAX_SIDE / w)
             .min(MAX_SIDE / h)
@@ -56,10 +56,10 @@ pub fn raster_plan(width: u32, height: u32, scale: f32) -> (Size, f32) {
 }
 
 /// Logical extent whose rasterization never exceeds the physical surface.
-fn raster_size(width: u32, height: u32, scale: f32) -> Size {
+fn raster_size(width: u32, height: u32, scale: f64) -> Size {
     let extent = |physical: u32| {
-        let mut logical = physical as f32 / scale;
-        while logical * scale > physical as f32 {
+        let mut logical = physical as f64 / scale;
+        while logical * scale > physical as f64 {
             logical = logical.next_down();
         }
         logical

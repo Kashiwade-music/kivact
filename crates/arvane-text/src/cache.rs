@@ -3,7 +3,8 @@
 
 use crate::layouts;
 use crate::output;
-use kivact_types::protocol::{FontFeature, RichText, TextDecoration, TextStyle, TextWrap};
+use kivact_types::render::RichText;
+use kivact_types::{ComputedTextStyle, FontFeature, TextDecoration, TextWrap};
 use kivact_types::{
     DecorationLines, FontKerning, LineHeight, Rgba, TextAlign, TextOverflow, TextTransform,
 };
@@ -51,12 +52,12 @@ impl<K: Hash + Eq, V: Clone> Generations<K, V> {
     }
 }
 
-fn color_bits(c: Rgba) -> [u32; 4] {
-    [c.r, c.g, c.b, c.a].map(f32::to_bits)
+fn color_bits(c: Rgba) -> [u64; 4] {
+    [c.r, c.g, c.b, c.a].map(f64::to_bits)
 }
 
 /// A decoration's lines, color, thickness and offset, as bits.
-type DecorationBits = (u8, Option<[u32; 4]>, Option<u32>, u32);
+type DecorationBits = (u8, Option<[u64; 4]>, Option<(u8, u64)>, (u8, u64));
 
 fn decoration_bits(d: TextDecoration) -> DecorationBits {
     let lines = [
@@ -71,8 +72,8 @@ fn decoration_bits(d: TextDecoration) -> DecorationBits {
     (
         lines,
         d.color.map(color_bits),
-        d.thickness.map(f32::to_bits),
-        d.underline_offset.to_bits(),
+        d.thickness.map(text_len_bits),
+        text_len_bits(d.underline_offset),
     )
 }
 
@@ -82,13 +83,13 @@ fn decoration_bits(d: TextDecoration) -> DecorationBits {
 struct SpanBits {
     start: usize,
     end: usize,
-    font_size: Option<u32>,
+    font_size: Option<u64>,
     weight: Option<u16>,
-    color: Option<[u32; 4]>,
+    color: Option<[u64; 4]>,
     family: Option<String>,
     italic: Option<bool>,
-    letter_spacing: Option<u32>,
-    word_spacing: Option<u32>,
+    letter_spacing: Option<u64>,
+    word_spacing: Option<u64>,
     kerning: Option<FontKerning>,
     features: Option<Vec<FontFeature>>,
     decoration: Option<DecorationBits>,
@@ -100,8 +101,8 @@ struct SpanBits {
 /// as before the vocabulary existed).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct RichKey {
-    letter_spacing: u32,
-    word_spacing: u32,
+    letter_spacing: u64,
+    word_spacing: u64,
     kerning: FontKerning,
     features: Vec<FontFeature>,
     decoration: Option<DecorationBits>,
@@ -117,16 +118,16 @@ struct RichKey {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct TextKey {
     text: String,
-    font_size: u32,
+    font_size: u64,
     weight: u16,
     /// Absent for measurement, which color cannot change.
-    color: Option<[u32; 4]>,
-    line_height: (u8, u32),
+    color: Option<[u64; 4]>,
+    line_height: (u8, u64),
     wrap: bool,
     align: u8,
     family: Option<String>,
     italic: bool,
-    max_width: Option<u32>,
+    max_width: Option<u64>,
     /// Whether the shaped text has its carets.
     carets: bool,
     rich: Option<Box<RichKey>>,
@@ -137,17 +138,17 @@ impl TextKey {
     /// drawing reads too (colors, decorations, highlights).
     pub(crate) fn new(
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         drawn: bool,
     ) -> Self {
         let decoration = (drawn && style.decoration != TextDecoration::default())
             .then(|| decoration_bits(style.decoration));
         let plain = text.spans.is_empty()
-            && style.letter_spacing == 0.0
-            && style.word_spacing == 0.0
+            && style.resolve(style.letter_spacing) == 0.0
+            && style.resolve(style.word_spacing) == 0.0
             && style.kerning == FontKerning::Auto
-            && style.features.is_empty()
+            && style.shaping_features().is_empty()
             && decoration.is_none()
             && style.overflow == TextOverflow::Clip
             && style.max_lines.is_none()
@@ -155,10 +156,10 @@ impl TextKey {
             && style.transform == TextTransform::None;
         let rich = (!plain).then(|| {
             Box::new(RichKey {
-                letter_spacing: style.letter_spacing.to_bits(),
-                word_spacing: style.word_spacing.to_bits(),
+                letter_spacing: style.resolve(style.letter_spacing).to_bits(),
+                word_spacing: style.resolve(style.word_spacing).to_bits(),
                 kerning: style.kerning,
-                features: style.features.clone(),
+                features: style.shaping_features(),
                 decoration,
                 overflow: style.overflow == TextOverflow::Ellipsis,
                 max_lines: style.max_lines,
@@ -172,13 +173,13 @@ impl TextKey {
                         SpanBits {
                             start: span.range.start,
                             end: span.range.end,
-                            font_size: s.font_size.map(f32::to_bits),
+                            font_size: s.font_size.map(f64::to_bits),
                             weight: s.weight,
                             color: if drawn { s.color.map(color_bits) } else { None },
                             family: s.family.clone(),
                             italic: s.italic,
-                            letter_spacing: s.letter_spacing.map(f32::to_bits),
-                            word_spacing: s.word_spacing.map(f32::to_bits),
+                            letter_spacing: s.letter_spacing.map(f64::to_bits),
+                            word_spacing: s.word_spacing.map(f64::to_bits),
                             kerning: s.kerning,
                             features: s.features.clone(),
                             decoration: if drawn {
@@ -211,7 +212,7 @@ impl TextKey {
             },
             family: style.family.clone(),
             italic: style.italic,
-            max_width: max_width.map(f32::to_bits),
+            max_width: max_width.map(f64::to_bits),
             carets: true,
             rich,
         }
@@ -235,7 +236,7 @@ const MEASURED_ENTRIES: usize = 4096;
 pub(crate) struct Cache {
     pub(crate) shaped: Generations<
         TextKey,
-        Result<std::sync::Arc<kivact_types::protocol::ShapedText>, crate::TextError>,
+        Result<std::sync::Arc<kivact_types::render::ShapedText>, crate::TextError>,
     >,
     pub(crate) measured: Generations<TextKey, Result<kivact_types::TextMetrics, crate::TextError>>,
     pub(crate) families: HashMap<String, bool>,
@@ -256,5 +257,12 @@ impl Default for Cache {
             paragraphs: layouts::Shaped::default(),
             ellipses: HashMap::new(),
         }
+    }
+}
+
+fn text_len_bits(value: kivact_types::TextLen) -> (u8, u64) {
+    match value {
+        kivact_types::TextLen::Px(v) => (0, v.to_bits()),
+        kivact_types::TextLen::Em(v) => (1, v.to_bits()),
     }
 }
