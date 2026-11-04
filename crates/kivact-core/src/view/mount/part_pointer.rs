@@ -413,11 +413,29 @@ pub(super) fn route(
                 .pointer_capture(event.id())
                 != Some(registry.node)
         {
-            registry
-                .gestures
-                .borrow_mut()
-                .captures
-                .retain(|capture| capture.pointer != event.id());
+            let released = {
+                let mut gestures = registry.gestures.borrow_mut();
+                let index = gestures
+                    .captures
+                    .iter()
+                    .position(|capture| capture.pointer == event.id());
+                index.map(|index| gestures.captures.remove(index))
+            };
+            if let Some(capture) = released
+                && let Some(target) = capture.state.target(&registry)
+            {
+                let cancelled = event_for(event, &target, PointerPhase::Cancel);
+                observe(&target, cancelled);
+                if let Err(error) = default(&target, cancelled) {
+                    runtime.report(Some(target.owner), error);
+                }
+                if capture.state.fallback().is_some() {
+                    if let Err(error) = fallback(root, cancelled) {
+                        runtime.report(Some(root.owner), error);
+                    }
+                    forget_adoption(&registry, event.id());
+                }
+            }
         }
         // Consuming a terminal event cannot leave an adopted fallback gesture open.
         if finish_fallback && (!delivered_finish || result.is_err()) {
