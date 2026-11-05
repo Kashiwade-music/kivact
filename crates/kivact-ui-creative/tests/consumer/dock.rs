@@ -175,14 +175,23 @@ fn splitters_set_value_step_reset_and_drag_between_two_neighbors() {
     let share = row[0] / (row[0] + row[1]);
     assert!(near(share, splitter.value_range().1.unwrap() / 100.0, 1e-9));
     assert!(panel(&screen, "Viewer 1").width > 39.0);
+    let expanded = row;
     splitter.press_key(Key::Enter);
     let row = top_row(&probe.layout.get_untracked());
     assert!(
-        near(row[0], row[1], 1e-9),
-        "Enter equalizes the two neighbors"
+        near(row[0] / (row[0] + row[1]), min_share, 1e-9),
+        "Enter collapses to the minimum"
+    );
+    assert!(near(row[0] + row[1], expanded[0] + expanded[1], 1e-9));
+    splitter.press_key(Key::Enter);
+    let restored = top_row(&probe.layout.get_untracked());
+    assert!(near(restored[0], expanded[0], 1e-9));
+    assert!(
+        near(restored[1], expanded[1], 1e-9),
+        "Enter restores both neighbors"
     );
 
-    // Double click equalizes too; a drag moves by the pointer's travel.
+    // Double click equalizes; a drag moves by the pointer's travel.
     splitter.a11y_set_value("30");
     splitter.double_click();
     let row = top_row(&probe.layout.get_untracked());
