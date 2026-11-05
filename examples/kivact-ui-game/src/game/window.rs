@@ -50,7 +50,46 @@ pub(super) fn frame(
         "help" => help.set(true),
         _ => (),
     };
-    let menu = row([
+    let menu = window_menu(command);
+    let tools = window_tools(command, mode);
+    let document_pane = document_pane(mode, content, preview);
+    column((
+        crate::game::frame::native_window(
+            move || format!("{} ▪", document.get()),
+            width,
+            column((
+                g::mono(message("game.window.explorer", "EXPLORER")),
+                explorer,
+            )),
+            row((
+                document_pane,
+                column((
+                    g::mono(message("game.window.inspector", "INSPECTOR")),
+                    inspector,
+                ))
+                .style(
+                    style()
+                        .width(260)
+                        .shrink(0)
+                        .border_left(1, ColorToken::Border),
+                ),
+            ))
+            .style(style().align_items(Align::Stretch)),
+        )
+        .explorer_range(
+            kivact::interaction::ScalarRange::new(140., 420.)
+                .expect("invariant: the catalog explorer range is finite"),
+        )
+        .menu_bar(menu)
+        .toolbar(tools)
+        .status_bar(window_status(status, content, saved, running)),
+        kivact::ui::dialog("About this example", help)
+            .content(|| text("Application-owned menus and editor state.")),
+    ))
+}
+
+fn window_menu(command: impl Fn(&'static str) + Copy + 'static) -> impl IntoView {
+    row([
         (
             "game.window.menu.file",
             "File",
@@ -97,8 +136,14 @@ pub(super) fn frame(
             )
     })
     .collect::<Vec<_>>())
-    .style(style().gap(4));
-    let tools = kivact::ui::toolbar("Console tools")
+    .style(style().gap(4))
+}
+
+fn window_tools(
+    command: impl Fn(&'static str) + Copy + 'static,
+    mode: Signal<Option<&'static str>>,
+) -> impl IntoView {
+    kivact::ui::toolbar("Console tools")
         .start((
             g::tool_button(message("game.window.new", "New"))
                 .icon(kivact::view::icon("plus"))
@@ -131,8 +176,15 @@ pub(super) fn frame(
                 .padding_x(8)
                 .padding_y(4)
                 .background(ColorToken::SurfaceAlt),
-        );
-    let document_pane = column((
+        )
+}
+
+fn document_pane(
+    mode: Signal<Option<&'static str>>,
+    content: Signal<String>,
+    preview: impl IntoView,
+) -> Node {
+    column((
         show(
             move || mode.get() == Some("edit"),
             move || {
@@ -150,64 +202,38 @@ pub(super) fn frame(
             ))
             .hidden(move || mode.get() != Some("preview")),
     ))
-    .style(style().grow(1).min_width(0));
-    column((
-        crate::game::frame::native_window(
-            move || format!("{} ▪", document.get()),
-            width,
-            column((
-                g::mono(message("game.window.explorer", "EXPLORER")),
-                explorer,
-            )),
-            row((
-                document_pane,
-                column((
-                    g::mono(message("game.window.inspector", "INSPECTOR")),
-                    inspector,
-                ))
-                .style(
-                    style()
-                        .width(260)
-                        .shrink(0)
-                        .border_left(1, ColorToken::Border),
-                ),
-            ))
-            .style(style().align_items(Align::Stretch)),
-        )
-        .explorer_range(
-            kivact::interaction::ScalarRange::new(140., 420.)
-                .expect("invariant: the catalog explorer range is finite"),
-        )
-        .menu_bar(menu)
-        .toolbar(tools)
-        .status_bar({
-            row((
-                g::mono(status).test_id("game-window-status"),
-                g::mono(message("game.window.branch", "main")),
-                g::mono(move || {
-                    if content.get() == saved.get() {
-                        "Saved"
-                    } else {
-                        "Modified"
-                    }
-                    .to_owned()
-                })
-                .test_id("game-window-save-state"),
-                spacer(),
-                g::mono(move || if running.get() { "RUNNING" } else { "IDLE" }.to_owned()),
-                g::mono(message("game.window.status", "UTF-8 · LF · Markdown")),
-            ))
-            .style(
-                style()
-                    .height(24)
-                    .padding_x(10)
-                    .gap(16)
-                    .align_items(Align::Center)
-                    .background(ColorToken::Accent)
-                    .color(ColorToken::AccentText),
-            )
-        }),
-        kivact::ui::dialog("About this example", help)
-            .content(|| text("Application-owned menus and editor state.")),
+    .style(style().grow(1).min_width(0))
+}
+
+fn window_status(
+    status: Signal<String>,
+    content: Signal<String>,
+    saved: Signal<String>,
+    running: Signal<bool>,
+) -> Node {
+    row((
+        g::mono(status).test_id("game-window-status"),
+        g::mono(message("game.window.branch", "main")),
+        g::mono(move || {
+            if content.get() == saved.get() {
+                "Saved"
+            } else {
+                "Modified"
+            }
+            .to_owned()
+        })
+        .test_id("game-window-save-state"),
+        spacer(),
+        g::mono(move || if running.get() { "RUNNING" } else { "IDLE" }.to_owned()),
+        g::mono(message("game.window.status", "UTF-8 · LF · Markdown")),
     ))
+    .style(
+        style()
+            .height(24)
+            .padding_x(10)
+            .gap(16)
+            .align_items(Align::Center)
+            .background(ColorToken::Accent)
+            .color(ColorToken::AccentText),
+    )
 }
