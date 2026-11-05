@@ -619,6 +619,7 @@ recipe_table! {
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
+        badge_label(badge_label_recipe): crate::BadgeState = super::look_indicators::badge_label,
         spinner(spinner_recipe): crate::SpinnerState = super::look_indicators::spinner,
         skeleton(skeleton_recipe): crate::SkeletonState = super::look_indicators::skeleton,
         button(button_recipe): ButtonState = look::button,
