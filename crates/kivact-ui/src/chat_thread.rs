@@ -8,8 +8,8 @@ use kivact_core::view::{
     IntoView, Node, NodeBuilder, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
 use kivact_interaction::use_follow_end;
-/// A scrollable message log that follows new content until the reader scrolls away.
 // xtask-allow(state-fields): Independent builder inputs and slots; use_follow_end owns the complete following and anchor state.
+/// A scrollable message log that follows new content until the reader scrolls away.
 pub struct ChatThread {
     root: Node,
     children: View,
@@ -127,7 +127,8 @@ impl IntoView for ChatThread {
         .style(move || {
             let s = style()
                 .direction(Direction::Column)
-                .min_height(kivact_core::style::pct(100))
+                .grow(1)
+                .shrink(0)
                 .justify_content(if align.get() == ChatAlign::End {
                     kivact_core::style::Justify::End
                 } else {
