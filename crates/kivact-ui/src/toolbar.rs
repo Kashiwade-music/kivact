@@ -3,56 +3,13 @@ use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
-use kivact_core::style::{Align, Color, Direction, Justify, Length, Track, pct, style};
+use kivact_core::style::{Align, Direction, Justify, Length, Track, pct, style};
 use kivact_core::view::{
     IntoChildren, IntoView, Node, NodeBuilder, Orientation, ReadingDirection, Role, View, node,
     row, use_direction,
 };
 
-/// Logical edges on which a toolbar draws a divider.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ToolbarEdge {
-    Top,
-    Bottom,
-    Start,
-    End,
-}
-
-/// Passive toolbar colors and metrics supplied through [`crate::UiTokens`].
-#[derive(Clone, Debug, PartialEq)]
-pub struct ToolbarTokens {
-    pub background: Color,
-    pub border: Color,
-    pub padding: f64,
-    pub gap: f64,
-    pub min_height: f64,
-}
-impl Default for ToolbarTokens {
-    fn default() -> Self {
-        Self {
-            background: Color::TRANSPARENT,
-            border: Color::TRANSPARENT,
-            padding: 8.0,
-            gap: 4.0,
-            min_height: 32.0,
-        }
-    }
-}
-
-/// Layout passed to toolbar recipes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ToolbarState {
-    pub orientation: Orientation,
-    pub size: ControlSize,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub gap: Option<f64>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub centered: bool,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub rtl: bool,
-    pub dividers: Vec<ToolbarEdge>,
-}
-
+use crate::collection_values::{ToolbarEdge, ToolbarState};
 /// Three optional regions that share a single keyboard Tab stop.
 pub struct Toolbar {
     root: Node,

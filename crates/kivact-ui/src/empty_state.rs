@@ -11,11 +11,7 @@ enum Announcement {
     Spoken,
 }
 
-/// The semantic state passed to every empty-state recipe.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct EmptyStateState {
-    pub heading_level: u8,
-}
+use crate::component_values::EmptyStateState;
 
 // xtask-allow(state-fields): Builder configuration and optional slots; runtime announcement is an explicit Announcement phase.
 /// A message for a region without content.

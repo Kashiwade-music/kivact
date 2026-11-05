@@ -7,14 +7,7 @@ use kivact_core::view::{
 };
 use kivact_interaction::{use_button, use_checkbox};
 
-// xtask-allow(state-fields): Read-only recipe projection of the caller binding and actual interaction configuration.
-/// Card semantics supplied to recipes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CardState {
-    pub selected: Option<bool>,
-    pub disabled: bool,
-    pub interactive: bool,
-}
+use crate::component_values::CardState;
 
 // xtask-allow(state-fields): Setup-only independent slots and behavior inputs; selection belongs to the caller binding.
 /// A surface containing optional header, media, content and footer regions.
