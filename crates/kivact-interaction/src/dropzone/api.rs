@@ -1,5 +1,5 @@
 //! Role: Validate file payloads and publish accepted selections through one controller.
-use super::machine::{DropzoneState, Event, Machine, Validity};
+use super::machine::{DropzoneState, Effect, Event, Machine, Validity};
 use crate::options_cell::OptionsCell;
 use kivact_core::UiError;
 use kivact_core::state::{MachineHandle, Value, machine};
@@ -18,10 +18,21 @@ pub struct DropzoneApi {
 }
 /// Create a drop controller. Configure callbacks before attaching it to a view.
 pub fn use_dropzone() -> DropzoneApi {
+    let on_files = OptionsCell::new(Rc::new(|_| Ok(())) as FilesCallback);
     DropzoneApi {
-        state: machine(DropzoneState::Idle, || Machine, |_, ()| {}),
+        state: machine(
+            DropzoneState::Idle,
+            || Machine,
+            move |cx, effect| match effect {
+                Effect::Files(files) => {
+                    if let Err(error) = (on_files.get())(files) {
+                        cx.send(Event::Complete(Err(error)));
+                    }
+                }
+            },
+        ),
         validate: OptionsCell::new(Rc::new(|_: &FileInfo| None) as Validator),
-        on_files: OptionsCell::new(Rc::new(|_| Ok(())) as FilesCallback),
+        on_files,
         multiple: false,
     }
 }
@@ -87,11 +98,10 @@ impl DropzoneApi {
     /// Validate and deliver native paths, converting transport data once at this boundary.
     pub fn accept(self, paths: Vec<std::path::PathBuf>) {
         let files: Vec<_> = paths.into_iter().map(FileInfo::from).collect();
-        let outcome = match self.validity(&files) {
-            Validity::Invalid(message) => Err(UiError::msg(message)),
-            Validity::Valid if files.is_empty() => Ok(()),
-            Validity::Valid => (self.on_files.get())(files),
-        };
-        self.state.send(Event::Complete(outcome));
+        match self.validity(&files) {
+            Validity::Invalid(message) => self.fail(UiError::msg(message)),
+            Validity::Valid if files.is_empty() => self.cancel_pick(),
+            Validity::Valid => self.state.send(Event::Accept(files)),
+        }
     }
 }

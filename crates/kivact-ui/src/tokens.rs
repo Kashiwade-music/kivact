@@ -9,6 +9,8 @@ use crate::toggle_button_tokens::ToggleButtonTokens;
 use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiTokens {
+    pub carousel: crate::CarouselTokens,
+    pub dropzone: crate::DropzoneTokens,
     pub button: ButtonTokens,
     pub progress: ProgressTokens,
     pub toast: ToastTokens,

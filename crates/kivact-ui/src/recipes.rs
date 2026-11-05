@@ -52,9 +52,11 @@ use super::values::{
 };
 use super::variants::Look;
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
+use crate::look_files;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
+use kivact_interaction::{CarouselState, DropzoneState};
 use kivact_interaction::{
     DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
     TableHeaderState, ToastState, TreeItemState,
@@ -594,6 +596,8 @@ recipe_table! {
         split(split_recipes): SplitRecipes,
         progress(progress_recipes): ProgressRecipes,
         disclosure(disclosure_recipes): DisclosureRecipes,
+        carousel(carousel_recipes): CarouselRecipes,
+        dropzone(dropzone_recipes): DropzoneRecipes,
         command_palette(command_palette_recipes): CommandPaletteRecipes,
         tag_input(tag_input_recipes): TagInputRecipes,
         number_input(number_input_recipes): NumberInputRecipes,
@@ -630,5 +634,26 @@ impl RadioGroupRecipes {
 impl TabsRecipes {
     pub(super) fn has_custom_indicator(&self) -> bool {
         !self.indicator.same(&Self::default_table().indicator)
+    }
+}
+
+recipe_table! {
+    /// Styles for a carousel's persistent parts.
+    CarouselRecipes {
+        root(root_recipe): CarouselState = look_files::carousel_root,
+        viewport(viewport_recipe): CarouselState = look_files::carousel_viewport,
+        track(track_recipe): CarouselState = look_files::carousel_track,
+        slide(slide_recipe): CarouselState = look_files::carousel_slide,
+        previous(previous_recipe): CarouselState = look_files::carousel_control,
+        next(next_recipe): CarouselState = look_files::carousel_control,
+    }
+}
+recipe_table! {
+    /// Styles for a file drop target and its feedback.
+    DropzoneRecipes {
+        root(root_recipe): DropzoneState = look_files::dropzone_root,
+        label(label_recipe): DropzoneState = look_files::dropzone_label,
+        hint(hint_recipe): DropzoneState = look_files::dropzone_hint,
+        status(status_recipe): DropzoneState = look_files::dropzone_status,
     }
 }

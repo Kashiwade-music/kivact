@@ -20,14 +20,23 @@ pub(super) enum Event {
     Leave,
     Pick,
     Complete(Result<(), UiError>),
+    Accept(Vec<kivact_types::platform::FileInfo>),
+}
+pub(super) enum Effect {
+    Files(Vec<kivact_types::platform::FileInfo>),
 }
 pub(super) struct Machine;
 impl MachineTrait for Machine {
     type State = DropzoneState;
     type Event = Event;
-    type Effect = ();
-    fn transition(&self, state: &DropzoneState, event: Event) -> Step<DropzoneState, Event, ()> {
+    type Effect = Effect;
+    fn transition(
+        &self,
+        state: &DropzoneState,
+        event: Event,
+    ) -> Step<DropzoneState, Event, Effect> {
         match event {
+            Event::Accept(files) => Step::to(DropzoneState::Idle).with(Effect::Files(files)),
             Event::Hover(valid) if !matches!(state, DropzoneState::Picking) => {
                 Step::to(DropzoneState::DragOver { valid })
             }
