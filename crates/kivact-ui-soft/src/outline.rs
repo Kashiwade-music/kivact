@@ -88,14 +88,20 @@ pub enum OutlineDensity {
 pub struct Outline {
     root: Node,
     items: Value<Vec<OutlineItem>>,
+    // xtask-allow(state-fields): Optional caller-owned active-heading binding.
     active: Option<Binding<Option<String>>>,
     density: Value<OutlineDensity>,
     offset: Value<f64>,
+    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
+    // xtask-allow(state-fields): Optional mounted content reference used for geometry observation.
     content: Option<NodeRef>,
     scroll_on_press: Value<bool>,
+    // xtask-allow(state-fields): Optional application notification callback.
     change: Option<Callback<String>>,
+    // xtask-allow(state-fields): Optional navigation-start callback.
     start: Option<Callback<String>>,
+    // xtask-allow(state-fields): Optional navigation-completion callback.
     end: Option<Callback<String>>,
 }
 
@@ -234,12 +240,17 @@ impl Machine for FocusMachine {
 
 #[derive(Clone, Copy)]
 struct Navigation {
+    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
     offset: f64,
+    // xtask-allow(state-fields): Immutable setup snapshot controlling whether navigation requests scrolling.
     scroll_on_press: bool,
+    // xtask-allow(state-fields): Optional caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
     controlled: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
+    // xtask-allow(state-fields): Optional navigation-start callback.
     start: Option<Callback<String>>,
+    // xtask-allow(state-fields): Optional navigation-completion callback.
     end: Option<Callback<String>>,
 }
 
@@ -325,33 +336,7 @@ impl IntoView for Outline {
                 end,
             };
             kivact::state::on_cleanup(move || navigation.finish());
-            let active = memo(move || {
-                if let Some(active) = active {
-                    return active.get();
-                }
-                if let OutlineScroll::Scrolling { target } = pending.get() {
-                    return Some(target);
-                }
-                let items = items.get();
-                let first = items.first()?;
-                let Some(viewport) = viewport else {
-                    return Some(first.id.clone());
-                };
-                let viewport_rect = viewport.rect().get()?;
-                let scroll = viewport.scroll_offset().get().y;
-                if let Some(content) = content.and_then(|content| content.rect().get())
-                    && scroll > 0.0
-                    && content.height - viewport_rect.height - scroll <= 2.0
-                {
-                    return items.last().map(|item| item.id.clone());
-                }
-                let line = viewport_rect.y + offset.get() + 1.0;
-                let item = items
-                    .iter()
-                    .rev()
-                    .find(|item| item.target.rect().get().is_some_and(|rect| rect.y <= line));
-                Some(item.unwrap_or(first).id.clone())
-            });
+            let active = active_heading(active, pending, items, viewport, content, offset);
             if let Some(change) = change {
                 effect_on(active, move |id| {
                     if let Some(id) = id {
@@ -389,37 +374,7 @@ fn outline_list(
         let list = list.rect().get()?;
         Some((item.y - list.y, item.height))
     });
-    let t = kivact::style::use_tokens::<crate::Tokens>();
-    let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard);
-    let height = animated(
-        move || indicator_rect.get().map_or(0.0, |(_, height)| height),
-        transition.clone(),
-    );
-    let track = node()
-        .style(|| {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
-            style()
-                .position(Position::Relative)
-                .width(t.spacing.s0_5)
-                .shrink(0)
-                .align_self(Align::Stretch)
-                .background(t.colors.border)
-                .radius(t.radius.full)
-        })
-        .child(node().style(move || {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
-            let offset = indicator_rect.get().map_or(0.0, |(y, _)| y);
-            style()
-                .position(Position::Absolute)
-                .top(0)
-                .left(0)
-                .width(pct(100))
-                .height(height.get())
-                .translate_y(offset)
-                .radius(t.radius.full)
-                .background(t.colors.icon_primary)
-                .transition(TransitionProp::Paint, transition.clone())
-        }));
+    let track = outline_track(indicator_rect);
     let rows = items
         .iter()
         .enumerate()
@@ -449,18 +404,7 @@ fn outline_list(
                 .focusable(focusable)
                 .with_node(move |node| node.selected(selected))
                 .on_press(move || navigation.navigate(&item))
-                .on_key(move |event: KeyEvent| {
-                    let next = match event.key() {
-                        Key::ArrowUp => index.saturating_sub(1),
-                        Key::ArrowDown => (index + 1).min(items.len() - 1),
-                        Key::Home => 0,
-                        Key::End => items.len() - 1,
-                        _ => return Handled::No,
-                    };
-                    roving.send(items[next].id.clone());
-                    refs[next].focus();
-                    Handled::Yes
-                })
+                .on_key(move |event| outline_key(event, index, &items, &refs, roving))
                 .style(move || outline_row(level, density, selected.get()))
                 .child(text(label).style(style().single_line()));
             node()
@@ -540,3 +484,96 @@ fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::styl
 }
 
 kivact::state::constant_value!(OutlineDensity);
+
+fn active_heading(
+    // xtask-allow(state-fields): Optional caller-owned active-heading binding.
+    active: Option<Binding<Option<String>>>,
+    pending: MachineHandle<ScrollMachine>,
+    items: Value<Vec<OutlineItem>>,
+    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
+    viewport: Option<NodeRef>,
+    // xtask-allow(state-fields): Optional mounted content reference used for geometry observation.
+    content: Option<NodeRef>,
+    offset: Value<f64>,
+) -> Value<Option<String>> {
+    memo(move || {
+        if let Some(active) = active {
+            return active.get();
+        }
+        if let OutlineScroll::Scrolling { target } = pending.get() {
+            return Some(target);
+        }
+        let items = items.get();
+        let first = items.first()?;
+        let Some(viewport) = viewport else {
+            return Some(first.id.clone());
+        };
+        let viewport_rect = viewport.rect().get()?;
+        let scroll = viewport.scroll_offset().get().y;
+        if let Some(content) = content.and_then(|content| content.rect().get())
+            && scroll > 0.0
+            && content.height - viewport_rect.height - scroll <= 2.0
+        {
+            return items.last().map(|item| item.id.clone());
+        }
+        let line = viewport_rect.y + offset.get() + 1.0;
+        let item = items
+            .iter()
+            .rev()
+            .find(|item| item.target.rect().get().is_some_and(|rect| rect.y <= line));
+        Some(item.unwrap_or(first).id.clone())
+    })
+}
+
+fn outline_track(indicator_rect: Value<Option<(f64, f64)>>) -> Node {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard);
+    let height = animated(
+        move || indicator_rect.get().map_or(0.0, |(_, height)| height),
+        transition.clone(),
+    );
+    node()
+        .style(|| {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            style()
+                .position(Position::Relative)
+                .width(t.spacing.s0_5)
+                .shrink(0)
+                .align_self(Align::Stretch)
+                .background(t.colors.border)
+                .radius(t.radius.full)
+        })
+        .child(node().style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let offset = indicator_rect.get().map_or(0.0, |(y, _)| y);
+            style()
+                .position(Position::Absolute)
+                .top(0)
+                .left(0)
+                .width(pct(100))
+                .height(height.get())
+                .translate_y(offset)
+                .radius(t.radius.full)
+                .background(t.colors.icon_primary)
+                .transition(TransitionProp::Paint, transition.clone())
+        }))
+}
+
+fn outline_key(
+    event: KeyEvent,
+    index: usize,
+    items: &[OutlineItem],
+    refs: &[NodeRef],
+    roving: MachineHandle<FocusMachine>,
+) -> Handled {
+    let next = match event.key() {
+        Key::ArrowUp => index.saturating_sub(1),
+        Key::ArrowDown => (index + 1).min(items.len() - 1),
+        Key::Home => 0,
+        Key::End => items.len() - 1,
+        _ => return Handled::No,
+    };
+    roving.send(items[next].id.clone());
+    refs[next].focus();
+    Handled::Yes
+}
