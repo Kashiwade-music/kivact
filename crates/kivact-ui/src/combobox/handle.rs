@@ -1,38 +1,14 @@
 //! Role: Configure the standard keyed combobox family.
+use super::data::Combobox;
 use crate::SelectPresentation;
 use crate::variants::{Variant, Variants};
-use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, ItemKey, Value};
+use kivact_core::state::{IntoBinding, IntoText, IntoValue, ItemKey};
 use kivact_core::view::{IntoView, Node, NodeBuilder, View, node};
-use kivact_interaction::{ComboboxMode, IntoSelection, ListItem, Selection};
-use std::{future::Future, pin::Pin, rc::Rc, time::Duration};
+use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
+use std::future::Future;
+use std::rc::Rc;
+use std::time::Duration;
 
-pub(super) type Matcher<K> = Rc<dyn Fn(&str, &ListItem<K>) -> bool>;
-pub(super) type Search<K> =
-    Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = kivact_core::Result<Vec<ListItem<K>>>>>>>;
-// xtask-allow(state-fields): These independent setup bindings, slots and structural options configure a builder; lifecycle state belongs to ComboboxApi.
-/// A themed editable list of keyed suggestions, created by [`combobox`].
-/// Single choices show their label; multiple choices can be displayed as chips.
-pub struct Combobox<K: ItemKey> {
-    pub(super) root: Node,
-    pub(super) label: Value<String>,
-    pub(super) options: Value<Vec<ListItem<K>>>,
-    pub(super) selection: Selection<K>,
-    pub(super) query: Option<Binding<String>>,
-    pub(super) open: Option<Binding<bool>>,
-    pub(super) on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
-    pub(super) free_text: bool,
-    pub(super) mode: Option<ComboboxMode>,
-    pub(super) chips: bool,
-    pub(super) placeholder: Option<Value<String>>,
-    pub(super) empty: Option<Value<String>>,
-    pub(super) clear: Value<bool>,
-    pub(super) matcher: Option<Matcher<K>>,
-    pub(super) search: Option<Search<K>>,
-    pub(super) debounce: Value<Duration>,
-    pub(super) exclude_selected: bool,
-    pub(super) presentation: SelectPresentation,
-    pub(super) variants: Variants,
-}
 /// A combobox named `label` over keyed `options`, editing one or many choices.
 ///
 /// Typing filters labels, arrows highlight enabled rows, and Enter chooses.

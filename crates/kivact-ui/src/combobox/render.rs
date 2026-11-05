@@ -1,5 +1,5 @@
 //! Role: Render one combobox query and selection through themed editor and list parts.
-use super::handle::Combobox;
+use super::data::Combobox;
 use super::labels::{label, labels};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};

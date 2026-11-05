@@ -21,6 +21,7 @@ type Footer = View;
 ///
 /// It is a view: put it in the tree once; it draws nothing while the palette
 /// is closed.
+// xtask-allow(state-fields): Construction-only bindings, command source, recipe variants and optional content slots; mounted navigation belongs to CommandPaletteApi.
 pub struct CommandPalette<K: kivact_core::state::ItemKey> {
     open: Binding<bool>,
     commands: Value<Vec<Command<K>>>,

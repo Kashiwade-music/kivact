@@ -19,6 +19,7 @@ use kivact_core::view::{Node, NodeBuilder, node, text};
 ///
 /// The root is a column of the label, the control, the hint and the error
 /// message; [`NodeBuilder`] modifiers apply to it.
+// xtask-allow(state-fields): Optional label hints and validation inputs configure a field; caller-owned values determine validity.
 pub struct Field<C> {
     root: Node,
     label: Value<String>,

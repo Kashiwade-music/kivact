@@ -66,7 +66,7 @@ use kivact_interaction::{
     DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
     TableHeaderState, ToastState, TreeItemState,
 };
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 /// A style derived from the theme and the actual state of a component's
 /// part with the component's kit-defined variants ([`Look`]): what a
@@ -130,7 +130,8 @@ macro_rules! recipe_table {
 
         impl $name {
             fn default_table() -> &'static Self {
-                static DEFAULT: OnceLock<$name> = OnceLock::new();
+                #[expect(clippy::disallowed_types, reason = "Immutable global recipe defaults are initialized once and share stable recipe identities.")]
+                static DEFAULT: std::sync::OnceLock<$name> = std::sync::OnceLock::new();
                 DEFAULT.get_or_init(|| Self {
                     $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
                     $( $( $table: Default::default(), )* )?

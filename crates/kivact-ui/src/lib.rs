@@ -1,3 +1,4 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Standard UI components with theme support.
 //!
 //! Standard components: the few controls a first screen needs without an
