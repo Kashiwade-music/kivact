@@ -443,7 +443,7 @@ list = [
     "DragApi::axis_lock", "DragApi::track_velocity",
     "DataTable::initially_expanded", "Overlay::keep_anchor_clear", "Overlay::at_least_anchor_width",
     "Menu::at_least_anchor_width", "Span::italic", "Transition::essential",
-    "Carousel::looping", "Dropzone::multiple", "Dropzone::pick_on_press",
+    "Carousel::looping", "Dropzone::multiple", "DropzoneApi::multiple", "Dropzone::pick_on_press",
     "Combobox::free_text", "Combobox::chips", "Combobox::exclude_selected", "Disclosure::always_open", "DisclosureApi::always_open",
     "EmptyState::announce", "Drawer::side", "Sidebar::collapsible", "SidebarProvider::side",
     "InputOtp::groups", "InputOtp::pattern", "HoverCard::open_delay", "HoverCard::close_delay",

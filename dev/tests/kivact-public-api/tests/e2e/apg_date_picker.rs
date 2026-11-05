@@ -1,4 +1,4 @@
-//! Role: Verify APG date-picker focus restoration, full weekday names and spinbutton keys.
+//! Role: Check APG date-picker focus, labels and announcements.
 use crate::support::mount;
 use kivact::i18n::{CalendarDate, CalendarMonth};
 use kivact::prelude::*;
