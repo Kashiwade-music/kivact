@@ -15,6 +15,8 @@
 //! `kivact::i18n::message`: an App replaces them with
 //! `App::messages`.
 
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
+
 mod button;
 mod chips;
 mod choice;

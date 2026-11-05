@@ -29,6 +29,10 @@ const GAP: f64 = 12.0;
 /// their recipes by identity and installing the kit's theme again never
 /// restyles.
 pub(crate) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Process-wide immutable recipe identity cache, not deferred instance state"
+    )]
     static RECIPES: std::sync::OnceLock<UiRecipes> = std::sync::OnceLock::new();
     RECIPES.get_or_init(build).clone()
 }

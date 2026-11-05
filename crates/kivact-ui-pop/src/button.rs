@@ -37,30 +37,7 @@ pub(crate) fn button_style(
     slant: bool,
 ) -> Style {
     let p = t.ext::<Tokens>();
-    let (height, pad, font) = match size {
-        ControlSize::ExtraSmall => (26, 8, 12),
-        ControlSize::Small => (32, 12, 13),
-        ControlSize::Medium => (36, 16, 14),
-        ControlSize::Large => (40, 24, 14),
-    };
-    let mut s = style()
-        .direction(Direction::Row)
-        .align_items(Align::Center)
-        .justify_content(Justify::Center)
-        .gap(8)
-        .height(height)
-        .padding_x(pad)
-        .radius(if slant { 6 } else { 8 })
-        .font_size(font)
-        .weight(500)
-        .text_wrap(false)
-        .border(1, Color::TRANSPARENT)
-        .shadow(Shadow::new(0, 0, 0, Color::TRANSPARENT))
-        .cursor(kivact::style::Cursor::Pointer)
-        .transition(
-            TransitionProp::Paint,
-            Transition::tween(150, Easing::EaseOut),
-        );
+    let mut s = button_base(size, slant);
     match (hue, variant) {
         (Some(ButtonTone::Accent | ButtonTone::Pink), _)
         | (None, ButtonVariant::Primary | ButtonVariant::Danger) => {
@@ -124,4 +101,31 @@ pub(crate) fn button_style(
         s = s.transform(Transform::new().skew_x(-12));
     }
     s
+}
+
+fn button_base(size: ControlSize, slant: bool) -> Style {
+    let (height, pad, font) = match size {
+        ControlSize::ExtraSmall => (26, 8, 12),
+        ControlSize::Small => (32, 12, 13),
+        ControlSize::Medium => (36, 16, 14),
+        ControlSize::Large => (40, 24, 14),
+    };
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .gap(8)
+        .height(height)
+        .padding_x(pad)
+        .radius(if slant { 6 } else { 8 })
+        .font_size(font)
+        .weight(500)
+        .text_wrap(false)
+        .border(1, Color::TRANSPARENT)
+        .shadow(Shadow::new(0, 0, 0, Color::TRANSPARENT))
+        .cursor(kivact::style::Cursor::Pointer)
+        .transition(
+            TransitionProp::Paint,
+            Transition::tween(150, Easing::EaseOut),
+        )
 }
