@@ -426,16 +426,13 @@ use kivact::prelude::*;
 pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Component {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
-    let origin = signal(0.0);
-    let drag = use_drag::<()>(DragCoordinates::Window)
+    let drag = use_drag::<f64>(DragCoordinates::Window)
         .edit(edit, move || value.get_untracked())
-        .on_start(move |_| origin.set(value.get_untracked()))
-        .on_update(move |update: DragUpdate<()>| {
-            value.set(origin.get_untracked() + update.delta.x);
-        })
-;
+        .on_update(move |update: DragUpdate<f64>| {
+            value.set(update.payload + update.delta.x);
+        });
     let state = drag.source_state();
-    let source = drag.source(());
+    let source = drag.source_with(move || value.get_untracked());
     node()
         .part(source)
         .name(label)
@@ -479,6 +476,10 @@ mod tests {
     }
 }
 ```
+
+The drag payload captures the initial number once at the accepted press. Updates
+add the pointer delta to that snapshot, so no separate “drag origin” signal is
+needed. `EditSession` owns begin, commit and cancellation notifications.
 
 Use `edit_on_change` instead of `edit` when merely pressing must not count as an edit,
 as on a canvas where a press selects and only movement edits. For the common value
@@ -722,13 +723,15 @@ impl Machine for CopyButton {
     }
 }
 
-fn copy_button(text: impl IntoValue<String>) -> impl Component {
+fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
     let text = text.into_value();
-    let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
-        CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
-    });
-    button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
-        .on_press(move || m.send(CopyEvent::Pressed))
+    component(move || {
+        let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
+            CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
+        });
+        button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
+            .on_press(move || m.send(CopyEvent::Pressed))
+    })
 }
 ```
 

@@ -9,7 +9,8 @@ kinds of apps (business tools, games, creative tools) are in the
 [kits guides](../../../for-kivact-ui-user/en/README.md).
 
 Kivact is in early development, and breaking changes happen without notice. Every
-Rust example in these guides is compiled by the repository's tests.
+Rust example marked as runnable is compiled by the repository's tests; snippets
+marked `ignore` show integration points that need the named external host or backend.
 
 If you know React or SolidJS, start with the first guide: it maps what you know
 to Kivact.
@@ -26,6 +27,13 @@ to Kivact.
 | [Validate a form before saving](forms.md) | Drafts, validation, `field` errors, every input type and submit on Enter |
 | [Show lists, selectable lists and tables](lists-and-tables.md) | `for_each`, `for_index`, `virtual_list`, `list` and `data_table`, and writing back from a row |
 | [Show a dialog, menu, tooltip or toast](overlays.md) | Modal dialogs, popovers, menus, context menus, tooltips and notifications |
+| [Compose content lists, trees and static tables](collections.md) | Nonselectable items, hierarchy, markers and table semantics |
+| [Add navigation](navigation.md) | Breadcrumbs, page controls, steps and navigation menus |
+| [Choose keyed suggestions](keyed-suggestions.md) | Combobox search, selected keys and touch presentation |
+| [Group collapsible sections and previews](disclosure-and-previews.md) | Accordion state, hover cards and drawers |
+| [Show feedback and grouped inputs](feedback.md) | Empty states, alerts, cards and input adornments |
+| [Show indicators and shortcuts](indicators.md) | Badges, avatars, loading placeholders and key chords |
+| [Describe metrics and structured data](metrics-and-description.md) | Statistics, progress and definition lists |
 | [Show conversations and source code](chat-and-code.md) | Message logs, draft submission, typing status and selectable source code |
 | [Show images and use custom fonts](images-and-fonts.md) | PNG, JPEG and SVG images, alt text, sizing, icons and registering fonts |
 
@@ -42,6 +50,8 @@ to Kivact.
 | --- | --- |
 | [Run async work from a component](async-and-tasks.md) | Load data, save in the background, wait on timers and run heavy work off the UI thread |
 | [Animate values and elements](animation.md) | Move a value toward a target, run code every frame and animate elements in and out |
+| [Call an HTTP JSON API](http-json.md) | Requests, JSON responses and asynchronous errors |
+| [Work with slides and files](slides-and-files.md) | Presentation content and file-oriented views |
 | [Use platform services](platform-services.md) | Clipboard, file dialogs, opening paths and other operating system features |
 | [Draw with a canvas](canvas.md) | Draw your own graphics, charts and effects |
 

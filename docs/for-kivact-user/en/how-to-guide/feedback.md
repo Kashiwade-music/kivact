@@ -1,5 +1,7 @@
 # Show feedback and group related controls
 
+[日本語](../../jp/how-to-guide/feedback.md)
+
 Use `kivact::ui` for empty states, alerts, cards, and input groups. The installed theme supplies each component's recipes. Root `NodeBuilder` modifiers, including `.name(..)` and `.style(..)`, remain available.
 
 ```rust,no_run
@@ -40,12 +42,23 @@ Cards take content as their required argument, then optional `.header(..)`, `.me
 
 `input_group(label, children)` accepts already built children. `input_group_with(label, || children)` constructs children once in the inherited `.size(..)` scope, so explicit sizes on a child still win. `.start(..)` and `.end(..)` add inline adornments; `.block_start(..)` and `.block_end(..)` add regions above and below. `input_addon(text)` supplies noninteractive text.
 
-When migrating kit components, move empty-state `media` to `icon` and `content` to `actions`; card `image` becomes `media` and its content is the required argument; alert `action` and banner `end` become `actions`. `input_group_text` becomes `input_addon`. Replace `clickable_card` with `card(..).on_press(..)` and `selectable_card` with `card(..).selected(..)`. Kit color, compactness, padding, elevation, media-frame, and container looks belong to kit-defined `.variant(..)` values, recipes, or ordinary `.style(..)` modifiers. They are not separate core visual enums.
+## Choose the right feedback behavior
 
-`empty_state(title).announce_changes()` opts into normalized change announcements. It skips the initial render, announces a late mount or a changed visible message, rearms after hiding, and suppresses duplicates under an actual live ancestor. `.announce()` remains the separate once-after-mount policy. The change observer uses one machine and an explicit sent-message phase; it does not repair a copied previous-message signal.
+Use an empty state for a quiet explanation of missing content and an alert for a
+message that needs attention. `.announce()` requests one polite empty-state
+announcement after mounting. `.announce_changes()` instead announces a changed
+visible message, including content that arrives after loading, and suppresses
+repeated announcements of the same message. Keep the message concise.
 
-Card recipes receive `input: Option<PartState>` from the actual button or checkbox part (`None` for plain cards). The `overlay` recipe styles a noninteractive decorative leaf above card content; its bounds follow the positioned card root and the theme retains responsibility for clipping and corner geometry.
+A card with `.on_press(..)` acts as a button; a card with `.selected(binding)` acts
+as a checkbox. Keep the click destination or selection in application state.
+Decorative media remains a view passed to `.media(..)`; ordinary content is the
+required `card(content)` argument.
 
-Alert `header`, `message`, and `controls` recipes style actual wrapper nodes around the existing icon, title/description, and action/toggle/dismiss slots. Their defaults use `Display::Contents`; all wrappers receive the same `AlertState` and add no interaction authority.
+## Customize the look
 
-`AlertState.has_content` records actual details-slot presence independently of whether details are collapsible. The standard expansion toggle keeps a canonical tooltip on its actual target; `alert.expand` and `alert.collapse` localize its name and hint.
+Use a kit's `.variant(..)` for its density, color or container choices, or apply
+ordinary styles. Theme authors can style alert `header`, `message` and `controls`
+wrappers, and a card's decorative `overlay`, without replacing the underlying
+interaction. Default alert wrappers use `Display::Contents`, so they add no box
+unless the recipe asks for one. Keep custom actions as real named controls.

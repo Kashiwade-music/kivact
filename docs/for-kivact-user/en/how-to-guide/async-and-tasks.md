@@ -16,14 +16,14 @@ everything:
 | start a future that has no result to show (a timer, a channel reader) | `spawn` |
 | run blocking or CPU-heavy code | `blocking` |
 
-`resource`, `spawn` and `blocking` are also in `kivact::prelude`.
+`resource`, `action`, `spawn` and `blocking` are also in `kivact::prelude`.
 
 ## Load data and show loading, error and ready
 
 `resource(source, fetch)` calls `fetch` once at start and again whenever
 `source` changes. Whatever `fetch` returns is turned into an `AsyncState`:
-`Idle`, `Pending`, `Ready(value)` or `Failed(error)`. Match on it inside
-`dynamic` to pick the view for each state.
+`Idle`, `Pending`, `Ready(value)` or `Failed(error)`. Start with `async_view`: it
+shows loading and retryable errors for you, and its callback builds the ready view.
 
 ```rust,no_run
 use std::time::Duration;
@@ -48,14 +48,7 @@ fn app() -> impl IntoView {
             button("Next").on_press(move || id.update(|n| *n += 1)),
         ))
         .style(style().gap(8)),
-        dynamic(
-            move || user.state(),
-            |state| match state {
-                AsyncState::Idle | AsyncState::Pending => text("Loading…"),
-                AsyncState::Failed(error) => text(format!("Error: {error}")),
-                AsyncState::Ready(name) => text(name),
-            },
-        ),
+        async_view(user, |name: String| text(name)),
     ))
     .style(style().padding(24).gap(12))
 }
@@ -80,7 +73,7 @@ A few rules make this behave well:
   never have to guard against a slow, stale response overwriting a newer one.
 - **Failures are data, not panics.** A failed fetch lands in
   `AsyncState::Failed`. It does not reach an `error_boundary`. Show it
-  yourself, as above.
+  through `async_view`, or match the state in `dynamic` for a custom presentation.
 
 Rust note: `async move` moves the captured values into the future, which
 outlives the closure call. Signals are `Copy` handles, so moving them is free.

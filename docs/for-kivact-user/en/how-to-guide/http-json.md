@@ -1,5 +1,7 @@
 # Read JSON over HTTP
 
+[日本語](../../jp/how-to-guide/http-json.md)
+
 Enable `kivact`'s opt-in `tokio` feature. Add `reqwest` with `json` and `rustls`, and `serde_json`:
 
 ```toml

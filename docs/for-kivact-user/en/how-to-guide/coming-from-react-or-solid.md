@@ -91,7 +91,7 @@ This is the model of SolidJS. Two consequences:
 | Data loading | libraries or `useEffect` | `createResource` | `resource(source, fetch)`; `action(..)` for user actions |
 
 All the ordinary UI names in the table are available through
-`use kivact::prelude::*;`, including `callback`, `error_boundary`, `try_context`
+`use kivact::prelude::*;`, including `callback`, `error_boundary`
 and `effect_on`. For a state machine, also import `Machine`, `Step` and
 `machine` from `kivact::state`.
 
@@ -347,7 +347,7 @@ mod tests {
 
 - There are no default values. `use_context::<T>()` panics with the type name when
   nothing was provided. When the value is optional, use
-  `kivact::view::try_use_context::<T>()`, which returns an `Option<T>`.
+  `kivact::state::try_use_context::<T>()`, which returns an `Option<Value<T>>`.
 - `provide` only affects its child. Siblings built after it do not see the value.
 - Themes, locale, messages and reading direction have their own `provide_*`
   functions in `kivact::view` ([Theming](theming.md), [Internationalization](i18n.md)).
@@ -482,9 +482,12 @@ closure must return that property's exact type. If `count` is a `Signal<i32>`,
 ```rust,no_run
 use kivact::prelude::*;
 
-fn completion(done: Signal<i32>, total: i32) -> impl IntoView {
-    progress(move || Some(done.get() as f64 / total.max(1) as f64))
-        .name("Completed work")
+fn count_slider(count: Signal<i32>) -> impl IntoView {
+    let value = binding(
+        move || count.get() as f64,
+        move |next: f64| count.set(next.round() as i32),
+    );
+    slider("Count", value).range(0.0..=100.0)
 }
 ```
 

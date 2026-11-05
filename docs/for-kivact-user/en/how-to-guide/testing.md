@@ -56,9 +56,10 @@ mod tests {
 }
 ```
 
-What `render` really does: it runs your component in the real application host,
-with real layout, text shaping, drawing and accessibility, in a window of
-800 × 600 logical pixels. Input is delivered as the window would deliver it, the
+What `render` really does: it mounts your component in the virtual application
+host with the same layout, text shaping, drawing and accessibility used by an
+App. Its default surface is 800 × 600 logical pixels; a desktop can mirror that
+surface into a native window. Input is delivered as the window would deliver it, the
 clock is virtual, and a settle step runs after each action so the tree is up to
 date when the next line runs. There are no mocks to configure.
 
@@ -498,7 +499,7 @@ for drawn content (canvas, colors, gradients), and queries for everything that
 has a role or text. Do not compare whole-window screenshots to stored
 images as the main check; they break on every intentional change.
 
-Set `gpu: true` in `RenderOptions` (or the environment variable
+Call `RenderOptions::default().gpu()` (or the environment variable
 `KIVACT_TEST_GPU=1` with `RenderOptions::from_env()`) to render through the GPU
 and read back the pixels. `kivact::test::gpu_unavailable()` says why a GPU test
 cannot start, or `None` when it can.
@@ -534,8 +535,8 @@ window:
 - **A desktop session gives real mirrors.** `RenderOptions::default()` and
   `RenderOptions::from_env()` read `KIVACT_TEST_MIRROR`: `off` keeps frames without
   a native window, `auto` opens a mirror when possible (the default), and `required`
-  fails if one cannot open. Set `mirror: MirrorMode::Off`, `MirrorMode::Auto`, or
-  `MirrorMode::Required` explicitly to override that preference.
+  fails if one cannot open. Call `.mirror(MirrorMode::Off)`, `.mirror(MirrorMode::Auto)`, or
+  `.mirror(MirrorMode::Required)` explicitly to override that preference.
   `RenderOptions::from_env()` also reads `KIVACT_TEST_GPU=1`; GPU presentation
   requires a native mirror. CPU rendering produces the same pixels in every mode.
 - **On a CI machine without a display** the default options fall back to

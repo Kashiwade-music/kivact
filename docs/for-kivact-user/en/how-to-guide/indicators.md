@@ -1,5 +1,7 @@
 # Indicators and keyboard shortcuts
 
+[日本語](../../jp/how-to-guide/indicators.md)
+
 Use the standard indicators with any kit theme. Their recipes receive the same semantic data; kit variants select their appearance.
 
 ```rust,no_run

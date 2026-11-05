@@ -1,5 +1,7 @@
 # Slides and native files
 
+[日本語](../../jp/how-to-guide/slides-and-files.md)
+
 `ui::carousel(index, slides)` edits the caller's index with previous/next buttons and arrow keys. Horizontal arrows follow reading direction; vertical carousels use Up/Down. `.looping()` wraps at the ends and `.items_per_view(2.0)` shows several slides. `CarouselMode::Scroll` uses native scrolling; `Snap::Mandatory` settles on the nearest slide after 120 ms without scrolling. `Snap::None` preserves free scrolling while reporting the nearest index.
 
 ```rust,no_run

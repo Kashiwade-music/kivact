@@ -1,5 +1,7 @@
 # Navigation
 
+[日本語](../../jp/how-to-guide/navigation.md)
+
 Use the core navigation builders with your application's data. Installing a kit theme changes their recipes and tokens.
 
 ```rust,no_run
@@ -44,18 +46,39 @@ Stepper item recipes receive `index`, `count`, and actual `orientation` from the
 
 Breadcrumb item recipes receive `BreadcrumbItemState { current, input }`; `input` comes from the actual link part and is absent for passive/current labels. Use this snapshot for state-dependent typography such as hover underline; paint-only pseudo-state styles cannot change text decoration.
 
-Stepper exposes actual decorative `leading`, `trailing`, and `progress` recipe parts with zero-footprint defaults, plus `layout` and `track` containers. They receive the same `StepperItemState` including actual orientation/count. `.collapsed_steps(CollapsedSteps::Current)` retains the current item only (default); `All` retains every item in compact layout without changing selection or the responsive threshold.
+## Choose a page-control layout
 
-Each step recipe also receives its actual `StepIndicatorKind` and independent `interactive` configuration, without copying metadata into a visual variant. Compact previous/next commands derive the nearest enabled item from the same item vector and current source.
+Use `PaginationMode::Input` when users know the page number, `Compact` for a
+small previous/next control, or `Dots` for a short visual sequence. Dots include
+every page; Left and Right move selection and focus, wrap at the ends, and follow
+the reading direction. A large result set is better served by numbered pages or
+an input than hundreds of dots.
 
-`pagination(count, page).summary(|facts| view)` replaces summary content with the actual `Value<PaginationSummary>`. `page` is zero based; `count` is pages, `total_items` is an optional item total, and `page_size` is items per page. Derive displayed first/last items in the presentation callback instead of storing duplicate range endpoints. `has_more` preserves unfinished remote counts. `PaginationItemState.mode` projects the actual structural mode so dot and numbered recipes need no copied variant.
+`PaginationWindow::Adjacent` shows the nearest numbered pages.
+`.window(PaginationWindow::Buffered)` keeps a fuller window near the start and
+end. This is a construction option; page count and current page can still change.
 
-Dots render every actual page. Left/Right move selection and actual target focus with wrapping and reading-direction awareness; the selected dot alone is in the dot tab order. Dots use their own actual-target navigation, while other modes retain the generic root roving focus. Count changes recreate only the mounted dot scope, not a separate focus registry.
+To show item ranges, use `.summary(|facts| view)`. The callback receives a
+`Value<PaginationSummary>` containing the current zero-based page, page count,
+optional item total, and page size. Format the displayed range from those facts
+inside a text closure so it follows page and size changes.
 
-Pagination exposes actual `controls`, `sizes`, and `input` recipe wrappers with neutral `Display::Contents` defaults. The size selector precedes the controls; Count/Compact/Input place the existing summary or editor between previous and next controls. They share the actual summary projection and introduce no extra pagination or focus owner.
+## Keep compact steps useful
 
-`PaginationWindow::Adjacent` keeps the standard nearest-page window. Construction-only `.window(PaginationWindow::Buffered)` fills the edge window, retaining five numbered pages plus sibling allowance before a gap; all short windows remain visible. `NavigationMenuApi::panel_key()` allocates a genuine panel identity during setup, including a dynamic mount factory. It is not an event epoch, registry, or cached visibility; standard navigation-menu panels use this same allocator. `interaction::use_menu_with_open(entries, open_binding)` lets a navigation owner supply the actual accepted popup source. External hover opening initializes menu levels without requesting focus; ArrowUp/Down still open and focus canonically. A refused setter leaves the actual open state and focus untouched. `.trigger_action(callback)` replaces the existing trigger press action during setup, rather than observing it; use `navigation.toggle(panel_key)` for hover-to-pinned activation. Other trigger keys and popup dismissal remain canonical.
+`.collapsed_steps(CollapsedSteps::Current)` shows the current item in compact
+layout; `All` keeps every item visible. This changes presentation, not which step
+is current. Previous and next controls skip disabled steps. The current binding
+and each `StepperItem` remain the source for selection and status.
 
-A controlled menu distinguishes an actual external opening from a trigger opening in its existing opening-mode record. External showing does not run the content mount’s implicit first-item focus. After a replacement trigger action, an accepted open result uses the standard trigger opening mode and first-item request; a refused or closed result makes no focus request.
+## Customize appearance
 
-The same navigation machine privately records one visible `NavOpen` plus the identity of its actual pending opening or departure command. `panel_removed(key)` clears only that key’s active panel or scheduled command. Disposing panel A while B is pending preserves B’s request; disposing A before its own opening delay cannot later publish an orphan active key. Domain panel cleanup and eligibility changes send this actual event, with no registry, mirror, extra signal or epoch counter.
+Install a kit theme for its navigation look. Use `.variant(..)` for kit-specific
+choices and `.style(..)` for local layout. Theme authors can replace pagination
+`controls`, `sizes` and `input` recipes, or stepper `leading`, `trailing`,
+`progress`, `layout` and `track` recipes. These style the standard parts while
+keeping their keyboard and accessibility behavior.
+
+For a custom navigation control, start with `use_navigation_menu` and its panel
+keys rather than a separate visibility signal for every trigger. Its controller
+handles delayed opening, pinned panels, dismissal and removal. See
+[custom controls](custom-controls.md) before composing the lower-level Parts.
