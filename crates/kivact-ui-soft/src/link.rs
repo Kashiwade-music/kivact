@@ -33,11 +33,17 @@ use kivact::view::use_direction;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LinkColor {
     #[default]
+    /// Use the theme's accent foreground.
     Accent,
+    /// Use the primary text foreground.
     Primary,
+    /// Use the secondary text foreground.
     Secondary,
+    /// Use the disabled text foreground without changing activation availability.
     Disabled,
+    /// Use the placeholder text foreground.
     Placeholder,
+    /// Inherit the surrounding foreground color.
     Inherit,
 }
 
@@ -60,6 +66,7 @@ pub struct Link {
 }
 
 #[track_caller]
+/// Create a text link with the supplied visible and accessible label.
 pub fn link(label: impl IntoText) -> Link {
     let label = label.into_text_value();
     let mut link = link_with(text(label));
@@ -68,6 +75,7 @@ pub fn link(label: impl IntoText) -> Link {
 }
 
 #[track_caller]
+/// Mount custom link content once; use `name` to give it an accessible label.
 pub fn link_with(content: impl IntoView) -> Link {
     Link {
         root: row(()),
@@ -88,11 +96,13 @@ pub fn link_with(content: impl IntoView) -> Link {
 }
 
 impl Link {
+    /// Set the accessible label independently of custom visible content.
     pub fn name(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self
     }
 
+    /// Handle activation; the caller performs navigation or another action.
     pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
         let press: Callback<()> = press.into();
         self.press = Some(callback(move |_| press.call(())));
@@ -105,46 +115,55 @@ impl Link {
         self
     }
 
+    /// Show or hide the link's underline.
     pub fn underline(mut self, value: impl IntoValue<bool>) -> Self {
         self.underline = value.into_value();
         self
     }
 
+    /// Show the external-link indicator and announce the new-tab label.
     pub fn external(mut self, value: impl IntoValue<bool>) -> Self {
         self.external = value.into_value();
         self
     }
 
+    /// Override the accessible text appended for an external link.
     pub fn new_tab_label(mut self, label: impl IntoText) -> Self {
         self.new_tab_label = Some(label.into_text_value());
         self
     }
 
+    /// Use the standalone link spacing and focus treatment.
     pub fn standalone(mut self, value: impl IntoValue<bool>) -> Self {
         self.standalone = value.into_value();
         self
     }
 
+    /// Choose the theme typography role for the link.
     pub fn text_type(mut self, kind: impl IntoValue<TextKind>) -> Self {
         self.kind = kind.into_value();
         self
     }
 
+    /// Override the text size in pixels, including reactive changes.
     pub fn text_size(mut self, px: impl IntoValue<f64>) -> Self {
         self.size = Some(px.into_value());
         self
     }
 
+    /// Override the text weight.
     pub fn weight(mut self, weight: u16) -> Self {
         self.weight = Some(weight);
         self
     }
 
+    /// Choose the foreground palette role.
     pub fn color(mut self, color: impl IntoValue<LinkColor>) -> Self {
         self.color = color.into_value();
         self
     }
 
+    /// Limit the visible line count; zero leaves it unrestricted.
     pub fn max_lines(mut self, lines: impl IntoValue<u32>) -> Self {
         self.max_lines = lines.into_value();
         self

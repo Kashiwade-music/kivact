@@ -5,7 +5,9 @@ use kivact::ui::{BreadcrumbItemState, BreadcrumbRecipes, Look};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BreadcrumbsVariant {
     #[default]
+    /// Use the regular breadcrumb text size.
     Default,
+    /// Use the smaller supporting-text breadcrumb size.
     Supporting,
 }
 impl kivact::ui::Variant for BreadcrumbsVariant {}

@@ -9,6 +9,7 @@ use kivact::style::pct;
 use kivact::style::style;
 use kivact::view::IntoView;
 
+/// Mount an icon once inside the round accent badge used by navigation headings.
 pub fn nav_icon(icon: impl IntoView) -> impl kivact::view::Component {
     node()
         .with_node(move |node| {

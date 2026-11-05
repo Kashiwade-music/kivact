@@ -30,6 +30,7 @@ pub struct MoreMenu<K: ItemKey> {
 }
 
 #[track_caller]
+/// Create an overflow menu whose chosen entry key is passed to `choose`.
 pub fn more_menu<K, R>(
     entries: impl IntoValue<Vec<MenuEntry<K>>>,
     choose: impl Fn(K) -> R + 'static,
@@ -50,32 +51,38 @@ where
 }
 
 impl<K: ItemKey> MoreMenu<K> {
+    /// Set the trigger's accessible name and tooltip text.
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = label.into_text_value();
         self.button = self.button.name(self.label);
         self
     }
 
+    /// Set the visual variant of the overflow trigger button.
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
         self.button = self.button.variant(variant);
         self
     }
 
+    /// Set the trigger button size, including reactive size changes.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.button = self.button.size(size);
         self
     }
 
+    /// Mount replacement trigger icon content once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.button = self.button.icon(icon);
         self
     }
 
+    /// Place the menu on the chosen side of its trigger.
     pub fn placement(mut self, placement: Placement) -> Self {
         self.menu = self.menu.placement(placement);
         self
     }
 
+    /// Align the menu with the start, center or end of its trigger.
     pub fn align(mut self, align: OverlayAlign) -> Self {
         self.menu = self.menu.align(align);
         self

@@ -40,6 +40,7 @@ use std::time::Duration;
 
 // xtask-allow(state-fields): Independent immutable label, icon, description, caller availability and action metadata; Menu owns interaction state.
 #[derive(Clone)]
+/// An action entry for a navigation heading menu, with optional supporting content.
 pub struct NavHeadingMenuItem {
     pub(crate) label: Value<String>,
     pub(crate) description: Option<Value<String>>,
@@ -48,6 +49,7 @@ pub struct NavHeadingMenuItem {
     pub(crate) action: Option<Callback<()>>,
 }
 
+/// Create a heading-menu action with a reactive label.
 pub fn nav_heading_menu_item(label: impl IntoText) -> NavHeadingMenuItem {
     NavHeadingMenuItem {
         label: label.into_text_value(),
@@ -59,18 +61,22 @@ pub fn nav_heading_menu_item(label: impl IntoText) -> NavHeadingMenuItem {
 }
 
 impl NavHeadingMenuItem {
+    /// Set the supporting text below the menu entry label.
     pub fn description(mut self, description: impl IntoText) -> Self {
         self.description = Some(description.into_text_value());
         self
     }
+    /// Build the entry icon each time the menu content opens.
     pub fn icon<V: IntoView>(mut self, icon: impl IntoViewFn<V>) -> Self {
         self.icon = Some(icon.into_view_fn());
         self
     }
+    /// Prevent this entry from being chosen.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
+    /// Handle selection of this heading-menu entry.
     pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
         let action: Callback<()> = action.into();
         self.action = Some(callback(move |_| action.call(())));
@@ -78,12 +84,14 @@ impl NavHeadingMenuItem {
     }
 }
 
+/// The entries and sizing of a menu attached to a navigation heading.
 pub struct NavHeadingMenu {
     items: Rc<[NavHeadingMenuItem]>,
     size: ControlSize,
     min_width: Option<kivact::state::Value<f64>>,
 }
 
+/// Collect heading-menu entries in their visible order.
 pub fn nav_heading_menu(items: impl IntoIterator<Item = NavHeadingMenuItem>) -> NavHeadingMenu {
     NavHeadingMenu {
         items: items.into_iter().collect::<Vec<_>>().into(),
@@ -93,10 +101,12 @@ pub fn nav_heading_menu(items: impl IntoIterator<Item = NavHeadingMenuItem>) -> 
 }
 
 impl NavHeadingMenu {
+    /// Choose the menu row size and its default minimum width.
     pub fn size(mut self, size: ControlSize) -> Self {
         self.size = size;
         self
     }
+    /// Override the menu's minimum width in pixels.
     pub fn min_width(mut self, width: impl IntoValue<f64>) -> Self {
         self.min_width = Some(width.into_value());
         self
@@ -321,6 +331,7 @@ pub(crate) fn popup_surface() -> kivact::style::Style {
     base
 }
 
+/// A navigation heading with optional icon, supporting labels and action menu.
 pub struct SideNavHeading {
     root: Node,
     heading: Value<String>,
@@ -334,6 +345,7 @@ pub struct SideNavHeading {
     sub_action: Option<Callback<()>>,
 }
 
+/// Create a heading styled for the sidebar and its collapsed rail.
 pub fn side_nav_heading(heading: impl IntoText) -> SideNavHeading {
     SideNavHeading {
         root: node(),
@@ -349,44 +361,54 @@ pub fn side_nav_heading(heading: impl IntoText) -> SideNavHeading {
     }
 }
 
+/// Create a heading with the same behavior for top navigation.
 pub fn top_nav_heading(heading: impl IntoText) -> SideNavHeading {
     side_nav_heading(heading)
 }
 
 impl SideNavHeading {
+    /// Set the supporting label above the main heading.
     pub fn superheading(mut self, heading: impl IntoText) -> Self {
         self.superheading = Some(heading.into_text_value());
         self
     }
+    /// Set the supporting label below the main heading.
     pub fn subheading(mut self, heading: impl IntoText) -> Self {
         self.subheading = Some(heading.into_text_value());
         self
     }
+    /// Mount a leading heading icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
+    /// Mount a leading logo once in the heading icon slot.
     pub fn logo(self, logo: impl IntoView) -> Self {
         self.icon(logo)
     }
+    /// Mount trailing heading content once; it is hidden in the collapsed rail.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
         self.end = Some(content.into_view());
         self
     }
+    /// Attach the menu opened by activating the heading.
     pub fn menu(mut self, menu: NavHeadingMenu) -> Self {
         self.menu = Some(menu);
         self
     }
+    /// Handle activation of the main heading label.
     pub fn on_heading_press(mut self, press: impl Into<Callback<()>>) -> Self {
         let press: Callback<()> = press.into();
         self.heading_action = Some(callback(move |_| press.call(())));
         self
     }
+    /// Handle activation of the supporting label above the heading.
     pub fn on_superheading_press(mut self, press: impl Into<Callback<()>>) -> Self {
         let press: Callback<()> = press.into();
         self.super_action = Some(callback(move |_| press.call(())));
         self
     }
+    /// Handle activation of the supporting label below the heading.
     pub fn on_subheading_press(mut self, press: impl Into<Callback<()>>) -> Self {
         let press: Callback<()> = press.into();
         self.sub_action = Some(callback(move |_| press.call(())));

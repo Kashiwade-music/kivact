@@ -6,35 +6,51 @@ use kivact::ui::{
 };
 use kivact::view::Orientation;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Spacing and indicator sizing for progress steps.
 pub enum StepDensity {
+    /// Use compact step spacing and indicators.
     Compact,
     #[default]
+    /// Use the standard step spacing and indicators.
     Balanced,
+    /// Use spacious step spacing and indicators.
     Spacious,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Placement of step indicators relative to connector tracks.
 pub enum StepIndicatorPosition {
     #[default]
+    /// Keep each indicator separate from the connector track.
     Separated,
+    /// Place indicators directly on the connector track.
     OnTrack,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Visible details of the responsive collapsed stepper.
 pub enum StepCollapsedVariant {
     #[default]
+    /// Show the current step label and navigation controls.
     WithLabelAndControls,
+    /// Show the current step label without navigation controls.
     WithLabel,
+    /// Hide the current step label in the collapsed presentation.
     HiddenLabel,
 }
 
 /// Reactive presentation choices; orientation, count and selection stay canonical.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StepperAppearance {
+    /// Reactive default density for the stepper.
     pub density: Value<StepDensity>,
+    /// Reactive placement of indicators relative to connectors.
     pub position: Value<StepIndicatorPosition>,
+    /// Reactive presentation of the collapsed stepper.
     pub collapsed: Value<StepCollapsedVariant>,
+    /// Reactive gap between an indicator and its connector, in pixels.
     pub connector_gap: Value<f64>,
+    /// Per-item density overrides, keyed by zero-based step index.
     pub item_densities: Vec<(usize, StepDensity)>,
 }
 impl Default for StepperAppearance {
