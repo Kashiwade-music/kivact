@@ -1348,3 +1348,21 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 - **場所**: Soft overflow の項目別実測幅と active key 集合。
 - **解消後**: 単一の測定 cache owner が実際の layout observer から Measured(key, width)、項目 observer から Retain(keys) を受ける。Machine の状態は測定済み数値の map のみ。fitting はその読み取り専用投影であり、第二の selection/model/epoch を作らない。単なる Signal 書き込みの wrapper は不可。S9 の測定事実を同じ owner に保持する。
+
+### SM-X901 catalog chat entry の内容
+
+- **場所**: Pop catalog messaging の ChatEntry.text / typing。
+- **解消後**: payload を ChatContent::Message(String) / Typing に分け、空の text と typing flag の無効な組合せをなくす。id と mine は独立した passive identity/著者情報。非同期表示の既存時間と通知・選択 owner は変えない。
+
+
+### SM-X902 catalog integrated meter の測定状態
+
+- **場所**: Creative catalog audio_samples の integrated latch。
+- **解消後**: 同じ測定 owner の Machine が Unmeasured / Measured を持ち、実 transport の再生観測で Sample、Reset操作で Reset を受ける。描画は既存同一 owner の投影。二つ目の playing mirror や時刻/epoch を追加せず、既存の再生時表示・reset挙動を保つ。
+
+
+### SM-X903 Game catalog の active section
+
+- **場所**: Game catalog scroll spy と navigation handler の current section。
+- **解消後**: 単一の active-section owner の Machine に Observed(index) / Requested(index) を配送する。実 geometry が観測できないときは最後の事実を保持し、navigation直後の選択表示も保つ。geometry/scroll位置/別のselection mirrorを保持しない。表示は同じownerのreadonly投影。
+

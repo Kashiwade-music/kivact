@@ -10,41 +10,7 @@ use kivact::view::{Modifiers, for_each};
 
 #[test]
 fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
-    let (screen, (rows, selected)) = mount_with(
-        RenderOptions::default().mirror(MirrorMode::Required),
-        || {
-            let rows = signal(vec![1u32, 2, 3, 4, 5, 6, 7, 8]);
-            let selected = signal(Vec::new());
-            let table = use_data_table(
-                rows,
-                |row| *row,
-                vec![ColumnDef::new(0, "Name"), ColumnDef::new(1, "Value")],
-                selected.into_selection(),
-                TableFocus::Cells(ListRangeOptions::default()),
-            )
-            .row_label(|key| format!("Row {key}"));
-            let body = for_each(
-                rows,
-                |row| *row,
-                move |row_value| {
-                    let key = row_value.with(|row| *row);
-                    row((0..2)
-                        .map(|col| {
-                            node()
-                                .part(table.cell(key, col))
-                                .name(format!("{key}:{col}"))
-                                .style(style().size(100, 40))
-                        })
-                        .collect::<Vec<_>>())
-                    .part(table.row(key))
-                },
-            );
-            (
-                (rows, selected),
-                scroll(column(body).part(table.grid())).style(style().size(220, 100)),
-            )
-        },
-    );
+    let (screen, (rows, selected)) = table_navigation_fixture();
     screen.press_tab(false);
     assert!(screen.get_by_role(Role::GridCell, "1:0").is_focused());
     screen.press_key(Key::End);
@@ -166,4 +132,44 @@ fn headers_sort_and_resize_through_caller_bindings() {
     screen.press_key(Key::ArrowRight);
     assert_eq!(widths.get_untracked().get(&0), Some(&110.0));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+type RowSelectionSignals = (Signal<Vec<u32>>, Signal<Vec<u32>>);
+
+fn table_navigation_fixture() -> (kivact::test::Screen, RowSelectionSignals) {
+    mount_with(
+        RenderOptions::default().mirror(MirrorMode::Required),
+        || {
+            let rows = signal(vec![1u32, 2, 3, 4, 5, 6, 7, 8]);
+            let selected = signal(Vec::new());
+            let table = use_data_table(
+                rows,
+                |row| *row,
+                vec![ColumnDef::new(0, "Name"), ColumnDef::new(1, "Value")],
+                selected.into_selection(),
+                TableFocus::Cells(ListRangeOptions::default()),
+            )
+            .row_label(|key| format!("Row {key}"));
+            let body = for_each(
+                rows,
+                |row| *row,
+                move |row_value| {
+                    let key = row_value.with(|row| *row);
+                    row((0..2)
+                        .map(|col| {
+                            node()
+                                .part(table.cell(key, col))
+                                .name(format!("{key}:{col}"))
+                                .style(style().size(100, 40))
+                        })
+                        .collect::<Vec<_>>())
+                    .part(table.row(key))
+                },
+            );
+            (
+                (rows, selected),
+                scroll(column(body).part(table.grid())).style(style().size(220, 100)),
+            )
+        },
+    )
 }

@@ -39,40 +39,7 @@ fn a_press_handler_reads_the_modifiers_held_at_the_press() {
 
 #[test]
 fn input_alignment_keeps_pixels_pointer_selection_and_ime_in_the_same_place() {
-    let (screen, value) = mount(|| {
-        let value = signal("AB".to_owned());
-        let field = |id, alignment| {
-            kivact::view::node()
-                .name(id)
-                .part(kivact::interaction::use_text_edit(value).control())
-                .test_id(id)
-                .style(
-                    style()
-                        .width(240)
-                        .height(42)
-                        .padding_x(8)
-                        .font_size(20)
-                        .text_align(alignment)
-                        .color(Color::BLACK)
-                        .background(Color::WHITE),
-                )
-        };
-        (
-            value,
-            column((
-                field("start", kivact::style::TextAlign::Start),
-                field("center", kivact::style::TextAlign::Center),
-                field("end", kivact::style::TextAlign::End),
-            ))
-            .style(
-                style()
-                    .padding(20)
-                    .gap(20)
-                    .align_items(Align::Start)
-                    .background(Color::WHITE),
-            ),
-        )
-    });
+    let (screen, value) = aligned_inputs_fixture();
     let frame = screen.screenshot();
     let first_ink = |id| {
         let r = screen.get_by_test_id(id).rect().unwrap();
@@ -490,4 +457,41 @@ fn saved_state_is_restored_on_the_next_launch() {
         },
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn aligned_inputs_fixture() -> (kivact::test::Screen, Signal<String>) {
+    mount(|| {
+        let value = signal("AB".to_owned());
+        let field = |id, alignment| {
+            kivact::view::node()
+                .name(id)
+                .part(kivact::interaction::use_text_edit(value).control())
+                .test_id(id)
+                .style(
+                    style()
+                        .width(240)
+                        .height(42)
+                        .padding_x(8)
+                        .font_size(20)
+                        .text_align(alignment)
+                        .color(Color::BLACK)
+                        .background(Color::WHITE),
+                )
+        };
+        (
+            value,
+            column((
+                field("start", kivact::style::TextAlign::Start),
+                field("center", kivact::style::TextAlign::Center),
+                field("end", kivact::style::TextAlign::End),
+            ))
+            .style(
+                style()
+                    .padding(20)
+                    .gap(20)
+                    .align_items(Align::Start)
+                    .background(Color::WHITE),
+            ),
+        )
+    })
 }
