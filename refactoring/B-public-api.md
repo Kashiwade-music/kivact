@@ -862,3 +862,5 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 | recipe input | BreadcrumbItemState.current/input、CardState.input/has_media/has_footer、avatar_image/status_content/group_member/group_overflowは実ノードのreadonly投影 |
 | input/collection slots | RadioGroup.item_node、InputGroupのactualcontext、NavigationMenu.action/navigation_menu_link、PaginationItemStateで独自controllerを置換 |
 | syntax | `basic::rust_source(&str)->Vec<CodeLine>`とpretokenized`rust_lines`。source解析とpalette適用を分離 |
+| calendar activation | `CalendarOptions::activation_guard(Fn(CalendarDate)->bool)` は公開availabilityを変更せず単一ownerの選択前に評価。swipe直後の選択抑止をpolicyとして合成 |
+| alert actual structure | header/message/controlsは実wrapper recipe、has_contentは実slot投影。既定Display::Contentsで標準geometryを保持 |

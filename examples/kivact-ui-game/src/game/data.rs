@@ -36,7 +36,7 @@ pub(super) fn display(scene: Demo) -> Node {
             cards(
                 (
                     node().child({ let animated = kivact::motion::Animated::from(0.0, 1284., kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
-    let formatted = kivact::state::memo(move || (move |value| format_count(value, 0))(animated.get()));
+    let formatted = kivact::state::memo(move || format_count(animated.get(), 0));
     let unit = kivact::state::IntoText::into_text_value("");
     kivact::ui::stat("完了案件", move || format!("{}{}", formatted.get(), unit.get()))
         .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Info)
@@ -46,7 +46,7 @@ pub(super) fn display(scene: Demo) -> Node {
 .chart(g::sparkline(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])) })
                         .child(watermark("01")),
                     node().child({ let animated = kivact::motion::Animated::from(0.0, 99.97, kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
-    let formatted = kivact::state::memo(move || (move |value| format_count(value, 2))(animated.get()));
+    let formatted = kivact::state::memo(move || format_count(animated.get(), 2));
     let unit = kivact::state::IntoText::into_text_value("%");
     kivact::ui::stat("稼働率", move || format!("{}{}", formatted.get(), unit.get()))
         .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Success)
@@ -56,7 +56,7 @@ pub(super) fn display(scene: Demo) -> Node {
 .chart(g::sparkline(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])) })
                         .child(watermark("02")),
                     node().child({ let animated = kivact::motion::Animated::from(0.0, 4.2, kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
-    let formatted = kivact::state::memo(move || (move |value| format_count(value, 1))(animated.get()));
+    let formatted = kivact::state::memo(move || format_count(animated.get(), 1));
     let unit = kivact::state::IntoText::into_text_value("h");
     kivact::ui::stat("平均処理時間", move || format!("{}{}", formatted.get(), unit.get()))
         .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Warning)
@@ -66,7 +66,7 @@ pub(super) fn display(scene: Demo) -> Node {
 .chart(g::sparkline(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])) })
                         .child(watermark("03")),
                     node().child({ let animated = kivact::motion::Animated::from(0.0, 7., kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
-    let formatted = kivact::state::memo(move || (move |value| format_count(value, 0))(animated.get()));
+    let formatted = kivact::state::memo(move || format_count(animated.get(), 0));
     let unit = kivact::state::IntoText::into_text_value("");
     kivact::ui::stat("未解決インシデント", move || format!("{}{}", formatted.get(), unit.get()))
         .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Danger)
