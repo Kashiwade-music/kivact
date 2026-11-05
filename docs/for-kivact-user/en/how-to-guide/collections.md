@@ -1,5 +1,7 @@
 # Show static collections
 
+[日本語](../../jp/how-to-guide/collections.md)
+
 Use `ui::table` for a static table and `ui::data_table` when cells need grid navigation, sorting, or filtering. A static table exposes table, row-group, row, column-header, and cell roles. It does not add keyboard navigation or selection behavior.
 
 ```no_run
@@ -36,7 +38,7 @@ fn documents() -> impl IntoView {
 }
 ```
 
-`.on_press(..)` makes the item focusable and supports click, Enter, Space, and assistive activation while retaining its list-item role. `.header(..)` and `.footer(..)` add content above and below the main row. `.title_content(..)` replaces the drawn title while preserving its accessible name; `.description_content(..)` replaces the description view. The description is connected through `described_by`. For a leading marker, put the marker and any other media in `.media(..)`. To activate another control, the inherited `NodeBuilder` action can call that control's `NodeRef::activate()`.
+`.on_press(..)` makes the item focusable and supports click, Enter, Space, and assistive activation while retaining its list-item role. `.header(..)` and `.footer(..)` add content above and below the main row. `.title_content(..)` replaces the drawn title while preserving its accessible name; `.description_content(..)` replaces the description view. The description is connected through `described_by`. Use `.marker(view)` for a leading marker and `.media(view)` for an image or other leading content. `.delegate_to(target)` routes row activation to that real control while retaining the row's list-item semantics. Use `.title_lines(..)` and `.description_lines(..)` to limit text, and `item_list(..).marker(..).start(..)` for shared numbering.
 
 For a hierarchy, `ui::tree(label, nodes).expanded(expanded).selection(selected)` uses shared tree navigation and publishes expansion only for branches. `.item(..)` supplies row content, `.header(..)` precedes the rows, and `.reveal(gap, transition)` uses retained presence for branch reveals. The selected keys and focused row are separate states. The application owns the expansion and selection bindings.
 

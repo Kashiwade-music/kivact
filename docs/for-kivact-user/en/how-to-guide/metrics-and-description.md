@@ -1,5 +1,7 @@
 # Metrics and descriptions
 
+[日本語](../../jp/how-to-guide/metrics-and-description.md)
+
 Use standard builders from `kivact::ui` with any installed theme. Values and labels accept reactive text; format numbers and units in the application.
 
 ```rust,no_run

@@ -1,5 +1,7 @@
 # Accordion panels and previews
 
+[日本語](../../jp/how-to-guide/disclosure-and-previews.md)
+
 Use `disclosure_group` with `signal(None::<K>)` for one expanded panel or
 `signal(Vec::<K>::new())` for independently expanded panels. Each `.panel`
 receives its key, title, and a factory rebuilt whenever the panel opens.
