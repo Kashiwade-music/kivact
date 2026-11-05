@@ -9,7 +9,7 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl IntoView {
+fn header() -> impl Component {
     column((
         text("タスク"),
         text("今日やること"),
@@ -17,11 +17,11 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(title: &str) -> impl IntoView {
+fn task_row(title: impl IntoText) -> impl Component {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl IntoView {
+fn task_list() -> impl Component {
     column((
         task_row("牛乳を買う"),
         task_row("チュートリアルを書く"),
@@ -84,11 +84,13 @@ fn main() -> kivact::Result<()> {
 
 **`text_input(名前, draft)`** は、1 行のテキスト欄を作ります。第 2 引数は `Signal<String>` で、欄とシグナルは双方向につながります。入力すると `draft` が更新され、`draft.set(..)` を呼ぶと欄の表示が変わります。追加後に欄を空にしているのは、この仕組みです。
 
+入力欄の引数は `IntoBinding<String>` を受け取るので、ここでは `Signal<String>` をそのまま渡せます。すでに構造体の状態を持っているなら、`bind!(profile.name)` のようにフィールドを投影できます。入力欄用に値を複製せず、同じ状態を編集するための `Binding<String>` を渡します。
+
 第 1 引数は欄の**名前**です。スクリーンリーダーがこの名前を読み上げ、テストでもこの名前で欄を探します。名前は画面には描かれません。そのため、欄が空のときに表示するヒントとして `.placeholder(..)` も付けています。
 
 **`.on_submit(add)`** は、欄の中で Enter を押したときに実行されます。**`.on_press(add)`** は、ボタンを押したときに実行されます。どちらも同じクロージャを使っています。`add` が捕捉するのは `Copy` のシグナルハンドルだけなので、クロージャ自身も `Copy` になり、2 回渡せるからです。
 
-**`.disabled(move || ..)`** は、`text` と同じように、状態を読むクロージャを受け取ります。追加ボタンは、入力が空か空白だけのあいだ無効になります。`draft.with(|text| ..)` は文字列をコピーせずに調べます。一方、`draft.get()` はコピーを返します。
+**`.disabled(move || ..)`** は、`text` と同じように、状態を読むクロージャを受け取ります。追加ボタンは、入力が空か空白だけのあいだ無効になります。`draft.with(|text| ..)` は文字列をコピーせずに調べます。一方、`draft.get()` は現在の文字列を複製して返します。
 
 `add` クロージャの中でも空のタイトルを確かめているのは、ボタンが無効でも、欄で Enter を押すとこのクロージャが実行されることがあるからです。
 

@@ -16,7 +16,7 @@ struct Task {
     done: bool,
 }
 
-fn header() -> impl IntoView {
+fn header() -> impl Component {
     column((
         text("タスク"),
         text("今日やること"),
@@ -24,7 +24,7 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -34,7 +34,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
     .style(style().gap(8))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
@@ -105,7 +105,7 @@ fn main() -> kivact::Result<()> {
 
 **チェックボックスを 1 つのフィールドにバインドする。** `checkbox(名前, バインディング)` は、`bool` を編集するチェックボックスを作ります。行の `done` フラグは一覧の中にあるので、
 `bind!(task.done)`（または `task.project(|task| &task.done, |task| &mut task.done)`）
-で、この id のタスクの、そのフィールドだけへの双方向バインディングを作ります。チェックボックスをクリックすると一覧へ書き込まれ、`left` が数え直されます。`field` の最初のクロージャはフィールドを読み、2 つ目は書き込み用の参照を返します。
+で、この id のタスクの、そのフィールドだけへの双方向バインディングを作ります。チェックボックスをクリックすると一覧へ書き込まれ、`left` が数え直されます。`project` の最初のクロージャは読み取り用、2 つ目は書き込み用のフィールド参照を返します。`bind!` はこの投影を短く書くためのマクロです。
 
 `checkbox` は名前にクロージャを受け取れるので、ラベルはタイトルに追従します。この名前は、スクリーンリーダーが読み上げる名前でもあります。
 
