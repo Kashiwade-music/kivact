@@ -127,63 +127,11 @@ impl IntoView for Indicator {
             })
         };
         match self.kind {
-            Kind::Check => {
-                let custom = self.children.is_some();
-                self.root
-                    .with_node(move |node| {
-                        node.base_style(move || {
-                            let t = kivact::style::use_tokens::<crate::Tokens>();
-                            let state = look();
-                            let side = if custom || state.checked.is_checked() {
-                                16
-                            } else {
-                                0
-                            };
-                            style().size(side, side).clip(true).shrink(0).color(
-                                if state.input.disabled {
-                                    t.colors.icon_disabled
-                                } else {
-                                    t.colors.accent
-                                },
-                            )
-                        })
-                    })
-                    .child(self.children)
-                    .child(
-                        (!custom)
-                            .then(|| show(move || checked.get().is_checked(), || icon("check"))),
-                    )
-                    .into_view()
-            }
+            Kind::Check => check_view(self.root, self.children, checked, look),
             kind => {
-                let mark = self.children.unwrap_or_else(|| match kind {
-                    Kind::Checkbox => (
-                        node().style(move || checkbox_check(&use_theme().get(), &look())),
-                        node().style(move || checkbox_mixed(&use_theme().get(), &look())),
-                    )
-                        .into_view(),
-                    Kind::Radio => show(
-                        move || checked.get().is_checked(),
-                        move || {
-                            node().style(move || {
-                                let t = kivact::style::use_tokens::<crate::Tokens>();
-                                let side =
-                                    if matches!(size, ControlSize::Small | ControlSize::ExtraSmall)
-                                    {
-                                        8
-                                    } else {
-                                        10
-                                    };
-                                style()
-                                    .size(side, side)
-                                    .radius(t.radius.full)
-                                    .background(t.colors.on_accent)
-                            })
-                        },
-                    )
-                    .into_view(),
-                    Kind::Check => unreachable!("check handled separately"),
-                });
+                let mark = self
+                    .children
+                    .unwrap_or_else(|| indicator_mark(kind, size, checked, look));
                 self.root
                     .with_node(move |node| {
                         node.base_style(move || {
@@ -211,5 +159,71 @@ impl IntoView for Indicator {
                     .into_view()
             }
         }
+    }
+}
+
+fn check_view(
+    root: Node,
+    children: Option<View>,
+    checked: Value<CheckedState>,
+    look: impl Fn() -> Look<CheckableState> + Copy + 'static,
+) -> View {
+    let custom = children.is_some();
+    root.with_node(move |node| {
+        node.base_style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let state = look();
+            let side = if custom || state.checked.is_checked() {
+                16
+            } else {
+                0
+            };
+            style()
+                .size(side, side)
+                .clip(true)
+                .shrink(0)
+                .color(if state.input.disabled {
+                    t.colors.icon_disabled
+                } else {
+                    t.colors.accent
+                })
+        })
+    })
+    .child(children)
+    .child((!custom).then(|| show(move || checked.get().is_checked(), || icon("check"))))
+    .into_view()
+}
+
+fn indicator_mark(
+    kind: Kind,
+    size: ControlSize,
+    checked: Value<CheckedState>,
+    look: impl Fn() -> Look<CheckableState> + Copy + 'static,
+) -> View {
+    match kind {
+        Kind::Checkbox => (
+            node().style(move || checkbox_check(&use_theme().get(), &look())),
+            node().style(move || checkbox_mixed(&use_theme().get(), &look())),
+        )
+            .into_view(),
+        Kind::Radio => show(
+            move || checked.get().is_checked(),
+            move || {
+                node().style(move || {
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
+                    let side = if matches!(size, ControlSize::Small | ControlSize::ExtraSmall) {
+                        8
+                    } else {
+                        10
+                    };
+                    style()
+                        .size(side, side)
+                        .radius(t.radius.full)
+                        .background(t.colors.on_accent)
+                })
+            },
+        )
+        .into_view(),
+        Kind::Check => unreachable!("check handled separately"),
     }
 }
