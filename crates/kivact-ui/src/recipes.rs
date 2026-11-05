@@ -303,12 +303,12 @@ recipe_table! {
     /// The recipes of a [`radio_group`](super::radio_group).
     RadioGroupRecipes {
         /// The group, laid out in its orientation.
-        group(group_recipe): Orientation = look_controls::radio_group,
+        group(group_recipe): Orientation = super::look_radio::group,
         /// A radio item: its indicator and its label.
-        item(item_recipe): CheckableState = look_controls::radio_item,
+        item(item_recipe): CheckableState = super::look_radio::item,
         /// The item's indicator, holding the theme's `dot` icon while
         /// it is checked.
-        indicator(indicator_recipe): CheckableState = look_controls::radio_indicator,
+        indicator(indicator_recipe): CheckableState = super::look_radio::indicator,
         /// The dot icon, mounted through selection changes so its paint can transition.
         mark(mark_recipe): CheckableState = look_controls::radio_mark,
         /// The secondary line of an option with a description.

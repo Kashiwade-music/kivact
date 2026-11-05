@@ -140,6 +140,7 @@ mod look_controls;
 mod look_extra;
 mod look_input;
 mod look_palette;
+mod look_radio;
 mod number_input;
 mod progress;
 mod recipes;
@@ -182,8 +183,8 @@ pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
-    ProgressState, SelectTriggerState, SwitchDragState, TextInputState, ToastGroupState,
-    ToggleButtonState, TooltipArrowState, provide_control_size,
+    ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState, TextInputState,
+    ToastGroupState, ToggleButtonState, TooltipArrowState, provide_control_size,
 };
 pub use variants::{Look, Variant};
 

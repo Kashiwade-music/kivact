@@ -180,6 +180,9 @@ impl MotionState {
         };
         let period = period.get();
         for l in self.live_loops() {
+            if !l.is_present() {
+                continue;
+            }
             let LoopState::Running(run) = l.state.get_untracked() else {
                 continue;
             };
@@ -234,6 +237,9 @@ impl MotionState {
         let last = self.clock.borrow().phase.last_tick();
         let mut want: Option<u64> = None;
         for l in self.live_loops() {
+            if !l.is_present() {
+                continue;
+            }
             if let LoopState::Running(run) = l.state.get_untracked() {
                 let d = run.due(period);
                 want = Some(want.map_or(d, |w| w.min(d)));
@@ -293,11 +299,19 @@ pub(crate) enum LoopState {
     Running(LoopRun),
 }
 
+/// An optional host observation restricts scheduling independently of run state.
+#[derive(Clone, Copy)]
+pub(crate) enum LoopGate {
+    Always,
+    While(Value<bool>),
+}
+
 pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,
     pub(crate) state: Signal<LoopState>,
     pub(crate) frames: Cell<u64>,
+    pub(crate) gate: Cell<LoopGate>,
 }
 
 /// A running frame loop.
@@ -325,6 +339,13 @@ impl LoopRun {
 }
 
 impl LoopCell {
+    fn is_present(&self) -> bool {
+        match self.gate.get() {
+            LoopGate::Always => true,
+            LoopGate::While(gate) => gate.get_untracked(),
+        }
+    }
+
     /// Start, change or stop (`None`) the loop.
     pub(crate) fn set_run(&self, run: Option<LoopRun>) {
         self.state

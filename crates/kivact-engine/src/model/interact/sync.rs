@@ -238,9 +238,7 @@ impl Model {
             self.changes.paint = true;
         }
         self.sync();
-        if failed {
-            self.report_images(&images);
-        }
+        self.report_images(&images);
     }
 
     /// Report the failed images of the `Image` nodes among `nodes`, once
@@ -248,6 +246,7 @@ impl Model {
     fn report_images(&mut self, nodes: &[NodeId]) {
         let assets = self.assets.get_mut();
         let mut reports = Vec::new();
+        let mut statuses = Vec::new();
         for id in nodes {
             let Some(n) = self.tree.get(*id).filter(|n| n.kind() == NodeType::Image) else {
                 continue;
@@ -255,7 +254,11 @@ impl Model {
             let Some(asset) = n.image() else {
                 continue;
             };
+            statuses.push((*id, assets.image_status(asset)));
             reports.extend(assets.check_image(*id, asset));
+        }
+        for (node, status) in statuses {
+            self.push(HostEvent::ImageStatusChanged { node, status });
         }
         for e in reports {
             match e {

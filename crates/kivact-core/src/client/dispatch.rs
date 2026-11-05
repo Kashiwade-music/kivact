@@ -131,8 +131,8 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             node,
             offset,
             viewport,
-            ..
-        } => env::scroll_changed(rt, *node, *offset, *viewport),
+            content,
+        } => env::scroll_changed(rt, *node, *offset, *viewport, *content),
         HostEvent::LayoutChanged {
             node,
             rect,
@@ -142,6 +142,14 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::CloseRequested => env::close_requested(rt),
         HostEvent::EffectResult { request, result } => {
             platform::effect_result(rt, *request, result)
+        }
+        HostEvent::ImageStatusChanged { node, status } => {
+            let observation = crate::view::state::ViewState::tree(rt)
+                .get(*node)
+                .and_then(|node| node.observation);
+            if let Some(observation) = observation {
+                observation.image_status.set(*status);
+            }
         }
         HostEvent::AssetFailed { node, message } => platform::asset_failed(rt, *node, message),
         HostEvent::HostFailure { revision, reason } => {

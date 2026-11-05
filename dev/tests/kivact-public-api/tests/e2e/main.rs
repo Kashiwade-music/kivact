@@ -63,6 +63,7 @@ mod layout_scroll;
 mod layout_units;
 mod lifecycle;
 mod motion;
+mod node_ref;
 mod offscreen;
 mod overlay;
 mod paint;

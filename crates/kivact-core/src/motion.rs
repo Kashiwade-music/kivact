@@ -1,13 +1,10 @@
-//! Role: Public animation names of the facade: frame loops, values and transitions.
-//!
-//! The implementation is the `kivact-runtime` crate; this module re-exports the
-//! names an app or a component author calls (`frame_loop`, `animated`,
-//! `Transition`, ...). The driver API of the host that runs the App's frames
-//! (`MotionState`, `MotionStats`) stays in `kivact_runtime` and is not part of
-//! the public facade.
+//! Role: Export public animation values and node-aware frame loops.
 
+mod frame_loop;
+
+pub use frame_loop::{FrameLoop, frame_loop};
 #[doc(inline)]
 pub use kivact_runtime::{
-    Animatable, Animated, Easing, FrameInfo, FrameLoop, FrameRate, Repeat, Retarget, Spring,
-    Transition, animated, frame_loop,
+    Animatable, Animated, Easing, FrameInfo, FrameRate, Repeat, Retarget, Spring, Transition,
+    animated,
 };

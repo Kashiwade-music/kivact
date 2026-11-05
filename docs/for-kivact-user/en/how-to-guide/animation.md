@@ -339,3 +339,5 @@ mod tests {
 - [Run async work from a component](async-and-tasks.md): timers and background work.
 - [Test your app](testing.md): the virtual clock and `RenderOptions`.
 - API reference: `cargo doc -p kivact --open`, then `kivact::motion` and `kivact::style::Style`.
+
+Use `frame_loop(callback).while_present(node_ref)` to pause frame scheduling while the referenced node is entering, leaving or unbound. When it becomes present, the loop resumes at its requested rate. `start`, `stop` and `rate` retain their meaning while paused; a stopped loop stays stopped after remounting.
