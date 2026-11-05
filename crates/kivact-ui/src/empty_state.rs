@@ -6,6 +6,13 @@ use kivact_core::view::{IntoView, LiveRegion, Node, NodeBuilder, Role, View, nod
 use kivact_interaction::announcer;
 
 #[derive(Clone, Copy, PartialEq)]
+enum AnnouncePolicy {
+    Silent,
+    Once,
+    Changes,
+}
+
+#[derive(Clone, Copy, PartialEq)]
 enum Announcement {
     Pending,
     Spoken,
@@ -26,7 +33,7 @@ pub struct EmptyState {
     icon: Option<View>,
     actions: Option<View>,
     heading_level: Value<u8>,
-    announce: bool,
+    announce: AnnouncePolicy,
     variants: Variants,
 }
 /// Describe an empty region with a visible heading.
@@ -38,7 +45,7 @@ pub fn empty_state(title: impl IntoText) -> EmptyState {
         icon: None,
         actions: None,
         heading_level: 3.into_value(),
-        announce: false,
+        announce: AnnouncePolicy::Silent,
         variants: Variants::default(),
     }
 }
@@ -65,7 +72,13 @@ impl EmptyState {
     }
     /// Announce the message politely once after mounting.
     pub fn announce(mut self) -> Self {
-        self.announce = true;
+        self.announce = AnnouncePolicy::Once;
+        self
+    }
+    /// Announce normalized message changes and late visibility, skipping the initial render.
+    /// Actual live-region ancestors suppress duplicate announcements.
+    pub fn announce_changes(mut self) -> Self {
+        self.announce = AnnouncePolicy::Changes;
         self
     }
     /// Add a theme-defined appearance.
@@ -87,7 +100,7 @@ impl IntoView for EmptyState {
         };
         let title = self.title;
         let description = self.description;
-        let notices = self.announce.then(|| {
+        let notices = (self.announce == AnnouncePolicy::Once).then(|| {
             let notices = announcer();
             let phase = signal(Announcement::Pending);
             on_mount(move || {
@@ -135,13 +148,17 @@ impl IntoView for EmptyState {
                 state,
             )
         });
-        with_base_recipe_style(
+        let result = with_base_recipe_style(
             self.root,
             |r| r.empty_state_recipes().root_recipe(),
             variants,
             state,
         )
-        .child((icon, title, description, actions, notices))
-        .into_view()
+        .child((icon, title, description, actions, notices));
+        if self.announce == AnnouncePolicy::Changes {
+            crate::empty_state_changes::observe(self.title, self.description, result)
+        } else {
+            result.into_view()
+        }
     }
 }
