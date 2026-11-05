@@ -401,3 +401,24 @@ fn editor_actions() -> impl IntoView {
 呼び出し側のスタイルは recipe より優先します。
 
 `radio_group(...).item_node(|target, item, state| target.with_node(...))` は、キットのキーボードヒントなどを付けるために完成済みの標準ターゲットを渡します。受け取った target に modifier を付けて返し、別のネイティブなフォーカスや選択の owner を作らないでください。`.item(...)` は内容だけを置き換え、両方の slot を組み合わせられます。
+
+### Picker の操作と touch sheet
+
+日付・時刻の field は TextBox と独立した picker button を持ちます。
+`picker_label(..)` で button の名前を別に指定できます。下矢印または
+Alt+下矢印で picker を開き、内部へ focus を移します。選択・dismiss 後は
+実際に開いた入力または button へ戻り、外側をクリックした場合は移動先の
+focus を保ちます。
+
+範囲の最初の端点は一時的な候補で、部分的な range は公開しません。
+2 点目で順序付き range を公開し、Escape は候補を破棄します。bottom sheet
+では日付選択と time wheel の各操作を即座に反映し、Save で閉じます。
+日時の sheet は Save date で Time に進み、その後 Save で閉じます。
+月の見出しは Month/Year wheel を開き、Done で calendar に戻ります。
+Spinbutton の上矢印 / Increment は増加、下矢印 / Decrement は減少で、
+Page Up/Down は大きな step を使います。月の swipe は接触した日を選択しません。
+
+独自の interaction は `CalendarOptions::activation_guard` で、disabled 表示を
+変えずに単日・範囲の遷移前に activation を拒否できます。
+`DialogApi::return_focus` は定数または reactive な NodeRef を受け取り、
+開くたびに復帰先を snapshot します。
