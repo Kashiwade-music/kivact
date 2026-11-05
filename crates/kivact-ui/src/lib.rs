@@ -418,5 +418,7 @@ mod carousel_values;
 mod toolbar_look;
 pub use carousel_values::{CarouselMode, CarouselSurfaceState};
 pub use component_values::AlertVariant;
-pub use navigation_values::{BreadcrumbItemState, StepStatus, StepperItemState, StepperState};
+pub use navigation_values::{
+    BreadcrumbItemState, CollapsedSteps, StepStatus, StepperItemState, StepperState,
+};
 pub use values::ProgressVariant;

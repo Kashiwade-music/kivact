@@ -72,3 +72,11 @@ pub struct BreadcrumbItemState {
     pub current: bool,
     pub input: Option<kivact_core::custom::PartState>,
 }
+
+/// Which steps remain mounted visibly when the responsive layout is compact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CollapsedSteps {
+    #[default]
+    Current,
+    All,
+}

@@ -152,3 +152,7 @@ pub(super) fn pagination_item(t: &Theme, s: &Look<crate::PaginationItemState>) -
         })
         .weight(if s.current { 600 } else { 400 })
 }
+
+pub(super) fn stepper_decoration(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+    style().size(0, 0)
+}
