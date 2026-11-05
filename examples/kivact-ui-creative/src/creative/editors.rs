@@ -456,7 +456,7 @@ fn animation_graph_editor(
     graph_selected: Signal<Vec<u64>>,
     channels: [Signal<bool>; 3],
     graph_view: Signal<ui::GraphView>,
-) -> Node {
+) -> impl IntoView {
     ui::graph_editor(
         graph,
         ui::GraphState {
@@ -476,7 +476,6 @@ fn animation_graph_editor(
     })
     .style(style().height(320))
     .test_id("creative-graph")
-    .into_view()
 }
 
 fn animation_graph_toolbar(
@@ -556,7 +555,7 @@ fn animation_dope_sheet(
     selected: Binding<Vec<u64>>,
     initial_keys: Signal<Option<Vec<ui::Keyframe>>>,
     transform: Signal<kivact::interaction::ViewTransform>,
-) -> Node {
+) -> impl IntoView {
     ui::dope_sheet(
         keys,
         ui::TimeState {
@@ -599,7 +598,6 @@ fn animation_dope_sheet(
     )
     .style(style().height(252))
     .test_id("creative-dopesheet")
-    .into_view()
 }
 
 fn animation_dope_toolbar(state: Signal<TransportState>, keys: Binding<Vec<ui::Keyframe>>) -> Node {
