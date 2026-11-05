@@ -140,6 +140,11 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            carousel: kivact::ui::CarouselTokens {
+                gap: Some(tokens.spacing.s1),
+                padding: Some(0.0),
+                edge_fade_width: Some(tokens.spacing.s1),
+            },
             calendar: kivact::ui::CalendarTokens {
                 cell_size: 32.0,
                 month_gap: tokens.spacing.s4,

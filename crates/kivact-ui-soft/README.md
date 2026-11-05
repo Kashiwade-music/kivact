@@ -47,7 +47,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | Standard `calendar` over single-date or ordered-range bindings |
 | Card | `card`, `clickable_card`, `selectable_card` |
-| Carousel | `carousel`, `use_carousel` |
+| Carousel | Standard `carousel(index, slides)` and headless `interaction::use_carousel(index, count)` |
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
 | Citation / Code / Code Block | `citation`, `code`, `code_block` |
@@ -122,9 +122,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.banner.dismiss_titled` | {dismiss} {title} |
 | `soft.banner.expand` | Expand |
 | `soft.breadcrumbs.label` | Breadcrumb |
-| `soft.carousel.scroll_left` | Scroll left |
-| `soft.carousel.scroll_right` | Scroll right |
-| `soft.carousel.slide` | Slide {current} of {total} |
 | `soft.chat.tool_calls.complete` | Complete |
 | `soft.chat.tool_calls.detail` | Details for {name} |
 | `soft.chat.tool_calls.details` | Details |
@@ -280,7 +277,7 @@ respect the caret inside a text field. `with_key_hints(axis, || view)` owns one 
 Date and time wheels currently use numeric labels. Truncation hints show
 the full label on hover when native layout cuts the text. Citation and
 timestamp underlines are solid.
-Carousel scrolls to slides in response to its controls. Enable `.snap(true)`
+`carousel(index, slides).mode(CarouselMode::Scroll)` scrolls to slides in response to its controls. Enable `.snap(Snap::Mandatory)`
 to settle to a slide after scrolling. `text(..).capsize(true)` trims to the
 first visible line's measured cap height and the last visible baseline.
 
@@ -352,6 +349,7 @@ Number, date, and time filter fields validate values entered as text.
 - `spinner`
 - `kbd`
 - `kbd_key`
+- `carousel`
 - `calendar`
 - `date_input`
 - `date_range_input`

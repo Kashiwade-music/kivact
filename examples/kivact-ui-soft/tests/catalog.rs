@@ -10,15 +10,15 @@ fn carousel_example_moves_the_slides_and_reveals_the_previous_control() {
     let screen = render_with(RenderOptions::from_env(), || {
         catalog_at(ThemeMode::Light, "carousel")
     });
-    let second = screen.get_by_role(Role::Group, "Slide 2 of 4");
+    let second = screen.get_by_role(Role::Group, "Slide 2 / 4");
     let before = second.accessibility_bounds().expect("visible slide").x;
-    screen.get_by_role(Role::Button, "Scroll right").click();
+    screen.get_by_role(Role::Button, "Next slide").click();
     screen.advance(Duration::from_millis(800));
     let after = second.accessibility_bounds().expect("scrolled slide").x;
     assert!(after < before, "slide position {before} → {after}");
     assert!(
         !screen
-            .get_by_role(Role::Button, "Scroll left")
+            .get_by_role(Role::Button, "Previous slide")
             .is_disabled()
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
@@ -29,9 +29,9 @@ fn carousel_example_snaps_after_horizontal_wheel_input() {
     let screen = render_with(RenderOptions::from_env().reduced_motion(), || {
         catalog_at(ThemeMode::Light, "carousel")
     });
-    let first = screen.get_by_role(Role::Group, "Slide 1 of 4");
+    let first = screen.get_by_role(Role::Group, "Slide 1 / 4");
     let start = first.accessibility_bounds().expect("first slide").x;
-    let second = screen.get_by_role(Role::Group, "Slide 2 of 4");
+    let second = screen.get_by_role(Role::Group, "Slide 2 / 4");
     let second_start = second.accessibility_bounds().expect("second slide").x;
     first.scroll(100.0, 0.0);
     let unsettled = second

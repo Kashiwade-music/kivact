@@ -12,7 +12,6 @@ mod blockquote;
 mod bottom_sheet;
 mod breadcrumbs;
 mod card;
-mod carousel;
 mod choice_list;
 mod citation;
 mod code;
@@ -56,6 +55,7 @@ mod recipe_style;
 mod recipes;
 mod recipes_badge;
 mod recipes_calendar;
+mod recipes_carousel;
 mod recipes_collections;
 mod recipes_combobox;
 mod recipes_controls;
@@ -119,7 +119,6 @@ pub use breadcrumbs::{
     BreadcrumbItem, Breadcrumbs, BreadcrumbsVariant, breadcrumb_item, breadcrumbs,
 };
 pub use card::{Card, CardVariant, card, clickable_card, selectable_card};
-pub use carousel::{Carousel, CarouselHandle, carousel, use_carousel};
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};

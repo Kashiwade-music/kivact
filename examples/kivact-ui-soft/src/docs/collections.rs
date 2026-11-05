@@ -8,7 +8,7 @@ use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, data_table};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus,
-    aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center, chat_bubble, chat_composer,
+    aspect_ratio, breadcrumb_item, breadcrumbs, card, center, chat_bubble, chat_composer,
     chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
     clickable_card, divider, form_layout, form_row, grid, hstack, item, layout, layout_content,
     layout_header, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
@@ -66,14 +66,18 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "carousel" => specimen(
             "Browse slides",
-            carousel(
-                "Project highlights",
+            kivact::ui::carousel(
+                signal(0usize),
                 ["Design", "Documentation", "Research", "Release"]
-                    .map(|title| card(text(title)).style(style().size(148, 72))),
+                    .into_iter()
+                    .map(|title| card(text(title)).style(style().size(148, 72)))
+                    .collect::<Vec<_>>(),
             )
-            .snap(true)
+            .name("Project highlights")
+            .mode(kivact::ui::CarouselMode::Scroll)
+            .snap(kivact::interaction::Snap::Mandatory)
             .style(style().width(320)),
-            "let slides = [\"Design\", \"Documentation\", \"Research\", \"Release\"]\n    .map(|title| card(text(title)).style(style().size(148, 72)));\ncarousel(\"Project highlights\", slides).snap(true).style(style().width(320))",
+            "let slides = [\"Design\", \"Documentation\", \"Research\", \"Release\"]\n    .into_iter().map(|title| card(text(title)).style(style().size(148, 72))).collect::<Vec<_>>();\nkivact::ui::carousel(signal(0usize), slides).name(\"Project highlights\").mode(CarouselMode::Scroll).snap(Snap::Mandatory).style(style().width(320))",
         ),
         "section" => specimen(
             "Section content",

@@ -10,6 +10,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .text_input(|_| crate::recipes_field::text_input)
                 .text_area(|_| crate::recipes_field::text_area)
                 .calendar(crate::recipes_calendar::calendar)
+                .carousel(crate::recipes_carousel::carousel)
                 .date_input(|r| {
                     r.root(|_| crate::recipes_calendar::field)
                         .wheel(|_| crate::recipes_calendar::wheel)

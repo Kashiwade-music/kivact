@@ -91,14 +91,19 @@ fn layout_components_mount_and_interact() {
                     vec![soft::TabMenuOption::new("three", "Three")],
                 )),
             soft::stepper(1, [soft::step(0, "One"), soft::step(1, "Two")]),
-            soft::carousel(
-                "Pictures",
-                (0..3).map(|i| {
-                    node()
-                        .style(style().size(100, 32))
-                        .child(text(i.to_string()))
-                }),
+            kivact::ui::carousel(
+                signal(0usize),
+                (0..3)
+                    .map(|i| {
+                        node()
+                            .style(style().size(100, 32))
+                            .child(text(i.to_string()))
+                    })
+                    .collect::<Vec<_>>(),
             )
+            .name("Pictures")
+            .mode(kivact::ui::CarouselMode::Scroll)
+            .snap(kivact::interaction::Snap::None)
             .style(style().width(160)),
             row((
                 soft::outline(vec![soft::OutlineItem::new("a", "Outline link", 2, target)])
