@@ -59,7 +59,6 @@ mod chat;
 mod choice;
 mod code_block;
 mod color;
-mod combobox;
 mod date_picker;
 mod disclosure;
 mod drawer;
@@ -83,6 +82,7 @@ mod primitives;
 mod questionnaire;
 mod recipes;
 mod recipes_collections;
+mod recipes_combobox;
 mod recipes_command;
 mod recipes_controls;
 mod recipes_dialog;
@@ -147,7 +147,6 @@ pub use code_block::{
     CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
 };
 pub use color::ColorName;
-pub use combobox::{Combobox, combobox};
 pub use date_picker::{DatePicker, DateRangePicker, date_picker, date_range_picker};
 pub use disclosure::DisclosureVariant;
 pub use drawer::DrawerVariant;

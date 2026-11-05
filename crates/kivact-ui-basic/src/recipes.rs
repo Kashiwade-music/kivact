@@ -59,6 +59,7 @@ fn build() -> UiRecipes {
         .progress(crate::recipes_controls::progress)
         .disclosure(crate::recipes_controls::disclosure)
         .command_palette(crate::recipes_command::command_palette)
+        .combobox(crate::recipes_combobox::combobox)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts

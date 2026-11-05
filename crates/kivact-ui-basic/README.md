@@ -127,11 +127,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.code_block.copied` | Copied |
 | `basic.code_block.copy` | Copy |
 | `basic.code_block.name` | Code |
-| `basic.combobox.clear` | Clear |
-| `basic.combobox.empty` | No results found. |
-| `basic.combobox.label` | Combobox |
-| `basic.combobox.remove` | Remove {label} |
-| `basic.combobox.toggle` | Toggle options |
 | `basic.date_picker.format` | {month} {day}, {year} |
 | `basic.date_picker.placeholder` | Pick a date |
 | `basic.date_picker.range` | {start} - {end} |
@@ -227,6 +222,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `command_palette`
 - `hover_card`
 - `carousel`
+- `combobox`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

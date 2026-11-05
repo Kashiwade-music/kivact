@@ -129,7 +129,7 @@ fn search_and_copy() -> impl IntoView {
 
 ## 長い一覧から 1 つまたは複数を選ぶ
 
-`basic::combobox(items, selected)` は、絞り込みつきの一覧を持つ入力欄です。項目は `ListItem` です。選択の型がモードを決めます。`signal(None)`（`Option<K>`）は 1 つ、`signal(Vec::new())` は複数を選び、選んだものを外せるチップで表示します。
+`kivact::ui::combobox("Framework", items, selected)` は、絞り込みつきの一覧を持つ入力欄です。項目は `ListItem` です。選択の型がモードを決めます。`signal(None)`（`Option<K>`）は 1 つ、`signal(Vec::new())` は複数を選びます。`.chips()` で外せるチップを表示します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -144,12 +144,12 @@ fn frameworks() -> impl IntoView {
     let one = signal(None);
     let many = signal(vec!["next"]);
     column((
-        basic::combobox(items.clone(), one)
+        kivact::ui::combobox("Framework", items.clone(), one)
             .placeholder("Select a framework")
             .name("Framework")
             .show_clear(true)
             .style(style().width(260)),
-        basic::combobox(items, many)
+        kivact::ui::combobox("Frameworks", items, many).chips()
             .placeholder("Add framework")
             .name("Frameworks")
             .style(style().width(360)),
