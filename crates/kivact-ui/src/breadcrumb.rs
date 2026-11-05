@@ -11,7 +11,9 @@ type ItemSlot<K> = Rc<dyn Fn(ListItem<K>) -> View>;
 pub struct Breadcrumb<K: 'static> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
+    // xtask-allow(state-fields): Optional construction-time activation callback, independent of the presentation slot.
     activate: Option<Rc<dyn Fn(K)>>,
+    // xtask-allow(state-fields): Optional presentation slot selected during construction; breadcrumbs store no interaction state.
     item: Option<ItemSlot<K>>,
     separator: Rc<dyn Fn() -> View>,
     variants: crate::variants::Variants,
@@ -86,11 +88,11 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                         .into_view(),
                     );
                 }
-                let label = entry.label();
-                let body = item.as_ref().map_or_else(
-                    || text(label.clone()).into_view(),
-                    |slot| slot(entry.clone()),
-                );
+                let label_entry = entry.clone();
+                let label = kivact_core::state::memo(move || label_entry.label());
+                let body = item
+                    .as_ref()
+                    .map_or_else(|| text(label).into_view(), |slot| slot(entry.clone()));
                 let current = at == last;
                 let entry_node = if current || activate.is_none() {
                     node()
@@ -106,7 +108,8 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                 } else {
                     let f = activate.clone();
                     let key = entry.key().clone();
-                    crate::button(label)
+                    crate::button("")
+                        .name(label)
                         .with_node(|n| n.role(Role::Link))
                         .disabled(entry.is_disabled())
                         .on_press(move || {
@@ -136,7 +139,16 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
             &variants,
             || (),
         )
-        .child(node().role(Role::List).child(contents))
+        .child(
+            node()
+                .role(Role::List)
+                .style(
+                    kivact_core::style::style()
+                        .direction(kivact_core::style::Direction::Row)
+                        .gap(8),
+                )
+                .child(contents),
+        )
         .into_view()
     }
 }

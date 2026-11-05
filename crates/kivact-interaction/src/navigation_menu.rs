@@ -1,4 +1,6 @@
 //! Role: Own hover and pinned navigation panel transitions.
+use crate::options_cell::OptionsCell;
+use kivact_core::state::{Callback, callback};
 use kivact_core::state::{Machine as MachineTrait, MachineHandle, Step, Value, machine, memo};
 use std::time::Duration;
 
@@ -20,7 +22,9 @@ enum Event {
     HoverAfter(usize, Duration),
     LeaveAfter(usize, Duration),
 }
-enum Effect {}
+enum Effect {
+    Changed(bool),
+}
 struct Machine;
 impl MachineTrait for Machine {
     type State = NavOpen;
@@ -53,9 +57,14 @@ impl MachineTrait for Machine {
             Event::Close => NavOpen::Closed,
             Event::Hover(_) | Event::Leave(_) => *state,
         };
-        Step::to(next)
+        let step = Step::to(next)
             .cancel(Event::Hover(0))
-            .cancel(Event::Leave(0))
+            .cancel(Event::Leave(0));
+        if matches!(state, NavOpen::Closed) != matches!(next, NavOpen::Closed) {
+            step.with(Effect::Changed(!matches!(next, NavOpen::Closed)))
+        } else {
+            step
+        }
     }
 }
 
@@ -63,16 +72,32 @@ impl MachineTrait for Machine {
 #[derive(Clone, Copy)]
 pub struct NavigationMenuApi {
     machine: MachineHandle<Machine>,
+    changed: OptionsCell<Option<Callback<bool>>>,
 }
 
 /// Create one exclusive panel owner. Setup only.
 #[track_caller]
 pub fn use_navigation_menu() -> NavigationMenuApi {
+    let changed = OptionsCell::new(None::<Callback<bool>>);
     NavigationMenuApi {
-        machine: machine(NavOpen::Closed, || Machine, |_, effect| match effect {}),
+        machine: machine(
+            NavOpen::Closed,
+            || Machine,
+            move |_, Effect::Changed(open)| {
+                if let Some(changed) = changed.get() {
+                    changed.call(open);
+                }
+            },
+        ),
+        changed,
     }
 }
 impl NavigationMenuApi {
+    /// Observe accepted open/closed changes. Setup only.
+    pub fn on_open_change(self, f: impl Fn(bool) + 'static) -> Self {
+        self.changed.update(|changed| *changed = Some(callback(f)));
+        self
+    }
     /// The current panel and its opening mode.
     pub fn state(self) -> Value<NavOpen> {
         memo(move || self.machine.get())

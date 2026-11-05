@@ -11,7 +11,7 @@ pub enum PageItem {
     First,
     Previous,
     Page(usize),
-    Ellipsis(usize),
+    Ellipsis,
     Next,
     Last,
 }
@@ -30,19 +30,26 @@ pub enum PaginationMode {
 pub struct Pagination {
     root: Node,
     page: Binding<usize>,
-    count: Value<usize>,
+    count: PageCount,
     siblings: Value<usize>,
+    // xtask-allow(state-fields): Independent reactive construction option controlling endpoint visibility.
     first_last: Value<bool>,
     step: Value<usize>,
+    // xtask-allow(state-fields): Caller-owned information about an unfinished remote page count.
     has_more: Value<bool>,
-    total_items: Option<Value<u64>>,
+    // xtask-allow(state-fields): Optional caller binding for page-size selection, independent of page draft state.
     page_size: Option<Binding<u32>>,
-    size_options: Vec<u32>,
+    size_options: Value<Vec<u32>>,
     page_label: Value<String>,
     mode: PaginationMode,
+    // xtask-allow(state-fields): Optional caller-provided presentation slot selected only during construction.
     item: Option<Rc<dyn Fn(PageItem) -> View>>,
     format: Rc<dyn Fn(usize) -> String>,
     variants: crate::variants::Variants,
+}
+enum PageCount {
+    Pages(Value<usize>),
+    Items(Value<u64>),
 }
 /// Construct pagination for `count` pages and a caller-owned page index.
 #[track_caller]
@@ -52,14 +59,13 @@ pub fn pagination(count: impl IntoValue<usize>, page: impl IntoBinding<usize>) -
             .role(Role::Navigation)
             .name(kivact_core::i18n::message("pagination.label", "Pagination")),
         page: page.into_binding(),
-        count: count.into_value(),
+        count: PageCount::Pages(count.into_value()),
         siblings: 1usize.into_value(),
         first_last: false.into_value(),
         step: 1usize.into_value(),
         has_more: false.into_value(),
-        total_items: None,
         page_size: None,
-        size_options: Vec::new(),
+        size_options: Vec::<u32>::new().into_value(),
         page_label: kivact_core::i18n::message("pagination.page", "Page"),
         mode: PaginationMode::Pages,
         item: None,
@@ -90,7 +96,7 @@ impl Pagination {
     }
     /// Derive page count from an item total and the configured page size.
     pub fn total_items(mut self, value: impl IntoValue<u64>) -> Self {
-        self.total_items = Some(value.into_value());
+        self.count = PageCount::Items(value.into_value());
         self
     }
     /// Bind the number of items per page.
@@ -99,8 +105,8 @@ impl Pagination {
         self
     }
     /// Offer these page sizes in a select control.
-    pub fn page_size_options(mut self, values: Vec<u32>) -> Self {
-        self.size_options = values;
+    pub fn page_size_options(mut self, values: impl IntoValue<Vec<u32>>) -> Self {
+        self.size_options = values.into_value();
         self
     }
     /// Name the editable page field.
@@ -134,7 +140,7 @@ impl NodeBuilder for Pagination {
         &mut self.root
     }
 }
-fn cells(page: usize, count: usize, siblings: usize, ends: bool) -> Vec<PageItem> {
+fn cells(page: usize, count: usize, siblings: usize, ends: bool) -> Vec<(usize, PageItem)> {
     let mut out = Vec::new();
     if ends {
         out.push(PageItem::First);
@@ -150,7 +156,7 @@ fn cells(page: usize, count: usize, siblings: usize, ends: bool) -> Vec<PageItem
     let mut last = None;
     for n in shown {
         if last.is_some_and(|before| n > before + 1) {
-            out.push(PageItem::Ellipsis(n));
+            out.push(PageItem::Ellipsis);
         }
         out.push(PageItem::Page(n));
         last = Some(n);
@@ -159,7 +165,10 @@ fn cells(page: usize, count: usize, siblings: usize, ends: bool) -> Vec<PageItem
     if ends {
         out.push(PageItem::Last);
     }
-    out
+    out.into_iter()
+        .enumerate()
+        .map(|(at, item)| (if item == PageItem::Ellipsis { at } else { 0 }, item))
+        .collect()
 }
 impl IntoView for Pagination {
     fn into_view(self) -> View {
@@ -171,7 +180,6 @@ impl IntoView for Pagination {
             first_last,
             step,
             has_more,
-            total_items,
             page_size,
             size_options,
             page_label,
@@ -183,12 +191,12 @@ impl IntoView for Pagination {
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
-        let count = memo(move || match (total_items, page_size) {
-            (Some(total), Some(size)) => total
+        let count = memo(move || match &count {
+            PageCount::Items(total) => total
                 .get()
-                .div_ceil(u64::from(size.get().max(1)))
+                .div_ceil(u64::from(page_size.map_or(1, |size| size.get().max(1))))
                 .min(usize::MAX as u64) as usize,
-            _ => count.get(),
+            PageCount::Pages(count) => count.get(),
         });
         let current = memo(move || {
             if has_more.get() {
@@ -201,7 +209,7 @@ impl IntoView for Pagination {
         let items = memo(move || {
             let mut cells = cells(current.get(), count.get(), siblings.get(), first_last.get());
             if mode != PaginationMode::Pages && mode != PaginationMode::Dots {
-                cells.retain(|c| !matches!(c, PageItem::Page(_) | PageItem::Ellipsis(_)));
+                cells.retain(|(_, c)| !matches!(c, PageItem::Page(_) | PageItem::Ellipsis));
             }
             if mode == PaginationMode::None {
                 cells.clear();
@@ -212,14 +220,14 @@ impl IntoView for Pagination {
             items,
             |cell| *cell,
             move |cell| {
-                let cell = cell.get();
+                let (_, cell) = cell.get();
                 let label = match cell {
                     PageItem::First => "First page".to_owned(),
                     PageItem::Previous => "Previous page".to_owned(),
                     PageItem::Next => "Next page".to_owned(),
                     PageItem::Last => "Last page".to_owned(),
                     PageItem::Page(n) => format(n + 1),
-                    PageItem::Ellipsis(_) => "More pages".to_owned(),
+                    PageItem::Ellipsis => "More pages".to_owned(),
                 };
                 let body = item.as_ref().map_or_else(
                     || {
@@ -234,7 +242,7 @@ impl IntoView for Pagination {
                     },
                     |slot| slot(cell),
                 );
-                if matches!(cell, PageItem::Ellipsis(_)) {
+                if matches!(cell, PageItem::Ellipsis) {
                     return crate::layer::with_recipe_style(
                         node().name(label),
                         |r| r.pagination_recipes().ellipsis_recipe(),
@@ -277,7 +285,7 @@ impl IntoView for Pagination {
                                 PageItem::Next => at.saturating_add(delta),
                                 PageItem::Last => last,
                                 PageItem::Page(n) => n,
-                                PageItem::Ellipsis(_) => at,
+                                PageItem::Ellipsis => at,
                             };
                             page.set(if has_more.get_untracked() {
                                 next
@@ -300,13 +308,17 @@ impl IntoView for Pagination {
         };
         let input = (mode == PaginationMode::Input)
             .then(|| crate::pagination_draft::input(page, count, page_label, disabled));
-        let sizes = page_size.filter(|_| !size_options.is_empty()).map(|size| {
+        let sizes = page_size.map(|size| {
             crate::select(
                 "Items per page",
-                size_options
-                    .into_iter()
-                    .map(|n| kivact_interaction::ListItem::new(n, n.to_string()))
-                    .collect::<Vec<_>>(),
+                move || {
+                    size_options
+                        .get()
+                        .into_iter()
+                        .filter(|n| *n > 0)
+                        .map(|n| kivact_interaction::ListItem::new(n, n.to_string()))
+                        .collect::<Vec<_>>()
+                },
                 kivact_core::state::binding(
                     move || Some(size.get()),
                     move |next| {

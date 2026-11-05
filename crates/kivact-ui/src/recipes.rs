@@ -843,7 +843,7 @@ recipe_table! {
 recipe_table! {
     /// Breadcrumb landmark, item and decorative separator recipes.
     BreadcrumbRecipes {
-        root(root_recipe): () = crate::look_navigation::root,
+        root(root_recipe): () = crate::look_navigation::breadcrumb_root,
         item(item_recipe): bool = crate::look_navigation::current,
         separator(separator_recipe): () = crate::look_navigation::part,
     }
@@ -851,14 +851,19 @@ recipe_table! {
 recipe_table! {
     /// Progress list and individual step recipes.
     StepperRecipes {
-        root(root_recipe): () = crate::look_navigation::root,
-        item(item_recipe): crate::StepperItemState = crate::look_navigation::part,
+        root(root_recipe): () = crate::look_navigation::stepper_root,
+        item(item_recipe): crate::StepperItemState = crate::look_navigation::stepper_item,
+        indicator(indicator_recipe): crate::StepperItemState = crate::look_navigation::part,
+        label(label_recipe): crate::StepperItemState = crate::look_navigation::part,
+        description(description_recipe): crate::StepperItemState = crate::look_navigation::part,
+        content(content_recipe): crate::StepperItemState = crate::look_navigation::part,
+        end_content(end_content_recipe): crate::StepperItemState = crate::look_navigation::part,
     }
 }
 recipe_table! {
     /// Navigation landmark, panel trigger and panel surface recipes.
     NavigationMenuRecipes {
-        root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::root,
+        root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::navigation_root,
         trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
         panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
     }

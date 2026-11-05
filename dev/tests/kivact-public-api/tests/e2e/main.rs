@@ -3,10 +3,12 @@
 //! `kivact::test`. One binary links kivact, Arvane and wgpu once instead of
 //! once per file; the windows share its one event loop.
 
+mod apg_breadcrumb;
 #[cfg(feature = "embed")]
 mod embed;
 mod support;
 mod theme_conformance;
+mod ui_navigation;
 
 mod apg_combobox;
 mod apg_grid;
