@@ -28,3 +28,5 @@ combobox と select の `.presentation(SelectPresentation::BottomSheet)` はタ�
 テーマには `UiTokens::combobox` と `UiRecipes::combobox` を設定します。recipe は `frame`、`input`、`surface`、`option`、`chip`、`remove`、`empty` です。テーマ固有の見た目は `.variant(...)` で指定します。
 
 独自の選択内容には `selection_field(label, value_label).content(factory)` を使います。架空の選択キーを作らず select のトリガーと表面の recipe を再利用します。`.presentation(...)` はタッチ時の表面を選び、`.open(binding)` は表示状態を呼び出し側で管理します。検索と選択値の binding は content factory の外で作り、ポップアップとドロワーを開き直しても保持します。
+
+複数選択の UI 操作では、受理された追加、削除、全件削除を polite な live region で通知します。選択の書き込みが拒否された場合は通知しません。アプリケーションのメッセージカタログで `combobox.token_added`、`combobox.token_removed`、`combobox.all_removed` を上書きできます。
