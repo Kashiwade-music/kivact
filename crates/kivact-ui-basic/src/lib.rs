@@ -113,9 +113,9 @@ pub use chat_colors::BubbleVariant;
 pub use empty::EmptyMediaVariant;
 pub use item::{ItemLook, ItemMediaVariant, ItemSize, ItemVariant};
 pub use line_tabs::TabsVariant;
-pub use recipes_menu::MenuVariant;
 pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
+pub use recipes_menu::MenuVariant;
 pub use scroll_area::{ScrollArea, scroll_area};
 pub use sidebar::{
     Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenuButton, SidebarMenuButtonSize,
