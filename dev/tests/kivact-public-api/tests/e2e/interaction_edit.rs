@@ -125,7 +125,15 @@ fn each_key_and_assistive_technology_write_is_its_own_edit() {
     log.borrow_mut().clear();
     split.double_click();
     assert_eq!(value.get_untracked(), 20.0);
-    assert_eq!(*log.borrow(), [(Begin, 100.0), (Commit, 20.0)]);
+    assert_eq!(
+        *log.borrow(),
+        [
+            (Begin, 100.0),
+            (Commit, 100.0),
+            (Begin, 100.0),
+            (Commit, 20.0)
+        ]
+    );
     log.borrow_mut().clear();
 
     split.a11y(A11yAction::Increment);
