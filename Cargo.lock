@@ -2260,6 +2260,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "kivact",
+ "kivact-gpu-share",
  "kivact-ui-basic",
  "kivact-ui-creative",
  "kivact-ui-game",
@@ -2267,6 +2268,7 @@ dependencies = [
  "kivact-ui-soft",
  "reqwest",
  "serde_json",
+ "wgpu",
 ]
 
 [[package]]
