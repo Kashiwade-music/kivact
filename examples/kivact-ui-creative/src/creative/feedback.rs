@@ -187,14 +187,14 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
             "Banner",
             "インラインバナー",
             col((
-                kivact::ui::alert("Media Offline").tone(kivact::interaction::Tone::Warning).role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite).description("3 clips could not be found at D:/Footage/Day02/").variant(ui::NoticeVariant)
+                kivact::ui::alert("Media Offline").tone(kivact::interaction::Tone::Warning).with_node(|node| node.role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite)).description("3 clips could not be found at D:/Footage/Day02/").variant(ui::NoticeVariant)
                     .dismiss_content(kivact::view::icon("x"))
                     .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning"))
                 .dismissible(true),
                 kivact::ui::alert("Shader compile error").tone(kivact::interaction::Tone::Danger).description("Metal.002 · line 42 · undeclared identifier rm").variant(ui::NoticeVariant)
                     .dismiss_content(kivact::view::icon("x"))
                     .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning")).dismissible(true),
-                kivact::ui::alert("Proxy media").tone(kivact::interaction::Tone::Info).role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite).description("Proxy media is being used for playback. Final render uses full-resolution sources.").variant(ui::NoticeVariant)
+                kivact::ui::alert("Proxy media").tone(kivact::interaction::Tone::Info).with_node(|node| node.role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite)).description("Proxy media is being used for playback. Final render uses full-resolution sources.").variant(ui::NoticeVariant)
                     .dismiss_content(kivact::view::icon("x"))
                     .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("info")).dismissible(true),
             )),

@@ -1,6 +1,5 @@
 //! Role: The kit's icons, label tones and key glyphs: what a consumer draws with them.
 
-use crate::support::clean;
 use crate::time_support::app_dope_sheet;
 use kivact::geometry::Point;
 use kivact::prelude::*;
@@ -61,6 +60,6 @@ fn a_dope_sheet_key_is_drawn_with_its_glyph() {
     assert_ne!(sample(&half, -3.0, 0.0), ink);
     assert_ne!(sample(&half, -3.0, 0.0), sample(&diamond, -3.0, 0.0));
     for screen in [&diamond, &square, &circle, &half] {
-        clean(screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
