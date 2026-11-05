@@ -275,7 +275,10 @@ fn settle_user_effects(
         }
         writes += commit(turn, rt, tree);
         let mounts = rt.mounts_due(done);
-        if !mounts && !rt.pending().user {
+        // The commit may queue render work too (a failed focus request
+        // reaching an error boundary): it runs and commits in this turn.
+        let pending = rt.pending();
+        if !mounts && !pending.user && !pending.render {
             break;
         }
         round += 1;

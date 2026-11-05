@@ -145,16 +145,22 @@ impl TurnGuard<'_> {
             .end_turn(ops, self.started.elapsed().as_nanos() as u64);
         self.rt.state.set(TurnState::Quiet);
         let pending = self.rt.pending();
-        if pending.user || TaskState::of(self.rt).has_ready() || pending.later || client_pending {
+        if pending.user
+            || pending.render
+            || TaskState::of(self.rt).has_ready()
+            || pending.later
+            || client_pending
+        {
             self.rt.request_turn();
         }
         report
     }
-    /// Seal setup notes and wake for queued user effects or ready tasks.
+    /// Seal setup notes and wake for queued effects or ready tasks.
     pub fn finish_setup(self) {
         self.rt.finish_setup_notes();
         self.rt.state.set(TurnState::Quiet);
-        if self.rt.pending().user || TaskState::of(self.rt).has_ready() {
+        let pending = self.rt.pending();
+        if pending.user || pending.render || TaskState::of(self.rt).has_ready() {
             self.rt.request_turn();
         }
     }
