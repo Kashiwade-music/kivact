@@ -8,7 +8,8 @@ use kivact_core::state::{
 };
 use kivact_core::style::{Length, StyledRange, style};
 use kivact_core::view::{
-    IntoView, Node, NodeBuilder, Role, ScrollAxes, View, node, node_ref, scroll, text,
+    IntoView, Node, NodeBuilder, Orientation, Role, ScrollAxes, View, node, node_ref, scroll, show,
+    text,
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
@@ -353,10 +354,8 @@ impl CodeSource {
         );
         let open = presentation.disclosure.is_open();
         let max_height = self.max_height;
-        with_recipe_style(
-            scroll(body)
-                .axes(ScrollAxes::Both)
-                .hidden(move || !open.get()),
+        let viewport = with_recipe_style(
+            scroll(body).axes(ScrollAxes::Both),
             |r| r.code_block_recipes().viewport_recipe(),
             variants,
             move || state.get(),
@@ -364,6 +363,25 @@ impl CodeSource {
         .style(move || match max_height {
             Some(height) => style().max_height(height.get()),
             None => style(),
+        })
+        .into_view();
+        let disclosure = presentation.disclosure;
+        let motion = kivact_core::style::use_tokens::<crate::UiTokens>()
+            .disclosure
+            .motion;
+        show(open, move || {
+            node()
+                .part(disclosure.content())
+                .child(viewport.clone())
+                .style(style().exit_size(Orientation::Vertical).transition(
+                    kivact_core::style::TransitionProp::Size,
+                    motion.transition.clone().unwrap_or_else(|| {
+                        kivact_core::motion::Transition::tween(
+                            motion.duration.as_secs_f64() * 1000.0,
+                            kivact_core::motion::Easing::EaseOut,
+                        )
+                    }),
+                ))
         })
         .into_view()
     }
