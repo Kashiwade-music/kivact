@@ -273,6 +273,11 @@ fn collapsed_navigation(
     variants: crate::variants::Variants,
     previous: bool,
 ) -> Option<View> {
+    let recipe: fn(&crate::UiRecipes) -> &crate::Recipe<StepperState> = if previous {
+        |r| r.stepper_recipes().previous_recipe()
+    } else {
+        |r| r.stepper_recipes().next_recipe()
+    };
     activate.map(|activate| {
         show(
             move || layout.get().collapsed,
@@ -299,13 +304,7 @@ fn collapsed_navigation(
                                 current.get_untracked().saturating_add(1)
                             })
                         }),
-                    move |r| {
-                        if previous {
-                            r.stepper_recipes().previous_recipe()
-                        } else {
-                            r.stepper_recipes().next_recipe()
-                        }
-                    },
+                    recipe,
                     &variants,
                     move || layout.get(),
                 )
