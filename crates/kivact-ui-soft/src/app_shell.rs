@@ -241,246 +241,25 @@ impl IntoView for AppShell {
             mobile,
         } = self;
         kivact::view::component(move || {
-            let configured = !matches!(mobile, MobileNavMode::Disabled);
-            let automatic = matches!(mobile, MobileNavMode::Auto(_));
-            let has_top = top.is_some();
-            let has_side = side.is_some();
-            let has_banner = banner.is_some();
-            let has_nav = has_top || has_side;
-            let (config, custom) = match mobile {
-                MobileNavMode::Auto(config) => (config, None),
-                MobileNavMode::Custom(custom) => (MobileNavConfig::default(), Some(custom)),
-                MobileNavMode::Disabled => (MobileNavConfig::default(), None),
+            let (mobile, config, custom, auto_toggle, enabled) =
+                configure_mobile(mobile, top.is_some() || side.is_some());
+            let presentation = ShellPresentation {
+                mobile,
+                height,
+                variant,
+                auto_toggle,
+                enabled,
+                has_top: top.is_some(),
+                has_side: side.is_some(),
+                has_banner: banner.is_some(),
             };
-            let enabled = configured && (has_nav || config.content.is_some() || custom.is_some());
-            let mobile_width = if configured {
-                config.breakpoint.map(viewport_below)
-            } else {
-                None
-            };
-            let open = if enabled {
-                let value = config.open.unwrap_or_else(|| signal(false).into_binding());
-                Some(kivact::state::binding(
-                    move || value.get(),
-                    move |open| {
-                        if open != value.get() {
-                            value.set(open);
-                            if let Some(change) = config.on_change {
-                                change.call(open);
-                            }
-                        }
-                    },
-                ))
-            } else {
-                None
-            };
-            let auto_toggle = automatic && config.has_toggle;
-            let mobile = AppShellMobile::configured(mobile_width, open, auto_toggle);
             let shell = provide(mobile, move || {
-                let main_ref = node_ref();
-                let main_focused = main_ref.focused();
-                let skip = machine(
-                    SkipFocus::Idle,
-                    || SkipMachine,
-                    move |_, ()| main_ref.focus(),
-                );
-                skip.feed(main_focused, SkipEvent::Focus);
-                let skip_requested =
-                    kivact::state::memo(move || skip.get() == SkipFocus::Requested);
-                let skip_ref = node_ref();
-                let skip_focused = skip_ref.focused();
-                let label =
-                    kivact::i18n::message("soft.app_shell.skip_to_content", "Skip to content");
-                let skip = node()
-                    .with_node(move |node| node.role(Role::Link))
-                    .name(label)
-                    .focusable(true)
-                    .node_ref(skip_ref)
-                    .on_press(move || skip.send(SkipEvent::Activate))
-                    .style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        if skip_focused.get() {
-                            let base = style()
-                                .position(Position::Fixed)
-                                .top(t.spacing.s2)
-                                .z_index(9999)
-                                .width(auto())
-                                .height(auto())
-                                .padding_y(t.spacing.s2)
-                                .padding_x(t.spacing.s4)
-                                .background(t.colors.bg_surface)
-                                .color(t.colors.text_accent)
-                                .font_size(t.typography.body.size_px)
-                                .weight(t.typography.weight_semibold)
-                                .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                            if rtl() {
-                                base.right(t.spacing.s2)
-                            } else {
-                                base.left(t.spacing.s2)
-                            }
-                        } else {
-                            style()
-                                .position(Position::Absolute)
-                                .size(1, 1)
-                                .opacity(0.0)
-                                .clip(true)
-                        }
-                    })
-                    .child(text(label));
+                let (skip, main_ref, skip_requested) = skip_link();
                 let header_ref = node_ref();
                 let header_height = header_ref.rect();
-                let desktop_top = top.clone();
-                let mobile_top = top.clone();
-                let bar_side = side.clone();
-                let header = column((
-                    banner.map(|banner| banner.call(())),
-                    show(
-                        move || !mobile.is_mobile(),
-                        move || desktop_top.as_ref().map(|slot| slot.call(())),
-                    ),
-                    show(
-                        move || mobile.is_mobile() && (has_top || auto_toggle && enabled),
-                        move || {
-                            let title = if let Some(slot) = &mobile_top {
-                                let slot = slot.clone();
-                                Some(provide(ShellNavMode::MobileBar, move || slot.call(())))
-                            } else {
-                                bar_side.as_ref().map(|slot| {
-                                    let slot = slot.clone();
-                                    provide(ShellNavMode::MobileBar, move || slot.call(()))
-                                })
-                            };
-                            row((
-                                title.map(|title| node().style(style().grow(1)).child(title)),
-                                auto_toggle.then(mobile_nav_toggle),
-                            ))
-                            .style(|| {
-                                let t = kivact::style::use_tokens::<crate::Tokens>();
-                                style()
-                                    .direction(if rtl() {
-                                        Direction::RowReverse
-                                    } else {
-                                        Direction::Row
-                                    })
-                                    .align_items(Align::Center)
-                                    .min_height(t.spacing.s12)
-                                    .padding_x(t.spacing.s2)
-                                    .justify_content(Justify::End)
-                            })
-                        },
-                    ),
-                ))
-                .node_ref(header_ref)
-                .style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let visible =
-                        has_banner || has_top || (mobile.is_mobile() && auto_toggle && enabled);
-                    let mut base = style()
-                        .shrink(0)
-                        .background(shell_background(variant.get()));
-                    if visible && kivact::platform::capabilities().get().safe_area {
-                        let safe = kivact::platform::safe_area().get();
-                        base = base
-                            .padding_top(safe.top)
-                            .padding_left(safe.left)
-                            .padding_right(safe.right);
-                    }
-                    if variant.get() == ShellVariant::Section && has_top {
-                        base = base.border_bottom(t.sizes.border_width, t.colors.border);
-                    }
-                    if height.get() == ShellHeight::Auto {
-                        base = base.position(Position::Sticky).top(0).z_index(1);
-                    }
-                    base
-                });
-                let desktop_side = side.clone();
-                let sidebar = show(
-                    move || has_side && !mobile.is_mobile(),
-                    move || {
-                        let nav = desktop_side.as_ref().map(|slot| slot.call(()));
-                        node()
-                            .style(move || {
-                                let t = kivact::style::use_tokens::<crate::Tokens>();
-                                let mut base =
-                                    style().direction(Direction::Column).shrink(0).min_height(0);
-                                if variant.get() == ShellVariant::Section {
-                                    base = if rtl() {
-                                        base.border_left(t.sizes.border_width, t.colors.border)
-                                    } else {
-                                        base.border_right(t.sizes.border_width, t.colors.border)
-                                    };
-                                }
-                                if height.get() == ShellHeight::Auto {
-                                    let top = header_height.get().map_or(0.0, |rect| rect.height);
-                                    base = base
-                                        .position(Position::Sticky)
-                                        .top(top)
-                                        .height(
-                                            (kivact::platform::window_size().get().height - top)
-                                                .max(0.0),
-                                        )
-                                        .clip(true);
-                                }
-                                base
-                            })
-                            .child(nav)
-                    },
-                );
-                let main_style = move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let mut base = style()
-                        .direction(Direction::Column)
-                        .grow(1)
-                        .min_height(0)
-                        .min_width(0);
-                    if variant.get() == ShellVariant::Elevated {
-                        base = base.background(t.colors.bg_surface);
-                        if has_top && has_side && !mobile.is_mobile() {
-                            base = if rtl() {
-                                base.radius_top_right(t.radius.page)
-                            } else {
-                                base.radius_top_left(t.radius.page)
-                            };
-                        }
-                    }
-                    base.focus_visible(style().ring_with_offset(
-                        t.sizes.focus_ring_width,
-                        -t.sizes.focus_ring_width,
-                        t.colors.accent,
-                    ))
-                };
-                let main_name = kivact::i18n::message("soft.app_shell.main", "Main content");
-                let padding_px = padding.get().px();
-                let inset = ContainerInset::uniform(padding_px);
-                let content = provide(inset, move || {
-                    provide(LayoutInset::from_padding(inset), move || content)
-                });
-                let contents = column(content).style(move || {
-                    let mut base = style().padding(padding_px);
-                    if kivact::platform::capabilities().get().safe_area {
-                        base = base.padding_bottom(
-                            padding_px + kivact::platform::safe_area().get().bottom,
-                        );
-                    }
-                    base
-                });
-                let main = if height.get() == ShellHeight::Fill {
-                    scrollable_area(main_name, contents)
-                        .with_node(move |node| node.role(Role::Main))
-                        .node_ref(main_ref)
-                        .force_focusable(skip_requested.into_value())
-                        .style(main_style)
-                        .into_view()
-                } else {
-                    node()
-                        .with_node(move |node| node.role(Role::Main))
-                        .name(main_name)
-                        .node_ref(main_ref)
-                        .focusable(skip_requested)
-                        .style(main_style)
-                        .child(contents)
-                        .into_view()
-                };
+                let header = presentation.header(top.clone(), side.clone(), banner, header_ref);
+                let sidebar = presentation.sidebar(side.clone(), header_height);
+                let main = presentation.main(content, padding, main_ref, skip_requested);
                 let middle = row((sidebar, main)).style(|| {
                     style()
                         .direction(if rtl() {
@@ -492,34 +271,7 @@ impl IntoView for AppShell {
                         .min_width(0)
                         .min_height(0)
                 });
-                let drawer = show(
-                    move || enabled && mobile.is_mobile(),
-                    move || {
-                        if let Some(custom) = &custom {
-                            return custom.call(());
-                        }
-                        let content = config.content.clone();
-                        let top = top.clone();
-                        let side = side.clone();
-                        mobile_nav(move || {
-                            let content = content.clone();
-                            let top = top.clone();
-                            let side = side.clone();
-                            provide(ShellNavMode::Drawer, move || {
-                                if let Some(content) = content {
-                                    content.call(())
-                                } else {
-                                    column((
-                                        side.map(|slot| slot.call(())),
-                                        top.map(|slot| slot.call(())),
-                                    ))
-                                    .into_view()
-                                }
-                            })
-                        })
-                        .into_view()
-                    },
-                );
+                let drawer = presentation.drawer(config, custom, top, side);
                 let body = column((header, middle)).style(style().min_height(pct(100)).grow(1));
                 let body = if height.get() == ShellHeight::Auto {
                     scroll(body)
@@ -530,22 +282,8 @@ impl IntoView for AppShell {
                 };
                 (skip, body, drawer)
             });
-            root.with_node(move |node| {
-                node.base_style(move || {
-                    let viewport = kivact::platform::window_size().get().height;
-                    let base = style()
-                        .position(Position::Relative)
-                        .direction(Direction::Column)
-                        .clip(true)
-                        .background(shell_background(variant.get()));
-                    if viewport > 0.0 {
-                        base.height(viewport)
-                    } else {
-                        base.height(pct(100))
-                    }
-                })
-            })
-            .child(shell)
+            root.with_node(move |node| node.base_style(move || shell_style(variant.get())))
+                .child(shell)
         })
     }
 }
@@ -582,3 +320,363 @@ impl Machine for SkipMachine {
 }
 
 kivact::state::constant_value!(ShellHeight, ShellVariant);
+
+// xtask-allow(state-fields): Readonly construction facts, theme inputs and an observer handle to the existing mobile-navigation Machine; no lifecycle state is owned here.
+#[derive(Clone, Copy)]
+struct ShellPresentation {
+    mobile: AppShellMobile,
+    height: Value<ShellHeight>,
+    variant: Value<ShellVariant>,
+    auto_toggle: bool,
+    enabled: bool,
+    has_top: bool,
+    has_side: bool,
+    has_banner: bool,
+}
+fn configure_mobile(
+    mobile: MobileNavMode,
+    has_nav: bool,
+) -> (AppShellMobile, MobileNavConfig, Option<ViewFn>, bool, bool) {
+    let configured = !matches!(mobile, MobileNavMode::Disabled);
+    let automatic = matches!(mobile, MobileNavMode::Auto(_));
+    let (config, custom) = match mobile {
+        MobileNavMode::Auto(config) => (config, None),
+        MobileNavMode::Custom(custom) => (MobileNavConfig::default(), Some(custom)),
+        MobileNavMode::Disabled => (MobileNavConfig::default(), None),
+    };
+    let enabled = configured && (has_nav || config.content.is_some() || custom.is_some());
+    let mobile_width = if configured {
+        config.breakpoint.map(viewport_below)
+    } else {
+        None
+    };
+    let open = if enabled {
+        let value = config.open.unwrap_or_else(|| signal(false).into_binding());
+        Some(kivact::state::binding(
+            move || value.get(),
+            move |open| {
+                if open != value.get() {
+                    value.set(open);
+                    if let Some(change) = config.on_change {
+                        change.call(open);
+                    }
+                }
+            },
+        ))
+    } else {
+        None
+    };
+    let auto_toggle = automatic && config.has_toggle;
+    let mobile = AppShellMobile::configured(mobile_width, open, auto_toggle);
+    (mobile, config, custom, auto_toggle, enabled)
+}
+fn skip_link() -> (Node, kivact::view::NodeRef, Value<bool>) {
+    let main_ref = node_ref();
+    let main_focused = main_ref.focused();
+    let skip = machine(
+        SkipFocus::Idle,
+        || SkipMachine,
+        move |_, ()| main_ref.focus(),
+    );
+    skip.feed(main_focused, SkipEvent::Focus);
+    let skip_requested = kivact::state::memo(move || skip.get() == SkipFocus::Requested);
+    let skip_ref = node_ref();
+    let skip_focused = skip_ref.focused();
+    let label = kivact::i18n::message("soft.app_shell.skip_to_content", "Skip to content");
+    let skip = node()
+        .with_node(move |node| node.role(Role::Link))
+        .name(label)
+        .focusable(true)
+        .node_ref(skip_ref)
+        .on_press(move || skip.send(SkipEvent::Activate))
+        .style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            if skip_focused.get() {
+                let base = style()
+                    .position(Position::Fixed)
+                    .top(t.spacing.s2)
+                    .z_index(9999)
+                    .width(auto())
+                    .height(auto())
+                    .padding_y(t.spacing.s2)
+                    .padding_x(t.spacing.s4)
+                    .background(t.colors.bg_surface)
+                    .color(t.colors.text_accent)
+                    .font_size(t.typography.body.size_px)
+                    .weight(t.typography.weight_semibold)
+                    .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+                if rtl() {
+                    base.right(t.spacing.s2)
+                } else {
+                    base.left(t.spacing.s2)
+                }
+            } else {
+                style()
+                    .position(Position::Absolute)
+                    .size(1, 1)
+                    .opacity(0.0)
+                    .clip(true)
+            }
+        })
+        .child(text(label));
+    (skip, main_ref, skip_requested.into_value())
+}
+fn mobile_bar(
+    mobile_top: Option<ViewFn>,
+    bar_side: Option<ViewFn>,
+    auto_toggle: bool,
+) -> impl IntoView {
+    let title = if let Some(slot) = &mobile_top {
+        let slot = slot.clone();
+        Some(provide(ShellNavMode::MobileBar, move || slot.call(())))
+    } else {
+        bar_side.as_ref().map(|slot| {
+            let slot = slot.clone();
+            provide(ShellNavMode::MobileBar, move || slot.call(()))
+        })
+    };
+    row((
+        title.map(|title| node().style(style().grow(1)).child(title)),
+        auto_toggle.then(mobile_nav_toggle),
+    ))
+    .style(|| {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        style()
+            .direction(if rtl() {
+                Direction::RowReverse
+            } else {
+                Direction::Row
+            })
+            .align_items(Align::Center)
+            .min_height(t.spacing.s12)
+            .padding_x(t.spacing.s2)
+            .justify_content(Justify::End)
+    })
+}
+impl ShellPresentation {
+    fn header(
+        self,
+        top: Option<ViewFn>,
+        side: Option<ViewFn>,
+        banner: Option<ViewFn>,
+        header_ref: kivact::view::NodeRef,
+    ) -> impl IntoView {
+        let Self {
+            mobile,
+            height,
+            variant,
+            has_top,
+            has_banner,
+            auto_toggle,
+            enabled,
+            ..
+        } = self;
+        let desktop_top = top.clone();
+        let mobile_top = top.clone();
+        let bar_side = side.clone();
+        let header = column((
+            banner.map(|banner| banner.call(())),
+            show(
+                move || !mobile.is_mobile(),
+                move || desktop_top.as_ref().map(|slot| slot.call(())),
+            ),
+            show(
+                move || mobile.is_mobile() && (has_top || auto_toggle && enabled),
+                move || mobile_bar(mobile_top.clone(), bar_side.clone(), auto_toggle),
+            ),
+        ))
+        .node_ref(header_ref)
+        .style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let visible = has_banner || has_top || (mobile.is_mobile() && auto_toggle && enabled);
+            let mut base = style()
+                .shrink(0)
+                .background(shell_background(variant.get()));
+            if visible && kivact::platform::capabilities().get().safe_area {
+                let safe = kivact::platform::safe_area().get();
+                base = base
+                    .padding_top(safe.top)
+                    .padding_left(safe.left)
+                    .padding_right(safe.right);
+            }
+            if variant.get() == ShellVariant::Section && has_top {
+                base = base.border_bottom(t.sizes.border_width, t.colors.border);
+            }
+            if height.get() == ShellHeight::Auto {
+                base = base.position(Position::Sticky).top(0).z_index(1);
+            }
+            base
+        });
+        header
+    }
+    fn sidebar(
+        self,
+        side: Option<ViewFn>,
+        header_height: Value<Option<kivact::view::Rect>>,
+    ) -> impl IntoView {
+        let Self {
+            mobile,
+            height,
+            variant,
+            has_side,
+            ..
+        } = self;
+        let desktop_side = side.clone();
+        let sidebar = show(
+            move || has_side && !mobile.is_mobile(),
+            move || {
+                let nav = desktop_side.as_ref().map(|slot| slot.call(()));
+                node()
+                    .style(move || {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        let mut base = style().direction(Direction::Column).shrink(0).min_height(0);
+                        if variant.get() == ShellVariant::Section {
+                            base = if rtl() {
+                                base.border_left(t.sizes.border_width, t.colors.border)
+                            } else {
+                                base.border_right(t.sizes.border_width, t.colors.border)
+                            };
+                        }
+                        if height.get() == ShellHeight::Auto {
+                            let top = header_height.get().map_or(0.0, |rect| rect.height);
+                            base = base
+                                .position(Position::Sticky)
+                                .top(top)
+                                .height(
+                                    (kivact::platform::window_size().get().height - top).max(0.0),
+                                )
+                                .clip(true);
+                        }
+                        base
+                    })
+                    .child(nav)
+            },
+        );
+        sidebar
+    }
+    fn main_style(self) -> kivact::style::Style {
+        let Self {
+            mobile,
+            variant,
+            has_top,
+            has_side,
+            ..
+        } = self;
+
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        let mut base = style()
+            .direction(Direction::Column)
+            .grow(1)
+            .min_height(0)
+            .min_width(0);
+        if variant.get() == ShellVariant::Elevated {
+            base = base.background(t.colors.bg_surface);
+            if has_top && has_side && !mobile.is_mobile() {
+                base = if rtl() {
+                    base.radius_top_right(t.radius.page)
+                } else {
+                    base.radius_top_left(t.radius.page)
+                };
+            }
+        }
+        base.focus_visible(style().ring_with_offset(
+            t.sizes.focus_ring_width,
+            -t.sizes.focus_ring_width,
+            t.colors.accent,
+        ))
+    }
+    fn main(
+        self,
+        content: View,
+        padding: Value<Space>,
+        main_ref: kivact::view::NodeRef,
+        skip_requested: Value<bool>,
+    ) -> View {
+        let presentation = self;
+        let height = self.height;
+        let main_name = kivact::i18n::message("soft.app_shell.main", "Main content");
+        let padding_px = padding.get().px();
+        let inset = ContainerInset::uniform(padding_px);
+        let content = provide(inset, move || {
+            provide(LayoutInset::from_padding(inset), move || content)
+        });
+        let contents = column(content).style(move || {
+            let mut base = style().padding(padding_px);
+            if kivact::platform::capabilities().get().safe_area {
+                base = base.padding_bottom(padding_px + kivact::platform::safe_area().get().bottom);
+            }
+            base
+        });
+        let main = if height.get() == ShellHeight::Fill {
+            scrollable_area(main_name, contents)
+                .with_node(move |node| node.role(Role::Main))
+                .node_ref(main_ref)
+                .force_focusable(skip_requested)
+                .style(move || presentation.main_style())
+                .into_view()
+        } else {
+            node()
+                .with_node(move |node| node.role(Role::Main))
+                .name(main_name)
+                .node_ref(main_ref)
+                .focusable(skip_requested)
+                .style(move || presentation.main_style())
+                .child(contents)
+                .into_view()
+        };
+        main
+    }
+    fn drawer(
+        self,
+        config: MobileNavConfig,
+        custom: Option<ViewFn>,
+        top: Option<ViewFn>,
+        side: Option<ViewFn>,
+    ) -> impl IntoView {
+        let Self {
+            mobile, enabled, ..
+        } = self;
+        let drawer = show(
+            move || enabled && mobile.is_mobile(),
+            move || {
+                if let Some(custom) = &custom {
+                    return custom.call(());
+                }
+                let content = config.content.clone();
+                let top = top.clone();
+                let side = side.clone();
+                mobile_nav(move || {
+                    let content = content.clone();
+                    let top = top.clone();
+                    let side = side.clone();
+                    provide(ShellNavMode::Drawer, move || {
+                        if let Some(content) = content {
+                            content.call(())
+                        } else {
+                            column((
+                                side.map(|slot| slot.call(())),
+                                top.map(|slot| slot.call(())),
+                            ))
+                            .into_view()
+                        }
+                    })
+                })
+                .into_view()
+            },
+        );
+        drawer
+    }
+}
+fn shell_style(variant: ShellVariant) -> kivact::style::Style {
+    let viewport = kivact::platform::window_size().get().height;
+    let base = style()
+        .position(Position::Relative)
+        .direction(Direction::Column)
+        .clip(true)
+        .background(shell_background(variant));
+    if viewport > 0.0 {
+        base.height(viewport)
+    } else {
+        base.height(pct(100))
+    }
+}
