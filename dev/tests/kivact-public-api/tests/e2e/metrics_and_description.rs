@@ -156,7 +156,12 @@ fn description_list_pairs_terms_and_details() {
     let actions = action_pair
         .all_by_role(Role::Group, "Action")
         .into_iter()
-        .find(|group| group.query_by_role(Role::Button, "Open profile").is_some())
+        .find(|group| {
+            screen
+                .within(group.clone())
+                .query_by_role(Role::Button, "Open profile")
+                .is_some()
+        })
         .expect("detail group contains the profile action");
     let action_labels = actions.labelled_by();
     assert_eq!(action_labels.len(), 1);
