@@ -112,7 +112,7 @@ impl<C: kivact::view::Component> IntoView for Specimen<C> {
 pub(super) fn swatch(
     name: impl IntoText,
     hex: impl IntoText,
-    color: impl IntoValue<kivact::style::ColorName>,
+    color: impl IntoValue<kivact::style::Color>,
 ) -> Node {
     let hex = hex.into_text_value();
     let color = color.into_value();
