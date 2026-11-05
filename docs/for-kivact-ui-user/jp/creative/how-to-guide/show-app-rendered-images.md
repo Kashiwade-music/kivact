@@ -16,7 +16,6 @@ use kivact::view::{SurfaceSize, viewport};
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
 use kivact_ui_creative as ui;
-use std::sync::Arc;
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 360;
@@ -32,7 +31,7 @@ fn render(tint: f64) -> Pixels {
             rgba.push(255);
         }
     }
-    Pixels::new(WIDTH, HEIGHT, Arc::from(rgba))
+    Pixels::new(WIDTH, HEIGHT, rgba)
 }
 
 fn viewer() -> impl IntoView {
@@ -88,6 +87,8 @@ fn main() -> kivact::Result<()> {
 
 実行してください。最初は、画像が面いっぱいに収まって表示されます。ホイールでポインターを中心にズームし、中ボタン（または `Space` を押しながら主ボタンでドラッグ）でパンして、**全体表示** で元に戻します。黄色の矩形は、オーバーレイが画像の座標で描かれているので、ズームしても絵に張り付いたままです。
 
+`Pixels::new(width, height, rgba)` には、所有している `Vec<u8>` またはバイト配列をそのまま渡します。バッファーは straight-alpha RGBA8 で、長さは `width * height * 4` バイトです。複数の画像で同じバッファーを使う場合は、`kivact::view::AssetBytes::new(rgba)` を一度作り、その値を clone します。`AssetBytes` や `Pixels` の clone はバッファーの同一性を保ちますが、`Vec<u8>` の clone は別のバッファーを作ります。
+
 ### 描画面がしてくれること
 
 - **`.transform(..)` がなければ `.fit(..)` に従って表示します。** 既定は `ImageFit::Contain` です。`use_zoom_pan(transform)` を渡すと、同じ binding を使うズームとパンの振る舞いを接続します。
@@ -95,7 +96,7 @@ fn main() -> kivact::Result<()> {
 - **支援技術の対象は canvas の region です。** `Node::region` または `regions` で宣言し、`Draw::region` でビュー内の形を描きます。pointer capture も標準 API を使います。
 - **`pixelated(true)`** は、ネイティブサイズより大きく拡大したときに最近傍のピクセルを使います。ピクセルを確認する用途に向いています。
 - **`on_resize`** は `SurfaceSize` を報告します。論理サイズ、物理ピクセルのサイズ、スケール係数です。高密度ディスプレイで鮮明にするには `physical_width` × `physical_height` で描き、変わったら描き直します。
-- **再描画は等価性で決まります。** `Pixels` は同一性で比較されるので、同じ `Pixels` をもう一度渡しても、複製しても、コストはかかりません。新しい `Pixels` を渡すと再描画されます。
+- **変わっていないフレームを再利用します。** `Pixels` は全ピクセルの内容ではなく、寸法と保持しているバッファーの同一性を比較します。変わっていない `Pixels` は clone して再利用してください。clone は同じバッファーを共有し、新しいバイト列は別の同一性を持つので再描画されます。
 - **3D・合成・スコープはあなたの仕事です。** 描画面はピクセルの意味を知りません。ヒストグラムや波形モニターは、データから描くもう 1 つの画像で、別の `viewport` に表示します。
 
 タッチスクリーンでは 2 本の指でズームとパンをします。トラックパッド専用のピンチイベントはまだありません。ホイールのイベントとして届くピンチは、ズームになります。
@@ -108,12 +109,11 @@ fn main() -> kivact::Result<()> {
 use kivact::draw::Pixels;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
-use std::sync::Arc;
 use std::time::Duration;
 
 fn render(frame: u32) -> Pixels {
     let shade = (frame % 256) as u8;
-    Pixels::new(2, 2, Arc::from([shade, 80, 160, 255].repeat(4)))
+    Pixels::new(2, 2, [shade, 80, 160, 255].repeat(4))
 }
 
 /// レンダラーを起動し、最新のフレームを常に保持するシグナルを返す。
@@ -169,7 +169,7 @@ kivact-ui-creative = { git = "https://github.com/Kashiwade-music/kivact" }
 ```text
 let image = kivact::gpu_interop::shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-kivact::view::viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, vec![0; 4].into())))
+kivact::view::viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, [0_u8; 4])))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
 ```

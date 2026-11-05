@@ -16,7 +16,6 @@ use kivact::view::{SurfaceSize, viewport};
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
 use kivact_ui_creative as ui;
-use std::sync::Arc;
 
 const WIDTH: u32 = 640;
 const HEIGHT: u32 = 360;
@@ -32,7 +31,7 @@ fn render(tint: f64) -> Pixels {
             rgba.push(255);
         }
     }
-    Pixels::new(WIDTH, HEIGHT, Arc::from(rgba))
+    Pixels::new(WIDTH, HEIGHT, rgba)
 }
 
 fn viewer() -> impl IntoView {
@@ -88,6 +87,13 @@ fn main() -> kivact::Result<()> {
 
 Run it. The image fits the surface at first. Scroll to zoom around the pointer, pan with the middle button (or hold `Space` and drag with the primary button), and press **Fit** to return. The yellow rectangle stays glued to the picture as you zoom, because the overlay is drawn in image coordinates.
 
+`Pixels::new(width, height, rgba)` takes your owned `Vec<u8>` or byte array
+directly. The buffer contains exactly `width * height * 4` straight-alpha RGBA8
+bytes. If several image values need the same buffer, create
+`kivact::view::AssetBytes::new(rgba)` once and clone that retained value.
+Cloning `AssetBytes` or `Pixels` preserves buffer identity; cloning a `Vec<u8>`
+creates a separate buffer.
+
 ### What the surface does for you
 
 - **Without `.transform(..)` the image follows `.fit(..)`**, which defaults to `ImageFit::Contain`. Pass `use_zoom_pan(transform)` to share your binding and attach zoom and pan behavior.
@@ -95,7 +101,7 @@ Run it. The image fits the surface at first. Scroll to zoom around the pointer, 
 - **Canvas regions provide accessible targets.** Declare them with `Node::region` or `regions`, then paint their geometry with `Draw::region` in view coordinates. Pointer capture uses the standard pointer API.
 - **`pixelated(true)`** samples the nearest pixel when you zoom in past the native size, which is what you want for pixel inspection.
 - **`on_resize`** reports a `SurfaceSize`: the logical size, the physical pixel size and the scale factor. Render at `physical_width` by `physical_height` for a sharp image on a high-density display, and re-render when it changes.
-- **Equality decides repainting.** `Pixels` values are compared by identity, so cloning or passing the same `Pixels` again costs nothing, and a new `Pixels` triggers a repaint.
+- **Keep unchanged frames.** `Pixels` compares dimensions and retained byte identity, not every pixel. Clone and reuse an unchanged `Pixels`; its clone shares the same buffer. New bytes have a new identity and trigger repainting.
 - **3D, compositing and scopes are yours.** The surface does not know what the pixels mean. A histogram or waveform is just another image you render from your data, shown in another `viewport`.
 
 Touch screens zoom and pan with two fingers. There is no separate trackpad pinch event yet; a pinch that arrives as a wheel event zooms.
@@ -108,12 +114,11 @@ Rendering that takes longer than a frame must not block the UI. Render on a work
 use kivact::draw::Pixels;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
-use std::sync::Arc;
 use std::time::Duration;
 
 fn render(frame: u32) -> Pixels {
     let shade = (frame % 256) as u8;
-    Pixels::new(2, 2, Arc::from([shade, 80, 160, 255].repeat(4)))
+    Pixels::new(2, 2, [shade, 80, 160, 255].repeat(4))
 }
 
 /// Starts a renderer and returns the signal that always holds its latest frame.
@@ -169,7 +174,7 @@ The surface then has `gpu_frame(..)`, which takes an optional frame:
 ```text
 let image = kivact::gpu_interop::shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-kivact::view::viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, vec![0; 4].into())))
+kivact::view::viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, [0_u8; 4])))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
 ```
