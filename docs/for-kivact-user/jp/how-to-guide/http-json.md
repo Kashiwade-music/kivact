@@ -1,5 +1,7 @@
 # HTTP で JSON を読む
 
+[English](../../en/how-to-guide/http-json.md)
+
 `kivact` の opt-in feature `tokio` を有効にし、`reqwest` の `json` と `rustls`、`serde_json` を依存に追加します。
 
 ```toml

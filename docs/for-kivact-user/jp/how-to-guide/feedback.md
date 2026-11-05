@@ -1,5 +1,7 @@
 # フィードバックを表示し、関連する入力をまとめる
 
+[English](../../en/how-to-guide/feedback.md)
+
 empty state、alert、card、input group は `kivact::ui` を使います。各部品の recipe は適用中の theme が提供します。root には `.name(..)` や `.style(..)` などの `NodeBuilder` modifier も指定できます。
 
 ```rust,no_run
@@ -40,12 +42,14 @@ card は必須引数に本文を受け取り、`.header(..)`、`.media(..)`、`.
 
 `input_group(label, children)` は構築済みの子を受け取ります。`input_group_with(label, || children)` は `.size(..)` を継承する scope 内で一度だけ子を構築します。子自身の size 指定が優先します。`.start(..)` と `.end(..)` は横並びの付加領域、`.block_start(..)` と `.block_end(..)` は上下の付加領域です。`input_addon(text)` は操作しないテキストを表示します。
 
-kit から移すときは empty state の `media` を `icon`、`content` を `actions` にします。card の `image` は `media`、本文は必須引数になります。alert の `action` と banner の `end` は `actions` に、`input_group_text` は `input_addon` にします。`clickable_card` は `card(..).on_press(..)`、`selectable_card` は `card(..).selected(..)` に置き換えます。kit の色、compact 表示、余白、elevation、media の枠、container の見た目は kit 独自の `.variant(..)`、recipe、通常の `.style(..)` で指定します。core に kit ごとの見た目の enum は追加しません。
+## 見た目と読み上げの方針を選ぶ
 
-`empty_state(title).announce_changes()` は正規化したメッセージの変更通知を有効にします。初回描画は読み上げず、遅いマウントや表示中の変更を通知し、非表示後は再通知を許可します。実際のライブ領域の祖先がある場合は重複を抑制します。`.announce()` は別のマウント後一度だけの通知方針です。変更の監視は一つのマシンと明示的な送信済みフェーズで行い、前回メッセージのシグナルを補正しません。
+色、余白、コンパクト表示、影、画像の枠は、選んだ kit の `.variant(..)` や通常の `.style(..)` で調整します。操作と読み上げには引き続き標準部品を使います。画面を切り替えた直後に空の状態を通知したいなら `.announce()`、同じ画面で検索結果が変わるたびに通知したいなら `.announce_changes()` を選びます。
+
+`empty_state(title).announce_changes()` は正規化したメッセージの変更通知を有効にします。初回描画は読み上げず、遅いマウントや表示中の変更を通知し、非表示後は再通知を許可します。実際のライブ領域の祖先がある場合は重複を抑制します。`.announce()` は別のマウント後一度だけの通知方針です。同じメッセージを自分の effect から重ねて読み上げる必要はありません。
 
 Card レシピには実際のボタンまたはチェックボックスのパーツから `input: Option<PartState>` が渡されます。通常のカードは `None` です。`overlay` レシピは内容の上の非操作装飾ノードを描画します。範囲は配置済みのカードルートに従い、クリッピングと角の形状はテーマが定義します。
 
-Alert の `header`、`message`、`controls` レシピは、既存のアイコン、見出し・説明、操作・開閉・閉じるスロットを囲む実際の枠を描画します。既定は `Display::Contents` です。同じ `AlertState` を受け取り、操作の所有者は追加しません。
+Alert の `header`、`message`、`controls` レシピは、既存のアイコン、見出し・説明、操作・開閉・閉じるスロットを囲む実際の枠を描画します。既定は `Display::Contents` です。同じ `AlertState` から見た目を決めます。
 
 `AlertState.has_content` は開閉の有無と独立して実際の詳細スロットの存在を表します。標準の開閉操作は実際の対象に標準 tooltip を付け、`alert.expand` と `alert.collapse` で名前とヒントを翻訳できます。

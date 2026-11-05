@@ -1,5 +1,7 @@
 # アコーディオンとプレビュー
 
+[English](../../en/how-to-guide/disclosure-and-previews.md)
+
 `disclosure_group` に `signal(None::<K>)` を渡すと単一選択、
 `signal(Vec::<K>::new())` を渡すと複数選択になります。`.panel` にキー、
 見出し、開くたびに内容を作る関数を渡します。展開状態は選択の binding だけが

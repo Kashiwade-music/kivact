@@ -1,5 +1,7 @@
 # 指標と説明リスト
 
+[English](../../en/how-to-guide/metrics-and-description.md)
+
 `kivact::ui` の標準 builder は、インストールしたテーマで表示されます。値とラベルにはリアクティブな文字列を渡せます。数値と単位の書式はアプリ側で決めます。
 
 ```rust,no_run

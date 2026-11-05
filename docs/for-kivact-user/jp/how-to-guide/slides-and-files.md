@@ -1,5 +1,7 @@
 # スライドとネイティブファイル
 
+[English](../../en/how-to-guide/slides-and-files.md)
+
 `ui::carousel(index, slides)` は前後のボタンと矢印キーで呼び出し側の index を更新します。横方向は読み方向に従い、縦方向は上下キーを使います。`.looping()` は端で折り返し、`.items_per_view(2.0)` は複数のスライドを表示します。`CarouselMode::Scroll` はネイティブスクロールを使います。`Snap::Mandatory` はスクロールが止まって 120 ms 後に最寄りのスライドへ揃えます。`Snap::None` は自由な位置を維持しながら最寄りの index を報告します。
 
 ```rust,no_run
