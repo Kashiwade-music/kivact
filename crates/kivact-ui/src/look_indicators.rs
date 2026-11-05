@@ -13,7 +13,7 @@ pub(super) fn side(size: ControlSize) -> f64 {
         ControlSize::Large => 48.0,
     }
 }
-pub(super) fn badge(t: &Theme, _: &BadgeState) -> Style {
+pub(super) fn badge(t: &Theme, s: &BadgeState) -> Style {
     style()
         .align_items(Align::Center)
         .justify_content(Justify::Center)
@@ -24,6 +24,7 @@ pub(super) fn badge(t: &Theme, _: &BadgeState) -> Style {
         .background(ColorToken::Surface)
         .color(ColorToken::Text)
         .font_size(12)
+        .color(tone(s.tone))
 }
 pub(super) fn avatar(t: &Theme, s: &AvatarState) -> Style {
     style()
@@ -85,15 +86,25 @@ pub(super) fn kbd(t: &Theme, _: &()) -> Style {
         .text_wrap(false)
 }
 
-pub(super) fn avatar_status(_: &Theme, _: &AvatarState) -> Style {
+pub(super) fn avatar_status(_: &Theme, s: &AvatarState) -> Style {
     style()
         .position(kivact_core::style::Position::Absolute)
         .right(0)
         .bottom(0)
         .size(8, 8)
         .radius(999)
-        .background(ColorToken::Accent)
+        .background(tone(s.status.unwrap_or_default()))
 }
 pub(super) fn avatar_group(_: &Theme, _: &()) -> Style {
     style().align_items(Align::Center)
+}
+
+fn tone(tone: kivact_interaction::Tone) -> ColorToken {
+    match tone {
+        kivact_interaction::Tone::Neutral => ColorToken::TextMuted,
+        kivact_interaction::Tone::Info | kivact_interaction::Tone::Accent => ColorToken::Accent,
+        kivact_interaction::Tone::Success => ColorToken::Success,
+        kivact_interaction::Tone::Warning => ColorToken::Warning,
+        kivact_interaction::Tone::Danger => ColorToken::Danger,
+    }
 }

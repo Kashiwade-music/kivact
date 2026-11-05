@@ -41,6 +41,8 @@ pub struct SpinnerState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndicatorTokens {
     pub period_ms: u64,
+    pub delay_ms: f64,
+    pub stagger_ms: f64,
     pub line_height: f64,
     pub gap: f64,
 }
@@ -48,6 +50,8 @@ impl Default for IndicatorTokens {
     fn default() -> Self {
         Self {
             period_ms: 1000,
+            delay_ms: 0.0,
+            stagger_ms: 100.0,
             line_height: 16.0,
             gap: 6.0,
         }

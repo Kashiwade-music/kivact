@@ -9,6 +9,7 @@ pub struct Skeleton {
     lines: Value<usize>,
     shape: Value<SkeletonShape>,
     variants: Variants,
+    index: usize,
 }
 pub fn skeleton() -> Skeleton {
     Skeleton {
@@ -16,9 +17,15 @@ pub fn skeleton() -> Skeleton {
         lines: 1usize.into_value(),
         shape: SkeletonShape::default().into_value(),
         variants: Variants::default(),
+        index: 0,
     }
 }
 impl Skeleton {
+    /// Offset this placeholder within a staggered loading group.
+    pub fn index(mut self, index: usize) -> Self {
+        self.index = index;
+        self
+    }
     pub fn lines(mut self, lines: impl IntoValue<usize>) -> Self {
         self.lines = lines.into_value();
         self
@@ -39,13 +46,14 @@ impl NodeBuilder for Skeleton {
 }
 impl IntoView for Skeleton {
     fn into_view(self) -> View {
-        let period = kivact_core::style::use_tokens::<crate::UiTokens>()
-            .indicators
-            .period_ms;
+        let tokens = kivact_core::style::use_tokens::<crate::UiTokens>();
+        let period = tokens.indicators.period_ms;
+        let delay = tokens.indicators.delay_ms + self.index as f64 * tokens.indicators.stagger_ms;
         let pulse = Animated::from(
             1.0,
             0.5,
             Transition::tween(period as f64, Easing::EaseInOut)
+                .delay(delay)
                 .repeat(Repeat::Forever)
                 .alternate(),
         );

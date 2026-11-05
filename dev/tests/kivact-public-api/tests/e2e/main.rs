@@ -35,6 +35,7 @@ mod grid;
 mod hover;
 mod i18n;
 mod image_semantics;
+mod indicators;
 mod input_platform;
 mod interaction_calendar;
 mod interaction_combobox;
