@@ -1,6 +1,6 @@
 //! Role: Run the workspace's local architectural checks under shared selectors.
 use crate::check_cli::{Options, RULES};
-use crate::check_policy::{is_kit, strings};
+use crate::check_policy::is_kit;
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -15,24 +15,10 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
         return Err(format!("unknown crate: {package}"));
     }
     let active = |rule: &str| {
-        let skip = policy
-            .get(&rule.replace('-', "_"))
-            .and_then(toml::Value::as_table)
-            .map(|t| strings(t, "skip"))
-            .unwrap_or_default();
         options.selected(rule)
             && sources.iter().any(|source| {
-                if matches!(rule, "kit-literal-color" | "name-collision")
-                    && !is_kit(&source.package)
-                {
-                    return false;
-                }
-                options
-                    .package
-                    .as_ref()
-                    .map_or(!skip.contains(&source.package), |package| {
-                        *package == source.package
-                    })
+                let kit_only = matches!(rule, "kit-literal-color" | "name-collision");
+                (!kit_only || is_kit(&source.package)) && selected_source(source, options)
             })
     };
     if !RULES.iter().any(|rule| active(rule)) {
@@ -59,9 +45,8 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
             .get(&key)
             .and_then(toml::Value::as_table)
             .unwrap_or(&empty);
-        let skip = strings(settings, "skip");
         for source in &sources {
-            if !selected_source(source, options, &skip) {
+            if !selected_source(source, options) {
                 continue;
             }
             run_rule(
@@ -89,8 +74,7 @@ fn validate_policy(policy: &toml::Table) -> Result<(), String> {
             for (key, value) in table {
                 if !matches!(
                     key.as_str(),
-                    "skip"
-                        | "role_suffixes"
+                    "role_suffixes"
                         | "record_types"
                         | "value_modules"
                         | "allowed_files"
@@ -172,16 +156,12 @@ fn run_rule(
     }
 }
 
-fn selected_source(
-    source: &crate::check_source::Source,
-    options: &Options,
-    skip: &[String],
-) -> bool {
-    if let Some(package) = &options.package {
-        if *package != source.package {
-            return false;
-        }
-    } else if skip.contains(&source.package) {
+fn selected_source(source: &crate::check_source::Source, options: &Options) -> bool {
+    if options
+        .package
+        .as_ref()
+        .is_some_and(|package| *package != source.package)
+    {
         return false;
     }
     if let Some(module) = &options.module {
@@ -199,9 +179,9 @@ fn selected_source(
 
 #[cfg(test)]
 mod tests {
-    //! Role: Exercise policy skip overrides and module subtree selection.
+    //! Role: Exercise crate selection and module subtree selection.
     #[test]
-    fn explicit_crate_overrides_skip_and_modules_restrict_scope() {
+    fn crate_and_module_selectors_restrict_scope() {
         let root = std::env::temp_dir().join(format!("kivact-xtask-policy-{}", std::process::id()));
         std::fs::create_dir_all(root.join("crates/demo/src")).unwrap();
         std::fs::write(
@@ -216,12 +196,12 @@ mod tests {
         .unwrap();
         std::fs::write(root.join("crates/demo/src/lib.rs"), "mod state { pub struct Model { a: bool, b: Option<Job> } mod child { pub struct Nested { a: bool, b: bool } } } mod other { pub struct More { a: bool, b: bool } }").unwrap();
         let policy = root.join("policy.toml");
-        std::fs::write(&policy, "[state_fields]\nskip = ['demo']").unwrap();
+        std::fs::write(&policy, "").unwrap();
         let mut options = crate::check_cli::Options {
             only: Some("state-fields".into()),
             ..Default::default()
         };
-        assert!(super::check(&root, &policy, &options).unwrap().is_empty());
+        assert_eq!(super::check(&root, &policy, &options).unwrap().len(), 3);
         options.package = Some("demo".into());
         assert_eq!(super::check(&root, &policy, &options).unwrap().len(), 3);
         options.module = Some("state".into());

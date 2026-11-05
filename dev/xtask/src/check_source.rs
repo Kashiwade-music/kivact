@@ -408,14 +408,14 @@ mod tests {
         }
         assert_eq!(api_errors.len(), 1);
         let policy = root.join("policy.toml");
-        std::fs::write(&policy, "[state_fields]\nskip = ['kivact-ui-soft']").unwrap();
+        std::fs::write(&policy, "").unwrap();
         let options = crate::check_cli::Options {
             only: Some("state-fields".into()),
             package: Some("kivact-ui-soft".into()),
             ..Default::default()
         };
         assert_eq!(
-            crate::foundation::check(&root, &policy, &options)
+            crate::local_checks::check(&root, &policy, &options)
                 .unwrap()
                 .len(),
             4

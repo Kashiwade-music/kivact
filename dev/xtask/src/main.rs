@@ -22,9 +22,9 @@ mod check_cli;
 mod check_policy;
 mod check_source;
 mod effect_writes;
-mod foundation;
 mod impl_model;
 mod kit_literal_color;
+mod local_checks;
 mod macros;
 mod module_rules;
 mod name_collision;
@@ -66,7 +66,7 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let local = match foundation::check(&config.root, &config.policy, &options) {
+    let local = match local_checks::check(&config.root, &config.policy, &options) {
         Ok(errors) => errors,
         Err(error) => {
             eprintln!("error: {error}");

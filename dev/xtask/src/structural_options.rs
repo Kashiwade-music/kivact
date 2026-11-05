@@ -3,7 +3,7 @@
 //! Facade and kit builder flags take no arguments and return Self. Their list
 //! stays explicit so tree and behavior choices cannot grow unnoticed. Associated
 //! constructors, private implementation types, passive data records and option
-//! bundles do not configure mounted UI structure (design section 10.6).
+//! bundles do not configure mounted UI structure, so they need no entry.
 use crate::check_source::Source;
 use crate::public_surface::Surface;
 use syn::spanned::Spanned;
