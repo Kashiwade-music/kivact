@@ -161,10 +161,10 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-8 | merged | 6eac920f | viewport/GPU対象6中5+修正1passed、workspacecheck0 |
 | K-9a | doing | 0b4a7754 | Basic/Pop/Game移行済、Soft残 |
 | K-9b | doing | dcbf67aa | Basic/Pop/Game/Creative移行済、Soft残 |
-| K-7a | todo | | |
-| K-7b | todo | | |
+| K-7a | merged | 9bb8ca2f | consumer32個別0、catalog/docs確認中 |
+| K-7b | merged | fc664dc6 | consumer15/16、date Escape共通修正後再確認、catalog3/docs46 0 |
 | K-7c | merged | 2a34e21b | Game consumer12/catalog3/rustdoc3/scoped contracts0 |
-| K-7d | todo | | |
+| K-7d | merged | f9fab8a5 | check/static0、consumer40/41 focus共通修正後再確認 |
 | K-7e | todo | | |
 | H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |

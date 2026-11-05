@@ -166,3 +166,4 @@
 | 2026-11-05 | K-4/K-8 | Creativeのviewportとdescription意味 | Time/Arrangementは単一ViewTransform、Graphは独立time/value区間のdomain座標を保持。property_rowは標準descriptionのListItemに統一し既存の数値geometry検証を維持。 |
 | 2026-11-05 | K-3b/K-6a/K-6b | 実際の入力とslotをrecipeへ投影 | BreadcrumbItemState、CardState.input、avatar_image/status_content/member/overflowを実ノードへ接続。履歴状態を複製せず装飾とhoverを表現する。 |
 | 2026-11-05 | H-G5 | Game haloのreduced motion | effectから時刻を書かず、描画がreduced時に静止値を選ぶ。動作中のphaseは既存frame clockのみが所有する。 |
+| 2026-11-05 | H-G5 | InspectorPanel.collapsedの分類 | InspectorPanelは外部データセットの展開値を持つpassive recordであり、mounted builderの構造optionではない。structural_optionsのrecord_typesへ正確に登録する。 |
