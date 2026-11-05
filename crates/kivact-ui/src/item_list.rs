@@ -1,26 +1,47 @@
-//! Role: Build semantic static lists and configurable item rows.
-use crate::layer::with_base_recipe_style;
+//! Role: Compose semantic static lists with fixed child positions and header content.
+use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
+use crate::{ItemListMarker, ItemPosition};
 use kivact_core::custom::part;
-use kivact_core::state::{Callback, IntoText, Value, callback};
-use kivact_core::view::{
-    HandlerResult, IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref, text,
-};
-
-/// A nonselectable semantic list.
+use kivact_core::state::{IntoValue, Value, provide};
+use kivact_core::view::{IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref};
+/// A semantic list; fixed direct children receive readonly positions at mount.
 pub struct ItemList {
     root: Node,
+    children: Vec<View>,
+    header: Option<View>,
+    marker: Value<ItemListMarker>,
+    start: Value<u32>,
     variants: Variants,
 }
-/// Group item rows with list semantics, without listbox selection behavior.
+/// Group rows without introducing listbox selection or another interaction owner.
 #[track_caller]
 pub fn item_list(children: impl IntoChildren) -> ItemList {
     ItemList {
-        root: node().role(Role::List).child(children.into_views()),
+        root: node().role(Role::List),
+        children: children.into_views(),
+        header: None,
+        marker: ItemListMarker::None.into_value(),
+        start: 1u32.into_value(),
         variants: Variants::default(),
     }
 }
 impl ItemList {
+    /// Supply visible content that labels the list.
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = Some(header.into_view());
+        self
+    }
+    /// Generate decorative markers from each actual row position.
+    pub fn marker(mut self, marker: impl IntoValue<ItemListMarker>) -> Self {
+        self.marker = marker.into_value();
+        self
+    }
+    /// First number for decimal markers; position semantics remain one based.
+    pub fn start(mut self, start: impl IntoValue<u32>) -> Self {
+        self.start = start.into_value();
+        self
+    }
     pub fn variant(self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
@@ -32,165 +53,49 @@ impl NodeBuilder for ItemList {
     }
 }
 impl IntoView for ItemList {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
         let part = part(|s| s);
         let state = part.state();
-        with_base_recipe_style(
+        let header_ref = node_ref();
+        let header = self.header.map(|header| {
+            with_recipe_style(
+                node().node_ref(header_ref).child(header),
+                |r| r.item_list_recipes().list_header_recipe(),
+                &self.variants,
+                move || state.get(),
+            )
+        });
+        if header.is_some() {
+            self.root = self.root.labelled_by(header_ref);
+        }
+        let count = self.children.len();
+        let variants = self.variants.clone();
+        let children = self
+            .children
+            .into_iter()
+            .enumerate()
+            .map(|(index, child)| {
+                provide(
+                    crate::item_context::ItemContext {
+                        position: Some(ItemPosition { index, count }),
+                        marker: self.marker,
+                        start: self.start,
+                        variants: variants.clone(),
+                    },
+                    move || child,
+                )
+            })
+            .collect::<Vec<_>>();
+        let list = with_base_recipe_style(
             self.root.part(part),
             |r| r.item_list_recipes().root_recipe(),
             &self.variants,
             move || state.get(),
         )
-        .into_view()
-    }
-}
-/// A semantic list item with optional leading media and trailing actions.
-pub struct ItemRow {
-    root: Node,
-    title: Value<String>,
-    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
-    title_content: Option<View>,
-    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
-    description: Option<Value<String>>,
-    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
-    description_content: Option<View>,
-    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
-    media: Option<View>,
-    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
-    actions: Option<View>,
-    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
-    header: Option<View>,
-    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
-    footer: Option<View>,
-    // xtask-allow(state-fields): Independent optional construction callback; mounted input belongs to Part.
-    press: Option<Callback<()>>,
-    variants: Variants,
-}
-/// Create a named item row. Pressable rows retain the list-item role.
-#[track_caller]
-pub fn item_row(title: impl IntoText) -> ItemRow {
-    let title = title.into_text_value();
-    ItemRow {
-        root: node().role(Role::ListItem).name(title),
-        title,
-        title_content: None,
-        description: None,
-        description_content: None,
-        media: None,
-        actions: None,
-        header: None,
-        footer: None,
-        press: None,
-        variants: Variants::default(),
-    }
-}
-impl ItemRow {
-    pub fn media(mut self, view: impl IntoView) -> Self {
-        self.media = Some(view.into_view());
-        self
-    }
-    pub fn actions(mut self, view: impl IntoView) -> Self {
-        self.actions = Some(view.into_view());
-        self
-    }
-    pub fn description(mut self, text: impl IntoText) -> Self {
-        self.description = Some(text.into_text_value());
-        self
-    }
-    /// Replace the visible title while keeping the accessible title.
-    pub fn title_content(mut self, view: impl IntoView) -> Self {
-        self.title_content = Some(view.into_view());
-        self
-    }
-    pub fn description_content(mut self, view: impl IntoView) -> Self {
-        self.description_content = Some(view.into_view());
-        self
-    }
-    pub fn header(mut self, view: impl IntoView) -> Self {
-        self.header = Some(view.into_view());
-        self
-    }
-    pub fn footer(mut self, view: impl IntoView) -> Self {
-        self.footer = Some(view.into_view());
-        self
-    }
-    pub fn on_press<R: HandlerResult>(mut self, press: impl Fn() -> R + 'static) -> Self {
-        self.press = Some(callback(move |()| press()));
-        self
-    }
-    pub fn variant(self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-}
-impl NodeBuilder for ItemRow {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for ItemRow {
-    fn into_view(self) -> View {
-        let Self {
-            mut root,
-            title,
-            title_content,
-            description,
-            description_content,
-            media,
-            actions,
-            header,
-            footer,
-            press,
-            variants,
-        } = self;
-        let actionable = press.is_some();
-        let has_description = description.is_some() || description_content.is_some();
-        if let Some(press) = press {
-            root = root.focusable(true).on_press(move || press.call(()));
+        .child(children);
+        match header {
+            Some(header) => kivact_core::view::column((header, list)).into_view(),
+            None => list.into_view(),
         }
-        let part = part(move |input| crate::collection_values::ItemRowState {
-            input,
-            has_description,
-            actionable,
-        });
-        let state = part.state();
-        let wrap = |view: View,
-                    pick: fn(
-            &crate::recipes::UiRecipes,
-        )
-            -> &crate::recipes::Recipe<crate::collection_values::ItemRowState>| {
-            with_base_recipe_style(node().child(view), pick, &variants, move || state.get())
-        };
-        let title = wrap(
-            title_content.unwrap_or_else(|| text(title).into_view()),
-            |r| r.item_list_recipes().title_recipe(),
-        );
-        let description_ref = node_ref();
-        let description = description_content
-            .or_else(|| description.map(|d| text(d).into_view()))
-            .map(|d| {
-                wrap(d, |r| r.item_list_recipes().description_recipe()).node_ref(description_ref)
-            });
-        if description.is_some() {
-            root = root.described_by(description_ref);
-        }
-        let content = wrap(node().child((title, description)).into_view(), |r| {
-            r.item_list_recipes().content_recipe()
-        });
-        let media = media.map(|v| wrap(v, |r| r.item_list_recipes().media_recipe()));
-        let actions = actions.map(|v| wrap(v, |r| r.item_list_recipes().actions_recipe()));
-        let header = header.map(|v| wrap(v, |r| r.item_list_recipes().header_recipe()));
-        let footer = footer.map(|v| wrap(v, |r| r.item_list_recipes().footer_recipe()));
-        let body = wrap(node().child((media, content, actions)).into_view(), |r| {
-            r.item_list_recipes().body_recipe()
-        });
-        with_base_recipe_style(
-            root.part(part),
-            |r| r.item_list_recipes().item_recipe(),
-            &variants,
-            move || state.get(),
-        )
-        .child((header, body, footer))
-        .into_view()
     }
 }

@@ -339,9 +339,13 @@ mod kbd_values;
 pub use kbd::{Kbd, KbdCombo, kbd, kbd_combo};
 pub use kbd_values::KbdKeyState;
 mod item_list;
+mod item_row;
+mod item_context;
 mod look_static_collections;
 mod table;
-pub use item_list::{ItemList, ItemRow, item_list, item_row};
+pub use item_list::{ItemList, item_list};
+pub use item_row::{ItemRow, item_row};
+pub use collection_values::{ItemListMarker, ItemPosition};
 pub use recipes::{ItemListRecipes, TableRecipes};
 pub use table::{
     Table, TableCell, table, table_body, table_cell, table_footer, table_head, table_header,
