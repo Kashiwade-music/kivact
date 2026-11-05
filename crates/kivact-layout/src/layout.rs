@@ -20,17 +20,21 @@ impl Layout {
     }
     /// Scale one output axis while retaining the natural layout of its children.
     /// The slot must belong to this layout's allocated structural domain.
-    pub fn set_presence_scale(&mut self, slot: usize, scale: Option<(Orientation, f64)>) {
+    pub fn set_presence_scale<T: LayoutTree + ?Sized>(
+        &mut self,
+        tree: &T,
+        slot: usize,
+        scale: Option<(Orientation, f64)>,
+    ) {
         let current = &mut self.columns.values.presence_scale[slot + 1];
         if *current == scale {
             return;
         }
         *current = scale;
-        // A changed scale changes the cache key of every ancestor. This API
-        // borrows no topology, so expire all dependent cached outputs together.
-        for cache in &mut self.columns.values.caches {
-            cache.clear();
-        }
+        // A changed scale changes the node's output and, through it, its
+        // ancestors' cached outputs.
+        self.columns
+            .clear_caches_through(tree, &mut self.state, slot);
         self.state.changed = true;
     }
     /// Rebuild one live node style from its authoritative properties.

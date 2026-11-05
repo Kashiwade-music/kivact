@@ -203,7 +203,7 @@ impl Model {
             for x in &subtree {
                 self.presence.sizes.remove(x);
                 if let Some(n) = self.tree.get(*x) {
-                    self.layout.set_presence_scale(n.index.0, None);
+                    self.layout.set_presence_scale(&self.tree, n.index.0, None);
                 }
             }
             self.pop_exit_layout(id);

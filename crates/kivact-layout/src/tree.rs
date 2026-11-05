@@ -44,6 +44,7 @@ use crate::{
 use kivact_types::{
     AvailableSpace, Baseline, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
 };
+use std::collections::BTreeMap;
 use taffy::{
     CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutGridContainer,
     LayoutInput, LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId,
@@ -58,7 +59,9 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     no_grid: &'a TStyle,
     records: &'a mut [NodeLayoutState],
     styles: &'a [NodeStyle],
-    item_styles: &'a [NodeStyle],
+    /// The styles of the size-animated items as their parents see them,
+    /// scaled along their axis; every other item's is its own style.
+    item_styles: &'a BTreeMap<usize, NodeStyle>,
     presence_scale: &'a [Option<(Orientation, f64)>],
     natural_size: &'a mut [Option<taffy::Size<f32>>],
     caches: &'a mut [taffy::Cache],
@@ -70,6 +73,13 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
 }
 
 impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
+    /// The style of `t` as its parent lays it out.
+    #[inline(always)]
+    fn item_style(&self, t: TId) -> &NodeStyle {
+        let index = usize::from(t);
+        self.item_styles.get(&index).unwrap_or(&self.styles[index])
+    }
+
     #[inline(never)]
     fn leaf(&mut self, t: TId, inputs: LayoutInput) -> LayoutOutput {
         let index = usize::from(t);
@@ -317,7 +327,21 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
                 (_, false) => taffy::compute_flexbox_layout(pass, t, natural_inputs),
                 (_, true) => pass.leaf(t, natural_inputs),
             };
-            pass.natural_size[usize::from(t)] = Some(output.size);
+            // A min-content probe is not the size the box is laid out at:
+            // recording it would leave the next layout unrestored, scaled twice.
+            let min_probe = inputs.run_mode == RunMode::ComputeSize
+                && match scale {
+                    Some((Orientation::Horizontal, _)) => {
+                        inputs.available_space.width == taffy::AvailableSpace::MinContent
+                    }
+                    Some((Orientation::Vertical, _)) => {
+                        inputs.available_space.height == taffy::AvailableSpace::MinContent
+                    }
+                    None | Some((Orientation::Unspecified, _)) => false,
+                };
+            if !min_probe {
+                pass.natural_size[usize::from(t)] = Some(output.size);
+            }
             match scale {
                 Some((Orientation::Horizontal, scale)) => output.size.width *= scale as f32,
                 Some((Orientation::Vertical, scale)) => output.size.height *= scale as f32,
@@ -367,7 +391,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutFlexboxContainer for LayoutPass<'_, Tree> 
 
     #[inline(always)]
     fn get_flexbox_child_style(&self, t: TId) -> Self::FlexboxItemStyle<'_> {
-        &self.item_styles[usize::from(t)]
+        self.item_style(t)
     }
 }
 
@@ -392,7 +416,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutGridContainer for LayoutPass<'_, Tree> {
 
     #[inline(always)]
     fn get_grid_child_style(&self, t: TId) -> Self::GridItemStyle<'_> {
-        &self.item_styles[usize::from(t)]
+        self.item_style(t)
     }
 }
 
@@ -582,7 +606,7 @@ impl NodeLayoutColumns {
             at = parent;
         }
     }
-    fn clear_caches_through<Tree: LayoutTree + ?Sized>(
+    pub(crate) fn clear_caches_through<Tree: LayoutTree + ?Sized>(
         &mut self,
         tree: &Tree,
         state: &mut LayoutState,
@@ -659,18 +683,7 @@ impl NodeLayoutColumns {
             performed,
         } = values;
         let mut pass_calcs = std::borrow::Cow::Borrowed(&*calcs);
-        let mut item_styles = presence_scale
-            .iter()
-            .any(Option::is_some)
-            .then(|| styles.clone());
-        scale_item_styles(
-            tree,
-            styles,
-            presence_scale,
-            calcs,
-            &mut pass_calcs,
-            &mut item_styles,
-        );
+        let item_styles = scale_item_styles(tree, styles, presence_scale, calcs, &mut pass_calcs);
         let mut pass = LayoutPass {
             tree,
             traversal: Traversal {
@@ -682,7 +695,7 @@ impl NodeLayoutColumns {
             no_grid: &state.no_grid,
             records: states,
             styles,
-            item_styles: item_styles.as_deref().unwrap_or(styles),
+            item_styles: &item_styles,
             presence_scale,
             natural_size,
             caches,
@@ -821,20 +834,18 @@ fn scale_item_styles<Tree: LayoutTree + ?Sized>(
     presence_scale: &[Option<(Orientation, f64)>],
     calcs: &Calcs,
     pass_calcs: &mut std::borrow::Cow<'_, Calcs>,
-    item_styles: &mut Option<Vec<NodeStyle>>,
-) {
-    for (index, (style, scale)) in item_styles
-        .iter_mut()
-        .flat_map(|styles| styles.iter_mut())
-        .zip(presence_scale.iter())
-        .enumerate()
-    {
+) -> BTreeMap<usize, NodeStyle> {
+    let mut item_styles = BTreeMap::new();
+    for (index, scale) in presence_scale.iter().enumerate() {
         let Some((axis, scale)) = *scale else {
             continue;
         };
         if axis == Orientation::Unspecified {
             continue;
         }
+        let style = item_styles
+            .entry(index)
+            .or_insert_with(|| styles[index].clone());
         let mut alloc = CalcAlloc {
             calcs: pass_calcs.to_mut(),
             owned: Vec::new(),
@@ -868,4 +879,5 @@ fn scale_item_styles<Tree: LayoutTree + ?Sized>(
             }
         }
     }
+    item_styles
 }
