@@ -59,7 +59,7 @@ impl IntoView for ItemList {
         let header_ref = node_ref();
         let header = self.header.map(|header| {
             with_recipe_style(
-                node().node_ref(header_ref).child(header),
+                node().role(Role::Group).node_ref(header_ref).child(header),
                 |r| r.item_list_recipes().list_header_recipe(),
                 &self.variants,
                 move || state.get(),
