@@ -9,8 +9,8 @@ Use the standard `kivact::ui` components under the Game theme. Their recipes dra
 Progress values are fractions from zero to one. A gauge converts the application's count to `value / total`, guarding a zero total. `game::GaugeSegments` takes the same reactive total to choose the number of bars; it owns no progress state. A ring uses `ProgressVariant::Ring` and can include a small caption. `game::Striped` adds moving diagonal stripes to a bar.
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact::ui::{self, ProgressVariant};
 use kivact_ui_game as game;
 
@@ -19,17 +19,33 @@ fn meters() -> impl IntoView {
     let total = signal(10usize);
     let percent = signal(76.0);
     row((
-        ui::progress(move || Some(if total.get() == 0 { 0.0 } else {
-            bars.get() as f64 / total.get() as f64
-        })).name("Hull").variant(ProgressVariant::Gauge)
-            .variant(game::GaugeSegments(total.into_value())).variant(Tone::Danger),
-        ui::progress(move || Some(percent.get() / 100.0)).name("Shield")
+        ui::progress(move || {
+            Some(if total.get() == 0 {
+                0.0
+            } else {
+                bars.get() as f64 / total.get() as f64
+            })
+        })
+        .name("Hull")
+        .variant(ProgressVariant::Gauge)
+        .variant(game::GaugeSegments(total.into_value()))
+        .variant(Tone::Danger),
+        ui::progress(move || Some(percent.get() / 100.0))
+            .name("Shield")
             .variant(ProgressVariant::Ring)
-            .variant(ui::ProgressMotion { determinate_ms:900, determinate_easing:kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.), ..Default::default() }).variant(Tone::Info)
+            .variant(ui::ProgressMotion {
+                determinate_ms: 900,
+                determinate_easing: kivact::motion::Easing::CubicBezier(0.2, 0.7, 0.2, 1.),
+                ..Default::default()
+            })
+            .variant(Tone::Info)
             .with_node(|node| node.child(game::mono("SHIELD").style(style().font_size(9)))),
-        ui::progress(move || Some(percent.get() / 100.0)).name("Upload")
-            .moving(true).variant(game::Striped),
-    )).style(style().gap(16))
+        ui::progress(move || Some(percent.get() / 100.0))
+            .name("Upload")
+            .moving(true)
+            .variant(game::Striped),
+    ))
+    .style(style().gap(16))
 }
 # fn main() {}
 ```
@@ -39,24 +55,31 @@ fn meters() -> impl IntoView {
 Use `stat(label, formatted_value)` with `game::StatVariant::Kpi`. The application owns numeric formatting, decimal precision, separators, units and animation. Pass reactive text to the value, `label_content` for an icon and heading, `value_content` for separately styled numbers and units, and `chart` for `game::sparkline(samples)`. The sparkline only draws application-provided samples. `delta` is the change caption; `Tone` chooses its semantic color. `trend` independently reports the direction of change.
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
 use kivact::motion::{Animated, Easing, Transition};
+use kivact::prelude::*;
 use kivact::style::Align;
 use kivact_ui_game as game;
 
 fn accuracy() -> impl IntoView {
     let target = signal(87.5);
-    let shown = Animated::from(0.0, target, Transition::tween(900,
-        Easing::CubicBezier(0.2, 0.7, 0.2, 1.0)));
+    let shown = Animated::from(
+        0.0,
+        target,
+        Transition::tween(900, Easing::CubicBezier(0.2, 0.7, 0.2, 1.0)),
+    );
     let formatted = memo(move || format!("{:.1}", shown.get()));
     kivact::ui::stat("ACCURACY", move || format!("{}%", formatted.get()))
-        .variant(game::StatVariant::Kpi).variant(Tone::Success)
+        .variant(game::StatVariant::Kpi)
+        .variant(Tone::Success)
         .label_content(row((icon("target"), text("ACCURACY"))))
-        .value_content(row((
-            text(formatted),
-            text("%").style(style().font_size(16).color(ColorToken::TextMuted)),
-        )).style(style().gap(2).align_items(Align::Baseline)))
+        .value_content(
+            row((
+                text(formatted),
+                text("%").style(style().font_size(16).color(ColorToken::TextMuted)),
+            ))
+            .style(style().gap(2).align_items(Align::Baseline)),
+        )
         .delta("+12.4%")
         .chart(game::sparkline(vec![3.0, 5.0, 4.0, 8.0, 9.0, 12.0]))
 }
@@ -68,15 +91,19 @@ fn accuracy() -> impl IntoView {
 A badge uses `kivact::ui::badge(label).tone(tone)`. `game::BadgeVariant` selects `Dot` (the default square marker), `Plain`, `Solid` or `Outline`. Ordinary modifiers apply to every builder.
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn statuses() -> impl IntoView {
     row((
         kivact::ui::badge("RUNNING").tone(Tone::Info),
-        kivact::ui::badge("v2.4.1").tone(Tone::Neutral).variant(game::BadgeVariant::Outline),
-        kivact::ui::badge("OFFLINE").tone(Tone::Danger).variant(game::BadgeVariant::Solid),
+        kivact::ui::badge("v2.4.1")
+            .tone(Tone::Neutral)
+            .variant(game::BadgeVariant::Outline),
+        kivact::ui::badge("OFFLINE")
+            .tone(Tone::Danger)
+            .variant(game::BadgeVariant::Solid),
     ))
 }
 # fn main() {}
@@ -91,26 +118,37 @@ Use `kivact::ui::avatar(name).fallback_content(..)` for exact initials. `.varian
 A banner is `AlertVariant::Banner`; the theme draws its striped title tape and full-width navy surface. Empty states accept an action and optional illustration (`.icon(())` uses the Game recipe's illustration). `SkeletonVariant::Rows` shows the cut-corner avatar and two caption placeholders, animated by the standard skeleton owner and paused for reduced motion.
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn warning() -> impl IntoView {
     let visible = signal(true);
     column((
-        kivact::ui::alert("Low fuel").tone(Tone::Warning)
+        kivact::ui::alert("Low fuel")
+            .tone(Tone::Warning)
             .icon(icon("alert-triangle"))
             .description("Return to base within 2 minutes.")
-            .visible(visible).dismissible(true)
-            .dismiss_label("Close alert").dismiss_content(text("×")),
-        kivact::ui::alert("NOTICE").variant(kivact::ui::AlertVariant::Banner)
+            .visible(visible)
+            .dismissible(true)
+            .dismiss_label("Close alert")
+            .dismiss_content(text("×")),
+        kivact::ui::alert("NOTICE")
+            .variant(kivact::ui::AlertVariant::Banner)
             .tone(Tone::Warning)
-            .with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
+            .with_node(|node| {
+                node.role(Role::Status)
+                    .live_region(kivact::view::LiveRegion::Polite)
+            })
             .content(|| text("Maintenance at 02:00 UTC"))
             .actions(button("Details")),
-        kivact::ui::empty_state("NO RECORDS").icon(())
-            .description("Try another search.").actions(button("Clear filters")),
-        kivact::ui::skeleton().variant(game::SkeletonVariant::Rows).lines(2usize),
+        kivact::ui::empty_state("NO RECORDS")
+            .icon(())
+            .description("Try another search.")
+            .actions(button("Clear filters")),
+        kivact::ui::skeleton()
+            .variant(game::SkeletonVariant::Rows)
+            .lines(2usize),
     ))
 }
 # fn main() {}
@@ -123,8 +161,8 @@ Short-lived messages use `kivact::ui::toast_region(toaster())` and `Toast::new(l
 Use `description_list` and `description` for a shaded 120-pixel term column beside arbitrary detail views. Details can be different types. Read signals inside each view to update its contents. `game::activity` keeps the Game-specific diamond timeline; an `ActivityEntry` consumes its time, content and tone once.
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn details() -> impl IntoView {
@@ -134,7 +172,9 @@ fn details() -> impl IntoView {
             kivact::ui::description("STATUS", kivact::ui::badge("ACTIVE").tone(Tone::Success)),
         )),
         game::activity(vec![game::ActivityEntry::new(
-            "09:40", text("Review passed"), Tone::Success,
+            "09:40",
+            text("Review passed"),
+            Tone::Success,
         )]),
     ))
 }

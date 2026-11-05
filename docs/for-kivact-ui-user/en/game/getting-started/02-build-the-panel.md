@@ -10,11 +10,11 @@ badge, three kinds of meter and buttons that change the meters.
 Replace `src/main.rs` with:
 
 ```rust,no_run
+use kivact::interaction::Tone;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::style::ThemeMode;
-use kivact::interaction::{Tone};
-use kivact::ui::{progress};
+use kivact::ui::progress;
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 /// A monospaced caption over a meter.
@@ -29,32 +29,81 @@ fn loadout() -> impl IntoView {
     game::hud(
         column((
             row((
-    text("01").style(move || { let t=kivact::style::use_theme().get(); style().font_family(t.ext::<game::Tokens>().display_family.as_str()).font_size(34).line_height(0.9).weight(800).italic(true).color(ColorToken::Accent) }),
-    kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
-    text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
-)).style(style().gap(14).align_items(Align::End).padding_bottom(10).border_bottom(2, ColorToken::Text))
-.draw_over(|d,s| d.fill_path(&kivact::draw::Path::new().move_to(kivact::geometry::Point::new(s.width-44.,s.height-4.))
-    .line_to(kivact::geometry::Point::new(s.width,s.height-4.)).line_to(kivact::geometry::Point::new(s.width-2.,s.height+6.))
-    .line_to(kivact::geometry::Point::new(s.width-46.,s.height+6.)).close(), d.theme().ext::<game::Tokens>().yellow)),
+                text("01").style(move || {
+                    let t = kivact::style::use_theme().get();
+                    style()
+                        .font_family(t.ext::<game::Tokens>().display_family.as_str())
+                        .font_size(34)
+                        .line_height(0.9)
+                        .weight(800)
+                        .italic(true)
+                        .color(ColorToken::Accent)
+                }),
+                kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
+                text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
+            ))
+            .style(
+                style()
+                    .gap(14)
+                    .align_items(Align::End)
+                    .padding_bottom(10)
+                    .border_bottom(2, ColorToken::Text),
+            )
+            .draw_over(|d, s| {
+                d.fill_path(
+                    &kivact::draw::Path::new()
+                        .move_to(kivact::geometry::Point::new(s.width - 44., s.height - 4.))
+                        .line_to(kivact::geometry::Point::new(s.width, s.height - 4.))
+                        .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
+                        .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
+                        .close(),
+                    d.theme().ext::<game::Tokens>().yellow,
+                )
+            }),
             row((
                 kivact::ui::badge("READY").tone(Tone::Success),
                 game::mono("SLOT 2"),
             ))
             .style(style().gap(12).align_items(Align::Center)),
             row((
-                labeled(
-                    "ARMOR",
-                    { let total: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(10);
-    let value: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(armor);
-    kivact::ui::progress(move || Some(if total.get()==0 {0.0} else {value.get() as f64/total.get() as f64}))
-        .name("Armor").variant(kivact::ui::ProgressVariant::Gauge)
-        .variant(game::GaugeSegments(total)).variant(Tone::Info) },
-                ),
-                { let value: kivact::state::Value<f64> = kivact::state::IntoValue::into_value(energy);
-    kivact::ui::progress(move || Some(value.get()/100.0)).name("ENERGY")
-        .variant(kivact::ui::ProgressVariant::Ring)
-        .variant(kivact::ui::ProgressMotion { determinate_ms:900, determinate_easing:kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.), ..Default::default() }).variant(Tone::Warning)
-        .with_node(|node| node.child(game::mono("ENERGY").style(style().font_size(9).color(ColorToken::TextMuted)))) },
+                labeled("ARMOR", {
+                    let total: kivact::state::Value<usize> =
+                        kivact::state::IntoValue::into_value(10);
+                    let value: kivact::state::Value<usize> =
+                        kivact::state::IntoValue::into_value(armor);
+                    kivact::ui::progress(move || {
+                        Some(if total.get() == 0 {
+                            0.0
+                        } else {
+                            value.get() as f64 / total.get() as f64
+                        })
+                    })
+                    .name("Armor")
+                    .variant(kivact::ui::ProgressVariant::Gauge)
+                    .variant(game::GaugeSegments(total))
+                    .variant(Tone::Info)
+                }),
+                {
+                    let value: kivact::state::Value<f64> =
+                        kivact::state::IntoValue::into_value(energy);
+                    kivact::ui::progress(move || Some(value.get() / 100.0))
+                        .name("ENERGY")
+                        .variant(kivact::ui::ProgressVariant::Ring)
+                        .variant(kivact::ui::ProgressMotion {
+                            determinate_ms: 900,
+                            determinate_easing: kivact::motion::Easing::CubicBezier(
+                                0.2, 0.7, 0.2, 1.,
+                            ),
+                            ..Default::default()
+                        })
+                        .variant(Tone::Warning)
+                        .with_node(|node| {
+                            node.child(
+                                game::mono("ENERGY")
+                                    .style(style().font_size(9).color(ColorToken::TextMuted)),
+                            )
+                        })
+                },
             ))
             .style(style().gap(32).align_items(Align::Center)),
             labeled(
@@ -82,7 +131,12 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }))
+        .theme(game::theme_with(
+            ThemeMode::Dark,
+            ThemeOptions {
+                density: Density::Comfortable,
+            },
+        ))
         .run(loadout)
 }
 ```

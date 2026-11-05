@@ -9,10 +9,10 @@
 `src/main.rs` を、テストを含む完全なプログラムに置き換えます。
 
 ```rust,test_harness
+use kivact::interaction::Tone;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::style::ThemeMode;
-use kivact::interaction::Tone;
 use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -31,7 +31,13 @@ struct Item {
 }
 
 fn item(id: u32, slot: Slot, name: &'static str, power: u32) -> Item {
-    Item { id, slot, name, power, equipped: false }
+    Item {
+        id,
+        slot,
+        name,
+        power,
+        equipped: false,
+    }
 }
 
 fn loadout() -> impl IntoView {
@@ -47,10 +53,19 @@ fn loadout() -> impl IntoView {
     // 見ているアイテム。開いているタブのものだけが対象です。
     let chosen = memo(move || {
         let id = selected.get()?;
-        items.with(|all| all.iter().find(|i| i.id == id && i.slot == slot.get()).cloned())
+        items.with(|all| {
+            all.iter()
+                .find(|i| i.id == id && i.slot == slot.get())
+                .cloned()
+        })
     });
     let total = memo(move || {
-        items.with(|all| all.iter().filter(|i| i.equipped).map(|i| i.power).sum::<u32>())
+        items.with(|all| {
+            all.iter()
+                .filter(|i| i.equipped)
+                .map(|i| i.power)
+                .sum::<u32>()
+        })
     });
     // 威力 10 ごとにゲージのバーが 1 本点灯します。
     let bars = memo(move || (total.get() / 10) as usize);
@@ -84,13 +99,37 @@ fn loadout() -> impl IntoView {
     game::hud(
         column((
             row((
-    text("01").style(move || { let t=kivact::style::use_theme().get(); style().font_family(t.ext::<game::Tokens>().display_family.as_str()).font_size(34).line_height(0.9).weight(800).italic(true).color(ColorToken::Accent) }),
-    kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
-    text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
-)).style(style().gap(14).align_items(Align::End).padding_bottom(10).border_bottom(2, ColorToken::Text))
-.draw_over(|d,s| d.fill_path(&kivact::draw::Path::new().move_to(kivact::geometry::Point::new(s.width-44.,s.height-4.))
-    .line_to(kivact::geometry::Point::new(s.width,s.height-4.)).line_to(kivact::geometry::Point::new(s.width-2.,s.height+6.))
-    .line_to(kivact::geometry::Point::new(s.width-46.,s.height+6.)).close(), d.theme().ext::<game::Tokens>().yellow)),
+                text("01").style(move || {
+                    let t = kivact::style::use_theme().get();
+                    style()
+                        .font_family(t.ext::<game::Tokens>().display_family.as_str())
+                        .font_size(34)
+                        .line_height(0.9)
+                        .weight(800)
+                        .italic(true)
+                        .color(ColorToken::Accent)
+                }),
+                kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
+                text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
+            ))
+            .style(
+                style()
+                    .gap(14)
+                    .align_items(Align::End)
+                    .padding_bottom(10)
+                    .border_bottom(2, ColorToken::Text),
+            )
+            .draw_over(|d, s| {
+                d.fill_path(
+                    &kivact::draw::Path::new()
+                        .move_to(kivact::geometry::Point::new(s.width - 44., s.height - 4.))
+                        .line_to(kivact::geometry::Point::new(s.width, s.height - 4.))
+                        .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
+                        .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
+                        .close(),
+                    d.theme().ext::<game::Tokens>().yellow,
+                )
+            }),
             kivact::ui::badge("準備完了").tone(Tone::Success),
             tabs(
                 "スロット",
@@ -102,27 +141,50 @@ fn loadout() -> impl IntoView {
             )
             .variant(game::Boxed)
             .content(panel),
-            kivact::ui::description_list((vec![
-                (
-                    "名前".to_owned(),
-                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())).into_view(),
-                ),
-                (
-                    "威力".to_owned(),
-                    game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.power.to_string())).into_view(),
-                ),
-            ]).into_iter().map(|(term, detail): (String, _)| kivact::ui::description(term, detail)).collect::<Vec<_>>()),
+            kivact::ui::description_list(
+                (vec![
+                    (
+                        "名前".to_owned(),
+                        game::mono(move || {
+                            chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())
+                        })
+                        .into_view(),
+                    ),
+                    (
+                        "威力".to_owned(),
+                        game::mono(move || {
+                            chosen.get().map_or("-".to_owned(), |i| i.power.to_string())
+                        })
+                        .into_view(),
+                    ),
+                ])
+                .into_iter()
+                .map(|(term, detail): (String, _)| kivact::ui::description(term, detail))
+                .collect::<Vec<_>>(),
+            ),
             row((
                 button("装備")
                     .variant(game::Slant)
                     .disabled(move || chosen.get().is_none())
                     .on_press(equip),
                 game::mono(move || format!("合計威力 {}", total.get())),
-                { let total: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(10);
-    let value: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(bars);
-    kivact::ui::progress(move || Some(if total.get()==0 {0.0} else {value.get() as f64/total.get() as f64}))
-        .name("合計威力").variant(kivact::ui::ProgressVariant::Gauge)
-        .variant(game::GaugeSegments(total)).variant(Tone::Info) },
+                {
+                    let total: kivact::state::Value<usize> =
+                        kivact::state::IntoValue::into_value(10);
+                    let value: kivact::state::Value<usize> =
+                        kivact::state::IntoValue::into_value(bars);
+                    kivact::ui::progress(move || {
+                        Some(if total.get() == 0 {
+                            0.0
+                        } else {
+                            value.get() as f64 / total.get() as f64
+                        })
+                    })
+                    .name("合計威力")
+                    .variant(kivact::ui::ProgressVariant::Gauge)
+                    .variant(game::GaugeSegments(total))
+                    .variant(Tone::Info)
+                },
             ))
             .style(style().gap(16).align_items(Align::Center)),
         ))
@@ -133,7 +195,12 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }))
+        .theme(game::theme_with(
+            ThemeMode::Dark,
+            ThemeOptions {
+                density: Density::Comfortable,
+            },
+        ))
         .run(loadout)
 }
 
@@ -143,7 +210,14 @@ mod tests {
     use kivact::test::{RenderOptions, Screen, render_with};
 
     fn mount() -> Screen {
-        let options = RenderOptions::default().window_size(800., 800.0).theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }));
+        let options = RenderOptions::default()
+            .window_size(800., 800.0)
+            .theme(game::theme_with(
+                ThemeMode::Dark,
+                ThemeOptions {
+                    density: Density::Comfortable,
+                },
+            ));
         render_with(options, loadout)
     }
 

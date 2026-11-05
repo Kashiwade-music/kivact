@@ -15,6 +15,7 @@ pub(crate) fn dropzone(r: DropzoneRecipes) -> DropzoneRecipes {
 }
 fn root(t: &Theme, s: &Look<DropzoneState>) -> Style {
     let p = t.ext::<Tokens>();
+    let stripe = p.dropzone_stripe;
     let mut result = style()
         .direction(Direction::Column)
         .align_items(Align::Center)
@@ -23,7 +24,7 @@ fn root(t: &Theme, s: &Look<DropzoneState>) -> Style {
         .padding_x(16)
         .border(1.5, p.line_strong)
         .border_style(BorderStyle::Dashed)
-        .paint(|d, s| {
+        .paint(move |d, s| {
             d.layer(Layer::new().clip_rect(s.to_rect()), |d| {
                 let mut x = -s.height;
                 while x < s.width {
@@ -34,7 +35,7 @@ fn root(t: &Theme, s: &Look<DropzoneState>) -> Style {
                             .line_to(Point::new(x + s.height + 10., 0.))
                             .line_to(Point::new(x + s.height, 0.))
                             .close(),
-                        kivact::style::rgba(0x1283f0, 0.04),
+                        stripe,
                     );
                     x += 20.;
                 }

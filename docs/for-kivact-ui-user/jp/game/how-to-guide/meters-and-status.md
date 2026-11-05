@@ -9,8 +9,8 @@ Game テーマで標準の `kivact::ui` 部品を使います。recipe が斜め
 進捗の値は 0 から 1 の割合です。ゲージはアプリケーションの値を `value / total` に変換し、全体が 0 の場合を処理します。`game::GaugeSegments` に同じリアクティブな全体数を渡すとバーの本数が決まります。この variant は進捗の状態を所有しません。円には `ProgressVariant::Ring` を使い、小さなキャプションを添えられます。`game::Striped` は棒に動く斜線を加えます。
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact::ui::{self, ProgressVariant};
 use kivact_ui_game as game;
 
@@ -19,17 +19,33 @@ fn meters() -> impl IntoView {
     let total = signal(10usize);
     let percent = signal(76.0);
     row((
-        ui::progress(move || Some(if total.get() == 0 { 0.0 } else {
-            bars.get() as f64 / total.get() as f64
-        })).name("Hull").variant(ProgressVariant::Gauge)
-            .variant(game::GaugeSegments(total.into_value())).variant(Tone::Danger),
-        ui::progress(move || Some(percent.get() / 100.0)).name("Shield")
+        ui::progress(move || {
+            Some(if total.get() == 0 {
+                0.0
+            } else {
+                bars.get() as f64 / total.get() as f64
+            })
+        })
+        .name("Hull")
+        .variant(ProgressVariant::Gauge)
+        .variant(game::GaugeSegments(total.into_value()))
+        .variant(Tone::Danger),
+        ui::progress(move || Some(percent.get() / 100.0))
+            .name("Shield")
             .variant(ProgressVariant::Ring)
-            .variant(ui::ProgressMotion { determinate_ms:900, determinate_easing:kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.), ..Default::default() }).variant(Tone::Info)
+            .variant(ui::ProgressMotion {
+                determinate_ms: 900,
+                determinate_easing: kivact::motion::Easing::CubicBezier(0.2, 0.7, 0.2, 1.),
+                ..Default::default()
+            })
+            .variant(Tone::Info)
             .with_node(|node| node.child(game::mono("SHIELD").style(style().font_size(9)))),
-        ui::progress(move || Some(percent.get() / 100.0)).name("Upload")
-            .moving(true).variant(game::Striped),
-    )).style(style().gap(16))
+        ui::progress(move || Some(percent.get() / 100.0))
+            .name("Upload")
+            .moving(true)
+            .variant(game::Striped),
+    ))
+    .style(style().gap(16))
 }
 # fn main() {}
 ```
@@ -39,24 +55,31 @@ fn meters() -> impl IntoView {
 `stat(label, formatted_value)` に `game::StatVariant::Kpi` を指定します。数値の書式、小数桁、区切り、単位、アニメーションはアプリケーションが所有します。値にはリアクティブな文字列を渡します。`label_content` はアイコン付き見出し、`value_content` は別々に装飾する数値と単位、`chart` は `game::sparkline(samples)` などのチャートです。スパークラインは渡されたサンプルを描くだけです。`delta` は変化のキャプションで、`Tone` が意味に応じた色を選びます。`trend` は独立した変化の方向です。
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
 use kivact::motion::{Animated, Easing, Transition};
+use kivact::prelude::*;
 use kivact::style::Align;
 use kivact_ui_game as game;
 
 fn accuracy() -> impl IntoView {
     let target = signal(87.5);
-    let shown = Animated::from(0.0, target, Transition::tween(900,
-        Easing::CubicBezier(0.2, 0.7, 0.2, 1.0)));
+    let shown = Animated::from(
+        0.0,
+        target,
+        Transition::tween(900, Easing::CubicBezier(0.2, 0.7, 0.2, 1.0)),
+    );
     let formatted = memo(move || format!("{:.1}", shown.get()));
     kivact::ui::stat("ACCURACY", move || format!("{}%", formatted.get()))
-        .variant(game::StatVariant::Kpi).variant(Tone::Success)
+        .variant(game::StatVariant::Kpi)
+        .variant(Tone::Success)
         .label_content(row((icon("target"), text("ACCURACY"))))
-        .value_content(row((
-            text(formatted),
-            text("%").style(style().font_size(16).color(ColorToken::TextMuted)),
-        )).style(style().gap(2).align_items(Align::Baseline)))
+        .value_content(
+            row((
+                text(formatted),
+                text("%").style(style().font_size(16).color(ColorToken::TextMuted)),
+            ))
+            .style(style().gap(2).align_items(Align::Baseline)),
+        )
         .delta("+12.4%")
         .chart(game::sparkline(vec![3.0, 5.0, 4.0, 8.0, 9.0, 12.0]))
 }
@@ -68,15 +91,19 @@ fn accuracy() -> impl IntoView {
 バッジは `kivact::ui::badge(label).tone(tone)` です。`game::BadgeVariant` は `Dot`（既定の四角い点）、`Plain`、`Solid`、`Outline` を選びます。通常の修飾子も使えます。
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn statuses() -> impl IntoView {
     row((
         kivact::ui::badge("RUNNING").tone(Tone::Info),
-        kivact::ui::badge("v2.4.1").tone(Tone::Neutral).variant(game::BadgeVariant::Outline),
-        kivact::ui::badge("OFFLINE").tone(Tone::Danger).variant(game::BadgeVariant::Solid),
+        kivact::ui::badge("v2.4.1")
+            .tone(Tone::Neutral)
+            .variant(game::BadgeVariant::Outline),
+        kivact::ui::badge("OFFLINE")
+            .tone(Tone::Danger)
+            .variant(game::BadgeVariant::Solid),
     ))
 }
 # fn main() {}
@@ -91,26 +118,37 @@ fn statuses() -> impl IntoView {
 バナーは `AlertVariant::Banner` で、縞の見出しと全幅の紺色の面を描きます。空状態は操作とイラストを持てます（`.icon(())` は Game recipe のイラストです）。`SkeletonVariant::Rows` はカットコーナーのアバターと 2 本のキャプションを表示します。標準スケルトンがアニメーションを所有し、動きを減らす設定で止まります。
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn warning() -> impl IntoView {
     let visible = signal(true);
     column((
-        kivact::ui::alert("Low fuel").tone(Tone::Warning)
+        kivact::ui::alert("Low fuel")
+            .tone(Tone::Warning)
             .icon(icon("alert-triangle"))
             .description("Return to base within 2 minutes.")
-            .visible(visible).dismissible(true)
-            .dismiss_label("Close alert").dismiss_content(text("×")),
-        kivact::ui::alert("NOTICE").variant(kivact::ui::AlertVariant::Banner)
+            .visible(visible)
+            .dismissible(true)
+            .dismiss_label("Close alert")
+            .dismiss_content(text("×")),
+        kivact::ui::alert("NOTICE")
+            .variant(kivact::ui::AlertVariant::Banner)
             .tone(Tone::Warning)
-            .with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
+            .with_node(|node| {
+                node.role(Role::Status)
+                    .live_region(kivact::view::LiveRegion::Polite)
+            })
             .content(|| text("Maintenance at 02:00 UTC"))
             .actions(button("Details")),
-        kivact::ui::empty_state("NO RECORDS").icon(())
-            .description("Try another search.").actions(button("Clear filters")),
-        kivact::ui::skeleton().variant(game::SkeletonVariant::Rows).lines(2usize),
+        kivact::ui::empty_state("NO RECORDS")
+            .icon(())
+            .description("Try another search.")
+            .actions(button("Clear filters")),
+        kivact::ui::skeleton()
+            .variant(game::SkeletonVariant::Rows)
+            .lines(2usize),
     ))
 }
 # fn main() {}
@@ -123,8 +161,8 @@ fn warning() -> impl IntoView {
 `description_list` と `description` は、幅 120 ピクセルの陰影付きの用語列と任意の詳細ビューを組み合わせます。詳細ごとに型が違っていてもかまいません。更新したいシグナルは各ビューの中で読みます。`game::activity` は Game 固有の菱形付きタイムラインです。`ActivityEntry` は時刻、内容、意味を一度だけ消費します。
 
 ```rust,no_run
-use kivact::prelude::*;
 use kivact::interaction::Tone;
+use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn details() -> impl IntoView {
@@ -134,7 +172,9 @@ fn details() -> impl IntoView {
             kivact::ui::description("STATUS", kivact::ui::badge("ACTIVE").tone(Tone::Success)),
         )),
         game::activity(vec![game::ActivityEntry::new(
-            "09:40", text("Review passed"), Tone::Success,
+            "09:40",
+            text("Review passed"),
+            Tone::Success,
         )]),
     ))
 }
