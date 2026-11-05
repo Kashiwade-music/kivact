@@ -116,6 +116,7 @@ pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
     source: OptionsCell<Value<Vec<ListItem<K>>>>,
     debounce: OptionsCell<Value<std::time::Duration>>,
+    search_status: OptionsCell<Value<kivact_core::task::AsyncState<()>>>,
     /// The caller's selection: one option or several.
     selection: Selection<K>,
     /// The open state of a list that is a popup.
@@ -204,6 +205,9 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
         options,
         source,
         debounce: OptionsCell::new(std::time::Duration::from_millis(150).into_value()),
+        search_status: OptionsCell::new(
+            (|| kivact_core::task::AsyncState::<()>::Idle).into_value(),
+        ),
         selection,
         mode: OptionsCell::new(PresentationMode::Inline),
         session,
@@ -236,6 +240,11 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// Current source rows, including asynchronous suggestions when configured.
     pub fn options(self) -> Value<Vec<ListItem<K>>> {
         self.options
+    }
+
+    /// Readonly status of the single asynchronous suggestion source.
+    pub fn search_status(self) -> Value<kivact_core::task::AsyncState<()>> {
+        memo(move || self.search_status.value().get().get())
     }
 
     /// Delay between typing and starting an asynchronous suggestion request.
@@ -277,6 +286,16 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 }
                 search(query).await.map(Some)
             }
+        });
+        self.search_status.update(|status| {
+            *status = memo(move || match results.state() {
+                kivact_core::task::AsyncState::Idle => kivact_core::task::AsyncState::Idle,
+                kivact_core::task::AsyncState::Pending => kivact_core::task::AsyncState::Pending,
+                kivact_core::task::AsyncState::Ready(_) => kivact_core::task::AsyncState::Ready(()),
+                kivact_core::task::AsyncState::Failed(error) => {
+                    kivact_core::task::AsyncState::Failed(error)
+                }
+            })
         });
         self.source.update(|source| {
             *source = memo(move || match results.state() {
@@ -355,6 +374,12 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         let transferred = transferred.into_value();
         self.mode
             .update(|mode| *mode = PresentationMode::Popup(open));
+        let session = self.session;
+        kivact_core::state::effect_on(open, move |shown| {
+            if !shown {
+                session.send(machine::Event::Close);
+            }
+        });
         let focused = self.input_ref.focused();
         effect(move || {
             if !focused.get() && !transferred.get() && open.get_untracked() {
@@ -377,8 +402,9 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
 
     /// Whether the open combobox is presented in a touch sheet.
     pub fn is_sheet_open(self) -> Value<bool> {
+        let open = self.is_open();
         memo(move || {
-            self.is_open().get()
+            open.get()
                 && self.session.state().with(|state| {
                     matches!(
                         state.mode,
@@ -415,10 +441,12 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
 
     /// Open a closed popup list and close an open one.
     pub fn toggle(self) {
-        if self.is_open().get_untracked() {
-            self.close();
-        } else {
-            self.open();
+        if let PresentationMode::Popup(open) = self.mode.get() {
+            if open.get_untracked() {
+                self.close();
+            } else {
+                self.open();
+            }
         }
     }
 
@@ -547,6 +575,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 .node_ref(target)
                 .node_ref(self.input_ref)
                 .controls(self.list_ref)
+                .has_popup(|| Some(kivact_core::view::PopupKind::ListBox))
                 .active_descendant(move || {
                     active.with(|key| {
                         key.as_ref()
@@ -555,6 +584,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 })
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
+                    if m.alt && !m.ctrl && !m.meta && !m.shift {
+                        match event.key() { Key::ArrowDown => self.open(), Key::ArrowUp => self.close(), _ => return Handled::No }
+                        return Handled::Yes;
+                    }
                     if m.ctrl || m.alt || m.meta || m.shift {
                         return Handled::No;
                     }
@@ -576,7 +609,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                             self.close();
                         }
                         Key::Backspace
-                            if self.query().get_untracked().is_empty() =>
+                            if self.session.state().with_untracked(|state| state.query.get().is_empty()) =>
                         {
                             let Selection::Multiple(values) = self.selection else {
                                 return Handled::No;
@@ -609,6 +642,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 .node_ref(target)
                 .node_ref(self.list_ref)
                 .role(Role::ListBox)
+                .multiselectable(matches!(self.selection, Selection::Multiple(_)))
                 .focus_on_press(self.input_ref)
         })
     }
@@ -679,7 +713,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     item.with(|item| item.as_ref().map(|(l, _)| l.clone()))
                         .unwrap_or_default()
                 })
-                .selected(is_active)
+                .selected(move || match selection {
+                    Selection::Single(_) => is_active.get(),
+                    Selection::Multiple(_) => is_value.get(),
+                })
                 .disabled(disabled)
                 .on_pointer(move |event: PointerEvent| {
                     if matches!(event.phase(), PointerPhase::Enter | PointerPhase::Move)

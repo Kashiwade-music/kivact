@@ -79,6 +79,7 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                 next.highlight = None;
             }
             Event::QueryChanged => {
+                next.mode = ComboMode::Filtering(state.mode.surface());
                 next.highlight = None;
             }
             Event::Open => next.mode = ComboMode::Browsing(Surface::Popover),

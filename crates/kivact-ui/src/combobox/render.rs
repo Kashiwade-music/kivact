@@ -18,6 +18,8 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
         options,
         selection,
         query: controlled,
+        open: controlled_open,
+        on_edit,
         free_text,
         mode,
         chips,
@@ -38,10 +40,25 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
     let invalid = root
         .accessible_invalid()
         .unwrap_or_else(|| false.into_value());
+    let edit = kivact_interaction::EditSession::new(|(): ()| {});
+    if let Some(observer) = on_edit {
+        edit.on_edit(move |phase| observer.call(phase));
+    }
+    let selection = match selection {
+        Selection::Single(value) => Selection::Single(binding(value, move |next| {
+            edit.once((), || value.set(next))
+        })),
+        Selection::Multiple(value) => Selection::Multiple(binding(value, move |next| {
+            edit.once((), || value.set(next))
+        })),
+    };
     let local_open = signal(false);
     let (inline, open) = match mode.unwrap_or(ComboboxMode::Popup) {
         ComboboxMode::Inline => (true, binding(|| true, |_: bool| {})),
-        ComboboxMode::Popup => (false, local_open.into_binding()),
+        ComboboxMode::Popup => (
+            false,
+            controlled_open.unwrap_or_else(|| local_open.into_binding()),
+        ),
     };
     let mut list = use_combobox(options, selection).debounce(debounce);
     if let Some(query) = controlled {
@@ -54,8 +71,24 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
     if let Some(search) = search {
         list = list.search(move |query| search(query));
     }
+    kivact_core::state::effect_on(disabled, move |disabled| {
+        if *disabled {
+            list.close();
+        }
+    });
+    let shown = list.is_open();
+    let sheet_shown = list.is_sheet_open();
     let source = list.options();
-    let known = labels(source, selection);
+    let label_source = memo(move || {
+        let mut rows = source.get();
+        for item in options.get() {
+            if !rows.iter().any(|row| row.key() == item.key()) {
+                rows.push(item);
+            }
+        }
+        rows
+    });
+    let known = labels(label_source, selection);
     let filtering = list.is_filtering();
     list = list.filter(move |query, item| {
         if exclude_selected
@@ -79,7 +112,7 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
     let query = list.query();
     let displayed = binding(
         memo(move || {
-            if !free_text && !filtering.get() && controlled.is_none() {
+            if !free_text && !filtering.get() {
                 match selection {
                     Selection::Single(value) => value.with(|value| {
                         value
@@ -95,7 +128,7 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
         }),
         move |text| {
             if !disabled.get_untracked() {
-                if !list.is_open().get_untracked() {
+                if !shown.get_untracked() {
                     list.open();
                 }
                 query.set(text);
@@ -109,7 +142,7 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
     let gesture = kivact_core::state::machine(
         crate::select::machine::SheetGesture::Idle,
         move || crate::select::machine::Machine {
-            readiness: if !disabled.get() && !list.is_open().get() {
+            readiness: if !disabled.get() && !shown.get() {
                 crate::select::machine::Readiness::Ready
             } else {
                 crate::select::machine::Readiness::Unavailable
@@ -154,7 +187,7 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
                         gesture.send(crate::select::machine::Event::Reset);
                     } else if event.kind() != PointerKind::Touch
                         && matches!(event.phase(), PointerPhase::Down(_))
-                        && !list.is_open().get_untracked()
+                        && !shown.get_untracked()
                     {
                         list.open();
                     } else if event.kind() == PointerKind::Touch
@@ -269,9 +302,17 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
     );
     let empty =
         empty.unwrap_or_else(|| kivact_core::i18n::message("combobox.empty", "No results found."));
+    let loading = kivact_core::i18n::message("combobox.loading", "Loading…");
+    let failed = kivact_core::i18n::message("combobox.failed", "Could not load suggestions.");
+    let search_status = list.search_status();
+    let empty = memo(move || match search_status.get() {
+        kivact_core::task::AsyncState::Pending => loading.get(),
+        kivact_core::task::AsyncState::Failed(_) => failed.get(),
+        _ => empty.get(),
+    });
     let surface_variants = variants.clone();
     let surface = show(
-        move || list.is_open().get() && !list.is_sheet_open().get(),
+        move || shown.get() && !sheet_shown.get(),
         move || {
             let content = suggestions(list, source, name, empty, surface_variants.clone());
             if inline {
@@ -291,13 +332,14 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
             }
         },
     );
-    let sheet_open = binding(list.is_sheet_open(), move |shown| {
+    let sheet_open = binding(sheet_shown, move |shown| {
         if !shown {
             list.close();
         }
     });
     let sheet_input = node_ref();
     let sheet_list = list.with_input_ref(sheet_input);
+    let sheet_search = kivact_core::i18n::message("combobox.sheet_search", "Search options");
     let sheet = crate::dialog(name, sheet_open)
         .mode(kivact_interaction::DialogMode::Drawer(
             kivact_core::geometry::Edge::Bottom,
@@ -305,7 +347,7 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
         .initial_focus(sheet_input)
         .content(move || {
             column((
-                text_input(name, query)
+                text_input(sheet_search, query)
                     .node_ref(sheet_input)
                     .disabled(disabled)
                     .placeholder(placeholder)

@@ -9,6 +9,7 @@ use std::{future::Future, pin::Pin, rc::Rc, time::Duration};
 pub(super) type Matcher<K> = Rc<dyn Fn(&str, &ListItem<K>) -> bool>;
 pub(super) type Search<K> =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = kivact_core::Result<Vec<ListItem<K>>>>>>>;
+// xtask-allow(state-fields): These independent setup bindings, slots and structural options configure a builder; lifecycle state belongs to ComboboxApi.
 /// A themed editable list of keyed suggestions, created by [`combobox`].
 /// Single choices show their label; multiple choices can be displayed as chips.
 pub struct Combobox<K: ItemKey> {
@@ -17,6 +18,8 @@ pub struct Combobox<K: ItemKey> {
     pub(super) options: Value<Vec<ListItem<K>>>,
     pub(super) selection: Selection<K>,
     pub(super) query: Option<Binding<String>>,
+    pub(super) open: Option<Binding<bool>>,
+    pub(super) on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     pub(super) free_text: bool,
     pub(super) mode: Option<ComboboxMode>,
     pub(super) chips: bool,
@@ -55,6 +58,8 @@ pub fn combobox<K: ItemKey>(
         options: options.into_value(),
         selection: selection.into_selection(),
         query: None,
+        open: None,
+        on_edit: None,
         free_text: false,
         mode: None,
         chips: false,
@@ -70,6 +75,19 @@ pub fn combobox<K: ItemKey>(
     }
 }
 impl<K: ItemKey> Combobox<K> {
+    /// Observe each committed selection change.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_edit = Some(kivact_core::state::callback(f));
+        self
+    }
+    /// Control popup visibility. Inline mode always shows its suggestions.
+    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
+        self.open = Some(open.into_binding());
+        self
+    }
     /// Bind the text typed into the editor independently of keyed selection.
     pub fn query(mut self, query: impl IntoBinding<String>) -> Self {
         self.query = Some(query.into_binding());

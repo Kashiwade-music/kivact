@@ -83,6 +83,7 @@ mod text_primitives;
 mod text_style;
 mod touch_scroll;
 mod transform;
+mod ui_combobox;
 mod ui_command_palette;
 mod ui_components;
 mod ui_controls;
