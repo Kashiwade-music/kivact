@@ -11,6 +11,51 @@ pub(super) fn root<S>(t: &Theme, _: &Look<S>) -> Style {
         .font_size(t.text().size)
         .color(ColorToken::Text)
 }
+pub(super) fn breadcrumb_root(t: &Theme, _: &Look<()>) -> Style {
+    let p = &t.ext::<crate::UiTokens>().breadcrumb;
+    style()
+        .direction(Direction::Row)
+        .gap(p.gap)
+        .padding(p.padding)
+        .font_size(t.text().size)
+        .color(ColorToken::Text)
+}
+pub(super) fn stepper_root(t: &Theme, _: &Look<()>) -> Style {
+    let p = &t.ext::<crate::UiTokens>().stepper;
+    style()
+        .direction(Direction::Row)
+        .gap(p.gap)
+        .padding(p.padding)
+        .font_size(t.text().size)
+        .color(ColorToken::Text)
+}
+pub(super) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
+    let p = &t.ext::<crate::UiTokens>().navigation_menu;
+    style()
+        .direction(Direction::Row)
+        .gap(p.gap)
+        .padding(p.padding)
+        .font_size(t.text().size)
+        .color(ColorToken::Text)
+}
+pub(super) fn stepper_item(t: &Theme, look: &Look<crate::StepperItemState>) -> Style {
+    let p = &t.ext::<crate::UiTokens>().stepper;
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .min_width(p.min_step_width)
+        .gap(p.connector_gap)
+        .color(if look.index == look.current {
+            t.colors().accent
+        } else {
+            t.colors().text
+        })
+        .opacity(if look.disabled {
+            t.disabled_opacity()
+        } else {
+            1.0
+        })
+}
 pub(super) fn part<S>(_: &Theme, _: &Look<S>) -> Style {
     style()
         .direction(Direction::Row)

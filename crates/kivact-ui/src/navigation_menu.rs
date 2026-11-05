@@ -20,6 +20,7 @@ pub struct NavigationMenu {
     placement: Placement,
     align: OverlayAlign,
     variants: crate::variants::Variants,
+    changed: Option<Rc<dyn Fn(bool)>>,
 }
 /// Construct a navigation landmark under an accessible label.
 #[track_caller]
@@ -32,9 +33,15 @@ pub fn navigation_menu(label: impl IntoText) -> NavigationMenu {
         placement: Placement::Below,
         align: OverlayAlign::Start,
         variants: crate::variants::Variants::default(),
+        changed: None,
     }
 }
 impl NavigationMenu {
+    /// Report accepted opening and closing transitions.
+    pub fn on_open_change(mut self, f: impl Fn(bool) + 'static) -> Self {
+        self.changed = Some(Rc::new(f));
+        self
+    }
     /// Add a panel trigger. Keys belong to the application's navigation data.
     pub fn link<K: 'static, V: IntoView>(
         mut self,
@@ -89,8 +96,14 @@ impl IntoView for NavigationMenu {
             placement,
             align,
             variants,
+            changed,
         } = self;
         let api = use_navigation_menu();
+        let api = if let Some(changed) = changed {
+            api.on_open_change(move |open| changed(open))
+        } else {
+            api
+        };
         let state = api.state();
         let disabled = root
             .accessible_disabled()

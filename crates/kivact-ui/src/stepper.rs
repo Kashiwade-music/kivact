@@ -18,12 +18,27 @@ pub enum StepStatus {
     Error,
 }
 /// A step's optional indicator.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq)]
 pub enum StepIndicator {
     #[default]
     Auto,
     Number,
     None,
+    Custom(IndicatorContent),
+}
+/// A custom indicator factory; equality follows factory identity.
+#[derive(Clone)]
+pub struct IndicatorContent(Rc<dyn Fn() -> View>);
+impl PartialEq for IndicatorContent {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+impl StepIndicator {
+    /// Build custom indicator contents at each mount.
+    pub fn custom<V: IntoView>(f: impl Fn() -> V + 'static) -> Self {
+        Self::Custom(IndicatorContent(Rc::new(move || f().into_view())))
+    }
 }
 /// Passive step metadata; labels can be localized or reactive.
 #[derive(Clone, PartialEq)]
@@ -104,7 +119,9 @@ pub struct StepperItemState {
     pub index: usize,
     pub current: usize,
     pub status: StepStatus,
+    // xtask-allow(state-fields): Independent caller availability projected into a passive recipe snapshot.
     pub disabled: bool,
+    // xtask-allow(state-fields): Independent optional-step metadata projected into a passive recipe snapshot.
     pub optional: bool,
 }
 /// A progress list whose current step belongs to the application.
@@ -173,17 +190,74 @@ impl IntoView for Stepper {
                     optional: item.optional.get(),
                 })
             };
+            let part_variants = child_variants.clone();
             let contents = kivact_core::view::dynamic(item, move |item| {
                 let indicator = match item.indicator {
                     StepIndicator::None => None,
-                    StepIndicator::Auto if index < current.get() => Some(text("✓").into_view()),
+                    StepIndicator::Custom(content) => Some((content.0)()),
+                    StepIndicator::Auto => Some(
+                        text(move || {
+                            if index < current.get() {
+                                "✓".to_owned()
+                            } else {
+                                (index + 1).to_string()
+                            }
+                        })
+                        .into_view(),
+                    ),
                     _ => Some(text((index + 1).to_string()).into_view()),
                 };
-                let description = item.description.map(|description| text(description));
-                let extra = item.content.map(|content| (content.0)());
-                let end = item.end_content.map(|content| (content.0)());
-                let body = column((text(item.label), description, extra));
-                node().child(indicator).child(body).child(end)
+                let indicator = indicator.map(|indicator| {
+                    crate::layer::with_recipe_style(
+                        node(),
+                        |r| r.stepper_recipes().indicator_recipe(),
+                        &part_variants,
+                        state,
+                    )
+                    .child(indicator)
+                });
+                let label = crate::layer::with_recipe_style(
+                    text(item.label),
+                    |r| r.stepper_recipes().label_recipe(),
+                    &part_variants,
+                    state,
+                );
+                let description = item.description.map(|description| {
+                    crate::layer::with_recipe_style(
+                        text(description),
+                        |r| r.stepper_recipes().description_recipe(),
+                        &part_variants,
+                        state,
+                    )
+                });
+                let extra = item.content.map(|content| {
+                    crate::layer::with_recipe_style(
+                        node(),
+                        |r| r.stepper_recipes().content_recipe(),
+                        &part_variants,
+                        state,
+                    )
+                    .child((content.0)())
+                });
+                let end = item.end_content.map(|content| {
+                    crate::layer::with_recipe_style(
+                        node(),
+                        |r| r.stepper_recipes().end_content_recipe(),
+                        &part_variants,
+                        state,
+                    )
+                    .child((content.0)())
+                });
+                let optional = kivact_core::view::show(
+                    move || state().optional,
+                    || text(kivact_core::i18n::message("stepper.optional", "Optional")),
+                );
+                let body = column((label, description, optional, extra));
+                node()
+                    .style(style().direction(Direction::Row))
+                    .child(indicator)
+                    .child(body)
+                    .child(end)
             });
             let row = node()
                 .role(Role::ListItem)

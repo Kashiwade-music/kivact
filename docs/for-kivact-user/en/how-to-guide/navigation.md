@@ -1,0 +1,39 @@
+# Navigation
+
+Use the core navigation builders with your application's data. Installing a kit theme changes their recipes and tokens.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui::{self, PaginationMode};
+
+fn navigation() -> impl IntoView {
+    let page = signal(0usize);
+    let step = signal(1usize);
+    column((
+        ui::breadcrumb(vec![
+            ListItem::new("home", "Home"),
+            ListItem::new("orders", "Orders"),
+        ]).on_activate(|key| println!("Open {key}")),
+        ui::pagination(20usize, page).siblings(2usize),
+        ui::pagination(20usize, page).mode(PaginationMode::Input),
+        ui::stepper(vec![
+            StepperItem::new("Account"),
+            StepperItem::new("Address").description("Delivery address"),
+            StepperItem::new("Confirm").status(StepStatus::Success),
+        ], step),
+        ui::navigation_menu("Main navigation")
+            .link("guide", "Guide", || button("Read the guide"))
+            .link("help", "Help", || text("Contact support")),
+    ))
+}
+```
+
+Pagination binds a zero-based page index; visible page numbers and the editable page field are one based. `.siblings` controls the neighborhood around the current page; `.first_last(true)` adds endpoint controls. `.step` changes the previous/next increment. `.item` replaces the visible contents of each `PageItem` while retaining activation, current-page semantics and focus behavior. `.label_format` receives a one-based page number.
+
+The constructor's count is the page-count source. Calling `.total_items(total)` explicitly replaces that source with an item total, divided by `.page_size(binding)` (or one if omitted). `.page_size_options` accepts reactive options. Changing page size through the control returns to the first page. `.has_more(true)` allows next-page navigation when the total is still unknown. `PaginationMode` selects pages, dots, a count, compact controls, an editable input, or no page controls. Input commits on Enter or focus departure and clamps to the available pages.
+
+Stepper current indices are zero based. A step's description, status, optional marker, enabled state, indicator and content belong to its `StepperItem`. `.on_step_press` reports activation; the application changes the current step. `.orientation` changes the layout. Kits express density, spacing and indicator styling through recipes, tokens and variants.
+
+Breadcrumbs expose a navigation landmark and list. The last item has `CurrentItem::Page` and is not an activation target. Earlier items activate their keys with Enter, Space or a pointer. `.item` replaces item contents and `.separator` replaces decorative separators.
+
+Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a panel; Escape dismisses it. Pinned panels also dismiss on outside press or focus departure. `.open_delay` and `.close_delay` accept `Duration`; `.placement` and `.align` position panels. Use `interaction::use_navigation_menu()` when composing a domain navigation control: `NavOpen` is its single visibility state, and `hover_after`, `leave_after`, `pin`, `toggle` and `close` send transitions to that owner.
