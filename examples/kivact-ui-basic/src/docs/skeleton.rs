@@ -2,7 +2,6 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {

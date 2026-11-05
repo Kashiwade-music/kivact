@@ -1,17 +1,9 @@
-//! Role: The Lyra badge: a small status label that can act as a link.
-
-use crate::parts::{pressable, sized_icon};
+//! Role: Basic visual badge variants and their recipe.
 use crate::theme_access::wide_focus_ring;
 use crate::tokens::Tokens;
-use kivact::view::{Node, NodeBuilder, node, text};
-
 use kivact::custom::PartState;
-use kivact::state::IntoText;
-use kivact::state::{Callback, Value};
 use kivact::style::{Align, Color, Cursor, Justify, TextDecorationLine, style};
-use kivact::view::{IntoView, Role, View};
-
-/// The look of a [`Badge`] (badge.tsx `variant`).
+/// The look of a standard `kivact::ui::badge` (badge.tsx `variant`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum BadgeVariant {
     /// Solid primary.
@@ -29,75 +21,7 @@ pub enum BadgeVariant {
     Link,
 }
 
-/// A badge (badge.tsx). Created by [`badge`].
-pub struct Badge {
-    root: Node,
-    label: Value<String>,
-    variant: BadgeVariant,
-    icon: Option<View>,
-    trailing_icon: Option<View>,
-    on_press: Option<Callback<()>>,
-}
-
-/// A badge showing `text`.
-///
-/// ```no_run
-/// use kivact::view::{icon};
-/// use kivact::prelude::*;
-/// use kivact_ui_basic as basic;
-///
-/// fn status() -> impl IntoView {
-///     basic::badge("Verified")
-///         .variant(basic::BadgeVariant::Secondary)
-///         .icon(icon("badge-check"))
-/// }
-/// ```
-#[track_caller]
-pub fn badge(text_value: impl IntoText) -> Badge {
-    let label = text_value.into_text_value();
-    Badge {
-        root: node().name(label),
-        label,
-        variant: BadgeVariant::Default,
-        icon: None,
-        trailing_icon: None,
-        on_press: None,
-    }
-}
-
-impl Badge {
-    /// Choose the look.
-    pub fn variant(mut self, variant: BadgeVariant) -> Self {
-        self.variant = variant;
-        self
-    }
-
-    /// Show `icon` before the text; it is drawn at 12 px.
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-
-    /// Show `icon` after the text; it is drawn at 12 px.
-    pub fn trailing_icon(mut self, icon: impl IntoView) -> Self {
-        self.trailing_icon = Some(icon.into_view());
-        self
-    }
-
-    /// Make the badge a link-like button that reports presses to `f`.
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
-        self
-    }
-}
-
-impl NodeBuilder for Badge {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
+impl kivact::ui::Variant for BadgeVariant {}
 /// Background, text and border colors of `variant`; hover colors apply to pressable badges.
 /// The fill, text and border colors of `variant`, at rest or while a
 /// pressable badge is hovered.
@@ -193,31 +117,18 @@ fn badge_style(
         .focus_visible(focus)
 }
 
-impl IntoView for Badge {
-    fn into_view(self) -> View {
-        let variant = self.variant;
-        let actionable = self.on_press.is_some();
-        let (root, state) = pressable(self.root, Role::Button, self.on_press);
-        let padding = (
-            if self.icon.is_some() { 6.0 } else { 8.0 },
-            if self.trailing_icon.is_some() {
-                6.0
-            } else {
-                8.0
-            },
-        );
-        root.base_style(move || {
-            badge_style(
-                &kivact::style::use_tokens::<crate::Tokens>(),
-                variant,
-                actionable,
-                &state.get(),
-                padding,
-            )
-        })
-        .child(self.icon.map(|icon| sized_icon(icon, 12.0)))
-        .child(text(self.label))
-        .child(self.trailing_icon.map(|icon| sized_icon(icon, 12.0)))
-        .into_view()
-    }
+pub(crate) fn recipe(
+    t: &kivact::style::Theme,
+    s: &kivact::ui::Look<kivact::ui::BadgeState>,
+) -> kivact::style::Style {
+    badge_style(
+        &t.ext::<Tokens>(),
+        s.variant::<BadgeVariant>().copied().unwrap_or_default(),
+        s.actionable,
+        &s.input,
+        (
+            if s.leading_icon { 6.0 } else { 8.0 },
+            if s.trailing_icon { 6.0 } else { 8.0 },
+        ),
+    )
 }

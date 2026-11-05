@@ -227,6 +227,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `skeleton`
 - `spinner`
 - `kbd`
+- `badge`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

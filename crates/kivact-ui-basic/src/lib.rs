@@ -104,7 +104,7 @@ pub use attachment::{
     attachment_action, attachment_group,
 };
 pub use avatar::{Avatar, AvatarSize, avatar, avatar_group, avatar_group_count};
-pub use badge::{Badge, BadgeVariant, badge};
+pub use badge::BadgeVariant;
 pub use breadcrumb::{
     BreadcrumbLink, breadcrumb, breadcrumb_content, breadcrumb_ellipsis, breadcrumb_link,
     breadcrumb_page, breadcrumb_separator,

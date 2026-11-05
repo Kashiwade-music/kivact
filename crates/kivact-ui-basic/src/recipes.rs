@@ -65,6 +65,7 @@ fn build() -> UiRecipes {
         .skeleton(|_| skeleton)
         .spinner(|_| spinner)
         .kbd(|_| kbd)
+        .badge(|_| crate::badge::recipe)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts
