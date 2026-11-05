@@ -80,6 +80,15 @@ impl App {
         self.options = self.options.font(font);
         self
     }
+    /// Register an ordered collection of font files with the same loading and
+    /// validation behavior as [`Self::font`].
+    #[track_caller]
+    pub fn fonts(mut self, fonts: impl IntoIterator<Item = impl Into<Asset>>) -> Self {
+        for font in fonts {
+            self = self.font(font);
+        }
+        self
+    }
     /// Size of the blocking pool (default `min(4, CPUs)`).
     pub fn blocking_threads(mut self, n: usize) -> Self {
         self.options = self.options.blocking_threads(n);
