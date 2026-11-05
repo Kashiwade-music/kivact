@@ -56,12 +56,7 @@ pub(super) fn shape(
     );
     let area = visual::text_box(host, id);
     let (shaped, origin) = match n.kind() {
-        _ if host.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_some()
-            && !n.multiline() =>
-        {
+        _ if host.editors[n.index.0].is_some() && !n.multiline() => {
             let line = crate::model::interact::text_geometry::line_box(host, id, engine, area);
             let (mut lines, text) = host.edit_lines(id, engine)?;
             (
@@ -72,22 +67,13 @@ pub(super) fn shape(
                 },
             )
         }
-        NodeType::Text
-            if host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_none() =>
-        {
-            (
-                crate::model::interact::text_geometry::shape_static_text(
-                    host, id, engine, area.width,
-                )?,
-                Point {
-                    x: area.x,
-                    y: area.y,
-                },
-            )
-        }
+        NodeType::Text if host.editors[n.index.0].is_none() => (
+            crate::model::interact::text_geometry::shape_static_text(host, id, engine, area.width)?,
+            Point {
+                x: area.x,
+                y: area.y,
+            },
+        ),
         _ => return None,
     };
     let inks = line_inks(&shaped, origin, ink);

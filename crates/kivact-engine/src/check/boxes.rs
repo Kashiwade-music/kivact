@@ -118,12 +118,9 @@ pub(super) struct Clip {
 /// The clipping ancestors of the text `id` (`up`, nearest first), with the
 /// padding box each clips to.
 pub(super) fn clips(host: &Model, id: NodeId, up: &[NodeId]) -> Vec<Clip> {
-    let input = host.node(id).is_some_and(|n| {
-        host.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_some()
-    });
+    let input = host
+        .node(id)
+        .is_some_and(|n| host.editors[n.index.0].is_some());
     up.iter()
         .filter_map(|a| {
             let n = host.node(*a).filter(|n| n.clips())?;

@@ -9,7 +9,6 @@ pub struct HostOptions {
     /// window opens; the host does not check it again. The minimum size
     /// comes later, with the first revision (`Writer::set_window`).
     pub window_size: Option<Size>,
-    /// How the window's GPU device is made (`Shell::gpu_preference`). Used
-    /// with feature `gpu-interop`; ignored without it.
+    /// How the window's GPU device is made (`Shell::gpu_preference`).
     pub gpu_preference: kivact_types::GpuPreference,
 }

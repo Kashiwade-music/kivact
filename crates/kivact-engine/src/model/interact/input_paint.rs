@@ -41,13 +41,7 @@ impl Model {
 }
 
 fn clamp_range(text: &str, range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
-    let floor = |offset: usize| {
-        let mut offset = offset.min(text.len());
-        while !text.is_char_boundary(offset) {
-            offset -= 1;
-        }
-        offset
-    };
+    let floor = |offset| kivact_types::text_utf::floor_char_boundary(text, offset);
     floor(range.start)..floor(range.end)
 }
 

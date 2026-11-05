@@ -33,12 +33,7 @@ pub(super) fn reach(
         ..bounds
     };
     let glyphs = match n.kind() {
-        _ if n.kind() == NodeType::Text
-            || host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some() =>
-        {
+        _ if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() => {
             text_reach(host, id)
         }
         _ => 0.0,

@@ -28,9 +28,8 @@
 //!   which only window acceptance commits (with the hashes). No accepted
 //!   payload tree is retained in the engine. A rejected update requests a
 //!   complete resynchronization (`Dirt::Full`).
-//! - Publication happens after the client's turns, or, when the native
-//!   window has a frame to draw, after that frame
-//!   (`Window::defers_accessibility`).
+//! - Publication happens after the client's turns, or, when the window
+//!   has a frame to draw, after that frame (the redraw pumps again).
 //! - DrawList regions are flat synthetic leaves of their node, with native ids
 //!   counted down from `u64::MAX` that stay stable while the region exists;
 //!   a region with a non-finite or negative rect is left out alone.

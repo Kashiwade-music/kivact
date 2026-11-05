@@ -41,12 +41,7 @@ pub(crate) fn layout_findings(
         if n.hidden() || ignores(n, check) {
             continue;
         }
-        if n.kind() == NodeType::Text
-            || host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some()
-        {
+        if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() {
             text_findings(host, engine, check, id, ink, &mut out);
         }
         stack.extend(
@@ -92,10 +87,7 @@ pub(crate) fn text_findings(
     if shaped.lines.is_empty() {
         return;
     }
-    let input = host.editors[n.index.0]
-        .as_deref()
-        .map(|editor| editor.editor.state())
-        .is_some();
+    let input = host.editors[n.index.0].is_some();
     let tolerance = check.overflow_tolerance;
     let text = shaped.rect();
     let up = ancestors(host, id);

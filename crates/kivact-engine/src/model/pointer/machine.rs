@@ -360,12 +360,9 @@ impl Model {
             .filter(|f| f.region.is_none())
             .map(|f| f.node)
             .filter(|f| {
-                self.tree.get(*f).is_some_and(|n| {
-                    self.editors[n.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some()
-                })
+                self.tree
+                    .get(*f)
+                    .is_some_and(|n| self.editors[n.index.0].is_some())
             });
         if let (Some(i), true) = (input, primary)
             && let Some(at) = space.text_offset(self, i)

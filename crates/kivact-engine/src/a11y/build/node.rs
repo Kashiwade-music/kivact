@@ -118,12 +118,10 @@ impl Model {
                         .and_then(|s| s.description.clone())
                         .unwrap_or_default(),
                 ),
-                value_text: match self.editors[n.index.0]
-                    .as_deref()
-                    .map(|editor| editor.editor.state())
-                {
-                    Some(_) => None,
-                    None => n.semantics().and_then(|s| s.value_text.clone()),
+                value_text: if self.editors[n.index.0].is_some() {
+                    None
+                } else {
+                    n.semantics().and_then(|s| s.value_text.clone())
                 },
                 disabled,
                 hidden,
@@ -136,13 +134,10 @@ impl Model {
                 ..*extras.unwrap_or_default()
             },
         };
-        if self.node(id).is_some_and(|n| {
-            self.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some()
-                && !n.password()
-        }) {
+        if self
+            .node(id)
+            .is_some_and(|n| self.editors[n.index.0].is_some() && !n.password())
+        {
             let text = self.editing_semantics(id, offset, engine);
             output.semantics.text = Some(text);
         } else if let Some(authored) = authored_text {
@@ -207,19 +202,17 @@ impl Model {
                 && !region.semantics.disabled
                 && region.semantics.focusable
                 && self.in_scope(id);
-            let mut props = Some(properties(&region.semantics, |t| self.semantic_target(t)));
+            let mut props = properties(&region.semantics, |t| self.semantic_target(t));
             if region.semantics.invalid.unwrap_or(false) {
-                props.get_or_insert_with(Default::default).invalid = Some(true);
+                props.invalid = Some(true);
             }
-            if let Some(props) = &mut props {
-                self.validate_relations(
-                    types::FocusTarget {
-                        node: id,
-                        region: Some(region_id),
-                    },
-                    props,
-                );
-            }
+            self.validate_relations(
+                types::FocusTarget {
+                    node: id,
+                    region: Some(region_id),
+                },
+                &mut props,
+            );
             leaves.push(kivact_types::render::SemanticsNode {
                 id: kivact_types::SemanticsId(native_id),
                 children: Vec::new(),
@@ -244,7 +237,7 @@ impl Model {
                     expanded: region.semantics.expanded,
                     test_id: None,
                     actions: Some(offered),
-                    ..(props).unwrap_or_default()
+                    ..props
                 },
             });
         }

@@ -33,8 +33,7 @@
 //! the groups, the model holds the window size (`viewport`, which the
 //! layout fills) and, apart from it, the window title and minimum size to
 //! set after the turn (`window_request`) and the imports and drops of
-//! shared textures to carry out after it (`external_writes`, feature
-//! `gpu-interop`).
+//! shared textures to carry out after it (`external_writes`).
 //!
 //! A group's state lives in a leaf `state` module under the module that
 //! changes it: `focus::state::Focus` (the focus with its indicator and pending

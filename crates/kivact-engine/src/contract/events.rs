@@ -13,8 +13,8 @@ use kivact_types::{
 /// `LayoutChanged`), assistive technology and dismissal (`A11y`), time and platform answers (`FrameTick`,
 /// `EffectResult`), the window and the platform (`EnvChanged`,
 /// `Lifecycle`, `CloseRequested`), the GPU texture sharing
-/// (`ExternalImported`, `GpuAdapterChanged`; a host or client built without its
-/// own `gpu-interop` never sends them and ignores them) and reports
+/// (`ExternalImported`, `GpuAdapterChanged`; a client built without its
+/// own `gpu-interop` ignores them) and reports
 /// (`HostFailure`, `TurnsCut`, `AssetFailed`, `DrawDropped`, `LayoutWarning`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum HostEvent {
@@ -154,17 +154,17 @@ pub enum HostEvent {
     TurnsCut {
         turns: u32,
     },
+    /// The loading status of the asset of the image node `node` changed.
+    ImageStatusChanged {
+        node: NodeId,
+        status: kivact_types::ImageStatus,
+    },
     /// An asset of `node` failed: its image could not be loaded or decoded,
     /// or the font family its text asks for is not installed. `message`
     /// names the source (for a file, its absolute path and the current
     /// directory) and the reason. Sent once per node and image, and once
     /// per missing family (on the first node using it); the node draws
     /// nothing (an image) or uses the system UI font (a family).
-    /// A projection of an image node's current asset loading result.
-    ImageStatusChanged {
-        node: NodeId,
-        status: kivact_types::ImageStatus,
-    },
     AssetFailed {
         node: NodeId,
         message: String,

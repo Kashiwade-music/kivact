@@ -126,11 +126,7 @@ impl Model {
                 .tree
                 .iter()
                 .filter(|(_, n)| {
-                    (n.kind() == NodeType::Text
-                        || self.editors[n.index.0]
-                            .as_deref()
-                            .map(|editor| editor.editor.state())
-                            .is_some())
+                    (n.kind() == NodeType::Text || self.editors[n.index.0].is_some())
                         || n.measure().is_some()
                 })
                 .map(|(id, _)| id)
