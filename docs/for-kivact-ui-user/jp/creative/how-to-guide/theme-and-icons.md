@@ -6,6 +6,13 @@
 
 キットの見た目は、Kivact の普通の `Theme` です。`kivact::ui` の標準部品（ボタン、テキスト入力、メニュー、ダイアログなど）も含めて、すべての見た目はそこから決まります。このガイドは、[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。テーマの仕組みそのものは、[テーマと部品の見た目を変える](../../../../for-kivact-user/jp/how-to-guide/theming.md)で説明しています。
 
+名前付きのツールバーは `kivact::ui::toolbar(label).start(children).center(children).end(children)`、
+連結したアクションは `button_group(label, children)`、単一選択や複数選択は
+`toggle_group(label, options, selection)` を使います。Creative テーマが密な間隔、
+フィールドの背景、押された状態の色を設定します。排他的なセグメントには
+`kivact::ui::radio_group(label, options, selection).variant(kivact::ui::RadioGroupVariant::Segmented)`
+を使います。キーボード操作と選択は標準部品が持ち、テーマが見た目を設定します。
+
 ## テーマを適用する
 
 ```rust,no_run

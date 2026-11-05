@@ -6,6 +6,14 @@ Goal: install the kit's theme, pick an accent color and density, switch light an
 
 The kit's look is a plain Kivact `Theme`. Everything, including the standard components from `kivact::ui` (buttons, text fields, menus, dialogs), takes its appearance from it. This guide assumes you finished the [tutorial](../getting-started/README.md). The theme system itself is explained in [Change the theme and the look of components](../../../../for-kivact-user/en/how-to-guide/theming.md).
 
+Use `kivact::ui::toolbar(label).start(children).center(children).end(children)`
+for a named toolbar, `button_group(label, children)` for joined actions, and
+`toggle_group(label, options, selection)` for a single or multiple selection.
+The Creative theme supplies their dense spacing, field surfaces and pressed colors.
+For exclusive segments, use
+`kivact::ui::radio_group(label, options, selection).variant(kivact::ui::RadioGroupVariant::Segmented)`.
+These standard controls own keyboard navigation and selection; the theme supplies appearance.
+
 ## Install the theme
 
 ```rust,no_run
