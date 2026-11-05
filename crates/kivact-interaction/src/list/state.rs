@@ -134,36 +134,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         pending,
     });
     let stored = owner.store("ListApi", state.clone());
-    let duplicates = RefCell::new(Vec::<K>::new());
-    effect(move || {
-        if stored.try_get().is_none() {
-            return;
-        }
-        // History follows the derived tab stop even before an explicit focus request.
-        if let Some(at) = state
-            .active
-            .get()
-            .and_then(|key| state.order.with(|order| order.position(&key)))
-        {
-            pending.send(machine::Event::Position(at));
-        }
-        let next = state.order.with(|order| order.duplicates().to_vec());
-        if *duplicates.borrow() != next {
-            if !next.is_empty() {
-                owner.report(
-                    ErrorKind::Message,
-                    format!(
-                        "ListApi: {} duplicate logical key(s); first occurrence wins",
-                        next.len()
-                    ),
-                );
-            }
-            *duplicates.borrow_mut() = next;
-        }
-        if state.pending.state().get().focus == machine::Focus::Physical {
-            reconcile(&state);
-        }
-    });
+    observe_list(state, stored);
     stored
 }
 
@@ -416,4 +387,39 @@ fn active_value<K: kivact_core::state::ItemKey>(
             })
         })
     })
+}
+
+fn observe_list<K: kivact_core::state::ItemKey>(state: Rc<State<K>>, stored: Owned<Rc<State<K>>>) {
+    let owner = state.owner;
+    let pending = state.pending;
+    let duplicates = RefCell::new(Vec::<K>::new());
+    effect(move || {
+        if stored.try_get().is_none() {
+            return;
+        }
+        // History follows the derived tab stop even before an explicit focus request.
+        if let Some(at) = state
+            .active
+            .get()
+            .and_then(|key| state.order.with(|order| order.position(&key)))
+        {
+            pending.send(machine::Event::Position(at));
+        }
+        let next = state.order.with(|order| order.duplicates().to_vec());
+        if *duplicates.borrow() != next {
+            if !next.is_empty() {
+                owner.report(
+                    ErrorKind::Message,
+                    format!(
+                        "ListApi: {} duplicate logical key(s); first occurrence wins",
+                        next.len()
+                    ),
+                );
+            }
+            *duplicates.borrow_mut() = next;
+        }
+        if state.pending.state().get().focus == machine::Focus::Physical {
+            reconcile(&state);
+        }
+    });
 }

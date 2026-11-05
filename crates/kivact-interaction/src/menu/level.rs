@@ -331,6 +331,28 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         Handled::No
     }
 
+    fn activate_item(
+        self,
+        invoke_key: &K,
+        disabled: bool,
+        submenu: bool,
+        keep_open: bool,
+    ) -> Result<(), kivact_core::UiError> {
+        let Self { session, depth, .. } = self;
+        if disabled {
+            return Ok(());
+        }
+        if submenu {
+            session.open_submenu(depth, invoke_key.clone());
+            return Ok(());
+        }
+        session.options.get().choose.try_call(invoke_key.clone())?;
+        if !keep_open {
+            session.close(PopupCloseReason::Selection);
+        }
+        Ok::<_, kivact_core::UiError>(())
+    }
+
     /// The part of the item `key`. Setup only, in the item's row.
     #[track_caller]
     pub(super) fn item(self, key: K) -> Part<MenuItemState> {
@@ -341,16 +363,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             group,
             ..
         } = self;
-        let entry = {
-            let key = key.clone();
-            memo(move || {
-                rows.with(|rows| {
-                    rows.iter()
-                        .find(|(_, entry)| entry.key() == Some(&key))
-                        .map(|(_, entry)| entry.clone())
-                })
-            })
-        };
+        let entry = item_entry(rows, key.clone());
         // The kind of an item is part of its row's identity.
         let kind = entry.with_untracked(|entry| entry.as_ref().and_then(MenuEntry::item_kind));
         let submenu = kind == Some(MenuItemKind::Submenu);
@@ -407,18 +420,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 .description(description)
                 .on_pointer(move |event: PointerEvent| self.item_pointer(hovered, event))
                 .on_press(move || {
-                    if disabled.get() {
-                        return Ok(());
-                    }
-                    if submenu {
-                        session.open_submenu(depth, invoke_key.clone());
-                        return Ok(());
-                    }
-                    session.options.get().choose.try_call(invoke_key.clone())?;
-                    if !keep_open.get() {
-                        session.close(PopupCloseReason::Selection);
-                    }
-                    Ok::<_, kivact_core::UiError>(())
+                    self.activate_item(&invoke_key, disabled.get(), submenu, keep_open.get())
                 });
             let member = if matches!(kind, Some(MenuItemKind::Checkbox | MenuItemKind::Radio)) {
                 member.checked(move || check.get().is_some_and(MenuCheck::is_checked))
@@ -567,4 +569,20 @@ fn item_description<K: kivact_core::state::ItemKey>(
         }
         shortcut.get()
     })
+}
+
+fn item_entry<K: kivact_core::state::ItemKey>(
+    rows: Value<Rows<K>>,
+    key: K,
+) -> Value<Option<MenuEntry<K>>> {
+    {
+        let key = key.clone();
+        memo(move || {
+            rows.with(|rows| {
+                rows.iter()
+                    .find(|(_, entry)| entry.key() == Some(&key))
+                    .map(|(_, entry)| entry.clone())
+            })
+        })
+    }
 }

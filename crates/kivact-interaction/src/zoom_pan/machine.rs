@@ -119,6 +119,23 @@ impl Machine {
         }
         step.with(Effect::Finish(session, commit))
     }
+    fn pinch(&self, first: kivact_core::view::PointerId, at: Point, event: PointerEvent) -> Pinch {
+        Pinch {
+            fingers: [
+                Finger {
+                    pointer: first,
+                    start: at,
+                    now: at,
+                },
+                Finger {
+                    pointer: event.id(),
+                    start: event.pos(),
+                    now: event.pos(),
+                },
+            ],
+            transform: self.transform,
+        }
+    }
     fn touch_pointer(
         &self,
         state: &State,
@@ -139,21 +156,7 @@ impl Machine {
                     .collect();
                 if valid && others.len() == 1 && !state.active() {
                     let (first, at) = others[0];
-                    let pinch = Pinch {
-                        fingers: [
-                            Finger {
-                                pointer: first,
-                                start: at,
-                                now: at,
-                            },
-                            Finger {
-                                pointer: event.id(),
-                                start: event.pos(),
-                                now: event.pos(),
-                            },
-                        ],
-                        transform: self.transform,
-                    };
+                    let pinch = self.pinch(first, at, event);
                     let touches = std::mem::take(next.touches());
                     return Some((
                         Step::to(State::Pinch {

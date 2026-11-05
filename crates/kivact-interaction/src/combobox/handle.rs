@@ -725,16 +725,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 .on_press(move || self.choose(press_key.clone()))
                 .on_attach(move |_| {
                     register_row(rows, held.clone(), row);
-                    effect(move || {
-                        if is_active.get() {
-                            row.scroll_into_view();
-                        }
-                    });
-                    on_mount(move || {
-                        if is_active.get() {
-                            row.scroll_into_view();
-                        }
-                    });
+                    follow_active_row(row, is_active);
                 })
         })
     }
@@ -782,6 +773,19 @@ fn register_row<K: kivact_core::state::ItemKey>(
                     rows.remove(&leave);
                 }
             });
+        }
+    });
+}
+
+fn follow_active_row(row: NodeRef, is_active: Value<bool>) {
+    effect(move || {
+        if is_active.get() {
+            row.scroll_into_view();
+        }
+    });
+    on_mount(move || {
+        if is_active.get() {
+            row.scroll_into_view();
         }
     });
 }

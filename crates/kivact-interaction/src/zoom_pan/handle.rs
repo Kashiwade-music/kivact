@@ -174,39 +174,6 @@ impl ZoomPanApi {
         self.gesture.send(machine::Event::Stop(commit));
     }
 
-    /// A focusable surface using the existing native capture and focus paths.
-    ///
-    /// Wheel zooms around the pointer by `exp(-delta.y * 0.001)`; `+` and `-`
-    /// zoom around the surface center by 1.2 and its reciprocal. `0` fits the
-    /// [`content`](Self::content) bounds. Zoom scales are clamped to
-    /// [`Self::scale_range`].
-    /// Middle-button drag pans. Plain primary presses are unhandled, leaving
-    /// selection and gizmos to the caller; Space plus primary is the exception
-    /// and pans while Space is held at the press ([`is_space_armed`](Self::is_space_armed)).
-    /// Releasing Space does not end an active pan. Space is cleared on key
-    /// release, focus loss and Cancel.
-    /// Space presses and releases reach ancestor handlers except during a pan
-    /// ([`Handled::PreventDefault`]), but never activate the focused control
-    /// or region inside the surface. An application-wide Space action
-    /// therefore also runs when Space is pressed to start a
-    /// Space-plus-primary pan.
-    /// Pan snapshots the binding at press, commits on matching release, and
-    /// restores it on Escape, PointerCancel, focus departure, hiding, disabling
-    /// or owner disposal. Release applies its final position before Commit.
-    /// Wheel and zoom/fit keys are consumed without changing the transform
-    /// during an active pan or pinch. Caller handlers run first and can
-    /// consume events.
-    ///
-    /// Two fingers on the surface pinch: the second touch contact down while
-    /// another is down on it (and no pan is active) starts a pinch that
-    /// zooms by the change of the fingers' distance and pans by their
-    /// midpoint, keeping the content under the fingers there. The first
-    /// finger alone is unhandled, like a plain primary press. A pinch is one
-    /// edit like a pan: either finger lifted commits it, a canceled finger,
-    /// Escape, focus departure, hiding, disabling or owner disposal restore
-    /// the transform from its start. A third finger is unhandled. Dedicated
-    /// touchpad pinch events are not exposed by the public input path;
-    /// trackpad wheel events zoom.
     fn viewport_key(self, event: &KeyEvent, rect: Option<Rect>) -> Handled {
         let binding = self.transform;
         let value = binding.into_value();
@@ -262,6 +229,39 @@ impl ZoomPanApi {
         Handled::Yes
     }
 
+    /// A focusable surface using the existing native capture and focus paths.
+    ///
+    /// Wheel zooms around the pointer by `exp(-delta.y * 0.001)`; `+` and `-`
+    /// zoom around the surface center by 1.2 and its reciprocal. `0` fits the
+    /// [`content`](Self::content) bounds. Zoom scales are clamped to
+    /// [`Self::scale_range`].
+    /// Middle-button drag pans. Plain primary presses are unhandled, leaving
+    /// selection and gizmos to the caller; Space plus primary is the exception
+    /// and pans while Space is held at the press ([`is_space_armed`](Self::is_space_armed)).
+    /// Releasing Space does not end an active pan. Space is cleared on key
+    /// release, focus loss and Cancel.
+    /// Space presses and releases reach ancestor handlers except during a pan
+    /// ([`Handled::PreventDefault`]), but never activate the focused control
+    /// or region inside the surface. An application-wide Space action
+    /// therefore also runs when Space is pressed to start a
+    /// Space-plus-primary pan.
+    /// Pan snapshots the binding at press, commits on matching release, and
+    /// restores it on Escape, PointerCancel, focus departure, hiding, disabling
+    /// or owner disposal. Release applies its final position before Commit.
+    /// Wheel and zoom/fit keys are consumed without changing the transform
+    /// during an active pan or pinch. Caller handlers run first and can
+    /// consume events.
+    ///
+    /// Two fingers on the surface pinch: the second touch contact down while
+    /// another is down on it (and no pan is active) starts a pinch that
+    /// zooms by the change of the fingers' distance and pans by their
+    /// midpoint, keeping the content under the fingers there. The first
+    /// finger alone is unhandled, like a plain primary press. A pinch is one
+    /// edit like a pan: either finger lifted commits it, a canceled finger,
+    /// Escape, focus departure, hiding, disabling or owner disposal restore
+    /// the transform from its start. A third finger is unhandled. Dedicated
+    /// touchpad pinch events are not exposed by the public input path;
+    /// trackpad wheel events zoom.
     #[track_caller]
     pub fn viewport(self) -> Part<PartState> {
         let binding = self.transform;

@@ -356,7 +356,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         let state = self.state();
         require_setup("DataTableApi::header");
         let reference = state.header_ref(&column);
-        let (columns, sort, multi_sort) = (state.columns, state.sort(), state.multi_sort());
+        let columns = state.columns;
         let key = var(column);
         let info = memo(move || {
             key.with(|key| {
@@ -369,39 +369,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
             })
         });
         let sortable = memo(move || info.with(|info| info.as_ref().is_some_and(|info| info.1)));
-        let direction = memo(move || {
-            key.with(|key| {
-                if let Some(multi_sort) = multi_sort.get() {
-                    return multi_sort.with(|items| {
-                        items
-                            .iter()
-                            .find(|(column, _)| column == key)
-                            .map(|(_, order)| *order)
-                    });
-                }
-                sort.with(|sort| {
-                    sort.with(|sort| match sort {
-                        Some((column, order)) if column == key => Some(*order),
-                        _ => None,
-                    })
-                })
-            })
-        });
-        let rank = memo(move || {
-            multi_sort.get().and_then(|sort| {
-                sort.with(|items| {
-                    if items.len() < 2 {
-                        return None;
-                    }
-                    key.with(|key| {
-                        items
-                            .iter()
-                            .position(|(column, _)| column == key)
-                            .map(|index| (index + 1, items.len()))
-                    })
-                })
-            })
-        });
+        let (direction, rank) = header_sort(&state, key);
         let priority = kivact_core::i18n::message_with(
             "data_table.sort_priority",
             "Priority {rank} of {total}",
@@ -410,27 +378,9 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                 [("rank", rank.to_string()), ("total", total.to_string())]
             },
         );
+        let state_for_sort = state.clone();
         let activate = move |extend: bool| {
-            if !sortable.get() {
-                return;
-            }
-            let multiple = multi_sort.get_untracked();
-            let keys = multiple.map_or_else(
-                || sort.get_untracked().get_untracked().into_iter().collect(),
-                |binding| binding.get_untracked(),
-            );
-            let next = sorting::Sort::activate(sorting::Event {
-                current: sorting::Sort::from_keys(keys),
-                column: key.get(),
-                extend,
-                multiple: multiple.is_some(),
-            })
-            .keys();
-            if let Some(binding) = multiple {
-                binding.set(next);
-            } else {
-                sort.get_untracked().set(next.into_iter().next());
-            }
+            activate_header(&state_for_sort, &key.get(), sortable.get(), extend);
         };
         let focused = reference.focused();
         let focus_mode = state.focus;
@@ -444,20 +394,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
             sort_rank: rank.get().map(|(rank, _)| rank),
         });
         let part_state = input.state();
-        let observed = state.header_states;
-        observed.update(|states| {
-            states.insert(key.get(), part_state);
-        });
-        kivact_core::state::on_cleanup(move || {
-            if observed.try_get_untracked().is_some() {
-                observed.update(|states| {
-                    let key = key.get();
-                    if states.get(&key) == Some(&part_state) {
-                        states.remove(&key);
-                    }
-                });
-            }
-        });
+        observe_header(&state, key, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
@@ -482,100 +419,16 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                 })
                 .on_press(move || activate(modifiers().get().shift))
                 .on_attach(move |mount| {
-                    if !matches!(mounted.focus, TableFocus::Cells(_)) {
-                        return;
-                    }
-                    let owner = Owner::current();
-                    if Owner::root() != mounted.root {
-                        owner.report(
-                            ErrorKind::WrongApp,
-                            "DataTableApi header belongs to another App",
-                        );
-                        return;
-                    }
-                    let target = Target::Header(key.get());
-                    let node = mount.node;
-                    mounted.roving.insert(
-                        target.clone(),
-                        Member {
-                            node,
-                            eligible: mount.eligible,
-                            disabled: mount.disabled,
-                            hidden: mount.hidden,
-                        },
-                    );
-                    let token = node.mounted_node();
-                    let weak = Rc::downgrade(&mounted);
-                    owner.on_cleanup(move || {
-                        if let Some(state) = weak.upgrade() {
-                            let focused = token.is_some() && state.owner.focused_node() == token;
-                            if state.roving.remove(&target, node) && focused {
-                                state.roving.restore_from.set(token);
-                            }
-                        }
-                    });
+                    mount_header(mounted.clone(), key.get(), mount);
                 })
                 .on_key(move |event: KeyEvent| {
-                    if matches!(keyboard.focus, TableFocus::Cells(_)) && focused.get_untracked() {
-                        let column = key.get();
-                        let columns = keyboard.columns.with(|columns| {
-                            columns
-                                .iter()
-                                .map(|column| column.key.clone())
-                                .collect::<Vec<_>>()
-                        });
-                        if let Some(index) = columns.iter().position(|key| *key == column) {
-                            let destination = match event.key() {
-                                Key::ArrowLeft => Some(index.saturating_sub(1)),
-                                Key::ArrowRight => Some((index + 1).min(columns.len() - 1)),
-                                Key::Home => Some(0),
-                                Key::End if !event.modifiers().ctrl && !event.modifiers().meta => {
-                                    Some(columns.len() - 1)
-                                }
-                                _ => None,
-                            };
-                            if let Some(destination) = destination {
-                                keyboard.focus_header(columns[destination].clone());
-                                return Handled::Yes;
-                            }
-                        }
-                        let rows = keyboard.keys.get_untracked();
-                        let row = match event.key() {
-                            Key::ArrowDown => rows.first(),
-                            Key::PageDown => rows.get(9).or_else(|| rows.last()),
-                            Key::End if event.modifiers().ctrl || event.modifiers().meta => {
-                                rows.last()
-                            }
-                            _ => None,
-                        };
-                        if let Some(row) = row {
-                            let column = if event.key() == Key::End {
-                                keyboard
-                                    .columns
-                                    .with(|columns| columns.last().map(|column| column.key.clone()))
-                                    .unwrap_or(column)
-                            } else {
-                                column
-                            };
-                            keyboard.focus_cell((row.clone(), column));
-                            return Handled::Yes;
-                        }
-                    }
-                    let modifiers = event.modifiers();
-                    if !event.repeat()
-                        && modifiers.shift
-                        && !modifiers.ctrl
-                        && !modifiers.alt
-                        && !modifiers.meta
-                        && matches!(event.key(), Key::Enter | Key::Space)
-                        && focused.get_untracked()
-                        && multi_sort.get_untracked().is_some()
-                    {
-                        activate(true);
-                        Handled::Yes
-                    } else {
-                        Handled::No
-                    }
+                    header_key(
+                        &keyboard,
+                        &key.get(),
+                        &event,
+                        focused.get_untracked(),
+                        sortable.get(),
+                    )
                 })
                 .node_ref(reference)
         })
@@ -673,4 +526,206 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
             .shift_step_factor(5.0)
             .handle()
     }
+}
+
+type HeaderSort = (Value<Option<SortOrder>>, Value<Option<(usize, usize)>>);
+
+fn header_sort<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: &State<K, C>,
+    key: kivact_core::state::Var<C>,
+) -> HeaderSort {
+    let sort = state.sort();
+    let multi_sort = state.multi_sort();
+    let direction = memo(move || {
+        key.with(|key| {
+            if let Some(multi_sort) = multi_sort.get() {
+                return multi_sort.with(|items| {
+                    items
+                        .iter()
+                        .find(|(column, _)| column == key)
+                        .map(|(_, order)| *order)
+                });
+            }
+            sort.with(|sort| {
+                sort.with(|sort| match sort {
+                    Some((column, order)) if column == key => Some(*order),
+                    _ => None,
+                })
+            })
+        })
+    });
+    let rank = memo(move || {
+        multi_sort.get().and_then(|sort| {
+            sort.with(|items| {
+                if items.len() < 2 {
+                    return None;
+                }
+                key.with(|key| {
+                    items
+                        .iter()
+                        .position(|(column, _)| column == key)
+                        .map(|index| (index + 1, items.len()))
+                })
+            })
+        })
+    });
+    (direction, rank)
+}
+
+fn activate_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: &State<K, C>,
+    key: &C,
+    sortable: bool,
+    extend: bool,
+) {
+    let sort = state.sort();
+    let multi_sort = state.multi_sort();
+    if !sortable {
+        return;
+    }
+    let multiple = multi_sort.get_untracked();
+    let keys = multiple.map_or_else(
+        || sort.get_untracked().get_untracked().into_iter().collect(),
+        |binding| binding.get_untracked(),
+    );
+    let next = sorting::Sort::activate(sorting::Event {
+        current: sorting::Sort::from_keys(keys),
+        column: key.clone(),
+        extend,
+        multiple: multiple.is_some(),
+    })
+    .keys();
+    if let Some(binding) = multiple {
+        binding.set(next);
+    } else {
+        sort.get_untracked().set(next.into_iter().next());
+    }
+}
+
+fn mount_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    mounted: Rc<State<K, C>>,
+    key: C,
+    mount: kivact_core::custom::PartMount,
+) {
+    if !matches!(mounted.focus, TableFocus::Cells(_)) {
+        return;
+    }
+    let owner = Owner::current();
+    if Owner::root() != mounted.root {
+        owner.report(
+            ErrorKind::WrongApp,
+            "DataTableApi header belongs to another App",
+        );
+        return;
+    }
+    let target = Target::Header(key);
+    let node = mount.node;
+    mounted.roving.insert(
+        target.clone(),
+        Member {
+            node,
+            eligible: mount.eligible,
+            disabled: mount.disabled,
+            hidden: mount.hidden,
+        },
+    );
+    let token = node.mounted_node();
+    let weak = Rc::downgrade(&mounted);
+    owner.on_cleanup(move || {
+        if let Some(state) = weak.upgrade() {
+            let focused = token.is_some() && state.owner.focused_node() == token;
+            if state.roving.remove(&target, node) && focused {
+                state.roving.restore_from.set(token);
+            }
+        }
+    });
+}
+
+fn header_key<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    keyboard: &State<K, C>,
+    key: &C,
+    event: &KeyEvent,
+    focused: bool,
+    sortable: bool,
+) -> Handled {
+    let multi_sort = keyboard.multi_sort();
+    if matches!(keyboard.focus, TableFocus::Cells(_)) && focused {
+        let column = key.clone();
+        let columns = keyboard.columns.with(|columns| {
+            columns
+                .iter()
+                .map(|column| column.key.clone())
+                .collect::<Vec<_>>()
+        });
+        if let Some(index) = columns.iter().position(|key| *key == column) {
+            let destination = match event.key() {
+                Key::ArrowLeft => Some(index.saturating_sub(1)),
+                Key::ArrowRight => Some((index + 1).min(columns.len() - 1)),
+                Key::Home => Some(0),
+                Key::End if !event.modifiers().ctrl && !event.modifiers().meta => {
+                    Some(columns.len() - 1)
+                }
+                _ => None,
+            };
+            if let Some(destination) = destination {
+                keyboard.focus_header(columns[destination].clone());
+                return Handled::Yes;
+            }
+        }
+        let rows = keyboard.keys.get_untracked();
+        let row = match event.key() {
+            Key::ArrowDown => rows.first(),
+            Key::PageDown => rows.get(9).or_else(|| rows.last()),
+            Key::End if event.modifiers().ctrl || event.modifiers().meta => rows.last(),
+            _ => None,
+        };
+        if let Some(row) = row {
+            let column = if event.key() == Key::End {
+                keyboard
+                    .columns
+                    .with(|columns| columns.last().map(|column| column.key.clone()))
+                    .unwrap_or(column)
+            } else {
+                column
+            };
+            keyboard.focus_cell((row.clone(), column));
+            return Handled::Yes;
+        }
+    }
+    let modifiers = event.modifiers();
+    if !event.repeat()
+        && modifiers.shift
+        && !modifiers.ctrl
+        && !modifiers.alt
+        && !modifiers.meta
+        && matches!(event.key(), Key::Enter | Key::Space)
+        && focused
+        && multi_sort.get_untracked().is_some()
+    {
+        activate_header(keyboard, key, sortable, true);
+        Handled::Yes
+    } else {
+        Handled::No
+    }
+}
+
+fn observe_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: &State<K, C>,
+    key: kivact_core::state::Var<C>,
+    part_state: Value<TableHeaderState>,
+) {
+    let observed = state.header_states;
+    observed.update(|states| {
+        states.insert(key.get(), part_state);
+    });
+    kivact_core::state::on_cleanup(move || {
+        if observed.try_get_untracked().is_some() {
+            observed.update(|states| {
+                let key = key.get();
+                if states.get(&key) == Some(&part_state) {
+                    states.remove(&key);
+                }
+            });
+        }
+    });
 }

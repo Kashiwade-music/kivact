@@ -322,13 +322,32 @@ impl SplitterApi {
         }
     }
 
-    /// Create the semantic and input attachment of the boundary between the
-    /// panes. Read its state before moving it.
-    ///
-    /// The part sets the role, focusability, value range and orientation. Its
-    /// key and pointer handlers run after the caller's own, so a caller handler
-    /// can stop them. Semantic modifiers written after the attachment override
-    /// the part's. Setup only.
+    fn handle_drag(
+        self,
+        disabled: Value<bool>,
+        side_by_side: bool,
+        rtl: bool,
+    ) -> crate::DragApi<()> {
+        let edit = self.edit;
+        let value = self.ops.binding.into_value();
+        let machine = self.machine;
+        use_drag::<()>(DragCoordinates::Window)
+            .disabled(disabled)
+            .edit(edit, move || value.get_untracked())
+            .on_start(move |_| machine.send(machine::Event::Begin))
+            .on_update(move |update: DragUpdate<()>| {
+                let travel = match (side_by_side, rtl) {
+                    (true, false) => update.delta.x,
+                    (true, true) => -update.delta.x,
+                    (false, _) => update.delta.y,
+                };
+                machine.send(machine::Event::Move(travel));
+            })
+            .on_end(move |update| {
+                machine.send(machine::Event::End(update.phase == crate::DragPhase::End))
+            })
+    }
+
     fn handle_once(self, write: &dyn Fn(ScalarOps, f64) -> bool) -> bool {
         let mut accepted = false;
         self.edit.once(self.ops.binding.get_untracked(), || {
@@ -366,6 +385,13 @@ impl SplitterApi {
         if accepted { Handled::Yes } else { Handled::No }
     }
 
+    /// Create the semantic and input attachment of the boundary between the
+    /// panes. Read its state before moving it.
+    ///
+    /// The part sets the role, focusability, value range and orientation. Its
+    /// key and pointer handlers run after the caller's own, so a caller handler
+    /// can stop them. Semantic modifiers written after the attachment override
+    /// the part's. Setup only.
     #[track_caller]
     pub fn handle(self) -> Part<SplitterState> {
         let value = self.ops.binding.into_value();
@@ -373,7 +399,6 @@ impl SplitterApi {
         let rtl = side_by_side
             && kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
         follow_range(self.ops.binding, range);
-        let edit = self.edit;
         // Only an action that will write is an edit: a value that is not a
         // number reports nothing.
         let act = move |event: A11yEvent| {
@@ -415,21 +440,7 @@ impl SplitterApi {
                     || options.get().disabled.is_some_and(|value| value.get())
             });
             machine.feed(disabled, machine::Event::Disabled);
-            let session = use_drag::<()>(DragCoordinates::Window)
-                .disabled(disabled)
-                .edit(edit, move || value.get_untracked())
-                .on_start(move |_| machine.send(machine::Event::Begin))
-                .on_update(move |update: DragUpdate<()>| {
-                    let travel = match (side_by_side, rtl) {
-                        (true, false) => update.delta.x,
-                        (true, true) => -update.delta.x,
-                        (false, _) => update.delta.y,
-                    };
-                    machine.send(machine::Event::Move(travel));
-                })
-                .on_end(move |update| {
-                    machine.send(machine::Event::End(update.phase == crate::DragPhase::End))
-                });
+            let session = self.handle_drag(disabled, side_by_side, rtl);
             let source = session.source(());
             let handle = host
                 .part(input)

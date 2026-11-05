@@ -96,20 +96,7 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
         active: active.get(),
     });
     let part_state = input.state();
-    let observed = state.item_states;
-    observed.update(|states| {
-        states.insert(key.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let item_key = key.get();
-                if states.get(&item_key) == Some(&part_state) {
-                    states.remove(&item_key);
-                }
-            });
-        }
-    });
+    observe_item(&state, key, part_state);
     let attachment = Part::new(part_state, move |host| {
         let attachment = host.part(input);
         let keys = state.clone();
@@ -202,4 +189,25 @@ fn mount_item<K: kivact_core::state::ItemKey>(
         }
     });
     state.pending_mounted(&key.get());
+}
+
+fn observe_item<K: kivact_core::state::ItemKey>(
+    state: &State<K>,
+    key: kivact_core::state::Var<K>,
+    part_state: kivact_core::state::Value<ListItemState>,
+) {
+    let observed = state.item_states;
+    observed.update(|states| {
+        states.insert(key.get(), part_state);
+    });
+    kivact_core::state::on_cleanup(move || {
+        if observed.try_get_untracked().is_some() {
+            observed.update(|states| {
+                let item_key = key.get();
+                if states.get(&item_key) == Some(&part_state) {
+                    states.remove(&item_key);
+                }
+            });
+        }
+    });
 }
