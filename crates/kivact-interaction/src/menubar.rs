@@ -147,10 +147,8 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
         let MenubarApi { list, menus, rtl } = self;
         let input = list.list();
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .role(Role::MenuBar)
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();

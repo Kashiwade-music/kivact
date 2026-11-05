@@ -50,7 +50,7 @@ impl<K: ItemKey> KnownLabels<K> {
                     rows.push(item);
                 }
             }
-            // xtask-allow(effect-writes): S-9 retained-label display cache follows option sources and selected keys across asynchronous result replacement; it never writes query, selection or active-item authority and reads its previous cache untracked.
+            // xtask-allow(effect-writes): S-9 (a pure cache stays apart from authoritative state): the retained-label display cache follows option sources and selected keys across asynchronous result replacement; it never writes query, selection or active-item authority and reads its previous cache untracked.
             self.rows.set(rows);
         });
     }

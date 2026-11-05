@@ -67,10 +67,11 @@ pub struct SplitterState {
 /// starting value and ends the drag, which needs the handle to be focused (a
 /// press on a focusable handle focuses it). A double click moves to the
 /// `reset_to` value. A disabled splitter accepts no input or assistive
-/// technology action and cancels a drag in progress.
+/// technology action; a drag in progress ends where it is and commits its
+/// edit.
 ///
 /// The range may follow the layout: pass a constant [`ScalarRange`](crate::ScalarRange), or a
-/// closure, a `Signal` or a `Value` of one ([``]). The published
+/// closure, a `Signal` or a `Value` of one. The published
 /// `value_min` and `value_max`, the key step (when not overridden), Home, End
 /// and drag clamping all follow the current range. When the range changes and
 /// the value is now outside it, the handle writes the value back inside
@@ -431,7 +432,6 @@ impl SplitterApi {
         });
         let part_state = input.state();
         self.observed.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             let options = settings.value();
@@ -444,7 +444,6 @@ impl SplitterApi {
             let source = session.source(());
             let handle = host
                 .part(input)
-                .node_ref(target)
                 .role(Role::Splitter)
                 .orientation(if side_by_side {
                     Orientation::Vertical

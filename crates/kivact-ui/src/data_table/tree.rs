@@ -201,13 +201,13 @@ impl<K: kivact_core::state::ItemKey> Plan<K> {
 fn control(open: Value<bool>, all: bool) -> Button {
     let (expand, collapse) = if all {
         (
-            message("soft.table.tree.expand_all", "Expand all rows"),
-            message("soft.table.tree.collapse_all", "Collapse all rows"),
+            message("data_table.expand_all", "Expand all rows"),
+            message("data_table.collapse_all", "Collapse all rows"),
         )
     } else {
         (
-            message("soft.table.tree.expand", "Expand row"),
-            message("soft.table.tree.collapse", "Collapse row"),
+            message("data_table.expand_row", "Expand row"),
+            message("data_table.collapse_row", "Collapse row"),
         )
     };
     let rtl = use_direction().get() == ReadingDirection::Rtl;

@@ -3,15 +3,10 @@ use kivact_core::state::{Machine as MachineTrait, Step};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EditOrigin {
-    Programmatic,
-}
-
 #[derive(Clone, PartialEq)]
 pub(crate) enum EditSessionState<T> {
     Idle,
-    Editing { initial: T, origin: EditOrigin },
+    Editing { initial: T },
 }
 pub(super) struct Initial<T>(Rc<T>);
 impl<T> Initial<T> {
@@ -36,7 +31,7 @@ impl<T> Machine<T> {
     }
 }
 pub(super) enum Event<T> {
-    Begin(Rc<T>, EditOrigin),
+    Begin(Rc<T>),
     Finish,
 }
 impl<T: 'static> MachineTrait for Machine<T> {
@@ -45,10 +40,9 @@ impl<T: 'static> MachineTrait for Machine<T> {
     type Effect = ();
     fn transition(&self, state: &Self::State, event: Event<T>) -> Step<Self::State, Event<T>, ()> {
         match (state, event) {
-            (EditSessionState::Idle, Event::Begin(initial, origin)) => {
+            (EditSessionState::Idle, Event::Begin(initial)) => {
                 Step::to(EditSessionState::Editing {
                     initial: Initial(initial),
-                    origin,
                 })
             }
             (EditSessionState::Editing { .. }, Event::Finish) => Step::to(EditSessionState::Idle),

@@ -26,6 +26,7 @@ pub struct Disclosure {
     motion: DisclosureMotion,
     variants: Variants,
     always_open: bool,
+    keep_mounted: bool,
     heading_level: Option<u32>,
     animation: Option<Value<bool>>,
     group: Option<crate::DisclosureGroupPosition>,
@@ -37,7 +38,8 @@ pub struct Disclosure {
 /// The trigger is a button named and labelled by `title`, with the expanded
 /// state; click, Enter, Space and assistive technology's Expand, Collapse and
 /// Toggle write `open`. The content is built in a fresh owner each time the
-/// section opens and dropped when it closes. Engine presence retains its
+/// section opens and dropped when it closes (unless
+/// [`keep_mounted`](Disclosure::keep_mounted)). Engine presence retains its
 /// exit paint until the closing motion finishes. The look
 /// is the theme's [`UiRecipes::disclosure`](super::UiRecipes). A caller's
 /// `.disabled(..)` on the disclosure disables the trigger.
@@ -89,6 +91,7 @@ pub fn disclosure(
             .clone(),
         variants: Variants::default(),
         always_open: false,
+        keep_mounted: false,
         heading_level: None,
         animation: None,
         group: None,
@@ -117,6 +120,17 @@ impl Disclosure {
         self
     }
 
+    /// Build the content once and keep it mounted, hidden while the section
+    /// is closed, so what it holds (the text of an input, a scroll position)
+    /// survives closing. The hidden content takes no space, input or
+    /// assistive technology; the open and close motion of
+    /// [`animated`](Self::animated) does not run. This structural choice is
+    /// fixed before mounting.
+    pub fn keep_mounted(mut self) -> Self {
+        self.keep_mounted = true;
+        self
+    }
+
     /// Attach disclosure behavior to a caller-owned trigger.
     pub fn attach<T: NodeBuilder + IntoView>(
         mut self,
@@ -140,17 +154,20 @@ impl Disclosure {
         let animation = self.animation;
         let variants = self.variants;
         let group = self.group;
+        let region =
+            move || content_region(details, &content, &motion, animation, &variants, group);
+        let body = if self.keep_mounted {
+            region().into_view()
+        } else {
+            show(details.is_open(), region).into_view()
+        };
         self.root
             .style(style().direction(kivact_core::style::Direction::Column))
-            .child((
-                trigger,
-                show(details.is_open(), move || {
-                    content_region(details, &content, &motion, animation, &variants, group)
-                }),
-            ))
+            .child((trigger, body))
     }
 
-    /// Build this section each time it opens.
+    /// Build this section each time it opens (once, with
+    /// [`keep_mounted`](Self::keep_mounted)).
     pub fn content<V: IntoView>(mut self, content: impl kivact_core::view::IntoViewFn<V>) -> Self {
         self.content = content.into_view_fn();
         self
@@ -238,7 +255,11 @@ impl IntoView for Disclosure {
             let variants = variants.clone();
             move || content_region(details, &build, &motion, animation, &variants, group)
         };
-        let body = show(shown, region);
+        let body = if self.keep_mounted {
+            region().into_view()
+        } else {
+            show(shown, region).into_view()
+        };
         with_base_recipe_style(
             self.root,
             |recipes| recipes.disclosure_recipes().root_recipe(),

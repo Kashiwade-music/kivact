@@ -14,9 +14,16 @@ pub struct DropzoneApi {
     state: MachineHandle<Machine>,
     validate: OptionsCell<Validator>,
     on_files: OptionsCell<FilesCallback>,
-    multiple: bool,
+    multiple: OptionsCell<bool>,
+    /// The message refusing more than one file.
+    one_file: Value<String>,
 }
 /// Create a drop controller. Configure callbacks before attaching it to a view.
+///
+/// Message (a localized text replaces it): `dropzone.one_file` ("Choose one
+/// file.", the error for more than one file without
+/// [`multiple`](DropzoneApi::multiple)). Setup only.
+#[track_caller]
 pub fn use_dropzone() -> DropzoneApi {
     let on_files = OptionsCell::new(Rc::new(|_| Ok(())) as FilesCallback);
     DropzoneApi {
@@ -33,13 +40,15 @@ pub fn use_dropzone() -> DropzoneApi {
         ),
         validate: OptionsCell::new(Rc::new(|_: &FileInfo| None) as Validator),
         on_files,
-        multiple: false,
+        multiple: OptionsCell::new(false),
+        one_file: kivact_core::i18n::message("dropzone.one_file", "Choose one file."),
     }
 }
 impl DropzoneApi {
     /// Accept more than one file per operation. Setup only.
-    pub fn multiple(mut self) -> Self {
-        self.multiple = true;
+    #[track_caller]
+    pub fn multiple(self) -> Self {
+        self.multiple.update(|multiple| *multiple = true);
         self
     }
     /// Supply a pure validator; its first message is shown to the user. Setup only.
@@ -62,8 +71,8 @@ impl DropzoneApi {
         self.state.state()
     }
     fn validity(self, files: &[FileInfo]) -> Validity {
-        if !self.multiple && files.len() > 1 {
-            return Validity::Invalid("Choose one file.".into());
+        if !self.multiple.get() && files.len() > 1 {
+            return Validity::Invalid(self.one_file.get_untracked());
         }
         files
             .iter()

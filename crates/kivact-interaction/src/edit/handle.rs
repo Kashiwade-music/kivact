@@ -25,7 +25,7 @@ use std::rc::Rc;
 
 use super::machine;
 
-use super::{EditOrigin, EditSessionState};
+use super::EditSessionState;
 use kivact_core::view::{EditPhase, HandlerResult};
 
 /// The state of the edit a component is in, and the phases it reports.
@@ -132,7 +132,8 @@ impl<T: Clone + 'static> EditSession<T> {
         let Some(observer) = self.observer.get() else {
             return;
         };
-        // An observer of a disposed owner is skipped, not a misuse (G-01).
+        // An observer of a disposed owner is skipped, not a misuse (G-01: no
+        // callback outlives the component that registered it).
         match observer.try_call(phase) {
             Err(error) if !matches!(error.kind(), ErrorKind::Disposed { .. }) => {
                 self.failed.call(error);
@@ -147,10 +148,7 @@ impl<T: Clone + 'static> EditSession<T> {
         if self.is_active() {
             return;
         }
-        self.session.send(machine::Event::Begin(
-            Rc::new(initial),
-            EditOrigin::Programmatic,
-        ));
+        self.session.send(machine::Event::Begin(Rc::new(initial)));
         self.report(EditPhase::Begin);
     }
 
@@ -170,7 +168,7 @@ impl<T: Clone + 'static> EditSession<T> {
         }
         let initial = self.session.state().with_untracked(|state| match state {
             EditSessionState::Idle => None,
-            EditSessionState::Editing { initial, .. } => Some(initial.as_ref().clone()),
+            EditSessionState::Editing { initial } => Some(initial.as_ref().clone()),
         });
         let Some(initial) = initial else {
             return false;
@@ -219,7 +217,7 @@ impl<T: Clone + 'static> EditSession<T> {
     pub fn with_initial<R>(self, read: impl FnOnce(&T) -> R) -> Option<R> {
         self.session.state().with(|state| match state {
             EditSessionState::Idle => None,
-            EditSessionState::Editing { initial, .. } => Some(read(initial.as_ref())),
+            EditSessionState::Editing { initial } => Some(read(initial.as_ref())),
         })
     }
 }

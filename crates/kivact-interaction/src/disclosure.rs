@@ -12,7 +12,7 @@
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Signal, Value, signal};
+use kivact_core::state::{Binding, Signal, Value, on_cleanup, signal};
 use kivact_core::view::{A11yAction, NodeRef, Role, node_ref};
 
 /// The shown state and actual input state of a disclosure's trigger or content.
@@ -54,6 +54,9 @@ pub struct DisclosureApi {
     trigger_state: Signal<Option<Value<DisclosureState>>>,
     content_state: Signal<Option<Value<DisclosureState>>>,
     settings: OptionsCell<DisclosureOptions>,
+    /// The disabled state each mounted trigger received from its caller;
+    /// each entry ends with its trigger's mount.
+    host_disabled: Signal<Vec<Value<bool>>>,
     pub(crate) content: NodeRef,
 }
 
@@ -76,6 +79,7 @@ pub fn use_disclosure(open: impl kivact_core::state::IntoBinding<bool>) -> Discl
         trigger_state: signal(None),
         content_state: signal(None),
         settings: OptionsCell::new(DisclosureOptions::default()),
+        host_disabled: signal(Vec::new()),
         content: node_ref(),
     }
 }
@@ -130,6 +134,28 @@ impl DisclosureApi {
 
     fn is_disabled(self) -> bool {
         self.settings.get().disabled.is_some_and(|d| d.get())
+            || self
+                .host_disabled
+                .with_untracked(|hosts| hosts.iter().any(|d| d.get_untracked()))
+    }
+
+    /// Register the disabled state a mounted trigger received from its
+    /// caller until that mount's owner ends.
+    fn register_host_disabled(self, disabled: Option<Value<bool>>) {
+        let Some(disabled) = disabled else {
+            return;
+        };
+        let hosts = self.host_disabled;
+        hosts.update(|hosts| hosts.push(disabled));
+        on_cleanup(move || {
+            if hosts.try_get_untracked().is_some() {
+                hosts.update(|hosts| {
+                    if let Some(at) = hosts.iter().position(|host| *host == disabled) {
+                        hosts.remove(at);
+                    }
+                });
+            }
+        });
     }
 
     fn write(self, open: Option<bool>) {
@@ -147,27 +173,20 @@ impl DisclosureApi {
     ) -> Part<S> {
         let shown = self.shown;
         let settings = self.settings;
+        let hosts = self.host_disabled;
         let disabled = move || {
             settings
                 .value()
                 .get()
                 .disabled
                 .is_some_and(|disabled| disabled.get())
+                || hosts.with(|hosts| hosts.iter().any(|disabled| disabled.get()))
         };
         let input = part(move |input| state(input, shown.get()));
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
-            let caller_disabled = host.accessible_disabled();
-            let own_disabled = settings.get().disabled;
-            settings.update(|settings| {
-                settings.disabled = Some(kivact_core::state::memo(move || {
-                    caller_disabled.is_some_and(|value| value.get())
-                        || own_disabled.is_some_and(|value| value.get())
-                }))
-            });
+            self.register_host_disabled(host.accessible_disabled());
             host.part(input)
-                .node_ref(target)
                 .role(Role::Button)
                 .expanded(shown)
                 .controls(self.content)

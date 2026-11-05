@@ -452,10 +452,8 @@ impl PopupApi {
         });
         let part_state = input.state();
         self.content_state.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .node_ref(self.content_ref())
                 .a11y_action(A11yAction::Dismiss, move |event| {
                     let A11yRequest::Dismiss(reason) = event.request else {

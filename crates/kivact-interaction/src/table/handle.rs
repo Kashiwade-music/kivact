@@ -395,10 +395,8 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         });
         let part_state = input.state();
         observe_header(&state, key, part_state);
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .role(Role::ColumnHeader)
                 .name(move || {
                     info.with(|info| info.as_ref().map(|info| info.0.clone()))

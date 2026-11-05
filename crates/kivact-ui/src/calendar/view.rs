@@ -432,14 +432,32 @@ fn swipe_navigation(
     let rtl = kivact_core::view::use_direction();
     kivact_core::state::machine(
         super::navigation::Swipe::Idle,
-        move || super::navigation::SwipeSnapshot {
-            rtl: rtl.get() == kivact_core::view::ReadingDirection::Rtl,
+        move || {
+            let current = base_month.get();
+            super::navigation::SwipeSnapshot {
+                rtl: rtl.get() == kivact_core::view::ReadingDirection::Rtl,
+                now: kivact_core::custom::clock_now(),
+                at_min: min.get().is_some_and(|min| current <= min.month_of()),
+                at_max: max.get().is_some_and(|max| current >= max.month_of()),
+            }
         },
-        move |_, shift| {
-            let next = base_month.get_untracked().add_months(shift);
-            let allowed = min.get().is_none_or(|min| next >= min.month_of())
-                && max.get().is_none_or(|max| next <= max.month_of());
-            if allowed {
+        move |_, months| {
+            // A flick turns as many months as it projects, stopping at the
+            // bounds; it never moves the other way.
+            let current = base_month.get_untracked();
+            let next = current.add_months(months);
+            let (next, moves) = if months > 0 {
+                let next = max
+                    .get_untracked()
+                    .map_or(next, |max| next.min(max.month_of()));
+                (next, next > current)
+            } else {
+                let next = min
+                    .get_untracked()
+                    .map_or(next, |min| next.max(min.month_of()));
+                (next, next < current)
+            };
+            if moves {
                 month.set(next);
             }
         },
@@ -503,15 +521,25 @@ fn month_panels(
     let month = shared.month;
     let first = grid.week_start();
     let names = Rc::new(super::caption::Names::new());
+    let swipe = shared.swipe;
+    let rtl = kivact_core::view::use_direction();
     dynamic(
         move || (month.get(), first.get()),
         move |(month, first)| {
+            let entering = swipe
+                .state()
+                .get_untracked()
+                .entering(rtl.get_untracked() == kivact_core::view::ReadingDirection::Rtl);
             let panels = (0..shared.count)
                 .map(|i| {
-                    super::panel::month_panel(&shared, &names, i, month.add_months(i as i32), first)
+                    let shown = month.add_months(i as i32);
+                    super::panel::month_panel(&shared, &names, i, shown, first, entering)
                 })
                 .collect::<Vec<_>>();
-            on_mount(move || autofocus.send(grid));
+            on_mount(move || {
+                autofocus.send(grid);
+                swipe.send(super::navigation::Event::Entered);
+            });
             row(panels).style(style().gap(16))
         },
     )
@@ -554,7 +582,7 @@ fn calendar_body(
         move |(count, caption, week_start, cell_size)| {
             let policy =
                 calendar_policy(&rules, count, week_start, focus_day).activation_guard(move |_| {
-                    !matches!(swipe.get(), super::navigation::Swipe::Released)
+                    !matches!(swipe.get(), super::navigation::Swipe::Released { .. })
                 });
             let grid = use_calendar_grid(month, selection, policy);
             let shared = Rc::new(Shared {

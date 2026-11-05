@@ -404,9 +404,8 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
             open: open.get(),
         });
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
-            let trigger = host.part(input).node_ref(target).region_events();
+            let trigger = host.part(input).region_events();
             let trigger = if fallback {
                 let trigger = trigger.on_secondary_context(pointer);
                 if let Some(press) = session.press {

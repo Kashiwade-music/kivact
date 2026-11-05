@@ -17,10 +17,8 @@ pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> 
     let input = part(|input| input);
     let part_state = input.state();
     state.container_state.set(Some(part_state));
-    let target = kivact_core::view::node_ref();
     Part::new(part_state, move |host| {
         host.part(input)
-            .node_ref(target)
             .role(Role::ListBox)
             .multiselectable(matches!(state.selection, Selection::Multiple(_)))
             .orientation(move || {

@@ -197,13 +197,9 @@ impl RangeScalarApi {
         let edit = self.low.edit;
         let input = part(|input| input);
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             edit.shared
-                .touch_source(
-                    host.part(input).node_ref(target).focus_on_press(edit.thumb),
-                    Grip::Body,
-                )
+                .touch_source(host.part(input).focus_on_press(edit.thumb), Grip::Body)
                 .part(edit.shared.drag.source(Grip::Body))
         })
     }

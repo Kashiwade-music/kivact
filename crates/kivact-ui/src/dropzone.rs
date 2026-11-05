@@ -69,7 +69,8 @@ impl Dropzone {
         self.validate = Rc::new(f);
         self
     }
-    /// Accept multiple files in one operation.
+    /// Accept multiple files in one operation. Without it, more than one
+    /// file shows the message `dropzone.one_file` ("Choose one file.").
     pub fn multiple(mut self) -> Self {
         self.multiple = true;
         self

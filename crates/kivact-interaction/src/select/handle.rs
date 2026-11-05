@@ -791,7 +791,7 @@ fn track_preview<K: kivact_core::state::ItemKey>(
     effect(move || {
         let key = hovered.get().or_else(|| active.get());
         untrack(|| {
-            // xtask-allow(effect-writes): S-9 Sent cache suppresses duplicate preview notifications; it does not own selection or focus.
+            // xtask-allow(effect-writes): S-9 (a sent-marker stays apart from authoritative state): the Sent cache suppresses duplicate preview notifications; it does not own selection or focus.
             if reported.update(|last| last.update(key.clone()).is_some()) {
                 preview.call(key);
             }

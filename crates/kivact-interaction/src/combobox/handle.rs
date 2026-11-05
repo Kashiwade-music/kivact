@@ -563,7 +563,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         let input = part(|input| input);
         let part_state = input.state();
         self.input_state.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         let expanded = self.is_open();
         Part::new(part_state, move |host| {
             let host = if matches!(self.mode.get(), PresentationMode::Popup(_)) {
@@ -572,7 +571,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 host
             };
             host.part(input)
-                .node_ref(target)
                 .node_ref(self.input_ref)
                 .controls(self.list_ref)
                 .has_popup(|| Some(kivact_core::view::PopupKind::ListBox))
@@ -636,10 +634,8 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         let input = part(|input| input);
         let part_state = input.state();
         self.content_state.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .node_ref(self.list_ref)
                 .role(Role::ListBox)
                 .multiselectable(matches!(self.selection, Selection::Multiple(_)))

@@ -16,7 +16,7 @@ pub(super) enum State<K> {
 }
 #[derive(Clone, PartialEq)]
 pub(super) struct SessionLevel<K> {
-    // xtask-allow(state-fields): Approved SM-I08 parent identity, independent of the level highlight.
+    // xtask-allow(state-fields): the key of the item that opened this level identifies the level, independent of its highlight.
     parent: Option<K>,
     highlight: Option<K>,
     submenu: Submenu<K>,
@@ -24,9 +24,18 @@ pub(super) struct SessionLevel<K> {
 #[derive(Clone, PartialEq)]
 pub(super) enum Submenu<K> {
     None,
-    Opening { key: K },
-    Open { key: K },
-    Closing { key: K },
+    Opening {
+        key: K,
+    },
+    Open {
+        key: K,
+    },
+    /// The submenu `key` closes after the delay because the pointer rests
+    /// on the plain item `by`; only leaving `by` keeps it open.
+    Closing {
+        key: K,
+        by: K,
+    },
 }
 impl<K: Clone> State<K> {
     pub(super) fn path(&self) -> Vec<K> {
@@ -211,10 +220,10 @@ fn update_level_event<K: kivact_core::state::ItemKey>(
                             level.submenu = Submenu::None;
                         }
                     } else if over && let Some(parent) = parent {
-                        level.submenu = Submenu::Closing { key: parent.clone() };
+                        level.submenu = Submenu::Closing { key: parent.clone(), by: key };
                         timer = Some((false, depth, parent));
-                    } else if !over && let Submenu::Closing { key } = &level.submenu {
-                        level.submenu = Submenu::Open { key: key.clone() };
+                    } else if !over && let Submenu::Closing { key: open, by } = &level.submenu && by == &key {
+                        level.submenu = Submenu::Open { key: open.clone() };
                     }
                 }
             }
@@ -222,7 +231,7 @@ fn update_level_event<K: kivact_core::state::ItemKey>(
                 if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Opening { key: current } if current == &key)) { open_level(levels, depth, key); }
             }
             Event::CloseAfter(depth, key)
-                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Closing { key: current } if current == &key)) => { truncate(levels, depth); }
+                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Closing { key: current, .. } if current == &key)) => { truncate(levels, depth); }
             _ => {}
         }
     timer
