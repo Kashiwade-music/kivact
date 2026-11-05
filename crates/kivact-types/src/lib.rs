@@ -1,3 +1,4 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Shared pure UI values and backend-neutral text queries.
 #![forbid(unsafe_code)]
 

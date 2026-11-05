@@ -1,6 +1,5 @@
 //! Role: This module runs owned futures on the UI thread.
 
-use std::cell::OnceCell;
 use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
@@ -47,7 +46,11 @@ pub(super) fn spawn_owned(
     at: &'static Location<'static>,
 ) -> Owned<Rc<TaskCell>> {
     let cell = Rc::new(TaskCell {
-        task: OnceCell::new(),
+        #[expect(
+            clippy::disallowed_types,
+            reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+        )]
+        task: std::cell::OnceCell::new(),
     });
     let key = owner.store("Task", cell.clone(), at);
     let app = rt.id();

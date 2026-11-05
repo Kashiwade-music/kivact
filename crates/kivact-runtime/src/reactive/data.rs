@@ -17,7 +17,7 @@
 
 use crate::reactive::{AppId, NodeId};
 use std::any::{Any, TypeId};
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::fmt;
 use std::marker::PhantomData;
@@ -68,7 +68,11 @@ pub struct Runtime {
     pub(crate) seq: Cell<u64>,
     pub(crate) write_epoch: Cell<u64>,
     pub(crate) root: Key,
-    pub(crate) ext: OnceCell<Extensions>,
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+    )]
+    pub(crate) ext: std::cell::OnceCell<Extensions>,
     /// Last stamp remains meaningful after every acknowledged callback was removed.
     pub(crate) mount_revision: Cell<kivact_types::Revision>,
     pub(crate) unstamped: RefCell<Vec<Mount>>,
