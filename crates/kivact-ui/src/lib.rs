@@ -259,3 +259,12 @@ pub use carousel_tokens::CarouselTokens;
 pub use dropzone_tokens::DropzoneTokens;
 pub use recipes::{CarouselRecipes, DropzoneRecipes};
 mod carousel_geometry;
+mod disclosure_group;
+pub use disclosure_group::{DisclosureGroup, disclosure_group};
+
+mod hover_card;
+pub use hover_card::{FocusTrigger, HoverCard, HoverCardSurfaceState, HoverCardTokens, hover_card};
+
+pub use recipes::HoverCardRecipes;
+
+mod drawer_swipe;

@@ -2,4 +2,5 @@
 mod api;
 mod geometry;
 mod machine;
+pub(crate) use api::hover_surface;
 pub use api::{HoverCorridorApi, HoverSurfaceApi, use_hover_corridor, use_hover_surface};

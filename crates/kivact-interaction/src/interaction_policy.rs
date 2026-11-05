@@ -48,6 +48,8 @@ pub enum ToastSwipe {
 pub struct InteractionPolicy {
     pub menu: MenuPolicy,
     pub tooltip: TooltipTiming,
+    pub hover_card: crate::HoverCardTiming,
+    pub drawer: crate::DrawerPolicy,
     pub button: ButtonPolicy,
     pub slider: SliderPolicy,
     pub switch: SwitchPolicy,

@@ -8,7 +8,7 @@ use kivact_core::state::{Notifier, Value, effect, machine, memo, notifier};
 use kivact_core::view::{NodeRef, pointer_position};
 
 use super::machine::{Corridor, Effect, Event, Machine, PointerSampleCache, State};
-use crate::{DelayedApi, Delays, use_delayed};
+use crate::{DelayedApi, Delays};
 
 /// Hold a submenu while the mouse moves from an anchor toward the surface.
 ///
@@ -41,12 +41,37 @@ pub fn use_hover_surface(
     enabled: impl IntoValue<bool>,
     delays: Delays,
 ) -> HoverSurfaceApi {
-    let enabled = enabled.into_value();
+    hover_surface(
+        anchor,
+        surface,
+        enabled.into_value(),
+        (|| false).into_value(),
+        delays,
+    )
+}
+
+pub(crate) fn hover_surface(
+    anchor: NodeRef,
+    surface: NodeRef,
+    enabled: Value<bool>,
+    immediate: Value<bool>,
+    delays: Delays,
+) -> HoverSurfaceApi {
     let over_anchor = anchor.hovered();
     let over_surface = surface.hovered();
-    let delayed = use_delayed(
-        move || enabled.get() && (over_anchor.get() || over_surface.get()),
-        delays,
+    let wanted =
+        (move || enabled.get() && (immediate.get() || over_anchor.get() || over_surface.get()))
+            .into_value();
+    let delayed = crate::delayed::delayed(
+        wanted,
+        move || {
+            if immediate.get_untracked() {
+                Duration::ZERO
+            } else {
+                delays.open
+            }
+        },
+        delays.close,
     );
     let shown = delayed.is_open();
     let (_, progress) = hover_corridor(

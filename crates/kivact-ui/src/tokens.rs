@@ -21,6 +21,7 @@ pub struct UiTokens {
     pub dialog: DialogTokens,
     pub disclosure: DisclosureTokens,
     pub data_table: DataTableTokens,
+    pub hover_card: crate::HoverCardTokens,
 }
 impl ThemeExtension for UiTokens {
     fn fallback(_: &Theme) -> Self {

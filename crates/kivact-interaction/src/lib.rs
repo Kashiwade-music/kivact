@@ -148,3 +148,14 @@ pub use carousel::{CarouselApi, CarouselState, Snap, use_carousel};
 
 mod dropzone;
 pub use dropzone::{DropzoneApi, DropzoneState, FileInfo, Validity, use_dropzone};
+mod copy_feedback;
+pub use copy_feedback::{CopyFeedbackApi, use_copy_feedback};
+
+mod disclosure_group;
+pub use disclosure_group::{DisclosureGroupApi, use_disclosure_group};
+
+mod surface_policy;
+pub use surface_policy::{DrawerPolicy, DrawerSwipe, HoverCardTiming};
+
+mod hover_card;
+pub use hover_card::{HoverCardApi, HoverCardState, OpenedBy, use_hover_card};

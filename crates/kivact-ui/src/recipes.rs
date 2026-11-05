@@ -304,6 +304,14 @@ recipe_table! {
         scrim(scrim_recipe): DialogState = look_extra::dialog_scrim,
         /// The header's close button, holding the theme's `x` icon.
         close(close_recipe): DialogState = look_extra::dialog_close,
+        drag_handle(drag_handle_recipe): DialogState = look_extra::drawer_handle,
+    }
+}
+
+recipe_table! {
+    /// Theme surface of a hover preview.
+    HoverCardRecipes {
+        surface(surface_recipe): crate::HoverCardSurfaceState = look_extra::hover_card,
     }
 }
 
@@ -620,6 +628,7 @@ recipe_table! {
         menu(menu_recipes): MenuRecipes,
         dialog(dialog_recipes): DialogRecipes,
         tooltip(tooltip_recipes): TooltipRecipes,
+        hover_card(hover_card_recipes): HoverCardRecipes,
         tabs(tabs_recipes): TabsRecipes,
         radio_group(radio_group_recipes): RadioGroupRecipes,
         slider(slider_recipes): SliderRecipes,
