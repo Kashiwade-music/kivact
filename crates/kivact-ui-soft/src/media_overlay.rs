@@ -8,7 +8,6 @@ use kivact::style::Justify;
 use kivact::style::Overflow;
 use kivact::style::Position;
 use kivact::style::pct;
-use kivact::style::rgba;
 use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::IntoViewFn;
@@ -111,8 +110,8 @@ impl MediaOverlay {
                 let p = kivact::style::use_tokens::<crate::Tokens>();
                 let background = match self.scrim {
                     OverlayScrim::Dark => p.colors.overlay_scrim,
-                    OverlayScrim::Light => rgba(0xffffff, 0.6),
-                    OverlayScrim::None => rgba(0, 0.0),
+                    OverlayScrim::Light => p.colors.overlay_light_scrim,
+                    OverlayScrim::None => kivact::style::Color::TRANSPARENT,
                 };
                 let (align, justify) = match self.align {
                     OverlayAlign::Start => (Align::Start, Justify::Start),

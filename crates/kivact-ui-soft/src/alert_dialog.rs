@@ -123,11 +123,11 @@ impl IntoView for AlertDialog {
                 let desktop = actions.clone();
                 (
                     show(
-                        || kivact::platform::window_size().get().width <= 640.0,
+                        || kivact::platform::window_size().get().width <= crate::Breakpoint::Sm.px(),
                         move || actions(true),
                     ),
                     show(
-                        || kivact::platform::window_size().get().width > 640.0,
+                        || kivact::platform::window_size().get().width > crate::Breakpoint::Sm.px(),
                         move || desktop(false),
                     ),
                 )

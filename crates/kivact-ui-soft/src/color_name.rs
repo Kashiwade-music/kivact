@@ -68,6 +68,8 @@ pub enum ColorName {
     TintHover,
     /// [`crate::Colors::overlay_scrim`].
     OverlayScrim,
+    /// [`crate::Colors::overlay_light_scrim`].
+    OverlayLightScrim,
     /// [`crate::Colors::overlay_hover`].
     OverlayHover,
     /// [`crate::Colors::overlay_pressed`].
@@ -152,6 +154,7 @@ impl ThemeColor for ColorName {
             Self::Shadow => tokens.colors.shadow,
             Self::TintHover => tokens.colors.tint_hover,
             Self::OverlayScrim => tokens.colors.overlay_scrim,
+            Self::OverlayLightScrim => tokens.colors.overlay_light_scrim,
             Self::OverlayHover => tokens.colors.overlay_hover,
             Self::OverlayPressed => tokens.colors.overlay_pressed,
             Self::FocusRing => tokens.colors.focus_ring,

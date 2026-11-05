@@ -28,7 +28,6 @@ use kivact::style::Position;
 use kivact::style::Style;
 use kivact::style::TransitionProp;
 use kivact::style::pct;
-use kivact::style::rgb;
 use kivact::style::style;
 use kivact::ui::ButtonVariant;
 use kivact::ui::button;
@@ -291,7 +290,7 @@ impl IntoView for Lightbox {
                             .padding_top(8)
                             .padding_x(12)
                             .max_width(600)
-                            .color(rgb(0xffffff)),
+                            .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark),
                     );
                     let error = kivact::i18n::message(
                         "soft.lightbox.image_unavailable",
@@ -302,7 +301,7 @@ impl IntoView for Lightbox {
                         .live_region(LiveRegion::Polite)
                         .style(move || {
                             body_text(&kivact::style::use_tokens::<crate::Tokens>())
-                                .color(rgb(0xffffff))
+                                .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
                                 .position(Position::Absolute)
                         });
                     column((photo, fallback, caption)).style(
@@ -341,7 +340,7 @@ impl IntoView for Lightbox {
                     let counter = text(move || format!("{} / {}", active() + 1, media.get().len()))
                         .style(|| {
                             body_text(&kivact::style::use_tokens::<crate::Tokens>())
-                                .color(rgb(0xffffff))
+                                .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
                                 .position(Position::Absolute)
                                 .top(12)
                                 .left(12)
@@ -415,5 +414,5 @@ fn control_position() -> Style {
         .position(Position::Absolute)
         .size(32, 32)
         .padding(0)
-        .color(rgb(0xffffff))
+        .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
 }
