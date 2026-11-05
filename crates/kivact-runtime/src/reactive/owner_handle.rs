@@ -267,12 +267,22 @@ impl<T: 'static> Owned<T> {
     where
         T: Clone,
     {
-        self.with(Clone::clone)
+        self.get_at(Location::caller())
+    }
+    /// [`Owned::get`] with the misuse located at `at`: the caller of the
+    /// public API that reads the handle.
+    pub(crate) fn get_at(self, at: &'static Location<'static>) -> T
+    where
+        T: Clone,
+    {
+        self.with_at(at, Clone::clone)
     }
     /// Read the stored value without cloning it.
     #[track_caller]
     pub fn with<R>(self, f: impl FnOnce(&T) -> R) -> R {
-        let at = Location::caller();
+        self.with_at(Location::caller(), f)
+    }
+    fn with_at<R>(self, at: &'static Location<'static>, f: impl FnOnce(&T) -> R) -> R {
         let value = runtime(self.app, at).object_or_panic::<T>(self.key, self.name, at);
         f(&value)
     }

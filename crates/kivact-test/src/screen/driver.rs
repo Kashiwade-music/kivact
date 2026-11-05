@@ -93,9 +93,22 @@ impl Screen {
                 continue;
             }
             drop(host);
+            #[cfg(debug_assertions)]
+            self.self_check();
             return;
         }
         self.fail("the App never settles (turns keep being due)");
+    }
+
+    /// Debug check after every settle: the core's node records are the
+    /// engine's live tree. A divergence fails at once.
+    #[cfg(debug_assertions)]
+    fn self_check(&self) {
+        if let Err(error) = self.inspect().check_tree() {
+            self.fail(&format!(
+                "the core's node records and the engine's tree diverged: {error}"
+            ));
+        }
     }
 
     /// Settle: run turns and wait (real time, ≤ 5 s) for blocking jobs.

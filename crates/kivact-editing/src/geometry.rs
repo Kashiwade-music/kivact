@@ -53,11 +53,7 @@ impl<'a> TextGeometry<'a> {
 
     /// `offset` cut to the text and to the char boundary at or before it.
     pub fn floor(&self, offset: usize) -> usize {
-        let mut offset = offset.min(self.text.len());
-        while !self.text.is_char_boundary(offset) {
-            offset -= 1;
-        }
-        offset
+        kivact_types::text_utf::floor_char_boundary(self.text, offset)
     }
 
     /// The scalar index of the char boundary at or before `offset`.

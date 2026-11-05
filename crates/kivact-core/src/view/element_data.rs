@@ -295,15 +295,9 @@ pub trait NodeBuilder: Sized {
     #[track_caller]
     fn on_exit_complete(mut self, callback: impl Into<Callback<()>>) -> Self {
         let callback = callback.into();
+        // An error goes to the error boundary of the callback's owner.
         self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
-            match callback.try_call(()) {
-                Err(error)
-                    if matches!(error.kind(), kivact_runtime::ErrorKind::Disposed { .. }) =>
-                {
-                    Ok(())
-                }
-                result => result,
-            }
+            callback.call_if_alive(())
         }));
         self
     }

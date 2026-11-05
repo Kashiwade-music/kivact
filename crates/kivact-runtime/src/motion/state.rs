@@ -313,6 +313,8 @@ pub(crate) struct LoopCell {
     pub(crate) state: Signal<LoopState>,
     pub(crate) frames: Cell<u64>,
     pub(crate) gate: Cell<LoopGate>,
+    /// The memo `FrameLoop::rate` returns, made on its first call.
+    pub(crate) rate: Cell<Option<crate::Value<Option<super::values::FrameRate>>>>,
 }
 
 /// A running frame loop.

@@ -94,8 +94,8 @@ where
 }
 
 impl<T: Clone + 'static> Resource<T> {
-    fn cell(&self, _at: &'static Location<'static>) -> Rc<ResourceCell<T>> {
-        self.handle.get()
+    fn cell(&self, at: &'static Location<'static>) -> Rc<ResourceCell<T>> {
+        self.handle.get_at(at)
     }
 
     /// State of the latest request (tracked). A cancelled request is

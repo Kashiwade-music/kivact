@@ -36,11 +36,10 @@
 //! - Diagnostics: a failure puts the query, every candidate, the focus, the
 //!   recent actions and turns, the errors, the published accessibility tree
 //!   and the core's semantic tree in one message. Debug builds check at
-//!   every settle, the first mount included, that the core's host nodes
-//!   (fragments flattened) are the engine's tree with the same nodes, kinds
-//!   and child order, and that the core keeps no record the root cannot
-//!   reach (`structure`; props live only in the engine's tree, so they are
-//!   not compared).
+//!   every settle, the first mount included, that the core's node records
+//!   are the engine's live tree (every node the root reaches has one, and
+//!   the core keeps no record the root cannot reach; topology and props live
+//!   only in the engine's tree, so they are not compared).
 //! - Panics: a panic in App code (a handler, effect, memo, setup, task,
 //!   `blocking` job or a detected misuse) is not caught. It comes out of the
 //!   [`Screen`] call that drove the turn with its original payload, and the
@@ -99,9 +98,9 @@ pub use screen::{
     Screenshot, SemanticNode, Within, failure_dir,
 };
 
-// xtask-allow(os-branch): Native test environment availability is a test platform boundary (design 17.8).
+// xtask-allow(os-branch): Native test environment availability is a test platform boundary.
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 mod parent;
-// xtask-allow(os-branch): Native test environment availability is a test platform boundary (design 17.8).
+// xtask-allow(os-branch): Native test environment availability is a test platform boundary.
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 pub use parent::TestParent;

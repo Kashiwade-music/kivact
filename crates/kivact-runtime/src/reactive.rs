@@ -2,7 +2,7 @@
 //!
 //! Kivact internal crate: the single reactive runtime of an App (arena,
 //! graph, owners, turn), the public handle types, the setup functions
-//! (`signal`, `memo`, `effect`, `effect_on`, `context`, ...), errors, the trace
+//! (`signal`, `memo`, `effect`, `effect_on`, `use_context`, ...), errors, the trace
 //! ring, `IntoValue` and per-App extensions. The runtime knows no host:
 //! the host advances its clock and runs the turns.
 //!

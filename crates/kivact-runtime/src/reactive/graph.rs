@@ -105,7 +105,8 @@ impl<T: 'static> Compute for WatcherCell<T> {
     }
 }
 
-/// Register a deferred source watcher in the current setup owner.
+/// Register a source watcher in the current setup owner: `callback` runs on
+/// every later change of `source`, not for its first value.
 #[track_caller]
 pub(crate) fn watch<T: 'static>(
     source: impl Fn() -> T + 'static,
@@ -247,8 +248,18 @@ impl Runtime {
             pass_runs: PassRuns::default(),
         });
         let key = self.insert_node(owner, cell, data, at, "watcher");
-        if self.queue_effect(key) {
-            self.request_turn();
+        if !self.node_alive(key) {
+            return key;
+        }
+        // Like `create_effect`: a Render or Internal watcher subscribes now,
+        // so a change before the next stabilization reaches its callback.
+        match kind {
+            EffectKind::User => {
+                if self.queue_effect(key) {
+                    self.request_turn();
+                }
+            }
+            _ => self.run_effect(key),
         }
         key
     }

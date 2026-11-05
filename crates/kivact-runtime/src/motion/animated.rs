@@ -85,10 +85,12 @@ impl<T: Animatable> AnimCell<T> {
     }
 
     fn finish(&self, end: RunEnd) {
-        self.set_phase(match end {
-            RunEnd::Completed => AnimPhase::Completed,
-            RunEnd::Cancelled => AnimPhase::Idle,
-        });
+        match end {
+            // Every completion notifies, also one after another (reduced
+            // motion completes each run at once): `on_complete` runs for each.
+            RunEnd::Completed => self.phase.update(|phase| *phase = AnimPhase::Completed),
+            RunEnd::Cancelled => self.set_phase(AnimPhase::Idle),
+        }
         let to = self.to.borrow().clone();
         self.publish(&to);
         self.spring.borrow_mut().velocity.fill(0.0);
@@ -299,8 +301,8 @@ impl<T: Animatable> Animated<T> {
 }
 
 impl<T: Animatable> Animated<T> {
-    fn cell(&self, _at: &'static Location<'static>) -> Rc<AnimCell<T>> {
-        self.cell.get()
+    fn cell(&self, at: &'static Location<'static>) -> Rc<AnimCell<T>> {
+        self.cell.get_at(at)
     }
 
     /// Current value (tracked).

@@ -471,6 +471,21 @@ impl<E: 'static> Callback<E> {
         }
     }
 
+    /// Call unless the callback was disposed (then nothing happens); an
+    /// `Err` goes to the nearest `on_error` of the callback's owner.
+    #[track_caller]
+    pub fn call_if_alive(&self, e: E) {
+        let at = Location::caller();
+        let (rt, cb) = match self.lookup(at) {
+            Ok(x) => x,
+            Err(err) if matches!(err.kind(), ErrorKind::Disposed { .. }) => return,
+            Err(err) => misuse(err),
+        };
+        if let Err(err) = Self::invoke(&rt, &cb, e) {
+            rt.route(Some(cb.owner), err);
+        }
+    }
+
     /// Call and return the result; a disposed callback or one of another
     /// App is an `Err`, not a panic.
     #[track_caller]

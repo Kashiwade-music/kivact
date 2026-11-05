@@ -67,12 +67,10 @@ pub(crate) struct AsyncCell<T: 'static> {
 }
 impl<T: Clone + 'static> AsyncCell<T> {
     pub(super) fn new(owner: crate::Owner, at: &'static Location<'static>) -> Self {
-        let cell = Self {
+        Self {
             state: owner.signal(Rc::new(AsyncState::Idle), at),
             latest: owner.signal(None, at),
-        };
-        cell.reset();
-        cell
+        }
     }
     pub(super) fn start(&self) {
         self.state
@@ -87,9 +85,5 @@ impl<T: Clone + 'static> AsyncCell<T> {
             Err(error) => AsyncState::Failed(error),
         };
         self.state.update(|state| *state = Rc::new(next));
-    }
-    pub(super) fn reset(&self) {
-        self.state
-            .update(|state| *state = Rc::new(AsyncState::Idle));
     }
 }

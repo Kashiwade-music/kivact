@@ -263,8 +263,8 @@ pub(crate) struct NodeObservation {
 
 /// Records [`ViewNodes::remove`] deleted. They hold the nodes' handlers, so
 /// user values: the caller drops them after the tree borrow ends, as the
-/// runtime drops what a disposal released (G-01, design §4「arena と
-/// handle」).
+/// runtime drops what a disposal released (G-01): a user `Drop` may use
+/// the tree again.
 #[must_use]
 pub(crate) struct Removed {
     pub(crate) ids: Vec<NodeId>,
@@ -413,16 +413,14 @@ impl ViewNodes {
         self.engine.reader()
     }
 
-    /// A value-less visibility notification owned by the App root, created
-    /// for choice controllers tracking ancestor visibility.
-    pub(crate) fn visibility_revision(&mut self, at: &'static Location<'static>) -> Notifier {
-        let _ = at;
+    /// A value-less visibility notification owned by the App root, for
+    /// choice controllers tracking ancestor visibility.
+    pub(crate) fn visibility_revision(&self) -> Notifier {
         self.visibility_revision
     }
 
     /// Track changes to live-region ancestry.
-    pub(crate) fn live_region_revision(&mut self, at: &'static Location<'static>) -> Notifier {
-        let _ = at;
+    pub(crate) fn live_region_revision(&self) -> Notifier {
         self.live_region_revision
     }
 
@@ -759,6 +757,12 @@ impl ViewNodes {
     /// Number of nodes (the Testing Library's `Stats`).
     pub(crate) fn len(&self) -> usize {
         self.nodes.0.len()
+    }
+
+    /// The IDs of all node records (the test harness's settle check).
+    #[cfg(debug_assertions)]
+    pub(crate) fn ids(&self) -> impl Iterator<Item = NodeId> + '_ {
+        self.nodes.0.keys().copied()
     }
 }
 

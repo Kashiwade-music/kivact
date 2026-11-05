@@ -36,7 +36,7 @@ impl Weekday {
 
     /// The day `days` after this one, wrapping around the week.
     pub fn days_after(self, days: usize) -> Weekday {
-        Self::ORDER[(self.index() + days) % 7]
+        Self::ORDER[(self.index() + days % 7) % 7]
     }
 
     /// How many days after `first` this day comes, 0 to 6: its column in a
@@ -48,7 +48,7 @@ impl Weekday {
 
 /// The language and region an App speaks, as a BCP 47 language tag such as
 /// `"ja-JP"` or `"en-GB"`. It selects nothing by itself: components read
-/// it ([`locale`](super::locale)) to format what they show, and the App
+/// it (`kivact::i18n::use_locale`) to format what they show, and the App
 /// uses it to choose its own translations.
 ///
 /// The tag is kept as given. Subtags may be separated by `-` or `_`.

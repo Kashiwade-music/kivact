@@ -6,11 +6,11 @@
 //! lines and the laid out boxes (`kivact_engine::testing`'s
 //! `layout_findings`), and reported with where the text was created.
 //!
-//! A [`LayoutViolation`] is `{ rule, role, name, text, test_id, created_at,
-//! text_rect, limit, amount }` and displays on one line; `created_at` is
-//! the call that made the text, found by walking the core tree up to the
-//! nearest located ancestor. `LayoutCheck` and `LayoutRule` are
-//! `#[non_exhaustive]`.
+//! A [`LayoutViolation`] is `{ finding, role, name, text, test_id,
+//! created_at }` (with `rule()`, `text_rect()`, `limit()` and `amount()`
+//! reading the finding) and displays on one line; `created_at` is the call
+//! that made the text, found by walking the node tree up to the nearest
+//! located ancestor.
 
 use kivact_types::NodeId;
 

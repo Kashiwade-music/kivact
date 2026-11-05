@@ -85,9 +85,12 @@ fn days_from_civil(year: i32, month: u8, day: u8) -> i64 {
     era * 146_097 + doe - 719_468
 }
 
-/// The civil date `days` after 1970-01-01.
+/// The civil date `days` after 1970-01-01, saturating at the first and last
+/// day of the years an `i32` holds.
 fn civil_from_days(days: i64) -> CalendarDate {
-    let z = days + 719_468;
+    let first = days_from_civil(i32::MIN, 1, 1);
+    let last = days_from_civil(i32::MAX, 12, 31);
+    let z = days.clamp(first, last) + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z - era * 146_097;
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
@@ -150,7 +153,8 @@ impl CalendarDate {
         days_from_civil(self.year, self.month, self.day)
     }
 
-    /// The date `days` after 1970-01-01.
+    /// The date `days` after 1970-01-01, saturating at the first and last
+    /// day of the years an `i32` holds.
     pub fn from_days(days: i64) -> Self {
         civil_from_days(days)
     }

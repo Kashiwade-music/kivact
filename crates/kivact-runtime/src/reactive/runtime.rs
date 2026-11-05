@@ -31,7 +31,7 @@ impl Runtime {
             },
             #[expect(
                 clippy::disallowed_types,
-                reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+                reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
             )]
             ext: std::cell::OnceCell::new(),
             mount_revision: Cell::new(kivact_types::Revision(0)),

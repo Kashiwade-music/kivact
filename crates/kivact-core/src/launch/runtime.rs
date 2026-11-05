@@ -186,7 +186,7 @@ impl Launch {
         crate::client::trace::record(&rt);
     }
 
-    /// One turn (design §4「turn」): every queued event, then everything
+    /// One turn: every queued event, then everything
     /// they cause (tasks and timers, activations, commits, `on_mount` and
     /// user effects) until nothing is left, the writes committed. The
     /// boundaries among the events only decide when the `on_mount`
@@ -275,7 +275,10 @@ fn settle_user_effects(
         }
         writes += commit(turn, rt, tree);
         let mounts = rt.mounts_due(done);
-        if !mounts && !rt.pending().user {
+        // The commit may queue render work too (a failed focus request
+        // reaching an error boundary): it runs and commits in this turn.
+        let pending = rt.pending();
+        if !mounts && !pending.user && !pending.render {
             break;
         }
         round += 1;

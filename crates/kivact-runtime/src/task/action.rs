@@ -421,12 +421,20 @@ impl<T: Clone + 'static, I: 'static> Drain for ActionCell<T, I> {
     }
 
     fn abandon(&self) -> usize {
+        self.abandon_at(self.at)
+    }
+}
+
+impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
+    /// Cancel the pending runs; the state becomes `Failed` with one
+    /// cancellation error located at `at`.
+    fn abandon_at(&self, at: &'static Location<'static>) -> usize {
         let n = match &self.runner {
             Runner::Latest(run, _) => usize::from(run.cancel()),
             Runner::Queue(queue) => queue.abandon(),
         };
         if n > 0 && !self.is_detached() {
-            self.async_state.finish(Err(cancelled(self.at)));
+            self.async_state.finish(Err(cancelled(at)));
         }
         self.wake_drained();
         n
@@ -628,8 +636,8 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
 }
 
 impl<T: Clone + 'static, I: 'static> Action<T, I> {
-    fn cell(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<ActionCell<T, I>>) {
-        let c = self.handle.get();
+    fn cell(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<ActionCell<T, I>>) {
+        let c = self.handle.get_at(at);
         (c.owner.runtime(), c)
     }
 
@@ -729,9 +737,7 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
         // Checked before any state changes.
         require_effectful("Action::cancel");
         if cell.busy() {
-            cell.abandon();
-            let err = cancelled(at);
-            cell.async_state.finish(Err(err));
+            cell.abandon_at(at);
         }
     }
 

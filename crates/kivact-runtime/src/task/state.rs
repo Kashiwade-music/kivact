@@ -81,7 +81,7 @@ pub(crate) struct TaskCell {
     /// Set right after the spawn, before the first poll.
     #[expect(
         clippy::disallowed_types,
-        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
     )]
     pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }

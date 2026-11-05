@@ -122,13 +122,13 @@ impl TestParent {
         self.0.release_button(button, x, y).map_err(error)
     }
     /// Count native close requests received by the Windows host.
-    // xtask-allow(os-branch): Native test environment availability is a test platform boundary (design 17.8).
+    // xtask-allow(os-branch): Native test environment availability is a test platform boundary.
     #[cfg(windows)]
     pub fn close_requests(&self) -> u32 {
         self.0.close_requests()
     }
     /// Send native file-drop messages to the Linux editor at physical coordinates.
-    // xtask-allow(os-branch): Native test environment availability is a test platform boundary (design 17.8).
+    // xtask-allow(os-branch): Native test environment availability is a test platform boundary.
     #[cfg(target_os = "linux")]
     pub fn drop_files(&self, files: &[std::path::PathBuf], x: f64, y: f64) -> Result<()> {
         self.0.drop_files(files, x, y).map_err(error)

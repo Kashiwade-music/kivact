@@ -71,7 +71,7 @@ pub struct Runtime {
     pub(crate) root: Key,
     #[expect(
         clippy::disallowed_types,
-        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
     )]
     pub(crate) ext: std::cell::OnceCell<Extensions>,
     /// Last stamp remains meaningful after every acknowledged callback was removed.
@@ -326,10 +326,10 @@ pub struct NodeInfo {
     /// Value type name.
     pub ty: &'static str,
     /// Where the node was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
     /// Location and turn of the last value-changing write (sources).
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub written: Option<(&'static Location<'static>, Turn)>,
     /// What the node read during its last run, in read order.
     pub deps: Vec<NodeId>,
@@ -377,7 +377,7 @@ pub(crate) struct Object {
     pub(crate) created_at: &'static Location<'static>,
 }
 
-// xtask-allow(state-fields): Owner, tracking, purity and writer are independent execution facts inherited across copied frames (design 19.19).
+// xtask-allow(state-fields): Owner, tracking, purity and writer are independent execution facts inherited across copied frames.
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
@@ -431,10 +431,10 @@ pub struct TraceWrite {
     /// Type name of the written value.
     pub ty: &'static str,
     /// Where the signal was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
     /// Where it was written.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
 }
 
@@ -444,7 +444,7 @@ pub struct TraceRun {
     /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
     pub kind: &'static str,
     /// Where the memo or effect was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations (design 10.11).
+    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
 }
 

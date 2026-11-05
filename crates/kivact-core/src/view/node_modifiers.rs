@@ -4,6 +4,7 @@ use crate::state::{IntoText, IntoValue};
 use crate::view::element_data::Common;
 use crate::view::element_data::Modifier;
 use crate::view::element_data::Node;
+use crate::view::element_data::NodeBuilder;
 use crate::view::ime_session::{ImeInput, ImeSession};
 use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
@@ -25,20 +26,15 @@ impl Node {
     /// a query matching several nodes fails and lists them all;
     /// narrow it with `Screen::within`.
     #[track_caller]
-    pub fn test_id(mut self, id: impl Into<String>) -> Self {
-        self.common
-            .semantic(kivact_runtime::Prop::constant(id.into()), |s, value| {
-                s.test_id = Some(value)
-            });
-        self
+    pub fn test_id(self, id: impl Into<String>) -> Self {
+        NodeBuilder::test_id(self, id)
     }
 
     /// Bind `r` to this node once it is mounted. Several refs can be
     /// bound to one node (a component's own and the user's): each
     /// `.node_ref(..)` adds one, none replaces another.
-    pub fn node_ref(mut self, r: NodeRef) -> Self {
-        self.common.node_ref.push(r);
-        self
+    pub fn node_ref(self, r: NodeRef) -> Self {
+        NodeBuilder::node_ref(self, r)
     }
 
     /// Add a style layer, constant or reactive. Layers merge in
@@ -49,23 +45,20 @@ impl Node {
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
     /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
-    pub fn style(mut self, s: impl IntoValue<Style>) -> Self {
-        self.common.push_style(s.into_prop());
-        self
+    pub fn style(self, s: impl IntoValue<Style>) -> Self {
+        NodeBuilder::style(self, s)
     }
 
     /// Accessible name.
     #[track_caller]
-    pub fn name(mut self, v: impl IntoText) -> Self {
-        self.common.set_name(v.into_text());
-        self
+    pub fn name(self, v: impl IntoText) -> Self {
+        NodeBuilder::name(self, v)
     }
 
     /// Accessible description.
     #[track_caller]
-    pub fn description(mut self, v: impl IntoText) -> Self {
-        self.common.set_description(v.into_text());
-        self
+    pub fn description(self, v: impl IntoText) -> Self {
+        NodeBuilder::description(self, v)
     }
 
     /// Disabled state (semantics and the `disabled` style). A component
@@ -79,25 +72,22 @@ impl Node {
     /// ends an existing drag when the capturing node becomes disabled.
     /// Unhandled wheels continue to enabled ancestors and native scrolling.
     #[track_caller]
-    pub fn disabled(mut self, v: impl IntoValue<bool>) -> Self {
-        self.common.set_disabled(v.into_prop());
-        self
+    pub fn disabled(self, v: impl IntoValue<bool>) -> Self {
+        NodeBuilder::disabled(self, v)
     }
 
     /// Report an invalid value to assistive technology. A component that
     /// draws an invalid look reads it with
     /// [`accessible_invalid`](crate::view::Node::accessible_invalid).
     #[track_caller]
-    pub fn invalid(mut self, value: impl IntoValue<bool>) -> Self {
-        self.common.set_invalid(value.into_prop());
-        self
+    pub fn invalid(self, value: impl IntoValue<bool>) -> Self {
+        NodeBuilder::invalid(self, value)
     }
 
     /// Set how this node lays out when it is the root of a removed subtree.
     /// Absolute, fixed and overlay nodes already occupy no slot in normal flow.
-    pub fn exit_layout(mut self, layout: ExitLayout) -> Self {
-        self.common.exit_layout = Some(layout);
-        self
+    pub fn exit_layout(self, layout: ExitLayout) -> Self {
+        NodeBuilder::exit_layout(self, layout)
     }
 
     /// Run after this node, when directly removed, is no longer drawn.
@@ -105,27 +95,14 @@ impl Node {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
-    pub fn on_exit_complete(mut self, callback: impl Into<Callback<()>>) -> Self {
-        let callback = callback.into();
-        self.common.exit_complete =
-            Some(kivact_runtime::Handler::from_fn(move |()| {
-                match callback.try_call(()) {
-                    Err(error)
-                        if matches!(error.kind(), kivact_runtime::ErrorKind::Disposed { .. }) =>
-                    {
-                        Ok(())
-                    }
-                    result => result,
-                }
-            }));
-        self
+    pub fn on_exit_complete(self, callback: impl Into<Callback<()>>) -> Self {
+        NodeBuilder::on_exit_complete(self, callback)
     }
 
     /// Hide the node and its subtree.
     #[track_caller]
-    pub fn hidden(mut self, v: impl IntoValue<bool>) -> Self {
-        self.common.set_hidden(v.into_prop());
-        self
+    pub fn hidden(self, v: impl IntoValue<bool>) -> Self {
+        NodeBuilder::hidden(self, v)
     }
 
     /// Whether the pointer hits the node and its subtree (default `true`).
@@ -133,9 +110,8 @@ impl Node {
     /// as CSS `pointer-events: none`: no hover, press or wheel reaches
     /// them, which suits a floating card that follows the pointer.
     /// Keyboard focus and assistive technology are unaffected.
-    pub fn hit_testable(mut self, on: impl IntoValue<bool>) -> Self {
-        self.common.hit_testable = Some(on.into_prop());
-        self
+    pub fn hit_testable(self, on: impl IntoValue<bool>) -> Self {
+        NodeBuilder::hit_testable(self, on)
     }
 
     /// Whether the node takes keyboard focus, overriding the builder's default.
@@ -143,59 +119,23 @@ impl Node {
     /// only the selected tab or segment is a Tab stop, and the stop moves
     /// while the nodes stay.
     #[track_caller]
-    pub fn focusable(mut self, on: impl IntoValue<bool>) -> Self {
-        self.common.set_focusable(on.into_prop());
-        self
+    pub fn focusable(self, on: impl IntoValue<bool>) -> Self {
+        NodeBuilder::focusable(self, on)
     }
 
     /// Keep an otherwise focusable control in keyboard focus order while it
     /// is disabled, so users can reach its label and any attached tooltip.
     /// Activation and editing remain disabled.
-    pub fn focusable_when_disabled(mut self, on: impl IntoValue<bool>) -> Self {
-        self.common.focusable_when_disabled = Some(on.into_prop());
-        self
+    pub fn focusable_when_disabled(self, on: impl IntoValue<bool>) -> Self {
+        NodeBuilder::focusable_when_disabled(self, on)
     }
 
     /// Give this group one Tab stop and move between its eligible controls
     /// with unhandled arrows along `orientation`, Home and End. A text field
     /// keeps arrows that still move its caret or selection.
     #[track_caller]
-    pub fn roving_focus(mut self, orientation: impl IntoValue<crate::view::Orientation>) -> Self {
-        use crate::view::node_ref::RovingMove;
-        use crate::view::{Handled, Key, Modifiers, Orientation, ReadingDirection};
-        let orientation = orientation.into_value();
-        let direction = crate::view::use_direction();
-        let reference = crate::view::node_ref();
-        let common = &mut self.common;
-        common.roving_focus = Some(
-            (move || kivact_engine::contract::RovingFocus {
-                orientation: orientation.get(),
-                rtl: direction.get() == ReadingDirection::Rtl,
-            })
-            .into_prop(),
-        );
-        common.node_ref.push(reference);
-        self.on_key(move |event| {
-            if event.modifiers() != Modifiers::default() {
-                return Handled::No;
-            }
-            let rtl = direction.get_untracked() == ReadingDirection::Rtl;
-            let movement = match (orientation.get_untracked(), event.key()) {
-                (Orientation::Horizontal, Key::ArrowLeft) if !rtl => RovingMove::Previous,
-                (Orientation::Horizontal, Key::ArrowRight) if rtl => RovingMove::Previous,
-                (Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => RovingMove::Next,
-                (Orientation::Vertical, Key::ArrowUp) => RovingMove::Previous,
-                (Orientation::Vertical, Key::ArrowDown) => RovingMove::Next,
-                (_, Key::Home) => RovingMove::First,
-                (_, Key::End) => RovingMove::Last,
-                _ => return Handled::No,
-            };
-            if reference.move_roving_focus(movement) {
-                Handled::Yes
-            } else {
-                Handled::No
-            }
-        })
+    pub fn roving_focus(self, orientation: impl IntoValue<crate::view::Orientation>) -> Self {
+        NodeBuilder::roving_focus(self, orientation)
     }
 
     /// Handle keys reported by the host before existing key handlers,
@@ -213,23 +153,21 @@ impl Node {
     /// the default activation or dismissal, and an error stops and is
     /// reported once.
     /// Repeated customizations run most recently registered first.
-    pub fn on_key<F, R>(mut self, f: F) -> Self
+    pub fn on_key<F, R>(self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
         R: HandlerResult,
     {
-        self.common.prepend_key(f);
-        self
+        NodeBuilder::on_key(self, f)
     }
 
     /// Key release handler; releases do not edit or activate controls.
-    pub fn on_key_up<F, R>(mut self, f: F) -> Self
+    pub fn on_key_up<F, R>(self, f: F) -> Self
     where
         F: Fn(KeyEvent) -> R + 'static,
         R: HandlerResult,
     {
-        self.common.prepend_key_up(f);
-        self
+        NodeBuilder::on_key_up(self, f)
     }
 
     /// Run before existing pointer behavior, in node-local coordinates.
@@ -237,13 +175,12 @@ impl Node {
     /// stops the chain.
     /// This controls the callback chain; host focus/capture/caret changes
     /// and its separate Activate action retain their native behavior.
-    pub fn on_pointer<F, R>(mut self, f: F) -> Self
+    pub fn on_pointer<F, R>(self, f: F) -> Self
     where
         F: Fn(PointerEvent) -> R + 'static,
         R: HandlerResult,
     {
-        self.common.prepend_pointer(f);
-        self
+        NodeBuilder::on_pointer(self, f)
     }
 
     /// Handle an unconsumed secondary pointer release in node-local coordinates.
@@ -260,50 +197,41 @@ impl Node {
     /// Run before existing wheel behavior and native scrolling.
     /// `No` continues, `Yes` consumes, `PreventDefault` continues without
     /// native scrolling, and an error stops the chain.
-    pub fn on_wheel<F, R>(mut self, f: F) -> Self
+    pub fn on_wheel<F, R>(self, f: F) -> Self
     where
         F: Fn(WheelEvent) -> R + 'static,
         R: HandlerResult,
     {
-        self.common.prepend_wheel(f);
-        self
+        NodeBuilder::on_wheel(self, f)
     }
 
     /// Set the shared pointer, Enter/Space and accessibility Activate action.
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
-    pub fn on_press(mut self, f: impl Into<kivact_runtime::Callback<()>>) -> Self {
-        let f = f.into();
-        self.common.set_press(move || f.call(()));
-        self
+    pub fn on_press(self, f: impl Into<kivact_runtime::Callback<()>>) -> Self {
+        NodeBuilder::on_press(self, f)
     }
 
     /// OS file drag handler, with node-local and window positions.
-    pub fn on_file<F, R>(mut self, f: F) -> Self
+    pub fn on_file<F, R>(self, f: F) -> Self
     where
         F: Fn(FileEvent) -> R + 'static,
         R: HandlerResult,
     {
-        self.common
-            .handlers
-            .file
-            .replace_caller(move |event| f(event).into_outcome());
-        self
+        NodeBuilder::on_file(self, f)
     }
 
     /// Local draw layer behind the children (node-local coordinates).
     /// Callers use this layer; recipes and themes use `Style::paint`
     /// so style merging retains their drawing.
-    pub fn draw(mut self, f: impl Fn(&mut Draw, Size) + 'static) -> Self {
-        self.common.draw = Some(Rc::new(f));
-        self
+    pub fn draw(self, f: impl Fn(&mut Draw, Size) + 'static) -> Self {
+        NodeBuilder::draw(self, f)
     }
 
     /// Size hints used by layout when the node has no children to measure.
-    pub fn intrinsic_size(mut self, s: IntrinsicSize) -> Self {
-        self.common.intrinsic = Some(s);
-        self
+    pub fn intrinsic_size(self, s: IntrinsicSize) -> Self {
+        NodeBuilder::intrinsic_size(self, s)
     }
 }
 

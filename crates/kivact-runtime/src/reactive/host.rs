@@ -117,7 +117,6 @@ impl Runtime {
 
     /// Drop the queued user effects (after a cycle was detected) and return
     /// them.
-    /// Abandon queued user effects after a cycle.
     pub fn abandon_user_effects(&self) -> Vec<NodeId> {
         self.abandon_user_queue().into_iter().map(NodeId).collect()
     }

@@ -16,11 +16,13 @@ use std::cmp::Ordering;
 use writeable::{TryWriteable, Writeable};
 
 impl Locale {
-    /// Format a Gregorian date using the requested locale style.
+    /// Format a Gregorian date using the requested locale style. A year
+    /// outside -9999 to 9999, which the locale calendar data does not cover,
+    /// prints as ISO 8601.
     pub fn format_date(&self, date: CalendarDate, style: DateStyle) -> String {
-        if style == DateStyle::Iso {
+        let Some(icu) = icu_date(date).filter(|_| style != DateStyle::Iso) else {
             return date.to_string();
-        }
+        };
         let fields = match style {
             DateStyle::Short => YMD::short(),
             DateStyle::Medium => YMD::medium(),
@@ -29,7 +31,7 @@ impl Locale {
         let formatter =
             FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(self.icu().into(), fields)
                 .expect("invariant: compiled ICU Gregorian date data includes locale fallback");
-        formatter.format(&icu_date(date)).to_string()
+        formatter.format(&icu).to_string()
     }
 
     /// Parse ISO 8601, locale month names, or a numeric date in locale order; two-digit years use 2000 to 2099.
@@ -47,7 +49,7 @@ impl Locale {
             YMD::short(),
         )
         .expect("invariant: compiled ICU Gregorian date data includes locale fallback");
-        let date = icu_date(CalendarDate::new(2006, 11, 22));
+        let date = sample_date(CalendarDate::new(2006, 11, 22));
         let formatted = formatter.format(&date);
         let pattern = formatted.pattern().write_to_string().into_owned();
         let order = date_order(&pattern);
@@ -133,7 +135,7 @@ impl Locale {
             .expect("invariant: valid literal month pattern");
         names
             .with_pattern_unchecked(&pattern)
-            .format(&icu_date(CalendarDate::new(2026, month, 1)))
+            .format(&sample_date(CalendarDate::new(2026, month, 1)))
             .try_write_to_string()
             .expect("invariant: requested month names were loaded")
             .into_owned()
@@ -160,7 +162,7 @@ impl Locale {
         let date = CalendarDate::new(2026, 11, 2).add_days(day.days_since(Weekday::Monday) as i32);
         names
             .with_pattern_unchecked(&pattern)
-            .format(&icu_date(date))
+            .format(&sample_date(date))
             .try_write_to_string()
             .expect("invariant: requested weekday names were loaded")
             .into_owned()
@@ -191,9 +193,14 @@ impl Locale {
     }
 }
 
-fn icu_date(date: CalendarDate) -> Date<Gregorian> {
-    Date::try_new_gregorian(date.year(), date.month(), date.day())
-        .expect("invariant: CalendarDate is a valid Gregorian date")
+/// The ICU date, or `None` for a year outside ICU's -9999 to 9999.
+fn icu_date(date: CalendarDate) -> Option<Date<Gregorian>> {
+    Date::try_new_gregorian(date.year(), date.month(), date.day()).ok()
+}
+
+/// The ICU date of a sample day the formatter reads names or patterns from.
+fn sample_date(date: CalendarDate) -> Date<Gregorian> {
+    icu_date(date).expect("invariant: sample dates are within ICU's year range")
 }
 
 fn date_order(pattern: &str) -> Vec<char> {
