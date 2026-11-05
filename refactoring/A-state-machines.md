@@ -1343,3 +1343,8 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 - **SM-K927 補完**: SwipeはReleasedで受理済みdrag直後の同一gesture選択を抑止し、次のDownでPendingへ戻す。keyboard/a11y activationは明示的に解除する。日付cellとrootは同一Swipe ownerへ実際のnode-local入力を配送する。
 - **Popup復帰の補完**: programmatic closeでは実際のfocused tokenとcontent内観測を既存machineへ渡し、内部またはfocusなしの場合に承認済みinvokerへ戻す。実際の外部focus先は維持する。
+
+### SM-K928 overflow の実測幅 cache
+
+- **場所**: Soft overflow の項目別実測幅と active key 集合。
+- **解消後**: 単一の測定 cache owner が実際の layout observer から Measured(key, width)、項目 observer から Retain(keys) を受ける。Machine の状態は測定済み数値の map のみ。fitting はその読み取り専用投影であり、第二の selection/model/epoch を作らない。単なる Signal 書き込みの wrapper は不可。S9 の測定事実を同じ owner に保持する。

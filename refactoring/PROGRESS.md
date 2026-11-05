@@ -165,7 +165,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-7b | merged | a7e2f0f8 | consumer16/catalog3/docs44+2/scoped規約0 |
 | K-7c | merged | 2a34e21b | Game consumer12/catalog3/rustdoc3/scoped contracts0 |
 | K-7d | merged | f9fab8a5 | check/static0、consumer40/41 focus共通修正後再確認 |
-| K-7e | doing | e7baffb0 | C4/API/palette移行、C6単一consumer96/96 0、source規約/Rustdoc残 |
+| K-7e | merged | e1eab850 | 全source移行、consumer96/96、catalog全ページ、公開rustdoc missing_docs 0。H-G5で規約検査を全面有効化 |
 | H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
 | H-G3 | doing | ce4294 | 中核の状態整理を統合、全体静的のdispatch葉分離を修正中 |
