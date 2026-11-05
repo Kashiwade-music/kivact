@@ -185,7 +185,7 @@ impl Dnd {
                     && e.atom == self.atoms.property
                     && e.state == x11rb::protocol::xproto::Property::NEW_VALUE =>
             {
-                self.increment(native, e, &mut out)?;
+                self.increment(native, &mut out)?;
             }
             _ => {}
         }
@@ -238,12 +238,7 @@ impl Dnd {
     }
 
     /// Receive an XDND increment transfer notification.
-    fn increment(
-        &mut self,
-        native: &Native,
-        e: &x11rb::protocol::xproto::PropertyNotifyEvent,
-        out: &mut Vec<RawDrop>,
-    ) -> Result<(), ShellError> {
+    fn increment(&mut self, native: &Native, out: &mut Vec<RawDrop>) -> Result<(), ShellError> {
         let reply = native
             .connection
             .get_property(
