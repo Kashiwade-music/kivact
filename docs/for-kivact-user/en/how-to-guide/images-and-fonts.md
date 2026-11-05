@@ -60,7 +60,7 @@ image as wide as the column.
 | Source | Use it for |
 | --- | --- |
 | `include_bytes!("logo.png")` or a `static` byte slice | files shipped inside the executable (never read from disk) |
-| `Vec<u8>`, `Arc<[u8]>` | bytes you got at run time, such as a download |
+| `Vec<u8>`, `AssetBytes` | bytes you got at run time, such as a download |
 | `"photos/cover.jpg"`, `String`, `PathBuf`, `&Path` | a file read when it is first shown, relative to the current directory |
 | `Asset::from(..)` | any of the above, as a value you keep |
 | a closure, `Signal<Asset>` or `Value<Asset>` | an image that changes |
@@ -86,8 +86,15 @@ fn main() -> kivact::Result<()> {
 
 ### Bytes obtained at run time
 
+Pass owned bytes directly: `image(bytes)` for a `Vec<u8>`, or
+`Pixels::new(width, height, rgba)` for your renderer's RGBA8 buffer. When several
+values need to retain the same bytes, construct `AssetBytes::new(bytes)` once
+and clone that value. `AssetBytes::copy_from_slice(slice)` copies borrowed bytes
+once. Both `Asset` and `AssetBytes` are available from `kivact::view`.
+
+
 An `Asset` is cached by **identity**, not by content: the same file path, the
-same embedded slice, or the same `Arc` allocation. `Asset::from(bytes.clone())`
+same embedded slice, or the same retained byte allocation. `Asset::from(bytes.clone())`
 creates a new allocation, hence a new asset that is decoded again, every time
 the expression runs. So for bytes you produced yourself, create the `Asset` once
 in setup and clone the `Asset`:

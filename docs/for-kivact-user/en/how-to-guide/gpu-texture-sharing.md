@@ -258,13 +258,11 @@ request by drawing on the CPU, or by reading back a texture of your own, and pub
 result:
 
 ```rust,ignore
-use std::sync::Arc;
-
 use kivact::draw::Pixels;
 
 fn serve_pixels(link: &ShareLink, request: &ShareRequest) {
     let rgba: Vec<u8> = render_on_cpu(request.width, request.height); // straight-alpha RGBA8
-    link.publish_pixels(Pixels::new(request.width, request.height, Arc::from(rgba)));
+    link.publish_pixels(Pixels::new(request.width, request.height, rgba));
 }
 ```
 

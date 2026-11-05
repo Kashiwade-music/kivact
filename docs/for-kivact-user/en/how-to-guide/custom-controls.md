@@ -676,6 +676,12 @@ change, pass `binding(read, write)` instead of a signal. A few more settings:
 `.on_submit(..)` for Enter in a single line, and `.forward_keys([...])` to hand
 arrow, Tab or Escape keys to your own handlers (a suggestion list, say).
 
+When publishing accessibility text for a custom editor, use
+`SemanticsTextRuns::new(Vec<SemanticsTextRun>)` for the run list. Keep and clone
+that value when the text is unchanged, rather than rebuilding the list on every
+paint. The standard text controls publish these snapshots for you; only an
+editor that owns its native text model needs to construct them.
+
 For documents too large to copy on every keystroke, such as a code editor, the lower
 layer `kivact::custom::TextEditing` reports range edits, takes a key policy and
 colors lines. It is experimental; see its rustdoc.

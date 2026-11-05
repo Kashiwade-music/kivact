@@ -363,33 +363,33 @@ impl NodeBuilder for Notice {
 impl IntoView for Notice {
     fn into_view(self) -> View {
         component(move || {
-        let Notice { root, message, tone, action, on_dismiss } = self;
-        // The default look. It goes below every style the caller adds.
-        let mut root = root.base_style(move || {
-            let (background, color) = match tone.get() {
-                Tone::Info => (ColorToken::Accent, ColorToken::AccentText),
-                Tone::Warning => (ColorToken::Warning, ColorToken::Text),
-            };
-            let theme = use_theme().get();
-            style()
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .gap(theme.space().sm)
-                .padding(theme.space().md)
-                .radius(theme.radius().md)
-                .width(240)
-                .background(background)
-                .color(color)
-        });
-        root = root.child(text(message).style(style().grow(1)));
-        if let Some(action) = action {
-            root = root.child(action);
-        }
-        if let Some(dismiss) = on_dismiss {
-            root = root.child(button("Dismiss").on_press(move || dismiss.call(())));
-        }
-        root.into_view()
-            })
+            let Notice { root, message, tone, action, on_dismiss } = self;
+            // The default look. It goes below every style the caller adds.
+            let mut root = root.base_style(move || {
+                let (background, color) = match tone.get() {
+                    Tone::Info => (ColorToken::Accent, ColorToken::AccentText),
+                    Tone::Warning => (ColorToken::Warning, ColorToken::Text),
+                };
+                let theme = use_theme().get();
+                style()
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .gap(theme.space().sm)
+                    .padding(theme.space().md)
+                    .radius(theme.radius().md)
+                    .width(240)
+                    .background(background)
+                    .color(color)
+            });
+            root = root.child(text(message).style(style().grow(1)));
+            if let Some(action) = action {
+                root = root.child(action);
+            }
+            if let Some(dismiss) = on_dismiss {
+                root = root.child(button("Dismiss").on_press(move || dismiss.call(())));
+            }
+            root.into_view()
+        })
     }
 }
 
@@ -660,37 +660,38 @@ impl NodeBuilder for SearchBox {
 impl IntoView for SearchBox {
     fn into_view(self) -> View {
         component(move || {
-        let SearchBox { mut root, value } = self;
+            let SearchBox { mut root, value } = self;
 
-        // What the caller said about the component as a whole.
-        let name = root.accessible_name();
-        let disabled = root.accessible_disabled();
-        let invalid = root.accessible_invalid();
-        let labelled_by = root.accessible_labelled_by();
-        let described_by = root.accessible_described_by();
+            // What the caller said about the component as a whole.
+            let name = root.accessible_name();
+            let disabled = root.accessible_disabled();
+            let invalid = root.accessible_invalid();
+            let labelled_by = root.accessible_labelled_by();
+            let described_by = root.accessible_described_by();
 
-        // The name the caller gave wins; otherwise the component has its own.
-        let label: Value<String> = match name {
-            Some(read) => read,
-            None => "Search".into_text_value(),
-        };
+            // The name the caller gave wins; otherwise the component has its own.
+            let label: Value<String> = match name {
+                Some(read) => read,
+                None => "Search".into_text_value(),
+            };
 
-        // Hand all of it to the control that takes the keystrokes.
-        let mut input = text_input(label, value).style(style().grow(1));
-        if let Some(read) = disabled {
-            input = input.disabled(move || read.get());
-        }
-        if let Some(read) = invalid {
-            input = input.invalid(move || read.get());
-        }
-        for target in labelled_by {
-            input = input.with_node(|host| host.labelled_by(target));
-        }
-        for target in described_by {
-            input = input.with_node(|host| host.described_by(target));
-        }
+            // Hand all of it to the control that takes the keystrokes.
+            let mut input = text_input(label, value).style(style().grow(1));
+            if let Some(read) = disabled {
+                input = input.disabled(move || read.get());
+            }
+            if let Some(read) = invalid {
+                input = input.invalid(move || read.get());
+            }
+            for target in labelled_by {
+                input = input.with_node(|host| host.labelled_by(target));
+            }
+            for target in described_by {
+                input = input.with_node(|host| host.described_by(target));
+            }
 
-        root.child((icon("search"), input)).into_view()
+            root.child((icon("search"), input)).into_view()
+        })
     }
 }
 
@@ -757,8 +758,7 @@ pub fn progress_ring(done: u32, total: u32) -> impl Component {
 
 fn main() -> kivact::Result<()> {
     App::new("Ring").run(|| progress_ring(3, 10))
-        })
-    }
+}
 ```
 
 Use it for programmer errors only. A problem the user can cause, such as a bad file,
@@ -775,4 +775,3 @@ is a `Result` that your component shows, not a misuse.
 - [Lay out a screen](layout.md) for the style properties a base style can set.
 - `cargo doc -p kivact --open`: `kivact::view::NodeBuilder`,
   `kivact::view::Node`, `kivact::style::{Theme, ThemeExtension, IconSet}`.
-

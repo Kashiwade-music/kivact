@@ -170,16 +170,18 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    // Runs once the screen is built, then again whenever `query` changes.
-    effect(move || {
-        println!("searching for {}", query.get());
-    });
-    // Runs once, after the nodes of this component exist.
-    on_mount(|| println!("mounted"));
-    // Runs when this component is removed (a branch closes, a row disappears).
-    on_cleanup(|| println!("gone"));
+    component(move || {
+        // Runs once the screen is built, then again whenever `query` changes.
+        effect(move || {
+            println!("searching for {}", query.get());
+        });
+        // Runs once, after the nodes of this component exist.
+        on_mount(|| println!("mounted"));
+        // Runs when this component is removed (a branch closes, a row disappears).
+        on_cleanup(|| println!("gone"));
 
-    text(move || format!("query: {}", query.get()))
+        text(move || format!("query: {}", query.get()))
+    })
 }
 
 fn main() -> kivact::Result<()> {

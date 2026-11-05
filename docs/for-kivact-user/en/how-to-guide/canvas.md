@@ -368,7 +368,6 @@ video decoder), render on a worker thread, send each frame as `Pixels`
 passes frames to the UI thread; no polling is needed.
 
 ```rust,no_run
-use std::sync::Arc;
 use std::time::Duration;
 use kivact::view::canvas;
 use kivact::draw::{ImageOptions, Pixels};
@@ -387,9 +386,8 @@ fn renderer_preview() -> impl IntoView {
     std::thread::spawn(move || {
         for red in (0..=255u8).cycle() {
             // Replace this solid color with your renderer's output.
-            let rgba: Arc<[u8]> = [red, 64, 128, 255]
-                .repeat(width as usize * height as usize)
-                .into();
+            let rgba = [red, 64, 128, 255]
+                .repeat(width as usize * height as usize);
             if tx.send_blocking(Pixels::new(width, height, rgba)).is_err() {
                 break; // the window closed
             }
@@ -434,8 +432,8 @@ fn main() -> kivact::Result<()> {
 - If the window can be resized or its scale can change, tell the worker the new
   size and render again. `ImageOptions` can crop (`source`), fade (`opacity`)
   or switch to nearest-neighbour sampling (`pixelated`) for pixel art.
-- Reuse the same `Arc` for a frame that did not change instead of copying the
-  buffer again.
+- Keep and clone a `Pixels` or `AssetBytes` value when a frame has not changed.
+  Clones retain its byte allocation; creating new bytes on every draw does not.
 - When reading frames back from the GPU is too slow, see
   [Share GPU textures with a canvas](gpu-texture-sharing.md).
 
