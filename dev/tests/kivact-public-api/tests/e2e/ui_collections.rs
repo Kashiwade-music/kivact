@@ -97,7 +97,8 @@ fn item_list_positions_and_delegation_use_the_actual_children() {
             .start(3),
         )
     });
-    screen.get_by_role(Role::List, "Documents");
+    let list = screen.get_by_role(Role::List, "");
+    assert_eq!(list.labelled_by()[0].text(), "Documents");
     let first = screen.get_by_role(Role::ListItem, "Delegate");
     assert_eq!(first.pos_in_set(), Some(1));
     assert_eq!(first.set_size(), Some(2));
