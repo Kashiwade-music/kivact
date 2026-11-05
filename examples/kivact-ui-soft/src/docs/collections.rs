@@ -8,8 +8,9 @@ use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_t
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
-    chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, layout,
-    layout_content, layout_header, nav_icon, overflow_list, scrollable_area, section, stack_item,
+    chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, hstack, layout,
+    layout_content, layout_grid, layout_header, nav_icon, overflow_list, scrollable_area, section,
+    stack_item,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -147,10 +148,10 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "grid" => specimen(
             "Two columns",
-            grid((card(text("Design")), card(text("Documentation"))))
+            layout_grid((card(text("Design")), card(text("Documentation"))))
                 .columns(GridColumns::Fixed(2))
                 .gap(Space::S2),
-            "grid(children).columns(GridColumns::Fixed(2)).gap(Space::S2)",
+            "layout_grid(children).columns(GridColumns::Fixed(2)).gap(Space::S2)",
         ),
         "aspect-ratio" => specimen(
             "Wide preview",
@@ -206,7 +207,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "nav-icon" => specimen(
             "Navigation icon",
             row((
-                nav_icon(kivact_ui_soft::icon("columns-2")),
+                nav_icon(kivact_ui_soft::icon_view("columns-2")),
                 text("Documents"),
             ))
             .style(style().gap(8)),

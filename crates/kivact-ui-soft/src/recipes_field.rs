@@ -1,5 +1,5 @@
 //! Role: Style the native editors, field text, and composite input frames for Soft.
-use crate::tokens::{TextStyle, Tokens};
+use crate::tokens::{Tokens, TypeStyle};
 use kivact::custom::PartState;
 use kivact::motion::Transition;
 use kivact::style::Align;
@@ -25,7 +25,7 @@ pub(super) fn height(tokens: &Tokens, size: ControlSize) -> f64 {
     }
 }
 
-pub(super) fn text(s: Style, role: TextStyle, color: Color) -> Style {
+pub(super) fn text(s: Style, role: TypeStyle, color: Color) -> Style {
     s.font_size(role.size_px)
         .line_height(role.line_height_px / role.size_px)
         .weight(role.weight)
@@ -191,7 +191,7 @@ pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
     .tag(|_| {
         |theme, _| {
             let t = theme.ext::<Tokens>();
-            let role = TextStyle {
+            let role = TypeStyle {
                 weight: t.typography.weight_medium,
                 ..t.typography.supporting
             };

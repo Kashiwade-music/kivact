@@ -4,8 +4,8 @@ use kivact::style::style;
 use kivact::ui::{avatar, avatar_group, kbd};
 use kivact::view::{Node, column, row};
 use kivact_ui_soft::{
-    HeadingDisplay, IconColor, IconSize, TextColor, TextKind, icon, link, text, thumbnail,
-    visually_hidden,
+    HeadingDisplay, IconColor, IconSize, TextColor, TextKind, icon_view, link, styled_text,
+    thumbnail, visually_hidden,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -13,15 +13,15 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "text" => specimen(
             "Type roles",
             column((
-                text("Large text").kind(TextKind::Large),
-                text("Body text"),
-                text("Supporting text")
+                styled_text("Large text").kind(TextKind::Large),
+                styled_text("Body text"),
+                styled_text("Supporting text")
                     .kind(TextKind::Supporting)
                     .color(TextColor::Secondary),
-                text("let ready = true;").kind(TextKind::Code),
+                styled_text("let ready = true;").kind(TextKind::Code),
             ))
             .style(style().gap(8)),
-            "text(\"Supporting text\").kind(TextKind::Supporting).color(TextColor::Secondary)",
+            "styled_text(\"Supporting text\").kind(TextKind::Supporting).color(TextColor::Secondary)",
         ),
         "heading" => specimen(
             "Heading scale",
@@ -40,15 +40,15 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "icon" => specimen(
             "Sizes and semantic colors",
             row((
-                icon("search").size(IconSize::Xs),
-                icon("search").size(IconSize::Sm),
-                icon("circle-check").color(IconColor::Success),
-                icon("triangle-alert")
+                icon_view("search").size(IconSize::Xs),
+                icon_view("search").size(IconSize::Sm),
+                icon_view("circle-check").color(IconColor::Success),
+                icon_view("triangle-alert")
                     .size(IconSize::Lg)
                     .color(IconColor::Warning),
             ))
             .style(style().gap(16)),
-            "icon(\"circle-check\").color(IconColor::Success)",
+            "icon_view(\"circle-check\").color(IconColor::Success)",
         ),
         "kbd" => specimen(
             "Keyboard shortcuts",
@@ -59,7 +59,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             "Empty project",
             kivact::ui::empty_state("No documents").announce_changes()
                 .description("Create a document to get started.")
-                .icon( icon("search"))
+                .icon( icon_view("search"))
                 .actions( kivact::ui::button("New document")),
             "empty_state(\"No documents\").description(\"Create a document to get started.\")",
         ),
@@ -78,7 +78,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "visually-hidden" => specimen(
             "Screen reader text",
             column((
-                text("The hint is available to assistive technology."),
+                styled_text("The hint is available to assistive technology."),
                 visually_hidden("Additional hint"),
             )),
             "visually_hidden(\"Additional hint\")",
@@ -144,7 +144,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "timer" => specimen("Elapsed time", kivact_ui_soft::timer(), "timer()"),
         "timestamp" => specimen(
             "Timestamp",
-            kivact_ui_soft::timestamp(kivact::state::signal(kivact_ui_soft::Instant::unix_seconds(
+            kivact_ui_soft::timestamp(kivact::state::signal(kivact_ui_soft::TimestampValue::unix_seconds(
                 1_793_664_000,
             ))),
             "timestamp(instant)",

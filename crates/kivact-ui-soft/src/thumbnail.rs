@@ -1,5 +1,5 @@
 //! Role: Preview an image attachment with upload, open, and remove affordances.
-use crate::{IconSize, icon, visually_hidden};
+use crate::{IconSize, icon_view, visually_hidden};
 use kivact::i18n::{message, message_with};
 use kivact::motion::Animated;
 use kivact::motion::Easing;
@@ -234,7 +234,7 @@ impl IntoView for Thumbnail {
                         .variant(ButtonVariant::Secondary)
                         .size(ControlSize::Small)
                         .hide_label(true)
-                        .icon(icon("x").size(IconSize::Xs))
+                        .icon(icon_view("x").size(IconSize::Xs))
                         .disabled(disabled)
                         .on_press(remove)
                         .style(|| {

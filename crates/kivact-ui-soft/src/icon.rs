@@ -50,14 +50,14 @@ pub enum IconColor {
 }
 
 /// A theme icon created with [`icon`].
-pub struct Icon {
+pub struct IconView {
     root: Node,
     options: Rc<Cell<(IconSize, IconColor)>>,
 }
 
 /// Show an icon from the current theme.
 #[track_caller]
-pub fn icon(source: impl IntoValue<IconSource>) -> Icon {
+pub fn icon_view(source: impl IntoValue<IconSource>) -> IconView {
     let options = Rc::new(Cell::new((IconSize::default(), IconColor::default())));
     let look = options.clone();
     // Override the primitive's ordinary style layer before callers add theirs.
@@ -65,10 +65,10 @@ pub fn icon(source: impl IntoValue<IconSource>) -> Icon {
         let (size, color) = look.get();
         icon_style(size, color)
     });
-    Icon { root, options }
+    IconView { root, options }
 }
 
-impl Icon {
+impl IconView {
     /// Set the size.
     pub fn size(self, value: IconSize) -> Self {
         self.options.set((value, self.options.get().1));
@@ -87,14 +87,14 @@ impl Icon {
     }
 }
 
-impl NodeBuilder for Icon {
+impl NodeBuilder for IconView {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl IntoView for Icon {
+impl IntoView for IconView {
     fn into_view(self) -> View {
         self.root.into_view()
     }

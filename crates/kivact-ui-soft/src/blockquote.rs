@@ -1,5 +1,5 @@
 //! Role: Present a quotation and optional attribution with a logical start rule.
-use crate::{TextColor, TextKind, text};
+use crate::{TextColor, TextKind, styled_text};
 use kivact::state::Value;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
@@ -32,7 +32,7 @@ pub fn blockquote(content: impl IntoView) -> Blockquote {
 /// Render a plain-text quotation.
 pub fn blockquote_text(value: impl IntoText) -> Blockquote {
     let value = value.into_text_value();
-    blockquote(text(value).kind(TextKind::Inherit))
+    blockquote(styled_text(value).kind(TextKind::Inherit))
 }
 
 impl Blockquote {
@@ -75,7 +75,7 @@ impl IntoView for Blockquote {
         })
         .child(content)
         .child(cite.map(|value| {
-            text(value)
+            styled_text(value)
                 .kind(TextKind::Supporting)
                 .color(TextColor::Inherit)
                 .style(|| {

@@ -1,6 +1,6 @@
 //! Role: Render themed body, supporting, code, and display text.
 
-use crate::{TextStyle, Tokens, Typography};
+use crate::{Tokens, TypeStyle, TypeTokens};
 use kivact::state::Value;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
@@ -109,7 +109,7 @@ pub enum TextJustify {
 }
 
 /// A text node with an Astryx Neutral typography role.
-pub struct Text {
+pub struct StyledText {
     root: Node,
     value: Value<String>,
     kind: Value<TextKind>,
@@ -128,9 +128,9 @@ pub struct Text {
 
 /// Show a string or a reactive text value.
 #[track_caller]
-pub fn text(value: impl IntoText) -> Text {
+pub fn styled_text(value: impl IntoText) -> StyledText {
     let value = value.into_text_value();
-    Text {
+    StyledText {
         root: control_text(value),
         value,
         kind: (TextKind::default()).into_value(),
@@ -148,7 +148,7 @@ pub fn text(value: impl IntoText) -> Text {
     }
 }
 
-impl Text {
+impl StyledText {
     /// Set the kind.
     pub fn kind(mut self, value: impl IntoValue<TextKind>) -> Self {
         self.kind = value.into_value();
@@ -231,14 +231,14 @@ impl Text {
     }
 }
 
-impl NodeBuilder for Text {
+impl NodeBuilder for StyledText {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl IntoView for Text {
+impl IntoView for StyledText {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -368,7 +368,7 @@ pub(crate) fn type_style(
     }
 }
 
-fn metric_style(metrics: TextStyle) -> Style {
+fn metric_style(metrics: TypeStyle) -> Style {
     style()
         .font_size(metrics.size_px)
         .line_height(metrics.line_height_px / metrics.size_px)
@@ -376,7 +376,7 @@ fn metric_style(metrics: TextStyle) -> Style {
         .weight(metrics.weight)
 }
 
-fn font_size(t: &Typography, size: TextSize) -> f64 {
+fn font_size(t: &TypeTokens, size: TextSize) -> f64 {
     match size {
         TextSize::Xs4 => t.size_4xs,
         TextSize::Xs3 => t.size_3xs,

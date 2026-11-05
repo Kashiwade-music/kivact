@@ -49,7 +49,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "media-theme" => specimen(
             "Contrast on a dark preview",
             column(media_theme(MediaMode::Dark, {
-                kivact_ui_soft::text("Mountain landscape")
+                kivact_ui_soft::styled_text("Mountain landscape")
             }))
             .style(style().background(rgb(0x18232d)).padding(24)),
             "media_theme(MediaMode::Dark, || text(\"Mountain landscape\"))",

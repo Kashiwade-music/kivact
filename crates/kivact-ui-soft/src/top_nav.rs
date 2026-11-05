@@ -1,6 +1,6 @@
 //! Role: Render desktop and mobile Neutral top navigation and its menus.
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
-use crate::grid::{GridColumns, grid};
+use crate::grid::{GridColumns, layout_grid};
 use crate::mobile_nav::use_app_shell_mobile;
 use crate::nav_heading::{
     NavHeadingMenuItem, NavMenuLook, nav_heading_menu, nav_heading_menu_item, nav_menu_view,
@@ -584,7 +584,7 @@ impl IntoView for TopNavMegaMenu {
             let surface = show(behavior.is_open(), move || {
                 let grid = items.as_ref().map(|items| {
                     let items = items.clone();
-                    grid(provide(MegaClose(open), move || items.call(())))
+                    layout_grid(provide(MegaClose(open), move || items.call(())))
                         .columns(GridColumns::Fixed(2))
                         .gap(Space::S2)
                         .style(style().grow(2).shrink(1).basis(300).min_width(0))

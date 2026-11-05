@@ -229,7 +229,7 @@ pub enum CenterAxis {
 }
 
 /// A direction-aware flex container.
-pub struct Stack {
+pub struct FlexStack {
     root: Node,
     direction: Value<Direction>,
     gap: Value<Space>,
@@ -242,16 +242,16 @@ pub struct Stack {
     vertical: Option<StackAlign>,
 }
 
-pub fn stack(children: impl IntoView) -> Stack {
+pub fn flex_stack(children: impl IntoView) -> FlexStack {
     vstack(children)
 }
 
-pub fn hstack(children: impl IntoView) -> Stack {
+pub fn hstack(children: impl IntoView) -> FlexStack {
     vstack(children).direction(Direction::Row)
 }
 
-pub fn vstack(children: impl IntoView) -> Stack {
-    Stack {
+pub fn vstack(children: impl IntoView) -> FlexStack {
+    FlexStack {
         root: node().child(children),
         direction: (Direction::Column).into_value(),
         gap: (Space::S0).into_value(),
@@ -266,13 +266,13 @@ pub fn vstack(children: impl IntoView) -> Stack {
 }
 
 /// A horizontal stack centered on both axes.
-pub fn center(children: impl IntoView) -> Stack {
+pub fn center(children: impl IntoView) -> FlexStack {
     hstack(children)
         .align(Align::Center)
         .justify(Justify::Center)
 }
 
-impl Stack {
+impl FlexStack {
     padding_options!();
     pub fn direction(mut self, direction: impl IntoValue<Direction>) -> Self {
         self.direction = direction.into_value();
@@ -339,14 +339,14 @@ impl Stack {
     }
 }
 
-impl NodeBuilder for Stack {
+impl NodeBuilder for FlexStack {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl IntoView for Stack {
+impl IntoView for FlexStack {
     fn into_view(self) -> View {
         let Self {
             root,
