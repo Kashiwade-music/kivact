@@ -1,4 +1,3 @@
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Core UI contracts, application setup and runtime implementation.
 //!
 //! The implementation behind the `kivact` facade owns App setup, views,

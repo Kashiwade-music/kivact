@@ -1,4 +1,3 @@
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Styles, lengths, colors, themes and the drawing vocabulary.
 //!
 //! The implementation behind `kivact::style` and `kivact::draw`: the `Style`

@@ -1,4 +1,3 @@
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: The engine under `kivact`: a retained tree run in an Arvane window.
 //!
 //! The client writes typed node properties directly into one retained tree.

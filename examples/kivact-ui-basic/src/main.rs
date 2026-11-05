@@ -1,5 +1,4 @@
 //! Role: Entry point of the Basic kit catalog app.
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 #![warn(redundant_imports)]
 
 use kivact::prelude::*;

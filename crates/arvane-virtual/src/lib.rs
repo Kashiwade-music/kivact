@@ -1,6 +1,5 @@
 //! Role: Runs scripted input and virtual time with optional mirror windows.
 
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 #![forbid(unsafe_code)]
 
 mod backend;

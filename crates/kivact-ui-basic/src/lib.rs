@@ -1,5 +1,4 @@
 //! Role: shadcn/ui Lyra-styled components on the public Kivact facade.
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! The look of the shadcn/ui "Lyra" preset: Neutral colors, square corners,
 //! 12 px controls and Lucide icons. The only dependency is the public

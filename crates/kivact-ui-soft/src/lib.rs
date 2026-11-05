@@ -1,5 +1,4 @@
 //! Role: Expose Astryx Neutral as an official Kivact UI kit.
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 mod alert_dialog;
 mod app_shell;
 mod aspect_ratio;

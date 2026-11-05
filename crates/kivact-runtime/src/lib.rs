@@ -1,4 +1,3 @@
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Reactive runtime, async tasks, and frame-driven motion for Kivact apps.
 
 #![forbid(unsafe_code)]

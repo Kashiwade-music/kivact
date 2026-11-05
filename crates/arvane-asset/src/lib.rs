@@ -1,6 +1,5 @@
 //! Role: Arvane assets: images, SVG and font files.
 
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! Loading, format detection, decoding, SVG rasterization, monochrome
 //! tinting, fit geometry, the decoded-image cache and its worker thread,

@@ -30,7 +30,6 @@
 //! origin, and a submenu mounts its level in a new owner while it is open.
 
 #![forbid(unsafe_code)]
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 
 mod announcer;
 mod axis;

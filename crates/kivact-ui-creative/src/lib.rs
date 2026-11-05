@@ -14,7 +14,6 @@
 //! application keeps in a [`DockLayout`].
 
 #![forbid(unsafe_code)]
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 
 mod audio;
 mod bezier;

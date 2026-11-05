@@ -1,4 +1,3 @@
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Provide locale, calendar and message values and pure text calculations.
 //!
 //! Applications own translation resources in [`Messages`] and identify their

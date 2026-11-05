@@ -83,9 +83,8 @@ unsafe_op_in_unsafe_fn = "deny"
 unreachable_pub = "warn"
 
 [workspace.lints.clippy]
-# Enable per crate with #![deny(clippy::disallowed_types)] during migration;
-# F-2 replaces this temporary allowance with the workspace deny.
-disallowed_types = "allow"
+disallowed_types = "deny"
+too_many_lines = "deny"
 mod_module_files = "deny"
 allow_attributes_without_reason = "deny"
 undocumented_unsafe_blocks = "deny"

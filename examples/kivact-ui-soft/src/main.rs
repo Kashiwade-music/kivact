@@ -1,5 +1,4 @@
 //! Role: Open the Soft component catalog with application-owned fonts.
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 use kivact::App;
 use kivact_ui_soft_catalog::{catalog, fonts};
 

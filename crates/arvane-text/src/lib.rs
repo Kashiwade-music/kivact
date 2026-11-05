@@ -1,6 +1,5 @@
 //! Role: Arvane text: shaping, line breaking and cursor geometry over parley.
 
-#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! Responsibility: the only crate that names parley. Shaped text leaves this
 //! crate as `kivact-types` glyph runs (font bytes, glyph ids, positions), so
