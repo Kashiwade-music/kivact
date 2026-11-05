@@ -320,3 +320,43 @@ Password は値を隠し、クリップボードやアクセシビリティへ�
 `platform::capabilities().get().state_restoration` で確認します。デスクトップは false で保存を無視します。
 仮想テストでは `screen.script().save_state()` で保存を要求し、
 `screen.script().saved_state()` を次の起動の `RenderOptions::restored_state` に渡します。
+
+## 操作とトグルをまとめる
+
+関連する三つ以上の操作は `toolbar` でまとめます。start・center・end の領域全体が
+一つの Tab 停止位置になります。向きに沿った矢印キーでフォーカスを移し、Home と
+End で利用可能な先頭と末尾へ移動します。見出しを表示しない場合も名前を付けます。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui::{button_group, toggle_group, toolbar};
+
+fn editor_actions() -> impl IntoView {
+    let formatting = signal(Vec::<&'static str>::new());
+    column((
+        toolbar("Document actions")
+            .start((button("Undo"), button("Redo")))
+            .end((button("Save"),)),
+        toggle_group("Formatting", vec![
+            ListItem::new("bold", "Bold").with_icon("bold"),
+            ListItem::new("italic", "Italic").with_icon("italic"),
+        ], formatting),
+        button_group("Clipboard", (button("Copy"), button("Paste"))),
+    ))
+}
+```
+
+トグルには最大一つを押下状態にする `Signal<Option<K>>`、または複数を選ぶ
+`Signal<Vec<K>>` を渡します。binding と正準の `Selection` も使えます。
+矢印キーは選択を変えず、フォーカスだけを移動します。Space・Enter・クリック・
+アクセシビリティの起動操作で項目を切り替えます。`ListItem::with_pressed_icon`
+は押下中のアイコンを指定し、`icon_only(true)` でも名前は残ります。
+移動と同時に一つを選ぶ排他的な選択には
+`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)` を使います。
+
+`button_group` は `IntoChildren` を通して任意の操作部品を受け取ります。
+`button_group_separator()` と `button_group_text(..)` はフォーカスを取りません。
+どのグループでも `.orientation(Orientation::Vertical)` で配置と操作の向きを
+変えられます。無効化には共通の `NodeBuilder` の `.disabled(source)` を使います。
+テーマは対応する `UiTokens` と `UiRecipes` の表で見た目を変えます。
+呼び出し側のスタイルは recipe より優先します。

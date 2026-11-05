@@ -377,3 +377,44 @@ the launch snapshot. Check `platform::capabilities().get().state_restoration`; d
 backends report false and ignore saves. Virtual tests can request a save with
 `screen.script().save_state()` and pass `screen.script().saved_state()` into the next
 launch's `RenderOptions::restored_state`.
+
+## Group actions and toggles
+
+Use `toolbar` for three or more related controls. Its start, center and end
+regions share one Tab stop. Arrow keys move focus along its orientation;
+Home and End reach the first and last available controls. Give the toolbar
+an accessible name even when no visible heading is needed.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui::{button_group, toggle_group, toolbar};
+
+fn editor_actions() -> impl IntoView {
+    let formatting = signal(Vec::<&'static str>::new());
+    column((
+        toolbar("Document actions")
+            .start((button("Undo"), button("Redo")))
+            .end((button("Save"),)),
+        toggle_group("Formatting", vec![
+            ListItem::new("bold", "Bold").with_icon("bold"),
+            ListItem::new("italic", "Italic").with_icon("italic"),
+        ], formatting),
+        button_group("Clipboard", (button("Copy"), button("Paste"))),
+    ))
+}
+```
+
+A toggle group edits `Signal<Option<K>>` for at most one pressed choice, or
+`Signal<Vec<K>>` for independent choices; bindings and canonical `Selection`
+work too. Arrows move focus without changing the selection. Space, Enter,
+click and accessibility activation toggle an item. `ListItem::with_pressed_icon`
+replaces its icon while pressed. `icon_only(true)` retains accessible labels.
+For exclusive choices that always choose when navigating, use
+`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)`.
+
+`button_group` accepts arbitrary controls, separators and text cells through
+`IntoChildren`. `button_group_separator()` and `button_group_text(..)` are
+non-focusable cells. `.orientation(Orientation::Vertical)` changes both the
+layout and arrow navigation of any of these groups. `.disabled(source)` is
+the standard `NodeBuilder` modifier. Themes customize the corresponding
+`UiTokens` groups and `UiRecipes` tables; caller styles still override recipes.

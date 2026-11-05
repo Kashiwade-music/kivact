@@ -28,8 +28,27 @@ impl Default for ToggleGroupTokens {
 pub struct ToggleGroupState {
     pub orientation: Orientation,
     pub size: ControlSize,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     pub spacing: Option<f64>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     pub rtl: bool,
+}
+
+/// A toggle's actual state together with its derived position and layout.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToggleGroupItemState {
+    pub toggle: ToggleButtonState,
+    pub layout: ToggleGroupState,
+    // xtask-allow(state-fields): Derived position within the current options, not owned selection state.
+    pub first: bool,
+    // xtask-allow(state-fields): Derived position within the current options, not owned selection state.
+    pub last: bool,
+}
+impl std::ops::Deref for ToggleGroupItemState {
+    type Target = ToggleButtonState;
+    fn deref(&self) -> &Self::Target {
+        &self.toggle
+    }
 }
 
 /// Single or multiple toggles with native roving focus, created by [`toggle_group`].
@@ -39,9 +58,13 @@ pub struct ToggleGroup<K: ItemKey> {
     selection: Selection<K>,
     orientation: Orientation,
     size: Value<ControlSize>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     spacing: Option<Value<f64>>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     icon_only: Value<bool>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     on_edit: Option<Callback<EditPhase>>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     item: Option<ViewFn<(Value<ListItem<K>>, Value<ToggleButtonState>)>>,
     variants: Variants,
 }
@@ -154,64 +177,80 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         let spacing = self.spacing;
         let icon_only = self.icon_only;
         let selection = self.selection;
+        let options = self.options;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let slot = self.item;
         let on_edit = self.on_edit;
         let disabled = self.root.accessible_disabled();
         let variants = self.variants.clone();
-        let rows =
-            for_each(
-                self.options,
-                |item| item.key().clone(),
-                move |item| {
-                    let key = item.with_untracked(|item| item.key().clone());
-                    let pressed = member(selection, key);
-                    let mut behavior =
-                        kivact_interaction::use_toggle_button(pressed).disabled(move || {
-                            disabled.is_some_and(|disabled| disabled.get())
-                                || item.get().is_disabled()
+        let rows = for_each(
+            self.options,
+            |item| item.key().clone(),
+            move |item| {
+                let key = item.with_untracked(|item| item.key().clone());
+                let at = key.clone();
+                let pressed = member(selection, key);
+                let mut behavior =
+                    kivact_interaction::use_toggle_button(pressed).disabled(move || {
+                        disabled.is_some_and(|disabled| disabled.get()) || item.get().is_disabled()
+                    });
+                if let Some(observer) = on_edit {
+                    behavior = behavior.on_edit(move |phase| observer.call(phase));
+                }
+                let part =
+                    behavior
+                        .control()
+                        .map_state(move |state: kivact_interaction::ToggleState| {
+                            ToggleButtonState {
+                                input: state.input,
+                                pressed: state.checked.is_checked(),
+                                size: size.get(),
+                                leading_icon: item.get().icon().is_some()
+                                    || item.get().pressed_icon().is_some(),
+                                icon_only: icon_only.get(),
+                            }
                         });
-                    if let Some(observer) = on_edit {
-                        behavior = behavior.on_edit(move |phase| observer.call(phase));
-                    }
-                    let part = behavior.control().map_state(
-                        move |state: kivact_interaction::ToggleState| ToggleButtonState {
-                            input: state.input,
-                            pressed: state.checked.is_checked(),
-                            size: size.get(),
-                            leading_icon: item.get().icon().is_some()
-                                || item.get().pressed_icon().is_some(),
-                            icon_only: icon_only.get(),
-                        },
-                    );
-                    let state = part.state();
-                    let content = match &slot {
-                        Some(slot) => slot.call((item, state)),
-                        None => (
-                            crate::helpers::item_icon(move || {
-                                let item = item.get();
-                                if pressed.get() {
-                                    item.pressed_icon().or_else(|| item.icon()).cloned()
-                                } else {
-                                    item.icon().cloned()
-                                }
-                            }),
-                            crate::helpers::visible_label(
-                                (move || item.get().label()).into_value(),
-                                Some(icon_only),
-                            ),
-                        )
-                            .into_view(),
-                    };
-                    with_base_recipe_style(
-                        node().name(move || item.get().label()),
-                        |r| r.toggle_group_recipes().item_recipe(),
-                        &variants,
-                        move || state.get(),
+                let state = part.state();
+                let content = match &slot {
+                    Some(slot) => slot.call((item, state)),
+                    None => (
+                        crate::helpers::item_icon(move || {
+                            let item = item.get();
+                            if pressed.get() {
+                                item.pressed_icon().or_else(|| item.icon()).cloned()
+                            } else {
+                                item.icon().cloned()
+                            }
+                        }),
+                        crate::helpers::visible_label(
+                            (move || item.get().label()).into_value(),
+                            Some(icon_only),
+                        ),
                     )
-                    .part(part)
-                    .child(content)
-                },
-            );
+                        .into_view(),
+                };
+                with_base_recipe_style(
+                    node().name(move || item.get().label()),
+                    |r| r.toggle_group_recipes().item_recipe(),
+                    &variants,
+                    move || ToggleGroupItemState {
+                        toggle: state.get(),
+                        layout: ToggleGroupState {
+                            orientation,
+                            size: size.get(),
+                            spacing: spacing.map(|spacing| spacing.get().max(0.0)),
+                            rtl,
+                        },
+                        first: options
+                            .with(|options| options.first().is_some_and(|item| item.key() == &at)),
+                        last: options
+                            .with(|options| options.last().is_some_and(|item| item.key() == &at)),
+                    },
+                )
+                .part(part)
+                .child(content)
+            },
+        );
         let rtl = use_direction().get() == ReadingDirection::Rtl;
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
@@ -250,7 +289,7 @@ pub(crate) fn root_style(
 }
 pub(crate) fn item_style(
     theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToggleButtonState>,
+    look: &crate::Look<ToggleGroupItemState>,
 ) -> kivact_core::style::Style {
-    crate::look::toggle_button(theme, look)
+    crate::look::toggle_button(theme, &crate::Look::new(look.toggle.clone()))
 }

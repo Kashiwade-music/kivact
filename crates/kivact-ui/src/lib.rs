@@ -227,9 +227,11 @@ mod button_group;
 mod toggle_group;
 mod toolbar;
 pub use button_group::{
-    ButtonGroup, ButtonGroupState, ButtonGroupTokens, GroupMember, button_group,
-    button_group_separator, button_group_text,
+    ButtonGroup, ButtonGroupCell, ButtonGroupMember, ButtonGroupMemberState, ButtonGroupState,
+    ButtonGroupTokens, button_group, button_group_separator, button_group_text,
 };
 pub use recipes::{ButtonGroupRecipes, ToggleGroupRecipes, ToolbarRecipes};
-pub use toggle_group::{ToggleGroup, ToggleGroupState, ToggleGroupTokens, toggle_group};
+pub use toggle_group::{
+    ToggleGroup, ToggleGroupItemState, ToggleGroupState, ToggleGroupTokens, toggle_group,
+};
 pub use toolbar::{Toolbar, ToolbarEdge, ToolbarState, ToolbarTokens, toolbar};

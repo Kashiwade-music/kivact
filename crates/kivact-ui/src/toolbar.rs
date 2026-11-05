@@ -44,8 +44,11 @@ impl Default for ToolbarTokens {
 pub struct ToolbarState {
     pub orientation: Orientation,
     pub size: ControlSize,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     pub gap: Option<f64>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     pub centered: bool,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     pub rtl: bool,
     pub dividers: Vec<ToolbarEdge>,
 }
@@ -53,11 +56,15 @@ pub struct ToolbarState {
 /// Three optional regions that share a single keyboard Tab stop.
 pub struct Toolbar {
     root: Node,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     start: Option<Vec<View>>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     center: Option<Vec<View>>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     end: Option<Vec<View>>,
     orientation: Orientation,
     size: Value<ControlSize>,
+    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     gap: Option<Value<f64>>,
     dividers: Vec<ToolbarEdge>,
     variants: Variants,
