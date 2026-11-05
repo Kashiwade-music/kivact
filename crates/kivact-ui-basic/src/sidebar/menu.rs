@@ -18,6 +18,7 @@ fn icon_only(cx: Option<SidebarCx>) -> impl Fn() -> bool + Copy + 'static {
     move || cx.is_some_and(|cx| cx.icon_only())
 }
 
+// xtask-allow(state-fields): Independent authored label and action/content slots; mounted parts observe the existing SidebarCx binding.
 /// A labelled section of the sidebar (`SidebarGroup`). Created by [`sidebar_group`].
 pub struct SidebarGroup {
     root: Node,
@@ -158,6 +159,7 @@ impl SidebarMenuButtonSize {
     }
 }
 
+// xtask-allow(state-fields): Independent label, caller active value, size, callback and slots; mounted parts read the existing SidebarCx authority.
 /// A row of a [`sidebar_menu`] (`SidebarMenuItem` with `SidebarMenuButton`).
 /// Created by [`sidebar_menu_button`].
 pub struct SidebarMenuButton {
@@ -172,6 +174,7 @@ pub struct SidebarMenuButton {
     sub: Option<kivact::view::View>,
 }
 
+// xtask-allow(state-fields): Read-only style projection of the actual sidebar context, caller active/size values and action-slot availability.
 /// What the root style of a [`SidebarMenuButton`] reads.
 #[derive(Clone, Copy)]
 struct ButtonCfg {
@@ -352,33 +355,7 @@ fn build_button(this: SidebarMenuButton, wrapper: Node) -> Node {
     };
     let button = button.base_style(move || button_style(cfg, rtl));
 
-    let badge = badge.map(|badge| {
-        node()
-            .hidden(hidden)
-            .style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
-                let s = style()
-                    .position(Position::Absolute)
-                    .top(size.get().corner())
-                    .height(20)
-                    .min_width(20)
-                    .padding_x(4)
-                    .direction(Direction::Row)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .font_size(12)
-                    .weight(500)
-                    .tabular_nums()
-                    .color(if active.get() {
-                        p.sidebar_accent_foreground
-                    } else {
-                        p.sidebar_foreground
-                    })
-                    .group_hover(style().color(p.sidebar_accent_foreground));
-                if rtl { s.left(4) } else { s.right(4) }
-            })
-            .child(text(badge))
-    });
+    let badge = badge.map(|badge| menu_badge(badge, cfg, rtl));
     let tip = (cx.is_some_and(|cx| cx.collapsible == SidebarCollapsible::Icon)).then(use_tooltip);
     let tip_part = tip.map(|tip| tip.trigger());
     let tip_anchor = tip_part.as_ref().map(|_| kivact::view::node_ref());
@@ -404,66 +381,12 @@ fn build_button(this: SidebarMenuButton, wrapper: Node) -> Node {
         )
         .child(badge);
 
-    let tooltip_view = tip.zip(tip_anchor).map(|(tip, anchor)| {
-        let shown = kivact::state::memo(move || tip.is_open().get() && hidden());
-        show(shown, move || {
-            let surface = tip.content();
-            let surface_state = surface.state();
-            overlay(
-                anchor,
-                Placement::End,
-                node()
-                    .style(move || {
-                        crate::recipes_popup::tooltip(
-                            &use_theme().get(),
-                            &kivact::ui::Look::new(surface_state.get()),
-                        )
-                    })
-                    .child(text(label)),
-            )
-            .align(OverlayAlign::Center)
-            .offset(4)
-            .with_node(|root| root.part(surface))
-            .name(label)
-        })
-    });
+    let tooltip_view = tip
+        .zip(tip_anchor)
+        .map(|(tip, anchor)| menu_tooltip(tip, anchor, label, cfg));
 
-    let action = action.map(|action| {
-        node()
-            .hidden(hidden)
-            .style(move || {
-                let s = style()
-                    .position(Position::Absolute)
-                    .top(size.get().corner())
-                    .size(20, 20)
-                    .direction(Direction::Row)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center);
-                if rtl { s.left(4) } else { s.right(4) }
-            })
-            .child(action)
-    });
-    let sub = sub.map(|sub| {
-        node()
-            .with_node(|root| root.role(Role::List))
-            .hidden(hidden)
-            .style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
-                let s = style()
-                    .direction(Direction::Column)
-                    .gap(4)
-                    .min_width(0)
-                    .margin_x(14)
-                    .padding_x(10)
-                    .padding_y(2);
-                if rtl {
-                    s.border_right(1, p.sidebar_border)
-                } else {
-                    s.border_left(1, p.sidebar_border)
-                }
-            })
-            .child(sub)
-    });
+    let action = action.map(|action| menu_action(action, cfg, rtl));
+    let sub = sub.map(|sub| menu_sub(sub, cfg, rtl));
     wrapper
         .with_node(|root| root.role(Role::ListItem))
         .style(
@@ -478,6 +401,7 @@ fn build_button(this: SidebarMenuButton, wrapper: Node) -> Node {
         .child(sub)
 }
 
+// xtask-allow(state-fields): Independent authored label, caller active value and callback; activation belongs to the shared button part.
 /// A link inside the sub-list of a [`SidebarMenuButton`] (`SidebarMenuSubButton`).
 /// Created by [`sidebar_menu_sub_button`].
 pub struct SidebarMenuSubButton {
@@ -616,3 +540,109 @@ pub fn sidebar_menu_skeleton() -> impl kivact::view::Component {
 kivact::state::constant_value!(SidebarMenuButtonSize);
 
 impl kivact::ui::Variant for SidebarMenuButtonSize {}
+
+fn menu_badge(badge: Value<String>, cfg: ButtonCfg, rtl: bool) -> Node {
+    let ButtonCfg { size, active, .. } = cfg;
+    let hidden = icon_only(cfg.cx);
+
+    node()
+        .hidden(hidden)
+        .style(move || {
+            let p = kivact::style::use_tokens::<crate::Tokens>();
+            let s = style()
+                .position(Position::Absolute)
+                .top(size.get().corner())
+                .height(20)
+                .min_width(20)
+                .padding_x(4)
+                .direction(Direction::Row)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center)
+                .font_size(12)
+                .weight(500)
+                .tabular_nums()
+                .color(if active.get() {
+                    p.sidebar_accent_foreground
+                } else {
+                    p.sidebar_foreground
+                })
+                .group_hover(style().color(p.sidebar_accent_foreground));
+            if rtl { s.left(4) } else { s.right(4) }
+        })
+        .child(text(badge))
+}
+
+fn menu_tooltip(
+    tip: kivact::interaction::TooltipApi,
+    anchor: kivact::view::NodeRef,
+    label: Value<String>,
+    cfg: ButtonCfg,
+) -> View {
+    let hidden = icon_only(cfg.cx);
+
+    let shown = kivact::state::memo(move || tip.is_open().get() && hidden());
+    show(shown, move || {
+        let surface = tip.content();
+        let surface_state = surface.state();
+        overlay(
+            anchor,
+            Placement::End,
+            node()
+                .style(move || {
+                    crate::recipes_popup::tooltip(
+                        &use_theme().get(),
+                        &kivact::ui::Look::new(surface_state.get()),
+                    )
+                })
+                .child(text(label)),
+        )
+        .align(OverlayAlign::Center)
+        .offset(4)
+        .with_node(|root| root.part(surface))
+        .name(label)
+    })
+    .into_view()
+}
+
+fn menu_action(action: View, cfg: ButtonCfg, rtl: bool) -> Node {
+    let size = cfg.size;
+    let hidden = icon_only(cfg.cx);
+
+    node()
+        .hidden(hidden)
+        .style(move || {
+            let s = style()
+                .position(Position::Absolute)
+                .top(size.get().corner())
+                .size(20, 20)
+                .direction(Direction::Row)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center);
+            if rtl { s.left(4) } else { s.right(4) }
+        })
+        .child(action)
+}
+
+fn menu_sub(sub: View, cfg: ButtonCfg, rtl: bool) -> Node {
+    let hidden = icon_only(cfg.cx);
+
+    node()
+        .with_node(|root| root.role(Role::List))
+        .hidden(hidden)
+        .style(move || {
+            let p = kivact::style::use_tokens::<crate::Tokens>();
+            let s = style()
+                .direction(Direction::Column)
+                .gap(4)
+                .min_width(0)
+                .margin_x(14)
+                .padding_x(10)
+                .padding_y(2);
+            if rtl {
+                s.border_right(1, p.sidebar_border)
+            } else {
+                s.border_left(1, p.sidebar_border)
+            }
+        })
+        .child(sub)
+}

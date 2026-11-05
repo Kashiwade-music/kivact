@@ -4,7 +4,6 @@ use crate::support::distance;
 use kivact::interaction::SortOrder;
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::test::RenderOptions;
 use kivact::test::Screen;
 use kivact::view::SortDirection;
 use kivact_ui_basic as basic;
@@ -19,13 +18,6 @@ fn page(child: impl IntoView) -> Node {
             .grow(1)
             .align_items(Align::Start),
     )
-}
-
-fn options(mode: kivact::style::ThemeMode) -> RenderOptions {
-    RenderOptions::from_env()
-        .window_size(640.0, 2400.0)
-        .theme(basic::theme(mode))
-        .reduced_motion()
 }
 
 fn config() -> basic::ChartConfig {
@@ -163,7 +155,12 @@ fn payments_table() -> (Handles, impl IntoView) {
 }
 
 fn mount_payments() -> (Screen, Handles) {
-    kivact::test::render_with_handle(options(kivact::style::ThemeMode::Light), payments_table)
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(640.0, 2400.0)
+            .reduced_motion(),
+        payments_table,
+    )
 }
 
 /// The window y of the text `what`.
@@ -265,7 +262,13 @@ fn mount_chart(
     mode: kivact::style::ThemeMode,
     chart: impl FnOnce() -> basic::Chart + 'static,
 ) -> Screen {
-    kivact::test::render_with_handle(options(mode), move || ((), page(chart()))).0
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(mode))
+            .window_size(640.0, 2400.0)
+            .reduced_motion(),
+        move || ((), page(chart())),
+    )
+    .0
 }
 
 #[test]

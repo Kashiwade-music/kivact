@@ -7,11 +7,10 @@ use kivact::style::style;
 use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_table};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
-    ChatSender, DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus,
-    aspect_ratio, center, chat_bubble, chat_composer, chat_dictation_button, chat_layout,
-    chat_message, chat_system_message, chat_tool_calls, divider, form_layout, form_row, grid,
-    hstack, item, layout, layout_content, layout_header, list, list_item, nav_icon, overflow_list,
-    pagination, scrollable_area, section, stack_item, tree_list,
+    DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
+    chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, item,
+    layout, layout_content, layout_header, list, list_item, nav_icon,
+    overflow_list, pagination, scrollable_area, section, stack_item, tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -217,20 +216,18 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "chat" => specimen(
             "Messages and composer",
-            chat_layout(kivact::view::column((
-                chat_system_message("Conversation started"),
-                chat_message(
-                    ChatSender::User,
-                    chat_bubble(text("Can you review the notes?")),
-                ),
-                chat_message(
-                    ChatSender::Assistant,
-                    chat_bubble(text("The notes are ready.")),
-                ),
+            kivact::ui::chat_thread(kivact::view::column((
+                kivact::ui::chat_message("")
+                    .sender(kivact::ui::ChatSender::System)
+                    .content(text("Conversation started")),
+                kivact::ui::chat_message("You")
+                    .sender(kivact::ui::ChatSender::User)
+                    .content(text("Can you review the notes?")),
+                kivact::ui::chat_message("Assistant").content(text("The notes are ready.")),
             )))
-            .composer(chat_composer(signal(String::new())))
+            .composer(kivact::ui::chat_composer(signal(String::new())))
             .style(style().width(440).height(300)),
-            "chat_layout(messages).composer(|| chat_composer(draft))",
+            "chat_thread(messages).composer(chat_composer(draft))",
         ),
         "chat-dictation-button" => specimen(
             "Dictation available",

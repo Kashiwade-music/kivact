@@ -1,376 +1,211 @@
-//! Role: Neutral feedback banners with optional details and dismissal.
-use kivact::state::IntoValue;
-use kivact::view::IntoViewFn;
-use kivact::view::ViewFn;
-
+//! Role: Style canonical persistent alerts with Neutral banner surfaces.
 use crate::Elevation;
-use crate::feedback::icon_box;
-use kivact::custom::Owner;
-use kivact::interaction::use_disclosure;
-use kivact::motion::Transition;
-use kivact::state::Binding;
-use kivact::state::Callback;
-use kivact::state::IntoBinding;
-use kivact::state::IntoText;
-use kivact::state::Value;
-use kivact::state::callback;
-use kivact::state::effect;
-use kivact::state::signal;
-use kivact::style::Align;
-use kivact::style::Direction;
-use kivact::style::Justify;
-use kivact::style::TransitionProp;
-use kivact::style::pct;
-use kivact::style::style;
-use kivact::ui::ButtonVariant;
-use kivact::ui::ControlSize;
-use kivact::ui::button;
-use kivact::ui::tooltip;
-use kivact::view::IntoView;
-use kivact::view::Node;
-use kivact::view::NodeBuilder;
-use kivact::view::ReadingDirection;
-use kivact::view::View;
-use kivact::view::column;
-use kivact::view::icon;
-use kivact::view::node_ref;
-use kivact::view::row;
-use kivact::view::show;
-use kivact::view::text;
-use kivact::view::use_direction;
-
-/// Semantic tone of a feedback banner.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BannerStatus {
-    Info,
-    Warning,
-    Error,
-    Success,
-}
-
-/// The banner's container treatment.
+use kivact::interaction::Tone;
+use kivact::state::{IntoValue, Value};
+use kivact::style::{Align, Color, Direction, Justify, Style, Theme, pct, style};
+use kivact::ui::{AlertRecipes, AlertState, Look};
+/// The visual container treatment of a standard alert.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BannerContainer {
     #[default]
     Card,
     Section,
 }
-
-/// A status message with optional controls and details.
-pub struct Banner {
-    root: Node,
-    status: BannerStatus,
-    title: Value<String>,
-    description: Option<Value<String>>,
-    icon: Option<View>,
-    end: Option<View>,
-    content: Option<ViewFn>,
-    container: Value<BannerContainer>,
-    elevation: Value<Elevation>,
-    collapsible: Value<bool>,
-    open: Option<Binding<bool>>,
-    dismissable: Value<bool>,
-    dismiss: Option<Callback<()>>,
-    dismiss_label: Option<Value<String>>,
+impl kivact::ui::Variant for BannerContainer {}
+/// Independent reactive surface and elevation choices.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BannerAppearance {
+    pub container: Value<BannerContainer>,
+    pub elevation: Value<Elevation>,
 }
-
-#[track_caller]
-pub fn banner(status: BannerStatus, title: impl IntoText) -> Banner {
-    Banner {
-        root: column(()),
-        status,
-        title: title.into_text_value(),
-        description: None,
-        icon: None,
-        end: None,
-        content: None,
-        container: (BannerContainer::Card).into_value(),
-        elevation: (Elevation::None).into_value(),
-        collapsible: (true).into_value(),
-        open: None,
-        dismissable: (false).into_value(),
-        dismiss: None,
-        dismiss_label: None,
-    }
-}
-
-impl Banner {
-    pub fn description(mut self, description: impl IntoText) -> Self {
-        self.description = Some(description.into_text_value());
-        self
-    }
-
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-
-    pub fn end(mut self, end: impl IntoView) -> Self {
-        self.end = Some(end.into_view());
-        self
-    }
-
-    pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
-        self.content = Some(content.into_view_fn());
-        self
-    }
-
-    pub fn container(mut self, container: impl IntoValue<BannerContainer>) -> Self {
-        self.container = container.into_value();
-        self
-    }
-
-    pub fn elevation(mut self, elevation: impl IntoValue<Elevation>) -> Self {
-        self.elevation = elevation.into_value();
-        self
-    }
-
-    pub fn collapsible(mut self, collapsible: impl IntoValue<bool>) -> Self {
-        self.collapsible = collapsible.into_value();
-        self
-    }
-
-    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = Some(open.into_binding());
-        self
-    }
-
-    pub fn dismissable(mut self, dismissable: impl IntoValue<bool>) -> Self {
-        self.dismissable = dismissable.into_value();
-        self
-    }
-
-    pub fn on_dismiss(mut self, dismiss: impl Into<Callback<()>>) -> Self {
-        let dismiss: Callback<()> = dismiss.into();
-        self.dismiss = Some(callback(move |_| dismiss.call(())));
-        self
-    }
-
-    pub fn dismiss_label(mut self, label: impl IntoText) -> Self {
-        self.dismiss_label = Some(label.into_text_value());
-        self
-    }
-}
-
-impl NodeBuilder for Banner {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Banner {
-    fn into_view(self) -> View {
-        let dismissed = signal(false);
-        let dismiss_focus = self.dismissable.get().then(|| {
-            let reference = node_ref();
-            let within = reference.focus_within();
-            let owner = Owner::current();
-            let previous = signal(None);
-            effect(move || {
-                let focused = owner.focused_node();
-                if !dismissed.get() && !within.get() && focused.is_some() {
-                    previous.set(focused);
-                }
-            });
-            (reference, previous)
-        });
-        let card = self.container.get() == BannerContainer::Card;
-        let status = self.status;
-        let has_details = self.content.is_some();
-        let disclosure = (has_details && self.collapsible.get())
-            .then(|| use_disclosure(self.open.unwrap_or_else(|| signal(false).into_binding())));
-        let open = move || has_details && disclosure.is_none_or(|details| details.is_open().get());
-        let title = self.title;
-        let elevation = self.elevation.get();
-        let has_end = self.end.is_some();
-        let has_actions = has_end || self.dismissable.get() || disclosure.is_some();
-        let description = self.description;
-        let has_description = description.is_some();
-        let direction = if use_direction().get() == ReadingDirection::Rtl {
-            Direction::RowReverse
-        } else {
-            Direction::Row
-        };
-
-        let foreground = move || {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
-            match status {
-                BannerStatus::Info => t.colors.on_info_muted,
-                BannerStatus::Warning => t.colors.on_warning_muted,
-                BannerStatus::Error => t.colors.on_error_muted,
-                BannerStatus::Success => t.colors.on_success_muted,
-            }
-        };
-        let toggle = disclosure.map(|details| {
-            let expand = kivact::i18n::message("soft.banner.expand", "Expand");
-            let collapse = kivact::i18n::message("soft.banner.collapse", "Collapse");
-            let label = move || {
-                if details.is_open().get() {
-                    collapse.get()
-                } else {
-                    expand.get()
-                }
-            };
-            let chevron = icon("chevron-down").style(move || {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
-                style()
-                    .color(foreground())
-                    .rotate(if details.is_open().get() { 180 } else { 0 })
-                    .transition(
-                        TransitionProp::Paint,
-                        Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
-                    )
-            });
-            let control = button(label)
-                .size(ControlSize::Small)
-                .variant(ButtonVariant::Ghost)
-                .hide_label(true)
-                .icon(chevron)
-                .with_node(move |node| node.part(details.trigger()));
-            tooltip(label).attach(control)
-        });
-        let dismiss = self.dismissable.get().then(|| {
-            let label = self
-                .dismiss_label
-                .unwrap_or_else(|| kivact::i18n::message("soft.banner.dismiss", "DismissOn"));
-            let name = self.dismiss_label.unwrap_or_else(|| {
-                kivact::i18n::message_with(
-                    "soft.banner.dismiss_titled",
-                    "{dismiss} {title}",
-                    move || [("dismiss", label.get()), ("title", title.get())],
-                )
-            });
-            let callback = self.dismiss;
-            let control = button(name)
-                .size(ControlSize::Small)
-                .variant(ButtonVariant::Ghost)
-                .hide_label(true)
-                .icon(icon("x").style(move || style().color(foreground())))
-                .on_press(move || {
-                    dismissed.set(true);
-                    if let Some((_, previous)) = dismiss_focus
-                        && let Some(previous) = previous.get_untracked()
-                    {
-                        previous.restore_focus();
-                    }
-                    if let Some(callback) = callback {
-                        callback.call(());
-                    }
-                });
-            tooltip(label).attach(control)
-        });
-        let action_area = has_actions.then(|| {
-            row((self.end, toggle, dismiss)).with_node(move |node| {
-                node.base_style(move || {
-                    style()
-                        .direction(direction)
-                        .wrap(true)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::End)
-                        .gap(8)
-                        .shrink(0)
-                        .max_width(pct(100))
-                        .margin_y(-4)
-                        .color(
-                            kivact::style::use_tokens::<crate::Tokens>()
-                                .colors
-                                .text_primary,
-                        )
-                })
-            })
-        });
-        let label = column((
-            text(title).style(style().font_size(14).line_height(20.0 / 14.0).weight(600)),
-            description.map(|description| {
-                text(description).style(style().font_size(12).line_height(20.0 / 12.0).weight(400))
-            }),
-        ))
-        .with_node(move |node| {
-            node.base_style(if has_end {
-                style().grow(1).basis(128).min_width(0)
-            } else {
-                style().grow(1).min_width(0)
-            })
-        });
-        let leading_icon = self.icon.unwrap_or_else(|| {
-            icon(match status {
-                BannerStatus::Info => "info",
-                BannerStatus::Warning => "triangle-alert",
-                BannerStatus::Error => "circle-x",
-                BannerStatus::Success => "circle-check",
-            })
-            .into_view()
-        });
-        let header =
-            row((icon_box(leading_icon, 20.0), label, action_area)).with_node(move |node| {
-                node.base_style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let background = match status {
-                        BannerStatus::Info => t.colors.info_muted,
-                        BannerStatus::Warning => t.colors.warning_muted,
-                        BannerStatus::Error => t.colors.error_muted,
-                        BannerStatus::Success => t.colors.success_muted,
-                    };
-                    let radius = if card { t.radius.container } else { 0.0 };
-                    let bottom = if open() { 0.0 } else { radius };
-                    style()
-                        .direction(direction)
-                        .wrap(true)
-                        .column_gap(8)
-                        .row_gap(12)
-                        .padding_y(12)
-                        .padding_x(16)
-                        .align_items(if has_actions && !has_description {
-                            Align::Center
-                        } else {
-                            Align::Start
-                        })
-                        .radius_corners(radius, radius, bottom, bottom)
-                        .background(background)
-                        .color(foreground())
-                })
-            });
-        let content = self.content.map(|content| {
-            show(open, move || {
-                let mut area = column(content.call(())).with_node(move |node| {
-                    node.base_style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let radius = if card { t.radius.container } else { 0.0 };
-                        style()
-                            .padding_y(12)
-                            .padding_x(16)
-                            .background(t.colors.bg_card)
-                            .radius_corners(0, 0, radius, radius)
-                            .border_left(1, t.colors.border)
-                            .border_right(1, t.colors.border)
-                            .border_bottom(1, t.colors.border)
-                    })
-                });
-                if let Some(details) = disclosure {
-                    area = area.with_node(move |node| node.part(details.content()));
-                }
-                area
-            })
-        });
-        let mut root = self.root;
-        if let Some((reference, _)) = dismiss_focus {
-            root = root.node_ref(reference);
+impl BannerAppearance {
+    pub fn new(
+        container: impl IntoValue<BannerContainer>,
+        elevation: impl IntoValue<Elevation>,
+    ) -> Self {
+        Self {
+            container: container.into_value(),
+            elevation: elevation.into_value(),
         }
-        root.hidden(move || dismissed.get())
-            .with_node(move |node| {
-                node.base_style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    elevation.apply(
-                        style().radius(if card { t.radius.container } else { 0.0 }),
-                        &t,
-                    )
-                })
-            })
-            .child(header)
-            .child(content)
-            .into_view()
     }
 }
-
+impl kivact::ui::Variant for BannerAppearance {}
+fn container(s: &Look<AlertState>) -> BannerContainer {
+    s.variant::<BannerAppearance>().map_or_else(
+        || s.variant::<BannerContainer>().copied().unwrap_or_default(),
+        |v| v.container.get(),
+    )
+}
+fn radius(t: &crate::Tokens, s: &Look<AlertState>) -> f64 {
+    if container(s) == BannerContainer::Card {
+        t.radius.container
+    } else {
+        0.0
+    }
+}
+fn colors(t: &crate::Tokens, tone: Tone) -> (Color, Color) {
+    let c = t.colors;
+    match tone {
+        Tone::Warning => (c.warning_muted, c.on_warning_muted),
+        Tone::Danger => (c.error_muted, c.on_error_muted),
+        Tone::Success => (c.success_muted, c.on_success_muted),
+        _ => (c.info_muted, c.on_info_muted),
+    }
+}
+fn direction() -> Direction {
+    if crate::stack::rtl() {
+        Direction::RowReverse
+    } else {
+        Direction::Row
+    }
+}
+pub(crate) fn alert(r: AlertRecipes) -> AlertRecipes {
+    r.root(|_| root)
+        .header(|_| header)
+        .message(|_| message)
+        .controls(|_| controls)
+        .title(|_| {
+            |_: &Theme, _: &Look<AlertState>| {
+                style().font_size(14).line_height(20.0 / 14.0).weight(600)
+            }
+        })
+        .description(|_| {
+            |_: &Theme, _: &Look<AlertState>| {
+                style().font_size(12).line_height(20.0 / 12.0).weight(400)
+            }
+        })
+        .icon(|_| {
+            |_: &Theme, _: &Look<AlertState>| {
+                style()
+                    .size(20, 20)
+                    .shrink(0)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+            }
+        })
+        .actions(|_| {
+            |t: &Theme, _: &Look<AlertState>| {
+                style()
+                    .direction(direction())
+                    .gap(8)
+                    .align_items(Align::Center)
+                    .color(t.ext::<crate::Tokens>().colors.text_primary)
+            }
+        })
+        .content(|_| content)
+        .dismiss(|_| |t: &Theme, s: &Look<AlertState>| control(t, s, true))
+        .toggle(|_| |t: &Theme, s: &Look<AlertState>| control(t, s, false))
+}
+fn root(theme: &Theme, s: &Look<AlertState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    let base = style()
+        .direction(Direction::Column)
+        .gap(0)
+        .padding(0)
+        .border(0, Color::TRANSPARENT)
+        .background(Color::TRANSPARENT)
+        .radius(radius(&t, s))
+        .min_width(0);
+    s.variant::<BannerAppearance>()
+        .map_or(Elevation::None, |v| v.elevation.get())
+        .apply(base, &t)
+}
+fn header(theme: &Theme, s: &Look<AlertState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    let (bg, ink) = colors(&t, s.tone);
+    let radius = radius(&t, s);
+    let bottom = if s.has_content && s.expanded.unwrap_or(true) {
+        0.0
+    } else {
+        radius
+    };
+    style()
+        .direction(direction())
+        .wrap(true)
+        .column_gap(8)
+        .row_gap(12)
+        .padding_y(12)
+        .padding_x(16)
+        .align_items(
+            if (s.has_actions || s.dismissible || s.expanded.is_some()) && !s.has_description {
+                Align::Center
+            } else {
+                Align::Start
+            },
+        )
+        .radius_corners(radius, radius, bottom, bottom)
+        .background(bg)
+        .color(ink)
+}
+fn message(_: &Theme, s: &Look<AlertState>) -> Style {
+    let base = style().direction(Direction::Column).grow(1).min_width(0);
+    if s.has_actions { base.basis(128) } else { base }
+}
+fn controls(_: &Theme, _: &Look<AlertState>) -> Style {
+    style()
+        .direction(direction())
+        .wrap(true)
+        .align_items(Align::Center)
+        .justify_content(Justify::End)
+        .gap(8)
+        .shrink(0)
+        .max_width(pct(100))
+        .margin_y(-4)
+}
+fn content(theme: &Theme, s: &Look<AlertState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    let radius = radius(&t, s);
+    style()
+        .direction(Direction::Column)
+        .padding_y(12)
+        .padding_x(16)
+        .background(t.colors.bg_card)
+        .radius_corners(0, 0, radius, radius)
+        .border_left(1, t.colors.border)
+        .border_right(1, t.colors.border)
+        .border_bottom(1, t.colors.border)
+}
+fn control(theme: &Theme, s: &Look<AlertState>, dismiss: bool) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    let (_, ink) = colors(&t, s.tone);
+    let expanded = s.expanded == Some(true);
+    style()
+        .size(24, 24)
+        .padding(0)
+        .font_size(0)
+        .border(0, Color::TRANSPARENT)
+        .background(Color::TRANSPARENT)
+        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
+        .paint(move |draw, _| {
+            use kivact::draw::{Path, Stroke};
+            use kivact::geometry::Point;
+            let path = if dismiss {
+                Path::new()
+                    .move_to(Point::new(8.0, 8.0))
+                    .line_to(Point::new(16.0, 16.0))
+                    .move_to(Point::new(16.0, 8.0))
+                    .line_to(Point::new(8.0, 16.0))
+            } else if expanded {
+                Path::new()
+                    .move_to(Point::new(8.0, 14.0))
+                    .line_to(Point::new(12.0, 10.0))
+                    .line_to(Point::new(16.0, 14.0))
+            } else {
+                Path::new()
+                    .move_to(Point::new(8.0, 10.0))
+                    .line_to(Point::new(12.0, 14.0))
+                    .line_to(Point::new(16.0, 10.0))
+            };
+            draw.stroke_path(&path, &Stroke::new(1.5), ink);
+        })
+}
+/// Decorative tone icon for a standard alert's explicit icon slot.
+pub fn banner_icon(tone: Tone) -> impl kivact::view::IntoView {
+    crate::icon(match tone {
+        Tone::Warning => "triangle-alert",
+        Tone::Danger => "circle-x",
+        Tone::Success => "circle-check",
+        _ => "info",
+    })
+}
 kivact::state::constant_value!(BannerContainer);

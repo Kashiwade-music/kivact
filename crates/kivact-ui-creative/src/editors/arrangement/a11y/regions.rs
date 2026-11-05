@@ -16,42 +16,7 @@ pub(crate) fn semantic(state: State) -> Vec<RegionInfo> {
     if !regions.valid() {
         return result;
     }
-    for (target, kind, name) in [
-        (
-            Target::LoopCreate,
-            Kind::LoopCreate,
-            state.texts.loop_ruler(),
-        ),
-        (
-            Target::LoopStart,
-            Kind::LoopEndpoint,
-            state.texts.loop_start(),
-        ),
-        (Target::LoopEnd, Kind::LoopEndpoint, state.texts.loop_end()),
-        (Target::LoopBody, Kind::LoopBody, state.texts.loop_range()),
-        (Target::AddTrack, Kind::AddTrack, state.texts.add_track()),
-        (
-            Target::Playhead,
-            Kind::ArrangementPlayhead,
-            state.texts.playhead(),
-        ),
-    ] {
-        if let Some(id) = regions.id(target) {
-            let mut info = RegionInfo::new(RegionId(id), kind, name);
-            let (a, b) = bounded_range(
-                state.range.get(),
-                state.length.get(),
-                state.loop_min_duration.get(),
-            );
-            info.now = match target {
-                Target::LoopStart => a,
-                Target::LoopEnd => b,
-                _ => state.frame.get(),
-            };
-            info.max = state.length.get();
-            result.push(info);
-        }
-    }
+    result.extend(ruler_infos(state));
     for track in &tracks {
         for tag in TrackFlag::ALL {
             let checked = tag.checked(track);
@@ -101,6 +66,48 @@ pub(crate) fn semantic(state: State) -> Vec<RegionInfo> {
                 info.now = knot.value;
                 result.push(info);
             }
+        }
+    }
+    result
+}
+
+fn ruler_infos(state: State) -> Vec<RegionInfo> {
+    let mut result = Vec::new();
+    let regions = state.regions.get();
+    for (target, kind, name) in [
+        (
+            Target::LoopCreate,
+            Kind::LoopCreate,
+            state.texts.loop_ruler(),
+        ),
+        (
+            Target::LoopStart,
+            Kind::LoopEndpoint,
+            state.texts.loop_start(),
+        ),
+        (Target::LoopEnd, Kind::LoopEndpoint, state.texts.loop_end()),
+        (Target::LoopBody, Kind::LoopBody, state.texts.loop_range()),
+        (Target::AddTrack, Kind::AddTrack, state.texts.add_track()),
+        (
+            Target::Playhead,
+            Kind::ArrangementPlayhead,
+            state.texts.playhead(),
+        ),
+    ] {
+        if let Some(id) = regions.id(target) {
+            let mut info = RegionInfo::new(RegionId(id), kind, name);
+            let (a, b) = bounded_range(
+                state.range.get(),
+                state.length.get(),
+                state.loop_min_duration.get(),
+            );
+            info.now = match target {
+                Target::LoopStart => a,
+                Target::LoopEnd => b,
+                _ => state.frame.get(),
+            };
+            info.max = state.length.get();
+            result.push(info);
         }
     }
     result

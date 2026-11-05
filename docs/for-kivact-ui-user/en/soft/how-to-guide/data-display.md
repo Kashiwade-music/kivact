@@ -51,3 +51,13 @@ fn expandable_details() -> impl IntoView {
     ))
 }
 ```
+
+## Chat and source blocks
+
+Use `kivact::ui::{chat_thread, chat_message, chat_composer, typing_indicator, code_block}` with the Soft theme. `chat_thread(for_each(items, key, render))` replaces the message list and layout; its `empty`, `loading_top`, `streaming`, `gap`, `align`, `composer`, `viewport_ref`, `history_revision`, and `scroll_button` inputs retain those controls. Pass the actual dataset revision to `history_revision` when prepending history.
+
+Set the message author with `chat_message(author)`, its participant with `sender`, and its body with `content`. The `avatar`, `metadata`, `time`, `status`, `footer`, `icon`, `group`, and `bubble_width` inputs replace the former bubble, metadata, and system wrappers. Use `ChatSender::System` for system messages. Compose a collapsible composer drawer with standard `disclosure` inside the `drawer` slot; standalone editor and send actions use `text_area` and `button`.
+
+Soft `ChatDensity`, `BubbleVariant`, `SystemMessageVariant`, and `ComposerElevation` are standard `.variant(...)` values. `ChatAppearance` carries their reactive values together. Source `CodeBlockSize`, `CodeBlockWidth`, and `CodeBlockContainer` also use `.variant(...)`; `CodeAppearance` carries reactive values. All behavioral source options remain on `ui::code_block`, including copy feedback, line numbers, highlighted lines, diff, wrapping, height, controlled expansion, collapse threshold, and end content.
+
+Language tokenizers remain in Soft. Pass a built-in `CodeLanguageInput::Named` or a custom `CodeLanguage` to `code_highlight` in the standard `highlight` line callback. Supply the current `Tokens.colors.syntax` or an explicit `SyntaxColors` as the callback's content source to preserve reactive palette overrides. `syntax_theme` still supplies that palette to nested content. Streaming text, tool calls, tokens, and application-owned dictation remain Soft domains.

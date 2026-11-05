@@ -269,7 +269,7 @@ impl DateInput {
             }
             if presentation.sheet() {
                 kivact_core::view::column((
-                    crate::date_wheel::date_panel(selected, picker),
+                    crate::date_sheet::panel(selected, picker),
                     button(message("date.save", "Save")).on_press(move || {
                         open.set(false);
                         focus.restore_focus();
@@ -432,7 +432,7 @@ fn date_picker(
         picker = configure(picker);
     }
     if presentation.sheet() {
-        crate::date_wheel::date_panel(selected, picker).into_view()
+        crate::date_sheet::panel(selected, picker).into_view()
     } else {
         picker.into_view()
     }

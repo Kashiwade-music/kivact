@@ -129,6 +129,17 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
 impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + PartialEq + 'static>
     CanvasGesture<T, D, S>
 {
+    pub(crate) fn editor(
+        edit: kivact::interaction::EditSession<S>,
+        empty: impl Fn() -> S + 'static,
+    ) -> (Self, DragApi<S>) {
+        let drag = kivact::interaction::use_drag::<S>(kivact::interaction::DragCoordinates::Local)
+            .slop(0.0)
+            .buttons([MouseButton::Middle]);
+        let press = Self::new(drag);
+        let drag = drag.edit_on_change(edit, move || press.initial().unwrap_or_else(&empty));
+        (press, drag)
+    }
     pub(crate) fn new(drag: DragApi<S>) -> Self {
         Self {
             controller: machine(

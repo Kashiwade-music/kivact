@@ -69,6 +69,7 @@ pub(super) fn use_history(input: NodeRef) -> MachineHandle<Policy> {
         || Policy,
         move |_, value: String| {
             let mut editor = EditState::new(&value);
+            editor.move_to(0, false);
             editor.move_to(value.len(), true);
             input.set_edit_state(editor);
         },

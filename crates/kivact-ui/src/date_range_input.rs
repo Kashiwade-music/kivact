@@ -269,6 +269,7 @@ impl DateRangeInput {
         let week_start = self.week_start;
         let configure = self.configure.clone();
         let presets = self.presets;
+        let touch = self.presentation.sheet();
         kivact_core::view::ViewFn::from(move |()| {
             let selected = committing_range(value, accept.clone(), open, trigger_focus);
             let mut picker = calendar(selected)
@@ -276,6 +277,9 @@ impl DateRangeInput {
                 .max(max)
                 .range_span(min_span, max_span)
                 .number_of_months(2usize);
+            if touch {
+                picker = picker.touch();
+            }
             if let Some(day) = week_start {
                 picker = picker.week_start(day);
             }

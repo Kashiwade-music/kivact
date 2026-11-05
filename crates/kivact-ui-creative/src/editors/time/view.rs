@@ -12,14 +12,13 @@ use crate::editors::time::layout::lane_rect;
 use crate::editors::time::model::TimeItem;
 use kivact::custom::NodeRefExt;
 use kivact::custom::part;
+use kivact::interaction::EditSession;
 use kivact::interaction::ListItem;
-use kivact::interaction::{DragCoordinates, EditSession, use_drag};
+use kivact::state::IntoValue;
 use kivact::state::{Callback, Value};
-use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
-use kivact::view::EditPhase;
 
-use kivact::view::{A11yAction, IntoView, MouseButton, Role, View, node_ref};
+use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
 use kivact::view::{Node, node};
 
 pub(crate) struct TimeEditor<T: TimeItem> {
@@ -70,174 +69,22 @@ impl<T: TimeItem> TimeEditor<T> {
 
 impl<T: TimeItem> IntoView for TimeEditor<T> {
     fn into_view(self) -> View {
-        let Self {
+        let Prepared {
             root,
-            items,
-            state:
-                crate::TimeState {
-                    selection: selected,
-                    playhead,
-                    transform,
-                },
-            lanes,
-            snap,
-            step,
+            state,
             ruler,
-            lane_height,
-            on_edit,
+            cells,
+            cells_width,
             extensions,
-        } = self;
-        ruler.report();
-        let bounds = ruler.zoom;
-        let min_duration = ruler.min_duration;
-        let selection = selected.into_value();
-        let source = items.into_value();
-        let data = kivact::state::memo(move || {
-            source
-                .get()
-                .into_iter()
-                .filter(TimeItem::valid)
-                .collect::<Vec<_>>()
-        });
-        let scale = kivact::state::memo(move || transform.get().scale);
-        let offset = kivact::state::memo(move || transform.get().offset);
-        let _frame = playhead.into_value();
-        let visible = kivact::state::memo(move || {
-            if let Some(lanes) = lanes {
-                return lanes.get();
-            }
-            let mut result = Vec::<Lane>::new();
-            for item in data.get() {
-                if !result.iter().any(|lane| lane.id == item.lane()) {
-                    result.push(Lane::new(item.lane(), ""));
-                }
-            }
-            result
-        });
-        let order = kivact::state::memo(move || {
-            data.get()
-                .into_iter()
-                .filter(|item| {
-                    visible.with(|lanes| lanes.iter().any(|lane| lane.id == item.lane()))
-                })
-                .map(|item| ListItem::new(item.id(), item.label()))
-                .collect::<Vec<_>>()
-        });
-        let choose = selection::controller(order, selected);
-        let scene = targets::targets(move || {
-            let selected = selection.get();
-            let mut targets = vec![Target::Playhead];
-            targets.extend(visible.get().iter().map(|lane| Target::Lane(lane.id)));
-            for item in data.get() {
-                if !visible.with(|lanes| lanes.iter().any(|lane| lane.id == item.lane())) {
-                    continue;
-                }
-                targets.push(Target::Item(item.id()));
-                if item.duration() > 0.0 && selected.contains(&item.id()) {
-                    targets.extend([
-                        Target::Trim(item.id(), false),
-                        Target::Trim(item.id(), true),
-                    ]);
-                }
-            }
-            Ok(targets)
-        });
-        let cell_widths: Vec<_> = extensions.cells.iter().map(|(width, _)| *width).collect();
-        let cells_width = kivact::state::memo(move || {
-            cell_widths
-                .iter()
-                .map(|width| width.get())
-                .sum::<f64>()
-                .min(SIDEBAR)
-        });
-        let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
-            visible,
-            &extensions,
-            move |index| lane_rect(index, lane_height),
-            true,
-        );
-        let edit = crate::editors::shared::model::observed(
-            EditSession::new(move |snapshot| {
-                crate::editors::time::edit::restore(playhead, transform, snapshot)
-            }),
-            on_edit.map(|observer| {
-                callback(move |phase| {
-                    observer.call(match phase {
-                        EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
-                        EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
-                        EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                    })
-                })
-            }),
-        );
-        let gesture = use_drag::<crate::editors::time::gesture::Snapshot>(DragCoordinates::Local)
-            .slop(0.0)
-            .buttons([MouseButton::Middle]);
-        let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
-        let gesture = gesture.edit_on_change(edit, move || {
-            press
-                .initial()
-                .unwrap_or_else(|| crate::editors::time::gesture::Snapshot::Items(Vec::new()))
-        });
-        let state = State {
-            data,
-            on_edit,
-            selected,
-            selection,
-            transform,
-            scale,
-            offset,
-            playhead,
-            visible,
-            choose,
-            scene,
-            snap,
-            step,
-            bounds,
-            min_duration,
-            lane_height,
-            active: kivact::state::signal(None),
-            child_focus,
-            context: kivact::state::signal(EditorContext {
-                item: None,
-                lane: None,
-                time: playhead.get_untracked(),
-            }),
-            lane_activate: extensions.lane_activate,
-            item_activate: extensions.item_activate,
-            press,
-            gesture,
-            edit,
-        };
+        } = self.prepare();
+        let data = state.data;
+        let selection = state.selection;
+        let scale = state.scale;
+        let bounds = state.bounds;
         let gesture = crate::editors::time::input::drag(state);
         let reference = node_ref();
         let availability = kivact::custom::part(|input| input);
-        let availability_state = availability.state();
-        let focus = reference.focus_within();
-        kivact::state::effect(move || {
-            let focused = focus.get();
-            let visible = reference.is_visible();
-            let items = state.data.get();
-            let lanes = state.visible.get();
-            let missing = state.initial().is_some_and(|snapshot| match snapshot {
-                crate::editors::time::gesture::Snapshot::Items(initial) => {
-                    initial.iter().any(|v| {
-                        !items
-                            .iter()
-                            .any(|i| i.id() == v.0 && lanes.iter().any(|lane| lane.id == i.lane()))
-                    })
-                }
-                _ => false,
-            });
-            let input = availability_state.get();
-            state.press.inputs_changed(
-                focused,
-                visible && !input.hidden,
-                !input.disabled,
-                !missing,
-                move || state.cancel(),
-            );
-        });
+        observe_inputs(state, reference, availability.state());
         let root = super::a11y::attach(root, state, gesture, ruler.format.clone());
         let root = root
             .node_ref(reference)
@@ -279,4 +126,197 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             None => root.into_view(),
         }
     }
+}
+
+struct Prepared<T: TimeItem> {
+    root: Node,
+    state: State<T>,
+    ruler: Ruler,
+    cells: View,
+    cells_width: Value<f64>,
+    extensions: LaneExtensions,
+}
+impl<T: TimeItem> TimeEditor<T> {
+    fn prepare(self) -> Prepared<T> {
+        let Self {
+            root,
+            items,
+            state:
+                crate::TimeState {
+                    selection: selected,
+                    playhead,
+                    transform,
+                },
+            lanes,
+            snap,
+            step,
+            ruler,
+            lane_height,
+            on_edit,
+            extensions,
+        } = self;
+        ruler.report();
+        let bounds = ruler.zoom;
+        let min_duration = ruler.min_duration;
+        let selection = selected.into_value();
+        let source = items.into_value();
+        let data = valid_items(source);
+        let scale = kivact::state::memo(move || transform.get().scale);
+        let offset = kivact::state::memo(move || transform.get().offset);
+        let _frame = playhead.into_value();
+        let visible = visible_lanes(data, lanes);
+        let choose = time_selection(data, visible, selected);
+        let scene = time_scene(data, visible, selection);
+        let cells_width = extensions.width(SIDEBAR);
+        let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
+            visible,
+            &extensions,
+            move |index| lane_rect(index, lane_height),
+            true,
+        );
+        let edit = crate::editors::shared::model::observed(
+            EditSession::new(move |snapshot| {
+                crate::editors::time::edit::restore(playhead, transform, snapshot)
+            }),
+            crate::editors::shared::model::phase_observer(on_edit),
+        );
+        let (press, gesture) = crate::editors::shared::gesture::CanvasGesture::editor(edit, || {
+            crate::editors::time::gesture::Snapshot::Items(Vec::new())
+        });
+        let state = State {
+            data,
+            on_edit,
+            selected,
+            selection,
+            transform,
+            scale,
+            offset,
+            playhead,
+            visible,
+            choose,
+            scene,
+            snap,
+            step,
+            bounds,
+            min_duration,
+            lane_height,
+            active: kivact::state::signal(None),
+            child_focus,
+            context: kivact::state::signal(EditorContext::at_time(playhead.get_untracked())),
+            lane_activate: extensions.lane_activate,
+            item_activate: extensions.item_activate,
+            press,
+            gesture,
+            edit,
+        };
+        Prepared {
+            root,
+            state,
+            ruler,
+            cells,
+            cells_width,
+            extensions,
+        }
+    }
+}
+
+fn observe_inputs<T: TimeItem>(
+    state: State<T>,
+    reference: kivact::view::NodeRef,
+    availability_state: Value<kivact::custom::PartState>,
+) {
+    let focus = reference.focus_within();
+    kivact::state::effect(move || {
+        let focused = focus.get();
+        let visible = reference.is_visible();
+        let items = state.data.get();
+        let lanes = state.visible.get();
+        let missing = state.initial().is_some_and(|snapshot| match snapshot {
+            crate::editors::time::gesture::Snapshot::Items(initial) => initial.iter().any(|v| {
+                !items
+                    .iter()
+                    .any(|i| i.id() == v.0 && lanes.iter().any(|lane| lane.id == i.lane()))
+            }),
+            _ => false,
+        });
+        let input = availability_state.get();
+        state.press.inputs_changed(
+            focused,
+            visible && !input.hidden,
+            !input.disabled,
+            !missing,
+            move || state.cancel(),
+        );
+    });
+}
+
+fn visible_lanes<T: TimeItem>(
+    data: Value<Vec<T>>,
+    lanes: Option<Value<Vec<Lane>>>,
+) -> Value<Vec<Lane>> {
+    kivact::state::memo(move || {
+        if let Some(lanes) = lanes {
+            return lanes.get();
+        }
+        let mut result = Vec::<Lane>::new();
+        for item in data.get() {
+            if !result.iter().any(|lane| lane.id == item.lane()) {
+                result.push(Lane::new(item.lane(), ""));
+            }
+        }
+        result
+    })
+    .into_value()
+}
+
+type TimeScene = Value<Result<std::rc::Rc<targets::Scene<Target>>, kivact::UiError>>;
+fn time_scene<T: TimeItem>(
+    data: Value<Vec<T>>,
+    visible: Value<Vec<Lane>>,
+    selection: Value<Vec<u64>>,
+) -> TimeScene {
+    targets::targets(move || {
+        let selected = selection.get();
+        let mut targets = vec![Target::Playhead];
+        targets.extend(visible.get().iter().map(|lane| Target::Lane(lane.id)));
+        for item in data.get() {
+            if !visible.with(|lanes| lanes.iter().any(|lane| lane.id == item.lane())) {
+                continue;
+            }
+            targets.push(Target::Item(item.id()));
+            if item.duration() > 0.0 && selected.contains(&item.id()) {
+                targets.extend([
+                    Target::Trim(item.id(), false),
+                    Target::Trim(item.id(), true),
+                ]);
+            }
+        }
+        Ok(targets)
+    })
+}
+
+fn time_selection<T: TimeItem>(
+    data: Value<Vec<T>>,
+    visible: Value<Vec<Lane>>,
+    selected: kivact::state::Binding<Vec<u64>>,
+) -> kivact::interaction::ListApi<u64> {
+    let order = kivact::state::memo(move || {
+        data.get()
+            .into_iter()
+            .filter(|item| visible.with(|lanes| lanes.iter().any(|lane| lane.id == item.lane())))
+            .map(|item| ListItem::new(item.id(), item.label()))
+            .collect::<Vec<_>>()
+    });
+    selection::controller(order, selected)
+}
+
+fn valid_items<T: TimeItem>(items: Value<Vec<T>>) -> Value<Vec<T>> {
+    kivact::state::memo(move || {
+        items
+            .get()
+            .into_iter()
+            .filter(TimeItem::valid)
+            .collect::<Vec<_>>()
+    })
+    .into_value()
 }

@@ -111,15 +111,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point, origin: Point, snapshot: &Snapsh
     if matches!(drag, Drag::Items | Drag::Trim(..)) && !s.press.moved() {
         return;
     }
-    let snap = |value: f64| {
-        if s.snap.get_untracked() {
-            let step = s.step();
-            let rounded = (value / step).round() * step;
-            if rounded.is_finite() { rounded } else { value }
-        } else {
-            value
-        }
-    };
+    let snap = move |value| snap_time(s, value);
     match (drag, snapshot) {
         (Drag::Playhead, _) => {
             let value = snap(s.time(pos.x)).max(0.0);
@@ -256,13 +248,7 @@ pub(crate) fn key<T: TimeItem>(s: State<T>, e: KeyEvent) -> Handled {
         }
         _ if selection::select_all(&e) => s.choose.select_all(),
         Key::Delete | Key::Backspace => {
-            let ids = s.selected_ids();
-            if !ids.is_empty() {
-                s.edit.once(s.snapshot(&ids), || {
-                    s.request(TimeRequest::Delete(ids.clone()));
-                });
-                s.choose.clear();
-            }
+            delete_selected(s);
         }
         Key::ArrowLeft | Key::ArrowRight => {
             let dx = if e.key() == Key::ArrowLeft {
@@ -419,5 +405,25 @@ impl<T: TimeItem> State<T> {
             |target| self.context_for(target),
             |x| self.time(x).max(0.0),
         )
+    }
+}
+
+fn snap_time<T: TimeItem>(s: State<T>, value: f64) -> f64 {
+    if s.snap.get_untracked() {
+        let step = s.step();
+        let rounded = (value / step).round() * step;
+        if rounded.is_finite() { rounded } else { value }
+    } else {
+        value
+    }
+}
+
+fn delete_selected<T: TimeItem>(s: State<T>) {
+    let ids = s.selected_ids();
+    if !ids.is_empty() {
+        s.edit.once(s.snapshot(&ids), || {
+            s.request(TimeRequest::Delete(ids.clone()));
+        });
+        s.choose.clear();
     }
 }

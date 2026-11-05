@@ -22,7 +22,7 @@ fn composer_inserts_shift_enter_and_recalls_the_last_submission() {
     let submitted = Rc::new(RefCell::new(Vec::new()));
     let received = submitted.clone();
     let screen = render_with(options(), move || {
-        soft::chat_composer(signal(String::new())).on_submit(move |message| {
+        kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
             received.borrow_mut().push(message);
         })
     });
@@ -126,7 +126,7 @@ fn composer_does_not_submit_during_an_ime_composition() {
     let submitted = Rc::new(RefCell::new(Vec::new()));
     let received = submitted.clone();
     let screen = render_with(options(), move || {
-        soft::chat_composer(signal(String::new())).on_submit(move |message| {
+        kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
             received.borrow_mut().push(message);
         })
     });

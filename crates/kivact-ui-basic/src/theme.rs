@@ -65,34 +65,38 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_control_height(32.0)
         .with_icons(crate::icons::set())
         .with(p)
-        .with(kivact::ui::UiTokens {
-            chat: kivact::ui::ChatTokens {
-                follow_slack: 1.5,
-                ..kivact::ui::ChatTokens::default()
-            },
-            code_block: kivact::ui::CodeBlockTokens {
-                font_size: 14.0,
-                line_height: 23.0,
-                copy_feedback_ms: 2000,
-            },
-            indicators: kivact::ui::IndicatorTokens {
-                reduced_period_ms: Some(1000),
-                ..kivact::ui::IndicatorTokens::default()
-            },
-            calendar: kivact::ui::CalendarTokens {
-                cell_size: 28.0,
-                month_gap: 16.0,
-                week_gap: 8.0,
-            },
-            combobox: kivact::ui::ComboboxTokens {
-                list_height: 252.0,
-                popup_offset: 4.0,
-                field_radius: Some(0.0),
-                chip_radius: 0.0,
-                option_radius: 0.0,
-                ..kivact::ui::ComboboxTokens::default()
-            },
-            ..kivact::ui::UiTokens::default()
-        })
+        .with(standard_tokens())
         .with(crate::recipes::recipes())
+}
+
+fn standard_tokens() -> kivact::ui::UiTokens {
+    kivact::ui::UiTokens {
+        chat: kivact::ui::ChatTokens {
+            follow_slack: 1.5,
+            ..kivact::ui::ChatTokens::default()
+        },
+        code_block: kivact::ui::CodeBlockTokens {
+            font_size: 14.0,
+            line_height: 23.0,
+            copy_feedback_ms: 2000,
+        },
+        indicators: kivact::ui::IndicatorTokens {
+            reduced_period_ms: Some(1000),
+            ..kivact::ui::IndicatorTokens::default()
+        },
+        calendar: kivact::ui::CalendarTokens {
+            cell_size: 28.0,
+            month_gap: 16.0,
+            week_gap: 8.0,
+        },
+        combobox: kivact::ui::ComboboxTokens {
+            list_height: 252.0,
+            popup_offset: 4.0,
+            field_radius: Some(0.0),
+            chip_radius: 0.0,
+            option_radius: 0.0,
+            ..kivact::ui::ComboboxTokens::default()
+        },
+        ..kivact::ui::UiTokens::default()
+    }
 }

@@ -96,3 +96,35 @@ pub enum EditorEvent<R> {
     /// Bound values are restored; the application restores its items from `Begin`.
     Cancel,
 }
+
+pub(crate) fn phase_observer<R: 'static>(
+    observer: Option<Callback<EditorEvent<R>>>,
+) -> Option<Callback<EditPhase>> {
+    observer.map(|observer| {
+        kivact::state::callback(move |phase| {
+            observer.call(match phase {
+                EditPhase::Begin => EditorEvent::Begin,
+                EditPhase::Commit => EditorEvent::Commit,
+                EditPhase::Cancel => EditorEvent::Cancel,
+            })
+        })
+    })
+}
+
+pub(crate) fn canvas_size(
+    rect: kivact::state::Value<Option<kivact::geometry::Rect>>,
+) -> kivact::state::Value<kivact::geometry::Size> {
+    kivact::state::IntoValue::into_value(kivact::state::memo(move || {
+        let r = rect.get().unwrap_or_default();
+        kivact::geometry::Size::new(r.width, r.height)
+    }))
+}
+impl EditorContext {
+    pub(crate) fn at_time(time: f64) -> Self {
+        Self {
+            item: None,
+            lane: None,
+            time,
+        }
+    }
+}

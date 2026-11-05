@@ -146,7 +146,7 @@
 | 2026-11-05 | G-3 | restored_stateの同期読み取り経路 | Environmentにlaunch時readonly snapshotを一箇所で持つ。virtual scriptだけが永続mapを所有し次launch snapshotを作る。desktop capability false、coreのshadow cacheは作らない。 |
 | 2026-11-05 | G-2/fix-G5-11 | queued inputのcapture最終値を現在eventと誤認 | 実releaseを既存requestsの一時mailboxで渡しhandler/default後にcleanup。reader状態の推測・weak registry cache・shadow capture stateは持たない。 |
 | 2026-11-05 | K-0 | runtime FrameLoopはcore NodeRefへ依存できない | 公開Core motion handleを正準境界adapterとし、runtimeの単一loop ownerへpresence gateを渡す。互換aliasやcore側rate/stateの写しは作らない。 |
-| 2026-11-05 | K-1a | calendar と集合選択の cardinality | CalendarSelection binding descriptor を標準 From で受ける。RangePick before payload で取消、TimeStyle は時刻専用。 |
+| 2026-11-05 | K-1a | calendar と集合選択の cardinality | CalendarSelection binding descriptor を標準 From で受ける。RangePick anchor/preview のみをstageして取消時はbindingを未変更に保つ、TimeStyle は時刻専用。 |
 | 2026-11-05 | K-1b | file metadata と snap | FileInfo は path と純粋 name のみ。検証は caller。Snap None/Mandatory。外部 index binding を操作の正準入口にする。 |
 | 2026-11-05 | K-2a | controlled hover と copy command | binding setter を open の唯一の authority とし copy は owner-scoped () command。animated は reactive、custom trigger は attach。 |
 | 2026-11-05 | K-2b | 公開 mode と query の所有 | 公開 mode は unit enum、binding は private descriptor。Local/Shared query は排他的 owner、SelectPresentation に統一。 |
@@ -167,3 +167,4 @@
 | 2026-11-05 | K-3b/K-6a/K-6b | 実際の入力とslotをrecipeへ投影 | BreadcrumbItemState、CardState.input、avatar_image/status_content/member/overflowを実ノードへ接続。履歴状態を複製せず装飾とhoverを表現する。 |
 | 2026-11-05 | H-G5 | Game haloのreduced motion | effectから時刻を書かず、描画がreduced時に静止値を選ぶ。動作中のphaseは既存frame clockのみが所有する。 |
 | 2026-11-05 | H-G5 | InspectorPanel.collapsedの分類 | InspectorPanelは外部データセットの展開値を持つpassive recordであり、mounted builderの構造optionではない。structural_optionsのrecord_typesへ正確に登録する。 |
+| 2026-11-05 | K-1a | swipeのactivation抑止 | Callbackの戻り値でpressを止めず、CalendarOptions.activation_guardを単一calendar ownerの遷移前に評価する。Releasedは同一gestureの後続選択を拒否し、新gesture/keyboard/a11yで解除する。 |

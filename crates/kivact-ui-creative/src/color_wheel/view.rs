@@ -171,60 +171,10 @@ impl IntoView for ColorWheel {
                 alpha.get_untracked(),
             )
         };
-        let apply = move |update: DragUpdate<Channel>| {
-            if state.blocked.get_untracked() || state.edit.owner() != Some(ColorOwner::Wheel) {
-                return;
-            }
-            let (next, h) = geometry().update(
-                update.payload,
-                update.pos,
-                value.get_untracked(),
-                state.hue.get_untracked(),
-            );
-            state
-                .controls
-                .send(super::state::controls_machine::Event::Hue(h));
-            state.color.set(next);
-        };
         let active = memo(move || state.controls.get().channel);
-        // Each drag is one edit of the shared session; Escape on the wheel,
-        // an engine Cancel and `cancel` write the color from the press back.
-        let gesture = drag
-            .on_start(move |update: DragUpdate<Channel>| {
-                state.edit.begin(ColorOwner::Wheel, state.snapshot());
-                state
-                    .controls
-                    .send(super::state::controls_machine::Event::Channel(
-                        update.payload,
-                    ));
-                apply(update);
-            })
-            .on_update(apply)
-            .on_end(move |update: DragUpdate<Channel>| {
-                if update.phase == DragPhase::Cancel {
-                    state.edit.cancel_owned(ColorOwner::Wheel);
-                } else {
-                    apply(update);
-                    state.edit.commit(ColorOwner::Wheel);
-                }
-            });
+        let gesture = wheel_gesture(state, drag, geometry, value);
         let state = State::new(state, gesture);
-        let canvas_part = {
-            let input_part = part(|input| input);
-            kivact::custom::Part::new(input_part.state(), move |node| {
-                node.part(input_part).focusable(true)
-            })
-        };
-        let canvas_state = canvas_part.state();
-        let group = node_ref();
-        state.observe(
-            group.focus_within(),
-            memo(move || {
-                let input = canvas_state.get();
-                input.disabled || input.hidden
-            }),
-            alpha,
-        );
+        let (canvas_part, group) = observed_canvas(state, alpha);
         let canvas = node()
             .role(Role::Canvas)
             .name(message("creative.color.wheel", "Color wheel"))
@@ -248,86 +198,7 @@ impl IntoView for ColorWheel {
                 channels
             },
             |channel| channel.id(),
-            move |_, channel| {
-                let channel = channel.get_untracked();
-                let (label, fallback) = match channel {
-                    Channel::Hue => ("creative.color.hue", "Hue"),
-                    Channel::Sv => ("creative.color.sv", "Saturation and value"),
-                    Channel::Alpha => ("creative.color.alpha_slider", "Alpha"),
-                };
-                let part = {
-                    let input_part = part(|input| input);
-                    let label = message(label, fallback);
-                    kivact::custom::Part::new(input_part.state(), move |node| {
-                        node.part(input_part)
-                            .role(Role::Slider)
-                            .focusable(true)
-                            .name(label)
-                            .value_text(move || {
-                                value.get();
-                                state.hue.get();
-                                let (x, y) = state.channel(channel);
-                                if channel == Channel::Sv {
-                                    format!("{x},{y}")
-                                } else {
-                                    x.to_string()
-                                }
-                            })
-                            .value_min(0.0)
-                            .value_max(if channel == Channel::Hue { 360.0 } else { 1.0 })
-                            .value_now(move || {
-                                value.get();
-                                state.hue.get();
-                                state.channel(channel).0
-                            })
-                    })
-                };
-                let target = kivact::view::node_ref();
-                let part = kivact::custom::Part::new(part.state(), move |node| {
-                    node.part(part).node_ref(target)
-                });
-                let action = move |event: A11yEvent| {
-                    if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
-                        state
-                            .controls
-                            .send(super::state::controls_machine::Event::Channel(channel));
-                        target.focus();
-                        return;
-                    }
-                    let (x, y) = state.channel(channel);
-                    let step = if channel == Channel::Hue { 1.0 } else { 0.01 };
-                    let next = match &event.request {
-                        A11yRequest::SetValue(text) if channel == Channel::Sv => pair(text),
-                        A11yRequest::SetValue(text) => text
-                            .parse::<f64>()
-                            .ok()
-                            .filter(|v| v.is_finite())
-                            .map(|x| (x, y)),
-                        A11yRequest::Increment => Some((x + step, y)),
-                        A11yRequest::Decrement => Some((x - step, y)),
-                        _ => None,
-                    };
-                    if let Some((x, y)) = next {
-                        state.once(ColorOwner::Wheel, || state.set(channel, x, y));
-                    }
-                };
-                let drag_source = gesture.source(channel);
-                kivact::custom::Part::new(part.state(), move |node| {
-                    node.part(part)
-                        .part(drag_source)
-                        .on_key(move |event| {
-                            state
-                                .controls
-                                .send(super::state::controls_machine::Event::Channel(channel));
-                            key(state, channel, event)
-                        })
-                        .a11y_action(A11yAction::Select, action)
-                        .a11y_action(A11yAction::Activate, action)
-                        .a11y_action(A11yAction::SetValue, action)
-                        .a11y_action(A11yAction::Increment, action)
-                        .a11y_action(A11yAction::Decrement, action)
-                })
-            },
+            move |_, channel| channel_part(state, value, gesture, channel.get_untracked()),
         );
         let model = self.model;
         self.root
@@ -342,4 +213,161 @@ impl IntoView for ColorWheel {
             ))
             .into_view()
     }
+}
+
+/// Preserve the shared color session's wheel ownership throughout one pointer drag.
+fn wheel_gesture(
+    state: Model,
+    drag: kivact::interaction::DragApi<Channel>,
+    geometry: impl Fn() -> Geometry + Copy + 'static,
+    value: Value<Color>,
+) -> kivact::interaction::DragApi<Channel> {
+    let apply = move |update: DragUpdate<Channel>| {
+        if state.blocked.get_untracked() || state.edit.owner() != Some(ColorOwner::Wheel) {
+            return;
+        }
+        let (next, h) = geometry().update(
+            update.payload,
+            update.pos,
+            value.get_untracked(),
+            state.hue.get_untracked(),
+        );
+        state
+            .controls
+            .send(super::state::controls_machine::Event::Hue(h));
+        state.color.set(next);
+    };
+    // Each drag is one edit of the shared session; Escape on the wheel,
+    // an engine Cancel and `cancel` write the color from the press back.
+    drag.on_start(move |update: DragUpdate<Channel>| {
+        state.edit.begin(ColorOwner::Wheel, state.snapshot());
+        state
+            .controls
+            .send(super::state::controls_machine::Event::Channel(
+                update.payload,
+            ));
+        apply(update);
+    })
+    .on_update(apply)
+    .on_end(move |update: DragUpdate<Channel>| {
+        if update.phase == DragPhase::Cancel {
+            state.edit.cancel_owned(ColorOwner::Wheel);
+        } else {
+            apply(update);
+            state.edit.commit(ColorOwner::Wheel);
+        }
+    })
+}
+/// Attach one accessible color channel to the actual wheel and gesture authority.
+fn channel_part(
+    state: State,
+    value: Value<Color>,
+    gesture: kivact::interaction::DragApi<Channel>,
+    channel: Channel,
+) -> kivact::custom::Part<kivact::custom::PartState> {
+    let (label, fallback) = match channel {
+        Channel::Hue => ("creative.color.hue", "Hue"),
+        Channel::Sv => ("creative.color.sv", "Saturation and value"),
+        Channel::Alpha => ("creative.color.alpha_slider", "Alpha"),
+    };
+    let part = {
+        let input_part = part(|input| input);
+        let label = message(label, fallback);
+        kivact::custom::Part::new(input_part.state(), move |node| {
+            node.part(input_part)
+                .role(Role::Slider)
+                .focusable(true)
+                .name(label)
+                .value_text(move || {
+                    value.get();
+                    state.hue.get();
+                    let (x, y) = state.channel(channel);
+                    if channel == Channel::Sv {
+                        format!("{x},{y}")
+                    } else {
+                        x.to_string()
+                    }
+                })
+                .value_min(0.0)
+                .value_max(if channel == Channel::Hue { 360.0 } else { 1.0 })
+                .value_now(move || {
+                    value.get();
+                    state.hue.get();
+                    state.channel(channel).0
+                })
+        })
+    };
+    let target = kivact::view::node_ref();
+    let part =
+        kivact::custom::Part::new(part.state(), move |node| node.part(part).node_ref(target));
+    let action = move |event| channel_action(state, channel, target, event);
+    let drag_source = gesture.source(channel);
+    kivact::custom::Part::new(part.state(), move |node| {
+        node.part(part)
+            .part(drag_source)
+            .on_key(move |event| {
+                state
+                    .controls
+                    .send(super::state::controls_machine::Event::Channel(channel));
+                key(state, channel, event)
+            })
+            .a11y_action(A11yAction::Select, action)
+            .a11y_action(A11yAction::Activate, action)
+            .a11y_action(A11yAction::SetValue, action)
+            .a11y_action(A11yAction::Increment, action)
+            .a11y_action(A11yAction::Decrement, action)
+    })
+}
+/// Apply accessible channel changes through the existing color edit transaction.
+fn channel_action(state: State, channel: Channel, target: kivact::view::NodeRef, event: A11yEvent) {
+    if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
+        state
+            .controls
+            .send(super::state::controls_machine::Event::Channel(channel));
+        target.focus();
+        return;
+    }
+    let (x, y) = state.channel(channel);
+    let step = if channel == Channel::Hue { 1.0 } else { 0.01 };
+    let next = match &event.request {
+        A11yRequest::SetValue(text) if channel == Channel::Sv => pair(text),
+        A11yRequest::SetValue(text) => text
+            .parse::<f64>()
+            .ok()
+            .filter(|v| v.is_finite())
+            .map(|x| (x, y)),
+        A11yRequest::Increment => Some((x + step, y)),
+        A11yRequest::Decrement => Some((x - step, y)),
+        _ => None,
+    };
+    if let Some((x, y)) = next {
+        state.once(ColorOwner::Wheel, || state.set(channel, x, y));
+    }
+}
+
+/// Observe the actual canvas input and focus scope through the existing color state.
+fn observed_canvas(
+    state: State,
+    alpha: Value<bool>,
+) -> (
+    kivact::custom::Part<kivact::custom::PartState>,
+    kivact::view::NodeRef,
+) {
+    let canvas_part = {
+        let input_part = part(|input| input);
+        kivact::custom::Part::new(input_part.state(), move |node| {
+            node.part(input_part).focusable(true)
+        })
+    };
+    let canvas_state = canvas_part.state();
+    let group = node_ref();
+    state.observe(
+        group.focus_within(),
+        memo(move || {
+            let input = canvas_state.get();
+            input.disabled || input.hidden
+        }),
+        alpha,
+    );
+    (canvas_part, group)
 }

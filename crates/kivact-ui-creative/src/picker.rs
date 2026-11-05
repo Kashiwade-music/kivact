@@ -637,44 +637,9 @@ impl<K: kivact::state::ItemKey> Parts<K> {
                 }
             },
         );
-        let active_column = columns.state();
-        let chosen = signal(None::<K>);
-        let value = binding(chosen, move |key: Option<K>| {
-            let Some(key) = key else { return };
-            if let Some(index) = lists.with_untracked(|all| {
-                all.iter()
-                    .position(|list| list.iter().any(|item| item.key == key))
-            }) {
-                columns.send(ColumnEvent::Pick(index, key));
-            }
-        });
-        let combo = use_combobox(options, Selection::Single(value)).filter(move |query, option| {
-            let query = query.trim().to_lowercase();
-            lists.with(|all| {
-                available_column(all, &query, active_column.get().index().unwrap_or(0), 1)
-                    .and_then(|column| {
-                        all[column]
-                            .iter()
-                            .find(|item| &item.key == option.key())
-                            .filter(|item| accepts(&query, item))
-                    })
-                    .is_some()
-            })
-        });
+        let combo = column_combobox(options, lists, columns);
         let query = combo.query();
-        if multiple {
-            effect(move || {
-                let query = query.get().trim().to_lowercase();
-                let available = lists.with_untracked(|all| column_availability(all, &query));
-                columns.send(ColumnEvent::QueryChanged(available));
-            });
-            effect(move || {
-                let available = lists.with(|all| {
-                    column_availability(all, &query.get_untracked().trim().to_lowercase())
-                });
-                columns.send(ColumnEvent::ItemsChanged(available));
-            });
-        }
+        follow_columns(multiple, lists, query, columns);
         let shown = memo(move || {
             let query = query.get().trim().to_lowercase();
             lists.with(|all| {
@@ -695,107 +660,190 @@ impl<K: kivact::state::ItemKey> Parts<K> {
             field,
             column: multiple.then_some(columns),
         };
-        let active = session.active;
-        // The preview follows the active row.
-        effect(move || {
-            let key = active.get();
-            let item = key.and_then(|key| {
-                lists
-                    .with_untracked(|all| {
-                        all.iter()
-                            .position(|list| list.iter().any(|item| item.key == key))
-                    })
-                    .map(|index| (index, key))
-            });
-            untrack(|| columns.send(ColumnEvent::Preview(item)));
-        });
+        follow_active(session.active, lists, columns);
         // Closing without a pick is a cancel.
         on_cleanup(move || session.outcomes.settle(PickerOutcome::Canceled));
         let search = search_field(session, placeholder, move |event| {
-            if !multiple
-                || event.modifiers().ctrl
-                || event.modifiers().alt
-                || event.modifiers().meta
-            {
-                return Handled::No;
-            }
-            let direction = match event.key() {
-                Key::Tab if event.modifiers().shift => -1,
-                Key::Tab | Key::ArrowRight => 1,
-                Key::ArrowLeft => -1,
-                _ => return Handled::No,
-            };
-            let available = lists.with_untracked(|all| {
-                column_availability(all, &query.get_untracked().trim().to_lowercase())
-            });
-            columns.send(ColumnEvent::Move(direction, available));
-            Handled::Yes
+            column_key(event, multiple, lists, query, columns)
         });
-        let list = if multiple {
-            let columns = titles
-                .into_iter()
-                .enumerate()
-                .map(|(index, title)| {
-                    column((
-                        text(title).role(Role::Heading),
-                        column_rows(
-                            session,
-                            memo(move || shown.with(|lists| lists[index].clone())),
-                            index,
-                        )
-                        .role(Role::ListBox)
-                        .name(title),
-                    ))
-                    .style(style().min_width(240).grow(1))
-                    .into_view()
-                })
-                .collect::<Vec<_>>();
-            row(columns)
-                .part(combo.content())
-                .role(Role::Group)
-                .name(placeholder)
-                .style(style().gap(10))
-        } else {
-            column_rows(
-                session,
-                memo(move || shown.with(|lists| lists[0].clone())),
-                0,
-            )
-            .part(combo.content())
-            .name(placeholder)
-        };
-        column((
-            search,
-            scroll(list).style(style().max_height(320).width(pct(100))),
-            dynamic(
-                memo(move || shown.with(|lists| lists.iter().all(Vec::is_empty))),
-                move |none| {
-                    none.then(|| {
-                        text(empty).style(move || {
-                            let t = &use_theme().get();
-                            let p = t.ext::<crate::tokens::Tokens>();
-                            style().height(p.row).padding_x(7).color(p.dim)
-                        })
-                    })
-                },
-            ),
-        ))
-        .style(move || {
-            let t = &use_theme().get();
-            glass_style(t)
-                .gap(6)
-                .align_items(Align::Stretch)
-                .min_width(260)
-        })
-        // A press on a part that cannot take the focus (a disabled row, a
-        // heading, the scroll bar) leaves the focus on the field.
-        .on_pointer_default(move |event: PointerEvent| {
-            if matches!(event.phase(), PointerPhase::Down(_)) {
-                field.focus();
-            }
-            Handled::No
-        })
+        let list = picker_list(session, shown, titles, placeholder, multiple);
+        picker_panel(search, list, shown, empty, field)
     }
+}
+
+fn follow_active<K: kivact::state::ItemKey>(
+    active: Value<Option<K>>,
+    lists: Value<Vec<Vec<PickerItem<K>>>>,
+    columns: MachineHandle<ColumnMachine<K>>,
+) {
+    // The preview follows the active row.
+    effect(move || {
+        let key = active.get();
+        let item = key.and_then(|key| {
+            lists
+                .with_untracked(|all| {
+                    all.iter()
+                        .position(|list| list.iter().any(|item| item.key == key))
+                })
+                .map(|index| (index, key))
+        });
+        untrack(|| columns.send(ColumnEvent::Preview(item)));
+    });
+}
+
+fn column_combobox<K: kivact::state::ItemKey>(
+    options: Value<Vec<ListItem<K>>>,
+    lists: Value<Vec<Vec<PickerItem<K>>>>,
+    columns: MachineHandle<ColumnMachine<K>>,
+) -> ComboboxApi<K> {
+    let active_column = columns.state();
+    let chosen = signal(None::<K>);
+    let value = binding(chosen, move |key: Option<K>| {
+        let Some(key) = key else { return };
+        if let Some(index) = lists.with_untracked(|all| {
+            all.iter()
+                .position(|list| list.iter().any(|item| item.key == key))
+        }) {
+            columns.send(ColumnEvent::Pick(index, key));
+        }
+    });
+    use_combobox(options, Selection::Single(value)).filter(move |query, option| {
+        let query = query.trim().to_lowercase();
+        lists.with(|all| {
+            available_column(all, &query, active_column.get().index().unwrap_or(0), 1)
+                .and_then(|column| {
+                    all[column]
+                        .iter()
+                        .find(|item| &item.key == option.key())
+                        .filter(|item| accepts(&query, item))
+                })
+                .is_some()
+        })
+    })
+}
+
+fn follow_columns<K: kivact::state::ItemKey>(
+    multiple: bool,
+    lists: Value<Vec<Vec<PickerItem<K>>>>,
+    query: kivact::state::Binding<String>,
+    columns: MachineHandle<ColumnMachine<K>>,
+) {
+    if multiple {
+        effect(move || {
+            let query = query.get().trim().to_lowercase();
+            let available = lists.with_untracked(|all| column_availability(all, &query));
+            columns.send(ColumnEvent::QueryChanged(available));
+        });
+        effect(move || {
+            let available = lists
+                .with(|all| column_availability(all, &query.get_untracked().trim().to_lowercase()));
+            columns.send(ColumnEvent::ItemsChanged(available));
+        });
+    }
+}
+
+fn column_key<K: kivact::state::ItemKey>(
+    event: KeyEvent,
+    multiple: bool,
+    lists: Value<Vec<Vec<PickerItem<K>>>>,
+    query: kivact::state::Binding<String>,
+    columns: MachineHandle<ColumnMachine<K>>,
+) -> Handled {
+    if !multiple || event.modifiers().ctrl || event.modifiers().alt || event.modifiers().meta {
+        return Handled::No;
+    }
+    let direction = match event.key() {
+        Key::Tab if event.modifiers().shift => -1,
+        Key::Tab | Key::ArrowRight => 1,
+        Key::ArrowLeft => -1,
+        _ => return Handled::No,
+    };
+    let available = lists.with_untracked(|all| {
+        column_availability(all, &query.get_untracked().trim().to_lowercase())
+    });
+    columns.send(ColumnEvent::Move(direction, available));
+    Handled::Yes
+}
+fn picker_list<K: kivact::state::ItemKey>(
+    session: Session<K>,
+    shown: Value<Vec<Vec<PickerItem<K>>>>,
+    titles: Vec<Value<String>>,
+    placeholder: Value<String>,
+    multiple: bool,
+) -> Node {
+    let combo = session.combo;
+    if multiple {
+        let columns = titles
+            .into_iter()
+            .enumerate()
+            .map(|(index, title)| {
+                column((
+                    text(title).role(Role::Heading),
+                    column_rows(
+                        session,
+                        memo(move || shown.with(|lists| lists[index].clone())),
+                        index,
+                    )
+                    .role(Role::ListBox)
+                    .name(title),
+                ))
+                .style(style().min_width(240).grow(1))
+                .into_view()
+            })
+            .collect::<Vec<_>>();
+        row(columns)
+            .part(combo.content())
+            .role(Role::Group)
+            .name(placeholder)
+            .style(style().gap(10))
+    } else {
+        column_rows(
+            session,
+            memo(move || shown.with(|lists| lists[0].clone())),
+            0,
+        )
+        .part(combo.content())
+        .name(placeholder)
+    }
+}
+fn picker_panel<K: kivact::state::ItemKey>(
+    search: Node,
+    list: Node,
+    shown: Value<Vec<Vec<PickerItem<K>>>>,
+    empty: Value<String>,
+    field: NodeRef,
+) -> Node {
+    column((
+        search,
+        scroll(list).style(style().max_height(320).width(pct(100))),
+        dynamic(
+            memo(move || shown.with(|lists| lists.iter().all(Vec::is_empty))),
+            move |none| {
+                none.then(|| {
+                    text(empty).style(move || {
+                        let t = &use_theme().get();
+                        let p = t.ext::<crate::tokens::Tokens>();
+                        style().height(p.row).padding_x(7).color(p.dim)
+                    })
+                })
+            },
+        ),
+    ))
+    .style(move || {
+        let t = &use_theme().get();
+        glass_style(t)
+            .gap(6)
+            .align_items(Align::Stretch)
+            .min_width(260)
+    })
+    // A press on a part that cannot take the focus (a disabled row, a
+    // heading, the scroll bar) leaves the focus on the field.
+    .on_pointer_default(move |event: PointerEvent| {
+        if matches!(event.phase(), PointerPhase::Down(_)) {
+            field.focus();
+        }
+        Handled::No
+    })
 }
 
 fn column_rows<K: kivact::state::ItemKey>(

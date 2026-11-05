@@ -31,16 +31,16 @@ fn chat_screen() -> Screen {
             let history = signal(0_u64);
             let viewport = node_ref();
             let offset = viewport.scroll_offset();
-            let messages = soft::chat_message_list(
+            let messages = kivact::view::for_each(
                 items,
                 |id| *id,
                 |id| {
                     text(move || format!("Message {}", id.get()))
                         .style(style().height(24).shrink(0))
                 },
-            )
-            .gap(0.0);
-            let chat = soft::chat_layout(messages)
+            );
+            let chat = kivact::ui::chat_thread(messages)
+                .gap(0.0)
                 .viewport_ref(viewport)
                 .history_revision(history)
                 .style(style().size(340, 144).shrink(0))

@@ -1,10 +1,9 @@
 //! Role: Numeric controls of the Creative kit: number, value_slider, knob and fader.
 use super::machine;
 
-use kivact::draw::{Draw, Path, TextFormat};
-use kivact::draw::{LineCap, LineJoin, Stroke, linear_gradient};
+use kivact::draw::Draw;
+use kivact::draw::linear_gradient;
 use kivact::geometry::{Point, Rect, Size};
-use kivact::i18n::message;
 use kivact::interaction::{
     DragCoordinates, DragPhase, DragUpdate, FocusReturn, use_drag, use_popup, use_scalar,
 };
@@ -24,7 +23,8 @@ use kivact::view::{
 };
 use std::rc::Rc;
 
-type TextParser = Rc<dyn Fn(&str, f64) -> Result<f64, String>>;
+use super::paint::{draw_fader, draw_knob};
+use super::text::{TextParser, display_value, format_scalar, scalar_parser};
 
 /// Numeric geometry, with identical binding and keyboard behavior.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -316,6 +316,39 @@ impl NodeBuilder for Numeric {
 
 impl IntoView for Numeric {
     fn into_view(self) -> View {
+        let (root, view) = self.prepare();
+        let view = Rc::new(view);
+        let display = view.display();
+        let editor = view.editor();
+        let scrub = view.scrub();
+        let paint = view.clone();
+        let key = view.clone();
+        let wheel = view.clone();
+        let pointer = view.clone();
+        let act = view.clone();
+        let root = view
+            .metadata(root)
+            .draw(move |draw, size| paint.paint(draw, size))
+            .on_key_default(move |event| key.key(event))
+            .on_wheel_default(move |event| wheel.wheel(event))
+            .on_pointer_default(move |event| pointer.pointer(event))
+            .part(scrub.source_with({
+                let value = view.value;
+                move || value.get_untracked()
+            }))
+            .child(display)
+            .child(editor);
+        let act = move |event| act.action(event);
+        root.a11y_action(A11yAction::Increment, act.clone())
+            .a11y_action(A11yAction::Decrement, act.clone())
+            .a11y_action(A11yAction::SetValue, act)
+            .value_text(view.shown)
+            .into_view()
+    }
+}
+
+impl Numeric {
+    fn prepare(self) -> (Node, NumericView) {
         let Self {
             root,
             label,
@@ -342,7 +375,6 @@ impl IntoView for Numeric {
         // Whether the text field is open. It ends itself on Enter, Escape
         // and when it is removed.
         let typing = kivact::interaction::use_inline_edit(signal(None::<()>));
-        let text_open = move || typing.is_open(&());
         // The value a scrub's delta is measured from.
         let scrub_phase = machine(machine::State::Idle, || machine::Machine, |_, ()| {});
         let scalar = use_scalar(state, move || {
@@ -360,65 +392,127 @@ impl IntoView for Numeric {
         let pointer = scalar.scrub(use_drag::<f64>(DragCoordinates::Local));
         let reference = node_ref();
         let rect = reference.rect();
+        let parse = scalar_parser(text_parser, timecode);
+        let shown = display_value(mixed, value, min, max, precision, unit, timecode);
+        let mapping = Mapping {
+            kind,
+            min,
+            max,
+            logarithmic,
+        };
+        let view = NumericView {
+            label,
+            kind,
+            min,
+            max,
+            step,
+            reset,
+            precision,
+            tint,
+            timecode,
+            label_visible,
+            accent,
+            bipolar,
+            horizontal,
+            mixed,
+            value,
+            typing,
+            scrub_phase,
+            scalar,
+            pointer,
+            reference,
+            rect,
+            parse,
+            shown,
+            mapping,
+        };
+        (root, view)
+    }
+}
+
+// xtask-allow(state-fields): Immutable control inputs and handles; inline editing, scalar scrubbing and scrub phase each own their lifecycle.
+struct NumericView {
+    label: Value<String>,
+    kind: NumericKind,
+    min: Value<f64>,
+    max: Value<f64>,
+    step: Value<f64>,
+    reset: Value<f64>,
+    precision: Value<usize>,
+    tint: Value<PropertyState>,
+    timecode: Option<Value<u32>>,
+    label_visible: Value<bool>,
+    accent: Option<Value<Color>>,
+    bipolar: Value<bool>,
+    horizontal: Value<bool>,
+    mixed: Value<bool>,
+    value: Value<f64>,
+    typing: kivact::interaction::InlineEditApi<()>,
+    scrub_phase: kivact::state::MachineHandle<machine::Machine>,
+    scalar: kivact::interaction::ScalarApi,
+    pointer: kivact::interaction::DragApi<f64>,
+    reference: kivact::view::NodeRef,
+    rect: Value<Option<Rect>>,
+    parse: TextParser,
+    shown: Value<String>,
+    mapping: Mapping,
+}
+
+#[derive(Clone, Copy)]
+struct Mapping {
+    kind: NumericKind,
+    min: Value<f64>,
+    max: Value<f64>,
+    logarithmic: Value<bool>,
+}
+impl Mapping {
+    fn normalized(self, v: f64) -> f64 {
+        let Self {
+            kind,
+            min,
+            max,
+            logarithmic,
+        } = self;
         let logarithmic = move || logarithmic.get() && min.get() > 0.0;
-        let normalized = move |v: f64| {
-            if kind == NumericKind::Fader {
-                ((v - min.get()) / (max.get() - min.get()))
-                    .clamp(0.0, 1.0)
-                    .sqrt()
-            } else if logarithmic() {
-                ((v.max(min.get()) / min.get()).ln() / (max.get() / min.get()).ln()).clamp(0.0, 1.0)
-            } else {
-                ((v - min.get()) / (max.get() - min.get())).clamp(0.0, 1.0)
-            }
-        };
-        let from_n = move |n: f64| {
-            let n = n.clamp(0.0, 1.0);
-            if kind == NumericKind::Fader {
-                min.get() + (max.get() - min.get()) * n.powi(2)
-            } else if logarithmic() {
-                min.get() * (max.get() / min.get()).powf(n)
-            } else {
-                min.get() + (max.get() - min.get()) * n
-            }
-        };
-        // A write that is not part of a scrub is an edit of its own.
-        let set = move |v: f64| {
-            scalar.once(|| scalar.set(v));
-        };
-        let not_finite = message("creative.numeric.not_finite", "Enter a finite number");
-        let mixed_text = message("creative.numeric.mixed", "Mixed");
-        // `from` is the value the text field opened with, which a relative
-        // entry such as `+5` is added to.
-        let parse: TextParser = Rc::new(move |s: &str, from: f64| -> Result<f64, String> {
-            match text_parser.as_ref() {
-                Some(parser) => parser(s, from).and_then(|v| {
-                    if v.is_finite() {
-                        Ok(v)
-                    } else {
-                        Err(not_finite.get())
-                    }
-                }),
-                None => parse_scalar(s, timecode.map(|fps| fps.get()), from)
-                    .ok_or_else(|| not_finite.get()),
-            }
-        });
-        let begin_text = move || typing.open(());
-        let suffix = unit;
-        let shown = (move || {
-            if mixed.get() {
-                mixed_text.get()
-            } else {
-                format_scalar(
-                    value.get().clamp(min.get(), max.get()),
-                    precision.get(),
-                    &suffix.get(),
-                    timecode.map(|fps| fps.get()),
-                )
-            }
-        })
-        .into_value();
-        let display = show(
+
+        if kind == NumericKind::Fader {
+            ((v - min.get()) / (max.get() - min.get()))
+                .clamp(0.0, 1.0)
+                .sqrt()
+        } else if logarithmic() {
+            ((v.max(min.get()) / min.get()).ln() / (max.get() / min.get()).ln()).clamp(0.0, 1.0)
+        } else {
+            ((v - min.get()) / (max.get() - min.get())).clamp(0.0, 1.0)
+        }
+    }
+    fn value_from_fraction(self, n: f64) -> f64 {
+        let Self {
+            kind,
+            min,
+            max,
+            logarithmic,
+        } = self;
+        let logarithmic = move || logarithmic.get() && min.get() > 0.0;
+
+        let n = n.clamp(0.0, 1.0);
+        if kind == NumericKind::Fader {
+            min.get() + (max.get() - min.get()) * n.powi(2)
+        } else if logarithmic() {
+            min.get() * (max.get() / min.get()).powf(n)
+        } else {
+            min.get() + (max.get() - min.get()) * n
+        }
+    }
+}
+impl NumericView {
+    fn display(&self) -> impl IntoView {
+        let label = self.label;
+        let kind = self.kind;
+        let label_visible = self.label_visible;
+        let typing = self.typing;
+        let shown = self.shown;
+        let text_open = move || typing.is_open(&());
+        show(
             move || !text_open(),
             move || {
                 if matches!(kind, NumericKind::Knob | NumericKind::Fader) {
@@ -459,8 +553,24 @@ impl IntoView for Numeric {
                 )
                 .into_view()
             },
-        );
-        let edit = show(text_open, move || {
+        )
+    }
+    fn editor(&self) -> impl IntoView {
+        let typing = self.typing;
+        let text_open = move || typing.is_open(&());
+        let label = self.label;
+        let precision = self.precision;
+        let timecode = self.timecode;
+        let mixed = self.mixed;
+        let value = self.value;
+        let typing = self.typing;
+        let scalar = self.scalar;
+        let reference = self.reference;
+        let parse = self.parse.clone();
+        let set = move |v: f64| {
+            scalar.once(|| scalar.set(v));
+        };
+        show(text_open, move || {
             let parse_commit = Rc::clone(&parse);
             let parse_reason = Rc::clone(&parse);
             let status = node_ref();
@@ -529,8 +639,22 @@ impl IntoView for Numeric {
                     .offset(2)
                 }),
             )
-        });
-        let scrub = pointer
+        })
+    }
+    fn scrub(&self) -> kivact::interaction::DragApi<f64> {
+        let kind = self.kind;
+        let step = self.step;
+        let horizontal = self.horizontal;
+        let typing = self.typing;
+        let scrub_phase = self.scrub_phase;
+        let scalar = self.scalar;
+        let pointer = self.pointer;
+        let rect = self.rect;
+        let mapping = self.mapping;
+        let begin_text = move || typing.open(());
+        let normalized = move |v| mapping.normalized(v);
+        let from_n = move |v| mapping.value_from_fraction(v);
+        pointer
             .on_start(move |_| {
                 scrub_phase.send(machine::Event::Press);
             })
@@ -578,9 +702,18 @@ impl IntoView for Numeric {
                 {
                     begin_text();
                 }
-            });
-        let root = root
-            .node_ref(reference)
+            })
+    }
+    fn metadata(&self, root: Node) -> Node {
+        let kind = self.kind;
+        let min = self.min;
+        let max = self.max;
+        let horizontal = self.horizontal;
+        let mixed = self.mixed;
+        let value = self.value;
+        let reference = self.reference;
+        let shown = self.shown;
+        root.node_ref(reference)
             .indeterminate(mixed)
             .value_text(shown)
             .value_min(min)
@@ -593,428 +726,211 @@ impl IntoView for Numeric {
                     Orientation::Horizontal
                 }
             })
-            .draw(move |d, size| {
-                let (horizontal, bipolar) = (horizontal.get(), bipolar.get());
-                let p = d.theme().ext::<crate::tokens::Tokens>();
-                let tint = tint.get();
-                let color = match tint {
-                    PropertyState::Plain => accent.map_or(p.accent, |value| value.get()),
-                    PropertyState::Keyed => p.key,
-                    PropertyState::Animated => p.y,
-                    PropertyState::Driven => crate::color::driven_property_color(),
-                };
-                let n = normalized(value.get());
-                match kind {
-                    NumericKind::Number => {
-                        if tint != PropertyState::Plain {
-                            d.rounded_rect(size.to_rect(), 7.0, color.with_alpha(0.13));
-                        }
-                    }
-                    NumericKind::Slider => {
-                        d.rounded_rect(
-                            Rect::new(0.0, 0.0, size.width * n, size.height),
-                            7.0,
-                            color.with_alpha(0.3),
-                        );
-                        d.rounded_rect(
-                            Rect::new(size.width * n - 1.0, 4.0, 2.0, (size.height - 8.0).max(0.0)),
-                            1.0,
-                            color,
-                        );
-                    }
-                    NumericKind::Knob => {
-                        draw_knob(d, size, n, color, &label.get(), &shown.get(), bipolar)
-                    }
-                    NumericKind::Fader if horizontal => {
-                        let y = size.height / 2.0;
-                        d.rounded_rect(
-                            Rect::new(8.0, y - 2.0, (size.width - 16.0).max(0.0), 4.0),
-                            2.0,
-                            p.strong,
-                        );
-                        let x = 8.0 + (size.width - 16.0) * n;
-                        d.rounded_rect(
-                            Rect::new(x - 7.0, y - 10.0, 14.0, 20.0),
-                            5.0,
-                            linear_gradient(180)
-                                .colors([p.strong, Color::token(ColorToken::Raised)]),
-                        );
-                        d.line(Point::new(x, y - 5.0), Point::new(x, y + 5.0), 1.5, p.text);
-                    }
-                    NumericKind::Fader => draw_fader(d, size, n, color, &shown.get()),
-                }
-            })
-            .on_key_default(move |e| {
-                let adjusts = matches!(
-                    e.key(),
-                    Key::ArrowRight
-                        | Key::ArrowUp
-                        | Key::ArrowLeft
-                        | Key::ArrowDown
-                        | Key::Home
-                        | Key::End
-                        | Key::Backspace
-                );
-                if text_open() {
-                    // The text field runs first. Consume the keys it leaves
-                    // unhandled at the ends of its text, so that none of them
-                    // writes the value.
-                    return if adjusts { Handled::Yes } else { Handled::No };
-                }
-                let text_field = matches!(kind, NumericKind::Number | NumericKind::Slider);
-                if e.key() == Key::Enter && !text_field {
-                    return Handled::No;
-                }
-                // A scrub owns the value until it ends, and a mixed value
-                // takes only typed text, which Enter opens.
-                if (adjusts || e.key() == Key::Enter)
-                    && (pointer.is_active() || (mixed.get() && adjusts))
-                {
-                    return Handled::Yes;
-                }
-                let factor = if e.modifiers().ctrl {
-                    0.1
-                } else if e.modifiers().shift {
-                    10.0
-                } else {
-                    1.0
-                };
-                match e.key() {
-                    Key::Enter if e.repeat() => {}
-                    Key::Enter => begin_text(),
-                    Key::ArrowRight | Key::ArrowUp => set(value.get() + step.get() * factor),
-                    Key::ArrowLeft | Key::ArrowDown => set(value.get() - step.get() * factor),
-                    Key::Home => set(min.get()),
-                    Key::End => set(max.get()),
-                    Key::Backspace => set(reset.get()),
-                    _ => return Handled::No,
-                }
-                Handled::Yes
-            })
-            .on_wheel_default(move |e| {
-                if text_open() || mixed.get() {
-                    return Handled::No;
-                }
-                if pointer.is_active() {
-                    return Handled::Yes;
-                }
-                let direction = if e.delta().y > 0.0 { -1.0 } else { 1.0 };
-                set(value.get()
-                    + step.get() * direction * if e.modifiers().ctrl { 0.1 } else { 1.0 });
-                Handled::Yes
-            })
-            // Runs before the scrub source below; `Yes` keeps the press from it.
-            .on_pointer_default(move |e| {
-                if text_open() {
-                    return Handled::Yes;
-                }
-                if mixed.get() {
-                    if matches!(
-                        e.phase(),
-                        PointerPhase::Down(ButtonPress {
-                            button: MouseButton::Primary,
-                            ..
-                        })
-                    ) && matches!(kind, NumericKind::Number | NumericKind::Slider)
-                    {
-                        begin_text();
-                    }
-                    return Handled::Yes;
-                }
-                if matches!(
-                    e.phase(),
-                    PointerPhase::Down(ButtonPress {
-                        button: MouseButton::Primary,
-                        clicks: 2..
-                    })
-                ) {
-                    pointer.cancel();
-                    set(reset.get());
-                    return Handled::Yes;
-                }
-                Handled::No
-            })
-            .part(scrub.source_with(move || value.get_untracked()))
-            .child(display)
-            .child(edit);
-        // The accessibility actions are edits of their own. A value needs a
-        // finite number, and a scrub or a mixed value takes no relative step.
-        let act = move |event: A11yEvent| {
-            let writes = event.region.is_none()
-                && !pointer.is_active()
-                && match &event.request {
-                    A11yRequest::SetValue(text) => {
-                        text.parse::<f64>().ok().is_some_and(f64::is_finite)
-                    }
-                    _ => !mixed.get_untracked(),
-                };
-            if writes {
-                scalar.once(|| match &event.request {
-                    A11yRequest::Increment => scalar.step_by(1.0),
-                    A11yRequest::Decrement => scalar.step_by(-1.0),
-                    A11yRequest::SetValue(text) => {
-                        text.parse::<f64>().ok().is_some_and(|v| scalar.set(v))
-                    }
-                    _ => false,
-                });
-            }
+    }
+    fn paint(&self, d: &mut Draw, size: Size) {
+        let label = self.label;
+        let kind = self.kind;
+        let tint = self.tint;
+        let accent = self.accent;
+        let bipolar = self.bipolar;
+        let horizontal = self.horizontal;
+        let value = self.value;
+        let shown = self.shown;
+        let mapping = self.mapping;
+        let normalized = move |v| mapping.normalized(v);
+
+        let (horizontal, bipolar) = (horizontal.get(), bipolar.get());
+        let p = d.theme().ext::<crate::tokens::Tokens>();
+        let tint = tint.get();
+        let color = match tint {
+            PropertyState::Plain => accent.map_or(p.accent, |value| value.get()),
+            PropertyState::Keyed => p.key,
+            PropertyState::Animated => p.y,
+            PropertyState::Driven => crate::color::driven_property_color(),
         };
-        root.a11y_action(A11yAction::Increment, act)
-            .a11y_action(A11yAction::Decrement, act)
-            .a11y_action(A11yAction::SetValue, act)
-            .value_text(shown)
-            .into_view()
-    }
-}
-
-fn draw_knob(
-    d: &mut Draw,
-    size: Size,
-    n: f64,
-    color: kivact::style::Color,
-    label: &str,
-    value: &str,
-    bipolar: bool,
-) {
-    let p = d.theme().ext::<crate::tokens::Tokens>();
-    let scale = (size.width / 58.0).clamp(0.5, 1.0);
-    let center = Point::new(size.width / 2.0, 24.0 * scale);
-    let point = |a: f64, radius: f64| {
-        Point::new(
-            center.x + radius * scale * a.sin(),
-            center.y - radius * scale * a.cos(),
-        )
-    };
-    let a0 = -2.35;
-    let arc = |start: f64, end: f64| {
-        let mut path = Path::new().move_to(point(start, 19.0));
-        for i in 1..=48 {
-            path = path.line_to(point(start + (end - start) * i as f64 / 48.0, 19.0));
+        let n = normalized(value.get());
+        match kind {
+            NumericKind::Number => {
+                if tint != PropertyState::Plain {
+                    d.rounded_rect(size.to_rect(), 7.0, color.with_alpha(0.13));
+                }
+            }
+            NumericKind::Slider => {
+                d.rounded_rect(
+                    Rect::new(0.0, 0.0, size.width * n, size.height),
+                    7.0,
+                    color.with_alpha(0.3),
+                );
+                d.rounded_rect(
+                    Rect::new(size.width * n - 1.0, 4.0, 2.0, (size.height - 8.0).max(0.0)),
+                    1.0,
+                    color,
+                );
+            }
+            NumericKind::Knob => draw_knob(d, size, n, color, &label.get(), &shown.get(), bipolar),
+            NumericKind::Fader if horizontal => {
+                let y = size.height / 2.0;
+                d.rounded_rect(
+                    Rect::new(8.0, y - 2.0, (size.width - 16.0).max(0.0), 4.0),
+                    2.0,
+                    p.strong,
+                );
+                let x = 8.0 + (size.width - 16.0) * n;
+                d.rounded_rect(
+                    Rect::new(x - 7.0, y - 10.0, 14.0, 20.0),
+                    5.0,
+                    linear_gradient(180).colors([p.strong, Color::token(ColorToken::Raised)]),
+                );
+                d.line(Point::new(x, y - 5.0), Point::new(x, y + 5.0), 1.5, p.text);
+            }
+            NumericKind::Fader => draw_fader(d, size, n, color, &shown.get()),
         }
-        path
-    };
-    let stroke = Stroke::new(3.5 * scale)
-        .cap(LineCap::Round)
-        .join(LineJoin::Round);
-    d.stroke_path(&arc(a0, 2.35), &stroke, p.hair_strong);
-    d.stroke_path(
-        &arc(if bipolar { 0.0 } else { a0 }, a0 + n * 4.7),
-        &stroke,
-        color,
-    );
-    d.rounded_rect(
-        Rect::new(
-            center.x - 15.0 * scale,
-            9.0 * scale,
-            30.0 * scale,
-            30.0 * scale,
-        ),
-        15.0 * scale,
-        linear_gradient(180).colors([p.strong, Color::token(ColorToken::Raised)]),
-    );
-    d.line(
-        point(a0 + n * 4.7, 7.0),
-        point(a0 + n * 4.7, 12.0),
-        2.6,
-        p.text_high,
-    );
-    let label_style = TextFormat {
-        size: 10.5,
-        color: p.dim,
-        align: kivact::style::TextAlign::Center,
-        ..TextFormat::default()
-    };
-    d.text(label, Point::new(center.x, 48.0 * scale + 7.0), label_style);
-    d.text(
-        value,
-        Point::new(center.x, 48.0 * scale + 22.0),
-        TextFormat {
-            size: 10.5,
-            color: p.text,
-            family: Some(p.mono_font.clone()),
-            align: kivact::style::TextAlign::Center,
-            ..TextFormat::default()
-        },
-    );
-}
+    }
+    fn key(&self, e: kivact::view::KeyEvent) -> Handled {
+        let kind = self.kind;
+        let min = self.min;
+        let max = self.max;
+        let step = self.step;
+        let reset = self.reset;
+        let mixed = self.mixed;
+        let value = self.value;
+        let typing = self.typing;
+        let scalar = self.scalar;
+        let pointer = self.pointer;
+        let text_open = move || typing.is_open(&());
+        let begin_text = move || typing.open(());
+        let set = move |v: f64| {
+            scalar.once(|| scalar.set(v));
+        };
 
-fn draw_fader(d: &mut Draw, size: Size, n: f64, color: kivact::style::Color, value: &str) {
-    let p = d.theme().ext::<crate::tokens::Tokens>();
-    let x = size.width / 2.0;
-    let top = 8.0;
-    let height = (size.height - 30.0).max(1.0);
-    d.rounded_rect(Rect::new(x - 3.0, top, 6.0, height), 3.0, p.canvas);
-    d.rounded_rect(
-        Rect::new(x - 2.0, top + height * (1.0 - n), 4.0, height * n),
-        2.0,
-        color.with_alpha(0.6),
-    );
-    for i in 0..=10 {
-        let y = top + i as f64 * height / 10.0;
-        d.line(
-            Point::new(x - 17.0, y),
-            Point::new(x - 10.0, y),
-            1.0,
-            p.hair_strong,
+        let adjusts = matches!(
+            e.key(),
+            Key::ArrowRight
+                | Key::ArrowUp
+                | Key::ArrowLeft
+                | Key::ArrowDown
+                | Key::Home
+                | Key::End
+                | Key::Backspace
         );
+        if text_open() {
+            // The text field runs first. Consume the keys it leaves
+            // unhandled at the ends of its text, so that none of them
+            // writes the value.
+            return if adjusts { Handled::Yes } else { Handled::No };
+        }
+        let text_field = matches!(kind, NumericKind::Number | NumericKind::Slider);
+        if e.key() == Key::Enter && !text_field {
+            return Handled::No;
+        }
+        // A scrub owns the value until it ends, and a mixed value
+        // takes only typed text, which Enter opens.
+        if (adjusts || e.key() == Key::Enter) && (pointer.is_active() || (mixed.get() && adjusts)) {
+            return Handled::Yes;
+        }
+        let factor = if e.modifiers().ctrl {
+            0.1
+        } else if e.modifiers().shift {
+            10.0
+        } else {
+            1.0
+        };
+        match e.key() {
+            Key::Enter if e.repeat() => {}
+            Key::Enter => begin_text(),
+            Key::ArrowRight | Key::ArrowUp => set(value.get() + step.get() * factor),
+            Key::ArrowLeft | Key::ArrowDown => set(value.get() - step.get() * factor),
+            Key::Home => set(min.get()),
+            Key::End => set(max.get()),
+            Key::Backspace => set(reset.get()),
+            _ => return Handled::No,
+        }
+        Handled::Yes
     }
-    let y = top + height * (1.0 - n);
-    d.rounded_rect(
-        Rect::new(x - 11.0, y - 5.0, 22.0, 11.0),
-        3.0,
-        linear_gradient(180).colors([p.muted, p.strong]),
-    );
-    d.line(
-        Point::new(x - 9.0, y),
-        Point::new(x + 9.0, y),
-        1.0,
-        p.canvas,
-    );
-    d.text(
-        value,
-        Point::new(x, size.height - 8.0),
-        TextFormat {
-            size: 10.0,
-            color: p.text,
-            align: kivact::style::TextAlign::Center,
-            family: Some(p.mono_font.clone()),
-            ..TextFormat::default()
-        },
-    );
-}
+    fn wheel(&self, e: kivact::view::WheelEvent) -> Handled {
+        let step = self.step;
+        let mixed = self.mixed;
+        let value = self.value;
+        let typing = self.typing;
+        let scalar = self.scalar;
+        let pointer = self.pointer;
+        let text_open = move || typing.is_open(&());
+        let set = move |v: f64| {
+            scalar.once(|| scalar.set(v));
+        };
 
-fn format_scalar(value: f64, precision: usize, unit: &str, fps: Option<u32>) -> String {
-    if let Some(fps) = fps {
-        let f = value.max(0.0).floor() as u64;
-        let fps = u64::from(fps);
-        format!(
-            "{:02}:{:02}:{:02}:{:02}",
-            f / (fps * 3600),
-            f / (fps * 60) % 60,
-            f / fps % 60,
-            f % fps
-        )
-    } else {
-        format!("{value:.*}{unit}", precision)
+        if text_open() || mixed.get() {
+            return Handled::No;
+        }
+        if pointer.is_active() {
+            return Handled::Yes;
+        }
+        let direction = if e.delta().y > 0.0 { -1.0 } else { 1.0 };
+        set(value.get() + step.get() * direction * if e.modifiers().ctrl { 0.1 } else { 1.0 });
+        Handled::Yes
     }
-}
-fn parse_scalar(s: &str, fps: Option<u32>, current: f64) -> Option<f64> {
-    let s = s.trim();
-    if let Some(fps) = fps {
-        if s.contains(':') {
-            let parts = s
-                .split(':')
-                .map(str::parse::<u64>)
-                .collect::<std::result::Result<Vec<_>, _>>()
-                .ok()?;
-            if !(2..=4).contains(&parts.len()) {
-                return None;
-            }
-            let mut fields = [0_u64; 4];
-            fields[4 - parts.len()..].copy_from_slice(&parts);
-            if fields[1] >= 60 || fields[2] >= 60 || fields[3] >= u64::from(fps) {
-                return None;
-            }
-            let result = ((fields[0] as f64 * 60.0 + fields[1] as f64) * 60.0 + fields[2] as f64)
-                * f64::from(fps)
-                + fields[3] as f64;
-            return result.is_finite().then_some(result);
+    fn pointer(&self, e: kivact::view::PointerEvent) -> Handled {
+        let kind = self.kind;
+        let reset = self.reset;
+        let mixed = self.mixed;
+        let typing = self.typing;
+        let scalar = self.scalar;
+        let pointer = self.pointer;
+        let text_open = move || typing.is_open(&());
+        let begin_text = move || typing.open(());
+        let set = move |v: f64| {
+            scalar.once(|| scalar.set(v));
+        };
+
+        if text_open() {
+            return Handled::Yes;
         }
-        if s.starts_with(['+', '-']) {
-            return evaluate_expression(s).map(|delta| current + delta);
-        }
-    }
-    evaluate_expression(s)
-}
-/// Evaluate finite scalar arithmetic (+, -, *, /, parentheses and pi).
-pub fn evaluate_expression(s: &str) -> Option<f64> {
-    struct Parser<'a> {
-        input: &'a [u8],
-        at: usize,
-    }
-    impl Parser<'_> {
-        fn spaces(&mut self) {
-            while self.input.get(self.at).is_some_and(u8::is_ascii_whitespace) {
-                self.at += 1;
-            }
-        }
-        fn expression(&mut self) -> Option<f64> {
-            let mut value = self.product()?;
-            loop {
-                self.spaces();
-                match self.input.get(self.at) {
-                    Some(b'+') => {
-                        self.at += 1;
-                        value += self.product()?;
-                    }
-                    Some(b'-') => {
-                        self.at += 1;
-                        value -= self.product()?;
-                    }
-                    _ => return Some(value),
-                }
-            }
-        }
-        fn product(&mut self) -> Option<f64> {
-            let mut value = self.atom()?;
-            loop {
-                self.spaces();
-                match self.input.get(self.at) {
-                    Some(b'*') => {
-                        self.at += 1;
-                        value *= self.atom()?;
-                    }
-                    Some(b'/') => {
-                        self.at += 1;
-                        value /= self.atom()?;
-                    }
-                    _ => return Some(value),
-                }
-            }
-        }
-        fn atom(&mut self) -> Option<f64> {
-            self.spaces();
-            if self.input.get(self.at) == Some(&b'-') {
-                self.at += 1;
-                return Some(-self.atom()?);
-            }
-            if self.input.get(self.at) == Some(&b'+') {
-                self.at += 1;
-                return self.atom();
-            }
-            if self.input.get(self.at) == Some(&b'(') {
-                self.at += 1;
-                let v = self.expression()?;
-                self.spaces();
-                if self.input.get(self.at) != Some(&b')') {
-                    return None;
-                }
-                self.at += 1;
-                return Some(v);
-            }
-            if self.input.get(self.at..self.at + 2) == Some(b"pi") {
-                self.at += 2;
-                return Some(std::f64::consts::PI);
-            }
-            let start = self.at;
-            while self
-                .input
-                .get(self.at)
-                .is_some_and(|c| c.is_ascii_digit() || *c == b'.')
+        if mixed.get() {
+            if matches!(
+                e.phase(),
+                PointerPhase::Down(ButtonPress {
+                    button: MouseButton::Primary,
+                    ..
+                })
+            ) && matches!(kind, NumericKind::Number | NumericKind::Slider)
             {
-                self.at += 1;
+                begin_text();
             }
-            std::str::from_utf8(self.input.get(start..self.at)?)
-                .ok()?
-                .parse()
-                .ok()
+            return Handled::Yes;
+        }
+        if matches!(
+            e.phase(),
+            PointerPhase::Down(ButtonPress {
+                button: MouseButton::Primary,
+                clicks: 2..
+            })
+        ) {
+            pointer.cancel();
+            set(reset.get());
+            return Handled::Yes;
+        }
+        Handled::No
+    }
+    fn action(&self, event: A11yEvent) {
+        let mixed = self.mixed;
+        let scalar = self.scalar;
+        let pointer = self.pointer;
+
+        let writes = event.region.is_none()
+            && !pointer.is_active()
+            && match &event.request {
+                A11yRequest::SetValue(text) => text.parse::<f64>().ok().is_some_and(f64::is_finite),
+                _ => !mixed.get_untracked(),
+            };
+        if writes {
+            scalar.once(|| match &event.request {
+                A11yRequest::Increment => scalar.step_by(1.0),
+                A11yRequest::Decrement => scalar.step_by(-1.0),
+                A11yRequest::SetValue(text) => {
+                    text.parse::<f64>().ok().is_some_and(|v| scalar.set(v))
+                }
+                _ => false,
+            });
         }
     }
-    let mut p = Parser {
-        input: s.as_bytes(),
-        at: 0,
-    };
-    let value = p.expression()?;
-    p.spaces();
-    (p.at == p.input.len() && value.is_finite()).then_some(value)
 }

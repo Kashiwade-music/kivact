@@ -13,9 +13,7 @@ use kivact::view::Key;
 use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
-use kivact_ui_soft::{
-    BannerStatus, IconSize, StatusDotVariant, banner, code_block, icon, status_dot,
-};
+use kivact_ui_soft::{IconSize, StatusDotVariant, icon, status_dot};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -51,7 +49,7 @@ fn code_block_disclosure_releases_its_height_as_it_closes() {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             column((
-                code_block("let a = 1;\nlet b = 2;\nlet c = 3;".to_owned())
+                kivact::ui::code_block("let a = 1;\nlet b = 2;\nlet c = 3;".to_owned())
                     .title("Snippet")
                     .language_label(false)
                     .collapsible(true)
@@ -102,7 +100,11 @@ fn dismissing_a_banner_restores_the_previous_external_focus() {
         || {
             column((
                 button("Continue"),
-                banner(BannerStatus::Info, "Workspace updated").dismissable(true),
+                kivact::ui::alert("Workspace updated")
+                    .tone(kivact::interaction::Tone::Info)
+                    .icon(kivact_ui_soft::banner_icon(kivact::interaction::Tone::Info))
+                    .dismissible(true)
+                    .dismiss_label("DismissOn Workspace updated"),
                 button("Other"),
             ))
         },
