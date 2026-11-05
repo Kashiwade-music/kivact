@@ -1,4 +1,5 @@
 //! Role: Capture the Soft catalog pages in both appearances for visual review.
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{Key, MouseButton, Role};
@@ -49,76 +50,9 @@ fn capture_catalog() {
             }
             capture_overlay_states(&screen, &output, page.slug, name);
             capture_disclosure_states(&screen, &output, page.slug, name);
-            if page.slug == "carousel" {
-                screen.get_by_role(Role::Button, "Next slide").click();
-                screen.advance(Duration::from_millis(800));
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("carousel-{name}-scrolled.png")))
-                    .expect("carousel scroll screenshot");
-            }
-            if page.slug == "selector" {
-                screen
-                    .get_by_role(Role::ComboBox, "Team")
-                    .press_key(Key::ArrowDown);
-                screen.advance(Duration::from_millis(350));
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("selector-{name}-highlighted.png")))
-                    .expect("selector highlight screenshot");
-            }
-            if page.slug == "tree-list" {
-                screen
-                    .get_by_role(Role::TreeItem, "src")
-                    .press_key(Key::ArrowLeft);
-                screen.advance(Duration::from_millis(120));
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("tree-list-{name}-closing.png")))
-                    .expect("tree exit screenshot");
-            }
-            if page.slug == "table" {
-                screen
-                    .get_by_role(Role::Button, "Show active projects")
-                    .click();
-                screen
-                    .get_by_role(Role::Button, "Design details")
-                    .press_key(Key::Enter);
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("table-{name}-filtered-expanded.png")))
-                    .expect("table state screenshot");
-                screen
-                    .get_by_role(Role::ColumnHeader, "Workspace")
-                    .scroll(72.0, 0.0);
-                screen.advance(Duration::from_millis(220));
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("table-{name}-pinned.png")))
-                    .expect("pinned column screenshot");
-                screen.get_by_role(Role::Button, "Filter Status").click();
-                screen.advance(Duration::from_millis(220));
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("table-{name}-typed-filter.png")))
-                    .expect("typed filter screenshot");
-            }
-            if page.slug == "date-input" {
-                screen
-                    .get_by_role(Role::TextBox, "Touch due date")
-                    .press_key(Key::ArrowDown);
-                screen.advance(Duration::from_millis(500));
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("date-input-{name}-touch-calendar.png")))
-                    .expect("touch date screenshot");
-                screen.get_by_role(Role::Button, "October 2026").click();
-                screen.advance(Duration::from_millis(350));
-                screen
-                    .screenshot()
-                    .save_png(output.join(format!("date-input-{name}-touch-wheels.png")))
-                    .expect("touch date wheels screenshot");
-            }
+            capture_content_states(&screen, &output, page.slug, name);
+            capture_table_states(&screen, &output, page.slug, name);
+            capture_date_states(&screen, &output, page.slug, name);
             if page.slug == "spinner" {
                 screen.set_reduced_motion(true);
                 screen.advance(Duration::from_millis(750));
@@ -221,4 +155,83 @@ fn capture_button_states(screen: &Screen, output: &Path, mode: &str) {
     screen.press_tab(false);
     screen.press_tab(true);
     save("focus");
+}
+
+fn capture_content_states(screen: &Screen, output: &Path, slug: &str, name: &str) {
+    if slug == "carousel" {
+        screen.get_by_role(Role::Button, "Next slide").click();
+        screen.advance(Duration::from_millis(800));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("carousel-{name}-scrolled.png")))
+            .expect("carousel scroll screenshot");
+    }
+    if slug == "selector" {
+        screen
+            .get_by_role(Role::ComboBox, "Team")
+            .press_key(Key::ArrowDown);
+        screen.advance(Duration::from_millis(350));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("selector-{name}-highlighted.png")))
+            .expect("selector highlight screenshot");
+    }
+    if slug == "tree-list" {
+        screen
+            .get_by_role(Role::TreeItem, "src")
+            .press_key(Key::ArrowLeft);
+        screen.advance(Duration::from_millis(120));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("tree-list-{name}-closing.png")))
+            .expect("tree exit screenshot");
+    }
+}
+
+fn capture_table_states(screen: &Screen, output: &Path, slug: &str, name: &str) {
+    if slug == "table" {
+        screen
+            .get_by_role(Role::Button, "Show active projects")
+            .click();
+        screen
+            .get_by_role(Role::Button, "Design details")
+            .press_key(Key::Enter);
+        screen
+            .screenshot()
+            .save_png(output.join(format!("table-{name}-filtered-expanded.png")))
+            .expect("table state screenshot");
+        screen
+            .get_by_role(Role::ColumnHeader, "Workspace")
+            .scroll(72.0, 0.0);
+        screen.advance(Duration::from_millis(220));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("table-{name}-pinned.png")))
+            .expect("pinned column screenshot");
+        screen.get_by_role(Role::Button, "Filter Status").click();
+        screen.advance(Duration::from_millis(220));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("table-{name}-typed-filter.png")))
+            .expect("typed filter screenshot");
+    }
+}
+
+fn capture_date_states(screen: &Screen, output: &Path, slug: &str, name: &str) {
+    if slug == "date-input" {
+        screen
+            .get_by_role(Role::TextBox, "Touch due date")
+            .press_key(Key::ArrowDown);
+        screen.advance(Duration::from_millis(500));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("date-input-{name}-touch-calendar.png")))
+            .expect("touch date screenshot");
+        screen.get_by_role(Role::Button, "October 2026").click();
+        screen.advance(Duration::from_millis(350));
+        screen
+            .screenshot()
+            .save_png(output.join(format!("date-input-{name}-touch-wheels.png")))
+            .expect("touch date wheels screenshot");
+    }
 }
