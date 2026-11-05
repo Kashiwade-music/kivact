@@ -31,7 +31,7 @@ use kivact::view::show;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
-/// The cache holds only actual measured layout facts (SM-K928).
+/// The cache holds only actual measured layout facts.
 struct WidthMeasurements<K>(PhantomData<K>);
 enum Measurement<K> {
     Measured(K, f64),

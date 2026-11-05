@@ -3,6 +3,7 @@ use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
+use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -96,7 +97,7 @@ fn shortcut() -> impl IntoView {
         .content(|| {
             row((
                 text("Save"),
-                row((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("S"))),
+                basic::kbd_group((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("S"))),
             ))
             .style(style().gap(8).align_items(kivact::style::Align::Center))
         })

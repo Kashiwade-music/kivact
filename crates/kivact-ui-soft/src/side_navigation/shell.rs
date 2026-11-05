@@ -85,10 +85,19 @@ impl SideNavResize {
         self.default_width = width.into();
         self
     }
-    /// Set the allowed expanded width range in pixels.
+    /// Set the allowed expanded width range in pixels. Bounds that are not
+    /// finite, a negative minimum, a zero maximum or a maximum below the
+    /// minimum keep the default 180–480 px.
     pub fn range(mut self, min: impl Into<f64>, max: impl Into<f64>) -> Self {
-        self.min = min.into();
-        self.max = max.into();
+        let (min, max) = (min.into(), max.into());
+        if min.is_finite() && max.is_finite() && min >= 0.0 && max > 0.0 && max >= min {
+            self.min = min;
+            self.max = max;
+        } else {
+            let fallback = Self::default();
+            self.min = fallback.min;
+            self.max = fallback.max;
+        }
         self
     }
     /// Start an uncontrolled sidebar collapsed.
@@ -506,7 +515,7 @@ fn resize_grip(
         ScalarRange::new(0.0, resize.max).expect("invariant: sidebar maximum is positive"),
         Orientation::Horizontal,
     )
-    .collapsible(160.0 / resize.max)
+    .collapsible((160.0 / resize.max).min(1.0))
     .key_step(10.0)
     .expect("invariant: sidebar keyboard step is positive");
     let part = behavior.handle();

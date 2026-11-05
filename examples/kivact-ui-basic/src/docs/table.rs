@@ -81,12 +81,7 @@ fn footer() -> impl IntoView {
             kivact::ui::table_cell("Total"),
             kivact::ui::table_cell("$120.00").align(kivact::style::TextAlign::End),
         )),)),
-        text("A list of recent purchases.").style(
-            style()
-                .margin_top(16)
-                .color(basic::ColorName::MutedForeground)
-                .text_align(kivact::style::TextAlign::Center),
-        ),
+        basic::table_caption("A list of recent purchases."),
     ))
     .style(style().width(460))
 }

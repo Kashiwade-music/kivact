@@ -110,6 +110,7 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 
 | Key | English default |
 |---|---|
+| `basic.breadcrumb.more` | More |
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
@@ -163,6 +164,60 @@ cards, the command palette and toasts).
 | Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
 | Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
 | Individually wrapped children | `impl IntoChildren` |
+
+## Migrating from the previous release
+
+The kit now builds on the standard `kivact::ui` components: most kit
+builders became standard components that the kit's `theme` draws in
+its look, and the kit's looks are `.variant(..)` values. Previous
+names and their replacements:
+
+| Previous | Now |
+|---|---|
+| `alert`, `Alert`, `AlertVariant` | `kivact::ui::alert(title)` / `kivact::ui::Alert`; `.variant(basic::AlertLook::Destructive)` (not the core `kivact::ui::AlertVariant`); `.action(closure)` -> `.actions(view)` |
+| `aspect_ratio(r, child)` | Removed: `node().style(style().width(pct(100)).aspect_ratio(r).overflow(kivact::style::Overflow::Hidden)).child(child)` |
+| `avatar`, `Avatar`, `AvatarSize` | `kivact::ui::avatar(name).fallback_content(\|\| text(..))` / `kivact::ui::Avatar`; `.image(a)` -> `.src(Some(kivact::view::Asset::from(a)))`; `.size(kivact::ui::ControlSize::Small)` (or `Large`); `.badge(..)` -> `.status(Some(kivact::interaction::Tone::..))` or `.status_content(view)` |
+| `avatar_group`, `avatar_group_count` | `kivact::ui::avatar_group(children)`; the count is `.max(n).total(m)` (or `.overflow_content(..)`) |
+| `badge`, `Badge` | `kivact::ui::badge(label).variant(basic::BadgeVariant::..)` / `kivact::ui::Badge` |
+| `breadcrumb`, `breadcrumb_content`, `breadcrumb_link`, `BreadcrumbLink`, `breadcrumb_page`, `breadcrumb_separator` | `kivact::ui::breadcrumb(vec![ListItem::new(key, label), ..])` (the last item is the page, or `.current(Some(key))`); `.on_activate(\|key\| ..)`, `.separator(\|\| view)`, `.item(\|item\| view)`; `basic::breadcrumb_ellipsis()` goes in `.item(..)` |
+| `bubble`, `Bubble`, `BubbleAlign`, `BubbleReactionsSide` | `kivact::ui::chat_message("").variant(basic::ChatLayout::Bubble).content(..)`; `.variant(basic::BubbleVariant::..)`; `.align(kivact::ui::ChatAlign::End)`; `.reactions_side(kivact::ui::ChatReactionsSide::Top)`; `.reactions(view)` |
+| `bubble_group`, `message_group` | Removed: `column((..)).style(style().gap(8))` |
+| `button_group`, `ButtonGroup`, `button_group_separator`, `button_group_text` | `kivact::ui::button_group(label, children)` / `kivact::ui::ButtonGroup`; `kivact::ui::button_group_separator()`, `kivact::ui::button_group_text(..)`; `.orientation(..)` |
+| `calendar`, `calendar_range`, `Calendar`, `CalendarCaption` | `kivact::ui::calendar(signal(None::<CalendarDate>))`, or `calendar(signal(Some(DateRange::new(..))))` for a range, with `.variable_rows(true)` for this look; `kivact::ui::Calendar`, `kivact::ui::CalendarCaption` |
+| `card`, `Card` (`.header`, `.content`, `.footer`, `.image`, `.size(CardSize)`) | `kivact::ui::card(content).header(basic::card_header(..)).media(view).footer(view)` / `kivact::ui::Card`; `.size(..)` -> `.variant(basic::CardSize::Sm)` |
+| `card_header(..).bordered(b)`, `.action(closure)` | `.variant(basic::CardLook::default().header_bordered(b))` on the card; `.action(view)` |
+| `carousel(items, index)`, `Carousel` | `kivact::ui::carousel(index, items)` (arguments swapped) / `kivact::ui::Carousel`; `.looping(true)` -> `.looping()`; `.items_per_view(..)` |
+| `code_block(lines)`, `CodeBlock`, `code_lines` | `kivact::ui::code_block(source)` / `kivact::ui::CodeBlock` (plain text needs no `code_lines`); `.size(..)` -> `.variant(basic::CodeBlockSize::Sm)` (reactive: `basic::CodeBlockLook`); the copy button is built in (`.copy_button(false)` hides it); `.footer(view)` |
+| `collapsible`, `Collapsible` | `kivact::ui::disclosure(title, open).variant(basic::DisclosureVariant::Plain).content(..).attach(trigger)` / `kivact::ui::Disclosure` |
+| `Color` | `basic::ColorName` |
+| `combobox(items, value)`, `Combobox` | `kivact::ui::combobox(label, items, selection)` / `kivact::ui::Combobox`; `.chips()` for a multi-select with chips |
+| `date_picker`, `DatePicker` | `kivact::ui::date_input(label, date).presentation(kivact::ui::DatePresentation::Desktop).variant(basic::DatePickerVariant::Flush).attach(button(..))` / `kivact::ui::DateInput`; `.placeholder(..)` and `.format(..)` -> the attached button's label |
+| `date_range_picker`, `DateRangePicker` | `kivact::ui::date_range_input(label, range)` with the same options / `kivact::ui::DateRangeInput`; `.calendar(\|c\| ..)` unchanged |
+| `drawer(open, title)`, `Drawer` | `kivact::ui::dialog(title, open).mode(kivact::interaction::DialogMode::Drawer(kivact::geometry::Edge::Bottom)).variant(basic::DrawerVariant::Drawer)` / `kivact::ui::Dialog`; `.side(s)` -> the `Drawer(edge)` value |
+| `empty_state`, `EmptyState` | `kivact::ui::empty_state(title)` / `kivact::ui::EmptyState`; `.media(..)` -> `.icon(view)`; `.media_variant(v)` -> `.variant(basic::EmptyMediaVariant::Icon)`; `.content(..)` -> `.actions(view)` |
+| `GroupItems` | `kivact::view::IntoChildren` (a tuple or `Vec`; one child is `(view,)`) |
+| `h1`, `h2`, `h3`, `h4` | `kivact::ui::heading(text, level)` |
+| `hover_card`, `HoverCard` | `kivact::ui::hover_card(content).attach(trigger)` / `kivact::ui::HoverCard` |
+| `input_group(control)`, `InputGroup` | `kivact::ui::input_group(label, (control,))` / `kivact::ui::InputGroup`; `.start(view)`, `.end(view)`, `.block_end(view)`, `.invalid(..)` |
+| `input_group_button`, `InputGroupButton` | `kivact::ui::button(label).variant(ButtonVariant::Ghost).variant(basic::InputGroupButtonSize::Xs)` (reactive: `basic::InputGroupButtonLook::default().size(..)`) |
+| `input_group_input`, `input_group_textarea` | `kivact::ui::text_input(..)` / `kivact::ui::text_area(..)` with `.variant(basic::InputGroupControl)` |
+| `input_group_text` | `kivact::ui::input_addon(text)` |
+| `item`, `Item` | `kivact::ui::item_row(title)` / `kivact::ui::ItemRow`; `.media(view)`, `.actions(view)`; `.media_variant(v)` -> `.variant(basic::ItemMediaVariant::..)`; `.variant(basic::ItemVariant::..)`; `.size(s)` -> `.variant(basic::ItemSize::Sm)` (reactive: `basic::ItemLook`) |
+| `item_group` | `kivact::ui::item_list(children)`, with `basic::item_separator()` between rows |
+| `kbd` | `kivact::ui::kbd(keys)`, grouped with `basic::kbd_group(..)` |
+| `menubar(menus, on_activate)` | `basic::menubar(menus).on_activate(..)` (returns `basic::Menubar`) |
+| `message`, `Message`, `MessageAlign` | `kivact::ui::chat_message(author).content(..).variant(basic::BubbleVariant::..)` / `kivact::ui::ChatMessage`; the author argument replaces `.header(..)`; `.avatar(view)`, `.footer(view)`; `.align(kivact::ui::ChatAlign::End)` |
+| `message_scroller`, `MessageScroller` | `kivact::ui::chat_thread(content)` / `kivact::ui::ChatThread` |
+| `navigation_menu(vec![NavItem..])`, `NavItem` | `kivact::ui::navigation_menu(label)` with `.link(key, label, panel)` (was `NavItem::menu`) and `.action(key, label, f)` (was `NavItem::link`) |
+| `navigation_menu_link`, `NavLink` | `kivact::ui::navigation_menu_link(title)` / `kivact::ui::NavigationMenuLink` |
+| `pagination(page, count)`, `PaginationPages` | `kivact::ui::pagination(count, page)` (arguments swapped) / `kivact::ui::Pagination`; `.label_format(..)` unchanged |
+| `pagination_content`, `pagination_link`, `PaginationLink`, `pagination_previous`, `pagination_next`, `pagination_ellipsis` | Removed: `kivact::ui::pagination(count, page).item(\|item: kivact::ui::PageItem\| view)` with `.siblings(n)` |
+| `rust_lines(src)` (returned `Vec<CodeLine>`) | `basic::rust_source(src)`; `basic::rust_lines` is now the callback of `kivact::ui::code_block(src).highlight(move \|\| (lines.clone(), kivact::style::use_tokens::<basic::Tokens>().code.clone()), basic::rust_lines)` |
+| `SelectionValue` | `kivact::interaction::IntoSelection` |
+| `skeleton`, `Skeleton`, `spinner` | `kivact::ui::skeleton()` / `kivact::ui::Skeleton`, `kivact::ui::spinner()` |
+| `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow`, `TableAlign` | `kivact::ui::table*` with tuple or `Vec` children (`table_header((row,))`); `kivact::ui::TableCell`, `kivact::ui::Table`; `.align(kivact::style::TextAlign::End)`; `table_row(..).selected(b)` -> `.with_node(\|n\| n.selected(b))`; `basic::table_caption(..)` after the table |
+| `toggle_group(items, value)`, `ToggleGroup` | `kivact::ui::toggle_group(label, items, selection)` / `kivact::ui::ToggleGroup` |
+| `trace_collapsible(open, line, content)` | Same function; `content` is a closure `\|\| view` that runs each time the line opens |
 
 ## Filled standard recipes
 

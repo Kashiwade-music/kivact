@@ -52,6 +52,7 @@ mod badge;
 mod breadcrumb;
 mod button;
 mod card;
+mod card_header;
 mod chart;
 mod chat;
 mod chat_colors;
@@ -107,6 +108,7 @@ pub use attachment::{
 };
 pub use badge::BadgeVariant;
 pub use card::{CardLook, CardSize};
+pub use card_header::{CardHeader, card_header};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
 pub use chat::ChatLayout;
 pub use chat_colors::BubbleVariant;
@@ -141,10 +143,14 @@ pub use icons::ICON_NAMES;
 pub use input_group::{InputGroupButtonLook, InputGroupButtonSize, InputGroupControl};
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
-pub use primitives::{Label, Separator, label, separator};
+pub use primitives::{
+    Label, Separator, breadcrumb_ellipsis, item_separator, kbd_group, label, separator,
+    table_caption,
+};
 pub use questionnaire::{
     Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,
 };
 pub use theme::theme;
 pub use tokens::{CodeColors, Tokens};
+pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 pub use typography::{blockquote, bullet_list, inline_code, large, lead, muted, paragraph, small};

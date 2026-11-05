@@ -292,6 +292,29 @@ was pressed, selected or moved last. Context menus are
 
 `arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, entries).on_select(choose)` keeps the primary action required. `window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
 
+## Migrating from the previous release
+
+The kit now builds on the standard `kivact::ui` components: most kit
+builders became standard components that the kit's `theme` draws in
+its look, and the kit's looks are `.variant(..)` values. Previous
+names and their replacements:
+
+| Previous | Now |
+|---|---|
+| `Color` | `creative::ColorName` |
+| Cargo feature `gpu-interop` of `kivact-ui-creative` | Removed: enable the `gpu-interop` feature of the `kivact` dependency and call `kivact::view::viewport(pixels).gpu_frame(move \|\| image.frame())` with `kivact::gpu_interop::shared_image(..)` |
+| `notice(tone, title, message)`, `Notice` (`.dismissible`) | `kivact::ui::alert(title).tone(tone).description(message).variant(creative::NoticeVariant).dismissible(true)`, with `.icon(..)`, `.dismiss_content(..)`, `.dismiss_label(..)` |
+| `pie_menu(entries, state, choose)` | `creative::pie_menu(entries, state).on_activate(choose)` (returns `creative::PieMenu`); `PieState` is `Closed` or `Open { mode: creative::PieMode, center, hot }` |
+| `Segmented` | `kivact::ui::radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)` |
+| `split_button(label, primary, entries)` | `creative::split_button(label, entries).on_press(primary).on_select(..)` |
+| `SurfacePointer` | Standard pointer events: `viewport(..).with_node(\|n\| n.on_pointer(..))`, mapped to image coordinates with `kivact::interaction::use_zoom_pan(..).to_content(event.pos())` |
+| `SurfaceRegion` | Canvas regions: `Node::region(id, part)` / `Node::regions(..)`, with the geometry painted by `Draw::region(id, rect)` |
+| `SurfaceSize` | `kivact::view::SurfaceSize` (from `viewport(..).on_resize(..)`) |
+| `theme(mode).accent(a).density(d)` (`ThemeOptions` trait) | `creative::theme_with(mode, creative::ThemeOptions { accent, density })` (`ThemeOptions` is a struct) |
+| `ToolWindow` (the handle given to content) | `creative::ToolWindowApi` (`.close()`) |
+| `ToolWindowBuilder` (returned by `window(..)`) | `creative::ToolWindow` (`window(anchor, open, options).content(\|w: ToolWindowApi\| ..)`) |
+| `viewport_surface(image)`, `ViewportSurface` | `kivact::view::viewport(pixels)` (takes `Pixels`, not `Option<Pixels>`), with `.fit(..)`, `.pixelated(..)` and `.on_resize(..)`; `.transform(binding)` -> `.transform(kivact::interaction::use_zoom_pan(binding))`; `.on_edit(..)` -> `use_zoom_pan(..).on_edit(..)`; `.overlay(..)` -> `.with_node(\|n\| n.draw_over(..))` with `zoom.to_view(..)` |
+
 The theme fills these `UiRecipes` entries:
 
 <!-- kivact-recipes -->

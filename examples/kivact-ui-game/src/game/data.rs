@@ -876,137 +876,55 @@ fn table_filters(
 
 fn completed_kpi() -> Node {
     node()
-        .child({
-            let animated = kivact::motion::Animated::from(
-                0.0,
-                1284.,
-                kivact::motion::Transition::tween(
-                    900,
-                    kivact::motion::Easing::CubicBezier(0.2, 0.7, 0.2, 1.),
-                ),
-            );
-            let formatted = kivact::state::memo(move || format_count(animated.get(), 0));
-            let unit = kivact::state::IntoText::into_text_value("");
-            kivact::ui::stat("完了案件", move || {
-                format!("{}{}", formatted.get(), unit.get())
-            })
-            .variant(g::StatVariant::Kpi)
-            .variant(kivact::interaction::Tone::Info)
-            .value_content(
-                row((
-                    text(formatted),
-                    text(unit).style(style().font_size(16).color(ColorToken::TextMuted)),
-                ))
-                .style(style().gap(2).align_items(Align::Baseline)),
-            )
-            .label_content(kpi_heading("target", "完了案件"))
-            .delta("↗ 12.4%")
-            .chart(g::sparkline(vec![
-                0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88,
-            ]))
-        })
+        .child(
+            g::kpi("完了案件", 1284.)
+                .change("↗ 12.4%")
+                .tone(kivact::interaction::Tone::Info)
+                .heading(kpi_heading("target", "完了案件"))
+                .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
+                .format(move |value| format_count(value, 0)),
+        )
         .child(watermark("01"))
 }
 
 fn uptime_kpi() -> Node {
     node()
-        .child({
-            let animated = kivact::motion::Animated::from(
-                0.0,
-                99.97,
-                kivact::motion::Transition::tween(
-                    900,
-                    kivact::motion::Easing::CubicBezier(0.2, 0.7, 0.2, 1.),
-                ),
-            );
-            let formatted = kivact::state::memo(move || format_count(animated.get(), 2));
-            let unit = kivact::state::IntoText::into_text_value("%");
-            kivact::ui::stat("稼働率", move || {
-                format!("{}{}", formatted.get(), unit.get())
-            })
-            .variant(g::StatVariant::Kpi)
-            .variant(kivact::interaction::Tone::Success)
-            .value_content(
-                row((
-                    text(formatted),
-                    text(unit).style(style().font_size(16).color(ColorToken::TextMuted)),
-                ))
-                .style(style().gap(2).align_items(Align::Baseline)),
-            )
-            .label_content(kpi_heading("activity", "稼働率"))
-            .delta("↗ 0.02pt")
-            .chart(g::sparkline(vec![
-                0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88,
-            ]))
-        })
+        .child(
+            g::kpi("稼働率", 99.97)
+                .unit("%")
+                .change("↗ 0.02pt")
+                .tone(kivact::interaction::Tone::Success)
+                .heading(kpi_heading("activity", "稼働率"))
+                .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
+                .format(move |value| format_count(value, 2)),
+        )
         .child(watermark("02"))
 }
 
 fn duration_kpi() -> Node {
     node()
-        .child({
-            let animated = kivact::motion::Animated::from(
-                0.0,
-                4.2,
-                kivact::motion::Transition::tween(
-                    900,
-                    kivact::motion::Easing::CubicBezier(0.2, 0.7, 0.2, 1.),
-                ),
-            );
-            let formatted = kivact::state::memo(move || format_count(animated.get(), 1));
-            let unit = kivact::state::IntoText::into_text_value("h");
-            kivact::ui::stat("平均処理時間", move || {
-                format!("{}{}", formatted.get(), unit.get())
-            })
-            .variant(g::StatVariant::Kpi)
-            .variant(kivact::interaction::Tone::Warning)
-            .value_content(
-                row((
-                    text(formatted),
-                    text(unit).style(style().font_size(16).color(ColorToken::TextMuted)),
-                ))
-                .style(style().gap(2).align_items(Align::Baseline)),
-            )
-            .label_content(kpi_heading("clock", "平均処理時間"))
-            .delta("↘ +0.6h")
-            .chart(g::sparkline(vec![
-                0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88,
-            ]))
-        })
+        .child(
+            g::kpi("平均処理時間", 4.2)
+                .unit("h")
+                .change("↘ +0.6h")
+                .tone(kivact::interaction::Tone::Warning)
+                .heading(kpi_heading("clock", "平均処理時間"))
+                .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
+                .format(move |value| format_count(value, 1)),
+        )
         .child(watermark("03"))
 }
 
 fn incident_kpi() -> Node {
     node()
-        .child({
-            let animated = kivact::motion::Animated::from(
-                0.0,
-                7.,
-                kivact::motion::Transition::tween(
-                    900,
-                    kivact::motion::Easing::CubicBezier(0.2, 0.7, 0.2, 1.),
-                ),
-            );
-            let formatted = kivact::state::memo(move || format_count(animated.get(), 0));
-            let unit = kivact::state::IntoText::into_text_value("");
-            kivact::ui::stat("未解決インシデント", move || {
-                format!("{}{}", formatted.get(), unit.get())
-            })
-            .variant(g::StatVariant::Kpi)
-            .variant(kivact::interaction::Tone::Danger)
-            .value_content(
-                row((
-                    text(formatted),
-                    text(unit).style(style().font_size(16).color(ColorToken::TextMuted)),
-                ))
-                .style(style().gap(2).align_items(Align::Baseline)),
-            )
-            .label_content(kpi_heading("alert-octagon", "未解決インシデント"))
-            .delta("↗ +2")
-            .chart(g::sparkline(vec![
-                0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88,
-            ]))
-        })
+        .child(
+            g::kpi("未解決インシデント", 7.)
+                .change("↗ +2")
+                .tone(kivact::interaction::Tone::Danger)
+                .heading(kpi_heading("alert-octagon", "未解決インシデント"))
+                .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
+                .format(move |value| format_count(value, 0)),
+        )
         .child(watermark("04"))
 }
 

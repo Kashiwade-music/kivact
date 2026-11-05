@@ -59,21 +59,9 @@ fn default() -> impl IntoView {
         ))
     })
     .header(
-        row((
-            column((
-                text("Login to your account")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("Enter your email below to login to your account").style(
-                    style()
-                        .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
-                ),
-            ))
-            .style(style().gap(4).grow(1).min_width(0)),
-            row(button("Sign Up").variant(ButtonVariant::Link))
-                .style(style().align_self(Align::Start).shrink(0)),
-        ))
-        .style(style().align_items(Align::Start).gap(8)),
+        basic::card_header("Login to your account")
+            .description("Enter your email below to login to your account")
+            .action(button("Sign Up").variant(ButtonVariant::Link)),
     )
     .footer({
         column((
@@ -92,18 +80,7 @@ fn default() -> impl IntoView {
 fn small() -> impl IntoView {
     kivact::ui::card(text("Content"))
         .variant(basic::CardSize::Sm)
-        .header(
-            column((
-                text("Small card")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("Tighter spacing.").style(
-                    style()
-                        .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
-                ),
-            ))
-            .style(style().gap(4).grow(1).min_width(0)),
-        )
+        .header(basic::card_header("Small card").description("Tighter spacing."))
         .style(style().width(360))
 }
 // end example
@@ -112,11 +89,7 @@ fn small() -> impl IntoView {
 fn bordered() -> impl IntoView {
     kivact::ui::card(text("You have 3 unread messages."))
         .variant(basic::CardLook::default().header_bordered(true))
-        .header(
-            column((text("Notifications")
-                .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),))
-            .style(style().gap(4).grow(1).min_width(0)),
-        )
+        .header(basic::card_header("Notifications"))
         .style(style().width(360))
 }
 // end example
@@ -126,18 +99,7 @@ fn with_image() -> impl IntoView {
     let landscape: &'static [u8] = include_bytes!("../../assets/images/landscape.png");
     kivact::ui::card(())
         .media(image(landscape).style(style().width(pct(100)).aspect_ratio(16.0 / 9.0)))
-        .header(
-            column((
-                text("Design systems meetup")
-                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
-                text("A practical talk.").style(
-                    style()
-                        .line_height(1.625)
-                        .color(basic::ColorName::MutedForeground),
-                ),
-            ))
-            .style(style().gap(4).grow(1).min_width(0)),
-        )
+        .header(basic::card_header("Design systems meetup").description("A practical talk."))
         .footer(button("View Event").style(style().width(pct(100))))
         .style(style().width(360))
 }
