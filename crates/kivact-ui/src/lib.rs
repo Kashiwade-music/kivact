@@ -232,6 +232,7 @@ mod look_calendar;
 pub use calendar_tokens::CalendarTokens;
 
 mod date_input;
+mod date_trigger;
 pub use date_input::{DateInput, DatePresentation, date_input};
 
 mod date_wheel;

@@ -144,6 +144,15 @@ impl NodeBuilder for DateRangeInput {
 }
 impl IntoView for DateRangeInput {
     fn into_view(self) -> View {
+        self.render(crate::date_trigger::FieldPresentation::Text)
+    }
+}
+impl DateRangeInput {
+    /// Open the shared range picker from a caller-owned trigger, without endpoint editors.
+    pub fn attach<T: NodeBuilder + IntoView + 'static>(self, trigger: T) -> View {
+        self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
+    }
+    fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
         let Self {
             root,
             label,
@@ -184,6 +193,61 @@ impl IntoView for DateRangeInput {
                 value.set(next);
             }
         });
+        let open = signal(false);
+        let content = move || {
+            let local = signal(value.get_untracked());
+            let accepted = accept.clone();
+            let mut picker = calendar(local)
+                .min(min)
+                .max(max)
+                .range_span(min_span, max_span)
+                .number_of_months(2usize)
+                .on_commit(move || {
+                    if let Some(next) = local.get_untracked().filter(|next| accepted(*next)) {
+                        value.set(Some(next));
+                        open.set(false);
+                    }
+                });
+            if let Some(day) = week_start {
+                picker = picker.week_start(day);
+            }
+            if let Some(configure) = &configure {
+                picker = configure(picker);
+            }
+            let accepted = accept.clone();
+            let choices = kivact_core::view::dynamic(
+                move || presets.map(|presets| presets.get()).unwrap_or_default(),
+                move |presets| {
+                    column(
+                        presets
+                            .into_iter()
+                            .map(|preset| {
+                                let accepted = accepted.clone();
+                                button(preset.label).on_press(move || {
+                                    let range = (preset.range)();
+                                    if accepted(range) {
+                                        value.set(Some(range));
+                                        open.set(false);
+                                    }
+                                })
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                },
+            );
+            column((choices, picker))
+        };
+
+        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+            return root
+                .child(attach(
+                    dialog(label, open)
+                        .mode(presentation.mode())
+                        .hide_title(true)
+                        .content(content),
+                ))
+                .into_view();
+        }
         let start = binding(
             move || value.get().map(DateRange::start),
             move |next| {
@@ -252,57 +316,13 @@ impl IntoView for DateRangeInput {
             first = first.week_start(day);
             last = last.week_start(day);
         }
-        let open = signal(false);
-        let trigger = button(message("date.range_open", "Choose date range"));
-        let content = move || {
-            let local = signal(value.get_untracked());
-            let accepted = accept.clone();
-            let mut picker = calendar(local)
-                .min(min)
-                .max(max)
-                .range_span(min_span, max_span)
-                .number_of_months(2usize)
-                .on_commit(move || {
-                    if let Some(next) = local.get_untracked().filter(|next| accepted(*next)) {
-                        value.set(Some(next));
-                        open.set(false);
-                    }
-                });
-            if let Some(day) = week_start {
-                picker = picker.week_start(day);
-            }
-            if let Some(configure) = &configure {
-                picker = configure(picker);
-            }
-            let accepted = accept.clone();
-            let choices = kivact_core::view::dynamic(
-                move || presets.map(|presets| presets.get()).unwrap_or_default(),
-                move |presets| {
-                    column(
-                        presets
-                            .into_iter()
-                            .map(|preset| {
-                                let accepted = accepted.clone();
-                                button(preset.label).on_press(move || {
-                                    let range = (preset.range)();
-                                    if accepted(range) {
-                                        value.set(Some(range));
-                                        open.set(false);
-                                    }
-                                })
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                },
-            );
-            column((choices, picker))
-        };
         let root = crate::layer::with_base_recipe_style(
             root,
             |r| r.date_range_input_recipes().root_recipe(),
             &crate::variants::Variants::default(),
             kivact_core::custom::PartState::default,
         );
+        let trigger = button(message("date.range_open", "Choose date range"));
         root.child(row((
             first,
             last,
