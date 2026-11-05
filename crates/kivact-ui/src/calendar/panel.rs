@@ -36,8 +36,10 @@ pub(super) fn month_panel(
     index: usize,
     month: CalendarMonth,
     first: Weekday,
+    entering: f64,
 ) -> Node {
     let grid = shared.grid;
+    let swipe = shared.swipe;
     let caption = month_caption(shared, names, index, month);
     let locale = kivact_core::i18n::use_locale();
     let headers = row((0..7)
@@ -80,6 +82,7 @@ pub(super) fn month_panel(
                         .week_gap,
                 ),
             )
+            .style(move || week_motion(swipe.get(), entering))
             .into_view()
         })
         .collect::<Vec<_>>();
@@ -88,7 +91,8 @@ pub(super) fn month_panel(
             caption,
             column((headers, rows))
                 .with_node(|root| root.part(grid.grid()))
-                .name(format!("{}-{:02}", month.year(), month.month())),
+                .name(format!("{}-{:02}", month.year(), month.month()))
+                .style(style().overflow(kivact_core::style::Overflow::Hidden)),
         ))
         .style(
             style()
@@ -105,6 +109,24 @@ pub(super) fn month_panel(
         |r| r.calendar_recipes().month_recipe(),
         &shared.variants,
         PartState::default,
+    )
+}
+
+/// The weeks follow a touch swipe's finger and, when the swipe turned the
+/// month, spring in from the side it brought the new month from.
+fn week_motion(swipe: super::navigation::Swipe, entering: f64) -> kivact_core::style::Style {
+    let shift = swipe.shift();
+    let base = style().translate_x(shift);
+    if entering == 0.0 || matches!(swipe, super::navigation::Swipe::Dragging { .. }) {
+        return base;
+    }
+    base.enter(style().translate_x(entering)).transition(
+        kivact_core::style::TransitionProp::Paint,
+        kivact_core::motion::Transition::spring(kivact_core::motion::Spring {
+            stiffness: 246.7,
+            damping: 31.4,
+            mass: 1.0,
+        }),
     )
 }
 
