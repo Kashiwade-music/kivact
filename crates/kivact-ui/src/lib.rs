@@ -241,6 +241,7 @@ pub use date_input::{DateInput, DatePresentation, date_input};
 mod date_wheel;
 
 mod time_input;
+mod time_parse;
 pub use time_input::{TimeInput, time_input};
 
 mod date_range_draft;
@@ -248,6 +249,7 @@ mod date_range_input;
 pub use date_range_input::{DateRangeInput, DateRangePreset, date_range_input};
 
 mod date_time_input;
+mod date_time_model;
 pub use date_time_input::{DateTimeInput, date_time_input};
 
 mod date_input_tokens;

@@ -1,5 +1,5 @@
 //! Role: Route touch date and time fields through one picker controller.
-use crate::date_time_input::{Controller, DateTimeInputState, Event, Panel};
+use crate::date_time_model::{Controller, DateTimeInputState, Event, Panel};
 use kivact_core::i18n::{
     CalendarDate, DateStyle, DateTime, TimeStyle, Weekday, message, use_locale,
 };
@@ -37,7 +37,7 @@ pub(crate) fn render(i: Inputs) -> View {
         DateTimeInputState::Open { invoker, .. } => invoker,
         _ => button_ref,
     });
-    let fields = super::date_time_input::field_bindings(i.value, i.min, i.max);
+    let fields = crate::date_time_model::field_bindings(i.value, i.min, i.max);
     let date = fields.date;
     let time = fields.time;
     let editors = editors(date, time, i.format, i.seconds, open, state);
@@ -153,7 +153,7 @@ fn editors(
                 .unwrap_or_default()
         },
         move |text: String| {
-            if let Some(parsed) = crate::time_input::parse_time(&text, seconds.get_untracked()) {
+            if let Some(parsed) = crate::time_parse::parse_time(&text, seconds.get_untracked()) {
                 time.set(Some(parsed));
             }
         },
