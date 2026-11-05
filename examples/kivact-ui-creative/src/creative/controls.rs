@@ -15,6 +15,25 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
     let curve = signal(ui::CubicBezier::default());
     specs((
         spec(
+            "Static collections",
+            "一覧と表の意味を標準部品で公開",
+            col((
+                kivact::ui::table((
+                    kivact::ui::table_header(kivact::ui::table_row((
+                        kivact::ui::table_head("Asset"),
+                        kivact::ui::table_head("State"),
+                    ))),
+                    kivact::ui::table_body(kivact::ui::table_row((
+                        kivact::ui::table_cell("Camera"),
+                        kivact::ui::table_cell("Ready"),
+                    ))),
+                )),
+                kivact::ui::item_list((
+                    kivact::ui::item_row("Render queue").description("All frames are ready"),
+                )),
+            )),
+        ),
+        spec(
             "Standard indicators",
             "状態・読み込み・ショートカット",
             col((

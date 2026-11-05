@@ -192,3 +192,5 @@ fn translated(app: App) -> App {
 表示専用の概要には `kivact::ui::progress(value).variant(ProgressVariant::Ring)` または `Gauge`、`stat(label, value)`、`heading(text, level)`、`description_list((description(term, detail), ...))` を使います。Creative は高さ 8 px のバー表示を保ち、密な指標用の文字スタイルを設定します。未確定の動き、百分率の意味、独自内容の slot は Core が持ちます。編集用の `ui::property_row` は domain 部品として残ります。[指標と説明リスト](../../../../for-kivact-user/jp/how-to-guide/metrics-and-description.md)を参照してください。
 
 編集用の `ui::property_row` は標準の description 表示を組み立てます。行は `Role::ListItem` を公開するため、関連する行を `kivact::ui::description_list` または `Role::List` のレイアウトコンテナに置きます。ラベル幅、行の高さ、前後の操作、編集用の binding は変わりません。
+
+静的な `kivact::ui::table` の各部品と `item_list` / `item_row` は、密な Creative の collection recipe を使います。内容とアクセシビリティの契約は [リストと表](../../../../for-kivact-user/jp/how-to-guide/lists-and-tables.md)を参照してください。domain の outliner は単一の `use_tree` model を標準の `tree_rows` で表示し、フィルター、固定幅の cell、可視性、restriction、drag の要求を保ちます。
