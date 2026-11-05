@@ -222,3 +222,9 @@ mod data_table_tokens;
 
 mod async_view;
 pub use async_view::{AsyncView, async_view};
+
+mod carousel;
+pub use carousel::{Carousel, CarouselMode, Snap, carousel};
+
+mod dropzone;
+pub use dropzone::{Dropzone, dropzone};

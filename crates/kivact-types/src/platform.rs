@@ -95,3 +95,25 @@ impl std::fmt::Display for Failure {
 }
 
 impl std::error::Error for Failure {}
+
+/// A native file supplied by a drop target or file picker.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileInfo {
+    /// Native filesystem path. Metadata validation belongs to the application.
+    pub path: std::path::PathBuf,
+}
+impl From<std::path::PathBuf> for FileInfo {
+    fn from(path: std::path::PathBuf) -> Self {
+        Self { path }
+    }
+}
+impl FileInfo {
+    /// Display name derived from the path without filesystem access.
+    pub fn name(&self) -> String {
+        self.path
+            .file_name()
+            .unwrap_or(self.path.as_os_str())
+            .to_string_lossy()
+            .into_owned()
+    }
+}
