@@ -41,3 +41,5 @@ Navigation の trigger は hover で開きます。click、Enter、Space、Arrow
 `breadcrumb(items).current(current_key)` は既定の末尾の現在ページを上書きします。リアクティブな `Option<K>` を受け取り、`Some(key)` はそのキー、明示的な `None` は現在ページなしを表します。メソッドを省略すると末尾が現在ページになります。
 
 Stepper の項目レシピには、同じレスポンシブ配置の投影から `index`、`count`、実際の `orientation` が渡されます。外観バリアントに軸や項目数を複製する必要はありません。
+
+Breadcrumb の項目レシピは `BreadcrumbItemState { current, input }` を受け取ります。`input` は実際のリンクのパーツから渡され、非操作・現在ページのラベルにはありません。ホバー時の下線などの文字表現はこの投影を使用します。描画のみの疑似状態スタイルでは文字装飾を変更できません。

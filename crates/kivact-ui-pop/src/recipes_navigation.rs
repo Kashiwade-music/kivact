@@ -18,7 +18,7 @@ pub(crate) fn breadcrumb(r: BreadcrumbRecipes) -> BreadcrumbRecipes {
     r.root(|prev| move |t: &Theme, s: &_| prev(t, s).gap(6).align_items(Align::Center).wrap(true))
         .item(|prev| {
             move |t: &Theme, s: &_| {
-                prev(t, s).weight(400).color(if **s {
+                prev(t, s).weight(400).color(if s.current {
                     t.ext::<Tokens>().text
                 } else {
                     t.ext::<Tokens>().text_muted

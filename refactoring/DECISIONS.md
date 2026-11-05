@@ -162,3 +162,7 @@
 | 2026-11-05 | K-9a | author、history、共通 API | author IntoText、sender enum、line_numbers reactive に統一。外部 dataset revision だけ follow hook に渡す。 |
 | 2026-11-05 | K-9b | stat の animation と chart | caller Animated と独立 sparkline を slot に合成し、stat に数値状態を重複させない。 |
 | 2026-11-05 | K-8 | viewport の内部依存 | viewport の environment read と GPU adapter read のみを精密な module edge 例外とする。新たな service state を複製しない。 |
+| 2026-11-05 | K-1a | 実際の起動元へのfocus復帰とsheet操作 | DialogApi.return_focus とpicker_labelを正準入力とし、Popup既存ownerで閉じた後の復帰を判断。範囲は2点目のみcommit、Cancelは外部bindingを変更しない。 |
+| 2026-11-05 | K-4/K-8 | Creativeのviewportとdescription意味 | Time/Arrangementは単一ViewTransform、Graphは独立time/value区間のdomain座標を保持。property_rowは標準descriptionのListItemに統一し既存の数値geometry検証を維持。 |
+| 2026-11-05 | K-3b/K-6a/K-6b | 実際の入力とslotをrecipeへ投影 | BreadcrumbItemState、CardState.input、avatar_image/status_content/member/overflowを実ノードへ接続。履歴状態を複製せず装飾とhoverを表現する。 |
+| 2026-11-05 | H-G5 | Game haloのreduced motion | effectから時刻を書かず、描画がreduced時に静止値を選ぶ。動作中のphaseは既存frame clockのみが所有する。 |

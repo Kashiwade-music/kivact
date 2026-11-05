@@ -3,8 +3,6 @@ mod alert_dialog;
 mod app_shell;
 mod aspect_ratio;
 mod avatar;
-mod avatar_group;
-mod avatar_group_overflow;
 mod avatar_options;
 mod avatar_status_dot;
 mod banner;
@@ -105,10 +103,8 @@ pub use app_shell::{
     AppShell, MobileNavConfig, MobileNavMode, ShellHeight, ShellVariant, app_shell,
 };
 pub use aspect_ratio::aspect_ratio;
-pub use avatar::{Avatar, AvatarTooltip, avatar};
-pub use avatar_group::{AvatarGroup, avatar_group};
-pub use avatar_group_overflow::{AvatarGroupOverflow, avatar_group_overflow};
-pub use avatar_options::{AvatarShape, AvatarSize};
+pub use avatar::{AvatarAppearance, AvatarGroupAppearance, avatar_silhouette};
+pub use avatar_options::AvatarSize;
 pub use avatar_status_dot::{AvatarStatus, AvatarStatusDot, avatar_status_dot};
 pub use banner::{Banner, BannerContainer, BannerStatus, banner};
 pub use blockquote::{Blockquote, blockquote, blockquote_text};

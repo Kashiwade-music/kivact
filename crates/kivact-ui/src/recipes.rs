@@ -875,7 +875,7 @@ recipe_table! {
     BreadcrumbRecipes {
         root(root_recipe): () = crate::look_navigation::breadcrumb_root,
         list(list_recipe): () = crate::look_navigation::breadcrumb_list,
-        item(item_recipe): bool = crate::look_navigation::breadcrumb_item,
+        item(item_recipe): crate::BreadcrumbItemState = crate::look_navigation::breadcrumb_item,
         separator(separator_recipe): () = crate::look_navigation::part,
     }
 }

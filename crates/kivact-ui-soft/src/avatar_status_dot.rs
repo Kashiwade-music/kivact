@@ -5,11 +5,7 @@ use kivact::view::NodeBuilder;
 use kivact::view::node;
 
 use kivact::state::IntoText;
-use kivact::state::Signal;
 use kivact::state::Value;
-use kivact::state::effect;
-use kivact::state::on_cleanup;
-use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::Color;
 use kivact::style::Direction;
@@ -18,12 +14,6 @@ use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::Role;
 use kivact::view::View;
-
-#[derive(Clone, Copy)]
-pub(crate) struct AvatarStatusContext {
-    pub(crate) side: f64,
-    pub(crate) label: Signal<Option<String>>,
-}
 
 /// The meaning and appearance of a presence indicator.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -40,7 +30,7 @@ pub enum AvatarStatus {
 
 pub(crate) struct StatusMetrics {
     pub(crate) side: f64,
-    border: f64,
+    pub(crate) border: f64,
     stroke: f64,
     icon: f64,
 }
@@ -70,10 +60,12 @@ pub(crate) fn status_metrics(side: f64) -> StatusMetrics {
     }
 }
 
+// xtask-allow(state-fields): Independent construction-time visual meaning, diameter, optional label and glyph; this content has no presence lifecycle or label cache.
 /// A small presence indicator, usable with or without an avatar.
 pub struct AvatarStatusDot {
     root: Node,
     status: AvatarStatus,
+    avatar_size: crate::AvatarSize,
     label: Option<Value<String>>,
     icon: Option<View>,
 }
@@ -83,12 +75,19 @@ pub fn avatar_status_dot(status: AvatarStatus) -> AvatarStatusDot {
     AvatarStatusDot {
         root: node(),
         status,
+        avatar_size: crate::AvatarSize::Md,
         label: None,
         icon: None,
     }
 }
 
 impl AvatarStatusDot {
+    /// Match the containing standard avatar diameter without a group registry.
+    pub fn avatar_size(mut self, size: crate::AvatarSize) -> Self {
+        self.avatar_size = size;
+        self
+    }
+
     /// Set the text exposed to assistive technology.
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
@@ -114,29 +113,18 @@ impl IntoView for AvatarStatusDot {
         let Self {
             mut root,
             status,
+            avatar_size,
             label,
             icon,
         } = self;
-        let cx = try_use_context::<AvatarStatusContext>().map(|value| value.get());
         let StatusMetrics {
             side,
             border,
             stroke,
             icon: icon_side,
-        } = status_metrics(cx.map_or(36.0, |cx| cx.side));
-        if let Some(cx) = cx {
-            effect(move || {
-                cx.label.set(
-                    label
-                        .map(|value| value.get())
-                        .filter(|text| !text.trim().is_empty()),
-                )
-            });
-            on_cleanup(move || cx.label.set(None));
-        } else if let Some(label) = label {
-            root = root
-                .with_node(move |node| node.role(Role::Image))
-                .name(label);
+        } = status_metrics(avatar_size.side());
+        if let Some(label) = label {
+            root = root.role(Role::Image).name(label);
         }
         let field = side - 2.0 * border;
         let glyph = if let Some(icon) = icon.filter(|_| icon_side > 0.0) {

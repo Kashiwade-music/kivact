@@ -25,7 +25,7 @@ fn list(_: &Theme, _: &Look<()>) -> Style {
         .align_items(Align::Center)
         .gap(6)
 }
-fn item(t: &Theme, s: &Look<bool>) -> Style {
+fn item(t: &Theme, s: &Look<kivact::ui::BreadcrumbItemState>) -> Style {
     let p = t.ext::<Tokens>();
     style()
         .direction(Direction::Row)
@@ -39,7 +39,7 @@ fn item(t: &Theme, s: &Look<bool>) -> Style {
         .font_size(12)
         .weight(400)
         .text_wrap(false)
-        .color(if **s {
+        .color(if s.current {
             p.foreground
         } else {
             p.muted_foreground
