@@ -1326,3 +1326,12 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 - **場所**: kivact-ui/src/date_range_input.rs の endpoint validation 集約と即時 DateRange::new 正規化。
 - **解消後**: 単一 `RangeDraft::{Following, Editing { start: Option<CalendarDate>, end: Option<CalendarDate> }}` が候補を所有し、validation は候補から決定する。caller の DateRange は順序が正しい完全な候補だけを書き、invalid order は localized diagnostic として残す。外部 binding の変更で Following へ戻り、別の parsed date signal を複製しない。
+
+### SM-K926 empty state の変化通知
+
+- **場所**: Soft empty-state announcement から Core へ移す初期・可視・変更・祖先 live-region の observer。
+- **解消後**: `.announce()` は既存 Pending/Spoken の一度だけ、`.announce_changes()` は初期表示を抑え、実際の title/description、presence、ancestor live-region を input とする単一 observer。最後に観測・通知した message は名前付き Sent history で重複を抑え、hidden で再 arm する。祖先 live-region が有効なら二重通知を出さず Off への変更後に通知を許す。別 current-message signal や flag の束を持たない。
+
+### SM-K924 controlled visibility の補完
+
+- Alert.visible(Binding<bool>) がある場合は実 binding だけを可視性の authority とする。Local Shown/Dismissed と controlled source は排他的な型で選ぶ。controlled 側は source への参照と復帰先 history だけを持ち、visible bool を別 signal/state に写さない。拒否された setter は非表示・復帰・完了通知を起こさず、on_dismiss は受理後の完了通知。request callback は caller binding setter へ写す。

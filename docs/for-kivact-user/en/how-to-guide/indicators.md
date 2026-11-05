@@ -46,6 +46,10 @@ Configure `UiTokens::indicators` for timing and placeholder metrics. `UiRecipes`
 | Soft skeleton radius/index | `shape`, recipe variants and `index` stagger |
 | Pop dots loader; Soft spinner shade/ink | Kit spinner variants and recipes |
 | Soft spinner name, text label and arbitrary label view | `.name`, `label_content(text(...))`, `label_content` |
-| Basic kbd group, Soft parsed shortcut | A row of `kbd` views or typed `kbd_combo` |
+| Basic kbd group, Soft parsed shortcut | Parsed `kbd` or typed `kbd_combo` |
 
 Creative's `KeyGlyph` paints editor keyframe markers and remains a domain type; it is unrelated to keyboard shortcuts.
+
+`UiTokens::indicators.reduced_period_ms` optionally keeps the spinner moving at a slower essential cycle under reduced motion. `None` retains decorative pausing. A supplied cycle responds to live preference changes by replacing the glyph animation owner, keeping the status node and label stable.
+
+`kbd("mod+shift+p")` and typed `kbd_combo` both normalize shortcuts into individual key caps. The `mod` key follows `Capabilities.command_key`; spoken names use localized full key labels while caps show the keyboard glyph. Aliases include command/cmd, control/ctrl, return/enter, esc/escape, arrows, and `plus` for a literal plus cap. Themes style the borderless row through `kbd` and each `KbdKeyState` through the `kbd_key` scalar recipe. Localize `kbd.key.*` and `kbd.separator` through the message catalog.

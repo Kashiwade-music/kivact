@@ -46,6 +46,8 @@ pub struct SpinnerState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndicatorTokens {
     pub period_ms: u64,
+    /// Essential spinner cycle under reduced motion; absent keeps decorative motion paused.
+    pub reduced_period_ms: Option<u64>,
     pub delay_ms: f64,
     pub stagger_ms: f64,
     pub line_height: f64,
@@ -57,6 +59,7 @@ impl Default for IndicatorTokens {
     fn default() -> Self {
         Self {
             period_ms: 1000,
+            reduced_period_ms: None,
             delay_ms: 0.0,
             stagger_ms: 100.0,
             line_height: 16.0,

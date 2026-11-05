@@ -1,10 +1,11 @@
 //! Role: Demonstrate Neutral typography and icon sizes and colors.
 use super::specimen::specimen;
 use kivact::style::style;
+use kivact::ui::kbd;
 use kivact::view::{Node, column, row};
 use kivact_ui_soft::{
     HeadingDisplay, IconColor, IconSize, TextColor, TextKind, avatar, avatar_group,
-    avatar_group_overflow, empty_state, heading, icon, kbd, link, text, thumbnail, visually_hidden,
+    avatar_group_overflow, empty_state, heading, icon, link, text, thumbnail, visually_hidden,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
