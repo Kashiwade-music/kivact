@@ -33,9 +33,9 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
-    basic::empty_state("No Projects Yet")
-        .media(icon("folder"))
-        .media_variant(basic::EmptyMediaVariant::Icon)
+    kivact::ui::empty_state("No Projects Yet")
+        .icon(icon("folder"))
+        .variant(basic::EmptyMediaVariant::Icon)
         .description("Get started by creating your first project.")
         .style(style().width(420))
 }
@@ -43,9 +43,9 @@ fn default() -> impl IntoView {
 
 // example: outline
 fn outline() -> impl IntoView {
-    basic::empty_state("No results")
-        .media(icon("search"))
-        .media_variant(basic::EmptyMediaVariant::Icon)
+    kivact::ui::empty_state("No results")
+        .icon(icon("search"))
+        .variant(basic::EmptyMediaVariant::Icon)
         .description("Try adjusting your search terms.")
         .style(style().border(1, basic::ColorName::Border))
         .style(style().width(420))
@@ -54,11 +54,11 @@ fn outline() -> impl IntoView {
 
 // example: actions
 fn actions() -> impl IntoView {
-    basic::empty_state("Inbox zero")
-        .media(icon("inbox"))
-        .media_variant(basic::EmptyMediaVariant::Icon)
+    kivact::ui::empty_state("Inbox zero")
+        .icon(icon("inbox"))
+        .variant(basic::EmptyMediaVariant::Icon)
         .description("You are all caught up.")
-        .content({
+        .actions({
             row((
                 button("Compose"),
                 button("Refresh").variant(ButtonVariant::Outline),

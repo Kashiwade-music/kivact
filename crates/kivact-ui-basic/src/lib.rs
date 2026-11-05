@@ -115,7 +115,7 @@ pub use chat::{
     Bubble, BubbleAlign, BubbleReactionsSide, BubbleVariant, Message, MessageAlign, bubble,
     bubble_group, message, message_group,
 };
-pub use empty::{EmptyMediaVariant, EmptyState, empty_state};
+pub use empty::EmptyMediaVariant;
 pub use item::{Item, ItemMediaVariant, ItemSize, ItemVariant, item, item_group, item_separator};
 pub use line_tabs::TabsVariant;
 pub use marker::{Marker, MarkerVariant, marker};

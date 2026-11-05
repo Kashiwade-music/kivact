@@ -218,6 +218,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `kbd`
 - `badge`
 - `calendar`
+- `empty_state`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

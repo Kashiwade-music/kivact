@@ -67,6 +67,7 @@ fn build() -> UiRecipes {
         .kbd(|_| kbd)
         .badge(|_| crate::badge::recipe)
         .calendar(crate::recipes_calendar::calendar)
+        .empty_state(crate::empty::recipes)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts
