@@ -161,7 +161,7 @@ The entries are the same `MenuEntry` values as for any menu (items, check and ra
 
 ## Link to sections from the top of a page
 
-`basic::navigation_menu(items)` is a row of `NavItem`s. A `NavItem::link(label, action)` runs `action` when pressed. A `NavItem::menu(label, content)` opens a panel under the item, and `content` builds that panel's view each time. Use `basic::navigation_menu_link(title)` for the rows inside a panel:
+`kivact::ui::navigation_menu(label)` is a row of navigation entries. A `navigation_menu(...).action(key, label, action)` runs `action` when pressed. A `navigation_menu(...).link(key, label, content)` opens a panel under the item, and `content` builds that panel's view each time. Use `kivact::ui::navigation_menu_link(title)` for the rows inside a panel:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -171,19 +171,19 @@ fn top_nav() -> impl IntoView {
     let clicks = signal(0usize);
     let getting_started = move || {
         column((
-            basic::navigation_menu_link("Introduction")
+            kivact::ui::navigation_menu_link("Introduction")
                 .description("How the pieces fit together."),
-            basic::navigation_menu_link("Installation")
+            kivact::ui::navigation_menu_link("Installation")
                 .description("Add the crates to your project.")
                 .icon(icon("download")),
         ))
         .style(style().width(320))
     };
     column((
-        basic::navigation_menu(vec![
-            basic::NavItem::menu("Getting started", getting_started),
-            basic::NavItem::link("Docs", move || clicks.update(|n| *n += 1)),
-        ]),
+        kivact::ui::navigation_menu("Navigation")
+            .link("getting-started", "Getting started", getting_started)
+            .action("docs", "Docs", move || clicks.update(|n| *n += 1))
+            .close_delay(std::time::Duration::ZERO),
         basic::muted(move || format!("Docs pressed: {}", clicks.get())),
     ))
     .style(style().gap(12))

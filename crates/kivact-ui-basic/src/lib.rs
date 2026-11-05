@@ -79,8 +79,8 @@ mod parts;
 mod primitives;
 mod questionnaire;
 mod recipes;
-mod recipes_collections;
 mod recipes_calendar;
+mod recipes_collections;
 mod recipes_combobox;
 mod recipes_command;
 mod recipes_controls;
@@ -121,7 +121,6 @@ pub use line_tabs::TabsVariant;
 pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
 pub use message_scroller::{MessageScroller, message_scroller};
-pub use navigation_menu::{NavItem, NavLink, navigation_menu, navigation_menu_link};
 pub use pagination::{
     PaginationLink, PaginationPages, pagination, pagination_content, pagination_ellipsis,
     pagination_link, pagination_next, pagination_previous,
@@ -152,14 +151,10 @@ pub use icons::ICON_NAMES;
 pub use input_group::{InputGroupButtonLook, InputGroupButtonSize, InputGroupControl};
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
-pub use primitives::{
-    Label, Separator, label, separator,
-};
+pub use primitives::{Label, Separator, label, separator};
 pub use questionnaire::{
     Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,
 };
 pub use theme::theme;
 pub use tokens::{CodeColors, Tokens};
-pub use typography::{
-    blockquote, bullet_list, inline_code, large, lead, muted, paragraph, small,
-};
+pub use typography::{blockquote, bullet_list, inline_code, large, lead, muted, paragraph, small};

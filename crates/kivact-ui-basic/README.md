@@ -120,7 +120,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.code_block.copy` | Copy |
 | `basic.code_block.name` | Code |
 | `basic.message_scroller.end` | Scroll to end |
-| `basic.navigation_menu.label` | Navigation |
 | `basic.pagination.label` | Pagination |
 | `basic.pagination.more` | More pages |
 | `basic.pagination.next` | Next |
@@ -142,7 +141,7 @@ unprefixed keys:
 |---|---|
 | `data_table.actions` | Actions |
 | `data_table.empty` | No results found. |
-| `data_table.filter` | Filter… |
+| `data_table.filter` | Filter窶ｦ |
 | `data_table.label` | Data table |
 | `data_table.next` | Next |
 | `data_table.page` | Page {page} of {pages} |
@@ -230,6 +229,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `card`
 - `heading`
 - `input_group`
+- `navigation_menu`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

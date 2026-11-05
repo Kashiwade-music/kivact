@@ -161,7 +161,7 @@ fn bar() -> impl IntoView {
 
 ## ページの上部からセクションへ移動する
 
-`basic::navigation_menu(items)` は `NavItem` を並べた行です。`NavItem::link(label, action)` は押されると `action` を実行します。`NavItem::menu(label, content)` は、項目の下にパネルを開き、`content` がそのパネルの view を作る関数です。パネルの中の行には `basic::navigation_menu_link(title)` を使います。
+`kivact::ui::navigation_menu(label)` はナビゲーションの行を作ります。`navigation_menu(...).action(key, label, action)` は押されると `action` を実行します。`navigation_menu(...).link(key, label, content)` は、項目の下にパネルを開き、`content` がそのパネルの view を作る関数です。パネルの中の行には `kivact::ui::navigation_menu_link(title)` を使います。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -171,19 +171,19 @@ fn top_nav() -> impl IntoView {
     let clicks = signal(0usize);
     let getting_started = move || {
         column((
-            basic::navigation_menu_link("Introduction")
+            kivact::ui::navigation_menu_link("Introduction")
                 .description("How the pieces fit together."),
-            basic::navigation_menu_link("Installation")
+            kivact::ui::navigation_menu_link("Installation")
                 .description("Add the crates to your project.")
                 .icon(icon("download")),
         ))
         .style(style().width(320))
     };
     column((
-        basic::navigation_menu(vec![
-            basic::NavItem::menu("Getting started", getting_started),
-            basic::NavItem::link("Docs", move || clicks.update(|n| *n += 1)),
-        ]),
+        kivact::ui::navigation_menu("Navigation")
+            .link("getting-started", "Getting started", getting_started)
+            .action("docs", "Docs", move || clicks.update(|n| *n += 1))
+            .close_delay(std::time::Duration::ZERO),
         basic::muted(move || format!("Docs pressed: {}", clicks.get())),
     ))
     .style(style().gap(12))
