@@ -111,6 +111,37 @@ Signals, `Value`s and closures of `Tone` work either way. The prop type must be
 `Clone + PartialEq`, which is what lets Kivact skip updates when the value did not
 change.
 
+## Give setup its own lifetime
+
+A plain Rust function is called when its caller evaluates it. When the function
+creates signals, effects or cleanup callbacks that should belong to one mounted
+instance, return `component(move || ...)`. Kivact calls this initializer once
+when that instance mounts, under its own owner and the mounting parent's context.
+It disposes those resources when the instance is removed. It adds no layout box.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn local_counter(label: impl IntoText) -> impl IntoView {
+    let label = label.into_text_value();
+    component(move || {
+        let count = signal(0);
+        on_cleanup(|| println!("Counter removed"));
+        column((
+            text(label),
+            text(move || count.get().to_string()),
+            button("Increment").on_press(move || count.update(|n| *n += 1)),
+        ))
+    })
+}
+```
+
+Changing `count` updates the text; it does not call the initializer again.
+Return `impl IntoView` for this boundary: a transparent `View` does not expose a
+root node for modifiers. Put a visible root inside it when you need one. For a
+builder, callers configure its `Node` first; its `IntoView` implementation can
+return `component(move || ...)` to defer final setup until mounting.
+
 ## Take children and slots
 
 A component that wraps content takes it as `impl IntoView`. Several children are a
@@ -143,7 +174,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-A value of type `impl IntoView` is used up when it is mounted. If your component
+An `impl IntoView` slot is consumed once. Store it as `View` if the builder needs to keep it until mounting. If your component
 mounts its content more than once, for example each time a section opens, ask for a
 function that builds the content, as `show` does:
 
@@ -331,6 +362,7 @@ impl NodeBuilder for Notice {
 
 impl IntoView for Notice {
     fn into_view(self) -> View {
+        component(move || {
         let Notice { root, message, tone, action, on_dismiss } = self;
         // The default look. It goes below every style the caller adds.
         let mut root = root.base_style(move || {
@@ -357,6 +389,7 @@ impl IntoView for Notice {
             root = root.child(button("Dismiss").on_press(move || dismiss.call(())));
         }
         root.into_view()
+            })
     }
 }
 
@@ -411,12 +444,14 @@ Points worth knowing about this shape:
   `checked`, `expanded`, `selected`, `value_text` and `base_style`. A builder uses
   `.with_node(|root| root.role(Role::Alert))` to configure them.
 
-- **Do the final work in `into_view`.** It runs when the component is mounted, when
-  every setting is known. Read your fields there instead of sharing a `Cell`
-  between a setter and a style closure.
-- **State belongs to the instance.** Signals you create in `into_view` (or in the
-  constructor) are owned by the place where the component is mounted, so two
-  notices on one screen share nothing. You never need a string key or a global id.
+- **Finish configuration in `into_view`.** All builder setters have run by then.
+  Conversion itself is not a mount callback: use `component(move || ...)` inside
+  it when setup must wait for mounting. Read the final fields rather than sharing
+  a `Cell` between setters and style closures.
+- **State belongs to its setup owner.** Create instance resources inside the
+  `component` initializer. Creating them in a constructor instead attaches them
+  to the caller's current setup owner. Use the boundary when removal of this
+  component must dispose its effects and callbacks.
 - **`#[track_caller]` names each instance.** Diagnostics and test failure reports
   name a node by the place its builder was called. Put the attribute on your
   constructor, and every instance is reported at its own call site. A component
@@ -624,6 +659,7 @@ impl NodeBuilder for SearchBox {
 
 impl IntoView for SearchBox {
     fn into_view(self) -> View {
+        component(move || {
         let SearchBox { mut root, value } = self;
 
         // What the caller said about the component as a whole.
@@ -721,7 +757,8 @@ pub fn progress_ring(done: u32, total: u32) -> impl Component {
 
 fn main() -> kivact::Result<()> {
     App::new("Ring").run(|| progress_ring(3, 10))
-}
+        })
+    }
 ```
 
 Use it for programmer errors only. A problem the user can cause, such as a bad file,
@@ -739,9 +776,3 @@ is a `Result` that your component shows, not a misuse.
 - `cargo doc -p kivact --open`: `kivact::view::NodeBuilder`,
   `kivact::view::Node`, `kivact::style::{Theme, ThemeExtension, IconSet}`.
 
-
-A component that allocates reactive state during setup can return
-`component(move || view)`. This initializer runs once when mounted, inherits the
-mounting parent's context, and owns its effects and cleanup callbacks until removal.
-It adds no visible box. Accept once-mounted slots as `impl IntoView`; accept
-`impl Fn() -> V` when content must be built again each time a popup opens.

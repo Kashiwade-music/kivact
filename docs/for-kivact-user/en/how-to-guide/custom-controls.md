@@ -141,6 +141,44 @@ Three rules are common to every controller:
    run **before** the Part's defaults; return `Handled::PreventDefault` to run
    yours and skip the default, or `Handled::Yes` to stop everything.
 
+## Compose a Part without copying state
+
+Use `kivact::custom::Part::new(state, apply)` when your control needs to package
+an existing state projection together with the node transformation that installs
+its behavior. `state` is read-only drawing information; `apply` takes the host
+`Node` and returns that node with behavior attached. It runs during mounting.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::custom::Part;
+use kivact::interaction::use_switch;
+
+fn custom_switch() -> impl IntoView {
+    component(|| {
+        let enabled = signal(false);
+        let api = use_switch(enabled);
+        let state = api.control_state();
+        let control = api.control();
+        let part = Part::new(state, move |host| host.part(control));
+        node().part(part).name("Notifications")
+            .style(move || style().padding(8).background(
+                if state.get().checked.is_checked() {
+                    ColorToken::Accent
+                } else {
+                    ColorToken::Surface
+                }
+            ))
+            .child("Notifications")
+    })
+}
+```
+
+The switch controller still owns keyboard, pointer and accessibility behavior.
+The composed Part reads the same facts; it does not maintain a second checked or
+pressed signal. Use `Node`'s inherent methods for semantics such as `role` and
+`checked`. A builder reaches those methods with `.with_node(|host| ...)`;
+`NodeBuilder` supplies its common modifiers such as `style`, `disabled` and `name`.
+
 ## Choose from a list with keyboard navigation
 
 A segmented control is a row of options where one is selected. `use_list` provides
@@ -647,7 +685,8 @@ colors lines. It is experimental; see its rustdoc.
 A `Machine` makes states and events explicit. Its pure `transition` returns a
 `Step`: the next state, effects to execute and delayed events. Read reactive
 inputs in the factory passed to `machine`; run side effects in its effect runner.
-The handle exposes reactive state through `get()` and accepts events with `send()`.
+The handle exposes reactive state through `get()` (or the read-only `state()`
+projection) and accepts events with `send()`.
 Timers belong to the machine owner and are cancelled when it is disposed.
 
 ```rust,no_run
@@ -661,7 +700,7 @@ enum CopyState { Idle, Copied }
 enum CopyEvent { Pressed, Expired }
 enum CopyEffect { Write(String) }
 
-struct CopyButton { text: String }               // Self が遷移の読む入力
+struct CopyButton { text: String } // Snapshot read by the pure transition.
 impl Machine for CopyButton {
     type State = CopyState;
     type Event = CopyEvent;
@@ -687,8 +726,13 @@ fn copy_button(text: impl IntoValue<String>) -> impl Component {
 }
 ```
 
-This example teaches the protocol; use the existing clipboard controller when it
-fits your control.
+Create the machine in the component's setup owner. For a reusable component with
+its own mount lifetime, convert `text` once, then return `component(move || { ... })`
+and create the machine inside that initializer. Its pending timer is cancelled
+when that instance is removed. Keep the transition pure: it chooses a next state
+and describes work; the effect runner performs the clipboard write.
+
+Use the existing clipboard controller when its behavior fits your control.
 
 ## See also
 
