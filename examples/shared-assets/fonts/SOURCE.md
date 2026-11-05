@@ -11,3 +11,7 @@ The Basic Geist Mono copy had identical bytes. Original Google Fonts sources:
 - https://github.com/google/fonts/tree/main/ofl/geist
 - https://github.com/google/fonts/tree/main/ofl/geistmono
 Their original OFL notices and hash records are preserved alongside the fonts.
+
+Inter was copied without byte changes from the existing Basic catalog assets,
+originally retrieved 2026-10-05 from [Google Fonts Inter](https://github.com/google/fonts/tree/main/ofl/inter).
+The original OFL notice is preserved beside the font.
