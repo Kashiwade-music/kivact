@@ -266,7 +266,7 @@ pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
         .indicator(|_| radio_indicator)
         .description(|_| {
             |_: &Theme, _: &Look<CheckableState>| {
-                style().font_size(13).color(crate::Color::TextMuted)
+                style().font_size(13).color(crate::ColorName::TextMuted)
             }
         })
 }
@@ -353,7 +353,9 @@ fn slider_thumb(t: &Theme, _: &Look<AxisState>) -> Style {
 pub(crate) fn toast(r: ToastRecipes) -> ToastRecipes {
     r.region(|_| toast_region)
         .toast(|_| toast_card)
-        .title(|_| |_: &Theme, _: &Look<ToastState>| style().weight(500).color(crate::Color::Text))
+        .title(|_| {
+            |_: &Theme, _: &Look<ToastState>| style().weight(500).color(crate::ColorName::Text)
+        })
         .body(|_| {
             |_: &Theme, _: &Look<ToastState>| style().font_size(13).color(ColorToken::TextMuted)
         })

@@ -46,6 +46,37 @@ fn main() -> kivact::Result<()> {
 - **Texts.** Default texts are English message keys prefixed with `pop.`;
   replace them with `App::messages`.
 
+## Filled recipes
+
+The theme fills these entries in `UiRecipes`:
+
+<!-- kivact-recipes -->
+- `field`
+- `button`
+- `button_content`
+- `button_busy`
+- `toggle`
+- `checkbox`
+- `switch`
+- `text_input`
+- `text_area`
+- `select`
+- `menu`
+- `dialog`
+- `tooltip`
+- `tabs`
+- `radio_group`
+- `slider`
+- `toast`
+- `list`
+- `data_table`
+- `progress`
+- `disclosure`
+- `command_palette`
+- `tag_input`
+- `number_input`
+<!-- /kivact-recipes -->
+
 ## Documentation
 
 - Tutorial and how-to guides: [English](../../docs/for-kivact-ui-user/en/pop/getting-started/README.md),

@@ -46,7 +46,7 @@ mod upload;
 pub use button::{ButtonTone, Slant};
 pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
 pub use choice::Segmented;
-pub use color::Color;
+pub use color::ColorName;
 pub use date::{
     Calendar, CalendarEvent, DateInput, DateRangeInput, calendar, date_input, date_range_input,
 };

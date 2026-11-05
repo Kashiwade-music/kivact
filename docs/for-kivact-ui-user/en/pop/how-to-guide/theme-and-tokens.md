@@ -69,8 +69,8 @@ fn app() -> impl IntoView {
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(pop::Color::Background)
-                .color(pop::Color::Text),
+                .background(pop::ColorName::Background)
+                .color(pop::ColorName::Text),
         )
     })
 }
@@ -81,7 +81,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 `provide_theme` creates no node and paints nothing, so the top node of the
-subtree gives itself the page colors. `pop::Color` names the kit's colors
+subtree gives itself the page colors. `pop::ColorName` names the kit's colors
 (`Background`, `Surface`, `Line`, `Text`, `TextMuted` and more). A style takes
 one directly, and it is looked up in the theme the node is painted in, so it
 follows the switch without a closure.
@@ -127,7 +127,7 @@ colors badges, avatars and stat cards use.
 
 ## Read the tokens in your own components
 
-Prefer `pop::Color::..` in a style, as above. Read the `Tokens` struct itself
+Prefer `pop::ColorName::..` in a style, as above. Read the `Tokens` struct itself
 when you need to compute something from it, such as the two colors of a hue.
 Do it in a style closure, so the result follows theme switches:
 

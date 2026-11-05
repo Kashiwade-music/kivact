@@ -7,11 +7,11 @@ use kivact::style::{Theme, ThemeColor};
 ///
 /// Every color input of a style, a gradient or a draw call takes it, so
 /// the color follows a theme switch without a closure that reads the tokens:
-/// `style().background(Color::Background)`. A theme without the kit's tokens
+/// `style().background(ColorName::Background)`. A theme without the kit's tokens
 /// reads the values the tokens fall back to. Take a [`Tokens`] field by hand only to
 /// compute a new color from it (`with_alpha`, `mix_in`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Color {
+pub enum ColorName {
     /// [`Tokens::background`].
     Background,
     /// [`Tokens::surface`].
@@ -52,29 +52,29 @@ pub enum Color {
     Navy,
 }
 
-impl ThemeColor for Color {
+impl ThemeColor for ColorName {
     fn resolve(self, theme: &Theme) -> kivact::style::Color {
         let p = theme.ext::<Tokens>();
         match self {
-            Color::Background => p.background,
-            Color::Surface => p.surface,
-            Color::SurfaceMuted => p.surface_muted,
-            Color::SurfaceActive => p.surface_active,
-            Color::Line => p.line,
-            Color::LineStrong => p.line_strong,
-            Color::Text => p.text,
-            Color::TextMuted => p.text_muted,
-            Color::TextFaint => p.text_faint,
-            Color::Blue => p.blue,
-            Color::BlueDeep => p.blue_deep,
-            Color::Cyan => p.cyan,
-            Color::Yellow => p.yellow,
-            Color::Pink => p.pink,
-            Color::Mint => p.mint,
-            Color::Red => p.red,
-            Color::Orange => p.orange,
-            Color::Purple => p.purple,
-            Color::Navy => p.navy,
+            ColorName::Background => p.background,
+            ColorName::Surface => p.surface,
+            ColorName::SurfaceMuted => p.surface_muted,
+            ColorName::SurfaceActive => p.surface_active,
+            ColorName::Line => p.line,
+            ColorName::LineStrong => p.line_strong,
+            ColorName::Text => p.text,
+            ColorName::TextMuted => p.text_muted,
+            ColorName::TextFaint => p.text_faint,
+            ColorName::Blue => p.blue,
+            ColorName::BlueDeep => p.blue_deep,
+            ColorName::Cyan => p.cyan,
+            ColorName::Yellow => p.yellow,
+            ColorName::Pink => p.pink,
+            ColorName::Mint => p.mint,
+            ColorName::Red => p.red,
+            ColorName::Orange => p.orange,
+            ColorName::Purple => p.purple,
+            ColorName::Navy => p.navy,
         }
     }
 }

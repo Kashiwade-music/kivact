@@ -26,8 +26,8 @@ fn tag_root(_: &Theme, _: &Look<PartState>) -> Style {
         .gap(4)
         .wrap(true)
         .align_items(Align::Center)
-        .background(crate::Color::Surface)
-        .border(1, crate::Color::Line)
+        .background(crate::ColorName::Surface)
+        .border(1, crate::ColorName::Line)
         .radius(8)
 }
 
@@ -71,9 +71,9 @@ fn number_root(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .height(36)
         .align_items(Align::Center)
-        .border(1, crate::Color::Line)
+        .border(1, crate::ColorName::Line)
         .radius(8)
-        .background(crate::Color::Surface)
+        .background(crate::ColorName::Surface)
         .clip(true)
 }
 

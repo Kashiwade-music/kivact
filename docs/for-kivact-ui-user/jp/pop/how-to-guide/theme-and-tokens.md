@@ -59,8 +59,8 @@ fn app() -> impl IntoView {
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(pop::Color::Background)
-                .color(pop::Color::Text),
+                .background(pop::ColorName::Background)
+                .color(pop::ColorName::Text),
         )
     })
 }
@@ -70,7 +70,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`provide_theme` はノードを作らず、何も塗りません。そのため、サブツリーの最上位ノードが自分でページの色を指定します。`pop::Color` はキットの色の名前（`Background`、`Surface`、`Line`、`Text`、`TextMuted` など）です。スタイルにそのまま渡すと、ノードが描かれるテーマから値が引かれるので、クロージャを書かなくても切り替えに追従します。
+`provide_theme` はノードを作らず、何も塗りません。そのため、サブツリーの最上位ノードが自分でページの色を指定します。`pop::ColorName` はキットの色の名前（`Background`、`Surface`、`Line`、`Text`、`TextMuted` など）です。スタイルにそのまま渡すと、ノードが描かれるテーマから値が引かれるので、クロージャを書かなくても切り替えに追従します。
 
 ## 色を変える
 
@@ -103,7 +103,7 @@ fn main() -> kivact::Result<()> {
 
 ## 自分のコンポーネントでトークンを読む
 
-スタイルには上のように `pop::Color::..` を渡すのが基本です。`Tokens` 構造体そのものを読むのは、色相の 2 色のように値から何かを計算したいときです。スタイルのクロージャの中で読むと、結果がテーマの切り替えに追従します。
+スタイルには上のように `pop::ColorName::..` を渡すのが基本です。`Tokens` 構造体そのものを読むのは、色相の 2 色のように値から何かを計算したいときです。スタイルのクロージャの中で読むと、結果がテーマの切り替えに追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
