@@ -170,6 +170,14 @@ impl IntoView for Avatar {
             state,
         );
         let status_badge = status_badge(size, shape, status, &self.variants);
+        let status_content = self.status_content.map(|content| {
+            crate::layer::with_recipe_style(
+                node().child(content),
+                |r| r.avatar_status_content_recipe(),
+                &self.variants,
+                state,
+            )
+        });
         crate::layer::with_base_recipe_style(
             self.root.name(label),
             |r| r.avatar_recipe(),
@@ -178,7 +186,7 @@ impl IntoView for Avatar {
         )
         .base_style(style().position(Position::Relative))
         .child(image)
-        .child(self.status_content)
+        .child(status_content)
         .child(status_badge)
         .into_view()
     }

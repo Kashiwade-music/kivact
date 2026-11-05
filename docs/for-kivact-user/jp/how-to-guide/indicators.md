@@ -57,3 +57,5 @@ Creative の `KeyGlyph` は editor の keyframe marker を描く domain 型で�
 `UiTokens::indicators.skeleton_transition` は skeleton の基本 tween を上書きします。コンポーネントが初期遅延、index の時間差、交互の反復を加え、一つの `Animated` と動きを減らす場合の一時停止を保ちます。
 
 `avatar_group(children).overlap(pixels)` は既定の重なりトークンをリアクティブに上書きし、読み方向に従います。`.total(total)` は一部だけ読み込んだグループの総数を表します。`.overflow_content(|count| view)` は実際の省略人数を受け取り、仮のメンバーなしに全一覧を開くラベル付きボタンなどを構成できます。Avatar のイニシャルは先頭と末尾の意味のある名前グリフを使用し、結合絵文字と結合記号も保持します。
+
+`avatar_status_content` レシピは実際の独自状態コンテンツの枠を Avatar の下・末尾側に配置し、同じ `AvatarState` を受け取ります。枠は状態やラベルの複製を追加せず、内容自体の意味を保持します。既定の省略人数の画像ラベルは `avatar_group.overflow`（`{count} more`）で翻訳できます。

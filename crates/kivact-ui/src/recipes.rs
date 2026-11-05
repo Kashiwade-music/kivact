@@ -611,6 +611,7 @@ recipe_table! {
     /// ```
     UiRecipes {
         avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
+        avatar_status_content(avatar_status_content_recipe): crate::AvatarState = super::look_indicators::avatar_status_content,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         /// Presentation of the hidden avatar count, including its actual count.
         avatar_group_overflow(avatar_group_overflow_recipe): usize = super::look_indicators::avatar_group_overflow,

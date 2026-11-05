@@ -106,10 +106,19 @@ impl IntoView for AvatarGroup {
             move || hidden.get() > 0,
             move || {
                 crate::layer::with_recipe_style(
-                    node().child(overflow.as_ref().map_or_else(
-                        || text(move || format!("+{}", hidden.get())).into_view(),
-                        |content| content(hidden),
-                    )),
+                    overflow.as_ref().map_or_else(
+                        || {
+                            node()
+                                .role(Role::Image)
+                                .name(kivact_core::i18n::message_with(
+                                    "avatar_group.overflow",
+                                    "{count} more",
+                                    move || [("count", hidden.get().to_string())],
+                                ))
+                                .child(text(move || format!("+{}", hidden.get())))
+                        },
+                        |content| node().child(content(hidden)),
+                    ),
                     |r| r.avatar_group_overflow_recipe(),
                     &overflow_variants,
                     move || hidden.get(),
