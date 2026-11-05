@@ -226,19 +226,7 @@ impl IntoView for SideNav {
             } else {
                 None
             };
-            let collapsed = resize
-                .as_ref()
-                .map(|resize| {
-                    resize
-                        .collapsed
-                        .unwrap_or_else(|| signal(resize.default_collapsed).into_binding())
-                })
-                .or_else(|| {
-                    collapse.map(|collapse| match collapse {
-                        SideNavCollapse::Uncontrolled { default } => signal(default).into_binding(),
-                        SideNavCollapse::Controlled(collapsed) => collapsed,
-                    })
-                });
+            let collapsed = sidebar_collapse(collapse, &resize);
             let expanded_width =
                 signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
             let cx = SideNavCx {
@@ -264,83 +252,14 @@ impl IntoView for SideNav {
             } else {
                 None
             };
-            let has_top = header.is_some() || top.is_some();
-            let has_bottom =
-                footer.is_some() || icons.is_some() || collapse_button.get() && collapsed.is_some();
-            let controls = provide(cx, move || {
-                let top = column((header, top)).style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let mut base = style().gap(t.spacing.s2).shrink(0);
-                    if has_top && mode == ShellNavMode::Desktop {
-                        base = base.padding(t.spacing.s2);
-                    }
-                    if cx.rail() {
-                        base = base.align_items(Align::Center);
-                    }
-                    base
-                });
-                let items = column(children).style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let mut base = style().gap(t.spacing.s0_5);
-                    if mode == ShellNavMode::Desktop {
-                        base = base
-                            .padding_x(t.spacing.s2)
-                            .padding_top(if has_top { t.spacing.s1 } else { t.spacing.s2 })
-                            .padding_bottom(if has_bottom {
-                                t.spacing.s1
-                            } else {
-                                t.spacing.s2
-                            });
-                    }
-                    if cx.rail() {
-                        base = base.align_items(Align::Center);
-                    }
-                    base
-                });
-                let items = if mode == ShellNavMode::Desktop {
-                    scroll(items)
-                        .style(style().grow(1).min_height(0))
-                        .into_view()
-                } else {
-                    items.into_view()
-                };
-                let bottom = has_bottom.then(|| {
-                    let controls = row((
-                        (collapse_button.get() && collapsed.is_some())
-                            .then(|| side_nav_collapse_button().size(ControlSize::Small)),
-                        icons,
-                    ))
-                    .style(move || {
-                        style()
-                            .direction(if cx.rail() {
-                                Direction::ColumnReverse
-                            } else {
-                                logical_row()
-                            })
-                            .align_items(Align::Center)
-                            .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
-                    });
-                    column((
-                        footer.map(|slot| node().hidden(move || cx.rail()).child(slot)),
-                        controls,
-                    ))
-                    .style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let mut base = style().margin_top(auto()).gap(t.spacing.s2).shrink(0);
-                        if mode == ShellNavMode::Desktop {
-                            base = base
-                                .padding_x(t.spacing.s2)
-                                .padding_bottom(t.spacing.s2)
-                                .padding_top(if cx.rail() { 0.0 } else { t.spacing.s1 });
-                        }
-                        if cx.rail() {
-                            base = base.align_items(Align::Center);
-                        }
-                        base
-                    })
-                });
-                (top, items, bottom)
-            });
+            let slots = SideNavSlots {
+                children,
+                header,
+                top,
+                footer,
+                icons,
+            };
+            let controls = slots.controls(cx, mode, collapse_button, collapsed);
             let root = root.node_ref(nav_ref).style(move || {
                 if mode == ShellNavMode::Desktop {
                     style()
@@ -356,71 +275,7 @@ impl IntoView for SideNav {
                     style().width(pct(100)).grow(1)
                 }
             });
-            let grip = resize.map(|resize| {
-                let size = binding(
-                    move || {
-                        if collapsed.is_some_and(|collapsed| collapsed.get()) {
-                            0.0
-                        } else {
-                            expanded_width.get()
-                        }
-                    },
-                    move |size| {
-                        if let Some(collapsed) = collapsed {
-                            collapsed.set(size < 160.0);
-                        }
-                        if size >= 160.0 {
-                            expanded_width.set(size.clamp(resize.min, resize.max));
-                        }
-                    },
-                );
-                let behavior = use_splitter(
-                    size,
-                    ScalarRange::new(0.0, resize.max)
-                        .expect("invariant: sidebar maximum is positive"),
-                    Orientation::Horizontal,
-                )
-                .collapsible(160.0 / resize.max)
-                .key_step(10.0)
-                .expect("invariant: sidebar keyboard step is positive");
-                let part = behavior.handle();
-                let visual = part.state();
-                node()
-                    .part(part)
-                    .name(message("soft.side_nav.resize", "Resize sidebar"))
-                    .controls(nav_ref)
-                    .style(move || {
-                        let base = style()
-                            .position(Position::Absolute)
-                            .top(0)
-                            .bottom(0)
-                            .width(16)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                            .cursor(kivact::style::Cursor::EwResize);
-                        if rtl() { base.left(0) } else { base.right(0) }
-                    })
-                    .child(node().style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let state = visual.get();
-                        style()
-                            .size(3, t.spacing.s8)
-                            .radius(t.radius.full)
-                            .translate_x(if rtl() { -7.0 } else { 7.0 })
-                            .opacity(
-                                if state.dragging || state.input.hovered || state.input.focused {
-                                    1.0
-                                } else {
-                                    0.0
-                                },
-                            )
-                            .background(if state.dragging {
-                                t.colors.border_emphasized
-                            } else {
-                                t.colors.border
-                            })
-                    }))
-            });
+            let grip = resize.map(|resize| resize_grip(resize, collapsed, expanded_width, nav_ref));
             root.child((controls, grip))
         })
     }
@@ -510,4 +365,208 @@ impl IntoView for SideNavCollapseButton {
                 .into_view()
         })
     }
+}
+
+fn sidebar_collapse(
+    collapse: Option<SideNavCollapse>,
+    resize: &Option<SideNavResize>,
+) -> Option<Binding<bool>> {
+    resize
+        .as_ref()
+        .map(|resize| {
+            resize
+                .collapsed
+                .unwrap_or_else(|| signal(resize.default_collapsed).into_binding())
+        })
+        .or_else(|| {
+            collapse.map(|collapse| match collapse {
+                SideNavCollapse::Uncontrolled { default } => signal(default).into_binding(),
+                SideNavCollapse::Controlled(collapsed) => collapsed,
+            })
+        })
+}
+
+// xtask-allow(state-fields): Independent retained construction slots; sidebar collapse and resizing are owned by their existing bindings and splitter.
+struct SideNavSlots {
+    children: View,
+    // xtask-allow(state-fields): Independent retained header content slot; this record owns no sidebar phase.
+    header: Option<View>,
+    // xtask-allow(state-fields): Independent retained top content slot; this record owns no sidebar phase.
+    top: Option<View>,
+    // xtask-allow(state-fields): Independent retained footer content slot; this record owns no sidebar phase.
+    footer: Option<View>,
+    // xtask-allow(state-fields): Independent retained icons content slot; this record owns no sidebar phase.
+    icons: Option<View>,
+}
+impl SideNavSlots {
+    fn controls(
+        self,
+        cx: SideNavCx,
+        mode: ShellNavMode,
+        collapse_button: Value<bool>,
+        collapsed: Option<Binding<bool>>,
+    ) -> View {
+        let Self {
+            children,
+            header,
+            top,
+            footer,
+            icons,
+        } = self;
+        let has_top = header.is_some() || top.is_some();
+        let has_bottom =
+            footer.is_some() || icons.is_some() || collapse_button.get() && collapsed.is_some();
+        provide(cx, move || {
+            let top = column((header, top)).style(move || {
+                let t = kivact::style::use_tokens::<crate::Tokens>();
+                let mut base = style().gap(t.spacing.s2).shrink(0);
+                if has_top && mode == ShellNavMode::Desktop {
+                    base = base.padding(t.spacing.s2);
+                }
+                if cx.rail() {
+                    base = base.align_items(Align::Center);
+                }
+                base
+            });
+            let items =
+                column(children).style(move || sidebar_items_style(cx, mode, has_top, has_bottom));
+            let items = if mode == ShellNavMode::Desktop {
+                scroll(items)
+                    .style(style().grow(1).min_height(0))
+                    .into_view()
+            } else {
+                items.into_view()
+            };
+            let bottom = has_bottom.then(|| {
+                let controls = row((
+                    (collapse_button.get() && collapsed.is_some())
+                        .then(|| side_nav_collapse_button().size(ControlSize::Small)),
+                    icons,
+                ))
+                .style(move || {
+                    style()
+                        .direction(if cx.rail() {
+                            Direction::ColumnReverse
+                        } else {
+                            logical_row()
+                        })
+                        .align_items(Align::Center)
+                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
+                });
+                column((
+                    footer.map(|slot| node().hidden(move || cx.rail()).child(slot)),
+                    controls,
+                ))
+                .style(move || sidebar_bottom_style(cx, mode))
+            });
+            (top, items, bottom)
+        })
+    }
+}
+fn sidebar_items_style(
+    cx: SideNavCx,
+    mode: ShellNavMode,
+    has_top: bool,
+    has_bottom: bool,
+) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let mut base = style().gap(t.spacing.s0_5);
+    if mode == ShellNavMode::Desktop {
+        base = base
+            .padding_x(t.spacing.s2)
+            .padding_top(if has_top { t.spacing.s1 } else { t.spacing.s2 })
+            .padding_bottom(if has_bottom {
+                t.spacing.s1
+            } else {
+                t.spacing.s2
+            });
+    }
+    if cx.rail() {
+        base = base.align_items(Align::Center);
+    }
+    base
+}
+fn sidebar_bottom_style(cx: SideNavCx, mode: ShellNavMode) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let mut base = style().margin_top(auto()).gap(t.spacing.s2).shrink(0);
+    if mode == ShellNavMode::Desktop {
+        base = base
+            .padding_x(t.spacing.s2)
+            .padding_bottom(t.spacing.s2)
+            .padding_top(if cx.rail() { 0.0 } else { t.spacing.s1 });
+    }
+    if cx.rail() {
+        base = base.align_items(Align::Center);
+    }
+    base
+}
+
+fn resize_grip(
+    resize: SideNavResize,
+    collapsed: Option<Binding<bool>>,
+    expanded_width: kivact::state::Signal<f64>,
+    nav_ref: kivact::view::NodeRef,
+) -> Node {
+    let size = binding(
+        move || {
+            if collapsed.is_some_and(|collapsed| collapsed.get()) {
+                0.0
+            } else {
+                expanded_width.get()
+            }
+        },
+        move |size| {
+            if let Some(collapsed) = collapsed {
+                collapsed.set(size < 160.0);
+            }
+            if size >= 160.0 {
+                expanded_width.set(size.clamp(resize.min, resize.max));
+            }
+        },
+    );
+    let behavior = use_splitter(
+        size,
+        ScalarRange::new(0.0, resize.max).expect("invariant: sidebar maximum is positive"),
+        Orientation::Horizontal,
+    )
+    .collapsible(160.0 / resize.max)
+    .key_step(10.0)
+    .expect("invariant: sidebar keyboard step is positive");
+    let part = behavior.handle();
+    let visual = part.state();
+    node()
+        .part(part)
+        .name(message("soft.side_nav.resize", "Resize sidebar"))
+        .controls(nav_ref)
+        .style(move || {
+            let base = style()
+                .position(Position::Absolute)
+                .top(0)
+                .bottom(0)
+                .width(16)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center)
+                .cursor(kivact::style::Cursor::EwResize);
+            if rtl() { base.left(0) } else { base.right(0) }
+        })
+        .child(node().style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let state = visual.get();
+            style()
+                .size(3, t.spacing.s8)
+                .radius(t.radius.full)
+                .translate_x(if rtl() { -7.0 } else { 7.0 })
+                .opacity(
+                    if state.dragging || state.input.hovered || state.input.focused {
+                        1.0
+                    } else {
+                        0.0
+                    },
+                )
+                .background(if state.dragging {
+                    t.colors.border_emphasized
+                } else {
+                    t.colors.border
+                })
+        }))
 }

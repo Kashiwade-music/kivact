@@ -178,20 +178,7 @@ pub(crate) fn nav_menu_view(
                 nav_entry(&items[key], part, heading, size)
             },
         );
-        let popup_header = heading.then(|| {
-            row((
-                text(label),
-                icon("chevron-down").style(style().size(16, 16).rotate(180)),
-            ))
-            .style(|| {
-                style()
-                    .direction(logical_row())
-                    .padding(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
-                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::SpaceBetween)
-            })
-        });
+        let popup_header = heading.then(move || nav_popup_header(label));
         let surface = nav_panel
             .surface(column((popup_header, rows)))
             .node_ref(panel_ref)
@@ -574,4 +561,19 @@ fn heading_trigger_style(
             .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
     }
     base
+}
+
+fn nav_popup_header(label: Value<String>) -> Node {
+    row((
+        text(label),
+        icon("chevron-down").style(style().size(16, 16).rotate(180)),
+    ))
+    .style(|| {
+        style()
+            .direction(logical_row())
+            .padding(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+            .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+            .align_items(Align::Center)
+            .justify_content(Justify::SpaceBetween)
+    })
 }

@@ -176,280 +176,25 @@ impl IntoView for SideNavItem {
             action,
         } = self;
         kivact::view::component(move || {
-            let cx = nav_cx();
-            let mode = shell_nav_mode();
-            let has_icon = leading.is_some() || selected_icon.is_some();
-            let has_selected_icon = selected_icon.is_some();
-            let child_slot = children.clone();
-            let has_children = children.is_some();
-            let mobile = use_app_shell_mobile();
-            let collapse = match collapse.get() {
-                ItemCollapse::AlwaysOpen => None,
-                ItemCollapse::Uncontrolled { default_collapsed } => {
-                    Some(signal(default_collapsed).into_binding())
-                }
-                ItemCollapse::Controlled(binding) => Some(binding),
-            };
-            let open = collapse.map(|collapse: Binding<bool>| {
-                binding(move || !collapse.get(), move |open| collapse.set(!open))
-            });
-            let disclosure = open
-                .filter(|_| has_children)
-                .map(|open| use_disclosure(open).disabled(disabled));
-            let independent = disclosure.is_some() && action.is_some();
-            let anchor = node_ref();
-            let popup_ref = node_ref();
-            let popup_panel = if children.is_some() && cx.collapsed.is_some() {
-                Some(crate::navigation_session::NavPanel::new(
-                    move || cx.rail() && !disabled.get(),
-                    Delays {
-                        open: Duration::from_millis(150),
-                        close: Duration::from_millis(200),
-                    },
-                ))
-            } else {
-                None
-            };
-            let popup = popup_panel.map(|panel| panel.open());
-            let leading = leading.map(|icon| {
-                icon_box(
-                    icon,
-                    move || has_selected_icon && selected.get(),
-                    selected,
-                    disabled,
-                )
-            });
-            let selected_glyph = selected_icon
-                .map(|icon| icon_box(icon, move || !selected.get(), selected, disabled));
-            let label_view = text(label)
-                .hidden(move || cx.rail())
-                .style(style().grow(1).min_width(0).single_line());
-            let chevron = disclosure.map(|disclosure| {
-                let glyph = icon("chevron-down").style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    style()
-                        .size(t.spacing.s6, t.spacing.s6)
-                        .rotate(if disclosure.is_open().get() { 180 } else { 0 })
-                        .transition(
-                            TransitionProp::Paint,
-                            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
-                        )
-                });
-                if independent {
-                    let collapse = message_with(
-                        "soft.side_nav.item_collapse",
-                        "Collapse {label}",
-                        move || [("label", label.get())],
-                    );
-                    let expand =
-                        message_with("soft.side_nav.item_expand", "Expand {label}", move || {
-                            [("label", label.get())]
-                        });
-                    button(move || {
-                        if disclosure.is_open().get() {
-                            collapse.get()
-                        } else {
-                            expand.get()
-                        }
-                    })
-                    .variant(ButtonVariant::Ghost)
-                    .size(ControlSize::Small)
-                    .hide_label(true)
-                    .icon(glyph)
-                    .with_node(move |node| node.part(disclosure.trigger()))
-                    .hidden(move || cx.rail())
-                    .into_view()
-                } else {
-                    glyph.hidden(move || cx.rail()).into_view()
-                }
-            });
-            let (inline_chevron, separate_chevron) = if independent {
-                (None, chevron)
-            } else {
-                (chevron, None)
-            };
-            let end = end.map(|end| node().hidden(move || cx.rail()).child(end));
-            let primary = node()
-                .node_ref(anchor)
-                .name(label)
-                .with_node(move |node| {
-                    node.role(if action.is_some() {
-                        Role::Link
-                    } else {
-                        Role::Button
-                    })
-                })
-                .focusable(move || {
-                    !disabled.get() && (action.is_some() || disclosure.is_some() || popup.is_some())
-                })
-                .disabled(disabled)
-                .selected(selected)
-                .with_node(move |node| {
-                    node.current_item(move || {
-                        selected.get().then_some(kivact::view::CurrentItem::Page)
-                    })
-                })
-                .style(move || {
-                    style()
-                        .direction(logical_row())
-                        .grow(1)
-                        .min_width(0)
-                        .align_self(Align::Stretch)
-                        .align_items(Align::Center)
-                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
-                        .focus_visible(crate::recipe_style::ring(
-                            &kivact::style::use_tokens::<crate::Tokens>(),
-                            kivact::style::use_tokens::<crate::Tokens>().colors.accent,
-                        ))
-                        .justify_content(if cx.rail() {
-                            Justify::Center
-                        } else {
-                            Justify::Start
-                        })
-                })
-                .child((leading, selected_glyph, label_view, end, inline_chevron));
-            let primary = if !independent {
-                if let Some(disclosure) = disclosure.filter(|_| popup.is_none()) {
-                    primary.with_node(move |node| node.part(disclosure.trigger()))
-                } else {
-                    primary
-                }
-            } else {
-                primary
-            };
-            let primary = primary.on_press(move || {
-                if disabled.get() {
-                    return;
-                }
-                if let Some(panel) = popup_panel.filter(|_| cx.rail()) {
-                    panel.toggle();
-                } else if let Some(action) = action {
-                    action.call(());
-                    if let Some(popup) = cx.popup {
-                        popup.set(false);
-                    }
-                    if mode == ShellNavMode::Drawer {
-                        mobile.close();
-                    }
-                } else if popup.is_some()
-                    && let Some(open) = open
-                {
-                    open.set(!open.get());
-                }
-            });
-            let primary = if let Some(panel) = popup_panel {
-                panel.trigger(primary)
-            } else {
-                primary
-            };
-            let primary = if children.is_none() && cx.collapsed.is_some() {
-                tooltip(label).placement(Placement::End).attach(primary)
-            } else {
-                primary.into_view()
-            };
-            let actions = actions.map(|actions| {
-                row(actions)
-                    .hidden(move || cx.rail())
-                    .style(|| style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1))
-            });
-            let bar = row((primary, separate_chevron, actions)).style(move || {
-                side_row_style(
-                    size.get(),
-                    cx.depth,
-                    cx.rail(),
-                    selected.get(),
-                    disabled.get(),
-                )
-            });
-            let nested = show(
-                move || {
-                    !cx.rail()
-                        && has_children
-                        && disclosure.is_none_or(|disclosure| disclosure.is_open().get())
-                },
-                move || {
-                    let child = child_slot.clone();
-                    let cx = SideNavCx {
-                        depth: cx.depth + 1,
-                        ..cx
-                    };
-                    provide(cx, move || {
-                        let group = column(child.map(|slot| slot.call(()))).style(|| {
-                            style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
-                        });
-                        if let Some(disclosure) = disclosure {
-                            let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
-                            group
-                                .with_node(move |node| node.role(Role::Group))
-                                .with_node(move |node| node.part(disclosure.content()))
-                                .style(
-                                    style()
-                                        .shrink(0)
-                                        .enter_size(kivact::view::Orientation::Vertical)
-                                        .exit_size(kivact::view::Orientation::Vertical)
-                                        .transition(
-                                            TransitionProp::Size,
-                                            Transition::tween(
-                                                motion.medium as f64,
-                                                motion.ease_standard,
-                                            ),
-                                        ),
-                                )
-                        } else {
-                            group.with_node(move |node| node.role(Role::Group))
-                        }
-                    })
-                },
+            let context = ItemContext::new(
+                label,
+                selected,
+                disabled,
+                collapse,
+                children.is_some(),
+                action,
+                size,
             );
-            let flyout = popup_panel.zip(children).map(|(nav_panel, children)| {
-                let open = nav_panel.open();
-                let behavior = use_dialog(open, DialogMode::Popover).anchor(anchor);
-                let title =
-                    message_with("soft.side_nav.item_submenu", "{label} submenu", move || {
-                        [("label", label.get())]
-                    });
-                show(behavior.is_open(), move || {
-                    let children = children.clone();
-                    let cx = SideNavCx {
-                        popup: Some(open),
-                        ..SideNavCx::default()
-                    };
-                    let surface = nav_panel
-                        .surface(column((
-                            text(label).style(|| {
-                                let t = kivact::style::use_tokens::<crate::Tokens>();
-                                style()
-                                    .padding_y(t.spacing.s1)
-                                    .padding_x(t.spacing.s2)
-                                    .font_size(t.typography.supporting.size_px)
-                                    .weight(t.typography.weight_semibold)
-                                    .color(t.colors.text_secondary)
-                            }),
-                            provide(cx, move || children.call(())),
-                        )))
-                        .node_ref(popup_ref)
-                        .style(|| {
-                            let t = kivact::style::use_tokens::<crate::Tokens>();
-                            let mut base = style()
-                                .background(t.colors.bg_popover)
-                                .min_width(180)
-                                .padding(t.spacing.s1)
-                                .radius(t.radius.container)
-                                .gap(t.spacing.s0_5);
-                            for shadow in &t.shadows.low {
-                                base = base.shadow(*shadow);
-                            }
-                            base
-                        });
-                    overlay(anchor, Placement::End, surface)
-                        .offset(4)
-                        .with_node(move |node| node.part(behavior.content()))
-                        .name(title)
-                })
-            });
-            root.hidden(move || cx.rail() && !has_icon)
-                .with_node(move |node| node.base_style(style().direction(Direction::Column)))
-                .child((bar, nested, flyout))
+            context.render(
+                root,
+                ItemSlots {
+                    leading,
+                    selected_icon,
+                    end,
+                    actions,
+                    children,
+                },
+            )
         })
     }
 }
@@ -652,3 +397,404 @@ impl IntoView for SideNavSection {
 }
 
 kivact::state::constant_value!(ItemCollapse);
+
+struct ItemSlots {
+    // xtask-allow(state-fields): Independent retained leading construction slot, without navigation state.
+    leading: Option<View>,
+    // xtask-allow(state-fields): Independent retained selected icon construction slot, without navigation state.
+    selected_icon: Option<View>,
+    // xtask-allow(state-fields): Independent retained end construction slot, without navigation state.
+    end: Option<View>,
+    // xtask-allow(state-fields): Independent retained actions construction slot, without navigation state.
+    actions: Option<View>,
+    // xtask-allow(state-fields): Independent retained children construction slot, without navigation state.
+    children: Option<ViewFn>,
+}
+#[derive(Clone, Copy)]
+struct ItemContext {
+    cx: SideNavCx,
+    mode: ShellNavMode,
+    // xtask-allow(state-fields): Derived from the presence of the immutable children factory, not an expansion phase.
+    has_children: bool,
+    mobile: crate::mobile_nav::AppShellMobile,
+    // xtask-allow(state-fields): Inverted view of the existing collapse binding; no second mutable open state is allocated.
+    open: Option<Binding<bool>>,
+    // xtask-allow(state-fields): Shared DisclosureApi owns its phase; this field retains only its handle.
+    disclosure: Option<kivact::interaction::DisclosureApi>,
+    // xtask-allow(state-fields): Derived from separate action and disclosure availability, not a gesture phase.
+    independent: bool,
+    anchor: kivact::view::NodeRef,
+    popup_ref: kivact::view::NodeRef,
+    // xtask-allow(state-fields): Existing shared navigation-panel handle; its lifecycle remains in the canonical controller.
+    popup_panel: Option<crate::navigation_session::NavPanel>,
+    // xtask-allow(state-fields): The existing panel open binding, never mirrored into a second signal.
+    popup: Option<Binding<bool>>,
+    label: Value<String>,
+    // xtask-allow(state-fields): Actual caller selection projection, independent of disclosure and popup phases.
+    selected: Value<bool>,
+    // xtask-allow(state-fields): Actual root availability projection, never copied into mutable local state.
+    disabled: Value<bool>,
+    size: Value<ControlSize>,
+    // xtask-allow(state-fields): Immutable caller activation callback, independent of the navigation lifecycle.
+    action: Option<Callback<()>>,
+}
+impl ItemContext {
+    fn new(
+        label: Value<String>,
+        selected: Value<bool>,
+        disabled: Value<bool>,
+        collapse: Value<ItemCollapse>,
+        has_children: bool,
+        action: Option<Callback<()>>,
+        size: Value<ControlSize>,
+    ) -> Self {
+        let cx = nav_cx();
+        let mode = shell_nav_mode();
+        let mobile = use_app_shell_mobile();
+        let collapse = match collapse.get() {
+            ItemCollapse::AlwaysOpen => None,
+            ItemCollapse::Uncontrolled { default_collapsed } => {
+                Some(signal(default_collapsed).into_binding())
+            }
+            ItemCollapse::Controlled(binding) => Some(binding),
+        };
+        let open = collapse.map(|collapse: Binding<bool>| {
+            binding(move || !collapse.get(), move |open| collapse.set(!open))
+        });
+        let disclosure = open
+            .filter(|_| has_children)
+            .map(|open| use_disclosure(open).disabled(disabled));
+        let independent = disclosure.is_some() && action.is_some();
+        let anchor = node_ref();
+        let popup_ref = node_ref();
+        let popup_panel = if has_children && cx.collapsed.is_some() {
+            Some(crate::navigation_session::NavPanel::new(
+                move || cx.rail() && !disabled.get(),
+                Delays {
+                    open: Duration::from_millis(150),
+                    close: Duration::from_millis(200),
+                },
+            ))
+        } else {
+            None
+        };
+        let popup = popup_panel.map(|panel| panel.open());
+        Self {
+            cx,
+            mode,
+            has_children,
+            mobile,
+            open,
+            disclosure,
+            independent,
+            anchor,
+            popup_ref,
+            popup_panel,
+            popup,
+            label,
+            selected,
+            disabled,
+            size,
+            action,
+        }
+    }
+    fn render(self, root: Node, slots: ItemSlots) -> Node {
+        let cx = self.cx;
+        let independent = self.independent;
+        let label = self.label;
+        let selected = self.selected;
+        let disabled = self.disabled;
+        let size = self.size;
+        let ItemSlots {
+            leading,
+            selected_icon,
+            end,
+            actions,
+            children,
+        } = slots;
+        let has_icon = leading.is_some() || selected_icon.is_some();
+        let has_selected_icon = selected_icon.is_some();
+        let leading = leading.map(|icon| {
+            icon_box(
+                icon,
+                move || has_selected_icon && selected.get(),
+                selected,
+                disabled,
+            )
+        });
+        let selected_glyph =
+            selected_icon.map(|icon| icon_box(icon, move || !selected.get(), selected, disabled));
+        let label_view = text(label)
+            .hidden(move || cx.rail())
+            .style(style().grow(1).min_width(0).single_line());
+        let chevron = self.chevron();
+        let (inline_chevron, separate_chevron) = if independent {
+            (None, chevron)
+        } else {
+            (chevron, None)
+        };
+        let end = end.map(|end| node().hidden(move || cx.rail()).child(end));
+        let primary = self.primary((leading, selected_glyph, label_view, end, inline_chevron));
+        let actions = actions.map(|actions| {
+            row(actions)
+                .hidden(move || cx.rail())
+                .style(|| style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1))
+        });
+        let bar = row((primary, separate_chevron, actions)).style(move || {
+            side_row_style(
+                size.get(),
+                cx.depth,
+                cx.rail(),
+                selected.get(),
+                disabled.get(),
+            )
+        });
+        let nested = self.nested(children.clone());
+        let flyout = self.flyout(children);
+        root.hidden(move || cx.rail() && !has_icon)
+            .with_node(move |node| node.base_style(style().direction(Direction::Column)))
+            .child((bar, nested, flyout))
+    }
+    fn chevron(self) -> Option<View> {
+        let cx = self.cx;
+        let disclosure = self.disclosure;
+        let independent = self.independent;
+        let label = self.label;
+        disclosure.map(|disclosure| {
+            let glyph = icon("chevron-down").style(move || {
+                let t = kivact::style::use_tokens::<crate::Tokens>();
+                style()
+                    .size(t.spacing.s6, t.spacing.s6)
+                    .rotate(if disclosure.is_open().get() { 180 } else { 0 })
+                    .transition(
+                        TransitionProp::Paint,
+                        Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+                    )
+            });
+            if independent {
+                let collapse = message_with(
+                    "soft.side_nav.item_collapse",
+                    "Collapse {label}",
+                    move || [("label", label.get())],
+                );
+                let expand =
+                    message_with("soft.side_nav.item_expand", "Expand {label}", move || {
+                        [("label", label.get())]
+                    });
+                button(move || {
+                    if disclosure.is_open().get() {
+                        collapse.get()
+                    } else {
+                        expand.get()
+                    }
+                })
+                .variant(ButtonVariant::Ghost)
+                .size(ControlSize::Small)
+                .hide_label(true)
+                .icon(glyph)
+                .with_node(move |node| node.part(disclosure.trigger()))
+                .hidden(move || cx.rail())
+                .into_view()
+            } else {
+                glyph.hidden(move || cx.rail()).into_view()
+            }
+        })
+    }
+    fn primary(self, content: impl IntoView) -> View {
+        let cx = self.cx;
+        let has_children = self.has_children;
+        let disclosure = self.disclosure;
+        let independent = self.independent;
+        let anchor = self.anchor;
+        let popup_panel = self.popup_panel;
+        let popup = self.popup;
+        let label = self.label;
+        let selected = self.selected;
+        let disabled = self.disabled;
+        let action = self.action;
+        let primary = node()
+            .node_ref(anchor)
+            .name(label)
+            .with_node(move |node| {
+                node.role(if action.is_some() {
+                    Role::Link
+                } else {
+                    Role::Button
+                })
+            })
+            .focusable(move || {
+                !disabled.get() && (action.is_some() || disclosure.is_some() || popup.is_some())
+            })
+            .disabled(disabled)
+            .selected(selected)
+            .with_node(move |node| {
+                node.current_item(move || selected.get().then_some(kivact::view::CurrentItem::Page))
+            })
+            .style(move || {
+                style()
+                    .direction(logical_row())
+                    .grow(1)
+                    .min_width(0)
+                    .align_self(Align::Stretch)
+                    .align_items(Align::Center)
+                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+                    .focus_visible(crate::recipe_style::ring(
+                        &kivact::style::use_tokens::<crate::Tokens>(),
+                        kivact::style::use_tokens::<crate::Tokens>().colors.accent,
+                    ))
+                    .justify_content(if cx.rail() {
+                        Justify::Center
+                    } else {
+                        Justify::Start
+                    })
+            })
+            .child(content);
+        let primary = if !independent {
+            if let Some(disclosure) = disclosure.filter(|_| popup.is_none()) {
+                primary.with_node(move |node| node.part(disclosure.trigger()))
+            } else {
+                primary
+            }
+        } else {
+            primary
+        };
+        let primary = primary.on_press(move || self.activate());
+        let primary = if let Some(panel) = popup_panel {
+            panel.trigger(primary)
+        } else {
+            primary
+        };
+        let primary = if !has_children && cx.collapsed.is_some() {
+            tooltip(label).placement(Placement::End).attach(primary)
+        } else {
+            primary.into_view()
+        };
+        primary
+    }
+    fn activate(self) {
+        let cx = self.cx;
+        let mode = self.mode;
+        let mobile = self.mobile;
+        let open = self.open;
+        let popup_panel = self.popup_panel;
+        let popup = self.popup;
+        let disabled = self.disabled;
+        let action = self.action;
+
+        if disabled.get() {
+            return;
+        }
+        if let Some(panel) = popup_panel.filter(|_| cx.rail()) {
+            panel.toggle();
+        } else if let Some(action) = action {
+            action.call(());
+            if let Some(popup) = cx.popup {
+                popup.set(false);
+            }
+            if mode == ShellNavMode::Drawer {
+                mobile.close();
+            }
+        } else if popup.is_some()
+            && let Some(open) = open
+        {
+            open.set(!open.get());
+        }
+    }
+    fn nested(self, children: Option<ViewFn>) -> impl IntoView {
+        let cx = self.cx;
+        let has_children = self.has_children;
+        let disclosure = self.disclosure;
+        let child_slot = children;
+        show(
+            move || {
+                !cx.rail()
+                    && has_children
+                    && disclosure.is_none_or(|disclosure| disclosure.is_open().get())
+            },
+            move || {
+                let child = child_slot.clone();
+                let cx = SideNavCx {
+                    depth: cx.depth + 1,
+                    ..cx
+                };
+                provide(cx, move || {
+                    let group = column(child.map(|slot| slot.call(()))).style(|| {
+                        style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
+                    });
+                    if let Some(disclosure) = disclosure {
+                        let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
+                        group
+                            .with_node(move |node| node.role(Role::Group))
+                            .with_node(move |node| node.part(disclosure.content()))
+                            .style(
+                                style()
+                                    .shrink(0)
+                                    .enter_size(kivact::view::Orientation::Vertical)
+                                    .exit_size(kivact::view::Orientation::Vertical)
+                                    .transition(
+                                        TransitionProp::Size,
+                                        Transition::tween(
+                                            motion.medium as f64,
+                                            motion.ease_standard,
+                                        ),
+                                    ),
+                            )
+                    } else {
+                        group.with_node(move |node| node.role(Role::Group))
+                    }
+                })
+            },
+        )
+    }
+    fn flyout(self, children: Option<ViewFn>) -> Option<impl IntoView> {
+        let anchor = self.anchor;
+        let popup_ref = self.popup_ref;
+        let popup_panel = self.popup_panel;
+        let label = self.label;
+        popup_panel.zip(children).map(|(nav_panel, children)| {
+            let open = nav_panel.open();
+            let behavior = use_dialog(open, DialogMode::Popover).anchor(anchor);
+            let title = message_with("soft.side_nav.item_submenu", "{label} submenu", move || {
+                [("label", label.get())]
+            });
+            show(behavior.is_open(), move || {
+                let children = children.clone();
+                let cx = SideNavCx {
+                    popup: Some(open),
+                    ..SideNavCx::default()
+                };
+                let surface = nav_panel
+                    .surface(column((
+                        text(label).style(|| {
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
+                            style()
+                                .padding_y(t.spacing.s1)
+                                .padding_x(t.spacing.s2)
+                                .font_size(t.typography.supporting.size_px)
+                                .weight(t.typography.weight_semibold)
+                                .color(t.colors.text_secondary)
+                        }),
+                        provide(cx, move || children.call(())),
+                    )))
+                    .node_ref(popup_ref)
+                    .style(|| {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        let mut base = style()
+                            .background(t.colors.bg_popover)
+                            .min_width(180)
+                            .padding(t.spacing.s1)
+                            .radius(t.radius.container)
+                            .gap(t.spacing.s0_5);
+                        for shadow in &t.shadows.low {
+                            base = base.shadow(*shadow);
+                        }
+                        base
+                    });
+                overlay(anchor, Placement::End, surface)
+                    .offset(4)
+                    .with_node(move |node| node.part(behavior.content()))
+                    .name(title)
+            })
+        })
+    }
+}
