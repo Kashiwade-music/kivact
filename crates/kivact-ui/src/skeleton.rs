@@ -49,13 +49,15 @@ impl IntoView for Skeleton {
         let tokens = kivact_core::style::use_tokens::<crate::UiTokens>();
         let period = tokens.indicators.period_ms;
         let delay = tokens.indicators.delay_ms + self.index as f64 * tokens.indicators.stagger_ms;
+        let transition = tokens
+            .indicators
+            .skeleton_transition
+            .clone()
+            .unwrap_or_else(|| Transition::tween(period as f64, Easing::EaseInOut));
         let pulse = Animated::from(
             1.0,
             0.5,
-            Transition::tween(period as f64, Easing::EaseInOut)
-                .delay(delay)
-                .repeat(Repeat::Forever)
-                .alternate(),
+            transition.delay(delay).repeat(Repeat::Forever).alternate(),
         );
         let reduced = kivact_core::platform::is_motion_reduced();
         effect(move || {

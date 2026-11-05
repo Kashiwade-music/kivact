@@ -53,3 +53,5 @@ Creative の `KeyGlyph` は editor の keyframe marker を描く domain 型で�
 `UiTokens::indicators.reduced_period_ms` は、動きを減らす設定でも spinner を必要な表示として遅い周期で回すオプションです。`None` は装飾的な動きを止めます。周期を指定した場合は設定の変更に応じて glyph のアニメーション owner を置き換え、status のノードとラベルは保ちます。
 
 `kbd("mod+shift+p")` と型付きの `kbd_combo` は、どちらもショートカットを個別の key cap に正規化します。`mod` は `Capabilities.command_key` に従います。読み上げる名前には翻訳済みの正式なキー名を使い、cap にはキーの glyph を表示します。command/cmd、control/ctrl、return/enter、esc/escape、矢印、プラス記号の cap 用の `plus` に対応します。テーマは枠のない行を `kbd`、各 `KbdKeyState` を `kbd_key` の scalar recipe で装飾します。メッセージカタログの `kbd.key.*` と `kbd.separator` で翻訳できます。
+
+`UiTokens::indicators.skeleton_transition` は skeleton の基本 tween を上書きします。コンポーネントが初期遅延、index の時間差、交互の反復を加え、一つの `Animated` と動きを減らす場合の一時停止を保ちます。

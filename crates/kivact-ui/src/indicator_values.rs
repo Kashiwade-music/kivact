@@ -43,6 +43,8 @@ pub struct IndicatorTokens {
     pub period_ms: u64,
     /// Essential spinner cycle under reduced motion; absent keeps decorative motion paused.
     pub reduced_period_ms: Option<u64>,
+    /// Optional skeleton base tween; index delay and alternating repetition are added by the component.
+    pub skeleton_transition: Option<kivact_core::motion::Transition>,
     pub delay_ms: f64,
     pub stagger_ms: f64,
     pub line_height: f64,
@@ -53,6 +55,7 @@ impl Default for IndicatorTokens {
         Self {
             period_ms: 1000,
             reduced_period_ms: None,
+            skeleton_transition: None,
             delay_ms: 0.0,
             stagger_ms: 100.0,
             line_height: 16.0,
