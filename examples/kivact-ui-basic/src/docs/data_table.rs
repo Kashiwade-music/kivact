@@ -39,14 +39,14 @@ struct Payment {
     amount: f64,
 }
 
-fn payments() -> impl IntoView {
+fn payment_rows() -> Vec<Payment> {
     let payment = |id, status, email, amount| Payment {
         id,
         status,
         email,
         amount,
     };
-    let data = vec![
+    vec![
         payment(1, "success", "ken99@example.com", 316.0),
         payment(2, "success", "abe45@example.com", 242.0),
         payment(3, "processing", "monserrat44@example.com", 837.0),
@@ -54,7 +54,11 @@ fn payments() -> impl IntoView {
         payment(5, "failed", "carmella@example.com", 721.0),
         payment(6, "pending", "dora71@example.com", 99.0),
         payment(7, "success", "zed@example.com", 15.0),
-    ];
+    ]
+}
+
+fn payments() -> impl IntoView {
+    let data = payment_rows();
     let query = signal(String::new());
     let selected = signal(Vec::<u32>::new());
     let sort = signal(None);

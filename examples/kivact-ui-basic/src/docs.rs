@@ -8,6 +8,10 @@
 //! `model`.
 
 use crate::model::Page;
+#[expect(
+    clippy::disallowed_types,
+    reason = "Static immutable catalog metadata is shared process-wide; no instance lifecycle or late-filled application state."
+)]
 use std::sync::LazyLock;
 
 mod accordion;
@@ -78,6 +82,10 @@ mod trace;
 mod typography;
 
 /// Every page in alphabetical order.
+#[expect(
+    clippy::disallowed_types,
+    reason = "Static immutable catalog metadata is shared process-wide; no instance lifecycle or late-filled application state."
+)]
 pub(crate) static PAGES: LazyLock<Vec<Page>> = LazyLock::new(|| {
     vec![
         accordion::page(),
