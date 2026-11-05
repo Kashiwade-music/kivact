@@ -44,14 +44,14 @@ The standard APIs in this table come from `kivact::ui`.
 | Badge / Banner / Blockquote | `badge`, `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
-| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_button_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
+| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | `calendar`, `calendar_range` |
 | Card | `card`, `clickable_card`, `selectable_card` |
 | Carousel | `carousel`, `use_carousel` |
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
 | Citation / Code / Code Block | `citation`, `code`, `code_block` |
-| Collapsible | `collapsible`, `collapsible_group`. Disclosure state belongs to the binding. |
+| Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selection)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
 | Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
 | Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
 | Date Input | `date_input`, `date_range_input`, `date_time_input` |
@@ -363,6 +363,8 @@ Number, date, and time filter fields validate values entered as text.
 - `button_icon`
 - `button_busy`
 - `toggle`
+- `button_group`
+- `toggle_group`
 - `checkbox`
 - `checkbox_indicator`
 - `checkbox_check`

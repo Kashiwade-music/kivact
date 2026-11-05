@@ -80,7 +80,7 @@ fn variants() -> impl IntoView {
                 // The spinner is a status of its own; the toast already announces it.
                 toaster().push(
                     Toast::new("Loading toast")
-                        .icon(|| basic::spinner().with_node(|node| node.role(Role::Generic)))
+                        .icon(|| kivact::ui::spinner().with_node(|node| node.role(Role::Generic)))
                         .duration(None),
                 );
             }),

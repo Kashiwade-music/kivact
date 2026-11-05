@@ -4,7 +4,7 @@ use kivact::draw::{Shadow, linear_gradient};
 use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color, Direction, Justify, Style, Theme, pct, style, use_theme};
-use kivact::ui::{AvatarState, ControlSize, Look, Variant};
+use kivact::ui::{AvatarShape, AvatarState, ControlSize, Look, Variant};
 use kivact::view::{IntoView, node, show};
 
 // xtask-allow(state-fields): Independent reactive decoration and appearance options, never runtime lifecycle flags.
@@ -109,7 +109,11 @@ pub(crate) fn avatar(_: &Theme, look: &Look<AvatarState>) -> Style {
     style()
         .size(size, size)
         .shrink(0)
-        .radius(999)
+        .radius(match look.shape {
+            AvatarShape::Circle => 999.0,
+            AvatarShape::Rounded => 8.0,
+            AvatarShape::Square => 0.0,
+        })
         .direction(Direction::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)

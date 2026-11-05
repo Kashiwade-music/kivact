@@ -82,11 +82,11 @@ mod questionnaire;
 mod recipes;
 mod recipes_collections;
 mod recipes_combobox;
-mod recipes_groups;
 mod recipes_command;
 mod recipes_controls;
 mod recipes_dialog;
 mod recipes_field;
+mod recipes_groups;
 mod recipes_menu;
 mod recipes_popup;
 mod scroll_area;
@@ -104,7 +104,7 @@ pub use attachment::{
     attachment_action, attachment_group,
 };
 pub use avatar::{Avatar, AvatarSize, avatar, avatar_group, avatar_group_count};
-pub use badge::{Badge, BadgeVariant, badge};
+pub use badge::BadgeVariant;
 pub use breadcrumb::{
     BreadcrumbLink, breadcrumb, breadcrumb_content, breadcrumb_ellipsis, breadcrumb_link,
     breadcrumb_page, breadcrumb_separator,
@@ -161,7 +161,7 @@ pub use input_group::{
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
 pub use primitives::{
-    Label, Separator, Skeleton, aspect_ratio, kbd, kbd_group, label, separator, skeleton, spinner,
+    Label, Separator, aspect_ratio, label, separator,
 };
 pub use questionnaire::{
     Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,

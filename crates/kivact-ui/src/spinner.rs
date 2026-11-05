@@ -48,7 +48,9 @@ impl IntoView for Spinner {
         let turn = Animated::from(
             0.0,
             360.0,
-            Transition::tween(period as f64, Easing::Linear).repeat(Repeat::Forever),
+            Transition::tween(period as f64, Easing::Linear)
+                .repeat(Repeat::Forever)
+                .essential(),
         );
         let size = self.size;
         let glyph = crate::layer::with_base_recipe_style(

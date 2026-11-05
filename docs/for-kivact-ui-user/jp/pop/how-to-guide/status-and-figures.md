@@ -41,11 +41,11 @@ fn figures() -> impl IntoView {
 
 ## パネルと見出しでまとめる
 
-`pop::panel(children)` は、枠線付きで子要素を縦に並べるカードです。`pop::section_heading(number, title, subtitle)` は、複数のセクションを持つ画面向けの番号付き見出しです。セクションごとに `panel` で囲みます。
+`kivact::ui::card(children)` は、枠線付きで子要素を縦に並べるカードです。`pop::section_heading(number, title, subtitle)` は、複数のセクションを持つ画面向けの番号付き見出しです。セクションごとに `panel` で囲みます。
 
 ## 状態付きのレコードを並べる
 
-`pop::list_item(title)` は、レコード 1 件の行です。丸いアイコン（任意）、タイトルとサブタイトル、末尾に置くビューを持ちます。`kivact::ui::badge(label)` は状態のチップです。
+`kivact::ui::item_row(title)` は、レコード 1 件の行です。丸いアイコン（任意）、タイトルとサブタイトル、末尾に置くビューを持ちます。`kivact::ui::badge(label)` は状態のチップです。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -60,18 +60,17 @@ struct Customer {
 }
 
 fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
-    pop::panel((
+    kivact::ui::card((
         pop::section_heading("01", "Customers", "Last 7 days"),
-        for_each(
+        kivact::ui::item_list((for_each(
             rows,
             |customer: &Customer| customer.name,
             |customer| {
                 let customer = customer.get_untracked();
-                pop::list_item(customer.name)
-                    .subtitle(customer.plan)
-                    .icon(Icon::named("user"))
-                    .tone(pop::Hue::Blue)
-                    .trailing({
+                kivact::ui::item_row(customer.name)
+                    .description(customer.plan)
+                    .media(kivact::view::icon(Icon::named("user"))).variant(pop::ItemHue::new(pop::Hue::Blue))
+                    .actions({
                         if customer.active {
                             kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))
                         } else {
@@ -79,14 +78,14 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
                         }
                     })
             },
-        ),
+        ),)),
     ))
     .style(style().width(420).margin(24).gap(8))
 }
 # fn main() {}
 ```
 
-`for_each(items, key, row)` は顧客ごとに `list_item` を 1 つ作り、一覧が変わっても各行（とその状態）を保ちます。source がシグナルなので、行のクロージャーは `Binding<Customer>` を 1 つ受け取ります。顧客のデータが変わる場合は、reactive な文字やスタイルのクロージャーで読みます。`.trailing(..)` は一度だけ mount するビューを受け取ります。
+`for_each(items, key, row)` は顧客ごとに `list_item` を 1 つ作り、一覧が変わっても各行（とその状態）を保ちます。source がシグナルなので、行のクロージャーは `Binding<Customer>` を 1 つ受け取ります。顧客のデータが変わる場合は、reactive な文字やスタイルのクロージャーで読みます。`.actions(..)` は一度だけ mount するビューを受け取ります。
 
 `badge` は `.variant(pop::BadgeVariant::..)` で 5 つの見た目を持ちます。`Soft`（既定）、`Dot`（ラベルの前に色付きの点）、`Solid`、`Slant`、`Count`（小さな数字）です。色は `.hue(pop::Hue::..)` で、`Blue`、`Mint`、`Yellow`、`Pink`、`Red`、`Gray` のいずれかです。
 
@@ -99,7 +98,7 @@ use kivact::prelude::*;
 use kivact_ui_pop as pop;
 
 fn details() -> impl IntoView {
-    pop::panel((
+    kivact::ui::card((
         pop::key_value("Name", text("Haruka Sato")),
         pop::key_value("Plan", text("Team")),
         pop::key_value("Status", kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))),

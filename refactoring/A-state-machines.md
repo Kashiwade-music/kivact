@@ -1003,7 +1003,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 ### SM-K22 soft の banner の focus の復元
 - **場所**: `kivact-ui-soft/src/banner.rs:137-155`（`dismissed` と、`Owner::current`・`focused_node` で手で持つ前の focus）
-- **解消後**: core の `restore_focus`（`FocusReturn`）を使い、`enum BannerState { Shown { restore: Option<NodeRef> }, Dismissed }`
+- **解消後**: core の `restore_focus`（`FocusReturn`）を使い、`enum BannerState { Shown { restore: Option<NodeToken> }, Dismissed }`
 - **unit**: K-6b（banner は `ui::alert` の variant になる）
 
 ### SM-K23 soft の empty state の読み上げ
@@ -1320,4 +1320,9 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 ### SM-K924 alert の focus 復帰先
 
 - **場所**: kivact-ui/src/alert.rs の phase と previous Signal、effect の previous.set。
-- **解消後**: `BannerState::{Shown { restore: Option<NodeRef> }, Dismissed}` を Machine が所有。外部 focus と focus_within は event feed、Dismiss は復帰先と通知を一度だけ effect に出す。直前の外部 target を別 signal や cache に複製しない。
+- **解消後**: `BannerState::{Shown { restore: Option<NodeToken> }, Dismissed}` を Machine が所有。外部 focus と focus_within は event feed、Dismiss は復帰先と通知を一度だけ effect に出す。直前の外部 target を別 signal や cache に複製しない。
+
+### SM-K925 typed range の未確定候補
+
+- **場所**: kivact-ui/src/date_range_input.rs の endpoint validation 集約と即時 DateRange::new 正規化。
+- **解消後**: 単一 `RangeDraft::{Following, Editing { start: Option<CalendarDate>, end: Option<CalendarDate> }}` が候補を所有し、validation は候補から決定する。caller の DateRange は順序が正しい完全な候補だけを書き、invalid order は localized diagnostic として残す。外部 binding の変更で Following へ戻り、別の parsed date signal を複製しない。

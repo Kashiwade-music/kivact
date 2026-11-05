@@ -114,9 +114,38 @@ impl std::fmt::Debug for DebugWith<'_> {
 pub(super) struct Variants(Rc<RefCell<Extensions>>);
 
 impl Variants {
+    /// Merge inherited group decoration while preserving panel-specific types.
+    pub(super) fn inherited(&self, parent: &Self) -> Self {
+        let own = self.0.borrow();
+        let parent = parent.0.borrow();
+        let mut entries = parent
+            .0
+            .iter()
+            .filter(|entry| {
+                !own.0
+                    .iter()
+                    .any(|value| (*value.value).type_id() == (*entry.value).type_id())
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        entries.extend(own.0.iter().cloned());
+        Self(Rc::new(RefCell::new(Extensions(Rc::new(entries)))))
+    }
+
     pub(super) fn add<T: Variant>(&self, value: T) {
         let mut ext = self.0.borrow_mut();
         *ext = std::mem::take(&mut *ext).with(value);
+    }
+
+    /// Merge presentation values, replacing only values of the same type.
+    pub(super) fn merge(&self, other: &Self) {
+        let incoming = other.0.borrow().clone();
+        let mut current = self.0.borrow_mut();
+        let entries = Rc::make_mut(&mut current.0);
+        for entry in incoming.0.iter() {
+            entries.retain(|existing| (*existing.value).type_id() != (*entry.value).type_id());
+            entries.push(entry.clone());
+        }
     }
 
     /// An independent recipe look for one presentation of this component.

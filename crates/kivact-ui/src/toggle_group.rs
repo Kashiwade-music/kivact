@@ -12,6 +12,8 @@ use kivact_core::view::{
 };
 use kivact_interaction::{IntoSelection, ListItem, Selection};
 
+type ToggleItemSlot<K> = ViewFn<(Value<ListItem<K>>, Value<ToggleButtonState>)>;
+
 /// Single or multiple toggles with native roving focus, created by [`toggle_group`].
 pub struct ToggleGroup<K: ItemKey> {
     root: Node,
@@ -26,7 +28,7 @@ pub struct ToggleGroup<K: ItemKey> {
     // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     on_edit: Option<Callback<EditPhase>>,
     // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    item: Option<ViewFn<(Value<ListItem<K>>, Value<ToggleButtonState>)>>,
+    item: Option<ToggleItemSlot<K>>,
     variants: Variants,
 }
 
@@ -172,24 +174,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                             }
                         });
                 let state = part.state();
-                let content = match &slot {
-                    Some(slot) => slot.call((item, state)),
-                    None => (
-                        crate::helpers::item_icon(move || {
-                            let item = item.get();
-                            if pressed.get() {
-                                item.pressed_icon().or_else(|| item.icon()).cloned()
-                            } else {
-                                item.icon().cloned()
-                            }
-                        }),
-                        crate::helpers::visible_label(
-                            (move || item.get().label()).into_value(),
-                            Some(icon_only),
-                        ),
-                    )
-                        .into_view(),
-                };
+                let content = item_content(&slot, item, state, pressed, icon_only);
                 with_base_recipe_style(
                     node().name(move || item.get().label()),
                     |r| r.toggle_group_recipes().item_recipe(),
@@ -226,5 +211,32 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         )
         .child(rows)
         .into_view()
+    }
+}
+
+fn item_content<K: ItemKey>(
+    slot: &Option<ToggleItemSlot<K>>,
+    item: Value<ListItem<K>>,
+    state: Value<ToggleButtonState>,
+    pressed: Binding<bool>,
+    icon_only: Value<bool>,
+) -> View {
+    match slot {
+        Some(slot) => slot.call((item, state)),
+        None => (
+            crate::helpers::item_icon(move || {
+                let item = item.get();
+                if pressed.get() {
+                    item.pressed_icon().or_else(|| item.icon()).cloned()
+                } else {
+                    item.icon().cloned()
+                }
+            }),
+            crate::helpers::visible_label(
+                (move || item.get().label()).into_value(),
+                Some(icon_only),
+            ),
+        )
+            .into_view(),
     }
 }

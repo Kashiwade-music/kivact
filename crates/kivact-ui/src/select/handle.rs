@@ -23,6 +23,8 @@ pub struct SelectSheetOption(pub ControlSize);
 
 impl Variant for SelectSheetOption {}
 
+type TouchSheet = (Rc<dyn Fn() -> bool>, SheetFactory);
+type OptionRows = Rc<dyn Fn(bool) -> View>;
 type SheetContent = kivact_core::view::ViewFn;
 type SheetFactory = Rc<dyn Fn(Value<String>, Binding<bool>, NodeRef, SheetContent) -> View>;
 
@@ -44,7 +46,7 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
     variants: Variants,
     arrow_open: Value<bool>,
     keep_trigger_focus: Value<bool>,
-    touch_sheet: Option<(Rc<dyn Fn() -> bool>, SheetFactory)>,
+    touch_sheet: Option<TouchSheet>,
 }
 /// A themed keyed select whose value, focus and keys belong to interaction.
 ///
@@ -207,75 +209,17 @@ impl<K: kivact_core::state::ItemKey> NodeBuilder for Select<K> {
 }
 impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
     fn into_view(mut self) -> View {
-        let mut behavior =
-            kivact_interaction::use_select(self.settings.options, self.settings.selected)
-                .open_on_arrow(self.settings.arrow_open)
-                .keep_trigger_focus(self.settings.keep_trigger_focus);
-        if let Some(observer) = self.settings.on_edit {
-            behavior = behavior.on_edit(move |phase| observer.call(phase));
-        }
-        if let Some(text) = self.settings.placeholder {
-            behavior = behavior.placeholder(text);
-        }
-        if let Some(preview) = self.settings.preview {
-            behavior = behavior.on_active_change(move |key| preview.try_call(key));
-        }
+        let behavior = configure_select(&self.settings);
         let anchor = kivact_core::view::node_ref();
         let shown = behavior.is_open();
         let open = behavior.open_binding();
         let sheet_open = behavior.is_sheet_open();
-        let (trigger, sheet_factory) = if let Some((eligible, factory)) = self.settings.touch_sheet
-        {
-            let disabled = self.root.accessible_disabled();
-            let bounds = anchor.rect();
-            let gesture = kivact_core::state::machine(
-                machine::SheetGesture::Idle,
-                move || machine::Machine {
-                    readiness: if shown.get() || disabled.as_ref().is_some_and(|read| read.get()) {
-                        machine::Readiness::Unavailable
-                    } else {
-                        machine::Readiness::Ready
-                    },
-                    bounds: bounds.get(),
-                    slop: kivact_core::style::use_theme()
-                        .get()
-                        .ext::<kivact_interaction::InteractionPolicy>()
-                        .select
-                        .sheet_slop,
-                },
-                |_, effect| match effect {},
-            );
-            let trigger = behavior.trigger_with_sheet(move || {
-                let tap = matches!(
-                    gesture.get(),
-                    machine::SheetGesture::Released(machine::Outcome::Tap)
-                );
-                gesture.send(machine::Event::Reset);
-                tap && eligible()
-            });
-            let trigger_state = trigger.state();
-            let trigger = kivact_core::custom::Part::new(trigger_state, move |host| {
-                host.part(trigger)
-                    .on_pointer(move |event| {
-                        gesture.send(machine::Event::Pointer(event));
-                        Handled::No
-                    })
-                    .on_key(move |_| {
-                        gesture.send(machine::Event::Reset);
-                        Handled::No
-                    })
-                    .has_popup(move || {
-                        Some(if sheet_open.get() {
-                            PopupKind::Dialog
-                        } else {
-                            PopupKind::ListBox
-                        })
-                    })
-            });
-            (trigger, Some(factory))
-        } else {
-            (behavior.trigger(), None)
-        };
+        let (trigger, sheet_factory) = select_trigger(
+            behavior,
+            &mut self.root,
+            anchor,
+            self.settings.touch_sheet.take(),
+        );
 
         let state = trigger.state();
         let (options, selected, size) = (
@@ -283,19 +227,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             self.settings.selected.into_value(),
             self.settings.size,
         );
-        let trigger_state = kivact_core::state::memo(move || {
-            let PopupState { input, open } = state.get();
-            let placeholder = selected.with(|key| {
-                key.as_ref()
-                    .is_none_or(|key| options.with(|rows| rows.iter().all(|row| row.key() != key)))
-            });
-            SelectTriggerState {
-                input,
-                open,
-                placeholder,
-                size: size.get(),
-            }
-        });
+        let trigger_state = trigger_projection(state, options, selected, size);
         self.root = with_base_recipe_style(
             self.root,
             |r| r.select_recipes().trigger_recipe(),
@@ -324,92 +256,14 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             .child(self.settings.icon)
             .child(text(behavior.label()).style(style().grow(1).single_line()))
             .child(indicator);
-        let options = self.settings.options;
-        let slot = self.settings.option;
-        let body_variants = variants.clone();
-        let build = Rc::new(move |sheet: bool| {
-            let slot = slot.clone();
-            let rows = body_variants.clone();
-            for_each(
-                options,
-                |item| item.key().clone(),
-                move |item| {
-                    let key = item.with_untracked(|item| item.key().clone());
-                    let variants = &rows;
-                    let lines = rows.clone();
-                    let part = if sheet {
-                        behavior.sheet_item(key)
-                    } else {
-                        behavior.item(key)
-                    };
-                    let state = part.state();
-                    let content = match &slot {
-                        Some(slot) => slot.call((item, state)),
-                        None => (
-                            crate::helpers::item_icon(move || item.get().icon().cloned()),
-                            crate::helpers::label_and_description(
-                                move || item.get().label(),
-                                move || item.get().description(),
-                                move |line| {
-                                    with_option_style(
-                                        line,
-                                        |r| r.select_recipes().description_recipe(),
-                                        &lines,
-                                        state,
-                                        size,
-                                        sheet,
-                                    )
-                                },
-                            ),
-                            with_option_style(
-                                node(),
-                                |r| r.select_recipes().check_recipe(),
-                                variants,
-                                state,
-                                size,
-                                sheet,
-                            )
-                            .child(kivact_core::view::dynamic(
-                                move || state.get().selected,
-                                |selected| selected.then(|| kivact_core::view::icon("check")),
-                            )),
-                        )
-                            .into_view(),
-                    };
-                    with_option_style(
-                        node().part(part),
-                        |r| r.select_recipes().option_recipe(),
-                        variants,
-                        state,
-                        size,
-                        sheet,
-                    )
-                    .child(content)
-                },
-            )
-        });
-        let popup_build = build.clone();
-        let surface = show(
-            move || shown.get() && !sheet_open.get(),
-            move || {
-                let part = behavior.content();
-                let state = part.state();
-                overlay(
-                    anchor,
-                    Placement::Below,
-                    with_recipe_style(
-                        scroll(column(popup_build(false))),
-                        |r| r.select_recipes().surface_recipe(),
-                        &variants,
-                        move || state.get(),
-                    ),
-                )
-                .with_node(|node| node.part(part))
-                .name(label)
-                .offset(4.0)
-                .at_least_anchor_width()
-            },
+        let build = option_rows(
+            behavior,
+            self.settings.options,
+            self.settings.option,
+            size,
+            variants.clone(),
         );
+        let surface = popup_surface(behavior, anchor, label, variants, build.clone());
         let sheet = sheet_factory.map(|factory| {
             let visible = binding(
                 move || shown.get() && sheet_open.get(),
@@ -452,5 +306,215 @@ fn with_option_style(
         };
         let theme = kivact_core::style::use_theme().get();
         pick(&crate::layer::recipes(&theme))(&theme, &variants.look(state.get()))
+    })
+}
+
+/// Apply independent interaction configuration before constructing select parts.
+fn configure_select<K: kivact_core::state::ItemKey>(
+    settings: &SelectOptions<K>,
+) -> kivact_interaction::SelectApi<K> {
+    let mut behavior = kivact_interaction::use_select(settings.options, settings.selected)
+        .open_on_arrow(settings.arrow_open)
+        .keep_trigger_focus(settings.keep_trigger_focus);
+    if let Some(observer) = settings.on_edit {
+        behavior = behavior.on_edit(move |phase| observer.call(phase));
+    }
+    if let Some(text) = settings.placeholder {
+        behavior = behavior.placeholder(text);
+    }
+    if let Some(preview) = settings.preview {
+        behavior = behavior.on_active_change(move |key| preview.try_call(key));
+    }
+    behavior
+}
+
+/// Recognize touch-sheet activation while preserving the canonical trigger part.
+fn select_trigger<K: kivact_core::state::ItemKey>(
+    behavior: kivact_interaction::SelectApi<K>,
+    root: &mut Node,
+    anchor: NodeRef,
+    touch_sheet: Option<TouchSheet>,
+) -> (kivact_core::custom::Part<PopupState>, Option<SheetFactory>) {
+    let shown = behavior.is_open();
+    let sheet_open = behavior.is_sheet_open();
+    if let Some((eligible, factory)) = touch_sheet {
+        let disabled = root.accessible_disabled();
+        let bounds = anchor.rect();
+        let gesture = kivact_core::state::machine(
+            machine::SheetGesture::Idle,
+            move || machine::Machine {
+                readiness: if shown.get() || disabled.as_ref().is_some_and(|read| read.get()) {
+                    machine::Readiness::Unavailable
+                } else {
+                    machine::Readiness::Ready
+                },
+                bounds: bounds.get(),
+                slop: kivact_core::style::use_theme()
+                    .get()
+                    .ext::<kivact_interaction::InteractionPolicy>()
+                    .select
+                    .sheet_slop,
+            },
+            |_, effect| match effect {},
+        );
+        let trigger = behavior.trigger_with_sheet(move || {
+            let tap = matches!(
+                gesture.get(),
+                machine::SheetGesture::Released(machine::Outcome::Tap)
+            );
+            gesture.send(machine::Event::Reset);
+            tap && eligible()
+        });
+        let trigger_state = trigger.state();
+        let trigger = kivact_core::custom::Part::new(trigger_state, move |host| {
+            host.part(trigger)
+                .on_pointer(move |event| {
+                    gesture.send(machine::Event::Pointer(event));
+                    Handled::No
+                })
+                .on_key(move |_| {
+                    gesture.send(machine::Event::Reset);
+                    Handled::No
+                })
+                .has_popup(move || {
+                    Some(if sheet_open.get() {
+                        PopupKind::Dialog
+                    } else {
+                        PopupKind::ListBox
+                    })
+                })
+        });
+        (trigger, Some(factory))
+    } else {
+        (behavior.trigger(), None)
+    }
+}
+
+/// Build the same keyed options for popup and sheet presentation.
+fn option_rows<K: kivact_core::state::ItemKey>(
+    behavior: kivact_interaction::SelectApi<K>,
+    options: Value<Vec<ListItem<K>>>,
+    slot: Option<OptionContent<K>>,
+    size: Value<ControlSize>,
+    variants: Variants,
+) -> OptionRows {
+    let body_variants = variants.clone();
+    Rc::new(move |sheet: bool| {
+        let slot = slot.clone();
+        let rows = body_variants.clone();
+        for_each(
+            options,
+            |item| item.key().clone(),
+            move |item| {
+                let key = item.with_untracked(|item| item.key().clone());
+                let variants = &rows;
+                let lines = rows.clone();
+                let part = if sheet {
+                    behavior.sheet_item(key)
+                } else {
+                    behavior.item(key)
+                };
+                let state = part.state();
+                let content = match &slot {
+                    Some(slot) => slot.call((item, state)),
+                    None => (
+                        crate::helpers::item_icon(move || item.get().icon().cloned()),
+                        crate::helpers::label_and_description(
+                            move || item.get().label(),
+                            move || item.get().description(),
+                            move |line| {
+                                with_option_style(
+                                    line,
+                                    |r| r.select_recipes().description_recipe(),
+                                    &lines,
+                                    state,
+                                    size,
+                                    sheet,
+                                )
+                            },
+                        ),
+                        with_option_style(
+                            node(),
+                            |r| r.select_recipes().check_recipe(),
+                            variants,
+                            state,
+                            size,
+                            sheet,
+                        )
+                        .child(kivact_core::view::dynamic(
+                            move || state.get().selected,
+                            |selected| selected.then(|| kivact_core::view::icon("check")),
+                        )),
+                    )
+                        .into_view(),
+                };
+                with_option_style(
+                    node().part(part),
+                    |r| r.select_recipes().option_recipe(),
+                    variants,
+                    state,
+                    size,
+                    sheet,
+                )
+                .child(content)
+            },
+        )
+        .into_view()
+    })
+}
+
+/// Mount the anchored options only while the popup surface is selected.
+fn popup_surface<K: kivact_core::state::ItemKey>(
+    behavior: kivact_interaction::SelectApi<K>,
+    anchor: NodeRef,
+    label: Value<String>,
+    variants: Variants,
+    popup_build: OptionRows,
+) -> View {
+    let shown = behavior.is_open();
+    let sheet_open = behavior.is_sheet_open();
+    show(
+        move || shown.get() && !sheet_open.get(),
+        move || {
+            let part = behavior.content();
+            let state = part.state();
+            overlay(
+                anchor,
+                Placement::Below,
+                with_recipe_style(
+                    scroll(column(popup_build(false))),
+                    |r| r.select_recipes().surface_recipe(),
+                    &variants,
+                    move || state.get(),
+                ),
+            )
+            .with_node(|node| node.part(part))
+            .name(label)
+            .offset(4.0)
+            .at_least_anchor_width()
+        },
+    )
+    .into_view()
+}
+
+/// Project placeholder availability from the actual selected key and option source.
+fn trigger_projection<K: kivact_core::state::ItemKey>(
+    state: Value<PopupState>,
+    options: Value<Vec<ListItem<K>>>,
+    selected: Value<Option<K>>,
+    size: Value<ControlSize>,
+) -> Value<SelectTriggerState> {
+    kivact_core::state::memo(move || {
+        let PopupState { input, open } = state.get();
+        let placeholder = selected.with(|key| {
+            key.as_ref()
+                .is_none_or(|key| options.with(|rows| rows.iter().all(|row| row.key() != key)))
+        });
+        SelectTriggerState {
+            input,
+            open,
+            placeholder,
+            size: size.get(),
+        }
     })
 }

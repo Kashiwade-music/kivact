@@ -4,7 +4,6 @@ use super::machine::{
     TypedSnapshot,
 };
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
 use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Edge;
@@ -42,6 +41,7 @@ impl DatePresentation {
 /// An editable locale-sensitive date, created by [`date_input`].
 pub struct DateInput {
     root: Node,
+    variants: crate::variants::Variants,
     label: Value<String>,
     value: Binding<Option<CalendarDate>>,
     format: Value<DateStyle>,
@@ -61,6 +61,7 @@ pub fn date_input(
 ) -> DateInput {
     DateInput {
         root: node(),
+        variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         value: value.into_binding(),
         format: DateStyle::Iso.into_value(),
@@ -75,6 +76,15 @@ pub fn date_input(
     }
 }
 impl DateInput {
+    /// Add a visual variant shared by the field and its picker surface.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+    pub(crate) fn with_variants(self, variants: &crate::variants::Variants) -> Self {
+        self.variants.merge(variants);
+        self
+    }
     /// Date text format, read reactively.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -129,8 +139,22 @@ impl NodeBuilder for DateInput {
 }
 impl IntoView for DateInput {
     fn into_view(self) -> View {
+        self.render(crate::date_trigger::FieldPresentation::Text)
+    }
+}
+impl DateInput {
+    /// Open the configured picker from a caller-owned button, without a text editor.
+    /// The trigger keeps its handlers, focus identity and accessible name.
+    pub fn attach<T: NodeBuilder + IntoView + 'static>(self, trigger: T) -> View {
+        self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
+    }
+    fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
+        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+            return self.render_trigger(attach);
+        }
         let Self {
-            root,
+            mut root,
+            variants,
             label,
             value,
             format,
@@ -143,6 +167,8 @@ impl IntoView for DateInput {
             presentation,
             configure,
         } = self;
+        let external_invalid = root.accessible_invalid();
+        let described_by = root.accessible_described_by();
         let locale = use_locale();
         let initial = value.get_untracked().map_or(Draft::Empty, Draft::Valid);
         let state = machine(
@@ -207,14 +233,38 @@ impl IntoView for DateInput {
             },
             move |text: String| typed.send(TypedEvent::Edit(text)),
         );
-        let field = text_input(label, draft)
+        let error_ref = kivact_core::view::node_ref();
+        let error = date_diagnostic(typed.state(), locale, error_ref);
+        let mut field = text_input(label, draft)
+            .with_node(|node| node.described_by(error_ref))
             .placeholder(placeholder)
-            .invalid(move || matches!(typed.get(), TypedDate::Editing { ref text, validation: DateValidation::Checked } if !text.trim().is_empty() || matches!(state.get().draft(), Draft::Invalid(_))))
+            .invalid(move || {
+                external_invalid.is_some_and(|invalid| invalid.get())
+                    || checked_invalid(&typed.get())
+            })
             .forward_keys(vec![Key::ArrowDown])
-            .on_key(move |event: KeyEvent| { if event.key() == Key::ArrowDown { state.send(Event::Open(OpenedBy::Input)); Handled::Yes } else { Handled::No } })
-             .on_draft_commit(move |text| {
-                if let Some(date) = value.get_untracked().filter(|date| custom_format.as_ref().is_some_and(|format| format(*date) == text)) { state.send(Event::Pick(date)); } else { typed.send(TypedEvent::Commit(text)); }
+            .on_key(move |event: KeyEvent| {
+                if event.key() == Key::ArrowDown {
+                    state.send(Event::Open(OpenedBy::Input));
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
+            .on_draft_commit(move |text| {
+                if let Some(date) = value.get_untracked().filter(|date| {
+                    custom_format
+                        .as_ref()
+                        .is_some_and(|format| format(*date) == text)
+                }) {
+                    state.send(Event::Pick(date));
+                } else {
+                    typed.send(TypedEvent::Commit(text));
+                }
             });
+        for reference in described_by {
+            field = field.with_node(|node| node.described_by(reference));
+        }
         let toggle = button(message("date.open", "Choose date"))
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
@@ -241,15 +291,116 @@ impl IntoView for DateInput {
             row((
                 field,
                 dialog(label, open)
+                    .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
                     .content(content)
                     .attach(toggle),
             )),
             |r| r.date_input_recipes().root_recipe(),
-            &Variants::default(),
+            &variants,
             PartState::default,
         ))
+        .child(error)
         .into_view()
     }
+}
+
+impl DateInput {
+    fn render_trigger(self, attach: crate::date_trigger::AttachTrigger) -> View {
+        let Self {
+            root,
+            variants,
+            label,
+            value,
+            valid,
+            min,
+            max,
+            week_start,
+            presentation,
+            configure,
+            ..
+        } = self;
+        let open = kivact_core::state::signal(false);
+        let focus = attach.focus;
+        let content = move || {
+            let selected = binding(value, move |next| {
+                value.set(next);
+                if let Some(valid) = valid {
+                    valid.set(true);
+                }
+                open.set(false);
+                focus.restore_focus();
+            });
+            let mut picker = calendar(selected).min(min).max(max).autofocus(true);
+            if let Some(day) = week_start {
+                picker = picker.week_start(day);
+            }
+            if let Some(configure) = &configure {
+                picker = configure(picker);
+            }
+            if presentation.sheet() {
+                crate::date_wheel::date_panel(selected, picker).into_view()
+            } else {
+                picker.into_view()
+            }
+        };
+        root.child(
+            attach.view(
+                dialog(label, open)
+                    .with_variants(&variants)
+                    .mode(presentation.mode())
+                    .hide_title(true)
+                    .content(content),
+            ),
+        )
+        .into_view()
+    }
+}
+
+fn checked_invalid(state: &TypedDate) -> bool {
+    matches!(state, TypedDate::Editing { text, validation: DateValidation::Checked } if !text.trim().is_empty())
+}
+fn date_diagnostic(
+    typed: Value<TypedDate>,
+    locale: Value<kivact_core::i18n::Locale>,
+    reference: kivact_core::view::NodeRef,
+) -> Node {
+    let format = message("date.error.format", "Use YYYY-MM-DD");
+    let missing = message("date.error.invalid", "This date does not exist");
+    let bounds = message("date.error.bounds", "Date is outside the allowed range");
+    kivact_core::view::text(move || match typed.get() {
+        TypedDate::Editing {
+            text,
+            validation: DateValidation::Checked,
+        } if !text.trim().is_empty() => {
+            if locale.get().parse_date(&text).is_some() {
+                bounds.get()
+            } else if iso_shaped(&text) {
+                missing.get()
+            } else {
+                format.get()
+            }
+        }
+        _ => String::new(),
+    })
+    .node_ref(reference)
+    .role(kivact_core::view::Role::Status)
+    .live_region(kivact_core::view::LiveRegion::Polite)
+    .hidden(move || !checked_invalid(&typed.get()))
+    .style(
+        kivact_core::style::style()
+            .font_size(12)
+            .color(kivact_core::style::ColorToken::Danger),
+    )
+}
+fn iso_shaped(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.len() == 10
+        && matches!(bytes[4], b'-' | b'/')
+        && bytes[7] == bytes[4]
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
 }

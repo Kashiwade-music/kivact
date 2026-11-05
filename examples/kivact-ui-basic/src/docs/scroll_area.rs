@@ -48,7 +48,7 @@ fn vertical() -> impl IntoView {
 fn horizontal() -> impl IntoView {
     let tiles = (1..=12)
         .map(|n| {
-            basic::skeleton()
+            kivact::ui::skeleton()
                 .style(style().size(96, 64).shrink(0))
                 .name(format!("Artwork {n}"))
         })

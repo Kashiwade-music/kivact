@@ -308,7 +308,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
         ),
         scroll(column(nav).style(style().gap(1))).style(style().grow(1).min_height(0)),
         column((
-            ui::panel((
+            kivact::ui::card((
                 row((
                     text("活動ポイント")
                         .style(style().font_size(12).color(ColorToken::TextMuted).grow(1)),
@@ -323,14 +323,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             ))
             .style(style().padding(12).gap(8).radius(10)),
             row((
-                ({
+                {
                     let initials = kivact::state::IntoText::into_text_value("SN");
                     let look = ui::AvatarLook::default().size(32).halo(true);
                     kivact::ui::avatar(initials)
                         .fallback_content(move || kivact::view::text(initials))
                         .variant(look)
                         .status_content(look.decorations())
-                }),
+                },
                 column((
                     text("先生").style(style().weight(600)),
                     text("Lv.72 · 管理者")
@@ -427,14 +427,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             notices.update(|items| items.iter_mut().for_each(|item| item.unread = false))
         })
         .style(style().width(36)),
-        ({
+        {
             let initials = kivact::state::IntoText::into_text_value("SN");
             let look = ui::AvatarLook::default().size(32);
             kivact::ui::avatar(initials)
                 .fallback_content(move || kivact::view::text(initials))
                 .variant(look)
                 .status_content(look.decorations())
-        }),
+        },
     ))
     .style(
         style()
@@ -561,38 +561,38 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                     column((
                         text("活動ポイントを 20 消費して「外郭地区のパトロール」を開始します。"),
                         row((
-                            ({
+                            {
                                 let initials = kivact::state::IntoText::into_text_value("MN");
                                 let look = ui::AvatarLook::default().halo(true);
                                 kivact::ui::avatar(initials)
                                     .fallback_content(move || kivact::view::text(initials))
                                     .variant(look)
                                     .status_content(look.decorations())
-                            }),
-                            ({
+                            },
+                            {
                                 let initials = kivact::state::IntoText::into_text_value("HK");
                                 let look = ui::AvatarLook::default().hue(330.0).halo(true);
                                 kivact::ui::avatar(initials)
                                     .fallback_content(move || kivact::view::text(initials))
                                     .variant(look)
                                     .status_content(look.decorations())
-                            }),
-                            ({
+                            },
+                            {
                                 let initials = kivact::state::IntoText::into_text_value("YZ");
                                 let look = ui::AvatarLook::default().hue(45.0).halo(true);
                                 kivact::ui::avatar(initials)
                                     .fallback_content(move || kivact::view::text(initials))
                                     .variant(look)
                                     .status_content(look.decorations())
-                            }),
-                            ({
+                            },
+                            {
                                 let initials = kivact::state::IntoText::into_text_value("AR");
                                 let look = ui::AvatarLook::default().hue(160.0).halo(true);
                                 kivact::ui::avatar(initials)
                                     .fallback_content(move || kivact::view::text(initials))
                                     .variant(look)
                                     .status_content(look.decorations())
-                            }),
+                            },
                         ))
                         .style(
                             style()
@@ -662,11 +662,27 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                             .style(style().grow(1)),
                             kivact::ui::field(
                                 "期限",
-                                ui::date_input(
-                                    "依頼期限",
-                                    request_date,
-                                    CalendarDate::new(2026, 10, 3),
-                                )
+                                {
+                                    let value: kivact::state::Binding<kivact::i18n::CalendarDate> =
+                                        kivact::state::IntoBinding::into_binding(request_date);
+                                    let value = kivact::state::binding(
+                                        move || Some(value.get()),
+                                        move |day| {
+                                            if let Some(day) = day {
+                                                value.set(day);
+                                            }
+                                        },
+                                    );
+                                    kivact::ui::date_input("依頼期限", value).calendar(
+                                        move |calendar| {
+                                            calendar
+                                                .today(CalendarDate::new(2026, 10, 3))
+                                                .month_title(|date| {
+                                                    format!("{}.{:02}", date.year(), date.month())
+                                                })
+                                        },
+                                    )
+                                }
                                 .style(style().width(180)),
                             ),
                         ))
@@ -705,14 +721,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 .content(move || {
                     column((
                         row((
-                            ({
+                            {
                                 let initials = kivact::state::IntoText::into_text_value("MN");
                                 let look = ui::AvatarLook::default().size(72).halo(true);
                                 kivact::ui::avatar(initials)
                                     .fallback_content(move || kivact::view::text(initials))
                                     .variant(look)
                                     .status_content(look.decorations())
-                            }),
+                            },
                             column((
                                 text("アズール学園 · 調査部").style(style().weight(600)),
                                 text("★★★").style(style().color(rgb(0xf2bf0a))),

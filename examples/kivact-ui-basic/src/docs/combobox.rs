@@ -79,7 +79,8 @@ fn multiple() -> impl IntoView {
         ListItem::new("remix", "Remix"),
         ListItem::new("astro", "Astro"),
     ];
-    kivact::ui::combobox("Frameworks", items, signal(vec!["next", "astro"])).chips()
+    kivact::ui::combobox("Frameworks", items, signal(vec!["next", "astro"]))
+        .chips()
         .placeholder("Add framework")
         .name("Frameworks")
         .style(style().width(360))
