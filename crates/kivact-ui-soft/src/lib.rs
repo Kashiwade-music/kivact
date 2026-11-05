@@ -76,7 +76,7 @@ mod recipes_select;
 mod recipes_skeleton;
 mod rich_block_doc;
 mod rich_blocks;
-pub mod rich_text;
+mod rich_text;
 mod scrollable_area;
 mod section;
 mod segmented_control;
