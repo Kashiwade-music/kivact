@@ -126,7 +126,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         ))
         .style(style().gap(12).align_items(Align::Center)),
         basic::separator(),
-        basic::alert("危険な操作")
+        kivact::ui::alert("危険な操作")
             .variant(basic::AlertVariant::Destructive)
             .icon(icon("triangle-alert"))
             .description("アカウントを削除すると、元に戻せません。")
@@ -244,7 +244,7 @@ mod tests {
 - **テーマの切り替え。** `provide_theme(theme, child)` は、その内側の部分木にテーマを与えます。第 1 引数は `dark` を読むクロージャなので、`dark` が変わるたびにテーマが作り直され、すべてのスタイルが色を解決し直します。コンポーネントは再マウントされないので、状態を保ちます。テーマが変わりうるときは、固定の `Theme` ではなく、このようなクロージャを渡します。
 - **トースト。** `toast_region(toaster())` は一度だけマウントします。トーストが現れる場所です。以降は、どのハンドラからでも `toaster().push(Toast::new(title))` と呼べます。`.tone(..)` でアイコンと緊急度を選び、`.body(..)` で 2 行目を足します。トーストは 5 秒で自動的に閉じ、ポインターが乗っている間は止まり、閉じるボタンも持ちます。
 - **アラートダイアログ。** `dialog(title, open)` は標準のダイアログで、`.mode(DialogMode::AlertModal)` にするとキットのアラートダイアログになります。`open` はふつうの `signal(bool)` です。ボタンが `true` にし、`.footer(..)` のボタンが `false` にします。`.closable(false)` は、アラートダイアログが持たない閉じるボタンを取り除きます。
-- **alert とアラートダイアログの違い。** `basic::alert(..)` はページに置く静的な囲み（「危険な操作」の枠）です。ダイアログは、操作を中断させるポップアップです。
+- **alert とアラートダイアログの違い。** `kivact::ui::alert(..)` はページに置く静的な囲み（「危険な操作」の枠）です。ダイアログは、操作を中断させるポップアップです。
 
 ## テスト
 

@@ -98,7 +98,7 @@ mod tokens;
 mod trace;
 mod typography;
 
-pub use alert::{Alert, AlertVariant, alert};
+pub use alert::AlertVariant;
 pub use attachment::{
     Attachment, AttachmentMediaVariant, AttachmentSize, AttachmentState, attachment,
     attachment_action, attachment_group,
