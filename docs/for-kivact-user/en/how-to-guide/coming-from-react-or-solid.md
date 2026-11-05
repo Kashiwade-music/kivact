@@ -5,7 +5,7 @@
 If you know React or SolidJS, most Kivact concepts have a direct counterpart.
 This guide maps them one to one, explains the single big difference (components
 run once, like Solid's, not on every state change like React's), and covers the
-five Rust details that trip up developers who have not written Rust before.
+seven Rust details that trip up developers who have not written Rust before.
 
 It assumes you have done the [tutorial](../getting-started/README.md).
 
@@ -71,7 +71,8 @@ This is the model of SolidJS. Two consequences:
 | Component | function returning JSX | function returning JSX | function returning `impl IntoView` |
 | Props | props object | props object | function arguments; `impl IntoText` for text, `impl IntoValue<T>` for values that may change |
 | Children | `children` | `props.children` | an argument of type `V: IntoView` |
-| Callback prop | `onSave` prop | `onSave` prop | an `impl Fn() + 'static` (or `Fn(T)`) argument; `callback(..)` makes a `Copy` one |
+| Callback prop | `onSave` prop | `onSave` prop | `impl Into<Callback<()>>` for an action without input; convert once to share it |
+| State machine | `useReducer` plus effects | reducer plus effects | `Machine`: explicit states, events, effects and timers |
 | State | `useState` | `createSignal` | `signal(value)`; `get`, `with`, `set`, `update` on one `Signal<T>` |
 | Derived value | compute in render, `useMemo` | `createMemo` | a closure for one use, `memo(..)` to share or cache |
 | Effect | `useEffect` | `createEffect` | `effect(..)`; `effect_on(source, f)` to skip the first run |
@@ -89,9 +90,10 @@ This is the model of SolidJS. Two consequences:
 | Error boundary | `ErrorBoundary` | `ErrorBoundary` | `error_boundary(..)` |
 | Data loading | libraries or `useEffect` | `createResource` | `resource(source, fetch)`; `action(..)` for user actions |
 
-Most names above come from `use kivact::prelude::*;`. `callback`,
-`error_boundary` and `try_context` are imported from `kivact::view`, and
-`effect_on` from `kivact`.
+All the ordinary UI names in the table are available through
+`use kivact::prelude::*;`, including `callback`, `error_boundary`, `try_context`
+and `effect_on`. For a state machine, also import `Machine`, `Step` and
+`machine` from `kivact::state`.
 
 
 `Machine` is `useReducer` with effects and timers. Define explicit states and
@@ -117,8 +119,9 @@ fn panel<V: IntoView>(title: &str, child: V) -> impl IntoView {
 }
 
 // A callback prop: a closure the caller gives you.
-fn buttons(on_add: impl Fn() + Copy + 'static) -> impl IntoView {
-    row((button("Add"), button("Add again").on_press(on_add)))
+fn buttons(on_add: impl Into<Callback<()>>) -> impl IntoView {
+    let on_add = on_add.into();
+    row((button("Add").on_press(on_add), button("Add again").on_press(on_add)))
 }
 
 fn app() -> impl IntoView {
@@ -157,12 +160,9 @@ mod tests {
 - A prop that may change takes `impl IntoValue<T>`: the caller passes a
   constant, a signal, a memo or a closure, and you call `.into_value()` once to
   get a `Value<T>` handle to read.
-- A callback is an ordinary closure. Accept it as `impl Fn() + 'static`
-  (`Fn(T) + 'static` with an argument). If you pass it on to more than one place,
-  add `Copy`, as `buttons` does. When your app shares one handler between several
-  controls, `callback(|x| ..)` gives a `Copy` handle (`callback(|_| ..)` for none).
-- A closure returning `Result<(), UiError>` is accepted wherever one returning
-  `()` is, so a handler can use `?`; errors go to the nearest error handler.
+- A callback prop without an input takes `impl Into<Callback<()>>`. Convert it
+  once with `.into()`; the resulting handle is `Copy`, so both buttons can use
+  the same action. The caller can pass a `move || ...` closure directly.
 
 ## Effects, cleanup and mount
 
@@ -170,16 +170,18 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    // Runs once the screen is built, then again whenever `query` changes.
-    effect(move || {
-        println!("searching for {}", query.get());
-    });
-    // Runs once, after the nodes of this component exist.
-    on_mount(|| println!("mounted"));
-    // Runs when this component is removed (a branch closes, a row disappears).
-    on_cleanup(|| println!("gone"));
+    component(move || {
+        // Runs once the screen is built, then again whenever `query` changes.
+        effect(move || {
+            println!("searching for {}", query.get());
+        });
+        // Runs once, after the nodes of this component exist.
+        on_mount(|| println!("mounted"));
+        // Runs when this component is removed (a branch closes, a row disappears).
+        on_cleanup(|| println!("gone"));
 
-    text(move || format!("query: {}", query.get()))
+        text(move || format!("query: {}", query.get()))
+    })
 }
 
 fn main() -> kivact::Result<()> {
@@ -381,7 +383,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-## The five Rust points
+## The seven Rust points
 
 ### 1. Closures need `move`
 
@@ -470,6 +472,34 @@ Rust infers closure argument types from the function that receives them. For
 the argument type is chosen by the closure itself, annotate it when you call a
 method on it: `callback(move |word: String| len.set(word.len()))`. The compiler
 says `type annotations needed` when you must.
+
+### 6. A numeric closure must return the expected type
+
+A constant integer can be accepted by a floating-point property, but a stored
+closure must return that property's exact type. If `count` is a `Signal<i32>`,
+`move || count.get()` cannot provide an `IntoValue<f64>`. Cast inside the closure:
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn completion(done: Signal<i32>, total: i32) -> impl IntoView {
+    progress(move || Some(done.get() as f64 / total.max(1) as f64))
+        .name("Completed work")
+}
+```
+
+For a plain numeric property, write `move || count.get() as f64`. Casting the
+handle itself does not convert the values read later.
+
+### 7. A local name can hide a prelude function
+
+Rust uses the nearest binding for a name. After `let text = signal(String::new())`,
+`text("Hello")` tries to call that signal and reports E0618, “expected function”.
+Use names that describe the data: `message`, `rows`, `choices`, `name_field` or
+`save_action`, leaving `text`, `row`, `list` and `field` available as UI functions.
+The same rule applies to an imported type such as `Action`; avoid reusing it for
+another item. If a name must stay, qualify the function, such as
+`kivact::view::text("Hello")` or `kivact::ui::field("Name", input)`.
 
 ## See also
 
