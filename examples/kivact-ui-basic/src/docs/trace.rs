@@ -41,9 +41,13 @@ fn lines() -> impl IntoView {
         row((
             icon("search").style(style().size(14, 14)),
             text("Searched the web").style(style().single_line()),
-            text("1.2s").style(move ||
-                style().shrink(0).tabular_nums().color(kivact::style::use_tokens::<basic::Tokens>().muted_foreground.with_alpha(0.7))
-            ),
+            text("1.2s").style(move || {
+                style().shrink(0).tabular_nums().color(
+                    kivact::style::use_tokens::<basic::Tokens>()
+                        .muted_foreground
+                        .with_alpha(0.7),
+                )
+            }),
         ))
         .style(style().gap(8).align_items(Align::Center)),
         row((

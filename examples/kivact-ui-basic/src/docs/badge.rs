@@ -54,10 +54,10 @@ fn with_icon() -> impl IntoView {
     row((
         kivact::ui::badge("Verified")
             .variant(basic::BadgeVariant::Secondary)
-            .icon(icon("badge-check").style(style().size(12,12))),
+            .icon(icon("badge-check").style(style().size(12, 12))),
         kivact::ui::badge("Open")
             .variant(basic::BadgeVariant::Outline)
-            .trailing_icon(icon("arrow-up-right").style(style().size(12,12))),
+            .trailing_icon(icon("arrow-up-right").style(style().size(12, 12))),
     ))
     .style(style().gap(8).align_items(Align::Center))
 }
