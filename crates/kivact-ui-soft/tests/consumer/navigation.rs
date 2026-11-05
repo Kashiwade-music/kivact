@@ -44,6 +44,49 @@ fn rtl_toolbar_moves_between_unwrapped_slots_in_visual_order() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
+fn fixture_layout(resize: kivact::state::Signal<f64>) -> impl IntoView {
+    kivact::ui::card(soft::with_card_insets(Default::default(), move || {
+        soft::layout()
+            .height(soft::LayoutHeight::Auto)
+            .header(soft::layout_header(text("Header")).divider(true))
+            .start(
+                soft::layout_panel(text("Panel"))
+                    .width(move || kivact::style::Length::Px(resize.get())),
+            )
+            .start_resize_handle(kivact::ui::splitter(
+                "Resize panel",
+                resize,
+                kivact::interaction::ScalarRange::new(50.0, 600.0).expect("valid range"),
+            ))
+            .content({
+                soft::layout_content(soft::section(soft::vstack((
+                    soft::layout_grid((text("First"), text("Second")))
+                        .columns(soft::GridColumns::Fixed(2)),
+                    soft::divider().label_text("or"),
+                    soft::form_layout(soft::form_row(text("Label"), text("Value"))),
+                ))))
+                .scrollable(false)
+            })
+    }))
+}
+
+fn fixture_carousel() -> impl IntoView {
+    kivact::ui::carousel(
+        signal(0usize),
+        (0..3)
+            .map(|i| {
+                node()
+                    .style(style().size(100, 32))
+                    .child(text(i.to_string()))
+            })
+            .collect::<Vec<_>>(),
+    )
+    .name("Pictures")
+    .mode(kivact::ui::CarouselMode::Scroll)
+    .snap(kivact::interaction::Snap::None)
+    .style(style().width(160))
+}
+
 #[test]
 fn layout_components_mount_and_interact() {
     let screen = render_with(
@@ -57,30 +100,7 @@ fn layout_components_mount_and_interact() {
             let target = node_ref();
             let resize = signal(250.0);
             column((
-                kivact::ui::card(soft::with_card_insets(Default::default(), move || {
-                    soft::layout()
-                        .height(soft::LayoutHeight::Auto)
-                        .header(soft::layout_header(text("Header")).divider(true))
-                        .start(
-                            soft::layout_panel(text("Panel"))
-                                .width(move || kivact::style::Length::Px(resize.get())),
-                        )
-                        .start_resize_handle(kivact::ui::splitter(
-                            "Resize panel",
-                            resize,
-                            kivact::interaction::ScalarRange::new(50.0, 600.0)
-                                .expect("valid range"),
-                        ))
-                        .content({
-                            soft::layout_content(soft::section(soft::vstack((
-                                soft::layout_grid((text("First"), text("Second")))
-                                    .columns(soft::GridColumns::Fixed(2)),
-                                soft::divider().label_text("or"),
-                                soft::form_layout(soft::form_row(text("Label"), text("Value"))),
-                            ))))
-                            .scrollable(false)
-                        })
-                })),
+                fixture_layout(resize),
                 kivact::ui::card(text("Selectable"))
                     .name("Select option")
                     .selected(selected),
@@ -101,20 +121,7 @@ fn layout_components_mount_and_interact() {
                     ],
                     1usize,
                 ),
-                kivact::ui::carousel(
-                    signal(0usize),
-                    (0..3)
-                        .map(|i| {
-                            node()
-                                .style(style().size(100, 32))
-                                .child(text(i.to_string()))
-                        })
-                        .collect::<Vec<_>>(),
-                )
-                .name("Pictures")
-                .mode(kivact::ui::CarouselMode::Scroll)
-                .snap(kivact::interaction::Snap::None)
-                .style(style().width(160)),
+                fixture_carousel(),
                 row((
                     soft::outline(vec![soft::OutlineItem::new("a", "Outline link", 2, target)])
                         .scroll_container(viewport),
@@ -628,7 +635,7 @@ fn controlled_menu_uses_only_accepted_opening_and_dismissal() {
 fn panel_disposal_cancels_only_its_actual_pending_command() {
     use kivact::interaction::{NavOpen, use_navigation_menu};
     use kivact::state::on_cleanup;
-    use kivact::view::{Handled, PointerPhase, show};
+    use kivact::view::show;
     use std::time::Duration;
     for pinned in [false, true] {
         let (screen, (state, present, b)) = kivact::test::render_with_handle(
@@ -645,40 +652,14 @@ fn panel_disposal_cancels_only_its_actual_pending_command() {
                         show(present, move || {
                             on_cleanup(move || api.panel_removed(a));
                             (
-                                kivact::ui::button("Panel A")
-                                    .on_press(move || api.toggle(a))
-                                    .on_pointer(move |event| {
-                                        match event.phase() {
-                                            PointerPhase::Enter => {
-                                                api.hover_after(a, Duration::from_millis(150))
-                                            }
-                                            PointerPhase::Leave => {
-                                                api.leave_after(a, Duration::from_millis(200))
-                                            }
-                                            _ => (),
-                                        };
-                                        Handled::No
-                                    }),
+                                pending_panel_button(api, a, "Panel A"),
                                 show(
                                     move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==a),
                                     || text("A surface"),
                                 ),
                             )
                         }),
-                        kivact::ui::button("Panel B")
-                            .on_press(move || api.toggle(b))
-                            .on_pointer(move |event| {
-                                match event.phase() {
-                                    PointerPhase::Enter => {
-                                        api.hover_after(b, Duration::from_millis(150))
-                                    }
-                                    PointerPhase::Leave => {
-                                        api.leave_after(b, Duration::from_millis(200))
-                                    }
-                                    _ => (),
-                                };
-                                Handled::No
-                            }),
+                        pending_panel_button(api, b, "Panel B"),
                         show(
                             move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==b),
                             || text("B surface"),
@@ -707,4 +688,23 @@ fn panel_disposal_cancels_only_its_actual_pending_command() {
         }
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
+}
+
+fn pending_panel_button(
+    api: kivact::interaction::NavigationMenuApi,
+    key: usize,
+    label: &'static str,
+) -> kivact::ui::Button {
+    use kivact::view::{Handled, PointerPhase};
+    use std::time::Duration;
+    kivact::ui::button(label)
+        .on_press(move || api.toggle(key))
+        .on_pointer(move |event| {
+            match event.phase() {
+                PointerPhase::Enter => api.hover_after(key, Duration::from_millis(150)),
+                PointerPhase::Leave => api.leave_after(key, Duration::from_millis(200)),
+                _ => (),
+            };
+            Handled::No
+        })
 }

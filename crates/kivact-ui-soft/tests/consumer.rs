@@ -1,4 +1,5 @@
 //! Role: Verify Soft components through one public consumer test binary.
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 #[path = "consumer/button_busy.rs"]
 mod button_busy;
 #[path = "consumer/chat_keyboard.rs"]

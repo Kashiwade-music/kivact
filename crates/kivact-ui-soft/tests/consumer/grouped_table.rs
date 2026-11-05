@@ -20,33 +20,37 @@ struct Person {
     team: &'static str,
 }
 
+fn grouped_people() -> Vec<Person> {
+    vec![
+        Person {
+            id: 4,
+            name: "Zeta",
+            team: "Engineering",
+        },
+        Person {
+            id: 3,
+            name: "Gamma",
+            team: "Design",
+        },
+        Person {
+            id: 2,
+            name: "Beta",
+            team: "Engineering",
+        },
+        Person {
+            id: 1,
+            name: "Alpha",
+            team: "Design",
+        },
+    ]
+}
+
 #[test]
 fn group_disclosure_preserves_selection_and_pages_and_skips_collapsed_rows() {
     let (screen, (collapsed, selected, page, filter)) = render_with_handle(
         RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
         || {
-            let people = vec![
-                Person {
-                    id: 4,
-                    name: "Zeta",
-                    team: "Engineering",
-                },
-                Person {
-                    id: 3,
-                    name: "Gamma",
-                    team: "Design",
-                },
-                Person {
-                    id: 2,
-                    name: "Beta",
-                    team: "Engineering",
-                },
-                Person {
-                    id: 1,
-                    name: "Alpha",
-                    team: "Design",
-                },
-            ];
+            let people = grouped_people();
             let collapsed = signal(Vec::<String>::new());
             let selected = signal(vec![2]);
             let page = signal(0);

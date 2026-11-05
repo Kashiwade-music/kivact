@@ -93,10 +93,8 @@ fn top_bar(dark: Signal<bool>) -> Node {
     )
 }
 
-/// The search field and the alphabetical, keyboard-navigable list of components.
-fn component_list(selected: Signal<Option<usize>>) -> Node {
-    let query = signal(String::new());
-    let items = (move || {
+fn component_items(query: Signal<String>) -> Value<Vec<ListItem<usize>>> {
+    (move || {
         let needle = query.get().trim().to_lowercase();
         PAGES
             .iter()
@@ -109,7 +107,13 @@ fn component_list(selected: Signal<Option<usize>>) -> Node {
             .map(|(index, page)| ListItem::new(index, page.name))
             .collect::<Vec<_>>()
     })
-    .into_value();
+    .into_value()
+}
+
+/// The search field and the alphabetical, keyboard-navigable list of components.
+fn component_list(selected: Signal<Option<usize>>) -> Node {
+    let query = signal(String::new());
+    let items = component_items(query);
     let nav = use_list(
         items,
         Selection::Single(selected.into_binding()),
