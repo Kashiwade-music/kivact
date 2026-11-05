@@ -225,7 +225,7 @@ impl Alert {
             )
         });
         let title = with_recipe_style(
-            text(self.title),
+            node().child(text(self.title)),
             |r| r.alert_recipes().title_recipe(),
             variants,
             state,
