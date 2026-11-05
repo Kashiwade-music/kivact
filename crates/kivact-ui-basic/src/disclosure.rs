@@ -5,5 +5,7 @@ pub enum DisclosureVariant {
     /// Content without accordion padding, used with a caller-owned trigger.
     #[default]
     Plain,
+    /// Muted activity detail below a compact caller-owned trigger.
+    Trace,
 }
 impl kivact::ui::Variant for DisclosureVariant {}

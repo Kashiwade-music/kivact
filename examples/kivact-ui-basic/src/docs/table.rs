@@ -37,22 +37,22 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
-    basic::table((
-        basic::table_header(basic::table_row((
-            basic::table_head("Invoice").width(110.0),
-            basic::table_head("Status"),
-            basic::table_head("Amount").align(basic::TableAlign::End),
-        ))),
-        basic::table_body((
-            basic::table_row((
-                basic::table_cell("INV001").width(110.0),
-                basic::table_cell("Paid"),
-                basic::table_cell("$250.00").align(basic::TableAlign::End),
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head("Invoice").width(110.0),
+            kivact::ui::table_head("Status"),
+            kivact::ui::table_head("Amount").align(kivact::style::TextAlign::End),
+        )),)),
+        kivact::ui::table_body((
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV001").width(110.0),
+                kivact::ui::table_cell("Paid"),
+                kivact::ui::table_cell("$250.00").align(kivact::style::TextAlign::End),
             )),
-            basic::table_row((
-                basic::table_cell("INV002").width(110.0),
-                basic::table_cell("Pending"),
-                basic::table_cell("$150.00").align(basic::TableAlign::End),
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV002").width(110.0),
+                kivact::ui::table_cell("Pending"),
+                kivact::ui::table_cell("$150.00").align(kivact::style::TextAlign::End),
             )),
         )),
     ))
@@ -62,26 +62,31 @@ fn default() -> impl IntoView {
 
 // example: footer
 fn footer() -> impl IntoView {
-    basic::table((
-        basic::table_header(basic::table_row((
-            basic::table_head("Item"),
-            basic::table_head("Price").align(basic::TableAlign::End),
-        ))),
-        basic::table_body((
-            basic::table_row((
-                basic::table_cell("Keyboard"),
-                basic::table_cell("$80.00").align(basic::TableAlign::End),
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head("Item"),
+            kivact::ui::table_head("Price").align(kivact::style::TextAlign::End),
+        )),)),
+        kivact::ui::table_body((
+            kivact::ui::table_row((
+                kivact::ui::table_cell("Keyboard"),
+                kivact::ui::table_cell("$80.00").align(kivact::style::TextAlign::End),
             )),
-            basic::table_row((
-                basic::table_cell("Mouse"),
-                basic::table_cell("$40.00").align(basic::TableAlign::End),
+            kivact::ui::table_row((
+                kivact::ui::table_cell("Mouse"),
+                kivact::ui::table_cell("$40.00").align(kivact::style::TextAlign::End),
             )),
         )),
-        basic::table_footer(basic::table_row((
-            basic::table_cell("Total"),
-            basic::table_cell("$120.00").align(basic::TableAlign::End),
-        ))),
-        basic::table_caption("A list of recent purchases."),
+        kivact::ui::table_footer((kivact::ui::table_row((
+            kivact::ui::table_cell("Total"),
+            kivact::ui::table_cell("$120.00").align(kivact::style::TextAlign::End),
+        )),)),
+        text("A list of recent purchases.").style(
+            style()
+                .margin_top(16)
+                .color(basic::ColorName::MutedForeground)
+                .text_align(kivact::style::TextAlign::Center),
+        ),
     ))
     .style(style().width(460))
 }
@@ -91,19 +96,20 @@ fn footer() -> impl IntoView {
 fn selected() -> impl IntoView {
     let chosen = signal(1usize);
     let row_for = move |index: usize, name: &'static str| {
-        basic::table_row((
-            basic::table_cell(name),
-            basic::table_cell(format!("{} items", (index + 1) * 3)).align(basic::TableAlign::End),
+        kivact::ui::table_row((
+            kivact::ui::table_cell(name),
+            kivact::ui::table_cell(format!("{} items", (index + 1) * 3))
+                .align(kivact::style::TextAlign::End),
         ))
         .with_node(|node| node.selected(move || chosen.get() == index))
         .on_press(move || chosen.set(index))
     };
-    basic::table((
-        basic::table_header(basic::table_row((
-            basic::table_head("Team"),
-            basic::table_head("Open").align(basic::TableAlign::End),
-        ))),
-        basic::table_body((
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head("Team"),
+            kivact::ui::table_head("Open").align(kivact::style::TextAlign::End),
+        )),)),
+        kivact::ui::table_body((
             row_for(0, "Design"),
             row_for(1, "Platform"),
             row_for(2, "Growth"),

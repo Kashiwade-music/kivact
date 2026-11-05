@@ -40,6 +40,18 @@ pub(super) fn avatar(t: &Theme, s: &AvatarState) -> Style {
         .align_items(Align::Center)
         .justify_content(Justify::Center)
 }
+pub(super) fn avatar_image(t: &Theme, s: &AvatarState) -> Style {
+    style()
+        .size(pct(100), pct(100))
+        .clip(true)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .radius(match s.shape {
+            AvatarShape::Circle => 999.0,
+            AvatarShape::Rounded => t.radius().md,
+            AvatarShape::Square => 0.0,
+        })
+}
 pub(super) fn skeleton(t: &Theme, s: &SkeletonState) -> Style {
     let tokens = t.ext::<crate::UiTokens>();
     let base = style()
@@ -117,6 +129,9 @@ pub(super) fn badge_label(_: &Theme, _: &BadgeState) -> Style {
     style()
 }
 
+pub(super) fn avatar_group_member(_: &Theme, _: &usize) -> Style {
+    style()
+}
 pub(super) fn avatar_group_overflow(_: &Theme, _: &usize) -> Style {
     style()
 }

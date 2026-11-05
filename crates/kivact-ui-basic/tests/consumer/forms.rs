@@ -309,7 +309,8 @@ fn calendar_moves_with_keys_changes_month_and_skips_disabled_dates() {
         (
             value,
             page(
-                basic::calendar(value)
+                kivact::ui::calendar(value)
+                    .variable_rows(true)
                     .default_month(CalendarMonth::new(2026, 10))
                     .week_start(kivact::i18n::Weekday::Sunday)
                     .disabled_dates(|d| d.day() == 16),
@@ -359,10 +360,32 @@ fn date_picker_opens_a_popover_picks_a_day_and_closes() {
         let value = signal(None::<CalendarDate>);
         (
             value,
-            page(basic::date_picker("Date of birth", value).calendar(|c| {
-                c.default_month(CalendarMonth::new(2026, 10))
-                    .disabled_dates(|d| d.day() == 1)
-            })),
+            page(
+                kivact::ui::date_input("Date of birth", value)
+                    .presentation(kivact::ui::DatePresentation::Desktop)
+                    .variant(basic::DatePickerVariant::Flush)
+                    .calendar(|c| {
+                        c.default_month(CalendarMonth::new(2026, 10))
+                            .variable_rows(true)
+                            .disabled_dates(|d| d.day() == 1)
+                    })
+                    .attach({
+                        let locale = kivact::i18n::use_locale();
+                        kivact::ui::button(move || {
+                            value.get().map_or_else(
+                                || "Pick a date".to_owned(),
+                                |date| {
+                                    locale
+                                        .get()
+                                        .format_date(date, kivact::i18n::DateStyle::Long)
+                                },
+                            )
+                        })
+                        .name("Date of birth")
+                        .icon(icon("calendar"))
+                        .variant(kivact::ui::ButtonVariant::Outline)
+                    }),
+            ),
         )
     });
     screen.get_by_text("Pick a date");

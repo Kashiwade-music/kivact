@@ -63,8 +63,3 @@ impl CodeLine {
         self.0.iter().map(|span| span.text.as_str()).collect()
     }
 }
-
-/// Split `text` into unhighlighted lines; a final line break adds no empty line.
-pub fn code_lines(text: &str) -> Vec<CodeLine> {
-    text.lines().map(CodeLine::plain).collect()
-}

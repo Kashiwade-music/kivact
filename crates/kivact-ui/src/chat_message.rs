@@ -161,6 +161,9 @@ impl ChatMessage {
         let side = self.reactions_side;
         let has_reactions = self.reactions.is_some();
         let actionable = self.on_press.is_some();
+        let has_header = self.header.is_some();
+        let has_footer = self.footer.is_some();
+        let has_avatar = self.avatar.is_some();
         move || ChatMessageState {
             sender: sender.get(),
             status: status.map(|s| s.get()),
@@ -175,6 +178,9 @@ impl ChatMessage {
             reactions_side: side.get(),
             has_reactions,
             actionable,
+            has_header,
+            has_footer,
+            has_avatar,
         }
     }
     fn render_status(&self, state: impl Fn() -> ChatMessageState + Copy + 'static) -> Option<Node> {
@@ -200,7 +206,10 @@ impl ChatMessage {
     fn render_body(&mut self, state: impl Fn() -> ChatMessageState + Copy + 'static) -> Node {
         let variants = &self.variants;
         let author = with_recipe_style(
-            text(self.author),
+            text(self.author).hidden({
+                let author = self.author;
+                move || author.with(String::is_empty)
+            }),
             |r| r.chat_message_recipes().author_recipe(),
             variants,
             state,

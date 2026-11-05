@@ -40,24 +40,34 @@ fn profile_card(
         ListItem::new("de", "Deutsch"),
     ];
     let changed = move || name.get() != saved_name.get();
-    basic::card()
-        .header(
-            basic::card_header("プロフィール")
-                .description("ほかの人にどう見えるかを決めます。")
-                .action({
-                    show(changed, || {
-                        kivact::ui::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
-                    })
-                }),
-        )
-        .content({
-            basic::field_group((
-                field("表示名", text_input("表示名", name))
-                    .hint("公開ページに表示されます。"),
-                field("言語", select("言語", languages, language)),
+    kivact::ui::card({
+        basic::field_group((
+            field("表示名", text_input("表示名", name)).hint("公開ページに表示されます。"),
+            field("言語", select("言語", languages, language)),
+        ))
+    })
+    .header(
+        row((
+            column((
+                text("プロフィール")
+                    .style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+                text("ほかの人にどう見えるかを決めます。").style(
+                    style()
+                        .line_height(1.625)
+                        .color(basic::ColorName::MutedForeground),
+                ),
             ))
-        })
-        .style(style().width(420))
+            .style(style().gap(4).grow(1).min_width(0)),
+            row({
+                show(changed, || {
+                    kivact::ui::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
+                })
+            })
+            .style(style().align_self(Align::Start).shrink(0)),
+        ))
+        .style(style().align_items(Align::Start).gap(8)),
+    )
+    .style(style().width(420))
 }
 
 fn notifications_card(
@@ -70,24 +80,50 @@ fn notifications_card(
         ListItem::new("weekly", "毎週"),
         ListItem::new("never", "なし"),
     ];
-    basic::card()
-        .header(basic::card_header("通知").description("受け取りたいお知らせを選びます。"))
-        .content({
-            basic::field_group((
-                field("週間ダイジェスト", switch("週間ダイジェスト", digest).hide_label(true))
-                    .hint("毎週月曜日に、1 週間のまとめが届きます。")
-                    .style(style().direction(Direction::Row).align_items(Align::Center).gap(12)),
-                field("メンション", switch("メンション", mentions).hide_label(true))
-                    .hint("自分宛てのメンションを知らせます。")
-                    .style(style().direction(Direction::Row).align_items(Align::Center).gap(12)),
-                basic::field_separator(),
-                field(
-                    "リマインダー",
-                    kivact::ui::toggle_group("Options", reminders, reminder).variant(basic::ToggleVariant::Outline),
-                ),
-            ))
-        })
-        .style(style().width(420))
+    kivact::ui::card({
+        basic::field_group((
+            field(
+                "週間ダイジェスト",
+                switch("週間ダイジェスト", digest).hide_label(true),
+            )
+            .hint("毎週月曜日に、1 週間のまとめが届きます。")
+            .style(
+                style()
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .gap(12),
+            ),
+            field(
+                "メンション",
+                switch("メンション", mentions).hide_label(true),
+            )
+            .hint("自分宛てのメンションを知らせます。")
+            .style(
+                style()
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .gap(12),
+            ),
+            basic::field_separator(),
+            field(
+                "リマインダー",
+                kivact::ui::toggle_group("Options", reminders, reminder)
+                    .variant(basic::ToggleVariant::Outline),
+            ),
+        ))
+    })
+    .header(
+        column((
+            text("通知").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("受け取りたいお知らせを選びます。").style(
+                style()
+                    .line_height(1.625)
+                    .color(basic::ColorName::MutedForeground),
+            ),
+        ))
+        .style(style().gap(4).grow(1).min_width(0)),
+    )
+    .style(style().width(420))
 }
 
 fn settings() -> impl IntoView {
@@ -98,7 +134,7 @@ fn settings() -> impl IntoView {
     let mentions = signal(false);
     let reminder = signal(Some("weekly"));
     column((
-        basic::h3("設定"),
+        kivact::ui::heading("設定", 3),
         basic::muted("プロフィールと通知を管理します。"),
         row((
             profile_card(name, saved_name, language),
@@ -106,7 +142,9 @@ fn settings() -> impl IntoView {
         ))
         .style(style().gap(16).align_items(Align::Start)),
         row((
-            button("保存").icon(icon("check")).on_press(move || saved_name.set(name.get())),
+            button("保存")
+                .icon(icon("check"))
+                .on_press(move || saved_name.set(name.get())),
             basic::muted(move || format!("保存済みの名前: {}", saved_name.get())),
         ))
         .style(style().gap(12).align_items(Align::Center)),

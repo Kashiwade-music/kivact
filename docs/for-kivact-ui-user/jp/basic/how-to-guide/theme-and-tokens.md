@@ -20,7 +20,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-テーマには、Neutral の配色、12 px の文字、角の丸みなし、32 px のコントロール、そして `kivact::ui` の標準コンポーネントすべて（`button`、`toggle`、`checkbox`、`switch`、`text_input`、`text_area`、`select`、`menu`、`dialog`、`tooltip`、`tabs`、`radio_group`、`slider`、`range_slider`、`toast_region`、`splitter`、`split`、`progress`、`disclosure`、`data_table` など）の描き方（recipe）が入っています。キットはこれらのコピーを持ちません。`kivact::ui::button` と `basic::card` が何の仲立ちもなく並べられるのも、テーマを変えると両方の見た目が変わるのも、そのためです。
+テーマには、Neutral の配色、12 px の文字、角の丸みなし、32 px のコントロール、そして `kivact::ui` の標準コンポーネントすべて（`button`、`toggle`、`checkbox`、`switch`、`text_input`、`text_area`、`select`、`menu`、`dialog`、`tooltip`、`tabs`、`radio_group`、`slider`、`range_slider`、`toast_region`、`splitter`、`split`、`progress`、`disclosure`、`data_table` など）の描き方（recipe）が入っています。キットはこれらのコピーを持ちません。`kivact::ui::button` と `kivact::ui::card` が何の仲立ちもなく並べられるのも、テーマを変えると両方の見た目が変わるのも、そのためです。
 
 見た目をウィンドウの一部に限りたいときは、その部分を `kivact::style::provide_theme(theme, || ..)` で包みます。外側の兄弟は、上から来たテーマのままです。
 
@@ -112,7 +112,7 @@ fn main() -> kivact::Result<()> {
     App::new("Basic")
         .theme(basic::theme(kivact::style::ThemeMode::Light))
         .messages(messages)
-        .run(|| basic::pagination(signal(0usize), 5usize))
+        .run(|| kivact::ui::pagination(5usize, signal(0usize)))
 }
 ```
 

@@ -184,3 +184,6 @@ pub(super) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style 
 pub(super) fn alert_control(_: &Theme, _: &Look<AlertState>) -> Style {
     style()
 }
+pub(super) fn group_block(_: &Theme, _: &Look<InputGroupState>) -> Style {
+    style()
+}

@@ -51,7 +51,7 @@ fn fonts() -> Vec<&'static [u8]> {
 
 fn settings() -> impl IntoView {
     column((
-        basic::h3("設定"),
+        kivact::ui::heading("設定", 3),
         basic::muted("プロフィールと通知を管理します。"),
     ))
     .style(
@@ -78,7 +78,7 @@ fn main() -> kivact::Result<()> {
 ## コードの意味
 
 - `basic::theme(mode)` は Kivact の `Theme` を返します。キットの配色、余白、12 px の文字、そして標準コントロール（button、switch、入力欄、select、dialog など）の描き方（recipe）をまとめたものです。これを `App::theme` に渡すだけで、アプリ内のすべての標準コンポーネントが Lyra の見た目になります。
-- `basic::h3` と `basic::muted` はキットのタイポグラフィ用の関数です。どちらも view の部品である `Node` を返すので、好きな場所に置けます。
+- `kivact::ui::heading(value, 3)` と `basic::muted` はキットのタイポグラフィ用の関数です。どちらも view の部品である `Node` を返すので、好きな場所に置けます。
 - `basic::ColorName` はキットの配色の名前（`Background`、`Foreground` など）です。これを使ったスタイルは、描画するときに有効なテーマから色を読みます。ステップ 3 でテーマを切り替えたときに色が追従するのはそのためです。ルートの view に背景色と文字色を塗っているのは、CSS で `body` に色を指定するのと同じで、ウィンドウ全体をテーマの色にするためです。
 - `fonts()` はアプリが使うフォントファイルを返す場所です。キットはフォントを同梱しません。`theme` 関数の `Typography` は文字の family に `Inter` を指定し、代わりの候補として日本語用の `Noto Sans JP` と `sans-serif` を並べています。Inter を登録するまではシステムのフォントが使われますが、このチュートリアルはそのまま最後まで進められます。
 

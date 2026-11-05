@@ -50,15 +50,15 @@ fn variants() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .size(ControlSize::Small)
     };
-    basic::item_group((
-        basic::item("Default")
+    kivact::ui::item_list((
+        kivact::ui::item_row("Default")
             .description("A plain item.")
             .actions(action()),
-        basic::item("Outline")
+        kivact::ui::item_row("Outline")
             .variant(basic::ItemVariant::Outline)
             .description("A bordered item.")
             .actions(action()),
-        basic::item("Muted")
+        kivact::ui::item_row("Muted")
             .variant(basic::ItemVariant::Muted)
             .description("A muted item.")
             .actions(action()),
@@ -69,10 +69,10 @@ fn variants() -> impl IntoView {
 
 // example: media
 fn media() -> impl IntoView {
-    basic::item("Security alert")
+    kivact::ui::item_row("Security alert")
         .variant(basic::ItemVariant::Outline)
         .media(icon("shield"))
-        .media_variant(basic::ItemMediaVariant::Icon)
+        .variant(basic::ItemMediaVariant::Icon)
         .description("New login from an unknown device.")
         .style(style().width(460))
 }
@@ -80,12 +80,32 @@ fn media() -> impl IntoView {
 
 // example: group
 fn group() -> impl IntoView {
-    basic::item_group((
-        basic::item("Profile").media(icon("user")),
-        basic::item_separator(),
-        basic::item("Billing").media(icon("credit-card")),
-        basic::item_separator(),
-        basic::item("Notifications").media(icon("bell")),
+    kivact::ui::item_list((
+        kivact::ui::item_row("Profile").media(icon("user")),
+        node()
+            .role(Role::Separator)
+            .orientation(Orientation::Horizontal)
+            .style(
+                style()
+                    .width(pct(100))
+                    .height(1)
+                    .shrink(0)
+                    .margin_y(8)
+                    .background(basic::ColorName::Border),
+            ),
+        kivact::ui::item_row("Billing").media(icon("credit-card")),
+        node()
+            .role(Role::Separator)
+            .orientation(Orientation::Horizontal)
+            .style(
+                style()
+                    .width(pct(100))
+                    .height(1)
+                    .shrink(0)
+                    .margin_y(8)
+                    .background(basic::ColorName::Border),
+            ),
+        kivact::ui::item_row("Notifications").media(icon("bell")),
     ))
     .style(style().width(460))
 }
@@ -94,10 +114,10 @@ fn group() -> impl IntoView {
 // example: pressable
 fn pressable() -> impl IntoView {
     let count = signal(0);
-    basic::item("Open settings")
+    kivact::ui::item_row("Open settings")
         .variant(basic::ItemVariant::Outline)
         .media(icon("settings"))
-        .media_variant(basic::ItemMediaVariant::Icon)
+        .variant(basic::ItemMediaVariant::Icon)
         .description(move || format!("Opened {} times", count.get()))
         .actions(icon("chevron-right"))
         .on_press(move || count.update(|n| *n += 1))

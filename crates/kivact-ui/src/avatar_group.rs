@@ -48,6 +48,7 @@ impl IntoView for AvatarGroup {
     fn into_view(self) -> View {
         let max = self.max;
         let count = self.children.len();
+        let variants = self.variants.clone();
         let total = self.total;
         let hidden = move || {
             total
@@ -59,15 +60,20 @@ impl IntoView for AvatarGroup {
             .into_iter()
             .enumerate()
             .map(move |(index, child)| {
-                node()
-                    .base_style(move || {
-                        let overlap = kivact_core::style::use_tokens::<crate::UiTokens>()
-                            .indicators
-                            .avatar_overlap;
-                        style().margin_left(if index == 0 { 0.0 } else { -overlap })
-                    })
-                    .hidden(move || index >= max.get())
-                    .child(child)
+                crate::layer::with_base_recipe_style(
+                    node(),
+                    |r| r.avatar_group_member_recipe(),
+                    &variants,
+                    move || index,
+                )
+                .base_style(move || {
+                    let overlap = kivact_core::style::use_tokens::<crate::UiTokens>()
+                        .indicators
+                        .avatar_overlap;
+                    style().margin_left(if index == 0 { 0.0 } else { -overlap })
+                })
+                .hidden(move || index >= max.get())
+                .child(child)
             })
             .collect::<Vec<_>>();
         let overflow_variants = self.variants.clone();

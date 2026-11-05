@@ -622,9 +622,11 @@ recipe_table! {
         heading(heading_recipe): HeadingState = look_metrics::heading,
         avatar_status(avatar_status_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
+        avatar_group_member(avatar_group_member_recipe): usize = super::look_indicators::avatar_group_member,
         /// Presentation of the hidden avatar count, including its actual count.
         avatar_group_overflow(avatar_group_overflow_recipe): usize = super::look_indicators::avatar_group_overflow,
         avatar(avatar_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar,
+        avatar_image(avatar_image_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_image,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         kbd_key(kbd_key_recipe): crate::kbd_values::KbdKeyState = super::look_indicators::kbd_key,
         badge(badge_recipe): crate::indicator_values::BadgeState = super::look_indicators::badge,
@@ -827,6 +829,8 @@ recipe_table! {
         members(members_recipe): InputGroupState = look_feedback::group_members,
         member(member_recipe): InputGroupMemberState = look_feedback::group_member,
         addon(addon_recipe): InputGroupState = look_feedback::group_addon,
+        block_start(block_start_recipe): InputGroupState = look_feedback::group_block,
+        block_end(block_end_recipe): InputGroupState = look_feedback::group_block,
     }
 }
 recipe_table! {
@@ -845,22 +849,22 @@ recipe_table! {
     /// Static list and item-row part recipes.
     ItemListRecipes {
         root(root_recipe): PartState = look_static_collections::list,
-        item(item_recipe): PartState = look_static_collections::item,
-        body(body_recipe): PartState = look_static_collections::item_body,
-        content(content_recipe): PartState = look_static_collections::content,
-        title(title_recipe): PartState = look_static_collections::title,
-        description(description_recipe): PartState = look_static_collections::description,
-        media(media_recipe): PartState = look_static_collections::media,
-        actions(actions_recipe): PartState = look_static_collections::actions,
-        header(header_recipe): PartState = look_static_collections::band,
-        footer(footer_recipe): PartState = look_static_collections::band,
+        item(item_recipe): crate::collection_values::ItemRowState = look_static_collections::item,
+        body(body_recipe): crate::collection_values::ItemRowState = look_static_collections::item_body,
+        content(content_recipe): crate::collection_values::ItemRowState = look_static_collections::content,
+        title(title_recipe): crate::collection_values::ItemRowState = look_static_collections::title,
+        description(description_recipe): crate::collection_values::ItemRowState = look_static_collections::description,
+        media(media_recipe): crate::collection_values::ItemRowState = look_static_collections::media,
+        actions(actions_recipe): crate::collection_values::ItemRowState = look_static_collections::actions,
+        header(header_recipe): crate::collection_values::ItemRowState = look_static_collections::band,
+        footer(footer_recipe): crate::collection_values::ItemRowState = look_static_collections::band,
     }
 }
 recipe_table! {
     /// Page control and gap recipes.
     PaginationRecipes {
         root(root_recipe): () = crate::look_navigation::root,
-        item(item_recipe): bool = crate::look_navigation::current,
+        item(item_recipe): crate::navigation_values::PaginationItemState = crate::look_navigation::pagination_item,
         ellipsis(ellipsis_recipe): () = crate::look_navigation::part,
     }
 }
@@ -868,7 +872,8 @@ recipe_table! {
     /// Breadcrumb landmark, item and decorative separator recipes.
     BreadcrumbRecipes {
         root(root_recipe): () = crate::look_navigation::breadcrumb_root,
-        item(item_recipe): bool = crate::look_navigation::current,
+        list(list_recipe): () = crate::look_navigation::breadcrumb_list,
+        item(item_recipe): bool = crate::look_navigation::breadcrumb_item,
         separator(separator_recipe): () = crate::look_navigation::part,
     }
 }
@@ -892,8 +897,13 @@ recipe_table! {
     /// Navigation landmark, panel trigger and panel surface recipes.
     NavigationMenuRecipes {
         root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::navigation_root,
-        trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
+        trigger(trigger_recipe): crate::navigation_values::NavigationTriggerState = crate::look_navigation::part,
+        action(action_recipe): kivact_interaction::NavOpen = crate::look_navigation::action,
         panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
+        link(link_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link,
+        link_title(link_title_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_title,
+        link_description(link_description_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_description,
+        link_icon(link_icon_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_icon,
     }
 }
 
@@ -978,17 +988,17 @@ recipe_table! {
 recipe_table! {
     /// Styles for the persistent parts of CodeBlock.
     CodeBlockRecipes {
-        root(root_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_root,
-        header(header_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_header,
-        title(title_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
-        collapse(collapse_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
-        language(language_recipe): crate::chat_values::CodeBlockState = crate::look_chat::muted,
-        copy(copy_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
-        end_content(end_content_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
-        body(body_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_body,
-        viewport(viewport_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_viewport,
-        code(code_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_text,
-        gutter(gutter_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_gutter,
-        footer(footer_recipe): crate::chat_values::CodeBlockState = crate::look_chat::row,
+        root(root_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_root,
+        header(header_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_header,
+        title(title_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        collapse(collapse_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        language(language_recipe): crate::code_values::CodeBlockState = crate::look_chat::muted,
+        copy(copy_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        end_content(end_content_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        body(body_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_body,
+        viewport(viewport_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_viewport,
+        code(code_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_text,
+        gutter(gutter_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_gutter,
+        footer(footer_recipe): crate::code_values::CodeBlockState = crate::look_chat::row,
     }
 }

@@ -49,7 +49,13 @@ fn sign_up() -> impl IntoView {
         button("Create account")
             .disabled(move || !ready.get())
             .on_press(move || created.set(true)),
-        basic::muted(move || if created.get() { "Account created." } else { "" }),
+        basic::muted(move || {
+            if created.get() {
+                "Account created."
+            } else {
+                ""
+            }
+        }),
     ))
     .style(style().width(320))
 }
@@ -84,21 +90,24 @@ use kivact::style::Direction;
 
 fn marketing() -> impl IntoView {
     let on = signal(true);
-    field("Marketing emails", switch("Marketing emails", on).hide_label(true))
-        .hint("Receive news and offers.")
-        .style(
-            style()
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .gap(12)
-                .width(420),
-        )
+    field(
+        "Marketing emails",
+        switch("Marketing emails", on).hide_label(true),
+    )
+    .hint("Receive news and offers.")
+    .style(
+        style()
+            .direction(Direction::Row)
+            .align_items(Align::Center)
+            .gap(12)
+            .width(420),
+    )
 }
 ```
 
 ## 入力欄の中にアイコン、文字、ボタンを置く
 
-`basic::input_group(input)` は、入力欄を共通の枠で包み、前後に付け足しを置けるようにします。`.start(..)` と `.end(..)` は view を取り、付け足しを押すと入力欄にフォーカスが移ります。文字には `basic::input_group_text(..)`、ボタンには `basic::input_group_button(..)` を使います。
+`kivact::ui::input_group("Input group", (input,))` は、入力欄を共通の枠で包み、前後に付け足しを置けるようにします。`.start(..)` と `.end(..)` は view を取り、付け足しを押すと入力欄にフォーカスが移ります。文字には `kivact::ui::input_addon(..)`、ボタンには `kivact::ui::button(..).variant(kivact::ui::ButtonVariant::Ghost).variant(basic::InputGroupButtonSize::Xs).style(style().margin_right(-4.8))` を使います。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -108,23 +117,34 @@ fn search_and_copy() -> impl IntoView {
     let query = signal(String::new());
     let url = signal(String::from("https://example.com"));
     column((
-        basic::input_group(basic::input_group_input("Search", query).placeholder("Search..."))
-            .start(icon("search"))
-            .end(basic::input_group_text("12 results"))
-            .style(style().width(320)),
-        basic::input_group(basic::input_group_input("Link", url))
-            .end(
-                basic::input_group_button("Copy")
-                    .icon(icon("copy"))
-                    .on_press(|| {}),
-            )
-            .style(style().width(320)),
+        kivact::ui::input_group(
+            "Search",
+            (kivact::ui::text_input("Search", query)
+                .variant(basic::InputGroupControl)
+                .placeholder("Search..."),),
+        )
+        .start(icon("search"))
+        .end(kivact::ui::input_addon("12 results"))
+        .style(style().width(320)),
+        kivact::ui::input_group(
+            "Link",
+            (kivact::ui::text_input("Link", url).variant(basic::InputGroupControl),),
+        )
+        .end(
+            kivact::ui::button("Copy")
+                .variant(kivact::ui::ButtonVariant::Ghost)
+                .variant(basic::InputGroupButtonSize::Xs)
+                .style(style().margin_right(-4.8))
+                .icon(icon("copy"))
+                .on_press(|| {}),
+        )
+        .style(style().width(320)),
     ))
     .style(style().gap(12))
 }
 ```
 
-- `basic::input_group_textarea(label, signal)` は、入力欄の代わりに複数行の文字を受け取ります。`.block_start(..)` と `.block_end(..)` は、その上下に付け足し（文字数のカウンターなど）を置きます。
+- `kivact::ui::text_area(label, signal).variant(basic::InputGroupControl)` は、入力欄の代わりに複数行の文字を受け取ります。`.block_start(..)` と `.block_end(..)` は、その上下に付け足し（文字数のカウンターなど）を置きます。
 - `.invalid(true)` は、グループ全体を invalid にします。
 
 ## 長い一覧から 1 つまたは複数を選ぶ
@@ -149,7 +169,8 @@ fn frameworks() -> impl IntoView {
             .name("Framework")
             .show_clear(true)
             .style(style().width(260)),
-        kivact::ui::combobox("Frameworks", items, many).chips()
+        kivact::ui::combobox("Frameworks", items, many)
+            .chips()
             .placeholder("Add framework")
             .name("Frameworks")
             .style(style().width(360)),
@@ -164,7 +185,7 @@ fn frameworks() -> impl IntoView {
 
 ## 日付や期間を選ぶ
 
-`basic::date_picker(label, date)` は、カレンダーを開くボタンです。`date` は `Option<CalendarDate>` の signal です。`basic::date_range_picker` は、同じようにして `DateRange` を編集します。
+`kivact::ui::date_input(label, date).attach(button)` は、自分のボタンからカレンダーを開きます。表示文字、空のときの案内、書式はボタンで指定します。期間は `date_range_input` で同じように編集します。
 
 ```rust,no_run
 use kivact::i18n::{CalendarDate, DateRange};
@@ -175,19 +196,38 @@ fn dates() -> impl IntoView {
     let due = signal(Some(CalendarDate::new(2026, 10, 3)));
     let stay = signal(None::<DateRange>);
     column((
-        basic::date_picker("Due date", due)
-            .placeholder("Pick a due date")
-            .format(|d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()))
-            .style(style().width(280)),
-        basic::date_range_picker("Stay", stay)
-            .calendar(|calendar| calendar.number_of_months(2))
-            .style(style().width(300)),
+        kivact::ui::date_input("Due date", due)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.variable_rows(true))
+            .attach(
+                button(move || {
+                    due.get().map_or_else(
+                        || "Pick a due date".to_owned(),
+                        |d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()),
+                    )
+                })
+                .name("Due date")
+                .icon(icon("calendar"))
+                .variant(kivact::ui::ButtonVariant::Outline)
+                .style(style().width(280)),
+            ),
+        kivact::ui::date_range_input("Stay", stay)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.number_of_months(2).variable_rows(true))
+            .attach(
+                button("Choose stay")
+                    .name("Stay")
+                    .variant(kivact::ui::ButtonVariant::Outline)
+                    .style(style().width(300)),
+            ),
     ))
     .style(style().gap(12))
 }
 ```
 
-`.calendar(|c| ..)` は、ポップアップの中のカレンダーを設定します。常に見えているカレンダーには、`basic::calendar(signal)` か `basic::calendar_range(signal)` を使います。どちらも同じオプションを取ります。
+`.calendar(|c| ..)` は、ポップアップの中のカレンダーを設定します。常に見えているカレンダーには、`kivact::ui::calendar(signal).variable_rows(true)` か `kivact::ui::calendar(signal).variable_rows(true)` を使います。どちらも同じオプションを取ります。
 
 ```rust,no_run
 use kivact::i18n::{CalendarMonth, Weekday};
@@ -195,15 +235,16 @@ use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn weekdays_only() -> impl IntoView {
-    basic::calendar(signal(None))
+    kivact::ui::calendar(signal(None::<kivact::i18n::CalendarDate>))
+        .variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
         .week_start(Weekday::Monday)
         .disabled_dates(|d| matches!(d.weekday(), Weekday::Saturday | Weekday::Sunday))
-        .caption(basic::CalendarCaption::Dropdown)
+        .caption(kivact::ui::CalendarCaption::Dropdown)
 }
 ```
 
-月と曜日の名前、日付の書式は、`basic.calendar.*` と `basic.date_picker.*` のメッセージから来ます。ほかの言語にするには、`App::messages` で置き換えてください。[テーマとトークン](theme-and-tokens.md)を参照してください。
+月・曜日の名前と日付書式は現在の `Locale` に従います。操作ラベルは `calendar.*` のメッセージです。ボタン内では `Locale::format_date` またはアプリの書式関数を使えます。
 
 ## ワンタイムコードを求める
 
@@ -234,3 +275,5 @@ fn verify() -> impl IntoView {
 - [オーバーレイ](overlays.md): フォームをダイアログやシートに入れる。
 - [ナビゲーション](navigation.md): ページの間のタブとウィザード。
 - rustdoc: 入力グループ、コンボボックス、ピッカー、`input_otp` は `cargo doc -p kivact-ui-basic --open`、`field`、`select`、`text_input` は `cargo doc -p kivact-ui --open`。
+
+枠のない入力は `.variant(basic::InputGroupControl)` を使い、実際のグループからフォーカス・不正状態・上下の余白を読みます。付属ボタンは通常の `button` に `InputGroupButtonSize` の variant を指定します。`IconXs` / `IconSm` は `.hide_label(true)` も指定します。リアクティブな寸法は `InputGroupButtonLook::default().size(size)` で、文字の表示は標準の `.hide_label(..)` で制御します。

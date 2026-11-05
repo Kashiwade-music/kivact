@@ -81,6 +81,9 @@ pub struct ChatMessageState {
     pub reactions_side: ChatReactionsSide,
     pub has_reactions: bool,
     pub actionable: bool,
+    pub has_header: bool,
+    pub has_footer: bool,
+    pub has_avatar: bool,
 }
 /// Scroll-follow facts supplied by the shared follow behavior.
 #[derive(Clone, Debug, PartialEq)]
@@ -98,14 +101,4 @@ pub struct ChatComposerState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct TypingIndicatorState {
     pub phase: f64,
-}
-
-// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
-/// Rendered source facts supplied to code-block recipes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct CodeBlockState {
-    pub numbered: bool,
-    pub wrapped: bool,
-    pub expanded: bool,
-    pub copied: bool,
 }

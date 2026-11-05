@@ -1,5 +1,5 @@
 //! Role: Display selectable source code with themed syntax, numbering and clipboard feedback.
-use crate::chat_values::CodeBlockState;
+use crate::code_values::CodeBlockState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
@@ -215,11 +215,23 @@ impl CodeBlock {
         let copied = feedback.is_copied();
         let numbered = self.line_numbers;
         let wrapped = self.wrap;
+        let has_title = self.title.is_some();
+        let has_language = self.language.is_some();
+        let language_label = self.language_label;
+        let copy_button = self.copy_button;
+        let has_end = self.end_content.is_some();
+        let has_footer = self.footer.is_some();
         let state = memo(move || CodeBlockState {
             numbered: numbered.get(),
             wrapped: wrapped.get(),
             expanded: open.get(),
             copied: copied.get(),
+            has_header: has_title
+                || (has_language && language_label.get())
+                || copy_button.get()
+                || has_end
+                || can_collapse.get(),
+            has_footer,
         });
         let name = self
             .title
@@ -248,6 +260,11 @@ impl CodeBlock {
                 copy_label.get()
             }
         })
+        .variant(crate::ButtonVariant::Ghost)
+        .icon(kivact_core::view::icon(move || {
+            kivact_core::style::Icon::named(if copied.get() { "check" } else { "copy" })
+        }))
+        .hide_label(true)
         .hidden(move || !shown.get())
         .on_press(move || {
             feedback.copy(code.get_untracked());
@@ -292,6 +309,19 @@ impl CodeBlock {
             )
         });
         let copy = self.copy_control(presentation);
+        let copied = presentation.feedback.is_copied();
+        let copied_label = kivact_core::i18n::message("code_block.copied", "Copied");
+        let status = node()
+            .role(Role::Status)
+            .live_region(kivact_core::view::LiveRegion::Polite)
+            .name(move || {
+                if copied.get() {
+                    copied_label.get()
+                } else {
+                    String::new()
+                }
+            })
+            .style(style().size(0, 0));
         let end = self.end_content.take().map(|v| {
             with_recipe_style(
                 node().child(v),
@@ -301,7 +331,9 @@ impl CodeBlock {
             )
         });
         with_recipe_style(
-            node().child((label, trigger, language, end, copy)),
+            node()
+                .child((label, trigger, language, end, copy, status))
+                .hidden(move || !state.get().has_header),
             |r| r.code_block_recipes().header_recipe(),
             &self.variants,
             move || state.get(),
