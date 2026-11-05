@@ -51,6 +51,11 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `chat_message`
+- `chat_thread`
+- `chat_composer`
+- `typing_indicator`
+- `code_block`
 - `stat`
 - `heading`
 - `description_list`

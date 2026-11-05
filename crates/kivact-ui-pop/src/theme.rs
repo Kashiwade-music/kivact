@@ -49,6 +49,8 @@ pub fn theme(mode: ThemeMode) -> Theme {
         ..base.text().clone()
     };
     let mut ui = kivact::ui::UiTokens::default();
+    ui.code_block.font_size = 13.0;
+    ui.code_block.line_height = 20.0;
     ui.button_group.radius = 8.0;
     ui.button_group.divider = p.line;
     ui.button_group.solid_divider = p.line_strong;

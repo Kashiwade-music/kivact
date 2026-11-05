@@ -40,6 +40,11 @@ pub(crate) fn recipes() -> UiRecipes {
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .chat_message(crate::recipes_chat::message)
+        .chat_thread(crate::recipes_chat::thread)
+        .chat_composer(crate::recipes_chat::composer)
+        .typing_indicator(crate::recipes_chat::typing)
+        .code_block(crate::recipes_chat::code)
         .stat(crate::recipes_metrics::stat)
         .heading(|_| crate::recipes_metrics::heading)
         .description_list(crate::recipes_metrics::description_list)

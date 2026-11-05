@@ -32,6 +32,7 @@ mod recipes;
 mod recipes_avatar;
 mod recipes_badge;
 mod recipes_calendar;
+mod recipes_chat;
 mod recipes_collections;
 mod recipes_extra;
 mod recipes_feedback;
@@ -57,14 +58,13 @@ pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
 pub use color::ColorName;
 
 pub use display::{empty_illustration, sparkline};
-pub use messaging::{
-    Message, MessageGroup, Thread, message, message_group, thread, typing_message,
-};
+pub use messaging::{Thread, thread};
 pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
 pub use patterns::{AgendaItem, agenda_item};
 pub use recipes_avatar::AvatarLook;
 pub use recipes_badge::{BadgeHue, BadgeVariant};
 pub use recipes_calendar::WeekendHue;
+pub use recipes_chat::PopBubble;
 pub use recipes_indicators::SpinnerLook;
 pub use recipes_items::ItemHue;
 pub use recipes_metrics::{SectionNumber, StatHue};
