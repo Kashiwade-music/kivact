@@ -23,7 +23,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             "Override the loading label",
             provide_messages(
                 Messages::new().with("soft.spinner.loading", "Chargement"),
-                kivact_ui_soft::spinner,
+                kivact::ui::spinner,
             ),
             "provide_messages(Messages::new().with(\"soft.spinner.loading\", \"Chargement\"), spinner)",
         ),

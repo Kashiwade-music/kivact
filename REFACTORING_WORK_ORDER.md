@@ -2400,7 +2400,7 @@ wave W6。付録 C の作業。
 
 ### K-6b empty state・alert・card・input group
 
-- **和集合の補完**: Alert content/collapsible/open/dismissible/dismiss_label、EmptyState.heading_level、input_group_with を保持。InputGroupMemberState は列挙位置・方向・実際の focus_within を派生させる。色・密度・elevation は各 kit の Variant と recipe。
+- **和集合の補完**: Alert visible(binding) は controlled authority、on_dismiss は受理後通知。default semantics は constructor で設定して caller override を尊重する。dismiss/toggle recipe と dismiss_content を持つ。content/collapsible/open/dismissible/dismiss_label、EmptyState.heading_level、input_group_with を保持。InputGroupMemberState は列挙位置・方向・実際の focus_within を派生させる。色・密度・elevation は各 kit の Variant と recipe。
 
 - **目的**: 付録 C.2 の Tier 2 の残り。付録 A の SM-K22、SM-K23。
 - **決定済みの形**:
@@ -2739,3 +2739,7 @@ wave W7。
 - KL: `custom::Generation` と `Generation::as_u64()` で numeric region ID allocator を組む。追加 counter/map/hash は不要。
 - U-1: `SelectApi::open_sheet()`・`is_sheet_open() -> Value<bool>`・`trigger_with_sheet(impl Fn() -> bool)` を足す。最後の chooser は activation の単一処理内で Released outcome を消費し、Popup の default toggle と二重に実行しない。on_press の Handled は callback 境界で消えるため、これで抑止しない。
 - T-1: `Canvas` は既存名 `Draw`。`StyledRange`・入力用 `TextDecoration` は style、`Decoration`・`DecorationKind`・`TextLayout` は custom。入力用 decoration は Color/TextLength、backend へ一度 resolve する。
+
+### W6 announcement の補完
+
+EmptyState.announce_changes() は SM-K926 の変化通知を選ぶ。既定の無通知と announce() の一度だけを残し、各政策は排他的。

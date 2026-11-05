@@ -69,6 +69,7 @@ fn kbd_uses_the_platform_command_key() {
                 meta: true,
                 ..Modifiers::default()
             }),
+            ui::kbd("mod+shift+enter"),
             text(move || {
                 if platform::capabilities().get().command_key == CommandKey::Command {
                     "command-platform"
@@ -79,10 +80,26 @@ fn kbd_uses_the_platform_command_key() {
         ))
     });
     let name = if screen.query_by_text("command-platform").is_some() {
-        "\u{2318} + K"
+        "Command + K"
     } else {
-        "Ctrl + K"
+        "Control + K"
     };
-    screen.get_by_role(Role::Image, name);
+    let typed = screen.within(screen.get_by_role(Role::Image, name));
+    typed.get_by_text(if name == "Command + K" {
+        "\u{2318}"
+    } else {
+        "Ctrl"
+    });
+    typed.get_by_text("K");
+    screen.get_by_role(
+        Role::Image,
+        if name == "Command + K" {
+            "Command + Shift + Enter"
+        } else {
+            "Control + Shift + Enter"
+        },
+    );
+    screen.get_by_text("⇧");
+    screen.get_by_text("↵");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

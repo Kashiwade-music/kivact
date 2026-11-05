@@ -75,6 +75,9 @@ MIT OR Apache-2.0. The bundled Tabler icons are MIT
 - `button_group`
 - `input_group`
 - `dropzone`
+- `tree`
+- `table`
+- `item_list`
 - `field`
 - `button`
 - `button_content`

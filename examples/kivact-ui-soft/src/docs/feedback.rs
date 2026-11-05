@@ -1,10 +1,11 @@
 //! Role: Demonstrate Soft badges, placeholders and status indicators.
 use super::specimen::specimen;
 use kivact::style::{Align, style};
+use kivact::ui::{ControlSize, spinner};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
-    BadgeVariant, BannerStatus, SkeletonRadius, SpinnerShade, SpinnerSize, StatusDotVariant,
-    TokenColor, badge, banner, skeleton, spinner, status_dot, token,
+    BadgeVariant, BannerStatus, SkeletonRadius, SpinnerShade, SpinnerVariant, StatusDotVariant,
+    TokenColor, badge, banner, skeleton, status_dot, token,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -62,12 +63,18 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "spinner" => specimen(
             "Sizes and shades",
             row((
-                spinner().size(SpinnerSize::Sm),
-                spinner().size(SpinnerSize::Md).shade(SpinnerShade::Subtle),
-                spinner().size(SpinnerSize::Lg).label("Loading"),
+                spinner().size(ControlSize::ExtraSmall),
+                spinner().size(ControlSize::Small).variant(SpinnerVariant {
+                    shade: SpinnerShade::Subtle,
+                    ..Default::default()
+                }),
+                spinner()
+                    .size(ControlSize::Medium)
+                    .name("Loading")
+                    .label_content(text("Loading")),
             ))
             .style(style().align_items(Align::Center).gap(16)),
-            "spinner().size(SpinnerSize::Lg).label(\"Loading\")",
+            "spinner().size(ControlSize::Medium).name(\"Loading\").label_content(text(\"Loading\"))",
         ),
         "token" => specimen(
             "Categorical tokens",

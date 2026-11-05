@@ -134,50 +134,56 @@ row updates when they change.
 
 ## Show a hierarchy as a tree
 
-`game::tree(entries, selection)` draws a file tree. `entries` is a list of
-`game::TreeEntry`, built with `TreeEntry::file(id, label)` and
-`TreeEntry::folder(id, label, children)`; `selection` is a
-`Signal<Option<String>>` holding the id of the selected **leaf**, `None` while
-none is selected.
+`kivact::ui::tree(label, nodes)` renders flat `TreeNode` data under the Game theme. The application owns expansion, selection and revision markers. Guard the selection binding to select only leaves; use `.on_activate(..)` to toggle a folder on Enter or double click. A folder starts closed when its key is absent from `expanded`. The row slot can combine icons, labels and revision markers. The tree remains one Tab stop with arrow navigation and a pointer expander. Reactive node labels follow their source.
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::interaction::TreeNode;
 use kivact_ui_game as game;
 
 fn files() -> impl IntoView {
-    let selected = signal(Some(String::from("save-1")));
-    let entries = vec![
-        game::TreeEntry::folder(
-            "saves",
-            "saves",
-            vec![
-                game::TreeEntry::file("save-1", "slot-1.sav"),
-                game::TreeEntry::file("save-2", "slot-2.sav").marker("M"),
-            ],
-        ),
-        game::TreeEntry::folder("mods", "mods", vec![]).collapsed(),
-        game::TreeEntry::file("readme", "README.txt"),
+    let selected = signal(Some("save-1".to_owned()));
+    let expanded = signal(vec!["saves".to_owned()]);
+    let nodes = vec![
+        TreeNode::new("saves".to_owned(), None, "saves"),
+        TreeNode::new("save-1".to_owned(), Some("saves".to_owned()), "slot-1.sav"),
+        TreeNode::new("save-2".to_owned(), Some("saves".to_owned()), "slot-2.sav"),
+        TreeNode::new("mods".to_owned(), None, "mods"),
+        TreeNode::new("readme".to_owned(), None, "README.txt"),
     ];
     column((
-        game::tree(entries, selected),
+        kivact::ui::tree("Files", nodes).expanded(expanded)
+            .selection(binding(selected, move |key: Option<String>| {
+                if key.as_deref().is_none_or(|id| !["saves", "mods"].contains(&id)) {
+                    selected.set(key);
+                }
+            }))
+            .on_activate(move |key| {
+                if key == "saves" {
+                    expanded.update(|keys| if keys.contains(&key) {
+                        keys.retain(|id| id != &key);
+                    } else { keys.push(key); });
+                }
+            })
+            .item(|item, _| {
+                let key = item.get_untracked().key;
+                let label = match key.as_str() {
+                    "save-1" => "slot-1.sav", "save-2" => "slot-2.sav",
+                    "readme" => "README.txt", "saves" => "saves", _ => "mods",
+                };
+                row((text(label).style(style().grow(1)), game::mono(if key == "save-2" { "M" } else { "" })))
+                    .style(style().grow(1))
+            }),
         game::mono(move || format!("OPEN {}", selected.get().unwrap_or_default())),
-    ))
-    .style(style().gap(12).width(300).margin(24))
+    )).style(style().gap(12).width(300).margin(24))
 }
 # fn main() {}
 ```
 
-The whole tree is one tab stop. Up and Down move over visible rows, Right and
-Left open and close a folder or move between a folder and its children. Only a
-leaf is written to the signal; a folder opens and closes with its chevron,
-Enter or a double click. `.collapsed()` starts a folder closed, `.marker("M")`
-adds a small mark at the end of a row. The entries are read when the tree is
-built and also follow a signal, so a renamed entry shows the new label.
-
 ## Show records in a table
 
 `data_table(rows, key, columns)` is the standard table; the Game theme draws it
-as a console table. `game::TableCell` gives a column's cells a console look
+as a console table. `game::GameCellVariant` gives a column's cells a console look
 through `.cell(..)`:
 
 ```rust,no_run
@@ -201,14 +207,14 @@ fn units(rows: Signal<Vec<Unit>>) -> impl IntoView {
         vec![
             DataColumn::new("Unit", |unit: &Unit| unit.name.to_owned()).sortable(),
             DataColumn::new("Status", |unit: &Unit| unit.status.to_owned()).cell(|unit: &Unit| {
-                game::TableCell::Badge {
+                game::GameCellVariant::Badge {
                     label: unit.status.to_owned(),
                     tone: if unit.status == "ALIVE" { Tone::Success } else { Tone::Danger },
                 }
             }),
             DataColumn::new("HP", |unit: &Unit| format!("{:.0}", unit.hp))
                 .compare(|a, b| a.hp.total_cmp(&b.hp))
-                .cell(|unit: &Unit| game::TableCell::Progress { value: unit.hp, tone: Tone::Info })
+                .cell(|unit: &Unit| game::GameCellVariant::Progress { value: unit.hp, tone: Tone::Info })
                 .numeric(true),
         ],
     )
@@ -221,7 +227,7 @@ The table keeps nothing but what you pass: the rows, the selection, and (with
 `.sort(..)`, `.filter(..)`, `.page(..)`) the sort, the search text and the page.
 `.toolbar(|context| view)` replaces the area above the table, for example with
 bulk actions on the selected rows, and `.footer(|context| view)` the area
-below. Cells: `TableCell::Identifier`, `Detail { title, description }`,
+below. Cells: `GameCellVariant::Identifier`, `Detail { title, description }`,
 `User { name, initials, color }`, `Badge { label, tone }` and
 `Progress { value, tone }` (0 to 100).
 

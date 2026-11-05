@@ -165,7 +165,6 @@ pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
 pub use input_group::{InputGroup, input_group, input_group_text, input_group_with};
-pub use kbd::kbd;
 pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_footer,
     layout_header, layout_panel,
@@ -229,7 +228,7 @@ pub use soft_table::{
     table_row_index, table_row_status, table_selection_toolbar,
 };
 pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
-pub use spinner::{Spinner, SpinnerShade, SpinnerSize, spinner};
+pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
     center, hstack, stack, stack_item, vstack,
