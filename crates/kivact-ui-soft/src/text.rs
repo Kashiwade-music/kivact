@@ -21,94 +21,138 @@ use kivact::view::View;
 use kivact::view::node_ref;
 use kivact::view::use_direction;
 
-/// The text kind option.
+/// Named typography roles resolved from the current Soft theme.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TextKind {
     #[default]
+    /// Use body typography; the default.
     Body,
+    /// Use large body typography.
     Large,
+    /// Use label typography.
     Label,
+    /// Use supporting typography and secondary text color.
     Supporting,
+    /// Use code typography and its configured font family.
     Code,
+    /// Use the first display typography scale.
     Display1,
+    /// Use the second display typography scale.
     Display2,
+    /// Use the third display typography scale.
     Display3,
+    /// Preserve inherited metrics and color unless explicitly overridden.
     Inherit,
 }
 
-/// The text size option.
+/// Theme font-size steps that override a typography role’s size.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextSize {
+    /// Use the `size_4xs` font-size token in logical pixels.
     Xs4,
+    /// Use the `size_3xs` font-size token in logical pixels.
     Xs3,
+    /// Use the `size_2xs` font-size token in logical pixels.
     Xs2,
+    /// Use the `size_xs` font-size token in logical pixels.
     Xs,
+    /// Use the `size_sm` font-size token in logical pixels.
     Sm,
+    /// Use the `size_md` font-size token in logical pixels.
     Base,
+    /// Use the `size_lg` font-size token in logical pixels.
     Lg,
+    /// Use the `size_xl` font-size token in logical pixels.
     Xl,
+    /// Use the `size_2xl` font-size token in logical pixels.
     Xl2,
+    /// Use the `size_3xl` font-size token in logical pixels.
     Xl3,
+    /// Use the `size_4xl` font-size token in logical pixels.
     Xl4,
 }
 
-/// The text color option.
+/// Semantic text colors resolved from Soft theme tokens.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextColor {
+    /// Use the primary text color.
     Primary,
+    /// Use the secondary text color.
     Secondary,
+    /// Use the disabled text color without changing interaction semantics.
     Disabled,
+    /// Use the secondary text color for placeholder presentation.
     Placeholder,
+    /// Use the accent text color.
     Accent,
+    /// Leave the inherited text color unchanged.
     Inherit,
 }
 
-/// The text weight option.
+/// Theme font-weight choices for styled text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextWeight {
+    /// Use the theme’s normal weight.
     Normal,
+    /// Use the theme’s medium weight.
     Medium,
+    /// Use the theme’s semibold weight.
     Semibold,
+    /// Use the theme’s bold weight.
     Bold,
 }
 
-/// The truncate tooltip option.
+/// Placement of the tooltip shown only when limited text is actually truncated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TruncateTooltip {
+    /// Do not attach a truncation tooltip.
     Off,
     #[default]
+    /// Place the truncation tooltip above the text; the default.
     Above,
+    /// Place the truncation tooltip below the text.
     Below,
+    /// Place the tooltip at the logical leading side.
     Start,
+    /// Place the tooltip at the logical trailing side.
     End,
 }
 
-/// The word break option.
+/// Word-breaking requests; both currently follow native wrapping rules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WordBreak {
+    /// Request word breaking through the native wrapping rules.
     BreakWord,
+    /// Request character breaking; currently uses the same native rules as BreakWord.
     BreakAll,
 }
 
-/// The text wrap option.
+/// Line-wrapping requests supported by styled text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TextWrap {
+    /// Enable native line wrapping.
     Wrap,
+    /// Disable line wrapping.
     NoWrap,
+    /// Enable wrapping; currently uses the same native rules as Wrap.
     Balance,
+    /// Enable wrapping; currently uses the same native rules as Wrap.
     Pretty,
 }
 
-/// The text justify option.
+/// Text alignment relative to the current reading direction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TextJustify {
     #[default]
+    /// Align to the logical text start; the default.
     Start,
+    /// Center the text within its line box.
     Center,
+    /// Align to the logical text end.
     End,
 }
 
-/// A text node with an Astryx Neutral typography role.
+/// Reactive text with a Soft typography role and optional truncation tooltip.
 pub struct StyledText {
     root: Node,
     value: Value<String>,
@@ -126,7 +170,7 @@ pub struct StyledText {
     capsize: Value<bool>,
 }
 
-/// Show a string or a reactive text value.
+/// Show constant or reactive body text, with unlimited lines and logical start alignment.
 #[track_caller]
 pub fn styled_text(value: impl IntoText) -> StyledText {
     let value = value.into_text_value();
@@ -149,61 +193,61 @@ pub fn styled_text(value: impl IntoText) -> StyledText {
 }
 
 impl StyledText {
-    /// Set the kind.
+    /// Set a constant or reactive typography role; defaults to body.
     pub fn kind(mut self, value: impl IntoValue<TextKind>) -> Self {
         self.kind = value.into_value();
         self
     }
 
-    /// Set the size.
+    /// Override font size with a constant or reactive theme size step.
     pub fn size(mut self, value: impl IntoValue<TextSize>) -> Self {
         self.size = Some(value.into_value());
         self
     }
 
-    /// Set the color.
+    /// Override the role’s text color with a constant or reactive semantic color.
     pub fn color(mut self, value: impl IntoValue<TextColor>) -> Self {
         self.color = Some(value.into_value());
         self
     }
 
-    /// Set the weight.
+    /// Override the role’s weight with a constant or reactive theme weight.
     pub fn weight(mut self, value: impl IntoValue<TextWeight>) -> Self {
         self.weight = Some(value.into_value());
         self
     }
 
-    /// Set the max lines.
+    /// Set a reactive line limit: zero is unlimited, one is single-line, larger values clamp.
     pub fn max_lines(mut self, value: impl IntoValue<u32>) -> Self {
         self.max_lines = value.into_value();
         self
     }
 
-    /// Set the truncate tooltip.
+    /// Choose tooltip placement at view construction; attached only when the initial line limit is nonzero.
     pub fn truncate_tooltip(mut self, value: impl IntoValue<TruncateTooltip>) -> Self {
         self.truncate_tooltip = value.into_value();
         self
     }
 
-    /// Set the wrap.
+    /// Choose native wrapping; Balance and Pretty currently behave like Wrap.
     pub fn wrap(mut self, value: TextWrap) -> Self {
         self.wrap = Some(value);
         self
     }
 
-    /// Set the justify.
+    /// Set constant or reactive alignment, respecting the current reading direction.
     pub fn justify(mut self, value: impl IntoValue<TextJustify>) -> Self {
         self.justify = value.into_value();
         self
     }
 
-    /// Set the tabular numbers.
+    /// Reactively enable equal-width number glyphs; disabled by default.
     pub fn tabular_numbers(mut self, value: impl IntoValue<bool>) -> Self {
         self.tabular_numbers = value.into_value();
         self
     }
 
-    /// Request a word break mode. Both use the native wrapping rules.
+    /// Request word breaking; both choices currently leave native wrapping unchanged.
     pub fn word_break(self, _value: WordBreak) -> Self {
         self
     }
@@ -220,7 +264,7 @@ impl StyledText {
         self
     }
 
-    /// Give the text heading semantics without changing its appearance.
+    /// Give the text heading semantics and a reactive level without changing typography.
     pub fn heading_level(mut self, level: impl IntoValue<u32>) -> Self {
         self.root = self
             .root

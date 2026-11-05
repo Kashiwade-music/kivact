@@ -6,11 +6,17 @@ use kivact::state::Value;
 /// Insets inherited by Layout regions from a parent surface.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInset {
+    /// Inherited inline outer padding in logical pixels; None uses the region fallback.
     pub outer_x: Option<f64>,
+    /// Inherited block outer padding in logical pixels; None uses the region fallback.
     pub outer_y: Option<f64>,
+    /// Padding between inline regions in logical pixels; None uses the region fallback.
     pub inner_x: Option<f64>,
+    /// Padding between block regions in logical pixels; None uses the region fallback.
     pub inner_y: Option<f64>,
+    /// This layout’s inline outer padding override in logical pixels.
     pub own_outer_x: Option<f64>,
+    /// This layout’s block outer padding override in logical pixels.
     pub own_outer_y: Option<f64>,
 }
 
@@ -48,9 +54,12 @@ use kivact::view::View;
 use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Whether a page layout fills its parent or follows intrinsic content height.
 pub enum LayoutHeight {
     #[default]
+    /// Fill the available parent height; the default.
     Fill,
+    /// Follow content height while retaining at least the parent height.
     Auto,
 }
 
@@ -70,6 +79,7 @@ pub struct Layout {
     default_dividers: Value<bool>,
 }
 
+/// Create an empty fill-height page layout with no default dividers.
 pub fn layout() -> Layout {
     Layout {
         root: node(),
@@ -88,46 +98,57 @@ pub fn layout() -> Layout {
 }
 
 impl Layout {
+    /// Place a region above the central row; usually built with `layout_header`.
     pub fn header(mut self, slot: LayoutRegion) -> Self {
         self.header = Some(slot);
         self
     }
+    /// Place a region below the central row; usually built with `layout_footer`.
     pub fn footer(mut self, slot: LayoutRegion) -> Self {
         self.footer = Some(slot);
         self
     }
+    /// Place a panel at the logical leading side, following reading direction.
     pub fn start(mut self, slot: LayoutRegion) -> Self {
         self.start = Some(slot);
         self
     }
+    /// Place a panel at the logical trailing side, following reading direction.
     pub fn end(mut self, slot: LayoutRegion) -> Self {
         self.end = Some(slot);
         self
     }
+    /// Place the central region, which grows between optional side panels.
     pub fn content(mut self, slot: LayoutRegion) -> Self {
         self.content = Some(slot);
         self
     }
+    /// Choose fill or intrinsic height at view construction; defaults to fill.
     pub fn height(mut self, height: impl IntoValue<LayoutHeight>) -> Self {
         self.height = height.into_value();
         self
     }
+    /// Override the layout’s outer padding on both axes with a theme spacing step.
     pub fn padding(mut self, padding: Space) -> Self {
         self.padding = Some(padding);
         self
     }
+    /// Set a reactive content-width limit; pixel lengths also center content without side panels.
     pub fn content_width(mut self, width: impl IntoValue<Length>) -> Self {
         self.content_width = Some(width.into_value());
         self
     }
+    /// Place a caller-owned resize handle after the leading panel; no resize behavior is added.
     pub fn start_resize_handle(mut self, handle: impl IntoView) -> Self {
         self.start_resize = Some(handle.into_view());
         self
     }
+    /// Place a caller-owned resize handle before the trailing panel; no resize behavior is added.
     pub fn end_resize_handle(mut self, handle: impl IntoView) -> Self {
         self.end_resize = Some(handle.into_view());
         self
     }
+    /// Choose default header/footer dividers at construction unless a region overrides them.
     pub fn default_dividers(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.default_dividers = enabled.into_value();
         self
@@ -277,6 +298,7 @@ enum Region {
     End,
 }
 
+/// Content slot with padding, size, scrolling and divider settings for a page layout.
 pub struct LayoutRegion {
     root: Node,
     children: View,
@@ -301,15 +323,19 @@ fn region(kind: Region, children: impl IntoView) -> LayoutRegion {
     }
 }
 
+/// Create a non-scrolling header region.
 pub fn layout_header(children: impl IntoView) -> LayoutRegion {
     region(Region::Header, children)
 }
+/// Create a scrolling central content region.
 pub fn layout_content(children: impl IntoView) -> LayoutRegion {
     region(Region::Content, children)
 }
+/// Create a non-scrolling footer region.
 pub fn layout_footer(children: impl IntoView) -> LayoutRegion {
     region(Region::Footer, children)
 }
+/// Create a scrolling side region; assigning it to start/end determines its logical side.
 pub fn layout_panel(children: impl IntoView) -> LayoutRegion {
     region(Region::Start, children)
 }
@@ -319,26 +345,32 @@ impl LayoutRegion {
         self.kind = kind;
         self
     }
+    /// Override whether this region draws its boundary divider.
     pub fn divider(mut self, divider: bool) -> Self {
         self.divider = Some(divider);
         self
     }
+    /// Replace this region’s computed insets with uniform theme spacing.
     pub fn padding(mut self, padding: Space) -> Self {
         self.padding = Some(padding);
         self
     }
+    /// Override the region’s bottom padding with a theme spacing step.
     pub fn padding_bottom(mut self, padding: Space) -> Self {
         self.padding_bottom = Some(padding);
         self
     }
+    /// Choose at view construction whether this region owns a scroll viewport.
     pub fn scrollable(mut self, scrollable: impl IntoValue<bool>) -> Self {
         self.scrollable = scrollable.into_value();
         self
     }
+    /// Set constant or reactive width for a leading or trailing panel.
     pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
         self.width = Some(width.into_value());
         self
     }
+    /// Set a constant or reactive height using a logical length.
     pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
         let height = height.into_value();
         self.root = self.root.style(move || style().height(height.get()));
