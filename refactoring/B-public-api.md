@@ -200,6 +200,8 @@ Part の参照が必要な呼出し側は `node_ref()` を作り、実 node に 
 | `kivact::interaction` | `DialogMode`（旧 `DialogKind`）、`DismissOn`（旧 `Dismiss`） | N-F2 |
 | `kivact::ui` | `DataColumn`、`button`、`checkbox`、`data_table`、`dialog`、`field`、`list`、`menu`、`radio_group`、`select`、`slider`、`switch`、`tabs`、`text_area`、`text_input`、`toast_region`、`tooltip` | 既存 |
 | `kivact::ui` | `async_view` | G-5 |
+| `kivact::view` | `component` | K-7e / 19.46 |
+| `kivact::ui` | `breadcrumb`、`button_group`、`calendar`、`combobox`、`date_input`、`date_range_input`、`date_time_input`、`item_list`、`item_row`、`navigation_menu`、`pagination`、`selection_field`、`stepper`、`table`、`table_body`、`table_cell`、`table_footer`、`table_head`、`table_header`、`table_row`、`time_input`、`toggle_group`、`toolbar`、`tree`、`PageItem`、`StepStatus`、`StepperItem` | K: 入門の共通部品と位置引数 |
 
 `Result` は入れない（利用者の code の `std::result::Result` を隠すため。`main` は `kivact::Result<()>` と書く）。旧い一覧の `ButtonVariant` は 18.6 節の規則（`*Variant` は module から import する）で外した。`IntoSelection` の正準パスは `Selection` と同じ `kivact::interaction`（`kivact-core` は `Selection` を知らないため）。
 

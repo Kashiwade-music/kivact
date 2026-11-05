@@ -215,3 +215,15 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 
 - G-final Windows no-default: 7f26a185固定、workspace/GPU2件/docs（104 standaloneを含む）すべてexit0。WSL all-target/all-feature Clippyもexit0。
 - F3拡張確認でtext/OS serviceの第四crate追従を検出し、限定公開語彙とvirtualの汎用Unsupported境界を修正中。
+
+| F3拡張例 | 状態 | crate / file | 確認 |
+|---|---|---|---|
+| key_shortcuts | merged | 3 / 3 | 意味値、Core patch、native変換 |
+| text_wrap_style | merged | 3 / 14 | types/style/text、限定公開語彙を所有側で追加 |
+| beep | merged | 3 / 9 | types/native/core、virtual未知要求はUnsupported |
+| background_blend_mode | merged | 3 / 5 | types/style/engine、既存layer命令 |
+| Rating | merged | runtime2/8、E2E込み3package/11、guide込み13 | interaction/ui、facadeとkit変更不要 |
+
+- P1再点検: 定義ID214件のうち212件は解消・owner分類、保持2件（SM-R17、SM-E15）。全体Clippyは関数長/禁止型含め0。preludeはB.2本表とK/19.46の追加名に一致し、旧名やResult/option enumを含まない。
+
+- F3静的最終: 76b299caの全static40package/108graph 0、architecture再生成。Clippy0、facade rustdoc0、prelude144名一致、ローカル文書リンク切れ0、全skip空。WSL Clippy73deab7aも0。

@@ -354,3 +354,4 @@
 | 日付 | unit | 問い | 決定 | 理由 |
 |---|---|---|---|---|
 | 2026-11-05 | F3 | 拡張時の変更箇所 | text styleの公開語彙は所有するstyle crateの明示facade一覧で一元化し、Coreはその限定した一覧だけを転送する。virtualは既知serviceを処理し未知requestはUnsupported、capabilityは構築時の値と実GPU/native事実から投影する。 | 新しい型やserviceごとにCoreの重複一覧やvirtualの網羅matchを修正する第四のcrateを不要にし、型付きAPIと正直な未対応の契約を維持するため |
+| 2026-11-05 | F3 Windows mirror | 並列native試験の異常終了 | required mirrorのpublic API e2e binaryでSTATUS_ACCESS_VIOLATIONが発生したため、そのbinaryはtest-threads=1で再実行する | 実窓を伴う失敗binaryだけを直列化し、他の試験とCargo jobsは既定並列を保つため |

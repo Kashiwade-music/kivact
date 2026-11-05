@@ -186,3 +186,5 @@
 | 2026-11-05 | fix-CP6-ui/F1 | 実際の参照先と正規化された進捗 | カスタムdescription termの実wrapperにGroupを付けnative labelled_byの参照先を公開する。detailはbuttonを含むGroupとして検証し、termと同名Groupでも区別する。Game入門gaugeは統一ProgressBarの0..1契約（4/10=0.4）を検査し、旧Meterの4.0期待を残さない。 |
 
 | 2026-11-05 | F3 | 拡張時の変更箇所 | text styleの公開語彙は所有するstyle crateの明示facade一覧で一元化し、Coreはその限定した一覧だけを転送する。virtualは既知serviceを処理し未知requestはUnsupported、capabilityは構築時の値と実GPU/native事実から投影する。 | 新しい型やserviceごとにCoreの重複一覧やvirtualの網羅matchを修正する第四のcrateを不要にし、型付きAPIと正直な未対応の契約を維持するため |
+
+| 2026-11-05 | F3 Windows mirror | 並列native試験の実行単位 | required mirrorのpublic API e2e binaryが並列実行中にSTATUS_ACCESS_VIOLATIONで終了した。0.6節の失敗crate例外に従い、そのbinaryだけtest-threads=1で再実行する。他crateとCargo jobsは既定並列を維持する。 |
