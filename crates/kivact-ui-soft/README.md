@@ -122,8 +122,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.chat.tool_calls.pending` | Pending |
 | `soft.chat.tool_calls.running` | Running |
 | `soft.chat_dictation_button.label` | Dictation |
-| `soft.chat_send_button.send` | Send |
-| `soft.chat_send_button.stop` | Stop |
 | `soft.citation.source` | Source {number} |
 | `soft.date.open` | Choose date |
 | `soft.date_range.placeholder` | Select date range |
