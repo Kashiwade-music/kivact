@@ -12,9 +12,6 @@ use kivact::view::NodeBuilder;
 use kivact::view::PointerKind;
 use kivact::view::PopupKind;
 use kivact::view::Role;
-use kivact_ui_soft::{
-    SelectorPresentation, complex_selector_with_presentation, multi_selector, selector,
-};
 use std::time::Duration;
 
 #[test]
@@ -25,7 +22,7 @@ fn compact_touch_uses_a_latched_dialog_and_keyboard_uses_the_popup() {
             .theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let selected = signal(Some("a"));
-            let field = selector(
+            let field = kivact::ui::select(
                 "Team",
                 vec![
                     ListItem::new("a", "Alpha"),
@@ -34,7 +31,8 @@ fn compact_touch_uses_a_latched_dialog_and_keyboard_uses_the_popup() {
                 ],
                 selected,
             )
-            .presentation(SelectorPresentation::Adaptive)
+            .open_on_arrow(true)
+            .presentation(kivact::ui::SelectPresentation::BottomSheet)
             .style(style().width(280));
             (selected, field)
         },
@@ -81,12 +79,13 @@ fn multi_selector_filters_and_commits_in_the_touch_sheet() {
             .theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let selected = signal(vec!["a"]);
-            let field = multi_selector(
+            let field = kivact::ui::combobox(
                 "Teams",
                 vec![ListItem::new("a", "Alpha"), ListItem::new("b", "Beta")],
                 selected,
             )
-            .presentation(SelectorPresentation::Adaptive)
+            .chips()
+            .presentation(kivact::ui::SelectPresentation::BottomSheet)
             .style(style().width(280));
             (selected, field)
         },
@@ -122,12 +121,9 @@ fn complex_selector_uses_the_same_search_binding_in_its_two_surfaces() {
             let query = signal(String::new());
             (
                 query,
-                complex_selector_with_presentation(
-                    "Workspace",
-                    "Design",
-                    SelectorPresentation::Adaptive,
-                    move || text_input("Filter workspaces", query),
-                ),
+                kivact::ui::selection_field("Workspace", "Design")
+                    .presentation(kivact::ui::SelectPresentation::BottomSheet)
+                    .content(move || text_input("Filter workspaces", query)),
             )
         },
     );
