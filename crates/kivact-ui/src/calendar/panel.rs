@@ -3,7 +3,6 @@
 use super::caption::{Names, title};
 use super::state::Shared;
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
 use crate::{ButtonVariant, ControlSize};
 use kivact_core::custom::{Part, PartState};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
@@ -102,6 +101,12 @@ pub(super) fn month_panel(
             .height(cell_size())
             .width(pct(100)),
     );
+    let caption = with_recipe_style(
+        caption,
+        |r| r.calendar_recipes().caption_recipe(),
+        &shared.variants,
+        PartState::default,
+    );
     let locale = kivact_core::i18n::use_locale();
     let headers = row((0..7)
         .map(|c| {
@@ -166,7 +171,7 @@ pub(super) fn month_panel(
                 .shrink(0),
         ),
         |r| r.calendar_recipes().month_recipe(),
-        &Variants::default(),
+        &shared.variants,
         PartState::default,
     )
 }
@@ -235,8 +240,9 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
                 },
             )),
         |r| r.calendar_recipes().day_recipe(),
-        &Variants::default(),
+        &shared.variants,
         move || crate::CalendarDayVisual {
+            date: day,
             day: marked.get(),
             today: day == today.get(),
             in_month,
@@ -246,7 +252,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let band = with_recipe_style(
         node(),
         |r| r.calendar_recipes().range_recipe(),
-        &Variants::default(),
+        &shared.variants,
         move || marked.get(),
     );
     node().child(band).child(button).style(

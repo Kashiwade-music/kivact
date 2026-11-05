@@ -206,6 +206,7 @@ recipe_table! {
     CalendarRecipes {
         root(root_recipe): PartState = super::look_calendar::root,
         month(month_recipe): PartState = super::look_calendar::month,
+        caption(caption_recipe): PartState = super::look_calendar::month,
         day(day_recipe): super::CalendarDayVisual = super::look_calendar::day,
         range(range_recipe): kivact_interaction::CalendarDayState = super::look_calendar::range,
     }

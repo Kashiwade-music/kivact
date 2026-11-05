@@ -27,6 +27,7 @@ use std::rc::Rc;
 // xtask-allow(state-fields): Setup builder options are independent bindings, callbacks and display capabilities.
 pub struct Calendar {
     root: Node,
+    variants: crate::variants::Variants,
     selection: CalendarSelection,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     month: Option<CalendarMonth>,
@@ -69,13 +70,15 @@ pub struct Calendar {
 }
 
 fn new(selection: CalendarSelection) -> Calendar {
+    let variants = crate::variants::Variants::default();
     Calendar {
         root: crate::layer::with_base_recipe_style(
             node().with_node(|root| root.role(Role::Group)),
             |r| r.calendar_recipes().root_recipe(),
-            &crate::variants::Variants::default(),
+            &variants,
             kivact_core::custom::PartState::default,
         ),
+        variants,
         selection,
         month: None,
         disabled: Rc::new(|_| false),
@@ -110,6 +113,12 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 }
 
 impl Calendar {
+    /// Pass a kit-defined appearance to every calendar part recipe.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+
     pub(crate) fn range_validator(&self) -> impl Fn(DateRange) -> bool + use<> {
         let (min, max, min_span, max_span) = (self.min, self.max, self.min_span, self.max_span);
         let disabled = self.disabled.clone();
@@ -279,6 +288,7 @@ impl IntoView for Calendar {
     fn into_view(self) -> View {
         let Calendar {
             root,
+            variants,
             selection,
             month,
             disabled,
@@ -385,6 +395,7 @@ impl IntoView for Calendar {
                 let grid = use_calendar_grid(month, selection, policy);
                 let first = grid.week_start();
                 let shared = Rc::new(Shared {
+                    variants: variants.clone(),
                     grid,
                     month,
                     count,
