@@ -83,3 +83,10 @@ pub(super) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
         .background(ColorToken::Surface)
         .border(1, ColorToken::Border)
 }
+
+pub(super) fn stepper_layout(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+    style().direction(Direction::Row)
+}
+pub(super) fn stepper_body(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+    style().direction(Direction::Column)
+}
