@@ -41,11 +41,11 @@ The standard APIs in this table come from `kivact::ui`.
 | App Shell | `app_shell`, `use_app_shell_mobile` |
 | Aspect Ratio | `aspect_ratio` |
 | Avatar | `avatar`, `avatar_group`, `avatar_group_overflow`, `avatar_status_dot` |
-| Badge / Banner / Blockquote | `badge`, `banner`, `blockquote` |
+| Badge / Banner / Blockquote | Standard `badge` with semantic `tone` or Soft categorical `BadgeVariant`; `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
 | Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
-| Calendar | `calendar`, `calendar_range` |
+| Calendar | Standard `calendar` over single-date or ordered-range bindings |
 | Card | `card`, `clickable_card`, `selectable_card` |
 | Carousel | `carousel`, `use_carousel` |
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
@@ -54,7 +54,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selection)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
 | Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
 | Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
-| Date Input | `date_input`, `date_range_input`, `date_time_input` |
+| Date Input | Standard `date_input`, `date_range_input`, `date_time_input` |
 | Dialog | Standard `dialog`, `dialog_header`, `alert_dialog`. Signals own imperative open state. |
 | Divider | `divider` |
 | Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
@@ -79,16 +79,16 @@ The standard APIs in this table come from `kivact::ui`.
 | Radio | `radio_list`, standard `ListItem` |
 | Resizable | standard `splitter(...).collapsible(..).snaps(..)` |
 | Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area` |
-| Segmented Control | `segmented_control`, standard `ListItem` |
+| Segmented Control | Standard `radio_group(...).variant(RadioGroupVariant::Segmented)` and `ListItem`; Soft `SegmentedLayout` and `SegmentedIconOnly` style options |
 | Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
-| Skeleton / Slider / Spinner / Status Dot | `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
+| Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
 | Stepper | `stepper`, `step` |
 | Switch | Standard `switch` |
 | Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
-| Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, `time_input`, standard `text_input` and `text_area` |
+| Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, standard `time_input`, `text_input` and `text_area` |
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
-| Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, `toolbar`, `toolbar_item` |
+| Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, standard `toolbar`, Soft `with_key_hints` and `keyboard_hint` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
 | Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
 | Typeahead | Standard `combobox` and `ListItem`; configure `.search(..)`, `.debounce(..)`, `.placeholder(..)`, and `.empty_text(..)`. |
@@ -122,33 +122,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.banner.dismiss_titled` | {dismiss} {title} |
 | `soft.banner.expand` | Expand |
 | `soft.breadcrumbs.label` | Breadcrumb |
-| `soft.calendar.caption` | {month} {year} |
-| `soft.calendar.chosen` | Date selected |
-| `soft.calendar.fri` | Fr |
-| `soft.calendar.mon` | Mo |
-| `soft.calendar.month_1` | January |
-| `soft.calendar.month_10` | October |
-| `soft.calendar.month_11` | November |
-| `soft.calendar.month_12` | December |
-| `soft.calendar.month_2` | February |
-| `soft.calendar.month_3` | March |
-| `soft.calendar.month_4` | April |
-| `soft.calendar.month_5` | May |
-| `soft.calendar.month_6` | June |
-| `soft.calendar.month_7` | July |
-| `soft.calendar.month_8` | August |
-| `soft.calendar.month_9` | September |
-| `soft.calendar.next` | Next month |
-| `soft.calendar.previous` | Previous month |
-| `soft.calendar.range_cancelled` | Range selection cancelled |
-| `soft.calendar.range_chosen` | Date range selected |
-| `soft.calendar.range_started` | Start date selected |
-| `soft.calendar.sat` | Sa |
-| `soft.calendar.sun` | Su |
-| `soft.calendar.thu` | Th |
-| `soft.calendar.today` | Today |
-| `soft.calendar.tue` | Tu |
-| `soft.calendar.wed` | We |
 | `soft.carousel.scroll_left` | Scroll left |
 | `soft.carousel.scroll_right` | Scroll right |
 | `soft.carousel.slide` | Slide {current} of {total} |
@@ -173,7 +146,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.code_block.copy_code` | Copy code |
 | `soft.date.open` | Choose date |
 | `soft.date_range.placeholder` | Select date range |
-| `soft.date_range_input.presets` | Preset date ranges |
 | `soft.date_time.date` | Date |
 | `soft.date_time.time` | Time |
 | `soft.dialog.close` | Close |
@@ -303,8 +275,7 @@ native text and view composition. The application chooses the appearance. Overfl
 mounted items and use provisional widths until measurements arrive.
 
 Toolbar slots use one Tab stop. Arrow keys move among eligible controls and
-respect the caret inside a text field. `toolbar_item(..)` registers a control
-for the keyboard hint.
+respect the caret inside a text field. `with_key_hints(axis, || view)` owns one timed hint; `keyboard_hint(target)` observes each actual target.
 
 Date and time wheels currently use numeric labels. Truncation hints show
 the full label on hover when native layout cuts the text. Citation and
@@ -363,6 +334,7 @@ Number, date, and time filter fields validate values entered as text.
 - `button_icon`
 - `button_busy`
 - `toggle`
+- `toolbar`
 - `button_group`
 - `toggle_group`
 - `checkbox`
@@ -375,9 +347,16 @@ Number, date, and time filter fields validate values entered as text.
 - `radio_group`
 - `slider`
 - `progress`
+- `skeleton`
+- `badge`
 - `spinner`
 - `kbd`
 - `kbd_key`
+- `calendar`
+- `date_input`
+- `date_range_input`
+- `date_time_input`
+- `time_input`
 - `text_input`
 - `text_area`
 - `field`

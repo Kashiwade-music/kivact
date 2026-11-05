@@ -23,7 +23,7 @@ fn calendar_keys_move_focus_and_enter_selects() {
         let selected = signal(Some(date(14)));
         (
             selected,
-            kivact_ui_soft::calendar(selected)
+            kivact::ui::calendar(selected)
                 .week_start(Weekday::Monday)
                 .autofocus(true),
         )
@@ -82,7 +82,7 @@ fn range_stages_anchor_cancels_and_commits_reverse_with_span_constraints() {
         let selected = signal(Some(previous));
         (
             selected,
-            kivact_ui_soft::calendar_range(selected)
+            kivact::ui::calendar(selected)
                 .default_month(CalendarMonth::new(2026, 10))
                 .range_span(3, Some(5)),
         )
@@ -124,8 +124,8 @@ fn date_input_commits_draft_and_calendar_returns_focus() {
         let selected = signal(None::<CalendarDate>);
         (
             selected,
-            kivact_ui_soft::date_input("Due", selected)
-                .presentation(kivact_ui_soft::DatePresentation::Desktop),
+            kivact::ui::date_input("Due", selected)
+                .presentation(kivact::ui::DatePresentation::Desktop),
         )
     });
     screen
@@ -157,7 +157,7 @@ fn date_range_input_closes_and_returns_focus_after_second_choice() {
         let selected = signal(None::<DateRange>);
         (
             selected,
-            kivact_ui_soft::date_range_input("Window", selected)
+            kivact::ui::date_range_input("Window", selected)
                 .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10))),
         )
     });
@@ -178,25 +178,35 @@ fn range_presets_validate_endpoints_and_publish_only_on_activation() {
     let initial = DateRange::new(date(8), date(12));
     let (screen, selected) = render_with_handle(options(), move || {
         let selected = signal(Some(initial));
-        use kivact_ui_soft::{DateRangePreset, date_range_input};
+
         (
             selected,
-            date_range_input("Preset window", selected)
-                .min(date(6))
-                .max(date(24))
+            kivact::ui::date_range_input("Preset window", selected)
+                .min(Some(date(6)))
+                .max(Some(date(24)))
                 .min_range_span(3)
                 .max_range_span(5)
                 .date_constraint(|day| day != date(22))
                 .presets(vec![
-                    DateRangePreset::new("Current range", move || initial),
-                    DateRangePreset::new("Before minimum", || DateRange::new(date(3), date(7))),
-                    DateRangePreset::new("After maximum", || DateRange::new(date(22), date(26))),
-                    DateRangePreset::new("Too short", || DateRange::new(date(15), date(16))),
-                    DateRangePreset::new("Too long", || DateRange::new(date(15), date(20))),
-                    DateRangePreset::new("Disabled endpoint", || {
+                    kivact::ui::DateRangePreset::new("Current range", move || initial),
+                    kivact::ui::DateRangePreset::new("Before minimum", || {
+                        DateRange::new(date(3), date(7))
+                    }),
+                    kivact::ui::DateRangePreset::new("After maximum", || {
+                        DateRange::new(date(22), date(26))
+                    }),
+                    kivact::ui::DateRangePreset::new("Too short", || {
+                        DateRange::new(date(15), date(16))
+                    }),
+                    kivact::ui::DateRangePreset::new("Too long", || {
+                        DateRange::new(date(15), date(20))
+                    }),
+                    kivact::ui::DateRangePreset::new("Disabled endpoint", || {
                         DateRange::new(date(19), date(22))
                     }),
-                    DateRangePreset::new("New range", || DateRange::new(date(16), date(19))),
+                    kivact::ui::DateRangePreset::new("New range", || {
+                        DateRange::new(date(16), date(19))
+                    }),
                 ]),
         )
     });

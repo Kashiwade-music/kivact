@@ -6,14 +6,15 @@ use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::test::render_with_handle;
 use kivact::ui::ControlSize;
+use kivact::ui::badge;
 use kivact::ui::button;
 use kivact::view::Key;
 use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact_ui_soft::{
-    BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, code_block, heading,
-    icon, input_group_with, status_dot,
+    BannerStatus, IconSize, StatusDotVariant, banner, code_block, heading, icon, input_group_with,
+    status_dot,
 };
 use std::cell::Cell;
 use std::rc::Rc;
@@ -138,7 +139,7 @@ fn content_components_publish_their_names_and_roles() {
             column((
                 heading(2, "Workspace"),
                 icon("search").size(IconSize::Lg).label("Search icon"),
-                badge("Review").variant(BadgeVariant::Warning),
+                badge("Review").tone(kivact::interaction::Tone::Warning),
                 status_dot(StatusDotVariant::Success, "Online"),
             ))
         },
@@ -156,14 +157,14 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let date = signal(None::<CalendarDate>);
-            let time = signal(None::<kivact_ui_soft::TimeOfDay>);
+            let time = signal(None::<kivact::i18n::TimeOfDay>);
             (
                 (date, time),
                 column((
-                    kivact_ui_soft::date_input("Due date", date)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
-                    kivact_ui_soft::time_input("Reminder", time)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
+                    kivact::ui::date_input("Due date", date)
+                        .presentation(kivact::ui::DatePresentation::Desktop),
+                    kivact::ui::time_input("Reminder", time)
+                        .presentation(kivact::ui::DatePresentation::Desktop),
                 )),
             )
         },
@@ -177,7 +178,11 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
     field.press_key(Key::Enter);
     assert_eq!(
         time.get_untracked(),
-        kivact_ui_soft::TimeOfDay::new(14, 35, 0)
+        Some(kivact::i18n::TimeOfDay {
+            hour: 14,
+            minute: 35,
+            second: 0
+        })
     );
 }
 

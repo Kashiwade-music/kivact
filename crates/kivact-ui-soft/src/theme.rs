@@ -140,11 +140,37 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            calendar: kivact::ui::CalendarTokens {
+                cell_size: 32.0,
+                month_gap: tokens.spacing.s4,
+                week_gap: tokens.spacing.s2,
+            },
+            date_input: kivact::ui::DateInputTokens {
+                wheel_row_height: 28.0,
+                wheel_width: 80.0,
+            },
+            time_input: kivact::ui::DateInputTokens {
+                wheel_row_height: 28.0,
+                wheel_width: 80.0,
+            },
             indicators: kivact::ui::IndicatorTokens {
                 period_ms: tokens.motion.slow_min,
                 reduced_period_ms: Some(3000),
+                skeleton_transition: Some(Transition::tween(
+                    400,
+                    kivact::motion::Easing::steps_end(10),
+                )),
+                delay_ms: 1000.0,
+                stagger_ms: 100.0,
                 gap: tokens.spacing.s2,
                 ..Default::default()
+            },
+            toolbar: kivact::ui::ToolbarTokens {
+                background: kivact::style::Color::TRANSPARENT,
+                border: colors.border,
+                padding: tokens.spacing.s3,
+                gap: tokens.spacing.s1,
+                min_height: tokens.sizes.control_md + tokens.spacing.s3 * 2.0,
             },
             button_group: kivact::ui::ButtonGroupTokens {
                 radius: tokens.radius.element,

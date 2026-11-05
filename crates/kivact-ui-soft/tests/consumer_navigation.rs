@@ -28,7 +28,7 @@ fn options(width: f64) -> RenderOptions {
 fn rtl_toolbar_moves_between_unwrapped_slots_in_visual_order() {
     let screen = render_with(options(800.0), || {
         provide_direction(ReadingDirection::Rtl, || {
-            soft::toolbar("Document tools")
+            kivact::ui::toolbar("Document tools")
                 .start((kivact::ui::button("Start"),))
                 .center((kivact::ui::button("Center"),))
                 .end((kivact::ui::button("End"),))
@@ -165,5 +165,83 @@ fn shell_adapts_navigation_and_opens_the_mobile_drawer() {
     screen.get_by_role(Role::Link, "Files").click();
     screen.advance(std::time::Duration::from_millis(350));
     assert!(screen.query_by_role(Role::Dialog, "Navigation").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn key_hint_observes_actual_focus_and_uses_a_single_timed_visit() {
+    use kivact::test::render_with_handle;
+    use kivact::view::Orientation;
+    use std::time::Duration;
+    let (screen, axis) = render_with_handle(options(800.0), || {
+        let axis = signal(Orientation::Horizontal);
+        (
+            axis,
+            column((
+                soft::with_key_hints(axis, || {
+                    kivact::ui::toolbar("Hint tools").start((
+                        soft::keyboard_hint(kivact::ui::button("Undo")),
+                        soft::keyboard_hint(kivact::ui::button("Redo")),
+                    ))
+                }),
+                kivact::ui::button("After tools"),
+            )),
+        )
+    });
+    screen.press_tab(false);
+    screen.get_by_text("to navigate");
+    screen.get_by_role(Role::Image, "Left arrow");
+    axis.set(Orientation::Vertical);
+    screen.run_until_idle();
+    screen.get_by_role(Role::Image, "Up arrow");
+    screen.advance(Duration::from_millis(3000));
+    screen.advance(Duration::from_millis(200));
+    assert!(screen.query_by_text("to navigate").is_none());
+    screen.press_tab(false);
+    screen.press_tab(true);
+    assert!(screen.query_by_text("to navigate").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn segmented_hint_attaches_to_the_canonical_radio_target() {
+    use kivact::interaction::ListItem;
+    use kivact::test::render_with_handle;
+    use kivact::ui::{RadioGroupVariant, radio_group};
+    use kivact::view::Orientation;
+    let (screen, selected) = render_with_handle(options(800.0), || {
+        let selected = signal(Some("summary"));
+        (
+            selected,
+            soft::with_key_hints(Orientation::Horizontal, move || {
+                radio_group(
+                    "Views",
+                    vec![
+                        ListItem::new("summary", "Summary"),
+                        ListItem::new("activity", "Activity"),
+                    ],
+                    selected,
+                )
+                .variant(RadioGroupVariant::Segmented)
+                .item_node(|target, _, _| soft::keyboard_hint(target))
+            }),
+        )
+    });
+    screen.press_tab(false);
+    assert!(
+        screen
+            .get_by_role(Role::RadioButton, "Summary")
+            .is_focused()
+    );
+    screen.get_by_text("to navigate");
+    screen.press_key(Key::ArrowRight);
+    assert!(
+        screen
+            .get_by_role(Role::RadioButton, "Activity")
+            .is_focused()
+    );
+    assert_eq!(selected.get_untracked(), Some("activity"));
+    screen.advance(std::time::Duration::from_millis(200));
+    assert!(screen.query_by_text("to navigate").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

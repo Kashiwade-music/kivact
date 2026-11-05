@@ -345,8 +345,8 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                         kivact::interaction::ScalarRange::new(88.0, 216.0)
                             .expect("invariant: ordered panel bounds"),
                     )
-                    .collapsible(44.0)
-                    .snaps(vec![88.0, 144.0, 216.0])
+                    .collapsible(0.2)
+                    .snaps(vec![0.0, 0.4375, 1.0])
                     .start(text("Navigation"))
                     .end(text("Content"))
                     .style(style().width(360).height(92)),
@@ -355,7 +355,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 r#"let width = signal(144.0);
 kivact::ui::splitter("Navigation width", width,
     ScalarRange::new(88.0, 216.0).expect("ordered bounds"))
-    .collapsible(44.0).snaps(vec![88.0, 144.0, 216.0])
+    .collapsible(0.2).snaps(vec![0.0, 0.4375, 1.0])
     .start(text("Navigation")).end(text("Content"))"#,
             )
         }
