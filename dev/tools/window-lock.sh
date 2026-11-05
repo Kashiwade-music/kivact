@@ -31,8 +31,18 @@ waited=0
 until mkdir "$lock" 2>/dev/null; do
   owner="$(cat "$lock/pid" 2>/dev/null || true)"
   if [[ -n "$owner" ]] && ! kill -0 "$owner" 2>/dev/null; then
-    echo "window-lock: taking over a lock left by $owner" >&2
-    rm -rf "$lock"
+    # Claim the stale lock with an atomic rename so that only one waiter
+    # removes it; a waiter whose rename fails just retries `mkdir`.
+    stale="$lock.stale.$$"
+    if mv -T "$lock" "$stale" 2>/dev/null; then
+      if [[ "$(cat "$stale/pid" 2>/dev/null || true)" == "$owner" ]]; then
+        echo "window-lock: taking over a lock left by $owner" >&2
+        rm -rf "$stale"
+      else
+        # Another waiter replaced the stale lock first: give its lock back.
+        mv -T "$stale" "$lock" 2>/dev/null || rm -rf "$stale"
+      fi
+    fi
     continue
   fi
   if (( waited % 60 == 0 )); then
