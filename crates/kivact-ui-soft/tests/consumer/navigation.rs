@@ -160,10 +160,8 @@ fn shell_adapts_navigation_and_opens_the_mobile_drawer() {
             soft::app_shell(text("Main body"))
                 .top_nav(|| {
                     soft::top_nav()
-                        .heading(|| {
-                            soft::top_nav_heading("Acme").icon(|| soft::nav_icon(icon("menu")))
-                        })
-                        .start(|| soft::top_nav_item("Documents").on_press(|| {}))
+                        .heading(soft::top_nav_heading("Acme").icon(soft::nav_icon(icon("menu"))))
+                        .start(soft::top_nav_item("Documents").on_press(|| {}))
                 })
                 .side_nav(|| {
                     soft::side_nav(
@@ -447,17 +445,15 @@ fn domain_navigation_shares_hover_pinned_and_menu_focus_authority() {
                 chosen,
                 column((
                     kivact::ui::button("Outside"),
-                    soft::top_nav().start(move || {
-                        (
-                            soft::top_nav_menu(
-                                "Activity",
-                                [soft::top_nav_menu_item("Recent updates")
-                                    .on_press(move || chosen.set(true))],
-                            ),
-                            soft::top_nav_mega_menu("Resources")
-                                .items(|| soft::top_nav_mega_menu_item("Guide").on_press(|| {})),
-                        )
-                    }),
+                    soft::top_nav().start((
+                        soft::top_nav_menu(
+                            "Activity",
+                            [soft::top_nav_menu_item("Recent updates")
+                                .on_press(move || chosen.set(true))],
+                        ),
+                        soft::top_nav_mega_menu("Resources")
+                            .items(|| soft::top_nav_mega_menu_item("Guide").on_press(|| {})),
+                    )),
                 )),
             )
         },
