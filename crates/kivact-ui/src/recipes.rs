@@ -795,6 +795,7 @@ recipe_table! {
         media(media_recipe): CardState = look_feedback::card_media,
         content(content_recipe): CardState = look_feedback::card_region,
         footer(footer_recipe): CardState = look_feedback::card_region,
+        overlay(overlay_recipe): CardState = look_feedback::card_overlay,
     }
 }
 recipe_table! {

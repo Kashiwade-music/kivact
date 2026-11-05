@@ -43,3 +43,5 @@ card は必須引数に本文を受け取り、`.header(..)`、`.media(..)`、`.
 kit から移すときは empty state の `media` を `icon`、`content` を `actions` にします。card の `image` は `media`、本文は必須引数になります。alert の `action` と banner の `end` は `actions` に、`input_group_text` は `input_addon` にします。`clickable_card` は `card(..).on_press(..)`、`selectable_card` は `card(..).selected(..)` に置き換えます。kit の色、compact 表示、余白、elevation、media の枠、container の見た目は kit 独自の `.variant(..)`、recipe、通常の `.style(..)` で指定します。core に kit ごとの見た目の enum は追加しません。
 
 `empty_state(title).announce_changes()` は正規化したメッセージの変更通知を有効にします。初回描画は読み上げず、遅いマウントや表示中の変更を通知し、非表示後は再通知を許可します。実際のライブ領域の祖先がある場合は重複を抑制します。`.announce()` は別のマウント後一度だけの通知方針です。変更の監視は一つのマシンと明示的な送信済みフェーズで行い、前回メッセージのシグナルを補正しません。
+
+Card レシピには実際のボタンまたはチェックボックスのパーツから `input: Option<PartState>` が渡されます。通常のカードは `None` です。`overlay` レシピは内容の上の非操作装飾ノードを描画します。範囲は配置済みのカードルートに従い、クリッピングと角の形状はテーマが定義します。

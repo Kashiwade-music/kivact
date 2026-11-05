@@ -292,12 +292,14 @@ pub use toolbar::{Toolbar, ToolbarEdge, ToolbarState, ToolbarTokens, toolbar};
 
 mod alert;
 mod card;
+mod component_values;
 mod empty_state;
 mod empty_state_changes;
 mod input_group;
 mod look_feedback;
 pub use alert::{Alert, AlertState, AlertVariant, alert};
-pub use card::{Card, CardState, card};
+pub use card::{Card, card};
+pub use component_values::CardState;
 pub use empty_state::{EmptyState, EmptyStateState, empty_state};
 pub use input_group::{
     InputGroup, InputGroupMemberState, InputGroupState, input_addon, input_group, input_group_with,

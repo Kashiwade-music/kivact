@@ -180,3 +180,7 @@ pub(super) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style 
     };
     if s.focused { base.z_index(1) } else { base }
 }
+
+pub(super) fn card_overlay(_: &Theme, _: &Look<CardState>) -> Style {
+    style()
+}

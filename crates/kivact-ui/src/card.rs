@@ -1,20 +1,12 @@
 //! Role: Compose plain, pressable, or selectable card surfaces.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
+use crate::component_values::CardState;
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value};
 use kivact_core::view::{
     Handled, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, View, node, node_ref,
 };
 use kivact_interaction::{use_button, use_checkbox};
-
-// xtask-allow(state-fields): Read-only recipe projection of the caller binding and actual interaction configuration.
-/// Card semantics supplied to recipes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CardState {
-    pub selected: Option<bool>,
-    pub disabled: bool,
-    pub interactive: bool,
-}
 
 // xtask-allow(state-fields): Setup-only independent slots and behavior inputs; selection belongs to the caller binding.
 /// A surface containing optional header, media, content and footer regions.
@@ -99,34 +91,12 @@ impl IntoView for Card {
             _ => None,
         };
         let interactive = !matches!(self.action, CardAction::Plain);
+        let (root, input) = card_target(self.root, self.action, disabled);
         let state = move || CardState {
             selected: selected.map(|selected| selected.get()),
+            input: input.map(|input| input.get()),
             disabled: disabled.get(),
             interactive,
-        };
-        let root = match self.action {
-            CardAction::Plain => self.root,
-            CardAction::Press => self.root.part(use_button().disabled(disabled).control()),
-            CardAction::Select(selected) => {
-                let reference = node_ref();
-                let focused = reference.focused();
-                self.root
-                    .node_ref(reference)
-                    .part(use_checkbox(selected).disabled(disabled).control())
-                    .on_key(move |event: KeyEvent| {
-                        if event.key() == Key::Enter
-                            && focused.get()
-                            && !event.repeat()
-                            && event.modifiers() == Modifiers::default()
-                            && !disabled.get()
-                        {
-                            reference.activate();
-                            Handled::Yes
-                        } else {
-                            Handled::No
-                        }
-                    })
-            }
         };
         let variants = &self.variants;
         let header = self.header.map(|view| {
@@ -159,8 +129,61 @@ impl IntoView for Card {
                 state,
             )
         });
+        let overlay = with_recipe_style(
+            node().hit_testable(false).focusable(false),
+            |r| r.card_recipes().overlay_recipe(),
+            variants,
+            state,
+        )
+        .style(
+            kivact_core::style::style()
+                .position(kivact_core::style::Position::Absolute)
+                .inset(0),
+        );
         with_base_recipe_style(root, |r| r.card_recipes().root_recipe(), variants, state)
-            .child((header, media, content, footer))
+            .style(kivact_core::style::style().position(kivact_core::style::Position::Relative))
+            .child((header, media, content, footer, overlay))
             .into_view()
+    }
+}
+
+/// Attach the one canonical behavior part and expose its actual input snapshot.
+fn card_target(
+    root: Node,
+    action: CardAction,
+    disabled: Value<bool>,
+) -> (Node, Option<Value<kivact_core::custom::PartState>>) {
+    match action {
+        CardAction::Plain => (root, None),
+        CardAction::Press => {
+            let part = use_button().disabled(disabled).control();
+            let input = part.state();
+            (root.part(part), Some(input))
+        }
+        CardAction::Select(selected) => {
+            let reference = node_ref();
+            let focused = reference.focused();
+            let part = use_checkbox(selected).disabled(disabled).control();
+            let state = part.state();
+            let input = kivact_core::state::memo(move || state.get().input);
+            (
+                root.node_ref(reference)
+                    .part(part)
+                    .on_key(move |event: KeyEvent| {
+                        if event.key() == Key::Enter
+                            && focused.get()
+                            && !event.repeat()
+                            && event.modifiers() == Modifiers::default()
+                            && !disabled.get()
+                        {
+                            reference.activate();
+                            Handled::Yes
+                        } else {
+                            Handled::No
+                        }
+                    }),
+                Some(input),
+            )
+        }
     }
 }
