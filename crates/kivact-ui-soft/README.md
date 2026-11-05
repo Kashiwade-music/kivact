@@ -153,8 +153,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.link.new_tab` | (opens in new tab) |
 | `soft.markdown.task_list` | Task list |
 | `soft.markdown_heading_links.copy` | Copy link to {heading} |
-| `soft.metadata_list.show_less` | Show less |
-| `soft.metadata_list.show_more` | Show more |
 | `soft.mobile_nav.close` | Close navigation |
 | `soft.mobile_nav.navigation` | Navigation |
 | `soft.mobile_nav.open` | Open navigation |
