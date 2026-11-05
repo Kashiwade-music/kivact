@@ -65,6 +65,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .split(crate::recipes_collections::split)
                 .list(crate::recipes_collections::list)
                 .tree(crate::recipes_collections::tree)
+                .table(crate::recipes_table::table)
                 .data_table(crate::recipes_collections::data_table)
         })
         .clone()

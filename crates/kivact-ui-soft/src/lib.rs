@@ -84,6 +84,7 @@ mod soft_list;
 mod soft_metadata;
 mod soft_overflow;
 mod soft_table;
+mod recipes_table;
 mod soft_tree;
 mod spinner;
 mod stack;
@@ -195,11 +196,8 @@ pub use soft_metadata::{
     LabelPosition, MetadataColumns, MetadataItem, MetadataList, metadata_item, metadata_list,
 };
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
-pub use soft_table::{
-    RowStatusTone, TableAlign, TableCell, TableDensity, TableRow, TableSelectionToolbar, table,
-    table_body, table_cell, table_footer, table_head, table_header, table_pagination, table_row,
-    table_row_index, table_row_status, table_selection_toolbar,
-};
+pub use soft_table::{RowStatusTone, RowStatusDot, TableSelectionToolbar, table_row_status, table_selection_toolbar};
+pub use recipes_table::{TableCellAppearance, TableRowAppearance};
 pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
 pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
