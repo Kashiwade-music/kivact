@@ -65,3 +65,31 @@ Language tokenizers remain in Soft. Pass a built-in `CodeLanguageInput::Named` o
 Use `kivact::ui::tree(label, nodes).expanded(expanded)` for hierarchical collections. Soft supplies density, ancestor guides and the animated disclosure marker through tree recipes. Set `.variant(soft::TreeLook::default().density(soft::ItemDensity::Compact).guides(false))` to change the appearance, including reactive density or guide inputs. Keep selection, activation, header and custom row content with `.selection(..)`, `.on_activate(..)`, `.header(..)` and `.item(..)`. A custom marker uses `.marker_content(..)` and receives the actual row and ancestry projection.
 
 Branch reveals use `.reveal(2.0, kivact::motion::Transition::tween(734.77, kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0)))`. This preserves retained exit paint while collapsed rows leave keyboard navigation immediately. The shared toggle label is `tree.toggle_children`.
+
+## Tables
+
+Build static tables with `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}`. The Soft theme styles their actual recipes. `TableCell::align(TextAlign)` replaces `TableAlign`; `width` and reactive `col_span` remain on the standard cell. Pass `TableRowAppearance::new(dividers, hover, striped)` or `TableCellAppearance::new(density, vertical_align, divider)` with `.variant(...)`; each input can be reactive. `ItemDensity` replaces the former `TableDensity` alias. Selected rows use `.with_node(|node| node.selected(selected))`.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_soft as soft;
+
+fn summary() -> impl IntoView {
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head(text("Project")),
+            kivact::ui::table_head(text("Status")),
+        )),)),
+        kivact::ui::table_body((kivact::ui::table_row((
+            kivact::ui::table_cell(text("Design")).variant(
+                soft::TableCellAppearance::new(soft::ItemDensity::Compact,
+                    kivact::style::Align::Center, true)),
+            kivact::ui::table_cell(soft::table_row_status("Passed", soft::RowStatusTone::Success)),
+        )).variant(soft::TableRowAppearance::new(true, true, false)),)),
+    ))
+}
+```
+
+`table_selection_toolbar(selection)` retains its `clear_label`, `selection_label` and `actions` inputs and derives visibility and count from the caller's selection binding. Its clear button and toolbar use the canonical controls. `table_row_status(label, RowStatusTone)` retains all four status colors on a canonical badge with the `RowStatusDot` appearance.
+
+Use standard `pagination(page_count, page)` for a zero-based DataTable page binding; `.summary(...)` can display “Page n of m”. Replace `table_row_index(index)` with `text(move || index.get().to_string())` styled with `TextAlign::End` and the theme's secondary text color. Interactive tables continue to use `data_table` and `DataColumn`: sorting, selection, filters, column widths and order, sticky columns, paging, row status, tree/group rows, empty content, row actions, toolbar and footer slots keep their existing owners and APIs.

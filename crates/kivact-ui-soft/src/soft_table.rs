@@ -1,4 +1,4 @@
-//! Role: Compose Soft bulk-selection and status presentation on canonical controls.
+//! Role: Compose Soft bulk selection and status on canonical controls.
 use kivact::state::{Binding, IntoBinding, IntoText, IntoValue, PropValue, Value};
 use kivact::style::{Align, Direction, style};
 use kivact::view::{IntoView, Node, NodeBuilder, View, text};

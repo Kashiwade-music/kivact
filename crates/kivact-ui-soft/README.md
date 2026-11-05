@@ -84,7 +84,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
 | Stepper | Standard `stepper`, `StepperItem`, `StepIndicator`, `StepStatus`; Soft `StepperAppearance` |
 | Switch | Standard `switch` |
-| Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
+| Table | Standard `table`, header/body/footer/row/cell builders, `data_table`, `DataColumn`, and `pagination`; Soft `TableRowAppearance`, `TableCellAppearance`, `table_selection_toolbar`, and `table_row_status`. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
 | Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, standard `time_input`, `text_input` and `text_area` |
 | Toast | Standard `toaster`, `Toast`, `toast_region` |

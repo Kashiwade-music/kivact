@@ -1,4 +1,4 @@
-//! Role: Style canonical static tables with reactive Soft row and cell treatments.
+//! Role: Style canonical table rows and cells with Soft paint choices.
 use crate::{ItemDensity, Tokens};
 use kivact::custom::PartState;
 use kivact::state::{IntoValue, Value};

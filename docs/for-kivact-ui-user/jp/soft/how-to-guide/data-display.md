@@ -65,3 +65,31 @@ Soft の `ChatDensity`、`BubbleVariant`、`SystemMessageVariant`、`ComposerEle
 階層の collection は `kivact::ui::tree(label, nodes).expanded(expanded)` で作ります。Soft の tree recipe が行の密度、祖先のガイド線、開閉マーカーのアニメーションを描きます。`.variant(soft::TreeLook::default().density(soft::ItemDensity::Compact).guides(false))` で見た目を変更でき、密度とガイド表示には reactive な値も渡せます。選択、activation、header、行の独自の内容には `.selection(..)`、`.on_activate(..)`、`.header(..)`、`.item(..)` を使います。`.marker_content(..)` には実際の行と祖先の projection が渡されます。
 
 枝の表示には `.reveal(2.0, kivact::motion::Transition::tween(734.77, kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0)))` を使います。閉じた行は直ちにキーボード操作の対象から外れ、退出する絵はアニメーションの間保持されます。共通の開閉ラベルは `tree.toggle_children` です。
+
+## テーブル
+
+静的なテーブルには `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}` を使います。Soft theme は実際の recipe を装飾します。`TableAlign` は `TableCell::align(TextAlign)` に対応し、`width` と reactive な `col_span` は標準 cell の入力です。`.variant(...)` に `TableRowAppearance::new(dividers, hover, striped)` または `TableCellAppearance::new(density, vertical_align, divider)` を渡します。各入力は reactive value を受け付けます。従来の `TableDensity` alias は `ItemDensity` に統一します。行の選択は `.with_node(|node| node.selected(selected))` で指定します。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_soft as soft;
+
+fn summary() -> impl IntoView {
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head(text("Project")),
+            kivact::ui::table_head(text("Status")),
+        )),)),
+        kivact::ui::table_body((kivact::ui::table_row((
+            kivact::ui::table_cell(text("Design")).variant(
+                soft::TableCellAppearance::new(soft::ItemDensity::Compact,
+                    kivact::style::Align::Center, true)),
+            kivact::ui::table_cell(soft::table_row_status("Passed", soft::RowStatusTone::Success)),
+        )).variant(soft::TableRowAppearance::new(true, true, false)),)),
+    ))
+}
+```
+
+`table_selection_toolbar(selection)` は `clear_label`、`selection_label`、`actions` を維持し、表示と件数を呼び出し側の selection binding から導出します。clear button と toolbar は標準部品です。`table_row_status(label, RowStatusTone)` の四つの色は標準 badge の `RowStatusDot` appearance で描画します。
+
+DataTable の 0 始まりの page binding には標準 `pagination(page_count, page)` を使い、`.summary(...)` でページ数を表示できます。`table_row_index(index)` は `text(move || index.get().to_string())` に `TextAlign::End` と theme の secondary text color を指定する形に対応します。操作できる表には引き続き `data_table` と `DataColumn` を使います。並べ替え、選択、filter、列幅と順序、sticky column、paging、row status、tree/group row、empty content、row action、toolbar/footer slot の持ち主と API は変わりません。
