@@ -212,7 +212,7 @@ impl IntoView for AppShell {
             variant,
             mobile,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let configured = !matches!(mobile, MobileNavMode::Disabled);
             let automatic = matches!(mobile, MobileNavMode::Auto(_));
             let has_top = top.is_some();

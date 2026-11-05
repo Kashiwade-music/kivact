@@ -22,7 +22,6 @@ use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::Value;
 use kivact::state::callback;
-use kivact::state::provide;
 use kivact::style::Align;
 use kivact::style::Justify;
 use kivact::style::TransitionProp;
@@ -416,7 +415,7 @@ impl IntoView for SideNavHeading {
             super_action,
             sub_action,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let rail = crate::side_navigation::context::nav_is_rail();
             let has_icon = glyph.is_some();
             let interactive = menu.is_some() || heading_action.is_some();

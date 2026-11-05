@@ -34,6 +34,24 @@ pub(crate) fn mount_in(rt: &Rc<Runtime>, owner: Owner, build: impl FnOnce() -> V
     Mcx { rt, owner }.mount_child(view)
 }
 
+/// Build a component once when mounted, within its own setup and cleanup owner.
+///
+/// The initializer inherits context from the mounting parent. Its signals, effects,
+/// and cleanup callbacks belong to this component and are disposed with it.
+/// The boundary adds a transparent fragment without a visible layout box.
+/// Use a factory for content that must be constructed again on later mounts.
+#[track_caller]
+pub fn component<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
+    let at = Location::caller();
+    view_fn(move |cx| {
+        let owner = cx.owner.child(at);
+        let fragment = cx.fragment();
+        let child = mount_in(cx.rt, owner, move || build().into_view());
+        cx.append(fragment, child);
+        fragment
+    })
+}
+
 /// Provide `value` to the subtree built by `child` (Solid's
 /// `<Context.Provider>`): `child` is set up in a new owner that holds the
 /// context, so `use_context::<T>()` finds it inside `child` (in setup and in

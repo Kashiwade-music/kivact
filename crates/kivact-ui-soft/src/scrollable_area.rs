@@ -110,7 +110,7 @@ impl IntoView for ScrollableArea {
             bleed_bottom,
             force_focusable,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let viewport = node_ref();
             let content = node_ref();
             let state = viewport.scroll_state();

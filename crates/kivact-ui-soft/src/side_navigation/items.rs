@@ -109,11 +109,11 @@ impl SideNavItem {
         self
     }
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(provide((), move || content.into_view()));
+        self.end = Some(kivact::view::component(move || content.into_view()));
         self
     }
     pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(provide((), move || actions.into_view()));
+        self.actions = Some(kivact::view::component(move || actions.into_view()));
         self
     }
     pub fn children<V: IntoView>(mut self, children: impl IntoViewFn<V>) -> Self {
@@ -157,7 +157,7 @@ impl IntoView for SideNavItem {
             size,
             action,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let cx = nav_cx();
             let mode = shell_nav_mode();
             let has_icon = leading.is_some() || selected_icon.is_some();
@@ -553,7 +553,7 @@ impl SideNavSection {
         self
     }
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(provide((), move || content.into_view()));
+        self.end = Some(kivact::view::component(move || content.into_view()));
         self
     }
     pub fn header_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
@@ -579,7 +579,7 @@ impl IntoView for SideNavSection {
             children,
             header_hidden,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let cx = nav_cx();
             let title = text(title).style(|| {
                 style()

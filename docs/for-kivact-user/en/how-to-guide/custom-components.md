@@ -738,3 +738,10 @@ is a `Result` that your component shows, not a misuse.
 - [Lay out a screen](layout.md) for the style properties a base style can set.
 - `cargo doc -p kivact --open`: `kivact::view::NodeBuilder`,
   `kivact::view::Node`, `kivact::style::{Theme, ThemeExtension, IconSet}`.
+
+
+A component that allocates reactive state during setup can return
+`component(move || view)`. This initializer runs once when mounted, inherits the
+mounting parent's context, and owns its effects and cleanup callbacks until removal.
+It adds no visible box. Accept once-mounted slots as `impl IntoView`; accept
+`impl Fn() -> V` when content must be built again each time a popup opens.

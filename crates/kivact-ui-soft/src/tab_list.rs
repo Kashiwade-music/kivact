@@ -32,7 +32,6 @@ use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::effect_on;
 use kivact::state::memo;
-use kivact::state::provide;
 use kivact::state::signal;
 use kivact::state::try_use_context;
 use kivact::style::Align;
@@ -122,7 +121,7 @@ impl<K> Tab<K> {
         self
     }
     pub fn end_content(mut self, end: impl IntoView) -> Self {
-        self.end = Some(provide((), move || end.into_view()));
+        self.end = Some(kivact::view::component(move || end.into_view()));
         self
     }
     pub fn panel(mut self, panel: NodeRef) -> Self {
@@ -380,7 +379,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
             full_bleed,
             content,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             if pattern.get() == TabPattern::Tabs {
                 entries.retain(|entry| matches!(entry, TabEntry::Tab(_)));
             }

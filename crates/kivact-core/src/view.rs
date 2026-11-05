@@ -49,7 +49,7 @@ pub use crate::view::flow::{
     error_boundary, for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
-pub use boundary::{ReadingDirection, provide_direction, use_direction};
+pub use boundary::{ReadingDirection, component, provide_direction, use_direction};
 #[doc(inline)]
 pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
 pub use element_data::Component;

@@ -256,7 +256,7 @@ impl IntoView for MobileNav {
             header_view,
             content,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let mobile = use_app_shell_mobile();
             let open = open
                 .or(mobile.context.map(|context| context.open))
@@ -437,7 +437,7 @@ impl IntoView for MobileNavToggle {
             label,
             icon: glyph,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let mobile = use_app_shell_mobile();
             if !mobile.is_enabled() {
                 return View::empty();

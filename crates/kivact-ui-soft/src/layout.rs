@@ -167,7 +167,7 @@ impl IntoView for Layout {
             content_width,
             default_dividers,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let parent = try_use_context::<ContainerInset>()
                 .map(|value| value.get())
                 .unwrap_or_default();
@@ -365,7 +365,7 @@ impl IntoView for LayoutRegion {
             scrollable,
             width,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let slots = try_use_context::<LayoutSlots>()
                 .map(|value| value.get())
                 .unwrap_or_default();
