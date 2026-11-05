@@ -3,8 +3,9 @@
 //! owner while their key (or index) stays; changed items only update the
 //! row's `Value<T>`; order changes use the fewest moves (LIS).
 //!
-//! The row builders receive only the key (or index) and the row's
-//! `Value<T>`.
+//! A `for_each` row builder receives one row handle (`ListSource::Row`): a
+//! `Value<T>`, or a `Binding<T>` for a writable source. A `for_index` row
+//! builder receives the index and the row's `Value<T>`.
 //!
 //! Invariants:
 //! - Items and keys are read in a pure section; rows are mounted, moved
@@ -17,8 +18,8 @@
 //!   order; when the structure changes it matches keys with a `HashMap`,
 //!   keeps the rows of a longest increasing subsequence in place and
 //!   `Move`s the others right to left. New rows are made in the engine and
-//!   inserted right to left directly. Editing one item scans the keys in
-//!   O(N).
+//!   inserted right to left directly. Editing one item through a writable
+//!   row scans the keys in O(N).
 
 use std::cell::RefCell;
 use std::panic::Location;
@@ -78,13 +79,15 @@ pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
     out
 }
 
-/// Keyed list: `row(key, item)` for each item. Rows keep their owner (and
-/// the state their components create) while their key stays; changed items
-/// update the row's `Value<T>`; order changes use the fewest moves (LIS).
-/// An update scans the keys once (O(N)) and clones only changed or new items.
+/// Keyed list: `row(item)` for each item, where `item` is the source's row
+/// handle: a `Value<T>`, or a `Binding<T>` that writes back into a
+/// `Signal`/`Binding` source. Rows keep their owner (and the state their
+/// components create) while their key stays; changed items update the
+/// row's handle; order changes use the fewest moves (LIS). An update scans
+/// the keys once (O(N)) and clones only changed or new items.
 ///
 /// ```ignore
-/// fn task_row(id: u64, task: Value<Task>) -> impl IntoView { .. }
+/// fn task_row(task: Binding<Task>) -> impl IntoView { .. }
 /// for_each(tasks, |t| t.id, task_row)
 /// ```
 #[track_caller]
@@ -345,29 +348,21 @@ fn writable_list<T: PropValue>(source: Binding<Vec<T>>) -> ListInput<T, Binding<
         items: source.into_prop(),
         row: Rc::new(move |item, same_key| {
             let initial = item.get_untracked();
-            let read_key = initial.clone();
-            let read_same_key = same_key.clone();
-            kivact_runtime::binding(
-                move || {
-                    source.with(|list| {
-                        list.iter()
-                            .find(|candidate| read_same_key(candidate, &read_key))
-                            .cloned()
-                            .unwrap_or_else(|| item.get())
-                    })
-                },
-                move |replacement| {
-                    let mut list = source.get_untracked();
-                    if let Some(slot) = list
-                        .iter_mut()
-                        .find(|candidate| same_key(candidate, &initial))
-                        && *slot != replacement
-                    {
-                        *slot = replacement;
-                        source.set(list);
-                    }
-                },
-            )
+            // A row reads its own item, which the list keeps current; a
+            // write through the row also sets it, so the row reads it back
+            // at once.
+            kivact_runtime::binding(item, move |replacement: T| {
+                let mut list = source.get_untracked();
+                if let Some(slot) = list
+                    .iter_mut()
+                    .find(|candidate| same_key(candidate, &initial))
+                    && *slot != replacement
+                {
+                    *slot = replacement.clone();
+                    source.set(list);
+                    item.set(replacement);
+                }
+            })
         }),
     }
 }
