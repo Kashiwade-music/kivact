@@ -24,21 +24,7 @@ pub(super) fn properties() -> impl IntoView {
     let display_wireframe = signal(false);
     let display_as = signal(Some("textured".to_owned()));
     row((
-        column(
-            ["camera", "settings", "box", "link", "eye"]
-                .into_iter()
-                .enumerate()
-                .map(|(i, glyph)| {
-                    kivact::ui::button(format!("Inspector {i}"))
-                        .hide_label(true)
-                        .icon(kivact::view::icon(glyph))
-                        .variant(kivact::ui::ButtonVariant::Ghost)
-                        .with_node(|node| node.selected(move || tab.get() == i))
-                        .on_press(move || tab.set(i))
-                })
-                .collect::<Vec<_>>(),
-        )
-        .style(style().gap(8).padding(5).width(38)),
+        inspector_tabs(tab),
         scroll(col((
             text("◇ Cube  ›  Object").style(style().padding_y(8)),
             ui::panel_group(
@@ -49,76 +35,7 @@ pub(super) fn properties() -> impl IntoView {
                     ui::InspectorPanel::new(4, "Visibility"),
                     ui::InspectorPanel::new(5, "Modifiers"),
                 ]),
-                move |panel| match panel.get_untracked().id {
-                    1 => col((
-                        ui::property_row("Location X", num("X", 0.0, -100.0, 100.0, 3, " m"))
-                            .test_id("creative-property-location-x"),
-                        ui::property_row("Y", num("Y", 0.0, -100.0, 100.0, 3, " m"))
-                            .test_id("creative-property-location-y"),
-                        ui::property_row("Z", num("Z", 1.0, -100.0, 100.0, 3, " m"))
-                            .test_id("axis-label-z"),
-                        ui::property_row("Rotation X", num("X", 0.0, -360.0, 360.0, 1, "°")),
-                        ui::property_row("Y", num("Y", 0.0, -360.0, 360.0, 1, "°")),
-                        ui::property_row("Z", num("Z", 45.0, -360.0, 360.0, 1, "°"))
-                            .test_id("axis-label-z"),
-                        ui::property_row(
-                            "Mode",
-                            kivact::ui::select(
-                                "Rotation Mode",
-                                keyed_options([
-                                    ("xyz-euler", "XYZ Euler"),
-                                    ("quaternion", "Quaternion"),
-                                    ("axis-angle", "Axis Angle"),
-                                ]),
-                                signal(Some("xyz-euler".to_owned())),
-                            )
-                            .placeholder("")
-                            .name("Rotation Mode")
-                            .style(style().width(pct(100))),
-                        ),
-                        ui::property_row("Scale X", num("X", 1.0, 0.0, 10.0, 3, "")),
-                        ui::property_row("Y", num("Y", 1.0, 0.0, 10.0, 3, "")),
-                        ui::property_row("Z", num("Z", 1.0, 0.0, 10.0, 3, ""))
-                            .test_id("axis-label-z"),
-                    ))
-                    .role(kivact::view::Role::List)
-                    .style(style().gap(3)),
-                    2 => col((
-                        num("X", 0.0, -100.0, 100.0, 3, " m"),
-                        num("Y", 0.0, -100.0, 100.0, 3, " m"),
-                    ))
-                    .style(style().gap(3)),
-                    3 => col((
-                        ui::property_row(
-                            "Parent",
-                            kivact::ui::select(
-                                "Selection",
-                                keyed_options([
-                                    ("none", "None"),
-                                    ("null-1", "Null 1"),
-                                    ("camera", "Camera"),
-                                ]),
-                                signal(Some("none".to_owned())),
-                            )
-                            .placeholder(""),
-                        ),
-                        ui::property_row("Pass Index", num("", 0.0, 0.0, 999.0, 0, "")),
-                    ))
-                    .role(kivact::view::Role::List)
-                    .style(style().gap(3)),
-                    4 => col((
-                        kivact::ui::checkbox("Show in Viewport", signal(true)),
-                        kivact::ui::checkbox("Show in Render", signal(true)),
-                    ))
-                    .style(style().gap(3)),
-                    _ => col((
-                        kivact::ui::checkbox("Bevel", signal(true)),
-                        slide("Width", 0.12),
-                        kivact::ui::checkbox("Subdivision", signal(true)),
-                        num("Levels", 2.0, 0.0, 6.0, 0, ""),
-                    ))
-                    .style(style().gap(3)),
-                },
+                move |panel| inspector_panel(panel.get_untracked().id),
             ),
         )))
         .style(style().width(278).height(556).padding_x(5)),
@@ -196,158 +113,15 @@ pub(super) fn docking() -> impl IntoView {
             ),
         ],
     )));
-    let dock = ui::dock(layout, move |panel: &'static str| match panel {
-        "info" => scroll(
-            col((
-                note("01:54:41  › File · Open: Shot_010_Comp_v012.kvp"),
-                text("Loaded 128 clips, 14 compositions (3 media offline)")
-                    .style(style().font_size(11)),
-                chip("Font 'Inter Display' missing — substituted", rgb(0xfbbf24)),
-                chip("GPU: compute device initialised (2 devices)", rgb(0x48c8ff)),
-                chip("Shader compile error: Metal.002 line 42", rgb(0xff5c6c)),
-                note("Proxy cache verified (4.1 GB)"),
-            ))
-            .style(style().padding(8).gap(6)),
-        )
-        .into_view(),
-        "text" => kivact::ui::split(
-            editor_sizes,
-            (
-                kivact::ui::text_area("Document source", document)
-                    .style(style().width(pct(100)).height(pct(100))),
-                ui::panel("Console", console_view(output, command)).style(style().height(pct(100))),
-            ),
-        )
-        .orientation(Orientation::Vertical)
-        .min_size(0.15)
-        .into_view(),
-        "console" => scroll(col((
-            kivact::ui::text_area("Console output", output)
-                .read_only(true)
-                .style(style().height(200)),
-            kivact::ui::text_input("Console command", command).on_key(move |e| {
-                if e.key() == Key::Enter {
-                    let cmd = command.get();
-                    let answer = if cmd == "help" {
-                        "help · clear · arithmetic expressions".into()
-                    } else {
-                        ui::evaluate_expression(&cmd).map_or_else(
-                            || "SyntaxError: invalid expression".into(),
-                            |v| v.to_string(),
-                        )
-                    };
-                    if cmd == "clear" {
-                        output.set(String::new())
-                    } else {
-                        output.update(|v| v.push_str(&format!("\n>>> {cmd}\n{answer}")))
-                    }
-                    command.set(String::new());
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            }),
-        )))
-        .into_view(),
-        "image" => scroll(super::editors::scene().style(style().height(230))).into_view(),
-        "properties" => scroll(
-            col((
-                ui::property_row(
-                    "Resolution X",
-                    num("Resolution X", 1920.0, 1.0, 16384.0, 0, " px"),
-                ),
-                ui::property_row("Y", num("Resolution Y", 1080.0, 1.0, 16384.0, 0, " px")),
-                ui::property_row(
-                    "Frame Rate",
-                    kivact::ui::select(
-                        "Selection",
-                        keyed_options([("24", "24"), ("25", "25"), ("30", "30"), ("60", "60")]),
-                        signal(Some("24".to_owned())),
-                    )
-                    .placeholder(""),
-                ),
-            ))
-            .role(kivact::view::Role::List)
-            .style(style().padding(12)),
-        )
-        .into_view(),
-        _ => node().into_view(),
+    let dock = ui::dock(layout, move |panel: &'static str| {
+        dock_panel(panel, document, command, output, editor_sizes)
     })
     .test_id("creative-dock-workspace")
     .style(style().height(390));
-    let active = signal("comp".to_owned());
-    let tabs = signal(keyed_options([
-        ("comp", "Comp 1"),
-        ("main-edit", "Main_Edit ●"),
-        ("shot-010", "Shot_010 ●"),
-        ("titles", "Titles"),
-    ]));
-    let next_document = kivact::state::var(5_u64);
     col((
         dock.style(style().margin(6)),
         specs((
-            spec(
-                "Document Tabs",
-                "drag to reorder",
-                col((
-                    ui::document_tabs("Documents", tabs, active)
-                        .on_reorder(move |(a, b): (String, String)| {
-                            tabs.update(|items| {
-                                if let Some(a) = items.iter().position(|item| *item.key() == a)
-                                    && let Some(b) = items.iter().position(|item| *item.key() == b)
-                                {
-                                    items.swap(a, b);
-                                }
-                            });
-                        })
-                        .on_close(move |key: String| {
-                            tabs.update(|items| items.retain(|item| *item.key() != key));
-                        }),
-                    grid(
-                        [
-                            ("DOCUMENT", "Comp 1"),
-                            ("STATE", "Saved"),
-                            ("DURATION", "00:00:10:00"),
-                            ("FORMAT", "1920×1080 · 24 fps"),
-                        ]
-                        .into_iter()
-                        .flat_map(|(label, value)| {
-                            [
-                                note(label).style(style().font_size(9.5)),
-                                text(value).style(style().font_size(10.5).weight(600)),
-                            ]
-                        })
-                        .collect::<Vec<_>>(),
-                    )
-                    .style(
-                        style()
-                            .grid_template_columns((Track::minmax(64, 64), Track::fr(1)))
-                            .gap(4)
-                            .margin_top(12),
-                    ),
-                    kivact::ui::button("New Composition")
-                        .hide_label(true)
-                        .icon(kivact::view::icon("plus"))
-                        .variant(kivact::ui::ButtonVariant::Ghost)
-                        .on_press(move || {
-                            let id = next_document.with(|id| *id);
-                            let next = id.checked_add(1).ok_or_else(|| {
-                                kivact::UiError::msg("Document identity limit reached")
-                            })?;
-                            next_document.set(next);
-                            let key = format!("created-document-{id}");
-                            tabs.update(|items| {
-                                items.push(kivact::interaction::ListItem::new(
-                                    key.clone(),
-                                    format!("Untitled {id}"),
-                                ));
-                            });
-                            active.set(key);
-                            Ok::<_, kivact::UiError>(())
-                        })
-                        .style(style().align_self(Align::End)),
-                )),
-            ),
+            document_tabs_spec(),
             spec("Panel Tab Group", "panel tabs", effects_panel()),
         )),
     ))
@@ -526,35 +300,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
         (0.0, 240.0),
         (0.0, 240.0),
     ]);
-    let rows = signal(
-        [
-            ("Grade [Adjustment]", "Normal", "None", 0xb8b5d2),
-            ("Title_Main", "Normal", "6. Null 1", 0xeec59d),
-            ("Particles [Precomp]", "Add", "None", 0xeeb6ca),
-            ("Hero_Plate.exr", "Normal", "None", 0x8b7cff),
-            ("Shadow Matte", "Multiply", "None", 0xff5c6c),
-            ("Null 1", "Normal", "None", 0xffd25a),
-            ("Camera 1", "Normal", "None", 0xb4e2db),
-            ("Music_Bed.wav", "—", "None", 0x34d399),
-        ]
-        .into_iter()
-        .enumerate()
-        .map(|(i, (name, mode, parent, color))| {
-            super::common::TextRow::new(
-                i as u64 + 1,
-                [
-                    "◉  ◉  ◇",
-                    name,
-                    "◦  ◦  ◇",
-                    mode,
-                    parent,
-                    "0 f          ━━━━━━━━━━━ 240 f",
-                ],
-            )
-            .color(rgb(color))
-        })
-        .collect::<Vec<_>>(),
-    );
+    let rows = layer_rows();
     col((
         line((
             text("Comp 1").style(style().weight(600)),
@@ -581,135 +327,7 @@ pub(super) fn layers(state: Signal<TransportState>) -> impl IntoView {
         .filter(query)
         .row_label(|row| row.cells.get(1).cloned().unwrap_or_default())
         .resizable(signal(Vec::new()))
-        .cell_controls(move |item, column| {
-            let id = item.get_untracked().id;
-            match column {
-                0 | 2 => row((0..if column == 0 { 4 } else { 8 })
-                    .map(move |index| {
-                        kivact::ui::toggle_button(
-                            "",
-                            bind(
-                                move || {
-                                    flags.get()[(id - 1) as usize]
-                                        [index + if column == 0 { 0 } else { 4 }]
-                                },
-                                move |v| {
-                                    flags.update(|f| {
-                                        f[(id - 1) as usize]
-                                            [index + if column == 0 { 0 } else { 4 }] = v
-                                    })
-                                },
-                            ),
-                        )
-                        .icon(if column == 0 {
-                            ["eye", "volume", "diamond", "lock"][index]
-                        } else {
-                            [
-                                "eye",
-                                "light",
-                                "settings",
-                                "adjustments",
-                                "stack",
-                                "wave",
-                                "adjustments",
-                                "box",
-                            ][index]
-                        })
-                        .name(format!(
-                            "Layer {id} {} {index}",
-                            if column == 0 { "AV" } else { "Switch" }
-                        ))
-                        .style(
-                            style()
-                                .size(16, 16)
-                                .padding(0)
-                                .background(Color::TRANSPARENT)
-                                .selected(style().background(Color::TRANSPARENT))
-                                .border(0, Color::TRANSPARENT),
-                        )
-                    })
-                    .collect::<Vec<_>>())
-                .style(style().gap(2))
-                .into_view(),
-                1 => row((
-                    node().style(style().size(12, 12).radius(6)).style(move || {
-                        style().background(item.get().color.unwrap_or(Color::WHITE))
-                    }),
-                    text(format!("{id}")).style(style().width(16).font_size(10)),
-                    kivact::ui::button(format!("Expand layer {id}"))
-                        .variant(kivact::ui::ButtonVariant::Secondary)
-                        .hide_label(true)
-                        .icon(kivact::view::icon("chevron-right"))
-                        .style(style().size(16, 16).padding(0))
-                        .style(move || {
-                            style().rotate(if opened.with(|v| v.contains(&id)) {
-                                90
-                            } else {
-                                0
-                            })
-                        })
-                        .on_press(move || {
-                            opened.update(|v| {
-                                if v.contains(&id) {
-                                    v.retain(|x| *x != id);
-                                } else {
-                                    v.push(id);
-                                }
-                            })
-                        }),
-                    kivact::view::icon("stack"),
-                    text(move || item.get().cells[1].clone()),
-                ))
-                .style(style().gap(6))
-                .into_view(),
-                5 => ui::range(
-                    format!("Layer {id} range"),
-                    bind(
-                        move || ranges.get()[(id - 1) as usize],
-                        move |v| ranges.update(|rs| rs[(id - 1) as usize] = v),
-                    ),
-                )
-                .limits(0.0..=240.0)
-                .interval(item.get_untracked().color.unwrap_or(Color::WHITE))
-                .movable(true)
-                .disabled(move || flags.get()[(id - 1) as usize][3])
-                .style(style().width(pct(100)).height(22))
-                .into_view(),
-                3 | 4 => {
-                    let labels = if column == 3 {
-                        vec!["Normal", "Add", "Multiply", "Screen", "Overlay"]
-                    } else {
-                        vec!["None", "6. Null 1", "7. Camera 1"]
-                    };
-                    let options = labels
-                        .into_iter()
-                        .map(|label| kivact::interaction::ListItem::new(label.to_owned(), label))
-                        .collect::<Vec<_>>();
-                    kivact::ui::select(
-                        "Selection",
-                        options,
-                        bind(
-                            move || item.with(|row| row.cells.get(column).cloned()),
-                            move |value: Option<String>| {
-                                if let Some(value) = value {
-                                    rows.update(|rows| {
-                                        if let Some(row) = rows.iter_mut().find(|row| row.id == id)
-                                        {
-                                            row.cells[column] = value;
-                                        }
-                                    });
-                                }
-                            },
-                        ),
-                    )
-                    .placeholder("")
-                    .style(style().height(22).width(pct(100)))
-                    .into_view()
-                }
-                _ => text(move || item.with(|r| r.cells.get(column).cloned().unwrap_or_default()))
-                    .into_view(),
-            }
-        })
+        .cell_controls(move |item, column| layer_cell(item, column, flags, opened, ranges, rows))
         .row_details(move |item| {
             let id = item.get_untracked().id;
             col((
@@ -748,39 +366,7 @@ fn layer_property(
     } else {
         Vec::new()
     });
-    let fields = initial
-        .into_iter()
-        .enumerate()
-        .map(|(i, initial)| {
-            let value = signal(initial);
-            let written = bind(value, move |v| {
-                value.set(v);
-                if watch.get_untracked() {
-                    let frame = state.get_untracked().frame.round();
-                    keys.update(|ks| {
-                        if !ks.contains(&frame) {
-                            ks.push(frame);
-                        }
-                    });
-                }
-            });
-            let field =
-                ui::number(format!("Layer {id} {label} {i}"), written)
-                    .range(
-                        (if label == "Opacity" { 0.0 } else { -65536.0 })
-                            ..=(if label == "Opacity" { 100.0 } else { 65536.0 }),
-                    )
-                    .precision(1)
-                    .unit(unit.to_owned());
-            field.label_visible(false).style(
-                style()
-                    .width(60)
-                    .height(20)
-                    .background(Color::TRANSPARENT)
-                    .color(rgb(0xa397ff)),
-            )
-        })
-        .collect::<Vec<_>>();
+    let fields = property_fields(id, label, initial, unit, state, watch, keys);
     row((
         kivact::ui::toggle_button(
             "◴",
@@ -830,4 +416,474 @@ fn layer_property(
             }),
     ))
     .style(style().gap(5).height(22))
+}
+
+fn inspector_panel(id: u64) -> Node {
+    match id {
+        1 => transform_properties(),
+        2 => col((
+            num("X", 0.0, -100.0, 100.0, 3, " m"),
+            num("Y", 0.0, -100.0, 100.0, 3, " m"),
+        ))
+        .style(style().gap(3)),
+        3 => col((
+            ui::property_row(
+                "Parent",
+                kivact::ui::select(
+                    "Selection",
+                    keyed_options([("none", "None"), ("null-1", "Null 1"), ("camera", "Camera")]),
+                    signal(Some("none".to_owned())),
+                )
+                .placeholder(""),
+            ),
+            ui::property_row("Pass Index", num("", 0.0, 0.0, 999.0, 0, "")),
+        ))
+        .role(kivact::view::Role::List)
+        .style(style().gap(3)),
+        4 => col((
+            kivact::ui::checkbox("Show in Viewport", signal(true)),
+            kivact::ui::checkbox("Show in Render", signal(true)),
+        ))
+        .style(style().gap(3)),
+        _ => col((
+            kivact::ui::checkbox("Bevel", signal(true)),
+            slide("Width", 0.12),
+            kivact::ui::checkbox("Subdivision", signal(true)),
+            num("Levels", 2.0, 0.0, 6.0, 0, ""),
+        ))
+        .style(style().gap(3)),
+    }
+}
+
+fn transform_properties() -> Node {
+    col((
+        ui::property_row("Location X", num("X", 0.0, -100.0, 100.0, 3, " m"))
+            .test_id("creative-property-location-x"),
+        ui::property_row("Y", num("Y", 0.0, -100.0, 100.0, 3, " m"))
+            .test_id("creative-property-location-y"),
+        ui::property_row("Z", num("Z", 1.0, -100.0, 100.0, 3, " m")).test_id("axis-label-z"),
+        ui::property_row("Rotation X", num("X", 0.0, -360.0, 360.0, 1, "°")),
+        ui::property_row("Y", num("Y", 0.0, -360.0, 360.0, 1, "°")),
+        ui::property_row("Z", num("Z", 45.0, -360.0, 360.0, 1, "°")).test_id("axis-label-z"),
+        ui::property_row(
+            "Mode",
+            kivact::ui::select(
+                "Rotation Mode",
+                keyed_options([
+                    ("xyz-euler", "XYZ Euler"),
+                    ("quaternion", "Quaternion"),
+                    ("axis-angle", "Axis Angle"),
+                ]),
+                signal(Some("xyz-euler".to_owned())),
+            )
+            .placeholder("")
+            .name("Rotation Mode")
+            .style(style().width(pct(100))),
+        ),
+        ui::property_row("Scale X", num("X", 1.0, 0.0, 10.0, 3, "")),
+        ui::property_row("Y", num("Y", 1.0, 0.0, 10.0, 3, "")),
+        ui::property_row("Z", num("Z", 1.0, 0.0, 10.0, 3, "")).test_id("axis-label-z"),
+    ))
+    .role(kivact::view::Role::List)
+    .style(style().gap(3))
+}
+
+fn dock_panel(
+    panel: &'static str,
+    document: Signal<String>,
+    command: Signal<String>,
+    output: Signal<String>,
+    editor_sizes: Signal<Vec<f64>>,
+) -> kivact::view::View {
+    match panel {
+        "info" => scroll(
+            col((
+                note("01:54:41  › File · Open: Shot_010_Comp_v012.kvp"),
+                text("Loaded 128 clips, 14 compositions (3 media offline)")
+                    .style(style().font_size(11)),
+                chip("Font 'Inter Display' missing — substituted", rgb(0xfbbf24)),
+                chip("GPU: compute device initialised (2 devices)", rgb(0x48c8ff)),
+                chip("Shader compile error: Metal.002 line 42", rgb(0xff5c6c)),
+                note("Proxy cache verified (4.1 GB)"),
+            ))
+            .style(style().padding(8).gap(6)),
+        )
+        .into_view(),
+        "text" => kivact::ui::split(
+            editor_sizes,
+            (
+                kivact::ui::text_area("Document source", document)
+                    .style(style().width(pct(100)).height(pct(100))),
+                ui::panel("Console", console_view(output, command)).style(style().height(pct(100))),
+            ),
+        )
+        .orientation(Orientation::Vertical)
+        .min_size(0.15)
+        .into_view(),
+        "console" => dock_console(output, command).into_view(),
+        "image" => scroll(super::editors::scene().style(style().height(230))).into_view(),
+        "properties" => scroll(
+            col((
+                ui::property_row(
+                    "Resolution X",
+                    num("Resolution X", 1920.0, 1.0, 16384.0, 0, " px"),
+                ),
+                ui::property_row("Y", num("Resolution Y", 1080.0, 1.0, 16384.0, 0, " px")),
+                ui::property_row(
+                    "Frame Rate",
+                    kivact::ui::select(
+                        "Selection",
+                        keyed_options([("24", "24"), ("25", "25"), ("30", "30"), ("60", "60")]),
+                        signal(Some("24".to_owned())),
+                    )
+                    .placeholder(""),
+                ),
+            ))
+            .role(kivact::view::Role::List)
+            .style(style().padding(12)),
+        )
+        .into_view(),
+        _ => node().into_view(),
+    }
+}
+
+fn dock_console(output: Signal<String>, command: Signal<String>) -> impl IntoView {
+    scroll(col((
+        kivact::ui::text_area("Console output", output)
+            .read_only(true)
+            .style(style().height(200)),
+        kivact::ui::text_input("Console command", command).on_key(move |e| {
+            if e.key() == Key::Enter {
+                let cmd = command.get();
+                let answer = if cmd == "help" {
+                    "help · clear · arithmetic expressions".into()
+                } else {
+                    ui::evaluate_expression(&cmd).map_or_else(
+                        || "SyntaxError: invalid expression".into(),
+                        |v| v.to_string(),
+                    )
+                };
+                if cmd == "clear" {
+                    output.set(String::new())
+                } else {
+                    output.update(|v| v.push_str(&format!("\n>>> {cmd}\n{answer}")))
+                }
+                command.set(String::new());
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        }),
+    )))
+    .into_view()
+}
+
+fn document_tabs_spec() -> Node {
+    let active = signal("comp".to_owned());
+    let tabs = signal(keyed_options([
+        ("comp", "Comp 1"),
+        ("main-edit", "Main_Edit ●"),
+        ("shot-010", "Shot_010 ●"),
+        ("titles", "Titles"),
+    ]));
+    let next_document = kivact::state::var(5_u64);
+    spec(
+        "Document Tabs",
+        "drag to reorder",
+        col((
+            ui::document_tabs("Documents", tabs, active)
+                .on_reorder(move |(a, b): (String, String)| {
+                    tabs.update(|items| {
+                        if let Some(a) = items.iter().position(|item| *item.key() == a)
+                            && let Some(b) = items.iter().position(|item| *item.key() == b)
+                        {
+                            items.swap(a, b);
+                        }
+                    });
+                })
+                .on_close(move |key: String| {
+                    tabs.update(|items| items.retain(|item| *item.key() != key));
+                }),
+            grid(
+                [
+                    ("DOCUMENT", "Comp 1"),
+                    ("STATE", "Saved"),
+                    ("DURATION", "00:00:10:00"),
+                    ("FORMAT", "1920×1080 · 24 fps"),
+                ]
+                .into_iter()
+                .flat_map(|(label, value)| {
+                    [
+                        note(label).style(style().font_size(9.5)),
+                        text(value).style(style().font_size(10.5).weight(600)),
+                    ]
+                })
+                .collect::<Vec<_>>(),
+            )
+            .style(
+                style()
+                    .grid_template_columns((Track::minmax(64, 64), Track::fr(1)))
+                    .gap(4)
+                    .margin_top(12),
+            ),
+            kivact::ui::button("New Composition")
+                .hide_label(true)
+                .icon(kivact::view::icon("plus"))
+                .variant(kivact::ui::ButtonVariant::Ghost)
+                .on_press(move || {
+                    let id = next_document.with(|id| *id);
+                    let next = id
+                        .checked_add(1)
+                        .ok_or_else(|| kivact::UiError::msg("Document identity limit reached"))?;
+                    next_document.set(next);
+                    let key = format!("created-document-{id}");
+                    tabs.update(|items| {
+                        items.push(kivact::interaction::ListItem::new(
+                            key.clone(),
+                            format!("Untitled {id}"),
+                        ));
+                    });
+                    active.set(key);
+                    Ok::<_, kivact::UiError>(())
+                })
+                .style(style().align_self(Align::End)),
+        )),
+    )
+}
+
+fn property_fields(
+    id: u64,
+    label: &str,
+    initial: Vec<f64>,
+    unit: &str,
+    state: Signal<TransportState>,
+    watch: Signal<bool>,
+    keys: Signal<Vec<f64>>,
+) -> Vec<ui::Numeric> {
+    initial
+        .into_iter()
+        .enumerate()
+        .map(|(i, initial)| {
+            let value = signal(initial);
+            let written = bind(value, move |v| {
+                value.set(v);
+                if watch.get_untracked() {
+                    let frame = state.get_untracked().frame.round();
+                    keys.update(|ks| {
+                        if !ks.contains(&frame) {
+                            ks.push(frame);
+                        }
+                    });
+                }
+            });
+            let field =
+                ui::number(format!("Layer {id} {label} {i}"), written)
+                    .range(
+                        (if label == "Opacity" { 0.0 } else { -65536.0 })
+                            ..=(if label == "Opacity" { 100.0 } else { 65536.0 }),
+                    )
+                    .precision(1)
+                    .unit(unit.to_owned());
+            field.label_visible(false).style(
+                style()
+                    .width(60)
+                    .height(20)
+                    .background(Color::TRANSPARENT)
+                    .color(rgb(0xa397ff)),
+            )
+        })
+        .collect::<Vec<_>>()
+}
+
+fn layer_cell(
+    item: kivact::state::Value<super::common::TextRow>,
+    column: usize,
+    flags: Signal<Vec<[bool; 12]>>,
+    opened: Signal<Vec<u64>>,
+    ranges: Signal<Vec<(f64, f64)>>,
+    rows: Signal<Vec<super::common::TextRow>>,
+) -> kivact::view::View {
+    let id = item.get_untracked().id;
+    match column {
+        0 | 2 => layer_switches(id, column, flags).into_view(),
+        1 => row((
+            node()
+                .style(style().size(12, 12).radius(6))
+                .style(move || style().background(item.get().color.unwrap_or(Color::WHITE))),
+            text(format!("{id}")).style(style().width(16).font_size(10)),
+            kivact::ui::button(format!("Expand layer {id}"))
+                .variant(kivact::ui::ButtonVariant::Secondary)
+                .hide_label(true)
+                .icon(kivact::view::icon("chevron-right"))
+                .style(style().size(16, 16).padding(0))
+                .style(move || {
+                    style().rotate(if opened.with(|v| v.contains(&id)) {
+                        90
+                    } else {
+                        0
+                    })
+                })
+                .on_press(move || {
+                    opened.update(|v| {
+                        if v.contains(&id) {
+                            v.retain(|x| *x != id);
+                        } else {
+                            v.push(id);
+                        }
+                    })
+                }),
+            kivact::view::icon("stack"),
+            text(move || item.get().cells[1].clone()),
+        ))
+        .style(style().gap(6))
+        .into_view(),
+        5 => ui::range(
+            format!("Layer {id} range"),
+            bind(
+                move || ranges.get()[(id - 1) as usize],
+                move |v| ranges.update(|rs| rs[(id - 1) as usize] = v),
+            ),
+        )
+        .limits(0.0..=240.0)
+        .interval(item.get_untracked().color.unwrap_or(Color::WHITE))
+        .movable(true)
+        .disabled(move || flags.get()[(id - 1) as usize][3])
+        .style(style().width(pct(100)).height(22))
+        .into_view(),
+        3 | 4 => layer_choice(id, column, item, rows),
+        _ => text(move || item.with(|r| r.cells.get(column).cloned().unwrap_or_default()))
+            .into_view(),
+    }
+}
+
+fn layer_switches(id: u64, column: usize, flags: Signal<Vec<[bool; 12]>>) -> impl IntoView {
+    row((0..if column == 0 { 4 } else { 8 })
+        .map(move |index| {
+            kivact::ui::toggle_button(
+                "",
+                bind(
+                    move || flags.get()[(id - 1) as usize][index + if column == 0 { 0 } else { 4 }],
+                    move |v| {
+                        flags.update(|f| {
+                            f[(id - 1) as usize][index + if column == 0 { 0 } else { 4 }] = v
+                        })
+                    },
+                ),
+            )
+            .icon(if column == 0 {
+                ["eye", "volume", "diamond", "lock"][index]
+            } else {
+                [
+                    "eye",
+                    "light",
+                    "settings",
+                    "adjustments",
+                    "stack",
+                    "wave",
+                    "adjustments",
+                    "box",
+                ][index]
+            })
+            .name(format!(
+                "Layer {id} {} {index}",
+                if column == 0 { "AV" } else { "Switch" }
+            ))
+            .style(
+                style()
+                    .size(16, 16)
+                    .padding(0)
+                    .background(Color::TRANSPARENT)
+                    .selected(style().background(Color::TRANSPARENT))
+                    .border(0, Color::TRANSPARENT),
+            )
+        })
+        .collect::<Vec<_>>())
+    .style(style().gap(2))
+    .into_view()
+}
+
+fn layer_choice(
+    id: u64,
+    column: usize,
+    item: kivact::state::Value<super::common::TextRow>,
+    rows: Signal<Vec<super::common::TextRow>>,
+) -> kivact::view::View {
+    let labels = if column == 3 {
+        vec!["Normal", "Add", "Multiply", "Screen", "Overlay"]
+    } else {
+        vec!["None", "6. Null 1", "7. Camera 1"]
+    };
+    let options = labels
+        .into_iter()
+        .map(|label| kivact::interaction::ListItem::new(label.to_owned(), label))
+        .collect::<Vec<_>>();
+    kivact::ui::select(
+        "Selection",
+        options,
+        bind(
+            move || item.with(|row| row.cells.get(column).cloned()),
+            move |value: Option<String>| {
+                if let Some(value) = value {
+                    rows.update(|rows| {
+                        if let Some(row) = rows.iter_mut().find(|row| row.id == id) {
+                            row.cells[column] = value;
+                        }
+                    });
+                }
+            },
+        ),
+    )
+    .placeholder("")
+    .style(style().height(22).width(pct(100)))
+    .into_view()
+}
+
+fn inspector_tabs(tab: Signal<usize>) -> Node {
+    column(
+        ["camera", "settings", "box", "link", "eye"]
+            .into_iter()
+            .enumerate()
+            .map(|(i, glyph)| {
+                kivact::ui::button(format!("Inspector {i}"))
+                    .hide_label(true)
+                    .icon(kivact::view::icon(glyph))
+                    .variant(kivact::ui::ButtonVariant::Ghost)
+                    .with_node(|node| node.selected(move || tab.get() == i))
+                    .on_press(move || tab.set(i))
+            })
+            .collect::<Vec<_>>(),
+    )
+    .style(style().gap(8).padding(5).width(38))
+}
+
+fn layer_rows() -> Signal<Vec<super::common::TextRow>> {
+    signal(
+        [
+            ("Grade [Adjustment]", "Normal", "None", 0xb8b5d2),
+            ("Title_Main", "Normal", "6. Null 1", 0xeec59d),
+            ("Particles [Precomp]", "Add", "None", 0xeeb6ca),
+            ("Hero_Plate.exr", "Normal", "None", 0x8b7cff),
+            ("Shadow Matte", "Multiply", "None", 0xff5c6c),
+            ("Null 1", "Normal", "None", 0xffd25a),
+            ("Camera 1", "Normal", "None", 0xb4e2db),
+            ("Music_Bed.wav", "—", "None", 0x34d399),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (name, mode, parent, color))| {
+            super::common::TextRow::new(
+                i as u64 + 1,
+                [
+                    "◉  ◉  ◇",
+                    name,
+                    "◦  ◦  ◇",
+                    mode,
+                    parent,
+                    "0 f          ━━━━━━━━━━━ 240 f",
+                ],
+            )
+            .color(rgb(color))
+        })
+        .collect::<Vec<_>>(),
+    )
 }
