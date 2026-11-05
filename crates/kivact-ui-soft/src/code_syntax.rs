@@ -121,7 +121,6 @@ pub fn code_highlight(
 }
 fn scan(line: &str, language: &str) -> Vec<(Range<usize>, TokenKind)> {
     const LANGUAGES: &str = "typescript javascript tsx jsx ts js json html xml svg css scss less python py bash sh zsh shell php hack yaml yml markdown md c h cpp c++ cc cxx hpp hh sql rust rs kotlin kt kts swift go golang";
-    const KEYWORDS: &str = "as async await break case catch class const continue def default delete do else enum export extends fn for from func function if impl import in interface let match mod move mut new package pass private pub public raise ref return self static struct super switch throw trait try type use var void where while with yield SELECT FROM WHERE INSERT INTO UPDATE DELETE JOIN GROUP BY ORDER LIMIT CREATE TABLE";
     if !LANGUAGES.split_whitespace().any(|name| name == language) {
         return Vec::new();
     }
@@ -136,71 +135,85 @@ fn scan(line: &str, language: &str) -> Vec<(Range<usize>, TokenKind)> {
         let Some(first) = tail.chars().next() else {
             break;
         };
-        let (length, kind) = if tail.starts_with("//")
-            || (hash_comments && first == '#')
-            || (language == "sql" && tail.starts_with("--"))
-        {
-            (tail.len(), Some(TokenKind::Comment))
-        } else if let Some(comment) = tail.strip_prefix("/*") {
-            (
-                comment.find("*/").map_or(tail.len(), |end| end + 4),
-                Some(TokenKind::Comment),
-            )
-        } else if matches!(first, '"' | '\'' | '`') {
-            let mut escaped = false;
-            let mut end = tail.len();
-            for (index, character) in tail.char_indices().skip(1) {
-                if character == first && !escaped {
-                    end = index + character.len_utf8();
-                    break;
-                }
-                escaped = character == '\\' && !escaped;
-            }
-            let kind = if language == "json" && tail[end..].trim_start().starts_with(':') {
-                TokenKind::Property
-            } else {
-                TokenKind::String
-            };
-            (end, Some(kind))
-        } else if first.is_ascii_digit() {
-            (
-                tail.bytes()
-                    .take_while(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.'))
-                    .count(),
-                Some(TokenKind::Number),
-            )
-        } else if first.is_alphabetic() || first == '_' {
-            let end = tail
-                .char_indices()
-                .find(|(_, ch)| !ch.is_alphanumeric() && *ch != '_')
-                .map_or(tail.len(), |(end, _)| end);
-            let word = &tail[..end];
-            let kind = if matches!(word, "true" | "false" | "null" | "None" | "nil") {
-                Some(TokenKind::Constant)
-            } else if KEYWORDS.split_whitespace().any(|keyword| keyword == word) {
-                Some(TokenKind::Keyword)
-            } else if tail[end..].trim_start().starts_with('(') {
-                Some(TokenKind::Function)
-            } else if first.is_uppercase() {
-                Some(TokenKind::Type)
-            } else {
-                None
-            };
-            (end, kind)
-        } else {
-            let kind = if "+-*/%=!<>&|^~?:".contains(first) {
-                Some(TokenKind::Operator)
-            } else if "{}()[];,.@".contains(first) {
-                Some(TokenKind::Punctuation)
-            } else {
-                None
-            };
-            (first.len_utf8(), kind)
-        };
+        let (length, kind) = token(tail, first, language, hash_comments);
         if let Some(kind) = kind {
             tokens.push((offset..offset + length, kind));
         }
         offset += length;
     }
     tokens
+}
+
+fn token(
+    tail: &str,
+    first: char,
+    language: &str,
+    hash_comments: bool,
+) -> (usize, Option<TokenKind>) {
+    if tail.starts_with("//")
+        || (hash_comments && first == '#')
+        || (language == "sql" && tail.starts_with("--"))
+    {
+        (tail.len(), Some(TokenKind::Comment))
+    } else if let Some(comment) = tail.strip_prefix("/*") {
+        (
+            comment.find("*/").map_or(tail.len(), |end| end + 4),
+            Some(TokenKind::Comment),
+        )
+    } else if matches!(first, '"' | '\'' | '`') {
+        let mut escaped = false;
+        let mut end = tail.len();
+        for (index, character) in tail.char_indices().skip(1) {
+            if character == first && !escaped {
+                end = index + character.len_utf8();
+                break;
+            }
+            escaped = character == '\\' && !escaped;
+        }
+        let kind = if language == "json" && tail[end..].trim_start().starts_with(':') {
+            TokenKind::Property
+        } else {
+            TokenKind::String
+        };
+        (end, Some(kind))
+    } else if first.is_ascii_digit() {
+        (
+            tail.bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.'))
+                .count(),
+            Some(TokenKind::Number),
+        )
+    } else if first.is_alphabetic() || first == '_' {
+        word_token(tail, first)
+    } else {
+        let kind = if "+-*/%=!<>&|^~?:".contains(first) {
+            Some(TokenKind::Operator)
+        } else if "{}()[];,.@".contains(first) {
+            Some(TokenKind::Punctuation)
+        } else {
+            None
+        };
+        (first.len_utf8(), kind)
+    }
+}
+
+fn word_token(tail: &str, first: char) -> (usize, Option<TokenKind>) {
+    const KEYWORDS: &str = "as async await break case catch class const continue def default delete do else enum export extends fn for from func function if impl import in interface let match mod move mut new package pass private pub public raise ref return self static struct super switch throw trait try type use var void where while with yield SELECT FROM WHERE INSERT INTO UPDATE DELETE JOIN GROUP BY ORDER LIMIT CREATE TABLE";
+    let end = tail
+        .char_indices()
+        .find(|(_, ch)| !ch.is_alphanumeric() && *ch != '_')
+        .map_or(tail.len(), |(end, _)| end);
+    let word = &tail[..end];
+    let kind = if matches!(word, "true" | "false" | "null" | "None" | "nil") {
+        Some(TokenKind::Constant)
+    } else if KEYWORDS.split_whitespace().any(|keyword| keyword == word) {
+        Some(TokenKind::Keyword)
+    } else if tail[end..].trim_start().starts_with('(') {
+        Some(TokenKind::Function)
+    } else if first.is_uppercase() {
+        Some(TokenKind::Type)
+    } else {
+        None
+    };
+    (end, kind)
 }

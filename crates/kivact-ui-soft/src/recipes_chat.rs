@@ -1,5 +1,7 @@
 //! Role: Paint canonical chat surfaces with Soft conversation treatments.
-use crate::{BubbleVariant, ChatAppearance, ChatDensity, ComposerElevation, Tokens};
+use crate::{
+    BubbleVariant, ChatAppearance, ChatDensity, ComposerElevation, SystemMessageVariant, Tokens,
+};
 use kivact::style::{Align, Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{
     ChatBubbleGroup, ChatComposerRecipes, ChatComposerState, ChatMessageRecipes, ChatMessageState,
@@ -67,6 +69,19 @@ fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
                 28.0
             })
             .background(p.colors.neutral);
+    }
+    if s.sender == ChatSender::System {
+        let divider = s
+            .variant::<ChatAppearance>()
+            .map(|a| a.system.get())
+            .or_else(|| s.variant::<SystemMessageVariant>().copied())
+            .unwrap_or_default();
+        if divider == SystemMessageVariant::Divider {
+            look = look
+                .border_top(1, p.colors.border)
+                .border_bottom(1, p.colors.border)
+                .padding_y(4);
+        }
     }
     let user = s.sender == ChatSender::User;
     if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {

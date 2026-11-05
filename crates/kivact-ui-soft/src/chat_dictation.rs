@@ -79,28 +79,8 @@ impl IntoView for ChatDictationButton {
         } = self;
         let side = control_side(size.get());
         let listening = move || state.with(|state| state.listening);
-        let bars = (0..5)
-            .map(|index| {
-                node().style(move || {
-                    let p = kivact::style::use_tokens::<crate::Tokens>();
-                    let (band, volume) = state.with(|state| {
-                        (state.bands.get(index).copied().unwrap_or(0.0), state.volume)
-                    });
-                    let level = (band.max(0.0) / 0.2).sqrt().min(1.0);
-                    let height = if side <= 28 { 14.0 } else { 18.0 };
-                    style()
-                        .size(2.5, height * (0.08 + level * 0.92))
-                        .radius(2)
-                        .background(if volume >= 0.3 {
-                            p.colors.error
-                        } else {
-                            p.colors.accent
-                        })
-                })
-            })
-            .collect::<Vec<_>>();
         let icon = text("🎙").hidden(listening);
-        let waveform = row(bars)
+        let waveform = row(dictation_bars(state, side))
             .hidden(move || !listening())
             .style(style().gap(2).align_items(Align::Center));
         root.with_node(move |node| node.role(Role::Button))
@@ -131,4 +111,26 @@ impl IntoView for ChatDictationButton {
             .child((icon, waveform))
             .into_view()
     }
+}
+
+fn dictation_bars(state: Value<DictationState>, side: i32) -> Vec<Node> {
+    (0..5)
+        .map(|index| {
+            node().style(move || {
+                let p = kivact::style::use_tokens::<crate::Tokens>();
+                let (band, volume) = state
+                    .with(|state| (state.bands.get(index).copied().unwrap_or(0.0), state.volume));
+                let level = (band.max(0.0) / 0.2).sqrt().min(1.0);
+                let height = if side <= 28 { 14.0 } else { 18.0 };
+                style()
+                    .size(2.5, height * (0.08 + level * 0.92))
+                    .radius(2)
+                    .background(if volume >= 0.3 {
+                        p.colors.error
+                    } else {
+                        p.colors.accent
+                    })
+            })
+        })
+        .collect::<Vec<_>>()
 }
