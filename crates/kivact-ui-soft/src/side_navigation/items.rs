@@ -664,12 +664,11 @@ impl ItemContext {
         } else {
             primary
         };
-        let primary = if !has_children && cx.collapsed.is_some() {
+        if !has_children && cx.collapsed.is_some() {
             tooltip(label).placement(Placement::End).attach(primary)
         } else {
             primary.into_view()
-        };
-        primary
+        }
     }
     fn activate(self) {
         let cx = self.cx;

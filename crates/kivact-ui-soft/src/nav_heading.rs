@@ -157,15 +157,7 @@ pub(crate) fn nav_menu_view(
             .with_node(move |node| node.part(part)),
     );
     let heading = matches!(look, NavMenuLook::Heading);
-    let default_min_width = if heading {
-        match size {
-            ControlSize::Small => 160.0,
-            ControlSize::Large => 240.0,
-            _ => 200.0,
-        }
-    } else {
-        280.0
-    };
+    let default_min_width = menu_min_width(heading, size);
     let min_width = min_width.unwrap_or_else(|| default_min_width.into_value());
     let surface = behavior.show(move || {
         let items = items.clone();
@@ -576,4 +568,85 @@ fn nav_popup_header(label: Value<String>) -> Node {
             .align_items(Align::Center)
             .justify_content(Justify::SpaceBetween)
     })
+}
+
+fn menu_min_width(heading: bool, size: ControlSize) -> f64 {
+    if heading {
+        match size {
+            ControlSize::Small => 160.0,
+            ControlSize::Large => 240.0,
+            _ => 200.0,
+        }
+    } else {
+        280.0
+    }
+}
+
+pub(crate) fn menu_check() -> Node {
+    icon("check").style(|| {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        style()
+            .size(t.sizes.icon_sm, t.sizes.icon_sm)
+            .color(t.colors.accent)
+    })
+}
+
+pub(crate) fn menu_chevron(open: Value<bool>) -> Node {
+    icon("chevron-down").style(move || {
+        style()
+            .size(16, 16)
+            .rotate(if open.get() { 180 } else { 0 })
+            .transition(
+                TransitionProp::Paint,
+                Transition::tween(
+                    kivact::style::use_tokens::<crate::Tokens>().motion.fast as f64,
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .motion
+                        .ease_standard,
+                ),
+            )
+    })
+}
+
+pub(crate) fn menu_option_style(
+    input: kivact::custom::PartState,
+    selected: bool,
+) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let role = t.typography.body;
+    let base = style()
+        .direction(logical_row())
+        .padding_x(t.spacing.s3)
+        .padding_y(t.spacing.s2)
+        .align_items(Align::Center)
+        .gap(t.spacing.s2)
+        .radius(t.radius.element)
+        .font_size(role.size_px)
+        .line_height(role.line_height_px / role.size_px)
+        .color(t.colors.text_primary)
+        .weight(if selected {
+            t.typography.weight_medium
+        } else {
+            role.weight
+        })
+        .disabled(style().opacity(t.sizes.disabled_opacity));
+    if input.hovered || input.focused {
+        base.background(t.colors.overlay_hover)
+    } else {
+        base
+    }
+}
+
+pub(crate) fn tab_menu_surface() -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let mut base = style()
+        .padding(t.spacing.s1)
+        .gap(t.spacing.s0_5)
+        .min_width(160)
+        .background(t.colors.bg_popover)
+        .radius(t.radius.container);
+    for shadow in &t.shadows.low {
+        base = base.shadow(*shadow);
+    }
+    base
 }

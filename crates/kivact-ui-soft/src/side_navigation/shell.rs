@@ -233,25 +233,7 @@ impl IntoView for SideNav {
                 collapsed,
                 ..SideNavCx::default()
             };
-            let target = move || {
-                if cx.rail() {
-                    kivact::style::use_tokens::<crate::Tokens>().spacing.s12
-                } else {
-                    expanded_width.get()
-                }
-            };
-            let animated_width = if resize.is_none() && collapsed.is_some() {
-                Some(animated(
-                    target,
-                    Transition::spring(Spring {
-                        stiffness: 157.91,
-                        damping: 25.13,
-                        mass: 1.0,
-                    }),
-                ))
-            } else {
-                None
-            };
+            let width = sidebar_width(cx, expanded_width, resize.is_none() && collapsed.is_some());
             let slots = SideNavSlots {
                 children,
                 header,
@@ -264,11 +246,7 @@ impl IntoView for SideNav {
                 if mode == ShellNavMode::Desktop {
                     style()
                         .position(Position::Relative)
-                        .width(
-                            animated_width
-                                .as_ref()
-                                .map_or_else(&target, |width| width.get()),
-                        )
+                        .width(width())
                         .height(pct(100))
                         .clip(true)
                 } else {
@@ -569,4 +547,35 @@ fn resize_grip(
                     t.colors.border
                 })
         }))
+}
+
+fn sidebar_width(
+    cx: SideNavCx,
+    expanded_width: kivact::state::Signal<f64>,
+    animate: bool,
+) -> impl Fn() -> f64 {
+    let target = move || {
+        if cx.rail() {
+            kivact::style::use_tokens::<crate::Tokens>().spacing.s12
+        } else {
+            expanded_width.get()
+        }
+    };
+    let animated_width = if animate {
+        Some(animated(
+            target,
+            Transition::spring(Spring {
+                stiffness: 157.91,
+                damping: 25.13,
+                mass: 1.0,
+            }),
+        ))
+    } else {
+        None
+    };
+    move || {
+        animated_width
+            .as_ref()
+            .map_or_else(&target, |width| width.get())
+    }
 }
