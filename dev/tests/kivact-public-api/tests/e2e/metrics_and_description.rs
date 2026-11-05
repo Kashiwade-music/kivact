@@ -158,7 +158,7 @@ fn description_list_pairs_terms_and_details() {
         .into_iter()
         .find(|group| {
             screen
-                .within(group.clone())
+                .within(*group)
                 .query_by_role(Role::Button, "Open profile")
                 .is_some()
         })
