@@ -198,86 +198,15 @@ fn event_loop(
     waiter: Waiter,
 ) -> Result<(), ShellError> {
     let mut pending = Vec::new();
-    let id = window.native.id.get();
     loop {
         if closed(window) {
             return Ok(());
         }
-        // Drain XCB's internal queue before poll: replies can already have moved
-        // events off the socket, leaving its fd unreadable despite pending input.
-        let mut events = std::mem::take(&mut pending);
-        while let Some(event) = window
-            .native
-            .connection
-            .poll_for_event()
-            .map_err(super::error::platform)?
-        {
-            events.push(event);
-        }
-        let mut events = events.into_iter().peekable();
-        while let Some(event) = events.next() {
-            // Legacy X autorepeat is a release/press pair with matching time.
-            // Keep the key held so the following press is marked as a repeat.
-            if let x11rb::protocol::Event::KeyRelease(release) = &event
-                && matches!(events.peek(), Some(x11rb::protocol::Event::KeyPress(press))
-                    if press.detail == release.detail && press.time == release.time)
-            {
-                continue;
-            }
-            if let x11rb::protocol::Event::Error(e) = &event {
-                window.ime.borrow_mut().x_error(e);
-            }
-            // An unchecked request on our window (focus) can fail after the host
-            // destroyed the parent; that is a close, not an error.
-            if matches!(&event, x11rb::protocol::Event::Error(e) if super::error::gone(e, id)) {
-                window.native.exists.end();
-                window.shared.request_close();
-                return Ok(());
-            }
-            let destroyed = matches!(&event, x11rb::protocol::Event::DestroyNotify(e)
-                if e.window == id);
-            if destroyed {
-                window.native.exists.end();
-                window.shared.request_close();
-                // Parent destruction is an external close. Delivering it as
-                // CloseRequested would turn the App's ordinary close response
-                // into an erroneous App-requested exit in the shared session.
-                return Ok(());
-            }
-            for event in input.translate(event, window)? {
-                session.deliver(event, window);
-                if closed(window) {
-                    return Ok(());
-                }
-            }
-        }
+        deliver_native_events(session, window, &mut input, &mut pending)?;
         if closed(window) {
             return Ok(());
         }
-        let _ = super::poll::drain(&window.backend.wake)?;
-        for command in window.shared.take_commands() {
-            if closed(window) {
-                return Ok(());
-            }
-            match command {
-                Command::SetSize {
-                    width,
-                    height,
-                    generation,
-                } => {
-                    if window.shared.current(generation) {
-                        window.resize(width, height)?;
-                    }
-                }
-                Command::SetScale(scale) => {
-                    // `Handle::set_scale` rejects other values before queuing.
-                    debug_assert!(scale.is_finite() && scale > 0.0);
-                    window.scale = scale;
-                    window.resized(window.width, window.height);
-                    session.deliver(ShellEvent::Resized, window);
-                }
-            }
-        }
+        deliver_commands(session, window)?;
         if closed(window) {
             return Ok(());
         }
@@ -348,4 +277,98 @@ fn event_loop(
             .min();
         waiter.wait(&*window.native.connection, &window.backend.wake, remaining)?;
     }
+}
+
+/// Drain queued native events, preserving legacy autorepeat pairs.
+fn deliver_native_events(
+    session: &Session,
+    window: &mut Window,
+    input: &mut Input,
+    pending: &mut Vec<x11rb::protocol::Event>,
+) -> Result<(), ShellError> {
+    let id = window.native.id.get();
+    // Drain XCB's internal queue before poll: replies can already have moved
+    // events off the socket, leaving its fd unreadable despite pending input.
+    let mut events = std::mem::take(pending);
+    while let Some(event) = window
+        .native
+        .connection
+        .poll_for_event()
+        .map_err(super::error::platform)?
+    {
+        events.push(event);
+    }
+    let mut events = events.into_iter().peekable();
+    while let Some(event) = events.next() {
+        // Legacy X autorepeat is a release/press pair with matching time.
+        // Keep the key held so the following press is marked as a repeat.
+        if let x11rb::protocol::Event::KeyRelease(release) = &event
+            && matches!(events.peek(), Some(x11rb::protocol::Event::KeyPress(press))
+                    if press.detail == release.detail && press.time == release.time)
+        {
+            continue;
+        }
+        if let x11rb::protocol::Event::Error(e) = &event {
+            window.ime.borrow_mut().x_error(e);
+        }
+        // An unchecked request on our window (focus) can fail after the host
+        // destroyed the parent; that is a close, not an error.
+        if matches!(&event, x11rb::protocol::Event::Error(e) if super::error::gone(e, id)) {
+            window.native.exists.end();
+            window.shared.request_close();
+            return Ok(());
+        }
+        let destroyed = matches!(&event, x11rb::protocol::Event::DestroyNotify(e)
+                if e.window == id);
+        if destroyed {
+            window.native.exists.end();
+            window.shared.request_close();
+            // Parent destruction is an external close. Delivering it as
+            // CloseRequested would turn the App's ordinary close response
+            // into an erroneous App-requested exit in the shared session.
+            return Ok(());
+        }
+        for event in input.translate(event, window)? {
+            session.deliver(event, window);
+            if closed(window) {
+                return Ok(());
+            }
+        }
+    }
+    if closed(window) {
+        return Ok(());
+    }
+    Ok(())
+}
+
+/// Apply host commands before accessibility, wakes, and redraw delivery.
+fn deliver_commands(session: &Session, window: &mut Window) -> Result<(), ShellError> {
+    let _ = super::poll::drain(&window.backend.wake)?;
+    for command in window.shared.take_commands() {
+        if closed(window) {
+            return Ok(());
+        }
+        match command {
+            Command::SetSize {
+                width,
+                height,
+                generation,
+            } => {
+                if window.shared.current(generation) {
+                    window.resize(width, height)?;
+                }
+            }
+            Command::SetScale(scale) => {
+                // `Handle::set_scale` rejects other values before queuing.
+                debug_assert!(scale.is_finite() && scale > 0.0);
+                window.scale = scale;
+                window.resized(window.width, window.height);
+                session.deliver(ShellEvent::Resized, window);
+            }
+        }
+    }
+    if closed(window) {
+        return Ok(());
+    }
+    Ok(())
 }

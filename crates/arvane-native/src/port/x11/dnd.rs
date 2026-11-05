@@ -160,147 +160,7 @@ impl Dnd {
         let mut out = Vec::new();
         match event {
             Event::ClientMessage(e) if e.window == native.id.get() && e.format == 32 => {
-                let d = e.data.as_data32();
-                // The drag this message belongs to, when its source is the one hovering.
-                let hovering = match self.drag {
-                    Drag::Hovering {
-                        source,
-                        accepts,
-                        point,
-                    } if source.get() == d[0] => Some((source, accepts, point)),
-                    _ => None,
-                };
-                if e.type_ == self.atoms.enter {
-                    let Some(source) = NonZeroU32::new(d[0]) else {
-                        return Ok(out);
-                    };
-                    // A new drag abandons a conversion in progress: its source is told it failed.
-                    if let Drag::Converting { source: old, .. } =
-                        std::mem::replace(&mut self.drag, Drag::Idle)
-                    {
-                        self.send(
-                            native,
-                            old,
-                            self.atoms.finished,
-                            [native.id.get(), 0, 0, 0, 0],
-                        )?;
-                    }
-                    let mut accepts = (d[1] >> 24) >= 3 && (d[1] >> 24) <= 5;
-                    let offered = if d[1] & 1 == 0 {
-                        d[2..5].to_vec()
-                    } else {
-                        let reply = native
-                            .connection
-                            .get_property(
-                                false,
-                                source.get(),
-                                self.atoms.types,
-                                AtomEnum::ATOM,
-                                0,
-                                4096,
-                            )
-                            .map_err(super::error::platform)?
-                            .reply();
-                        match reply {
-                            Ok(reply) => reply.value32().map(Iterator::collect).unwrap_or_default(),
-                            // The source is another client's window: its being gone or
-                            // unreadable refuses this drag, not the App.
-                            Err(ReplyError::X11Error(_)) => return Ok(out),
-                            Err(error) => return Err(super::error::platform(error)),
-                        }
-                    };
-                    accepts &= offered.contains(&self.atoms.uri);
-                    self.drag = Drag::Hovering {
-                        source,
-                        accepts,
-                        point: None,
-                    };
-                } else if e.type_ == self.atoms.position
-                    && let Some((source, accepts, _)) = hovering
-                {
-                    let x = (d[2] >> 16) as i16;
-                    let y = d[2] as i16;
-                    let root = native.connection.setup().roots[native.screen as usize].root;
-                    let translated = native
-                        .connection
-                        .translate_coordinates(root, native.id.get(), x, y)
-                        .map_err(super::error::platform)?
-                        .reply();
-                    let translated = match translated {
-                        Ok(translated) => translated,
-                        Err(error) if super::error::destroyed(&error, native.id.get()) => {
-                            // The host destroyed our parent: a close, not a failure.
-                            native.exists.end();
-                            self.drag = Drag::Idle;
-                            return Ok(out);
-                        }
-                        Err(ReplyError::X11Error(_)) => {
-                            self.drag = Drag::Idle;
-                            self.send(
-                                native,
-                                source,
-                                self.atoms.status,
-                                [native.id.get(), 0, 0, 0, 0],
-                            )?;
-                            return Ok(out);
-                        }
-                        Err(error) => return Err(super::error::platform(error)),
-                    };
-                    self.drag = Drag::Hovering {
-                        source,
-                        accepts,
-                        point: Some(Point {
-                            x: f64::from(translated.dst_x) / scale,
-                            y: f64::from(translated.dst_y) / scale,
-                        }),
-                    };
-                    self.send(
-                        native,
-                        source,
-                        self.atoms.status,
-                        [
-                            native.id.get(),
-                            u32::from(accepts) | 2,
-                            0,
-                            0,
-                            if accepts { self.atoms.copy } else { 0 },
-                        ],
-                    )?;
-                } else if e.type_ == self.atoms.leave && hovering.is_some() {
-                    self.drag = Drag::Idle;
-                } else if e.type_ == self.atoms.drop
-                    && let Some((source, accepts, point)) = hovering
-                {
-                    match (accepts, point) {
-                        (true, Some(point)) => {
-                            self.drag = Drag::Converting {
-                                source,
-                                point,
-                                transfer: Transfer::Requested,
-                            };
-                            native
-                                .connection
-                                .convert_selection(
-                                    native.id.get(),
-                                    self.atoms.selection,
-                                    self.atoms.uri,
-                                    self.atoms.property,
-                                    d[2],
-                                )
-                                .map_err(super::error::platform)?;
-                            native.connection.flush().map_err(super::error::platform)?;
-                        }
-                        _ => {
-                            self.drag = Drag::Idle;
-                            self.send(
-                                native,
-                                source,
-                                self.atoms.finished,
-                                [native.id.get(), 0, 0, 0, 0],
-                            )?;
-                        }
-                    }
-                }
+                self.client_message(native, e, scale)?;
             }
             Event::SelectionNotify(e)
                 if matches!(
@@ -312,43 +172,7 @@ impl Dnd {
                 ) && e.requestor == native.id.get()
                     && e.selection == self.atoms.selection =>
             {
-                if e.property != self.atoms.property {
-                    self.finish(native, Vec::new(), &mut out)?;
-                } else {
-                    let reply = native
-                        .connection
-                        .get_property(
-                            false,
-                            native.id.get(),
-                            self.atoms.property,
-                            AtomEnum::ANY,
-                            0,
-                            4_194_304,
-                        )
-                        .map_err(super::error::platform)?
-                        .reply()
-                        .map_err(super::error::platform)?;
-                    native
-                        .connection
-                        .delete_property(native.id.get(), self.atoms.property)
-                        .map_err(super::error::platform)?;
-                    native.connection.flush().map_err(super::error::platform)?;
-                    if reply.type_ == self.atoms.incr && reply.format == 32 {
-                        if let Drag::Converting { transfer, .. } = &mut self.drag {
-                            *transfer = Transfer::Incremental(Vec::new());
-                        }
-                    } else {
-                        let files = if reply.type_ == self.atoms.uri
-                            && reply.format == 8
-                            && reply.bytes_after == 0
-                        {
-                            paths(&reply.value)
-                        } else {
-                            Vec::new()
-                        };
-                        self.finish(native, files, &mut out)?;
-                    }
-                }
+                self.selection(native, e, &mut out)?;
             }
             Event::PropertyNotify(e)
                 if matches!(
@@ -361,48 +185,278 @@ impl Dnd {
                     && e.atom == self.atoms.property
                     && e.state == x11rb::protocol::xproto::Property::NEW_VALUE =>
             {
-                let reply = native
-                    .connection
-                    .get_property(
-                        true,
-                        native.id.get(),
-                        self.atoms.property,
-                        self.atoms.uri,
-                        0,
-                        4_194_304,
-                    )
-                    .map_err(super::error::platform)?
-                    .reply()
-                    .map_err(super::error::platform)?;
-                native.connection.flush().map_err(super::error::platform)?;
-                let Drag::Converting {
-                    transfer: Transfer::Incremental(buffer),
-                    ..
-                } = &mut self.drag
-                else {
-                    return Ok(out);
-                };
-                if reply.type_ != self.atoms.uri
-                    || reply.format != 8
-                    || reply.bytes_after != 0
-                    || buffer.len().saturating_add(reply.value.len()) > 16_777_216
-                {
-                    self.finish(native, Vec::new(), &mut out)?;
-                } else if reply.value.is_empty() {
-                    let files = paths(buffer);
-                    self.finish(native, files, &mut out)?;
-                } else {
-                    buffer.extend_from_slice(&reply.value);
-                }
+                self.increment(native, e, &mut out)?;
             }
             _ => {}
         }
         Ok(out)
     }
+    /// Receive an XDND selection transfer notification.
+    fn selection(
+        &mut self,
+        native: &Native,
+        e: &x11rb::protocol::xproto::SelectionNotifyEvent,
+        out: &mut Vec<RawDrop>,
+    ) -> Result<(), ShellError> {
+        if e.property != self.atoms.property {
+            self.finish(native, Vec::new(), out)?;
+        } else {
+            let reply = native
+                .connection
+                .get_property(
+                    false,
+                    native.id.get(),
+                    self.atoms.property,
+                    AtomEnum::ANY,
+                    0,
+                    4_194_304,
+                )
+                .map_err(super::error::platform)?
+                .reply()
+                .map_err(super::error::platform)?;
+            native
+                .connection
+                .delete_property(native.id.get(), self.atoms.property)
+                .map_err(super::error::platform)?;
+            native.connection.flush().map_err(super::error::platform)?;
+            if reply.type_ == self.atoms.incr && reply.format == 32 {
+                if let Drag::Converting { transfer, .. } = &mut self.drag {
+                    *transfer = Transfer::Incremental(Vec::new());
+                }
+            } else {
+                let files =
+                    if reply.type_ == self.atoms.uri && reply.format == 8 && reply.bytes_after == 0
+                    {
+                        paths(&reply.value)
+                    } else {
+                        Vec::new()
+                    };
+                self.finish(native, files, out)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Receive an XDND increment transfer notification.
+    fn increment(
+        &mut self,
+        native: &Native,
+        e: &x11rb::protocol::xproto::PropertyNotifyEvent,
+        out: &mut Vec<RawDrop>,
+    ) -> Result<(), ShellError> {
+        let reply = native
+            .connection
+            .get_property(
+                true,
+                native.id.get(),
+                self.atoms.property,
+                self.atoms.uri,
+                0,
+                4_194_304,
+            )
+            .map_err(super::error::platform)?
+            .reply()
+            .map_err(super::error::platform)?;
+        native.connection.flush().map_err(super::error::platform)?;
+        let Drag::Converting {
+            transfer: Transfer::Incremental(buffer),
+            ..
+        } = &mut self.drag
+        else {
+            return Ok(());
+        };
+        if reply.type_ != self.atoms.uri
+            || reply.format != 8
+            || reply.bytes_after != 0
+            || buffer.len().saturating_add(reply.value.len()) > 16_777_216
+        {
+            self.finish(native, Vec::new(), out)?;
+        } else if reply.value.is_empty() {
+            let files = paths(buffer);
+            self.finish(native, files, out)?;
+        } else {
+            buffer.extend_from_slice(&reply.value);
+        }
+        Ok(())
+    }
+
+    /// Dispatch client messages against the current drag source.
+    fn client_message(
+        &mut self,
+        native: &Native,
+        e: &x11rb::protocol::xproto::ClientMessageEvent,
+        scale: f64,
+    ) -> Result<(), ShellError> {
+        let d = e.data.as_data32();
+        // The drag this message belongs to, when its source is the one hovering.
+        let hovering = match self.drag {
+            Drag::Hovering {
+                source,
+                accepts,
+                point,
+            } if source.get() == d[0] => Some((source, accepts, point)),
+            _ => None,
+        };
+        if e.type_ == self.atoms.enter {
+            self.enter(native, d)?;
+        } else if e.type_ == self.atoms.position
+            && let Some((source, accepts, _)) = hovering
+        {
+            self.position(native, source, accepts, d, scale)?;
+        } else if e.type_ == self.atoms.leave && hovering.is_some() {
+            self.drag = Drag::Idle;
+        } else if e.type_ == self.atoms.drop
+            && let Some((source, accepts, point)) = hovering
+        {
+            match (accepts, point) {
+                (true, Some(point)) => {
+                    self.drag = Drag::Converting {
+                        source,
+                        point,
+                        transfer: Transfer::Requested,
+                    };
+                    native
+                        .connection
+                        .convert_selection(
+                            native.id.get(),
+                            self.atoms.selection,
+                            self.atoms.uri,
+                            self.atoms.property,
+                            d[2],
+                        )
+                        .map_err(super::error::platform)?;
+                    native.connection.flush().map_err(super::error::platform)?;
+                }
+                _ => {
+                    self.drag = Drag::Idle;
+                    self.send(
+                        native,
+                        source,
+                        self.atoms.finished,
+                        [native.id.get(), 0, 0, 0, 0],
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Begin a drag and inspect its offered MIME types.
+    fn enter(&mut self, native: &Native, d: [u32; 5]) -> Result<(), ShellError> {
+        let Some(source) = NonZeroU32::new(d[0]) else {
+            return Ok(());
+        };
+        // A new drag abandons a conversion in progress: its source is told it failed.
+        if let Drag::Converting { source: old, .. } = std::mem::replace(&mut self.drag, Drag::Idle)
+        {
+            self.send(
+                native,
+                old,
+                self.atoms.finished,
+                [native.id.get(), 0, 0, 0, 0],
+            )?;
+        }
+        let mut accepts = (d[1] >> 24) >= 3 && (d[1] >> 24) <= 5;
+        let offered = if d[1] & 1 == 0 {
+            d[2..5].to_vec()
+        } else {
+            let reply = native
+                .connection
+                .get_property(
+                    false,
+                    source.get(),
+                    self.atoms.types,
+                    AtomEnum::ATOM,
+                    0,
+                    4096,
+                )
+                .map_err(super::error::platform)?
+                .reply();
+            match reply {
+                Ok(reply) => reply.value32().map(Iterator::collect).unwrap_or_default(),
+                // The source is another client's window: its being gone or
+                // unreadable refuses this drag, not the App.
+                Err(ReplyError::X11Error(_)) => return Ok(()),
+                Err(error) => return Err(super::error::platform(error)),
+            }
+        };
+        accepts &= offered.contains(&self.atoms.uri);
+        self.drag = Drag::Hovering {
+            source,
+            accepts,
+            point: None,
+        };
+        Ok(())
+    }
+
+    /// Translate the drag position and acknowledge receiver acceptance.
+    fn position(
+        &mut self,
+        native: &Native,
+        source: NonZeroU32,
+        accepts: bool,
+        d: [u32; 5],
+        scale: f64,
+    ) -> Result<(), ShellError> {
+        let x = (d[2] >> 16) as i16;
+        let y = d[2] as i16;
+        let root = native.connection.setup().roots[native.screen as usize].root;
+        let translated = native
+            .connection
+            .translate_coordinates(root, native.id.get(), x, y)
+            .map_err(super::error::platform)?
+            .reply();
+        let translated = match translated {
+            Ok(translated) => translated,
+            Err(error) if super::error::destroyed(&error, native.id.get()) => {
+                // The host destroyed our parent: a close, not a failure.
+                native.exists.end();
+                self.drag = Drag::Idle;
+                return Ok(());
+            }
+            Err(ReplyError::X11Error(_)) => {
+                self.drag = Drag::Idle;
+                self.send(
+                    native,
+                    source,
+                    self.atoms.status,
+                    [native.id.get(), 0, 0, 0, 0],
+                )?;
+                return Ok(());
+            }
+            Err(error) => return Err(super::error::platform(error)),
+        };
+        self.drag = Drag::Hovering {
+            source,
+            accepts,
+            point: Some(Point {
+                x: f64::from(translated.dst_x) / scale,
+                y: f64::from(translated.dst_y) / scale,
+            }),
+        };
+        self.send(
+            native,
+            source,
+            self.atoms.status,
+            [
+                native.id.get(),
+                u32::from(accepts) | 2,
+                0,
+                0,
+                if accepts { self.atoms.copy } else { 0 },
+            ],
+        )?;
+        Ok(())
+    }
 }
 /// This machine's name, which a source may put in a `file://` host.
 #[allow(unsafe_code, reason = "gethostname fills a caller-owned buffer")]
 fn host_name() -> Option<&'static [u8]> {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "process-wide hostname snapshot initialized once"
+    )]
     static NAME: std::sync::OnceLock<Option<Vec<u8>>> = std::sync::OnceLock::new();
     NAME.get_or_init(|| {
         let mut buffer = [0_u8; 256];
