@@ -2187,7 +2187,7 @@ wave W6。付録 C の作業。
 - **variant の誤用**: 別の kit の theme の下で kit の variant を使ったら、中核の既定の recipe で描き、`ReportOnce` の diagnostic を一度出す。
 - **状態**: 部品の状態は付録 A の担当の項目の「解消後」の形の `Machine`（9 章の共通の形）。
 - **APG**: unit に APG の pattern があれば、9 章の APG の合わせ方で合わせ、E2E を足す。
-- **文書**: 中核の部品の rustdoc と、`docs/for-kivact-ui-user/{en,jp}/<kit>/` の該当の page を新しい書き方にする（F-1 は対の確認だけ）。
+- **文書**: 新しい recipe field を足すときは該当 kit の README の `kivact-recipes` 一覧と `theme_conformance.rs` の実 getter の照合を更新する。中核の部品の rustdoc と、`docs/for-kivact-ui-user/{en,jp}/<kit>/` の該当の page を新しい書き方にする（F-1 は対の確認だけ）。
 - **unit の確認**:
   - `cargo check -p kivact-interaction -p kivact-ui -p <触った kit> -p <その catalog> -p kivact-public-api-tests --all-targets --all-features`
   - `KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e -- <足した試験の module>::`
@@ -2209,7 +2209,7 @@ wave W6。付録 C の作業。
   - `NodeRef::image_status() -> Value<ImageStatus>`、`enum ImageStatus { Loading, Ready, Failed }`。
   - `FrameLoop::while_present(self, node: NodeRef) -> Self`（その node が present の間だけ動く）。公開 handle は core の motion 境界で定義し、runtime の単一 loop owner を包む。runtime の gate bridge へ readonly presence を渡し、core 側に rate/state の写しを作らない。
   - `RadioGroupVariant::Segmented`（標準の variant）。
-  - kit の `Color` enum を `ColorName` に改名する（basic、pop、game、creative）。soft は `ColorName` enum を新しく足す（`Colors` の struct の field 名と一対一）。
+  - kit の `Color` enum を `ColorName` に改名する（basic、pop、game、creative）。soft は `ColorName` enum を新しく足す（`Colors` の Color 型の scalar field 名と一対一。hue・data・syntax の複合 group は `use_tokens` で読む）。
   - game と creative の `ThemeOptions` trait を消し、`theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme`（`ThemeOptions` は struct。game は `{ density }`、creative は `{ accent, density }`。creative の `install()` は `theme_with` に統合する）。
   - kit の `tokens()`（basic と soft の `theme_access.rs`）を消し、`use_tokens::<Tokens>()` を使う。
   - 各 kit の README に、kit が埋めた recipe の表の列挙を書く（KIT-3）。`theme_conformance` の E2E で、その列挙と一致することを確かめる。

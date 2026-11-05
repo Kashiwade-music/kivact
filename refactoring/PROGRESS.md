@@ -11,7 +11,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP2 | 01768d3 | 0 | 0 | 0 | 0（17 件） | 101→失敗3 target個別0、GPU 6 passed | 0、GPU 2 passed | Clippy 25.36s / WSL 68s | 通過。WSL Clippy 0、失敗全体の再実行なし |
 | CP3 | b0aad13 | 0 | 0 | — | — | 101→失敗4 target個別0、GPU6 passed | — | Clippy 8.69s / 固定public3.62s | 通過、固定 gate の公開308/Game3と対象 docs 0 |
 | CP4 | 19dfddc | 0 | 0 | 0（ab3322a） | 0（18件） | 101→失敗19 target個別0 | 101→失敗19 target個別0 | Clippy16.83s / WSL75s | 通過。固定a9e6377 public30/doc0、Creative追加2はc97d2c6で0 |
-| CP5 | b3b2cf0 | 0 | 0 | — | — | 固定gate実行中 | — | Clippy19.52s | 軽いgate通過、全E2E待ち |
+| CP5 | b3b2cf0 | 0 | 0 | — | — | 101→失敗5 target個別0、GPU6 passed | — | Clippy19.52s | 通過、Enter/disabled既定の意図的APG移行とSoft初期enter修正 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -147,7 +147,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | G-4b | merged | 0703861 | motion11 passed、check/fmt0 |
 | G-4c | merged | 814ca08 | 固定統合environment/scroll17 passed、workspacecheck/fmt0 |
 | G-5 | merged | a3d8db9 | async6/doc538+1 passed、scopedcheck/state-fields0 |
-| K-0 | doing | | |
+| K-0 | merged | 7385fe7 | core3/conformance20/5kit tests/docs0、workspacecheck0 |
 | K-1a | todo | | |
 | K-1b | todo | | |
 | K-2a | todo | | |
@@ -166,8 +166,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-7c | todo | | |
 | K-7d | todo | | |
 | K-7e | todo | | |
-| H-G1 | doing | | |
-| H-G2 | doing | | |
+| H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
+| H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
 | H-G3 | todo | | |
 | H-G4 | todo | | |
 | H-G5 | todo | | |
@@ -194,3 +194,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G4-15 | merged | dc3892f | interaction lint10修正、check0 |
 | fix-G5-11 | merged | c97d2c6 | queued capture/release mailbox、pointer6/catalog2 passed |
 | fix-G6-11 | merged | 89d8916 | E2E lint4、check/fmt0 |
+| fix-G3-17 | merged | f005440 | passive観測値を分離、check0/親fullstatic0 |
+| fix-G4-17 | merged | 75c7185 | APG Enter移行、元のfailed3件各0 |
+| fix-G5-12 | merged | 99b03e7 | PopのSkip fixture、元のfailed1件0 |
+| fix-G5-13 | merged | ee2ea2d | 初期展開は自然高、既存consumer2件0 |
