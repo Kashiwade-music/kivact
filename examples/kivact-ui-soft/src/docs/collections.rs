@@ -11,8 +11,7 @@ use kivact_ui_soft::{
     aspect_ratio, center, chat_bubble, chat_composer, chat_dictation_button, chat_layout,
     chat_message, chat_system_message, chat_tool_calls, divider, form_layout, form_row, grid,
     hstack, item, layout, layout_content, layout_header, list, list_item, metadata_item,
-    metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section, stack_item,
-    tree_list,
+    metadata_list, nav_icon, overflow_list, scrollable_area, section, stack_item, tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -171,8 +170,11 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "pagination" => specimen(
             "Navigate result pages",
-            pagination(signal(1)).total_pages(12).first_last(true),
-            "pagination(page).total_pages(12).first_last(true)",
+            kivact::ui::pagination(12usize, signal(0usize))
+                .window(kivact::ui::PaginationWindow::Buffered)
+                .first_last(true)
+                .summary(kivact_ui_soft::pagination_status),
+            "pagination(12usize, page).window(PaginationWindow::Buffered).first_last(true).summary(soft::pagination_status)",
         ),
         "metadata-list" | "metadata-list-item" => specimen(
             "Document properties",

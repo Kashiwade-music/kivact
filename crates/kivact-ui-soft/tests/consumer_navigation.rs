@@ -52,7 +52,7 @@ fn layout_components_mount_and_interact() {
     let screen = render_with(options(800.0), || {
         let selected = signal(false);
         let open = signal(false);
-        let page = signal(10);
+        let page = signal(9usize);
         let tab = signal("one");
         let viewport = node_ref();
         let target = node_ref();
@@ -85,7 +85,9 @@ fn layout_components_mount_and_interact() {
                 .name("Select option")
                 .selected(selected),
             kivact::ui::disclosure("Disclosure", open).content(|| text("Disclosure body")),
-            soft::pagination(page).total_pages(20),
+            kivact::ui::pagination(20usize, page)
+                .window(kivact::ui::PaginationWindow::Buffered)
+                .summary(soft::pagination_status),
             soft::tab_list("Test tabs", tab)
                 .tabs([soft::tab("one", "One"), soft::tab("two", "Two")])
                 .menu(soft::tab_menu(
@@ -133,7 +135,7 @@ fn layout_components_mount_and_interact() {
                     "unselected".to_owned()
                 }
             }),
-            text(move || format!("Page state {}", page.get())),
+            text(move || format!("Page state {}", page.get() + 1)),
             text(move || format!("Tab state {}", tab.get())),
         ))
     });
@@ -142,7 +144,7 @@ fn layout_components_mount_and_interact() {
     assert!(screen.query_by_text("selected").is_some());
     screen.get_by_role(Role::Button, "Disclosure").click();
     assert!(screen.query_by_text("Disclosure body").is_some());
-    screen.get_by_role(Role::Button, "Go to page 11").click();
+    screen.get_by_role(Role::Button, "11").click();
     assert!(screen.query_by_text("Page state 11").is_some());
     screen.get_by_role(Role::Button, "Two").click();
     assert!(screen.query_by_text("Tab state two").is_some());
@@ -341,4 +343,68 @@ fn canonical_dots_wrap_actual_focus_and_summary_tracks_item_units() {
     summary.run_until_idle();
     assert!(summary.get_by_text("41–80 of 95").exists());
     assert!(summary.errors().is_empty(), "{:?}", summary.errors());
+}
+
+#[test]
+fn buffered_page_windows_preserve_all_four_original_edge_and_gap_cases() {
+    use kivact::ui::{PageItem, PaginationWindow};
+    for (current, total, expected) in [
+        (
+            1usize,
+            20usize,
+            vec!["1", "2", "3", "4", "5", "right gap", "20"],
+        ),
+        (
+            10,
+            20,
+            vec!["1", "left gap", "9", "10", "11", "right gap", "20"],
+        ),
+        (20, 20, vec!["1", "left gap", "16", "17", "18", "19", "20"]),
+        (1, 3, vec!["1", "2", "3"]),
+    ] {
+        let screen = kivact::test::render_with(options(600.0), move || {
+            kivact::ui::pagination(total, signal(current - 1))
+                .window(PaginationWindow::Buffered)
+                .item(|cell| {
+                    text(match cell {
+                        PageItem::Page(at) => (at + 1).to_string(),
+                        PageItem::Ellipsis => "…".to_owned(),
+                        _ => String::new(),
+                    })
+                })
+        });
+        let current_x = screen
+            .get_by_role(Role::Button, &current.to_string())
+            .rect()
+            .expect("mounted current page")
+            .x;
+        let mut actual = Vec::new();
+        for page in 1..=total {
+            if let Some(button) = screen.query_by_role(Role::Button, &page.to_string()) {
+                actual.push((button.rect().expect("mounted page").x, page.to_string()));
+            }
+        }
+        for gap in screen.all_by_text("…") {
+            let x = gap.rect().expect("mounted gap").x;
+            actual.push((
+                x,
+                if x < current_x {
+                    "left gap"
+                } else {
+                    "right gap"
+                }
+                .to_owned(),
+            ));
+        }
+        actual.sort_by(|a, b| a.0.total_cmp(&b.0));
+        assert_eq!(
+            actual
+                .into_iter()
+                .map(|(_, label)| label)
+                .collect::<Vec<_>>(),
+            expected,
+            "current {current} / {total}"
+        );
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    }
 }

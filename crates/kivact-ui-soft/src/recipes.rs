@@ -17,6 +17,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .card(crate::card::card)
                 .stepper(crate::stepper::stepper)
                 .alert(crate::banner::alert)
+                .pagination(crate::recipes_pagination::pagination)
                 .avatar(|_| crate::avatar::root)
                 .avatar_image(|_| crate::avatar::picture)
                 .avatar_status(|_| crate::avatar::status)
