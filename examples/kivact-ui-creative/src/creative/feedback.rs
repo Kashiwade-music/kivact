@@ -140,6 +140,14 @@ fn glass(t: &Theme) -> Style {
 
 pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
     specs((
+        spec("Metrics and descriptions", "進捗・指標・表示用の説明", col((
+            kivact::ui::heading("Render overview", 3),
+            line((kivact::ui::progress(Some(0.7)).variant(kivact::ui::ProgressVariant::Ring).name("Render progress"),
+                kivact::ui::stat("Rendered", "70 / 100").delta("30 remaining").trend(kivact::ui::Trend::Up))),
+            kivact::ui::progress(Some(0.7)).variant(kivact::ui::ProgressVariant::Gauge).name("Render gauge"),
+            kivact::ui::description_list((kivact::ui::description("Engine", text("Cycles")),
+                kivact::ui::description("Device", text("GPU")))),
+        ))),
         spec(
             "Dialog",
             "modal · focus trap",
@@ -163,7 +171,7 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
                     kivact::ui::checkbox("Relationship Lines", signal(true)),
                     ui::property_row("Opacity", slide("", 1.0)),
                     ui::property_row("Scale", num("", 1.0, 0.1, 10.0, 2, "")),
-                ))
+                )).role(kivact::view::Role::List)
             }),
         ),
         spec(
@@ -179,14 +187,16 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
             "Banner",
             "インラインバナー",
             col((
-                ui::notice(
-                    kivact::interaction::Tone::Warning,
-                    "Media Offline",
-                    "3 clips could not be found at D:/Footage/Day02/",
-                )
+                kivact::ui::alert("Media Offline").tone(kivact::interaction::Tone::Warning).role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite).description("3 clips could not be found at D:/Footage/Day02/").variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning"))
                 .dismissible(true),
-                ui::notice(kivact::interaction::Tone::Danger, "Shader compile error", "Metal.002 · line 42 · undeclared identifier rm").dismissible(true),
-                ui::notice(kivact::interaction::Tone::Info,"Proxy media", "Proxy media is being used for playback. Final render uses full-resolution sources.").dismissible(true),
+                kivact::ui::alert("Shader compile error").tone(kivact::interaction::Tone::Danger).description("Metal.002 · line 42 · undeclared identifier rm").variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning")).dismissible(true),
+                kivact::ui::alert("Proxy media").tone(kivact::interaction::Tone::Info).role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite).description("Proxy media is being used for playback. Final render uses full-resolution sources.").variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("info")).dismissible(true),
             )),
         ).style(style().grid_column(GridPlacement::span(2)).min_height(250)),
     ))
@@ -295,6 +305,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                                 .style(style().width(pct(100))),
                             ),
                         ))
+                        .role(kivact::view::Role::List)
                         .style(style().padding(14).gap(3))
                     } else {
                         column((
@@ -335,6 +346,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                                 kivact::ui::checkbox("Embed 48 kHz PCM", signal(true)),
                             ),
                         ))
+                        .role(kivact::view::Role::List)
                         .style(style().padding(14).gap(3))
                     }
                 }),

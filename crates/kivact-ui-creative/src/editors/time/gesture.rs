@@ -25,7 +25,7 @@ pub(crate) enum Drag {
 pub(crate) enum Snapshot {
     Items(Vec<(u64, f64, f64, u64)>),
     Playhead(f64),
-    View(f64, Point),
+    View(kivact::interaction::ViewTransform),
 }
 pub(crate) struct State<T: TimeItem> {
     pub data: Value<Vec<T>>,
@@ -37,9 +37,8 @@ pub(crate) struct State<T: TimeItem> {
     >,
     pub selected: Binding<Vec<u64>>,
     pub selection: Value<Vec<u64>>,
-    pub zoom: Binding<f64>,
+    pub(crate) transform: Binding<kivact::interaction::ViewTransform>,
     pub scale: Value<f64>,
-    pub pan: Binding<Point>,
     pub offset: Value<Point>,
     pub playhead: Binding<f64>,
     pub visible: Value<Vec<Lane>>,

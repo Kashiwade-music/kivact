@@ -131,7 +131,7 @@ fn start_clock(playing: Signal<bool>, playhead: Signal<f64>) {
 }
 ```
 
-`start_clock` は、コンポーネントのセットアップで 1 回だけ呼びます。このタスクは、起動したコンポーネントとともに終わります。`TimeState` には `selection`・`zoom`・`pan` もあります。どのフィールドも自分のシグナルに差し替えて、アプリのほかの部分と共有できます（`TimeState { selection: picked.into(), ..ui::TimeState::new() }`）。時間の単位は自由で、フレーム番号でも、ティックでも、秒でもかまいません。`time_format` は、ルーラーと再生ヘッドの表示の書式だけを決めます。
+`start_clock` は、コンポーネントのセットアップで 1 回だけ呼びます。このタスクは、起動したコンポーネントとともに終わります。`TimeState` には `selection`・`transform` もあります。どのフィールドも自分のシグナルに差し替えて、アプリのほかの部分と共有できます（`TimeState { selection: picked.into(), ..ui::TimeState::new() }`）。時間の単位は自由で、フレーム番号でも、ティックでも、秒でもかまいません。`time_format` は、ルーラーと再生ヘッドの表示の書式だけを決めます。
 
 ### そのほかのビルダーのオプション
 
@@ -341,3 +341,5 @@ fn mixer_panel() -> impl IntoView {
 - [ノードグラフでノードをつなぐ](node-graph.md)
 - API の全体: `cargo doc -p kivact-ui-creative --open`
 - カタログのタイムライン・アニメーション・ミキサーの章: `cargo run -p kivact-ui-creative-catalog`
+
+時間エディタと arrangement は、単一の `transform: Binding<kivact::interaction::ViewTransform>` を使います。`scale` は論理時間単位あたりの横方向のピクセル数（arrangement では拍あたり）、`offset` はピクセル単位のスクロールです。レーンの高さは拡大縮小しません。セットアップ時に `transform.project(|pose| &pose.scale, |pose| &mut pose.scale)` を作ると、ズームスライダーも同じ表示状態に接続できます。ホイールの割り当てとサイドバーを基準にしたズームは時間エディタが保持します。

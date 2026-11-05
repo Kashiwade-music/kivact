@@ -27,7 +27,7 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
                         .with_node(move |node| {
                             node.orientation(kivact::view::Orientation::Horizontal)
                         })
-                        .variant(ui::Segmented),
+                        .variant(kivact::ui::RadioGroupVariant::Segmented),
                         ui::value_slider("Opacity", signal(0.5)).range(
                             kivact::interaction::ScalarRange::new(0.0, 1.0)
                                 .expect("invariant: finite ordered control range"),

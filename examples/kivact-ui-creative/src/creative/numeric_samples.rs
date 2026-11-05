@@ -35,7 +35,7 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
                 axis_num("Rotation Y",0.0,"°",1,0x34d399).label_visible(false).style(style().width(0).grow(1)),
                 axis_num("Rotation Z",-35.0,"°",1,0x5aa9ff).label_visible(false).style(style().width(0).grow(1)),
             )).style(style().gap(1))),
-        )).style(style().gap(3))),
+        )).role(kivact::view::Role::List).style(style().gap(3))),
         spec("Animatable Property", "キーフレーム状態", col((
             animation_property("Scale",1.0,ui::PropertyState::Plain),
             animation_property("Keyed",0.75,ui::PropertyState::Keyed),
@@ -49,7 +49,7 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
             ui::property_row("Duration", tc("Duration timecode", signal(86.0).into_binding())),
             ui::property_row("Current", tc("Current timecode", bind(move || transport.get().frame, move |frame| transport.update(|state| state.frame = frame)))),
             note("ドラッグでフレーム単位スクラブ／クリックで HH:MM:SS:FF 入力。+12 のような相対入力も可。"),
-        )).style(style().gap(3))),
+        )).role(kivact::view::Role::List).style(style().gap(3))),
         spec("Inline Pairs", "横並び", col((
             ui::property_row("Resolution", column((
                 num("X",1920.0,4.0,65536.0,0," px").style(style().radius(3)),
@@ -61,7 +61,7 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
                 num("Range end",250.0,0.0,65536.0,0,"").label_visible(false).style(style().width(0).grow(1)),
             )).style(style().gap(1))),
             ui::property_row("Tempo", num("BPM",120.0,20.0,300.0,3,"")),
-        )).style(style().gap(3))).style(style().min_height(190)),
+        )).role(kivact::view::Role::List).style(style().gap(3))).style(style().min_height(190)),
     ))
 }
 fn tc(label: &str, state: Binding<f64>) -> ui::Numeric {

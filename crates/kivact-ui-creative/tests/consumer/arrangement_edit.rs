@@ -17,8 +17,7 @@ struct Model {
     frame: Signal<f64>,
     range: Signal<(f64, f64)>,
     cycling: Signal<bool>,
-    zoom: Signal<f64>,
-    pan: Signal<Point>,
+    transform: Signal<kivact::interaction::ViewTransform>,
     tool: Signal<ui::TimelineTool>,
     phases: Signal<Vec<EditPhase>>,
     observed: Signal<Vec<(EditPhase, f64)>>,
@@ -45,8 +44,10 @@ fn fixture() -> (Screen, Model) {
             frame: signal(0.0),
             range: signal((0.0, 16.0)),
             cycling: signal(true),
-            zoom: signal(26.0),
-            pan: signal(Point::new(0.0, 0.0)),
+            transform: signal(kivact::interaction::ViewTransform {
+                scale: 26.0,
+                ..Default::default()
+            }),
             tool: signal(ui::TimelineTool::Select),
             phases: signal(Vec::new()),
             observed: signal(Vec::new()),
@@ -66,8 +67,7 @@ fn fixture() -> (Screen, Model) {
                             playhead: m.frame.into_binding(),
                             loop_range: m.range.into_binding(),
                             cycling: m.cycling.into_binding(),
-                            zoom: m.zoom.into_binding(),
-                            pan: m.pan.into_binding(),
+                            transform: m.transform.into_binding(),
                             tool: m.tool.into_binding(),
                         },
                     )

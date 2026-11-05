@@ -15,10 +15,7 @@ pub(crate) fn restore(s: Restore, snapshot: Snapshot) {
         Snapshot::Playhead(v) => s.playhead.set(v),
         Snapshot::Loop(v) => s.loop_range.set(v),
         Snapshot::Cycle(v) => s.cycling.set(v),
-        Snapshot::View(z, p) => {
-            s.zoom.set(z);
-            s.pan.set(p);
-        }
+        Snapshot::View(pose) => s.transform.set(pose),
     }
 }
 
@@ -27,11 +24,23 @@ pub(crate) struct Restore {
     pub playhead: kivact::state::Binding<f64>,
     pub loop_range: kivact::state::Binding<(f64, f64)>,
     pub cycling: kivact::state::Binding<bool>,
-    pub zoom: kivact::state::Binding<f64>,
-    pub pan: kivact::state::Binding<Point>,
+    pub transform: kivact::state::Binding<kivact::interaction::ViewTransform>,
 }
 
 impl State {
+    pub(crate) fn set_scale(self, scale: f64) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            scale,
+            ..self.transform.get_untracked()
+        });
+    }
+    pub(crate) fn set_offset(self, offset: Point) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            offset,
+            ..self.transform.get_untracked()
+        });
+    }
+
     pub(crate) fn request(self, request: crate::editors::arrangement::model::ArrangementRequest) {
         if let Some(callback) = self.on_edit {
             callback.call(crate::editors::shared::model::EditorEvent::Request(request));
@@ -49,7 +58,7 @@ impl State {
         )
     }
     pub(crate) fn view_snapshot(self) -> Snapshot {
-        Snapshot::View(self.pixels.get_untracked(), self.offset.get_untracked())
+        Snapshot::View(self.transform.get_untracked())
     }
     pub(crate) fn auto_snapshot(self, track: u64, id: u64) -> Option<Snapshot> {
         self.track_data.with_untracked(|tracks| {

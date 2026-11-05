@@ -16,7 +16,7 @@ fn inspector() -> impl IntoView {
         kivact::ui::switch("Use Nodes", enabled),
         kivact::ui::button("Render").variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || !enabled.get()),
-    )))
+    )).role(kivact::view::Role::List))
 }
 ```
 
@@ -38,7 +38,7 @@ kit's look from the recipes. Every component of the kit, like `kivact::ui`,
 takes the values it edits as constructor arguments and keeps no hidden copy.
 A segmented control is the standard radio group in the kit's look:
 `radio_group(label, options, value).orientation(Orientation::Horizontal)
-.variant(Segmented)`. Domain controls such as
+.variant(kivact::ui::RadioGroupVariant::Segmented)`. Domain controls such as
 `document_tabs`, the numeric fields, dock and editor surfaces remain in this
 kit; tool toggles, progress bars, inspector sections and split panes are the
 standard `kivact::ui::toggle`, `progress`, `disclosure` and `split` in its look.
@@ -104,7 +104,7 @@ Timeline and DopeSheet accept read-only item values. Their
 `on_edit(|event: EditorEvent<TimeRequest>| ..)` reports `Begin`, absolute `Retime`
 or `Delete` requests, and `Commit` or `Cancel`. Applications apply requests to
 their own items and restore them on cancellation; ignored requests leave items
-unchanged. Playhead, selection, zoom and pan are the bindings of `TimeState`. Each drag proposal
+unchanged. Playhead and selection are bindings of `TimeState`; its `transform: Binding<ViewTransform>` owns both the horizontal scale and pixel scroll offset. Each drag proposal
 uses the items at `Begin`, so applying only the latest request is sufficient.
 In every domain editor a drag reports `Begin` at its first change, not at the
 press: a press that does not move selects or, as a stationary double click,
@@ -315,4 +315,23 @@ The theme fills these `UiRecipes` entries:
 - `data_table`
 - `progress`
 - `disclosure`
+- `toggle_group`
+- `table`
+- `item_list`
+- `badge`
+- `badge_label`
+- `avatar`
+- `avatar_status`
+- `avatar_group`
+- `skeleton`
+- `spinner`
+- `kbd`
+- `kbd_key`
+- `alert`
+- `empty_state`
+- `card`
+- `input_group`
+- `heading`
+- `stat`
+- `description_list`
 <!-- /kivact-recipes -->

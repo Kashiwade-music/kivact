@@ -40,7 +40,7 @@ fn inspector() -> impl IntoView {
                 .precision(1)
                 .unit(" px")
                 .label_visible(false),
-        ),))
+        ),)).role(kivact::view::Role::List)
         .style(style().gap(6).padding(10)),
     )
     .style(style().width(280))
