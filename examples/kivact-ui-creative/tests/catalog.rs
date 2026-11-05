@@ -157,7 +157,13 @@ fn local(screen: &Screen, canvas: &str, region: Element<'_>) -> Point {
 #[test]
 fn creative_picker_hsv_and_alpha_edit_the_same_color() {
     let screen = mount();
-    chapter(&screen, "picker");
+    assert_picker_hsv_and_alpha(&screen);
+    assert_property_color_editing(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn assert_picker_hsv_and_alpha(screen: &Screen) {
+    chapter(screen, "picker");
     let section = screen.get_by_test_id("creative-section-18");
     section.get_by_role(Role::RadioButton, "HSV").click();
     section
@@ -200,7 +206,10 @@ fn creative_picker_hsv_and_alpha_edit_the_same_color() {
             < 0.01
     );
     screen.evidence("creative-hsv-alpha");
-    chapter(&screen, "properties");
+}
+
+fn assert_property_color_editing(screen: &Screen) {
+    chapter(screen, "properties");
     let location_x = screen
         .get_by_test_id("creative-property-location-x")
         .rect()
@@ -253,7 +262,6 @@ fn creative_picker_hsv_and_alpha_edit_the_same_color() {
     assert!((120..=135).contains(&((pixel >> 16) & 255)));
     assert_eq!(pixel & 0x0000ffff, 0x0000ffff);
     screen.evidence("creative-properties-density");
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
