@@ -8,12 +8,11 @@ use crate::choice::check_style;
 use crate::tokens::{Hue, Tokens};
 use kivact::draw::{LineCap, Path, Stroke, linear_gradient};
 use kivact::geometry::{Point, Rect};
-use kivact::interaction::DisclosureState;
 use kivact::state::Value;
 use kivact::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{
-    DisclosureRecipes, Look, ProgressRecipes, ProgressState, ProgressVariant, ToggleButtonState,
-    Variant,
+    DisclosureRecipeState, DisclosureRecipes, Look, ProgressRecipes, ProgressState,
+    ProgressVariant, ToggleButtonState, Variant,
 };
 
 /// Draw a standard progress bar with diagonal stripes on its fill:
@@ -158,13 +157,13 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         .content(|_| disclosure_content)
 }
 
-fn disclosure_root(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_root(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::Column)
         .border_bottom(1, ColorToken::Border)
 }
 
-fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_trigger(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -174,14 +173,14 @@ fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
         .weight(500)
 }
 
-fn disclosure_indicator(_: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_indicator(_: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
         .rotate(if state.open { 180 } else { 0 })
 }
 
-fn disclosure_content(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_content(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .enter_size(kivact::view::Orientation::Vertical)
         .exit_size(kivact::view::Orientation::Vertical)
