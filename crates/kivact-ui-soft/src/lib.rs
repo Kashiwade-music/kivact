@@ -144,9 +144,11 @@ pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status
 pub use form_layout::{
     FormDirection, FormLayout, FormLayoutCx, Optionality, form_layout, form_row,
 };
-pub use grid::{Grid, GridColumns, GridRepeat, GridSpan, Span, grid, grid_span};
+pub use grid::{
+    GridColumns, GridRepeat, GridSpan, GridSpanItem, LayoutGrid, grid_span, layout_grid,
+};
 pub use hover_card::hover_card_text;
-pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
+pub use icon::{IconColor, IconSize, IconView, icon_style, icon_view};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
 pub use item_values::{ItemAlign, ItemDensity, ItemLayout, ItemLook, ListEdge, ListLook};
@@ -203,8 +205,8 @@ pub use soft_table::{
 pub use soft_tree::TreeLook;
 pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
-    CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
-    center, hstack, stack, stack_item, vstack,
+    CenterAxis, ContainerInset, FlexStack, Space, StackAlign, StackItem, StackItemSize, StackWrap,
+    center, flex_stack, hstack, stack_item, vstack,
 };
 pub use stepper::{StepCollapsedVariant, StepDensity, StepIndicatorPosition, StepperAppearance};
 pub use tab_list::{
@@ -212,18 +214,18 @@ pub use tab_list::{
     tab_list, tab_menu,
 };
 pub use text::{
-    Text, TextColor, TextJustify, TextKind, TextSize, TextWeight, TextWrap, TruncateTooltip,
-    WordBreak, text,
+    StyledText, TextColor, TextJustify, TextKind, TextSize, TextWeight, TextWrap, TruncateTooltip,
+    WordBreak, styled_text,
 };
 pub use theme::theme;
 pub use theme_scope::{MediaMode, media_theme, syntax_theme};
 pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
 pub use timer::{Timer, TimerFormat, timer};
 pub use timestamp::{
-    Instant, InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, timestamp,
+    InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, TimestampValue, timestamp,
 };
 pub use token::{Token, TokenColor, token};
-pub use tokens::{Motion, Radius, Sizes, Spacing, TextStyle, Tokens, Typography};
+pub use tokens::{MotionTokens, RadiusTokens, Sizes, SpaceTokens, Tokens, TypeStyle, TypeTokens};
 pub use top_nav::{
     TopNav, TopNavItem, TopNavMegaMenu, TopNavMegaMenuFeaturedCard, TopNavMegaMenuItem, TopNavMenu,
     TopNavMenuItem, top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu,

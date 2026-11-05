@@ -12,7 +12,7 @@ fn build_details() -> impl IntoView {
     column((
         kivact::ui::heading("Build details", 2),
         kivact::ui::description_list(vec![
-            kivact::ui::description("Status", soft::text("Passed")),
+            kivact::ui::description("Status", soft::styled_text("Passed")),
             kivact::ui::description("Revision", soft::code("ae72f04")),
         ]),
     ))

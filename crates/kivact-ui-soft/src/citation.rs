@@ -1,5 +1,5 @@
 //! Role: Present a document source as an inline label or numbered citation.
-use crate::{IconSize, icon};
+use crate::{IconSize, icon_view};
 use kivact::i18n::message_with;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
@@ -121,7 +121,7 @@ impl IntoView for Citation {
         } else {
             source
                 .icon
-                .map(|glyph| icon(glyph).size(IconSize::Sm).into_view())
+                .map(|glyph| icon_view(glyph).size(IconSize::Sm).into_view())
         };
         let has_media = media.is_some();
         let interactive = source.url.is_some() && open.is_some();

@@ -15,7 +15,7 @@ fn main() -> kivact::Result<()> {
         .run(|| {
             column((
                 kivact::ui::heading("Settings", 1),
-                soft::text("Manage your profile and appearance."),
+                soft::styled_text("Manage your profile and appearance."),
             ))
             .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
         })

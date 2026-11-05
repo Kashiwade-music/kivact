@@ -1,5 +1,5 @@
 //! Role: Display the elapsed time since a wall-clock instant.
-use crate::{Text, TextColor, TextKind, TextSize, TextWeight, text};
+use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 
@@ -27,7 +27,7 @@ pub enum TimerFormat {
 
 /// A live elapsed-time display.
 pub struct Timer {
-    text: Text,
+    text: StyledText,
     clock: MachineHandle<ElapsedClock>,
     settings: Rc<RefCell<TimerSettings>>,
 }
@@ -56,7 +56,7 @@ pub fn timer() -> Timer {
         presentation(start, start + next, format.borrow().format.get()).0
     });
     Timer {
-        text: text(display)
+        text: styled_text(display)
             .kind(TextKind::Supporting)
             .color(TextColor::Secondary)
             .tabular_numbers(true),

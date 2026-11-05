@@ -1,5 +1,5 @@
 //! Role: Format timestamps as calendar dates, wall-clock times, or relative ages.
-use crate::{Text, TextColor, TextKind, TextSize, TextWeight, text};
+use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
 use kivact::i18n::message;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -19,9 +19,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// A UTC instant measured in Unix milliseconds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Instant(i64);
+pub struct TimestampValue(i64);
 
-impl Instant {
+impl TimestampValue {
     /// Create an instant from Unix seconds.
     pub fn unix_seconds(seconds: i64) -> Self {
         Self(seconds.saturating_mul(1000))
@@ -116,7 +116,7 @@ impl Instant {
     }
 }
 
-impl From<SystemTime> for Instant {
+impl From<SystemTime> for TimestampValue {
     fn from(time: SystemTime) -> Self {
         let milliseconds = match time.duration_since(UNIX_EPOCH) {
             Ok(duration) => duration.as_millis() as i128,
@@ -178,7 +178,7 @@ pub enum TimestampFormat {
 
 /// A date or relative timestamp with optional details.
 pub struct Timestamp {
-    text: Text,
+    text: StyledText,
     clock: MachineHandle<TimestampTick>,
     settings: Rc<RefCell<TimestampSettings>>,
     details: Value<bool>,
@@ -187,7 +187,7 @@ pub struct Timestamp {
 }
 
 /// Show a timestamp in automatic relative or absolute format.
-pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
+pub fn timestamp(value: impl IntoValue<TimestampValue>) -> Timestamp {
     let settings = Rc::new(RefCell::new(TimestampSettings {
         value: value.into_value(),
         format: TimestampFormat::Auto.into_value(),
@@ -198,11 +198,11 @@ pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
     let input = settings.clone();
     let clock = machine(
         TimestampClock::Running {
-            now: Instant::from(SystemTime::now()),
+            now: TimestampValue::from(SystemTime::now()),
         },
         move || TimestampTick {
             value: input.borrow().value.get(),
-            now: Instant::from(SystemTime::now()),
+            now: TimestampValue::from(SystemTime::now()),
         },
         |_, ()| {},
     );
@@ -214,7 +214,7 @@ pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
         timestamp_presentation(&presentation.borrow(), now, now_label, yesterday)
     });
     Timestamp {
-        text: text(display)
+        text: styled_text(display)
             .kind(TextKind::Supporting)
             .color(TextColor::Secondary),
         clock,
@@ -226,7 +226,7 @@ pub fn timestamp(value: impl IntoValue<Instant>) -> Timestamp {
 }
 
 struct TimestampSettings {
-    value: Value<Instant>,
+    value: Value<TimestampValue>,
     format: Value<TimestampFormat>,
     threshold: Value<Duration>,
     zone: Value<TimeZone>,
@@ -398,7 +398,7 @@ impl IntoView for Timestamp {
     }
 }
 
-fn difference(now: Instant, then: Instant) -> i64 {
+fn difference(now: TimestampValue, then: TimestampValue) -> i64 {
     now.0
         .saturating_sub(then.0)
         .saturating_add(500)
@@ -435,7 +435,7 @@ fn relative_text(diff: i64, short: bool, now: Value<String>, yesterday: Value<St
 }
 
 fn calendar_text(
-    instant: Instant,
+    instant: TimestampValue,
     format: TimestampFormat,
     zone: &TimeZone,
     show_zone: bool,
@@ -526,11 +526,11 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 
 #[derive(Clone, PartialEq)]
 enum TimestampClock {
-    Running { now: Instant },
+    Running { now: TimestampValue },
 }
 struct TimestampTick {
-    value: Instant,
-    now: Instant,
+    value: TimestampValue,
+    now: TimestampValue,
 }
 impl Machine for TimestampTick {
     type State = TimestampClock;
@@ -562,7 +562,7 @@ enum TimestampEvent {
 }
 fn timestamp_presentation(
     settings: &TimestampSettings,
-    now: Instant,
+    now: TimestampValue,
     now_label: Value<String>,
     yesterday: Value<String>,
 ) -> String {
@@ -594,4 +594,4 @@ fn timestamp_presentation(
     }
 }
 
-kivact::state::constant_value!(Instant, TimestampFormat, TimeZone);
+kivact::state::constant_value!(TimestampValue, TimestampFormat, TimeZone);

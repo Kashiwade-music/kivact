@@ -11,7 +11,7 @@ use kivact_ui_soft as soft;
 fn project_summary() -> impl IntoView {
     column((
         kivact::ui::heading("Project summary", 2),
-        soft::text("Three milestones remain.").color(soft::TextColor::Secondary),
+        soft::styled_text("Three milestones remain.").color(soft::TextColor::Secondary),
     ))
     .style(|| {
         let p = kivact::style::use_tokens::<soft::Tokens>();

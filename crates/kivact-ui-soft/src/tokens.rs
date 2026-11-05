@@ -10,12 +10,12 @@ use kivact::style::ThemeMode;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tokens {
     pub colors: Colors,
-    pub typography: Typography,
-    pub spacing: Spacing,
-    pub radius: Radius,
+    pub typography: TypeTokens,
+    pub spacing: SpaceTokens,
+    pub radius: RadiusTokens,
     pub sizes: Sizes,
     pub shadows: Shadows,
-    pub motion: Motion,
+    pub motion: MotionTokens,
 }
 
 impl Tokens {
@@ -28,12 +28,12 @@ impl Tokens {
             } else {
                 Colors::light()
             },
-            typography: Typography::NEUTRAL,
-            spacing: Spacing::NEUTRAL,
-            radius: Radius::NEUTRAL,
+            typography: TypeTokens::NEUTRAL,
+            spacing: SpaceTokens::NEUTRAL,
+            radius: RadiusTokens::NEUTRAL,
             sizes: Sizes::NEUTRAL,
             shadows: Shadows::new(dark),
-            motion: Motion::NEUTRAL,
+            motion: MotionTokens::NEUTRAL,
         }
     }
 }
@@ -46,7 +46,7 @@ impl ThemeExtension for Tokens {
 
 /// A typography role's size, line height, weight and family.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TextStyle {
+pub struct TypeStyle {
     pub size_px: f64,
     pub line_height_px: f64,
     pub weight: u16,
@@ -55,7 +55,7 @@ pub struct TextStyle {
 
 /// Neutral font roles and size scale.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Typography {
+pub struct TypeTokens {
     pub family_body: &'static str,
     pub family_heading: &'static str,
     pub family_code: &'static str,
@@ -75,24 +75,24 @@ pub struct Typography {
     pub size_3xl: f64,
     pub size_4xl: f64,
     pub size_5xl: f64,
-    pub display1: TextStyle,
-    pub display2: TextStyle,
-    pub display3: TextStyle,
-    pub heading1: TextStyle,
-    pub heading2: TextStyle,
-    pub heading3: TextStyle,
-    pub heading4: TextStyle,
-    pub heading5: TextStyle,
-    pub heading6: TextStyle,
-    pub large: TextStyle,
-    pub body: TextStyle,
-    pub label: TextStyle,
-    pub code: TextStyle,
-    pub supporting: TextStyle,
+    pub display1: TypeStyle,
+    pub display2: TypeStyle,
+    pub display3: TypeStyle,
+    pub heading1: TypeStyle,
+    pub heading2: TypeStyle,
+    pub heading3: TypeStyle,
+    pub heading4: TypeStyle,
+    pub heading5: TypeStyle,
+    pub heading6: TypeStyle,
+    pub large: TypeStyle,
+    pub body: TypeStyle,
+    pub label: TypeStyle,
+    pub code: TypeStyle,
+    pub supporting: TypeStyle,
     pub letter_spacing: f64,
 }
 
-impl Typography {
+impl TypeTokens {
     const NEUTRAL: Self = Self {
         family_body: "Figtree, sans-serif",
         family_heading: "Figtree, sans-serif",
@@ -113,85 +113,85 @@ impl Typography {
         size_3xl: 29.0,
         size_4xl: 35.0,
         size_5xl: 42.0,
-        display1: TextStyle {
+        display1: TypeStyle {
             size_px: 42.0,
             line_height_px: 52.0,
             weight: 400,
             family: "Figtree, sans-serif",
         },
-        display2: TextStyle {
+        display2: TypeStyle {
             size_px: 35.0,
             line_height_px: 44.0,
             weight: 400,
             family: "Figtree, sans-serif",
         },
-        display3: TextStyle {
+        display3: TypeStyle {
             size_px: 29.0,
             line_height_px: 40.0,
             weight: 400,
             family: "Figtree, sans-serif",
         },
-        heading1: TextStyle {
+        heading1: TypeStyle {
             size_px: 24.0,
             line_height_px: 32.0,
             weight: 600,
             family: "Figtree, sans-serif",
         },
-        heading2: TextStyle {
+        heading2: TypeStyle {
             size_px: 20.0,
             line_height_px: 28.0,
             weight: 600,
             family: "Figtree, sans-serif",
         },
-        heading3: TextStyle {
+        heading3: TypeStyle {
             size_px: 17.0,
             line_height_px: 24.0,
             weight: 700,
             family: "Figtree, sans-serif",
         },
-        heading4: TextStyle {
+        heading4: TypeStyle {
             size_px: 14.0,
             line_height_px: 20.0,
             weight: 700,
             family: "Figtree, sans-serif",
         },
-        heading5: TextStyle {
+        heading5: TypeStyle {
             size_px: 12.0,
             line_height_px: 20.0,
             weight: 600,
             family: "Figtree, sans-serif",
         },
-        heading6: TextStyle {
+        heading6: TypeStyle {
             size_px: 10.0,
             line_height_px: 16.0,
             weight: 600,
             family: "Figtree, sans-serif",
         },
-        large: TextStyle {
+        large: TypeStyle {
             size_px: 17.0,
             line_height_px: 24.0,
             weight: 600,
             family: "Figtree, sans-serif",
         },
-        body: TextStyle {
+        body: TypeStyle {
             size_px: 14.0,
             line_height_px: 20.0,
             weight: 400,
             family: "Figtree, sans-serif",
         },
-        label: TextStyle {
+        label: TypeStyle {
             size_px: 14.0,
             line_height_px: 20.0,
             weight: 500,
             family: "Figtree, sans-serif",
         },
-        code: TextStyle {
+        code: TypeStyle {
             size_px: 14.0,
             line_height_px: 20.0,
             weight: 400,
             family: "ui-monospace, SF Mono, Monaco, Consolas, Liberation Mono, Courier New, monospace",
         },
-        supporting: TextStyle {
+        supporting: TypeStyle {
             size_px: 12.0,
             line_height_px: 20.0,
             weight: 400,
@@ -203,7 +203,7 @@ impl Typography {
 
 /// Neutral spacing steps in logical pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Spacing {
+pub struct SpaceTokens {
     pub s0: f64,
     pub s0_5: f64,
     pub s1: f64,
@@ -225,7 +225,7 @@ pub struct Spacing {
     pub layer_viewport_gutter: f64,
 }
 
-impl Spacing {
+impl SpaceTokens {
     const NEUTRAL: Self = Self {
         s0: 0.0,
         s0_5: 2.0,
@@ -251,7 +251,7 @@ impl Spacing {
 
 /// Neutral corner radii in logical pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Radius {
+pub struct RadiusTokens {
     pub none: f64,
     pub inner: f64,
     pub element: f64,
@@ -261,7 +261,7 @@ pub struct Radius {
     pub full: f64,
 }
 
-impl Radius {
+impl RadiusTokens {
     const NEUTRAL: Self = Self {
         none: 0.0,
         inner: 6.0,
@@ -319,7 +319,7 @@ const STANDARD: Easing = Easing::CubicBezier(0.24, 1.0, 0.4, 1.0);
 
 /// Neutral motion durations in milliseconds and easing curves.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Motion {
+pub struct MotionTokens {
     pub fast_min: u64,
     pub fast: u64,
     pub fast_max: u64,
@@ -338,7 +338,7 @@ pub struct Motion {
     pub ease_press_release: Easing,
 }
 
-impl Motion {
+impl MotionTokens {
     const NEUTRAL: Self = Self {
         fast_min: 95,
         fast: 125,
