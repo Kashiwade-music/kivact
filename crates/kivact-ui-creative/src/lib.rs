@@ -43,6 +43,7 @@ mod range;
 mod recipes;
 mod recipes_collections;
 mod recipes_controls;
+mod recipes_feedback;
 mod recipes_indicators;
 mod tabs;
 mod theme;
@@ -84,7 +85,7 @@ pub use editors::node::{NodeEditor, node_editor};
 pub use editors::shared::model::EditorEvent;
 pub use editors::shared::ruler::RulerTicks;
 pub use feedback::{
-    Notice, SplitButton, ToolWindow, ToolWindowBuilder, WindowOptions, WindowPosition, notice,
+    NoticeVariant, SplitButton, ToolWindow, ToolWindowBuilder, WindowOptions, WindowPosition,
     popup_button, split_button, window, window_button,
 };
 pub use gradient::{GradientEditor, GradientStop, gradient_editor};

@@ -147,11 +147,18 @@ pub(super) fn properties() -> impl IntoView {
                             .test_id("creative-property-display-color"),
                     ))
                 }),
-                ui::notice(
-                    kivact::interaction::Tone::Info,
-                    "Property Editing",
-                    "ドラッグ・ホイール・直接入力・キー操作で編集。",
-                ),
+                kivact::ui::alert("Property Editing")
+                    .tone(kivact::interaction::Tone::Info)
+                    .role(kivact::view::Role::Status)
+                    .live_region(kivact::view::LiveRegion::Polite)
+                    .description("ドラッグ・ホイール・直接入力・キー操作で編集。")
+                    .variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message(
+                        "creative.notice.dismiss",
+                        "Dismiss notification",
+                    ))
+                    .icon(kivact::view::icon("info")),
             )),
         )
         .style(style().width(316)),

@@ -186,3 +186,5 @@ fn translated(app: App) -> App {
 - キットの見た目ですべての部品を確認する: `cargo run -p kivact-ui-creative-catalog`
 
 標準の `kivact::ui::badge`、`avatar`、`avatar_group`、`skeleton`、`spinner`、`kbd`、`kbd_combo` は Creative の recipe を使います。tone はキットの色、key cap は等幅フォントを使い、skeleton と spinner の動きは Core が所有します。Creative の `KeyGlyph` は引き続き keyframe marker を表します。画像、fallback、status、size、動きの全 option は [インジケーターとキーボードショートカット](../../../../for-kivact-user/jp/how-to-guide/indicators.md)を参照してください。
+
+インライン通知は、標準の `kivact::ui::alert(title).description(body).tone(tone).variant(ui::NoticeVariant)` を使います。`.icon(icon("warning"))`、`.dismissible(true)`、`.dismiss_content(icon("x"))` を付けると、従来のアイコンと四角い閉じるボタンになります。閉じる状態と focus の復元は Core が所有します。標準の empty state、card、input group も Creative の recipe を使い、[フィードバックの全 option](../../../../for-kivact-user/jp/how-to-guide/feedback.md)を保持します。

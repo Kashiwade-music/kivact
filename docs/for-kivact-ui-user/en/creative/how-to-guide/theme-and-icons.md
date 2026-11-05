@@ -187,3 +187,5 @@ All keys start with `creative.`. Each component's rustdoc lists the keys it read
 - All the controls in the kit's look: `cargo run -p kivact-ui-creative-catalog`
 
 Standard `kivact::ui::badge`, `avatar`, `avatar_group`, `skeleton`, `spinner`, `kbd` and `kbd_combo` use Creative recipes. Semantic tones use the kit palette, key caps use the monospace font, and skeleton and spinner motion remain owned by Core. Creative `KeyGlyph` continues to mean a keyframe marker. See [Indicators and keyboard shortcuts](../../../../for-kivact-user/en/how-to-guide/indicators.md) for all image, fallback, status, size and motion options.
+
+Use canonical `kivact::ui::alert(title).description(body).tone(tone).variant(ui::NoticeVariant)` for an inline notice. Add `.icon(icon("warning"))`, `.dismissible(true)` and `.dismiss_content(icon("x"))` for the original icon and square close button. Core owns dismissal and focus restoration. Standard empty states, cards and input groups also use Creative recipes; all [feedback options](../../../../for-kivact-user/en/how-to-guide/feedback.md) remain available.

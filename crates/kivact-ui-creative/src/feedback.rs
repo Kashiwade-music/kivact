@@ -15,8 +15,8 @@ use kivact::state::{IntoText, IntoValue};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Icon, Position, rgba, style};
 use kivact::view::{
-    A11yAction, ButtonPress, Handled, HandlerResult, IntoView, LiveRegion, MouseButton, NodeRef,
-    Placement, PointerPhase, Role, View, node_ref, overlay, show,
+    A11yAction, ButtonPress, Handled, HandlerResult, IntoView, MouseButton, NodeRef, Placement,
+    PointerPhase, Role, View, node_ref, overlay, show,
 };
 
 /// The colors a Creative theme gives a semantic [`Tone`].
@@ -37,92 +37,10 @@ impl ToneExt for Tone {
     }
 }
 
-/// A dismissible inline banner.
-pub struct Notice {
-    root: Node,
-    dismissible: Value<bool>,
-}
-/// Feedback banner with a visible title and body, exposed as a live region.
-#[track_caller]
-pub fn notice(tone: impl IntoValue<Tone>, title: impl IntoText, message: impl IntoText) -> Notice {
-    let title = title.into_text_value();
-    let tone = tone.into_value();
-    Notice {
-        root: row((
-            icon(move || {
-                kivact::style::Icon::named(if tone.get().is_urgent() {
-                    "warning"
-                } else {
-                    "info"
-                })
-            }),
-            column((
-                text(title).style(style().weight(600)),
-                text(message).style(style().font_size(11.5)),
-            ))
-            .style(style().gap(3).grow(1)),
-        ))
-        .role({
-            if tone.get() == Tone::Danger {
-                Role::Alert
-            } else {
-                Role::Status
-            }
-        })
-        .name(title)
-        .live_region(move || {
-            if tone.get() == Tone::Danger {
-                LiveRegion::Assertive
-            } else {
-                LiveRegion::Polite
-            }
-        })
-        .style(move || {
-            let t = &use_theme().get();
-            let p = t.ext::<crate::tokens::Tokens>();
-            let color = tone.get().color(&p);
-            style()
-                .padding(12)
-                .gap(10)
-                .radius(9)
-                .align_items(Align::Start)
-                .color(p.text)
-                .background(color.with_alpha(0.08))
-                .border(1, color.with_alpha(0.22))
-        }),
-        dismissible: false.into_value(),
-    }
-}
-impl Notice {
-    /// Show a close button while true (constant or reactive) and preserve
-    /// dismissal until the notice is remounted.
-    #[track_caller]
-    pub fn dismissible(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.dismissible = enabled.into_value();
-        self
-    }
-}
-impl NodeBuilder for Notice {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Notice {
-    fn into_view(self) -> View {
-        let hidden = signal(false);
-        self.root
-            .hidden(hidden)
-            .child(show(self.dismissible, move || {
-                kivact::ui::button(message("creative.notice.dismiss", "Dismiss notification"))
-                    .variant(ButtonVariant::Secondary)
-                    .hide_label(true)
-                    .icon(kivact::view::icon("x"))
-                    .on_press(move || hidden.set(true))
-            }))
-            .into_view()
-    }
-}
+/// The Creative inline notice appearance of a standard `kivact::ui::alert`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NoticeVariant;
+impl kivact::ui::Variant for NoticeVariant {}
 
 pub(crate) fn glass_style(t: &kivact::style::Theme) -> kivact::style::Style {
     style()
