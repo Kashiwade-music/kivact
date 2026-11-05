@@ -2,8 +2,8 @@
 use super::machine::{self, Event, edge_sign};
 use kivact_core::custom::clock_now;
 use kivact_core::geometry::{Edge, Rect};
-use kivact_core::motion::Transition;
-use kivact_core::state::{MachineHandle, Signal, Value, machine};
+use kivact_core::motion::{FrameRate, Transition, frame_loop};
+use kivact_core::state::{MachineHandle, Signal, Value, effect, machine, signal};
 use kivact_core::style::{Style, TransitionProp, pct, style, use_theme};
 use kivact_core::view::{Handled, PointerEvent, PointerPhase};
 use kivact_interaction::{InteractionPolicy, ToastId, Toaster};
@@ -20,6 +20,20 @@ impl Swipe {
         toaster: Toaster,
         id: ToastId,
     ) -> Self {
+        // Publish the exit target and restore its transition before removing
+        // the card: the first display frame after the release dismisses it.
+        let dismissing = signal(false);
+        let clock = frame_loop(move |_| {
+            dismissing.set(false);
+            toaster.dismiss(id);
+        });
+        effect(move || {
+            if dismissing.get() {
+                clock.start(FrameRate::Display);
+            } else {
+                clock.stop();
+            }
+        });
         let session = machine(
             machine::Swipe::Rest,
             move || machine::Machine {
@@ -34,7 +48,7 @@ impl Swipe {
             },
             move |_, effect| match effect {
                 machine::Effect::Hold(value) => held.set(value),
-                machine::Effect::Dismiss => toaster.dismiss(id),
+                machine::Effect::Dismiss => dismissing.set(true),
             },
         );
         Self { edge, session }
@@ -74,15 +88,21 @@ impl Swipe {
         } else {
             transition.clone()
         };
-        let base = style().transition(TransitionProp::Paint, timing).exit(
-            style()
-                .opacity(0.0)
-                .translate_y(pct(120.0 * edge_sign(self.edge)))
-                .scale(1.0),
-        );
-        let (travel, height) = match swipe {
-            machine::Swipe::Dragging { contact, offset } => (offset, contact.height),
-            machine::Swipe::Released { travel, height } => (travel, height),
+        let base = style().transition(TransitionProp::Paint, timing);
+        let (travel, height, base) = match swipe {
+            machine::Swipe::Dragging { contact, offset } => (offset, contact.height, base),
+            // Only a qualifying swipe slides the card off; any other
+            // dismissal keeps the card's own exit.
+            machine::Swipe::Released { travel, height } => (
+                travel,
+                height,
+                base.exit(
+                    style()
+                        .opacity(0.0)
+                        .translate_y(pct(120.0 * edge_sign(self.edge)))
+                        .scale(1.0),
+                ),
+            ),
             _ => return base,
         };
         let progress = (travel / height).clamp(0.0, 1.0);
