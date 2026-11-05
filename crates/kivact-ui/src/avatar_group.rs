@@ -9,6 +9,7 @@ pub struct AvatarGroup {
     root: Node,
     children: Vec<View>,
     max: Value<usize>,
+    total: Option<Value<usize>>,
     variants: Variants,
 }
 pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
@@ -19,12 +20,18 @@ pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
             .roving_focus(Orientation::Horizontal),
         children: children.into_views(),
         max: usize::MAX.into_value(),
+        total: None,
         variants: Variants::default(),
     }
 }
 impl AvatarGroup {
     pub fn max(mut self, max: impl IntoValue<usize>) -> Self {
         self.max = max.into_value();
+        self
+    }
+    /// Total participants, including all supplied avatars, for partially loaded groups.
+    pub fn total(mut self, total: impl IntoValue<usize>) -> Self {
+        self.total = Some(total.into_value());
         self
     }
     pub fn variant(self, variant: impl Variant) -> Self {
@@ -41,6 +48,12 @@ impl IntoView for AvatarGroup {
     fn into_view(self) -> View {
         let max = self.max;
         let count = self.children.len();
+        let total = self.total;
+        let hidden = move || {
+            total
+                .map_or(count, |total| total.get().max(count))
+                .saturating_sub(count.min(max.get()))
+        };
         let children = self
             .children
             .into_iter()
@@ -66,13 +79,13 @@ impl IntoView for AvatarGroup {
         )
         .child(children)
         .child(show(
-            move || count > max.get(),
+            move || hidden() > 0,
             move || {
                 crate::layer::with_recipe_style(
-                    text(move || format!("+{}", count.saturating_sub(max.get()))),
+                    text(move || format!("+{}", hidden())),
                     |r| r.avatar_group_overflow_recipe(),
                     &overflow_variants,
-                    move || count.saturating_sub(max.get()),
+                    move || hidden(),
                 )
             },
         ))
