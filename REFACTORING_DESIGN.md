@@ -1131,7 +1131,7 @@ mount のときに一度だけ読み、木の形や振る舞いの種類を選�
 | `kind(DialogKind)` | `dialog` | — |
 | `keep_mounted()`（引数なし） | `disclosure`、`tabs` | しない（`kivact-ui/src/disclosure.rs:82`、`tabs.rs:65`） |
 | `selection(..)` の single/multiple の別 | 一覧系（10.8 節） | — |
-| `mode(ComboboxMode)` | `use_combobox`、`ui::combobox`（`Inline`/`Popup(binding)`） | — |
+| `mode(ComboboxMode)` | `use_combobox`、`ui::combobox`（`Inline`/`Popup`、binding は open(binding)） | — |
 | `mode(CarouselMode)` | `use_carousel`、`ui::carousel`（`Translate`/`Scroll`） | — |
 | `row_height(RowHeight)` | `virtual_list` | — |
 | `variant(impl Variant)` | 全部品（look は theme が reactive に解決するが、variant の型自体は mount で決まる） | — |
@@ -1951,7 +1951,7 @@ W0・W1 を実装した結果と、W2 以降の各 unit を現在の code に当
 
 - **trace の比較をやめる**（16.2 節の「振る舞いを変えない」の確かめ方を置き換える）: 振る舞いを保ったことの確かめは、既存の E2E が全部通ることだけで行う。`KIVACT_TRACE` の trace は、失敗した試験の原因を調べる道具として残す（作業手順書 0.6 節）。理由: f32→f64 の統一で全部の数値と型名が変わり、trace の厳密な一致は原理的に作れない（CP1 で 58,176 件の差が残った）。
 - **API-15 の補足:** `InteractionPolicy` の入れ子の field の型（`MenuPolicy`、`ButtonPolicy` など、18.15 節）は `*Policy` の名前を使ってよい。
-- **`calendar` の選択:** `calendar(selection: impl IntoBinding<CalendarSelection>)`。`CalendarSelection` は値の enum（一つの日付、範囲、複数）で、`IntoSelection`（集合の選択）は使わない。
+- **`calendar` の選択:** `calendar(selection: impl Into<CalendarSelection>)`。`CalendarSelection` は Single/Range の binding descriptor。Signal/Binding<Option<CalendarDate/DateRange>> を標準 From で受け、集合用 IntoSelection は使わない。
 - **`AppOptions::theme(impl IntoValue<Theme>)`**: `App::theme`（18.11 節）と同じ形。
 - **`Disclosure::animated(bool)` は残す**: `UiTokens.disclosure.motion` の、一つの部品の上書き（19.37 節）。
 - **軸の型は `Orientation`**: 出現と退場の大きさ（19.12 節）も `Orientation` を使う。`Axis` は作らない。

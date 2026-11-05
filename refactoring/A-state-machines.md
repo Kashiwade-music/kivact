@@ -442,7 +442,7 @@ pub struct Registry<T: ?Sized> { entries: Vec<Weak<T>> }
 
 ### SM-I06 combobox
 - **場所**: `combobox.rs:93-109`（`popup: Signal<Option<Binding<bool>>>`、None = 常に表示）、`:156-178`（`active` を二つの effect で有効に保つ）、`:215`（`popup_with_focus_transfer`）、`:234-237`
-- **解消後**: `ComboboxMode::{Inline, Popup(Binding<bool>)}`（構造の option）。`State { query: String, highlight: Option<K> }` で、表示する highlight は「rows にある key だけ」を memo で派生させる（effect で書き戻さない）
+- **解消後**: `ComboboxMode::{Inline, Popup}`（構造の option、open binding は private descriptor）。query は `Query::{Local(String), Shared(Binding<String>)}`、highlight は Option<K> で、表示する highlight は「rows にある key だけ」を memo で派生させる（effect で書き戻さない）
 - **unit**: I-2a
 
 ### SM-I07 select

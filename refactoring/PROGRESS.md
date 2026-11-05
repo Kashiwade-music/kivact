@@ -148,17 +148,17 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | G-4c | merged | 814ca08 | 固定統合environment/scroll17 passed、workspacecheck/fmt0 |
 | G-5 | merged | a3d8db9 | async6/doc538+1 passed、scopedcheck/state-fields0 |
 | K-0 | merged | 7385fe7 | core3/conformance20/5kit tests/docs0、workspacecheck0 |
-| K-1a | todo | | |
-| K-1b | todo | | |
-| K-2a | todo | | |
-| K-2b | todo | | |
-| K-3a | todo | | |
-| K-3b | todo | | |
-| K-4 | todo | | |
-| K-5 | todo | | |
-| K-6a | todo | | |
-| K-6b | todo | | |
-| K-8 | todo | | |
+| K-1a | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
+| K-1b | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
+| K-2a | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
+| K-2b | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
+| K-3a | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
+| K-3b | doing | | 実装中 |
+| K-4 | doing | | 実装中 |
+| K-5 | doing | | 実装中 |
+| K-6a | doing | | 実装中 |
+| K-6b | doing | | 実装中 |
+| K-8 | doing | 2ee14ff5 | source統合/workspacecheck0、固定E2E検証中 |
 | K-9a | todo | | |
 | K-9b | todo | | |
 | K-7a | todo | | |
@@ -168,7 +168,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-7e | todo | | |
 | H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
-| H-G3 | todo | | |
+| H-G3 | doing | | 実装中 |
 | H-G4 | todo | | |
 | H-G5 | todo | | |
 | H-G6 | todo | | |

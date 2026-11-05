@@ -838,9 +838,9 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 | `impl IntoValue<AsyncState<T>> for Resource<T>`・`Action`（設計書 17.6 節） | 削除（`AsyncSource`。`AsyncState` だけを持つときは `dynamic`） | 削除 | G-5 |
 | `ui::pagination(page, count)`（付録 C.2） | `ui::pagination(count, page)` | 署名の変更 | K-3b |
 | `ui::heading(level, text)`（設計書 17.15 節） | `ui::heading(text, level)` | 署名の変更 | K-9b |
-| `ui::calendar(selected)`・`calendar_range(range)`（kit の版） | `ui::calendar(selection: impl IntoBinding<CalendarSelection>)`（`CalendarSelection` は値の enum。一日か範囲かを値で持つ。`IntoSelection` ではない） | 署名の変更 | K-1a |
+| `ui::calendar(selected)`・`calendar_range(range)`（kit の版） | `ui::calendar(selection: impl Into<CalendarSelection>)`（`CalendarSelection` は Single/Range の binding descriptor。Signal/Binding の4形を標準 From で受ける。`IntoSelection` ではない） | 署名の変更 | K-1a |
 | `ui::clickable_card(..)`、`ui::selectable_card(selected)` | `card(..).on_press(..)`、`card(..).selected(impl IntoBinding<bool>)` | 削除・署名の変更 | K-6b |
-| `ui::kbd_combo(Vec<Key>)` | `ui::kbd_combo(impl IntoValue<Vec<Key>>)` | 署名の変更 | K-6a |
+| `ui::kbd_combo(Vec<Key>)` | `ui::kbd_combo(impl IntoValue<Vec<Key>>).modifiers(impl IntoValue<Modifiers>)` | 署名の変更 | K-6a |
 | `StepperItem { label, description, state }`（公開の field）、`StepState` | `StepperItem::new(label).description(..).status(..)`（builder の record）、`StepStatus` | 署名の変更・改名 | K-3b |
 | `ui::TableAlign`（付録 C.2） | `kivact::style::TextAlign` | 削除 | K-4 |
 | `ui::Segmented`（付録 C.2） | `ui::RadioGroupVariant::Segmented` | 改名 | K-0 |

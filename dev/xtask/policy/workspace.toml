@@ -187,10 +187,11 @@ scalar = ["axis", "drag", "edit", "focus_return", "policy"]
 range_scalar = ["drag", "edit", "policy", "scalar"]
 dialog = ["focus_return", "popup"]
 tooltip = ["delayed", "popup"]
-combobox = ["list"]
+combobox = ["list", "surface"]
+surface = ["focus_return", "popup"]
 tabs = ["axis", "edit", "list"]
 tree = ["list", "press"]
-select = ["edit", "focus_return", "list", "popup"]
+select = ["edit", "focus_return", "list", "popup", "surface"]
 menu = ["delayed", "focus_return", "list", "popup"]
 zoom_pan = ["edit", "space_pan"]
 splitter = ["axis", "drag", "edit", "policy", "press", "scalar"]
@@ -443,7 +444,7 @@ list = [
     "DataTable::initially_expanded", "Overlay::keep_anchor_clear", "Overlay::at_least_anchor_width",
     "Menu::at_least_anchor_width", "Span::italic", "Transition::essential",
     "Carousel::looping", "Dropzone::multiple", "Dropzone::pick_on_press",
-    "Combobox::free_text", "Combobox::tokens", "Disclosure::always_open", "DisclosureApi::always_open",
+    "Combobox::free_text", "Combobox::chips", "Combobox::exclude_selected", "Disclosure::always_open", "DisclosureApi::always_open",
     "EmptyState::announce", "Drawer::side", "Sidebar::collapsible", "SidebarProvider::side",
     "InputOtp::groups", "InputOtp::pattern", "HoverCard::open_delay", "HoverCard::close_delay",
     "TopNavMenu::delay_ms", "TopNavMenu::hide_delay_ms",

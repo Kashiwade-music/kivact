@@ -497,8 +497,66 @@ fn filled_recipe_keys(kit: &UiRecipes) -> Vec<&'static str> {
     .into_iter()
     .filter_map(|(key, filled)| filled.then_some(key))
     .collect();
+    keys.extend(filled_extended_recipe_keys(kit, &defaults));
     keys.sort_unstable();
     keys
+}
+
+/// Tables added by the standard component migration use the same identity contract.
+fn filled_extended_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'static str> {
+    [
+        (
+            "calendar",
+            kit.calendar_recipes() != defaults.calendar_recipes(),
+        ),
+        (
+            "date_input",
+            kit.date_input_recipes() != defaults.date_input_recipes(),
+        ),
+        (
+            "date_range_input",
+            kit.date_range_input_recipes() != defaults.date_range_input_recipes(),
+        ),
+        (
+            "time_input",
+            kit.time_input_recipes() != defaults.time_input_recipes(),
+        ),
+        (
+            "date_time_input",
+            kit.date_time_input_recipes() != defaults.date_time_input_recipes(),
+        ),
+        (
+            "carousel",
+            kit.carousel_recipes() != defaults.carousel_recipes(),
+        ),
+        (
+            "dropzone",
+            kit.dropzone_recipes() != defaults.dropzone_recipes(),
+        ),
+        (
+            "hover_card",
+            kit.hover_card_recipes() != defaults.hover_card_recipes(),
+        ),
+        (
+            "combobox",
+            kit.combobox_recipes() != defaults.combobox_recipes(),
+        ),
+        (
+            "toolbar",
+            kit.toolbar_recipes() != defaults.toolbar_recipes(),
+        ),
+        (
+            "toggle_group",
+            kit.toggle_group_recipes() != defaults.toggle_group_recipes(),
+        ),
+        (
+            "button_group",
+            kit.button_group_recipes() != defaults.button_group_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect()
 }
 
 #[test]

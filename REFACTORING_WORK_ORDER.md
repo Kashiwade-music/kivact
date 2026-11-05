@@ -2220,6 +2220,8 @@ wave W6。付録 C の作業。
 
 ### K-1a calendar と日付の入力
 
+- **実装時の契約補完**: `calendar(impl Into<CalendarSelection>)`。CalendarSelection は Single/Range の binding descriptor で、Signal/Binding<Option<CalendarDate/DateRange>> の4つの From と恒等変換を受ける。集合用 IntoSelection は変えない。RangePick::Picking は anchor/preview と取消用 before: Option<DateRange> を持つ。time_input.format は TimeStyle、date_time_input は time_format(TimeStyle) を持つ。日付 field は placeholder/format_with/valid を保持し、valid は遷移から出力する。
+
 - **目的**: 付録 C.2 の calendar と date inputs。付録 A の SM-K18、SM-K19、SM-K20、SM-K28（month swipe）、SM-K29、SM-K911、SM-K912、SM-K913。
 - **決定済みの形**:
   - calendar:
@@ -2249,6 +2251,8 @@ wave W6。付録 C の作業。
 
 ### K-1b carousel と dropzone
 
+- **実装時の契約補完**: Snap::{None,Mandatory}（既定 Mandatory）、Validity::{Valid,Invalid(String)}。FileInfo は types::platform 正準の `{ path: PathBuf }`、From<PathBuf> と純粋な name() を持ち、filesystem を読まない。carousel の items_per_view/gap/padding/buttons/edge_fade は reactive。外部操作は caller の index binding、計測に基づく内部 scroll control は単一 UI owner。
+
 - **目的**: 付録 C.2 の carousel、dropzone。付録 A の SM-K01、SM-K02、SM-K31。
 - **決定済みの形**:
   - carousel:
@@ -2264,6 +2268,8 @@ wave W6。付録 C の作業。
 - **規模**: M。**並列**: K-0 の後、ほかの K と並べてよい。
 
 ### K-2a disclosure group・hover card・drawer・copy feedback
+
+- **実装時の契約補完**: CopyFeedbackApi.copy(text) は () の owner-scoped command。hover_card.open(binding) は binding を唯一の open authority にし、setter 拒否を尊重する。Disclosure.animated は IntoValue<bool>。独自 trigger は attach と標準 slot で構成し、animate_layout/trigger_view alias を作らない。
 
 - **目的**: 付録 C.2 の disclosure group、hover card、drawer の swipe、copy feedback。付録 A の SM-K03、SM-K04、SM-K14、SM-K15、SM-K24、SM-K28（drawer）。
 - **決定済みの形**:
@@ -2288,6 +2294,8 @@ wave W6。付録 C の作業。
 
 ### K-2b combobox の family と select の sheet
 
+- **実装時の契約補完**: 公開 ComboboxMode::{Inline,Popup} は unit variant、open(binding) は private presentation descriptor に格納。query は Query::{Local(String),Shared(Binding<String>)} の単一 owner。SelectPresentation::{Popover,BottomSheet,Adaptive}。chips/exclude_selected は structural option。
+
 - **目的**: 付録 C.2 の combobox 系、select の touch の sheet。設計書 17.18 節の C-35。付録 A の SM-K16、SM-K17、SM-K919。
 - **決定済みの形**:
   - `ui::combobox(label: impl IntoText, options: impl IntoValue<Vec<ListItem<K>>>, selection: impl IntoSelection<K>)`。builder: `.query(impl IntoBinding<String>)`、`.free_text()`、`.mode(ComboboxMode)`、`.chips()`（複数の選択を chip で見せる）。
@@ -2301,6 +2309,8 @@ wave W6。付録 C の作業。
 - **規模**: L。**並列**: K-0 の後、ほかの K と並べてよい。
 
 ### K-3a toolbar・toggle group・button group
+
+- **実装時の契約補完**: ButtonGroupMember は Button から変換でき、solid は IntoValue<bool>、keep_size は構造 option。toggle item recipe は ToggleGroupItemState { toggle, layout, first, last } を受け、列挙から位置を派生させる。
 
 - **目的**: 付録 C.2 の toolbar、toggle group と segmented、button group。付録 A の SM-K10（`button_group.rs`・`tab_list.rs` の部分）、SM-K25、SM-K27。
 - **決定済みの形**:
@@ -2364,6 +2374,8 @@ wave W6。付録 C の作業。
 
 ### K-6a badge・avatar・skeleton・spinner・kbd
 
+- **実装時の契約補完**: kbd_combo(Vec<Key>) に modifiers(IntoValue<Modifiers>) を追加し、既存 Key にない modifier を正準 Modifiers で表す。meta の記号は Capabilities.command_key に従う。
+
 - **目的**: 付録 C.2 の Tier 2 の一部。付録 A の SM-K32、SM-K10（`avatar_group.rs` の部分）、SM-K916。
 - **決定済みの形**:
   - `ui::badge(label: impl IntoText)`、`.tone(impl IntoValue<Tone>)`、`.variant(impl Variant)`（kit の `BadgeVariant` は各 kit の `impl Variant`。pop の `Dot`・`Count`・`Hue(Hue)` を含む）。
@@ -2397,6 +2409,8 @@ wave W6。付録 C の作業。
 - **規模**: L。**並列**: K-0 の後、ほかの K と並べてよい。
 
 ### K-8 `viewport` を中核へ
+
+- **実装時の契約補完**: ViewTransform は types 正準で interaction が再公開。ZoomPanApi は hidden internal-contract の ViewportTransform port を実装し、viewport.transform(api) に既存の単一 model を接続する。CPU snapshot は context-local Purpose::{Window,Cpu} と DrawCmd::External.cpu_pixels:Option<Pixels> の immutable fallback で処理し、GPU registry や global raster flag を追加しない。
 
 - **目的**: 設計書 17.13 節。付録 A の SM-K918。
 - **決定済みの形**:

@@ -146,3 +146,10 @@
 | 2026-11-05 | G-3 | restored_stateの同期読み取り経路 | Environmentにlaunch時readonly snapshotを一箇所で持つ。virtual scriptだけが永続mapを所有し次launch snapshotを作る。desktop capability false、coreのshadow cacheは作らない。 |
 | 2026-11-05 | G-2/fix-G5-11 | queued inputのcapture最終値を現在eventと誤認 | 実releaseを既存requestsの一時mailboxで渡しhandler/default後にcleanup。reader状態の推測・weak registry cache・shadow capture stateは持たない。 |
 | 2026-11-05 | K-0 | runtime FrameLoopはcore NodeRefへ依存できない | 公開Core motion handleを正準境界adapterとし、runtimeの単一loop ownerへpresence gateを渡す。互換aliasやcore側rate/stateの写しは作らない。 |
+| 2026-11-05 | K-1a | calendar と集合選択の cardinality | CalendarSelection binding descriptor を標準 From で受ける。RangePick before payload で取消、TimeStyle は時刻専用。 |
+| 2026-11-05 | K-1b | file metadata と snap | FileInfo は path と純粋 name のみ。検証は caller。Snap None/Mandatory。外部 index binding を操作の正準入口にする。 |
+| 2026-11-05 | K-2a | controlled hover と copy command | binding setter を open の唯一の authority とし copy は owner-scoped () command。animated は reactive、custom trigger は attach。 |
+| 2026-11-05 | K-2b | 公開 mode と query の所有 | 公開 mode は unit enum、binding は private descriptor。Local/Shared query は排他的 owner、SelectPresentation に統一。 |
+| 2026-11-05 | K-3a | joined control の layout state | ButtonGroupMember solid reactive/keep_size structural、toggle recipe の位置は列挙で派生。 |
+| 2026-11-05 | K-6a | Key に modifier がない | kbd_combo に canonical Modifiers 入力を加え command_key capability から記号化。 |
+| 2026-11-05 | K-8 | Core viewport と snapshot 境界 | ViewTransform types 正準、hidden port で単一 ZoomPanApi 接続。context-local render purpose と immutable CPU fallback。 |
