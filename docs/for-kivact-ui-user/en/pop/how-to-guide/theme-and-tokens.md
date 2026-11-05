@@ -221,3 +221,5 @@ fn upload() -> impl IntoView {
         })
 }
 ```
+
+Pop recipes use Core row layout for automatic RTL reversal. Set the application direction through Core; no Pop-specific direction provider is required.

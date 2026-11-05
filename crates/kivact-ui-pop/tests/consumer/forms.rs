@@ -7,8 +7,12 @@ use kivact_ui_pop as ui;
 
 #[test]
 fn inputs_and_tag_editor_commit_native_edits() {
-    let (screen, (draft, tags, memo)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (draft, tags, memo)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let draft = signal(String::new());
             let tags = signal(vec!["one".into()]);
             let memo = signal(String::new());
@@ -32,7 +36,8 @@ fn inputs_and_tag_editor_commit_native_edits() {
                 ))
                 .style(style().width(360).gap(8)),
             )
-        });
+        },
+    );
     screen
         .get_by_role(Role::TextBox, "Name")
         .type_text("Minato");
@@ -100,21 +105,27 @@ fn inputs_and_tag_editor_commit_native_edits() {
 
 #[test]
 fn dropzone_reports_public_file_events_and_platform_picker_results() {
-    let (screen, paths) = kivact::test::render_with_handle(crate::support::options(), || {
-        let paths = signal(Vec::<std::path::PathBuf>::new());
-        (
-            paths,
-            kivact::ui::dropzone("Upload")
-                .multiple()
-                .pick_on_press()
-                .icon(icon("cloud-upload").style(style().size(24, 24)))
-                .hint("Select reports")
-                .filters(vec![("Reports".into(), vec!["pdf".into()])])
-                .on_files(move |files| {
-                    paths.set(files.into_iter().map(|file| file.path).collect())
-                }),
-        )
-    });
+    let (screen, paths) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let paths = signal(Vec::<std::path::PathBuf>::new());
+            (
+                paths,
+                kivact::ui::dropzone("Upload")
+                    .multiple()
+                    .pick_on_press()
+                    .icon(icon("cloud-upload").style(style().size(24, 24)))
+                    .hint("Select reports")
+                    .filters(vec![("Reports".into(), vec!["pdf".into()])])
+                    .on_files(move |files| {
+                        paths.set(files.into_iter().map(|file| file.path).collect())
+                    }),
+            )
+        },
+    );
     screen.get_by_role(Role::Text, "Select reports");
     let dropzone = screen.get_by_role(Role::Button, "Upload");
     let rect = dropzone

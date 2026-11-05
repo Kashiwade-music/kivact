@@ -29,7 +29,7 @@ fn scrim(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .position(kivact::style::Position::Fixed)
         .inset(0)
-        .background(kivact::style::rgba(0x0f172a, 0.45))
+        .background(crate::tokens::overlay_scrim())
 }
 
 fn panel(t: &Theme, _: &Look<PopupState>) -> Style {
