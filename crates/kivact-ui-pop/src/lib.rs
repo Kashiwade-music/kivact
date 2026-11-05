@@ -9,7 +9,7 @@
 //! look, so tabs, radio groups, sliders and the toast region are
 //! `kivact::ui::tabs`, `radio_group`, `slider` and `toast_region`; the kit
 //! adds what they do not have ([`tab_label`] for a tab's count badge,
-//! [`kivact::ui::Segmented`] for a segmented radio group,
+//! [`kivact::ui::RadioGroupVariant::Segmented`] for a segmented radio group,
 //! the rest). Its theme also draws `kivact::ui::list` and
 //! `kivact::ui::data_table`.
 //!
