@@ -131,7 +131,7 @@ fn settings() -> impl IntoView {
     let mentions = signal(false);
     let reminder = signal(Some("weekly"));
     column((
-        basic::h3("Settings"),
+        kivact::ui::heading("Settings", 3),
         basic::muted("Manage your profile and notifications."),
         row((
             profile_card(name, saved_name, language),

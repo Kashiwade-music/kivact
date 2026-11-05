@@ -136,21 +136,3 @@ impl IntoView for Separator {
             .into_view()
     }
 }
-
-/// A box of the full available width whose height follows `ratio` (width / height).
-///
-/// The child is stretched to the box's width; give it `height(pct(100))`
-/// to fill the box.
-#[track_caller]
-pub fn aspect_ratio(ratio: impl Into<f64>, child: impl IntoView) -> impl kivact::view::Component {
-    let ratio = ratio.into();
-    node()
-        .style(
-            style()
-                .direction(Direction::Column)
-                .width(pct(100))
-                .aspect_ratio(ratio)
-                .overflow(kivact::style::Overflow::Hidden),
-        )
-        .child(child)
-}

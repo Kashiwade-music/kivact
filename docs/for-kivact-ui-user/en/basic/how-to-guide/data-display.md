@@ -230,3 +230,5 @@ fn snippet() -> impl IntoView {
 `kivact::ui::item_list(children)` groups standard `item_row(title)` rows. Set `basic::ItemVariant` and `basic::ItemMediaVariant` with `.variant(..)`; `basic::ItemSize::Sm` keeps a 32 px image instead of 40 px. For reactive density use `.variant(basic::ItemLook::default().size(size))`. Media, actions, header and footer remain ordinary view slots.
 
 Standard cards use `kivact::ui::card(content)` with ordinary views in `.header(..)`, `.media(..)` and `.footer(..)`. `basic::CardSize::Sm` is a visual variant. Use `.variant(basic::CardLook::default().size(size).header_bordered(bordered))` for reactive spacing and a header rule; the header title, description and action are caller-composed text and row/column views.
+
+Headings use `kivact::ui::heading(text, level)` and the theme keeps the original Basic typography. Progress supports `ProgressVariant::Bar`, `Ring` and `Gauge` through `.variant(..)`; all three use the Basic primary and muted palette. For a fixed media ratio, put `.aspect_ratio(width / height)` on the caller-owned node style. Statistics and description lists use the standard `stat` and `description_list` components.

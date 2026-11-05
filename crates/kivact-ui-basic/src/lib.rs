@@ -88,6 +88,7 @@ mod recipes_dialog;
 mod recipes_field;
 mod recipes_groups;
 mod recipes_menu;
+mod recipes_metrics;
 mod recipes_popup;
 mod scroll_area;
 mod sidebar;
@@ -155,7 +156,7 @@ pub use input_group::{
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
 pub use primitives::{
-    Label, Separator, aspect_ratio, label, separator,
+    Label, Separator, label, separator,
 };
 pub use questionnaire::{
     Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,
@@ -163,5 +164,5 @@ pub use questionnaire::{
 pub use theme::theme;
 pub use tokens::{CodeColors, Tokens};
 pub use typography::{
-    blockquote, bullet_list, h1, h2, h3, h4, inline_code, large, lead, muted, paragraph, small,
+    blockquote, bullet_list, inline_code, large, lead, muted, paragraph, small,
 };

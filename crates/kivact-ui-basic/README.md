@@ -16,7 +16,7 @@ fn settings() -> impl IntoView {
     let sync = signal(true);
     let name = signal(String::new());
     column((
-        basic::h4("Profile"),
+        kivact::ui::heading("Profile", 4),
         basic::label("Display name"),
         kivact::ui::text_input("Display name", name),
         kivact::ui::switch("Sync reports", sync),
@@ -228,6 +228,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `table`
 - `item_list`
 - `card`
+- `heading`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

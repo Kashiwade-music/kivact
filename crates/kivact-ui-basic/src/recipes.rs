@@ -77,6 +77,7 @@ fn build() -> UiRecipes {
         .table(crate::table::recipes)
         .item_list(crate::item::recipes)
         .card(crate::card::recipes)
+        .heading(|_| crate::typography::heading)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts

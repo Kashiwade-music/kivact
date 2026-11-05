@@ -137,7 +137,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
     column((
         row((
             column((
-                basic::h3("設定"),
+                kivact::ui::heading("設定", 3),
                 basic::muted("プロフィールと通知を管理します。"),
             ))
             .style(style().grow(1).gap(8)),

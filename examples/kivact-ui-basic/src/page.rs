@@ -15,12 +15,12 @@ pub(crate) fn page_view(page: &'static Page) -> Scroll {
 fn content(page: &'static Page) -> Node {
     let header = column((
         breadcrumb(page.name),
-        basic::h1(page.name).test_id("catalog-title"),
+        kivact::ui::heading(page.name, 1).test_id("catalog-title"),
         basic::lead(page.description),
     ))
     .style(style().gap(12));
     let usage = column((
-        basic::h2("使い方"),
+        kivact::ui::heading("使い方", 2),
         code_block(page.usage.to_string(), "catalog-usage-code".to_string()),
     ))
     .style(style().gap(16));

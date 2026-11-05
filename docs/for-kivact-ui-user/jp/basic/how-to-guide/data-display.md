@@ -230,3 +230,5 @@ fn snippet() -> impl IntoView {
 `kivact::ui::item_list(children)` は標準の `item_row(title)` を並べます。枠とメディアの見た目は `.variant(basic::ItemVariant::Outline)`、`.variant(basic::ItemMediaVariant::Image)` で指定します。`basic::ItemSize::Sm` は画像を 40 px から 32 px にします。リアクティブな密度は `.variant(basic::ItemLook::default().size(size))` です。media、actions、header、footer は通常の view の slot です。
 
 標準カードは `kivact::ui::card(content)` と、通常の view を渡す `.header(..)`、`.media(..)`、`.footer(..)` で組み立てます。`basic::CardSize::Sm` は見た目の variant です。リアクティブな間隔とヘッダーの線には `.variant(basic::CardLook::default().size(size).header_bordered(bordered))` を使います。ヘッダー内の見出し・説明・操作は text と row/column で組み立てます。
+
+見出しは `kivact::ui::heading(text, level)` で、Basic の元の文字組みを保ちます。進捗は `.variant(ProgressVariant::Bar)`、`Ring`、`Gauge` を選べ、どれも Basic の primary と muted の配色です。メディアの比率は、アプリ側のノードに `.style(style().aspect_ratio(width / height))` を指定します。統計と用語説明の一覧には標準の `stat`、`description_list` を使います。

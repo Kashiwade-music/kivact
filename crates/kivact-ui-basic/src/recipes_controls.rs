@@ -399,10 +399,18 @@ pub(crate) fn toggle(t: &Theme, look: &Look<ToggleButtonState>) -> Style {
 
 /// progress.tsx: a 4 px `bg-muted` track that clips its `bg-primary` fill.
 pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|_| progress_track)
+        .fill(|_| progress_fill)
+        .label(|_| progress_label)
 }
 
-fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
+fn progress_track(t: &Theme, state: &Look<ProgressState>) -> Style {
+    if state
+        .variant::<kivact::ui::ProgressVariant>()
+        .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
+    {
+        return crate::recipes_metrics::track(t, state);
+    }
     style()
         .width(pct(100))
         .height(4)
@@ -413,6 +421,12 @@ fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
 
 /// The fill is as wide as the value; an indeterminate bar's segment moves.
 fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
+    if look
+        .variant::<kivact::ui::ProgressVariant>()
+        .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
+    {
+        return crate::recipes_metrics::fill(t, look);
+    }
     let (state, primary) = (**look, t.ext::<Tokens>().primary);
     match state.value {
         Some(value) => style()
@@ -492,4 +506,11 @@ fn disclosure_content(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
         .font_size(12)
         .color(t.ext::<Tokens>().foreground)
         .padding_bottom(10)
+}
+
+fn progress_label(t: &Theme, _: &Look<ProgressState>) -> Style {
+    style()
+        .font_size(12)
+        .weight(500)
+        .color(t.ext::<Tokens>().foreground)
 }

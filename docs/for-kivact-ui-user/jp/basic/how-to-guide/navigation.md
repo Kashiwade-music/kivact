@@ -49,7 +49,7 @@ fn shell() -> impl IntoView {
             )),
         ))
         .style(style().height(48).padding_x(12).gap(8).align_items(Align::Center)),
-        basic::h4(move || page.get().to_string()).style(style().padding(12)),
+        kivact::ui::heading(move || page.get().to_string(), 4).style(style().padding(12)),
     ))
     .style(style().grow(1));
     column(basic::sidebar_provider(open, sidebar, content)).style(
@@ -91,7 +91,7 @@ fn account() -> impl IntoView {
                 "account" => ("Account", "Make changes to your account here."),
                 _ => ("Password", "Change your password here."),
             };
-            column((basic::h4(title), basic::muted(body))).style(style().gap(8).padding_top(16))
+            column((kivact::ui::heading(title, 4), basic::muted(body))).style(style().gap(8).padding_top(16))
         })
 }
 ```
