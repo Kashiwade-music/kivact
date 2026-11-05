@@ -196,6 +196,19 @@ fn resolve_dimension(value: taffy::Dimension, basis: Option<f32>, calcs: &Calcs)
     }
 }
 
+/// The calc value `handle` scaled by `scale`: a calc is linear in its
+/// basis, so it is read back as `percent% + px` and both parts are scaled.
+fn scaled_calc(
+    handle: *const (),
+    scale: f64,
+    calcs: &Calcs,
+    alloc: &mut CalcAlloc<'_>,
+) -> *const () {
+    let px = f64::from(calcs.resolve(handle, 0.0));
+    let percent = f64::from(calcs.resolve(handle, 100.0)) - px;
+    alloc.calc(percent * scale, px * scale)
+}
+
 fn scaled_dimension(
     value: taffy::Dimension,
     scale: f64,
@@ -206,12 +219,12 @@ fn scaled_dimension(
     match value.tag() {
         CompactLength::LENGTH_TAG => taffy::Dimension::length(value.value() * scale as f32),
         CompactLength::PERCENT_TAG => taffy::Dimension::percent(value.value() * scale as f32),
-        CompactLength::CALC_TAG => {
-            let handle = value.into_raw().calc_value();
-            let px = f64::from(calcs.resolve(handle, 0.0));
-            let percent = f64::from(calcs.resolve(handle, 100.0)) - px;
-            taffy::Dimension::calc(alloc.calc(percent * scale, px * scale))
-        }
+        CompactLength::CALC_TAG => taffy::Dimension::calc(scaled_calc(
+            value.into_raw().calc_value(),
+            scale,
+            calcs,
+            alloc,
+        )),
         _ => value,
     }
 }
@@ -230,12 +243,12 @@ fn scaled_length(
         CompactLength::PERCENT_TAG => {
             taffy::LengthPercentageAuto::percent(value.into_raw().value() * scale as f32)
         }
-        CompactLength::CALC_TAG => {
-            let handle = value.into_raw().calc_value();
-            let px = f64::from(calcs.resolve(handle, 0.0));
-            let percent = f64::from(calcs.resolve(handle, 100.0)) - px;
-            taffy::LengthPercentageAuto::calc(alloc.calc(percent * scale, px * scale))
-        }
+        CompactLength::CALC_TAG => taffy::LengthPercentageAuto::calc(scaled_calc(
+            value.into_raw().calc_value(),
+            scale,
+            calcs,
+            alloc,
+        )),
         _ => value,
     }
 }
