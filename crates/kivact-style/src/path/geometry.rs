@@ -41,6 +41,28 @@ fn cubics(arc: Arc, out: &mut Vec<PathCmd>, current: &mut Option<KPoint>) {
     }
 }
 
+fn center_arc(
+    center: WirePoint,
+    rx: f64,
+    ry: f64,
+    rotation: f64,
+    from_deg: f64,
+    sweep: f64,
+) -> Option<Arc> {
+    [center.x, center.y, rx, ry, rotation, from_deg, sweep]
+        .iter()
+        .all(|v| v.is_finite())
+        .then(|| {
+            Arc::new(
+                kp(center),
+                Vec2::new(rx.abs(), ry.abs()),
+                from_deg.to_radians(),
+                sweep.to_radians().clamp(-TAU, TAU),
+                rotation.to_radians(),
+            )
+        })
+}
+
 impl Path {
     /// Test the fill of flattened (0.1 px tolerance) contours with `rule`.
     /// Open contours are implicitly closed; points on an edge are inside.
@@ -169,19 +191,9 @@ impl Path {
                     start_deg: from_deg,
                     sweep_deg: sweep,
                 } => {
-                    if ![center.x, center.y, rx, ry, rotation, from_deg, sweep]
-                        .iter()
-                        .all(|v| v.is_finite())
-                    {
+                    let Some(arc) = center_arc(center, rx, ry, rotation, from_deg, sweep) else {
                         continue;
-                    }
-                    let arc = Arc::new(
-                        kp(center),
-                        Vec2::new(rx.abs(), ry.abs()),
-                        from_deg.to_radians(),
-                        sweep.to_radians().clamp(-TAU, TAU),
-                        rotation.to_radians(),
-                    );
+                    };
                     let first = arc.eval(0.0);
                     if current.is_some() {
                         out.push(PathCmd::LineTo(wire(first)));

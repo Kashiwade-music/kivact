@@ -6,6 +6,7 @@ use crate::paint::{Paint, fill_layer};
 use crate::transform::Transform;
 use kivact_types as p;
 
+// xtask-allow(state-fields): This authored drawing options bundle independently selects clip, opacity, transform and paint effects.
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a
 /// transform, a clip, group opacity, blending, a filter, a mask and a
 /// shadow. Effects use the element style types.

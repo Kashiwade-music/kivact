@@ -46,6 +46,7 @@ impl Issue {
     }
 }
 
+// xtask-allow(state-fields): GPU import and the last CPU image are independently retained outputs; CPU pixels remain available across GPU renewal.
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
 ///

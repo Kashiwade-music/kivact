@@ -159,6 +159,7 @@ pub enum TransitionProp {
     Size,
 }
 
+// xtask-allow(state-fields): Each independently unspecified edge participates in style cascading.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub(crate) struct Sides {
     pub(crate) top: Option<Length>,
@@ -176,6 +177,7 @@ impl Sides {
     }
 }
 
+// xtask-allow(state-fields): Independent authored style properties use None for unspecified cascading values; this is a passive value.
 /// A style value. Build with [`style()`].
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Style {
@@ -993,32 +995,7 @@ impl Style {
                 }
             )*};
         }
-        self.padding.merge(&o.padding);
-        if let Some(other) = &o.scrollbar {
-            let mine = self.scrollbar.get_or_insert_with(Default::default);
-            mine.width = other.width.or(mine.width);
-            mine.colors = other.colors.or(mine.colors);
-        }
-        if let Some(g) = &o.grid {
-            self.grid.get_or_insert_with(Default::default).merge(g);
-        }
-        if let Some(t) = &o.text {
-            self.text.get_or_insert_with(Default::default).merge(t);
-        }
-        self.margin.merge(&o.margin);
-        self.inset.merge(&o.inset);
-        for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.radius.iter_mut().zip(o.radius) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.translate.iter_mut().zip(o.translate) {
-            *a = b.or(*a);
-        }
+        self.merge_compound_properties(o);
         take!(
             enter_size,
             exit_size,
@@ -1073,6 +1050,42 @@ impl Style {
             font_family,
             italic
         );
+        self.merge_states(o);
+        self
+    }
+
+    /// Merge compound properties whose individual components cascade independently.
+    fn merge_compound_properties(&mut self, o: &Style) {
+        self.padding.merge(&o.padding);
+        if let Some(other) = &o.scrollbar {
+            let mine = self.scrollbar.get_or_insert_with(Default::default);
+            mine.width = other.width.or(mine.width);
+            mine.colors = other.colors.or(mine.colors);
+        }
+        if let Some(g) = &o.grid {
+            self.grid.get_or_insert_with(Default::default).merge(g);
+        }
+        if let Some(t) = &o.text {
+            self.text.get_or_insert_with(Default::default).merge(t);
+        }
+        self.margin.merge(&o.margin);
+        self.inset.merge(&o.inset);
+        for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.radius.iter_mut().zip(o.radius) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.translate.iter_mut().zip(o.translate) {
+            *a = b.or(*a);
+        }
+    }
+
+    /// Merge independent interaction deltas and transition declarations.
+    fn merge_states(&mut self, o: &Style) {
         self.group |= o.group;
         for (a, b) in [
             (&mut self.hover, &o.hover),
@@ -1101,7 +1114,6 @@ impl Style {
             self.transitions.push(t.clone());
         }
         self.duplicates += o.duplicates;
-        self
     }
 
     pub(super) fn has_text(&self) -> bool {
@@ -1142,6 +1154,7 @@ impl From<i32> for ScrollbarWidth {
         Self::Px(px as f64)
     }
 }
+// xtask-allow(state-fields): Width and colors are independent authored scrollbar options.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct ScrollbarStyle {
     pub(super) width: Option<ScrollbarWidth>,

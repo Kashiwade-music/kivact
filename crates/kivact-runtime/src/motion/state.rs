@@ -59,6 +59,7 @@ pub struct MotionStats {
     pub ticks: u64,
 }
 
+// xtask-allow(state-fields): These are independent read-only host environment sources; this bundle owns no transitions.
 /// Environment values installed at runtime construction and read untracked.
 #[derive(Clone, Copy)]
 pub struct MotionEnv {

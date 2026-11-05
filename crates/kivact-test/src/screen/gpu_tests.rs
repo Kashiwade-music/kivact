@@ -105,102 +105,56 @@ fn representative() -> impl IntoView {
 /// group opacity, color filters, blur and drop shadow filters, a backdrop
 /// blur, a blend mode, a gradient mask, a rounded clip and a clip path.
 fn effects() -> impl IntoView {
-    let at = |x: i32, y: i32, w: i32, h: i32| {
-        style()
-            .position(Position::Absolute)
-            .left(x)
-            .top(y)
-            .size(w, h)
-    };
     let stripes = linear_gradient(90)
         .repeating()
         .stop(rgb(0x1e293b), 0)
         .stop(rgb(0x1e293b), 3)
         .stop(rgb(0xf8fafc), 3)
         .stop(rgb(0xf8fafc), 8);
-    let line = rgba(0x334155, 0.5);
     node()
         .child((
+            layered_gradient(),
+            conic_border(),
             node().style(
-                at(10, 10, 120, 90).radius(12).background((
-                    linear_gradient(180)
-                        .stop(line, 1)
-                        .stop(Color::TRANSPARENT, 1)
-                        .size(16, 16),
-                    linear_gradient(90)
-                        .stop(line, 1)
-                        .stop(Color::TRANSPARENT, 1)
-                        .size(16, 16),
-                    radial_gradient()
-                        .radii(pct(80), pct(60))
-                        .at(pct(20), 0)
-                        .colors([rgba(0x2563eb, 0.4), Color::TRANSPARENT]),
-                    rgb(0xf1f5f9),
-                )),
-            ),
-            node().style(
-                at(150, 10, 120, 40)
-                    .radius((pct(50), pct(50)))
-                    .background(conic_gradient(-60).colors([
-                        rgb(0xff4040),
-                        rgb(0xffd040),
-                        rgb(0x40ff60),
-                        rgb(0x4060ff),
-                        rgb(0xff4040),
-                    ]))
-                    .shadow(Shadow::new(0, 6, 14, rgba(0x000000, 0.5)).spread(-4))
-                    .shadow(Shadow::new(0, 1, 0, rgba(0xffffff, 0.6)).inset()),
-            ),
-            node().style(
-                at(150, 60, 120, 40)
+                effect_position(150, 60, 120, 40)
                     .radius_corners(16, 0, 16, 0)
                     .border_left(4, rgb(0xdc2626))
                     .border_top(2, rgb(0x2563eb))
                     .background(rgb(0xffffff)),
             ),
             node().style(
-                at(290, 10, 80, 40)
+                effect_position(290, 10, 80, 40)
                     .border(2, rgb(0x0f172a))
                     .border_style(BorderStyle::Dashed)
                     .radius(8),
             ),
             node()
                 .child((
-                    node().style(at(0, 0, 40, 30).background(rgb(0x2563eb))),
-                    node().style(at(20, 10, 40, 30).background(rgb(0xdc2626))),
+                    node().style(effect_position(0, 0, 40, 30).background(rgb(0x2563eb))),
+                    node().style(effect_position(20, 10, 40, 30).background(rgb(0xdc2626))),
                 ))
-                .style(at(290, 60, 60, 40).opacity(0.6)),
-            node().style(at(10, 120, 460, 60).background(stripes)),
+                .style(effect_position(290, 60, 60, 40).opacity(0.6)),
+            node().style(effect_position(10, 120, 460, 60).background(stripes)),
             node().style(
-                at(30, 125, 120, 50)
+                effect_position(30, 125, 120, 50)
                     .radius(10)
                     .backdrop_filter(Filter::new().blur(4).saturate(1.6))
                     .background(rgba(0xffffff, 0.3)),
             ),
-            column((
-                text("Filtered").style(style().font_size(14.0).color(rgb(0xdc2626))),
-                image(Asset::from(PNG))
-                    .fit(ImageFit::Fill)
-                    .style(style().width(30.0).height(20.0)),
-            ))
-            .style(
-                at(170, 125, 90, 50)
-                    .background(rgb(0xfde68a))
-                    .filter(Filter::new().grayscale(1).brightness(1.1)),
-            ),
+            filtered_content(),
             node().style(
-                at(280, 130, 40, 40)
+                effect_position(280, 130, 40, 40)
                     .radius(pct(50))
                     .background(rgb(0x2563eb))
                     .filter(Filter::new().drop_shadow(0, 3, 6, rgba(0x000000, 0.6))),
             ),
             node().style(
-                at(340, 130, 40, 40)
+                effect_position(340, 130, 40, 40)
                     .background(rgb(0xffffff))
                     .mix_blend_mode(BlendMode::Difference),
             ),
             node().style(
-                at(400, 130, 50, 40)
+                effect_position(400, 130, 50, 40)
                     .background(rgb(0x16a34a))
                     .filter(Filter::new().blur(3)),
             ),
@@ -210,21 +164,23 @@ fn effects() -> impl IntoView {
                         .fit(ImageFit::Fill)
                         .style(style().size(100, 60)),
                 )
-                .style(at(10, 200, 100, 60).radius(20).clip(true)),
+                .style(effect_position(10, 200, 100, 60).radius(20).clip(true)),
             node().style(
-                at(130, 200, 120, 60)
+                effect_position(130, 200, 120, 60)
                     .background(linear_gradient(135).colors([rgb(0x7c3aed), rgb(0x22d3ee)]))
                     .mask(linear_gradient(180).colors([Color::BLACK, Color::TRANSPARENT])),
             ),
             node().style(
-                at(270, 200, 120, 50).background(rgb(0x0ea5e9)).clip_path(
-                    Shape::polygon()
-                        .point(0, 0)
-                        .point(pct(100) - 18, 0)
-                        .point(pct(100), 18)
-                        .point(pct(100), pct(100))
-                        .point(0, pct(100)),
-                ),
+                effect_position(270, 200, 120, 50)
+                    .background(rgb(0x0ea5e9))
+                    .clip_path(
+                        Shape::polygon()
+                            .point(0, 0)
+                            .point(pct(100) - 18, 0)
+                            .point(pct(100), 18)
+                            .point(pct(100), pct(100))
+                            .point(0, pct(100)),
+                    ),
             ),
         ))
         .style(style().size(480, 360).background(rgb(0xffffff)))
@@ -557,4 +513,83 @@ fn gpu_frames_follow_a_scale_change() {
         let cpu = start(false, scale).screenshot();
         assert_close(&cpu, &shot, &format!("gpu_scale_{scale}"));
     }
+}
+
+fn layered_gradient() -> impl IntoView {
+    let at = |x: i32, y: i32, w: i32, h: i32| {
+        style()
+            .position(Position::Absolute)
+            .left(x)
+            .top(y)
+            .size(w, h)
+    };
+    let line = rgba(0x334155, 0.5);
+    node().style(
+        at(10, 10, 120, 90).radius(12).background((
+            linear_gradient(180)
+                .stop(line, 1)
+                .stop(Color::TRANSPARENT, 1)
+                .size(16, 16),
+            linear_gradient(90)
+                .stop(line, 1)
+                .stop(Color::TRANSPARENT, 1)
+                .size(16, 16),
+            radial_gradient()
+                .radii(pct(80), pct(60))
+                .at(pct(20), 0)
+                .colors([rgba(0x2563eb, 0.4), Color::TRANSPARENT]),
+            rgb(0xf1f5f9),
+        )),
+    )
+}
+fn conic_border() -> impl IntoView {
+    let at = |x: i32, y: i32, w: i32, h: i32| {
+        style()
+            .position(Position::Absolute)
+            .left(x)
+            .top(y)
+            .size(w, h)
+    };
+    node().style(
+        at(150, 10, 120, 40)
+            .radius((pct(50), pct(50)))
+            .background(conic_gradient(-60).colors([
+                rgb(0xff4040),
+                rgb(0xffd040),
+                rgb(0x40ff60),
+                rgb(0x4060ff),
+                rgb(0xff4040),
+            ]))
+            .shadow(Shadow::new(0, 6, 14, rgba(0x000000, 0.5)).spread(-4))
+            .shadow(Shadow::new(0, 1, 0, rgba(0xffffff, 0.6)).inset()),
+    )
+}
+
+fn filtered_content() -> impl IntoView {
+    let at = |x: i32, y: i32, w: i32, h: i32| {
+        style()
+            .position(Position::Absolute)
+            .left(x)
+            .top(y)
+            .size(w, h)
+    };
+    column((
+        text("Filtered").style(style().font_size(14.0).color(rgb(0xdc2626))),
+        image(Asset::from(PNG))
+            .fit(ImageFit::Fill)
+            .style(style().width(30.0).height(20.0)),
+    ))
+    .style(
+        at(170, 125, 90, 50)
+            .background(rgb(0xfde68a))
+            .filter(Filter::new().grayscale(1).brightness(1.1)),
+    )
+}
+
+fn effect_position(x: i32, y: i32, w: i32, h: i32) -> kivact_style::Style {
+    style()
+        .position(Position::Absolute)
+        .left(x)
+        .top(y)
+        .size(w, h)
 }

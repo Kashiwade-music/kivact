@@ -22,6 +22,7 @@ pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
         .fold(Style::default(), |s, layer| s.merge(&layer()))
 }
 
+// xtask-allow(state-fields): Independent disabled and selected readers feed style compilation without owning their state.
 /// The readers of the disabled and selected states, for the style effect.
 pub(super) struct States {
     disabled: Option<Rc<dyn Fn() -> bool>>,
@@ -67,6 +68,7 @@ pub(super) fn bind_node_style(
     }
 }
 
+// xtask-allow(state-fields): Independent style source readers and optional layout/paint hooks are mount configuration.
 /// What the style of a host node is resolved from (see [`bind_style`]).
 #[derive(Default)]
 pub(crate) struct NodeStyle {
@@ -107,12 +109,7 @@ pub(crate) fn bind_style(
         local_paint,
     } = style;
     let owner = cx.owner;
-    // Misplaced content sizes are reported once per node.
-    let reported = kivact_types::cell::ReportOnce::new();
-    // So are text values the host cannot draw.
-    let reported_text = kivact_types::cell::ReportOnce::new();
-    let reported_states = kivact_types::cell::ReportOnce::new();
-    let reported_leaf_paint = kivact_types::cell::ReportOnce::new();
+    let reports = StyleReports::default();
     let theme = cx.theme();
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
@@ -133,7 +130,7 @@ pub(crate) fn bind_style(
             })
         });
         let has_paint = resolved.has_retained_paint();
-        if has_paint && local_paint.is_none() && reported_leaf_paint.note() {
+        if has_paint && local_paint.is_none() && reports.leaf_paint.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
@@ -159,22 +156,42 @@ pub(crate) fn bind_style(
                 source.revision.notify_from_render();
             }
         }
-        let mut layout = resolved.layout;
+        let mut layout = resolved.layout.clone();
         if let Some(fix) = fix_layout {
             fix(&mut layout);
         }
         let writer = rt.running_effect();
         let mut tree = ViewState::tree_mut(&rt);
         tree.update(id, PropValue::Layout(layout), writer);
-        tree.update(id, PropValue::Paint(resolved.paint), writer);
-        tree.update(id, PropValue::TextStyle(resolved.text), writer);
+        tree.update(id, PropValue::Paint(resolved.paint.clone()), writer);
+        tree.update(id, PropValue::TextStyle(resolved.text.clone()), writer);
         tree.update(
             id,
-            PropValue::States(resolved.states.unwrap_or_default()),
+            PropValue::States(resolved.states.clone().unwrap_or_default()),
             writer,
         );
         drop(tree);
-        if !resolved.unsupported_in_states.is_empty() && reported_states.note() {
+        reports.report(&rt, owner, id, &resolved, at);
+    });
+}
+
+#[derive(Default)]
+struct StyleReports {
+    content: kivact_types::cell::ReportOnce,
+    text: kivact_types::cell::ReportOnce,
+    states: kivact_types::cell::ReportOnce,
+    leaf_paint: kivact_types::cell::ReportOnce,
+}
+impl StyleReports {
+    fn report(
+        &self,
+        rt: &kivact_runtime::Runtime,
+        owner: kivact_runtime::Owner,
+        id: NodeId,
+        resolved: &kivact_style::CompiledStyle,
+        at: &'static Location<'static>,
+    ) {
+        if !resolved.unsupported_in_states.is_empty() && self.states.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
@@ -193,7 +210,7 @@ pub(crate) fn bind_style(
                 id.0, resolved.duplicates
             ));
         }
-        if resolved.misplaced_content > 0 && reported.note() {
+        if resolved.misplaced_content > 0 && self.content.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
@@ -206,7 +223,7 @@ pub(crate) fn bind_style(
                 ),
             );
         }
-        if resolved.unsupported_text > 0 && reported_text.note() {
+        if resolved.unsupported_text > 0 && self.text.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
@@ -219,5 +236,5 @@ pub(crate) fn bind_style(
                 ),
             );
         }
-    });
+    }
 }

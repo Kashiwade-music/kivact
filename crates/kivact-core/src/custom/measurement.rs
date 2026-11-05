@@ -14,6 +14,7 @@ pub enum AvailableSpace {
     MaxContent,
 }
 
+// xtask-allow(state-fields): Known width and height are independent optional layout inputs in this borrowed measurement snapshot.
 /// What a primitive is measured under, in logical pixels. A dimension the
 /// layout already fixed (`known_*`, from the style or a stretch) wins
 /// over the measured one. It lends the layout's text measurement

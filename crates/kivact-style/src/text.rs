@@ -211,6 +211,7 @@ impl From<&str> for FontFeature {
     }
 }
 
+// xtask-allow(state-fields): Independent authored text properties use None for unspecified cascading values.
 /// The text properties of a style that are rare enough to keep out of
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -352,6 +353,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
     dropped
 }
 
+// xtask-allow(state-fields): Independent authored span overrides use None to inherit their paragraph properties.
 /// The text properties of one span of rich text; each one is optional and an
 /// unset one is the paragraph's. A span's decoration lines and features
 /// replace the paragraph's. The `Span` builders of `kivact::view` fill
@@ -434,6 +436,7 @@ impl PartialEq for DecorationStyleValue {
     }
 }
 
+// xtask-allow(state-fields): Foreground, background and decoration independently override one byte range.
 /// Paint overrides for a UTF-8 byte range within one editing line.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StyledRange {
@@ -443,6 +446,7 @@ pub struct StyledRange {
     pub decoration: Option<TextDecoration>,
 }
 
+// xtask-allow(state-fields): Color and thickness are independently optional authored decoration properties.
 /// Lines, pattern and dimensions of a text decoration.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextDecoration {
