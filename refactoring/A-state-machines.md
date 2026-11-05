@@ -1304,3 +1304,10 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **不正**: native input が未設定の環境と None の waker で存在でき、subclass の設定通知は waker がないと wake しない。SM-A08 の take mailbox と異なり、waker は一度だけの構築情報。
 - **解消後**: `NativeInput::new(environment, wake)` の構築引数にし、`enum InputWake { Direct, EventLoop(ShellWaker) }` を保存する。embed の Direct と native の EventLoop を明示し、後付けの RefCell<Option<ShellWaker>> を消す。環境のその後の変更は現在と同じ event で更新する。
 - **unit**: A-3
+
+## W6 で見つかった状態
+
+| ID | 場所 | 解消後 | unit |
+|---|---|---|---|
+| SM-G2901 | arvane-shell/src/mouse.rs | MousePosition::{Unknown, Outside(Point), Inside(Point)}。到着前の座標なし状態と既知の内外を表し、保持buttonsは独立入力のまま。 | H-G2 |
+| SM-G2902 | arvane-asset/src/store/worker.rs | WorkerThread::{Running { jobs, thread }, Joined}。shutdownでsenderを閉じjoinし、既存panic伝播を保持。completion receiverとstop要求は独立。 | H-G2 |
