@@ -109,6 +109,48 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             super::ime::message(state, message, l);
             0
         }
+        WM_ERASEBKGND
+        | WM_PAINT
+        | WM_SIZE
+        | WM_DPICHANGED_AFTERPARENT
+        | WM_TIMER
+        | super::native::WAKE
+        | super::native::COMMAND
+        | WM_GETDLGCODE
+        | WM_NCHITTEST
+        | WM_SETCURSOR
+        | WM_SETFOCUS
+        | WM_KILLFOCUS => window_message(state, hwnd, message, w, l),
+        WM_DESTROY => {
+            // Dispose first: the handler's close (GPU shutdown) still sees a live window.
+            super::a11y::disconnect(state);
+            state.dispose();
+            state.shared.window_gone();
+            original(state, hwnd, message, w, l)
+        }
+        // The tail of `wndproc` ends the child's life.
+        WM_NCDESTROY => 0,
+        _ => {
+            // The system control class can emit double-click messages. Our
+            // ClickCounter counts repeated presses itself, so retain each down.
+            let input_message = match message {
+                WM_LBUTTONDBLCLK => WM_LBUTTONDOWN,
+                WM_RBUTTONDBLCLK => WM_RBUTTONDOWN,
+                WM_MBUTTONDBLCLK => WM_MBUTTONDOWN,
+                WM_XBUTTONDBLCLK => WM_XBUTTONDOWN,
+                _ => message,
+            };
+            if let Some(result) = super::input::message(state, input_message, w, l) {
+                return result;
+            }
+            original_if_alive(state, hwnd, message, w, l)
+        }
+    }
+}
+
+/// Dispatch geometry, drawing, focus, and scheduling messages.
+fn window_message(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+    match message {
         WM_ERASEBKGND => 1,
         WM_PAINT => {
             // SAFETY: an all-zero PAINTSTRUCT is valid writable output storage.
@@ -180,30 +222,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
             state.event(ShellEvent::Focused(focused));
             0
         }
-        WM_DESTROY => {
-            // Dispose first: the handler's close (GPU shutdown) still sees a live window.
-            super::a11y::disconnect(state);
-            state.dispose();
-            state.shared.window_gone();
-            original(state, hwnd, message, w, l)
-        }
-        // The tail of `wndproc` ends the child's life.
-        WM_NCDESTROY => 0,
-        _ => {
-            // The system control class can emit double-click messages. Our
-            // ClickCounter counts repeated presses itself, so retain each down.
-            let input_message = match message {
-                WM_LBUTTONDBLCLK => WM_LBUTTONDOWN,
-                WM_RBUTTONDBLCLK => WM_RBUTTONDOWN,
-                WM_MBUTTONDBLCLK => WM_MBUTTONDOWN,
-                WM_XBUTTONDBLCLK => WM_XBUTTONDOWN,
-                _ => message,
-            };
-            if let Some(result) = super::input::message(state, input_message, w, l) {
-                return result;
-            }
-            original_if_alive(state, hwnd, message, w, l)
-        }
+        _ => original_if_alive(state, hwnd, message, w, l),
     }
 }
 

@@ -72,6 +72,21 @@ pub(crate) fn shape_inline_layout(
     builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(
         height as f32,
     )));
+    apply_spans(&mut builder, spans, style, height, emoji);
+    for item in boxes {
+        builder.push_inline_box(item.clone());
+    }
+    builder.build(text)
+}
+
+/// Apply each span's shaping overrides to the paragraph builder.
+fn apply_spans(
+    builder: &mut parley::RangedBuilder<'_, u32>,
+    spans: &[TextSpan],
+    style: &ComputedTextStyle,
+    height: f64,
+    emoji: bool,
+) {
     for (i, span) in spans.iter().enumerate() {
         let range = span.range.clone();
         let s = &span.style;
@@ -135,10 +150,6 @@ pub(crate) fn shape_inline_layout(
             );
         }
     }
-    for item in boxes {
-        builder.push_inline_box(item.clone());
-    }
-    builder.build(text)
 }
 
 /// Whether `spans` may shape `text`: sorted, not overlapping, within the

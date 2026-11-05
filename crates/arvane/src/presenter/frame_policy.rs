@@ -315,6 +315,18 @@ impl Presenter {
                 Some(Err(e)) => self.gpu_failed(e)?,
             }
         }
+        self.draw_cpu_native(window, scene, size, scale, physical)
+    }
+
+    /// Rasterize and present through the window's CPU buffer.
+    fn draw_cpu_native(
+        &mut self,
+        window: &mut dyn ShellWindow,
+        scene: &RenderScene,
+        size: Size,
+        scale: f64,
+        physical: (u32, u32),
+    ) -> Result<Drawn, Failure> {
         let started = Instant::now();
         let mut raster = Duration::ZERO;
         let renderer = &mut self.cpu;

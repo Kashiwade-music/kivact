@@ -78,6 +78,7 @@ fn decoration_bits(d: TextDecoration) -> DecorationBits {
     )
 }
 
+// xtask-allow(state-fields): Immutable cache key; optional style overrides and highlight are independent text properties.
 /// What a span sets, as bits; what drawing alone reads (its color,
 /// decoration and highlight) is left out for measurement.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -97,6 +98,7 @@ struct SpanBits {
     highlight: bool,
 }
 
+// xtask-allow(state-fields): Immutable cache key for independent paragraph style options.
 /// The rest of the text vocabulary in a key, kept out of line: plain text
 /// in a plain style keys none (its key is as small and as quick to hash
 /// as before the vocabulary existed).
@@ -114,6 +116,7 @@ struct RichKey {
     spans: Vec<SpanBits>,
 }
 
+// xtask-allow(state-fields): Immutable cache key for independent text, style, width, and caret options.
 /// Exact text, spans, style and wrap width; floats compare by bit
 /// pattern.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -231,6 +234,7 @@ const SHAPED_ENTRIES: usize = 1024;
 /// Measured extents kept per cache generation.
 const MEASURED_ENTRIES: usize = 4096;
 
+// xtask-allow(state-fields): Named text cache; each optional result and collection memoizes an independent computation for the current font generation.
 /// Everything one text engine computes from its font collection: replaced as
 /// a whole when a font is registered, so no answer of the old collection
 /// survives.

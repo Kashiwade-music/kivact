@@ -139,38 +139,7 @@ impl TestParent {
         let mut class = CLASS
             .lock()
             .expect("test parent class lock poisoned: a panic already happened");
-        if class.0 == 0 {
-            let mut module = 0;
-            // SAFETY: the proc's address identifies this DLL without retaining it.
-            let found = unsafe {
-                GetModuleHandleExW(
-                    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
-                        | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                    parent_proc as *const () as *const u16,
-                    &mut module,
-                )
-            };
-            if found == 0 {
-                return Err(ShellError::new("test parent module lookup failed"));
-            }
-            let definition = WNDCLASSW {
-                style: 0,
-                lpfnWndProc: Some(parent_proc),
-                cbClsExtra: 0,
-                cbWndExtra: 0,
-                hInstance: module,
-                hIcon: 0,
-                hCursor: 0,
-                hbrBackground: 0,
-                lpszMenuName: std::ptr::null(),
-                lpszClassName: NAME.as_ptr(),
-            };
-            // SAFETY: definition and its class name live through registration.
-            if unsafe { RegisterClassW(&definition) } == 0 {
-                return Err(ShellError::new("test parent class registration failed"));
-            }
-            class.1 = module;
-        }
+        register_parent_class(&mut class)?;
         let style = WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN;
         let mut rect = RECT {
             left: 0,
@@ -677,28 +646,45 @@ impl Drop for CaptureResources {
         }
     }
 }
+/// Register the host class before creating its first window.
+fn register_parent_class(class: &mut (usize, isize)) -> Result<(), ShellError> {
+    if class.0 == 0 {
+        let mut module = 0;
+        // SAFETY: the proc's address identifies this DLL without retaining it.
+        let found = unsafe {
+            GetModuleHandleExW(
+                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+                    | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                parent_proc as *const () as *const u16,
+                &mut module,
+            )
+        };
+        if found == 0 {
+            return Err(ShellError::new("test parent module lookup failed"));
+        }
+        let definition = WNDCLASSW {
+            style: 0,
+            lpfnWndProc: Some(parent_proc),
+            cbClsExtra: 0,
+            cbWndExtra: 0,
+            hInstance: module,
+            hIcon: 0,
+            hCursor: 0,
+            hbrBackground: 0,
+            lpszMenuName: std::ptr::null(),
+            lpszClassName: NAME.as_ptr(),
+        };
+        // SAFETY: definition and its class name live through registration.
+        if unsafe { RegisterClassW(&definition) } == 0 {
+            return Err(ShellError::new("test parent class registration failed"));
+        }
+        class.1 = module;
+    }
+    Ok(())
+}
+
 fn capture(hwnd: HWND, print: bool, screen: bool) -> Result<CpuFrame, ShellError> {
-    let mut rect = RECT {
-        left: 0,
-        top: 0,
-        right: 0,
-        bottom: 0,
-    };
-    if print {
-        // SAFETY: rect is writable output storage for this live host's outer bounds.
-        unsafe {
-            GetWindowRect(hwnd, &mut rect);
-        }
-    } else {
-        // SAFETY: rect is writable output storage for this live child's client bounds.
-        unsafe {
-            GetClientRect(hwnd, &mut rect);
-        }
-    }
-    let (width, height) = (rect.right - rect.left, rect.bottom - rect.top);
-    if width <= 0 || height <= 0 {
-        return Err(ShellError::new("test capture has an empty rectangle"));
-    }
+    let (width, height) = capture_extent(hwnd, print)?;
     let bytes = (width as usize)
         .checked_mul(height as usize)
         .and_then(|n| n.checked_mul(4))
@@ -784,4 +770,30 @@ fn capture(hwnd: HWND, print: bool, screen: bool) -> Result<CpuFrame, ShellError
         height: height as u32,
         rgba,
     })
+}
+
+/// Validate the native rectangle before allocating a capture DIB.
+fn capture_extent(hwnd: HWND, print: bool) -> Result<(i32, i32), ShellError> {
+    let mut rect = RECT {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+    };
+    if print {
+        // SAFETY: rect is writable output storage for this live host's outer bounds.
+        unsafe {
+            GetWindowRect(hwnd, &mut rect);
+        }
+    } else {
+        // SAFETY: rect is writable output storage for this live child's client bounds.
+        unsafe {
+            GetClientRect(hwnd, &mut rect);
+        }
+    }
+    let (width, height) = (rect.right - rect.left, rect.bottom - rect.top);
+    if width <= 0 || height <= 0 {
+        return Err(ShellError::new("test capture has an empty rectangle"));
+    }
+    Ok((width, height))
 }

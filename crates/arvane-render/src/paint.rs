@@ -41,6 +41,7 @@ pub(crate) enum Brush {
     Pattern(PatternFill),
 }
 
+// xtask-allow(state-fields): Pattern drawing options; repetition along each axis is independently selectable.
 /// How [`crate::draw::Canvas::fill_pattern`] repeats pixels.
 pub(crate) struct PatternFill {
     /// Straight-alpha pixels.

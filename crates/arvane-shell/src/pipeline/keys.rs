@@ -159,6 +159,13 @@ pub fn code_from_x11_keycode(code: u8) -> KeyCode {
         64 => KeyCode::AltLeft,
         65 => KeyCode::Space,
         66 => KeyCode::CapsLock,
+        _ => extended_x11_keycode(code),
+    }
+}
+
+/// Function, keypad, and navigation positions outside the typing block.
+fn extended_x11_keycode(code: u8) -> KeyCode {
+    match code {
         67 => KeyCode::F1,
         68 => KeyCode::F2,
         69 => KeyCode::F3,

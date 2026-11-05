@@ -141,6 +141,7 @@ pub trait Handler {
     ) -> Result<ShellControl, ShellError>;
 }
 
+// xtask-allow(state-fields): Construction options: GPU preference and optional observer are independent caller choices, not lifecycle state.
 /// The main-thread window loop: one native window whose frames Arvane
 /// draws on the GPU when it can (started with the window, on a worker
 /// thread; the first frames are drawn on the CPU), else on the CPU.
@@ -198,6 +199,7 @@ impl Shell {
     }
 }
 
+// xtask-allow(state-fields): Construction options: GPU preference and optional observer are independent caller choices, not lifecycle state.
 /// Presenter configuration shared by synchronous and stepped shells.
 pub struct ShellSetup {
     pub prefer_gpu: bool,

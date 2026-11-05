@@ -25,32 +25,8 @@ pub(in crate::port) fn open(
             "Windows embedding needs a Win32 parent",
         ));
     };
-    // SAFETY: IsWindow validates the opaque host value without dereferencing it.
-    if unsafe { IsWindow(parent.get()) } == 0 {
-        return Err(ShellError::new("the parent window is not a window"));
-    }
-    let mut parent_process = 0;
-    // SAFETY: the parent was validated above; the call writes only the local pid.
-    let parent_thread = unsafe { GetWindowThreadProcessId(parent.get(), &mut parent_process) };
-    // SAFETY: the getter reads the calling thread identity only.
-    let thread = unsafe { GetCurrentThreadId() };
-    // SAFETY: the getter reads the calling process identity only.
-    let process = unsafe { GetCurrentProcessId() };
-    if parent_thread != thread || parent_process != process {
-        return Err(ShellError::new(
-            "the parent window must belong to the calling GUI thread",
-        ));
-    }
-    if !options.size.width.is_finite()
-        || !options.size.height.is_finite()
-        || options.size.width <= 0.0
-        || options.size.height <= 0.0
-        || options.scale.is_some_and(|s| !s.is_finite() || s <= 0.0)
-    {
-        return Err(ShellError::new(
-            "child size and scale must be positive and finite",
-        ));
-    }
+    validate_parent(parent)?;
+    validate_options(&options)?;
     let instance = module()?;
     let scale = options
         .scale
@@ -63,28 +39,7 @@ pub(in crate::port) fn open(
         scale,
         MAX_DIMENSION,
     )?;
-    let guard = super::dpi::Guard::for_parent(parent.get());
-    // SAFETY: STATIC is a system-owned class; creation receives no Rust state.
-    let hwnd = unsafe {
-        CreateWindowExW(
-            0,
-            [83u16, 84, 65, 84, 73, 67, 0].as_ptr(),
-            [0u16].as_ptr(),
-            WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-            0,
-            0,
-            width as i32,
-            height as i32,
-            parent.get(),
-            0,
-            instance,
-            std::ptr::null(),
-        )
-    };
-    drop(guard);
-    let Some(hwnd) = NonZeroIsize::new(hwnd) else {
-        return Err(ShellError::new("CreateWindowExW failed"));
-    };
+    let hwnd = create_child(parent, instance, width, height)?;
     let shared = Arc::new(Shared::new(width, height, scale, hooks.panic));
     let native = Arc::new(Native {
         hwnd,
@@ -119,34 +74,7 @@ pub(in crate::port) fn open(
             state.a11y.clone(),
             state.waker(),
         )));
-    if options.scale.is_none() {
-        let actual = super::dpi::scale(hwnd);
-        if actual != scale {
-            shared.set_scale(actual);
-            let (width, height) = crate::port::embed::geometry::physical_size(
-                kivact_types::Size {
-                    width: options.size.width,
-                    height: options.size.height,
-                },
-                actual,
-                MAX_DIMENSION,
-            )?;
-            // SAFETY: this child belongs to the opening GUI thread; only its
-            // physical extent changes to match the actual child DPI.
-            unsafe {
-                SetWindowPos(
-                    hwnd,
-                    0,
-                    0,
-                    0,
-                    width as i32,
-                    height as i32,
-                    SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE,
-                );
-            }
-            state.geometry();
-        }
-    }
+    apply_actual_scale(&state, &shared, hwnd, &options, scale)?;
     state
         .environment
         .replace(super::window::environment(&state));
@@ -177,6 +105,113 @@ pub(in crate::port) fn open(
         shared,
         backend: native,
     }))
+}
+
+/// Require the parent to belong to the calling GUI thread.
+fn validate_parent(parent: NonZeroIsize) -> Result<(), ShellError> {
+    // SAFETY: IsWindow validates the opaque host value without dereferencing it.
+    if unsafe { IsWindow(parent.get()) } == 0 {
+        return Err(ShellError::new("the parent window is not a window"));
+    }
+    let mut parent_process = 0;
+    // SAFETY: the parent was validated above; the call writes only the local pid.
+    let parent_thread = unsafe { GetWindowThreadProcessId(parent.get(), &mut parent_process) };
+    // SAFETY: the getter reads the calling thread identity only.
+    let thread = unsafe { GetCurrentThreadId() };
+    // SAFETY: the getter reads the calling process identity only.
+    let process = unsafe { GetCurrentProcessId() };
+    if parent_thread != thread || parent_process != process {
+        return Err(ShellError::new(
+            "the parent window must belong to the calling GUI thread",
+        ));
+    }
+    Ok(())
+}
+
+/// Create the system child under the parent's DPI context.
+fn create_child(
+    parent: NonZeroIsize,
+    instance: isize,
+    width: u32,
+    height: u32,
+) -> Result<NonZeroIsize, ShellError> {
+    let guard = super::dpi::Guard::for_parent(parent.get());
+    // SAFETY: STATIC is a system-owned class; creation receives no Rust state.
+    let hwnd = unsafe {
+        CreateWindowExW(
+            0,
+            [83u16, 84, 65, 84, 73, 67, 0].as_ptr(),
+            [0u16].as_ptr(),
+            WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+            0,
+            0,
+            width as i32,
+            height as i32,
+            parent.get(),
+            0,
+            instance,
+            std::ptr::null(),
+        )
+    };
+    drop(guard);
+    let Some(hwnd) = NonZeroIsize::new(hwnd) else {
+        return Err(ShellError::new("CreateWindowExW failed"));
+    };
+    Ok(hwnd)
+}
+
+/// Match the physical child extent to the DPI actually assigned by Windows.
+fn apply_actual_scale(
+    state: &State,
+    shared: &Shared,
+    hwnd: isize,
+    options: &EmbedOptions,
+    scale: f64,
+) -> Result<(), ShellError> {
+    if options.scale.is_none() {
+        let actual = super::dpi::scale(hwnd);
+        if actual != scale {
+            shared.set_scale(actual);
+            let (width, height) = crate::port::embed::geometry::physical_size(
+                kivact_types::Size {
+                    width: options.size.width,
+                    height: options.size.height,
+                },
+                actual,
+                MAX_DIMENSION,
+            )?;
+            // SAFETY: this child belongs to the opening GUI thread; only its
+            // physical extent changes to match the actual child DPI.
+            unsafe {
+                SetWindowPos(
+                    hwnd,
+                    0,
+                    0,
+                    0,
+                    width as i32,
+                    height as i32,
+                    SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE,
+                );
+            }
+            state.geometry();
+        }
+    }
+    Ok(())
+}
+
+/// Validate logical dimensions before converting to native coordinates.
+fn validate_options(options: &EmbedOptions) -> Result<(), ShellError> {
+    if !options.size.width.is_finite()
+        || !options.size.height.is_finite()
+        || options.size.width <= 0.0
+        || options.size.height <= 0.0
+        || options.scale.is_some_and(|s| !s.is_finite() || s <= 0.0)
+    {
+        return Err(ShellError::new(
+            "child size and scale must be positive and finite",
+        ));
+    }
+    Ok(())
 }
 
 fn module() -> Result<isize, ShellError> {

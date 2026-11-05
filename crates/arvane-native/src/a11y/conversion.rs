@@ -145,6 +145,43 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
         let [anchor, focus] = text_positions(text, [text.selection.0, text.selection.1]);
         node.set_text_selection(accesskit::TextSelection { anchor, focus });
     }
+    set_labels(&mut node, source);
+    let (sx, sy) = (source.scroll.x, source.scroll.y);
+    // Its descendants moved back by the scroll, then everything mapped by
+    // its own transform (`SemanticsTree::window_bounds`).
+    let t = source.transform;
+    if sx != 0.0 || sy != 0.0 || !t.is_identity() {
+        let own = accesskit::Affine::new([t.a, t.b, t.c, t.d, t.e, t.f].map(f64::from));
+        node.set_transform(own * accesskit::Affine::translate((-sx, -sy)));
+    }
+    node.set_bounds(accesskit::Rect {
+        x0: source.bounds.x + sx,
+        y0: source.bounds.y + sy,
+        x1: source.bounds.x + source.bounds.width + sx,
+        y1: source.bounds.y + source.bounds.height + sy,
+    });
+    set_states(&mut node, source);
+    set_relations(&mut node, source);
+    set_collection_properties(&mut node, source);
+    for action in source.semantics.actions.iter().flatten() {
+        node.add_action(platform_action(*action));
+    }
+    if source
+        .semantics
+        .actions
+        .as_ref()
+        .is_some_and(|actions| actions.contains(&A11yAction::Dismiss))
+    {
+        node.set_custom_actions(vec![accesskit::CustomAction {
+            id: DISMISS,
+            description: "Dismiss".into(),
+        }]);
+    }
+    node
+}
+
+/// Convert one group of canonical semantics properties.
+fn set_labels(node: &mut accesskit::Node, source: &SemanticsNode) {
     if !source
         .semantics
         .name
@@ -180,20 +217,10 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
     if let Some(id) = &source.semantics.test_id {
         node.set_author_id(id.clone());
     }
-    let (sx, sy) = (source.scroll.x, source.scroll.y);
-    // Its descendants moved back by the scroll, then everything mapped by
-    // its own transform (`SemanticsTree::window_bounds`).
-    let t = source.transform;
-    if sx != 0.0 || sy != 0.0 || !t.is_identity() {
-        let own = accesskit::Affine::new([t.a, t.b, t.c, t.d, t.e, t.f].map(f64::from));
-        node.set_transform(own * accesskit::Affine::translate((-sx, -sy)));
-    }
-    node.set_bounds(accesskit::Rect {
-        x0: source.bounds.x + sx,
-        y0: source.bounds.y + sy,
-        x1: source.bounds.x + source.bounds.width + sx,
-        y1: source.bounds.y + source.bounds.height + sy,
-    });
+}
+
+/// Convert one group of canonical semantics properties.
+fn set_states(node: &mut accesskit::Node, source: &SemanticsNode) {
     if source.semantics.disabled {
         node.set_disabled();
     }
@@ -226,6 +253,10 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
     if source.semantics.role.unwrap_or(Role::Generic) == Role::Status {
         node.set_live(accesskit::Live::Polite);
     }
+}
+
+/// Convert one group of canonical semantics properties.
+fn set_relations(node: &mut accesskit::Node, source: &SemanticsNode) {
     {
         let props = &source.semantics;
         if let Some(v) = props.value_min {
@@ -277,6 +308,13 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
         if !props.labelled_by.is_empty() {
             node.set_labelled_by(accesskit_ids(&props.labelled_by));
         }
+    }
+}
+
+/// Convert one group of canonical semantics properties.
+fn set_collection_properties(node: &mut accesskit::Node, source: &SemanticsNode) {
+    {
+        let props = &source.semantics;
         if let Some(count) = props.row_count {
             node.set_row_count(count as usize);
         }
@@ -337,21 +375,6 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
             node.set_role(accesskit::Role::PasswordInput);
         }
     }
-    for action in source.semantics.actions.iter().flatten() {
-        node.add_action(platform_action(*action));
-    }
-    if source
-        .semantics
-        .actions
-        .as_ref()
-        .is_some_and(|actions| actions.contains(&A11yAction::Dismiss))
-    {
-        node.set_custom_actions(vec![accesskit::CustomAction {
-            id: DISMISS,
-            description: "Dismiss".into(),
-        }]);
-    }
-    node
 }
 
 fn accesskit_ids(ids: &[SemanticsId]) -> Vec<accesskit::NodeId> {

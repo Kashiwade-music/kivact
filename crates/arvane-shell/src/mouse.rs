@@ -15,20 +15,34 @@ use kivact_types::{
 /// reported where the mouse left; a `Cancel` releases every button.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Mouse {
-    position: Option<Point>,
+    position: MousePosition,
     buttons: PointerButtons,
-    inside: bool,
+}
+
+/// Last location and whether it belongs to the current window.
+#[derive(Clone, Copy, Debug, Default)]
+enum MousePosition {
+    #[default]
+    Unknown,
+    Outside(Point),
+    Inside(Point),
 }
 
 impl Mouse {
     /// The last known logical position, or `None` before any position arrived.
     pub fn position(&self) -> Option<Point> {
-        self.position
+        match self.position {
+            MousePosition::Unknown => None,
+            MousePosition::Outside(at) | MousePosition::Inside(at) => Some(at),
+        }
     }
 
     /// Last reported position while the mouse is inside the window.
     pub fn window_position(&self) -> Option<Point> {
-        self.inside.then_some(self.position).flatten()
+        match self.position {
+            MousePosition::Inside(at) => Some(at),
+            MousePosition::Unknown | MousePosition::Outside(_) => None,
+        }
     }
 
     /// The `Cancel` that ends the gesture when the window loses focus with
@@ -44,9 +58,12 @@ impl Mouse {
     /// test window), so the next event made here continues from it.
     pub fn observe(&mut self, input: PointerSample) {
         if input.kind == PointerKind::Mouse {
-            self.position = Some(input.position);
+            self.position = if input.phase == PointerPhase::Leave {
+                MousePosition::Outside(input.position)
+            } else {
+                MousePosition::Inside(input.position)
+            };
             self.buttons = input.buttons;
-            self.inside = input.phase != PointerPhase::Leave;
         }
     }
 
@@ -77,13 +94,14 @@ impl Mouse {
     /// (its buttons stay unchanged).
     pub fn event(&mut self, phase: PointerPhase, position: Option<Point>) -> Option<PointerSample> {
         if let Some(position) = position {
-            self.position = Some(position);
-            self.inside = true;
+            self.position = MousePosition::Inside(position);
         }
-        if phase == PointerPhase::Leave {
-            self.inside = false;
+        if phase == PointerPhase::Leave
+            && let Some(at) = self.position()
+        {
+            self.position = MousePosition::Outside(at);
         }
-        let at = self.position?;
+        let at = self.position()?;
         match phase {
             PointerPhase::Down(press) => self.buttons = self.buttons.with(press.button, true),
             PointerPhase::Up(press) => self.buttons = self.buttons.with(press.button, false),

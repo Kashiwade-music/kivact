@@ -1,4 +1,6 @@
 //! Role: Contracts and native import and export helpers for GPU texture sharing.
+
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! Without features, this crate exposes shared identities and errors.
 //! Feature `export` enables native pools; `wgpu` includes `export` and

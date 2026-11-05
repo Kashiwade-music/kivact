@@ -1,4 +1,6 @@
 //! Role: Arvane render: rasterises `kivact-types` draw commands.
+
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! Responsibility: scene rasterization with private vello_cpu and
 //! vello_hybrid backends, which share every stage but the last (`draw.rs`).

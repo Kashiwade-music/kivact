@@ -1,4 +1,6 @@
 //! Role: A render engine of its own device that shares frames with Arvane, for tests.
+
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! The engine an application would bring, for the GPU texture sharing
 //! tests (`crates/arvane/tests/e2e/external.rs`): a device of its own (not

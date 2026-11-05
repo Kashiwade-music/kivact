@@ -26,6 +26,7 @@ use kivact_types::{FontKerning, TextTransform};
 /// Layouts per generation.
 const ENTRIES: usize = 256;
 
+// xtask-allow(state-fields): Immutable paragraph cache key; optional span overrides are independent style properties.
 /// What a span sets that shaping reads; floats compare by bit pattern.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct SpanKey {
@@ -82,6 +83,7 @@ struct RichKey {
     spans: Vec<SpanKey>,
 }
 
+// xtask-allow(state-fields): Immutable paragraph cache key; style and wrapping options are independent inputs.
 /// What a shaped layout depends on: the text, the paragraph style that
 /// shaping reads (see the module invariant) and its spans' ranges and
 /// shaping styles; floats compare by bit pattern.

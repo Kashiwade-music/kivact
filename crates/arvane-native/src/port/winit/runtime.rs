@@ -87,6 +87,7 @@ enum Surface {
     },
 }
 
+// xtask-allow(state-fields): Native resources and monitor cache; optional Windows subclass and last observed monitor are independent platform facts.
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
     /// The window's subclass (Windows), held for its drop, which removes
@@ -789,61 +790,7 @@ impl ApplicationHandler<()> for Runner<'_> {
         // when the text it answers from stays the same.
         window.input.scale.set(scale);
         let (mouse, height) = (window.input.mouse.get(), window.size().height);
-        // What the window's subclass learned that winit does not report,
-        // delivered before the event it precedes.
-        let mut before = None;
-        match &event {
-            // A range the IME took for reconversion.
-            WindowEvent::Ime(_) => {
-                before = window.input.reconvert.take().map(|(start, end)| {
-                    window
-                        .input
-                        .ime
-                        .borrow_mut()
-                        .input(RawIme::Reconvert {
-                            selection: (start, end),
-                        })
-                        .remove(0)
-                });
-            }
-            // winit reports buttons and wheels without a position: the
-            // message's own, when it differs from the last move (a move
-            // the platform reported late, after the button).
-            WindowEvent::MouseInput { .. } | WindowEvent::MouseWheel { .. } => {
-                let size = window.window.inner_size();
-                let inside = |(x, y): (f64, f64)| {
-                    x >= 0.0 && y >= 0.0 && x < f64::from(size.width) && y < f64::from(size.height)
-                };
-                if let Some(at) = window.input.pointer.take().filter(|at| inside(*at))
-                    && self.mouse.window_position() != Some(logical(at, scale))
-                {
-                    let at = logical(at, scale);
-                    before = self
-                        .mouse
-                        .event(PointerPhase::Move, Some(at))
-                        .map(ShellEvent::Pointer);
-                }
-            }
-            // winit tells of no change of the locale, and only Windows has a
-            // message for it (`WM_SETTINGCHANGE`): coming back to the window
-            // is when the user may have changed it elsewhere.
-            WindowEvent::Focused(true) => {
-                let locale = crate::native_input::locale::system_locale();
-                if window.input.locale.replace(locale.clone()) != locale {
-                    before = Some(ShellEvent::EnvironmentChanged);
-                }
-            }
-            // Another monitor may refresh at another rate.
-            WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                let monitor = window.window.current_monitor();
-                if monitor != window.monitor {
-                    window.monitor = monitor;
-                    window.read_frame_period();
-                    before = Some(ShellEvent::EnvironmentChanged);
-                }
-            }
-            _ => {}
-        }
+        let before = preceding_event(window, &event, &mut self.mouse, scale);
         // Contacts begin, move and end several at a time: a Down of a
         // contact whose end was lost cancels it first, and losing the focus
         // (and the pointer capture) cancels every contact and, when a mouse
@@ -869,7 +816,23 @@ impl ApplicationHandler<()> for Runner<'_> {
         for contact in contacts {
             self.input(el, contact);
         }
-        let mapped = match event {
+        let mapped = self.map_window_event(el, event, scale, mouse, height);
+        if let Some(event) = mapped {
+            self.input(el, event);
+        }
+    }
+}
+impl Runner<'_> {
+    /// Translate a winit event after preceding native observations.
+    fn map_window_event(
+        &mut self,
+        el: &ActiveEventLoop,
+        event: WindowEvent,
+        scale: f64,
+        mouse: kivact_types::PointerSettings,
+        height: f64,
+    ) -> Option<ShellEvent> {
+        match event {
             WindowEvent::RedrawRequested => Some(ShellEvent::Redraw),
             WindowEvent::CloseRequested => Some(ShellEvent::CloseRequested),
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
@@ -935,21 +898,38 @@ impl ApplicationHandler<()> for Runner<'_> {
                     meta: m.super_key(),
                 })
             }
-            WindowEvent::KeyboardInput { event, .. } => {
-                Some(arvane_shell::pipeline::KeyPipeline::default().key(
-                    arvane_shell::pipeline::RawKey {
-                        key: arvane_shell::pipeline::PlatformKey::Code {
-                            key: map_key(&event.logical_key),
-                            code: physical_code(event.physical_key),
-                        },
-                        pressed: event.state == ElementState::Pressed,
-                        repeat: Some(event.repeat),
-                        text: event.text.map(|s| s.to_string()),
-                    },
-                    self.modifiers.current(),
-                    self.mouse.window_position(),
-                ))
-            }
+            WindowEvent::KeyboardInput { event, .. } => self.map_keyboard(event),
+            WindowEvent::ThemeChanged(_) => Some(ShellEvent::EnvironmentChanged),
+            event => self.map_platform_event(el, event),
+        }
+    }
+}
+
+impl Runner<'_> {
+    /// Translate a physical and logical keyboard sample together.
+    fn map_keyboard(&self, event: winit::event::KeyEvent) -> Option<ShellEvent> {
+        Some(arvane_shell::pipeline::KeyPipeline::default().key(
+            arvane_shell::pipeline::RawKey {
+                key: arvane_shell::pipeline::PlatformKey::Code {
+                    key: map_key(&event.logical_key),
+                    code: physical_code(event.physical_key),
+                },
+                pressed: event.state == ElementState::Pressed,
+                repeat: Some(event.repeat),
+                text: event.text.map(|s| s.to_string()),
+            },
+            self.modifiers.current(),
+            self.mouse.window_position(),
+        ))
+    }
+
+    /// Translate file-drop and IME protocol events.
+    fn map_platform_event(
+        &mut self,
+        el: &ActiveEventLoop,
+        event: WindowEvent,
+    ) -> Option<ShellEvent> {
+        match event {
             WindowEvent::HoveredFile(path) => {
                 if matches!(self.dnd, DropSession::Dropped { .. }) {
                     self.deliver_drop(el);
@@ -1006,14 +986,11 @@ impl ApplicationHandler<()> for Runner<'_> {
                     })
                 })
             }
-            WindowEvent::ThemeChanged(_) => Some(ShellEvent::EnvironmentChanged),
             _ => None,
-        };
-        if let Some(event) = mapped {
-            self.input(el, event);
         }
     }
 }
+
 impl WinitWindow {
     /// Whether the Windows subclass is installed: it answers the IME's reconversion and tells pens
     /// from touch.
@@ -1107,4 +1084,68 @@ impl ImePort for ImeWindow<'_> {
     fn surrounding(&mut self, text: Option<&ShellImeText>) {
         *self.0.input.text.borrow_mut() = text.cloned();
     }
+}
+
+/// Deliver native observations that precede the corresponding winit event.
+fn preceding_event(
+    window: &mut WinitWindow,
+    event: &WindowEvent,
+    mouse: &mut arvane_shell::Mouse,
+    scale: f64,
+) -> Option<ShellEvent> {
+    // What the window's subclass learned that winit does not report,
+    // delivered before the event it precedes.
+    let mut before = None;
+    match event {
+        // A range the IME took for reconversion.
+        WindowEvent::Ime(_) => {
+            before = window.input.reconvert.take().map(|(start, end)| {
+                window
+                    .input
+                    .ime
+                    .borrow_mut()
+                    .input(RawIme::Reconvert {
+                        selection: (start, end),
+                    })
+                    .remove(0)
+            });
+        }
+        // winit reports buttons and wheels without a position: the
+        // message's own, when it differs from the last move (a move
+        // the platform reported late, after the button).
+        WindowEvent::MouseInput { .. } | WindowEvent::MouseWheel { .. } => {
+            let size = window.window.inner_size();
+            let inside = |(x, y): (f64, f64)| {
+                x >= 0.0 && y >= 0.0 && x < f64::from(size.width) && y < f64::from(size.height)
+            };
+            if let Some(at) = window.input.pointer.take().filter(|at| inside(*at))
+                && mouse.window_position() != Some(logical(at, scale))
+            {
+                let at = logical(at, scale);
+                before = mouse
+                    .event(PointerPhase::Move, Some(at))
+                    .map(ShellEvent::Pointer);
+            }
+        }
+        // winit tells of no change of the locale, and only Windows has a
+        // message for it (`WM_SETTINGCHANGE`): coming back to the window
+        // is when the user may have changed it elsewhere.
+        WindowEvent::Focused(true) => {
+            let locale = crate::native_input::locale::system_locale();
+            if window.input.locale.replace(locale.clone()) != locale {
+                before = Some(ShellEvent::EnvironmentChanged);
+            }
+        }
+        // Another monitor may refresh at another rate.
+        WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. } => {
+            let monitor = window.window.current_monitor();
+            if monitor != window.monitor {
+                window.monitor = monitor;
+                window.read_frame_period();
+                before = Some(ShellEvent::EnvironmentChanged);
+            }
+        }
+        _ => {}
+    }
+    before
 }

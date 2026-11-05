@@ -1,4 +1,6 @@
 //! Role: Portable shell vocabulary and input normalization for Arvane backends.
+
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! Backends deliver ordered [`ShellEvent`] values on their UI thread, using
 //! logical window pixels for input coordinates and nanoseconds for deadlines.
