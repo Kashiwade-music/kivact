@@ -4,7 +4,7 @@ use kivact_core::state::Value;
 use kivact_core::style::{Color, ColorToken, StyledRange};
 use kivact_core::view::Key;
 use kivact_interaction::text_edit_policy;
-/// Place a line background before syntax ranges so explicit syntax backgrounds win.
+/// Fill syntax gaps and unset backgrounds without overlapping glyph-color ranges.
 pub(super) fn line_background(
     ranges: &mut Vec<StyledRange>,
     line: &str,
@@ -22,15 +22,33 @@ pub(super) fn line_background(
         None
     };
     if let Some(background) = color {
-        ranges.insert(
-            0,
-            StyledRange {
-                range: 0..line.len(),
+        ranges.sort_by_key(|range| range.range.start);
+        let mut gaps = Vec::new();
+        let mut cursor = 0;
+        for range in ranges.iter_mut() {
+            let start = range.range.start.min(line.len());
+            if cursor < start {
+                gaps.push(StyledRange {
+                    range: cursor..start,
+                    color: None,
+                    background: Some(background),
+                    decoration: None,
+                });
+            }
+            if range.background.is_none() {
+                range.background = Some(background);
+            }
+            cursor = cursor.max(range.range.end.min(line.len()));
+        }
+        if cursor < line.len() {
+            gaps.push(StyledRange {
+                range: cursor..line.len(),
                 color: None,
                 background: Some(background),
                 decoration: None,
-            },
-        );
+            });
+        }
+        ranges.extend(gaps);
     }
 }
 pub(super) fn plain_highlight(
