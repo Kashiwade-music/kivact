@@ -10,6 +10,9 @@ pub struct AlertState {
     pub tone: Tone,
     pub expanded: Option<bool>,
     pub dismissible: bool,
+    pub has_icon: bool,
+    pub has_actions: bool,
+    pub has_description: bool,
 }
 
 // xtask-allow(state-fields): Read-only recipe projection of the caller binding and actual interaction configuration.

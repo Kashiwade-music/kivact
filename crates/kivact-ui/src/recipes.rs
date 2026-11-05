@@ -623,6 +623,7 @@ recipe_table! {
         avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
+        avatar_image(avatar_image_recipe): crate::AvatarState = super::look_indicators::avatar_image,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
         badge_label(badge_label_recipe): crate::BadgeState = super::look_indicators::badge_label,

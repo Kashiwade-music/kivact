@@ -134,10 +134,16 @@ impl IntoView for Alert {
         let collapsible = self.collapsible;
         let has_details = self.content.is_some();
         let open = self.open.unwrap_or_else(|| signal(false).into_binding());
+        let has_icon = self.icon.is_some();
+        let has_actions = self.actions.is_some();
+        let has_description = self.description.is_some();
         let state = move || AlertState {
             tone: tone.get(),
             expanded: (has_details && collapsible.get()).then(|| open.get()),
             dismissible: dismissible.get(),
+            has_icon,
+            has_actions,
+            has_description,
         };
         let contents = self.render_contents(state, collapsible, open, phase);
         with_base_recipe_style(
