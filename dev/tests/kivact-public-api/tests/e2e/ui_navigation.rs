@@ -159,3 +159,33 @@ fn navigation_actions_and_rich_panel_links_share_the_existing_close_owner() {
     assert!(screen.query_by_role(Role::Link, "Guide").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn breadcrumb_current_override_can_change_and_clear() {
+    let (screen, current) = mount(|| {
+        let current = signal(Some(0));
+        (
+            current,
+            breadcrumb(vec![ListItem::new(0, "Home"), ListItem::new(1, "Guide")])
+                .current(current)
+                .on_activate(|_| {}),
+        )
+    });
+    assert_eq!(
+        screen.get_by_role(Role::Text, "Home").current_item(),
+        Some(CurrentItem::Page)
+    );
+    assert_eq!(screen.get_by_role(Role::Link, "Guide").current_item(), None);
+    current.set(Some(1));
+    screen.run_until_idle();
+    assert_eq!(
+        screen.get_by_role(Role::Text, "Guide").current_item(),
+        Some(CurrentItem::Page)
+    );
+    assert_eq!(screen.get_by_role(Role::Link, "Home").current_item(), None);
+    current.set(None);
+    screen.run_until_idle();
+    assert_eq!(screen.get_by_role(Role::Link, "Home").current_item(), None);
+    assert_eq!(screen.get_by_role(Role::Link, "Guide").current_item(), None);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

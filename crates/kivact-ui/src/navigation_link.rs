@@ -52,7 +52,7 @@ impl IntoView for NavigationMenuLink {
     fn into_view(mut self) -> View {
         let context = crate::navigation_context::current();
         if let Some(context) = &context {
-            self.variants.merge(&context.variants);
+            self.variants = self.variants.inherited(&context.variants);
         }
         let role = self.root.accessible_role().unwrap_or(Role::Link);
         let has_description = self.description.is_some();
