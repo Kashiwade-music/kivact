@@ -150,7 +150,7 @@ fn tools(zoom: Signal<f64>) -> impl IntoView {
 # fn main() {}
 ```
 
-`game::chevron(label, caption)` は等幅のキャプションの付いた大きな呼びかけ用のボタンです。`game::stepper(labels, current)`、`game::breadcrumb(items)`、`game::pagination(page, count)` は、現在位置をシグナルから受け取るナビゲーションの補助です。
+`game::chevron(label, caption)` は等幅のキャプションの付いた大きな呼びかけ用のボタンです。`kivact::ui::stepper(items, current)`、`kivact::ui::breadcrumb(items)`、`kivact::ui::pagination(count, page)` は、現在位置をシグナルから受け取るナビゲーションの補助です。
 
 ## 関連
 

@@ -235,10 +235,10 @@ pub fn catalog() -> impl IntoView {
     ));
     let sidebar = sidebar(rects, scroll_node, offset, current, mode);
     let topbar = (
-        g::breadcrumb(vec![
-            "Workspace".into(),
-            "Design System".into(),
-            "Components".into(),
+        kivact::ui::breadcrumb(vec![
+            kivact::interaction::ListItem::new("workspace", "Workspace"),
+            kivact::interaction::ListItem::new("design", "Design System"),
+            kivact::interaction::ListItem::new("components", "Components"),
         ]),
         spacer(),
         node()

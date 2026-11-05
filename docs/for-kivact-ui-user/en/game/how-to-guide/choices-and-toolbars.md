@@ -171,8 +171,8 @@ fn tools(zoom: Signal<f64>) -> impl IntoView {
 ```
 
 `game::chevron(label, caption)` is a large call-to-action button with a
-monospaced caption; `game::stepper(labels, current)`, `game::breadcrumb(items)`
-and `game::pagination(page, count)` are navigation helpers that take the
+monospaced caption; `kivact::ui::stepper(items, current)`, `kivact::ui::breadcrumb(items)`
+and `kivact::ui::pagination(count, page)` are navigation helpers that take the
 current position from your signals.
 
 ## See also
