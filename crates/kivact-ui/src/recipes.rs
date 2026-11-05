@@ -59,7 +59,7 @@ use crate::{look_files, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
-use kivact_interaction::{CarouselState, DropzoneState};
+use kivact_interaction::DropzoneState;
 use kivact_interaction::{
     DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
     TableHeaderState, ToastState, TreeItemState,
@@ -724,12 +724,12 @@ impl TabsRecipes {
 recipe_table! {
     /// Styles for a carousel's persistent parts.
     CarouselRecipes {
-        root(root_recipe): CarouselState = look_files::carousel_root,
-        viewport(viewport_recipe): CarouselState = look_files::carousel_viewport,
-        track(track_recipe): CarouselState = look_files::carousel_track,
-        slide(slide_recipe): CarouselState = look_files::carousel_slide,
-        previous(previous_recipe): CarouselState = look_files::carousel_control,
-        next(next_recipe): CarouselState = look_files::carousel_control,
+        root(root_recipe): crate::CarouselSurfaceState = look_files::carousel_root,
+        viewport(viewport_recipe): crate::CarouselSurfaceState = look_files::carousel_viewport,
+        track(track_recipe): crate::CarouselSurfaceState = look_files::carousel_track,
+        slide(slide_recipe): crate::CarouselSurfaceState = look_files::carousel_slide,
+        previous(previous_recipe): crate::CarouselSurfaceState = look_files::carousel_control,
+        next(next_recipe): crate::CarouselSurfaceState = look_files::carousel_control,
     }
 }
 recipe_table! {
