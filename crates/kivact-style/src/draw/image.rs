@@ -139,6 +139,25 @@ impl Draw {
     pub fn gpu_frame(&mut self, frame: &GpuFrame, rect: Rect, options: ImageOptions) {
         self.cmds.push(p::DrawCmd::External {
             frame: frame.frame,
+            cpu_pixels: None,
+            rect,
+            source: options.source,
+            opacity: options.opacity,
+            pixelated: options.pixelated,
+        });
+    }
+    // xtask-allow(internal-contract): Viewport records its own CPU image alongside an immutable shared frame for snapshot lowering.
+    #[doc(hidden)]
+    pub fn gpu_frame_with_pixels(
+        &mut self,
+        frame: &GpuFrame,
+        pixels: &Pixels,
+        rect: Rect,
+        options: ImageOptions,
+    ) {
+        self.cmds.push(p::DrawCmd::External {
+            frame: frame.frame,
+            cpu_pixels: Some(pixels.clone()),
             rect,
             source: options.source,
             opacity: options.opacity,

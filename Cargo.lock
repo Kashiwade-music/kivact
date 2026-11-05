@@ -2460,7 +2460,6 @@ dependencies = [
 name = "kivact-ui-creative"
 version = "0.1.0"
 dependencies = [
- "gpu-interop-producer",
  "kivact",
 ]
 

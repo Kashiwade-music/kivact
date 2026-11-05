@@ -48,7 +48,6 @@ mod tabs;
 mod theme;
 mod timeline;
 mod tokens;
-mod viewport_surface;
 
 pub use crate::audio::view_state::ChannelState;
 pub use crate::editors::arrangement::view_state::ArrangementState;
@@ -105,6 +104,3 @@ pub use tabs::{DocumentTabs, document_tabs};
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use timeline::{Timeline, timeline};
 pub use tokens::{Accent, Density, LabelTone, Tokens};
-pub use viewport_surface::{
-    SurfacePointer, SurfaceRegion, SurfaceSize, ViewportSurface, viewport_surface,
-};

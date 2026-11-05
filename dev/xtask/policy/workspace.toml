@@ -1,3 +1,4 @@
+# ViewTransform is a canonical passive kivact-types value; core viewport attaches the interaction-owned model through a hidden conversion port.
 # ScrollSnap and release sampling are pure shared types; interaction reexports their canonical implementations.
 # Layout transitions and Retarget are shared kivact-types motion contracts consumed by runtime/style/engine.
 # TextDecorationStyle and Visibility remain shared kivact-types values; style resolves them for the engine.
@@ -52,8 +53,8 @@ arvane-text = ["arvane"]
 arvane-render = ["arvane", "kivact"]
 arvane-asset = ["arvane"]
 # 試験だけの engine（自前の device で frame を描いて共有する）。Arvane の契約の試験と、公開 API の試験・
-# creative kit の GPU frame の試験（dev-dependency）だけが使う。
-gpu-interop-producer = ["arvane", "kivact-public-api-tests", "kivact-ui-creative"]
+# viewport の GPU frame の試験（dev-dependency）だけが使う。
+gpu-interop-producer = ["arvane", "kivact-public-api-tests"]
 
 # ----- アプリ・例・雛形・ツール: 誰も依存しない。
 kivact-template-basic = []

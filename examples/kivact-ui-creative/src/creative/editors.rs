@@ -345,9 +345,11 @@ pub(super) fn grading() -> impl IntoView {
                 )),
                 node()
                     .child(
-                        ui::viewport_surface(worker_image)
-                            .name("Worker rendered gradient")
-                            .style(style().size(720, 405).max_width(pct(100))),
+                        kivact::view::viewport(move || {
+                            worker_image.get().unwrap_or_else(empty_pixels)
+                        })
+                        .name("Worker rendered gradient")
+                        .style(style().size(720, 405).max_width(pct(100))),
                     )
                     .style(
                         style()
@@ -370,11 +372,11 @@ pub(super) fn grading() -> impl IntoView {
                 )
                 .placeholder("")
                 .style(style().width(110)),
-                ui::viewport_surface(move || {
-                    Some(images::histogram(
+                kivact::view::viewport(move || {
+                    images::histogram(
                         &samples.get(),
                         upper.get().as_deref().unwrap_or("histogram"),
-                    ))
+                    )
                 })
                 .name("Application histogram")
                 .style(style().height(340)),
@@ -385,11 +387,11 @@ pub(super) fn grading() -> impl IntoView {
                 )
                 .placeholder("")
                 .style(style().width(110)),
-                ui::viewport_surface(move || {
-                    Some(images::histogram(
+                kivact::view::viewport(move || {
+                    images::histogram(
                         &samples.get(),
                         lower.get().as_deref().unwrap_or("histogram"),
-                    ))
+                    )
                 })
                 .name("Application channel histogram")
                 .style(style().height(340)),
@@ -722,7 +724,8 @@ pub(super) fn viewport(
     pointer: Signal<Point>,
 ) -> impl IntoView {
     let transform = signal(kivact::interaction::ViewTransform::default());
-    let frame = memo(move || Some(images::gradient(640, 360, shading.get(), grid.get())));
+    let zoom = kivact::interaction::use_zoom_pan(transform);
+    let frame = memo(move || images::gradient(640, 360, shading.get(), grid.get()));
     col((
         line((
             text("Application image"),
@@ -775,18 +778,27 @@ pub(super) fn viewport(
         .style(style().height(38).padding_x(10)),
         row((
             tool_palette(true).style(style().width(42).padding(6)),
-            ui::viewport_surface(frame)
-                .transform(transform)
-                .on_pointer(move |event: ui::SurfacePointer| pointer.set(event.position))
-                .overlay(|draw, _| {
-                    draw.stroke_rect(Rect::new(220.0, 110.0, 200.0, 140.0), 1.0, rgb(0xffd25a));
+            kivact::view::viewport(frame)
+                .transform(zoom)
+                .with_node(move |node| {
+                    node.on_pointer(move |event| {
+                        pointer.set(zoom.to_content(event.pos()));
+                        kivact::view::Handled::No
+                    })
+                    .region(kivact::draw::RegionId(1), {
+                        let input = kivact::custom::part(|input| input);
+                        kivact::custom::Part::new(input.state(), move |node| {
+                            node.part(input).role(Role::Image).name("Sample area")
+                        })
+                    })
+                    .draw_over(move |draw, _| {
+                        let top = zoom.to_view(Point::new(220.0, 110.0));
+                        let bottom = zoom.to_view(Point::new(420.0, 250.0));
+                        let bounds = Rect::new(top.x, top.y, bottom.x - top.x, bottom.y - top.y);
+                        draw.stroke_rect(bounds, 1.0, rgb(0xffd25a));
+                        draw.region(kivact::draw::RegionId(1), bounds);
+                    })
                 })
-                .regions(vec![ui::SurfaceRegion::new(
-                    1,
-                    "Sample area",
-                    Role::Image,
-                    Rect::new(220.0, 110.0, 200.0, 140.0),
-                )])
                 .style(style().height(392).grow(1))
                 .with_node(|node| node.node_ref(reference))
                 .test_id("creative-viewport"),
@@ -813,4 +825,8 @@ fn apply_time(keys: &mut Vec<ui::Keyframe>, request: &ui::TimeRequest) {
         }
         ui::TimeRequest::Delete(ids) => keys.retain(|key| !ids.contains(&key.id)),
     }
+}
+
+fn empty_pixels() -> kivact::draw::Pixels {
+    kivact::draw::Pixels::new(1, 1, vec![0; 4].into())
 }

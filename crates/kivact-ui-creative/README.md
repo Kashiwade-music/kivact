@@ -84,7 +84,7 @@ the shape of a key: `Keyframe::glyph` sets the one a dope sheet draws, and
 canvas.
 
 Use `timeline(clips, state)`, `dope_sheet(keys, state)`, `graph_editor(curves, state)`,
-`node_editor(nodes, links, state)`, `viewport_surface(image)` or
+`node_editor(nodes, links, state)` or
 `color_wheel(color, model)`. Each builder accepts its own application model.
 An editor's view state (selection, playhead, zoom, pan and so on) is one state
 argument: `TimeState`, `GraphState`, `NodeState`, `ArrangementState`,
@@ -124,11 +124,13 @@ optional application-provided `Pixels`. NodeEditor uses the core `ViewTransform`
 and `zoom_pan` interaction contract.
 
 The application renders previews, viewports and scopes into RGBA8 `Pixels`.
-`viewport_surface` displays an optional image, fits it by default, and accepts a
-transform binding for pan/zoom, image-coordinate overlays and semantic regions.
-`on_pointer` reports image coordinates; `on_resize` reports logical size,
-physical pixel dimensions and scale. ColorWheel combines hue, saturation/value
-and alpha in a single independent color component.
+The core `kivact::view::viewport(pixels)` displays pixels and fits them by default.
+Attach `.transform(use_zoom_pan(binding))` for shared pan and zoom. Use
+`ZoomPanApi::to_content` and `to_view` with standard pointer events, `draw_over`
+and canvas regions. `on_resize` reports logical and physical dimensions and scale.
+GPU frames use only the facade's `gpu-interop` feature; snapshots draw the
+viewport's own CPU pixels. ColorWheel combines hue, saturation/value and alpha
+in a single independent color component.
 
 Numeric controls (`number`, `value_slider`, `knob` and `fader`, each with a label and
 the value binding) support pointer scrubbing, direct arithmetic input, wheel,

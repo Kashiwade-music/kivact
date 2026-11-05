@@ -93,10 +93,13 @@ pub(crate) mod elements;
 pub use children::IntoChildren;
 pub use edit_phase::EditPhase;
 pub use elements::{
-    ImageFit, Node, NodeBuilder, Scroll, ScrollAxes, Span, canvas, column, grid, icon, image, node,
-    rich_text, row, scroll, spacer, span, stack, text,
+    ImageFit, Node, NodeBuilder, Scroll, ScrollAxes, Span, SurfaceSize, Viewport, canvas, column,
+    grid, icon, image, node, rich_text, row, scroll, spacer, span, stack, text, viewport,
 };
 pub use kivact_style::asset::Asset;
 
 #[doc(hidden)]
 pub use flow::ListInput;
+
+#[doc(hidden)]
+pub use elements::ViewportTransform;

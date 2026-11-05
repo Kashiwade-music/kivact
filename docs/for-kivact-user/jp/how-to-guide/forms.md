@@ -321,7 +321,6 @@ Password は値を隠し、クリップボードやアクセシビリティへ�
 仮想テストでは `screen.script().save_state()` で保存を要求し、
 `screen.script().saved_state()` を次の起動の `RenderOptions::restored_state` に渡します。
 
-<<<<<<< C:\Users\030009~1\AppData\Local\Temp\tmp3yv4ltff\2
 ## カレンダーと日付・時刻の入力
 
 ```rust,no_run
@@ -361,7 +360,6 @@ wheel は spinbutton のキーと支援技術の値操作に対応します。
 外観は `UiTokens.calendar`、`UiTokens.date_input`、`UiTokens.time_input` と
 `UiRecipes` の `calendar`、`date_input`、`date_range_input`、`time_input`、
 `date_time_input` の recipe table で変更します。
-=======
 ## 操作とトグルをまとめる
 
 関連する三つ以上の操作は `toolbar` でまとめます。start・center・end の領域全体が
@@ -401,4 +399,3 @@ fn editor_actions() -> impl IntoView {
 変えられます。無効化には共通の `NodeBuilder` の `.disabled(source)` を使います。
 テーマは対応する `UiTokens` と `UiRecipes` の表で見た目を変えます。
 呼び出し側のスタイルは recipe より優先します。
->>>>>>> C:\Users\030009~1\AppData\Local\Temp\tmp3yv4ltff\3

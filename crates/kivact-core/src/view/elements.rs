@@ -24,6 +24,10 @@ pub(crate) mod builders;
 mod container;
 mod text;
 mod text_binding;
+mod viewport;
+#[doc(hidden)]
+pub use viewport::ViewportTransform;
+pub use viewport::{SurfaceSize, Viewport, viewport};
 
 #[doc(inline)]
 pub use crate::view::element_data::{Node, NodeBuilder};

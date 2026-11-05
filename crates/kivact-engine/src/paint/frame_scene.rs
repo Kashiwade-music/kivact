@@ -2,6 +2,7 @@
 
 use super::state::{Entry, Step};
 use crate::contract::{HostEvent, NodeType};
+use crate::lower::context::Purpose;
 use crate::lower::effects::Tint;
 use crate::lower::shape::BoxShape;
 use crate::lower::{border, effects, scene, shape};
@@ -20,12 +21,13 @@ impl Model {
         engine: &mut arvane::Engine,
     ) -> kivact_types::render::RenderScene {
         self.paint_list();
-        self.paint_scene_list(engine)
+        self.paint_scene_list(engine, Purpose::Window)
     }
 
     pub(super) fn paint_scene_list(
         &mut self,
         engine: &mut arvane::Engine,
+        purpose: Purpose,
     ) -> kivact_types::render::RenderScene {
         self.assets.borrow_mut().begin_frame();
         let mut out = crate::lower::SceneOut::default();
@@ -50,13 +52,13 @@ impl Model {
                     self.paint
                         .raster
                         .set(self.paint.scale * scene::raster_zoom(at));
-                    self.paint_open(step, engine, &mut out);
+                    self.paint_open(step, engine, &mut out, purpose);
                 }
                 Entry::Close(step) => {
                     self.paint
                         .raster
                         .set(self.paint.scale * scene::raster_zoom(at));
-                    self.paint_close(step, engine, &mut out);
+                    self.paint_close(step, engine, &mut out, purpose);
                     if step.transform.is_some() {
                         zoom.pop();
                     }
@@ -144,6 +146,7 @@ impl Model {
         step: &Step,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
+        purpose: Purpose,
     ) {
         let host = &self;
         let id = step.id;
@@ -188,7 +191,7 @@ impl Model {
         if host.editors[n.index.0].is_none()
             && let Some(scene) = &n.scenes()[0]
         {
-            self.paint_scene(id, 0, scene, canvas, &tint, engine, out);
+            self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
         }
         match n.kind() {
             _ if host.editors[n.index.0]
@@ -198,7 +201,7 @@ impl Model {
             {
                 self.paint_input(id, bounds, step.clip, &tint, engine, out);
                 if let Some(scene) = &n.scenes()[0] {
-                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out);
+                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
                 }
             }
             NodeType::Text => {
@@ -261,6 +264,7 @@ impl Model {
         step: &Step,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
+        purpose: Purpose,
     ) {
         let id = step.id;
         if step.own
@@ -269,7 +273,7 @@ impl Model {
         {
             let (_, _, canvas) = self.placed(id, step.origin);
             let tint = self.tint(step);
-            self.paint_scene(id, 1, scene, canvas, &tint, engine, out);
+            self.paint_scene(id, 1, scene, canvas, &tint, engine, out, purpose);
         }
         let bars = if step.own {
             self.scrollbar_bars(id)

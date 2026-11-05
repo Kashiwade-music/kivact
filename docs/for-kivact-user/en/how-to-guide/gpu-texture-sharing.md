@@ -108,21 +108,21 @@ fn viewport() -> impl IntoView {
 owner it was created in: when that component goes away, the link closes, the engine's
 waits return at once and the window releases the last frame.
 
-With the creative kit, the viewport component takes the same two sources:
+The core viewport takes the same two sources:
 
 ```rust,ignore
 use kivact::gpu_interop::shared_image;
-use kivact_ui_creative::viewport_surface;
+use kivact::view::viewport;
+use kivact::draw::Pixels;
 
 let image = shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-viewport_surface(move || pixels.pixels())
+viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, vec![0; 4].into())))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
 ```
 
-It needs the kit's own `gpu-interop` feature. The surface zooms and pans the frame and
-maps the pointer to image pixels.
+It uses `kivact`’s `gpu-interop` feature. Attach `.transform(use_zoom_pan(binding))` for zoom and pan. Its `ZoomPanApi::to_content` and `to_view` convert coordinates. `NodeRef::snapshot` uses the viewport’s CPU pixels even during GPU display.
 
 ### Follow the size of the view
 
