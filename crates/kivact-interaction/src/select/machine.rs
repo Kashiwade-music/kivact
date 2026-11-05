@@ -14,11 +14,7 @@ pub(super) enum OpenedBy {
     )]
     Typeahead,
 }
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Surface {
-    Popover,
-    Sheet,
-}
+pub(crate) use crate::surface::Surface;
 #[derive(Clone, PartialEq)]
 pub(super) enum State<K> {
     Closed {

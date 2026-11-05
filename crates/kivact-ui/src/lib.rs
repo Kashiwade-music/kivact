@@ -169,10 +169,10 @@ pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
 pub use progress::{Progress, ProgressMotion, ProgressTokens, progress};
 pub use recipes::{
-    CommandPaletteRecipes, DataTableRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
-    ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes, Recipe,
-    SelectRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, TabsRecipes, TagInputRecipes,
-    ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
+    ComboboxRecipes, CommandPaletteRecipes, DataTableRecipes, DialogRecipes, DisclosureRecipes,
+    FieldRecipes, ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes,
+    Recipe, SelectRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, TabsRecipes,
+    TagInputRecipes, ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
 };
 pub use split::{Split, split};
 pub use tag_input::{TagInput, tag_input};
@@ -222,3 +222,9 @@ mod data_table_tokens;
 
 mod async_view;
 pub use async_view::{AsyncView, async_view};
+
+mod combobox;
+mod selector_presentation;
+pub use combobox::{Combobox, ComboboxTokens, combobox};
+pub use kivact_interaction::ComboboxMode;
+pub use selector_presentation::SelectPresentation;

@@ -117,6 +117,21 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         self
     }
 
+    /// Choose the surface used for touch activation. Keyboard and mouse keep
+    /// the anchored list; adaptive presentation follows touch capabilities.
+    pub fn presentation(self, presentation: crate::SelectPresentation) -> Self {
+        self.touch_sheet(
+            move || presentation.uses_sheet(),
+            |label, open, _anchor, content| {
+                crate::dialog(label, open)
+                    .mode(kivact_interaction::DialogMode::Drawer(
+                        kivact_core::geometry::Edge::Bottom,
+                    ))
+                    .content(move || content.call(()))
+            },
+        )
+    }
+
     /// Present touch taps in an alternate modal surface when eligible.
     /// Mouse and keyboard always use the regular popup. The modal factory
     /// receives the label, its open binding, trigger ref, and listbox builder.

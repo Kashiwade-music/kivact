@@ -4,28 +4,28 @@ use kivact_core::state::{Machine as MachineTrait, Step};
 use kivact_core::view::{PointerEvent, PointerId, PointerKind, PointerPhase};
 use kivact_interaction::DragAxis;
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum Outcome {
+pub(crate) enum Outcome {
     Tap,
     Moved,
 }
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum SheetGesture {
+pub(crate) enum SheetGesture {
     Idle,
     Pressed { pointer: PointerId, origin: Point },
     Moved { pointer: PointerId },
     Released(Outcome),
 }
-pub(super) enum Event {
+pub(crate) enum Event {
     Pointer(PointerEvent),
     Reset,
 }
-pub(super) enum Effect {}
+pub(crate) enum Effect {}
 #[derive(Clone, Copy)]
-pub(super) enum Readiness {
+pub(crate) enum Readiness {
     Ready,
     Unavailable,
 }
-pub(super) struct Machine {
+pub(crate) struct Machine {
     pub readiness: Readiness,
     pub bounds: Option<Rect>,
     pub slop: f64,

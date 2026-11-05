@@ -197,6 +197,19 @@ macro_rules! recipe_table {
 }
 
 recipe_table! {
+    /// Recipes of the standard combobox family.
+    ComboboxRecipes {
+        frame(frame_recipe): PartState = super::combobox::look::frame,
+        input(input_recipe): PartState = super::combobox::look::input,
+        surface(surface_recipe): PartState = super::combobox::look::surface,
+        option(option_recipe): ListItemState = super::combobox::look::option,
+        chip(chip_recipe): PartState = super::combobox::look::chip,
+        remove(remove_recipe): PartState = super::combobox::look::remove,
+        empty(empty_recipe): PartState = super::combobox::look::empty,
+    }
+}
+
+recipe_table! {
     /// The recipes of a [`select`](super::select).
     SelectRecipes {
         /// The trigger, which knows whether it shows the placeholder. Its
@@ -578,6 +591,7 @@ recipe_table! {
         text_area(text_area_recipe): TextInputState = look::text_area,
     }
     tables {
+        combobox(combobox_recipes): ComboboxRecipes,
         select(select_recipes): SelectRecipes,
         menu(menu_recipes): MenuRecipes,
         dialog(dialog_recipes): DialogRecipes,

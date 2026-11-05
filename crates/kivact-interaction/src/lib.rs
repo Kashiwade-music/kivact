@@ -77,7 +77,7 @@ pub use calendar::{
     CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
     use_calendar_grid,
 };
-pub use combobox::{ComboboxApi, use_combobox};
+pub use combobox::{ComboboxApi, ComboboxMode, use_combobox};
 pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
 pub use dialog::{DialogApi, DialogMode, DismissOn, use_dialog};
 pub use disclosure::{DisclosureApi, DisclosureState, use_disclosure};
@@ -142,3 +142,5 @@ pub use interaction_policy::{
 
 mod menu_policy;
 mod tooltip_policy;
+
+mod surface;
