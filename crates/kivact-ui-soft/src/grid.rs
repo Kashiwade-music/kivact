@@ -33,7 +33,7 @@ pub enum GridColumns {
     },
 }
 
-pub struct Grid {
+pub struct LayoutGrid {
     root: Node,
     columns: Value<GridColumns>,
     gap: Value<Space>,
@@ -42,8 +42,8 @@ pub struct Grid {
     row_height: Option<Value<f64>>,
 }
 
-pub fn grid(children: impl IntoView) -> Grid {
-    Grid {
+pub fn layout_grid(children: impl IntoView) -> LayoutGrid {
+    LayoutGrid {
         root: native_grid(children),
         columns: (GridColumns::Fixed(1)).into_value(),
         gap: (Space::S0).into_value(),
@@ -53,7 +53,7 @@ pub fn grid(children: impl IntoView) -> Grid {
     }
 }
 
-impl Grid {
+impl LayoutGrid {
     pub fn columns(mut self, columns: impl IntoValue<GridColumns>) -> Self {
         self.columns = columns.into_value();
         self
@@ -84,14 +84,14 @@ impl Grid {
     }
 }
 
-impl NodeBuilder for Grid {
+impl NodeBuilder for LayoutGrid {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl IntoView for Grid {
+impl IntoView for LayoutGrid {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -142,17 +142,17 @@ impl IntoView for Grid {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Span {
+pub enum GridSpan {
     Cols(u16),
     Full,
 }
 
-pub struct GridSpan {
+pub struct GridSpanItem {
     root: Node,
 }
 
-pub fn grid_span(children: impl IntoView) -> GridSpan {
-    GridSpan {
+pub fn grid_span(children: impl IntoView) -> GridSpanItem {
+    GridSpanItem {
         root: native_grid(children).with_node(move |node| {
             node.base_style(
                 style()
@@ -164,11 +164,11 @@ pub fn grid_span(children: impl IntoView) -> GridSpan {
     }
 }
 
-impl GridSpan {
-    pub fn columns(mut self, span: Span) -> Self {
+impl GridSpanItem {
+    pub fn columns(mut self, span: GridSpan) -> Self {
         let span = match span {
-            Span::Cols(n) => GridPlacement::span(n.max(1)),
-            Span::Full => GridPlacement::from((1, -1)),
+            GridSpan::Cols(n) => GridPlacement::span(n.max(1)),
+            GridSpan::Full => GridPlacement::from((1, -1)),
         };
         self.root = self.root.style(style().grid_column(span));
         self
@@ -182,14 +182,14 @@ impl GridSpan {
     }
 }
 
-impl NodeBuilder for GridSpan {
+impl NodeBuilder for GridSpanItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl IntoView for GridSpan {
+impl IntoView for GridSpanItem {
     fn into_view(self) -> View {
         self.root.into_view()
     }

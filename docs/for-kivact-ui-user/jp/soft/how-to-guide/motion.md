@@ -11,7 +11,7 @@ use kivact::style::TransitionProp;
 use kivact_ui_soft as soft;
 
 fn hover_surface() -> impl IntoView {
-    soft::text("Build information").style(|| {
+    soft::styled_text("Build information").style(|| {
         let p = kivact::style::use_tokens::<soft::Tokens>();
         style()
             .padding(p.spacing.s2)
