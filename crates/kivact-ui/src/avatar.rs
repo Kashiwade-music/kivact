@@ -3,7 +3,7 @@ use crate::avatar_initials::initials;
 use crate::variants::Variants;
 use crate::{AvatarShape, AvatarState, ControlSize, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
-use kivact_core::style::{Position, pct, style};
+use kivact_core::style::{Align, Justify, Position, pct, style};
 use kivact_core::view::{
     Asset, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, NodeBuilder, Role, View, ViewFn,
     dynamic, node, node_ref, text,
@@ -117,7 +117,12 @@ fn picture(
                 .size(pct(100), pct(100)),
         );
     node()
-        .style(style().size(pct(100), pct(100)))
+        .style(
+            style()
+                .size(pct(100), pct(100))
+                .align_items(Align::Center)
+                .justify_content(Justify::Center),
+        )
         .child(photo)
         .child(kivact_core::view::show(
             move || status.get() != ImageStatus::Ready,
