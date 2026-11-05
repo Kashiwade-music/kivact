@@ -634,23 +634,27 @@ impl DataColors {
                 rgb(0xfcec85),
                 rgb(0xfdf6ba),
             ],
-            gray_ramp: if dark {
-                [
-                    rgb(0x333338),
-                    rgb(0x666a72),
-                    rgb(0xb2b8be),
-                    rgb(0xd0d3d6),
-                    rgb(0xf2f4f6),
-                ]
-            } else {
-                [
-                    rgb(0x25363f),
-                    rgb(0x5d6c7b),
-                    rgb(0xafb9c4),
-                    rgb(0xccd3db),
-                    rgb(0xf1f4f7),
-                ]
-            },
+            gray_ramp: gray_data_ramp(dark),
         }
+    }
+}
+
+fn gray_data_ramp(dark: bool) -> [Color; 5] {
+    if dark {
+        [
+            rgb(0x333338),
+            rgb(0x666a72),
+            rgb(0xb2b8be),
+            rgb(0xd0d3d6),
+            rgb(0xf2f4f6),
+        ]
+    } else {
+        [
+            rgb(0x25363f),
+            rgb(0x5d6c7b),
+            rgb(0xafb9c4),
+            rgb(0xccd3db),
+            rgb(0xf1f4f7),
+        ]
     }
 }

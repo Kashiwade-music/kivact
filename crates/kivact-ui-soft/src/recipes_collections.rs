@@ -237,56 +237,61 @@ fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
 }
 
 pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
-    r.root(|_| {
-        |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
-            let p = t.ext::<Tokens>();
-            let variant = s
-                .variant::<crate::DisclosureVariant>()
-                .copied()
-                .unwrap_or_default();
-            let base = style().direction(Direction::Column).width(pct(100));
-            if variant.dividers && s.group.is_some_and(|group| group.index > 0) {
-                base.border_top(p.sizes.border_width, p.colors.border)
-            } else {
-                base
+    let r = r
+        .root(|_| {
+            |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
+                let p = t.ext::<Tokens>();
+                let variant = s
+                    .variant::<crate::DisclosureVariant>()
+                    .copied()
+                    .unwrap_or_default();
+                let base = style().direction(Direction::Column).width(pct(100));
+                if variant.dividers && s.group.is_some_and(|group| group.index > 0) {
+                    base.border_top(p.sizes.border_width, p.colors.border)
+                } else {
+                    base
+                }
             }
-        }
-    })
-    .trigger(|_| {
-        |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
-            let p = t.ext::<Tokens>();
-            let variant = s
-                .variant::<crate::DisclosureVariant>()
-                .copied()
-                .unwrap_or_default();
-            let start = variant.chevron == crate::ChevronPosition::Start;
-            let rtl = use_direction().get() == ReadingDirection::Rtl;
-            style()
-                .direction(if start != rtl {
-                    Direction::RowReverse
-                } else {
-                    Direction::Row
-                })
-                .width(pct(100))
-                .align_items(Align::Center)
-                .justify_content(Justify::SpaceBetween)
-                .gap(p.spacing.s2)
-                .padding_y(disclosure_padding(&p, variant))
-                .font_size(p.typography.large.size_px)
-                .line_height(1.0)
-                .weight(p.typography.weight_semibold)
-                .color(p.colors.text_primary)
-                .opacity(if s.input.disabled {
-                    p.sizes.disabled_opacity
-                } else {
-                    1.0
-                })
-                .pressed(style().background(p.colors.overlay_pressed))
-                .focus_visible(focus(&p))
-                .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
-        }
-    })
-    .indicator(|_| {
+        })
+        .trigger(|_| {
+            |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
+                let p = t.ext::<Tokens>();
+                let variant = s
+                    .variant::<crate::DisclosureVariant>()
+                    .copied()
+                    .unwrap_or_default();
+                let start = variant.chevron == crate::ChevronPosition::Start;
+                let rtl = use_direction().get() == ReadingDirection::Rtl;
+                style()
+                    .direction(if start != rtl {
+                        Direction::RowReverse
+                    } else {
+                        Direction::Row
+                    })
+                    .width(pct(100))
+                    .align_items(Align::Center)
+                    .justify_content(Justify::SpaceBetween)
+                    .gap(p.spacing.s2)
+                    .padding_y(disclosure_padding(&p, variant))
+                    .font_size(p.typography.large.size_px)
+                    .line_height(1.0)
+                    .weight(p.typography.weight_semibold)
+                    .color(p.colors.text_primary)
+                    .opacity(if s.input.disabled {
+                        p.sizes.disabled_opacity
+                    } else {
+                        1.0
+                    })
+                    .pressed(style().background(p.colors.overlay_pressed))
+                    .focus_visible(focus(&p))
+                    .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+            }
+        });
+    disclosure_details(r)
+}
+
+fn disclosure_details(r: DisclosureRecipes) -> DisclosureRecipes {
+    r.indicator(|_| {
         |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
             let p = t.ext::<Tokens>();
             let variant = s
@@ -468,56 +473,61 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
 }
 
 pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
-    r.frame(|_| {
-        |_: &Theme, _: &_| {
-            style()
-                .direction(Direction::Column)
-                .width(pct(100))
-                .min_width(0)
-                .shrink(0)
-        }
-    })
-    .toolbar(|prev| {
-        move |t: &Theme, s: &_| {
-            let p = t.ext::<Tokens>();
-            prev(t, s)
-                .gap(p.spacing.s2)
-                .padding(0)
-                .padding_bottom(p.spacing.s2)
-        }
-    })
-    .header(|_| {
-        |t: &Theme, s: &_| {
-            let p = t.ext::<Tokens>();
-            table_cell(
-                &p,
-                s.variant::<DataTableDensity>().copied().unwrap_or_default(),
-            )
-            .gap(p.spacing.s1)
-            .weight(p.typography.weight_semibold)
-            .color(p.colors.text_secondary)
-            .border_bottom(p.sizes.border_width, p.colors.border)
-            .cursor(if s.sortable {
-                Cursor::Pointer
-            } else {
-                Cursor::Default
-            })
-            .focus_visible(focus(&p))
-        }
-    })
-    .sort(|_| sort_mark)
-    .row(|prev| {
-        move |t: &Theme, s: &_| {
-            let p = t.ext::<Tokens>();
-            prev(t, s)
-                .min_height(s.height.unwrap_or(0.0))
+    let r = r
+        .frame(|_| {
+            |_: &Theme, _: &_| {
+                style()
+                    .direction(Direction::Column)
+                    .width(pct(100))
+                    .min_width(0)
+                    .shrink(0)
+            }
+        })
+        .toolbar(|prev| {
+            move |t: &Theme, s: &_| {
+                let p = t.ext::<Tokens>();
+                prev(t, s)
+                    .gap(p.spacing.s2)
+                    .padding(0)
+                    .padding_bottom(p.spacing.s2)
+            }
+        })
+        .header(|_| {
+            |t: &Theme, s: &_| {
+                let p = t.ext::<Tokens>();
+                table_cell(
+                    &p,
+                    s.variant::<DataTableDensity>().copied().unwrap_or_default(),
+                )
+                .gap(p.spacing.s1)
+                .weight(p.typography.weight_semibold)
+                .color(p.colors.text_secondary)
                 .border_bottom(p.sizes.border_width, p.colors.border)
-                .hover(style().background(p.colors.overlay_hover))
-                .selected(style().background(p.colors.accent_muted))
-                .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
-        }
-    })
-    .group_header(|_| {
+                .cursor(if s.sortable {
+                    Cursor::Pointer
+                } else {
+                    Cursor::Default
+                })
+                .focus_visible(focus(&p))
+            }
+        })
+        .sort(|_| sort_mark)
+        .row(|prev| {
+            move |t: &Theme, s: &_| {
+                let p = t.ext::<Tokens>();
+                prev(t, s)
+                    .min_height(s.height.unwrap_or(0.0))
+                    .border_bottom(p.sizes.border_width, p.colors.border)
+                    .hover(style().background(p.colors.overlay_hover))
+                    .selected(style().background(p.colors.accent_muted))
+                    .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+            }
+        });
+    table_body(r)
+}
+
+fn table_body(r: DataTableRecipes) -> DataTableRecipes {
+    r.group_header(|_| {
         |t: &Theme, _: &_| {
             let p = t.ext::<Tokens>();
             style()

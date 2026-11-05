@@ -1,5 +1,9 @@
 //! Role: Embed the pinned Lucide SVGs used by Astryx Neutral.
 use kivact::style::IconSet;
+#[expect(
+    clippy::disallowed_types,
+    reason = "Immutable process-wide identity cache, not deferred instance initialization"
+)]
 use std::sync::OnceLock;
 
 const ICONS: [(&str, &[u8]); 29] = [
@@ -101,6 +105,10 @@ pub const ICON_NAMES: &[&str] = &[
 ];
 
 pub(super) fn set() -> IconSet {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Immutable process-wide identity cache, not deferred instance initialization"
+    )]
     static SET: OnceLock<IconSet> = OnceLock::new();
     SET.get_or_init(|| {
         let mut set = IconSet::standard();

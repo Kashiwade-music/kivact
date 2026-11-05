@@ -1,8 +1,16 @@
 //! Role: Cache the standard component recipe table for the Soft theme.
 use kivact::ui::UiRecipes;
+#[expect(
+    clippy::disallowed_types,
+    reason = "Immutable process-wide identity cache, not deferred instance initialization"
+)]
 use std::sync::OnceLock;
 
 pub(super) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Immutable process-wide identity cache, not deferred instance initialization"
+    )]
     static RECIPES: OnceLock<UiRecipes> = OnceLock::new();
     RECIPES
         .get_or_init(|| {
