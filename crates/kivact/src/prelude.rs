@@ -48,3 +48,8 @@ pub use crate::ui::{
 };
 
 pub use crate::ui::async_view;
+
+pub use crate::ui::{
+    item_list, item_row, table, table_body, table_cell, table_footer, table_head, table_header,
+    table_row, tree,
+};
