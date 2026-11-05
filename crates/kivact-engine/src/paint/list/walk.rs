@@ -123,7 +123,11 @@ impl Walk<'_> {
         };
         self.children(id, n, base, alpha, own_matrix, child_clip);
         if listed
-            && (clips || layers > 0 || transform.is_some() || (visible && n.scenes()[1].is_some()))
+            && (clips
+                || presence_clip.is_some()
+                || layers > 0
+                || transform.is_some()
+                || (visible && n.scenes()[1].is_some()))
         {
             self.out.push(Entry::Close(step));
         }
