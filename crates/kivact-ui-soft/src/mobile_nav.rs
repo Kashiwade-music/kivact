@@ -305,7 +305,7 @@ impl IntoView for MobileNav {
                     }),
                 };
                 let scrim = drawer_scrim();
-                let header = drawer_header(&header_view, header, behavior, open);
+                let header = drawer_header(header_view.as_ref(), header, behavior, open);
                 let body = drawer_body(content.clone());
                 let panel = drawer_panel(drawer, width, right, header, body);
                 (
@@ -417,7 +417,7 @@ fn drawer_scrim() -> Node {
     })
 }
 fn drawer_header(
-    header_view: &Option<ViewFn>,
+    header_view: Option<&ViewFn>,
     header: Option<Value<String>>,
     behavior: kivact::interaction::DialogApi,
     open: Binding<bool>,

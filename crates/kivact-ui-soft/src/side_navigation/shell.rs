@@ -226,7 +226,7 @@ impl IntoView for SideNav {
             } else {
                 None
             };
-            let collapsed = sidebar_collapse(collapse, &resize);
+            let collapsed = sidebar_collapse(collapse, resize.as_ref());
             let expanded_width =
                 signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
             let cx = SideNavCx {
@@ -347,10 +347,9 @@ impl IntoView for SideNavCollapseButton {
 
 fn sidebar_collapse(
     collapse: Option<SideNavCollapse>,
-    resize: &Option<SideNavResize>,
+    resize: Option<&SideNavResize>,
 ) -> Option<Binding<bool>> {
     resize
-        .as_ref()
         .map(|resize| {
             resize
                 .collapsed

@@ -33,6 +33,7 @@ mod os_branch;
 mod policy;
 mod public_surface;
 mod public_type_edges;
+mod report;
 mod state_fields;
 mod structural_options;
 
@@ -113,21 +114,5 @@ fn main() -> ExitCode {
     } else {
         report.errors.extend(local);
     }
-    print_report(&report)
-}
-
-fn print_report(report: &xtask_core::Report) -> ExitCode {
-    for note in &report.notes {
-        println!("{note}");
-    }
-    for error in &report.errors {
-        eprintln!("error: {error}");
-    }
-    if report.is_success() {
-        println!("ok");
-        ExitCode::SUCCESS
-    } else {
-        eprintln!("{} error(s)", report.errors.len());
-        ExitCode::FAILURE
-    }
+    report::print(&report)
 }

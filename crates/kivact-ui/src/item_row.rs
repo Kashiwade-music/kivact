@@ -148,7 +148,7 @@ impl RowRender {
     fn wrap_children(
         &self,
         children: impl IntoChildren,
-        pick: fn(&crate::UiRecipes) -> &crate::Recipe<ItemRowState>,
+        pick: fn(&crate::recipes::UiRecipes) -> &crate::Recipe<ItemRowState>,
     ) -> Node {
         let state = self.state;
         with_base_recipe_style(

@@ -389,7 +389,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
             );
         }
         StepKind::Input { placeholder } => {
-            parts.push(input_answer(title, placeholder, answer));
+            parts.push(input_answer(title, placeholder.as_ref(), answer));
         }
     }
     column(parts).style(style().gap(if step.description.is_some() { 8 } else { 0 }))
@@ -494,7 +494,7 @@ fn choice_indicator(state: Value<ListItemState>) -> Node {
 
 fn input_answer(
     title: String,
-    placeholder: &Option<String>,
+    placeholder: Option<&String>,
     answer: Binding<QuestionnaireAnswer>,
 ) -> View {
     let text_value = binding(
