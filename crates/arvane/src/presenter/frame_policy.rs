@@ -139,17 +139,15 @@ impl Presenter {
     /// frames (draw one now, so the switch happens while the window is
     /// idle rather than with the next input).
     pub(crate) fn prepare(&mut self, window: &dyn ShellWindow) -> bool {
-        {
-            if self.gpu.ready() {
-                return false;
-            }
-            let make = |context: &arvane_render::GpuContext| {
-                make_surface(window, context, window.keeps_frames())
-            };
-            self.gpu
-                .advance(&mut self.notes, &make, window.physical_size());
-            self.gpu.ready()
+        if self.gpu.ready() {
+            return false;
         }
+        let make = |context: &arvane_render::GpuContext| {
+            make_surface(window, context, window.keeps_frames())
+        };
+        self.gpu
+            .advance(&mut self.notes, &make, window.physical_size());
+        self.gpu.ready()
     }
 
     /// Apply the frame policy to what drawing a frame did (`now_ns`: the
@@ -219,14 +217,10 @@ impl Presenter {
         let drawn = self.draw_native(window, scene, plan.size, plan.scale);
         self.note_missed();
         let (now, period) = (window.now_ns(), window.frame_period_ns());
-        let renderer = {
-            {
-                if self.gpu.ready() {
-                    Renderer::Gpu
-                } else {
-                    Renderer::Cpu
-                }
-            }
+        let renderer = if self.gpu.ready() {
+            Renderer::Gpu
+        } else {
+            Renderer::Cpu
         };
         self.settle(drawn, (now, period), renderer, window, scene, plan)
     }
@@ -247,73 +241,65 @@ impl Presenter {
         scale: f64,
     ) -> Result<Drawn, Failure> {
         let physical = window.physical_size();
-        {
-            let make = |context: &arvane_render::GpuContext| {
-                make_surface(window, context, window.keeps_frames())
-            };
-            self.gpu.advance(&mut self.notes, &make, physical);
-            let started = Instant::now();
-            // While a worker makes the window's swapchain, a frame presented
-            // through GDI may not show (a flip-model swapchain replaces what
-            // the window shows): the window keeps its last CPU frame and
-            // the frame is drawn again later (the first GPU frame follows
-            // the configuration at once).
-            if self.gpu.configuring() && window.shows_cpu_frame() {
+        let make = |context: &arvane_render::GpuContext| {
+            make_surface(window, context, window.keeps_frames())
+        };
+        self.gpu.advance(&mut self.notes, &make, physical);
+        let started = Instant::now();
+        // While a worker makes the window's swapchain, a frame presented
+        // through GDI may not show (a flip-model swapchain replaces what
+        // the window shows): the window keeps its last CPU frame and
+        // the frame is drawn again later (the first GPU frame follows
+        // the configuration at once).
+        if self.gpu.configuring() && window.shows_cpu_frame() {
+            return Ok(Drawn {
+                renderer: Renderer::Cpu,
+                shown: false,
+                raster: Duration::ZERO,
+                present: Duration::ZERO,
+            });
+        }
+        let presented = self.gpu.present(&make, scene, size, scale, physical);
+        match presented {
+            None => {}
+            Some(Ok((presentation, present))) => {
+                window.release_cpu_surface();
+                if presentation == arvane_render::Presentation::Shown {
+                    self.keep_shown_frame(window);
+                }
                 return Ok(Drawn {
-                    renderer: Renderer::Cpu,
-                    shown: false,
-                    raster: Duration::ZERO,
-                    present: Duration::ZERO,
+                    renderer: Renderer::Gpu,
+                    shown: presentation == arvane_render::Presentation::Shown,
+                    raster: started.elapsed().saturating_sub(present),
+                    present,
                 });
             }
-            let presented = self.gpu.present(&make, scene, size, scale, physical);
-            match presented {
-                None => {}
-                Some(Ok((presentation, present))) => {
-                    window.release_cpu_surface();
-                    if window.keeps_frames()
-                        && presentation == arvane_render::Presentation::Shown
-                        && let Some(frame) = self.gpu.read_back()
-                    {
-                        window.keep_frame(frame.map_err(error::render)?);
-                    }
-                    return Ok(Drawn {
-                        renderer: Renderer::Gpu,
-                        shown: presentation == arvane_render::Presentation::Shown,
-                        raster: started.elapsed().saturating_sub(present),
-                        present,
-                    });
-                }
-                // vello_cpu draws what vello_hybrid cannot (the device is
-                // fine); the frame goes through the window's GPU surface.
-                Some(Err(arvane_render::RenderError::GpuLimit(_))) => {
-                    let started = Instant::now();
-                    let mut pixels = vec![0; physical.0 as usize * physical.1 as usize];
-                    self.cpu
-                        .render_0rgb(scene, size, scale, physical, &mut pixels)
-                        .map_err(error::render)?;
-                    let raster = started.elapsed();
-                    match self.gpu.present_pixels(&make, &pixels, physical) {
-                        Some(Ok((presentation, present))) => {
-                            if window.keeps_frames()
-                                && presentation == arvane_render::Presentation::Shown
-                                && let Some(frame) = self.gpu.read_back()
-                            {
-                                window.keep_frame(frame.map_err(error::render)?);
-                            }
-                            return Ok(Drawn {
-                                renderer: Renderer::Cpu,
-                                shown: presentation == arvane_render::Presentation::Shown,
-                                raster,
-                                present,
-                            });
+            // vello_cpu draws what vello_hybrid cannot (the device is
+            // fine); the frame goes through the window's GPU surface.
+            Some(Err(arvane_render::RenderError::GpuLimit(_))) => {
+                let started = Instant::now();
+                let mut pixels = vec![0; physical.0 as usize * physical.1 as usize];
+                self.cpu
+                    .render_0rgb(scene, size, scale, physical, &mut pixels)
+                    .map_err(error::render)?;
+                let raster = started.elapsed();
+                match self.gpu.present_pixels(&make, &pixels, physical) {
+                    Some(Ok((presentation, present))) => {
+                        if presentation == arvane_render::Presentation::Shown {
+                            self.keep_shown_frame(window);
                         }
-                        Some(Err(e)) => self.gpu_failed(e)?,
-                        None => {}
+                        return Ok(Drawn {
+                            renderer: Renderer::Cpu,
+                            shown: presentation == arvane_render::Presentation::Shown,
+                            raster,
+                            present,
+                        });
                     }
+                    Some(Err(e)) => self.gpu_failed(e)?,
+                    None => {}
                 }
-                Some(Err(e)) => self.gpu_failed(e)?,
             }
+            Some(Err(e)) => self.gpu_failed(e)?,
         }
         self.draw_cpu_native(window, scene, size, scale, physical)
     }
@@ -357,6 +343,23 @@ impl Presenter {
             raster,
             present: started.elapsed().saturating_sub(raster),
         })
+    }
+
+    /// Keep a copy of the GPU frame just shown when `window` keeps frames. A failed read-back
+    /// leaves the frame shown: the failure only moves the renderer along for the next frame.
+    fn keep_shown_frame(&mut self, window: &mut dyn ShellWindow) {
+        if !window.keeps_frames() {
+            return;
+        }
+        match self.gpu.read_back() {
+            Some(Ok(frame)) => window.keep_frame(frame),
+            Some(Err(e)) => {
+                if let Err(failure) = self.gpu_failed(e) {
+                    tracing::warn!(target: "kivact", %failure, "could not read back a shown GPU frame");
+                }
+            }
+            None => {}
+        }
     }
 
     /// Handle a failed GPU frame: a surface error that keeps the window on

@@ -110,7 +110,11 @@ impl Script {
     }
     pub fn contact(&self, contact: PointerSample) {
         let mut input = self.0.borrow_mut();
-        for event in input.contacts.deliver(contact) {
+        for mut event in input.contacts.deliver(contact) {
+            // Like the mouse's, a contact's samples carry the held modifiers.
+            if let ShellEvent::Pointer(sample) = &mut event {
+                sample.modifiers = input.modifiers;
+            }
             enqueue(&mut input, event);
         }
     }
@@ -192,7 +196,10 @@ fn enqueue(input: &mut Input, mut event: ShellEvent) {
         input.mouse.observe(*pointer);
     }
     if matches!(event, ShellEvent::Focused(false)) {
-        input.modifiers = Modifiers::default();
+        // A platform reports the held modifiers released as the focus leaves.
+        if input.modifiers != Modifiers::default() {
+            enqueue(input, ShellEvent::Modifiers(Modifiers::default()));
+        }
         input.keys.focus_lost();
         let _ = input.mouse.cancel();
     }

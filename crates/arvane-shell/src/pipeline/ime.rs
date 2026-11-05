@@ -9,19 +9,10 @@ pub trait ImePort {
     fn cursor_area(&mut self, area: Rect);
     fn surrounding(&mut self, text: Option<&ShellImeText>);
 }
-#[derive(Default)]
-enum Composition {
-    #[default]
-    Idle,
-    Composing {
-        preedit: String,
-        caret: Option<(usize, usize)>,
-    },
-}
-// xtask-allow(state-fields): Composition owns input state; Sent caches independent output values (S-9).
+// xtask-allow(state-fields): Sent caches independent output values (S-9).
+/// Output caches: each value reaches the platform only when it changes (S-9).
 #[derive(Default)]
 pub struct ImeDriver {
-    composition: Composition,
     allowed: Sent<bool>,
     area: Sent<Rect>,
     text: Sent<Option<ShellImeText>>,
@@ -29,27 +20,12 @@ pub struct ImeDriver {
 impl ImeDriver {
     pub fn input(&mut self, raw: RawIme) -> Vec<ShellEvent> {
         let input = match raw {
-            RawIme::Preedit { text, caret } => {
-                self.composition = Composition::Composing {
-                    preedit: text,
-                    caret,
-                };
-                let Composition::Composing { preedit, caret } = &self.composition else {
-                    unreachable!("invariant: preedit starts composition")
-                };
-                ImeInput::Preedit {
-                    text: preedit.clone(),
-                    selection: caret.map(|(start, end)| start..end),
-                }
-            }
-            RawIme::Commit(text) => {
-                self.composition = Composition::Idle;
-                ImeInput::Commit(text)
-            }
-            RawIme::End => {
-                self.composition = Composition::Idle;
-                ImeInput::End
-            }
+            RawIme::Preedit { text, caret } => ImeInput::Preedit {
+                text,
+                selection: caret.map(|(start, end)| start..end),
+            },
+            RawIme::Commit(text) => ImeInput::Commit(text),
+            RawIme::End => ImeInput::End,
             RawIme::Reconvert {
                 selection: (start, end),
             } => ImeInput::Selection(start..end),

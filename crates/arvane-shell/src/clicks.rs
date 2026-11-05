@@ -29,7 +29,6 @@ struct Press {
 /// The last touch or pen contact's `Down`.
 #[derive(Clone, Copy, Debug)]
 struct Tap {
-    id: PointerId,
     at: Point,
     time_ns: u64,
     count: u8,
@@ -46,6 +45,8 @@ pub struct ClickCounter {
     pressed: [Option<u8>; 5],
     /// The last contact's `Down`.
     tap: Option<Tap>,
+    /// The count each live contact went down with, for its `Up`.
+    contacts: Vec<(PointerId, u8)>,
 }
 
 /// The index of `button` in [`ClickCounter::pressed`].
@@ -103,23 +104,21 @@ impl ClickCounter {
                         .filter(|tap| follows(input.position, now, tap.at, tap.time_ns, settings))
                         .map_or(1, |tap| tap.count.saturating_add(1));
                     self.tap = Some(Tap {
-                        id: input.id,
                         at: input.position,
                         time_ns: now,
                         count,
                     });
+                    self.contacts.retain(|(id, _)| *id != input.id);
+                    self.contacts.push((input.id, count));
                     press.clicks = count;
                 }
                 PointerPhase::Up(press) => {
-                    press.clicks = self
-                        .tap
-                        .filter(|tap| tap.id == input.id)
-                        .map_or(1, |tap| tap.count);
+                    press.clicks = self.end_contact(input.id).unwrap_or(1);
                 }
-                PointerPhase::Move
-                | PointerPhase::Cancel
-                | PointerPhase::Enter
-                | PointerPhase::Leave => {}
+                PointerPhase::Cancel => {
+                    let _ = self.end_contact(input.id);
+                }
+                PointerPhase::Move | PointerPhase::Enter | PointerPhase::Leave => {}
             }
             input.press = input.phase.press();
             input.button = input.press.map(|press| press.button);
@@ -153,5 +152,11 @@ impl ClickCounter {
         }
         input.press = input.phase.press();
         input.button = input.press.map(|press| press.button);
+    }
+
+    /// Forget the contact `id`, returning the count it went down with.
+    fn end_contact(&mut self, id: PointerId) -> Option<u8> {
+        let index = self.contacts.iter().position(|(live, _)| *live == id)?;
+        Some(self.contacts.swap_remove(index).1)
     }
 }

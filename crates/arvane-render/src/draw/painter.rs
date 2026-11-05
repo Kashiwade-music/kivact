@@ -17,6 +17,43 @@ use vello_cpu::kurbo::{self, Affine, BezPath, Rect, RoundedRect, Shape as _, Str
 use vello_cpu::peniko::{self, Blob, FontData};
 use vello_cpu::{Glyph, PaintType};
 
+// The commands each replay category handles, as patterns: the dispatch and every
+// category's match are exhaustive, so a new command fails to compile until one handles it.
+macro_rules! primitive_commands {
+    () => {
+        RenderCmd::Rect { .. }
+            | RenderCmd::RoundedRect { .. }
+            | RenderCmd::RoundedRectCorners { .. }
+            | RenderCmd::StrokeRect { .. }
+            | RenderCmd::StrokeRoundedRectCorners { .. }
+            | RenderCmd::Line { .. }
+    };
+}
+macro_rules! path_commands {
+    () => {
+        RenderCmd::Shadow { .. } | RenderCmd::Path { .. } | RenderCmd::Glyphs { .. }
+    };
+}
+macro_rules! image_commands {
+    () => {
+        RenderCmd::Image { .. } | RenderCmd::ImageSampled { .. } | RenderCmd::External { .. }
+    };
+}
+macro_rules! group_commands {
+    () => {
+        RenderCmd::FillShape { .. }
+            | RenderCmd::StrokeShape { .. }
+            | RenderCmd::BoxShadow(_)
+            | RenderCmd::Backdrop(_)
+            | RenderCmd::PushClip(_)
+            | RenderCmd::PushTransform(_)
+            | RenderCmd::PushLayer(_)
+            | RenderCmd::PopClip
+            | RenderCmd::PopTransform
+            | RenderCmd::PopLayer
+    };
+}
+
 /// Fonts by the address of their bytes and face index; the `FontData`
 /// keeps the bytes' `Arc`, so the address is not reused while it lives.
 #[derive(Default)]
@@ -171,28 +208,10 @@ impl<C: Canvas> Painter<'_, C> {
             return;
         }
         match command {
-            RenderCmd::Rect { .. }
-            | RenderCmd::RoundedRect { .. }
-            | RenderCmd::RoundedRectCorners { .. }
-            | RenderCmd::StrokeRect { .. }
-            | RenderCmd::StrokeRoundedRectCorners { .. }
-            | RenderCmd::Line { .. } => self.primitive(i, command),
-            RenderCmd::Shadow { .. } | RenderCmd::Path { .. } | RenderCmd::Glyphs { .. } => {
-                self.path_command(i, command)
-            }
-            RenderCmd::Image { .. }
-            | RenderCmd::ImageSampled { .. }
-            | RenderCmd::External { .. } => self.image_command(i, command),
-            RenderCmd::PushClip(_)
-            | RenderCmd::FillShape { .. }
-            | RenderCmd::StrokeShape { .. }
-            | RenderCmd::BoxShadow(_)
-            | RenderCmd::PushTransform(_)
-            | RenderCmd::PushLayer(_)
-            | RenderCmd::Backdrop(_)
-            | RenderCmd::PopClip
-            | RenderCmd::PopTransform
-            | RenderCmd::PopLayer => self.group_command(i, command),
+            primitive_commands!() => self.primitive(i, command),
+            path_commands!() => self.path_command(i, command),
+            image_commands!() => self.image_command(i, command),
+            group_commands!() => self.group_command(i, command),
         }
     }
 
@@ -246,7 +265,9 @@ impl<C: Canvas> Painter<'_, C> {
                 self.canvas.set_stroke(Stroke::new(*width));
                 self.canvas.stroke_path(&path);
             }
-            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+            path_commands!() | image_commands!() | group_commands!() => {
+                unreachable!("invariant: the dispatch selects primitive commands")
+            }
         }
     }
 
@@ -288,7 +309,9 @@ impl<C: Canvas> Painter<'_, C> {
                 }
             }
             RenderCmd::Glyphs { run, origin, color } => self.glyphs(run, *origin, *color),
-            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+            primitive_commands!() | image_commands!() | group_commands!() => {
+                unreachable!("invariant: the dispatch selects path commands")
+            }
         }
     }
 
@@ -360,7 +383,9 @@ impl<C: Canvas> Painter<'_, C> {
                     canvas.draw_external(frame, placed, *pixelated);
                 });
             }
-            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+            primitive_commands!() | path_commands!() | group_commands!() => {
+                unreachable!("invariant: the dispatch selects image commands")
+            }
         }
     }
 
@@ -413,7 +438,9 @@ impl<C: Canvas> Painter<'_, C> {
                 }
             }
             RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopLayer => self.pop(),
-            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+            primitive_commands!() | path_commands!() | image_commands!() => {
+                unreachable!("invariant: the dispatch selects group commands")
+            }
         }
     }
 

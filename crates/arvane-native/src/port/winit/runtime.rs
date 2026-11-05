@@ -47,8 +47,6 @@
 //!   the area a software keyboard covers.
 
 use crate::a11y::native::NativeAccessibility;
-#[cfg(windows)]
-use crate::native_input::state::InputWake;
 use crate::native_input::state::NativeInput;
 use crate::port::winit::key_code::{map_key, physical_code};
 use crate::present::CpuSurface;
@@ -414,7 +412,8 @@ impl ShellWindow for WinitWindow {
     /// request does nothing there.
     fn set_soft_keyboard(&self, shown: bool) {
         if SOFT_KEYBOARD {
-            self.window.set_ime_allowed(shown);
+            // Through the IME cache: the same native switch backs both.
+            self.set_ime_allowed(shown);
         }
     }
     /// Position the native IME candidate UI at a logical caret rectangle.
@@ -568,6 +567,8 @@ struct Runner<'a> {
     clicks: arvane_shell::ClickCounter,
     /// The touch and pen contacts in progress.
     contacts: arvane_shell::Contacts,
+    /// The window's keys and what each held key means for its next press.
+    keys: arvane_shell::pipeline::KeyPipeline,
 }
 impl Runner<'_> {
     /// Stop delivering events: the loop ends after this callback and `close` follows it.
@@ -579,6 +580,11 @@ impl Runner<'_> {
     }
     /// Deliver the files dropped in this batch of winit events, after every `DroppedFile` of it.
     fn deliver_drop(&mut self, el: &ActiveEventLoop) {
+        // Runs before every wait: query the system pointer (an X11 connection)
+        // only when a drop is pending.
+        if !matches!(self.dnd, DropSession::Dropped { .. }) {
+            return;
+        }
         if let Some(position) = self.file_position() {
             let _ = self.dnd.input(RawDrop::Move(position));
         }
@@ -683,7 +689,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                     ..Default::default()
                 },
                 #[cfg(windows)]
-                InputWake::EventLoop(self.waker.clone()),
+                Some(self.waker.clone()),
             ));
             let monitor = window.current_monitor();
             let mut window = WinitWindow {
@@ -802,6 +808,7 @@ impl ApplicationHandler<()> for Runner<'_> {
                     .deliver(super::contacts::map(*touch, scale, &notes))
             }
             WindowEvent::Focused(false) => {
+                self.keys.focus_lost();
                 let mut events = self.contacts.cancel();
                 if let Some(cancel) = self.mouse.cancel() {
                     events.push(ShellEvent::Pointer(cancel));
@@ -907,8 +914,8 @@ impl Runner<'_> {
 
 impl Runner<'_> {
     /// Translate a physical and logical keyboard sample together.
-    fn map_keyboard(&self, event: winit::event::KeyEvent) -> Option<ShellEvent> {
-        Some(arvane_shell::pipeline::KeyPipeline::default().key(
+    fn map_keyboard(&mut self, event: winit::event::KeyEvent) -> Option<ShellEvent> {
+        Some(self.keys.key(
             arvane_shell::pipeline::RawKey {
                 key: arvane_shell::pipeline::PlatformKey::Code {
                     key: map_key(&event.logical_key),
@@ -1047,6 +1054,7 @@ impl Backend for NativeBackend {
             modifiers: arvane_shell::ModifierState::default(),
             clicks: arvane_shell::ClickCounter::default(),
             contacts: arvane_shell::Contacts::default(),
+            keys: arvane_shell::pipeline::KeyPipeline::default(),
         };
         let result = self.event_loop.run_app(&mut app);
         let Runner { handler, run, .. } = app;

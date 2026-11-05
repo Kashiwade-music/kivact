@@ -71,8 +71,8 @@ impl Shared {
         Ok(())
     }
 
-    /// Validates and applies the supplied change set. Without an accepted tree, or with a new root, the
-    /// update must hold the complete tree.
+    /// Validates and applies the supplied change set; whether anything changed. Without an accepted
+    /// tree, or with a new root, the update must hold the complete tree.
     pub(crate) fn update(&mut self, update: &SemanticsUpdate) -> Result<bool, AccessibilityError> {
         let Some(tree) = self.tree.as_mut().filter(|t| t.root() == update.root) else {
             self.replace(&SemanticsTree {
@@ -82,7 +82,9 @@ impl Shared {
             })?;
             return Ok(true);
         };
-        let changed = tree.apply(update)?;
+        let Some(changed) = tree.apply(update)? else {
+            return Ok(false);
+        };
         let Reader::Active { unsent } = &mut self.reader else {
             // No one reads the tree: activation hands over all of it.
             return Ok(true);

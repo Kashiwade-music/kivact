@@ -37,9 +37,10 @@ pub(crate) struct NativeInput {
     /// changed; the change is not announced yet.
     pub(crate) env_changed: LocalMailbox<()>,
     /// Wakes the event loop when the subclass noted something to deliver
-    /// outside a window event (a settings change).
+    /// outside a window event (a settings change); `None` for a window that
+    /// installs no subclass (an embedded child).
     #[cfg(windows)]
-    pub(crate) wake: InputWake,
+    waker: Option<ShellWaker>,
     /// The touch and pen pointers of the frame of the last pointer message
     /// (Windows' `WM_POINTER*`: winit reports every pointer of the frame
     /// from it), read while winit reports them: winit reports a pen as a
@@ -62,23 +63,6 @@ pub(crate) struct ContactNote {
     pub(crate) tilt: Option<(f64, f64)>,
 }
 
-/// Delivery route fixed when the input state is constructed.
-#[cfg(windows)]
-pub(crate) enum InputWake {
-    #[cfg(feature = "embed")]
-    Direct,
-    EventLoop(ShellWaker),
-}
-#[cfg(windows)]
-impl InputWake {
-    pub(crate) fn wake(&self, reasons: WakeReasons) {
-        match self {
-            #[cfg(feature = "embed")]
-            Self::Direct => {}
-            Self::EventLoop(waker) => waker.wake(reasons),
-        }
-    }
-}
 #[cfg(windows)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Subclass {
@@ -86,7 +70,7 @@ pub(crate) enum Subclass {
     Installed,
 }
 impl NativeInput {
-    pub(crate) fn new(environment: Environment, #[cfg(windows)] wake: InputWake) -> Self {
+    pub(crate) fn new(environment: Environment, #[cfg(windows)] waker: Option<ShellWaker>) -> Self {
         Self {
             ime: RefCell::default(),
             text: RefCell::new(None),
@@ -101,8 +85,18 @@ impl NativeInput {
             locale: RefCell::new(environment.locale),
             env_changed: LocalMailbox::new(),
             #[cfg(windows)]
-            wake,
+            waker,
             contacts: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+#[cfg(windows)]
+impl NativeInput {
+    /// Wake the event loop, when the window has one to wake.
+    pub(crate) fn wake(&self, reasons: WakeReasons) {
+        if let Some(waker) = &self.waker {
+            waker.wake(reasons);
         }
     }
 }

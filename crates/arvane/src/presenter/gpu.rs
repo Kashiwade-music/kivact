@@ -1,14 +1,12 @@
-//! Role: A presenter's GPU renderer and its life cycle (feature `gpu`).
+//! Role: A presenter's GPU renderer and its life cycle (`arvane-render`'s feature `gpu`).
 //!
 //! The renderer of the presenter's one window ([`State`]): off (CPU only);
-//! started in the background (a native window): a worker thread creates
+//! started in the background with the window: a worker thread creates
 //! the device, the window's thread makes the window's surface and a worker
 //! configures its swapchain (~0.2 s the first time on some drivers), then
-//! frames go to the window's GPU surface; started in the foreground
-//! ([`Gpu::enable`], a test window): the device is made on the calling
-//! thread and is ready at once, and the window's first frame makes its
-//! surface; failed: CPU for the rest of the session. Until ready, frames
-//! are drawn on the CPU, so no step stalls the window's thread.
+//! frames go to the window's GPU surface; failed: CPU for the rest of the
+//! session. Until ready, frames are drawn on the CPU, so no step stalls the
+//! window's thread.
 //!
 //! A native window starts the GPU as it is created, not once CPU frames
 //! grow costly. The worker's device is taken on the window's thread
@@ -20,9 +18,7 @@
 //! input. While the swapchain is configured the window keeps its last CPU
 //! frame and new frames are not shown (once a flip-model swapchain
 //! exists, a frame presented through GDI may not show) but drawn again
-//! later. The host never knows these steps. A test window that draws on
-//! the GPU creates its device on its own thread as it opens
-//! ([`Gpu::enable`]).
+//! later. The host never knows these steps.
 //!
 //! Renderer changes are noted ([`Notes`]) as they happen. A surface the
 //! platform destroys (Android, in the background) is dropped with it; the
@@ -34,10 +30,9 @@
 //! new one; the frame policy counts consecutive losses and moves the
 //! window to the CPU for the rest of the session. A device failure (device
 //! loss, out of memory, a validation error) drops the device and its
-//! surface; a background start then starts a new device once per session,
-//! the frames in between drawn on the CPU. A second device failure, a
-//! failed restart or a foreground device's failure leaves the presenter on
-//! the CPU.
+//! surface; a new device is started once per session, the frames in
+//! between drawn on the CPU. A second device failure or a failed restart
+//! leaves the presenter on the CPU.
 
 use crate::presentation::{Notes, RendererChange};
 use arvane_render::{GpuContext, GpuEnv, GpuSurface, Presentation, RenderError};

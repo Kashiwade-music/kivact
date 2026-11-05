@@ -298,10 +298,13 @@ impl ShellWindow for Window {
                 "frame dimensions differ from the child client size",
             ));
         }
-        self.0
-            .cpu
-            .borrow_mut()
-            .present(w, h, || crate::present::surface(&self.0.target), draw)
+        let make = || {
+            // softbuffer 0.4.8 spawns a never-joined "DC allocator" thread on
+            // its first Win32 surface. Keep its code mapped before it starts.
+            crate::module::retain_module();
+            crate::present::surface(&self.0.target)
+        };
+        self.0.cpu.borrow_mut().present(w, h, make, draw)
     }
 
     fn with_gpu_target(
@@ -337,7 +340,7 @@ impl State {
                     locale: crate::native_input::locale::system_locale(),
                     ..Default::default()
                 },
-                crate::native_input::state::InputWake::Direct,
+                None,
             ),
             target: Arc::new(super::target::Target {
                 instance,

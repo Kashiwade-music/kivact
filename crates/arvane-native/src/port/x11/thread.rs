@@ -40,7 +40,7 @@ impl ChildPort for Arc<Notifier> {
             } else {
                 kivact_types::process::DetachedThreads::note();
                 crate::retain_module();
-                tracing::warn!(target: "kivact", "embedded X11 UI thread did not stop within two seconds; detaching");
+                tracing::warn!(target: "kivact", wait = ?crate::wait::SHUTDOWN_WAIT, "embedded X11 UI thread did not stop in time; detaching");
             }
         }
     }
@@ -206,7 +206,10 @@ fn event_loop(
         if closed(window) {
             return Ok(());
         }
-        deliver_commands(session, window)?;
+        // Take wake reasons together with the eventfd drain: `request` signals
+        // only when the reasons go from empty to set, so reasons left set after
+        // the drain would swallow the signal of a later command.
+        let mut reasons = deliver_commands(session, window)?;
         if closed(window) {
             return Ok(());
         }
@@ -220,7 +223,6 @@ fn event_loop(
         let due = session
             .deadline()
             .is_some_and(|deadline| deadline <= window.now_ns());
-        let mut reasons = window.backend.take();
         if due {
             reasons.insert(arvane_shell::WakeReasons::CLIENT);
         }
@@ -267,14 +269,20 @@ fn event_loop(
         if closed(window) {
             return Ok(());
         }
+        window.dnd.expire(&window.native)?;
         let remaining = session
             .deadline()
             .map(|deadline| deadline.saturating_sub(window.now_ns()));
-        // A lost XIM acknowledgement is given up at its own deadline.
-        let remaining = [remaining, window.ime.borrow().remaining_ns()]
-            .into_iter()
-            .flatten()
-            .min();
+        // A lost XIM acknowledgement and a stalled file drop are given up at
+        // their own deadlines.
+        let remaining = [
+            remaining,
+            window.ime.borrow().remaining_ns(),
+            window.dnd.remaining_ns(),
+        ]
+        .into_iter()
+        .flatten()
+        .min();
         waiter.wait(&*window.native.connection, &window.backend.wake, remaining)?;
     }
 }
@@ -335,18 +343,20 @@ fn deliver_native_events(
             }
         }
     }
-    if closed(window) {
-        return Ok(());
-    }
     Ok(())
 }
 
 /// Apply host commands before accessibility, wakes, and redraw delivery.
-fn deliver_commands(session: &Session, window: &mut Window) -> Result<(), ShellError> {
+/// Returns the wake reasons requested up to the eventfd drain.
+fn deliver_commands(
+    session: &Session,
+    window: &mut Window,
+) -> Result<arvane_shell::WakeReasons, ShellError> {
     let _ = super::poll::drain(&window.backend.wake)?;
+    let reasons = window.backend.take();
     for command in window.shared.take_commands() {
         if closed(window) {
-            return Ok(());
+            return Ok(reasons);
         }
         match command {
             Command::SetSize {
@@ -367,8 +377,5 @@ fn deliver_commands(session: &Session, window: &mut Window) -> Result<(), ShellE
             }
         }
     }
-    if closed(window) {
-        return Ok(());
-    }
-    Ok(())
+    Ok(reasons)
 }

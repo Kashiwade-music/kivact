@@ -6,8 +6,8 @@
 //! ([`Presented`]).
 //!
 //! Frames go through the window's GPU surface when the GPU renderer is
-//! ready (feature `gpu`), else they are rasterized on the CPU straight into
-//! the window's CPU surface. A native window's presenter starts the GPU on
+//! ready (`arvane-render` built with its feature `gpu`), else they are
+//! rasterized on the CPU straight into the window's CPU surface. A native window's presenter starts the GPU on
 //! a worker thread with the window (the first frames are drawn on the CPU)
 //! and moves the start along on the shell's wakes (`gpu.rs`).
 //!
@@ -39,10 +39,10 @@
 //!   ([`RendererChange`]: one line starting with `renderer=`), and so is an
 //!   external frame the GPU did not draw (not ready within 100 ms, or
 //!   already given back to its engine), once per frame value.
-//! - Images an external render engine shares (feature `gpu-interop`) are
-//!   imported into the window's own device and go with it: a device
-//!   failure, a new device or the presenter's drop releases every frame
-//!   of them (`arvane-render`'s `gpu/external.rs`).
+//! - Images an external render engine shares (`arvane-render`'s feature
+//!   `gpu-interop`) are imported into the window's own device and go with
+//!   it: a device failure, a new device or the presenter's drop releases
+//!   every frame of them (`arvane-render`'s `gpu/external.rs`).
 
 mod frame;
 mod frame_policy;

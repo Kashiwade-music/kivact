@@ -8,11 +8,16 @@ use std::ffi::OsString;
 use std::num::NonZeroU32;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
 use x11rb::protocol::Event;
 use x11rb::protocol::xproto::{AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, PropMode};
 use x11rb::wrapper::ConnectionExt as _;
+
+/// How long a dropped selection may take to arrive, or between its INCR
+/// increments, before the drop is given up (a source that stops answering).
+const CONVERSION_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(super) struct Dnd {
     atoms: Atoms,
@@ -43,11 +48,12 @@ enum Drag {
         accepts: bool,
         point: Option<Point>,
     },
-    /// `source` dropped at `point`; its selection is being converted.
+    /// `source` dropped at `point`; its selection is being converted, given up at `deadline`.
     Converting {
         source: NonZeroU32,
         point: Point,
         transfer: Transfer,
+        deadline: Instant,
     },
 }
 enum Transfer {
@@ -151,6 +157,53 @@ impl Dnd {
         }
         Ok(())
     }
+    /// Nanoseconds until a conversion in progress is given up, if one is.
+    pub(super) fn remaining_ns(&self) -> Option<u64> {
+        let Drag::Converting { deadline, .. } = &self.drag else {
+            return None;
+        };
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        Some(u64::try_from(remaining.as_nanos()).unwrap_or(u64::MAX))
+    }
+    /// Give up a conversion past its deadline: the source is told the drop failed.
+    pub(super) fn expire(&mut self, native: &Native) -> Result<(), ShellError> {
+        match &self.drag {
+            Drag::Converting { deadline, .. } if *deadline <= Instant::now() => {
+                self.finish(native, Vec::new(), &mut Vec::new())
+            }
+            _ => Ok(()),
+        }
+    }
+    /// The conversion's property on our window, or `None` when the window is gone (the host
+    /// destroyed our parent: a close, not a failure; the drag ends).
+    fn read_property(
+        &mut self,
+        native: &Native,
+        delete: bool,
+        kind: u32,
+    ) -> Result<Option<x11rb::protocol::xproto::GetPropertyReply>, ShellError> {
+        let reply = native
+            .connection
+            .get_property(
+                delete,
+                native.id.get(),
+                self.atoms.property,
+                kind,
+                0,
+                4_194_304,
+            )
+            .map_err(super::error::platform)?
+            .reply();
+        match reply {
+            Ok(reply) => Ok(Some(reply)),
+            Err(error) if super::error::destroyed(&error, native.id.get()) => {
+                native.exists.end();
+                self.drag = Drag::Idle;
+                Ok(None)
+            }
+            Err(error) => Err(super::error::platform(error)),
+        }
+    }
     pub(super) fn event(
         &mut self,
         native: &Native,
@@ -201,27 +254,21 @@ impl Dnd {
         if e.property != self.atoms.property {
             self.finish(native, Vec::new(), out)?;
         } else {
-            let reply = native
-                .connection
-                .get_property(
-                    false,
-                    native.id.get(),
-                    self.atoms.property,
-                    AtomEnum::ANY,
-                    0,
-                    4_194_304,
-                )
-                .map_err(super::error::platform)?
-                .reply()
-                .map_err(super::error::platform)?;
+            let Some(reply) = self.read_property(native, false, AtomEnum::ANY.into())? else {
+                return Ok(());
+            };
             native
                 .connection
                 .delete_property(native.id.get(), self.atoms.property)
                 .map_err(super::error::platform)?;
             native.connection.flush().map_err(super::error::platform)?;
             if reply.type_ == self.atoms.incr && reply.format == 32 {
-                if let Drag::Converting { transfer, .. } = &mut self.drag {
+                if let Drag::Converting {
+                    transfer, deadline, ..
+                } = &mut self.drag
+                {
                     *transfer = Transfer::Incremental(Vec::new());
+                    *deadline = Instant::now() + CONVERSION_TIMEOUT;
                 }
             } else {
                 let files =
@@ -239,22 +286,13 @@ impl Dnd {
 
     /// Receive an XDND increment transfer notification.
     fn increment(&mut self, native: &Native, out: &mut Vec<RawDrop>) -> Result<(), ShellError> {
-        let reply = native
-            .connection
-            .get_property(
-                true,
-                native.id.get(),
-                self.atoms.property,
-                self.atoms.uri,
-                0,
-                4_194_304,
-            )
-            .map_err(super::error::platform)?
-            .reply()
-            .map_err(super::error::platform)?;
+        let Some(reply) = self.read_property(native, true, self.atoms.uri)? else {
+            return Ok(());
+        };
         native.connection.flush().map_err(super::error::platform)?;
         let Drag::Converting {
             transfer: Transfer::Incremental(buffer),
+            deadline,
             ..
         } = &mut self.drag
         else {
@@ -271,6 +309,7 @@ impl Dnd {
             self.finish(native, files, out)?;
         } else {
             buffer.extend_from_slice(&reply.value);
+            *deadline = Instant::now() + CONVERSION_TIMEOUT;
         }
         Ok(())
     }
@@ -309,6 +348,7 @@ impl Dnd {
                         source,
                         point,
                         transfer: Transfer::Requested,
+                        deadline: Instant::now() + CONVERSION_TIMEOUT,
                     };
                     native
                         .connection

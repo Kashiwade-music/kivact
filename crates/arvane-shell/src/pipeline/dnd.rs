@@ -21,10 +21,10 @@ impl DropSession {
         let mut out = Vec::new();
         match raw {
             RawDrop::Hover { files, at } => {
-                let phase = if matches!(self, Self::Hovering { .. }) {
-                    FilePhase::Over
-                } else {
-                    FilePhase::Enter
+                // An unknown position keeps the one the drag already reached.
+                let (phase, at) = match self {
+                    Self::Hovering { at: last, .. } => (FilePhase::Over, at.or(*last)),
+                    Self::Idle | Self::Dropped { .. } => (FilePhase::Enter, at),
                 };
                 if let Some(position) = at {
                     out.push(ShellEvent::File(FileDrop {

@@ -100,16 +100,14 @@ fn check_relations(
         }
     }
     for node in &tree.nodes {
+        let props = &node.semantics;
+        let targets = [&props.described_by, &props.controls, &props.labelled_by];
+        if let Some(missing) = targets
+            .into_iter()
+            .flatten()
+            .find(|id| !lookup.contains_key(id))
         {
-            let props = &node.semantics;
-            let targets = [&props.described_by, &props.controls, &props.labelled_by];
-            if let Some(missing) = targets
-                .into_iter()
-                .flatten()
-                .find(|id| !lookup.contains_key(id))
-            {
-                return Err(AccessibilityError::MissingNode(*missing));
-            }
+            return Err(AccessibilityError::MissingNode(*missing));
         }
     }
     Ok(())

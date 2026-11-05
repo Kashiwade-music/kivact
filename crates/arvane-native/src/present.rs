@@ -47,6 +47,20 @@ impl<D: HasDisplayHandle, W: HasWindowHandle> CpuSurface<D, W> {
         };
         presented
     }
+
+    /// Show the last committed frame again, for a window system repaint. Win32 softbuffer keeps
+    /// one buffer per surface, so presenting it untouched copies the previous frame.
+    #[cfg(all(windows, feature = "embed"))]
+    pub(crate) fn repaint(&mut self) -> Result<(), ShellError> {
+        let Self::Shown(surface) = self else {
+            return Ok(());
+        };
+        surface
+            .buffer_mut()
+            .map_err(error)?
+            .present()
+            .map_err(error)
+    }
 }
 
 fn offer<D: HasDisplayHandle, W: HasWindowHandle>(
