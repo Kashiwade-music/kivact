@@ -7,6 +7,7 @@
 //! that invoke the workspace's `macro_rules!` added to
 //! `analysis.trusted_macros` (`macros.rs`).
 
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 #![allow(
     clippy::print_stdout,
     clippy::print_stderr,
@@ -112,6 +113,10 @@ fn main() -> ExitCode {
     } else {
         report.errors.extend(local);
     }
+    print_report(&report)
+}
+
+fn print_report(report: &xtask_core::Report) -> ExitCode {
     for note in &report.notes {
         println!("{note}");
     }

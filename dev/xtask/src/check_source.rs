@@ -12,7 +12,9 @@ use syn::spanned::Spanned;
 
 pub(crate) struct Source {
     pub(crate) package: String,
+    // xtask-allow(state-fields): Optional immutable Cargo target identity recorded while parsing source metadata.
     pub(crate) target: Option<String>,
+    // xtask-allow(state-fields): Immutable target-kind metadata, independent of optional target naming.
     pub(crate) library: bool,
     pub(crate) module: String,
     pub(crate) path: PathBuf,
