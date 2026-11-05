@@ -51,7 +51,16 @@ fn display_contents_lays_out_children_in_the_parent() {
         "following sibling",
     );
     let tree = screen.accessibility_tree();
-    assert!(!tree.contains("#contents"), "{tree}");
+    let group = screen.get_by_role(Role::Group, "transparent");
+    group.get_by_role(Role::Button, "first");
+    group.get_by_role(Role::Button, "second");
+    assert_rect(
+        group
+            .accessibility_bounds()
+            .expect("semantic group has child bounds"),
+        (40.0, 0.0, 100.0, 20.0),
+        "transparent semantic group",
+    );
     let indent = |test_id: &str| {
         let line = tree
             .lines()
@@ -59,7 +68,8 @@ fn display_contents_lays_out_children_in_the_parent() {
             .expect("invariant: named semantic node is published");
         line.len() - line.trim_start().len()
     };
-    assert_eq!(indent("#first"), indent("#parent") + 2, "{tree}");
-    assert_eq!(indent("#second"), indent("#parent") + 2, "{tree}");
+    assert_eq!(indent("#contents"), indent("#parent") + 2, "{tree}");
+    assert_eq!(indent("#first"), indent("#contents") + 2, "{tree}");
+    assert_eq!(indent("#second"), indent("#contents") + 2, "{tree}");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

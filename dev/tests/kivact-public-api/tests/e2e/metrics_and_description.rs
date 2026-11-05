@@ -155,8 +155,13 @@ fn description_list_pairs_terms_and_details() {
     let actions = list
         .get_by_role(Role::ListItem, "Action")
         .get_by_role(Role::Group, "Action");
-    assert_eq!(actions.labelled_by()[0].name(), "Action");
-    assert_eq!(actions.labelled_by()[0].text(), "Profile actions");
+    let action_labels = actions.labelled_by();
+    assert_eq!(action_labels.len(), 1);
+    assert_eq!(action_labels[0].name(), "Action");
+    assert_eq!(
+        action_labels[0].get_by_text("Profile actions").text(),
+        "Profile actions",
+    );
     term.set("Maintainer".to_owned());
     screen.run_until_idle();
     let detail = screen
