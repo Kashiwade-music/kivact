@@ -5,7 +5,7 @@ use crate::{
 use kivact::style::{Align, Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{
     ChatBubbleGroup, ChatComposerRecipes, ChatComposerState, ChatMessageRecipes, ChatMessageState,
-    ChatSender, ChatThreadRecipes, ChatThreadState, Look,
+    ChatMessageVariant, ChatSender, ChatThreadRecipes, ChatThreadState, Look,
 };
 fn density<S>(s: &Look<S>) -> ChatDensity {
     s.variant::<ChatAppearance>()
@@ -50,7 +50,13 @@ fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
         .variant::<ChatAppearance>()
         .map(|a| a.bubble.get())
         .or_else(|| s.variant::<BubbleVariant>().copied())
-        .unwrap_or_default();
+        .unwrap_or_else(|| {
+            if s.variant::<ChatMessageVariant>() == Some(&ChatMessageVariant::Plain) {
+                BubbleVariant::Ghost
+            } else {
+                BubbleVariant::Filled
+            }
+        });
     let mut look = style()
         .direction(Direction::Column)
         .min_width(0)
@@ -83,7 +89,8 @@ fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
                 .padding_y(4);
         }
     }
-    let user = s.sender == ChatSender::User;
+    let user = (s.sender == ChatSender::User)
+        != (kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl);
     if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {
         look = if user {
             look.radius_top_right(6)

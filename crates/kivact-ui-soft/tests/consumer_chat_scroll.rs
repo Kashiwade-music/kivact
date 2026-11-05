@@ -78,12 +78,12 @@ fn append_follows_until_manual_scroll_and_jump_reattaches() {
     append.click();
     assert!((offset(&screen) - detached).abs() < 1.0);
 
-    screen.get_by_role(Role::Button, "Scroll to bottom").click();
+    screen.get_by_role(Role::Button, "Jump to latest").click();
     let latest = offset(&screen);
     assert!(latest > detached);
     assert!(
         screen
-            .query_by_role(Role::Button, "Scroll to bottom")
+            .query_by_role(Role::Button, "Jump to latest")
             .is_none()
     );
     append.click();
