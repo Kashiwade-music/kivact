@@ -133,7 +133,7 @@ pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 pub use alert_dialog::AlertDialogSize;
 pub use choice::ToggleVariant;
 pub use code_block::{
-    CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
+    CodeBlockLook, CodeBlockSize, CodeLine, CodeSpan, CodeTone, rust_lines, rust_source,
 };
 pub use color::ColorName;
 pub use date_picker::DatePickerVariant;

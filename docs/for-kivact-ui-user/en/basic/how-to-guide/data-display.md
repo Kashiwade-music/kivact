@@ -198,7 +198,7 @@ fn people() -> impl IntoView {
 
 ## Show code with a copy button
 
-`basic::code_block(lines)` draws highlighted lines in a monospaced font. `basic::rust_lines(source)` highlights Rust source and `basic::code_lines(text)` shows plain text. The copy button does not touch the clipboard itself; it calls `.on_copy(..)` and you decide what happens:
+`kivact::ui::code_block(source)` owns selection, scrolling and clipboard feedback. Parse Rust once with `basic::rust_source(source)`, then pass those spans and the current palette to `.highlight(.., basic::rust_lines)`. Plain code needs no highlighter. `.on_copy(..)` observes a copy after Core writes the clipboard:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -206,20 +206,19 @@ use kivact_ui_basic as basic;
 
 fn snippet() -> impl IntoView {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
-    basic::code_block(basic::rust_lines(source))
+    let parsed=basic::rust_source(source);
+    kivact::ui::code_block(source.to_string())
+        .highlight(move || (parsed.clone(), kivact::style::use_tokens::<basic::Tokens>().code.clone()), basic::rust_lines)
         .title("main.rs")
         .line_numbers(true)
-        .on_copy(move || {
-            spawn(kivact::platform::copy_text(source));
-        })
         .style(style().width(pct(100)))
 }
 ```
 
-- `.max_height(..)` makes a long block scroll, `.size(basic::CodeBlockSize::Sm)` is the compact size, and `.footer(|| ..)` adds a line below the block.
+- `.max_height(..)` makes a long block scroll, `.variant(basic::CodeBlockSize::Sm)` is the compact size, and `.footer(..)` adds a line below the block.
 - For another language, build the lines by hand: a `CodeLine` is a list of `CodeSpan::new(text, CodeTone::Keyword)` and so on (tones: `Plain`, `Keyword`, `String`, `Number`, `Comment`, `Function`, `Type`, `Macro`, `Lifetime`, `Punctuation`, `Attribute`). The colors are the `code` field of the theme's tokens.
 - The code font is `Geist Mono`; register it as described in [Theme and tokens](theme-and-tokens.md#choose-the-fonts). Without it a system monospace font is used.
-- After a successful copy the button reads "Copied" for a moment. The words come from `basic.code_block.*` messages.
+- After a successful copy the button reads "Copied" for a moment. The words come from `code_block.*` messages.
 
 ## See also
 

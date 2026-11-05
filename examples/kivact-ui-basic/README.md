@@ -13,7 +13,7 @@ cargo run -p kivact-ui-basic-catalog --no-default-features
 
 ## コードは実行しているもの
 
-各ページは `src/docs/<slug>.rs` の 1 ファイルです。例は `// example: <id>` と `// end example` の行で囲んだ関数で、ページは `include_str!` で自分自身のソースを読み、囲んだ範囲を（字下げを外して）コードとして表示します。画面のコードと実行結果が食い違うことはありません。コードは `kivact-ui-basic` の `code_block` で表示し、色分けは同じ kit の `rust_lines`（小さな Rust の字句解析）が行います。コードは読み取り専用の text box なので、一部を pointer や Shift+矢印で選び Ctrl+C でコピーできます。全体のコピーのボタンは `kivact::platform::copy_text` でクリップボードへ書き込みます。
+各ページは `src/docs/<slug>.rs` の 1 ファイルです。例は `// example: <id>` と `// end example` の行で囲んだ関数で、ページは `include_str!` で自分自身のソースを読み、囲んだ範囲を（字下げを外して）コードとして表示します。画面のコードと実行結果が食い違うことはありません。コードは `kivact::ui::code_block` で表示し、色分けはBasic の `rust_source` と `rust_lines`（小さな Rust の字句解析）が行います。コードは読み取り専用の text box なので、一部を pointer や Shift+矢印で選び Ctrl+C でコピーできます。全体のコピーは Core がクリップボードへ書き込みます。
 
 `Page` と `Example` の型は `src/model.rs`、ページの一覧（`PAGES`）は `src/docs.rs` にあります。ページを足す手順は次のとおりです。
 

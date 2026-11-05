@@ -198,7 +198,7 @@ fn people() -> impl IntoView {
 
 ## コピーボタンつきでコードを見せる
 
-`basic::code_block(lines)` は、構文を色分けした行を等幅フォントで描きます。`basic::rust_lines(source)` は Rust のソースを色分けし、`basic::code_lines(text)` は色なしの文字を表示します。コピーボタンはクリップボードを直接は触りません。`.on_copy(..)` を呼ぶので、何をするかはアプリが決めます。
+`kivact::ui::code_block(source)` が選択、スクロール、コピー通知を管理します。`basic::rust_source(source)` で Rust を一度解析し、その結果と現在の配色を `.highlight(.., basic::rust_lines)` に渡します。色分けしない場合は highlighter が不要です。`.on_copy(..)` は Core がクリップボードへ書き込んだ後の通知です。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -206,20 +206,19 @@ use kivact_ui_basic as basic;
 
 fn snippet() -> impl IntoView {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
-    basic::code_block(basic::rust_lines(source))
+    let parsed=basic::rust_source(source);
+    kivact::ui::code_block(source.to_string())
+        .highlight(move || (parsed.clone(), kivact::style::use_tokens::<basic::Tokens>().code.clone()), basic::rust_lines)
         .title("main.rs")
         .line_numbers(true)
-        .on_copy(move || {
-            spawn(kivact::platform::copy_text(source));
-        })
         .style(style().width(pct(100)))
 }
 ```
 
-- `.max_height(..)` は長いブロックをスクロールにし、`.size(basic::CodeBlockSize::Sm)` はコンパクトなサイズ、`.footer(|| ..)` はブロックの下に 1 行足します。
+- `.max_height(..)` は長いブロックをスクロールにし、`.variant(basic::CodeBlockSize::Sm)` はコンパクトなサイズ、`.footer(..)` はブロックの下に 1 行足します。
 - ほかの言語は、行を自分で組み立てます。`CodeLine` は `CodeSpan::new(text, CodeTone::Keyword)` などの並びです（トーンは `Plain`、`Keyword`、`String`、`Number`、`Comment`、`Function`、`Type`、`Macro`、`Lifetime`、`Punctuation`、`Attribute`）。色はテーマのトークンの `code` フィールドです。
 - コードのフォントは `Geist Mono` です。[テーマとトークン](theme-and-tokens.md)の説明に従って登録してください。登録しないときは、システムの等幅フォントが使われます。
-- コピーに成功すると、ボタンが少しの間「Copied」になります。この文言は `basic.code_block.*` のメッセージから来ます。
+- コピーに成功すると、ボタンが少しの間「Copied」になります。この文言は `code_block.*` のメッセージから来ます。
 
 ## 関連項目
 

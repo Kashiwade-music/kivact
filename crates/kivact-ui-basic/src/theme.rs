@@ -66,6 +66,15 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_icons(crate::icons::set())
         .with(p)
         .with(kivact::ui::UiTokens {
+            code_block: kivact::ui::CodeBlockTokens {
+                font_size: 14.0,
+                line_height: 23.0,
+                copy_feedback_ms: 2000,
+            },
+            indicators: kivact::ui::IndicatorTokens {
+                reduced_period_ms: Some(1000),
+                ..kivact::ui::IndicatorTokens::default()
+            },
             calendar: kivact::ui::CalendarTokens {
                 cell_size: 28.0,
                 month_gap: 16.0,

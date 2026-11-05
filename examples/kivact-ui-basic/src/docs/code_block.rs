@@ -8,15 +8,21 @@ pub(crate) fn page() -> Page {
     Page {
         slug: "code-block",
         name: "Code Block",
-        description: "題名、コピーの操作、行番号、フッターを持つコードの表示部品です。Rust は rust_lines で色分けでき、ほかの言語は呼び出し側が CodeLine と CodeSpan で色を渡します。コードは読み取り専用の text box で、一部を選んで Ctrl+C でコピーできます。コピーのボタンの書き込みはアプリが行います。このカタログの各コードも、この部品で表示しています。",
+        description: "題名、コピーの操作、行番号、フッターを持つコードの表示部品です。Rust は rust_lines で色分けでき、ほかの言語は呼び出し側が CodeLine と CodeSpan で色を渡します。コードは読み取り専用の text box で、一部を選んで Ctrl+C でコピーできます。コピーのボタンは Core がクリップボードへ書き込みます。このカタログの各コードも、この部品で表示しています。",
         usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("code_block.rs"),
         align: PreviewAlign::Center,
         examples: vec![
             Example::new(
+                "reactive",
+                "Reactive source and theme",
+                "ソースの変更時だけ解析し、色は現在のテーマに追従します。",
+                reactive,
+            ),
+            Example::new(
                 "basic",
                 "Title and copy",
-                "rust_lines で Rust を色分けし、title で見出しを付け、on_copy に押されたときの処理を渡します。押すと 2 秒間、アイコンがチェックに変わります。",
+                "rust_source で一度解析し、rust_lines を highlight コールバックに渡します。押すと 2 秒間、アイコンがチェックに変わります。",
                 basic,
             ),
             Example::new(
@@ -28,7 +34,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "small",
                 "Small and footer",
-                "size に CodeBlockSize::Sm を渡すと 12 px の文字になります。footer で下に補足を添えられます。",
+                "variant に CodeBlockSize::Sm を渡すと 12 px の文字になります。footer で下に補足を添えられます。",
                 small,
             ),
             Example::new(
@@ -44,11 +50,18 @@ pub(crate) fn page() -> Page {
 // example: basic
 fn basic() -> impl IntoView {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
-    basic::code_block(basic::rust_lines(source))
+    let parsed = basic::rust_source(source);
+    kivact::ui::code_block(source.to_string())
+        .highlight(
+            move || {
+                (
+                    parsed.clone(),
+                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
+                )
+            },
+            basic::rust_lines,
+        )
         .title("main.rs")
-        .on_copy(move || {
-            spawn(kivact::platform::copy_text(source));
-        })
         .style(style().width(pct(100)))
 }
 // end example
@@ -73,7 +86,22 @@ fn line_numbers() -> impl IntoView {
             CodeSpan::new("(|n| *n += 1);", CodeTone::Punctuation),
         ]),
     ];
-    basic::code_block(lines)
+    let source = lines
+        .iter()
+        .map(CodeLine::text)
+        .collect::<Vec<_>>()
+        .join("\n");
+    kivact::ui::code_block(source)
+        .copy_button(false)
+        .highlight(
+            move || {
+                (
+                    lines.clone(),
+                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
+                )
+            },
+            basic::rust_lines,
+        )
         .line_numbers(true)
         .style(style().width(pct(100)))
 }
@@ -81,8 +109,9 @@ fn line_numbers() -> impl IntoView {
 
 // example: small
 fn small() -> impl IntoView {
-    basic::code_block(basic::code_lines("cargo add kivact\ncargo run"))
-        .size(basic::CodeBlockSize::Sm)
+    kivact::ui::code_block("cargo add kivact\ncargo run".to_string())
+        .copy_button(false)
+        .variant(basic::CodeBlockSize::Sm)
         .title("Terminal")
         .footer(basic::muted("Run both commands from your project root."))
         .style(style().width(pct(100)))
@@ -97,8 +126,41 @@ fn scroll_code() -> impl IntoView {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    basic::code_block(basic::rust_lines(&lines))
+    let parsed = basic::rust_source(&lines);
+    kivact::ui::code_block(lines)
+        .copy_button(false)
+        .highlight(
+            move || {
+                (
+                    parsed.clone(),
+                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
+                )
+            },
+            basic::rust_lines,
+        )
         .max_height(120.0)
         .style(style().width(pct(100)))
+}
+// end example
+
+// example: reactive
+fn reactive() -> impl IntoView {
+    let source = signal("fn main() {}".to_string());
+    let parsed = memo(move || basic::rust_source(&source.get()));
+    column((
+        kivact::ui::text_area("Source", source),
+        kivact::ui::code_block(source)
+            .title("Editable source preview")
+            .highlight(
+                move || {
+                    (
+                        parsed.get(),
+                        kivact::style::use_tokens::<basic::Tokens>().code.clone(),
+                    )
+                },
+                basic::rust_lines,
+            ),
+    ))
+    .style(style().gap(12).width(pct(100)))
 }
 // end example

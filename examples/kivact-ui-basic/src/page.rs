@@ -98,11 +98,18 @@ fn example_section(page: &'static Page, example: &'static Example) -> Node {
 }
 
 /// A highlighted "Rust" block whose copy button writes `snippet` to the clipboard.
-fn code_block(snippet: String, test_id: String) -> basic::CodeBlock {
-    basic::code_block(basic::rust_lines(&snippet))
+fn code_block(snippet: String, test_id: String) -> kivact::ui::CodeBlock {
+    let parsed = basic::rust_source(&snippet);
+    kivact::ui::code_block(snippet)
+        .highlight(
+            move || {
+                (
+                    parsed.clone(),
+                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
+                )
+            },
+            basic::rust_lines,
+        )
         .title("Rust")
-        .on_copy(move || {
-            spawn(kivact::platform::copy_text(snippet.clone()));
-        })
         .test_id(test_id)
 }

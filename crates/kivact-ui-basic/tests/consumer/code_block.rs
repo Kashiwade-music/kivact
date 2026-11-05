@@ -28,7 +28,7 @@ fn code_block_reports_copy_requests_and_shows_copied_for_two_seconds() {
         (
             copies,
             page(
-                basic::code_block(basic::code_lines("let a = 1;\n\nlet b = 2;\n"))
+                kivact::ui::code_block("let a = 1;\n\nlet b = 2;".to_string())
                     .title("main.rs")
                     .line_numbers(true)
                     .on_copy(move || copies.update(|n| *n += 1))

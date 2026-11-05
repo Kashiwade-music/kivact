@@ -114,16 +114,7 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
-| `basic.code_block.copied` | Copied |
-| `basic.code_block.copy` | Copy |
-| `basic.code_block.name` | Code |
 | `basic.message_scroller.end` | Scroll to end |
-| `basic.pagination.label` | Pagination |
-| `basic.pagination.more` | More pages |
-| `basic.pagination.next` | Next |
-| `basic.pagination.next_page` | Go to next page |
-| `basic.pagination.previous` | Previous |
-| `basic.pagination.previous_page` | Go to previous page |
 | `basic.questionnaire.label` | Questionnaire |
 | `basic.questionnaire.next` | Next |
 | `basic.questionnaire.previous` | Previous |
@@ -174,6 +165,13 @@ cards, the command palette and toasts).
 | Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
 | Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
 | Individually wrapped children | `impl IntoChildren` |
+
+| `basic.pagination.label` | Pagination |
+| `basic.pagination.more` | More pages |
+| `basic.pagination.next` | Next |
+| `basic.pagination.next_page` | Go to next page |
+| `basic.pagination.previous` | Previous |
+| `basic.pagination.previous_page` | Go to previous page |
 
 ## Filled standard recipes
 
@@ -229,6 +227,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `input_group`
 - `navigation_menu`
 - `breadcrumb`
+- `code_block`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,
