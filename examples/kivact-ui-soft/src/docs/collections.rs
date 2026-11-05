@@ -10,36 +10,34 @@ use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus,
     aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center, chat_bubble, chat_composer,
     chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
-    clickable_card, collapsible_default, collapsible_group, divider, form_layout, form_row, grid,
-    hstack, item, layout, layout_content, layout_header, list, list_item, metadata_item,
-    metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section, selectable_card,
-    stack_item, tree_list,
+    clickable_card, divider, form_layout, form_row, grid, hstack, item, layout, layout_content,
+    layout_header, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
+    pagination, scrollable_area, section, selectable_card, stack_item, tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
         "collapsible" => specimen(
             "Open by default",
-            collapsible_default("Delivery details", true)
-                .animate_layout(true)
+            kivact::ui::disclosure("Delivery details", signal(true))
+                .animated(true)
                 .content(|| text("Ships in two business days.")),
-            "collapsible_default(\"Delivery details\", true).animate_layout(true).content(details)",
+            "disclosure(\"Delivery details\", signal(true)).animated(true).content(details)",
         ),
         "collapsible-group" => specimen(
             "One section open at a time",
-            collapsible_group(
-                signal(vec!["delivery".to_owned()]),
-                vec![
-                    collapsible_default("Delivery", false)
-                        .value("delivery")
-                        .content(|| text("Ships in two business days.")),
-                    collapsible_default("Returns", false)
-                        .value("returns")
-                        .content(|| text("Returns accepted within 30 days.")),
-                ],
-            )
-            .dividers(true),
-            "collapsible_group(open, sections).dividers(true)",
+            kivact::ui::disclosure_group(signal(Some("delivery")))
+                .variant(kivact_ui_soft::DisclosureVariant {
+                    dividers: true,
+                    ..Default::default()
+                })
+                .panel("delivery", "Delivery", || {
+                    text("Ships in two business days.")
+                })
+                .panel("returns", "Returns", || {
+                    text("Returns accepted within 30 days.")
+                }),
+            "disclosure_group(open).variant(DisclosureVariant { dividers: true, ..Default::default() }).panel(key, title, content)",
         ),
         "list" | "list-item" | "item" => specimen(
             "Workspace items",

@@ -5,9 +5,7 @@ use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Position, Style, Theme, pct, style,
 };
 use kivact_core::view::Orientation;
-use kivact_interaction::{
-    DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
-};
+use kivact_interaction::{ListItemState, MenuItemState, PopupState, TabListState, TabState};
 /// A select's trigger: a bordered field, its text muted while it shows
 /// the placeholder.
 pub(super) fn select_trigger(t: &Theme, state: &SelectTriggerState) -> Style {
@@ -250,11 +248,11 @@ pub(super) fn field_error(t: &Theme, _: &FieldState) -> Style {
 }
 
 /// A disclosure: the trigger over the content.
-pub(super) fn disclosure_root(_: &Theme, _: &DisclosureState) -> Style {
+pub(super) fn disclosure_root(_: &Theme, _: &crate::DisclosureRecipeState) -> Style {
     style().direction(Direction::Column)
 }
 /// A disclosure's trigger: the title at the start and the indicator at the end.
-pub(super) fn disclosure_trigger(t: &Theme, _: &DisclosureState) -> Style {
+pub(super) fn disclosure_trigger(t: &Theme, _: &crate::DisclosureRecipeState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -269,7 +267,7 @@ pub(super) fn disclosure_trigger(t: &Theme, _: &DisclosureState) -> Style {
         .pressed(style().background(ColorToken::Pressed))
 }
 /// The box of a disclosure's `chevron-down` icon, turned up while it is open.
-pub(super) fn disclosure_indicator(_: &Theme, state: &DisclosureState) -> Style {
+pub(super) fn disclosure_indicator(_: &Theme, state: &crate::DisclosureRecipeState) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
@@ -277,7 +275,7 @@ pub(super) fn disclosure_indicator(_: &Theme, state: &DisclosureState) -> Style 
         .rotate(if state.open { 180 } else { 0 })
 }
 /// A disclosure's content under the trigger.
-pub(super) fn disclosure_content(t: &Theme, _: &DisclosureState) -> Style {
+pub(super) fn disclosure_content(t: &Theme, _: &crate::DisclosureRecipeState) -> Style {
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
