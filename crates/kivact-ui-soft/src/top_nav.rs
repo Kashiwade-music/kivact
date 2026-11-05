@@ -131,29 +131,7 @@ impl IntoView for TopNav {
         crate::navigation_session::with_navigation_group(move || {
             let anchor = node_ref();
             let mode = shell_nav_mode();
-            let slot = |slot: Option<View>, align| {
-                slot.map(|slot| {
-                    provide(TopNavCx { anchor, align }, move || {
-                        node()
-                            .style(move || {
-                                let t = kivact::style::use_tokens::<crate::Tokens>();
-                                style()
-                                    .direction(if mode == ShellNavMode::Drawer {
-                                        Direction::Column
-                                    } else {
-                                        logical_row()
-                                    })
-                                    .gap(t.spacing.s1)
-                                    .align_items(if mode == ShellNavMode::Drawer {
-                                        Align::Stretch
-                                    } else {
-                                        Align::Center
-                                    })
-                            })
-                            .child(slot)
-                    })
-                })
-            };
+            let slot = move |slot, align| top_slot(slot, align, anchor, mode);
             let heading = heading;
             let end = slot(end, OverlayAlign::End);
             let start = if mode == ShellNavMode::MobileBar {
@@ -603,31 +581,7 @@ impl IntoView for TopNavMegaMenu {
             let align = cx.map_or(OverlayAlign::Start, |cx| cx.align);
             let anchor = cx.map_or(trigger_ref, |cx| cx.anchor);
             let surface = show(behavior.is_open(), move || {
-                let grid = items.as_ref().map(|items| {
-                    let items = items.clone();
-                    layout_grid(provide(MegaClose(open), move || items.call(())))
-                        .columns(GridColumns::Fixed(2))
-                        .gap(Space::S2)
-                        .style(style().grow(2).shrink(1).basis(300).min_width(0))
-                });
-                let featured = featured.as_ref().map(|featured| {
-                    let featured = featured.clone();
-                    node()
-                        .child(provide(MegaClose(open), move || featured.call(())))
-                        .style(style().grow(1).shrink(1).basis(200).min_width(0))
-                });
-                let body = row((grid, featured)).style(|| {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    style()
-                        .direction(logical_row())
-                        .wrap(true)
-                        .gap(t.spacing.s6)
-                        .padding(t.spacing.s3)
-                        .width(960)
-                        .max_width(
-                            (kivact::platform::window_size().get().width - t.spacing.s4).max(0.0),
-                        )
-                });
+                let body = mega_columns(items.as_ref(), featured.as_ref(), open);
                 let panel = nav_panel
                     .surface(scroll(body))
                     .node_ref(surface_ref)
@@ -709,26 +663,7 @@ impl IntoView for TopNavMegaMenuItem {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
             let popup = try_use_context::<MegaClose>().map(|value| value.get());
-            let glyph = icon.map(|glyph| {
-                node()
-                    .style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let size = if drawer {
-                            t.sizes.control_md
-                        } else {
-                            t.spacing.s10
-                        };
-                        style()
-                            .size(size, size)
-                            .shrink(0)
-                            .radius(t.radius.element)
-                            .background(t.colors.neutral)
-                            .color(t.colors.icon_secondary)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                    })
-                    .child(glyph)
-            });
+            let glyph = icon.map(move |glyph| mega_glyph(glyph, drawer));
             let labels = column((
                 text(title).style(title_style),
                 description.map(|value| text(value).style(supporting)),
@@ -925,4 +860,80 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             .child((image, body))
         })
     }
+}
+
+fn top_slot(
+    slot: Option<View>,
+    align: OverlayAlign,
+    anchor: NodeRef,
+    mode: ShellNavMode,
+) -> Option<View> {
+    slot.map(|slot| {
+        provide(TopNavCx { anchor, align }, move || {
+            node()
+                .style(move || {
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
+                    style()
+                        .direction(if mode == ShellNavMode::Drawer {
+                            Direction::Column
+                        } else {
+                            logical_row()
+                        })
+                        .gap(t.spacing.s1)
+                        .align_items(if mode == ShellNavMode::Drawer {
+                            Align::Stretch
+                        } else {
+                            Align::Center
+                        })
+                })
+                .child(slot)
+        })
+    })
+}
+
+fn mega_columns(items: Option<&ViewFn>, featured: Option<&ViewFn>, open: Binding<bool>) -> Node {
+    let grid = items.map(|items| {
+        let items = items.clone();
+        layout_grid(provide(MegaClose(open), move || items.call(())))
+            .columns(GridColumns::Fixed(2))
+            .gap(Space::S2)
+            .style(style().grow(2).shrink(1).basis(300).min_width(0))
+    });
+    let featured = featured.map(|featured| {
+        let featured = featured.clone();
+        node()
+            .child(provide(MegaClose(open), move || featured.call(())))
+            .style(style().grow(1).shrink(1).basis(200).min_width(0))
+    });
+    row((grid, featured)).style(|| {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        style()
+            .direction(logical_row())
+            .wrap(true)
+            .gap(t.spacing.s6)
+            .padding(t.spacing.s3)
+            .width(960)
+            .max_width((kivact::platform::window_size().get().width - t.spacing.s4).max(0.0))
+    })
+}
+
+fn mega_glyph(glyph: View, drawer: bool) -> Node {
+    node()
+        .style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let size = if drawer {
+                t.sizes.control_md
+            } else {
+                t.spacing.s10
+            };
+            style()
+                .size(size, size)
+                .shrink(0)
+                .radius(t.radius.element)
+                .background(t.colors.neutral)
+                .color(t.colors.icon_secondary)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center)
+        })
+        .child(glyph)
 }

@@ -92,15 +92,21 @@ pub enum TabOverflow {
     Visible,
 }
 
+// xtask-allow(state-fields): Independent immutable key, label, icon, panel reference and trailing-content inputs; shared Tabs owns selection and interaction.
 /// A keyed tab with retained icon and trailing-content slots.
 pub struct Tab<K> {
     root: Node,
     key: K,
     label: Value<String>,
+    // xtask-allow(state-fields): Independent retained leading-icon slot.
     icon: Option<View>,
+    // xtask-allow(state-fields): Independent retained alternative icon slot.
     selected_icon: Option<View>,
+    // xtask-allow(state-fields): Caller label visibility input, without selection state.
     label_hidden: Value<bool>,
+    // xtask-allow(state-fields): Independent retained trailing-content slot.
     end: Option<View>,
+    // xtask-allow(state-fields): Reference to the actual associated panel, not its lifecycle state.
     panel: Option<NodeRef>,
 }
 
@@ -154,11 +160,14 @@ impl<K> NodeBuilder for Tab<K> {
 }
 
 #[derive(Clone)]
+// xtask-allow(state-fields): Immutable menu key, label, icon factory and availability input; shared Menu owns the interaction lifecycle.
 /// A keyed option inside a tab-strip menu.
 pub struct TabMenuOption<K> {
     key: K,
     label: Value<String>,
+    // xtask-allow(state-fields): Immutable icon factory for reopened menu content.
     icon: Option<ViewFn>,
+    // xtask-allow(state-fields): Immutable caller availability input, not the Menu interaction phase.
     disabled: bool,
 }
 
@@ -234,6 +243,7 @@ struct Look {
     divider: bool,
 }
 
+// xtask-allow(state-fields): Independent caller selection binding, immutable entries and visual options; shared Tabs and the single focus cursor own interaction.
 /// A keyed tab or navigation strip with optional selected-panel content.
 pub struct TabList<K: ItemKey> {
     root: Node,
@@ -243,7 +253,9 @@ pub struct TabList<K: ItemKey> {
     look: Look,
     pattern: Value<TabPattern>,
     overflow: Value<TabOverflow>,
+    // xtask-allow(state-fields): Independent caller layout input, not navigation state.
     full_bleed: Value<bool>,
+    // xtask-allow(state-fields): Immutable selected-panel factory; the existing selection binding chooses its key.
     content: Option<kivact::view::ViewFn<K>>,
 }
 
@@ -326,15 +338,21 @@ impl<K: ItemKey> NodeBuilder for TabList<K> {
     }
 }
 
+// xtask-allow(state-fields): Mounted NodeRef plus actual read-only selected and disabled projections, without an independent interaction lifecycle.
 struct FocusMember {
     reference: NodeRef,
+    // xtask-allow(state-fields): Actual selected-state projection of the existing selection binding.
     selected: Value<bool>,
+    // xtask-allow(state-fields): Actual disabled-state projection of the mounted tab root.
     disabled: Value<bool>,
 }
 
+// xtask-allow(state-fields): One roving cursor fact plus actual read-only focus, selection and disabled projections; there is no second mutable lifecycle field.
 #[derive(Clone)]
 struct FocusTrack {
+    // xtask-allow(state-fields): Mounted NodeRef registry with actual read-only selection and disabled projections.
     members: Rc<[FocusMember]>,
+    // xtask-allow(state-fields): Actual NodeRef focus-within projection, not an independently writable lifecycle fact.
     focused_within: Value<bool>,
     roving: Signal<Option<usize>>,
 }
@@ -429,180 +447,24 @@ impl<K: ItemKey> IntoView for TabList<K> {
             } else {
                 ContainerInset::default()
             };
-            let options = entries
-                .iter_mut()
-                .filter_map(|entry| match entry {
-                    TabEntry::Tab(tab) => Some((
-                        tab.key.clone(),
-                        tab.label,
-                        tab.root
-                            .accessible_disabled()
-                            .unwrap_or_else(|| false.into_value()),
-                    )),
-                    TabEntry::Menu(_) => None,
-                })
-                .collect::<Vec<_>>();
-            let behavior = (pattern.get() == TabPattern::Tabs).then(|| {
-                use_tabs(
-                    move || {
-                        options
-                            .iter()
-                            .map(|(key, label, disabled)| {
-                                ListItem::new(key.clone(), *label).disabled(disabled.get())
-                            })
-                            .collect::<Vec<_>>()
-                    },
-                    binding,
-                )
-                .activation(ListActivation::Manual)
-            });
-            let members = entries
-                .iter_mut()
-                .map(|entry| {
-                    let (selected, disabled) = match entry {
-                        TabEntry::Tab(tab) => {
-                            let key = tab.key.clone();
-                            (
-                                memo(move || binding.get() == key),
-                                tab.root
-                                    .accessible_disabled()
-                                    .unwrap_or_else(|| false.into_value()),
-                            )
-                        }
-                        TabEntry::Menu(menu) => {
-                            let keys = menu
-                                .options
-                                .iter()
-                                .map(|option| option.key.clone())
-                                .collect::<Vec<_>>();
-                            (
-                                memo(move || keys.contains(&binding.get())),
-                                false.into_value(),
-                            )
-                        }
-                    };
-                    FocusMember {
-                        reference: node_ref(),
-                        selected,
-                        disabled,
-                    }
-                })
-                .collect::<Vec<_>>();
-            let focus = FocusTrack {
-                members: members.into(),
-                focused_within: strip_ref.focus_within(),
-                roving: signal(None),
-            };
+            let behavior = tabs_behavior(&mut entries, binding, pattern.get());
+            let focus = focus_track(&mut entries, binding, strip_ref);
             let scrollable = overflow.get() == TabOverflow::Scroll;
+            let runtime = TabRuntime {
+                binding,
+                look,
+                behavior,
+                focus,
+                scrollable,
+            };
             let children = entries
                 .into_iter()
                 .enumerate()
-                .map(|(index, entry)| {
-                    let member = &focus.members[index];
-                    let reference = member.reference;
-                    let selected = member.selected;
-                    let active_ref = reference.focused();
-                    if scrollable {
-                        let geometry = reference.rect();
-                        effect_on(
-                            move || {
-                                geometry.get().is_some() && (active_ref.get() || selected.get())
-                            },
-                            move |active| {
-                                if *active {
-                                    reference.scroll_into_view();
-                                }
-                            },
-                        );
-                    }
-                    match entry {
-                        TabEntry::Tab(mut tab) => {
-                            let disabled = tab
-                                .root
-                                .accessible_disabled()
-                                .unwrap_or_else(|| false.into_value());
-                            let Tab {
-                                root,
-                                key,
-                                label,
-                                icon,
-                                selected_icon,
-                                label_hidden,
-                                end,
-                                panel,
-                            } = tab;
-                            let has_selected_icon = selected_icon.is_some();
-                            let standard_icon = icon.map(|icon| {
-                                tab_glyph(icon, look.size, move || {
-                                    selected.get() && has_selected_icon
-                                })
-                            });
-                            let selected_icon = selected_icon
-                                .map(|icon| tab_glyph(icon, look.size, move || !selected.get()));
-                            let title =
-                                (!label_hidden.get()).then(|| stable_label(label, selected));
-                            let mut root = root
-                                .node_ref(reference)
-                                .name(label)
-                                .disabled(disabled)
-                                .with_node(move |node| {
-                                    node.base_style(move || {
-                                        tab_style(look, selected.get(), disabled.get())
-                                    })
-                                })
-                                .child((
-                                    standard_icon,
-                                    selected_icon,
-                                    title,
-                                    end,
-                                    indicator(look, selected, false),
-                                ));
-                            if let Some(behavior) = behavior {
-                                root = root.with_node(move |node| node.part(behavior.item(key)));
-                            } else {
-                                let state = focus.clone();
-                                let keys = focus.clone();
-                                root = root
-                                    .with_node(move |node| node.role(Role::Button))
-                                    .with_node(move |node| node.selected(selected))
-                                    .focusable(move || state.focusable(index))
-                                    .on_key(move |event| keys.key(index, event))
-                                    .on_press(move || {
-                                        if !disabled.get() {
-                                            binding.set(key.clone());
-                                        }
-                                    });
-                            }
-                            if let Some(panel) = panel {
-                                root = root.with_node(move |node| node.controls(panel));
-                            }
-                            root.into_view()
-                        }
-                        TabEntry::Menu(menu) => {
-                            tab_menu_view(menu, binding, look, focus.clone(), index)
-                        }
-                    }
-                })
+                .map(|(index, entry)| runtime.entry(entry, index))
                 .collect::<Vec<_>>();
-            let strip = row(children).node_ref(strip_ref).style(move || {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
-                let (left, right) = inset.sides();
-                let mut base = style()
-                    .direction(logical_row())
-                    .gap(t.spacing.s0_5)
-                    .min_width(0)
-                    .padding_left((left - t.spacing.s3).max(0.0))
-                    .padding_right((right - t.spacing.s3).max(0.0));
-                if look.layout == TabLayout::Fill {
-                    base = base.width(pct(100));
-                } else if scrollable {
-                    base = base.width(Length::MaxContent).min_width(pct(100));
-                }
-                if look.divider {
-                    base = base.padding_bottom(t.spacing.s1);
-                }
-                base
-            });
+            let strip = row(children)
+                .node_ref(strip_ref)
+                .style(move || strip_style(look, inset, scrollable));
             let strip = if let Some(behavior) = behavior {
                 strip
                     .with_node(move |node| node.part(behavior.list()))
@@ -613,59 +475,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
                     .name(label)
             };
             let strip = if scrollable {
-                let state = viewport_ref.scroll_state();
-                let start = kivact::state::memo(move || {
-                    matches!(
-                        state.get(),
-                        kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtEnd
-                    )
-                });
-                let end = kivact::state::memo(move || {
-                    matches!(
-                        state.get(),
-                        kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtStart
-                    )
-                });
-                let viewport = scroll(strip)
-                    .axes(ScrollAxes::Horizontal)
-                    .node_ref(viewport_ref)
-                    .style(move || {
-                        let base = style()
-                            .scrollbar_width(ScrollbarWidth::None)
-                            .min_width(0)
-                            .max_width(pct(100));
-                        let start = start.get();
-                        let end = end.get();
-                        if !start && !end {
-                            return base;
-                        }
-                        let mut mask = linear_gradient(if rtl() { 270 } else { 90 });
-                        if start {
-                            mask = mask.stop(Color::TRANSPARENT, 0).stop(Color::BLACK, 32);
-                        } else {
-                            mask = mask.stop(Color::BLACK, 0);
-                        }
-                        if end {
-                            mask = mask
-                                .stop(Color::BLACK, pct(100) - 32)
-                                .stop(Color::TRANSPARENT, pct(100));
-                        } else {
-                            mask = mask.stop(Color::BLACK, pct(100));
-                        }
-                        base.mask(mask)
-                    });
-                let arrows = if kivact::platform::capabilities().get().touch {
-                    None
-                } else {
-                    Some((
-                        tab_scroll_arrow(look.size, viewport_ref, start, false),
-                        tab_scroll_arrow(look.size, viewport_ref, end, true),
-                    ))
-                };
-                node()
-                    .style(style().position(Position::Relative))
-                    .child((viewport, arrows))
-                    .into_view()
+                scroll_strip(strip, viewport_ref, look)
             } else {
                 strip.into_view()
             };
@@ -935,20 +745,7 @@ fn tab_menu_view<K: ItemKey>(
         .with_node(move |node| node.base_style(move || tab_style(look, selected.get(), false)))
         .child((
             stable_label(shown_label, selected),
-            icon("chevron-down").style(move || {
-                style()
-                    .size(16, 16)
-                    .rotate(if open.get() { 180 } else { 0 })
-                    .transition(
-                        TransitionProp::Paint,
-                        Transition::tween(
-                            kivact::style::use_tokens::<crate::Tokens>().motion.fast as f64,
-                            kivact::style::use_tokens::<crate::Tokens>()
-                                .motion
-                                .ease_standard,
-                        ),
-                    )
-            }),
+            menu_chevron(open),
             indicator(look, selected, true),
         ));
     let menu = behavior.show(move || {
@@ -959,47 +756,7 @@ fn tab_menu_view<K: ItemKey>(
             move |entry| {
                 let index = *entry.get().1.key().expect("radio item");
                 let part = behavior.item(index);
-                let state = part.state();
-                let option = &options[index];
-                let selected_key = option.key.clone();
-                let selected = memo(move || binding.get() == selected_key);
-                let icon = option
-                    .icon
-                    .as_ref()
-                    .map(|icon| tab_glyph(icon.call(()), ControlSize::Medium, || false));
-                let check = icon_check().hidden(move || !selected.get());
-                row((
-                    icon,
-                    text(option.label).style(style().grow(1).single_line()),
-                    check,
-                ))
-                .with_node(move |node| node.part(part))
-                .style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let role = t.typography.body;
-                    let input = state.get().input;
-                    let base = style()
-                        .direction(logical_row())
-                        .padding_x(t.spacing.s3)
-                        .padding_y(t.spacing.s2)
-                        .align_items(Align::Center)
-                        .gap(t.spacing.s2)
-                        .radius(t.radius.element)
-                        .font_size(role.size_px)
-                        .line_height(role.line_height_px / role.size_px)
-                        .color(t.colors.text_primary)
-                        .weight(if selected.get() {
-                            t.typography.weight_medium
-                        } else {
-                            role.weight
-                        })
-                        .disabled(style().opacity(t.sizes.disabled_opacity));
-                    if input.hovered || input.focused {
-                        base.background(t.colors.overlay_hover)
-                    } else {
-                        base
-                    }
-                })
+                menu_option(&options[index], binding, part)
             },
         );
         let header = text(label).style(|| {
@@ -1040,3 +797,325 @@ fn icon_check() -> Node {
 }
 
 kivact::state::constant_value!(TabOverflow, TabPattern);
+
+fn tabs_behavior<K: ItemKey>(
+    entries: &mut [TabEntry<K>],
+    binding: Binding<K>,
+    pattern: TabPattern,
+) -> Option<kivact::interaction::TabsApi<K>> {
+    let options = entries
+        .iter_mut()
+        .filter_map(|entry| match entry {
+            TabEntry::Tab(tab) => Some((
+                tab.key.clone(),
+                tab.label,
+                tab.root
+                    .accessible_disabled()
+                    .unwrap_or_else(|| false.into_value()),
+            )),
+            TabEntry::Menu(_) => None,
+        })
+        .collect::<Vec<_>>();
+    (pattern == TabPattern::Tabs).then(|| {
+        use_tabs(
+            move || {
+                options
+                    .iter()
+                    .map(|(key, label, disabled)| {
+                        ListItem::new(key.clone(), *label).disabled(disabled.get())
+                    })
+                    .collect::<Vec<_>>()
+            },
+            binding,
+        )
+        .activation(ListActivation::Manual)
+    })
+}
+
+fn focus_track<K: ItemKey>(
+    entries: &mut [TabEntry<K>],
+    binding: Binding<K>,
+    strip_ref: NodeRef,
+) -> FocusTrack {
+    let members = entries
+        .iter_mut()
+        .map(|entry| {
+            let (selected, disabled) = match entry {
+                TabEntry::Tab(tab) => {
+                    let key = tab.key.clone();
+                    (
+                        memo(move || binding.get() == key),
+                        tab.root
+                            .accessible_disabled()
+                            .unwrap_or_else(|| false.into_value()),
+                    )
+                }
+                TabEntry::Menu(menu) => {
+                    let keys = menu
+                        .options
+                        .iter()
+                        .map(|option| option.key.clone())
+                        .collect::<Vec<_>>();
+                    (
+                        memo(move || keys.contains(&binding.get())),
+                        false.into_value(),
+                    )
+                }
+            };
+            FocusMember {
+                reference: node_ref(),
+                selected,
+                disabled,
+            }
+        })
+        .collect::<Vec<_>>();
+    FocusTrack {
+        members: members.into(),
+        focused_within: strip_ref.focus_within(),
+        roving: signal(None),
+    }
+}
+
+// xtask-allow(state-fields): Immutable binding, presentation and actual shared Tabs/focus handles; this bundle stores no copied lifecycle state.
+struct TabRuntime<K: ItemKey> {
+    binding: Binding<K>,
+    look: Look,
+    // xtask-allow(state-fields): Existing canonical TabsApi handle, without copied selection or phase.
+    behavior: Option<kivact::interaction::TabsApi<K>>,
+    focus: FocusTrack,
+    // xtask-allow(state-fields): Fixed overflow presentation input, independent of the shared Tabs and focus cursor.
+    scrollable: bool,
+}
+impl<K: ItemKey> TabRuntime<K> {
+    fn entry(&self, entry: TabEntry<K>, index: usize) -> View {
+        let binding = self.binding;
+        let look = self.look;
+        let focus = &self.focus;
+        let scrollable = self.scrollable;
+        let member = &focus.members[index];
+        let reference = member.reference;
+        let selected = member.selected;
+        let active_ref = reference.focused();
+        if scrollable {
+            let geometry = reference.rect();
+            effect_on(
+                move || geometry.get().is_some() && (active_ref.get() || selected.get()),
+                move |active| {
+                    if *active {
+                        reference.scroll_into_view();
+                    }
+                },
+            );
+        }
+        match entry {
+            TabEntry::Tab(tab) => self.tab(tab, index, reference, selected),
+            TabEntry::Menu(menu) => tab_menu_view(menu, binding, look, focus.clone(), index),
+        }
+    }
+    fn tab(
+        &self,
+        mut tab: Tab<K>,
+        index: usize,
+        reference: NodeRef,
+        selected: Value<bool>,
+    ) -> View {
+        let binding = self.binding;
+        let look = self.look;
+        let behavior = self.behavior;
+        let focus = &self.focus;
+        let disabled = tab
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
+        let Tab {
+            root,
+            key,
+            label,
+            icon,
+            selected_icon,
+            label_hidden,
+            end,
+            panel,
+        } = tab;
+        let has_selected_icon = selected_icon.is_some();
+        let standard_icon = icon
+            .map(|icon| tab_glyph(icon, look.size, move || selected.get() && has_selected_icon));
+        let selected_icon =
+            selected_icon.map(|icon| tab_glyph(icon, look.size, move || !selected.get()));
+        let title = (!label_hidden.get()).then(|| stable_label(label, selected));
+        let mut root = root
+            .node_ref(reference)
+            .name(label)
+            .disabled(disabled)
+            .with_node(move |node| {
+                node.base_style(move || tab_style(look, selected.get(), disabled.get()))
+            })
+            .child((
+                standard_icon,
+                selected_icon,
+                title,
+                end,
+                indicator(look, selected, false),
+            ));
+        if let Some(behavior) = behavior {
+            root = root.with_node(move |node| node.part(behavior.item(key)));
+        } else {
+            let state = focus.clone();
+            let keys = focus.clone();
+            root = root
+                .with_node(move |node| node.role(Role::Button))
+                .with_node(move |node| node.selected(selected))
+                .focusable(move || state.focusable(index))
+                .on_key(move |event| keys.key(index, event))
+                .on_press(move || {
+                    if !disabled.get() {
+                        binding.set(key.clone());
+                    }
+                });
+        }
+        if let Some(panel) = panel {
+            root = root.with_node(move |node| node.controls(panel));
+        }
+        root.into_view()
+    }
+}
+
+fn scroll_strip(strip: Node, viewport_ref: NodeRef, look: Look) -> View {
+    let state = viewport_ref.scroll_state();
+    let start = kivact::state::memo(move || {
+        matches!(
+            state.get(),
+            kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtEnd
+        )
+    });
+    let end = kivact::state::memo(move || {
+        matches!(
+            state.get(),
+            kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtStart
+        )
+    });
+    let viewport = scroll(strip)
+        .axes(ScrollAxes::Horizontal)
+        .node_ref(viewport_ref)
+        .style(move || {
+            let base = style()
+                .scrollbar_width(ScrollbarWidth::None)
+                .min_width(0)
+                .max_width(pct(100));
+            let start = start.get();
+            let end = end.get();
+            if !start && !end {
+                return base;
+            }
+            let mut mask = linear_gradient(if rtl() { 270 } else { 90 });
+            if start {
+                mask = mask.stop(Color::TRANSPARENT, 0).stop(Color::BLACK, 32);
+            } else {
+                mask = mask.stop(Color::BLACK, 0);
+            }
+            if end {
+                mask = mask
+                    .stop(Color::BLACK, pct(100) - 32)
+                    .stop(Color::TRANSPARENT, pct(100));
+            } else {
+                mask = mask.stop(Color::BLACK, pct(100));
+            }
+            base.mask(mask)
+        });
+    let arrows = if kivact::platform::capabilities().get().touch {
+        None
+    } else {
+        Some((
+            tab_scroll_arrow(look.size, viewport_ref, start, false),
+            tab_scroll_arrow(look.size, viewport_ref, end, true),
+        ))
+    };
+    node()
+        .style(style().position(Position::Relative))
+        .child((viewport, arrows))
+        .into_view()
+}
+
+fn strip_style(look: Look, inset: ContainerInset, scrollable: bool) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let (left, right) = inset.sides();
+    let mut base = style()
+        .direction(logical_row())
+        .gap(t.spacing.s0_5)
+        .min_width(0)
+        .padding_left((left - t.spacing.s3).max(0.0))
+        .padding_right((right - t.spacing.s3).max(0.0));
+    if look.layout == TabLayout::Fill {
+        base = base.width(pct(100));
+    } else if scrollable {
+        base = base.width(Length::MaxContent).min_width(pct(100));
+    }
+    if look.divider {
+        base = base.padding_bottom(t.spacing.s1);
+    }
+    base
+}
+
+fn menu_option<K: ItemKey>(
+    option: &TabMenuOption<K>,
+    binding: Binding<K>,
+    part: kivact::custom::Part<kivact::interaction::MenuItemState>,
+) -> Node {
+    let state = part.state();
+    let selected_key = option.key.clone();
+    let selected = memo(move || binding.get() == selected_key);
+    let icon = option
+        .icon
+        .as_ref()
+        .map(|icon| tab_glyph(icon.call(()), ControlSize::Medium, || false));
+    let check = icon_check().hidden(move || !selected.get());
+    row((
+        icon,
+        text(option.label).style(style().grow(1).single_line()),
+        check,
+    ))
+    .with_node(move |node| node.part(part))
+    .style(move || {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        let role = t.typography.body;
+        let input = state.get().input;
+        let base = style()
+            .direction(logical_row())
+            .padding_x(t.spacing.s3)
+            .padding_y(t.spacing.s2)
+            .align_items(Align::Center)
+            .gap(t.spacing.s2)
+            .radius(t.radius.element)
+            .font_size(role.size_px)
+            .line_height(role.line_height_px / role.size_px)
+            .color(t.colors.text_primary)
+            .weight(if selected.get() {
+                t.typography.weight_medium
+            } else {
+                role.weight
+            })
+            .disabled(style().opacity(t.sizes.disabled_opacity));
+        if input.hovered || input.focused {
+            base.background(t.colors.overlay_hover)
+        } else {
+            base
+        }
+    })
+}
+
+fn menu_chevron(open: Value<bool>) -> Node {
+    icon("chevron-down").style(move || {
+        style()
+            .size(16, 16)
+            .rotate(if open.get() { 180 } else { 0 })
+            .transition(
+                TransitionProp::Paint,
+                Transition::tween(
+                    kivact::style::use_tokens::<crate::Tokens>().motion.fast as f64,
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .motion
+                        .ease_standard,
+                ),
+            )
+    })
+}
