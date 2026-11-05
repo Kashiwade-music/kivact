@@ -11,9 +11,9 @@ use kivact_ui_soft as soft;
 fn build_details() -> impl IntoView {
     column((
         kivact::ui::heading("Build details", 2),
-        soft::metadata_list(vec![
-            soft::metadata_item("Status", soft::text("Passed")),
-            soft::metadata_item("Revision", soft::code("ae72f04")),
+        kivact::ui::description_list(vec![
+            kivact::ui::description("Status", soft::text("Passed")),
+            kivact::ui::description("Revision", soft::code("ae72f04")),
         ]),
     ))
     .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
@@ -27,6 +27,30 @@ Keyboard shortcuts use standard `kbd("mod+shift+p")` or typed `kbd_combo(keys).m
 Use standard `badge(label)` with `.tone(Tone::Info/Success/Warning/Danger)` for status colors. Categorical colors remain `.variant(soft::BadgeVariant::Blue)` and the other Neutral hue variants. `.icon(view)` and `.trailing_icon(view)` accept custom visuals; size an icon to 12 px for the original cap geometry. A badge can use `.on_press(...)` when it is an action.
 
 Headings use `kivact::ui::heading(value, level)`. Apply `HeadingDisplay::D1`, `D2` or `D3` with `.variant(..)` to keep the semantic level while changing display typography. Generic node styles supply color, weight, line clamping, wrapping, alignment, capsize and strikethrough. A truncation tooltip composes `ui::tooltip(value).enabled(anchor.text_truncated()).attach(heading.node_ref(anchor))`; the caller owns its anchor. Progress keeps its Bar motion and tone options and also accepts `ProgressVariant::Ring` and `Gauge`.
+
+Description lists use `ui::description_list` and `ui::description`. Apply the same `MetadataLook` to the list and each pair. `columns(Single/Multi/Count(n))`, `label_position(Start/Top)`, `label_width(px)` and `orientation(Vertical/Horizontal)` retain the original visual choices; their values can be reactive. Single-column beside labels share the grid's intrinsic widest term, with no copied measurement state. `term_content` adds an icon and custom term view while retaining the accessible term. Compose a title outside the list. For a maximum visible count and controlled expansion, let the caller hold the limit and the Core disclosure binding, as below; localize its trigger text in the application.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui;
+use kivact_ui_soft::{MetadataColumns, MetadataLook};
+
+fn expandable_details() -> impl IntoView {
+    let expanded = signal(false);
+    let limit = signal(2usize);
+    let layout = MetadataLook::default().columns(MetadataColumns::Multi);
+    let attributes = [("Owner", "Ada"), ("Status", "Ready"), ("Revision", "ae72f04")];
+    let pairs = attributes.into_iter().enumerate().map(move |(index, (term, value))| {
+        node().hidden(move || index >= limit.get() && !expanded.get())
+            .child(ui::description(term, text(value)).variant(layout))
+    }).collect::<Vec<_>>();
+    column((
+        ui::heading("Project details", 3),
+        ui::description_list(pairs).variant(layout),
+        ui::disclosure(move || if expanded.get() { "Show less" } else { "Show more" }, expanded),
+    ))
+}
+```
 
 ## Chat and source blocks
 

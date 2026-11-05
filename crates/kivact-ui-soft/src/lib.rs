@@ -81,7 +81,7 @@ mod shadows;
 mod side_navigation;
 mod soft_chat_tools;
 mod soft_list;
-mod soft_metadata;
+
 mod soft_overflow;
 mod soft_table;
 mod soft_tree;
@@ -173,6 +173,7 @@ pub use recipes_code::{CodeAppearance, CodeBlockContainer, CodeBlockSize, CodeBl
 pub use recipes_dropzone::DropzoneVariant;
 pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
 pub use recipes_metrics::HeadingDisplay;
+pub use recipes_metrics::{LabelPosition, MetadataColumns, MetadataLook};
 pub use recipes_skeleton::SkeletonRadius;
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
@@ -190,9 +191,6 @@ pub use soft_chat_tools::{
 pub use soft_list::{
     Item, ItemAlign, ItemDensity, ItemLayout, List, ListDensity, ListEdge, ListMarker, item, list,
     list_item, list_items,
-};
-pub use soft_metadata::{
-    LabelPosition, MetadataColumns, MetadataItem, MetadataList, metadata_item, metadata_list,
 };
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{

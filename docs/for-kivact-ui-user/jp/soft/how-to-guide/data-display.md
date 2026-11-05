@@ -11,9 +11,9 @@ use kivact_ui_soft as soft;
 fn build_details() -> impl IntoView {
     column((
         kivact::ui::heading("Build details", 2),
-        soft::metadata_list(vec![
-            soft::metadata_item("Status", soft::text("Passed")),
-            soft::metadata_item("Revision", soft::code("ae72f04")),
+        kivact::ui::description_list(vec![
+            kivact::ui::description("Status", soft::text("Passed")),
+            kivact::ui::description("Revision", soft::code("ae72f04")),
         ]),
     ))
     .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
@@ -27,6 +27,30 @@ fn build_details() -> impl IntoView {
 状態を示す色には標準の `badge(label)` と `.tone(Tone::Info/Success/Warning/Danger)` を使います。分類用の色には `.variant(soft::BadgeVariant::Blue)` など Neutral の色別 variant を使います。`.icon(view)` と `.trailing_icon(view)` には独自の視覚要素を渡せます。従来の寸法にはアイコンを 12 px にします。操作する badge には `.on_press(...)` を指定できます。
 
 見出しには `kivact::ui::heading(value, level)` を使います。`HeadingDisplay::D1`、`D2`、`D3` を `.variant(..)` に渡すと、意味上のレベルを維持したまま表示用の文字組みを変えられます。色、太さ、行数制限、折り返し、整列、capsize、取り消し線はノードのスタイルで指定します。省略時のツールチップは `ui::tooltip(value).enabled(anchor.text_truncated()).attach(heading.node_ref(anchor))` で合成し、呼び出し側がアンカーを持ちます。進捗は従来の Bar の動きとトーンに加え、`ProgressVariant::Ring` と `Gauge` にも対応します。
+
+用語と値の一覧には `ui::description_list` と `ui::description` を使い、一覧と各行に同じ `MetadataLook` を指定します。`columns(Single/Multi/Count(n))`、`label_position(Start/Top)`、`label_width(px)`、`orientation(Vertical/Horizontal)` で元の見た目の選択肢を維持し、値はリアクティブにもできます。単一列で横並びのラベル幅はグリッドの最も広い用語に揃い、計測値のコピーは不要です。アイコンや独自の用語表示は `term_content` に合成し、アクセシブルな用語は維持します。タイトルは一覧の外に置きます。表示件数の上限と開閉を制御する場合は、次の例のように呼び出し側で上限と Core disclosure の binding を持ち、トリガーの文字列をアプリ側で翻訳します。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui;
+use kivact_ui_soft::{MetadataColumns, MetadataLook};
+
+fn expandable_details() -> impl IntoView {
+    let expanded = signal(false);
+    let limit = signal(2usize);
+    let layout = MetadataLook::default().columns(MetadataColumns::Multi);
+    let attributes = [("Owner", "Ada"), ("Status", "Ready"), ("Revision", "ae72f04")];
+    let pairs = attributes.into_iter().enumerate().map(move |(index, (term, value))| {
+        node().hidden(move || index >= limit.get() && !expanded.get())
+            .child(ui::description(term, text(value)).variant(layout))
+    }).collect::<Vec<_>>();
+    column((
+        ui::heading("Project details", 3),
+        ui::description_list(pairs).variant(layout),
+        ui::disclosure(move || if expanded.get() { "Show less" } else { "Show more" }, expanded),
+    ))
+}
+```
 
 ## Chat と source block
 

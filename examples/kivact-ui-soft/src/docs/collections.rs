@@ -9,7 +9,7 @@ use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, item,
-    layout, layout_content, layout_header, list, list_item, metadata_item, metadata_list, nav_icon,
+    layout, layout_content, layout_header, list, list_item, nav_icon,
     overflow_list, pagination, scrollable_area, section, stack_item, tree_list,
 };
 
@@ -174,11 +174,11 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "metadata-list" | "metadata-list-item" => specimen(
             "Document properties",
-            metadata_list((
-                metadata_item("Owner", text("Avery Morgan")),
-                metadata_item("Status", text("In review")),
+            kivact::ui::description_list((
+                kivact::ui::description("Owner", text("Avery Morgan")),
+                kivact::ui::description("Status", text("In review")),
             )),
-            "metadata_list((metadata_item(\"Owner\", text(\"Avery Morgan\")), status))",
+            "kivact::ui::description_list((kivact::ui::description(\"Owner\", text(\"Avery Morgan\")), status))",
         ),
         "tree-list" => specimen(
             "Expandable files",
