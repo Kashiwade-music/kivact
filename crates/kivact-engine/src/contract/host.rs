@@ -57,6 +57,8 @@ impl std::error::Error for HostError {}
 /// A service performed by the host, or delegated to its platform window.
 #[derive(Clone, Debug, PartialEq)]
 pub enum HostRequest {
+    /// Capture CPU pixels after the current turn's layout and draw have settled.
+    Snapshot(kivact_types::NodeId),
     Platform(PlatformRequest),
     /// Register a font before the next layout measures text.
     RegisterFont(Asset),

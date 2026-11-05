@@ -45,6 +45,8 @@ pub(crate) struct Model {
     pub(crate) window_request: Option<(String, Option<Size>)>,
     /// The platform effects to carry out after the turn.
     pub(crate) effects: Vec<(RequestId, DeferredRequest)>,
+    /// CPU captures awaiting the next settled host boundary.
+    pub(crate) snapshots: Vec<(RequestId, NodeId)>,
     /// The imports and drops of shared textures to carry out after the
     /// turn, in the order written.
     pub(crate) external_writes: Vec<ExternalWrite>,
@@ -93,6 +95,7 @@ impl Model {
             frame: super::frame::state::Frame::default(),
             window_request: None,
             effects: vec![],
+            snapshots: Vec::new(),
             external_writes: Vec::new(),
             #[cfg(debug_assertions)]
             lint: Default::default(),

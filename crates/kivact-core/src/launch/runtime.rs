@@ -397,6 +397,7 @@ fn describe(e: &kivact_engine::contract::HostEvent) -> String {
         E::ScrollChanged { node, .. } => format!("ScrollChanged n{}", node.0),
         E::LayoutChanged { node, .. } => format!("LayoutChanged n{}", node.0),
         E::A11y { node, request, .. } => format!("A11y {:?} n{}", request.action(), node.0),
+        E::SnapshotResult { request, .. } => format!("SnapshotResult {}", request.0),
         other => {
             let s = format!("{other:?}");
             s.split([' ', '{', '('])

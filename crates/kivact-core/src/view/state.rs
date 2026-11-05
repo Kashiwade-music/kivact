@@ -165,11 +165,19 @@ pub(crate) struct Requests {
     pub(crate) next_request: u64,
     pub(crate) focus: FocusRequests,
     pub(crate) effects: HashMap<u64, EffectWaiter>,
+    /// Pending CPU captures, answered at the settled host boundary.
+    pub(crate) snapshots: HashMap<u64, SnapshotWaiter>,
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
     /// Actual capture releases awaiting the current pointer dispatch's cleanup.
     pub(crate) pointer_releases: Vec<(NodeId, kivact_types::PointerId)>,
+}
+
+pub(crate) struct SnapshotWaiter {
+    pub(crate) owner: Owner,
+    pub(crate) at: &'static Location<'static>,
+    pub(crate) reply: Completion<Result<kivact_types::Pixels, UiError>>,
 }
 
 impl Requests {
@@ -249,6 +257,7 @@ impl ViewState {
         requests.focus.order.shrink_to_fit();
         requests.focus.requests.shrink_to_fit();
         requests.effects.shrink_to_fit();
+        requests.snapshots.shrink_to_fit();
         requests.pending_activations.shrink_to_fit();
     }
 

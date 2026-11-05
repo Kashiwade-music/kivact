@@ -118,6 +118,11 @@ pub enum HostEvent {
         request: RequestId,
         result: PlatformResult,
     },
+    /// CPU capture of the requested subtree after layout settled; absent if removed.
+    SnapshotResult {
+        request: RequestId,
+        result: Option<Result<kivact_types::Pixels, crate::offscreen::OffscreenError>>,
+    },
     /// The answer to a focus request: `Err` names why the target did not take
     /// the focus.
     FocusResult {
