@@ -307,3 +307,38 @@ fn drop_policy_ends_the_actual_hover_visit_and_keeps_native_picking() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn canonical_avatar_overflow_tracks_real_omissions_and_keeps_its_action() {
+    let (screen, (total, opened)) = render_with_handle(
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let total = signal(6usize);
+            let opened = signal(0usize);
+            (
+                (total, opened),
+                kivact::ui::avatar_group((
+                    kivact::ui::avatar("Avery Middle Morgan"),
+                    kivact::ui::avatar("Taylor Chen"),
+                ))
+                .total(total)
+                .overlap(9.0)
+                .overflow_content(move |count| {
+                    button(move || format!("Show {} more", count.get()))
+                        .on_press(move || opened.set(count.get_untracked()))
+                }),
+            )
+        },
+    );
+    assert!(screen.get_by_role(Role::Text, "AM").exists());
+    screen.get_by_role(Role::Button, "Show 4 more").click();
+    assert_eq!(opened.get_untracked(), 4);
+    total.set(8);
+    screen.run_until_idle();
+    screen.get_by_role(Role::Button, "Show 6 more").click();
+    assert_eq!(opened.get_untracked(), 6);
+    total.set(2);
+    screen.run_until_idle();
+    assert!(screen.query_by_role(Role::Button, "Show 6 more").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

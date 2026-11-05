@@ -1,4 +1,5 @@
 //! Role: Display reactive person images with initials and semantic status fallback.
+use crate::avatar_initials::initials;
 use crate::variants::Variants;
 use crate::{AvatarShape, AvatarState, ControlSize, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
@@ -113,13 +114,6 @@ fn picture(asset: Asset, fallback: Option<Asset>, name: Value<String>) -> View {
             },
         ))
         .into_view()
-}
-fn initials(name: &str) -> String {
-    name.split_whitespace()
-        .filter_map(|s| s.chars().next())
-        .take(2)
-        .flat_map(char::to_uppercase)
-        .collect()
 }
 impl IntoView for Avatar {
     fn into_view(mut self) -> View {

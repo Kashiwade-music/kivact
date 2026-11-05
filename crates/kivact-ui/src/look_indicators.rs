@@ -113,5 +113,9 @@ fn tone(tone: kivact_interaction::Tone) -> ColorToken {
     }
 }
 
-pub(super) fn avatar_group_overflow(_: &Theme, _: &usize) -> Style { style() }
-pub(super) fn avatar_group_member(_: &Theme, _: &usize) -> Style { style() }
+pub(super) fn avatar_group_overflow(_: &Theme, _: &usize) -> Style {
+    style()
+}
+pub(super) fn avatar_group_member(_: &Theme, _: &usize) -> Style {
+    style()
+}

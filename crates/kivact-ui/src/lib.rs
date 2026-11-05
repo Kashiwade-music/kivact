@@ -320,6 +320,7 @@ pub use spinner::{Spinner, spinner};
 
 mod avatar;
 mod avatar_group;
+mod avatar_initials;
 pub use avatar::{Avatar, avatar};
 pub use avatar_group::{AvatarGroup, avatar_group};
 
