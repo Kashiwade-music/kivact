@@ -49,6 +49,7 @@ pub struct MediaOverlay {
     align: OverlayAlign,
 }
 
+/// Mount overlay content once and attach it to the supplied media surface.
 pub fn media_overlay(content: impl IntoView) -> MediaOverlay {
     MediaOverlay {
         content: content.into_view(),

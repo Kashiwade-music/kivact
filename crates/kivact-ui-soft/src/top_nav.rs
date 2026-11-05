@@ -85,18 +85,22 @@ pub fn top_nav() -> TopNav {
 }
 
 impl TopNav {
+    /// Mount the brand or heading once within this navigation owner.
     pub fn heading(mut self, heading: impl IntoView) -> Self {
         self.slots.heading = Some(heading.into_view());
         self
     }
+    /// Mount navigation content at the logical start.
     pub fn start(mut self, start: impl IntoView) -> Self {
         self.slots.start = Some(start.into_view());
         self
     }
+    /// Mount navigation content in the central region.
     pub fn center(mut self, center: impl IntoView) -> Self {
         self.slots.center = Some(center.into_view());
         self
     }
+    /// Mount navigation content at the logical end.
     pub fn end(mut self, end: impl IntoView) -> Self {
         self.slots.end = Some(end.into_view());
         self
