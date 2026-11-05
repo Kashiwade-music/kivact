@@ -5,9 +5,12 @@ use kivact::style::{Align, Color, Cursor, Direction, Justify, Style, Theme, pct,
 use kivact::ui::{CheckableState, ControlSize, Look, Variant};
 use kivact::view::Orientation;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// How a segmented radio group distributes horizontal space.
 pub enum SegmentedLayout {
     #[default]
+    /// Size each segment to its content.
     Hug,
+    /// Let the segments share the available width.
     Fill,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

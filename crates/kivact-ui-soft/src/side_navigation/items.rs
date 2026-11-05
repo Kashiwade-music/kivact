@@ -51,12 +51,20 @@ use kivact::view::text;
 use std::time::Duration;
 
 #[derive(Clone)]
+/// Ownership and initial expansion of a sidebar item's nested entries.
 pub enum ItemCollapse {
+    /// Keep nested entries expanded without a collapse toggle.
     AlwaysOpen,
-    Uncontrolled { default_collapsed: bool },
+    /// Keep collapse state locally, starting from `default_collapsed`.
+    Uncontrolled {
+        /// Whether nested entries start collapsed.
+        default_collapsed: bool,
+    },
+    /// Read and write the caller's collapse binding.
     Controlled(Binding<bool>),
 }
 
+/// A sidebar entry with optional nested navigation and row actions.
 pub struct SideNavItem {
     root: Node,
     label: Value<String>,
@@ -71,6 +79,7 @@ pub struct SideNavItem {
     action: Option<Callback<()>>,
 }
 
+/// Create a sidebar entry whose label also supplies its accessible name.
 pub fn side_nav_item(label: impl IntoText) -> SideNavItem {
     let label = label.into_text_value();
     SideNavItem {
@@ -92,38 +101,47 @@ pub fn side_nav_item(label: impl IntoText) -> SideNavItem {
 }
 
 impl SideNavItem {
+    /// Mount the leading icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
+    /// Mount an alternative icon once for the selected state.
     pub fn selected_icon(mut self, icon: impl IntoView) -> Self {
         self.selected_icon = Some(icon.into_view());
         self
     }
+    /// Set whether this entry represents the current destination.
     pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
         self.selected = selected.into_value();
         self
     }
+    /// Set the entry's control size.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
+    /// Mount trailing row content once; hide it in the collapsed rail.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
         self.end = Some(kivact::view::component(move || content.into_view()));
         self
     }
+    /// Mount additional row action controls once; hide them in the collapsed rail.
     pub fn actions(mut self, actions: impl IntoView) -> Self {
         self.actions = Some(kivact::view::component(move || actions.into_view()));
         self
     }
+    /// Build nested entries on expansion or when the collapsed-rail flyout opens.
     pub fn children<V: IntoView>(mut self, children: impl IntoViewFn<V>) -> Self {
         self.children = Some(children.into_view_fn());
         self
     }
+    /// Choose local, controlled or permanently expanded nested-entry state.
     pub fn collapsible(mut self, collapse: impl IntoValue<ItemCollapse>) -> Self {
         self.collapse = collapse.into_value();
         self
     }
+    /// Handle activation of this navigation entry.
     pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
         let action: Callback<()> = action.into();
         self.action = Some(callback(move |_| action.call(())));
@@ -524,6 +542,7 @@ pub(crate) fn side_row_style(
     }
 }
 
+/// A titled group of sidebar entries with optional supporting header content.
 pub struct SideNavSection {
     root: Node,
     title: Value<String>,
@@ -533,6 +552,7 @@ pub struct SideNavSection {
     header_hidden: Value<bool>,
 }
 
+/// Mount a titled sidebar section and its child content once.
 pub fn side_nav_section(title: impl IntoText, children: impl IntoView) -> SideNavSection {
     let title = title.into_text_value();
     SideNavSection {
@@ -548,14 +568,17 @@ pub fn side_nav_section(title: impl IntoText, children: impl IntoView) -> SideNa
 }
 
 impl SideNavSection {
+    /// Set supporting text below the section title.
     pub fn subtitle(mut self, subtitle: impl IntoText) -> Self {
         self.subtitle = Some(subtitle.into_text_value());
         self
     }
+    /// Mount content once at the logical end of the section header.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
         self.end = Some(kivact::view::component(move || content.into_view()));
         self
     }
+    /// Hide the section header while keeping its entries available.
     pub fn header_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
         self.header_hidden = hidden.into_value();
         self

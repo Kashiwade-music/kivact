@@ -67,11 +67,13 @@ struct Slots {
     end: Option<View>,
 }
 
+/// A top navigation bar with retained heading, start, center and end slots.
 pub struct TopNav {
     root: Node,
     slots: Slots,
 }
 
+/// Create the top navigation bar; supply its content through the retained slots.
 pub fn top_nav() -> TopNav {
     TopNav {
         root: node()
@@ -211,6 +213,7 @@ impl IntoView for TopNav {
 }
 
 // xtask-allow(state-fields): Independent caller selection, availability and label/icon presentation inputs; active panel state belongs only to the navigation controller.
+/// A top navigation action with optional icon and custom retained label content.
 pub struct TopNavItem {
     root: Node,
     label: Value<String>,
@@ -222,6 +225,7 @@ pub struct TopNavItem {
     size: Value<ControlSize>,
 }
 
+/// Create a top navigation item with the supplied accessible and visible label.
 pub fn top_nav_item(label: impl IntoText) -> TopNavItem {
     TopNavItem {
         root: node(),
@@ -236,26 +240,32 @@ pub fn top_nav_item(label: impl IntoText) -> TopNavItem {
 }
 
 impl TopNavItem {
+    /// Mount the leading item icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
+    /// Hide visible label content while keeping the item's accessible name.
     pub fn icon_only(mut self, only: impl IntoValue<bool>) -> Self {
         self.icon_only = only.into_value();
         self
     }
+    /// Mount replacement visible label content once.
     pub fn content(mut self, content: impl IntoView) -> Self {
         self.content = Some(kivact::view::component(move || content.into_view()));
         self
     }
+    /// Set whether this item is the current navigation destination.
     pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
         self.selected = selected.into_value();
         self
     }
+    /// Set the navigation item's control size.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
+    /// Handle activation of the navigation item.
     pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
         let action: Callback<()> = action.into();
         self.action = Some(callback(move |_| action.call(())));
@@ -375,10 +385,12 @@ fn top_item_style(
     }
 }
 
+/// Create an action entry for a top navigation menu.
 pub fn top_nav_menu_item(title: impl IntoText) -> NavHeadingMenuItem {
     nav_heading_menu_item(title)
 }
 
+/// A top navigation menu with configurable hover opening and closing delays.
 pub struct TopNavMenu {
     root: Node,
     label: Value<String>,
@@ -386,6 +398,7 @@ pub struct TopNavMenu {
     delays: Delays,
 }
 
+/// Create a top navigation menu from the supplied heading-menu entries.
 pub fn top_nav_menu(
     label: impl IntoText,
     items: impl IntoIterator<Item = NavHeadingMenuItem>,
@@ -402,10 +415,12 @@ pub fn top_nav_menu(
 }
 
 impl TopNavMenu {
+    /// Set the pointer-hover opening delay in milliseconds.
     pub fn delay_ms(mut self, delay: u64) -> Self {
         self.delays.open = Duration::from_millis(delay);
         self
     }
+    /// Set the pointer-leave closing delay in milliseconds.
     pub fn hide_delay_ms(mut self, delay: u64) -> Self {
         self.delays.close = Duration::from_millis(delay);
         self
@@ -479,6 +494,7 @@ fn drawer_menu_item(item: &NavHeadingMenuItem) -> SideNavItem {
 }
 
 // xtask-allow(state-fields): Independent immutable item/featured factories, timing inputs and external change callback; no open or pinned copy is stored.
+/// A wide top navigation flyout with recreated item and featured-content columns.
 pub struct TopNavMegaMenu {
     root: Node,
     label: Value<String>,
@@ -488,6 +504,7 @@ pub struct TopNavMegaMenu {
     on_change: Option<Callback<bool>>,
 }
 
+/// Create a named mega-menu flyout with independently configured content columns.
 pub fn top_nav_mega_menu(label: impl IntoText) -> TopNavMegaMenu {
     TopNavMegaMenu {
         root: node(),
@@ -503,22 +520,27 @@ pub fn top_nav_mega_menu(label: impl IntoText) -> TopNavMegaMenu {
 }
 
 impl TopNavMegaMenu {
+    /// Build the main item column each time the mega menu opens.
     pub fn items<V: IntoView>(mut self, items: impl IntoViewFn<V>) -> Self {
         self.items = Some(items.into_view_fn());
         self
     }
+    /// Build the featured column each time the mega menu opens.
     pub fn featured<V: IntoView>(mut self, featured: impl IntoViewFn<V>) -> Self {
         self.featured = Some(featured.into_view_fn());
         self
     }
+    /// Set the pointer-hover opening delay in milliseconds.
     pub fn delay_ms(mut self, delay: u64) -> Self {
         self.delays.open = Duration::from_millis(delay);
         self
     }
+    /// Set the pointer-leave closing delay in milliseconds.
     pub fn hide_delay_ms(mut self, delay: u64) -> Self {
         self.delays.close = Duration::from_millis(delay);
         self
     }
+    /// Observe changes to the flyout's open state.
     pub fn on_open_change<R: HandlerResult>(
         mut self,
         change: impl Fn(bool) -> R + 'static,
@@ -628,6 +650,7 @@ impl IntoView for TopNavMegaMenu {
 }
 
 // xtask-allow(state-fields): Independent immutable title, description, icon and activation slot; this metadata has no panel lifecycle.
+/// An action item with a title, supporting text and an optional icon in a mega menu.
 pub struct TopNavMegaMenuItem {
     root: Node,
     title: Value<String>,
@@ -636,6 +659,7 @@ pub struct TopNavMegaMenuItem {
     action: Option<Callback<()>>,
 }
 
+/// Create a mega-menu action item with a title.
 pub fn top_nav_mega_menu_item(title: impl IntoText) -> TopNavMegaMenuItem {
     TopNavMegaMenuItem {
         root: node(),
@@ -647,14 +671,17 @@ pub fn top_nav_mega_menu_item(title: impl IntoText) -> TopNavMegaMenuItem {
 }
 
 impl TopNavMegaMenuItem {
+    /// Set supporting text below the item title.
     pub fn description(mut self, description: impl IntoText) -> Self {
         self.description = Some(description.into_text_value());
         self
     }
+    /// Mount the item's leading icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
+    /// Handle activation of the mega-menu item.
     pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
         let action: Callback<()> = action.into();
         self.action = Some(callback(move |_| action.call(())));
@@ -769,6 +796,7 @@ fn title_style() -> kivact::style::Style {
 }
 
 // xtask-allow(state-fields): Independent immutable illustration, supporting content and optional link slots; no panel or focus state is stored.
+/// A featured mega-menu card with retained image, body and link slots.
 pub struct TopNavMegaMenuFeaturedCard {
     root: Node,
     title: Value<String>,
@@ -778,6 +806,7 @@ pub struct TopNavMegaMenuFeaturedCard {
     link: Option<(Value<String>, Callback<()>)>,
 }
 
+/// Create a featured card with the supplied title.
 pub fn top_nav_featured_card(title: impl IntoText) -> TopNavMegaMenuFeaturedCard {
     TopNavMegaMenuFeaturedCard {
         root: node(),
@@ -790,18 +819,22 @@ pub fn top_nav_featured_card(title: impl IntoText) -> TopNavMegaMenuFeaturedCard
 }
 
 impl TopNavMegaMenuFeaturedCard {
+    /// Set supporting text below the featured title.
     pub fn description(mut self, description: impl IntoText) -> Self {
         self.description = Some(description.into_text_value());
         self
     }
+    /// Mount featured image content once.
     pub fn image(mut self, image: impl IntoView) -> Self {
         self.image = Some(image.into_view());
         self
     }
+    /// Mount additional featured-card body content once.
     pub fn content(mut self, content: impl IntoView) -> Self {
         self.content = Some(content.into_view());
         self
     }
+    /// Set the featured-card link label and activation action.
     pub fn link(mut self, label: impl IntoText, action: impl Into<Callback<()>>) -> Self {
         let action: Callback<()> = action.into();
         self.link = Some((label.into_text_value(), callback(move |_| action.call(()))));
