@@ -302,6 +302,48 @@ APG は公式の keyboard interaction と roles/states/properties を基準に�
 
 **3 runtime crate、3 file。** engineとshellは同じSemanticsを運ぶため変更不要。新しいSemanticInput/source getterはこの性質をbehaviorが読む要求がない限り足さない。Common.semanticとmountのpatch foldも既存のまま使う。
 
+#### text_wrap_style: 継承するtext styleの性質
+
+新しいTextWrapStyleの値を定義し、通常paragraphとinline paragraphに同じ改行方針を適用する場合を数える。wrapするかどうかを表す既存TextWrapとは別の意味であり、boolへの読み替えや既存enumへの無関係なvariant追加で件数を減らさない。
+
+| file | 変更する理由 |
+|---|---|
+| `crates/kivact-types/src/text/primitives.rs` | 新しい純粋値TextWrapStyleと既定を定義する |
+| `crates/kivact-types/src/text/properties.rs` | 宣言TextStyleに省略可能な値を持たせる |
+| `crates/kivact-types/src/text/computed.rs` | computed値、既定、propertyごとの継承を一か所で定義する |
+| `crates/kivact-types/src/text.rs` | 値をtext語彙として再公開する |
+| `crates/kivact-types/src/lib.rs` | 他crateが使う正準の共有値を再公開する |
+| `crates/kivact-style/src/text.rs` | TextExtrasの入力、merge、resolve_extrasによる共有TextStyleへの変換、および値の再公開。relative length等の既存意味は保つ |
+| `crates/kivact-style/src/sheet.rs` | text_wrap_style setterを既存text_setterに加える |
+| `crates/kivact-style/src/lib.rs` | authored styleの公開値として再公開する |
+| `crates/arvane-text/src/build.rs` | backend側の改行方針の適用を共通helperへ集め、paragraph/inlineが異なる規則を持たないようにする |
+| `crates/arvane-text/src/text_engine.rs` | 通常paragraphのbreak処理から共通方針を使う |
+| `crates/arvane-text/src/inline.rs` | inline objectを含むparagraphのbreak処理にも同じ方針を使う |
+| `crates/arvane-text/src/cache.rs` | 計測・描画結果のTextKeyへ新しい入力を反映し、違う方針の結果を再利用しない |
+| `crates/arvane-text/src/layouts.rs` | 再利用するParley layoutのKeyを確認し、新方針を保持する構築状態もkeyへ反映する。幅だけの再改行とshape入力の区別は保つ |
+| `crates/kivact-core/src/style.rs` | facadeのstyleは明示再公開なので、新しい値を利用者が名前で書けるように再公開する。新しい変換やadapterは不要 |
+
+**機能の実装は3 crate・13 file、再公開だけのcoreを含む実際の変更先は4 crate・14 file。** engineは既存ComputedTextStyle.inheritと共有値をそのまま使うため、追加のstyle modelやadapterは不要。既存resolve.rsはTextExtras全体をresolve_extrasへ渡すので、この方針では変更しない。coreのexportを無視して「全変更が3 crate」とは数えない。新しい値を公開せず内部だけに限定する、という別のscopeとも混同しない。
+
+#### beep: windowが答えるOS service
+
+PlatformRequestのBeepとCapabilitiesの対応可否を追加し、WindowsとX11では実service、Wayland等の未対応環境ではUnsupportedを返す場合を数える。成功は既存PlatformResult::Done、実OS失敗はFailedであり、requestごとの新しいresult型やshell methodは不要である。
+
+| file | 変更する理由 |
+|---|---|
+| `crates/kivact-types/src/platform.rs` | PlatformRequestにBeepを追加する。resultは既存の値を再利用する |
+| `crates/kivact-types/src/env.rs` | 実windowのCapabilitiesにbeep可否を加え、未設定の既定をfalseとする |
+| `crates/arvane-native/src/port/beep.rs`（新規） | UI thread上で実native handleの種類に従いWindows/X11のbellを実行する共通leaf。対応判定も同じ実装から得て、Wayland等では未対応を明示する |
+| `crates/arvane-native/src/port.rs` | 新しいnative leafを宣言する |
+| `crates/arvane-native/src/port/winit/runtime.rs` | 完成したwindowのperformの分岐とcapabilitiesを更新する。Linuxというcompile-time条件だけでWaylandを対応扱いしない |
+| `crates/arvane-native/src/port/win32/window.rs` | embed windowの同じperformとcapabilitiesを共通leafへつなぐ |
+| `crates/arvane-native/src/port/x11/window.rs` | X11 embed windowの同じperformとcapabilitiesを共通leafへつなぐ |
+| `crates/kivact-core/src/platform/services.rs` | 既存ask/HostRequest::Platformを使う利用者向けbeep関数と結果の変換を加える |
+| `crates/kivact-core/src/platform.rs` | 同じplatform moduleから関数を再公開する |
+| `crates/arvane-virtual/src/window.rs` | 既存performの網羅的matchとCapabilitiesの全fieldを明記したliteralを追従させる。respondが先に応答でき、既定は実音を鳴らさずDoneとする |
+
+**本番の機能実装は3 crate・9 file、virtual backendの追従を含む実際の変更先は4 crate・10 file。** shellの既存window.perform、arvaneの転送とcapabilityのstruct-update、engineのHostRequest::Platform配送、coreのrequest waiterは変更不要。virtualのrespond登録はgenericだが、現在の網羅的matchと全field literalは型追加だけではコンパイルできないため、追従1 fileを省略して数えない。virtualの動作を試験することと、service adapterをもう一層追加することは別である。
+
 #### background_blend_mode: 背景だけのpaint性質
 
 ここでは既存BlendModeを一つ指定し、背景のlayer間だけで合成する性質を仮定する。box全体と外部backdropのmix-blend-modeとは区別する。
@@ -337,3 +379,15 @@ pointer/focusによるpreviewとcaller bindingの確定値を区別する小さ�
 | `docs/for-kivact-user/jp/how-to-guide/rating.md`（新規） | 同じ利用契約の日本語ガイド |
 
 **runtimeは2 crate・8 file。公開E2Eを含め3 package・11 Rust file、英日ガイドを含め13 file。** facadeはinteraction/uiのcrateをそのまま公開しているためfacade fileの変更は不要。例は正準ui moduleからimportし、新しいprelude入口や同義wrapperは追加しない。kitごとの別behavior、新しいengine role、backend adapterも不要である。
+
+#### 件数のまとめ
+
+| 追加例 | 機能実装のcrate / file | 再公開・検証も含む変更先 | 既存境界で不要なもの |
+|---|---|---|---|
+| key_shortcuts | 3 / 3 | 3 crate / 3 file | engine/shellの意味情報の別コピー、NodeBuilderの同義setter |
+| text_wrap_style | 3 / 13 | 4 crate / 14 file（coreの再公開1 file） | engineの継承model、styleからbackendへの別adapter |
+| beep | 3 / 9 | 4 crate / 10 file（virtualの追従1 file） | shell/arvaneのservice別method、engineのservice別転送 |
+| background_blend_mode | 3 / 5 | 3 crate / 5 file | render命令のvariant追加、CPU/GPU adapter |
+| Rating | 2 / 8 | E2E込み3 package / 11 Rust file、英日guide込み13 file | facade wrapper、engine変更、kit別behavior |
+
+この確認はcodeを書かない列挙だけで完了する。変更先の正確な総数と、機能の意味を実装する3層という境界の根拠を別に記した。再公開やvirtual backendの網羅性に必要な追従を隠して、総数まで3であるとは主張しない。
