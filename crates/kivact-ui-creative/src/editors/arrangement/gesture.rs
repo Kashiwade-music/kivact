@@ -17,7 +17,7 @@ pub(crate) enum Snapshot {
     Playhead(f64),
     Loop((f64, f64)),
     Cycle(bool),
-    View(f64, Point),
+    View(kivact::interaction::ViewTransform),
 }
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Drag {

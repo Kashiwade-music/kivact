@@ -11,12 +11,7 @@ pub(crate) fn restore(
     match snapshot {
         Snapshot::Items(..) => {}
         Snapshot::Playhead(value) => playhead.set(value),
-        Snapshot::View(z, p) => {
-            transform.set(kivact::interaction::ViewTransform {
-                scale: z,
-                offset: p,
-            });
-        }
+        Snapshot::View(pose) => transform.set(pose),
     }
 }
 impl<T: TimeItem> State<T> {
@@ -80,7 +75,7 @@ impl<T: TimeItem> State<T> {
         )
     }
     pub(crate) fn view_snapshot(self) -> Snapshot {
-        Snapshot::View(self.scale.get_untracked(), self.offset.get_untracked())
+        Snapshot::View(self.transform.get_untracked())
     }
     /// Stop the drag without a callback, canceling its edit.
     pub(crate) fn cancel(self) {

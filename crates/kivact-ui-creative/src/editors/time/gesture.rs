@@ -25,7 +25,7 @@ pub(crate) enum Drag {
 pub(crate) enum Snapshot {
     Items(Vec<(u64, f64, f64, u64)>),
     Playhead(f64),
-    View(f64, Point),
+    View(kivact::interaction::ViewTransform),
 }
 pub(crate) struct State<T: TimeItem> {
     pub data: Value<Vec<T>>,

@@ -286,7 +286,9 @@ fn motion(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
         Drag::AddPoint(track) => move_automation(state, track, None, pos, origin, snapshot),
         Drag::Marquee(_) => {}
         Drag::Pan => {
-            if let Some(Snapshot::View(_, p)) = Some(snapshot.clone()) {
+            if let Some(Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) =
+                Some(snapshot.clone())
+            {
                 let from = origin;
                 let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
                 if next != state.offset.get() {

@@ -128,7 +128,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point, origin: Point, snapshot: &Snapsh
             }
         }
         (Drag::Marquee(from, _), _) => s.set_drag(Some(Drag::Marquee(from, pos))),
-        (Drag::Pan, Snapshot::View(_, p)) => {
+        (Drag::Pan, Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) => {
             let next = Point::new(p.x + pos.x - origin.x, p.y + pos.y - origin.y);
             if next != s.offset.get() {
                 s.gesture.change(|| s.set_offset(next));

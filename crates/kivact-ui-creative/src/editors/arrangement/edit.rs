@@ -15,12 +15,7 @@ pub(crate) fn restore(s: Restore, snapshot: Snapshot) {
         Snapshot::Playhead(v) => s.playhead.set(v),
         Snapshot::Loop(v) => s.loop_range.set(v),
         Snapshot::Cycle(v) => s.cycling.set(v),
-        Snapshot::View(z, p) => {
-            s.transform.set(kivact::interaction::ViewTransform {
-                scale: z,
-                offset: p,
-            });
-        }
+        Snapshot::View(pose) => s.transform.set(pose),
     }
 }
 
@@ -63,7 +58,7 @@ impl State {
         )
     }
     pub(crate) fn view_snapshot(self) -> Snapshot {
-        Snapshot::View(self.pixels.get_untracked(), self.offset.get_untracked())
+        Snapshot::View(self.transform.get_untracked())
     }
     pub(crate) fn auto_snapshot(self, track: u64, id: u64) -> Option<Snapshot> {
         self.track_data.with_untracked(|tracks| {
