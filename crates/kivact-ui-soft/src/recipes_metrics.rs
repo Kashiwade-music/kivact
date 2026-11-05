@@ -45,8 +45,8 @@ pub enum LabelPosition {
 }
 
 /// Reactive appearance shared explicitly by a description list and its pairs.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct MetadataLook(kivact::state::Value<MetadataAppearance>);
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct MetadataLook(Option<kivact::state::Value<MetadataAppearance>>);
 
 // xtask-allow(state-fields): Immutable visual layout inputs (columns, label placement/width and orientation), not runtime lifecycle state.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -56,57 +56,58 @@ struct MetadataAppearance {
     width: Option<f64>,
     orientation: kivact::view::Orientation,
 }
-impl Default for MetadataLook {
+impl Default for MetadataAppearance {
     fn default() -> Self {
-        use kivact::state::IntoValue;
-        Self(
-            MetadataAppearance {
-                columns: MetadataColumns::Single,
-                position: None,
-                width: None,
-                orientation: kivact::view::Orientation::Vertical,
-            }
-            .into_value(),
-        )
+        Self {
+            columns: MetadataColumns::Single,
+            position: None,
+            width: None,
+            orientation: kivact::view::Orientation::Vertical,
+        }
     }
 }
 impl Variant for MetadataLook {}
 impl MetadataLook {
+    fn get(self) -> MetadataAppearance {
+        self.0
+            .map_or_else(MetadataAppearance::default, |value| value.get())
+    }
+
     /// Choose one, a fixed count, or automatically fitted columns.
     pub fn columns(self, value: impl kivact::state::IntoValue<MetadataColumns>) -> Self {
         use kivact::state::IntoValue;
         let value = value.into_value();
-        Self(
+        Self(Some(
             (move || MetadataAppearance {
                 columns: value.get(),
-                ..self.0.get()
+                ..self.get()
             })
             .into_value(),
-        )
+        ))
     }
     /// Override the automatic beside/above term placement.
     pub fn label_position(self, value: impl kivact::state::IntoValue<LabelPosition>) -> Self {
         use kivact::state::IntoValue;
         let value = value.into_value();
-        Self(
+        Self(Some(
             (move || MetadataAppearance {
                 position: Some(value.get()),
-                ..self.0.get()
+                ..self.get()
             })
             .into_value(),
-        )
+        ))
     }
     /// Fix the beside-label column width instead of its intrinsic maximum.
     pub fn label_width(self, value: impl kivact::state::IntoValue<f64>) -> Self {
         use kivact::state::IntoValue;
         let value = value.into_value();
-        Self(
+        Self(Some(
             (move || MetadataAppearance {
                 width: Some(value.get().max(0.0)),
-                ..self.0.get()
+                ..self.get()
             })
             .into_value(),
-        )
+        ))
     }
     /// Arrange pairs in a wrapping row or the selected vertical grid.
     pub fn orientation(
@@ -115,13 +116,13 @@ impl MetadataLook {
     ) -> Self {
         use kivact::state::IntoValue;
         let value = value.into_value();
-        Self(
+        Self(Some(
             (move || MetadataAppearance {
                 orientation: value.get(),
-                ..self.0.get()
+                ..self.get()
             })
             .into_value(),
-        )
+        ))
     }
 }
 impl MetadataAppearance {
@@ -164,7 +165,6 @@ fn description_root(_: &Theme, s: &Look<()>) -> Style {
         .variant::<MetadataLook>()
         .copied()
         .unwrap_or_default()
-        .0
         .get();
     if v.horizontal() {
         return style()
@@ -199,7 +199,6 @@ fn description_item(_: &Theme, s: &Look<()>) -> Style {
         .variant::<MetadataLook>()
         .copied()
         .unwrap_or_default()
-        .0
         .get();
     if v.aligned() {
         return style().display(Display::Contents);
@@ -224,7 +223,6 @@ fn description_term(t: &Theme, s: &Look<()>) -> Style {
         .variant::<MetadataLook>()
         .copied()
         .unwrap_or_default()
-        .0
         .get();
     let base = style()
         .direction(Direction::Row)
