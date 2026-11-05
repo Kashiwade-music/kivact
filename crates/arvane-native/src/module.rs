@@ -11,7 +11,6 @@
 )]
 
 #[cfg(any(windows, target_os = "linux"))]
-#[cfg(any(windows, target_os = "linux"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(any(windows, target_os = "linux"))]
 #[expect(

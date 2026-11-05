@@ -198,7 +198,7 @@ pub(in crate::port) fn negotiate(
     Ok(())
 }
 
-// Fields drop in declaration order: the handler and presenter are released first.
+// The session's last field: it drops after the handler state, whose drop may detach threads.
 struct ModuleRetention;
 impl ModuleRetention {
     fn retain(&self) {

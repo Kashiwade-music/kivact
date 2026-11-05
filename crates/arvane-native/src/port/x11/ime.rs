@@ -437,9 +437,8 @@ impl Ime {
         self.app.focused = focused;
         self.sync_focus();
     }
-    // Never fails: a broken server is degraded away. The window's shared call
-    // site still takes a Result.
-    pub(super) fn allow(&mut self, allowed: bool) -> Result<(), ShellError> {
+    // A broken server is degraded away rather than failing the window.
+    pub(super) fn allow(&mut self, allowed: bool) {
         let allowed = if allowed {
             ImeAllowance::Allowed
         } else {
@@ -450,7 +449,6 @@ impl Ime {
         }
         self.app.allowed = allowed;
         self.sync_focus();
-        Ok(())
     }
     fn sync_focus(&mut self) {
         let Xim::On(connection) = &mut self.xim else {
@@ -479,22 +477,18 @@ impl Ime {
             self.degrade(&error.to_string());
         }
     }
-    // Never fails, like `allow`.
-    pub(super) fn cursor(
-        &mut self,
-        area: kivact_types::Rect,
-        scale: f64,
-    ) -> Result<(), ShellError> {
+    // A broken server is degraded away, as in `allow`.
+    pub(super) fn cursor(&mut self, area: kivact_types::Rect, scale: f64) {
         let spot = xim::Point {
             x: (area.x * scale).clamp(i16::MIN as f64, i16::MAX as f64) as i16,
             y: ((area.y + area.height) * scale).clamp(i16::MIN as f64, i16::MAX as f64) as i16,
         };
         self.app.spot = spot.clone();
         let Xim::On(connection) = &mut self.xim else {
-            return Ok(());
+            return;
         };
         let Some((im, ic)) = connection.session.context.ids() else {
-            return Ok(());
+            return;
         };
         let client = &mut connection.client;
         let mut place = || -> Result<(), ClientError> {
@@ -508,11 +502,9 @@ impl Ime {
             client.conn().flush()?;
             Ok(())
         };
-        match place() {
-            Ok(()) => {}
-            Err(error) => self.degrade(&error.to_string()),
+        if let Err(error) = place() {
+            self.degrade(&error.to_string());
         }
-        Ok(())
     }
 }
 fn same_key(a: &KeyPressEvent, b: &KeyPressEvent) -> bool {
@@ -808,10 +800,10 @@ pub(super) struct Port<'a> {
 }
 impl ImePort for Port<'_> {
     fn allow(&mut self, allowed: bool) {
-        let _ = self.ime.allow(allowed);
+        self.ime.allow(allowed);
     }
     fn cursor_area(&mut self, area: kivact_types::Rect) {
-        let _ = self.ime.cursor(area, self.scale);
+        self.ime.cursor(area, self.scale);
     }
     fn surrounding(&mut self, _: Option<&arvane_shell::ShellImeText>) {}
 }

@@ -75,7 +75,7 @@ impl ChildPort for Arc<Native> {
             if sent == 0 && shared.alive() {
                 kivact_types::process::DetachedThreads::note();
                 crate::module::retain_module();
-                tracing::warn!(target: "kivact", "embedded Win32 UI thread did not stop within two seconds; detaching");
+                tracing::warn!(target: "kivact", wait = ?crate::wait::SHUTDOWN_WAIT, "embedded Win32 UI thread did not stop in time; detaching");
             }
         }
         if shared.alive() {

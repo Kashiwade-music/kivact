@@ -163,6 +163,14 @@ fn window_message(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPA
             unsafe {
                 EndPaint(hwnd, &paint);
             }
+            // The Redraw waits while App code is on the stack (a modal dialog
+            // over the child), so restore the damage from the last frame now.
+            // A present in progress already paints the window.
+            if let Ok(mut cpu) = state.cpu.try_borrow_mut()
+                && let Err(error) = cpu.repaint()
+            {
+                state.shared.fail(error);
+            }
             state.event(ShellEvent::Redraw);
             0
         }

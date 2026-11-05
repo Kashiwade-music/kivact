@@ -267,7 +267,11 @@ impl Drop for Opening {
             return;
         }
         super::a11y::disconnect(&self.state);
-        super::proc::detach(&self.state, self.hwnd);
-        self.state.destroy();
+        // A child already destroyed (its parent went away) detached itself in
+        // WM_NCDESTROY, and its HWND value may now name another window.
+        if self.state.shared.alive() {
+            super::proc::detach(&self.state, self.hwnd);
+            self.state.destroy();
+        }
     }
 }

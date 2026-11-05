@@ -257,126 +257,122 @@ fn set_states(node: &mut accesskit::Node, source: &SemanticsNode) {
 
 /// Convert one group of canonical semantics properties.
 fn set_relations(node: &mut accesskit::Node, source: &SemanticsNode) {
-    {
-        let props = &source.semantics;
-        if let Some(v) = props.value_min {
-            node.set_min_numeric_value(v.get());
+    let props = &source.semantics;
+    if let Some(v) = props.value_min {
+        node.set_min_numeric_value(v.get());
+    }
+    if let Some(v) = props.value_max {
+        node.set_max_numeric_value(v.get());
+    }
+    if let Some(v) = props.value_now {
+        node.set_numeric_value(v.get());
+    }
+    if let Some(live) = props.live_region {
+        node.set_live(match live {
+            kivact_types::LiveRegion::Off => accesskit::Live::Off,
+            kivact_types::LiveRegion::Polite => accesskit::Live::Polite,
+            kivact_types::LiveRegion::Assertive => accesskit::Live::Assertive,
+        });
+    }
+    match props.sort {
+        kivact_types::SortDirection::None => {}
+        kivact_types::SortDirection::Ascending => {
+            node.set_sort_direction(accesskit::SortDirection::Ascending)
         }
-        if let Some(v) = props.value_max {
-            node.set_max_numeric_value(v.get());
+        kivact_types::SortDirection::Descending => {
+            node.set_sort_direction(accesskit::SortDirection::Descending)
         }
-        if let Some(v) = props.value_now {
-            node.set_numeric_value(v.get());
+        kivact_types::SortDirection::Other => {
+            node.set_sort_direction(accesskit::SortDirection::Other)
         }
-        if let Some(live) = props.live_region {
-            node.set_live(match live {
-                kivact_types::LiveRegion::Off => accesskit::Live::Off,
-                kivact_types::LiveRegion::Polite => accesskit::Live::Polite,
-                kivact_types::LiveRegion::Assertive => accesskit::Live::Assertive,
-            });
+    }
+    match props.orientation {
+        kivact_types::Orientation::Unspecified => {}
+        kivact_types::Orientation::Horizontal => {
+            node.set_orientation(accesskit::Orientation::Horizontal)
         }
-        match props.sort {
-            kivact_types::SortDirection::None => {}
-            kivact_types::SortDirection::Ascending => {
-                node.set_sort_direction(accesskit::SortDirection::Ascending)
-            }
-            kivact_types::SortDirection::Descending => {
-                node.set_sort_direction(accesskit::SortDirection::Descending)
-            }
-            kivact_types::SortDirection::Other => {
-                node.set_sort_direction(accesskit::SortDirection::Other)
-            }
+        kivact_types::Orientation::Vertical => {
+            node.set_orientation(accesskit::Orientation::Vertical)
         }
-        match props.orientation {
-            kivact_types::Orientation::Unspecified => {}
-            kivact_types::Orientation::Horizontal => {
-                node.set_orientation(accesskit::Orientation::Horizontal)
-            }
-            kivact_types::Orientation::Vertical => {
-                node.set_orientation(accesskit::Orientation::Vertical)
-            }
-        }
-        if let Some(target) = props.active_descendant {
-            node.set_active_descendant(accesskit::NodeId(target.0));
-        }
-        if !props.described_by.is_empty() {
-            node.set_described_by(accesskit_ids(&props.described_by));
-        }
-        if !props.controls.is_empty() {
-            node.set_controls(accesskit_ids(&props.controls));
-        }
-        if !props.labelled_by.is_empty() {
-            node.set_labelled_by(accesskit_ids(&props.labelled_by));
-        }
+    }
+    if let Some(target) = props.active_descendant {
+        node.set_active_descendant(accesskit::NodeId(target.0));
+    }
+    if !props.described_by.is_empty() {
+        node.set_described_by(accesskit_ids(&props.described_by));
+    }
+    if !props.controls.is_empty() {
+        node.set_controls(accesskit_ids(&props.controls));
+    }
+    if !props.labelled_by.is_empty() {
+        node.set_labelled_by(accesskit_ids(&props.labelled_by));
     }
 }
 
 /// Convert one group of canonical semantics properties.
 fn set_collection_properties(node: &mut accesskit::Node, source: &SemanticsNode) {
-    {
-        let props = &source.semantics;
-        if let Some(count) = props.row_count {
-            node.set_row_count(count as usize);
-        }
-        if let Some(count) = props.column_count {
-            node.set_column_count(count as usize);
-        }
-        // Canonical semantics follows ARIA's one-based indices; AccessKit uses zero-based indices.
-        if let Some(index) = props.row_index.and_then(|index| index.checked_sub(1)) {
-            node.set_row_index(index as usize);
-        }
-        if let Some(span) = props.column_span.filter(|&span| span != 0) {
-            node.set_column_span(span as usize);
-        }
-        if let Some(index) = props.column_index.and_then(|index| index.checked_sub(1)) {
-            node.set_column_index(index as usize);
-        }
-        if let Some(level) = props.level {
-            node.set_level(level as usize);
-        }
-        if let Some(size) = props.set_size {
-            node.set_size_of_set(size as usize);
-        }
-        if let Some(position) = props.pos_in_set {
-            node.set_position_in_set(position as usize);
-        }
-        if props.multiselectable == Some(true) {
-            node.set_multiselectable();
-        }
-        if props.busy == Some(true) {
-            node.set_busy();
-        }
-        if props.required == Some(true) {
-            node.set_required();
-        }
-        if let Some(popup) = props.has_popup {
-            node.set_has_popup(match popup {
-                PopupKind::Menu => accesskit::HasPopup::Menu,
-                PopupKind::ListBox => accesskit::HasPopup::Listbox,
-                PopupKind::Tree => accesskit::HasPopup::Tree,
-                PopupKind::Grid => accesskit::HasPopup::Grid,
-                PopupKind::Dialog => accesskit::HasPopup::Dialog,
-            });
-        }
-        if let Some(current) = props.current_item {
-            node.set_aria_current(match current {
-                CurrentItem::True => accesskit::AriaCurrent::True,
-                CurrentItem::Page => accesskit::AriaCurrent::Page,
-                CurrentItem::Step => accesskit::AriaCurrent::Step,
-                CurrentItem::Location => accesskit::AriaCurrent::Location,
-                CurrentItem::Date => accesskit::AriaCurrent::Date,
-                CurrentItem::Time => accesskit::AriaCurrent::Time,
-            });
-        }
-        if props.invalid == Some(true) {
-            node.set_invalid(accesskit::Invalid::True);
-        }
-        if props.read_only == Some(true) {
-            node.set_read_only();
-        }
-        if props.protected {
-            node.set_role(accesskit::Role::PasswordInput);
-        }
+    let props = &source.semantics;
+    if let Some(count) = props.row_count {
+        node.set_row_count(count as usize);
+    }
+    if let Some(count) = props.column_count {
+        node.set_column_count(count as usize);
+    }
+    // Canonical semantics follows ARIA's one-based indices; AccessKit uses zero-based indices.
+    if let Some(index) = props.row_index.and_then(|index| index.checked_sub(1)) {
+        node.set_row_index(index as usize);
+    }
+    if let Some(span) = props.column_span.filter(|&span| span != 0) {
+        node.set_column_span(span as usize);
+    }
+    if let Some(index) = props.column_index.and_then(|index| index.checked_sub(1)) {
+        node.set_column_index(index as usize);
+    }
+    if let Some(level) = props.level {
+        node.set_level(level as usize);
+    }
+    if let Some(size) = props.set_size {
+        node.set_size_of_set(size as usize);
+    }
+    if let Some(position) = props.pos_in_set {
+        node.set_position_in_set(position as usize);
+    }
+    if props.multiselectable == Some(true) {
+        node.set_multiselectable();
+    }
+    if props.busy == Some(true) {
+        node.set_busy();
+    }
+    if props.required == Some(true) {
+        node.set_required();
+    }
+    if let Some(popup) = props.has_popup {
+        node.set_has_popup(match popup {
+            PopupKind::Menu => accesskit::HasPopup::Menu,
+            PopupKind::ListBox => accesskit::HasPopup::Listbox,
+            PopupKind::Tree => accesskit::HasPopup::Tree,
+            PopupKind::Grid => accesskit::HasPopup::Grid,
+            PopupKind::Dialog => accesskit::HasPopup::Dialog,
+        });
+    }
+    if let Some(current) = props.current_item {
+        node.set_aria_current(match current {
+            CurrentItem::True => accesskit::AriaCurrent::True,
+            CurrentItem::Page => accesskit::AriaCurrent::Page,
+            CurrentItem::Step => accesskit::AriaCurrent::Step,
+            CurrentItem::Location => accesskit::AriaCurrent::Location,
+            CurrentItem::Date => accesskit::AriaCurrent::Date,
+            CurrentItem::Time => accesskit::AriaCurrent::Time,
+        });
+    }
+    if props.invalid == Some(true) {
+        node.set_invalid(accesskit::Invalid::True);
+    }
+    if props.read_only == Some(true) {
+        node.set_read_only();
+    }
+    if props.protected {
+        node.set_role(accesskit::Role::PasswordInput);
     }
 }
 

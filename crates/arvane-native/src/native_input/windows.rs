@@ -229,7 +229,7 @@ unsafe extern "system" fn subclass(
                 input.file_pointer.put(point);
             }
             if previous != point {
-                input.wake.wake(WakeReasons::CLIENT);
+                input.wake(WakeReasons::CLIENT);
             }
         }
         WM_SETTINGCHANGE => {
@@ -242,7 +242,7 @@ unsafe extern "system" fn subclass(
             changed |= input.locale.replace(locale.clone()) != locale;
             if changed {
                 input.env_changed.put(());
-                input.wake.wake(WakeReasons::ENVIRONMENT);
+                input.wake(WakeReasons::ENVIRONMENT);
             }
         }
         _ if cfg!(debug_assertions) && message == debug_dpi_message() => {
