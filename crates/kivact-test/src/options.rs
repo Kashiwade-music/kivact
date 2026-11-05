@@ -185,7 +185,7 @@ impl RenderOptions {
                     fonts
                         .into_iter()
                         .map(|font| match font {
-                            kivact_core::view::Asset::Shared(bytes) => bytes,
+                            kivact_core::view::Asset::Shared(bytes) => bytes.as_shared().clone(),
                             kivact_core::view::Asset::Static(bytes) => std::sync::Arc::from(bytes),
                             kivact_core::view::Asset::Path(path) => std::sync::Arc::from(
                                 std::fs::read(path).expect("test font file is readable"),

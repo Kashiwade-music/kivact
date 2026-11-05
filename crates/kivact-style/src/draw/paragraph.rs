@@ -30,7 +30,7 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_types::{self as p, DrawCmd, ShapedText, TextLine};
+use kivact_types::{self as p, DrawCmd, TextLine};
 
 use super::TextFormat;
 use super::recorder::Draw;
@@ -97,7 +97,7 @@ pub struct TextParagraph(Rc<Shaped>);
 
 struct Shaped {
     text: Rc<str>,
-    shaped: Arc<ShapedText>,
+    shaped: kivact_types::ShapedTextSnapshot,
     max_width: Option<f64>,
 }
 
@@ -131,7 +131,7 @@ impl TextParagraph {
     #[doc(hidden)]
     pub fn from_shaped(
         text: impl Into<Rc<str>>,
-        shaped: Arc<ShapedText>,
+        shaped: kivact_types::ShapedTextSnapshot,
         max_width: Option<f64>,
     ) -> Self {
         TextParagraph(Rc::new(Shaped {
@@ -256,7 +256,7 @@ impl TextParagraph {
             from = end;
         }
         p::SemanticsText {
-            runs: runs.into(),
+            runs: p::SemanticsTextRuns::from_shared(runs.into()),
             start: 0,
             selection: (
                 self.scalar(self.floor(anchor)) as u32,
@@ -267,8 +267,8 @@ impl TextParagraph {
     }
 
     /// The shaping this paragraph draws (a scene command's).
-    pub(super) fn shaped(&self) -> Arc<ShapedText> {
-        Arc::clone(&self.0.shaped)
+    pub(super) fn shaped(&self) -> kivact_types::ShapedTextSnapshot {
+        self.0.shaped.clone()
     }
 
     /// `offset` cut to the text and to the char boundary at or before it.

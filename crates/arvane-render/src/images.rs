@@ -71,7 +71,7 @@ impl<V: Clone> ImageCache<V> {
     /// `convert`'s (kept while it fits).
     pub(crate) fn get(&mut self, image: &Pixels, convert: impl FnOnce() -> V) -> V {
         let key = (
-            Arc::as_ptr(&image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
             image.width,
             image.height,
         );
@@ -86,7 +86,7 @@ impl<V: Clone> ImageCache<V> {
             self.entries.insert(
                 key,
                 Entry {
-                    _pixels: Arc::clone(&image.rgba),
+                    _pixels: Arc::clone(image.rgba.as_shared()),
                     value: value.clone(),
                     bytes,
                     frame: self.frame,

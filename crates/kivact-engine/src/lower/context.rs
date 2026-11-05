@@ -199,7 +199,7 @@ impl<'a> Context<'a> {
                 tint,
                 width: image.width,
                 height: image.height,
-                pixels: Arc::downgrade(&image.rgba),
+                pixels: Arc::downgrade(image.rgba.as_shared()),
             });
         } else {
             self.unavailable(asset);
@@ -223,7 +223,7 @@ impl<'a> Context<'a> {
                 .is_some_and(|(image, _)| {
                     image.width == *width
                         && image.height == *height
-                        && pixels.ptr_eq(&Arc::downgrade(&image.rgba))
+                        && pixels.ptr_eq(&Arc::downgrade(image.rgba.as_shared()))
                 }),
         })
     }

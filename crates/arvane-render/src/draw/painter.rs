@@ -679,7 +679,7 @@ impl<C: Canvas> Painter<'_, C> {
             .collect();
         let color = self.color(color.unwrap_or(run.color));
         self.canvas.set_paint(PaintType::Solid(color));
-        let font = self.fonts.get(&run.font, run.font_index);
+        let font = self.fonts.get(run.font.as_shared(), run.font_index);
         let scale = self.scale;
         let t = self.transform;
         if t.is_identity() {

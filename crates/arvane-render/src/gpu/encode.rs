@@ -296,7 +296,7 @@ impl HybridCanvas<'_> {
     /// side when larger): id and pixel size.
     fn atlas(&mut self, image: &Pixels) -> (ImageId, u16, u16) {
         let key = (
-            Arc::as_ptr(&image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
             image.width,
             image.height,
         );
@@ -319,7 +319,7 @@ impl HybridCanvas<'_> {
         self.images.atlas.insert(
             key,
             AtlasImage {
-                _pixels: Arc::clone(&image.rgba),
+                _pixels: Arc::clone(image.rgba.as_shared()),
                 id,
                 width,
                 height,
@@ -499,7 +499,7 @@ impl draw::Canvas for HybridCanvas<'_> {
     fn fill_pattern(&mut self, path: &BezPath, pattern: &PatternFill, visible: Rect) {
         let small = f64::from(PATTERN_ATLAS);
         let key = (
-            Arc::as_ptr(&pattern.image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(pattern.image.rgba.as_shared()).cast::<u8>() as usize,
             pattern.image.width,
             pattern.image.height,
         );
@@ -627,7 +627,7 @@ fn upload(device: &wgpu::Device, queue: &wgpu::Queue, id: TextureId, image: &Pix
 /// `image`'s pixels, premultiplied.
 fn premultiplied(image: &Pixels) -> Arc<Pixmap> {
     let source = ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
-        data: Blob::new(Arc::new(Arc::clone(&image.rgba))),
+        data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
         format: ImageFormat::Rgba8,
         alpha_type: ImageAlphaType::Alpha,
         width: image.width,

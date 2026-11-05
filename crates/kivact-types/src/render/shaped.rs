@@ -181,6 +181,12 @@ impl ShapedTextSnapshot {
     pub fn as_shared(&self) -> &Arc<ShapedText> {
         &self.0
     }
+    /// Transfer the retained allocation to a consuming backend operation.
+    // xtask-allow(internal-contract): Backend assembly preserves ownership-sensitive unwrap-or-clone behavior without forcing an extra retained clone.
+    #[doc(hidden)]
+    pub fn into_shared(self) -> Arc<ShapedText> {
+        self.0
+    }
     /// Mutate backend output with copy-on-write semantics before publication.
     // xtask-allow(internal-contract): Backend shaping adjustment preserves the prior Arc::make_mut behavior and clones only when shared.
     #[doc(hidden)]
@@ -223,6 +229,12 @@ impl GlyphRunSnapshot {
     #[doc(hidden)]
     pub fn as_shared(&self) -> &Arc<GlyphRun> {
         &self.0
+    }
+    /// Transfer the retained allocation to a consuming backend operation.
+    // xtask-allow(internal-contract): Backend assembly preserves ownership-sensitive unwrap-or-clone behavior without forcing an extra retained clone.
+    #[doc(hidden)]
+    pub fn into_shared(self) -> Arc<GlyphRun> {
+        self.0
     }
     /// Mutate backend output with copy-on-write semantics before publication.
     // xtask-allow(internal-contract): Backend shaping adjustment preserves the prior Arc::make_mut behavior and clones only when shared.

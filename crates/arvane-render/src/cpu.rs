@@ -169,7 +169,7 @@ impl CpuCanvas<'_> {
         // cache keeps it while frames draw it.
         self.images.get(image, || {
             ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
-                data: Blob::new(Arc::new(Arc::clone(&image.rgba))),
+                data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
                 format: ImageFormat::Rgba8,
                 alpha_type: ImageAlphaType::Alpha,
                 width: image.width,

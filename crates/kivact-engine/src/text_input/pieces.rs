@@ -56,15 +56,20 @@ fn fragments(text: &str) -> Vec<Range<usize>> {
 /// end on one baseline into one line.
 pub(super) fn shape_long(
     text: &str,
-    mut shape: impl FnMut(Range<usize>) -> Option<Arc<kivact_types::render::ShapedText>>,
-) -> Option<Arc<kivact_types::render::ShapedText>> {
+    mut shape: impl FnMut(Range<usize>) -> Option<kivact_types::ShapedTextSnapshot>,
+) -> Option<kivact_types::ShapedTextSnapshot> {
     let pieces = fragments(text);
     if pieces.len() == 1 {
         return shape(0..text.len());
     }
     let shaped: Vec<(Range<usize>, kivact_types::render::ShapedText)> = pieces
         .into_iter()
-        .map(|range| Some((range.clone(), Arc::unwrap_or_clone(shape(range)?))))
+        .map(|range| {
+            Some((
+                range.clone(),
+                Arc::unwrap_or_clone(shape(range)?.into_shared()),
+            ))
+        })
         .collect::<Option<_>>()?;
     let baseline = shaped.iter().map(|(_, s)| s.baseline).fold(0.0, f64::max);
     let mut out = kivact_types::render::ShapedText {
@@ -92,7 +97,7 @@ pub(super) fn shape_long(
                 g.x += x;
                 g.y += dy;
             }
-            out.runs.push(std::sync::Arc::new(run));
+            out.runs.push(run.into());
         }
         // A piece's first caret is the one before it ended at.
         let skip = usize::from(i > 0 && !out.carets.is_empty());
@@ -126,7 +131,7 @@ pub(super) fn shape_long(
     out.cluster_boundaries.dedup();
     out.size.width = x;
     out.lines.extend(line);
-    Some(Arc::new(out))
+    Some(out.into())
 }
 
 fn merge_line(

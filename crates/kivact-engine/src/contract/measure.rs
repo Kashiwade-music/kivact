@@ -1,10 +1,8 @@
 //! Role: Engine client measure contracts.
 use kivact_types::{
-    InlineBox, LeafSize, MeasureRequest, ShapedInlineText, ShapedText, TextMetrics, TextRun,
-    TextShaper,
+    InlineBox, LeafSize, MeasureRequest, ShapedInlineText, TextMetrics, TextRun, TextShaper,
 };
 use std::rc::Rc;
-use std::sync::Arc;
 
 /// Text measurement lent to a [`LeafMeasure`] while it runs: the extent a
 /// scene's text run (`DrawCmd::Text`, its `origin` and `color` aside)
@@ -35,7 +33,11 @@ impl<'a> LeafTextMeasurer<'a> {
     }
 
     /// `run` shaped as a paragraph wrapped at `max_width`.
-    pub fn shape(&self, run: &TextRun, max_width: Option<f64>) -> Option<Arc<ShapedText>> {
+    pub fn shape(
+        &self,
+        run: &TextRun,
+        max_width: Option<f64>,
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
         self.0.shape(run, max_width)
     }
 }
@@ -54,7 +56,11 @@ impl TextShaper for LeafTextMeasurer<'_> {
         self.0.measure(run)
     }
 
-    fn shape(&self, run: &TextRun, max_width: Option<f64>) -> Option<Arc<ShapedText>> {
+    fn shape(
+        &self,
+        run: &TextRun,
+        max_width: Option<f64>,
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
         self.0.shape(run, max_width)
     }
 }

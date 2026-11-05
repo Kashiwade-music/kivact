@@ -96,7 +96,7 @@ pub use elements::{
     ImageFit, Node, NodeBuilder, Scroll, ScrollAxes, Span, SurfaceSize, Viewport, canvas, column,
     grid, icon, image, node, rich_text, row, scroll, spacer, span, stack, text, viewport,
 };
-pub use kivact_style::asset::Asset;
+pub use kivact_style::asset::{Asset, AssetBytes};
 
 #[doc(hidden)]
 pub use flow::ListInput;
