@@ -205,6 +205,9 @@ impl<T> Default for LocalMailbox<T> {
 /// never prolong ownership beyond the live snapshot they return.
 pub struct Registry<T: ?Sized> {
     entries: Vec<Weak<T>>,
+    /// The length at which `insert` next prunes dead entries: twice the live
+    /// count after the last pruning, so inserting stays amortized O(1).
+    prune_at: usize,
 }
 
 impl<T: ?Sized> Registry<T> {
@@ -212,12 +215,17 @@ impl<T: ?Sized> Registry<T> {
     pub const fn new() -> Self {
         Self {
             entries: Vec::new(),
+            prune_at: 0,
         }
     }
 
-    /// Register a weak reference, pruning registrations whose owners are gone.
+    /// Register a weak reference, pruning registrations whose owners are
+    /// gone once the list has doubled since the last pruning.
     pub fn insert(&mut self, entry: &Rc<T>) {
-        drop(self.live());
+        if self.entries.len() >= self.prune_at {
+            self.entries.retain(|entry| entry.strong_count() > 0);
+            self.prune_at = (self.entries.len() * 2).max(8);
+        }
         self.entries.push(Rc::downgrade(entry));
     }
 
