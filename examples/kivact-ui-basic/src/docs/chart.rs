@@ -67,11 +67,7 @@ fn bar() -> impl IntoView {
         basic::ChartRow::new("May", [209.0, 130.0]),
         basic::ChartRow::new("Jun", [214.0, 140.0]),
     ];
-    basic::card()
-        .header(basic::card_header("Bar Chart").description("January - June 2024"))
-        .content(basic::chart(config, data))
-        .footer(text("Showing total visitors for the last 6 months"))
-        .style(style().width(560))
+    kivact::ui::card(basic::chart(config, data)).header(column((text("Bar Chart").style(style().font_size(14).line_height(20.0/14.0).weight(500)),text("January - June 2024").style(style().line_height(1.625).color(basic::ColorName::MutedForeground)),)).style(style().gap(4).grow(1).min_width(0))).footer(text("Showing total visitors for the last 6 months")).style(style().width(560))
 }
 // end example
 
@@ -92,10 +88,7 @@ fn horizontal() -> impl IntoView {
         .orientation(Orientation::Horizontal)
         .value_format(|value| format!("{value:.0}k"))
         .height(200.0);
-    basic::card()
-        .header(basic::card_header("Horizontal Stacked").description("Visitors by device"))
-        .content(chart)
-        .style(style().width(560))
+    kivact::ui::card(chart).header(column((text("Horizontal Stacked").style(style().font_size(14).line_height(20.0/14.0).weight(500)),text("Visitors by device").style(style().line_height(1.625).color(basic::ColorName::MutedForeground)),)).style(style().gap(4).grow(1).min_width(0))).style(style().width(560))
 }
 // end example
 
@@ -113,10 +106,7 @@ fn line() -> impl IntoView {
         basic::ChartRow::new("May", [209.0, 130.0]),
         basic::ChartRow::new("Jun", [214.0, 140.0]),
     ];
-    basic::card()
-        .header(basic::card_header("Line Chart").description("January - June 2024"))
-        .content(basic::chart(config, data).kind(basic::ChartKind::Line))
-        .style(style().width(560))
+    kivact::ui::card(basic::chart(config, data).kind(basic::ChartKind::Line)).header(column((text("Line Chart").style(style().font_size(14).line_height(20.0/14.0).weight(500)),text("January - June 2024").style(style().line_height(1.625).color(basic::ColorName::MutedForeground)),)).style(style().gap(4).grow(1).min_width(0))).style(style().width(560))
 }
 // end example
 
@@ -140,10 +130,7 @@ fn area() -> impl IntoView {
         .grid(false)
         .legend(false)
         .height(160.0);
-    basic::card()
-        .header(basic::card_header("Area Chart").description("Last 6 months"))
-        .content(chart)
-        .style(style().width(560))
+    kivact::ui::card(chart).header(column((text("Area Chart").style(style().font_size(14).line_height(20.0/14.0).weight(500)),text("Last 6 months").style(style().line_height(1.625).color(basic::ColorName::MutedForeground)),)).style(style().gap(4).grow(1).min_width(0))).style(style().width(560))
 }
 // end example
 

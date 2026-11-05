@@ -40,24 +40,34 @@ fn profile_card(
         ListItem::new("de", "German"),
     ];
     let changed = move || name.get() != saved_name.get();
-    basic::card()
-        .header(
-            basic::card_header("Profile")
-                .description("Choose how others see you.")
-                .action({
-                    show(changed, || {
-                        kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
-                    })
-                }),
-        )
-        .content({
-            basic::field_group((
-                field("Display name", text_input("Display name", name))
-                    .hint("Shown on your public page."),
-                field("Language", select("Language", languages, language)),
+    kivact::ui::card({
+        basic::field_group((
+            field("Display name", text_input("Display name", name))
+                .hint("Shown on your public page."),
+            field("Language", select("Language", languages, language)),
+        ))
+    })
+    .header(
+        row((
+            column((
+                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+                text("Choose how others see you.").style(
+                    style()
+                        .line_height(1.625)
+                        .color(basic::ColorName::MutedForeground),
+                ),
             ))
-        })
-        .style(style().width(420))
+            .style(style().gap(4).grow(1).min_width(0)),
+            row({
+                show(changed, || {
+                    kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
+                })
+            })
+            .style(style().align_self(Align::Start).shrink(0)),
+        ))
+        .style(style().align_items(Align::Start).gap(8)),
+    )
+    .style(style().width(420))
 }
 
 fn notifications_card(
@@ -70,26 +80,47 @@ fn notifications_card(
         ListItem::new("weekly", "Weekly"),
         ListItem::new("never", "Never"),
     ];
-    basic::card()
-        .header(
-            basic::card_header("Notifications").description("Choose what you want to hear about."),
-        )
-        .content({
-            basic::field_group((
-                field("Weekly digest", switch("Weekly digest", digest).hide_label(true))
-                    .hint("A summary of your week, every Monday.")
-                    .style(style().direction(Direction::Row).align_items(Align::Center).gap(12)),
-                field("Mentions", switch("Mentions", mentions).hide_label(true))
-                    .hint("Tell me when someone mentions me.")
-                    .style(style().direction(Direction::Row).align_items(Align::Center).gap(12)),
-                basic::field_separator(),
-                field(
-                    "Reminders",
-                    kivact::ui::toggle_group("Options", reminders, reminder).variant(basic::ToggleVariant::Outline),
+    kivact::ui::card({
+        basic::field_group((
+            field(
+                "Weekly digest",
+                switch("Weekly digest", digest).hide_label(true),
+            )
+            .hint("A summary of your week, every Monday.")
+            .style(
+                style()
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .gap(12),
+            ),
+            field("Mentions", switch("Mentions", mentions).hide_label(true))
+                .hint("Tell me when someone mentions me.")
+                .style(
+                    style()
+                        .direction(Direction::Row)
+                        .align_items(Align::Center)
+                        .gap(12),
                 ),
-            ))
-        })
-        .style(style().width(420))
+            basic::field_separator(),
+            field(
+                "Reminders",
+                kivact::ui::toggle_group("Options", reminders, reminder)
+                    .variant(basic::ToggleVariant::Outline),
+            ),
+        ))
+    })
+    .header(
+        column((
+            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("Choose what you want to hear about.").style(
+                style()
+                    .line_height(1.625)
+                    .color(basic::ColorName::MutedForeground),
+            ),
+        ))
+        .style(style().gap(4).grow(1).min_width(0)),
+    )
+    .style(style().width(420))
 }
 
 fn settings() -> impl IntoView {
@@ -108,7 +139,9 @@ fn settings() -> impl IntoView {
         ))
         .style(style().gap(16).align_items(Align::Start)),
         row((
-            button("Save").icon(icon("check")).on_press(move || saved_name.set(name.get())),
+            button("Save")
+                .icon(icon("check"))
+                .on_press(move || saved_name.set(name.get())),
             basic::muted(move || format!("Saved name: {}", saved_name.get())),
         ))
         .style(style().gap(12).align_items(Align::Center)),

@@ -71,7 +71,7 @@ such as `.style(...)`, `.test_id(...)`, `.disabled(...)` and `.name(...)` win
 over the kit's defaults. Parts without options return a `Node`. A slot
 method that places content in a component (`.content(..)`, `.header(..)`,
 `.footer(..)`, `.action(..)`, `.media(..)`, ...) takes a view
-(`card().content(text("Body"))`); a
+(`kivact::ui::card(text("Body"))`); a
 container's children are views.
 
 Icons are drawn with the core `kivact::view::icon(name)`: the theme puts
@@ -227,6 +227,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `avatar_status`
 - `table`
 - `item_list`
+- `card`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

@@ -38,7 +38,12 @@ fn invoices() -> impl IntoView {
             kivact::ui::table_cell(""),
             kivact::ui::table_cell("$400.00").align(kivact::style::TextAlign::End),
         )),)),
-        text("A list of recent invoices.").style(style().margin_top(16).color(basic::ColorName::MutedForeground).text_align(kivact::style::TextAlign::Center)),
+        text("A list of recent invoices.").style(
+            style()
+                .margin_top(16)
+                .color(basic::ColorName::MutedForeground)
+                .text_align(kivact::style::TextAlign::Center),
+        ),
     ))
     .style(style().width(460))
 }
@@ -63,9 +68,21 @@ struct Payment {
 
 fn payments() -> impl IntoView {
     let data = vec![
-        Payment { id: 1, email: "ken99@example.com", amount: 316.0 },
-        Payment { id: 2, email: "abe45@example.com", amount: 242.0 },
-        Payment { id: 3, email: "silas22@example.com", amount: 874.0 },
+        Payment {
+            id: 1,
+            email: "ken99@example.com",
+            amount: 316.0,
+        },
+        Payment {
+            id: 2,
+            email: "abe45@example.com",
+            amount: 242.0,
+        },
+        Payment {
+            id: 3,
+            email: "silas22@example.com",
+            amount: 874.0,
+        },
     ];
     let query = signal(String::new());
     let selected = signal(Vec::<u32>::new());
@@ -117,10 +134,23 @@ fn visitors() -> impl IntoView {
         basic::ChartRow::new("Feb", [305.0, 200.0]),
         basic::ChartRow::new("Mar", [237.0, 120.0]),
     ];
-    basic::card()
-        .header(basic::card_header("Bar chart").description("January - March"))
-        .content(basic::chart(config, data).kind(basic::ChartKind::Line).height(220.0))
-        .style(style().width(560))
+    kivact::ui::card(
+        basic::chart(config, data)
+            .kind(basic::ChartKind::Line)
+            .height(220.0),
+    )
+    .header(
+        column((
+            text("Bar chart").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("January - March").style(
+                style()
+                    .line_height(1.625)
+                    .color(basic::ColorName::MutedForeground),
+            ),
+        ))
+        .style(style().gap(4).grow(1).min_width(0)),
+    )
+    .style(style().width(560))
 }
 ```
 
@@ -146,13 +176,15 @@ fn people() -> impl IntoView {
             kivact::ui::badge("Failed").variant(basic::BadgeVariant::Destructive),
             kivact::ui::badge("Verified")
                 .variant(basic::BadgeVariant::Outline)
-                .icon(icon("badge-check").style(style().size(12,12))),
+                .icon(icon("badge-check").style(style().size(12, 12))),
         ))
         .style(style().gap(8).align_items(Align::Center)),
         kivact::ui::avatar_group((
             kivact::ui::avatar("AL").fallback_content(|| text("AL")),
             kivact::ui::avatar("GH").fallback_content(|| text("GH")),
-            kivact::ui::avatar("AT").fallback_content(|| text("AT")).size(kivact::ui::ControlSize::Large),
+            kivact::ui::avatar("AT")
+                .fallback_content(|| text("AT"))
+                .size(kivact::ui::ControlSize::Large),
             kivact::ui::avatar("+3").fallback_content(|| text("+3")),
         )),
     ))
@@ -196,3 +228,5 @@ fn snippet() -> impl IntoView {
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the chart, table and code block types, and `cargo doc -p kivact-ui --open` for `data_table`.
 
 `kivact::ui::item_list(children)` groups standard `item_row(title)` rows. Set `basic::ItemVariant` and `basic::ItemMediaVariant` with `.variant(..)`; `basic::ItemSize::Sm` keeps a 32 px image instead of 40 px. For reactive density use `.variant(basic::ItemLook::default().size(size))`. Media, actions, header and footer remain ordinary view slots.
+
+Standard cards use `kivact::ui::card(content)` with ordinary views in `.header(..)`, `.media(..)` and `.footer(..)`. `basic::CardSize::Sm` is a visual variant. Use `.variant(basic::CardLook::default().size(size).header_bordered(bordered))` for reactive spacing and a header rule; the header title, description and action are caller-composed text and row/column views.
