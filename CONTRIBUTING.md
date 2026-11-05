@@ -60,7 +60,7 @@ UI の試験は `kivact::test` による App 全体の E2E です。`arvane-virt
 
 `KIVACT_TEST_MIRROR` は `auto`（既定、可能なら mirror）、`off`（仮想 host のみ）、`required`（mirror が作れなければ失敗）を選びます。`RenderOptions::mirror` でも試験ごとに指定できます。GPU の表示や native host 固有の試験は対応する実環境が必要です。
 
-アプリを起動する試験と実 window を開くコマンドは、`KIVACT_TEST_MIRROR=off` でも `dev/tools/window-lock.sh -- <command>` を通し、すべての worktree で同時に一つの process だけがウィンドウを開くようにします。実 window の focus 競合と backend の同時利用を避けるためです。通常の試験は Cargo の既定の並列数で実行します。`gpu-interop-producer` だけは `--test-threads=1` で直列にします。lock は時間の上限（既定 900 秒、`--timeout` で変更）も掛け、時間切れは終了コード 124 です。
+アプリを起動する試験と実 window を開くコマンドは、`KIVACT_TEST_MIRROR=off` でも `dev/tools/window-lock.sh -- <command>` を通し、すべての worktree で同時に一つの process だけがウィンドウを開くようにします。実 window の focus 競合と backend の同時利用を避けるためです。通常の試験は Cargo の既定の並列数で実行します。`gpu-interop-producer` と `kivact-docs` の doctest は別に `--test-threads=1` で直列にします。後者は多数の例の同時 compile/link による実際のメモリ不足を避けるためです。lock は時間の上限（既定 900 秒、`--timeout` で変更）も掛け、時間切れは終了コード 124 です。
 
 ## merge 前の検査
 
@@ -69,10 +69,12 @@ cargo fmt --all -- --check
 cargo xtask check
 git diff --quiet -- architecture
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --all-features
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --all-features -- --test-threads=1
-KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --no-default-features
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p kivact-docs --all-features -- --test-threads=1
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --no-default-features
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --no-default-features -- --test-threads=1
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p kivact-docs --no-default-features -- --test-threads=1
 dev/tools/check-features.sh
 ```
 

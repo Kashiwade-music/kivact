@@ -39,19 +39,19 @@ cargo xtask check --no-write --only effect-writes --crate kivact-ui-soft
 
 ## E2E と doctest
 
-通常の試験は既定の並列数のまま実行します。GPU producer の試験だけを直列にします。
+通常の試験は既定の並列数のまま実行します。GPU producer とドキュメントの試験は別に直列にします。doctest は多数の例の同時 compile/link によるメモリ不足を避けるためです。
 アプリを起動する試験は mirror を無効にしても共通 lock を通します。
 
 ```text
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh -- cargo test -p kivact-public-api-tests --test e2e
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh -- cargo test -p kivact-ui-soft --test consumer
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh -- cargo test -p gpu-interop-producer --all-features -- --test-threads=1
-cargo test -p kivact-docs --doc
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh -- cargo test -p kivact-docs --doc -- --test-threads=1
 ```
 
 `kivact::test` の E2E は `arvane-virtual` の上で App 全体を動かします。
 `KIVACT_TEST_MIRROR=auto`（既定）は可能なら実 window に写し、`required` は実 window を必須にします。
-GPU の表示や native host 固有の試験は実環境が必要です。`cargo test -p kivact-docs --doc -- guides::readme` は
+GPU の表示や native host 固有の試験は実環境が必要です。`cargo test -p kivact-docs --doc -- guides::readme --test-threads=1` は
 二つの root README にある例だけを検査します。実行する Rust の例が App を起動する場合は、
 doctest も `dev/tools/window-lock.sh` を通します。
 
