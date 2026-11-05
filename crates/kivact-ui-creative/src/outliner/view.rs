@@ -26,6 +26,13 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// The active row waits only until its ancestor expansion mounts it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OutlinerReveal {
+    Idle,
+    AwaitingRow { target: u64 },
+}
+
 type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 
 /// A searchable hierarchy on [`Tree`](kivact::interaction::TreeApi).
@@ -243,7 +250,7 @@ impl IntoView for Outliner {
         let pressed = Rc::new(Cell::new(None::<u64>));
         let plan = signal(None::<Plan>);
         // An item to scroll to when its row appears (its ancestors opened).
-        let pending = signal(None::<u64>);
+        let pending = signal(OutlinerReveal::Idle);
         // The effect keeps its own handles on the rows and the press.
         {
             let mounted = mounted.clone();
@@ -252,7 +259,7 @@ impl IntoView for Outliner {
                 if !reveal_active.get_untracked() {
                     return;
                 }
-                pending.set(None);
+                pending.set(OutlinerReveal::Idle);
                 let picked = pressed.get();
                 let Some(id) = target.filter(|id| picked != Some(*id)) else {
                     return;
@@ -279,7 +286,7 @@ impl IntoView for Outliner {
                 let node = mounted.borrow().get(&id).map(|row| row.node);
                 match node {
                     Some(node) => node.scroll_into_view(),
-                    None => pending.set(Some(id)),
+                    None => pending.set(OutlinerReveal::AwaitingRow { target: id }),
                 }
             });
         }
@@ -336,8 +343,8 @@ impl IntoView for Outliner {
                     }
                 });
                 kivact::state::on_mount(move || {
-                    if pending.get() == Some(id) {
-                        pending.set(None);
+                    if pending.get() == (OutlinerReveal::AwaitingRow { target: id }) {
+                        pending.set(OutlinerReveal::Idle);
                         reference.scroll_into_view();
                     }
                 });
