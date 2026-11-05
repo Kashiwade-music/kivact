@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::interaction::MenuEntry;
-use kivact::style::ThemeMode;
+use kivact::style::{Theme, ThemeMode};
 use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::ui::menu;

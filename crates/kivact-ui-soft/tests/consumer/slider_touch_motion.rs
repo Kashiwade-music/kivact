@@ -78,10 +78,17 @@ fn track_touch_only_changes_on_tap_release_and_mouse_still_jumps_on_press() {
 #[test]
 fn touch_thumb_lifts_and_drops_except_under_reduced_motion() {
     for reduced in [false, true] {
-        let (screen, value) = render_with_handle(options(reduced), || {
-            let value = signal(50.0);
-            (value, slider("Amount", value).style(style().width(200)))
-        });
+        let (screen, value) = render_with_handle(
+            if reduced {
+                RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).reduced_motion()
+            } else {
+                RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            },
+            || {
+                let value = signal(50.0);
+                (value, slider("Amount", value).style(style().width(200)))
+            },
+        );
         let slider = screen.get_by_role(Role::Slider, "Amount");
         let thumb = slider.accessibility_bounds().unwrap();
         let x = thumb.x + thumb.width / 2.0;

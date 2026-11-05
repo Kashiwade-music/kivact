@@ -9,7 +9,7 @@ use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact::view::node_ref;
-use kivact_ui_soft::{TruncateTooltip, text, theme};
+use kivact_ui_soft::{TruncateTooltip, styled_text, theme};
 use std::time::Duration;
 
 #[test]
@@ -22,7 +22,7 @@ fn text_tooltip_opens_only_while_native_layout_cuts_text() {
                 let content = signal("Short".to_owned());
                 let reference = node_ref();
                 let truncated = reference.text_truncated();
-                let message = text(content)
+                let message = styled_text(content)
                     .max_lines(max_lines)
                     .truncate_tooltip(TruncateTooltip::Above)
                     .node_ref(reference)

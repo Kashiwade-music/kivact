@@ -73,7 +73,7 @@ fn layout_components_mount_and_interact() {
                         ))
                         .content({
                             soft::layout_content(soft::section(soft::vstack((
-                                soft::grid((text("First"), text("Second")))
+                                soft::layout_grid((text("First"), text("Second")))
                                     .columns(soft::GridColumns::Fixed(2)),
                                 soft::divider().label_text("or"),
                                 soft::form_layout(soft::form_row(text("Label"), text("Value"))),

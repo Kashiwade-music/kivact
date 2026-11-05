@@ -105,7 +105,7 @@ fn capture_catalog() {
             }
             if page.slug == "date-input" {
                 screen
-                    .get_by_role(Role::ComboBox, "Touch due date")
+                    .get_by_role(Role::TextBox, "Touch due date")
                     .press_key(Key::ArrowDown);
                 screen.advance(Duration::from_millis(500));
                 screen

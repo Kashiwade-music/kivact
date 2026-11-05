@@ -13,7 +13,7 @@ use kivact::view::Key;
 use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
-use kivact_ui_soft::{IconSize, StatusDotVariant, icon, status_dot};
+use kivact_ui_soft::{IconSize, StatusDotVariant, icon_view, status_dot};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -140,7 +140,7 @@ fn content_components_publish_their_names_and_roles() {
         || {
             column((
                 kivact::ui::heading("Workspace", 2),
-                icon("search").size(IconSize::Lg).label("Search icon"),
+                icon_view("search").size(IconSize::Lg).label("Search icon"),
                 badge("Review").tone(kivact::interaction::Tone::Warning),
                 status_dot(StatusDotVariant::Success, "Online"),
             ))
