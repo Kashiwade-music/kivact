@@ -15,6 +15,7 @@ pub(crate) enum DeferredRequest {
     ReducedMotion(Option<bool>),
 }
 
+// xtask-allow(state-fields): Editor slots and deferred window requests are independent payload collections; each lifecycle is owned by its named state group.
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     pub(crate) tree: NodeTree,

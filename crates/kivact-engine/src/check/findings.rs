@@ -161,47 +161,7 @@ pub(crate) fn text_findings(
         }
     }
 
-    // Wrapped: more than one line below a role that expects one.
-    let lines = shaped.lines.len();
-    if lines >= 2 && !n.content().is_some_and(|c| c.contains('\n')) {
-        let clamped = host.text_props(id).max_lines.is_some_and(|m| m >= 2);
-        let owner = std::iter::once(id)
-            .chain(up.iter().copied())
-            .find(|a| single_line(host, *a, check));
-        if let (false, Some(owner)) = (clamped, owner)
-            && let Some(limit) = host.rect(owner)
-        {
-            let extra = shaped.lines[1..].iter().map(|l| l.height).sum();
-            push(
-                LayoutRule::Wrapped {
-                    lines: lines as u32,
-                },
-                extra,
-                text,
-                limit,
-            );
-        }
-    }
-
-    // Off center: every box up to the visual parent centers it.
-    if let (1, Some(v)) = (lines, vp) {
-        let upto = up.iter().position(|a| *a == v).map_or(0, |i| i + 1);
-        let line = &shaped.lines[0];
-        if line.cap_height > 0.0 && centered_in(host, id, &up[..upto]) {
-            let content = visual::text_box(host, v);
-            let middle = line.baseline - line.cap_height / 2.0;
-            let off = (middle - (content.y + content.height / 2.0)).abs();
-            // The layout rounds boxes to whole pixels: half a pixel of
-            // slack on top, or an odd leftover would always be off.
-            let allowed = check
-                .center_tolerance
-                .unwrap_or_else(|| (shaped.font_size * 0.08).max(1.0))
-                + PIXEL_ROUNDING;
-            if off > allowed {
-                push(LayoutRule::OffCenter, off, text, content);
-            }
-        }
-    }
+    text_alignment_findings(host, check, id, &shaped, &up, vp, &mut push);
 }
 
 /// Whether the role of `id` expects its text on one line.
@@ -265,6 +225,60 @@ fn centers(host: &Model, parent: &HostNode, child: NodeId) -> bool {
                             || c.is_layer()
                             || c.layout().is_some_and(|l| l.position == Position::Absolute)
                     })
+        }
+    }
+}
+
+fn text_alignment_findings(
+    host: &Model,
+    check: &LayoutCheck,
+    id: NodeId,
+    shaped: &super::shaped_lines::Shaped,
+    up: &[NodeId],
+    vp: Option<NodeId>,
+    push: &mut impl FnMut(LayoutRule, f64, Rect, Rect),
+) {
+    // Wrapped: more than one line below a role that expects one.
+    let n = host.node(id).expect("invariant: checked text node exists");
+    let text = shaped.rect();
+    let lines = shaped.lines.len();
+    if lines >= 2 && !n.content().is_some_and(|c| c.contains('\n')) {
+        let clamped = host.text_props(id).max_lines.is_some_and(|m| m >= 2);
+        let owner = std::iter::once(id)
+            .chain(up.iter().copied())
+            .find(|a| single_line(host, *a, check));
+        if let (false, Some(owner)) = (clamped, owner)
+            && let Some(limit) = host.rect(owner)
+        {
+            let extra = shaped.lines[1..].iter().map(|l| l.height).sum();
+            push(
+                LayoutRule::Wrapped {
+                    lines: lines as u32,
+                },
+                extra,
+                text,
+                limit,
+            );
+        }
+    }
+
+    // Off center: every box up to the visual parent centers it.
+    if let (1, Some(v)) = (lines, vp) {
+        let upto = up.iter().position(|a| *a == v).map_or(0, |i| i + 1);
+        let line = &shaped.lines[0];
+        if line.cap_height > 0.0 && centered_in(host, id, &up[..upto]) {
+            let content = visual::text_box(host, v);
+            let middle = line.baseline - line.cap_height / 2.0;
+            let off = (middle - (content.y + content.height / 2.0)).abs();
+            // The layout rounds boxes to whole pixels: half a pixel of
+            // slack on top, or an odd leftover would always be off.
+            let allowed = check
+                .center_tolerance
+                .unwrap_or_else(|| (shaped.font_size * 0.08).max(1.0))
+                + PIXEL_ROUNDING;
+            if off > allowed {
+                push(LayoutRule::OffCenter, off, text, content);
+            }
         }
     }
 }

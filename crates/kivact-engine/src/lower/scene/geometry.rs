@@ -8,10 +8,6 @@ use kivact_types::{DrawCmd, DrawingShape, Fill, Point, Rect};
 impl Context<'_> {
     pub(super) fn paint_geometry(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
-        let point = |p: Point| Point {
-            x: origin.x + p.x,
-            y: origin.y + p.y,
-        };
         let rect = |r: Rect| Rect {
             x: origin.x + r.x,
             y: origin.y + r.y,
@@ -24,68 +20,8 @@ impl Context<'_> {
         };
         let tint = &state.current_tint;
         let command = match cmd {
-            DrawCmd::Shape(painted) => {
-                let shape = crate::lower::scene_shape::shape(&painted.shape);
-                // Before lowering arcs and before any paint resource.
-                if let kivact_types::scene::Shape::Path { cmds, .. } = &shape
-                    && !sanitize::path(cmds)
-                {
-                    self.drop_command();
-                    return true;
-                }
-                let shape = crate::lower::path::shifted(
-                    shape,
-                    Point {
-                        x: origin.x,
-                        y: origin.y,
-                    },
-                );
-                let mut area = match &painted.shape {
-                    DrawingShape::Basic { rect: bounds, .. }
-                    | DrawingShape::Rounded { rect: bounds, .. } => rect(*bounds),
-                    DrawingShape::Path { .. } => shape.bounds(),
-                };
-                if let Some(stroke) = &painted.stroke {
-                    // A straight line still has a nonzero paint area.
-                    let pad = stroke.width.max(0.0) / 2.0;
-                    if area.width == 0.0 {
-                        area.x -= pad;
-                        area.width = 2.0 * pad;
-                    }
-                    if area.height == 0.0 {
-                        area.y -= pad;
-                        area.height = 2.0 * pad;
-                    }
-                }
-                let mut push = |paint| {
-                    state.out.push(match &painted.stroke {
-                        Some(stroke) => D::StrokeShape {
-                            shape: shape.clone(),
-                            stroke: stroke.clone(),
-                            paint,
-                        },
-                        None => D::FillShape {
-                            shape: shape.clone(),
-                            paint,
-                        },
-                    })
-                };
-                match &painted.paint {
-                    Fill::Solid(color) => {
-                        push(kivact_types::render::Paint::Solid(tint.color(*color)))
-                    }
-                    Fill::Layers(layers) => {
-                        for layer in layers.iter().rev() {
-                            match self.layer_paint(layer, area, origin_point) {
-                                Some(paint) if sanitize::fill(&paint) => {
-                                    push(tint.paint(paint));
-                                }
-                                Some(_) => self.drop_command(),
-                                None => {}
-                            }
-                        }
-                    }
-                }
+            DrawCmd::Shape(_) => {
+                self.paint_shape(cmd, state);
                 return true;
             }
             DrawCmd::Rect { rect: r, fill } => {
@@ -139,8 +75,8 @@ impl Context<'_> {
                 width,
                 color,
             } => D::Line {
-                from: point(*from),
-                to: point(*to),
+                from: shifted_point(*from, origin),
+                to: shifted_point(*to, origin),
                 width: *width,
                 color: tint.color(*color),
             },
@@ -153,5 +89,89 @@ impl Context<'_> {
             self.drop_command();
         }
         true
+    }
+    fn paint_shape(&self, cmd: &DrawCmd, state: &mut State<'_>) {
+        let DrawCmd::Shape(painted) = cmd else {
+            unreachable!("invariant: matching command family");
+        };
+        let origin = state.origin;
+        let rect = |r: Rect| Rect {
+            x: origin.x + r.x,
+            y: origin.y + r.y,
+            width: r.width,
+            height: r.height,
+        };
+        let origin_point = Point {
+            x: origin.x,
+            y: origin.y,
+        };
+        let tint = &state.current_tint;
+
+        let shape = crate::lower::scene_shape::shape(&painted.shape);
+        // Before lowering arcs and before any paint resource.
+        if let kivact_types::scene::Shape::Path { cmds, .. } = &shape
+            && !sanitize::path(cmds)
+        {
+            self.drop_command();
+            return;
+        }
+        let shape = crate::lower::path::shifted(
+            shape,
+            Point {
+                x: origin.x,
+                y: origin.y,
+            },
+        );
+        let mut area = match &painted.shape {
+            DrawingShape::Basic { rect: bounds, .. }
+            | DrawingShape::Rounded { rect: bounds, .. } => rect(*bounds),
+            DrawingShape::Path { .. } => shape.bounds(),
+        };
+        if let Some(stroke) = &painted.stroke {
+            // A straight line still has a nonzero paint area.
+            let pad = stroke.width.max(0.0) / 2.0;
+            if area.width == 0.0 {
+                area.x -= pad;
+                area.width = 2.0 * pad;
+            }
+            if area.height == 0.0 {
+                area.y -= pad;
+                area.height = 2.0 * pad;
+            }
+        }
+        let mut push = |paint| {
+            state.out.push(match &painted.stroke {
+                Some(stroke) => D::StrokeShape {
+                    shape: shape.clone(),
+                    stroke: stroke.clone(),
+                    paint,
+                },
+                None => D::FillShape {
+                    shape: shape.clone(),
+                    paint,
+                },
+            })
+        };
+        match &painted.paint {
+            Fill::Solid(color) => push(kivact_types::render::Paint::Solid(tint.color(*color))),
+            Fill::Layers(layers) => {
+                for layer in layers.iter().rev() {
+                    match self.layer_paint(layer, area, origin_point) {
+                        Some(paint) if sanitize::fill(&paint) => {
+                            push(tint.paint(paint));
+                        }
+                        Some(_) => self.drop_command(),
+                        None => {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn shifted_point(p: Point, origin: Rect) -> Point {
+    Point {
+        x: origin.x + p.x,
+        y: origin.y + p.y,
     }
 }

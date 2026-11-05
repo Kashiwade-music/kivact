@@ -114,19 +114,8 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
     let item = l.grid.as_deref();
     let container = item.and_then(|g| g.container.as_ref());
     let mut style = NodeStyle {
-        display: if l.hidden || hidden {
-            Display::None
-        } else if l.display == kivact_types::Display::Grid {
-            Display::Grid
-        } else {
-            Display::Flex
-        },
-        flex_direction: match l.direction {
-            FlexDirection::Row => TDir::Row,
-            FlexDirection::Column => TDir::Column,
-            FlexDirection::RowReverse => TDir::RowReverse,
-            FlexDirection::ColumnReverse => TDir::ColumnReverse,
-        },
+        display: display(l, hidden),
+        flex_direction: direction(l.direction),
         flex_wrap: if l.wrap {
             FlexWrap::Wrap
         } else {
@@ -181,16 +170,7 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
             Position::Relative | Position::Sticky => TPos::Relative,
             Position::Absolute | Position::Fixed => TPos::Absolute,
         },
-        inset: if l.position == Position::Sticky {
-            taffy::Rect::auto()
-        } else {
-            taffy::Rect {
-                left: x.lpa(l.inset.left),
-                right: x.lpa(l.inset.right),
-                top: x.lpa(l.inset.top),
-                bottom: x.lpa(l.inset.bottom),
-            }
-        },
+        inset: x.inset(l),
         overflow: taffy::Point {
             x: overflow(l.overflow_x),
             y: overflow(l.overflow_y),
@@ -213,6 +193,18 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
 }
 
 impl Lengths<'_, '_> {
+    fn inset(&mut self, l: &LayoutProps) -> taffy::Rect<LengthPercentageAuto> {
+        if l.position == Position::Sticky {
+            taffy::Rect::auto()
+        } else {
+            taffy::Rect {
+                left: self.lpa(l.inset.left),
+                right: self.lpa(l.inset.right),
+                top: self.lpa(l.inset.top),
+                bottom: self.lpa(l.inset.bottom),
+            }
+        }
+    }
     /// The full style of the grid container `c` whose box properties are
     /// `node`'s.
     fn grid(&mut self, node: &NodeStyle, c: &GridContainer) -> TStyle {
@@ -304,5 +296,24 @@ impl Lengths<'_, '_> {
             }
             Breadth::FitContent(_) => M::fit_content_percent(1.0),
         }
+    }
+}
+
+fn display(l: &LayoutProps, hidden: bool) -> Display {
+    if l.hidden || hidden {
+        Display::None
+    } else if l.display == kivact_types::Display::Grid {
+        Display::Grid
+    } else {
+        Display::Flex
+    }
+}
+
+fn direction(direction: FlexDirection) -> TDir {
+    match direction {
+        FlexDirection::Row => TDir::Row,
+        FlexDirection::Column => TDir::Column,
+        FlexDirection::RowReverse => TDir::RowReverse,
+        FlexDirection::ColumnReverse => TDir::ColumnReverse,
     }
 }

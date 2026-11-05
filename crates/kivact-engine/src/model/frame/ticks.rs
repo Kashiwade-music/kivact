@@ -149,43 +149,21 @@ impl Model {
             self.frame.frames.0.insert(stamp.saturating_add(period));
         }
         self.sync();
+        self.tick_scrolls(stamp, period);
+        self.frame.last_frame = TickHistory::Ticked { last_ns: stamp };
+        self.push(HostEvent::FrameTick {
+            now_ns: stamp,
+            estimated_present_ns: stamp.saturating_add(period),
+            clock: self.motion_clock(),
+        });
+    }
+
+    fn tick_scrolls(&mut self, stamp: u64, period: u64) {
         if !self.frame.smooth_scrolls.is_empty() {
             let mut scrolls = std::mem::take(&mut self.frame.smooth_scrolls);
             scrolls.retain(|id, scroll| {
                 if let SmoothScroll::Fling { velocity, last_ns } = scroll {
-                    let dt = stamp.saturating_sub(*last_ns) as f64 / 1_000_000.0;
-                    *last_ns = stamp;
-                    let settings = self.frame.env.pointer;
-                    let decay = if settings.fling_deceleration.is_finite()
-                        && settings.fling_deceleration > 0.0
-                        && settings.fling_deceleration < 1.0
-                    {
-                        settings.fling_deceleration
-                    } else {
-                        0.998
-                    };
-                    let retention = decay.powf(dt);
-                    let distance = (retention - 1.0) / decay.ln();
-                    let Some(node) = self.node(*id) else {
-                        return false;
-                    };
-                    let at = node.scroll();
-                    let moved = self.set_scroll(
-                        *id,
-                        Point {
-                            x: at.x + velocity.x * distance,
-                            y: at.y + velocity.y * distance,
-                        },
-                    );
-                    velocity.x *= retention;
-                    velocity.y *= retention;
-                    let active = moved
-                        && !self.frame.reduced_motion()
-                        && velocity.x.hypot(velocity.y) >= settings.fling_min_velocity;
-                    if !active {
-                        self.settle_scroll_snap(*id);
-                    }
-                    return active;
+                    return self.tick_fling(*id, velocity, last_ns, stamp);
                 }
                 let (start, target, began, easing) = match *scroll {
                     SmoothScroll::Scheduled {
@@ -230,12 +208,48 @@ impl Model {
             }
             self.sync();
         }
-        self.frame.last_frame = TickHistory::Ticked { last_ns: stamp };
-        self.push(HostEvent::FrameTick {
-            now_ns: stamp,
-            estimated_present_ns: stamp.saturating_add(period),
-            clock: self.motion_clock(),
-        });
+    }
+
+    fn tick_fling(
+        &mut self,
+        id: NodeId,
+        velocity: &mut Point,
+        last_ns: &mut u64,
+        stamp: u64,
+    ) -> bool {
+        let dt = stamp.saturating_sub(*last_ns) as f64 / 1_000_000.0;
+        *last_ns = stamp;
+        let settings = self.frame.env.pointer;
+        let decay = if settings.fling_deceleration.is_finite()
+            && settings.fling_deceleration > 0.0
+            && settings.fling_deceleration < 1.0
+        {
+            settings.fling_deceleration
+        } else {
+            0.998
+        };
+        let retention = decay.powf(dt);
+        let distance = (retention - 1.0) / decay.ln();
+        let Some(node) = self.node(id) else {
+            return false;
+        };
+        let at = node.scroll();
+        let moved = self.set_scroll(
+            id,
+            Point {
+                x: at.x + velocity.x * distance,
+                y: at.y + velocity.y * distance,
+            },
+        );
+        velocity.x *= retention;
+        velocity.y *= retention;
+        let active = moved
+            && !self.frame.reduced_motion()
+            && velocity.x.hypot(velocity.y) >= settings.fling_min_velocity;
+        if !active {
+            self.settle_scroll_snap(id);
+        }
+        active
     }
 
     /// The motion clock the next frame tick carries.

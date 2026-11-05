@@ -99,40 +99,9 @@ impl Model {
         };
         let disabled = n.disabled();
         let focusable = self.focusable(id, hidden);
-        let mut actions: Vec<kivact_types::A11yAction> =
-            if hidden { Vec::new() } else { exposed.actions };
-        if focusable && !actions.contains(&kivact_types::A11yAction::Focus) {
-            actions.push(kivact_types::A11yAction::Focus);
-        }
-        let scene_regions: BTreeMap<_, _> = n
-            .scenes()
-            .iter()
-            .flatten()
-            .flat_map(|scene| scene.regions.iter())
-            // A client region with a non-finite or negative rect would
-            // invalidate the whole tree; only that region is left out.
-            .filter(|region| drawable(region.rect))
-            .map(|region| (region.id, region.clone()))
-            .collect();
-        let mut extras = n
-            .semantics()
-            .map(|props| Box::new(properties(props, |t| self.semantic_target(t))));
-        let invalid = n.semantics().and_then(|s| s.invalid).unwrap_or(false);
-        if invalid || n.read_only() || n.password() {
-            let props = extras.get_or_insert_with(Default::default);
-            props.invalid = Some(invalid);
-            props.read_only = Some(props.read_only.unwrap_or(false) || n.read_only());
-            props.protected = n.password();
-        }
-        if let Some(props) = &mut extras {
-            self.validate_relations(
-                types::FocusTarget {
-                    node: id,
-                    region: None,
-                },
-                props,
-            );
-        }
+        let actions = focus_actions(hidden, focusable, exposed.actions);
+        let scene_regions = scene_regions(n);
+        let extras = self.node_properties(id, n);
         let authored_text = n.semantics().and_then(|props| props.text.clone());
         let mut output = kivact_types::render::SemanticsNode {
             id: kivact_types::SemanticsId(id.0),
@@ -180,6 +149,47 @@ impl Model {
             let text = self.authored_semantics(id, &authored, bounds);
             output.semantics.text = text;
         }
+        let leaves = self.build_region_leaves(id, scene_regions, regions, &mut output);
+        out.push(output);
+        out.extend(leaves);
+    }
+
+    fn node_properties(
+        &self,
+        id: types::NodeId,
+        n: &crate::tree::node::HostNode,
+    ) -> Option<Box<kivact_types::Semantics<kivact_types::SemanticsId>>> {
+        let mut extras = n
+            .semantics()
+            .map(|props| Box::new(properties(props, |t| self.semantic_target(t))));
+        let invalid = n.semantics().and_then(|s| s.invalid).unwrap_or(false);
+        if invalid || n.read_only() || n.password() {
+            let props = extras.get_or_insert_with(Default::default);
+            props.invalid = Some(invalid);
+            props.read_only = Some(props.read_only.unwrap_or(false) || n.read_only());
+            props.protected = n.password();
+        }
+        if let Some(props) = &mut extras {
+            self.validate_relations(
+                types::FocusTarget {
+                    node: id,
+                    region: None,
+                },
+                props,
+            );
+        }
+        extras
+    }
+    fn build_region_leaves(
+        &mut self,
+        id: types::NodeId,
+        scene_regions: BTreeMap<types::RegionId, types::scene::Region>,
+        regions: &mut BTreeSet<u64>,
+        output: &mut kivact_types::render::SemanticsNode,
+    ) -> Vec<kivact_types::render::SemanticsNode> {
+        let hidden = output.semantics.hidden;
+        let disabled = output.semantics.disabled;
+        let bounds = output.bounds;
         let mut leaves = Vec::new();
         for (region_id, region) in scene_regions {
             let native_id = self.region_identity(id, region_id);
@@ -237,10 +247,8 @@ impl Model {
                 },
             });
         }
-        out.push(output);
-        out.extend(leaves);
+        leaves
     }
-
     /// The transform the accessibility node of `id` carries (G-07: the one
     /// it is drawn and hit with), about its content-space box `bounds`
     /// (its layout box moved by the scrolls above it, `offset`). A layer
@@ -428,4 +436,30 @@ pub(super) fn drawable(r: types::Rect) -> bool {
 /// Positive-area intersection, as AccessKit tests bounding boxes.
 fn overlaps(a: types::Rect, b: types::Rect) -> bool {
     a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+fn scene_regions(
+    n: &crate::tree::node::HostNode,
+) -> BTreeMap<types::RegionId, types::scene::Region> {
+    n.scenes()
+        .iter()
+        .flatten()
+        .flat_map(|scene| scene.regions.iter())
+        // A client region with a non-finite or negative rect would
+        // invalidate the whole tree; only that region is left out.
+        .filter(|region| drawable(region.rect))
+        .map(|region| (region.id, region.clone()))
+        .collect()
+}
+
+fn focus_actions(
+    hidden: bool,
+    focusable: bool,
+    offered: Vec<kivact_types::A11yAction>,
+) -> Vec<kivact_types::A11yAction> {
+    let mut actions: Vec<kivact_types::A11yAction> = if hidden { Vec::new() } else { offered };
+    if focusable && !actions.contains(&kivact_types::A11yAction::Focus) {
+        actions.push(kivact_types::A11yAction::Focus);
+    }
+    actions
 }

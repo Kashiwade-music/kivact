@@ -50,68 +50,10 @@ impl Model {
             axes.0 && content.width > size.width,
             axes.1 && content.height > size.height,
         );
-        let make = |vertical: bool| {
-            if if vertical { !enabled.1 } else { !enabled.0 } {
-                return None;
-            }
-            let viewport = if vertical { size.height } else { size.width };
-            let content = if vertical {
-                content.height
-            } else {
-                content.width
-            };
-            let length = (viewport
-                - if if vertical { enabled.0 } else { enabled.1 } {
-                    width
-                } else {
-                    0.0
-                })
-            .max(0.0);
-            if length <= 0.0 {
-                return None;
-            }
-            let thumb_len = (length * viewport / content).max(18.0).min(length);
-            let range = (content - viewport).max(0.0);
-            let travel = length - thumb_len;
-            let offset = if vertical { n.scroll().y } else { n.scroll().x };
-            let shift = travel * offset.clamp(0.0, range) / range;
-            let track = if vertical {
-                Rect {
-                    x: (size.width - width).max(0.0),
-                    y: 0.0,
-                    width: width.min(size.width),
-                    height: length,
-                }
-            } else {
-                Rect {
-                    x: 0.0,
-                    y: (size.height - width).max(0.0),
-                    width: length,
-                    height: width.min(size.height),
-                }
-            };
-            let thumb = if vertical {
-                Rect {
-                    y: shift,
-                    height: thumb_len,
-                    ..track
-                }
-            } else {
-                Rect {
-                    x: shift,
-                    width: thumb_len,
-                    ..track
-                }
-            };
-            Some(Bar {
-                track,
-                thumb,
-                vertical,
-                range,
-                travel,
-            })
-        };
-        [make(false), make(true)]
+        [
+            make_bar(false, enabled, size, content, width, n.scroll()),
+            make_bar(true, enabled, size, content, width, n.scroll()),
+        ]
     }
     pub(crate) fn scrollbar_at(&self, id: NodeId, point: Point) -> Option<Bar> {
         self.scrollbar_bars(id)
@@ -126,4 +68,73 @@ impl Model {
             .copied()
             .unwrap_or_default()
     }
+}
+
+fn make_bar(
+    vertical: bool,
+    enabled: (bool, bool),
+    size: kivact_types::Size,
+    content: kivact_types::Size,
+    width: f64,
+    scroll: Point,
+) -> Option<Bar> {
+    if if vertical { !enabled.1 } else { !enabled.0 } {
+        return None;
+    }
+    let viewport = if vertical { size.height } else { size.width };
+    let content = if vertical {
+        content.height
+    } else {
+        content.width
+    };
+    let length = (viewport
+        - if if vertical { enabled.0 } else { enabled.1 } {
+            width
+        } else {
+            0.0
+        })
+    .max(0.0);
+    if length <= 0.0 {
+        return None;
+    }
+    let thumb_len = (length * viewport / content).max(18.0).min(length);
+    let range = (content - viewport).max(0.0);
+    let travel = length - thumb_len;
+    let offset = if vertical { scroll.y } else { scroll.x };
+    let shift = travel * offset.clamp(0.0, range) / range;
+    let track = if vertical {
+        Rect {
+            x: (size.width - width).max(0.0),
+            y: 0.0,
+            width: width.min(size.width),
+            height: length,
+        }
+    } else {
+        Rect {
+            x: 0.0,
+            y: (size.height - width).max(0.0),
+            width: length,
+            height: width.min(size.height),
+        }
+    };
+    let thumb = if vertical {
+        Rect {
+            y: shift,
+            height: thumb_len,
+            ..track
+        }
+    } else {
+        Rect {
+            x: shift,
+            width: thumb_len,
+            ..track
+        }
+    };
+    Some(Bar {
+        track,
+        thumb,
+        vertical,
+        range,
+        travel,
+    })
 }

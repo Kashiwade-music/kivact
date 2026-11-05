@@ -117,25 +117,7 @@ pub(super) fn shape_long(
                 d.rect = at(d.rect);
                 d
             }));
-        if let Some(first) = piece.lines.first() {
-            let rect = at(first.rect);
-            line = Some(match line.take() {
-                None => kivact_types::render::TextLine {
-                    range: 0..text.len(),
-                    rect,
-                    baseline,
-                    ..first.clone()
-                },
-                Some(mut l) => {
-                    l.rect = l.rect.union(rect);
-                    l.ascent = l.ascent.max(first.ascent);
-                    l.descent = l.descent.max(first.descent);
-                    l.cap_height = l.cap_height.max(first.cap_height);
-                    l.x_height = l.x_height.max(first.x_height);
-                    l
-                }
-            });
-        }
+        merge_line(&mut line, &piece.lines, at, text.len(), baseline);
         out.size.height = out.size.height.max(piece.size.height + dy);
         x += advance;
         scalars += text[range].chars().count() as u32;
@@ -145,4 +127,32 @@ pub(super) fn shape_long(
     out.size.width = x;
     out.lines.extend(line);
     Some(Arc::new(out))
+}
+
+fn merge_line(
+    line: &mut Option<kivact_types::render::TextLine>,
+    lines: &[kivact_types::render::TextLine],
+    at: impl Fn(Rect) -> Rect,
+    text_len: usize,
+    baseline: f64,
+) {
+    if let Some(first) = lines.first() {
+        let rect = at(first.rect);
+        *line = Some(match line.take() {
+            None => kivact_types::render::TextLine {
+                range: 0..text_len,
+                rect,
+                baseline,
+                ..first.clone()
+            },
+            Some(mut l) => {
+                l.rect = l.rect.union(rect);
+                l.ascent = l.ascent.max(first.ascent);
+                l.descent = l.descent.max(first.descent);
+                l.cap_height = l.cap_height.max(first.cap_height);
+                l.x_height = l.x_height.max(first.x_height);
+                l
+            }
+        });
+    }
 }

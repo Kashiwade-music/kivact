@@ -344,6 +344,26 @@ impl Host {
             window.set_title(&title);
             window.set_min_size(min_size);
         }
+        self.synchronize_ime(window);
+        self.show_cursor(window);
+        // Without a surface (minimized) a redraw draws nothing and leaves
+        // the paint dirty, so asking for one would spin; the restore asks.
+        if self.paint_due() {
+            window.request_redraw();
+        }
+        // With a frame to draw, the native window updates assistive
+        // technology after it (the redraw pumps again): after a layout pass
+        // the update is O(nodes) on both sides of AccessKit, and the frame
+        // need not wait for it.
+        let after_frame = self.paint_due();
+        if !after_frame {
+            self.model
+                .borrow_mut()
+                .accessibility(window, &mut self.engine.borrow_mut());
+        }
+        Ok(self.control(window))
+    }
+    fn synchronize_ime(&mut self, window: &mut Window<'_>) {
         let caret = {
             let mut model = self.model.borrow_mut();
             // A native editor's caret first; else the caret of a node with an
@@ -381,23 +401,6 @@ impl Host {
         if let ImeUpdate::Set(text) = update {
             window.set_ime_text(text);
         }
-        self.show_cursor(window);
-        // Without a surface (minimized) a redraw draws nothing and leaves
-        // the paint dirty, so asking for one would spin; the restore asks.
-        if self.paint_due() {
-            window.request_redraw();
-        }
-        // With a frame to draw, the native window updates assistive
-        // technology after it (the redraw pumps again): after a layout pass
-        // the update is O(nodes) on both sides of AccessKit, and the frame
-        // need not wait for it.
-        let after_frame = self.paint_due();
-        if !after_frame {
-            self.model
-                .borrow_mut()
-                .accessibility(window, &mut self.engine.borrow_mut());
-        }
-        Ok(self.control(window))
     }
     /// Input is applied to the host model at once, but the client turn waits
     /// until the native queue is drained: a due wake runs it for every input

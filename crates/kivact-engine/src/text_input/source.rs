@@ -2,6 +2,7 @@
 
 use kivact_editing::Damage;
 
+// xtask-allow(state-fields): Borrowed editor input snapshot has independent damage and presentation parameters, not retained transition state.
 /// What a text input shows, to lay its lines out from.
 #[derive(Clone, Copy)]
 pub(crate) struct Source<'a> {

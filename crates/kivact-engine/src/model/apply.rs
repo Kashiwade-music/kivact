@@ -250,23 +250,7 @@ impl Model {
 
     /// Record the consumers affected by one typed property change.
     pub(super) fn changed(&mut self, id: NodeId, mutation: Mutation) {
-        let local = mutation.local_text
-            && !(mutation.style
-                || mutation.text
-                || mutation.placed
-                || mutation.subtree
-                || mutation.restack
-                || mutation.paint
-                || mutation.states
-                || mutation.read_only);
-        if local {
-            self.a11y.local_text(id);
-        } else {
-            self.a11y.node(id);
-        }
-        if mutation.style || mutation.text || mutation.placed || mutation.subtree {
-            self.a11y.subtree(id);
-        }
+        self.invalidate_semantics(id, mutation);
         self.changes.restack |= mutation.restack;
         let Mutation {
             style,
@@ -335,39 +319,7 @@ impl Model {
             self.changes.moved();
         }
         if text {
-            // An inherited text style: every text below measures again, and
-            // every image below draws again (a monochrome one is painted in
-            // the text color).
-            // The resolved style of every node below is dropped here, in
-            // the write: a state-motion capture of this revision reads the
-            // new one (`model::text`). A text that now paints farther out
-            // (its size or shadows) may show where it was culled, so the
-            // list is built again; a color alone does not.
-            let mut stack = vec![id];
-            while let Some(x) = stack.pop() {
-                let Some(n) = self.tree.get(x) else { continue };
-                stack.extend(self.tree.flat_children(self.tree.nodes.id_at(n.index)));
-                let (slot, kind) = (n.index.0, n.kind());
-                let drawn = kind == NodeType::Text
-                    || self.editors[slot]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some();
-                let before = self.measure.computed_text(slot);
-                self.measure.forget_computed_text(slot);
-                if drawn {
-                    self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
-                    self.a11y.node(x);
-                    let now = text_reach_of(&self.text_props(x));
-                    self.changes.restack |= before.is_none_or(|b| text_reach_of(&b) != now);
-                } else if kind == NodeType::Image {
-                    self.changes.mark(x, Dirty::REDRAW);
-                    self.a11y.node(x);
-                }
-            }
-            self.changes
-                .layout
-                .insert(crate::model::changes::LayoutReasons::PASS);
+            self.invalidate_inherited_text(id);
         }
         if let Some(parent) = stacks {
             self.tree.stacks(self.tree.nodes.id_at(parent));
@@ -379,6 +331,62 @@ impl Model {
             self.a11y.subtree(id);
         }
         self.changes.mark(id, Dirty::WRITTEN);
+    }
+
+    fn invalidate_semantics(&mut self, id: NodeId, mutation: Mutation) {
+        let local = mutation.local_text
+            && !(mutation.style
+                || mutation.text
+                || mutation.placed
+                || mutation.subtree
+                || mutation.restack
+                || mutation.paint
+                || mutation.states
+                || mutation.read_only);
+        if local {
+            self.a11y.local_text(id);
+        } else {
+            self.a11y.node(id);
+        }
+        if mutation.style || mutation.text || mutation.placed || mutation.subtree {
+            self.a11y.subtree(id);
+        }
+    }
+
+    fn invalidate_inherited_text(&mut self, id: NodeId) {
+        // An inherited text style: every text below measures again, and
+        // every image below draws again (a monochrome one is painted in
+        // the text color).
+        // The resolved style of every node below is dropped here, in
+        // the write: a state-motion capture of this revision reads the
+        // new one (`model::text`). A text that now paints farther out
+        // (its size or shadows) may show where it was culled, so the
+        // list is built again; a color alone does not.
+        let mut stack = vec![id];
+        while let Some(x) = stack.pop() {
+            let Some(n) = self.tree.get(x) else { continue };
+            stack.extend(self.tree.flat_children(self.tree.nodes.id_at(n.index)));
+            let (slot, kind) = (n.index.0, n.kind());
+            let drawn = kind == NodeType::Text
+                || self.editors[slot]
+                    .as_deref()
+                    .map(|editor| editor.editor.state())
+                    .is_some();
+            let before = self.measure.computed_text(slot);
+            self.measure.forget_computed_text(slot);
+            if drawn {
+                self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
+                self.a11y.node(x);
+                let now = text_reach_of(&self.text_props(x));
+                self.changes.restack |= before.is_none_or(|b| text_reach_of(&b) != now);
+            } else if kind == NodeType::Image {
+                self.changes.mark(x, Dirty::REDRAW);
+                self.a11y.node(x);
+            }
+        }
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// Attach or reparent a node under `parent`, before `before` (append if

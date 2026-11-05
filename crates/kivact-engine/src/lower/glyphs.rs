@@ -22,6 +22,7 @@ use kivact_types::render::RenderCmd as D;
 use kivact_types::{ComputedTextStyle, Rect, TextMetrics, TextRun, TextShadow};
 use kivact_types::{Point, Rgba};
 
+// xtask-allow(state-fields): Glyph and decoration overrides are independent optional drawing parameters.
 /// How a shaped text is colored as it is drawn.
 pub(crate) struct Colors {
     /// Every glyph run's color (plain text shaped without its color).

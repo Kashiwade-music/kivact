@@ -3,12 +3,14 @@
 use crate::tree::node::NodeIndex;
 use std::collections::HashMap;
 
+// xtask-allow(state-fields): Previous and next identities are independent links in the authoritative child topology.
 #[derive(Clone, Debug)]
 struct Link {
     previous: Option<NodeIndex>,
     next: Option<NodeIndex>,
 }
 
+// xtask-allow(state-fields): Linked child topology stores independent first and last endpoints; the packed vector retains capacity only.
 #[derive(Clone, Debug, Default)]
 struct Editing {
     // Empty while editing: capacity only, never a shadow child sequence.
@@ -174,6 +176,7 @@ impl ChildOrder {
     }
 }
 
+// xtask-allow(state-fields): Double-ended iterator cursors delimit independent traversal endpoints, not application lifecycle state.
 pub(crate) struct Children<'a> {
     order: &'a ChildOrder,
     range: std::ops::Range<usize>,
