@@ -72,14 +72,21 @@ pub(crate) fn rtl() -> bool {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-// xtask-allow(state-fields): Passive optional logical padding values resolved by precedence; these numerical style fields are independent configuration, not runtime flags.
+// Passive optional logical padding values resolved by precedence; these numerical style fields are independent configuration, not runtime flags.
 pub(crate) struct Padding {
+    // xtask-allow(state-fields): Passive optional all padding value resolved by geometric precedence, not a runtime phase.
     pub all: Option<Space>,
+    // xtask-allow(state-fields): Passive optional x padding value resolved by geometric precedence, not a runtime phase.
     pub x: Option<Space>,
+    // xtask-allow(state-fields): Passive optional y padding value resolved by geometric precedence, not a runtime phase.
     pub y: Option<Space>,
+    // xtask-allow(state-fields): Passive optional start padding value resolved by geometric precedence, not a runtime phase.
     pub start: Option<Space>,
+    // xtask-allow(state-fields): Passive optional end padding value resolved by geometric precedence, not a runtime phase.
     pub end: Option<Space>,
+    // xtask-allow(state-fields): Passive optional top padding value resolved by geometric precedence, not a runtime phase.
     pub top: Option<Space>,
+    // xtask-allow(state-fields): Passive optional bottom padding value resolved by geometric precedence, not a runtime phase.
     pub bottom: Option<Space>,
 }
 
