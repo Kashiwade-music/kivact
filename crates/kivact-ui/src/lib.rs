@@ -396,7 +396,7 @@ pub use collection_values::{
     ItemListTokens, ItemRowState, TableTokens, ToolbarEdge, ToolbarState, ToolbarTokens, TreeTokens,
 };
 pub use component_values::{
-    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
-    StatState, Trend,
+    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberKind,
+    InputGroupMemberState, InputGroupState, StatState, Trend,
 };
 pub use hover_card_values::{HoverCardSurfaceState, HoverCardTokens};

@@ -35,6 +35,13 @@ pub struct EmptyStateState {
 /// Input group size and reading direction passed to its recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {
+    pub input: kivact_core::custom::PartState,
+    pub focused: bool,
+    pub invalid: bool,
+    pub has_start: bool,
+    pub has_end: bool,
+    pub has_block_start: bool,
+    pub has_block_end: bool,
     pub size: ControlSize,
     pub direction: ReadingDirection,
 }
@@ -42,6 +49,7 @@ pub struct InputGroupState {
 /// A member's position, inherited size, and actual focus-within observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupMemberState {
+    pub kind: InputGroupMemberKind,
     pub group: InputGroupState,
     pub first: bool,
     pub last: bool,
@@ -70,4 +78,27 @@ kivact_core::state::constant_value!(Trend);
 pub struct StatState {
     /// Direction supplied by the application; it does not imply a success or danger tone.
     pub trend: Trend,
+}
+
+/// The source slot of one actual inline input-group member.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputGroupMemberKind {
+    Start,
+    Control,
+    End,
+}
+impl Default for InputGroupState {
+    fn default() -> Self {
+        Self {
+            input: Default::default(),
+            focused: false,
+            invalid: false,
+            has_start: false,
+            has_end: false,
+            has_block_start: false,
+            has_block_end: false,
+            size: ControlSize::Medium,
+            direction: ReadingDirection::Ltr,
+        }
+    }
 }

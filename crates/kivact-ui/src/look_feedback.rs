@@ -180,3 +180,7 @@ pub(super) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style 
     };
     if s.focused { base.z_index(1) } else { base }
 }
+
+pub(super) fn group_block(_: &Theme, _: &Look<InputGroupState>) -> Style {
+    style()
+}

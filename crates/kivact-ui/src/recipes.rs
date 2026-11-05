@@ -824,6 +824,8 @@ recipe_table! {
         members(members_recipe): InputGroupState = look_feedback::group_members,
         member(member_recipe): InputGroupMemberState = look_feedback::group_member,
         addon(addon_recipe): InputGroupState = look_feedback::group_addon,
+        block_start(block_start_recipe): InputGroupState = look_feedback::group_block,
+        block_end(block_end_recipe): InputGroupState = look_feedback::group_block,
     }
 }
 recipe_table! {
