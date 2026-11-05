@@ -101,7 +101,7 @@ trusted_derives = [
 # 使われない例外も error にする。
 [module_rules.kivact-core]
 # Canonical facades reexport owner access; the motion boundary adapter accepts the public NodeRef handle.
-except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "motion::frame_loop -> view::node_ref"]
+except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "motion::frame_loop -> view::node_ref", "view::elements::viewport -> platform::env", "view::elements::viewport -> gpu_interop::import::registry"]
 
 [module_rules.kivact-core.uses]
 state = []

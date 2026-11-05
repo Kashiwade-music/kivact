@@ -610,6 +610,7 @@ fn filled_content_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'st
     }
     [
         ("badge", changed!(badge_recipe)),
+        ("badge_label", changed!(badge_label_recipe)),
         ("avatar", changed!(avatar_recipe)),
         ("avatar_status", changed!(avatar_status_recipe)),
         ("avatar_group", changed!(avatar_group_recipe)),

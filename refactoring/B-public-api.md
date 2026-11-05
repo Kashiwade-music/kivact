@@ -848,3 +848,13 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 | `basic::DialogLook`、`basic::MenuLook`、soft `SegmentedLook`、game `GameCellLook`（付録 C.1・C.4） | `DialogVariant`、`MenuVariant`、`SegmentedVariant`、`GameCellVariant` | 改名 | K-7a〜K-7e |
 | `App::fonts(iter)`（旧 B.1） | 作らない（`App::font` を繰り返す。`RenderOptions::fonts(TestFonts)` と衝突するため） | 削除 | C-1 (決定) (決定) |
 | `RenderOptions::with_theme`・`reduced_motion`（旧 作業手順書 N-7） | `RenderOptions::with_theme(theme)`、`reduced_motion()`（C-1 の builder に含む） | 署名の変更 | C-1 |
+
+## W6 和集合の追加契約
+
+| API | 正準の形 |
+|---|---|
+| custom chooser | `ui::selection_field(label,value_label).content(..).presentation(..).open(binding)` |
+| date/time | CalendarSelection は Single/Range binding descriptor、time format は TimeStyle |
+| passive content | Stat value_content/label_content/chart、Description term_content、Avatar fallback_content、badge_label recipe |
+| code block | line_numbers(IntoValue<bool>)、highlight(content, Fn(&T,&str,&S)->(Vec<StyledRange>,S)) |
+| chat | author は IntoText、sender は ChatSender、empty は predicate と content、history_revision は外部 dataset stamp |
