@@ -49,6 +49,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
         ..base.text().clone()
     };
     let mut ui = kivact::ui::UiTokens::default();
+    ui.indicators.reduced_period_ms = Some(1000);
     ui.code_block.font_size = 13.0;
     ui.code_block.line_height = 20.0;
     ui.button_group.radius = 8.0;
