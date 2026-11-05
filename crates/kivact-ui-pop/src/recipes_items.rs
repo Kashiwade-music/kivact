@@ -31,7 +31,7 @@ pub(crate) fn item_list(r: ItemListRecipes) -> ItemListRecipes {
             move |t: &Theme, s: &_| prev(t, s).font_size(12).color(t.ext::<Tokens>().text_muted)
         })
         .media(|_| {
-            |t: &Theme, s: &kivact::ui::Look<kivact::custom::PartState>| {
+            |t: &Theme, s: &kivact::ui::Look<kivact::ui::ItemRowState>| {
                 let p = t.ext::<Tokens>();
                 let hue = s.variant::<ItemHue>().map_or(Hue::Gray, |h| h.0.get());
                 let (bg, fg) = p.hue(hue);

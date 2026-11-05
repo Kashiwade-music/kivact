@@ -73,6 +73,7 @@ pub struct TableTokens {
     pub font_size: Option<f64>,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of actual input, description-slot availability and activation capability; no independent runtime state.
 /// Actual item-row input and independent construction facts exposed to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ItemRowState {

@@ -105,8 +105,7 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
         }
         // sheet.tsx: `shadow-lg` and the border of the inner edge, no ring.
         DialogMode::Drawer(side) => {
-            let base = if s.variant::<crate::DrawerVariant>() == Some(&crate::DrawerVariant::Drawer)
-            {
+            if s.variant::<crate::DrawerVariant>() == Some(&crate::DrawerVariant::Drawer) {
                 let base = sheet(base.ring_none(), side, &p).position(Position::Relative);
                 match side {
                     Edge::Top => base.padding_bottom(12).max_height(pct(100) - 96),
@@ -116,8 +115,7 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
                 }
             } else {
                 sheet(shadow_lg(base.ring_none()), side, &p)
-            };
-            base
+            }
         }
         // alert-dialog.tsx: `max-w-sm` or `max-w-xs`.
         DialogMode::AlertModal => base
