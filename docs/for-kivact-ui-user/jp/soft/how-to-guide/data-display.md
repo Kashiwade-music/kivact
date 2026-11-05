@@ -137,4 +137,4 @@ fn summary() -> impl IntoView {
 
 `table_selection_toolbar(selection)` は `clear_label`、`selection_label`、`actions` を維持し、表示と件数を呼び出し側の selection binding から導出します。clear button と toolbar は標準部品です。`table_row_status(label, RowStatusTone)` の四つの色は標準 badge の `RowStatusDot` appearance で描画します。
 
-DataTable の 0 始まりの page binding には標準 `pagination(page_count, page)` を使い、`.summary(...)` でページ数を表示できます。`table_row_index(index)` は `text(move || index.get().to_string())` に `TextAlign::End` と theme の secondary text color を指定する形に対応します。操作できる表には引き続き `data_table` と `DataColumn` を使います。並べ替え、選択、filter、列幅と順序、sticky column、paging、row status、tree/group row、empty content、row action、toolbar/footer slot の持ち主と API は変わりません。
+DataTable の 0 始まりの page binding には標準 `pagination(page_count, page)` を使い、`.summary(...)` でページ数を表示できます。行番号は `soft::table_row_index(index)` で、右寄せと theme の secondary text color で表示します。操作できる表には引き続き `data_table` と `DataColumn` を使います。並べ替え、選択、filter、列幅と順序、sticky column、paging、row status、tree/group row、empty content、row action、toolbar/footer slot の持ち主と API は変わりません。
