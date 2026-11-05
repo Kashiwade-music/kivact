@@ -2409,7 +2409,7 @@ wave W6。付録 C の作業。
     - 一度だけ `announcer` で読み上げる（`enum Announcement { Pending, Spoken }`）。
   - alert:
     - `ui::alert(title)`、`.description(..)`、`.tone(..)`、`.icon(..)`、`.on_dismiss(..)`、`.variant(..)`（banner は `AlertVariant::Banner`）。
-    - 閉じた後の focus の復元は core の `restore_focus`（SM-K22: `enum BannerState { Shown, Dismissed }`）。
+    - 閉じた後の focus の復元は core の `restore_focus`（SM-K22: `enum BannerState { Shown { restore: Option<NodeRef> }, Dismissed }`）。
     - G-5 の既定の失敗の表示をこれに差し替える。
   - card: `ui::card(children: impl IntoView)`、`.header(impl IntoView)`、`.media(impl IntoView)`、`.footer(impl IntoView)`、`.on_press(..)`、`.selected(impl IntoBinding<bool>)`。
   - input group: `ui::input_group(label, children: impl IntoChildren)`、`ui::input_addon(text)`（basic と soft の `input_group_text` は `input_addon`）。
