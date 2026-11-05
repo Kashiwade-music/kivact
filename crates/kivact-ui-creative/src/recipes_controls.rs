@@ -1,5 +1,5 @@
 //! Role: Creative appearance of the standard radio group, slider, toasts and splitter.
-use crate::Color;
+use crate::ColorName;
 use crate::feedback::ToneExt;
 
 use kivact::custom::PartState;
@@ -22,7 +22,7 @@ pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
         .item(|_| radio_item)
         .indicator(|_| radio_indicator)
         .description(|_| {
-            |_: &Theme, _: &Look<CheckableState>| style().font_size(10.5).color(Color::Muted)
+            |_: &Theme, _: &Look<CheckableState>| style().font_size(10.5).color(ColorName::Muted)
         })
 }
 fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
@@ -181,7 +181,7 @@ fn progress_track(_: &Theme, _: &Look<ProgressState>) -> Style {
         .width(pct(100))
         .radius(4)
         .clip(true)
-        .background(Color::Field)
+        .background(ColorName::Field)
 }
 
 fn progress_fill(_: &Theme, look: &Look<ProgressState>) -> Style {
@@ -216,8 +216,8 @@ fn disclosure_root(_: &Theme, _: &Look<DisclosureState>) -> Style {
     style()
         .direction(Direction::Column)
         .radius(7)
-        .background(Color::Island)
-        .border(1, Color::Hair)
+        .background(ColorName::Island)
+        .border(1, ColorName::Hair)
 }
 
 /// The chevron is the trigger's last child, drawn first by the reversed row.
@@ -228,7 +228,7 @@ fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
         .gap(6)
         .padding_x(8)
         .align_items(Align::Center)
-        .background(Color::Header)
+        .background(ColorName::Header)
         .hover(style().background(kivact::style::ColorToken::Hover))
 }
 

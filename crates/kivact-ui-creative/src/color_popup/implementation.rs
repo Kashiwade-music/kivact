@@ -64,8 +64,8 @@ pub fn color_popup(
             .style(
                 style()
                     .background(ColorToken::Raised)
-                    .color(crate::Color::Text)
-                    .border(1, crate::Color::HairStrong),
+                    .color(crate::ColorName::Text)
+                    .border(1, crate::ColorName::HairStrong),
             ),
         )
         .with_node(move |node| node.role(Role::Dialog))

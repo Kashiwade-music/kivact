@@ -41,7 +41,6 @@ use kivact::style::{Align, Justify, pct, rgba, style};
 use kivact::view::Handled;
 use kivact::view::{LiveRegion, PointerPhase, node_ref};
 use kivact_ui_creative as ui;
-use ui::ThemeOptions;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Category {
@@ -219,7 +218,7 @@ pub fn catalog() -> impl IntoView {
                                 .style(style().font_size(14).weight(600)),
                             text(subtitle)
                                 .style(style().font_size(11.5).grow(1).min_width(0))
-                                .style(style().color(ui::Color::Dim)),
+                                .style(style().color(ui::ColorName::Dim)),
                             kivact::ui::button("Copy component link")
                                 .hide_label(true)
                                 .icon(kivact::view::icon("link"))
@@ -244,7 +243,7 @@ pub fn catalog() -> impl IntoView {
                                 .gap(10)
                                 .align_items(Align::Center),
                         )
-                        .style(style().border_bottom(1, ui::Color::Hair)),
+                        .style(style().border_bottom(1, ui::ColorName::Hair)),
                         node().hidden(collapsed).child(body),
                     ))
                     .with_node(|node| node.node_ref(refs[i]))
@@ -256,9 +255,9 @@ pub fn catalog() -> impl IntoView {
                     })
                     .style(
                         style()
-                            .background(ui::Color::Island)
+                            .background(ui::ColorName::Island)
                             .radius(12)
-                            .border(1, ui::Color::Hair)
+                            .border(1, ui::ColorName::Hair)
                             .min_width(0)
                             .shrink(0),
                     )
@@ -271,7 +270,7 @@ pub fn catalog() -> impl IntoView {
                     .style(style().grow(1).min_width(0).min_height(0))
                     .style(
                         style()
-                            .scrollbar_color(ui::Color::HairStrong, rgba(0, 0.0))
+                            .scrollbar_color(ui::ColorName::HairStrong, rgba(0, 0.0))
                             .scrollbar_width(kivact::style::ScrollbarWidth::Thin),
                     );
             column((
@@ -321,7 +320,7 @@ pub fn catalog() -> impl IntoView {
                         .align_items(Align::Center)
                         .gap(16),
                 )
-                .style(style().color(ui::Color::Dim)),
+                .style(style().color(ui::ColorName::Dim)),
                 operator_search(search, status, refs_for_shell.clone()),
                 kivact::ui::toast_region(kivact::interaction::toaster()),
                 ui::pie_menu(pie_entries.as_ref().clone(), pie).on_activate(choose_pie),
@@ -330,8 +329,8 @@ pub fn catalog() -> impl IntoView {
             .style(style().size(pct(100), pct(100)).min_height(0))
             .style(
                 style()
-                    .background(ui::Color::Canvas)
-                    .color(ui::Color::Text)
+                    .background(ui::ColorName::Canvas)
+                    .color(ui::ColorName::Text)
                     .font_family("Geist, 'Noto Sans JP', sans-serif")
                     .font_size(12.5)
                     .line_height(1.4),
@@ -461,7 +460,7 @@ fn topbar(
         row((
             node()
                 .style(style().size(22, 22).radius(7))
-                .style(style().background(ui::Color::Accent))
+                .style(style().background(ui::ColorName::Accent))
                 .draw(|d, _| {
                     let p = d.theme().ext::<ui::Tokens>();
                     for (x, y) in [(4.0, 4.0), (12.0, 4.0), (4.0, 12.0), (12.0, 12.0)] {
@@ -469,7 +468,7 @@ fn topbar(
                     }
                 }),
             text("KIVACT").style(style().weight(700)),
-            text("PRO UI").style(style().color(ui::Color::Dim)),
+            text("PRO UI").style(style().color(ui::ColorName::Dim)),
         ))
         .style(style().gap(8).padding_x(8).align_items(Align::Center)),
         kivact::ui::button("Outliner visibility")
@@ -562,14 +561,14 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
         row((
             text("TC")
                 .style(style().font_size(9.5))
-                .style(style().color(ui::Color::Accent)),
+                .style(style().color(ui::ColorName::Accent)),
             text(move || smpte(state.get().frame))
                 .test_id("catalog-playback-frame")
                 .value_text(move || state.get().frame.to_string())
                 .style(style().weight(600)),
             text("BAR")
                 .style(style().font_size(9.5))
-                .style(style().color(ui::Color::Accent)),
+                .style(style().color(ui::ColorName::Accent)),
             text("1.1.1"),
         ))
         .style(
@@ -581,7 +580,7 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
                 .font_family("Geist Mono")
                 .align_items(Align::Center),
         )
-        .style(style().background(ui::Color::Canvas)),
+        .style(style().background(ui::ColorName::Canvas)),
         spacer(),
         column(
             [("CPU", 0.22_f64), ("DSK", 0.07_f64)]
@@ -624,8 +623,8 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
     )
     .style(
         style()
-            .background(ui::Color::Island)
-            .border(1, ui::Color::Hair),
+            .background(ui::ColorName::Island)
+            .border(1, ui::ColorName::Hair),
     )
 }
 
@@ -665,7 +664,7 @@ fn sidebar(
                     text(title).style(style().grow(1).single_line()),
                     text(*code)
                         .style(style().font_family("Geist Mono").font_size(9).single_line())
-                        .style(style().color(ui::Color::Dim)),
+                        .style(style().color(ui::ColorName::Dim)),
                 ))
                 .role(Role::TreeItem)
                 .name(title)
@@ -690,18 +689,18 @@ fn sidebar(
                         .gap(7)
                         .radius(7)
                         .align_items(Align::Center)
-                        .color(ui::Color::Muted)
+                        .color(ui::ColorName::Muted)
                         .hover(
                             style()
                                 .background(ColorToken::Hover)
-                                .color(ui::Color::TextHigh),
+                                .color(ui::ColorName::TextHigh),
                         )
                         .selected(
                             style()
-                                .background(ui::Color::Selection)
-                                .color(ui::Color::TextHigh),
+                                .background(ui::ColorName::Selection)
+                                .color(ui::ColorName::TextHigh),
                         )
-                        .focus(style().ring(1, ui::Color::Accent)),
+                        .focus(style().ring(1, ui::ColorName::Accent)),
                 )
             })
             .collect::<Vec<_>>();
@@ -741,8 +740,8 @@ fn sidebar(
             )
             .style(
                 style()
-                    .color(ui::Color::Dim)
-                    .focus(style().ring(1, ui::Color::Accent)),
+                    .color(ui::ColorName::Dim)
+                    .focus(style().ring(1, ui::ColorName::Accent)),
             )
             .on_press(move || collapsed.update(|v| *v = !*v)),
             rows,
@@ -789,18 +788,18 @@ fn sidebar(
     )
     .style(
         style()
-            .background(ui::Color::Island)
-            .border(1, ui::Color::Hair),
+            .background(ui::ColorName::Island)
+            .border(1, ui::ColorName::Hair),
     )
 }
 
 fn hero(compact: Signal<bool>) -> impl IntoView {
     row((column((
         text("● COMPONENT CATALOG · 2026 EDITION").style(style().font_family("Geist Mono").font_size(10.5).padding_x(10).padding_y(4).radius(99).align_self(Align::Start))
-            .style( style().background(ui::Color::Hair).color(ui::Color::Muted)),
+            .style( style().background(ui::ColorName::Hair).color(ui::ColorName::Muted)),
         text("Professional Creative Tool — Native UI Kit").role(Role::Heading).style(style().font_size(30).weight(650).letter_spacing(-0.9).margin_top(14).margin_bottom(10)),
         text("DAW・モーショングラフィックス・3DCG・カラーグレーディング系アプリケーションの文法で組んだネイティブ UI コンポーネント群の 2026 年版。浮遊するアイランド型レイアウト、ベベルの代わりのヘアライン、グラスのオーバーレイ、アクセント色のティントで選択を表現します。数値フィールドはドラッグで値変更・クリックで直接入力・Ctrl で微調整・Shift で粗調整・Backspace で既定値。")
-            .style(style().max_width(660).line_height(1.7)).style( style().color(ui::Color::Muted)),
+            .style(style().max_width(660).line_height(1.7)).style( style().color(ui::ColorName::Muted)),
     )).style(style().grow(1)),
         column((text("SECTIONS      22 editors"), text(move || format!("ROW HEIGHT    {} px", if compact.get() { 20 } else { 24 })), text("BASE FONT     12.5 px Geist"), text("ICONS         Tabler (MIT)"), text("DEPENDENCIES  kivact")))
             .style(style().font_family("Geist Mono").font_size(10.5).gap(6).padding(14).radius(10).align_self(Align::End))

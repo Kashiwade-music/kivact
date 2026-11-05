@@ -261,8 +261,8 @@ pub(super) fn tool_palette_size(vertical: bool, compact: bool) -> Node {
                 .style(
                     style().selected(
                         style()
-                            .background(ui::Color::Accent)
-                            .color(ui::Color::AccentInk),
+                            .background(ui::ColorName::Accent)
+                            .color(ui::ColorName::AccentInk),
                     ),
                 )
                 .style(style().size(if compact { 22 } else { 30 }, if compact { 22 } else { 30 }))
@@ -276,7 +276,7 @@ pub(super) fn tool_palette_size(vertical: bool, compact: bool) -> Node {
                         } else {
                             style().width(1).height(22).margin_x(4)
                         })
-                        .style(style().background(ui::Color::HairStrong))
+                        .style(style().background(ui::ColorName::HairStrong))
                         .into_view(),
                 ]
             } else {
@@ -301,7 +301,7 @@ pub(super) fn tool_palette_size(vertical: bool, compact: bool) -> Node {
         .style(
             style()
                 .background(ColorToken::Raised)
-                .border(1, ui::Color::Hair),
+                .border(1, ui::ColorName::Hair),
         );
     if !vertical && !compact {
         root = root.style(style().width(pct(100)).max_width(548));

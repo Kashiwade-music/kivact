@@ -53,8 +53,8 @@ pub(super) fn menus(
                         )
                         .style(
                             style()
-                                .background(ui::Color::Canvas)
-                                .border(1, ui::Color::Hair),
+                                .background(ui::ColorName::Canvas)
+                                .border(1, ui::ColorName::Hair),
                         )
                         .child(note("Right click here · G Move / R Rotate / S Scale")),
                 ),
@@ -213,7 +213,7 @@ fn window_footer(content: impl IntoView) -> impl kivact::view::Component {
                 .gap(8)
                 .align_items(Align::Center),
         )
-        .style(style().border_top(1, ui::Color::Hair))
+        .style(style().border_top(1, ui::ColorName::Hair))
 }
 
 fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
@@ -238,7 +238,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                     style()
                         .background(rgba(0, 0.0))
                         .border(0, rgba(0, 0.0))
-                        .border_bottom(1, ui::Color::Hair),
+                        .border_bottom(1, ui::ColorName::Hair),
                 )
                 .keep_mounted()
                 .content(|key| {
@@ -341,7 +341,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                 window_footer((
                     text("~ 3.2 GB")
                         .style(style().font_family("Geist Mono").font_size(10.5).grow(1))
-                        .style(style().color(ui::Color::Dim)),
+                        .style(style().color(ui::ColorName::Dim)),
                     kivact::ui::button("Cancel")
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .on_press(move || {
@@ -378,13 +378,13 @@ fn close_project(status: Signal<String>) -> impl kivact::view::Component {
                     node().style(style().size(40, 40).padding(8).radius(12).shrink(0))
                         .style(move || { let t = &use_theme().get(); style().background(t.ext::<ui::Tokens>().warning.with_alpha(0.12)) })
                         .child(kivact::view::icon("warning").style(style().size(24, 24))
-                            .style( style().color(ui::Color::Warning))),
+                            .style( style().color(ui::ColorName::Warning))),
                     column((
                         text("Save changes to “Shot_010_Comp_v012” before closing?")
                             .role(Role::Heading).style(style().font_size(14).weight(600).line_height(1.4)),
                         text("3 unsaved changes. If you don't save, changes since 10:42 will be lost.")
                             .style(style().font_size(12.5).line_height(1.65))
-                            .style( style().color(ui::Color::Muted)),
+                            .style( style().color(ui::ColorName::Muted)),
                     )).style(style().width(0).grow(1).gap(6)),
                 )).style(style().padding(14).gap(14).align_items(Align::Start)),
                 window_footer((

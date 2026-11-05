@@ -2,7 +2,7 @@
 use super::data::InspectorPanel;
 use super::machine;
 
-use crate::Color;
+use crate::ColorName;
 use kivact::geometry::Rect;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_disclosure, use_drag};
@@ -133,7 +133,7 @@ pub fn panel_group<V: IntoView>(
                     .padding_x(8)
                     .gap(6)
                     .align_items(Align::Center)
-                    .background(Color::Header)
+                    .background(ColorName::Header)
                     .hover(style().background(ColorToken::Hover)),
             );
             column((

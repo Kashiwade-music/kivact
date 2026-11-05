@@ -47,7 +47,7 @@ pub fn transport(binding: impl IntoBinding<TransportState>) -> Transport {
                     .gap(2)
                     .padding(3)
                     .radius(9)
-                    .background(crate::Color::Canvas),
+                    .background(crate::ColorName::Canvas),
             ),
         binding: binding.into_binding(),
         to_start: None,
@@ -110,7 +110,7 @@ fn transport_view(
             .icon(kivact::view::icon("record"))
             .variant(ButtonVariant::Ghost)
             .with_node(move |node| node.selected(move || state.get().recording))
-            .with_node(move |node| node.style(style().color(crate::Color::X)))
+            .with_node(move |node| node.style(style().color(crate::ColorName::X)))
             .on_press(move || modify(|s| s.recording = !s.recording)),
         kivact::ui::button(message("creative.transport.cycle", "Cycle"))
             .hide_label(true)

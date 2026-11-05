@@ -428,7 +428,7 @@ impl IntoView for Numeric {
                     text(label)
                         .hidden(move || !label_visible.get())
                         .style(style().single_line().grow(1).shrink(1))
-                        .style(style().color(crate::Color::Muted)),
+                        .style(style().color(crate::ColorName::Muted)),
                     text(shown)
                         .style(move || {
                             let t = &use_theme().get();
@@ -517,9 +517,9 @@ impl IntoView for Numeric {
                                 .max_width(300)
                                 .radius(5)
                                 .font_size(11)
-                                .color(crate::Color::X)
-                                .background(crate::Color::Header)
-                                .border(1, crate::Color::HairStrong),
+                                .color(crate::ColorName::X)
+                                .background(crate::ColorName::Header)
+                                .border(1, crate::ColorName::HairStrong),
                         ),
                     )
                     .with_node(move |node| node.part(hint.content()))
