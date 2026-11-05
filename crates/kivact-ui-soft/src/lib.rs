@@ -11,7 +11,6 @@ mod banner;
 mod blockquote;
 mod bottom_sheet;
 mod breadcrumbs;
-mod button_group;
 mod calendar;
 mod card;
 mod carousel;
@@ -67,6 +66,7 @@ mod recipes_controls_choice;
 mod recipes_controls_value;
 mod recipes_dialog;
 mod recipes_field;
+mod recipes_groups;
 mod recipes_menu;
 mod recipes_popup;
 mod recipes_popup_command;
@@ -99,7 +99,6 @@ mod time_input;
 mod time_of_day;
 mod timer;
 mod timestamp;
-mod toggle_button_group;
 mod token;
 mod tokens;
 mod toolbar;
@@ -124,7 +123,6 @@ pub use bottom_sheet::{
 pub use breadcrumbs::{
     BreadcrumbItem, Breadcrumbs, BreadcrumbsVariant, breadcrumb_item, breadcrumbs,
 };
-pub use button_group::{ButtonGroup, GroupMember, button_group};
 pub use calendar::{Calendar, calendar, calendar_range};
 pub use card::{Card, CardVariant, card, clickable_card, selectable_card};
 pub use carousel::{Carousel, CarouselHandle, carousel, use_carousel};
@@ -190,6 +188,7 @@ pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
+pub use recipes_groups::ButtonGroupVariant;
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
@@ -256,7 +255,6 @@ pub use timer::{Timer, TimerFormat, timer};
 pub use timestamp::{
     Instant, InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, timestamp,
 };
-pub use toggle_button_group::{ToggleButtonGroup, toggle_button_group};
 pub use token::{Token, TokenColor, token};
 pub use tokens::{Motion, Radius, Sizes, Spacing, TextStyle, Tokens, Typography};
 pub use toolbar::{Edge, Toolbar, toolbar, toolbar_item};

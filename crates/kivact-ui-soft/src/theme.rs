@@ -140,6 +140,17 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            button_group: kivact::ui::ButtonGroupTokens {
+                radius: tokens.radius.element,
+                divider: colors.border,
+                solid_divider: colors.on_accent,
+                text_background: colors.bg_muted,
+                text_color: colors.text_primary,
+                ..Default::default()
+            },
+            toggle_group: kivact::ui::ToggleGroupTokens {
+                gap: tokens.spacing.s1,
+            },
             disclosure: kivact::ui::DisclosureTokens {
                 motion: kivact::ui::DisclosureMotion {
                     transition: Some(Transition::spring(Spring {

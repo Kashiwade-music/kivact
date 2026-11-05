@@ -44,7 +44,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Badge / Banner / Blockquote | `badge`, `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
-| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_button_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
+| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | `calendar`, `calendar_range` |
 | Card | `card`, `clickable_card`, `selectable_card` |
 | Carousel | `carousel`, `use_carousel` |
@@ -363,6 +363,8 @@ Number, date, and time filter fields validate values entered as text.
 - `button_icon`
 - `button_busy`
 - `toggle`
+- `button_group`
+- `toggle_group`
 - `checkbox`
 - `checkbox_indicator`
 - `checkbox_check`
