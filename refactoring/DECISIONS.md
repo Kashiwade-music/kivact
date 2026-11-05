@@ -168,3 +168,7 @@
 | 2026-11-05 | H-G5 | Game haloのreduced motion | effectから時刻を書かず、描画がreduced時に静止値を選ぶ。動作中のphaseは既存frame clockのみが所有する。 |
 | 2026-11-05 | H-G5 | InspectorPanel.collapsedの分類 | InspectorPanelは外部データセットの展開値を持つpassive recordであり、mounted builderの構造optionではない。structural_optionsのrecord_typesへ正確に登録する。 |
 | 2026-11-05 | K-1a | swipeのactivation抑止 | Callbackの戻り値でpressを止めず、CalendarOptions.activation_guardを単一calendar ownerの遷移前に評価する。Releasedは同一gestureの後続選択を拒否し、新gesture/keyboard/a11yで解除する。 |
+| 2026-11-05 | K-4/K-9b | Contentsと意味情報の責務 | Displayはlayout boxのみを制御する。a11yはlogical hierarchyを保ち、boxなしgroupのboundsは実際の子のunionから導出する。layout/paint/inputのflattenは変えない。 |
+| 2026-11-05 | K-3b | ページ窓とnavigationのidentity | Buffered/Adjacentはimmutable構築policy。panel_keyは実panelのidentityのみを割当てる。controlled Menuは同じaccepted bindingを共有しHover→Menu effect mirrorを廃止する。 |
+| 2026-11-05 | K-4 | Tree/List/Table和集合 | Treeのancestry/marker、ItemRowの実slotとText行制限、列挙済datasetからのreadonly位置を標準部品へ追加。tableのselection toolbar/statusは付録指定の固有合成として保持する。 |
+| 2026-11-05 | K-9a | CodeBlockの開閉と履歴選択 | 同じDisclosure ownerのcontent/controlsとshow/presenceを用い、再表示時はsource/highlighter factoryから実editorを構築。履歴は実editorで全選択し、別のhistory/visibility ownerを置かない。 |

@@ -864,3 +864,6 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 | syntax | `basic::rust_source(&str)->Vec<CodeLine>`とpretokenized`rust_lines`。source解析とpalette適用を分離 |
 | calendar activation | `CalendarOptions::activation_guard(Fn(CalendarDate)->bool)` は公開availabilityを変更せず単一ownerの選択前に評価。swipe直後の選択抑止をpolicyとして合成 |
 | alert actual structure | header/message/controlsは実wrapper recipe、has_contentは実slot投影。既定Display::Contentsで標準geometryを保持 |
+| collection recipes | TreeRowRecipeStateとmarker_content、ItemRow実marker/delegate/行制限、ItemListのheader/marker/start/readonly positionでkit独自controllerを除去 |
+| pagination | summary(Value<PaginationSummary>)、実controls/sizes/input/dots parts。Buffered/Adjacentは構築policy、Dotsは全page・selectedのみTabstop・RTL対応wrap選択 |
+| navigation ownership | NavigationMenuApi.panel_keyはgenuine identity、use_menu_with_openはaccepted外部binding、trigger_actionは既定pressの明示的置換 |
