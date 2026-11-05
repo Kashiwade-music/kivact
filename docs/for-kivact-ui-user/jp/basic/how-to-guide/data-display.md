@@ -149,11 +149,11 @@ fn people() -> impl IntoView {
                 .icon(icon("badge-check").style(style().size(12,12))),
         ))
         .style(style().gap(8).align_items(Align::Center)),
-        basic::avatar_group((
-            basic::avatar("AL"),
-            basic::avatar("GH"),
-            basic::avatar("AT").size(basic::AvatarSize::Lg),
-            basic::avatar_group_count("+3"),
+        kivact::ui::avatar_group((
+            kivact::ui::avatar("AL").fallback_content(|| text("AL")),
+            kivact::ui::avatar("GH").fallback_content(|| text("GH")),
+            kivact::ui::avatar("AT").fallback_content(|| text("AT")).size(kivact::ui::ControlSize::Large),
+            kivact::ui::avatar("+3").fallback_content(|| text("+3")),
         )),
     ))
     .style(style().gap(12))
@@ -161,8 +161,8 @@ fn people() -> impl IntoView {
 ```
 
 - バッジのバリアントは `Default`、`Secondary`、`Destructive`、`Outline`、`Ghost`、`Link` です。`.on_press(..)` を付けると、バッジはボタンになります。
-- `basic::avatar(fallback).image(bytes)` は、`include_bytes!` の `&'static [u8]` のような画像のバイト列を受け取ります。代わりの文字は、画像が使えるようになるまで、また画像がない間表示されます。サイズは `Sm`、既定、`Lg` です。`.badge(|| icon("plus"))` は、角に小さな印を足します。
-- `avatar_group` はアバターを重ねて並べます。`avatar_group_count("+3")` は、末尾の「ほかにも」を示す丸です。
+- `kivact::ui::avatar(name).src(Some(asset))` は画像をリアクティブに読みます。代わりの文字をそのまま示すには `.fallback_content(|| text("CN"))` を使います。省略時は名前から頭文字を作ります。サイズは `ControlSize::Small`、`Medium`、`Large` です。`.status(Some(Tone::Success))` は状態の点、`.status_content(view)` は独自の印を置きます。
+- `kivact::ui::avatar_group(children)` はアバターを重ねます。最後に文字を指定したアバターを置くか、`.max(limit)` で残りの人数をリアクティブに表示します。
 
 ## コピーボタンつきでコードを見せる
 

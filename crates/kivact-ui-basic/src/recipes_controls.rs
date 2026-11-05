@@ -11,11 +11,12 @@ use crate::theme_access::{shadow_lg, wide_focus_ring, with_focus};
 use crate::tokens::Tokens;
 use kivact::custom::PartState;
 use kivact::geometry::Rect;
-use kivact::interaction::{DisclosureState, ToastState};
+use kivact::interaction::ToastState;
 use kivact::style::{
     Align, Color, Cursor, Direction, Justify, Overflow, Position, Style, TextDecorationLine, Theme,
     pct, style,
 };
+use kivact::ui::DisclosureRecipeState;
 use kivact::ui::{
     AxisState, CheckableState, DisclosureRecipes, Look, ProgressRecipes, ProgressState,
     RadioGroupRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, ToastGroupState, ToastRecipes,
@@ -441,14 +442,14 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         .content(|_| disclosure_content)
 }
 
-fn disclosure_root(t: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_root(t: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::Column)
         .width(pct(100))
         .border_bottom(1, t.ext::<Tokens>().border)
 }
 
-fn disclosure_trigger(t: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_trigger(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     let p = t.ext::<Tokens>();
     let s = style()
         .direction(Direction::Row)
@@ -472,7 +473,7 @@ fn disclosure_trigger(t: &Theme, state: &Look<DisclosureState>) -> Style {
 }
 
 /// The chevron: `chevron-down`, turned up while the section is open.
-fn disclosure_indicator(t: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_indicator(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
@@ -480,7 +481,7 @@ fn disclosure_indicator(t: &Theme, state: &Look<DisclosureState>) -> Style {
         .rotate(if state.open { 180 } else { 0 })
 }
 
-fn disclosure_content(t: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_content(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     if state.variant::<crate::DisclosureVariant>().is_some() {
         return style();
     }

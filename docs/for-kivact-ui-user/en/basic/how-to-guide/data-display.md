@@ -149,11 +149,11 @@ fn people() -> impl IntoView {
                 .icon(icon("badge-check").style(style().size(12,12))),
         ))
         .style(style().gap(8).align_items(Align::Center)),
-        basic::avatar_group((
-            basic::avatar("AL"),
-            basic::avatar("GH"),
-            basic::avatar("AT").size(basic::AvatarSize::Lg),
-            basic::avatar_group_count("+3"),
+        kivact::ui::avatar_group((
+            kivact::ui::avatar("AL").fallback_content(|| text("AL")),
+            kivact::ui::avatar("GH").fallback_content(|| text("GH")),
+            kivact::ui::avatar("AT").fallback_content(|| text("AT")).size(kivact::ui::ControlSize::Large),
+            kivact::ui::avatar("+3").fallback_content(|| text("+3")),
         )),
     ))
     .style(style().gap(12))
@@ -161,8 +161,8 @@ fn people() -> impl IntoView {
 ```
 
 - Badge variants are `Default`, `Secondary`, `Destructive`, `Outline`, `Ghost` and `Link`. A badge becomes a button when you give it `.on_press(..)`.
-- `basic::avatar(fallback).image(bytes)` takes image bytes, such as a `&'static [u8]` from `include_bytes!`. The fallback text shows until the image is available, and when there is none. Sizes are `Sm`, the default and `Lg`. `.badge(|| icon("plus"))` adds a small mark on the corner.
-- `avatar_group` overlaps its avatars; `avatar_group_count("+3")` is the "and more" circle at the end.
+- `kivact::ui::avatar(name).src(Some(asset))` reads reactive images. Use `.fallback_content(|| text("CN"))` for exact fallback text; otherwise the component derives initials from the name. Sizes are `ControlSize::Small`, `Medium` and `Large`. `.status(Some(Tone::Success))` draws a semantic corner dot; `.status_content(view)` accepts custom corner content.
+- `kivact::ui::avatar_group(children)` overlaps its avatars. A final avatar with explicit fallback content can display a literal overflow count; `.max(limit)` manages a reactive count.
 
 ## Show code with a copy button
 

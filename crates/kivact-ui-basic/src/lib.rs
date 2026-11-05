@@ -103,7 +103,6 @@ pub use attachment::{
     Attachment, AttachmentMediaVariant, AttachmentSize, AttachmentState, attachment,
     attachment_action, attachment_group,
 };
-pub use avatar::{Avatar, AvatarSize, avatar, avatar_group, avatar_group_count};
 pub use badge::BadgeVariant;
 pub use breadcrumb::{
     BreadcrumbLink, breadcrumb, breadcrumb_content, breadcrumb_ellipsis, breadcrumb_link,

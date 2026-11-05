@@ -69,6 +69,11 @@ fn build() -> UiRecipes {
         .calendar(crate::recipes_calendar::calendar)
         .empty_state(crate::empty::recipes)
         .alert(crate::alert::recipes)
+        .avatar(|_| crate::avatar::avatar)
+        .avatar_image(|_| crate::avatar::image)
+        .avatar_group(|_| crate::avatar::group)
+        .avatar_group_member(|_| crate::avatar::member)
+        .avatar_status(|_| crate::avatar::status)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts
