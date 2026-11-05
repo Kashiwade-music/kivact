@@ -54,6 +54,7 @@ pub(crate) trait Canvas {
     fn fill_pattern(&mut self, path: &BezPath, pattern: &PatternFill, visible: Rect);
 }
 
+// xtask-allow(state-fields): Drawing options for one borrowed glyph run; hinting and atlas eligibility are independent rendering facts.
 /// How a run of glyphs is drawn.
 pub(crate) struct GlyphRun<'a> {
     pub(crate) font: &'a FontData,

@@ -30,6 +30,48 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
         check_values(node)?;
     }
     check_text(tree.nodes.iter(), |id| lookup.contains_key(&id))?;
+    check_relations(tree, &lookup)?;
+    let mut nodes = Vec::with_capacity(tree.nodes.len());
+    let mut visited = HashSet::new();
+    let mut hidden_nodes = HashSet::new();
+    let mut pending = vec![(tree.root, false)];
+    while let Some((id, ancestor_hidden)) = pending.pop() {
+        let node = lookup.get(&id).ok_or(AccessibilityError::MissingNode(id))?;
+        if !visited.insert(id) {
+            return Err(AccessibilityError::InvalidTree(id));
+        }
+        let hidden = ancestor_hidden || node.semantics.hidden;
+        if hidden {
+            hidden_nodes.insert(id);
+        }
+        nodes.push((*node).clone());
+        pending.extend(node.children.iter().rev().map(|child| (*child, hidden)));
+    }
+    if let Some(node) = tree.nodes.iter().find(|node| !visited.contains(&node.id)) {
+        return Err(AccessibilityError::UnreachableNode(node.id));
+    }
+    if let Some(focus) = tree.focus {
+        let node = lookup
+            .get(&focus)
+            .ok_or(AccessibilityError::InvalidFocus(focus))?;
+        if hidden_nodes.contains(&focus)
+            || (!node.semantics.focusable && (node.semantics.disabled || focus != tree.root))
+        {
+            return Err(AccessibilityError::InvalidFocus(focus));
+        }
+    }
+    Ok(SemanticsTree {
+        root: tree.root,
+        focus: tree.focus,
+        nodes,
+    })
+}
+
+/// Validate active descendants and node references before traversal.
+fn check_relations(
+    tree: &SemanticsTree,
+    lookup: &HashMap<kivact_types::SemanticsId, &SemanticsNode>,
+) -> Result<(), AccessibilityError> {
     for node in &tree.nodes {
         if let Some(active) = node.semantics.active_descendant {
             if !lookup.contains_key(&active) {
@@ -70,40 +112,7 @@ pub(crate) fn canonicalize(tree: &SemanticsTree) -> Result<SemanticsTree, Access
             }
         }
     }
-    let mut nodes = Vec::with_capacity(tree.nodes.len());
-    let mut visited = HashSet::new();
-    let mut hidden_nodes = HashSet::new();
-    let mut pending = vec![(tree.root, false)];
-    while let Some((id, ancestor_hidden)) = pending.pop() {
-        let node = lookup.get(&id).ok_or(AccessibilityError::MissingNode(id))?;
-        if !visited.insert(id) {
-            return Err(AccessibilityError::InvalidTree(id));
-        }
-        let hidden = ancestor_hidden || node.semantics.hidden;
-        if hidden {
-            hidden_nodes.insert(id);
-        }
-        nodes.push((*node).clone());
-        pending.extend(node.children.iter().rev().map(|child| (*child, hidden)));
-    }
-    if let Some(node) = tree.nodes.iter().find(|node| !visited.contains(&node.id)) {
-        return Err(AccessibilityError::UnreachableNode(node.id));
-    }
-    if let Some(focus) = tree.focus {
-        let node = lookup
-            .get(&focus)
-            .ok_or(AccessibilityError::InvalidFocus(focus))?;
-        if hidden_nodes.contains(&focus)
-            || (!node.semantics.focusable && (node.semantics.disabled || focus != tree.root))
-        {
-            return Err(AccessibilityError::InvalidFocus(focus));
-        }
-    }
-    Ok(SemanticsTree {
-        root: tree.root,
-        focus: tree.focus,
-        nodes,
-    })
+    Ok(())
 }
 
 /// Bounds are finite with a non-negative size, and the scroll offset and

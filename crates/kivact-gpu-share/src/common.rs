@@ -5,6 +5,7 @@ use kivact_types::GpuBackend;
 use kivact_types::SharedTextures;
 use std::fmt;
 
+// xtask-allow(state-fields): Immutable adapter identity; optional platform identifiers are independent hardware facts.
 /// An adapter's identity.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {

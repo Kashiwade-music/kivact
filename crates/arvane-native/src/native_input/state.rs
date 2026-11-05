@@ -47,6 +47,7 @@ pub(crate) struct NativeInput {
     pub(crate) contacts: RefCell<Vec<ContactNote>>,
 }
 
+// xtask-allow(state-fields): Immutable platform contact snapshot; cancellation and optional pen tilt are independent reported facts.
 /// What the platform says about a touch or pen pointer that winit does
 /// not report.
 #[derive(Clone, Copy, Debug, PartialEq)]

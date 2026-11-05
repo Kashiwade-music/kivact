@@ -62,6 +62,7 @@ impl Default for VirtualOptions {
         }
     }
 }
+// xtask-allow(state-fields): Scripted backend facts and service mailboxes are independently controllable test inputs; surface lifecycle is modeled separately by TestSurface.
 pub(crate) struct VirtualShell {
     pub(crate) saved_state: std::rc::Rc<RefCell<std::collections::BTreeMap<String, Vec<u8>>>>,
     pub(crate) ime_purpose: Cell<kivact_types::InputPurpose>,

@@ -1,4 +1,6 @@
 //! Role: Arvane native backend for top-level and embedded child windows.
+
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! Arvane's native backend: top-level windows opened with winit and child
 //! windows embedded in another program's window (`embed`, feature `embed`).

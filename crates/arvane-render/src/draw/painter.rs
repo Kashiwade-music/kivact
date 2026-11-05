@@ -171,6 +171,34 @@ impl<C: Canvas> Painter<'_, C> {
             return;
         }
         match command {
+            RenderCmd::Rect { .. }
+            | RenderCmd::RoundedRect { .. }
+            | RenderCmd::RoundedRectCorners { .. }
+            | RenderCmd::StrokeRect { .. }
+            | RenderCmd::StrokeRoundedRectCorners { .. }
+            | RenderCmd::Line { .. } => self.primitive(i, command),
+            RenderCmd::Shadow { .. } | RenderCmd::Path { .. } | RenderCmd::Glyphs { .. } => {
+                self.path_command(i, command)
+            }
+            RenderCmd::Image { .. }
+            | RenderCmd::ImageSampled { .. }
+            | RenderCmd::External { .. } => self.image_command(i, command),
+            RenderCmd::PushClip(_)
+            | RenderCmd::FillShape { .. }
+            | RenderCmd::StrokeShape { .. }
+            | RenderCmd::BoxShadow(_)
+            | RenderCmd::PushTransform(_)
+            | RenderCmd::PushLayer(_)
+            | RenderCmd::Backdrop(_)
+            | RenderCmd::PopClip
+            | RenderCmd::PopTransform
+            | RenderCmd::PopLayer => self.group_command(i, command),
+        }
+    }
+
+    /// Replay primitive drawing operations.
+    fn primitive(&mut self, _i: usize, command: &RenderCmd) {
+        match command {
             RenderCmd::Rect { rect, fill } => {
                 self.fill(fill, *rect, Area::Rect(convert::rect(*rect)));
             }
@@ -218,6 +246,13 @@ impl<C: Canvas> Painter<'_, C> {
                 self.canvas.set_stroke(Stroke::new(*width));
                 self.canvas.stroke_path(&path);
             }
+            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+        }
+    }
+
+    /// Replay path command drawing operations.
+    fn path_command(&mut self, _i: usize, command: &RenderCmd) {
+        match command {
             RenderCmd::Shadow {
                 rect,
                 radii,
@@ -253,6 +288,13 @@ impl<C: Canvas> Painter<'_, C> {
                 }
             }
             RenderCmd::Glyphs { run, origin, color } => self.glyphs(run, *origin, *color),
+            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+        }
+    }
+
+    /// Replay image command drawing operations.
+    fn image_command(&mut self, _i: usize, command: &RenderCmd) {
+        match command {
             RenderCmd::Image {
                 image,
                 rect,
@@ -318,6 +360,13 @@ impl<C: Canvas> Painter<'_, C> {
                     canvas.draw_external(frame, placed, *pixelated);
                 });
             }
+            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+        }
+    }
+
+    /// Replay group command drawing operations.
+    fn group_command(&mut self, i: usize, command: &RenderCmd) {
+        match command {
             RenderCmd::PushClip(rect) => {
                 self.canvas
                     .push_clip_layer(&convert::rect(*rect).to_path(0.1));
@@ -357,56 +406,60 @@ impl<C: Canvas> Painter<'_, C> {
                 self.transform = inner;
                 self.set_transform();
             }
-            RenderCmd::PushLayer(layer) => {
-                if layer.opacity == 0.0 {
-                    self.hide();
-                    return;
-                }
-                let clip = layer
-                    .clip
-                    .as_ref()
-                    .map(|shape| (convert::shape(shape), shape.rule()));
-                let blend = convert::blend(layer.blend);
-                let opacity = (layer.opacity < 1.0).then_some(layer.opacity);
-                let filter = layer.filter.map(|f| self.filter(f));
-                let mut pops = 0;
-                if clip.is_some()
-                    || blend.is_some()
-                    || opacity.is_some()
-                    || layer.mask.is_some()
-                    || filter.is_none()
-                {
-                    let odd = clip
-                        .as_ref()
-                        .is_some_and(|c| c.1 != kivact_types::FillRule::NonZero);
-                    if odd {
-                        self.canvas.set_fill_rule(peniko::Fill::EvenOdd);
-                    }
-                    self.canvas
-                        .push_layer(clip.as_ref().map(|c| &c.0), blend, opacity, None);
-                    if odd {
-                        self.canvas.set_fill_rule(peniko::Fill::NonZero);
-                    }
-                    pops += 1;
-                }
-                if let Some(filter) = filter {
-                    // Inside the clip: the filtered result is clipped, as CSS
-                    // orders filter, clip-path, mask and opacity.
-                    self.canvas.push_layer(None, None, None, Some(filter));
-                    pops += 1;
-                }
-                self.stack.push(Group::Layer {
-                    pops,
-                    mask: layer.mask.clone().map(Box::new),
-                });
-            }
+            RenderCmd::PushLayer(layer) => self.push_render_layer(layer),
             RenderCmd::Backdrop(backdrop) => {
                 if matches!(self.mode, Mode::Drawing) {
                     self.backdrop(i, backdrop);
                 }
             }
             RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopLayer => self.pop(),
+            _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
         }
+    }
+
+    /// Apply clipping, blend, opacity, and filter in the established layer order.
+    fn push_render_layer(&mut self, layer: &kivact_types::render::Layer) {
+        if layer.opacity == 0.0 {
+            self.hide();
+            return;
+        }
+        let clip = layer
+            .clip
+            .as_ref()
+            .map(|shape| (convert::shape(shape), shape.rule()));
+        let blend = convert::blend(layer.blend);
+        let opacity = (layer.opacity < 1.0).then_some(layer.opacity);
+        let filter = layer.filter.map(|f| self.filter(f));
+        let mut pops = 0;
+        if clip.is_some()
+            || blend.is_some()
+            || opacity.is_some()
+            || layer.mask.is_some()
+            || filter.is_none()
+        {
+            let odd = clip
+                .as_ref()
+                .is_some_and(|c| c.1 != kivact_types::FillRule::NonZero);
+            if odd {
+                self.canvas.set_fill_rule(peniko::Fill::EvenOdd);
+            }
+            self.canvas
+                .push_layer(clip.as_ref().map(|c| &c.0), blend, opacity, None);
+            if odd {
+                self.canvas.set_fill_rule(peniko::Fill::NonZero);
+            }
+            pops += 1;
+        }
+        if let Some(filter) = filter {
+            // Inside the clip: the filtered result is clipped, as CSS
+            // orders filter, clip-path, mask and opacity.
+            self.canvas.push_layer(None, None, None, Some(filter));
+            pops += 1;
+        }
+        self.stack.push(Group::Layer {
+            pops,
+            mask: layer.mask.clone().map(Box::new),
+        });
     }
 
     /// A command while drawing nothing: only the groups are followed.

@@ -57,6 +57,7 @@ pub(crate) enum LastConfigure {
     Skipped,
 }
 
+// xtask-allow(state-fields): Construction options from environment variables; backend and power overrides are independently optional.
 /// How GPU devices are made: as the application wishes
 /// ([`GpuPreference`]), except where the environment says otherwise: the
 /// backends to try (`WGPU_BACKEND`), the adapter's power preference

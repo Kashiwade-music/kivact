@@ -1,4 +1,6 @@
 //! Role: Arvane: the public facade of the Arvane layer.
+
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //!
 //! Responsibility: the only crate outside Arvane may depend on (via
 //! `kivact-engine`). It wires the adapter crates together; the

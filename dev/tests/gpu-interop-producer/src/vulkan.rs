@@ -35,6 +35,7 @@ struct Slot {
     fence: vk::Fence,
 }
 
+// xtask-allow(state-fields): Owned Vulkan resources; optional platform resources reflect independent enabled device extensions.
 pub(crate) struct Vulkan {
     _entry: ash::Entry,
     instance: ash::Instance,

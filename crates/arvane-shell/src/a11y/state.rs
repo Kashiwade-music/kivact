@@ -25,6 +25,7 @@ use super::validation::check_values;
 /// node references always describe the same accepted revision.
 pub struct AcceptedTree {
     root: SemanticsId,
+    focus: Option<SemanticsId>,
     nodes: HashMap<SemanticsId, SemanticsNode>,
     parents: HashMap<SemanticsId, SemanticsId>,
     runs: Runs,
@@ -47,6 +48,7 @@ impl AcceptedTree {
         }
         AcceptedTree {
             root: tree.root,
+            focus: tree.focus,
             nodes: tree.nodes.iter().map(|n| (n.id, n.clone())).collect(),
             parents,
             runs: Runs::new(tree.nodes.iter()),
@@ -56,6 +58,11 @@ impl AcceptedTree {
     /// The identity of the one root.
     pub fn root(&self) -> SemanticsId {
         self.root
+    }
+
+    /// The focus of this accepted revision.
+    pub(crate) fn focus(&self) -> Option<SemanticsId> {
+        self.focus
     }
 
     /// The accepted node with this identity, if present.
@@ -82,10 +89,10 @@ impl AcceptedTree {
     }
 
     /// The tree in parent-before-child order.
-    pub(crate) fn tree(&self, focus: Option<SemanticsId>) -> SemanticsTree {
+    pub(crate) fn tree(&self) -> SemanticsTree {
         SemanticsTree {
             root: self.root,
-            focus,
+            focus: self.focus,
             nodes: self.nodes().into_iter().cloned().collect(),
         }
     }
@@ -105,71 +112,7 @@ impl AcceptedTree {
         }
         let changed: Vec<&SemanticsNode> = update.nodes.iter().collect();
         let edits = self.reparent(&changed, &incoming)?;
-        let parent = |id: SemanticsId| match edits.get(&id) {
-            Some(p) => *p,
-            None => self.parents.get(&id).copied(),
-        };
-        // Every changed node hangs from the root, without a cycle.
-        let limit = self.nodes.len() + incoming.len() + 1;
-        for node in &changed {
-            if let Some(active) = node.semantics.active_descendant {
-                if !incoming.contains_key(&active) && !self.nodes.contains_key(&active) {
-                    return Err(AccessibilityError::MissingNode(active));
-                }
-                // Inside the node, or inside (or at) a node it controls.
-                let controls = &node.semantics.controls[..];
-                let mut at = active;
-                let mut steps = 0;
-                loop {
-                    if controls.contains(&at) {
-                        break;
-                    }
-                    at = parent(at).ok_or(AccessibilityError::InvalidProperties(node.id))?;
-                    if at == node.id {
-                        break;
-                    }
-                    steps += 1;
-                    if steps > limit {
-                        return Err(AccessibilityError::InvalidProperties(node.id));
-                    }
-                }
-            }
-        }
-        self.check_relations(&changed, &incoming, &edits)?;
-        for node in &changed {
-            let mut at = node.id;
-            let mut steps = 0;
-            while at != update.root {
-                at = parent(at).ok_or(AccessibilityError::UnreachableNode(node.id))?;
-                steps += 1;
-                if steps > limit {
-                    return Err(AccessibilityError::InvalidTree(node.id));
-                }
-            }
-        }
-        if let Some(focus) = update.focus {
-            let get = |id: SemanticsId| incoming.get(&id).copied().or_else(|| self.nodes.get(&id));
-            let node = get(focus).ok_or(AccessibilityError::InvalidFocus(focus))?;
-            if !node.semantics.focusable && (node.semantics.disabled || focus != update.root) {
-                return Err(AccessibilityError::InvalidFocus(focus));
-            }
-            // Shown up to the root, through the parents after the update:
-            // a focus in a subtree the update removes is invalid.
-            let (mut at, mut steps) = (focus, 0);
-            loop {
-                if get(at).is_none_or(|n| n.semantics.hidden) {
-                    return Err(AccessibilityError::InvalidFocus(focus));
-                }
-                if at == update.root {
-                    break;
-                }
-                at = parent(at).ok_or(AccessibilityError::InvalidFocus(focus))?;
-                steps += 1;
-                if steps > limit {
-                    return Err(AccessibilityError::InvalidFocus(focus));
-                }
-            }
-        }
+        self.check_update(update, &changed, &incoming, &edits)?;
         let dropped = self.dropped(&incoming, &edits);
         let shown: Vec<&SemanticsNode> = changed
             .iter()
@@ -186,6 +129,7 @@ impl AcceptedTree {
         )?;
         self.runs.commit(&runs);
         // Commit.
+        self.focus = update.focus;
         let mut orphans = Vec::new();
         for (child, p) in edits {
             match p {
@@ -224,6 +168,82 @@ impl AcceptedTree {
             nodes: ids,
             runs: runs.added.into_iter().map(|(_, run)| run).collect(),
         })
+    }
+
+    /// Validate ancestry and focus against the proposed parent edits.
+    fn check_update(
+        &self,
+        update: &SemanticsUpdate,
+        changed: &[&SemanticsNode],
+        incoming: &HashMap<SemanticsId, &SemanticsNode>,
+        edits: &HashMap<SemanticsId, Option<SemanticsId>>,
+    ) -> Result<(), AccessibilityError> {
+        let parent = |id: SemanticsId| match edits.get(&id) {
+            Some(p) => *p,
+            None => self.parents.get(&id).copied(),
+        };
+        // Every changed node hangs from the root, without a cycle.
+        let limit = self.nodes.len() + incoming.len() + 1;
+        for node in changed {
+            if let Some(active) = node.semantics.active_descendant {
+                if !incoming.contains_key(&active) && !self.nodes.contains_key(&active) {
+                    return Err(AccessibilityError::MissingNode(active));
+                }
+                // Inside the node, or inside (or at) a node it controls.
+                let controls = &node.semantics.controls[..];
+                let mut at = active;
+                let mut steps = 0;
+                loop {
+                    if controls.contains(&at) {
+                        break;
+                    }
+                    at = parent(at).ok_or(AccessibilityError::InvalidProperties(node.id))?;
+                    if at == node.id {
+                        break;
+                    }
+                    steps += 1;
+                    if steps > limit {
+                        return Err(AccessibilityError::InvalidProperties(node.id));
+                    }
+                }
+            }
+        }
+        self.check_relations(changed, incoming, edits)?;
+        for node in changed {
+            let mut at = node.id;
+            let mut steps = 0;
+            while at != update.root {
+                at = parent(at).ok_or(AccessibilityError::UnreachableNode(node.id))?;
+                steps += 1;
+                if steps > limit {
+                    return Err(AccessibilityError::InvalidTree(node.id));
+                }
+            }
+        }
+        if let Some(focus) = update.focus {
+            let get = |id: SemanticsId| incoming.get(&id).copied().or_else(|| self.nodes.get(&id));
+            let node = get(focus).ok_or(AccessibilityError::InvalidFocus(focus))?;
+            if !node.semantics.focusable && (node.semantics.disabled || focus != update.root) {
+                return Err(AccessibilityError::InvalidFocus(focus));
+            }
+            // Shown up to the root, through the parents after the update:
+            // a focus in a subtree the update removes is invalid.
+            let (mut at, mut steps) = (focus, 0);
+            loop {
+                if get(at).is_none_or(|n| n.semantics.hidden) {
+                    return Err(AccessibilityError::InvalidFocus(focus));
+                }
+                if at == update.root {
+                    break;
+                }
+                at = parent(at).ok_or(AccessibilityError::InvalidFocus(focus))?;
+                steps += 1;
+                if steps > limit {
+                    return Err(AccessibilityError::InvalidFocus(focus));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Every node a relation (described by, controls, labelled by) names

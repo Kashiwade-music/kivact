@@ -285,11 +285,7 @@ fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
             Some(ShellEvent::EnvironmentChanged)
         }
         Item::Dark(value) => {
-            shell.env.get_mut().theme_hint = if value {
-                ThemeHint::Dark
-            } else {
-                ThemeHint::Light
-            };
+            shell.env.get_mut().theme_hint = theme_hint(value);
             Some(ShellEvent::EnvironmentChanged)
         }
         Item::Locale(locale) => {
@@ -300,21 +296,7 @@ fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
             shell.env.get_mut().safe_area = insets;
             Some(ShellEvent::EnvironmentChanged)
         }
-        Item::Surface(live) => match (live, shell.surface) {
-            (true, TestSurface::Destroyed { last }) => {
-                shell.surface = TestSurface::Live {
-                    generation: last
-                        .checked_add(1)
-                        .expect("invariant: surface generations fit u64"),
-                };
-                Some(ShellEvent::SurfaceCreated)
-            }
-            (false, TestSurface::Live { generation }) => {
-                shell.surface = TestSurface::Destroyed { last: generation };
-                Some(ShellEvent::SurfaceDestroyed)
-            }
-            _ => None,
-        },
+        Item::Surface(live) => surface_event(shell, live),
         Item::Occluded(value) => {
             shell.occluded = value;
             None
@@ -348,6 +330,32 @@ fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
         real.resize(w, h, shell.scale());
     }
     event
+}
+/// Map the scripted preference into the canonical theme vocabulary.
+fn theme_hint(dark: bool) -> ThemeHint {
+    if dark {
+        ThemeHint::Dark
+    } else {
+        ThemeHint::Light
+    }
+}
+/// Change the scripted surface lifecycle and return its boundary event.
+fn surface_event(shell: &mut VirtualShell, live: bool) -> Option<ShellEvent> {
+    match (live, shell.surface) {
+        (true, TestSurface::Destroyed { last }) => {
+            shell.surface = TestSurface::Live {
+                generation: last
+                    .checked_add(1)
+                    .expect("invariant: surface generations fit u64"),
+            };
+            Some(ShellEvent::SurfaceCreated)
+        }
+        (false, TestSurface::Live { generation }) => {
+            shell.surface = TestSurface::Destroyed { last: generation };
+            Some(ShellEvent::SurfaceDestroyed)
+        }
+        _ => None,
+    }
 }
 /// Cloneable read-only observations. Values never borrow backend state.
 #[derive(Clone)]

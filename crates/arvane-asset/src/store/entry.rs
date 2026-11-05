@@ -111,6 +111,7 @@ impl Recheck {
     }
 }
 
+// xtask-allow(state-fields): Immutable image variant cache key; size and rendering options are independent request properties.
 /// A derived raster: an SVG at a device size (or the part `crop` of it),
 /// and/or a tinted copy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

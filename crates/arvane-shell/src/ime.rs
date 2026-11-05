@@ -2,6 +2,7 @@
 
 use kivact_types::Rect;
 
+// xtask-allow(state-fields): Immutable IME text snapshot; optional selection and composition describe independent text properties.
 /// What the focused text input shows the IME: the text around its caret,
 /// its selection and composition, and where its characters are, for the
 /// platform IME's queries (on Windows: reconversion, `IMR_DOCUMENTFEED`

@@ -35,6 +35,7 @@ struct Tap {
     count: u8,
 }
 
+// xtask-allow(state-fields): Named click-history counter: mouse button history and contact tap history are independent inputs, with counts retained for release events.
 /// Counts the presses of the pointer events a window delivers.
 #[derive(Clone, Debug, Default)]
 pub struct ClickCounter {

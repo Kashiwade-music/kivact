@@ -99,6 +99,7 @@ impl Connection {
         }
     }
 }
+// xtask-allow(state-fields): Protocol connection and key mailbox; queued keys and optional acknowledgement are independent of the separately modeled connection phase.
 struct XimConnection {
     client: ClientConnection,
     protocol: u32,

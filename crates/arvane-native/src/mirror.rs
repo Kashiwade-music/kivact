@@ -45,7 +45,7 @@ use kivact_types::{Point, Rect, Role, SemanticsId};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, mpsc};
+use std::sync::{Arc, Mutex, MutexGuard, mpsc};
 use std::time::Duration;
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -108,6 +108,7 @@ struct Counters {
     presented: AtomicU64,
 }
 
+// xtask-allow(state-fields): Mailbox of independent pending window commands; optional payloads and notifications are consumed together without conditional presence invariants.
 /// What a test window shows next; the UI thread takes it all at once.
 #[derive(Default)]
 struct MirrorBatch {
@@ -171,7 +172,11 @@ pub struct TestDisplay {
     counters: Arc<Counters>,
 }
 
-static DISPLAY: OnceLock<Result<TestDisplay, ShellError>> = OnceLock::new();
+#[expect(
+    clippy::disallowed_types,
+    reason = "process-wide native test display initialized once"
+)]
+static DISPLAY: std::sync::OnceLock<Result<TestDisplay, ShellError>> = std::sync::OnceLock::new();
 
 impl TestDisplay {
     /// The display, its UI thread started on first use. Fails where no
@@ -384,6 +389,7 @@ impl Drop for MirrorWindow {
     }
 }
 
+// xtask-allow(state-fields): Native mirror facts: GPU presentation, last CPU frame, and optional test ownership vary independently when windows are pooled.
 /// A native window on the UI thread.
 struct Entry {
     window: Arc<Window>,

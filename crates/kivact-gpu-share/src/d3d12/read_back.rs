@@ -73,41 +73,8 @@ pub unsafe fn read_back(
             Some(&mut total),
         );
     }
-    let buffer = D3D12_RESOURCE_DESC {
-        Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
-        Width: total,
-        Height: 1,
-        DepthOrArraySize: 1,
-        MipLevels: 1,
-        Format: DXGI_FORMAT_UNKNOWN,
-        SampleDesc: DXGI_SAMPLE_DESC {
-            Count: 1,
-            Quality: 0,
-        },
-        Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-        ..Default::default()
-    };
-    let properties = D3D12_HEAP_PROPERTIES {
-        Type: D3D12_HEAP_TYPE_READBACK,
-        ..Default::default()
-    };
-    let mut readback: Option<ID3D12Resource> = None;
-    // SAFETY: valid descriptions for the call.
-    unsafe {
-        device.CreateCommittedResource(
-            &properties,
-            D3D12_HEAP_FLAG_NONE,
-            &buffer,
-            D3D12_RESOURCE_STATE_COPY_DEST,
-            None,
-            &mut readback,
-        )
-    }
-    .map_err(api("CreateCommittedResource"))?;
-    let readback = readback.ok_or_else(|| Error::Api {
-        call: "CreateCommittedResource",
-        message: "no resource".into(),
-    })?;
+    // SAFETY: the device and checked footprint size describe this staging allocation.
+    let readback = unsafe { staging_buffer(device, total) }?;
     // SAFETY: a valid list type.
     let allocator: ID3D12CommandAllocator =
         unsafe { device.CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT) }
@@ -154,6 +121,48 @@ pub unsafe fn read_back(
     unsafe { readback.Unmap(0, None) };
     unpremultiply(&mut rgba);
     Ok(rgba)
+}
+
+/// Allocate a CPU-visible staging buffer on the caller's device.
+///
+/// # Safety
+/// `device` is live and `total` is a valid copy-footprint size.
+unsafe fn staging_buffer(device: &ID3D12Device, total: u64) -> Result<ID3D12Resource, Error> {
+    let buffer = D3D12_RESOURCE_DESC {
+        Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+        Width: total,
+        Height: 1,
+        DepthOrArraySize: 1,
+        MipLevels: 1,
+        Format: DXGI_FORMAT_UNKNOWN,
+        SampleDesc: DXGI_SAMPLE_DESC {
+            Count: 1,
+            Quality: 0,
+        },
+        Layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+        ..Default::default()
+    };
+    let properties = D3D12_HEAP_PROPERTIES {
+        Type: D3D12_HEAP_TYPE_READBACK,
+        ..Default::default()
+    };
+    let mut readback: Option<ID3D12Resource> = None;
+    // SAFETY: valid descriptions for the call.
+    unsafe {
+        device.CreateCommittedResource(
+            &properties,
+            D3D12_HEAP_FLAG_NONE,
+            &buffer,
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            None,
+            &mut readback,
+        )
+    }
+    .map_err(api("CreateCommittedResource"))?;
+    readback.ok_or_else(|| Error::Api {
+        call: "CreateCommittedResource",
+        message: "no resource".into(),
+    })
 }
 
 /// Record the copy of `texture` into `readback`, from and back to

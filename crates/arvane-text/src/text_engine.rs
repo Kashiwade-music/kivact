@@ -319,25 +319,7 @@ impl TextEngine {
     ) -> Result<ShapedText, TextError> {
         let height = line_height(style, max_width)?;
         if text.text.is_empty() {
-            let x = match style.align {
-                TextAlign::Start | TextAlign::Justify => 0.0,
-                TextAlign::Center => max_width.unwrap_or(0.0) / 2.0,
-                TextAlign::End => max_width.unwrap_or(0.0),
-            };
-            let caret = TextCaret {
-                offset: 0,
-                rect: Rect {
-                    x,
-                    y: 0.0,
-                    width: 1.0,
-                    height,
-                },
-            };
-            return Ok(ShapedText {
-                carets: if with_carets { vec![caret] } else { Vec::new() },
-                cluster_boundaries: vec![0],
-                ..ShapedText::default()
-            });
+            return Ok(empty_text(style, max_width, height, with_carets));
         }
         if !build::valid_spans(text.text, text.spans) {
             return Err(TextError::InvalidSpans);
@@ -386,27 +368,7 @@ impl TextEngine {
                 None => range,
             }
         });
-        let (converted, _) = transform::apply(text.text, &[], style.transform);
-        let converted = crlf_as_one_break(&converted);
-        let scalar_bytes: Vec<usize> = converted
-            .char_indices()
-            .map(|(byte, _)| byte)
-            .chain(std::iter::once(converted.len()))
-            .collect();
-        let mut cluster_boundaries = vec![0, (scalar_bytes.len() - 1) as u32];
-        for line in layout.lines() {
-            for run in line.runs() {
-                for cluster in run.visual_clusters() {
-                    if !cluster.is_ligature_continuation() {
-                        let byte = cluster.text_range().start;
-                        cluster_boundaries
-                            .push(scalar_bytes.partition_point(|&at| at < byte) as u32);
-                    }
-                }
-            }
-        }
-        cluster_boundaries.sort_unstable();
-        cluster_boundaries.dedup();
+        let cluster_boundaries = cluster_boundaries(layout, text.text, style);
         let carets = if with_carets {
             // Offsets in the converted text (its case conversion).
             let (converted, _) = transform::apply(text.text, &[], style.transform);
@@ -561,4 +523,61 @@ pub(super) fn crlf_spans<'a>(
             })
             .collect(),
     )
+}
+
+/// Scalar boundaries at the starts of shaped visual clusters.
+fn cluster_boundaries(
+    layout: &parley::Layout<u32>,
+    text: &str,
+    style: &ComputedTextStyle,
+) -> Vec<u32> {
+    let (converted, _) = transform::apply(text, &[], style.transform);
+    let converted = crlf_as_one_break(&converted);
+    let scalar_bytes: Vec<usize> = converted
+        .char_indices()
+        .map(|(byte, _)| byte)
+        .chain(std::iter::once(converted.len()))
+        .collect();
+    let mut cluster_boundaries = vec![0, (scalar_bytes.len() - 1) as u32];
+    for line in layout.lines() {
+        for run in line.runs() {
+            for cluster in run.visual_clusters() {
+                if !cluster.is_ligature_continuation() {
+                    let byte = cluster.text_range().start;
+                    cluster_boundaries.push(scalar_bytes.partition_point(|&at| at < byte) as u32);
+                }
+            }
+        }
+    }
+    cluster_boundaries.sort_unstable();
+    cluster_boundaries.dedup();
+    cluster_boundaries
+}
+
+/// Preserve an empty paragraph's alignment and optional editing caret.
+fn empty_text(
+    style: &ComputedTextStyle,
+    max_width: Option<f64>,
+    height: f64,
+    with_carets: bool,
+) -> ShapedText {
+    let x = match style.align {
+        TextAlign::Start | TextAlign::Justify => 0.0,
+        TextAlign::Center => max_width.unwrap_or(0.0) / 2.0,
+        TextAlign::End => max_width.unwrap_or(0.0),
+    };
+    let caret = TextCaret {
+        offset: 0,
+        rect: Rect {
+            x,
+            y: 0.0,
+            width: 1.0,
+            height,
+        },
+    };
+    ShapedText {
+        carets: if with_carets { vec![caret] } else { Vec::new() },
+        cluster_boundaries: vec![0],
+        ..ShapedText::default()
+    }
 }

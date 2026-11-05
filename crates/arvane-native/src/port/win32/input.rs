@@ -128,6 +128,48 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
             Some(0)
         }
         WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN | WM_LBUTTONUP
+        | WM_RBUTTONUP | WM_MBUTTONUP | WM_XBUTTONUP | WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
+            mouse_message(state, message, w, l)
+        }
+        WM_KEYDOWN | WM_KEYUP => {
+            keyboard(state, message, w, l);
+            Some(0)
+        }
+        // System keys are reported, then left to the system procedure so the host
+        // still gets SC_CLOSE (Alt+F4) and SC_KEYMENU from DefWindowProc.
+        WM_SYSKEYDOWN | WM_SYSKEYUP => {
+            keyboard(state, message, w, l);
+            None
+        }
+        // Text is consumed together with its key when TranslateMessage supplied it.
+        // A separate WM_CHAR (for example test text injection) remains a commit.
+        WM_CHAR => {
+            let unit = w as u16;
+            let text = {
+                let mut decoder = state.decoder.borrow_mut();
+                decoder.push(unit).map(|first| {
+                    let mut text = first.to_string();
+                    if let Some(tail) = decoder.take_tail() {
+                        text.push(tail);
+                    }
+                    text
+                })
+            };
+            if let Some(text) = text
+                && !text.chars().all(char::is_control)
+            {
+                super::ime::input(state, arvane_shell::pipeline::RawIme::Commit(text));
+            }
+            Some(0)
+        }
+        _ => None,
+    }
+}
+/// Translate button and wheel messages using the native capture boundary.
+fn mouse_message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> Option<LRESULT> {
+    let hwnd = state.native.hwnd();
+    match message {
+        WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN | WM_LBUTTONUP
         | WM_RBUTTONUP | WM_MBUTTONUP | WM_XBUTTONUP => {
             let down = matches!(
                 message,
@@ -184,133 +226,72 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
                 0
             })
         }
-        WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
-            let mut point = POINT {
-                x: l as u16 as i16 as i32,
-                y: (l as u32 >> 16) as u16 as i16 as i32,
-            };
-            // SAFETY: wheel positions are screen coordinates; convert into this child.
-            unsafe {
-                ScreenToClient(hwnd, &mut point);
-            }
-            let mut mouse = state.mouse.get();
-            let applied = state.shared.applied();
-            let scale = applied.scale;
-            let previous = mouse.position();
-            let event = mouse.event(
-                PointerPhase::Move,
-                Some(Point {
-                    x: point.x as f64 / scale,
-                    y: point.y as f64 / scale,
-                }),
-            );
-            state.mouse.set(mouse);
-            if let Some(event) = event
-                && Some(event.position) != previous
-            {
-                state.event(ShellEvent::Pointer(event));
-            }
-            let notch = (w >> 16) as u16 as i16 as f64 / 120.0;
-            let (x, y) = if message == WM_MOUSEHWHEEL {
-                (-notch, 0.0)
-            } else {
-                (0.0, notch)
-            };
-            let settings = crate::native_input::pointer_settings(state.shared.scale());
-            let height = applied.height as f64 / scale;
-            let (x, y) = crate::port::winit::wheel::lines(
-                x,
-                y,
-                modifiers(state).shift,
-                height,
-                settings.wheel_lines,
-                settings.wheel_chars,
-            );
-            if let Some(position) = state.mouse.get().position() {
-                state.event(ShellEvent::Wheel(kivact_types::WheelInput {
-                    delta: kivact_types::Point { x, y },
-                    position,
-                    modifiers: self::modifiers(state),
-                }));
-            }
-            Some(0)
-        }
-        WM_KEYDOWN | WM_KEYUP => {
-            keyboard(state, message, w, l);
-            Some(0)
-        }
-        // System keys are reported, then left to the system procedure so the host
-        // still gets SC_CLOSE (Alt+F4) and SC_KEYMENU from DefWindowProc.
-        WM_SYSKEYDOWN | WM_SYSKEYUP => {
-            keyboard(state, message, w, l);
-            None
-        }
-        // Text is consumed together with its key when TranslateMessage supplied it.
-        // A separate WM_CHAR (for example test text injection) remains a commit.
-        WM_CHAR => {
-            let unit = w as u16;
-            let text = {
-                let mut decoder = state.decoder.borrow_mut();
-                decoder.push(unit).map(|first| {
-                    let mut text = first.to_string();
-                    if let Some(tail) = decoder.take_tail() {
-                        text.push(tail);
-                    }
-                    text
-                })
-            };
-            if let Some(text) = text
-                && !text.chars().all(char::is_control)
-            {
-                super::ime::input(state, arvane_shell::pipeline::RawIme::Commit(text));
-            }
-            Some(0)
-        }
+        WM_MOUSEWHEEL | WM_MOUSEHWHEEL => wheel_message(state, message, w, l),
         _ => None,
     }
 }
+
+/// Translate wheel position and system scroll settings.
+fn wheel_message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> Option<LRESULT> {
+    let hwnd = state.native.hwnd();
+    let mut point = POINT {
+        x: l as u16 as i16 as i32,
+        y: (l as u32 >> 16) as u16 as i16 as i32,
+    };
+    // SAFETY: wheel positions are screen coordinates; convert into this child.
+    unsafe {
+        ScreenToClient(hwnd, &mut point);
+    }
+    let mut mouse = state.mouse.get();
+    let applied = state.shared.applied();
+    let scale = applied.scale;
+    let previous = mouse.position();
+    let event = mouse.event(
+        PointerPhase::Move,
+        Some(Point {
+            x: point.x as f64 / scale,
+            y: point.y as f64 / scale,
+        }),
+    );
+    state.mouse.set(mouse);
+    if let Some(event) = event
+        && Some(event.position) != previous
+    {
+        state.event(ShellEvent::Pointer(event));
+    }
+    let notch = (w >> 16) as u16 as i16 as f64 / 120.0;
+    let (x, y) = if message == WM_MOUSEHWHEEL {
+        (-notch, 0.0)
+    } else {
+        (0.0, notch)
+    };
+    let settings = crate::native_input::pointer_settings(state.shared.scale());
+    let height = applied.height as f64 / scale;
+    let (x, y) = crate::port::winit::wheel::lines(
+        x,
+        y,
+        modifiers(state).shift,
+        height,
+        settings.wheel_lines,
+        settings.wheel_chars,
+    );
+    if let Some(position) = state.mouse.get().position() {
+        state.event(ShellEvent::Wheel(kivact_types::WheelInput {
+            delta: kivact_types::Point { x, y },
+            position,
+            modifiers: self::modifiers(state),
+        }));
+    }
+    Some(0)
+}
+
 fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     use winit::keyboard::PhysicalKey;
     use winit::platform::scancode::PhysicalKeyExtScancode;
     let scan = ((l as u32 >> 16) & 0xff) | if l & (1 << 24) != 0 { 0xe000 } else { 0 };
     let code = key_code::physical_code(PhysicalKey::from_scancode(scan));
     let modifiers = modifiers(state);
-    let mut keyboard = [0u8; 256];
-    let mut text = [0u16; 16];
-    // SAFETY: keyboard is a writable 256-byte keyboard-state output array.
-    unsafe {
-        GetKeyboardState(keyboard.as_mut_ptr());
-    }
-    for key in [
-        VK_CONTROL,
-        VK_LCONTROL,
-        VK_RCONTROL,
-        VK_MENU,
-        VK_LMENU,
-        VK_RMENU,
-    ] {
-        keyboard[key as usize] = 0;
-    }
-    // SAFETY: the current UI-thread keyboard layout is queried without retaining it.
-    let layout = unsafe { GetKeyboardLayout(0) };
-    // SAFETY: the state and text arrays have documented sizes. Flag 4 preserves
-    // host-owned dead-key state, while cleared Ctrl/Alt gives the logical letter.
-    let count = unsafe {
-        ToUnicodeEx(
-            w as u32,
-            scan,
-            keyboard.as_ptr(),
-            text.as_mut_ptr(),
-            text.len() as i32,
-            4,
-            layout,
-        )
-    };
-    let fallback = if count > 0 {
-        String::from_utf16_lossy(&text[..(count as usize).min(text.len())])
-    } else {
-        String::new()
-    };
+    let fallback = logical_text(w, scan);
     let raw_key = arvane_shell::pipeline::PlatformKey::Vk {
         vk: w as u16,
         chr: fallback.chars().next(),
@@ -371,4 +352,44 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
         self::modifiers(state),
         state.mouse.get().window_position(),
     ));
+}
+
+/// Read a logical key without changing the host's dead-key state.
+fn logical_text(w: WPARAM, scan: u32) -> String {
+    let mut keyboard = [0u8; 256];
+    let mut text = [0u16; 16];
+    // SAFETY: keyboard is a writable 256-byte keyboard-state output array.
+    unsafe {
+        GetKeyboardState(keyboard.as_mut_ptr());
+    }
+    for key in [
+        VK_CONTROL,
+        VK_LCONTROL,
+        VK_RCONTROL,
+        VK_MENU,
+        VK_LMENU,
+        VK_RMENU,
+    ] {
+        keyboard[key as usize] = 0;
+    }
+    // SAFETY: the current UI-thread keyboard layout is queried without retaining it.
+    let layout = unsafe { GetKeyboardLayout(0) };
+    // SAFETY: the state and text arrays have documented sizes. Flag 4 preserves
+    // host-owned dead-key state, while cleared Ctrl/Alt gives the logical letter.
+    let count = unsafe {
+        ToUnicodeEx(
+            w as u32,
+            scan,
+            keyboard.as_ptr(),
+            text.as_mut_ptr(),
+            text.len() as i32,
+            4,
+            layout,
+        )
+    };
+    if count > 0 {
+        String::from_utf16_lossy(&text[..(count as usize).min(text.len())])
+    } else {
+        String::new()
+    }
 }

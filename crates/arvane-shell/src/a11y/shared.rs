@@ -45,7 +45,6 @@ pub(crate) enum Reader {
 pub(crate) struct Shared {
     pub(crate) tree: Option<state::AcceptedTree>,
     pub(crate) reader: Reader,
-    focus: Option<SemanticsId>,
     /// The scale the root maps logical bounds to the window's pixels with.
     pub(crate) scale: f64,
     /// Actions assistive technology asked for, not taken yet.
@@ -57,7 +56,6 @@ impl Shared {
         Shared {
             tree: None,
             reader: Reader::Inactive,
-            focus: None,
             scale,
             actions: Vec::new(),
         }
@@ -66,7 +64,6 @@ impl Shared {
     /// Validates a complete tree and replaces the accepted one with it.
     pub(crate) fn replace(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
         let tree = validation::canonicalize(tree)?;
-        self.focus = tree.focus;
         self.tree = Some(state::AcceptedTree::new(&tree));
         if let Reader::Active { unsent } = &mut self.reader {
             *unsent = Unsent::Tree;
@@ -86,7 +83,6 @@ impl Shared {
             return Ok(true);
         };
         let changed = tree.apply(update)?;
-        self.focus = update.focus;
         let Reader::Active { unsent } = &mut self.reader else {
             // No one reads the tree: activation hands over all of it.
             return Ok(true);
@@ -147,6 +143,7 @@ pub struct PlatformTree {
     shared: Arc<Mutex<Shared>>,
 }
 
+// xtask-allow(state-fields): Borrowed conversion snapshot; optional focus and inclusion of all text runs are independent update facts.
 /// The current semantics selected for one platform update, borrowed under lock.
 ///
 /// Node references come from the current accepted tree, never an earlier update.
@@ -219,7 +216,7 @@ impl PlatformTree {
     /// A complete copy of the accepted tree in parent-before-child order.
     pub fn tree(&self) -> Option<SemanticsTree> {
         let shared = lock(&self.shared);
-        shared.tree.as_ref().map(|tree| tree.tree(shared.focus))
+        shared.tree.as_ref().map(|tree| tree.tree())
     }
 
     /// Whether a platform reader has activated the tree and not deactivated it.
@@ -257,7 +254,7 @@ impl PlatformTree {
         let tree = shared.tree.as_ref()?;
         let result = convert(PlatformUpdate {
             tree,
-            focus: shared.focus,
+            focus: tree.focus(),
             nodes: tree.nodes(),
             runs: &[],
             all_runs: true,
@@ -332,7 +329,7 @@ impl PlatformTree {
         }
         let result = convert(PlatformUpdate {
             tree,
-            focus: shared.focus,
+            focus: tree.focus(),
             nodes,
             runs,
             all_runs,
@@ -373,7 +370,6 @@ impl PlatformTree {
     pub fn forget(&self) {
         let mut shared = lock(&self.shared);
         shared.tree = None;
-        shared.focus = None;
         if let Reader::Active { unsent } = &mut shared.reader {
             *unsent = Unsent::Tree;
         }

@@ -131,25 +131,15 @@ pub(crate) fn import(
         semaphores: Vec::new(),
         pool: vk::CommandPool::null(),
     };
-    for handle in shared.textures {
-        let mut external = vk::ExternalMemoryImageCreateInfo::default().handle_types(MEMORY_HANDLE);
-        let info = image_info(width, height, storage).push_next(&mut external);
-        // SAFETY: a valid create info of a device that has the extension.
-        let image = unsafe { raw.create_image(&info, None) }
-            .map_err(crate::common::api("vkCreateImage"))?;
-        partial.images.push((image, vk::DeviceMemory::null()));
-        // SAFETY: a live image of `raw`.
-        let required = unsafe { raw.get_image_memory_requirements(image) };
-        let memory_type = device_local(&instance, physical, required.memory_type_bits)
-            .ok_or("the shared image has no device-local memory type")?;
-        let memory = import_memory(&raw, image, handle, required.size, memory_type)?;
-        if let Some(last) = partial.images.last_mut() {
-            last.1 = memory;
-        }
-        // SAFETY: a dedicated allocation of the image's required size.
-        unsafe { raw.bind_image_memory(image, memory, 0) }
-            .map_err(crate::common::api("vkBindImageMemory"))?;
-    }
+    import_images(
+        &mut partial,
+        &instance,
+        physical,
+        shared.textures,
+        width,
+        height,
+        storage,
+    )?;
     for handle in [shared.ready, shared.release] {
         let semaphore = import_semaphore(&instance, &raw, handle)?;
         partial.semaphores.push(semaphore);
@@ -160,37 +150,8 @@ pub(crate) fn import(
     // SAFETY: a valid create info for wgpu's queue family.
     partial.pool = unsafe { raw.create_command_pool(&pool_info, None) }
         .map_err(crate::common::api("vkCreateCommandPool"))?;
-    let count = u32::try_from(2 * partial.images.len()).map_err(|_| "too many textures")?;
-    let allocate = vk::CommandBufferAllocateInfo::default()
-        .command_pool(partial.pool)
-        .level(vk::CommandBufferLevel::PRIMARY)
-        .command_buffer_count(count);
-    // SAFETY: a live pool of `raw`.
-    let buffers = unsafe { raw.allocate_command_buffers(&allocate) }
-        .map_err(crate::common::api("vkAllocateCommandBuffers"))?;
-    let mut slots = Vec::with_capacity(partial.images.len());
-    for (&(image, _), pair) in partial.images.iter().zip(buffers.as_chunks::<2>().0) {
-        let all = vk::PipelineStageFlags::ALL_COMMANDS;
-        let ext = vk::QUEUE_FAMILY_EXTERNAL;
-        record(&raw, pair[0], image, (ext, family), (all, all), true)?;
-        let bottom = vk::PipelineStageFlags::BOTTOM_OF_PIPE;
-        record(&raw, pair[1], image, (family, ext), (all, bottom), false)?;
-        slots.push(Slot {
-            acquire: pair[0],
-            release: pair[1],
-        });
-    }
-    let hal_desc = ::wgpu::hal::TextureDescriptor {
-        label: desc.label,
-        size: desc.size,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: desc.dimension,
-        format: desc.format,
-        usage: ::wgpu::TextureUses::RESOURCE,
-        memory_flags: ::wgpu::hal::MemoryFlags::empty(),
-        view_formats: Vec::new(),
-    };
+    let slots = record_slots(&partial, family)?;
+    let hal_desc = hal_descriptor(desc);
     let hal_textures: Vec<_> = std::mem::take(&mut partial.images)
         .into_iter()
         .map(|(image, memory)| {
@@ -231,6 +192,80 @@ pub(crate) fn import(
         slots,
         _keep: device.clone(),
     })
+}
+
+/// Describe imported sampled textures for wgpu-hal ownership.
+fn hal_descriptor<'a>(desc: &::wgpu::TextureDescriptor<'a>) -> ::wgpu::hal::TextureDescriptor<'a> {
+    ::wgpu::hal::TextureDescriptor {
+        label: desc.label,
+        size: desc.size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: desc.dimension,
+        format: desc.format,
+        usage: ::wgpu::TextureUses::RESOURCE,
+        memory_flags: ::wgpu::hal::MemoryFlags::empty(),
+        view_formats: Vec::new(),
+    }
+}
+
+/// Allocate and record ownership transfers for each imported image.
+fn record_slots(partial: &Partial, family: u32) -> Result<Vec<Slot>, Error> {
+    let raw = &partial.device;
+    let count = u32::try_from(2 * partial.images.len()).map_err(|_| "too many textures")?;
+    let allocate = vk::CommandBufferAllocateInfo::default()
+        .command_pool(partial.pool)
+        .level(vk::CommandBufferLevel::PRIMARY)
+        .command_buffer_count(count);
+    // SAFETY: a live pool of `raw`.
+    let buffers = unsafe { raw.allocate_command_buffers(&allocate) }
+        .map_err(crate::common::api("vkAllocateCommandBuffers"))?;
+    let mut slots = Vec::with_capacity(partial.images.len());
+    for (&(image, _), pair) in partial.images.iter().zip(buffers.as_chunks::<2>().0) {
+        let all = vk::PipelineStageFlags::ALL_COMMANDS;
+        let ext = vk::QUEUE_FAMILY_EXTERNAL;
+        record(raw, pair[0], image, (ext, family), (all, all), true)?;
+        let bottom = vk::PipelineStageFlags::BOTTOM_OF_PIPE;
+        record(raw, pair[1], image, (family, ext), (all, bottom), false)?;
+        slots.push(Slot {
+            acquire: pair[0],
+            release: pair[1],
+        });
+    }
+    Ok(slots)
+}
+
+/// Import and bind the external allocations, retaining partial ownership on errors.
+fn import_images(
+    partial: &mut Partial,
+    instance: &ash::Instance,
+    physical: vk::PhysicalDevice,
+    handles: Vec<kivact_types::SharedHandle>,
+    width: u32,
+    height: u32,
+    storage: bool,
+) -> Result<(), Error> {
+    let raw = &partial.device;
+    for handle in handles {
+        let mut external = vk::ExternalMemoryImageCreateInfo::default().handle_types(MEMORY_HANDLE);
+        let info = image_info(width, height, storage).push_next(&mut external);
+        // SAFETY: a valid create info of a device that has the extension.
+        let image = unsafe { raw.create_image(&info, None) }
+            .map_err(crate::common::api("vkCreateImage"))?;
+        partial.images.push((image, vk::DeviceMemory::null()));
+        // SAFETY: a live image of `raw`.
+        let required = unsafe { raw.get_image_memory_requirements(image) };
+        let memory_type = device_local(instance, physical, required.memory_type_bits)
+            .ok_or("the shared image has no device-local memory type")?;
+        let memory = import_memory(raw, image, handle, required.size, memory_type)?;
+        if let Some(last) = partial.images.last_mut() {
+            last.1 = memory;
+        }
+        // SAFETY: a dedicated allocation of the image's required size.
+        unsafe { raw.bind_image_memory(image, memory, 0) }
+            .map_err(crate::common::api("vkBindImageMemory"))?;
+    }
+    Ok(())
 }
 
 /// Fail unless the shared image (its usage with or without storage) can be

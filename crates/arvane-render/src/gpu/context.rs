@@ -78,18 +78,7 @@ impl GpuContext {
         device.on_uncaptured_error(Arc::new(move |error: wgpu::Error| {
             uncaptured.record(error.to_string());
         }));
-        let settings = RenderSettings {
-            memory_settings: MemorySettings {
-                image_atlas_config: AtlasConfig {
-                    atlas_size: (super::encode::GLYPH_PAGE, super::encode::GLYPH_PAGE),
-                    max_atlases: GLYPH_PAGES,
-                    initial_atlas_count: 0,
-                    ..AtlasConfig::default()
-                },
-                ..MemorySettings::default()
-            },
-            ..RenderSettings::default()
-        };
+        let settings = render_settings();
         let (renderer, resources) = Renderer::new_with(
             &device,
             &RenderTargetConfig {
@@ -257,5 +246,21 @@ fn backend_order(env: &GpuEnv) -> Vec<wgpu::Backends> {
         vec![wgpu::Backends::VULKAN, wgpu::Backends::DX12]
     } else {
         vec![wgpu::Backends::PRIMARY]
+    }
+}
+
+/// Bound the glyph atlas allocation to the renderer's configured page budget.
+fn render_settings() -> RenderSettings {
+    RenderSettings {
+        memory_settings: MemorySettings {
+            image_atlas_config: AtlasConfig {
+                atlas_size: (super::encode::GLYPH_PAGE, super::encode::GLYPH_PAGE),
+                max_atlases: GLYPH_PAGES,
+                initial_atlas_count: 0,
+                ..AtlasConfig::default()
+            },
+            ..MemorySettings::default()
+        },
+        ..RenderSettings::default()
     }
 }

@@ -51,6 +51,14 @@ pub(in crate::port) fn physical_code(key: PhysicalKey) -> kivact_types::KeyCode 
         PhysicalKey::Code(KeyCode::Numpad7) => C::Numpad7,
         PhysicalKey::Code(KeyCode::Numpad8) => C::Numpad8,
         PhysicalKey::Code(KeyCode::Numpad9) => C::Numpad9,
+        _ => extended_physical_code(key),
+    }
+}
+
+/// Translate controls, navigation, punctuation, and function positions.
+fn extended_physical_code(key: PhysicalKey) -> kivact_types::KeyCode {
+    use kivact_types::KeyCode as C;
+    match key {
         PhysicalKey::Code(KeyCode::Enter) => C::Enter,
         PhysicalKey::Code(KeyCode::NumpadEnter) => C::NumpadEnter,
         PhysicalKey::Code(KeyCode::NumpadAdd) => C::NumpadAdd,

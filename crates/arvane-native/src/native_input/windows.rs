@@ -531,6 +531,10 @@ fn char_position(hwnd: HWND, text: &ShellImeText, scale: f64, lparam: LPARAM) ->
 /// The id of the registered message `ArvaneDebugDpiChange` (`u32::MAX`,
 /// which no message has, when it cannot be registered).
 fn debug_dpi_message() -> u32 {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "process-wide registered Windows message identity"
+    )]
     static ID: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
     *ID.get_or_init(|| {
         let name: Vec<u16> = "ArvaneDebugDpiChange".encode_utf16().chain([0]).collect();

@@ -383,21 +383,12 @@ impl Gpu {
             self.state = state;
             return;
         };
-        // The device the worker made.
-        let step = match step {
-            Step::Starting(worker) => match worker.poll() {
-                Polled::Working(worker) => Step::Starting(worker),
-                Polled::Sent(Ok((context, init))) => Step::Waiting { context, init },
-                Polled::Sent(Err(error)) => {
-                    self.state = cpu_session(notes, format!("GPU unavailable: {error}"));
-                    return;
-                }
-                Polled::Stopped => {
-                    self.state = cpu_session(notes, "GPU initialization stopped");
-                    return;
-                }
-            },
-            step => step,
+        let step = match poll_start(step, notes) {
+            Ok(step) => step,
+            Err(state) => {
+                self.state = state;
+                return;
+            }
         };
         let step = match step {
             // The window's surface, made here, configured on a worker.
@@ -669,4 +660,21 @@ fn ready_note(context: &GpuContext, init: Duration, configure: Option<Duration>)
 
 fn cpu(reason: String) -> RendererChange {
     RendererChange::Cpu { reason }
+}
+
+/// Poll device initialization before beginning surface configuration.
+fn poll_start(step: Step, notes: &mut Notes) -> Result<Step, State> {
+    Ok(match step {
+        Step::Starting(worker) => match worker.poll() {
+            Polled::Working(worker) => Step::Starting(worker),
+            Polled::Sent(Ok((context, init))) => Step::Waiting { context, init },
+            Polled::Sent(Err(error)) => {
+                return Err(cpu_session(notes, format!("GPU unavailable: {error}")));
+            }
+            Polled::Stopped => {
+                return Err(cpu_session(notes, "GPU initialization stopped"));
+            }
+        },
+        step => step,
+    })
 }
