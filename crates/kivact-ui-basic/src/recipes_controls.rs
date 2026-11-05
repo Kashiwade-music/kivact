@@ -496,8 +496,10 @@ fn disclosure_indicator(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style
 }
 
 fn disclosure_content(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
-    if state.variant::<crate::DisclosureVariant>().is_some() {
-        return style();
+    match state.variant::<crate::DisclosureVariant>() {
+        Some(crate::DisclosureVariant::Plain) => return style(),
+        Some(crate::DisclosureVariant::Trace) => return crate::trace::content(t),
+        None => (),
     }
     style()
         .enter_size(kivact::view::Orientation::Vertical)

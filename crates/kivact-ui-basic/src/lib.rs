@@ -124,7 +124,6 @@ pub use sidebar::{
     sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
     sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
 };
-pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 
 pub use alert_dialog::AlertDialogSize;
 pub use choice::ToggleVariant;

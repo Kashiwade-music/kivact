@@ -220,6 +220,10 @@ fn snippet() -> impl IntoView {
 - The code font is `Geist Mono`; register it as described in [Theme and tokens](theme-and-tokens.md#choose-the-fonts). Without it a system monospace font is used.
 - After a successful copy the button reads "Copied" for a moment. The words come from `code_block.*` messages.
 
+## Show activity details
+
+Use ordinary rows for activity lines. For expandable detail, use `kivact::ui::disclosure(label, open).variant(basic::DisclosureVariant::Trace).content(..).attach(trigger)`. The caller supplies the icon, title and duration in `trigger`; the same `open` binding can rotate its chevron. Core owns activation, keyboard input and expanded semantics, while the Trace variant draws the muted detail and vertical rule.
+
 ## See also
 
 - [Forms](forms.md): inputs, pickers and validation.

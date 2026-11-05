@@ -220,6 +220,10 @@ fn snippet() -> impl IntoView {
 - コードのフォントは `Geist Mono` です。[テーマとトークン](theme-and-tokens.md)の説明に従って登録してください。登録しないときは、システムの等幅フォントが使われます。
 - コピーに成功すると、ボタンが少しの間「Copied」になります。この文言は `code_block.*` のメッセージから来ます。
 
+## 処理の詳細を表示する
+
+処理の行は通常の row で組み立てます。開閉する詳細は `kivact::ui::disclosure(label, open).variant(basic::DisclosureVariant::Trace).content(..).attach(trigger)` を使います。trigger にアイコン、題名、所要時間を置き、同じ open 束縛を読むことでシェブロンを回転できます。Core が押下、キー操作、展開の意味を管理し、Trace variant が薄い文字と縦の罫線を描きます。
+
 ## 関連項目
 
 - [フォーム](forms.md): 入力欄、ピッカー、検証。
