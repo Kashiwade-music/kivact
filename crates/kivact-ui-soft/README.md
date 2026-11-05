@@ -43,7 +43,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Avatar | `avatar`, `avatar_group`, `avatar_group_overflow`, `avatar_status_dot` |
 | Badge / Banner / Blockquote | Standard `badge` with semantic `tone` or Soft categorical `BadgeVariant`; `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
-| Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
+| Breadcrumbs | Standard `breadcrumb` and `ListItem`; Soft `BreadcrumbsVariant` typography |
 | Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | Standard `calendar` over single-date or ordered-range bindings |
 | Card | `card`, `clickable_card`, `selectable_card` |
@@ -121,7 +121,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.banner.dismiss` | Dismiss |
 | `soft.banner.dismiss_titled` | {dismiss} {title} |
 | `soft.banner.expand` | Expand |
-| `soft.breadcrumbs.label` | Breadcrumb |
 | `soft.chat.tool_calls.complete` | Complete |
 | `soft.chat.tool_calls.detail` | Details for {name} |
 | `soft.chat.tool_calls.details` | Details |
@@ -373,3 +372,5 @@ Number, date, and time filter fields validate values entered as text.
 - `tree`
 - `data_table`
 <!-- /kivact-recipes -->
+
+Filled recipe table: `breadcrumb` (root, list, actual item, separator).

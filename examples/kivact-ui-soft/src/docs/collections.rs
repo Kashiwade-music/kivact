@@ -8,11 +8,11 @@ use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, data_table};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus,
-    aspect_ratio, breadcrumb_item, breadcrumbs, card, center, chat_bubble, chat_composer,
-    chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
-    clickable_card, divider, form_layout, form_row, grid, hstack, item, layout, layout_content,
-    layout_header, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
-    pagination, scrollable_area, section, selectable_card, stack_item, tree_list,
+    aspect_ratio, card, center, chat_bubble, chat_composer, chat_dictation_button, chat_layout,
+    chat_message, chat_system_message, chat_tool_calls, clickable_card, divider, form_layout,
+    form_row, grid, hstack, item, layout, layout_content, layout_header, list, list_item,
+    metadata_item, metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section,
+    selectable_card, stack_item, tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -158,11 +158,12 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "breadcrumbs" | "breadcrumb-item" => specimen(
             "Project location",
-            breadcrumbs([
-                breadcrumb_item("Workspace").on_press(|| {}),
-                breadcrumb_item("Design notes"),
-            ]),
-            "breadcrumbs([breadcrumb_item(\"Workspace\"), breadcrumb_item(\"Design notes\")])",
+            kivact::ui::breadcrumb(vec![
+                kivact::interaction::ListItem::new(0, "Workspace"),
+                kivact::interaction::ListItem::new(1, "Design notes"),
+            ])
+            .on_activate(|_| {}),
+            "breadcrumb(vec![ListItem::new(0, \"Workspace\"), ListItem::new(1, \"Design notes\")])",
         ),
         "pagination" => specimen(
             "Navigate result pages",
