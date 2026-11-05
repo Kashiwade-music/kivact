@@ -104,27 +104,84 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 "アバター・ヘイロー",
                 column((
                     wrap((
-                        ui::avatar("MN").size(72).halo(true),
-                        ui::avatar("HK").size(56).hue(330.0).halo(true),
-                        ui::avatar("YZ").hue(45.0).halo(true),
-                        ui::avatar("AR").size(32).hue(160.0),
-                        ui::avatar("K").size(24).hue(265.0),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("MN");
+                            let look = ui::AvatarLook::default().size(72).halo(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("HK");
+                            let look = ui::AvatarLook::default().size(56).hue(330.0).halo(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("YZ");
+                            let look = ui::AvatarLook::default().hue(45.0).halo(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("AR");
+                            let look = ui::AvatarLook::default().size(32).hue(160.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("K");
+                            let look = ui::AvatarLook::default().size(24).hue(265.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
                     ))
                     .style(style().align_items(Align::End)),
                     row((
-                        ui::avatar("MN").size(32),
-                        ui::avatar("HK")
-                            .size(32)
-                            .hue(330.0)
-                            .style(style().margin_left(-8)),
-                        ui::avatar("YZ")
-                            .size(32)
-                            .hue(45.0)
-                            .style(style().margin_left(-8)),
-                        ui::avatar("AR")
-                            .size(32)
-                            .hue(160.0)
-                            .style(style().margin_left(-8)),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("MN");
+                            let look = ui::AvatarLook::default().size(32);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("HK");
+                            let look = ui::AvatarLook::default().size(32).hue(330.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        })
+                        .style(style().margin_left(-8)),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("YZ");
+                            let look = ui::AvatarLook::default().size(32).hue(45.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        })
+                        .style(style().margin_left(-8)),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("AR");
+                            let look = ui::AvatarLook::default().size(32).hue(160.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        })
+                        .style(style().margin_left(-8)),
                         node()
                             .child(
                                 text("+8")
@@ -144,7 +201,14 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     ))
                     .style(style().align_items(Align::Center)),
                     row((
-                        ui::avatar("HK").hue(330.0).halo(true).online(true),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("HK");
+                            let look = ui::AvatarLook::default().hue(330.0).halo(true).online(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
                         column((
                             text("春日 ハルカ").style(style().weight(600)),
                             muted("セレスト女学院 · 救護騎士団").style(style().font_size(12)),
@@ -296,8 +360,19 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                             ),
                             ui::key_value(
                                 "担当",
-                                row((ui::avatar("M").size(24), text("空崎 ミナト")))
-                                    .style(style().gap(8).align_items(Align::Center)),
+                                row((
+                                    ({
+                                        let initials =
+                                            kivact::state::IntoText::into_text_value("M");
+                                        let look = ui::AvatarLook::default().size(24);
+                                        kivact::ui::avatar(initials)
+                                            .fallback_content(move || kivact::view::text(initials))
+                                            .variant(look)
+                                            .status_content(look.decorations())
+                                    }),
+                                    text("空崎 ミナト"),
+                                ))
+                                .style(style().gap(8).align_items(Align::Center)),
                             ),
                             ui::key_value(
                                 "ステータス",
@@ -614,18 +689,23 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                     .filter(move |s, q| contains(s.name, q) || contains(s.club, q))
                     .cell(|s| {
                         row((
-                            ui::avatar(
-                                s.name
-                                    .split(' ')
-                                    .nth(1)
-                                    .unwrap_or("?")
-                                    .chars()
-                                    .next()
-                                    .unwrap_or('?')
-                                    .to_string(),
-                            )
-                            .size(32)
-                            .hue(s.hue),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value(
+                                    s.name
+                                        .split(' ')
+                                        .nth(1)
+                                        .unwrap_or("?")
+                                        .chars()
+                                        .next()
+                                        .unwrap_or('?')
+                                        .to_string(),
+                                );
+                                let look = ui::AvatarLook::default().size(32).hue(s.hue);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
                             column((
                                 text(s.name).style(style().weight(500)),
                                 text(s.club)

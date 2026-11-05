@@ -13,6 +13,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .number_input(crate::recipes_field::number_input)
                 .tag_input(crate::recipes_field::tag_input)
                 .select(crate::recipes_select::select)
+                .combobox(crate::recipes_combobox::combobox)
                 .menu(crate::recipes_menu::menu)
                 .dialog(crate::recipes_dialog::dialog)
                 .hover_card(crate::recipes_popup::hover_card)

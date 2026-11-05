@@ -3,6 +3,7 @@ mod data;
 mod handle;
 mod labels;
 pub(crate) mod look;
+mod notices;
 mod render;
 mod tokens;
 pub use data::Combobox;

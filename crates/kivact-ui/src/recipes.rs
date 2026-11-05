@@ -766,17 +766,17 @@ recipe_table! {
 recipe_table! {
     /// Toggle group surface and item recipes.
     ToggleGroupRecipes {
-        root(root_recipe): crate::ToggleGroupState = crate::toggle_group::root_style,
-        item(item_recipe): crate::ToggleGroupItemState = crate::toggle_group::item_style,
+        root(root_recipe): crate::group_types::ToggleGroupState = crate::group_look::toggle_root,
+        item(item_recipe): crate::group_types::ToggleGroupItemState = crate::group_look::toggle_item,
     }
 }
 recipe_table! {
     /// Joined action group surface and auxiliary cell recipes.
     ButtonGroupRecipes {
-        root(root_recipe): crate::ButtonGroupState = crate::button_group::root_style,
-        member(member_recipe): crate::ButtonGroupMemberState = crate::button_group::member_style,
-        separator(separator_recipe): crate::ButtonGroupState = crate::button_group::separator_style,
-        text(text_recipe): crate::ButtonGroupState = crate::button_group::text_style,
+        root(root_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_root,
+        member(member_recipe): crate::group_types::ButtonGroupMemberState = crate::group_look::button_member,
+        separator(separator_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_separator,
+        text(text_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_text,
     }
 }
 

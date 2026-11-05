@@ -1,6 +1,7 @@
 //! Role: Render one combobox query and selection through themed editor and list parts.
 use super::data::Combobox;
-use super::labels::{label, labels};
+use super::labels::{KnownLabels, label};
+use super::notices::Notices;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};
 use kivact_core::custom::PartState;
@@ -44,12 +45,20 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
     if let Some(observer) = on_edit {
         edit.on_edit(move |phase| observer.call(phase));
     }
+    let known = KnownLabels::new(options);
+    let retained_labels = known.values();
+    let notices = Notices::new();
     let selection = match selection {
         Selection::Single(value) => Selection::Single(binding(value, move |next| {
             edit.once((), || value.set(next))
         })),
         Selection::Multiple(value) => Selection::Multiple(binding(value, move |next| {
-            edit.once((), || value.set(next))
+            edit.once((), || {
+                let before = value.get_untracked();
+                let labels = retained_labels.get_untracked();
+                value.set(next);
+                notices.accepted(&before, &value.get_untracked(), &labels);
+            })
         })),
     };
     let local_open = signal(false);
@@ -88,7 +97,8 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
         }
         rows
     });
-    let known = labels(label_source, selection);
+    known.observe(label_source, selection);
+    let known = known.values();
     let filtering = list.is_filtering();
     list = list.filter(move |query, item| {
         if exclude_selected
@@ -362,7 +372,11 @@ pub(super) fn render<K: ItemKey>(field: Combobox<K>) -> View {
                 suggestions(sheet_list, source, name, empty, variants.clone()),
             ))
         });
-    root.child(frame).child(surface).child(sheet).into_view()
+    root.child(frame)
+        .child(surface)
+        .child(sheet)
+        .child(notices.outlet())
+        .into_view()
 }
 fn suggestions<K: ItemKey>(
     list: ComboboxApi<K>,

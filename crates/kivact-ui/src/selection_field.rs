@@ -94,15 +94,14 @@ impl IntoView for SelectionField {
             |_, effect| match effect {},
         );
         let presentation = self.presentation;
+        let part = kivact_core::custom::part(|input| input);
+        let input = part.state();
         let trigger = with_base_recipe_style(
-            self.root,
+            self.root.part(part),
             |r| r.select_recipes().trigger_recipe(),
             &self.variants,
             move || crate::SelectTriggerState {
-                input: kivact_core::custom::PartState {
-                    disabled: disabled.get(),
-                    ..Default::default()
-                },
+                input: input.get(),
                 open: open.get(),
                 placeholder: false,
                 size: crate::ControlSize::Medium,
