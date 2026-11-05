@@ -45,6 +45,7 @@ mod recipes_collections;
 mod recipes_controls;
 mod recipes_feedback;
 mod recipes_indicators;
+mod recipes_metrics;
 mod tabs;
 mod theme;
 mod timeline;

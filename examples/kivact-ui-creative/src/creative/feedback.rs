@@ -140,6 +140,14 @@ fn glass(t: &Theme) -> Style {
 
 pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
     specs((
+        spec("Metrics and descriptions", "進捗・指標・表示用の説明", col((
+            kivact::ui::heading("Render overview", 3),
+            line((kivact::ui::progress(Some(0.7)).variant(kivact::ui::ProgressVariant::Ring).name("Render progress"),
+                kivact::ui::stat("Rendered", "70 / 100").delta("30 remaining").trend(kivact::ui::Trend::Up))),
+            kivact::ui::progress(Some(0.7)).variant(kivact::ui::ProgressVariant::Gauge).name("Render gauge"),
+            kivact::ui::description_list((kivact::ui::description("Engine", text("Cycles")),
+                kivact::ui::description("Device", text("GPU")))),
+        ))),
         spec(
             "Dialog",
             "modal · focus trap",

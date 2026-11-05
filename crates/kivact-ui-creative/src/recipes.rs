@@ -143,7 +143,7 @@ fn build() -> UiRecipes {
         .data_table(crate::recipes_collections::data_table)
         .progress(crate::recipes_controls::progress)
         .disclosure(crate::recipes_controls::disclosure);
-    crate::recipes_indicators::install(recipes)
+    crate::recipes_metrics::install(crate::recipes_indicators::install(recipes))
 }
 fn select_trigger(t: &Theme, s: &Look<SelectTriggerState>) -> Style {
     // The heights of the buttons of the same size.

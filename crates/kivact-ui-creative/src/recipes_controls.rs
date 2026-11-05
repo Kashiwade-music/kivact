@@ -172,7 +172,29 @@ fn splitter_handle(t: &Theme, s: &Look<AxisState>) -> Style {
 
 /// A bar of the field color, filled with the accent from the shown fraction.
 pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| match s.variant::<kivact::ui::ProgressVariant>() {
+            Some(kivact::ui::ProgressVariant::Ring | kivact::ui::ProgressVariant::Gauge) => {
+                prev(t, s)
+            }
+            _ => progress_track(t, s),
+        }
+    })
+    .fill(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| match s.variant::<kivact::ui::ProgressVariant>() {
+            Some(kivact::ui::ProgressVariant::Ring | kivact::ui::ProgressVariant::Gauge) => {
+                prev(t, s)
+            }
+            _ => progress_fill(t, s),
+        }
+    })
+    .label(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| {
+            prev(t, s)
+                .font_family(t.ext::<Tokens>().mono_font.as_str())
+                .font_size(10.5)
+        }
+    })
 }
 
 fn progress_track(_: &Theme, _: &Look<ProgressState>) -> Style {

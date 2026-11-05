@@ -315,4 +315,23 @@ The theme fills these `UiRecipes` entries:
 - `data_table`
 - `progress`
 - `disclosure`
+- `toggle_group`
+- `table`
+- `item_list`
+- `badge`
+- `badge_label`
+- `avatar`
+- `avatar_status`
+- `avatar_group`
+- `skeleton`
+- `spinner`
+- `kbd`
+- `kbd_key`
+- `alert`
+- `empty_state`
+- `card`
+- `input_group`
+- `heading`
+- `stat`
+- `description_list`
 <!-- /kivact-recipes -->
