@@ -140,7 +140,7 @@ fn thread_composer(_: &Theme, s: &Look<ChatThreadState>) -> Style {
 pub(crate) fn composer(r: ChatComposerRecipes) -> ChatComposerRecipes {
     r.surface(|_| composer_surface)
         .input(|_| input)
-        .status(|_| muted)
+        .status(|_| composer_status)
 }
 fn composer_surface(t: &Theme, s: &Look<ChatComposerState>) -> Style {
     let p = t.ext::<Tokens>();
@@ -172,4 +172,13 @@ fn input(t: &Theme, _: &Look<ChatComposerState>) -> Style {
         .border(0, p.colors.border)
         .background(kivact::style::Color::TRANSPARENT)
         .focus_visible(style().border(0, p.colors.border))
+}
+
+fn composer_status(t: &Theme, s: &Look<ChatComposerState>) -> Style {
+    let p = t.ext::<Tokens>();
+    style().font_size(12).padding_x(8).color(match &s.status {
+        Some(kivact::ui::ComposerStatus::Error(_)) => p.colors.text_error,
+        Some(kivact::ui::ComposerStatus::Warning(_)) => p.colors.text_warning,
+        None => p.colors.text_secondary,
+    })
 }
