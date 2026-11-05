@@ -132,10 +132,6 @@ pub use sidebar::{
     sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
     sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
 };
-pub use table::{
-    TableAlign, TableCell, TableRow, table, table_body, table_caption, table_cell, table_footer,
-    table_head, table_header, table_row,
-};
 pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 
 pub use alert_dialog::AlertDialogSize;

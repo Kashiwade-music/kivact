@@ -8,43 +8,43 @@ The kit never owns your data. Collections come in as plain `Vec`s (or a signal o
 
 ## Show a small static table
 
-`basic::table` is for content that is laid out by hand. Build it from a header, a body and optionally a footer and caption:
+`kivact::ui::table` is for content that is laid out by hand. Build it from a header, a body and optionally a footer and caption:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn invoices() -> impl IntoView {
-    basic::table((
-        basic::table_header(basic::table_row((
-            basic::table_head("Invoice").width(110.0),
-            basic::table_head("Status"),
-            basic::table_head("Amount").align(basic::TableAlign::End),
-        ))),
-        basic::table_body((
-            basic::table_row((
-                basic::table_cell("INV001").width(110.0),
-                basic::table_cell("Paid"),
-                basic::table_cell("$250.00").align(basic::TableAlign::End),
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head("Invoice").width(110.0),
+            kivact::ui::table_head("Status"),
+            kivact::ui::table_head("Amount").align(kivact::style::TextAlign::End),
+        )),)),
+        kivact::ui::table_body((
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV001").width(110.0),
+                kivact::ui::table_cell("Paid"),
+                kivact::ui::table_cell("$250.00").align(kivact::style::TextAlign::End),
             )),
-            basic::table_row((
-                basic::table_cell("INV002").width(110.0),
-                basic::table_cell("Pending"),
-                basic::table_cell("$150.00").align(basic::TableAlign::End),
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV002").width(110.0),
+                kivact::ui::table_cell("Pending"),
+                kivact::ui::table_cell("$150.00").align(kivact::style::TextAlign::End),
             )),
         )),
-        basic::table_footer(basic::table_row((
-            basic::table_cell("Total").width(110.0),
-            basic::table_cell(""),
-            basic::table_cell("$400.00").align(basic::TableAlign::End),
-        ))),
-        basic::table_caption("A list of recent invoices."),
+        kivact::ui::table_footer((kivact::ui::table_row((
+            kivact::ui::table_cell("Total").width(110.0),
+            kivact::ui::table_cell(""),
+            kivact::ui::table_cell("$400.00").align(kivact::style::TextAlign::End),
+        )),)),
+        text("A list of recent invoices.").style(style().margin_top(16).color(basic::ColorName::MutedForeground).text_align(kivact::style::TextAlign::Center)),
     ))
     .style(style().width(460))
 }
 ```
 
-Give the same `.width(..)` to the head and cell of a column that should have a fixed width; the others share the rest. A row can be made selectable: `basic::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))`.
+Give the same `.width(..)` to the head and cell of a column that should have a fixed width; the others share the rest. A row can be made selectable: `kivact::ui::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))`.
 
 ## Show many rows with sorting, filtering, selection and paging
 

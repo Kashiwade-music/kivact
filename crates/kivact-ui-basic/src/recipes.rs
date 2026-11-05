@@ -74,6 +74,7 @@ fn build() -> UiRecipes {
         .avatar_group(|_| crate::avatar::group)
         .avatar_group_member(|_| crate::avatar::member)
         .avatar_status(|_| crate::avatar::status)
+        .table(crate::table::recipes)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts

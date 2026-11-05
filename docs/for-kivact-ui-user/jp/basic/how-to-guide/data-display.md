@@ -8,43 +8,43 @@
 
 ## 小さな静的な表を見せる
 
-`basic::table` は、手で配置する内容のための表です。ヘッダー、ボディ、必要ならフッターとキャプションから組み立てます。
+`kivact::ui::table` は、手で配置する内容のための表です。ヘッダー、ボディ、必要ならフッターとキャプションから組み立てます。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn invoices() -> impl IntoView {
-    basic::table((
-        basic::table_header(basic::table_row((
-            basic::table_head("Invoice").width(110.0),
-            basic::table_head("Status"),
-            basic::table_head("Amount").align(basic::TableAlign::End),
-        ))),
-        basic::table_body((
-            basic::table_row((
-                basic::table_cell("INV001").width(110.0),
-                basic::table_cell("Paid"),
-                basic::table_cell("$250.00").align(basic::TableAlign::End),
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head("Invoice").width(110.0),
+            kivact::ui::table_head("Status"),
+            kivact::ui::table_head("Amount").align(kivact::style::TextAlign::End),
+        )),)),
+        kivact::ui::table_body((
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV001").width(110.0),
+                kivact::ui::table_cell("Paid"),
+                kivact::ui::table_cell("$250.00").align(kivact::style::TextAlign::End),
             )),
-            basic::table_row((
-                basic::table_cell("INV002").width(110.0),
-                basic::table_cell("Pending"),
-                basic::table_cell("$150.00").align(basic::TableAlign::End),
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV002").width(110.0),
+                kivact::ui::table_cell("Pending"),
+                kivact::ui::table_cell("$150.00").align(kivact::style::TextAlign::End),
             )),
         )),
-        basic::table_footer(basic::table_row((
-            basic::table_cell("Total").width(110.0),
-            basic::table_cell(""),
-            basic::table_cell("$400.00").align(basic::TableAlign::End),
-        ))),
-        basic::table_caption("A list of recent invoices."),
+        kivact::ui::table_footer((kivact::ui::table_row((
+            kivact::ui::table_cell("Total").width(110.0),
+            kivact::ui::table_cell(""),
+            kivact::ui::table_cell("$400.00").align(kivact::style::TextAlign::End),
+        )),)),
+        text("A list of recent invoices.").style(style().margin_top(16).color(basic::ColorName::MutedForeground).text_align(kivact::style::TextAlign::Center)),
     ))
     .style(style().width(460))
 }
 ```
 
-幅を固定したい列は、ヘッダーのセルと本体のセルに同じ `.width(..)` を付けます。ほかの列が残りを分け合います。行は選択可能にもできます。`basic::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))` です。
+幅を固定したい列は、ヘッダーのセルと本体のセルに同じ `.width(..)` を付けます。ほかの列が残りを分け合います。行は選択可能にもできます。`kivact::ui::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))` です。
 
 ## 多くの行を、並べ替え、絞り込み、選択、ページ分けつきで見せる
 
