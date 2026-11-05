@@ -197,7 +197,7 @@ impl State {
 
     /// Choose `day` as a press or Enter on it does.
     pub(super) fn pick(&self, day: CalendarDate) {
-        if self.disabled(day) {
+        if self.disabled(day) || !(self.policy.activation_guard)(day) {
             return;
         }
         self.roving.requested.set(Some(day));

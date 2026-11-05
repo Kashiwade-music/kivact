@@ -318,11 +318,4 @@ fn interactive_day(
             swipe.send(super::navigation::Event::IndependentActivation);
             kivact_core::view::Handled::No
         })
-        .on_press(move || {
-            if matches!(swipe.get(), super::navigation::Swipe::Released) {
-                kivact_core::view::Handled::Yes
-            } else {
-                kivact_core::view::Handled::No
-            }
-        })
 }
