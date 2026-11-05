@@ -177,7 +177,7 @@ built and also follow a signal, so a renamed entry shows the new label.
 ## Show records in a table
 
 `data_table(rows, key, columns)` is the standard table; the Game theme draws it
-as a console table. `game::TableCell` gives a column's cells a console look
+as a console table. `game::GameCellVariant` gives a column's cells a console look
 through `.cell(..)`:
 
 ```rust,no_run
@@ -201,14 +201,14 @@ fn units(rows: Signal<Vec<Unit>>) -> impl IntoView {
         vec![
             DataColumn::new("Unit", |unit: &Unit| unit.name.to_owned()).sortable(),
             DataColumn::new("Status", |unit: &Unit| unit.status.to_owned()).cell(|unit: &Unit| {
-                game::TableCell::Badge {
+                game::GameCellVariant::Badge {
                     label: unit.status.to_owned(),
                     tone: if unit.status == "ALIVE" { Tone::Success } else { Tone::Danger },
                 }
             }),
             DataColumn::new("HP", |unit: &Unit| format!("{:.0}", unit.hp))
                 .compare(|a, b| a.hp.total_cmp(&b.hp))
-                .cell(|unit: &Unit| game::TableCell::Progress { value: unit.hp, tone: Tone::Info })
+                .cell(|unit: &Unit| game::GameCellVariant::Progress { value: unit.hp, tone: Tone::Info })
                 .numeric(true),
         ],
     )
@@ -221,7 +221,7 @@ The table keeps nothing but what you pass: the rows, the selection, and (with
 `.sort(..)`, `.filter(..)`, `.page(..)`) the sort, the search text and the page.
 `.toolbar(|context| view)` replaces the area above the table, for example with
 bulk actions on the selected rows, and `.footer(|context| view)` the area
-below. Cells: `TableCell::Identifier`, `Detail { title, description }`,
+below. Cells: `GameCellVariant::Identifier`, `Detail { title, description }`,
 `User { name, initials, color }`, `Badge { label, tone }` and
 `Progress { value, tone }` (0 to 100).
 

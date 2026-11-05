@@ -56,6 +56,6 @@ pub use recipes::{ButtonTone, Slant};
 pub use recipes_groups::GameInputGroupVariant;
 pub use recipes_small::Striped;
 pub use surface::{cut_corner, halo, hud, mono, section_heading};
-pub use table::TableCell;
+pub use table::GameCellVariant;
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use tokens::{Density, Tokens};

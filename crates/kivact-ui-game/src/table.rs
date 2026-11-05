@@ -9,7 +9,7 @@ use kivact::interaction::Tone;
 /// The console's cell looks, for a [`DataColumn::cell`](kivact::ui::DataColumn::cell)
 /// to return.
 #[derive(Clone, Debug, PartialEq)]
-pub enum TableCell {
+pub enum GameCellVariant {
     Identifier(String),
     Detail {
         title: String,
@@ -30,7 +30,7 @@ pub enum TableCell {
     },
 }
 
-impl IntoView for TableCell {
+impl IntoView for GameCellVariant {
     fn into_view(self) -> View {
         match self {
             Self::Identifier(v) => crate::mono(v)

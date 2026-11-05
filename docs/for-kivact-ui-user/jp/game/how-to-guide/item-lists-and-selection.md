@@ -149,7 +149,7 @@ fn files() -> impl IntoView {
 
 ## レコードを表で見せる
 
-`data_table(rows, key, columns)` は標準のテーブルで、Game テーマがコンソールの表として描きます。`game::TableCell` を `.cell(..)` から返すと、列のセルにコンソール風の見た目を付けられます。
+`data_table(rows, key, columns)` は標準のテーブルで、Game テーマがコンソールの表として描きます。`game::GameCellVariant` を `.cell(..)` から返すと、列のセルにコンソール風の見た目を付けられます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -172,14 +172,14 @@ fn units(rows: Signal<Vec<Unit>>) -> impl IntoView {
         vec![
             DataColumn::new("Unit", |unit: &Unit| unit.name.to_owned()).sortable(),
             DataColumn::new("Status", |unit: &Unit| unit.status.to_owned()).cell(|unit: &Unit| {
-                game::TableCell::Badge {
+                game::GameCellVariant::Badge {
                     label: unit.status.to_owned(),
                     tone: if unit.status == "ALIVE" { Tone::Success } else { Tone::Danger },
                 }
             }),
             DataColumn::new("HP", |unit: &Unit| format!("{:.0}", unit.hp))
                 .compare(|a, b| a.hp.total_cmp(&b.hp))
-                .cell(|unit: &Unit| game::TableCell::Progress { value: unit.hp, tone: Tone::Info })
+                .cell(|unit: &Unit| game::GameCellVariant::Progress { value: unit.hp, tone: Tone::Info })
                 .numeric(true),
         ],
     )
@@ -188,7 +188,7 @@ fn units(rows: Signal<Vec<Unit>>) -> impl IntoView {
 # fn main() {}
 ```
 
-テーブルが持つのは、渡された状態だけです。行、選択、そして（`.sort(..)`、`.filter(..)`、`.page(..)` を使えば）並べ替え、検索テキスト、ページです。`.toolbar(|context| view)` は表の上の領域を置き換え、選択した行への一括操作などに使えます。`.footer(|context| view)` は下の領域を置き換えます。セルの種類は `TableCell::Identifier`、`Detail { title, description }`、`User { name, initials, color }`、`Badge { label, tone }`、`Progress { value, tone }`（0 から 100）です。
+テーブルが持つのは、渡された状態だけです。行、選択、そして（`.sort(..)`、`.filter(..)`、`.page(..)` を使えば）並べ替え、検索テキスト、ページです。`.toolbar(|context| view)` は表の上の領域を置き換え、選択した行への一括操作などに使えます。`.footer(|context| view)` は下の領域を置き換えます。セルの種類は `GameCellVariant::Identifier`、`Detail { title, description }`、`User { name, initials, color }`、`Badge { label, tone }`、`Progress { value, tone }`（0 から 100）です。
 
 ## 関連
 
