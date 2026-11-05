@@ -52,3 +52,27 @@ fn accordion_tab_sequence_includes_headers_and_expanded_panel_controls() {
     assert!(screen.get_by_role(Role::Button, "Inside").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn accordion_always_open_header_exposes_disabled_and_expanded() {
+    let (screen, open) = mount(|| {
+        let open = signal(false);
+        (
+            open,
+            kivact::ui::disclosure("Permanent", open)
+                .always_open()
+                .content(|| text("Permanent body")),
+        )
+    });
+    let header = screen.get_by_role(Role::Button, "Permanent");
+    assert_eq!(header.is_expanded(), Some(true));
+    assert!(
+        header.is_disabled(),
+        "a header that cannot collapse exposes disabled semantics"
+    );
+    assert!(
+        !open.get_untracked(),
+        "the structural option does not overwrite the caller binding"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

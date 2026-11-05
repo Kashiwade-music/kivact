@@ -122,17 +122,23 @@ impl Disclosure {
             self.open
         };
         let mut details = use_disclosure(open);
+        let always_open = self.always_open;
         if let Some(disabled) = self.root.accessible_disabled() {
-            details = details.disabled(disabled);
+            details = details.disabled(move || always_open || disabled.get());
+        } else if always_open {
+            details = details.disabled(true);
         }
         let trigger = trigger.with_node(|root| root.part(details.trigger()));
         let content = self.content;
+        let motion = self.motion;
+        let animation = self.animation;
+        let variants = self.variants;
         self.root
             .style(style().direction(kivact_core::style::Direction::Column))
             .child((
                 trigger,
                 show(details.is_open(), move || {
-                    node().part(details.content()).child(content.call(()))
+                    content_region(details, &content, &motion, animation, &variants)
                 }),
             ))
     }
@@ -144,7 +150,7 @@ impl Disclosure {
     }
     /// Open and close by moving the content's height over 200 ms, a
     /// decorative motion that reduced motion skips (default: the content
-    /// appears and disappears at once). A constant.
+    /// appears and disappears at once). A constant or reactive value.
     pub fn animated(mut self, animated: impl kivact_core::state::IntoValue<bool>) -> Self {
         self.animation = Some(animated.into_value());
         self
@@ -182,8 +188,11 @@ impl IntoView for Disclosure {
         };
         let mut details = use_disclosure(open);
         // `.disabled(..)` ignores input and assistive technology.
+        let always_open = self.always_open;
         if let Some(disabled) = self.root.accessible_disabled() {
-            details = details.disabled(move || disabled.get());
+            details = details.disabled(move || always_open || disabled.get());
+        } else if always_open {
+            details = details.disabled(true);
         }
         let shown = details.is_open();
         let motion = self.motion;
@@ -219,33 +228,7 @@ impl IntoView for Disclosure {
         let build = self.content;
         let region = {
             let variants = variants.clone();
-            move || {
-                let part = details.content();
-                let content_state = part.state();
-                let region = with_recipe_style(
-                    node().part(part),
-                    |recipes| recipes.disclosure_recipes().content_recipe(),
-                    &variants,
-                    move || content_state.get(),
-                );
-                let region = region.style(move || {
-                    if animation.map_or(motion.animate, |value| value.get()) {
-                        style()
-                            .enter_size(Orientation::Vertical)
-                            .exit_size(Orientation::Vertical)
-                            .transition(
-                                TransitionProp::Size,
-                                Transition::tween(
-                                    motion.duration.as_secs_f64() * 1000.0,
-                                    Easing::EaseOut,
-                                ),
-                            )
-                    } else {
-                        style()
-                    }
-                });
-                region.child(build.call(()))
-            }
+            move || content_region(details, &build, &motion, animation, &variants)
         };
         let body = show(shown, region);
         with_base_recipe_style(
@@ -261,3 +244,36 @@ impl IntoView for Disclosure {
 }
 
 pub use crate::disclosure_tokens::{DisclosureMotion, DisclosureTokens};
+
+fn content_region(
+    details: kivact_interaction::DisclosureApi,
+    build: &kivact_core::view::ViewFn,
+    motion: &DisclosureMotion,
+    animation: Option<Value<bool>>,
+    variants: &Variants,
+) -> Node {
+    let part = details.content();
+    let content_state = part.state();
+    let region = with_recipe_style(
+        node().part(part),
+        |recipes| recipes.disclosure_recipes().content_recipe(),
+        variants,
+        move || content_state.get(),
+    );
+    let duration = motion.duration;
+    let default_animate = motion.animate;
+    let region = region.style(move || {
+        if animation.map_or(default_animate, |value| value.get()) {
+            style()
+                .enter_size(Orientation::Vertical)
+                .exit_size(Orientation::Vertical)
+                .transition(
+                    TransitionProp::Size,
+                    Transition::tween(duration.as_secs_f64() * 1000.0, Easing::EaseOut),
+                )
+        } else {
+            style()
+        }
+    });
+    region.child(build.call(()))
+}
