@@ -66,6 +66,7 @@ MIT OR Apache-2.0. The bundled Tabler icons are MIT
 ## Filled recipes
 
 <!-- kivact-recipes -->
+- `dropzone`
 - `field`
 - `button`
 - `button_content`

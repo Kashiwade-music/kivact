@@ -400,32 +400,39 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                 "INP-04",
                 "ファイルアップロード",
                 list((
-                    g::dropzone(kivact::i18n::message("game.dropzone.label", "Upload files"))
-                        .on_files(move |paths| {
-                            for path in paths {
-                                let name = path
-                                    .file_name()
-                                    .map(|v| v.to_string_lossy().into_owned())
-                                    .unwrap_or_else(|| path.display().to_string());
-                                let index = files.with_untracked(Vec::len);
-                                files.update(|v| v.push((name, 0.)));
-                                spawn(async move {
-                                    for _ in 0..10 {
-                                        kivact::task::sleep(Duration::from_millis(220)).await;
-                                        files.update(|v| {
-                                            if let Some(file) = v.get_mut(index) {
-                                                file.1 = (file.1 + 10.).min(100.);
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        })
-                        .hint(kivact::i18n::message("game.dropzone.hint", "CSV / JSON"))
-                        .filters(vec![(
-                            "CSV / JSON".to_owned(),
-                            vec!["csv".to_owned(), "json".to_owned()],
-                        )]),
+                    kivact::ui::dropzone(kivact::i18n::message(
+                        "game.dropzone.label",
+                        "Upload files",
+                    ))
+                    .multiple()
+                    .pick_on_press()
+                    .icon(kivact::view::icon("cloud-upload"))
+                    .on_files(move |paths| {
+                        for file in paths {
+                            let path = file.path;
+                            let name = path
+                                .file_name()
+                                .map(|v| v.to_string_lossy().into_owned())
+                                .unwrap_or_else(|| path.display().to_string());
+                            let index = files.with_untracked(Vec::len);
+                            files.update(|v| v.push((name, 0.)));
+                            spawn(async move {
+                                for _ in 0..10 {
+                                    kivact::task::sleep(Duration::from_millis(220)).await;
+                                    files.update(|v| {
+                                        if let Some(file) = v.get_mut(index) {
+                                            file.1 = (file.1 + 10.).min(100.);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    })
+                    .hint(kivact::i18n::message("game.dropzone.hint", "CSV / JSON"))
+                    .filters(vec![(
+                        "CSV / JSON".to_owned(),
+                        vec!["csv".to_owned(), "json".to_owned()],
+                    )]),
                     for_index(files, |index, item: Value<(String, f64)>| {
                         row((
                             dynamic(
