@@ -116,7 +116,7 @@ pub use bottom_sheet::{
     BottomSheet, DialogPurpose, SheetHeight, SnapPoint, bottom_sheet, bottom_sheet_flow,
 };
 pub use breadcrumbs::BreadcrumbsVariant;
-pub use card::{Card, CardVariant, card, clickable_card, selectable_card};
+pub use card::{CardAppearance, CardVariant, with_card_insets};
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};

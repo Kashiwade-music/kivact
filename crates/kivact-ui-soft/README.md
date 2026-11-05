@@ -46,7 +46,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Breadcrumbs | Standard `breadcrumb` and `ListItem`; Soft `BreadcrumbsVariant` typography |
 | Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | Standard `calendar` over single-date or ordered-range bindings |
-| Card | `card`, `clickable_card`, `selectable_card` |
+| Card | standard `card`, `.on_press(...)`, `.selected(...)` |
 | Carousel | Standard `carousel(index, slides)` and headless `interaction::use_carousel(index, count)` |
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
@@ -378,3 +378,5 @@ Filled recipe table: `breadcrumb` (root, list, actual item, separator).
 Filled recipe table: `empty_state` (root, title, description, icon, actions).
 
 Filled recipe table: `input_group` (root, label, members, member, addon).
+
+Filled recipe table: `card` (root, header, media, content, footer, overlay).

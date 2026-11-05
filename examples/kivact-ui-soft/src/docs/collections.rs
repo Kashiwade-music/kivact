@@ -4,15 +4,15 @@ use kivact::interaction::FilterValue;
 use kivact::interaction::TreeNode;
 use kivact::state::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, data_table};
+use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_table};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus,
-    aspect_ratio, card, center, chat_bubble, chat_composer, chat_dictation_button, chat_layout,
-    chat_message, chat_system_message, chat_tool_calls, clickable_card, divider, form_layout,
-    form_row, grid, hstack, item, layout, layout_content, layout_header, list, list_item,
-    metadata_item, metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section,
-    selectable_card, stack_item, tree_list,
+    aspect_ratio, center, chat_bubble, chat_composer, chat_dictation_button, chat_layout,
+    chat_message, chat_system_message, chat_tool_calls, divider, form_layout, form_row, grid,
+    hstack, item, layout, layout_content, layout_header, list, list_item, metadata_item,
+    metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section, stack_item,
+    tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -56,13 +56,17 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "clickable-card" => specimen(
             "Open project",
-            clickable_card("Open project", text("Project notes")).on_press(|| {}),
-            "clickable_card(\"Open project\", content, open_project)",
+            card(text("Project notes"))
+                .name("Open project")
+                .on_press(|| {}),
+            "card(content).name(\"Open project\").on_press(open_project)",
         ),
         "selectable-card" => specimen(
             "Select project",
-            selectable_card("Select project", signal(false), text("Project notes")),
-            "selectable_card(\"Select project\", selected, content)",
+            card(text("Project notes"))
+                .name("Select project")
+                .selected(signal(false)),
+            "card(content).name(\"Select project\").selected(selected)",
         ),
         "carousel" => specimen(
             "Browse slides",

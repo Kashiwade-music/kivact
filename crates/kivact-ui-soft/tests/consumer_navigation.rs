@@ -58,7 +58,7 @@ fn layout_components_mount_and_interact() {
         let target = node_ref();
         let resize = signal(250.0);
         column((
-            soft::card(
+            kivact::ui::card(soft::with_card_insets(Default::default(), move || {
                 soft::layout()
                     .height(soft::LayoutHeight::Auto)
                     .header(soft::layout_header(text("Header")).divider(true))
@@ -79,9 +79,11 @@ fn layout_components_mount_and_interact() {
                             soft::form_layout(soft::form_row(text("Label"), text("Value"))),
                         ))))
                         .scrollable(false)
-                    }),
-            ),
-            soft::selectable_card("Select option", selected, text("Selectable")),
+                    })
+            })),
+            kivact::ui::card(text("Selectable"))
+                .name("Select option")
+                .selected(selected),
             kivact::ui::disclosure("Disclosure", open).content(|| text("Disclosure body")),
             soft::pagination(page).total_pages(20),
             soft::tab_list("Test tabs", tab)
