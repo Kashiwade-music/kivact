@@ -175,7 +175,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | H-G6 | merged | e71dfb18 | 全skip空、outer/test分割、親全workspace厳格Clippy0、fullstatic既知7件修正済み再検証 |
 | F-1 | merged | a8b45a5a | 6組統合、doctest583pass/12ignored、unit1、failed2のみ再実行0、ENJP39+52組一致 |
 | F-2 | merged | 033abf8e | 全skip空、workspace lintへ統一、全Clippy0/fullstatic40crate108graph0/features20/20 |
-| F-3 | doing | | G-final Windows/WSL/mirrorと恒久記録・下書き・一時指示書削除 |
+| F-3 | merged | 8b100868 | G-final全通過、恒久architecture/ADR/手動一覧とPR下書き完成、一時資料は直後の完了commitで削除 |
 | fix-G4-8 | merged | 143d513 | public2/Soft7/catalog15/Game1 passed |
 | fix-G5-7 | merged | f52935c | Creative42+固定advanced1/catalog3 passed |
 | fix-G5-8 | merged | c40d5cb | Basic navigation1 passed |
@@ -233,3 +233,9 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 - WSL Wayland76b299ca: workspace/GPU3/docs583+12ignoredすべてexit0。snapshot診断は実色208/96/32が16384px、透明が16384pxで、GPU256x128に対し旧CPU128x128の描画を取得していた。既存Hostのsettle境界で応答する修正中。
 
 - F3最終source93268f13: 全体Clippy0、fullstatic40package/108graph0、feature20/20。WindowsGPU失敗1件とsnapshot4件はbd37771fで全通過。X11 workspace/GPU3/docsも全exit0。純粋contractへ整理した応答型の最終named確認を残す。
+
+| G-final | 8b100868 | 0 | 0 | 0（40package/108graph、全skip空） | 20/20 | Windows mirror全target→失敗binary470+GPU1とsnapshot4の再検証0、GPU6/docs0 | b38273ed全target/GPU2/docs0、最終契約のsnapshot3も0 | WSL Clippy0、Wayland/X11全体0+最終snapshot各4も0 | 完了 |
+
+- P1再全数調査は定義214 ID、解消/owner分類212、意図的保持SM-R17/SM-E15の2。state-fields/effect-writes/disallowed_types新規違反0。
+- F3拡張5例は全て恒久architectureに列挙済み。Windows最終snapshot: GPU1/通常4/no-default3、WSL各4は8b100868の純粋contractで通過。作者による実機確認はmanual-verificationの未確認一覧に分離した。
+- PR下書きは .claude/pr/foundation-v3.md（ignored）。main a3536efとCI/strategyは変更しない。指定の一時資料だけを次のcommitで削除してintegrationへpushする。
