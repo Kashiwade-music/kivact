@@ -563,21 +563,7 @@ impl Numeric {
         let reference = node_ref();
         let rect = reference.rect();
         let parse = scalar_parser(text_parser, timecode);
-        let mixed_text = message("creative.numeric.mixed", "Mixed");
-        let suffix = unit;
-        let shown = (move || {
-            if mixed.get() {
-                mixed_text.get()
-            } else {
-                format_scalar(
-                    value.get().clamp(min.get(), max.get()),
-                    precision.get(),
-                    &suffix.get(),
-                    timecode.map(|fps| fps.get()),
-                )
-            }
-        })
-        .into_value();
+        let shown = display_value(mixed, value, min, max, precision, unit, timecode);
         let mapping = Mapping {
             kind,
             min,
@@ -1220,4 +1206,30 @@ fn scalar_parser(text_parser: Option<TextParser>, timecode: Option<Value<u32>>) 
             }
         }
     })
+}
+
+fn display_value(
+    mixed: Value<bool>,
+    value: Value<f64>,
+    min: Value<f64>,
+    max: Value<f64>,
+    precision: Value<usize>,
+    unit: Value<String>,
+    timecode: Option<Value<u32>>,
+) -> Value<String> {
+    let mixed_text = message("creative.numeric.mixed", "Mixed");
+    let suffix = unit;
+    (move || {
+        if mixed.get() {
+            mixed_text.get()
+        } else {
+            format_scalar(
+                value.get().clamp(min.get(), max.get()),
+                precision.get(),
+                &suffix.get(),
+                timecode.map(|fps| fps.get()),
+            )
+        }
+    })
+    .into_value()
 }

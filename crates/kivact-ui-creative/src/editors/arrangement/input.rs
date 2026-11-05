@@ -47,27 +47,8 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                     }
                     _ => return Handled::No,
                 };
-                match state.tool.get() {
-                    TimelineTool::Erase => {
-                        state.edit.once(state.snapshot(&[id]), || {
-                            state.request(ArrangementRequest::Erase(id))
-                        });
-                        return Handled::Yes;
-                    }
-                    TimelineTool::Mute => {
-                        state.edit.once(state.snapshot(&[id]), || {
-                            state.request(ArrangementRequest::ToggleClipMute(id))
-                        });
-                        return Handled::Yes;
-                    }
-                    TimelineTool::Split => {
-                        let at = state.snapping(state.beat(e.pos().x));
-                        state.edit.once(state.snapshot(&[id]), || {
-                            state.request(ArrangementRequest::Split { clip: id, at })
-                        });
-                        return Handled::Yes;
-                    }
-                    TimelineTool::Select => {}
+                if tool_press(state, id, e.pos()) {
+                    return Handled::Yes;
                 }
                 let mut pending = None;
                 match selection::press(
@@ -191,34 +172,7 @@ fn motion(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
     };
     match action {
         Drag::Loop(mode) => {
-            let Some(Snapshot::Loop((lo, hi))) = Some(snapshot.clone()) else {
-                return;
-            };
-            let start = origin;
-            let b = state.snapping(state.beat(pos.x));
-            let delta = state.snapping(state.beat(pos.x) - state.beat(start.x));
-            let unit = state
-                .step()
-                .clamp(state.min_duration.get().min(4.0), 4.0)
-                .min(state.length.get());
-            let range = match mode {
-                LoopPart::Start => (b.min(hi - unit).max(0.0), hi),
-                LoopPart::End => (lo, b.max(lo + unit).min(state.length.get())),
-                LoopPart::Body => {
-                    let a = (lo + delta).clamp(0.0, (state.length.get() - (hi - lo)).max(0.0));
-                    (a, a + hi - lo)
-                }
-                LoopPart::Create => {
-                    let a = state.snapping(state.beat(start.x));
-                    (
-                        a.min(b).min((state.length.get() - unit).max(0.0)),
-                        a.max(b).max(a.min(b) + unit).min(state.length.get()),
-                    )
-                }
-            };
-            if range != state.range.get() {
-                state.gesture.change(|| state.loop_range.set(range));
-            }
+            move_loop(state, mode, pos, origin, snapshot);
         }
         Drag::Playhead => seek(state, pos.x),
         Drag::Clips => {
@@ -286,15 +240,7 @@ fn motion(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
         Drag::AddPoint(track) => move_automation(state, track, None, pos, origin, snapshot),
         Drag::Marquee(_) => {}
         Drag::Pan => {
-            if let Some(Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) =
-                Some(snapshot.clone())
-            {
-                let from = origin;
-                let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
-                if next != state.offset.get() {
-                    state.gesture.change(|| state.set_offset(next));
-                }
-            }
+            move_pan(state, pos, origin, snapshot);
         }
     }
 }
@@ -488,4 +434,73 @@ fn move_automation(
             ArrangementRequest::AddPoint { track, beat, value }
         })
     });
+}
+
+fn tool_press(state: State, id: u64, position: Point) -> bool {
+    match state.tool.get() {
+        TimelineTool::Erase => {
+            state.edit.once(state.snapshot(&[id]), || {
+                state.request(ArrangementRequest::Erase(id))
+            });
+            return true;
+        }
+        TimelineTool::Mute => {
+            state.edit.once(state.snapshot(&[id]), || {
+                state.request(ArrangementRequest::ToggleClipMute(id))
+            });
+            return true;
+        }
+        TimelineTool::Split => {
+            let at = state.snapping(state.beat(position.x));
+            state.edit.once(state.snapshot(&[id]), || {
+                state.request(ArrangementRequest::Split { clip: id, at })
+            });
+            return true;
+        }
+        TimelineTool::Select => {}
+    }
+    false
+}
+
+fn move_loop(state: State, mode: LoopPart, pos: Point, origin: Point, snapshot: &Snapshot) {
+    let Some(Snapshot::Loop((lo, hi))) = Some(snapshot.clone()) else {
+        return;
+    };
+    let start = origin;
+    let b = state.snapping(state.beat(pos.x));
+    let delta = state.snapping(state.beat(pos.x) - state.beat(start.x));
+    let unit = state
+        .step()
+        .clamp(state.min_duration.get().min(4.0), 4.0)
+        .min(state.length.get());
+    let range = match mode {
+        LoopPart::Start => (b.min(hi - unit).max(0.0), hi),
+        LoopPart::End => (lo, b.max(lo + unit).min(state.length.get())),
+        LoopPart::Body => {
+            let a = (lo + delta).clamp(0.0, (state.length.get() - (hi - lo)).max(0.0));
+            (a, a + hi - lo)
+        }
+        LoopPart::Create => {
+            let a = state.snapping(state.beat(start.x));
+            (
+                a.min(b).min((state.length.get() - unit).max(0.0)),
+                a.max(b).max(a.min(b) + unit).min(state.length.get()),
+            )
+        }
+    };
+    if range != state.range.get() {
+        state.gesture.change(|| state.loop_range.set(range));
+    }
+}
+
+fn move_pan(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
+    if let Some(Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) =
+        Some(snapshot.clone())
+    {
+        let from = origin;
+        let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
+        if next != state.offset.get() {
+            state.gesture.change(|| state.set_offset(next));
+        }
+    }
 }

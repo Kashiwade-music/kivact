@@ -94,7 +94,7 @@ pub(crate) fn lane_cells(
     use kivact::view::{node, row};
 
     use kivact::style::{Align, Overflow, Position, style};
-    use kivact::view::{Handled, IntoView, Key};
+    use kivact::view::{Handled, Key};
     let reference = node_ref();
     let focus = reference.focus_within();
     let cells = extensions.cells.clone();
@@ -167,18 +167,34 @@ pub(crate) fn lane_cells(
             })
         },
     );
-    (
-        node()
-            .node_ref(reference)
-            .child(rows)
-            .style(
-                style()
-                    .position(Position::Absolute)
-                    .left(0)
-                    .top(0)
-                    .size(0, 0),
-            )
-            .into_view(),
-        focus,
-    )
+    (cells_layer(reference, rows), focus)
+}
+
+impl LaneExtensions {
+    pub(crate) fn width(&self, limit: f64) -> Value<f64> {
+        let widths: Vec<_> = self.cells.iter().map(|(width, _)| *width).collect();
+        kivact::state::IntoValue::into_value(kivact::state::memo(move || {
+            widths
+                .iter()
+                .map(|width| width.get())
+                .sum::<f64>()
+                .min(limit)
+        }))
+    }
+}
+
+fn cells_layer(reference: kivact::view::NodeRef, rows: impl kivact::view::IntoView) -> View {
+    use kivact::style::{Position, style};
+    use kivact::view::{IntoView, node};
+    node()
+        .node_ref(reference)
+        .child(rows)
+        .style(
+            style()
+                .position(Position::Absolute)
+                .left(0)
+                .top(0)
+                .size(0, 0),
+        )
+        .into_view()
 }

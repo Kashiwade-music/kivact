@@ -90,10 +90,6 @@ pub(crate) fn a11y(state: State, add_track: Option<Callback<()>>, event: A11yEve
         selection,
         cycling,
         cycle,
-        playhead,
-        frame,
-        range,
-        loop_range,
         ..
     } = state;
     let select = move |id, gesture| state.select(id, gesture);
@@ -147,41 +143,52 @@ pub(crate) fn a11y(state: State, add_track: Option<Callback<()>>, event: A11yEve
             let Some(value) = text.parse::<f64>().ok().filter(|v| v.is_finite()) else {
                 return;
             };
-            match target {
-                Target::Playhead => {
-                    state.edit.once(Snapshot::Playhead(frame.get()), || {
-                        playhead.set(value.clamp(0.0, state.length.get()));
-                    });
-                }
-                Target::LoopStart | Target::LoopEnd => {
-                    let length = state.length.get();
-                    let (a, b) = bounded_range(range.get(), length, state.loop_min_duration.get());
-                    let a = a.min(length);
-                    let b = b.min(length);
-                    let unit = state.loop_min_duration.get().min(length);
-                    state.edit.once(Snapshot::Loop(range.get()), || {
-                        loop_range.set(if target == Target::LoopStart {
-                            (value.clamp(0.0, (b - unit).max(0.0)), b)
-                        } else {
-                            (a, value.clamp((a + unit).min(length), length))
-                        });
-                    });
-                }
-                Target::Automation(track, id) => {
-                    if let Some(snapshot) = state.auto_snapshot(track, id) {
-                        state.edit.once(snapshot.clone(), || {
-                            if let Snapshot::Automation(_, _, Some(point)) = snapshot.clone() {
-                                state.request(ArrangementRequest::MovePoint {
-                                    track,
-                                    id,
-                                    beat: point.beat,
-                                    value: value.clamp(0.0, 1.0),
-                                });
-                            }
+            set_target_value(state, target, value);
+        }
+        _ => {}
+    }
+}
+
+fn set_target_value(state: State, target: Target, value: f64) {
+    let State {
+        playhead,
+        frame,
+        range,
+        loop_range,
+        ..
+    } = state;
+    match target {
+        Target::Playhead => {
+            state.edit.once(Snapshot::Playhead(frame.get()), || {
+                playhead.set(value.clamp(0.0, state.length.get()));
+            });
+        }
+        Target::LoopStart | Target::LoopEnd => {
+            let length = state.length.get();
+            let (a, b) = bounded_range(range.get(), length, state.loop_min_duration.get());
+            let a = a.min(length);
+            let b = b.min(length);
+            let unit = state.loop_min_duration.get().min(length);
+            state.edit.once(Snapshot::Loop(range.get()), || {
+                loop_range.set(if target == Target::LoopStart {
+                    (value.clamp(0.0, (b - unit).max(0.0)), b)
+                } else {
+                    (a, value.clamp((a + unit).min(length), length))
+                });
+            });
+        }
+        Target::Automation(track, id) => {
+            if let Some(snapshot) = state.auto_snapshot(track, id) {
+                state.edit.once(snapshot.clone(), || {
+                    if let Snapshot::Automation(_, _, Some(point)) = snapshot.clone() {
+                        state.request(ArrangementRequest::MovePoint {
+                            track,
+                            id,
+                            beat: point.beat,
+                            value: value.clamp(0.0, 1.0),
                         });
                     }
-                }
-                _ => {}
+                });
             }
         }
         _ => {}

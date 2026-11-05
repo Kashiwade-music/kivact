@@ -157,21 +157,7 @@ impl IntoView for GradientEditor {
         let group = node_ref();
         state.observe(group.focus_within());
         let disabled = memo(move || state.blocked.get() || !valid.get());
-        let infos = memo(move || {
-            scene.with(|scene| {
-                scene.as_ref().map_or_else(
-                    |_| Vec::new(),
-                    |scene| {
-                        stops
-                            .get()
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(index, _)| scene.id(&index).map(|id| (id, index)))
-                            .collect()
-                    },
-                )
-            })
-        });
+        let infos = stop_infos(stops, scene);
         let to_display = self.to_display.clone();
         let ramp = node()
             .role(Role::Canvas)
@@ -194,86 +180,7 @@ impl IntoView for GradientEditor {
             .regions(
                 infos,
                 |(id, _)| *id,
-                move |_, info| {
-                    let id = info.get_untracked().1;
-                    let label = message("creative.gradient.stop", "Gradient stop");
-                    let part = {
-                        let input_part = part(|input| input);
-                        kivact::custom::Part::new(input_part.state(), move |node| {
-                            node.part(input_part)
-                                .role(Role::Slider)
-                                .focusable(true)
-                                .name(move || format!("{} {id}", label.get()))
-                                .value_min(0.0)
-                                .value_max(1.0)
-                                .value_now(move || {
-                                    stops.with(|stops| {
-                                        stops.get(id).map_or(0.0, |s| position_value(s.position))
-                                    })
-                                })
-                                .value_text(move || {
-                                    stops
-                                        .with(|stops| {
-                                            stops
-                                                .get(id)
-                                                .map_or(0.0, |s| position_value(s.position))
-                                        })
-                                        .to_string()
-                                })
-                        })
-                    };
-                    let target = kivact::view::node_ref();
-                    let part = kivact::custom::Part::new(part.state(), move |node| {
-                        node.part(part).node_ref(target)
-                    });
-                    let action = move |event: A11yEvent| {
-                        if !state.enabled() {
-                            return;
-                        }
-                        if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
-                            if !state.edit.is_active() {
-                                selection.set(Some(id));
-                                target.focus();
-                            }
-                            return;
-                        }
-                        let current = stops.with_untracked(|stops| {
-                            stops.get(id).map_or(0.0, |s| position_value(s.position))
-                        });
-                        let next = match &event.request {
-                            A11yRequest::SetValue(text) => {
-                                text.trim().parse::<f64>().ok().filter(|v| v.is_finite())
-                            }
-                            A11yRequest::Increment => Some(current + 0.01),
-                            A11yRequest::Decrement => Some(current - 0.01),
-                            _ => None,
-                        };
-                        if let Some(next) = next {
-                            state.change_position(id, next);
-                        }
-                    };
-                    let drag_source = gesture.source_with(move || {
-                        let position = stops.with_untracked(|stops| {
-                            stops
-                                .get(id)
-                                .map_or(0.0, |stop| position_value(stop.position))
-                        });
-                        let size = rect
-                            .get_untracked()
-                            .map_or(Size::new(240.0, 44.0), |r| Size::new(r.width, r.height));
-                        (id, position, Ramp::new(size).width)
-                    });
-                    kivact::custom::Part::new(part.state(), move |node| {
-                        node.part(part)
-                            .part(drag_source)
-                            .on_key(move |event| key(state, id, event))
-                            .a11y_action(A11yAction::Select, action)
-                            .a11y_action(A11yAction::Activate, action)
-                            .a11y_action(A11yAction::SetValue, action)
-                            .a11y_action(A11yAction::Increment, action)
-                            .a11y_action(A11yAction::Decrement, action)
-                    })
-                },
+                move |_, info| stop_part(state, gesture, rect, info.get_untracked().1),
             );
         self.root
             .node_ref(group)
@@ -359,4 +266,111 @@ fn fields(
             .on_edit(move |phase| state.phase(GradientOwner::Color, phase)),
     ))
     .style(style().gap(8).min_width(0).width(pct(100)))
+}
+
+fn stop_part(
+    state: State,
+    gesture: kivact::interaction::DragApi<(usize, f64, f64)>,
+    rect: kivact::state::Value<Option<kivact::geometry::Rect>>,
+    id: usize,
+) -> kivact::custom::Part<kivact::custom::PartState> {
+    let stops = state.stops.into_value();
+
+    let label = message("creative.gradient.stop", "Gradient stop");
+    let part = {
+        let input_part = part(|input| input);
+        kivact::custom::Part::new(input_part.state(), move |node| {
+            node.part(input_part)
+                .role(Role::Slider)
+                .focusable(true)
+                .name(move || format!("{} {id}", label.get()))
+                .value_min(0.0)
+                .value_max(1.0)
+                .value_now(move || {
+                    stops.with(|stops| stops.get(id).map_or(0.0, |s| position_value(s.position)))
+                })
+                .value_text(move || {
+                    stops
+                        .with(|stops| stops.get(id).map_or(0.0, |s| position_value(s.position)))
+                        .to_string()
+                })
+        })
+    };
+    let target = kivact::view::node_ref();
+    let part =
+        kivact::custom::Part::new(part.state(), move |node| node.part(part).node_ref(target));
+    let action = move |event| stop_action(state, id, target, event);
+    let drag_source = gesture.source_with(move || {
+        let position = stops.with_untracked(|stops| {
+            stops
+                .get(id)
+                .map_or(0.0, |stop| position_value(stop.position))
+        });
+        let size = rect
+            .get_untracked()
+            .map_or(Size::new(240.0, 44.0), |r| Size::new(r.width, r.height));
+        (id, position, Ramp::new(size).width)
+    });
+    kivact::custom::Part::new(part.state(), move |node| {
+        node.part(part)
+            .part(drag_source)
+            .on_key(move |event| key(state, id, event))
+            .a11y_action(A11yAction::Select, action)
+            .a11y_action(A11yAction::Activate, action)
+            .a11y_action(A11yAction::SetValue, action)
+            .a11y_action(A11yAction::Increment, action)
+            .a11y_action(A11yAction::Decrement, action)
+    })
+}
+
+fn stop_action(state: State, id: usize, target: kivact::view::NodeRef, event: A11yEvent) {
+    let stops = state.stops.into_value();
+    let selection = state.selection;
+
+    if !state.enabled() {
+        return;
+    }
+    if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
+        if !state.edit.is_active() {
+            selection.set(Some(id));
+            target.focus();
+        }
+        return;
+    }
+    let current =
+        stops.with_untracked(|stops| stops.get(id).map_or(0.0, |s| position_value(s.position)));
+    let next = match &event.request {
+        A11yRequest::SetValue(text) => text.trim().parse::<f64>().ok().filter(|v| v.is_finite()),
+        A11yRequest::Increment => Some(current + 0.01),
+        A11yRequest::Decrement => Some(current - 0.01),
+        _ => None,
+    };
+    if let Some(next) = next {
+        state.change_position(id, next);
+    }
+}
+
+type StopScene = kivact::state::Value<
+    Result<std::rc::Rc<crate::editors::shared::targets::Scene<usize>>, kivact::UiError>,
+>;
+fn stop_infos(
+    stops: kivact::state::Value<Vec<GradientStop>>,
+    scene: StopScene,
+) -> kivact::state::Value<Vec<(kivact::draw::RegionId, usize)>> {
+    memo(move || {
+        scene.with(|scene| {
+            scene.as_ref().map_or_else(
+                |_| Vec::new(),
+                |scene| {
+                    stops
+                        .get()
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(index, _)| scene.id(&index).map(|id| (id, index)))
+                        .collect()
+                },
+            )
+        })
+    })
+    .into_value()
 }
