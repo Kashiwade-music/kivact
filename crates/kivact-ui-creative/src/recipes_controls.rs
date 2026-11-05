@@ -5,17 +5,17 @@ use crate::feedback::ToneExt;
 use kivact::custom::PartState;
 use kivact::draw::Shadow;
 use kivact::geometry::{Rect, Size};
-use kivact::interaction::DisclosureState;
 use kivact::interaction::ToastState;
 use kivact::style::{Align, Cursor, Direction, Justify, Position, Style, Theme, pct, rgba, style};
+use kivact::ui::DisclosureRecipeState;
 use kivact::ui::{AxisState, CheckableState, RadioGroupRecipes, SliderRecipes};
 use kivact::ui::{
     DisclosureRecipes, Look, ProgressRecipes, ProgressState, SplitterRecipes, ToastRecipes,
 };
 use kivact::view::Orientation;
 
-use crate::choice::Segmented;
 use crate::tokens::Tokens;
+use kivact::ui::RadioGroupVariant;
 
 pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
     r.group(|_| radio_group_layout)
@@ -26,7 +26,7 @@ pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
         })
 }
 fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
-    if orientation.variant::<Segmented>().is_some() {
+    if orientation.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         return crate::control_style::segmented_style(t);
     }
     let s = style().gap(8);
@@ -37,7 +37,7 @@ fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
 }
 /// A radio row: the indicator beside the label.
 fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
-    if state.variant::<Segmented>().is_some() {
+    if state.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         return crate::control_style::segmented_option_style(t);
     }
     crate::control_style::check_style(t)
@@ -45,7 +45,7 @@ fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
 /// The 14 px disc of an option: the accent around the theme's `dot`, in the
 /// accent's ink, while chosen.
 fn radio_indicator(t: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<Segmented>().is_some() {
+    if s.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         // A segment shows its choice by its fill, without a disc.
         return style().position(Position::Absolute).size(0, 0).clip(true);
     }
@@ -212,7 +212,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         .content(|_| disclosure_content)
 }
 
-fn disclosure_root(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_root(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::Column)
         .radius(7)
@@ -221,7 +221,7 @@ fn disclosure_root(_: &Theme, _: &Look<DisclosureState>) -> Style {
 }
 
 /// The chevron is the trigger's last child, drawn first by the reversed row.
-fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_trigger(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::RowReverse)
         .height(30)
@@ -232,14 +232,14 @@ fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
         .hover(style().background(kivact::style::ColorToken::Hover))
 }
 
-fn disclosure_indicator(_: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_indicator(_: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
         .rotate(if state.open { 0.0 } else { -90.0 })
 }
 
-fn disclosure_content(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_content(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .enter_size(kivact::view::Orientation::Vertical)
         .exit_size(kivact::view::Orientation::Vertical)

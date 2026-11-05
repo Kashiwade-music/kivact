@@ -38,7 +38,7 @@ kit's look from the recipes. Every component of the kit, like `kivact::ui`,
 takes the values it edits as constructor arguments and keeps no hidden copy.
 A segmented control is the standard radio group in the kit's look:
 `radio_group(label, options, value).orientation(Orientation::Horizontal)
-.variant(Segmented)`. Domain controls such as
+.variant(kivact::ui::RadioGroupVariant::Segmented)`. Domain controls such as
 `document_tabs`, the numeric fields, dock and editor surfaces remain in this
 kit; tool toggles, progress bars, inspector sections and split panes are the
 standard `kivact::ui::toggle`, `progress`, `disclosure` and `split` in its look.

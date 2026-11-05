@@ -218,7 +218,7 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
                 ),
             )
             .orientation(kivact::view::Orientation::Horizontal)
-            .variant(ui::Segmented)
+            .variant(kivact::ui::RadioGroupVariant::Segmented)
             .style(style().width(166)),
             kivact::ui::toggle_button("X", channels[0]),
             kivact::ui::toggle_button("Y", channels[1]),
@@ -600,7 +600,7 @@ pub(super) fn picker() -> impl IntoView {
                     mode,
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented)
+                .variant(kivact::ui::RadioGroupVariant::Segmented)
                 .style(style().width(248)),
                 dynamic(mode, move |mode| {
                     if mode.as_deref() == Some("rgb") {
@@ -762,7 +762,7 @@ pub(super) fn viewport(
                 ),
             )
             .orientation(kivact::view::Orientation::Horizontal)
-            .variant(ui::Segmented)
+            .variant(kivact::ui::RadioGroupVariant::Segmented)
             .style(style().width(218)),
             kivact::ui::button("Frame All")
                 .variant(kivact::ui::ButtonVariant::Secondary)

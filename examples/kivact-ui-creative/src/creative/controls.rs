@@ -119,7 +119,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                     signal(Some("object".to_owned())),
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented),
+                .variant(kivact::ui::RadioGroupVariant::Segmented),
                 kivact::ui::radio_group(
                     "Pivot",
                     keyed_options([
@@ -133,7 +133,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                     signal(Some("median".to_owned())),
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented),
+                .variant(kivact::ui::RadioGroupVariant::Segmented),
                 kivact::ui::radio_group(
                     "Interpolation",
                     keyed_options([
@@ -144,7 +144,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                     interpolation,
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented),
+                .variant(kivact::ui::RadioGroupVariant::Segmented),
             )),
         ),
         spec(
