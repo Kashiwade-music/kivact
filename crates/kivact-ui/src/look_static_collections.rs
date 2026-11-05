@@ -105,3 +105,15 @@ pub(super) fn actions(_: &Theme, _: &PartState) -> Style {
 pub(super) fn band(_: &Theme, _: &PartState) -> Style {
     style().direction(Direction::Row).width(pct(100))
 }
+
+pub(super) fn item_body(t: &Theme, _: &PartState) -> Style {
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .gap(
+            t.ext::<UiTokens>()
+                .item_list
+                .row_gap
+                .unwrap_or(t.space().sm),
+        )
+}

@@ -10,6 +10,7 @@ use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiTokens {
     pub indicators: crate::IndicatorTokens,
+    pub tree: crate::TreeTokens,
     pub table: crate::TableTokens,
     pub item_list: crate::ItemListTokens,
     pub pagination: crate::NavigationTokens,

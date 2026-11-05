@@ -325,6 +325,9 @@ fn set_collection_properties(node: &mut accesskit::Node, source: &SemanticsNode)
         if let Some(index) = props.row_index.and_then(|index| index.checked_sub(1)) {
             node.set_row_index(index as usize);
         }
+        if let Some(span) = props.column_span.filter(|&span| span != 0) {
+            node.set_column_span(span as usize);
+        }
         if let Some(index) = props.column_index.and_then(|index| index.checked_sub(1)) {
             node.set_column_index(index as usize);
         }

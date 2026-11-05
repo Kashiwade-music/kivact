@@ -288,6 +288,11 @@ impl<'a> Element<'a> {
             .and_then(|node| node.semantics.column_index)
     }
 
+    /// Number of logical columns covered by this cell, as published by the host.
+    pub fn column_span(&self) -> Option<u32> {
+        self.published().and_then(|node| node.semantics.column_span)
+    }
+
     /// The depth the host publishes for this element (`.level(..)`),
     /// counted from 1. `None` when not exposed or not set.
     pub fn level(&self) -> Option<u32> {

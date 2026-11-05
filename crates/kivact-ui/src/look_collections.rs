@@ -26,7 +26,10 @@ pub(super) fn list(t: &Theme, _: &PartState) -> Style {
 
 pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
     let rtl = use_direction().get() == ReadingDirection::Rtl;
-    let indent = t.space().md + row.level.saturating_sub(1) as f64 * 16.0;
+    let tokens = t.ext::<crate::UiTokens>();
+    let tree = &tokens.tree;
+    let padding = tree.padding.unwrap_or(t.space().md);
+    let indent = padding + row.level.saturating_sub(1) as f64 * tree.indent.unwrap_or(16.0);
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
@@ -36,11 +39,11 @@ pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
             Direction::Row
         })
         .align_items(Align::Center)
-        .min_height(t.control_height())
-        .padding_left(if rtl { t.space().md } else { indent })
-        .padding_right(if rtl { indent } else { t.space().md })
-        .gap(t.space().xs)
-        .radius(t.radius().sm)
+        .min_height(tree.row_height.unwrap_or(t.control_height()))
+        .padding_left(if rtl { padding } else { indent })
+        .padding_right(if rtl { indent } else { padding })
+        .gap(tree.gap.unwrap_or(t.space().xs))
+        .radius(tree.radius.unwrap_or(t.radius().sm))
         .hover(style().background(ColorToken::Hover))
         .selected(style().background(ColorToken::Selection))
 }
@@ -211,4 +214,10 @@ pub(super) fn page(t: &Theme, _: &DataTablePageState) -> Style {
         .direction(Direction::Row)
         .align_items(Align::Center)
         .gap(t.space().sm)
+}
+
+pub(super) fn tree_marker(t: &Theme, _: &TreeItemState) -> Style {
+    style()
+        .width(t.ext::<crate::UiTokens>().tree.marker_width.unwrap_or(16.0))
+        .shrink(0)
 }

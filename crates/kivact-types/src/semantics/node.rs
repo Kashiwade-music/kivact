@@ -67,6 +67,8 @@ pub struct Semantics<R> {
     pub row_index: Option<u32>,
     /// Logical table column, counted from one; zero is not published.
     pub column_index: Option<u32>,
+    /// Number of table columns covered by a cell; zero is not published.
+    pub column_span: Option<u32>,
     /// Hierarchy depth, counted from one; zero is not published.
     pub level: Option<u32>,
     /// Number of items in the set; zero denotes an empty set.
@@ -120,6 +122,7 @@ impl<R> Default for Semantics<R> {
             column_count: None,
             row_index: None,
             column_index: None,
+            column_span: None,
             level: None,
             set_size: None,
             pos_in_set: None,
@@ -169,6 +172,7 @@ impl<R> Semantics<R> {
             column_count: self.column_count,
             row_index: self.row_index,
             column_index: self.column_index,
+            column_span: self.column_span,
             level: self.level,
             set_size: self.set_size,
             pos_in_set: self.pos_in_set,

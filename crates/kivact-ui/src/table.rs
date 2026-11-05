@@ -90,8 +90,10 @@ impl IntoView for Table {
 /// A header or data cell with proportional or fixed width.
 pub struct TableCell {
     root: Node,
+    // xtask-allow(state-fields): Header versus data role is a fixed cell construction option.
     header: bool,
     align: Value<TextAlign>,
+    // xtask-allow(state-fields): Optional fixed width is independent of the cell role and never changes interaction phase.
     width: Option<Value<Length>>,
     span: Value<usize>,
     variants: Variants,
@@ -116,7 +118,7 @@ fn cell(content: impl IntoView, header: bool) -> TableCell {
             })
             .child(content),
         header,
-        align: (|| TextAlign::Start).into_value(),
+        align: TextAlign::Start.into_value(),
         width: None,
         span: 1.into_value(),
         variants: Variants::default(),
@@ -168,19 +170,20 @@ impl IntoView for TableCell {
             &variants,
             move || state.get(),
         );
-        root.base_style(move || {
-            let s = style()
-                .text_align(align.get())
-                .justify_content(match align.get() {
-                    TextAlign::Center => Justify::Center,
-                    TextAlign::End => Justify::End,
-                    _ => Justify::Start,
-                });
-            match width {
-                Some(width) => s.width(width.get()).shrink(0),
-                None => s.grow(span.get().max(1) as f64).basis(0).shrink(1),
-            }
-        })
-        .into_view()
+        root.column_span(move || u32::try_from(span.get().max(1)).unwrap_or(u32::MAX))
+            .base_style(move || {
+                let s = style()
+                    .text_align(align.get())
+                    .justify_content(match align.get() {
+                        TextAlign::Center => Justify::Center,
+                        TextAlign::End => Justify::End,
+                        _ => Justify::Start,
+                    });
+                match width {
+                    Some(width) => s.width(width.get()).shrink(0),
+                    None => s.grow(span.get().max(1) as f64).basis(0).shrink(1),
+                }
+            })
+            .into_view()
     }
 }
