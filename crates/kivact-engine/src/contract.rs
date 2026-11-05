@@ -2,7 +2,7 @@
 mod events;
 pub use events::HostEvent;
 mod host;
-pub use host::{HostError, HostInfo, HostRequest, TurnOutput};
+pub use host::{HostError, HostInfo, HostRequest, SnapshotResult, TurnOutput};
 mod measure;
 pub use measure::{LeafMeasure, LeafTextMeasurer};
 mod node;
