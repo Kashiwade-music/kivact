@@ -2,6 +2,7 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
+use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -21,7 +22,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "ellipsis",
                 "Ellipsis",
-                "item スロットで省略した階層を表します。",
+                "item スロットに basic::breadcrumb_ellipsis を置いて、省略した階層を表します。",
                 ellipsis,
             ),
             Example::new(
@@ -60,7 +61,7 @@ fn ellipsis() -> impl IntoView {
     .on_activate(|_| {})
     .item(|item| {
         if *item.key() == "more" {
-            icon("ellipsis").style(style().size(20, 20)).into_view()
+            basic::breadcrumb_ellipsis().into_view()
         } else {
             text(item.label()).into_view()
         }

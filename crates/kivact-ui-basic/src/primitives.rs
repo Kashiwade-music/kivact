@@ -1,12 +1,12 @@
-//! Role: Small Lyra primitives: label, separator, kbd, spinner, skeleton and more.
+//! Role: Small Lyra primitives: label, separators, key groups, captions and the crumb ellipsis.
 
 use crate::ColorName;
 
 use kivact::state::Value;
-use kivact::view::{Node, NodeBuilder, node, text};
+use kivact::view::{Node, NodeBuilder, icon, node, row, text};
 
 use kivact::state::{IntoText, IntoValue};
-use kivact::style::{Align, Direction, pct, style};
+use kivact::style::{Align, Direction, Justify, TextAlign, pct, style};
 use kivact::view::{IntoView, NodeRef, Orientation, Role, View};
 
 /// A form label (label.tsx): 12 px text without leading, centered with its children.
@@ -135,4 +135,59 @@ impl IntoView for Separator {
             })
             .into_view()
     }
+}
+
+/// A horizontal rule between the rows of a `kivact::ui::item_list`, with
+/// 8 px above and below.
+#[track_caller]
+pub fn item_separator() -> Node {
+    node()
+        .role(Role::Separator)
+        .orientation(Orientation::Horizontal)
+        .style(
+            style()
+                .width(pct(100))
+                .height(1)
+                .shrink(0)
+                .margin_y(8)
+                .background(ColorName::Border),
+        )
+}
+
+/// Key caps of `kivact::ui::kbd` shown together, such as a shortcut
+/// (kbd.tsx `KbdGroup`).
+#[track_caller]
+pub fn kbd_group(children: impl IntoView) -> Node {
+    row(children).style(style().align_items(Align::Center).gap(4))
+}
+
+/// A caption under a `kivact::ui::table`, muted and centered, with 16 px
+/// above it. Put it after the table: it is drawn where it is placed.
+#[track_caller]
+pub fn table_caption(text_value: impl IntoText) -> Node {
+    text(text_value).style(
+        style()
+            .margin_top(16)
+            .color(ColorName::MutedForeground)
+            .text_align(TextAlign::Center),
+    )
+}
+
+/// The "…" that stands for hidden crumbs in the `item` slot of a
+/// `kivact::ui::breadcrumb`, read as the `basic.breadcrumb.more` message
+/// ("More").
+#[track_caller]
+pub fn breadcrumb_ellipsis() -> Node {
+    node()
+        .role(Role::Text)
+        .name(kivact::i18n::message("basic.breadcrumb.more", "More"))
+        .style(
+            style()
+                .size(20, 20)
+                .shrink(0)
+                .direction(Direction::Row)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center),
+        )
+        .child(icon("ellipsis"))
 }

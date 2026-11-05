@@ -3,6 +3,7 @@ use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
+use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -22,7 +23,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "group",
                 "Group",
-                "row で複数のキーを組み合わせて、ショートカットを表します。",
+                "basic::kbd_group で複数のキーを組み合わせて、ショートカットを表します。",
                 group,
             ),
             Example::new(
@@ -50,14 +51,12 @@ fn default() -> impl IntoView {
 // example: group
 fn group() -> impl IntoView {
     column((
-        row((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("B")))
-            .style(style().align_items(Align::Center).gap(4)),
-        row((
+        basic::kbd_group((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("B"))),
+        basic::kbd_group((
             kivact::ui::kbd("Ctrl"),
             kivact::ui::kbd("Shift"),
             kivact::ui::kbd("P"),
-        ))
-        .style(style().align_items(Align::Center).gap(4)),
+        )),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }

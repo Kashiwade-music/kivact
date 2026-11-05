@@ -30,7 +30,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "group",
                 "Group",
-                "item_group で縦に並べ、item_separator で区切ります。",
+                "item_list で縦に並べ、item_separator で区切ります。",
                 group,
             ),
             Example::new(
@@ -82,29 +82,9 @@ fn media() -> impl IntoView {
 fn group() -> impl IntoView {
     kivact::ui::item_list((
         kivact::ui::item_row("Profile").media(icon("user")),
-        node()
-            .role(Role::Separator)
-            .orientation(Orientation::Horizontal)
-            .style(
-                style()
-                    .width(pct(100))
-                    .height(1)
-                    .shrink(0)
-                    .margin_y(8)
-                    .background(basic::ColorName::Border),
-            ),
+        basic::item_separator(),
         kivact::ui::item_row("Billing").media(icon("credit-card")),
-        node()
-            .role(Role::Separator)
-            .orientation(Orientation::Horizontal)
-            .style(
-                style()
-                    .width(pct(100))
-                    .height(1)
-                    .shrink(0)
-                    .margin_y(8)
-                    .background(basic::ColorName::Border),
-            ),
+        basic::item_separator(),
         kivact::ui::item_row("Notifications").media(icon("bell")),
     ))
     .style(style().width(460))
