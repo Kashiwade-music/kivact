@@ -631,14 +631,14 @@ pub fn avatar_more(count: usize) -> impl kivact::view::Component {
     node()
         .child(
             crate::mono(format!("+{count}"))
-                .style(style().font_size(10).color(crate::Color::Text3)),
+                .style(style().font_size(10).color(crate::ColorName::Text3)),
         )
         .style(
             style()
                 .size(32, 32)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .background(crate::Color::Surface3)
+                .background(crate::ColorName::Surface3)
                 .clip_path(
                     Shape::polygon()
                         .point(0, 0)

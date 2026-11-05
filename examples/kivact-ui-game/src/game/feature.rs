@@ -17,8 +17,8 @@ pub(super) fn feature_card(
                 .style(
                     style()
                         .size(34, 34)
-                        .background(kivact_ui_game::Color::Navy)
-                        .color(kivact_ui_game::Color::Cyan)
+                        .background(kivact_ui_game::ColorName::Navy)
+                        .color(kivact_ui_game::ColorName::Cyan)
                         .align_items(Align::Center)
                         .justify_content(Justify::Center),
                 )

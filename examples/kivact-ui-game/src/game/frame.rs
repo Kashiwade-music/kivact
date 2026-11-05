@@ -6,7 +6,7 @@ use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::view::IntoView;
 use kivact::view::{Node, NodeBuilder, column, row, scroll};
-use kivact_ui_game::Color;
+use kivact_ui_game::ColorName;
 /// A window frame with application-owned panes and optional chrome slots.
 pub(super) struct NativeWindow {
     root: Node,
@@ -94,7 +94,7 @@ impl IntoView for NativeWindow {
                 .padding_x(12)
                 .align_items(Align::Center)
                 .gap(18)
-                .background(Color::Navy)
+                .background(ColorName::Navy)
                 .color(kivact::style::rgb(0xe3ecf6)),
         );
         let panes = kivact::ui::splitter(

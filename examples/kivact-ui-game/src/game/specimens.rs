@@ -6,7 +6,7 @@ use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, BorderStyle, ColorToken, Justify, pct, style, use_theme};
 use kivact::view::{IntoView, Role, View};
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
-use kivact_ui_game::{Color, Tokens, cut_corner, hud, mono};
+use kivact_ui_game::{ColorName, Tokens, cut_corner, hud, mono};
 /// Supported prototype shape motifs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ShapeKind {
@@ -72,7 +72,7 @@ impl<C: kivact::view::Component> IntoView for Specimen<C> {
                         text(self.title).style(style().weight(700).font_size(12.5)),
                         node().style(style().grow(1)),
                         mono(self.caption)
-                            .style(style().font_size(10.5).weight(500).color(Color::Text3)),
+                            .style(style().font_size(10.5).weight(500).color(ColorName::Text3)),
                     ))
                     .style(
                         style()
@@ -112,7 +112,7 @@ impl<C: kivact::view::Component> IntoView for Specimen<C> {
 pub(super) fn swatch(
     name: impl IntoText,
     hex: impl IntoText,
-    color: impl IntoValue<kivact::style::Color>,
+    color: impl IntoValue<kivact::style::ColorName>,
 ) -> Node {
     let hex = hex.into_text_value();
     let color = color.into_value();

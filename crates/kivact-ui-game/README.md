@@ -11,7 +11,7 @@ KPIs, file trees, banners and activity logs.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{ThemeMode};
-use kivact_ui_game::{Density, Slant, ThemeOptions as _, theme};
+use kivact_ui_game::{Density, Slant, ThemeOptions, theme_with};
 
 fn screen() -> impl IntoView {
     let approved = signal(false);
@@ -26,14 +26,14 @@ fn screen() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Operations")
-        .theme(theme(ThemeMode::Light).density(Density::Compact))
+        .theme(theme_with(ThemeMode::Light, ThemeOptions { density: Density::Compact }))
         .run(screen)
 }
 ```
 
 - **Theme.** `theme(mode)` returns a plain `Theme` for `App::theme` or
-  `provide_theme`. Options such as `.density(..)` come from the
-  `ThemeOptions` trait, which must be in scope (`use ... ThemeOptions as _`).
+  `provide_theme`. Use `theme_with(mode, ThemeOptions { density, ..Default::default() })`
+  to choose the density.
   The kit's tokens are `Tokens`; icons are the bundled Tabler set, drawn with
   `kivact::view::icon("name")`.
 - **Looks of standard components.** `radio_group(..).variant(Segmented)` or
@@ -47,7 +47,7 @@ fn main() -> kivact::Result<()> {
 ## Documentation
 
 - Tutorial and how-to guides: [English](../../docs/for-kivact-ui-user/en/game/getting-started/README.md),
-  [日本語](../../docs/for-kivact-ui-user/jp/game/getting-started/README.md)
+  [譌･譛ｬ隱枉(../../docs/for-kivact-ui-user/jp/game/getting-started/README.md)
 - API reference: `cargo doc -p kivact-ui-game --open`
 - Catalog: `cargo run -p kivact-ui-game-catalog` from the repository root
 
@@ -62,3 +62,33 @@ MIT OR Apache-2.0. The bundled Tabler icons are MIT
 | Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
 | Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
 | Individually wrapped children | `impl IntoChildren` |
+
+## Filled recipes
+
+<!-- kivact-recipes -->
+- `field`
+- `button`
+- `button_content`
+- `button_busy`
+- `toggle`
+- `checkbox`
+- `switch`
+- `text_input`
+- `text_area`
+- `select`
+- `menu`
+- `dialog`
+- `tooltip`
+- `tabs`
+- `radio_group`
+- `slider`
+- `toast`
+- `splitter`
+- `list`
+- `data_table`
+- `progress`
+- `disclosure`
+- `command_palette`
+- `tag_input`
+- `number_input`
+<!-- /kivact-recipes -->

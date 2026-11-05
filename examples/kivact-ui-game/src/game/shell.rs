@@ -20,8 +20,8 @@ use kivact::view::{Handled, node_ref};
 use kivact::view::{IntoView, NodeRef};
 use kivact::view::{Node, column, node, row, scroll};
 use kivact_ui_game as g;
-use kivact_ui_game::ThemeOptions as _;
-use kivact_ui_game::{Color, Tokens};
+use kivact_ui_game::ThemeOptions;
+use kivact_ui_game::{ColorName, Tokens};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -41,8 +41,8 @@ pub(super) fn app_shell(
                 .width(252)
                 .shrink(0)
                 .height(pct(100))
-                .background(Color::Sidebar)
-                .color(Color::SidebarText),
+                .background(ColorName::Sidebar)
+                .color(ColorName::SidebarText),
         )
         .child(sidebar);
     let top = row(topbar)
@@ -77,7 +77,7 @@ pub(super) fn app_shell(
     let canvas = scroll(content)
         .with_node(|node| node.node_ref(scroll_node))
         .style(style().grow(1).min_height(0).align_items(Align::Center))
-        .style(style().background(Color::Canvas))
+        .style(style().background(ColorName::Canvas))
         .draw(|d, s| {
             let p = d.theme().ext::<Tokens>();
             let color = if p.mode == ThemeMode::Dark {
@@ -121,7 +121,7 @@ enum PaletteCommand {
 
 /// The exact prototype font families, registered by the catalog executable.
 fn catalog_theme(mode: kivact::style::ThemeMode, density: g::Density) -> Theme {
-    let t = g::theme(mode).density(density);
+    let t = g::theme_with(mode, ThemeOptions { density });
     let text = kivact::style::theme::Typography {
         family: Some("Noto Sans JP".into()),
         ..t.text().clone()

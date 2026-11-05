@@ -8,28 +8,40 @@ use kivact::style::{LineHeight, Theme, ThemeMode, rgb, rgba};
 ///
 /// The result is a plain [`Theme`], so it goes to `App::theme`,
 /// `provide_theme` and a signal as it is. The kit's options are
-/// [`ThemeOptions`] methods on it: `theme(mode).density(Density::Compact)`.
+/// supplied through [`theme_with`] and [`ThemeOptions`]: `theme_with(mode, ThemeOptions { density: Density::Compact })`.
 ///
 /// ```no_run
 /// use kivact::prelude::*;
 /// use kivact::style::{ThemeMode};
 /// use kivact::style::{provide_theme};
-/// use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+/// use kivact_ui_game::{self as game, Density, ThemeOptions};
 ///
 /// fn console(dark: Signal<bool>, compact: Signal<bool>) -> impl IntoView {
 ///     provide_theme(
 ///         move || {
 ///             let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
 ///             let density = if compact.get() { Density::Compact } else { Density::Comfortable };
-///             game::theme(mode).density(density)
+///             game::theme_with(mode, ThemeOptions { density })
 ///         },
 ///         || text("Ready"),
 ///     )
 /// }
 /// ```
 pub fn theme(mode: ThemeMode) -> Theme {
+    theme_with(mode, ThemeOptions::default())
+}
+
+/// Options for the console theme.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ThemeOptions {
+    /// Control and row heights and panel padding.
+    pub density: Density,
+}
+
+/// Build the console theme with explicit metrics.
+pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
     let base = Theme::light();
-    let tokens = Tokens::new(mode, Density::Comfortable);
+    let tokens = Tokens::new(mode, options.density);
     let mut colors = base.colors().clone();
     colors.surface = rgb(0xffffff);
     colors.surface_alt = rgb(0xf5f8fb);
@@ -99,26 +111,4 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_icons(crate::icons::set())
         .with(tokens)
         .with(crate::recipes::recipes())
-}
-
-/// The kit's options on a [`Theme`] made by [`theme`].
-pub trait ThemeOptions {
-    /// Use the metrics of `density`: the control and row heights and the
-    /// padding of the console's panels. The colors, the type families and
-    /// the rest of the theme's [`Tokens`] stay as they are.
-    #[must_use]
-    fn density(self, density: Density) -> Theme;
-}
-
-impl ThemeOptions for Theme {
-    fn density(self, density: Density) -> Theme {
-        let metrics = Tokens::new(self.mode(), density);
-        let mut tokens = (*self.ext::<Tokens>()).clone();
-        tokens.density = density;
-        tokens.control_height = metrics.control_height;
-        tokens.row_height = metrics.row_height;
-        tokens.padding = metrics.padding;
-        self.with_control_height(metrics.control_height)
-            .with(tokens)
-    }
 }

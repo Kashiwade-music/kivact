@@ -1,5 +1,5 @@
 //! Role: Banners, alerts, toast cards, skeletons and empty states.
-use crate::Color;
+use crate::ColorName;
 use kivact::draw::{Layer, Path};
 use kivact::geometry::{Point, Rect};
 use kivact::motion::{FrameRate, frame_loop};

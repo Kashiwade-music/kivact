@@ -2,7 +2,7 @@
 //!
 //! The complete public API is built from the public `kivact` facade.
 //! Install [`theme`] on an app or subtree (`theme(mode)`, with
-//! [`ThemeOptions::density`] for the compact metrics), then compose the
+//! [`theme_with`] and [`ThemeOptions`] for the compact metrics), then compose the
 //! constructors.
 //! Constructors returning `Node` accept all ordinary Kivact modifiers.
 //! Builders implement `NodeBuilder` and therefore `NodeBuilder` as well.
@@ -43,7 +43,7 @@ mod tokens;
 
 pub use button::{button_group, chevron, tool_button, toolbar};
 pub use choice::{Boxed, ChoiceCard, Navigation, Segmented, card_label, navigation_label};
-pub use color::Color;
+pub use color::ColorName;
 pub use display::{
     ActivityEntry, Avatar, BadgeVariant, Gauge, Kpi, activity, avatar, avatar_more, avatar_stack,
     badge, gauge, kpi, property_list, ring, tag_badge,
@@ -57,5 +57,5 @@ pub use recipes::{ButtonTone, Slant};
 pub use recipes_small::Striped;
 pub use surface::{cut_corner, halo, hud, mono, section_heading};
 pub use table::TableCell;
-pub use theme::{ThemeOptions, theme};
+pub use theme::{ThemeOptions, theme, theme_with};
 pub use tokens::{Density, Tokens};
