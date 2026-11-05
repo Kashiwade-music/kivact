@@ -86,7 +86,7 @@ fn main() -> kivact::Result<()> {
 | `useEffect`／`createEffect` | `effect` | 読んだ状態の変化に応じて外部との同期処理を行う。表示する値の計算には `memo` を使う。 |
 | `useReducer` に effect と timer を加えたもの | `Machine` | 状態、イベント、遷移、実行する effect やタイマーをまとめ、複数段階の振る舞いを表す。 |
 
-このカウンターには `signal` と `memo` で十分です。`Machine` の定義に進むときは `kivact::state` の型を使います。詳しい対応は [React／Solid から来た人向けのガイド](../how-to-guide/coming-from-react-or-solid.md) にあります。
+このカウンターには `signal` と `memo` で十分です。色と件数のように独立して変わる値は、それぞれのシグナルに置けます。長押し、待機、実行、キャンセルのように段階とイベントの組み合わせに規則がある振る舞いは、`Machine` で遷移を一か所にまとめます。`Machine` の定義に進むときは `kivact::state` の型を使います。詳しい対応は [React／Solid から来た人向けのガイド](../how-to-guide/coming-from-react-or-solid.md) にあります。
 
 ## 実行する
 
