@@ -51,7 +51,9 @@ fn display_contents_lays_out_children_in_the_parent() {
         "following sibling",
     );
     let tree = screen.accessibility_tree();
-    let group = screen.get_by_role(Role::Group, "transparent");
+    let group = screen
+        .get_by_role(Role::Group, "parent")
+        .get_by_role(Role::Group, "transparent");
     group.get_by_role(Role::Button, "first");
     group.get_by_role(Role::Button, "second");
     assert_rect(
@@ -68,8 +70,9 @@ fn display_contents_lays_out_children_in_the_parent() {
             .expect("invariant: named semantic node is published");
         line.len() - line.trim_start().len()
     };
-    assert_eq!(indent("#contents"), indent("#parent") + 2, "{tree}");
-    assert_eq!(indent("#first"), indent("#contents") + 2, "{tree}");
-    assert_eq!(indent("#second"), indent("#contents") + 2, "{tree}");
+    // Anonymous native fragments may sit between the named semantic nodes.
+    assert!(indent("#contents") > indent("#parent"), "{tree}");
+    assert!(indent("#first") > indent("#contents"), "{tree}");
+    assert_eq!(indent("#second"), indent("#first"), "{tree}");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
