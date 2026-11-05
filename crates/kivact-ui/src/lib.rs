@@ -269,6 +269,8 @@ pub use recipes::HoverCardRecipes;
 
 mod combobox;
 mod drawer_swipe;
+mod selection_field;
+pub use selection_field::{SelectionField, selection_field};
 mod selector_presentation;
 pub use combobox::{Combobox, ComboboxTokens, combobox};
 pub use kivact_interaction::ComboboxMode;
