@@ -49,7 +49,7 @@ impl NodeTree {
             .map(|index| self.nodes.id_at(index))
     }
 
-    pub(super) fn children_ids<'a>(
+    pub(crate) fn children_ids<'a>(
         &'a self,
         node: &'a HostNode,
     ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator + 'a {
@@ -65,8 +65,20 @@ impl NodeTree {
         &self,
         id: NodeId,
     ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator {
+        let children = self.flat(id);
+        (0..children.len()).map(move |index| children[index])
+    }
+
+    /// The `index`-th of [`NodeTree::flat_children`] of `id`.
+    pub(crate) fn flat_child(&self, id: NodeId, index: usize) -> Option<NodeId> {
+        self.flat(id).get(index).copied()
+    }
+
+    /// The flat children of `id`, cached until the tree's structure or a
+    /// node's Contents role changes ([`NodeTree::forget_flat`]).
+    fn flat(&self, id: NodeId) -> Rc<[NodeId]> {
         let cached = self.flat.borrow().get(&id).cloned();
-        let children = cached.unwrap_or_else(|| {
+        cached.unwrap_or_else(|| {
             let mut children = Vec::new();
             let mut stack = self
                 .get(id)
@@ -87,8 +99,13 @@ impl NodeTree {
             let children: Rc<[NodeId]> = children.into();
             self.flat.borrow_mut().insert(id, children.clone());
             children
-        });
-        (0..children.len()).map(move |index| children[index])
+        })
+    }
+
+    /// A node started or stopped being a Contents node, or a Contents node
+    /// was hidden or shown: the flat children are derived again.
+    pub(crate) fn forget_flat(&mut self) {
+        self.flat.get_mut().clear();
     }
 
     /// Logical children still owned by the client.
@@ -148,6 +165,17 @@ impl NodeTree {
             parent = self.parent_id(node);
         }
         None
+    }
+
+    /// `id` when it contributes a box, else its nearest parent that does:
+    /// the box a Contents node's children are laid out and drawn in.
+    pub(crate) fn box_of(&self, id: NodeId) -> Option<NodeId> {
+        let node = self.get(id)?;
+        if node.is_transparent() {
+            self.flat_parent(node)
+        } else {
+            Some(id)
+        }
     }
 
     /// `node` and its ancestors, nearest first (empty for `None`).
@@ -274,7 +302,6 @@ impl NodeTree {
     /// Derive the place of the node at `index` again from its props, keeping the
     /// sticky, fixed and scroller indexes with it; the place it had.
     pub(crate) fn update_place(&mut self, index: NodeIndex) -> Place {
-        self.flat.get_mut().clear();
         let id = self.nodes.id_at(index);
         let n = self.nodes.at_mut(index);
         let old = n.place;
