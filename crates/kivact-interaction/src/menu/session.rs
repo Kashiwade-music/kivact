@@ -6,7 +6,7 @@ use super::press_state::Press;
 use super::state::{Edge, MenuEntry, MenuOptions, MenuOrigin, Opened, Target, Want};
 use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupApi, PopupCloseReason, ReasonSet, use_popup};
-use kivact_core::state::{Callback, MachineHandle, Signal, Value, memo, signal};
+use kivact_core::state::{Binding, Callback, MachineHandle, Signal, Value, memo, signal};
 use kivact_core::view::NodeRef;
 
 /// State shared by every level of one menu. All handles are `Copy`.
@@ -48,8 +48,11 @@ impl<K: kivact_core::state::ItemKey> Copy for Session<K> {}
 impl<K: kivact_core::state::ItemKey> Session<K> {
     /// Setup only.
     #[track_caller]
-    pub(super) fn new(entries: Value<Vec<MenuEntry<K>>>, choose: Callback<K>) -> Self {
-        let open = signal(false);
+    pub(super) fn new(
+        entries: Value<Vec<MenuEntry<K>>>,
+        choose: Callback<K>,
+        open: Binding<bool>,
+    ) -> Self {
         // The popup returns the focus; each opening says where to (see
         // `Session::focus_return`, installed when the top level binds).
         let popup = use_popup(open);
@@ -112,6 +115,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             options: crate::options_cell::OptionsCell::new(MenuOptions {
                 choose,
                 menubar: None,
+                trigger_action: None,
             }),
             popup,
             anchor,
@@ -160,15 +164,19 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
 
     /// Open from the menu button; the focus later returns to it.
     pub(super) fn open_from_button(&self) {
-        self.machine.send(Event::Open(Opened::Button));
         self.popup.open_binding().set(true);
+        if self.is_open().get_untracked() {
+            self.machine.send(Event::Open(Opened::Button));
+        }
     }
 
     /// Open as a context menu; the focus later returns to the element that
     /// has it now.
     pub(super) fn open_at(&self, origin: MenuOrigin) {
-        self.machine.send(Event::Open(Opened::Context(origin)));
         self.popup.open_binding().set(true);
+        if self.is_open().get_untracked() {
+            self.machine.send(Event::Open(Opened::Context(origin)));
+        }
     }
 }
 

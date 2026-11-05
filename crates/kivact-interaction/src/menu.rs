@@ -45,7 +45,7 @@ mod press_state;
 mod session;
 mod state;
 
-pub use handle::{MenuApi, use_menu};
+pub use handle::{MenuApi, use_menu, use_menu_with_open};
 pub use level::{DisabledMenuFocus, SubmenuTiming};
 pub use press_state::MenuPress;
 pub use state::{MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow};

@@ -619,4 +619,5 @@ pub(super) enum Opened {
 pub(super) struct MenuOptions<K: 'static> {
     pub(super) choose: Callback<K>,
     pub(super) menubar: Option<Callback<bool>>,
+    pub(super) trigger_action: Option<Callback<()>>,
 }

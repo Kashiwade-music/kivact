@@ -73,6 +73,8 @@ impl MachineTrait for Machine {
 pub struct NavigationMenuApi {
     machine: MachineHandle<Machine>,
     changed: OptionsCell<Option<Callback<bool>>>,
+    // xtask-allow(state-fields): Setup-only genuine panel identity allocation, not an event epoch or visibility cache.
+    next_panel: OptionsCell<usize>,
 }
 
 /// Create one exclusive panel owner. Setup only.
@@ -90,9 +92,22 @@ pub fn use_navigation_menu() -> NavigationMenuApi {
             },
         ),
         changed,
+        next_panel: OptionsCell::new(0),
     }
 }
 impl NavigationMenuApi {
+    /// Allocate one genuine panel identity during setup, including mounted dynamic factories.
+    /// This is identity allocation only; `NavOpen` remains the sole open-state authority.
+    pub fn panel_key(self) -> usize {
+        let mut key = 0;
+        self.next_panel.update(|next| {
+            key = *next;
+            *next = next
+                .checked_add(1)
+                .expect("navigation panel identity exhausted");
+        });
+        key
+    }
     /// Observe accepted open/closed changes. Setup only.
     pub fn on_open_change(self, f: impl Fn(bool) + 'static) -> Self {
         self.changed.update(|changed| *changed = Some(callback(f)));

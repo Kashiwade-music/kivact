@@ -354,7 +354,7 @@ mod navigation_values;
 pub use navigation_link::{NavigationMenuLink, navigation_menu_link};
 pub use navigation_values::{
     NavigationLinkState, NavigationTriggerState, PageItem, PaginationItemState, PaginationMode,
-    PaginationSummary,
+    PaginationSummary, PaginationWindow,
 };
 mod navigation_tokens;
 mod pagination;
