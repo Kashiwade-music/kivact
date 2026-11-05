@@ -70,7 +70,7 @@ impl Model {
             return;
         };
         let hidden = self.hidden(id, clipped);
-        let rect = self.rect(id).unwrap_or_default();
+        let rect = self.semantic_rect(id).unwrap_or_default();
         let bounds = types::Rect {
             x: rect.x + offset.x,
             y: rect.y + offset.y,
@@ -85,7 +85,8 @@ impl Model {
         };
         let children: Vec<kivact_types::SemanticsId> = self
             .tree()
-            .flat_children(self.tree().nodes.id_at(n.index))
+            .logical_children(id)
+            .into_iter()
             .map(|id| kivact_types::SemanticsId(id.0))
             .collect();
         // The model's exposure (role, name, actions). A node without a
@@ -332,12 +333,9 @@ impl Model {
             return None;
         }
         let focus = tree.chain(self.focused().map(|f| f.node));
-        let bounds = self.rect(list).unwrap_or_default();
+        let bounds = self.semantic_rect(list).unwrap_or_default();
         let mut rows = Vec::new();
-        let mut stack: Vec<_> = tree
-            .flat_children(tree.nodes.id_at(n.index))
-            .rev()
-            .collect();
+        let mut stack: Vec<_> = tree.logical_children(list).into_iter().rev().collect();
         while let Some(id) = stack.pop() {
             let Some(child) = tree.get(id) else {
                 continue;
@@ -348,14 +346,14 @@ impl Model {
             if semantic_role(child, self.editors[child.index.0].is_some()).is_none()
                 && self.focused().map(|f| f.node) != Some(id)
             {
-                stack.extend(tree.flat_children(tree.nodes.id_at(child.index)).rev());
+                stack.extend(tree.logical_children(id).into_iter().rev());
             } else {
                 rows.push(id);
             }
         }
         let inside: Vec<_> = rows
             .iter()
-            .map(|row| overlaps(self.rect(*row).unwrap_or_default(), bounds))
+            .map(|row| overlaps(self.semantic_rect(*row).unwrap_or_default(), bounds))
             .collect();
         let mut clipped = BTreeSet::new();
         for (i, row) in rows.iter().enumerate() {

@@ -54,14 +54,7 @@ impl Model {
             } => (nodes, subtrees, removed),
             _ => (&empty, &empty, &empty),
         };
-        // Transparent ancestors are absent from the flattened accessibility order.
-        // Seed their contributing children so inherited visibility reaches them.
-        let mut subtree_roots = subtrees.clone();
-        for &id in subtrees {
-            if self.node(id).is_some_and(|node| node.is_transparent()) {
-                subtree_roots.extend(self.tree().flat_children(id));
-            }
-        }
+        let subtree_roots = subtrees;
         let (metadata, order) = self.build_identity_metadata();
         let mut dirty = own.clone();
         dirty.extend(removed.iter().copied());
@@ -97,6 +90,7 @@ impl Model {
         }
         self.expand_overlay_dirt(&order, &inherited, &mut dirty);
         self.expand_relation_dirt(&metadata, &mut dirty);
+        self.invalidate_boxless_ancestors(&mut dirty);
         let nodes = self.build_dirty_nodes(root, full, &dirty, &metadata, engine);
         #[cfg(feature = "testing")]
         {
@@ -155,13 +149,13 @@ impl Model {
             modal: self.modal(),
             ..Default::default()
         };
-        let order = self.tree().flat_preorder();
+        let order = self.semantic_order();
         for &id in &order {
             let Some(n) = self.node(id) else { continue };
-            metadata.parents.insert(id, self.tree().flat_parent(n));
+            metadata.parents.insert(id, self.tree().parent_id(n));
             let mut children = DefaultHasher::new();
             let mut count = 0usize;
-            for child in self.tree().flat_children(self.tree().nodes.id_at(n.index)) {
+            for child in self.semantic_children(id) {
                 child.hash(&mut children);
                 count += 1;
             }
@@ -290,8 +284,8 @@ impl Model {
                     y: offset.y + s.y,
                 };
                 stack.extend(
-                    self.tree()
-                        .flat_children(self.tree().nodes.id_at(n.index))
+                    self.semantic_children(id)
+                        .into_iter()
                         .rev()
                         .map(|child| (child, below)),
                 );

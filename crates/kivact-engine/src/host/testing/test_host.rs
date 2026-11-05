@@ -600,7 +600,7 @@ impl ArvaneTestHost {
     /// Where the box of `id` is drawn, in logical window coordinates: its
     /// layout box mapped by its transforms (their bounds).
     pub fn rect(&self, id: NodeId) -> Option<Rect> {
-        self.host.borrow().host().model.borrow().bounds(id)
+        self.host.borrow().host().model.borrow().semantic_bounds(id)
     }
 
     /// The layout size of `id` (its box before its transforms).
