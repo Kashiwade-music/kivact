@@ -114,6 +114,24 @@ impl std::fmt::Debug for DebugWith<'_> {
 pub(super) struct Variants(Rc<RefCell<Extensions>>);
 
 impl Variants {
+    /// Merge inherited group decoration while preserving panel-specific types.
+    pub(super) fn inherited(&self, parent: &Self) -> Self {
+        let own = self.0.borrow();
+        let parent = parent.0.borrow();
+        let mut entries = parent
+            .0
+            .iter()
+            .filter(|entry| {
+                !own.0
+                    .iter()
+                    .any(|value| (*value.value).type_id() == (*entry.value).type_id())
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        entries.extend(own.0.iter().cloned());
+        Self(Rc::new(RefCell::new(Extensions(Rc::new(entries)))))
+    }
+
     pub(super) fn add<T: Variant>(&self, value: T) {
         let mut ext = self.0.borrow_mut();
         *ext = std::mem::take(&mut *ext).with(value);

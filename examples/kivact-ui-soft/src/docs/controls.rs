@@ -4,15 +4,12 @@ use kivact::interaction::ListItem;
 use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{
-    ButtonVariant, ControlSize, button, checkbox, progress, radio_group, range_slider, slider,
-    switch, toggle_button,
+    ButtonVariant, ControlSize, button, button_group, checkbox, progress, radio_group,
+    range_slider, slider, switch, toggle_button, toggle_group,
 };
 use kivact::view::Orientation;
 use kivact::view::{Node, NodeBuilder, column, icon, row};
-use kivact_ui_soft::{
-    button_group, check_indicator, radio_indicator, segmented_control, toggle_button_group,
-    toolbar, toolbar_item,
-};
+use kivact_ui_soft::{check_indicator, radio_indicator, segmented_control, toolbar, toolbar_item};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
@@ -24,7 +21,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "toggle-button-group" => specimen(
             "Independent formatting choices",
-            toggle_button_group(
+            toggle_group(
                 "Formatting",
                 vec![
                     ListItem::new("bold", "Bold"),
@@ -32,7 +29,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 ],
                 signal(vec!["bold"]),
             ),
-            "toggle_button_group(\"Formatting\", items, selection)",
+            "toggle_group(\"Formatting\", items, selection)",
         ),
         "segmented-control" => specimen(
             "Choose a view",

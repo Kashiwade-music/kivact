@@ -113,87 +113,27 @@ impl IntoView for NavigationMenu {
             let shown = memo(
                 move || matches!(state.get(), NavOpen::Hover(i) | NavOpen::Pinned(i) if i == at),
             );
-            let pinned = binding(
-                move || state.get() == NavOpen::Pinned(at),
-                move |pin| {
-                    if pin {
-                        api.pin(at);
-                    } else if state.get_untracked() == NavOpen::Pinned(at) {
-                        api.close();
-                    }
-                },
-            );
+            let pinned = pinned_binding(api, at);
             let pop = use_popup(pinned);
             let anchor = node_ref();
-            let surface = node_ref();
-            let trigger = crate::layer::with_recipe_style(
-                crate::button(label)
-                    .disabled(disabled)
-                    .with_node(|n| n.part(pop.trigger()))
-                    .node_ref(anchor)
-                    .with_node(|n| n.expanded(shown))
-                    .on_pointer(move |event| {
-                        match event.phase() {
-                            PointerPhase::Enter if !disabled.get_untracked() => {
-                                api.hover_after(at, open_delay)
-                            }
-                            PointerPhase::Leave => api.leave_after(at, close_delay),
-                            _ => (),
-                        }
-                        Handled::No
-                    })
-                    .on_key(move |event| match event.key() {
-                        Key::Escape if shown.get_untracked() => {
-                            api.close();
-                            Handled::Yes
-                        }
-                        Key::ArrowDown if !disabled.get_untracked() => {
-                            api.pin(at);
-                            Handled::Yes
-                        }
-                        _ => Handled::No,
-                    }),
-                |r| r.navigation_menu_recipes().trigger_recipe(),
-                &variants,
-                move || state.get(),
-            );
+            let presentation = PanelPresentation {
+                shown,
+                variants: variants.clone(),
+                placement,
+                align,
+                open_delay,
+                close_delay,
+            };
+            let trigger = navigation_trigger(api, at, label, pop, anchor, disabled, &presentation);
             children.push(trigger.into_view());
-            let panel_variants = variants.clone();
-            children.push(
-                show(shown, move || {
-                    let content = content.clone();
-                    let panel = crate::layer::with_recipe_style(
-                        node().role(Role::Group).name(label),
-                        |r| r.navigation_menu_recipes().panel_recipe(),
-                        &panel_variants,
-                        move || state.get(),
-                    )
-                    .child(content());
-                    overlay(anchor, placement, panel)
-                        .align(align)
-                        .offset(0)
-                        .node_ref(surface)
-                        .with_node(|n| n.part(pop.content()))
-                        .on_pointer(move |event| {
-                            match event.phase() {
-                                PointerPhase::Enter => api.hover_after(at, Duration::ZERO),
-                                PointerPhase::Leave => api.leave_after(at, close_delay),
-                                _ => (),
-                            }
-                            Handled::No
-                        })
-                        .on_key(move |event| {
-                            if event.key() == Key::Escape {
-                                api.close();
-                                anchor.focus();
-                                Handled::Yes
-                            } else {
-                                Handled::No
-                            }
-                        })
-                })
-                .into_view(),
-            );
+            children.push(navigation_panel(
+                api,
+                at,
+                Link { label, content },
+                pop,
+                anchor,
+                presentation,
+            ));
         }
         crate::layer::with_base_recipe_style(
             root.roving_focus(kivact_core::view::Orientation::Horizontal),
@@ -204,4 +144,134 @@ impl IntoView for NavigationMenu {
         .child(children)
         .into_view()
     }
+}
+
+/// Independent placement, appearance and actual visibility for one mounted panel.
+struct PanelPresentation {
+    shown: Value<bool>,
+    variants: crate::variants::Variants,
+    placement: Placement,
+    align: OverlayAlign,
+    open_delay: Duration,
+    close_delay: Duration,
+}
+/// Render one exclusive navigation panel with its existing popup part.
+fn navigation_panel(
+    api: kivact_interaction::NavigationMenuApi,
+    at: usize,
+    link: Link,
+    pop: kivact_interaction::PopupApi,
+    anchor: kivact_core::view::NodeRef,
+    presentation: PanelPresentation,
+) -> View {
+    let Link { label, content } = link;
+    let PanelPresentation {
+        shown,
+        variants,
+        placement,
+        align,
+        close_delay,
+        ..
+    } = presentation;
+    let state = api.state();
+    let surface = node_ref();
+    show(shown, move || {
+        let content = content.clone();
+        let panel = crate::layer::with_recipe_style(
+            node().role(Role::Group).name(label),
+            |r| r.navigation_menu_recipes().panel_recipe(),
+            &variants,
+            move || state.get(),
+        )
+        .child(content());
+        overlay(anchor, placement, panel)
+            .align(align)
+            .offset(0)
+            .node_ref(surface)
+            .with_node(|n| n.part(pop.content()))
+            .on_pointer(move |event| {
+                match event.phase() {
+                    PointerPhase::Enter => api.hover_after(at, Duration::ZERO),
+                    PointerPhase::Leave => api.leave_after(at, close_delay),
+                    _ => (),
+                }
+                Handled::No
+            })
+            .on_key(move |event| {
+                if event.key() == Key::Escape {
+                    api.close();
+                    anchor.focus();
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
+    })
+    .into_view()
+}
+
+/// Bind a panel's pinned state to the shared exclusive navigation authority.
+fn pinned_binding(
+    api: kivact_interaction::NavigationMenuApi,
+    at: usize,
+) -> kivact_core::state::Binding<bool> {
+    let state = api.state();
+    binding(
+        move || state.get() == NavOpen::Pinned(at),
+        move |pin| {
+            if pin {
+                api.pin(at);
+            } else if state.get_untracked() == NavOpen::Pinned(at) {
+                api.close();
+            }
+        },
+    )
+}
+
+/// Attach navigation trigger input to the canonical exclusive panel authority.
+fn navigation_trigger(
+    api: kivact_interaction::NavigationMenuApi,
+    at: usize,
+    label: Value<String>,
+    pop: kivact_interaction::PopupApi,
+    anchor: kivact_core::view::NodeRef,
+    disabled: Value<bool>,
+    presentation: &PanelPresentation,
+) -> View {
+    let state = api.state();
+    let shown = presentation.shown;
+    let (open_delay, close_delay) = (presentation.open_delay, presentation.close_delay);
+    let variants = &presentation.variants;
+    crate::layer::with_recipe_style(
+        crate::button(label)
+            .disabled(disabled)
+            .with_node(|n| n.part(pop.trigger()))
+            .node_ref(anchor)
+            .with_node(|n| n.expanded(shown))
+            .on_pointer(move |event| {
+                match event.phase() {
+                    PointerPhase::Enter if !disabled.get_untracked() => {
+                        api.hover_after(at, open_delay)
+                    }
+                    PointerPhase::Leave => api.leave_after(at, close_delay),
+                    _ => (),
+                }
+                Handled::No
+            })
+            .on_key(move |event| match event.key() {
+                Key::Escape if shown.get_untracked() => {
+                    api.close();
+                    Handled::Yes
+                }
+                Key::ArrowDown if !disabled.get_untracked() => {
+                    api.pin(at);
+                    Handled::Yes
+                }
+                _ => Handled::No,
+            }),
+        |r| r.navigation_menu_recipes().trigger_recipe(),
+        variants,
+        move || state.get(),
+    )
+    .into_view()
 }

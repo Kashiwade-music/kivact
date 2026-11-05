@@ -207,7 +207,7 @@ fn button_busy(theme: &Theme, s: &Look<ButtonState>) -> Style {
         })
 }
 
-fn toggle(theme: &Theme, s: &Look<ToggleButtonState>) -> Style {
+pub(crate) fn toggle(theme: &Theme, s: &Look<ToggleButtonState>) -> Style {
     let t = theme.ext::<Tokens>();
     let bg = if s.pressed {
         t.colors.overlay_pressed

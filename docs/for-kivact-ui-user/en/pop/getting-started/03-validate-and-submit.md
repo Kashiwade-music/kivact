@@ -79,12 +79,12 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
             .orientation(Orientation::Horizontal)
             .variant(kivact::ui::RadioGroupVariant::Segmented),
         ),
-        pop::date_input("Birth date", birth, today).valid(birth_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(birth); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("Birth date",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
         show(move || birth_error.get().is_some(), move || {
             text(move || birth_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
         }),
-        pop::date_input("Start date", start, today).valid(start_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(start); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("Start date",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
         show(move || start_error.get().is_some(), move || {
             text(move || start_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
@@ -192,10 +192,10 @@ then shows the message under the control, marks the control invalid and
 connects the message to it for screen readers. The name and email errors also
 read `attempted`, so they stay quiet until the user presses the button once.
 
-**`pop::date_input(label, value, today)`** is an editable date with a
+**`kivact::ui::date_input(label, optional_value)`** is an editable date with a
 calendar popup. The text follows `YYYY-MM-DD`, and the signal (`birth`) only
 changes when the text is a whole, real date, so half-typed input never reaches
-your state. You supply `today` yourself, which keeps the component predictable
+your state. Configure `.calendar(|calendar| calendar.today(today))` yourself, which keeps the component predictable
 and testable: the program passes `CalendarDate::today()` and the test passes a
 fixed date.
 

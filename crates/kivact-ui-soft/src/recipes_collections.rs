@@ -154,55 +154,107 @@ fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
 }
 
 pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
-    r.root(|_| |_: &Theme, _: &_| style().direction(Direction::Column).width(pct(100)))
-        .trigger(|_| {
-            |t: &Theme, s: &_| {
-                let p = t.ext::<Tokens>();
-                style()
-                    .direction(Direction::Row)
-                    .width(pct(100))
-                    .align_items(Align::Center)
-                    .justify_content(Justify::SpaceBetween)
-                    .gap(p.spacing.s2)
-                    .font_size(p.typography.large.size_px)
-                    .line_height(1.0)
-                    .weight(p.typography.weight_semibold)
-                    .color(p.colors.text_primary)
-                    .opacity(if s.input.disabled {
-                        p.sizes.disabled_opacity
-                    } else {
-                        1.0
-                    })
-                    .pressed(style().background(p.colors.overlay_pressed))
-                    .focus_visible(focus(&p))
-                    .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+    r.root(|_| {
+        |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
+            let p = t.ext::<Tokens>();
+            let variant = s
+                .variant::<crate::DisclosureVariant>()
+                .copied()
+                .unwrap_or_default();
+            let base = style().direction(Direction::Column).width(pct(100));
+            if variant.dividers && s.group.is_some_and(|group| group.index > 0) {
+                base.border_top(p.sizes.border_width, p.colors.border)
+            } else {
+                base
             }
-        })
-        .indicator(|_| {
-            |t: &Theme, s: &_| {
-                let p = t.ext::<Tokens>();
-                let size = p.typography.large.size_px;
-                style()
-                    .size(size, size)
-                    .shrink(0)
-                    .color(p.colors.icon_secondary)
-                    .rotate(if s.open { 180 } else { 0 })
-                    .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
-            }
-        })
-        .content(|_| {
-            |t: &Theme, _: &_| {
-                let p = t.ext::<Tokens>();
-                style()
-                    .enter_size(Orientation::Vertical)
-                    .exit_size(Orientation::Vertical)
-                    .direction(Direction::Column)
-                    .padding_top(p.spacing.s1)
-                    .font_size(p.typography.body.size_px)
-                    .line_height(p.typography.body.line_height_px / p.typography.body.size_px)
-                    .color(p.colors.text_primary)
-            }
-        })
+        }
+    })
+    .trigger(|_| {
+        |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
+            let p = t.ext::<Tokens>();
+            let variant = s
+                .variant::<crate::DisclosureVariant>()
+                .copied()
+                .unwrap_or_default();
+            let start = variant.chevron == crate::ChevronPosition::Start;
+            let rtl = use_direction().get() == ReadingDirection::Rtl;
+            style()
+                .direction(if start != rtl {
+                    Direction::RowReverse
+                } else {
+                    Direction::Row
+                })
+                .width(pct(100))
+                .align_items(Align::Center)
+                .justify_content(Justify::SpaceBetween)
+                .gap(p.spacing.s2)
+                .padding_y(disclosure_padding(&p, variant))
+                .font_size(p.typography.large.size_px)
+                .line_height(1.0)
+                .weight(p.typography.weight_semibold)
+                .color(p.colors.text_primary)
+                .opacity(if s.input.disabled {
+                    p.sizes.disabled_opacity
+                } else {
+                    1.0
+                })
+                .pressed(style().background(p.colors.overlay_pressed))
+                .focus_visible(focus(&p))
+                .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+        }
+    })
+    .indicator(|_| {
+        |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
+            let p = t.ext::<Tokens>();
+            let variant = s
+                .variant::<crate::DisclosureVariant>()
+                .copied()
+                .unwrap_or_default();
+            let start = variant.chevron == crate::ChevronPosition::Start;
+            let rtl = use_direction().get() == ReadingDirection::Rtl;
+            let degrees = if start {
+                if s.open { 0 } else { -90 }
+            } else if s.open {
+                180
+            } else {
+                0
+            };
+            style()
+                .size(p.typography.large.size_px, p.typography.large.size_px)
+                .shrink(0)
+                .color(p.colors.icon_secondary)
+                .scale_xy(if start && rtl { -1.0 } else { 1.0 }, 1.0)
+                .rotate(degrees)
+                .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+        }
+    })
+    .content(|_| {
+        |t: &Theme, s: &Look<kivact::ui::DisclosureRecipeState>| {
+            let p = t.ext::<Tokens>();
+            let variant = s
+                .variant::<crate::DisclosureVariant>()
+                .copied()
+                .unwrap_or_default();
+            style()
+                .direction(Direction::Column)
+                .padding_top(p.spacing.s1)
+                .padding_bottom(disclosure_padding(&p, variant))
+                .font_size(p.typography.body.size_px)
+                .line_height(p.typography.body.line_height_px / p.typography.body.size_px)
+                .color(p.colors.text_primary)
+        }
+    })
+}
+fn disclosure_padding(p: &Tokens, variant: crate::DisclosureVariant) -> f64 {
+    match variant.density.or(variant
+        .dividers
+        .then_some(crate::DisclosureDensity::Balanced))
+    {
+        Some(crate::DisclosureDensity::Compact) => p.spacing.s1,
+        Some(crate::DisclosureDensity::Balanced) => p.spacing.s2,
+        Some(crate::DisclosureDensity::Spacious) => p.spacing.s3,
+        None => 0.0,
+    }
 }
 
 pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
