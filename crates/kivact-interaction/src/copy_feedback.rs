@@ -2,7 +2,7 @@
 use std::time::Duration;
 
 use kivact_core::state::{Machine as MachineTrait, MachineHandle, Step, Value, machine, memo};
-use kivact_core::task::{Task, spawn};
+use kivact_core::task::spawn;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Copied {
@@ -58,15 +58,15 @@ impl CopyFeedbackApi {
     /// Copy text to the system clipboard and show feedback on success.
     ///
     /// Clipboard errors reach the owner's error handler and do not start a
-    /// confirmation. The returned task can be cancelled by the caller.
+    /// confirmation. The operation belongs to the current owner.
     #[track_caller]
-    pub fn copy(self, text: impl Into<String>) -> Task {
+    pub fn copy(self, text: impl Into<String>) {
         let write = kivact_core::platform::copy_text(text);
         spawn(async move {
             write.await?;
             self.state.send(Event::Copied);
             Ok(())
-        })
+        });
     }
 
     /// Whether the most recent successful copy is still being confirmed.
