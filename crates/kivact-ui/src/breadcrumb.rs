@@ -89,17 +89,9 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                     );
                 }
                 let current = at == last;
-                let entry_node = breadcrumb_entry(entry, current, &activate, item.as_ref());
-                children.push(
-                    crate::layer::with_recipe_style(
-                        node().role(Role::ListItem),
-                        |r| r.breadcrumb_recipes().item_recipe(),
-                        &child_variants,
-                        move || current,
-                    )
-                    .child(entry_node)
-                    .into_view(),
-                );
+                let entry_node =
+                    breadcrumb_entry(entry, current, &activate, item.as_ref(), &child_variants);
+                children.push(node().role(Role::ListItem).child(entry_node).into_view());
             }
             children
         });
@@ -110,14 +102,13 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
             || (),
         )
         .child(
-            node()
-                .role(Role::List)
-                .style(
-                    kivact_core::style::style()
-                        .direction(kivact_core::style::Direction::Row)
-                        .gap(8),
-                )
-                .child(contents),
+            crate::layer::with_recipe_style(
+                node().role(Role::List),
+                |r| r.breadcrumb_recipes().list_recipe(),
+                &variants,
+                || (),
+            )
+            .child(contents),
         )
         .into_view()
     }
@@ -129,6 +120,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
     current: bool,
     activate: &Option<Rc<dyn Fn(K)>>,
     item: Option<&ItemSlot<K>>,
+    variants: &crate::variants::Variants,
 ) -> View {
     let label_entry = entry.clone();
     let label = kivact_core::state::memo(move || label_entry.label());
@@ -136,28 +128,44 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
     if current || activate.is_none() {
         let current = current.then_some(CurrentItem::Page);
         if item.is_none() {
-            text(label).current_item(current).into_view()
+            crate::layer::with_recipe_style(
+                text(label).current_item(current),
+                |r| r.breadcrumb_recipes().item_recipe(),
+                variants,
+                move || current.is_some(),
+            )
+            .into_view()
         } else {
-            node()
-                .role(Role::Generic)
-                .name(label)
-                .current_item(current)
-                .child(body)
-                .into_view()
+            crate::layer::with_recipe_style(
+                node()
+                    .role(Role::Generic)
+                    .name(label)
+                    .current_item(current)
+                    .child(body),
+                |r| r.breadcrumb_recipes().item_recipe(),
+                variants,
+                move || current.is_some(),
+            )
+            .into_view()
         }
     } else {
         let f = activate.clone();
         let key = entry.key().clone();
-        crate::button("")
-            .name(label)
-            .with_node(|n| n.role(Role::Link))
-            .disabled(entry.is_disabled())
-            .on_press(move || {
-                if let Some(f) = &f {
-                    f(key.clone());
-                }
-            })
-            .child(body)
-            .into_view()
+        crate::layer::with_recipe_style(
+            crate::button("")
+                .name(label)
+                .with_node(|n| n.role(Role::Link))
+                .disabled(entry.is_disabled())
+                .on_press(move || {
+                    if let Some(f) = &f {
+                        f(key.clone());
+                    }
+                })
+                .child(body),
+            |r| r.breadcrumb_recipes().item_recipe(),
+            variants,
+            move || current,
+        )
+        .into_view()
     }
 }

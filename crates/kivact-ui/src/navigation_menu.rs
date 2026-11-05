@@ -7,6 +7,13 @@ use kivact_core::view::{
 use kivact_interaction::{NavOpen, use_navigation_menu, use_popup};
 use std::rc::Rc;
 use std::time::Duration;
+enum Entry {
+    Panel(Link),
+    Action {
+        label: Value<String>,
+        press: kivact_core::state::Callback<()>,
+    },
+}
 struct Link {
     label: Value<String>,
     content: Rc<dyn Fn() -> View>,
@@ -14,7 +21,7 @@ struct Link {
 /// A row of panel triggers with shared exclusive opening state.
 pub struct NavigationMenu {
     root: Node,
-    links: Vec<Link>,
+    links: Vec<Entry>,
     open_delay: Duration,
     close_delay: Duration,
     placement: Placement,
@@ -49,9 +56,22 @@ impl NavigationMenu {
         label: impl IntoText,
         content: impl Fn() -> V + 'static,
     ) -> Self {
-        self.links.push(Link {
+        self.links.push(Entry::Panel(Link {
             label: label.into_text_value(),
             content: Rc::new(move || content().into_view()),
+        }));
+        self
+    }
+    /// Add a direct navigation action without constructing or opening a panel.
+    pub fn action<K: 'static>(
+        mut self,
+        _key: K,
+        label: impl IntoText,
+        press: impl Into<kivact_core::state::Callback<()>>,
+    ) -> Self {
+        self.links.push(Entry::Action {
+            label: label.into_text_value(),
+            press: press.into(),
         });
         self
     }
@@ -109,7 +129,14 @@ impl IntoView for NavigationMenu {
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
         let mut children = Vec::new();
-        for (at, Link { label, content }) in links.into_iter().enumerate() {
+        for (at, entry) in links.into_iter().enumerate() {
+            let Link { label, content } = match entry {
+                Entry::Panel(link) => link,
+                Entry::Action { label, press } => {
+                    children.push(navigation_action(api, label, press, disabled, &variants));
+                    continue;
+                }
+            };
             let shown = memo(
                 move || matches!(state.get(), NavOpen::Hover(i) | NavOpen::Pinned(i) if i == at),
             );
@@ -183,7 +210,11 @@ fn navigation_panel(
             &variants,
             move || state.get(),
         )
-        .child(content());
+        .child(crate::navigation_context::provide_panel(
+            kivact_core::state::callback(move |()| api.close()),
+            variants.clone(),
+            move || content(),
+        ));
         overlay(anchor, placement, panel)
             .align(align)
             .offset(0)
@@ -270,6 +301,29 @@ fn navigation_trigger(
                 _ => Handled::No,
             }),
         |r| r.navigation_menu_recipes().trigger_recipe(),
+        variants,
+        move || state.get(),
+    )
+    .into_view()
+}
+
+fn navigation_action(
+    api: kivact_interaction::NavigationMenuApi,
+    label: Value<String>,
+    press: kivact_core::state::Callback<()>,
+    disabled: Value<bool>,
+    variants: &crate::variants::Variants,
+) -> View {
+    let state = api.state();
+    crate::layer::with_recipe_style(
+        crate::button(label)
+            .disabled(disabled)
+            .with_node(|node| node.role(Role::Link))
+            .on_press(move || {
+                api.close();
+                press.call(());
+            }),
+        |r| r.navigation_menu_recipes().action_recipe(),
         variants,
         move || state.get(),
     )

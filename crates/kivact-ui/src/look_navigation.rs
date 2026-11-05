@@ -83,3 +83,62 @@ pub(super) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
         .background(ColorToken::Surface)
         .border(1, ColorToken::Border)
 }
+
+pub(super) fn breadcrumb_list(_: &Theme, _: &Look<()>) -> Style {
+    style().direction(Direction::Row).gap(8)
+}
+pub(super) fn breadcrumb_item(t: &Theme, s: &Look<bool>) -> Style {
+    style()
+        .padding(0)
+        .height(kivact_core::style::auto())
+        .min_width(0)
+        .border(0, kivact_core::style::Color::TRANSPARENT)
+        .background(kivact_core::style::Color::TRANSPARENT)
+        .color(if **s {
+            t.colors().text
+        } else {
+            t.colors().text_muted
+        })
+        .weight(400)
+}
+
+pub(super) fn action(_: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
+    style()
+        .background(kivact_core::style::Color::TRANSPARENT)
+        .color(ColorToken::Text)
+        .border(0, kivact_core::style::Color::TRANSPARENT)
+}
+pub(super) fn link(t: &Theme, s: &Look<crate::navigation_values::NavigationLinkState>) -> Style {
+    style()
+        .direction(Direction::Row)
+        .align_items(if s.has_description {
+            Align::Start
+        } else {
+            Align::Center
+        })
+        .gap(t.space().sm)
+        .padding(t.space().sm)
+        .color(ColorToken::Text)
+        .hover(style().background(ColorToken::Hover))
+        .focus_visible(style().ring(t.focus_ring(), ColorToken::Focus))
+}
+pub(super) fn link_title(
+    _: &Theme,
+    _: &Look<crate::navigation_values::NavigationLinkState>,
+) -> Style {
+    style().weight(600)
+}
+pub(super) fn link_description(
+    t: &Theme,
+    _: &Look<crate::navigation_values::NavigationLinkState>,
+) -> Style {
+    style()
+        .font_size(t.text().size_small)
+        .color(ColorToken::TextMuted)
+}
+pub(super) fn link_icon(
+    _: &Theme,
+    _: &Look<crate::navigation_values::NavigationLinkState>,
+) -> Style {
+    style().shrink(0)
+}
