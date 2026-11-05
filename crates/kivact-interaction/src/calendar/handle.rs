@@ -46,6 +46,17 @@ pub fn use_calendar_grid(
 }
 
 impl CalendarGridApi {
+    /// Whether the range owner is waiting for its second endpoint.
+    pub fn is_picking_range(self) -> Value<bool> {
+        let choice = self.state().choice;
+        memo(move || match choice {
+            Choice::Range { pick, .. } => {
+                matches!(pick.get(), super::machine::RangePick::Picking { .. })
+            }
+            Choice::Single(_) => false,
+        })
+    }
+
     /// Drawing state of the mounted calendar grid.
     pub fn grid_state(self) -> Value<PartState> {
         let observed = self.state().grid_state;

@@ -411,7 +411,7 @@ impl IntoView for Calendar {
                     range,
                 });
                 let names = Rc::new(super::caption::Names::new());
-                dynamic(
+                let panels = dynamic(
                     move || (month.get(), first.get()),
                     move |(month, first)| {
                         let panels = (0..shared.count)
@@ -428,7 +428,8 @@ impl IntoView for Calendar {
                         on_mount(move || autofocus.send(grid));
                         row(panels).style(style().gap(16))
                     },
-                )
+                );
+                kivact_core::view::column((range_prompt(grid, selection), panels))
             },
         );
         let status = kivact_core::view::text(navigation.state())
@@ -452,4 +453,32 @@ impl IntoView for Calendar {
         .child((body, status))
         .into_view()
     }
+}
+
+fn range_prompt(
+    grid: kivact_interaction::CalendarGridApi,
+    selection: CalendarSelection,
+) -> Option<Node> {
+    if !matches!(selection, CalendarSelection::Range(_)) {
+        return None;
+    }
+    let picking = grid.is_picking_range();
+    let start = kivact_core::i18n::message("calendar.range.pick_start", "Pick a start date");
+    let end = kivact_core::i18n::message("calendar.range.pick_end", "Pick an end date");
+    Some(
+        kivact_core::view::text(move || {
+            if picking.get() {
+                end.get()
+            } else {
+                start.get()
+            }
+        })
+        .role(Role::Status)
+        .live_region(kivact_core::view::LiveRegion::Polite)
+        .style(
+            style()
+                .font_size(12)
+                .color(kivact_core::style::ColorToken::TextMuted),
+        ),
+    )
 }
