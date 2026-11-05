@@ -53,7 +53,7 @@ use super::values::{
 use super::variants::Look;
 use super::{AlertState, CardState, EmptyStateState, InputGroupState, look_feedback};
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use crate::look_files;
+use crate::{look_files, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
@@ -666,6 +666,8 @@ recipe_table! {
         splitter(splitter_recipes): SplitterRecipes,
         list(list_recipes): ListRecipes,
         tree(tree_recipes): TreeRecipes,
+        table(table_recipes): TableRecipes,
+        item_list(item_list_recipes): ItemListRecipes,
         data_table(data_table_recipes): DataTableRecipes,
         split(split_recipes): SplitRecipes,
         progress(progress_recipes): ProgressRecipes,
@@ -792,5 +794,31 @@ recipe_table! {
         label(label_recipe): InputGroupState = look_feedback::group_label,
         members(members_recipe): InputGroupState = look_feedback::group_members,
         addon(addon_recipe): InputGroupState = look_feedback::group_addon,
+    }
+}
+recipe_table! {
+    /// Static table part recipes.
+    TableRecipes {
+        root(root_recipe): PartState = look_static_collections::table,
+        header(header_recipe): PartState = look_static_collections::group,
+        body(body_recipe): PartState = look_static_collections::group,
+        footer(footer_recipe): PartState = look_static_collections::footer,
+        row(row_recipe): PartState = look_static_collections::row,
+        head(head_recipe): PartState = look_static_collections::head,
+        cell(cell_recipe): PartState = look_static_collections::cell,
+    }
+}
+recipe_table! {
+    /// Static list and item-row part recipes.
+    ItemListRecipes {
+        root(root_recipe): PartState = look_static_collections::list,
+        item(item_recipe): PartState = look_static_collections::item,
+        content(content_recipe): PartState = look_static_collections::content,
+        title(title_recipe): PartState = look_static_collections::title,
+        description(description_recipe): PartState = look_static_collections::description,
+        media(media_recipe): PartState = look_static_collections::media,
+        actions(actions_recipe): PartState = look_static_collections::actions,
+        header(header_recipe): PartState = look_static_collections::band,
+        footer(footer_recipe): PartState = look_static_collections::band,
     }
 }

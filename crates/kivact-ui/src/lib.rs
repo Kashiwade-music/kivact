@@ -316,3 +316,12 @@ pub use avatar_group::{AvatarGroup, avatar_group};
 
 mod kbd;
 pub use kbd::{Kbd, KbdCombo, kbd, kbd_combo};
+mod item_list;
+mod look_static_collections;
+mod table;
+pub use item_list::{ItemList, ItemListTokens, ItemRow, item_list, item_row};
+pub use recipes::{ItemListRecipes, TableRecipes};
+pub use table::{
+    Table, TableCell, TableTokens, table, table_body, table_cell, table_footer, table_head,
+    table_header, table_row,
+};
