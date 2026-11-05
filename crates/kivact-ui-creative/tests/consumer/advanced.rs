@@ -167,25 +167,8 @@ fn table_rows_are_one_tab_stop_and_follow_the_list_keys() {
                 )),
             )
         });
-    assert!(
-        screen
-            .get_by_role(Role::Grid, "Data table")
-            .is_multiselectable()
-    );
+    assert_table_tab_stops(&screen);
     let row = |name: &str| screen.get_by_role(Role::Row, name);
-    // The header, then one tab stop for the rows: the selected row.
-    screen.get_by_role(Role::Button, "Before").click();
-    screen.press_tab(false);
-    assert!(screen.get_by_role(Role::ColumnHeader, "Name").is_focused());
-    screen.press_tab(false);
-    assert!(row("Apple").is_focused());
-    screen.press_tab(false);
-    assert!(
-        !screen.get_by_role(Role::Row, "Banana").is_focused(),
-        "the other rows are not tab stops"
-    );
-    screen.press_tab(true);
-    assert!(row("Apple").is_focused());
     screen.press_key(Key::ArrowDown);
     assert_eq!(selection.get_untracked(), vec![2]);
     assert!(row("Banana").is_focused());
@@ -501,4 +484,26 @@ fn panel_group_ctrl_opens_only_the_chosen_panel_and_a_plain_expand_closes_nothin
     let open: Vec<bool> = panels.get_untracked().iter().map(|p| p.expanded).collect();
     assert_eq!(open, vec![false, true], "Ctrl keeps only the chosen panel");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn assert_table_tab_stops(screen: &kivact::test::Screen) {
+    assert!(
+        screen
+            .get_by_role(Role::Grid, "Data table")
+            .is_multiselectable()
+    );
+    let row = |name: &str| screen.get_by_role(Role::Row, name);
+    // The header, then one tab stop for the rows: the selected row.
+    screen.get_by_role(Role::Button, "Before").click();
+    screen.press_tab(false);
+    assert!(screen.get_by_role(Role::ColumnHeader, "Name").is_focused());
+    screen.press_tab(false);
+    assert!(row("Apple").is_focused());
+    screen.press_tab(false);
+    assert!(
+        !screen.get_by_role(Role::Row, "Banana").is_focused(),
+        "the other rows are not tab stops"
+    );
+    screen.press_tab(true);
+    assert!(row("Apple").is_focused());
 }
