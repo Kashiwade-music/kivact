@@ -1,13 +1,15 @@
 //! Role: Display selectable source code with themed syntax, numbering and clipboard feedback.
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use kivact_core::custom::{NodeRefExt, Part, TextEditing, part};
-use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Value, signal};
+use kivact_core::custom::{Part, TextEditing, part};
+use kivact_core::state::{
+    Binding, Callback, IntoBinding, IntoText, IntoValue, Value, memo, signal,
+};
 use kivact_core::style::{Length, StyledRange, style};
 use kivact_core::view::{
     IntoView, Node, NodeBuilder, Role, ScrollAxes, View, node, node_ref, scroll, text,
 };
-use kivact_interaction::{use_copy_feedback, use_disclosure};
+use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
 // xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
 /// Rendered source facts supplied to code-block recipes.
@@ -182,18 +184,35 @@ impl NodeBuilder for CodeBlock {
         &mut self.root
     }
 }
-impl IntoView for CodeBlock {
-    fn into_view(self) -> View {
+
+/// Setup handles and read-only recipe projections, without another interaction owner.
+struct CodePresentation {
+    name: Value<String>,
+    state: Value<CodeBlockState>,
+    disclosure: DisclosureApi,
+    can_collapse: Value<bool>,
+    feedback: CopyFeedbackApi,
+}
+/// Inputs consumed together when constructing the one native source editor.
+struct CodeSource {
+    code: Value<String>,
+    editing: TextEditing,
+    max_height: Option<Value<Length>>,
+}
+impl CodeBlock {
+    fn presentation(&mut self) -> CodePresentation {
         let code = self.code;
-        let numbered = self.line_numbers;
-        let wrapped = self.wrap;
-        let expanded = self.expanded.unwrap_or_else(|| signal(true).into_binding());
-        let can_collapse = move || {
-            self.collapsible.get()
-                && code.with(|s| s.split('\n').count() >= self.collapsible_threshold.get())
-        };
+        let collapsible = self.collapsible;
+        let threshold = self.collapsible_threshold;
+        let expanded = self
+            .expanded
+            .take()
+            .unwrap_or_else(|| signal(true).into_binding());
+        let can_collapse = memo(move || {
+            collapsible.get() && code.with(|s| s.split('\n').count() >= threshold.get())
+        });
         let disclosure = use_disclosure(kivact_core::state::binding(
-            move || !can_collapse() || expanded.get(),
+            move || !can_collapse.get() || expanded.get(),
             move |on| expanded.set(on),
         ));
         let open = disclosure.is_open();
@@ -202,155 +221,186 @@ impl IntoView for CodeBlock {
             .copy_feedback_ms;
         let feedback = use_copy_feedback(Duration::from_millis(duration));
         let copied = feedback.is_copied();
-        let state = move || CodeBlockState {
+        let numbered = self.line_numbers;
+        let wrapped = self.wrap;
+        let state = memo(move || CodeBlockState {
             numbered: numbered.get(),
             wrapped: wrapped.get(),
             expanded: open.get(),
             copied: copied.get(),
-        };
+        });
         let name = self
             .title
             .unwrap_or_else(|| kivact_core::i18n::message("code_block.label", "Code"));
+        CodePresentation {
+            name,
+            state,
+            disclosure,
+            can_collapse,
+            feedback,
+        }
+    }
+    fn copy_control(&self, presentation: &CodePresentation) -> crate::Button {
+        let copied = presentation.feedback.is_copied();
+        let feedback = presentation.feedback;
+        let code = self.code;
+        let on_copy = self.on_copy;
+        let shown = self.copy_button;
+        let state = presentation.state;
+        let copied_label = kivact_core::i18n::message("code_block.copied", "Copied");
+        let copy_label = kivact_core::i18n::message("code_block.copy", "Copy");
+        let control = crate::button(move || {
+            if copied.get() {
+                copied_label.get()
+            } else {
+                copy_label.get()
+            }
+        })
+        .hidden(move || !shown.get())
+        .on_press(move || {
+            feedback.copy(code.get_untracked());
+            if let Some(f) = on_copy {
+                f.call(())
+            }
+        });
+        with_recipe_style(
+            control,
+            |r| r.code_block_recipes().copy_recipe(),
+            &self.variants,
+            move || state.get(),
+        )
+    }
+    fn header(&mut self, presentation: &CodePresentation) -> Node {
+        let name = presentation.name;
+        let state = presentation.state;
+        let can_collapse = presentation.can_collapse;
         let label = with_recipe_style(
             text(name),
             |r| r.code_block_recipes().title_recipe(),
             &self.variants,
-            state,
+            move || state.get(),
         );
         let trigger = with_recipe_style(
             node()
-                .part(disclosure.trigger())
+                .part(presentation.disclosure.trigger())
                 .name(name)
                 .child(text(name))
-                .hidden(move || !can_collapse()),
+                .hidden(move || !can_collapse.get()),
             |r| r.code_block_recipes().collapse_recipe(),
             &self.variants,
-            state,
+            move || state.get(),
         );
+        let language_shown = self.language_label;
         let language = self.language.map(|language| {
             with_recipe_style(
-                text(language).hidden(move || !self.language_label.get()),
+                text(language).hidden(move || !language_shown.get()),
                 |r| r.code_block_recipes().language_recipe(),
                 &self.variants,
-                state,
+                move || state.get(),
             )
         });
-        let on_copy = self.on_copy;
-        let copied_label = kivact_core::i18n::message("code_block.copied", "Copied");
-        let copy_label = kivact_core::i18n::message("code_block.copy", "Copy");
-        let copy = with_recipe_style(
-            crate::button(move || {
-                if copied.get() {
-                    copied_label.get()
-                } else {
-                    copy_label.get()
-                }
-            })
-            .hidden(move || !self.copy_button.get())
-            .on_press(move || {
-                feedback.copy(code.get_untracked());
-                if let Some(f) = on_copy {
-                    f.call(())
-                }
-            }),
-            |r| r.code_block_recipes().copy_recipe(),
-            &self.variants,
-            state,
-        );
-        let end = self.end_content.map(|v| {
+        let copy = self.copy_control(presentation);
+        let end = self.end_content.take().map(|v| {
             with_recipe_style(
                 node().child(v),
                 |r| r.code_block_recipes().end_content_recipe(),
                 &self.variants,
-                state,
+                move || state.get(),
             )
         });
-        let header = with_recipe_style(
+        with_recipe_style(
             node().child((label, trigger, language, end, copy)),
             |r| r.code_block_recipes().header_recipe(),
             &self.variants,
-            state,
-        );
-        let mut editing = self.editing;
-        editing = match self.highlight {
-            Some(highlight) => highlight(editing, self.highlight_lines, self.diff),
-            None => crate::code_editing::plain_highlight(editing, self.highlight_lines, self.diff),
-        };
-        editing = editing.line_layout(move || kivact_core::custom::EditLineLayout {
-            wrap: wrapped.get(),
-            rows: Some((1, usize::MAX)),
-        });
-        let editor_ref = node_ref();
-        let editor_rect = editor_ref.rect();
-        let editor = Part::new(part(|s| s).state(), move |node| {
-            node.role(Role::TextBox)
-                .focusable(true)
-                .name(name)
-                .text_editing(editing)
-        });
-        let editor = with_recipe_style(
-            node().part(editor).node_ref(editor_ref),
-            |r| r.code_block_recipes().code_recipe(),
-            &self.variants,
-            state,
-        );
-        let gutter = with_recipe_style(
-            text(move || {
-                let _geometry = editor_rect.get();
-                code.with(|source| crate::code_gutter::numbers(editor_ref, source))
-            })
-            .hidden(move || !numbered.get()),
-            |r| r.code_block_recipes().gutter_recipe(),
-            &self.variants,
-            state,
+            move || state.get(),
         )
-        .style(move || {
-            let _geometry = editor_rect.get();
-            let _source = code.get();
-            match editor_ref.text_layout(0..2).and_then(|layout| {
-                layout
-                    .lines
-                    .get(1)
-                    .map(|next| next.baseline - layout.lines[0].baseline)
-            }) {
-                Some(height) if height > 0.0 => {
-                    style().line_height(kivact_core::style::LineHeight::px(height))
-                }
-                _ => style(),
-            }
-        });
+    }
+}
+impl CodeSource {
+    fn render(self, presentation: &CodePresentation, variants: &Variants) -> View {
+        let state = presentation.state;
+        let (editor, reference) = native_editor(self.editing, presentation.name, variants, state);
+        let gutter = crate::code_gutter::gutter(reference, self.code, variants, state);
         let body = with_recipe_style(
             node().child((editor, gutter)),
             |r| r.code_block_recipes().body_recipe(),
-            &self.variants,
-            state,
+            variants,
+            move || state.get(),
         );
+        let open = presentation.disclosure.is_open();
         let max_height = self.max_height;
-        let viewport = with_recipe_style(
+        with_recipe_style(
             scroll(body)
                 .axes(ScrollAxes::Both)
                 .hidden(move || !open.get()),
             |r| r.code_block_recipes().viewport_recipe(),
-            &self.variants,
-            state,
+            variants,
+            move || state.get(),
         )
         .style(move || match max_height {
             Some(height) => style().max_height(height.get()),
             None => style(),
-        });
-        let footer = self.footer.map(|v| {
+        })
+        .into_view()
+    }
+}
+fn native_editor(
+    editing: TextEditing,
+    name: Value<String>,
+    variants: &Variants,
+    state: Value<CodeBlockState>,
+) -> (Node, kivact_core::view::NodeRef) {
+    let editing = editing.line_layout(move || kivact_core::custom::EditLineLayout {
+        wrap: state.get().wrapped,
+        rows: Some((1, usize::MAX)),
+    });
+    let reference = node_ref();
+    let editor = Part::new(part(|s| s).state(), move |node| {
+        node.role(Role::TextBox)
+            .focusable(true)
+            .name(name)
+            .text_editing(editing)
+    });
+    (
+        with_recipe_style(
+            node().part(editor).node_ref(reference),
+            |r| r.code_block_recipes().code_recipe(),
+            variants,
+            move || state.get(),
+        ),
+        reference,
+    )
+}
+impl IntoView for CodeBlock {
+    fn into_view(mut self) -> View {
+        let presentation = self.presentation();
+        let header = self.header(&presentation);
+        let state = presentation.state;
+        let footer = self.footer.take().map(|v| {
             with_recipe_style(
                 node().child(v),
                 |r| r.code_block_recipes().footer_recipe(),
                 &self.variants,
-                state,
+                move || state.get(),
             )
         });
+        let editing = match self.highlight {
+            Some(highlight) => highlight(self.editing, self.highlight_lines, self.diff),
+            None => {
+                crate::code_editing::plain_highlight(self.editing, self.highlight_lines, self.diff)
+            }
+        };
+        let source = CodeSource {
+            code: self.code,
+            editing,
+            max_height: self.max_height,
+        };
+        let viewport = source.render(&presentation, &self.variants);
         with_base_recipe_style(
             self.root,
             |r| r.code_block_recipes().root_recipe(),
             &self.variants,
-            state,
+            move || state.get(),
         )
         .child((header, viewport, footer))
         .into_view()
