@@ -66,14 +66,14 @@ impl ArvaneTestHost {
                 .lines
                 .get_mut() = original;
         }
-        compare_accessibility(&published, &rebuilt, &mut errors);
+        compare_accessibility(published.as_ref(), rebuilt.as_ref(), &mut errors);
         errors
     }
 }
 
 fn compare_accessibility(
-    published: &Option<kivact_types::render::SemanticsTree>,
-    rebuilt: &Option<kivact_types::render::SemanticsTree>,
+    published: Option<&kivact_types::render::SemanticsTree>,
+    rebuilt: Option<&kivact_types::render::SemanticsTree>,
     errors: &mut Vec<String>,
 ) {
     if published != rebuilt {
