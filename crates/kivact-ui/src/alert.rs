@@ -24,6 +24,7 @@ enum BannerState {
     Shown,
     Dismissed,
 }
+// xtask-allow(state-fields): Read-only recipe projection of tone, disclosure binding and independent dismiss-control availability.
 /// Alert meaning and disclosure state supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AlertState {
@@ -187,6 +188,9 @@ impl IntoView for Alert {
         let callback = self.dismiss;
         let dismiss = super::button(self.dismiss_label)
             .on_press(move || {
+                if phase.get_untracked() == BannerState::Dismissed {
+                    return;
+                }
                 phase.set(BannerState::Dismissed);
                 if let Some(previous) = previous.get_untracked() {
                     previous.restore_focus();

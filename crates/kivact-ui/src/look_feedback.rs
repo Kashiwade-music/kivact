@@ -1,5 +1,8 @@
 //! Role: Supply token-based default feedback, card and input-group recipes.
-use super::{AlertState, AlertVariant, CardState, EmptyStateState, InputGroupState, Look};
+use super::{
+    AlertState, AlertVariant, CardState, EmptyStateState, InputGroupMemberState, InputGroupState,
+    Look,
+};
 use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
 use kivact_interaction::Tone;
 
@@ -130,9 +133,13 @@ pub(super) fn group_label(t: &Theme, _: &Look<InputGroupState>) -> Style {
         .font_size(t.text().size)
         .weight(t.text().weight_strong)
 }
-pub(super) fn group_members(_: &Theme, _: &Look<InputGroupState>) -> Style {
+pub(super) fn group_members(_: &Theme, s: &Look<InputGroupState>) -> Style {
     style()
-        .direction(Direction::Row)
+        .direction(if s.direction == kivact_core::view::ReadingDirection::Rtl {
+            Direction::RowReverse
+        } else {
+            Direction::Row
+        })
         .align_items(Align::Stretch)
         .min_width(0)
 }
@@ -146,4 +153,30 @@ pub(super) fn group_addon(t: &Theme, s: &Look<InputGroupState>) -> Style {
         .background(ColorToken::SurfaceAlt)
         .color(ColorToken::Text)
         .font_size(t.text().size)
+}
+
+pub(super) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style {
+    let rtl = s.group.direction == kivact_core::view::ReadingDirection::Rtl;
+    let (left, right) = if rtl {
+        (s.last, s.first)
+    } else {
+        (s.first, s.last)
+    };
+    let radius = t.radius().md;
+    let base = style()
+        .height(super::look::height(t, s.group.size))
+        .radius_corners(
+            if left { radius } else { 0.0 },
+            if right { radius } else { 0.0 },
+            if right { radius } else { 0.0 },
+            if left { radius } else { 0.0 },
+        );
+    let base = if s.first {
+        base
+    } else if rtl {
+        base.margin_right(-1)
+    } else {
+        base.margin_left(-1)
+    };
+    if s.focused { base.z_index(1) } else { base }
 }

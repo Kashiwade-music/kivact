@@ -51,7 +51,9 @@ use super::values::{
     SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState,
 };
 use super::variants::Look;
-use super::{AlertState, CardState, EmptyStateState, InputGroupState, look_feedback};
+use super::{
+    AlertState, CardState, EmptyStateState, InputGroupMemberState, InputGroupState, look_feedback,
+};
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
 use crate::look_files;
 use kivact_core::custom::PartState;
@@ -784,6 +786,7 @@ recipe_table! {
         root(root_recipe): InputGroupState = look_feedback::group_root,
         label(label_recipe): InputGroupState = look_feedback::group_label,
         members(members_recipe): InputGroupState = look_feedback::group_members,
+        member(member_recipe): InputGroupMemberState = look_feedback::group_member,
         addon(addon_recipe): InputGroupState = look_feedback::group_addon,
     }
 }

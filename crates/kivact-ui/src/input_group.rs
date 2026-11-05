@@ -4,13 +4,24 @@ use super::variants::{Variant, Variants};
 use super::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{
-    IntoChildren, IntoView, Node, NodeBuilder, Role, View, column, node, row, text,
+    IntoChildren, IntoView, Node, NodeBuilder, ReadingDirection, Role, View, node, node_ref, row,
+    text, use_direction,
 };
 
-/// Input group size passed to all of its recipes.
+/// Input group size and reading direction passed to its recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {
     pub size: ControlSize,
+    pub direction: ReadingDirection,
+}
+// xtask-allow(state-fields): Read-only projection of member position and NodeRef focus-within, never independent behavior state.
+/// A member's position, inherited size, and actual focus-within observation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InputGroupMemberState {
+    pub group: InputGroupState,
+    pub first: bool,
+    pub last: bool,
+    pub focused: bool,
 }
 enum Controls<C> {
     Built(C),
@@ -48,18 +59,16 @@ pub fn input_group_with<C: IntoChildren>(
     label: impl IntoText,
     init: impl FnOnce() -> C + 'static,
 ) -> InputGroup<C> {
-    let mut group = input_group(label, ());
-    let root = group.root;
     InputGroup {
-        root,
-        label: group.label,
+        root: node(),
+        label: label.into_text_value(),
         controls: Controls::Scoped(Box::new(init)),
-        size: group.size,
-        start: group.start.take(),
-        end: group.end.take(),
-        block_start: group.block_start.take(),
-        block_end: group.block_end.take(),
-        variants: group.variants,
+        size: ControlSize::Medium.into_value(),
+        start: None,
+        end: None,
+        block_start: None,
+        block_end: None,
+        variants: Variants::default(),
     }
 }
 impl<C> InputGroup<C> {
@@ -102,21 +111,53 @@ impl<C> NodeBuilder for InputGroup<C> {
 impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
     fn into_view(self) -> View {
         let size = self.size;
-        let state = move || InputGroupState { size: size.get() };
-        let controls = match self.controls {
-            Controls::Built(controls) => row(controls.into_views()).into_view(),
-            Controls::Scoped(init) => {
-                provide_control_size(size.get(), move || row(init().into_views()))
-            }
+        let direction = use_direction();
+        let state = move || InputGroupState {
+            size: size.get(),
+            direction: direction.get(),
         };
-        let members = with_recipe_style(
-            row((self.start, controls, self.end)),
-            |r| r.input_group_recipes().members_recipe(),
-            &self.variants,
-            state,
-        );
+        let variants = self.variants.clone();
+        let members = move |controls: C| {
+            let views: Vec<_> = self
+                .start
+                .into_iter()
+                .chain(controls.into_views())
+                .chain(self.end)
+                .collect();
+            let count = views.len();
+            let children = views
+                .into_iter()
+                .enumerate()
+                .map(|(index, view)| {
+                    let reference = node_ref();
+                    let focused = reference.focus_within();
+                    with_recipe_style(
+                        node().node_ref(reference).child(view),
+                        |r| r.input_group_recipes().member_recipe(),
+                        &variants,
+                        move || InputGroupMemberState {
+                            group: state(),
+                            first: index == 0,
+                            last: index + 1 == count,
+                            focused: focused.get(),
+                        },
+                    )
+                })
+                .collect::<Vec<_>>();
+            with_recipe_style(
+                row(children),
+                |r| r.input_group_recipes().members_recipe(),
+                &variants,
+                state,
+            )
+        };
+        let members = match self.controls {
+            Controls::Built(controls) => members(controls).into_view(),
+            Controls::Scoped(init) => provide_control_size(size.get(), move || members(init())),
+        };
+        let label_ref = node_ref();
         let label = with_recipe_style(
-            text(self.label),
+            text(self.label).node_ref(label_ref),
             |r| r.input_group_recipes().label_recipe(),
             &self.variants,
             state,
@@ -129,17 +170,22 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
         )
         .role(Role::Group)
         .name(self.label)
-        .child(column((label, self.block_start, members, self.block_end)))
+        .with_node(move |node| node.labelled_by(label_ref))
+        .child((label, self.block_start, members, self.block_end))
         .into_view()
     }
 }
 /// Add noninteractive text adjacent to a grouped input.
 pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Component {
     let size = super::values::default_control_size();
+    let direction = use_direction();
     with_recipe_style(
         node().child(text(label)),
         |r| r.input_group_recipes().addon_recipe(),
         &Variants::default(),
-        move || InputGroupState { size },
+        move || InputGroupState {
+            size,
+            direction: direction.get(),
+        },
     )
 }
