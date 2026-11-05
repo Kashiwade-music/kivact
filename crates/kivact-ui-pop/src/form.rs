@@ -16,6 +16,6 @@ pub(crate) fn input_style(t: &Theme) -> kivact::style::Style {
         .color(p.text)
         .font_size(14)
         .line_height(1.2)
-        .shadow(Shadow::new(0, 1, 2, kivact::style::rgba(0x0f172a, 0.05)))
+        .shadow(Shadow::new(0, 1, 2, crate::tokens::subtle_shadow()))
         .focus(style().border_color(p.blue).ring(3, ColorToken::Focus))
 }

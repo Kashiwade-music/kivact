@@ -31,6 +31,7 @@ mod recipes_badge;
 mod recipes_calendar;
 mod recipes_chat;
 mod recipes_collections;
+mod recipes_controls;
 mod recipes_extra;
 mod recipes_feedback;
 mod recipes_field;

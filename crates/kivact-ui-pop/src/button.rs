@@ -67,17 +67,21 @@ pub(crate) fn button_style(
             let (a, b, fg) = match (hue, variant) {
                 (Some(ButtonTone::Accent), _) => (
                     p.yellow,
-                    kivact::style::rgb(0xffe36a),
-                    kivact::style::rgb(0x3b2f00),
+                    crate::tokens::accent_gradient_end(),
+                    crate::tokens::accent_text(),
                 ),
-                (Some(ButtonTone::Pink), _) => (p.pink, kivact::style::rgb(0xff7cb0), Color::WHITE),
-                (_, ButtonVariant::Danger) => (p.red, kivact::style::rgb(0xf45d6f), Color::WHITE),
+                (Some(ButtonTone::Pink), _) => {
+                    (p.pink, crate::tokens::pink_gradient_end(), Color::WHITE)
+                }
+                (_, ButtonVariant::Danger) => {
+                    (p.red, crate::tokens::danger_gradient_end(), Color::WHITE)
+                }
                 _ => (p.blue, p.blue.mix_in(p.cyan, 0.3, t), Color::WHITE),
             };
             s = s
                 .background(linear_gradient(90).colors([a, b]))
                 .color(fg)
-                .shadow(Shadow::new(0, 1, 2, kivact::style::rgba(0x0f172a, 0.12)))
+                .shadow(Shadow::new(0, 1, 2, crate::tokens::control_shadow()))
                 .hover(style().filter(Filter::new().brightness(0.95)))
                 .pressed(style().filter(Filter::new().brightness(0.9)));
         }
@@ -93,7 +97,7 @@ pub(crate) fn button_style(
                 .background(p.surface)
                 .color(p.text)
                 .border_color(p.line)
-                .shadow(Shadow::new(0, 1, 2, kivact::style::rgba(0x0f172a, 0.05)))
+                .shadow(Shadow::new(0, 1, 2, crate::tokens::subtle_shadow()))
                 .hover(style().background(p.surface_active))
                 .pressed(style().background(p.surface_muted))
         }
@@ -109,11 +113,11 @@ pub(crate) fn button_style(
         }
         (Some(ButtonTone::Glass), _) => {
             s = s
-                .background(kivact::style::rgba(0xffffff, 0.14))
+                .background(crate::tokens::glass_surface())
                 .color(Color::WHITE)
-                .border_color(kivact::style::rgba(0xffffff, 0.4))
+                .border_color(crate::tokens::glass_border())
                 .backdrop_blur(6)
-                .hover(style().background(kivact::style::rgba(0xffffff, 0.24)))
+                .hover(style().background(crate::tokens::glass_hover()))
         }
     }
     if slant {

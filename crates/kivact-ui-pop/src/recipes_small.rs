@@ -139,7 +139,7 @@ fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
                             .line_to(Point::new(x, size.height))
                             .line_to(Point::new(x - 8.0, size.height))
                             .close(),
-                        kivact::style::rgba(0xffffff, 0.3),
+                        crate::tokens::progress_stripe(),
                     );
                 }
             }

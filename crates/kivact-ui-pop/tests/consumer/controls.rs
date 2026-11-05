@@ -6,21 +6,27 @@ use kivact::view::A11yAction;
 
 #[test]
 fn button_states_and_user_modifiers_use_public_contract() {
-    let (screen, count) = kivact::test::render_with_handle(crate::support::options(), || {
-        let count = signal(0);
-        (
-            count,
-            column((
-                kivact::ui::button("Save")
-                    .on_press(move || count.update(|v| *v += 1))
-                    .style(style().height(40))
-                    .test_id("save"),
-                kivact::ui::button("Disabled")
-                    .disabled(true)
-                    .on_press(move || count.update(|v| *v += 100)),
-            )),
-        )
-    });
+    let (screen, count) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let count = signal(0);
+            (
+                count,
+                column((
+                    kivact::ui::button("Save")
+                        .on_press(move || count.update(|v| *v += 1))
+                        .style(style().height(40))
+                        .test_id("save"),
+                    kivact::ui::button("Disabled")
+                        .disabled(true)
+                        .on_press(move || count.update(|v| *v += 100)),
+                )),
+            )
+        },
+    );
     let button = screen.get_by_role(Role::Button, "Save");
     button.click();
     button.press_key(Key::Enter);
@@ -32,8 +38,12 @@ fn button_states_and_user_modifiers_use_public_contract() {
 
 #[test]
 fn checkbox_switch_and_mixed_states_are_accessible() {
-    let (screen, (checked, on)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (checked, on)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let checked = signal(false);
             let on = signal(true);
             (
@@ -45,7 +55,8 @@ fn checkbox_switch_and_mixed_states_are_accessible() {
                     kivact::ui::switch("Sync", on),
                 )),
             )
-        });
+        },
+    );
     let check = screen.get_by_role(Role::CheckBox, "Reports");
     check.press_key(Key::Space);
     assert!(checked.get_untracked());
@@ -60,8 +71,12 @@ fn checkbox_switch_and_mixed_states_are_accessible() {
 
 #[test]
 fn toggles_and_accordion_follow_the_shared_toggle_rules() {
-    let (screen, (check, switch, bold, open)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (check, switch, bold, open)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let check = signal(false);
             let switch = signal(false);
             let bold = signal(false);
@@ -76,7 +91,8 @@ fn toggles_and_accordion_follow_the_shared_toggle_rules() {
                     kivact::ui::checkbox("Locked", kivact::state::signal(false)).disabled(true),
                 )),
             )
-        });
+        },
+    );
     let check_box = screen.get_by_role(Role::CheckBox, "Reports");
     let switch_node = screen.get_by_role(Role::Switch, "Sync");
     let button = screen.get_by_role(Role::Button, "Bold");
@@ -115,20 +131,26 @@ fn toggles_and_accordion_follow_the_shared_toggle_rules() {
 
 #[test]
 fn slider_drag_keyboard_and_accessibility_share_one_binding() {
-    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
-        let value = signal(30.0f64);
-        (
-            value,
-            kivact::ui::slider("Volume", value)
-                .range(
-                    kivact::interaction::ScalarRange::new(0.0, 100.0)
-                        .and_then(|range| range.with_step(1.0))
-                        .expect("finite ordered range"),
-                )
-                .test_id("volume")
-                .style(style().width(300)),
-        )
-    });
+    let (screen, value) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let value = signal(30.0f64);
+            (
+                value,
+                kivact::ui::slider("Volume", value)
+                    .range(
+                        kivact::interaction::ScalarRange::new(0.0, 100.0)
+                            .and_then(|range| range.with_step(1.0))
+                            .expect("finite ordered range"),
+                    )
+                    .test_id("volume")
+                    .style(style().width(300)),
+            )
+        },
+    );
     let slider = screen.get_by_role(Role::Slider, "Volume");
     slider.press_key(Key::ArrowRight);
     assert_eq!(value.get_untracked(), 31.0);
