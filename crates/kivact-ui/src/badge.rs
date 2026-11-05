@@ -12,6 +12,7 @@ pub struct Badge {
     variants: Variants,
     icon: Option<View>,
     trailing: Option<View>,
+    on_press: Option<Callback<()>>,
 }
 pub fn badge(label: impl IntoText) -> Badge {
     let label = label.into_text_value();
@@ -22,6 +23,7 @@ pub fn badge(label: impl IntoText) -> Badge {
         variants: Variants::default(),
         icon: None,
         trailing: None,
+        on_press: None,
     }
 }
 impl Badge {
@@ -42,11 +44,7 @@ impl Badge {
         self
     }
     pub fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
-        let f = f.into();
-        self.root = self
-            .root
-            .part(kivact_interaction::use_button().control())
-            .on_press(move || f.call(()));
+        self.on_press = Some(f.into());
         self
     }
 }
@@ -58,18 +56,35 @@ impl NodeBuilder for Badge {
 impl IntoView for Badge {
     fn into_view(self) -> View {
         let tone = self.tone;
+        let actionable = self.on_press.is_some();
+        let leading_icon = self.icon.is_some();
+        let trailing_icon = self.trailing.is_some();
+        let part = kivact_core::custom::part(move |input| BadgeState {
+            tone: tone.get(),
+            input,
+            actionable,
+            leading_icon,
+            trailing_icon,
+        });
+        let state = part.state();
+        let mut root = self.root.part(part);
+        if let Some(on_press) = self.on_press {
+            root = root
+                .part(kivact_interaction::use_button().control())
+                .on_press(move || on_press.call(()));
+        }
         crate::layer::with_base_recipe_style(
-            self.root,
+            root,
             |r| r.badge_recipe(),
             &self.variants,
-            move || BadgeState { tone: tone.get() },
+            move || state.get(),
         )
         .child(self.icon)
         .child(crate::layer::with_recipe_style(
             text(self.label),
             |r| r.badge_label_recipe(),
             &self.variants,
-            move || BadgeState { tone: tone.get() },
+            move || state.get(),
         ))
         .child(self.trailing)
         .into_view()
