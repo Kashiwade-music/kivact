@@ -163,6 +163,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
                 wheel_width: 80.0,
             },
             indicators: kivact::ui::IndicatorTokens {
+                avatar_overlap: 9.0,
                 period_ms: tokens.motion.slow_min,
                 reduced_period_ms: Some(3000),
                 skeleton_transition: Some(Transition::tween(

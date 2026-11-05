@@ -15,6 +15,13 @@ pub(super) fn recipes() -> UiRecipes {
                 .empty_state(crate::empty_state::empty_state)
                 .input_group(crate::input_group::input_group)
                 .card(crate::card::card)
+                .avatar(|_| crate::avatar::root)
+                .avatar_image(|_| crate::avatar::picture)
+                .avatar_status(|_| crate::avatar::status)
+                .avatar_status_content(|_| crate::avatar::status_content)
+                .avatar_group(|_| crate::avatar::group)
+                .avatar_group_member(|_| crate::avatar::member)
+                .avatar_group_overflow(|_| crate::avatar::overflow)
                 .dropzone(crate::recipes_dropzone::dropzone)
                 .date_input(|r| {
                     r.root(|_| crate::recipes_calendar::field)

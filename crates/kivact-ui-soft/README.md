@@ -40,7 +40,7 @@ The standard APIs in this table come from `kivact::ui`.
 | --- | --- |
 | App Shell | `app_shell`, `use_app_shell_mobile` |
 | Aspect Ratio | `aspect_ratio` |
-| Avatar | `avatar`, `avatar_group`, `avatar_group_overflow`, `avatar_status_dot` |
+| Avatar | Standard `avatar`, `avatar_group(...).total(...).overflow_content(...)`; Soft `AvatarAppearance`, `AvatarGroupAppearance`, `avatar_status_dot`, `avatar_silhouette` |
 | Badge / Banner / Blockquote | Standard `badge` with semantic `tone` or Soft categorical `BadgeVariant`; `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | Standard `breadcrumb` and `ListItem`; Soft `BreadcrumbsVariant` typography |
@@ -113,10 +113,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.alert_dialog.cancel` | Cancel |
 | `soft.app_shell.main` | Main content |
 | `soft.app_shell.skip_to_content` | Skip to content |
-| `soft.avatar.name_with_status` | {name}, {status} |
-| `soft.avatar_group.keyboard_hint` | Use arrow keys to move between avatars |
-| `soft.avatar_group.label` | Avatars |
-| `soft.avatar_group.overflow` | {count} more |
 | `soft.banner.collapse` | Collapse |
 | `soft.banner.dismiss` | Dismiss |
 | `soft.banner.dismiss_titled` | {dismiss} {title} |
@@ -380,3 +376,5 @@ Filled recipe table: `empty_state` (root, title, description, icon, actions).
 Filled recipe table: `input_group` (root, label, members, member, addon).
 
 Filled recipe table: `card` (root, header, media, content, footer, overlay).
+
+Filled scalar recipes: `avatar`, `avatar_image`, `avatar_status`, `avatar_status_content`, `avatar_group`, `avatar_group_member`, `avatar_group_overflow`.
