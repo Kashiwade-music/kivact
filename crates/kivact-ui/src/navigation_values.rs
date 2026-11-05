@@ -39,3 +39,11 @@ pub struct StepperState {
     pub orientation: kivact_core::view::Orientation,
     pub collapsed: bool,
 }
+
+// xtask-allow(state-fields): Read-only independent current-page semantics and the actual entry part input; no stored interaction or reconciliation flags.
+/// Actual entry semantics and input from its single activation part.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BreadcrumbItemState {
+    pub current: bool,
+    pub input: Option<kivact_core::custom::PartState>,
+}

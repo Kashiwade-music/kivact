@@ -1,4 +1,5 @@
 //! Role: Render keyed breadcrumb navigation with one current page.
+use crate::BreadcrumbItemState;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::view::{
     CurrentItem, IntoView, Node, NodeBuilder, Role, View, dynamic, node, text,
@@ -154,7 +155,10 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                 text(label).current_item(current),
                 |r| r.breadcrumb_recipes().item_recipe(),
                 variants,
-                move || current.is_some(),
+                move || BreadcrumbItemState {
+                    current: current.is_some(),
+                    input: None,
+                },
             )
             .into_view()
         } else {
@@ -166,18 +170,25 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                     .child(body),
                 |r| r.breadcrumb_recipes().item_recipe(),
                 variants,
-                move || current.is_some(),
+                move || BreadcrumbItemState {
+                    current: current.is_some(),
+                    input: None,
+                },
             )
             .into_view()
         }
     } else {
         let f = activate.clone();
         let key = entry.key().clone();
+        let part = kivact_interaction::use_button()
+            .disabled(entry.is_disabled())
+            .control();
+        let input = part.state();
         crate::layer::with_recipe_style(
-            crate::button("")
+            node()
+                .part(part)
                 .name(label)
-                .with_node(|n| n.role(Role::Link))
-                .disabled(entry.is_disabled())
+                .role(Role::Link)
                 .on_press(move || {
                     if let Some(f) = &f {
                         f(key.clone());
@@ -186,7 +197,10 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                 .child(body),
             |r| r.breadcrumb_recipes().item_recipe(),
             variants,
-            move || current,
+            move || BreadcrumbItemState {
+                current,
+                input: Some(input.get()),
+            },
         )
         .into_view()
     }

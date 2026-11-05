@@ -41,3 +41,5 @@ Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a pa
 `breadcrumb(items).current(current_key)` overrides the default final current page. The source accepts `Option<K>` reactively: `Some(key)` marks that key, while explicit `None` marks no page. Omitting the method retains the final-item default.
 
 Stepper item recipes receive `index`, `count`, and actual `orientation` from the same responsive layout projection; visual variants do not need to copy the axis or item count.
+
+Breadcrumb item recipes receive `BreadcrumbItemState { current, input }`; `input` comes from the actual link part and is absent for passive/current labels. Use this snapshot for state-dependent typography such as hover underline; paint-only pseudo-state styles cannot change text decoration.

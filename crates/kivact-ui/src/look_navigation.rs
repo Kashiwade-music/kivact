@@ -87,14 +87,14 @@ pub(super) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
 pub(super) fn breadcrumb_list(_: &Theme, _: &Look<()>) -> Style {
     style().direction(Direction::Row).gap(8)
 }
-pub(super) fn breadcrumb_item(t: &Theme, s: &Look<bool>) -> Style {
+pub(super) fn breadcrumb_item(t: &Theme, s: &Look<crate::BreadcrumbItemState>) -> Style {
     style()
         .padding(0)
         .height(kivact_core::style::auto())
         .min_width(0)
         .border(0, kivact_core::style::Color::TRANSPARENT)
         .background(kivact_core::style::Color::TRANSPARENT)
-        .color(if **s {
+        .color(if s.current {
             t.colors().text
         } else {
             t.colors().text_muted
