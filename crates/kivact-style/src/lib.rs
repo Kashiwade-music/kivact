@@ -16,6 +16,7 @@ pub mod asset;
 mod color;
 pub mod draw;
 pub mod effect;
+pub mod facade;
 pub mod geometry;
 mod grid;
 mod icon;
