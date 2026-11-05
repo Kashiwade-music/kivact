@@ -9,28 +9,67 @@ fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
     let (screen, selected) =
         kivact::test::render_with_handle(crate::support::options(true), || {
             let selected = signal(Some("b.md".to_owned()));
+            let expanded = signal(vec!["docs".to_owned()]);
             (
                 selected,
-                g::tree(
+                kivact::ui::tree(
+                    "Files",
                     vec![
-                        g::TreeEntry::folder(
-                            "docs",
-                            "docs",
-                            vec![
-                                g::TreeEntry::file("a.md", "a.md"),
-                                g::TreeEntry::file("b.md", "b.md").marker("M"),
-                            ],
+                        kivact::interaction::TreeNode::new("docs".to_owned(), None, "docs"),
+                        kivact::interaction::TreeNode::new(
+                            "a.md".to_owned(),
+                            Some("docs".to_owned()),
+                            "a.md",
                         ),
-                        g::TreeEntry::folder(
-                            "src",
-                            "src",
-                            vec![g::TreeEntry::file("lib.rs", "lib.rs")],
-                        )
-                        .collapsed(),
+                        kivact::interaction::TreeNode::new(
+                            "b.md".to_owned(),
+                            Some("docs".to_owned()),
+                            "b.md",
+                        ),
+                        kivact::interaction::TreeNode::new("src".to_owned(), None, "src"),
+                        kivact::interaction::TreeNode::new(
+                            "lib.rs".to_owned(),
+                            Some("src".to_owned()),
+                            "lib.rs",
+                        ),
                     ],
-                    selected,
                 )
-                .name("Files"),
+                .expanded(expanded)
+                .selection(binding(selected, move |key: Option<String>| {
+                    if key
+                        .as_deref()
+                        .is_none_or(|id| !["docs", "src"].contains(&id))
+                    {
+                        selected.set(key);
+                    }
+                }))
+                .on_activate(move |key| {
+                    if ["docs", "src"].contains(&key.as_str()) {
+                        expanded.update(|keys| {
+                            if keys.contains(&key) {
+                                keys.retain(|k| k != &key);
+                            } else {
+                                keys.push(key);
+                            }
+                        });
+                    }
+                })
+                .item(|item, _| {
+                    let key = item.get_untracked().key;
+                    let folder = ["docs", "src"].contains(&key.as_str());
+                    row((
+                        icon(if folder { "folder" } else { "file-text" }).style(
+                            style().size(14, 14).color(if folder {
+                                ColorToken::Warning
+                            } else {
+                                ColorToken::TextMuted
+                            }),
+                        ),
+                        text(key.clone()).style(style().grow(1).font_size(12.5)),
+                        g::mono(if key == "b.md" { "M" } else { "" }),
+                    ))
+                    .style(style().grow(1).gap(6).align_items(Align::Center))
+                }),
             )
         });
     let item = |name: &str| screen.get_by_role(Role::TreeItem, name);

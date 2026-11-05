@@ -386,14 +386,14 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
     vec![
         kivact::ui::DataColumn::new("ID", |r: &Record| r.id.clone())
             .width(80.)
-            .cell(|r: &Record| g::TableCell::Identifier(r.id.clone()))
+            .cell(|r: &Record| g::GameCellVariant::Identifier(r.id.clone()))
             .compare(|a: &Record, b: &Record| a.id.cmp(&b.id))
             .filter(|r: &Record, q: &str| contains(&r.id, q)),
         kivact::ui::DataColumn::new("件名", |r: &Record| {
             format!("{} {}", r.title, r.description)
         })
         .width(220.)
-        .cell(|r: &Record| g::TableCell::Detail {
+        .cell(|r: &Record| g::GameCellVariant::Detail {
             title: r.title.clone(),
             description: r.description.clone(),
         })
@@ -401,7 +401,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
         .filter(|r: &Record, q: &str| contains(&r.title, q) || contains(&r.description, q)),
         kivact::ui::DataColumn::new("担当", |r: &Record| r.owner.clone())
             .width(124.)
-            .cell(|r: &Record| g::TableCell::User {
+            .cell(|r: &Record| g::GameCellVariant::User {
                 name: r.owner.clone(),
                 initials: r.owner.chars().take(1).collect(),
                 color: owner_color(&r.owner),
@@ -410,7 +410,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
             .filter(|r: &Record, q: &str| contains(&r.owner, q)),
         kivact::ui::DataColumn::new("状態", |r: &Record| r.status.clone())
             .width(118.)
-            .cell(|r: &Record| g::TableCell::Badge {
+            .cell(|r: &Record| g::GameCellVariant::Badge {
                 label: r.status.clone(),
                 tone: r.tone,
             })
@@ -418,7 +418,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
             .filter(|r: &Record, q: &str| contains(&r.status, q)),
         kivact::ui::DataColumn::new("優先度", |r: &Record| format!("P{}", r.priority))
             .width(70.)
-            .cell(|r: &Record| g::TableCell::Badge {
+            .cell(|r: &Record| g::GameCellVariant::Badge {
                 label: format!("P{}", r.priority),
                 tone: if r.priority == 3 {
                     kivact::interaction::Tone::Danger
@@ -429,7 +429,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
             .compare(|a: &Record, b: &Record| a.priority.cmp(&b.priority)),
         kivact::ui::DataColumn::new("進捗", |r: &Record| format!("{:.0}%", r.progress))
             .width(144.)
-            .cell(|r: &Record| g::TableCell::Progress {
+            .cell(|r: &Record| g::GameCellVariant::Progress {
                 value: r.progress,
                 tone: if r.tone == kivact::interaction::Tone::Danger {
                     kivact::interaction::Tone::Danger

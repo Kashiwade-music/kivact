@@ -39,3 +39,5 @@ corridor が保護します。Escape と外側の押下は、現在の操作が�
 ハンドラーで `copy.copy(text)` を呼び、表示には `copy.is_copied()` を読みます。
 成功するたびに待ち時間が始まり直します。失敗は owner のエラーハンドラーへ届き、
 確認表示を開始しません。owner を破棄すると処理とタイマーを取り消します。
+
+Disclosure の recipe は `DisclosureRecipeState` を読みます。実際の入力と開閉状態に加えて、固定のグループ位置 `group`（`index`、`count`）を渡すため、グループの状態を保存せず区切り線を描けます。グループとパネルの variant は統合され、同じ型ではパネル側が優先されます。`UiTokens::disclosure.motion.transition` でテーマの transition を指定できます。未指定なら duration に基づく ease-out tween を使います。

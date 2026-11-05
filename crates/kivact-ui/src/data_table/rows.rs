@@ -458,24 +458,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
         &grid.variants,
         move || state.get(),
     );
-    let handle = (grid.widths.is_some() && column.is_resizable()).then(|| {
-        node()
-            .part(grid.behavior.resize(index))
-            .name(message_with(
-                "data_table.resize",
-                "Resize {title}",
-                move || [("title", title.get())],
-            ))
-            .style(
-                style()
-                    .position(Position::Absolute)
-                    .right(0)
-                    .top(0)
-                    .width(6)
-                    .height(pct(100))
-                    .cursor(Cursor::EwResize),
-            )
-    });
+    let handle = resize_handle(grid, index, column, title);
     let field = grid.filters.and_then(|_| column.filter_editor());
     let inline = grid
         .filters
@@ -659,33 +642,7 @@ where
                 .collect::<Vec<_>>()
         })
     };
-    let actions = grid.actions.as_ref().map(|(width, render)| {
-        let root = node().column_index(grid.column_index(ACTIONS)).role(
-            if grid.focus == TableFocus::None {
-                Role::Cell
-            } else {
-                Role::GridCell
-            },
-        );
-        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
-            root.part(grid.behavior.cell(id.clone(), ACTIONS))
-                .on_pointer(keep_selection)
-        } else {
-            root
-        };
-        let root = grid.navigation_cell(root, id.clone(), ACTIONS);
-        content_navigation(
-            root.style(
-                style()
-                    .width(*width)
-                    .shrink(0)
-                    .direction(kivact_core::style::Direction::Row)
-                    .align_items(kivact_core::style::Align::Center),
-            ),
-            render.call(item),
-            matches!(grid.focus, TableFocus::Cells(_)),
-        )
-    });
+    let actions = row_actions(grid, &id, item);
     let (trigger, details) = match (&grid.details, grid.expanded_rows) {
         (Some(render), Some(expanded)) => {
             let (trigger, region) = row_disclosure(grid, id.clone(), item, expanded, render);
@@ -694,49 +651,9 @@ where
         (Some(render), None) => (None, Some(render.call(item))),
         (None, _) => (None, None),
     };
-    let index = grid.indexed.map(|positions| {
-        let id = id.clone();
-        let role = if grid.focus == TableFocus::None {
-            Role::Cell
-        } else {
-            Role::GridCell
-        };
-        let cell_key = id.clone();
-        let root = index_cell(
-            role,
-            text(move || {
-                positions
-                    .with(|positions| positions.get(&id).map(usize::to_string).unwrap_or_default())
-            }),
-        );
-        let root = grid.navigation_cell(root, cell_key.clone(), INDEX);
-        if matches!(grid.focus, TableFocus::Cells(_)) {
-            root.column_index(grid.column_index(INDEX))
-                .part(grid.behavior.cell(cell_key, INDEX))
-        } else {
-            root.column_index(grid.column_index(INDEX))
-        }
-    });
+    let index = row_number(grid, &id);
     let (color, height) = (grid.row_color.clone(), grid.row_height);
-    let role = if grid.focus == TableFocus::None {
-        Role::Cell
-    } else {
-        Role::GridCell
-    };
-    let status = grid.row_status.as_ref().map(|status| {
-        let status = status.clone();
-        let (root, content) =
-            super::row_status::cell(memo(move || item.with(|row| status(row))), role);
-        let root = root.column_index(grid.column_index(STATUS));
-        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
-            root.part(grid.behavior.cell(id.clone(), STATUS))
-                .on_pointer(keep_selection)
-        } else {
-            root
-        };
-        let root = grid.navigation_cell(root, id.clone(), STATUS);
-        content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
-    });
+    let status = row_status_cell(grid, &id, item);
     let metadata = grid.row_metadata;
     let coordinate_key = id.clone();
     let row_index = memo(move || {
@@ -991,4 +908,123 @@ where
             }
         });
     drag.source(())
+}
+
+/// Attach the resize part only for resizable columns with caller-owned widths.
+fn resize_handle<R: 'static, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    index: usize,
+    column: &DataColumn<R>,
+    title: Value<String>,
+) -> Option<Node> {
+    (grid.widths.is_some() && column.is_resizable()).then(|| {
+        node()
+            .part(grid.behavior.resize(index))
+            .name(message_with(
+                "data_table.resize",
+                "Resize {title}",
+                move || [("title", title.get())],
+            ))
+            .style(
+                style()
+                    .position(Position::Absolute)
+                    .right(0)
+                    .top(0)
+                    .width(6)
+                    .height(pct(100))
+                    .cursor(Cursor::EwResize),
+            )
+    })
+}
+
+/// Render the row's caller-provided action controls.
+fn row_actions<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    id: &K,
+    item: Value<R>,
+) -> Option<Node> {
+    grid.actions.as_ref().map(|(width, render)| {
+        let root = node().column_index(grid.column_index(ACTIONS)).role(
+            if grid.focus == TableFocus::None {
+                Role::Cell
+            } else {
+                Role::GridCell
+            },
+        );
+        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.cell(id.clone(), ACTIONS))
+                .on_pointer(keep_selection)
+        } else {
+            root
+        };
+        let root = grid.navigation_cell(root, id.clone(), ACTIONS);
+        content_navigation(
+            root.style(
+                style()
+                    .width(*width)
+                    .shrink(0)
+                    .direction(kivact_core::style::Direction::Row)
+                    .align_items(kivact_core::style::Align::Center),
+            ),
+            render.call(item),
+            matches!(grid.focus, TableFocus::Cells(_)),
+        )
+    })
+}
+
+/// Render the row's page-aware numeric coordinate.
+fn row_number<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    id: &K,
+) -> Option<Node> {
+    grid.indexed.map(|positions| {
+        let id = id.clone();
+        let role = if grid.focus == TableFocus::None {
+            Role::Cell
+        } else {
+            Role::GridCell
+        };
+        let cell_key = id.clone();
+        let root = index_cell(
+            role,
+            text(move || {
+                positions
+                    .with(|positions| positions.get(&id).map(usize::to_string).unwrap_or_default())
+            }),
+        );
+        let root = grid.navigation_cell(root, cell_key.clone(), INDEX);
+        if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.column_index(grid.column_index(INDEX))
+                .part(grid.behavior.cell(cell_key, INDEX))
+        } else {
+            root.column_index(grid.column_index(INDEX))
+        }
+    })
+}
+
+/// Render the row's theme-owned status marker.
+fn row_status_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    id: &K,
+    item: Value<R>,
+) -> Option<Node> {
+    let role = if grid.focus == TableFocus::None {
+        Role::Cell
+    } else {
+        Role::GridCell
+    };
+    grid.row_status.as_ref().map(|status| {
+        let status = status.clone();
+        let (root, content) =
+            super::row_status::cell(memo(move || item.with(|row| status(row))), role);
+        let root = root.column_index(grid.column_index(STATUS));
+        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.cell(id.clone(), STATUS))
+                .on_pointer(keep_selection)
+        } else {
+            root
+        };
+        let root = grid.navigation_cell(root, id.clone(), STATUS);
+        content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
+    })
 }

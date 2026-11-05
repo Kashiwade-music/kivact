@@ -148,60 +148,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     let row_index = memo(move || {
         metadata.with(|metadata| metadata.groups.get(&coordinate_label).copied().unwrap_or(0))
     });
-    let name = {
-        let group = label.clone();
-        let expand = message_with("data_table.group.expand", "Expand group {group}", {
-            let group = group.clone();
-            move || [("group", group.clone())]
-        });
-        let collapse = message_with(
-            "data_table.group.collapse",
-            "Collapse group {group}",
-            move || [("group", group.clone())],
-        );
-        memo(move || {
-            if state.get().collapsed {
-                expand.get()
-            } else {
-                collapse.get()
-            }
-        })
-    };
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
-    let mark = icon("chevron-right").style(move || {
-        let angle = if !state.get().collapsed {
-            90
-        } else if rtl {
-            180
-        } else {
-            0
-        };
-        style()
-            .size(16, 16)
-            .color(ColorToken::TextMuted)
-            .rotate(angle)
-            .transition(
-                TransitionProp::Paint,
-                Transition::tween(150, Easing::CubicBezier(0.25, 0.1, 0.25, 1.0)),
-            )
-    });
-    let content = row((
-        mark,
-        text(label.clone()).style(style().weight(600)),
-        text(move || format!("({})", state.get().count))
-            .style(style().weight(400).color(ColorToken::TextMuted)),
-    ))
-    .style({
-        let base = style()
-            .position(Position::Sticky)
-            .gap(4)
-            .align_items(Align::Center);
-        if rtl {
-            base.right(0).padding_right(4)
-        } else {
-            base.left(0).padding_left(4)
-        }
-    });
+    let (name, content) = group_disclosure_content(label.clone(), state);
     let navigation_label = label.clone();
     let disclosure = button(name)
         .variant(ButtonVariant::Ghost)
@@ -263,4 +210,66 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
         move || state.get(),
     )
     .into_view()
+}
+
+/// Describe group expansion and draw its sticky label, count and rotating mark.
+fn group_disclosure_content(
+    label: String,
+    state: Value<DataTableGroupState>,
+) -> (Value<String>, impl IntoView) {
+    let name = {
+        let group = label.clone();
+        let expand = message_with("data_table.group.expand", "Expand group {group}", {
+            let group = group.clone();
+            move || [("group", group.clone())]
+        });
+        let collapse = message_with(
+            "data_table.group.collapse",
+            "Collapse group {group}",
+            move || [("group", group.clone())],
+        );
+        memo(move || {
+            if state.get().collapsed {
+                expand.get()
+            } else {
+                collapse.get()
+            }
+        })
+    };
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let mark = icon("chevron-right").style(move || {
+        let angle = if !state.get().collapsed {
+            90
+        } else if rtl {
+            180
+        } else {
+            0
+        };
+        style()
+            .size(16, 16)
+            .color(ColorToken::TextMuted)
+            .rotate(angle)
+            .transition(
+                TransitionProp::Paint,
+                Transition::tween(150, Easing::CubicBezier(0.25, 0.1, 0.25, 1.0)),
+            )
+    });
+    let content = row((
+        mark,
+        text(label.clone()).style(style().weight(600)),
+        text(move || format!("({})", state.get().count))
+            .style(style().weight(400).color(ColorToken::TextMuted)),
+    ))
+    .style({
+        let base = style()
+            .position(Position::Sticky)
+            .gap(4)
+            .align_items(Align::Center);
+        if rtl {
+            base.right(0).padding_right(4)
+        } else {
+            base.left(0).padding_left(4)
+        }
+    });
+    (name, content)
 }

@@ -140,6 +140,33 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            indicators: kivact::ui::IndicatorTokens {
+                period_ms: tokens.motion.slow_min,
+                reduced_period_ms: Some(3000),
+                gap: tokens.spacing.s2,
+                ..Default::default()
+            },
+            button_group: kivact::ui::ButtonGroupTokens {
+                radius: tokens.radius.element,
+                divider: colors.border,
+                solid_divider: colors.on_accent,
+                text_background: colors.bg_muted,
+                text_color: colors.text_primary,
+                ..Default::default()
+            },
+            toggle_group: kivact::ui::ToggleGroupTokens {
+                gap: tokens.spacing.s1,
+            },
+            disclosure: kivact::ui::DisclosureTokens {
+                motion: kivact::ui::DisclosureMotion {
+                    transition: Some(Transition::spring(Spring {
+                        stiffness: 157.91,
+                        damping: 25.13,
+                        mass: 1.0,
+                    })),
+                    ..Default::default()
+                },
+            },
             combobox: kivact::ui::ComboboxTokens {
                 foreground: colors.text_primary,
                 muted: colors.text_secondary,

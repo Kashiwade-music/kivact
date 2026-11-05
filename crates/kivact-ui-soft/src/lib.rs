@@ -11,7 +11,6 @@ mod banner;
 mod blockquote;
 mod bottom_sheet;
 mod breadcrumbs;
-mod button_group;
 mod calendar;
 mod card;
 mod carousel;
@@ -19,7 +18,6 @@ mod choice_list;
 mod citation;
 mod code;
 mod code_block;
-mod collapsible;
 mod color;
 mod color_name;
 mod container_reveal;
@@ -28,6 +26,7 @@ mod date_range_input;
 mod date_time_input;
 mod date_touch;
 mod dialog_header;
+mod disclosure_appearance;
 mod divider;
 mod elevation;
 mod empty_state;
@@ -67,6 +66,7 @@ mod recipes_controls_choice;
 mod recipes_controls_value;
 mod recipes_dialog;
 mod recipes_field;
+mod recipes_groups;
 mod recipes_menu;
 mod recipes_popup;
 mod recipes_popup_command;
@@ -99,7 +99,6 @@ mod time_input;
 mod time_of_day;
 mod timer;
 mod timestamp;
-mod toggle_button_group;
 mod token;
 mod tokens;
 mod toolbar;
@@ -124,7 +123,6 @@ pub use bottom_sheet::{
 pub use breadcrumbs::{
     BreadcrumbItem, Breadcrumbs, BreadcrumbsVariant, breadcrumb_item, breadcrumbs,
 };
-pub use button_group::{ButtonGroup, GroupMember, button_group};
 pub use calendar::{Calendar, calendar, calendar_range};
 pub use card::{Card, CardVariant, card, clickable_card, selectable_card};
 pub use carousel::{Carousel, CarouselHandle, carousel, use_carousel};
@@ -134,11 +132,6 @@ pub use code::{Code, CodeColor, code};
 pub use code_block::{
     CodeBlock, CodeBlockContainer, CodeBlockSize, CodeBlockWidth, CodeLanguage, CodeLanguageInput,
     SyntaxTheme, TokenKind, code_block,
-};
-pub use collapsible::{
-    ChevronPosition, Collapsible, CollapsibleConfig, CollapsibleGroup, CollapsibleState,
-    DisclosureDensity, GroupMode, collapsible, collapsible_default, collapsible_group,
-    use_collapsible,
 };
 pub use color::{Colors, DataColors, HueColors, Hues, SyntaxColors};
 pub use color_name::ColorName;
@@ -152,6 +145,7 @@ pub use date_touch::DatePresentation;
 pub use dialog_header::{
     DialogHeader, DrawerHeader, EdgeCompensation, dialog_header, drawer_header,
 };
+pub use disclosure_appearance::{ChevronPosition, DisclosureDensity, DisclosureVariant};
 pub use divider::{Divider, DividerVariant, divider};
 pub use elevation::Elevation;
 pub use empty_state::{EmptyState, empty_state};
@@ -171,7 +165,6 @@ pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
 pub use input_group::{InputGroup, input_group, input_group_text, input_group_with};
-pub use kbd::kbd;
 pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_footer,
     layout_header, layout_panel,
@@ -194,6 +187,7 @@ pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
+pub use recipes_groups::ButtonGroupVariant;
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
@@ -234,7 +228,7 @@ pub use soft_table::{
     table_row_index, table_row_status, table_selection_toolbar,
 };
 pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
-pub use spinner::{Spinner, SpinnerShade, SpinnerSize, spinner};
+pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
     center, hstack, stack, stack_item, vstack,
@@ -260,7 +254,6 @@ pub use timer::{Timer, TimerFormat, timer};
 pub use timestamp::{
     Instant, InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, timestamp,
 };
-pub use toggle_button_group::{ToggleButtonGroup, toggle_button_group};
 pub use token::{Token, TokenColor, token};
 pub use tokens::{Motion, Radius, Sizes, Spacing, TextStyle, Tokens, Typography};
 pub use toolbar::{Edge, Toolbar, toolbar, toolbar_item};

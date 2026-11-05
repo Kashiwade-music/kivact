@@ -262,6 +262,8 @@ pub use carousel_tokens::CarouselTokens;
 pub use dropzone_tokens::DropzoneTokens;
 pub use recipes::{CarouselRecipes, DropzoneRecipes};
 mod carousel_geometry;
+mod disclosure_values;
+pub use disclosure_values::{DisclosureGroupPosition, DisclosureRecipeState};
 mod disclosure_group;
 pub use disclosure_group::{DisclosureGroup, disclosure_group};
 
@@ -324,7 +326,10 @@ pub use avatar::{Avatar, avatar};
 pub use avatar_group::{AvatarGroup, avatar_group};
 
 mod kbd;
+mod kbd_labels;
+mod kbd_values;
 pub use kbd::{Kbd, KbdCombo, kbd, kbd_combo};
+pub use kbd_values::KbdKeyState;
 mod item_list;
 mod look_static_collections;
 mod table;

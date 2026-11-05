@@ -55,11 +55,14 @@ impl<K: 'static> IntoView for DisclosureGroup<K> {
     fn into_view(self) -> View {
         let variants = self.variants;
         let level = self.heading_level;
+        let count = self.panels.len();
         let panels = self
             .panels
             .into_iter()
-            .map(|panel| {
+            .enumerate()
+            .map(|(index, panel)| {
                 panel
+                    .group_position(index, count)
                     .heading(level)
                     .group_variants(variants.clone())
                     .into_view()

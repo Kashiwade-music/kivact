@@ -5,7 +5,7 @@ use kivact::view::IntoChildren;
 
 use std::time::Duration;
 
-use crate::{SectionVariant, kbd};
+use crate::SectionVariant;
 use kivact::motion::Easing;
 use kivact::motion::Transition;
 use kivact::state::IntoText;
@@ -27,6 +27,7 @@ use kivact::style::style;
 use kivact::task::sleep;
 use kivact::task::spawn;
 use kivact::ui::ControlSize;
+use kivact::ui::kbd;
 use kivact::view::Handled;
 use kivact::view::IntoView;
 use kivact::view::Key;

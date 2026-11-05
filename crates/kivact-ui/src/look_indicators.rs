@@ -73,7 +73,11 @@ pub(super) fn spinner(_: &Theme, s: &SpinnerState) -> Style {
         );
     })
 }
-pub(super) fn kbd(t: &Theme, _: &()) -> Style {
+pub(super) fn kbd(_: &Theme, _: &()) -> Style {
+    style().align_items(Align::Center).gap(4).shrink(0)
+}
+
+pub(super) fn kbd_key(t: &Theme, _: &crate::KbdKeyState) -> Style {
     style()
         .min_height(20)
         .min_width(20)

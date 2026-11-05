@@ -27,3 +27,5 @@ fn hover_surface() -> impl IntoView {
 ```
 
 描画トランジションでは単色の背景や不透明度などを補間できます。レイアウト変更と文字装飾は、ホバー時の描画レイヤーとは分けて扱います。
+
+従来の Sm、Md、Lg、Xl の glyph サイズには、標準の `kivact::ui::spinner()` と `ControlSize::ExtraSmall`、`Small`、`Medium`、`Large` を使います。色の扱いは `.variant(soft::SpinnerVariant { shade: soft::SpinnerShade::Subtle, ..Default::default() })` で選びます。`OnMedia` と `Inherit` も使え、明示する色は `ink: Some(color)` で渡します。名前と表示ラベルには `.name(label).label_content(text(label))`、独自の内容には `label_content` を使います。Soft は通常の回転周期と、動きを減らす場合の遅い 3000 ms 周期を設定します。

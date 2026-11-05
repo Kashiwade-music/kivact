@@ -88,38 +88,8 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                         .into_view(),
                     );
                 }
-                let label_entry = entry.clone();
-                let label = kivact_core::state::memo(move || label_entry.label());
-                let body = item
-                    .as_ref()
-                    .map_or_else(|| text(label).into_view(), |slot| slot(entry.clone()));
                 let current = at == last;
-                let entry_node = if current || activate.is_none() {
-                    node()
-                        .role(Role::Text)
-                        .name(label)
-                        .current_item(if current {
-                            Some(CurrentItem::Page)
-                        } else {
-                            None
-                        })
-                        .child(body)
-                        .into_view()
-                } else {
-                    let f = activate.clone();
-                    let key = entry.key().clone();
-                    crate::button("")
-                        .name(label)
-                        .with_node(|n| n.role(Role::Link))
-                        .disabled(entry.is_disabled())
-                        .on_press(move || {
-                            if let Some(f) = &f {
-                                f(key.clone());
-                            }
-                        })
-                        .child(body)
-                        .into_view()
-                };
+                let entry_node = breadcrumb_entry(entry, current, &activate, item.as_ref());
                 children.push(
                     crate::layer::with_recipe_style(
                         node().role(Role::ListItem),
@@ -150,5 +120,44 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                 .child(contents),
         )
         .into_view()
+    }
+}
+
+/// Render a current-page label or an activatable navigation link.
+fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
+    entry: ListItem<K>,
+    current: bool,
+    activate: &Option<Rc<dyn Fn(K)>>,
+    item: Option<&ItemSlot<K>>,
+) -> View {
+    let label_entry = entry.clone();
+    let label = kivact_core::state::memo(move || label_entry.label());
+    let body = item.map_or_else(|| text(label).into_view(), |slot| slot(entry.clone()));
+    if current || activate.is_none() {
+        let current = current.then_some(CurrentItem::Page);
+        if item.is_none() {
+            text(label).current_item(current).into_view()
+        } else {
+            node()
+                .role(Role::Generic)
+                .name(label)
+                .current_item(current)
+                .child(body)
+                .into_view()
+        }
+    } else {
+        let f = activate.clone();
+        let key = entry.key().clone();
+        crate::button("")
+            .name(label)
+            .with_node(|n| n.role(Role::Link))
+            .disabled(entry.is_disabled())
+            .on_press(move || {
+                if let Some(f) = &f {
+                    f(key.clone());
+                }
+            })
+            .child(body)
+            .into_view()
     }
 }

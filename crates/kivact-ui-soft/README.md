@@ -44,14 +44,14 @@ The standard APIs in this table come from `kivact::ui`.
 | Badge / Banner / Blockquote | `badge`, `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
-| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_button_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
+| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | `calendar`, `calendar_range` |
 | Card | `card`, `clickable_card`, `selectable_card` |
 | Carousel | `carousel`, `use_carousel` |
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
 | Citation / Code / Code Block | `citation`, `code`, `code_block` |
-| Collapsible | `collapsible`, `collapsible_group`. Disclosure state belongs to the binding. |
+| Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selection)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
 | Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
 | Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
 | Date Input | `date_input`, `date_range_input`, `date_time_input` |
@@ -65,7 +65,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
 | Icon | `icon`, `ICON_NAMES` |
 | Indicator | `checkbox_indicator`, `check_indicator`, `radio_indicator` |
-| Item / Kbd | `item`, `kbd` |
+| Item / Kbd | `item`, standard parsed `kbd` and typed `kbd_combo` |
 | Layout | `center`, `form_layout`, `grid`, `grid_span`, `hstack`, `layout`, `layout_content`, `layout_footer`, `layout_header`, `layout_panel`, `section`, `stack`, `stack_item`, `vstack` |
 | Lightbox / Link | `lightbox`, `use_lightbox`, `link` |
 | List | `list`, `list_items`, `list_item` |
@@ -81,7 +81,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area` |
 | Segmented Control | `segmented_control`, standard `ListItem` |
 | Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
-| Skeleton / Slider / Spinner / Status Dot | `skeleton`, `spinner`, `status_dot`, standard `slider` and `range_slider` |
+| Skeleton / Slider / Spinner / Status Dot | `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
 | Stepper | `stepper`, `step` |
 | Switch | Standard `switch` |
 | Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
@@ -181,22 +181,22 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.file_input.clear` | Clear files |
 | `soft.file_input.invalid_file` | One or more files are not allowed. |
 | `soft.file_input.too_large` | One or more files exceed the size limit or could not be read. |
-| `soft.kbd.key.alt` | Alt |
-| `soft.kbd.key.backspace` | Backspace |
-| `soft.kbd.key.command` | Command |
-| `soft.kbd.key.control` | Control |
-| `soft.kbd.key.control_short` | Ctrl |
-| `soft.kbd.key.down` | Down arrow |
-| `soft.kbd.key.enter` | Enter |
-| `soft.kbd.key.escape` | Escape |
-| `soft.kbd.key.escape_short` | Esc |
-| `soft.kbd.key.left` | Left arrow |
-| `soft.kbd.key.plus` | Plus |
-| `soft.kbd.key.right` | Right arrow |
-| `soft.kbd.key.shift` | Shift |
-| `soft.kbd.key.tab` | Tab |
-| `soft.kbd.key.up` | Up arrow |
-| `soft.kbd.shortcut` | {shortcut} + {key} |
+| `kbd.key.alt` | Alt |
+| `kbd.key.backspace` | Backspace |
+| `kbd.key.command` | Command |
+| `kbd.key.control` | Control |
+| `kbd.key.control_short` | Ctrl |
+| `kbd.key.down` | Down arrow |
+| `kbd.key.enter` | Enter |
+| `kbd.key.escape` | Escape |
+| `kbd.key.escape_short` | Esc |
+| `kbd.key.left` | Left arrow |
+| `kbd.key.plus` | Plus |
+| `kbd.key.right` | Right arrow |
+| `kbd.key.shift` | Shift |
+| `kbd.key.tab` | Tab |
+| `kbd.key.up` | Up arrow |
+| `kbd.separator` | + |
 | `soft.keyboard_hint.to_navigate` | to navigate |
 | `soft.lightbox.image_unavailable` | Image unavailable |
 | `soft.lightbox.media_viewer` | Media viewer |
@@ -363,6 +363,8 @@ Number, date, and time filter fields validate values entered as text.
 - `button_icon`
 - `button_busy`
 - `toggle`
+- `button_group`
+- `toggle_group`
 - `checkbox`
 - `checkbox_indicator`
 - `checkbox_check`
@@ -373,6 +375,9 @@ Number, date, and time filter fields validate values entered as text.
 - `radio_group`
 - `slider`
 - `progress`
+- `spinner`
+- `kbd`
+- `kbd_key`
 - `text_input`
 - `text_area`
 - `field`
