@@ -232,8 +232,8 @@ mod tests {
         screen.get_by_role(Role::Option, "Rail Rifle").click();
         screen.get_by_role(Role::Button, "Equip").click();
         screen.get_by_text("TOTAL POWER 42");
-        let gauge = screen.get_by_role(Role::Meter, "Total power");
-        assert_eq!(gauge.value_range().2, Some(4.0));
+        let gauge = screen.get_by_role(Role::ProgressBar, "Total power");
+        assert_eq!(gauge.value_range().2, Some(0.4));
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 

@@ -182,3 +182,5 @@
 | 2026-11-05 | CP6/F1 | docsの試験スケジュール | 並列doctestの同時compile/linkでlink.exe1180とrustc ICEが実際に発生した。0.6節の失敗crate例外としてkivact-docsだけ--test-threads=1で別実行する。workspace集約はdocsとGPUproducerを除いて既定並列、GPU6件も従来通り別の逐次実行。Cargoのjob数は制限しない。 |
 
 | 2026-11-05 | fix-CP6 | 変更後の契約に合わせる試験 | AsyncView既定pendingはStatus Loading、pickerエラーはAlert、Display::Contentsはlayoutが透明でもa11y Groupと論理階層を保つ。Desktop専用date fixtureは明示Desktop、汎用adaptiveはtouchのSaveを保つ。iconは実インストール済みglyphで検査する。未知のnative timeoutとdescriptionの関係欠落は期待を弱めず原因を切り分ける。 |
+
+| 2026-11-05 | fix-CP6-ui/F1 | 実際の参照先と正規化された進捗 | カスタムdescription termの実wrapperにGroupを付けnative labelled_byの参照先を公開する。detailはbuttonを含むGroupとして検証し、termと同名Groupでも区別する。Game入門gaugeは統一ProgressBarの0..1契約（4/10=0.4）を検査し、旧Meterの4.0期待を残さない。 |

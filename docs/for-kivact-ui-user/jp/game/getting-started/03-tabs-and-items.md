@@ -229,8 +229,8 @@ mod tests {
         screen.get_by_role(Role::Option, "レールライフル").click();
         screen.get_by_role(Role::Button, "装備").click();
         screen.get_by_text("合計威力 42");
-        let gauge = screen.get_by_role(Role::Meter, "合計威力");
-        assert_eq!(gauge.value_range().2, Some(4.0));
+        let gauge = screen.get_by_role(Role::ProgressBar, "合計威力");
+        assert_eq!(gauge.value_range().2, Some(0.4));
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 

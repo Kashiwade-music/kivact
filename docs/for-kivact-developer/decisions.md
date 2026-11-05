@@ -341,3 +341,10 @@
 - J-32: V-5: IME selectionは直前surrounding-text snapshotに対するUTF-8 byte。nativeは既存snapshotでUTF-16を変換。engineは既存excerpt originを全文editorへ加え、custom sessionは全文を供給する。native snapshotに重複した全文offsetを足さない。
 - J-33: V-6: computed textは継承を解決してもrelative length/current colorを保持。TextLen/LineHeight/TextDecorationを使いpixel化は利用時、無制限行/未指定caretはOptionでよい。親10pxの0.1em spacingは子20pxで2pxとなる。第二のraw style snapshotは作らない。
 - J-34: V-6: DrawTextStyleはtoken色とbaseline anchorを持つdrawing optionで、純粋宣言text styleとは異なる。canonical runへ一度変換し、当時のfrontdoor名はN-1まで保持した。RgbaImage/著者用Pixelsは同じcanonical shared pixel値を再公開し別structを削除した。後の共有入力の形はAPI8決定に従う。
+
+## ADR: 検証で確認した term の参照と gauge の範囲
+
+- 日付: 2026-11-05
+- 問い: カスタムtermのラベル参照と、旧kit gaugeの試験をどの公開契約に揃えるか。
+- 決定: カスタムdescription termの実wrapperはGroupとして公開し、detailのlabelled_byが同じnamed termを指す。term/detailに同名Groupがあっても、detail内の操作と参照先を検証する。Game入門のgaugeも標準ProgressBarの0..1範囲を使い、4/10は0.4と検査する。
+- 理由: unroledなGenericはnativeラベル参照先にならず、見えるtermと支援技術の関係が切れる。進捗のvariant間で役割と数値契約を統一し、旧Meterの別スケールを公開APIへ戻さない。
