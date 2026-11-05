@@ -110,7 +110,7 @@ pub struct Stepper {
     items: Value<Vec<StepperItem>>,
     current: Value<usize>,
     orientation: Value<Orientation>,
-    collapsed_steps: Value<CollapsedSteps>,
+    collapsed_steps: CollapsedSteps,
     activate: Option<Rc<dyn Fn(usize)>>,
     // xtask-allow(state-fields): Independent setup-only override of the passive minimum width token.
     min_step_width: Option<Value<f64>>,
@@ -126,7 +126,7 @@ pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: impl IntoValue<
         items: items.into_value(),
         current: current.into_value(),
         orientation: Orientation::Horizontal.into_value(),
-        collapsed_steps: CollapsedSteps::Current.into_value(),
+        collapsed_steps: CollapsedSteps::Current,
         activate: None,
         min_step_width: None,
         variants: crate::variants::Variants::default(),
@@ -139,8 +139,8 @@ impl Stepper {
         self
     }
     /// Choose the visible compact structure without changing current-step ownership.
-    pub fn collapsed_steps(mut self, steps: impl IntoValue<CollapsedSteps>) -> Self {
-        self.collapsed_steps = steps.into_value();
+    pub fn collapsed_steps(mut self, steps: CollapsedSteps) -> Self {
+        self.collapsed_steps = steps;
         self
     }
     /// Choose horizontal or vertical layout.
@@ -345,7 +345,7 @@ impl IntoView for Stepper {
                 .role(Role::ListItem)
                 .hidden(move || {
                     layout.get().collapsed
-                        && collapsed_steps.get() == CollapsedSteps::Current
+                        && collapsed_steps == CollapsedSteps::Current
                         && index != current.get()
                 })
                 .name(move || item.with(StepperItem::label))

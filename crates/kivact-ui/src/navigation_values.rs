@@ -55,4 +55,3 @@ pub enum CollapsedSteps {
     Current,
     All,
 }
-kivact_core::state::constant_value!(CollapsedSteps);
