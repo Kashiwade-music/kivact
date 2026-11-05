@@ -64,7 +64,7 @@ fn shell() -> impl IntoView {
 - The provider fills its parent. In a bounded frame, give the parent a width and a height.
 - `.collapsible(..)` decides what closing does: `Offcanvas` (default) slides the sidebar out of view, `Icon` shrinks it to a 48 px column of icons whose labels become tooltips, and `None` cannot be closed. `.rail(true)` adds a thin strip at the edge that toggles it.
 - `basic::sidebar_trigger()`, the rail and Ctrl+B (Cmd+B on macOS) all write `open`. To make the shortcut work anywhere in the window, make the provider the root view of the app.
-- `.side(basic::SidebarEdge::Right)` moves the sidebar to the right, and `.variant(basic::SidebarVariant::Floating)` or `Inset` change how it is framed.
+- `.side(basic::SidebarSide::Right)` moves the sidebar to the right, and `.variant(basic::SidebarVariant::Floating)` or `Inset` change how it is framed.
 - `.header(..)`, `.content(..)` and `.footer(..)` take functions. Groups are `sidebar_group(label)` with `.content(..)` and an optional `.action(..)`; separate them with `basic::sidebar_separator()`.
 - A button can show a count with `.badge("12")`, and a nested list with `.sub(|| (basic::sidebar_menu_sub_button("Overview").active(true), basic::sidebar_menu_sub_button("Roadmap")))`.
 - Put a search field in the sidebar with `basic::sidebar_input(label, signal)`.

@@ -31,7 +31,7 @@ fn event_form(save: impl Fn(String, CalendarDate) + 'static) -> impl IntoView {
 
 入力エラーは該当フィールドの近くに表示し、修正方法を伝えます。永続化の境界でも送信値を検証します。
 
-`soft::input_group_with` で作るコントロールには、グループの既定サイズが適用されます。個々のコントロールの `.size(..)` が優先されます。`kivact::ui::date_range_input(..).presets(..)` に `kivact::ui::DateRangePreset` を渡すと、カレンダーからの選択に加えて、名前付きの日付範囲を選べます。
+`kivact::ui::input_group_with` で作るコントロールには、グループの既定サイズが適用されます。個々のコントロールの `.size(..)` が優先されます。`kivact::ui::date_range_input(..).presets(..)` に `kivact::ui::DateRangePreset` を渡すと、カレンダーからの選択に加えて、名前付きの日付範囲を選べます。
 
 `soft::rich_text_editor` は Markdown 文字列にバインドします。編集モードでは、ツールバーで選択範囲に太字、斜体、取り消し線、インラインコードを適用でき、操作後はエディターにフォーカスが戻ります。プレビューに切り替えると、同じバインディングの内容を整形して表示します。
 

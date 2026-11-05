@@ -64,7 +64,7 @@ fn shell() -> impl IntoView {
 - provider は親いっぱいに広がります。枠の中に置くときは、親に幅と高さを与えてください。
 - `.collapsible(..)` は、閉じたときの動作を決めます。`Offcanvas`（既定）は画面外へスライドし、`Icon` は幅 48 px のアイコンの列に縮んでラベルがツールチップになり、`None` は閉じられません。`.rail(true)` は、端に細い帯を足し、それで開閉できるようにします。
 - `basic::sidebar_trigger()`、rail、Ctrl+B（macOS では Cmd+B）は、どれも `open` を書きます。ショートカットをウィンドウのどこでも効かせたいときは、provider をアプリのルートの view にします。
-- `.side(basic::SidebarEdge::Right)` はサイドバーを右に置き、`.variant(basic::SidebarVariant::Floating)` や `Inset` は枠の付け方を変えます。
+- `.side(basic::SidebarSide::Right)` はサイドバーを右に置き、`.variant(basic::SidebarVariant::Floating)` や `Inset` は枠の付け方を変えます。
 - `.header(..)`、`.content(..)`、`.footer(..)` は関数を取ります。グループは `sidebar_group(label)` に `.content(..)` と、必要なら `.action(..)` を付けたもので、グループの間は `basic::sidebar_separator()` で区切ります。
 - ボタンには `.badge("12")` で件数を、`.sub(|| (basic::sidebar_menu_sub_button("Overview").active(true), basic::sidebar_menu_sub_button("Roadmap")))` で入れ子の一覧を付けられます。
 - サイドバーに検索欄を置くには `basic::sidebar_input(label, signal)` を使います。

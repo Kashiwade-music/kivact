@@ -174,7 +174,7 @@ is a core topic, covered in the core guide on asynchronous work.
 - [Show figures, status and records on a business screen](status-and-figures.md)
 - [Pick dates and ranges](dates-and-calendars.md) for the text keys of the
   calendar
-- Toast and toaster API: `kivact::ui::Toast`, `Toaster` and `toast_region` in
+- Toast and toaster API: `kivact::interaction::Toast`, `kivact::interaction::Toaster` and `kivact::ui::toast_region` in
   `cargo doc -p kivact --open`; all Pop components: `cargo doc -p kivact-ui-pop
   --open`
 

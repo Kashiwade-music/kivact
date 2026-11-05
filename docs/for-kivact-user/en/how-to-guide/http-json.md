@@ -6,7 +6,7 @@ Enable `kivact`'s opt-in `tokio` feature. Add `reqwest` with `json` and `rustls`
 
 ```toml
 [dependencies]
-kivact = { version = "0.1.0", features = ["tokio"] }
+kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["tokio"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "json"] }
 serde_json = "1"
 ```
