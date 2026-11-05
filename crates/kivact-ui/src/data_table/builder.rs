@@ -50,7 +50,10 @@ use std::rc::Rc;
 /// `data_table.select_all` ("Select all"), `data_table.select_named` ("Select {row}"), `data_table.selected`
 /// ("{selected} of {total} row(s) selected."), `data_table.previous`
 /// ("Previous"), `data_table.next` ("Next"), `data_table.page` ("Page {page}
-/// of {pages}") and `data_table.resize` ("Resize {title}").
+/// of {pages}"), `data_table.resize` ("Resize {title}"), and for a
+/// [`tree`](DataTable::tree) `data_table.expand_row` ("Expand row"),
+/// `data_table.collapse_row` ("Collapse row"), `data_table.expand_all`
+/// ("Expand all rows") and `data_table.collapse_all` ("Collapse all rows").
 ///
 /// ```no_run
 /// use kivact::prelude::*;
@@ -187,7 +190,9 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
-    /// Show the expand/collapse-all control in the tree column header.
+    /// Show the expand/collapse-all control in the tree column header. It
+    /// does not change which rows start expanded: the `expanded` binding of
+    /// [`tree`](Self::tree) decides that.
     pub fn initially_expanded(mut self) -> Self {
         self.tree_expand_all = true;
         self
