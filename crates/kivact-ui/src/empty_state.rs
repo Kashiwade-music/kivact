@@ -1,7 +1,7 @@
 //! Role: Build accessible empty messages with opt-in announcements.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use kivact_core::state::{IntoText, IntoValue, Value, effect, on_mount, signal};
+use kivact_core::state::{IntoText, IntoValue, Value, on_mount, signal};
 use kivact_core::view::{IntoView, LiveRegion, Node, NodeBuilder, Role, View, node, text};
 use kivact_interaction::announcer;
 
@@ -91,16 +91,14 @@ impl IntoView for EmptyState {
             let notices = announcer();
             let phase = signal(Announcement::Pending);
             on_mount(move || {
-                effect(move || {
-                    if phase.get() == Announcement::Pending {
-                        let message = description.map_or_else(
-                            || title.get(),
-                            |description| format!("{}. {}", title.get(), description.get()),
-                        );
-                        notices.announce(message, LiveRegion::Polite);
-                        phase.set(Announcement::Spoken);
-                    }
-                });
+                if phase.get() == Announcement::Pending {
+                    let message = description.map_or_else(
+                        || title.get(),
+                        |description| format!("{}. {}", title.get(), description.get()),
+                    );
+                    notices.announce(message, LiveRegion::Polite);
+                    phase.set(Announcement::Spoken);
+                }
             });
             notices.outlet()
         });

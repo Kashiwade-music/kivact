@@ -2,9 +2,12 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, node};
+use kivact_core::view::{
+    Handled, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, View, node, node_ref,
+};
 use kivact_interaction::{use_button, use_checkbox};
 
+// xtask-allow(state-fields): Read-only recipe projection of the caller binding and actual interaction configuration.
 /// Card semantics supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardState {
@@ -62,7 +65,9 @@ impl Card {
     /// Activate the card with click, Enter, Space or assistive activation.
     pub fn on_press(mut self, f: impl Into<kivact_core::state::Callback<()>>) -> Self {
         self.root = self.root.on_press(f);
-        self.action = CardAction::Press;
+        if matches!(self.action, CardAction::Plain) {
+            self.action = CardAction::Press;
+        }
         self
     }
     /// Make the card a checkbox backed by the supplied binding.
@@ -102,9 +107,26 @@ impl IntoView for Card {
         let root = match self.action {
             CardAction::Plain => self.root,
             CardAction::Press => self.root.part(use_button().disabled(disabled).control()),
-            CardAction::Select(selected) => self
-                .root
-                .part(use_checkbox(selected).disabled(disabled).control()),
+            CardAction::Select(selected) => {
+                let reference = node_ref();
+                let focused = reference.focused();
+                self.root
+                    .node_ref(reference)
+                    .part(use_checkbox(selected).disabled(disabled).control())
+                    .on_key(move |event: KeyEvent| {
+                        if event.key() == Key::Enter
+                            && focused.get()
+                            && !event.repeat()
+                            && event.modifiers() == Modifiers::default()
+                            && !disabled.get()
+                        {
+                            reference.activate();
+                            Handled::Yes
+                        } else {
+                            Handled::No
+                        }
+                    })
+            }
         };
         let variants = &self.variants;
         let header = self.header.map(|view| {
