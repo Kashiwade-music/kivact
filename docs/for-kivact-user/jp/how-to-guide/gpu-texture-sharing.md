@@ -93,7 +93,7 @@ use kivact::draw::Pixels;
 
 let image = shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, vec![0; 4].into())))
+viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, vec![0; 4])))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
 ```
@@ -209,13 +209,12 @@ impl Engine {
 ウィンドウがインポートできないときも、エンジンは何かを見せなければなりません。`Pixels` のリクエストには、CPU で描くか、自前のテクスチャを読み戻して応え、結果を公開します。
 
 ```rust,ignore
-use std::sync::Arc;
 
 use kivact::draw::Pixels;
 
 fn serve_pixels(link: &ShareLink, request: &ShareRequest) {
     let rgba: Vec<u8> = render_on_cpu(request.width, request.height); // ストレートアルファの RGBA8
-    link.publish_pixels(Pixels::new(request.width, request.height, Arc::from(rgba)));
+    link.publish_pixels(Pixels::new(request.width, request.height, rgba));
 }
 ```
 

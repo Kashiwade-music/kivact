@@ -158,6 +158,8 @@ fn labels() -> impl IntoView {
 
 `TextMetrics` は `size`（`size.width`・`size.height`）と、`baseline` のオフセットを論理ピクセルで返します。折り返すテキストは `draw.layout_paragraph(text, &style, Some(max_width))` で組み、`draw.paragraph(&paragraph, origin, color)` で描きます。`TextFormat` の項目は要素のテキストと同じ語彙（`family`・`weight`・`italic`・`letter_spacing`・`decoration` など）です。
 
+整形済みの文字を描く場合、`ShapedTextSnapshot` と `GlyphRunSnapshot` は読み取り用の描画データです。独自のテキスト編集部品で支援技術へ文字の run を渡す `SemanticsTextRuns` は、所有する `SemanticsTextRun` の `Vec` または iterator から作れます。内部の共有ポインターを組み立てる必要はありません。`iter()`、`get()`、添字は run の参照を返すため、読み取るだけなら run 全体の clone も不要です。
+
 ## グループを変形・クリップ・半透明にする
 
 `draw.layer(Layer, |draw| { … })` は、クロージャの中で描いたもの全体に、変形・クリップ・不透明度・合成モード・フィルター・マスク・影を適用します。グループはクロージャが戻ると終わります。レイヤーの変形は、テキスト・画像・クリップにも効きます。
@@ -305,10 +307,9 @@ mod tests {
 
 ## 自前のレンダラーのフレームを表示する
 
-アプリが自分で絵を作る場合（エミュレーター、3D ビューポート、動画デコーダーなど）は、ワーカースレッドで描画し、各フレームを `Pixels`（RGBA8、ストレートアルファ）として送り、キャンバスで最新のものを描きます。フレームはチャンネルが UI スレッドへ運ぶので、ポーリングは要りません。
+アプリが自分で絵を作る場合（エミュレーター、3D ビューポート、動画デコーダーなど）は、ワーカースレッドで描画し、各フレームを `Pixels`（RGBA8、ストレートアルファ）として送り、キャンバスで最新のものを描きます。フレームはチャンネルが UI スレッドへ運ぶので、ポーリングは要りません。`Pixels::new(width, height, rgba)` には所有する `Vec<u8>` をそのまま渡せます。バッファ長は `width × height × 4` バイトです。
 
 ```rust,no_run
-use std::sync::Arc;
 use std::time::Duration;
 use kivact::view::canvas;
 use kivact::draw::{ImageOptions, Pixels};
@@ -327,9 +328,8 @@ fn renderer_preview() -> impl IntoView {
     std::thread::spawn(move || {
         for red in (0..=255u8).cycle() {
             // この単色を、自前のレンダラーの出力に置き換えます。
-            let rgba: Arc<[u8]> = [red, 64, 128, 255]
-                .repeat(width as usize * height as usize)
-                .into();
+            let rgba = [red, 64, 128, 255]
+                .repeat(width as usize * height as usize);
             if tx.send_blocking(Pixels::new(width, height, rgba)).is_err() {
                 break; // ウィンドウが閉じられました
             }
@@ -368,7 +368,7 @@ fn main() -> kivact::Result<()> {
 - ウィンドウやコンポーネントがなくなると、受信タスクが破棄されてチャンネルが閉じ、`send_blocking` が `Err` を返します。ワーカーのループはそこで終わらせてください。
 - 遅い UI でフレームがたまらないよう、チャンネルは小さくし、上のように古いフレームを捨てます。
 - ウィンドウの大きさや表示倍率が変わりうる場合は、新しい大きさをワーカーに伝えて描き直させます。`ImageOptions` では、切り抜き（`source`）、不透明度（`opacity`）、ドット絵向けの最近傍補間（`pixelated`）を指定できます。
-- 内容が変わらないフレームは、バッファをコピーし直さず同じ `Arc` を使い回します。
+- 内容が変わらないフレームは、バッファをコピーし直さず同じ `Pixels` を clone して使い回します。内部の `AssetBytes` は不変バッファの同一性を保ち、clone で画素全体を複製しません。
 - GPU からの読み戻しが遅すぎる場合は、[キャンバスで GPU テクスチャを共有する](gpu-texture-sharing.md) を参照してください。
 
 ## ウィンドウなしで画像を書き出す

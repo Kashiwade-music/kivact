@@ -10,7 +10,7 @@ React や SolidJS を知っているなら、最初のガイドから始めて�
 
 | ガイド | 解決すること |
 | --- | --- |
-| [React や SolidJS の知識を Kivact に対応づける](coming-from-react-or-solid.md) | 概念の対応表、セットアップが一度だけ実行されるコンポーネント、`dynamic` の match の腕、初心者がつまずく Rust のポイント |
+| [React や SolidJS の知識を Kivact に対応づける](coming-from-react-or-solid.md) | 概念の対応表、セットアップが一度だけ実行されるコンポーネント、`dynamic` の match の腕、初心者がつまずく Rust の 7 つのポイント |
 
 ## 画面を作る
 
@@ -18,8 +18,16 @@ React や SolidJS を知っているなら、最初のガイドから始めて�
 | --- | --- |
 | [画面をレイアウトする](layout.md) | row、column、グリッド、スクロール領域、サイズ、配置、2 ペインのレイアウト |
 | [フォームを検証してから保存する](forms.md) | 下書き、検証、`field` のエラー、すべての入力部品、Enter での送信 |
+| [静的な表と項目の行を組む](collections.md) | `table` と `item_list` の意味、`list` や `data_table` との使い分け |
+| [キー付き候補から選ぶ](keyed-suggestions.md) | combobox、複数選択、検索、独自の選択面 |
 | [一覧、選択できる一覧、表を表示する](lists-and-tables.md) | `for_each`、`for_index`、`virtual_list`、`list`、`data_table`、行からの書き戻し |
 | [ダイアログ、メニュー、ツールチップ、トーストを表示する](overlays.md) | モーダルダイアログ、ポップオーバー、メニュー、コンテキストメニュー、ツールチップ、通知 |
+| [開閉する内容とプレビューを作る](disclosure-and-previews.md) | disclosure、hover card、selection field の表示と寿命 |
+| [画面の状態を伝える](feedback.md) | alert、空の状態、閉じる操作 |
+| [表示用の指標を選ぶ](indicators.md) | badge、avatar、progress、skeleton、spinner |
+| [数値と説明を並べる](metrics-and-description.md) | stat と description list |
+| [画面内を移動する](navigation.md) | breadcrumb、pagination、stepper、navigation menu |
+| [スライドとファイルを扱う](slides-and-files.md) | carousel、dropzone、実際の選択状態 |
 | [会話とソースコードを表示する](chat-and-code.md) | メッセージ履歴、下書きの送信、入力中の表示、選択できるソースコード |
 | [画像を表示し、カスタムフォントを使う](images-and-fonts.md) | PNG、JPEG、SVG の画像、代替テキスト、サイズ、アイコン、フォントの登録 |
 
@@ -34,6 +42,7 @@ React や SolidJS を知っているなら、最初のガイドから始めて�
 
 | ガイド | 解決すること |
 | --- | --- |
+| [HTTP の JSON を読む](http-json.md) | resource と HTTP クライアントで取得、エラー、再試行をつなぐ |
 | [コンポーネントから非同期処理を実行する](async-and-tasks.md) | データの読み込み、バックグラウンドでの保存、タイマー待ち、UI スレッドの外での重い処理 |
 | [値と要素をアニメーションさせる](animation.md) | 値を目標へ近づける、毎フレーム実行する、要素の出入りをアニメーションさせる |
 | [プラットフォームのサービスを使う](platform-services.md) | クリップボード、ファイルダイアログ、パスを開く操作など、OS の機能 |
