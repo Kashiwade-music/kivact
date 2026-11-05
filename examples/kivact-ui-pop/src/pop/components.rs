@@ -755,7 +755,10 @@ pub(super) fn forms() -> Node {
             third(card(
                 "ファイルアップロード",
                 column((
-                    ui::dropzone("ここにファイルをドロップ")
+                    kivact::ui::dropzone("ここにファイルをドロップ")
+                        .multiple()
+                        .pick_on_press()
+                        .icon(icon("cloud-upload").style(style().size(24, 24)))
                         .hint(kivact::i18n::message(
                             "pop.dropzone.hint",
                             "or click to choose · PNG, PDF up to 10 MB",
@@ -765,7 +768,8 @@ pub(super) fn forms() -> Node {
                             vec!["png".into(), "pdf".into()],
                         )])
                         .on_files(move |paths| {
-                            for path in paths {
+                            for file in paths {
+                                let path = file.path;
                                 let Some(name) = path.file_name() else {
                                     continue;
                                 };

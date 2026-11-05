@@ -104,10 +104,15 @@ fn dropzone_reports_public_file_events_and_platform_picker_results() {
         let paths = signal(Vec::<std::path::PathBuf>::new());
         (
             paths,
-            ui::dropzone("Upload")
+            kivact::ui::dropzone("Upload")
+                .multiple()
+                .pick_on_press()
+                .icon(icon("cloud-upload").style(style().size(24, 24)))
                 .hint("Select reports")
                 .filters(vec![("Reports".into(), vec!["pdf".into()])])
-                .on_files(move |files| paths.set(files)),
+                .on_files(move |files| {
+                    paths.set(files.into_iter().map(|file| file.path).collect())
+                }),
         )
     });
     screen.get_by_role(Role::Text, "Select reports");

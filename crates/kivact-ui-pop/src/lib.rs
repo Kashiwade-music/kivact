@@ -33,6 +33,7 @@ mod recipes;
 mod recipes_collections;
 mod recipes_extra;
 mod recipes_field;
+mod recipes_files;
 mod recipes_input;
 mod recipes_palette;
 mod recipes_small;
@@ -55,7 +56,6 @@ pub use display::{
     badge, dots_loader, empty_state, key_value, list_item, panel, progress_ring, section_heading,
     skeleton, sparkline, spinner, stat_card,
 };
-pub use form::{Dropzone, dropzone};
 pub use messaging::{
     Message, MessageGroup, Thread, message, message_group, thread, typing_message,
 };

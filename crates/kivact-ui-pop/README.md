@@ -51,6 +51,7 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `dropzone`
 - `field`
 - `button`
 - `button_content`

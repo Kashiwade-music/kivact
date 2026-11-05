@@ -179,12 +179,14 @@ impl IntoView for Dropzone {
             });
         })
         .child((
-            icon.map(|icon| crate::layer::with_recipe_style(
-                node().child(icon),
-                |r| r.dropzone_recipes().icon_recipe(),
-                &variants,
-                move || state.get(),
-            )),
+            icon.map(|icon| {
+                crate::layer::with_recipe_style(
+                    node().child(icon),
+                    |r| r.dropzone_recipes().icon_recipe(),
+                    &variants,
+                    move || state.get(),
+                )
+            }),
             label_view,
             hint_view,
             crate::layer::with_recipe_style(

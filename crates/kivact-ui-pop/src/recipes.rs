@@ -40,6 +40,7 @@ pub(crate) fn recipes() -> UiRecipes {
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .dropzone(crate::recipes_files::dropzone)
         .field(crate::recipes_field::field)
         .button(|_| button)
         .button_content(|_| crate::recipes_extra::button_content)
