@@ -66,6 +66,11 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_icons(crate::icons::set())
         .with(p)
         .with(kivact::ui::UiTokens {
+            calendar: kivact::ui::CalendarTokens {
+                cell_size: 28.0,
+                month_gap: 16.0,
+                week_gap: 8.0,
+            },
             combobox: kivact::ui::ComboboxTokens {
                 list_height: 252.0,
                 popup_offset: 4.0,

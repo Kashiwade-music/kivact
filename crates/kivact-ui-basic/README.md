@@ -113,23 +113,12 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 |---|---|
 | `basic.breadcrumb.label` | Breadcrumb |
 | `basic.breadcrumb.more` | More |
-| `basic.calendar.caption` | {month} {year} |
-| `basic.calendar.mon` … `basic.calendar.sun` | Mon … Sun |
-| `basic.calendar.month` | Month |
-| `basic.calendar.month_1` … `basic.calendar.month_12` | January … December |
-| `basic.calendar.short_1` … `basic.calendar.short_12` | Jan … Dec |
-| `basic.calendar.next` | Next month |
-| `basic.calendar.previous` | Previous month |
-| `basic.calendar.year` | Year |
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
 | `basic.code_block.copied` | Copied |
 | `basic.code_block.copy` | Copy |
 | `basic.code_block.name` | Code |
-| `basic.date_picker.format` | {month} {day}, {year} |
-| `basic.date_picker.placeholder` | Pick a date |
-| `basic.date_picker.range` | {start} - {end} |
 | `basic.message_scroller.end` | Scroll to end |
 | `basic.navigation_menu.label` | Navigation |
 | `basic.pagination.label` | Pagination |
@@ -228,6 +217,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `spinner`
 - `kbd`
 - `badge`
+- `calendar`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

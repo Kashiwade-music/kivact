@@ -164,7 +164,7 @@ fn frameworks() -> impl IntoView {
 
 ## Pick a date or a date range
 
-`basic::date_picker(label, date)` is a button that opens a calendar. `date` is a signal of `Option<CalendarDate>`. `basic::date_range_picker` edits a `DateRange` the same way:
+`kivact::ui::date_input(label, date).attach(button)` opens a calendar from your own button. The attached button owns its text, placeholder and format. `date_range_input` edits a range through the same pattern:
 
 ```rust,no_run
 use kivact::i18n::{CalendarDate, DateRange};
@@ -175,19 +175,23 @@ fn dates() -> impl IntoView {
     let due = signal(Some(CalendarDate::new(2026, 10, 3)));
     let stay = signal(None::<DateRange>);
     column((
-        basic::date_picker("Due date", due)
-            .placeholder("Pick a due date")
-            .format(|d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()))
-            .style(style().width(280)),
-        basic::date_range_picker("Stay", stay)
-            .calendar(|calendar| calendar.number_of_months(2))
-            .style(style().width(300)),
+        kivact::ui::date_input("Due date", due)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.variable_rows(true))
+            .attach(button(move || due.get().map_or_else(|| "Pick a due date".to_owned(), |d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day())))
+                .name("Due date").icon(icon("calendar")).variant(kivact::ui::ButtonVariant::Outline).style(style().width(280))),
+        kivact::ui::date_range_input("Stay", stay)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.number_of_months(2).variable_rows(true))
+            .attach(button("Choose stay").name("Stay").variant(kivact::ui::ButtonVariant::Outline).style(style().width(300))),
     ))
     .style(style().gap(12))
 }
 ```
 
-`.calendar(|c| ..)` configures the calendar in the popup. For a calendar that is always visible, use `basic::calendar(signal)` or `basic::calendar_range(signal)`. Both accept the same options:
+`.calendar(|c| ..)` configures the calendar in the popup. For a calendar that is always visible, use `kivact::ui::calendar(signal).variable_rows(true)` for either single-date or range signals. Both accept the same options:
 
 ```rust,no_run
 use kivact::i18n::{CalendarMonth, Weekday};
@@ -195,15 +199,15 @@ use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn weekdays_only() -> impl IntoView {
-    basic::calendar(signal(None))
+    kivact::ui::calendar(signal(None::<kivact::i18n::CalendarDate>)).variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
         .week_start(Weekday::Monday)
         .disabled_dates(|d| matches!(d.weekday(), Weekday::Saturday | Weekday::Sunday))
-        .caption(basic::CalendarCaption::Dropdown)
+        .caption(kivact::ui::CalendarCaption::Dropdown)
 }
 ```
 
-Month and weekday names, and the date format, come from the messages under `basic.calendar.*` and `basic.date_picker.*`. Replace them with `App::messages` for another language; see [Theme and tokens](theme-and-tokens.md#choose-the-fonts).
+Month and weekday names and date formatting come from the active `Locale`. Calendar control labels use `calendar.*` messages. The trigger content can use `Locale::format_date` or an application formatter.
 
 ## Ask for a one-time code
 

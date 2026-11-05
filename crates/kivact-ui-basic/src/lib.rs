@@ -51,7 +51,6 @@ mod avatar;
 mod badge;
 mod breadcrumb;
 mod button;
-mod calendar;
 mod card;
 mod chart;
 mod chat;
@@ -81,6 +80,7 @@ mod primitives;
 mod questionnaire;
 mod recipes;
 mod recipes_collections;
+mod recipes_calendar;
 mod recipes_combobox;
 mod recipes_groups;
 mod recipes_command;
@@ -140,13 +140,12 @@ pub use table::{
 pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 
 pub use alert_dialog::AlertDialogSize;
-pub use calendar::{Calendar, CalendarCaption, calendar, calendar_range};
 pub use choice::ToggleVariant;
 pub use code_block::{
     CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
 };
 pub use color::ColorName;
-pub use date_picker::{DatePicker, DateRangePicker, date_picker, date_range_picker};
+pub use date_picker::DatePickerVariant;
 pub use disclosure::DisclosureVariant;
 pub use drawer::DrawerVariant;
 pub use field::{

@@ -164,7 +164,7 @@ fn frameworks() -> impl IntoView {
 
 ## 日付や期間を選ぶ
 
-`basic::date_picker(label, date)` は、カレンダーを開くボタンです。`date` は `Option<CalendarDate>` の signal です。`basic::date_range_picker` は、同じようにして `DateRange` を編集します。
+`kivact::ui::date_input(label, date).attach(button)` は、自分のボタンからカレンダーを開きます。表示文字、空のときの案内、書式はボタンで指定します。期間は `date_range_input` で同じように編集します。
 
 ```rust,no_run
 use kivact::i18n::{CalendarDate, DateRange};
@@ -175,19 +175,23 @@ fn dates() -> impl IntoView {
     let due = signal(Some(CalendarDate::new(2026, 10, 3)));
     let stay = signal(None::<DateRange>);
     column((
-        basic::date_picker("Due date", due)
-            .placeholder("Pick a due date")
-            .format(|d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()))
-            .style(style().width(280)),
-        basic::date_range_picker("Stay", stay)
-            .calendar(|calendar| calendar.number_of_months(2))
-            .style(style().width(300)),
+        kivact::ui::date_input("Due date", due)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.variable_rows(true))
+            .attach(button(move || due.get().map_or_else(|| "Pick a due date".to_owned(), |d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day())))
+                .name("Due date").icon(icon("calendar")).variant(kivact::ui::ButtonVariant::Outline).style(style().width(280))),
+        kivact::ui::date_range_input("Stay", stay)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.number_of_months(2).variable_rows(true))
+            .attach(button("Choose stay").name("Stay").variant(kivact::ui::ButtonVariant::Outline).style(style().width(300))),
     ))
     .style(style().gap(12))
 }
 ```
 
-`.calendar(|c| ..)` は、ポップアップの中のカレンダーを設定します。常に見えているカレンダーには、`basic::calendar(signal)` か `basic::calendar_range(signal)` を使います。どちらも同じオプションを取ります。
+`.calendar(|c| ..)` は、ポップアップの中のカレンダーを設定します。常に見えているカレンダーには、`kivact::ui::calendar(signal).variable_rows(true)` か `kivact::ui::calendar(signal).variable_rows(true)` を使います。どちらも同じオプションを取ります。
 
 ```rust,no_run
 use kivact::i18n::{CalendarMonth, Weekday};
@@ -195,15 +199,15 @@ use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn weekdays_only() -> impl IntoView {
-    basic::calendar(signal(None))
+    kivact::ui::calendar(signal(None::<kivact::i18n::CalendarDate>)).variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
         .week_start(Weekday::Monday)
         .disabled_dates(|d| matches!(d.weekday(), Weekday::Saturday | Weekday::Sunday))
-        .caption(basic::CalendarCaption::Dropdown)
+        .caption(kivact::ui::CalendarCaption::Dropdown)
 }
 ```
 
-月と曜日の名前、日付の書式は、`basic.calendar.*` と `basic.date_picker.*` のメッセージから来ます。ほかの言語にするには、`App::messages` で置き換えてください。[テーマとトークン](theme-and-tokens.md)を参照してください。
+月・曜日の名前と日付書式は現在の `Locale` に従います。操作ラベルは `calendar.*` のメッセージです。ボタン内では `Locale::format_date` またはアプリの書式関数を使えます。
 
 ## ワンタイムコードを求める
 
