@@ -11,6 +11,29 @@
 | `impl Component` を返す関数 | props が少なく、すべて必須のとき。 |
 | ルートの `Node` を持つビルダー構造体 | 省略可能な props、スロット、メソッドにしたほうが読みやすい設定があるとき。 |
 
+## setup に独立した寿命を持たせる
+
+普通の Rust 関数を呼んだだけでは、状態を解放する境界は増えません。呼び出し元と同じ scope に状態や cleanup が登録されます。部品専用の状態、context の読み取り、cleanup を、その部品の mount 位置に結び付けたい場合は `component(move || ...)` を使います。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn local_counter() -> View {
+    component(move || {
+        let count = signal(0);
+        on_cleanup(|| println!("counter removed"));
+        column((
+            text(move || count.get().to_string()),
+            button("Add").on_press(move || count.update(|n| *n += 1)),
+        ))
+    })
+}
+```
+
+この closure は新しい子 scope が mount されるときに一度だけ実行され、親の context を受け継ぎます。値の変更で closure 全体が再実行されることはありません。取り除かれたときは、その scope の cleanup が実行されます。`component` 自体は context の値を登録しません。子へ値を渡す目的なら `provide(value, factory)` を使います。
+
+`IntoView::into_view` は view への変換であり、変換の呼び出しだけで新しい scope が生まれるわけではありません。ビルダーの最終設定を読み取った後、mount 時の setup が必要な部分を `component` の中に置きます。一度だけ mount する内容は `impl IntoView`、開き直すたびに作る内容は `impl IntoViewFn<V>` または `Fn(...) -> V` で受け取ります。
+
 ## まずは関数で書く
 
 再利用できる最小のコンポーネントは、props を引数で受け取り `impl Component` を返します。
@@ -301,32 +324,34 @@ impl NodeBuilder for Notice {
 
 impl IntoView for Notice {
     fn into_view(self) -> View {
-        let Notice { root, message, tone, action, on_dismiss } = self;
-        // 既定の見た目。呼び出し側が足すどのスタイルよりも下に置かれます。
-        let mut root = root.base_style(move || {
-            let (background, color) = match tone.get() {
-                Tone::Info => (ColorToken::Accent, ColorToken::AccentText),
-                Tone::Warning => (ColorToken::Warning, ColorToken::Text),
-            };
-            let theme = use_theme().get();
-            style()
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .gap(theme.space().sm)
-                .padding(theme.space().md)
-                .radius(theme.radius().md)
-                .width(240)
-                .background(background)
-                .color(color)
-        });
-        root = root.child(text(message).style(style().grow(1)));
-        if let Some(action) = action {
-            root = root.child(action);
-        }
-        if let Some(dismiss) = on_dismiss {
-            root = root.child(button("Dismiss").on_press(move || dismiss.call(())));
-        }
-        root.into_view()
+        component(move || {
+            let Notice { root, message, tone, action, on_dismiss } = self;
+            // 既定の見た目。呼び出し側が足すどのスタイルよりも下に置かれます。
+            let mut root = root.base_style(move || {
+                let (background, color) = match tone.get() {
+                    Tone::Info => (ColorToken::Accent, ColorToken::AccentText),
+                    Tone::Warning => (ColorToken::Warning, ColorToken::Text),
+                };
+                let theme = use_theme().get();
+                style()
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .gap(theme.space().sm)
+                    .padding(theme.space().md)
+                    .radius(theme.radius().md)
+                    .width(240)
+                    .background(background)
+                    .color(color)
+            });
+            root = root.child(text(message).style(style().grow(1)));
+            if let Some(action) = action {
+                root = root.child(action);
+            }
+            if let Some(dismiss) = on_dismiss {
+                root = root.child(button("Dismiss").on_press(move || dismiss.call(())));
+            }
+            root.into_view()
+        })
     }
 }
 
@@ -375,8 +400,8 @@ mod tests {
 
 - **`NodeBuilder` はメソッド 1 つ。** `fn node_mut(&mut self) -> &mut Node` を書くだけで、`style`、`name`、`disabled`、`test_id`、`on_key`、`on_press`、`draw` などがビルダーで使えます。コンストラクターのあとで呼び出し側が書いた modifier は、コンストラクターが設定した値に勝ちます。
 - **ルートを変えるには `with_node` を使う。** `role`、`checked`、`expanded`、`selected`、`value_text`、`base_style` は `Node` の固有メソッドです。ビルダーでは `.with_node(|root| root.role(Role::Alert))` と書きます。
-- **仕上げは `into_view` で行う。** `into_view` はコンポーネントが mount されるとき、つまりすべての設定が出そろった時点で呼ばれます。setter とスタイルのクロージャーのあいだで `Cell` を共有するのではなく、ここでフィールドを読みます。
-- **状態はインスタンスに属する。** `into_view` (またはコンストラクター) で作ったシグナルは、コンポーネントが mount された場所が所有します。したがって同じ画面の 2 つの通知は何も共有しません。文字列キーやグローバルな ID は要りません。
+- **仕上げは `into_view` で行う。** `into_view` ではすべての設定を受け取ったビルダーを view に変換します。mount 時の setup は `component(move || ...)` の中で一度だけ実行します。setter とスタイルのクロージャーのあいだで `Cell` を共有するのではなく、ここでフィールドを読みます。
+- **状態はインスタンスに属する。** `component` の closure 内で作ったシグナルは、その子 scope が所有します。コンストラクターや通常の関数内で作るだけなら、呼び出した側の scope に属します。したがって同じ画面の 2 つの通知は何も共有しません。文字列キーやグローバルな ID は要りません。
 - **`#[track_caller]` で各インスタンスに名前がつく。** 診断やテスト失敗のレポートは、ノードをビルダーが呼ばれた位置で呼びます。コンストラクターにこの属性を付ければ、各インスタンスは自分の呼び出し位置で報告されます。あとから (`into_view` の中で) ノードを作るコンポーネントは、追跡するコンストラクターでルートに `.located_at_caller()` を付けます。
 
 ### 呼び出し側が上書きできる既定のスタイル
@@ -553,37 +578,39 @@ impl NodeBuilder for SearchBox {
 
 impl IntoView for SearchBox {
     fn into_view(self) -> View {
-        let SearchBox { mut root, value } = self;
+        component(move || {
+            let SearchBox { mut root, value } = self;
 
-        // 呼び出し側がコンポーネント全体について指定したこと。
-        let name = root.accessible_name();
-        let disabled = root.accessible_disabled();
-        let invalid = root.accessible_invalid();
-        let labelled_by = root.accessible_labelled_by();
-        let described_by = root.accessible_described_by();
+            // 呼び出し側がコンポーネント全体について指定したこと。
+            let name = root.accessible_name();
+            let disabled = root.accessible_disabled();
+            let invalid = root.accessible_invalid();
+            let labelled_by = root.accessible_labelled_by();
+            let described_by = root.accessible_described_by();
 
-        // 呼び出し側が名前を渡したらそれを使い、なければコンポーネント自身の名前を使います。
-        let label: Value<String> = match name {
-            Some(read) => read,
-            None => "Search".into_text_value(),
-        };
+            // 呼び出し側が名前を渡したらそれを使い、なければコンポーネント自身の名前を使います。
+            let label: Value<String> = match name {
+                Some(read) => read,
+                None => "Search".into_text_value(),
+            };
 
-        // それらすべてを、キー入力を受けるコントロールへ渡します。
-        let mut input = text_input(label, value).style(style().grow(1));
-        if let Some(read) = disabled {
-            input = input.disabled(move || read.get());
-        }
-        if let Some(read) = invalid {
-            input = input.invalid(move || read.get());
-        }
-        for target in labelled_by {
-            input = input.with_node(|host| host.labelled_by(target));
-        }
-        for target in described_by {
-            input = input.with_node(|host| host.described_by(target));
-        }
+            // それらすべてを、キー入力を受けるコントロールへ渡します。
+            let mut input = text_input(label, value).style(style().grow(1));
+            if let Some(read) = disabled {
+                input = input.disabled(move || read.get());
+            }
+            if let Some(read) = invalid {
+                input = input.invalid(move || read.get());
+            }
+            for target in labelled_by {
+                input = input.with_node(|host| host.labelled_by(target));
+            }
+            for target in described_by {
+                input = input.with_node(|host| host.described_by(target));
+            }
 
-        root.child((icon("search"), input)).into_view()
+            root.child((icon("search"), input)).into_view()
+        })
     }
 }
 
