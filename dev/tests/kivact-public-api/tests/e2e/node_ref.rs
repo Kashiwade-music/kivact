@@ -2,8 +2,9 @@
 
 use crate::support::mount;
 use kivact::geometry::Point;
-use kivact::motion::{FrameRate, frame_loop};
+use kivact::motion::{Easing, FrameRate, Transition, frame_loop};
 use kivact::prelude::*;
+use kivact::style::TransitionProp;
 use kivact::view::{Asset, ImageStatus, ScrollBehavior, ScrollState};
 use std::time::Duration;
 
@@ -75,7 +76,16 @@ fn frame_loop_runs_only_while_present() {
         (
             (shown, ticks, loop_handle, rate),
             show(shown, move || {
-                node().node_ref(target).style(style().size(40, 30))
+                node().node_ref(target).style(
+                    style()
+                        .size(40, 30)
+                        .enter(style().opacity(0.0))
+                        .exit(style().opacity(0.0))
+                        .transition(
+                            TransitionProp::Paint,
+                            Transition::tween(120, Easing::Linear),
+                        ),
+                )
             }),
         )
     });
@@ -85,7 +95,9 @@ fn frame_loop_runs_only_while_present() {
     assert_eq!(rate.get(), Some(FrameRate::Hz(30.0)));
     shown.set(true);
     screen.run_until_idle();
-    screen.advance(Duration::from_millis(100));
+    screen.advance(Duration::from_millis(50));
+    assert_eq!(ticks.get(), 0, "entering node keeps the callback paused");
+    screen.advance(Duration::from_millis(200));
     assert!(ticks.get() > 0);
     shown.set(false);
     screen.run_until_idle();
@@ -94,7 +106,7 @@ fn frame_loop_runs_only_while_present() {
     assert_eq!(ticks.get(), paused);
     shown.set(true);
     screen.run_until_idle();
-    screen.advance(Duration::from_millis(100));
+    screen.advance(Duration::from_millis(250));
     assert!(ticks.get() > paused);
     loop_handle.stop();
     shown.set(false);

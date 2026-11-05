@@ -208,6 +208,10 @@ impl Model {
             #[cfg(debug_assertions)]
             self.lint_layout(engine, self.changes.was_laid_out(), &remeasured);
             self.sync();
+            // In-memory sources may finish decoding during layout without a
+            // later store poll. Publish the same actual asset projection now.
+            let images: Vec<NodeId> = self.tree.images.iter().copied().collect();
+            self.report_images(&images);
             Settled::Updated
         } else {
             Settled::Kept
