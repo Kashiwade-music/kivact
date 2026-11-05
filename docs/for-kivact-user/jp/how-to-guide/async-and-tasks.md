@@ -13,11 +13,11 @@
 | 表示する結果のない future を動かす（タイマー、チャンネルの読み出し） | `spawn` |
 | ブロックする処理や CPU を使う重い処理を実行する | `blocking` |
 
-`resource`・`spawn`・`blocking` は `kivact::prelude` からも使えます。
+`resource`・`action`・`spawn`・`blocking`・`async_view` は `use kivact::prelude::*;` で使えます。
 
 ## データを読み込み、読み込み中・エラー・完了を表示する
 
-`resource(source, fetch)` は、開始時に一度 `fetch` を呼び、`source` が変わるたびにもう一度呼びます。`fetch` の結果は `AsyncState`（`Idle`・`Pending`・`Ready(値)`・`Failed(エラー)`）として扱われます。`dynamic` の中でこれを `match` し、状態ごとの表示を選びます。
+`resource(source, fetch)` は、開始時に一度 `fetch` を呼び、`source` が変わるたびにもう一度呼びます。`fetch` の結果は `AsyncState`（`Idle`・`Pending`・`Ready(値)`・`Failed(エラー)`）として扱われます。通常は `async_view(resource, render_ready)` に成功時の表示だけを渡せば、読み込み中と再試行できるエラー表示も付きます。状態ごとの画面を全面的に変えたいときは、`dynamic` の中で `AsyncState` を `match` します。
 
 ```rust,no_run
 use std::time::Duration;
@@ -42,14 +42,7 @@ fn app() -> impl IntoView {
             button("次へ").on_press(move || id.update(|n| *n += 1)),
         ))
         .style(style().gap(8)),
-        dynamic(
-            move || user.state(),
-            |state| match state {
-                AsyncState::Idle | AsyncState::Pending => text("読み込み中…"),
-                AsyncState::Failed(error) => text(format!("エラー: {error}")),
-                AsyncState::Ready(name) => text(name),
-            },
-        ),
+        async_view(user, |name: String| text(name)),
     ))
     .style(style().padding(24).gap(12))
 }
@@ -64,7 +57,7 @@ fn main() -> kivact::Result<()> {
 - **source にはプロパティが受け取れるものを渡せます。** `Signal`、`move || (query.get(), page.get())` のようなクロージャ、定数のどれでも構いません。`resource` が追跡するのは source だけです。`fetch` や future の中で読んだシグナルは依存関係に*なりません*。
 - **fetch 関数は `Result<T, UiError>` を返します。** `Err(UiError::msg("…"))` は文字列からエラーを作り、`?` は `std::error::Error` を実装する任意のエラー（`io::Error` やパースエラーなど）を `UiError` に変換します。リクエストごとにコピーが渡されるため、`T` も source の値も `Clone` でなければなりません。
 - **採用されるのは最新のリクエストだけです。** 処理中に source が変わると、古い future は破棄され、その結果は表示されません。遅れて届いた古い応答が新しい結果を上書きしないよう、自分で守る必要はありません。
-- **失敗は panic ではなくデータです。** fetch の失敗は `AsyncState::Failed` に入り、`error_boundary` には届きません。上の例のように自分で表示してください。
+- **失敗は panic ではなくデータです。** fetch の失敗は `AsyncState::Failed` に入り、`error_boundary` には届きません。`async_view` のエラー表示を使うか、`AsyncState` を読んで自分で表示します。
 
 Rust のメモ: `async move` は、キャプチャした値を future に move します。future はクロージャの呼び出しより長く生きるためです。シグナルは `Copy` なハンドルなので、move してもコストはかかりません。ほかの場所でも使い続ける `String` は、先に clone する必要があります。
 

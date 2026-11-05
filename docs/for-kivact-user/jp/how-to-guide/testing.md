@@ -2,7 +2,7 @@
 
 [English](../../en/how-to-guide/testing.md)
 
-`kivact::test` を使うと、人が使うのと同じやり方で Kivact アプリをテストできます。アプリを描画し、スクリーンリーダーが読み上げる内容で要素を探し、クリックや入力をして、画面に出ているものを確かめます。テストは `cargo test` でプロセス内で動きます。ブラウザーもドライバーも要らず、実時間で待つこともありません。
+`kivact::test` を使うと、人が使うのと同じやり方で Kivact アプリをテストできます。アプリを描画し、スクリーンリーダーが読み上げる内容で要素を探し、クリックや入力をして、画面に出ているものを確かめます。テストは `cargo test` で App 全体を `arvane-virtual` の上で動かします。画面を保持する仮想ホストが実際のレイアウト・描画・入力を処理し、手元ではその結果を実ウィンドウへ写すこともできます。ブラウザーもドライバーも要らず、実時間で待つこともありません。
 
 このガイドは入門チュートリアルより踏み込み、あらゆる種類の検索と操作、状態とアクセシビリティの検証、時間、スクリーンショット、失敗時の成果物、コンポーネント単体とアプリ全体のテスト、CI での実行を扱います。
 
@@ -383,7 +383,7 @@ mod tests {
 }
 ```
 
-`RenderOptions` の項目: `width`・`height`・`scale`・`theme`・`locale`・`host_locale`（システムのロケール）・`messages`・`dark`（システムがダークテーマを好む）・`reduced_motion`・`fonts`・`window`・`gpu`・`frame_period_ns`（ディスプレイのリフレッシュ間隔。既定は 60 Hz）・`title`。
+`RenderOptions` は builder です。大きさは `.window_size(width, height)`、倍率は `.scale(value)`、テーマは `.theme(theme)`、言語と文言は `.locale(locale)` と `.messages(messages)` で指定します。システムの設定には `.host_locale(tag)`、`.dark()`、`.reduced_motion()`、フォントには `.fonts(...)`、描画には `.gpu()`、写しには `.mirror(MirrorMode)` を使います。`.frame_period_ns(u64)` はディスプレイの更新間隔（既定は 60 Hz）、`.title(...)` は写しのウィンドウ名です。公開 field の struct literal で組み立てる必要はありません。
 
 画面が動いている間は、テストがシステムの役を演じられます: `resize`・`set_scale`・`set_dark`・`set_reduced_motion`・`set_host_locale`・`set_safe_area`・`set_window_focused`・`suspend` と `resume`・`memory_warning`・`lose_surface` と `restore_surface`・`request_close`。プラットフォームのサービスもスクリプト化されています: `clipboard` と `set_clipboard`・`respond_file_dialog`・`respond_files_dialog`・`opened_paths`・`revealed_paths`・`fail_next_platform_request`。[プラットフォームのサービスを使う](platform-services.md) を参照してください。
 
@@ -423,7 +423,7 @@ mod tests {
 
 既定ではフレームを CPU が描くので、マシンが違ってもビット単位で同じになり、画素や `hash()` の比較が安定します。スクリーンショットは描画した内容（キャンバス、色、グラデーション）に使い、ロールやテキストを持つものは検索で確かめてください。ウィンドウ全体のスクリーンショットを保存済みの画像と比べることを主な検証にするのはやめてください。意図した変更のたびに壊れてしまいます。
 
-`RenderOptions` で `gpu: true` を指定するか（`RenderOptions::from_env()` なら環境変数 `KIVACT_TEST_GPU=1`）、GPU で描いて画素を読み戻せます。GPU のテストが始められない理由は `kivact::test::gpu_unavailable()` が返します。始められるなら `None` です。
+`RenderOptions` で `.gpu()` を指定するか（`RenderOptions::from_env()` なら環境変数 `KIVACT_TEST_GPU=1`）、GPU で描いて画素を読み戻せます。GPU のテストが始められない理由は `kivact::test::gpu_unavailable()` が返します。始められるなら `None` です。
 
 ## テストが失敗したら
 
@@ -438,9 +438,9 @@ mod tests {
 
 ## CI で実行する
 
-テストは通常の `cargo test` で動きます。単体テストと違うのはウィンドウです。
+テストは通常の `cargo test` で動きます。CPU の検証にはデスクトップが不要です。実ウィンドウへの写しを使うときだけ、ウィンドウを開ける環境を用意します。
 
-- **デスクトップセッションがあれば、実ウィンドウに写せます。** `RenderOptions::default()` と `RenderOptions::from_env()` は `KIVACT_TEST_MIRROR` を読みます。`off` はフレームを保持するだけ、`auto`（既定）は開ける場合に写しを開き、`required` は開けなければ失敗します。`mirror: MirrorMode::Off`・`MirrorMode::Auto`・`MirrorMode::Required` で明示的に選べます。`RenderOptions::from_env()` は `KIVACT_TEST_GPU=1` も読みます。GPU の提示には実ウィンドウの写しが必要です。CPU の画素はどのモードでも同じです。
+- **デスクトップセッションがあれば、実ウィンドウに写せます。** `RenderOptions::default()` と `RenderOptions::from_env()` は `KIVACT_TEST_MIRROR` を読みます。`off` はフレームを保持するだけ、`auto`（既定）は開ける場合に写しを開き、`required` は開けなければ失敗します。`.mirror(MirrorMode::Off)`・`.mirror(MirrorMode::Auto)`・`.mirror(MirrorMode::Required)` で明示的に選べます。`RenderOptions::from_env()` は `KIVACT_TEST_GPU=1` も読みます。GPU の提示には実ウィンドウの写しが必要です。CPU の画素はどのモードでも同じです。
 - **ディスプレイのない CI マシン**では、既定のオプションがヘッドレスに切り替わり、ここまでの内容はすべて動きます。そこで実ウィンドウを使いたい場合（ウィンドウ周りの経路全体を試すため）は、仮想ディスプレイの中（たとえば Linux の `xvfb-run`）か、デスクトップセッションのあるランナーでジョブを実行します。
 - **同じデスクトップで、複数のプロセスからウィンドウのテストを同時に動かさないでください。** 並列のテストプロセスのウィンドウはフォーカスを奪い合い、固まることがあります。テストバイナリは順番に実行します。
 - **プロセスにつきイベントループは 1 つ**: 画面を描画するテストバイナリで `App::run` を呼んではいけません。
