@@ -85,8 +85,15 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
     let command = signal(false);
 
     let notify = notification_callback();
-    let section_views =
-        catalog_sections(confirm, command, sheet, drawer_title, notify, refs.clone());
+    let section_views = catalog_sections(
+        confirm,
+        form_dialog,
+        command,
+        sheet,
+        drawer_title,
+        notify,
+        refs.clone(),
+    );
     install_scroll_spy(refs.clone(), scroll_ref, content_ref, selected);
     let nav = section_navigation(refs.clone(), scroll_ref, selected);
     let sidebar = catalog_sidebar(nav, activity_points);
@@ -257,6 +264,7 @@ fn activity_counter() -> Signal<u16> {
 
 fn catalog_sections(
     confirm: Signal<bool>,
+    form_dialog: Signal<bool>,
     command: Signal<bool>,
     sheet: Signal<bool>,
     drawer_title: Signal<String>,
@@ -689,6 +697,8 @@ fn request_dialog(
                 request_priority,
                 request_date,
                 request_detail,
+                form_dialog,
+                notify,
             )
         })
         .footer(move || {
@@ -901,6 +911,8 @@ fn request_fields(
     request_priority: Signal<Option<&'static str>>,
     request_date: Signal<CalendarDate>,
     request_detail: Signal<String>,
+    form_dialog: Signal<bool>,
+    notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> Node {
     column((
         kivact::ui::field(
