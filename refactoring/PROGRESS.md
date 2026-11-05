@@ -12,6 +12,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP3 | b0aad13 | 0 | 0 | — | — | 101→失敗4 target個別0、GPU6 passed | — | Clippy 8.69s / 固定public3.62s | 通過、固定 gate の公開308/Game3と対象 docs 0 |
 | CP4 | 19dfddc | 0 | 0 | 0（ab3322a） | 0（18件） | 101→失敗19 target個別0 | 101→失敗19 target個別0 | Clippy16.83s / WSL75s | 通過。固定a9e6377 public30/doc0、Creative追加2はc97d2c6で0 |
 | CP5 | b3b2cf0 | 0 | 0 | — | — | 101→失敗5 target個別0、GPU6 passed | — | Clippy19.52s | 通過、Enter/disabled既定の意図的APG移行とSoft初期enter修正 |
+| CP6 | e71dfb18 | 0 | 0（関数長/禁止型含む） | 実行中 | — | 実行中 | — | Clippy1.68s | 軽gate通過、固定gateでfullstatic/E2E実行 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -171,9 +172,9 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | H-G3 | doing | ce4294 | 中核の状態整理を統合、全体静的のdispatch葉分離を修正中 |
 | H-G4 | doing | 28617746 | UI+interaction統合check/scoped静的0、全体gate待ち |
 | H-G5 | merged | 98adadd0 | 全5kit完了。Soft Clippy/8規約0、lib3/consumer96全通過、実測cache単一owner |
-| H-G6 | doing | 98adadd0 | 全skipを解除、outer/test長関数の統合点検と分割 |
-| F-1 | todo | | |
-| F-2 | todo | | |
+| H-G6 | merged | e71dfb18 | 全skip空、outer/test分割、親全workspace厳格Clippy0、fullstatic既知7件修正済み再検証 |
+| F-1 | doing | | 六分割の恒久文書へ |
+| F-2 | doing | | 検査と雛形の最終整理 |
 | F-3 | todo | | |
 | fix-G4-8 | merged | 143d513 | public2/Soft7/catalog15/Game1 passed |
 | fix-G5-7 | merged | f52935c | Creative42+固定advanced1/catalog3 passed |
