@@ -76,3 +76,40 @@ fn item_list_exposes_list_semantics() {
     assert!(screen.query_by_role(Role::ListBox, "Items").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn item_list_positions_and_delegation_use_the_actual_children() {
+    let (screen, presses) = mount(|| {
+        let presses = signal(0);
+        let target = node_ref();
+        (
+            presses,
+            item_list((
+                item_row("Delegate").delegate_to(target).actions(
+                    button("Inspect target").node_ref(target).on_press(move || {
+                        presses.update(|count| *count += 1);
+                    }),
+                ),
+                item_row("Explicit position").position(4usize, 8usize),
+            ))
+            .header(text("Documents"))
+            .marker(kivact::ui::ItemListMarker::Decimal)
+            .start(3),
+        )
+    });
+    screen.get_by_role(Role::List, "Documents");
+    let first = screen.get_by_role(Role::ListItem, "Delegate");
+    assert_eq!(first.pos_in_set(), Some(1));
+    assert_eq!(first.set_size(), Some(2));
+    let explicit = screen.get_by_role(Role::ListItem, "Explicit position");
+    assert_eq!(explicit.pos_in_set(), Some(5));
+    assert_eq!(explicit.set_size(), Some(8));
+    first.click();
+    assert_eq!(presses.get_untracked(), 1);
+    assert!(
+        screen
+            .get_by_role(Role::Button, "Inspect target")
+            .is_focused()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

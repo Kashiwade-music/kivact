@@ -6,7 +6,8 @@ use kivact_core::custom::{Part, part};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback};
 use kivact_core::style::{Style, TextOverflow, style};
 use kivact_core::view::{
-    HandlerResult, IntoView, Node, NodeBuilder, NodeRef, Role, View, node, node_ref, text,
+    HandlerResult, IntoChildren, IntoView, Node, NodeBuilder, NodeRef, Role, View, node, node_ref,
+    text,
 };
 /// A semantic item row; its description and activation share the actual root.
 pub struct ItemRow {
@@ -142,8 +143,15 @@ impl RowRender {
         view: impl IntoView,
         pick: fn(&crate::UiRecipes) -> &crate::Recipe<ItemRowState>,
     ) -> Node {
+        self.wrap_children((view,), pick)
+    }
+    fn wrap_children(
+        &self,
+        children: impl IntoChildren,
+        pick: fn(&crate::UiRecipes) -> &crate::Recipe<ItemRowState>,
+    ) -> Node {
         let state = self.state;
-        with_base_recipe_style(node().child(view), pick, &self.variants, move || {
+        with_base_recipe_style(node().child(children), pick, &self.variants, move || {
             state.get()
         })
     }
@@ -214,7 +222,7 @@ impl RowContents {
         let footer = self
             .footer
             .map(|v| render.wrap(v, |r| r.item_list_recipes().footer_recipe()));
-        let body = render.wrap(node().child((marker, media, content, actions)), |r| {
+        let body = render.wrap_children((marker, media, content, actions), |r| {
             r.item_list_recipes().body_recipe()
         });
         let state = render.state;
@@ -255,7 +263,7 @@ impl RowContents {
             });
         let reference = description.is_some().then_some(reference);
         (
-            render.wrap(node().child((title, description)), |r| {
+            render.wrap_children((title, description), |r| {
                 r.item_list_recipes().content_recipe()
             }),
             reference,

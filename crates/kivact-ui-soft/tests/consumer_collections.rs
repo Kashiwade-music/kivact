@@ -75,8 +75,12 @@ fn reactive_list_adds_a_list_item() {
     assert_eq!(list.role(), Some(Role::List));
     assert!(screen.query_by_role(Role::ListItem, "Second").is_none());
     screen.get_by_role(Role::Button, "Add second").click();
-    screen.get_by_role(Role::ListItem, "First");
-    screen.get_by_role(Role::ListItem, "Second");
+    let first = screen.get_by_role(Role::ListItem, "First");
+    let second = screen.get_by_role(Role::ListItem, "Second");
+    assert_eq!(first.pos_in_set(), Some(1));
+    assert_eq!(first.set_size(), Some(2));
+    assert_eq!(second.pos_in_set(), Some(2));
+    assert_eq!(second.set_size(), Some(2));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
