@@ -32,6 +32,7 @@ pub struct EmptyStateState {
     pub heading_level: u8,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of actual input and independent validation, focus-within and construction-slot facts; no mutable lifecycle authority.
 /// Input group size and reading direction passed to its recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {

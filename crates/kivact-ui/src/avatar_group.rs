@@ -91,7 +91,7 @@ impl IntoView for AvatarGroup {
                     text(move || format!("+{}", hidden())),
                     |r| r.avatar_group_overflow_recipe(),
                     &overflow_variants,
-                    move || hidden(),
+                    hidden,
                 )
             },
         ))

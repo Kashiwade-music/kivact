@@ -13,12 +13,12 @@ pub(crate) fn pagination(r: PaginationRecipes) -> PaginationRecipes {
                     .align_items(Align::Center)
                     .justify_content(kivact::style::Justify::Center)
                     .border(1, ColorToken::Border)
-                    .color(if **s {
+                    .color(if s.current {
                         ColorToken::AccentText
                     } else {
                         ColorToken::TextMuted
                     })
-                    .background(if **s {
+                    .background(if s.current {
                         t.colors().accent
                     } else {
                         kivact::style::Color::TRANSPARENT
