@@ -804,6 +804,8 @@ recipe_table! {
         icon(icon_recipe): AlertState = look_feedback::alert_icon,
         actions(actions_recipe): AlertState = look_feedback::alert_actions,
         content(content_recipe): AlertState = look_feedback::alert_content,
+        dismiss(dismiss_recipe): AlertState = look_feedback::alert_control,
+        toggle(toggle_recipe): AlertState = look_feedback::alert_control,
     }
 }
 recipe_table! {

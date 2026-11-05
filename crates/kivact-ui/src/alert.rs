@@ -41,14 +41,19 @@ pub struct Alert {
     tone: Value<Tone>,
     dismissible: Value<bool>,
     dismiss_label: Value<String>,
+    dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
     variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
 pub fn alert(title: impl IntoText) -> Alert {
+    let title = title.into_text_value();
     Alert {
-        root: node(),
-        title: title.into_text_value(),
+        root: node()
+            .role(Role::Alert)
+            .live_region(LiveRegion::Assertive)
+            .name(title),
+        title,
         description: None,
         icon: None,
         actions: None,
@@ -58,6 +63,7 @@ pub fn alert(title: impl IntoText) -> Alert {
         tone: Tone::Neutral.into_value(),
         dismissible: false.into_value(),
         dismiss_label: "Dismiss notification".into_text_value(),
+        dismiss_content: None,
         dismiss: None,
         variants: Variants::default(),
     }
@@ -108,6 +114,11 @@ impl Alert {
         self.dismiss_label = label.into_text_value();
         self
     }
+    /// Replace the visible dismiss contents, preserving the accessible dismiss label.
+    pub fn dismiss_content(mut self, content: impl IntoView) -> Self {
+        self.dismiss_content = Some(content.into_view());
+        self
+    }
     /// Show a dismiss control and report dismissal after restoring focus.
     pub fn on_dismiss(mut self, f: impl Into<Callback<()>>) -> Self {
         self.dismissible = true.into_value();
@@ -146,9 +157,6 @@ impl IntoView for Alert {
             &self.variants,
             state,
         )
-        .role(Role::Alert)
-        .name(self.title)
-        .live_region(LiveRegion::Assertive)
         .node_ref(reference)
         .hidden(move || phase.state().get() == BannerState::Dismissed)
         .child(contents)
@@ -195,7 +203,7 @@ impl Alert {
                 state,
             )
         });
-        let toggle = expansion_toggle(self.content.is_some(), open, collapsible);
+        let toggle = expansion_toggle(self.content.is_some(), open, collapsible, variants, state);
         let content = self.content.take().map(|content| {
             let variants = self.variants.clone();
             show(
@@ -211,9 +219,17 @@ impl Alert {
             )
         });
         let dismissible = self.dismissible;
-        let dismiss = super::button(self.dismiss_label)
-            .on_press(move || phase.send(BannerEvent::Dismiss))
-            .hidden(move || !dismissible.get());
+        let dismiss_content = self.dismiss_content.take();
+        let dismiss = with_recipe_style(
+            super::button(self.dismiss_label)
+                .hide_label(dismiss_content.is_some())
+                .child(dismiss_content)
+                .on_press(move || phase.send(BannerEvent::Dismiss))
+                .hidden(move || !dismissible.get()),
+            |r| r.alert_recipes().dismiss_recipe(),
+            variants,
+            state,
+        );
         (icon, title, description, actions, toggle, content, dismiss).into_view()
     }
 }
@@ -221,9 +237,11 @@ fn expansion_toggle(
     has_details: bool,
     open: Binding<bool>,
     collapsible: Value<bool>,
+    variants: &Variants,
+    state: impl Fn() -> AlertState + Copy + 'static,
 ) -> Option<impl IntoView> {
     has_details.then(|| {
-        super::button(move || {
+        let control = super::button(move || {
             if open.get() {
                 "Collapse details"
             } else {
@@ -232,7 +250,13 @@ fn expansion_toggle(
         })
         .with_node(move |node| node.expanded(move || open.get()))
         .hidden(move || !collapsible.get())
-        .on_press(move || open.set(!open.get()))
+        .on_press(move || open.set(!open.get()));
+        with_recipe_style(
+            control,
+            |r| r.alert_recipes().toggle_recipe(),
+            variants,
+            state,
+        )
     })
 }
 
