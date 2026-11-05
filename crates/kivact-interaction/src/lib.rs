@@ -159,4 +159,6 @@ pub use surface_policy::{DrawerPolicy, DrawerSwipe, HoverCardTiming};
 
 mod hover_card;
 pub use hover_card::{HoverCardApi, HoverCardState, OpenedBy, use_hover_card};
+mod navigation_menu;
 mod surface;
+pub use navigation_menu::{NavOpen, NavigationMenuApi, use_navigation_menu};

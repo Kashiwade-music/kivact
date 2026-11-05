@@ -651,6 +651,10 @@ recipe_table! {
         date_time_input(date_time_input_recipes): DateTimeInputRecipes,
         combobox(combobox_recipes): ComboboxRecipes,
         toolbar(toolbar_recipes): ToolbarRecipes,
+        pagination(pagination_recipes): PaginationRecipes,
+        breadcrumb(breadcrumb_recipes): BreadcrumbRecipes,
+        stepper(stepper_recipes): StepperRecipes,
+        navigation_menu(navigation_menu_recipes): NavigationMenuRecipes,
         toggle_group(toggle_group_recipes): ToggleGroupRecipes,
         button_group(button_group_recipes): ButtonGroupRecipes,
         select(select_recipes): SelectRecipes,
@@ -820,5 +824,36 @@ recipe_table! {
         actions(actions_recipe): PartState = look_static_collections::actions,
         header(header_recipe): PartState = look_static_collections::band,
         footer(footer_recipe): PartState = look_static_collections::band,
+    }
+}
+recipe_table! {
+    /// Page control and gap recipes.
+    PaginationRecipes {
+        root(root_recipe): () = crate::look_navigation::root,
+        item(item_recipe): bool = crate::look_navigation::current,
+        ellipsis(ellipsis_recipe): () = crate::look_navigation::part,
+    }
+}
+recipe_table! {
+    /// Breadcrumb landmark, item and decorative separator recipes.
+    BreadcrumbRecipes {
+        root(root_recipe): () = crate::look_navigation::root,
+        item(item_recipe): bool = crate::look_navigation::current,
+        separator(separator_recipe): () = crate::look_navigation::part,
+    }
+}
+recipe_table! {
+    /// Progress list and individual step recipes.
+    StepperRecipes {
+        root(root_recipe): () = crate::look_navigation::root,
+        item(item_recipe): crate::StepperItemState = crate::look_navigation::part,
+    }
+}
+recipe_table! {
+    /// Navigation landmark, panel trigger and panel surface recipes.
+    NavigationMenuRecipes {
+        root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::root,
+        trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
+        panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
     }
 }
