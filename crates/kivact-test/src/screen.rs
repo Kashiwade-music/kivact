@@ -7,8 +7,7 @@
 //! time, waiting), `query` (queries, failure report, `Within`), `input`
 //! (user input as real shell events, Playwright-like actionability),
 //! `element` (reads on an `Element`), `state` (errors, trace, stats,
-//! semantic trees), `controls` (environment and platform), `structure`
-//! (the core's host nodes are the engine's tree) and `artifacts`
+//! semantic trees), `controls` (environment and platform), `artifacts`
 //! (screenshots, failure artifacts) and `layout` (the layout check).
 
 mod artifacts;

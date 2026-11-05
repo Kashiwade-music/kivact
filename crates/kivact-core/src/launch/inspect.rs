@@ -104,6 +104,41 @@ impl Inspect<'_> {
     }
 }
 
+#[cfg(debug_assertions)]
+impl Inspect<'_> {
+    /// Check that the core's node records are the engine's live tree: every
+    /// node the root reaches through the engine's logical children has a
+    /// record, none is reached twice, and the core keeps no record the root
+    /// cannot reach. Props and topology live only in the engine, so they
+    /// are not compared.
+    pub fn check_tree(&self) -> Result<(), String> {
+        let tree = ViewState::tree(self.rt());
+        let reader = tree.reader();
+        let mut reached = std::collections::HashSet::new();
+        let mut stack = vec![tree.root];
+        while let Some(id) = stack.pop() {
+            if !reached.insert(id) {
+                return Err(format!("engine node {} is reachable twice", id.0));
+            }
+            if !tree.contains(id) {
+                return Err(format!("engine node {} has no core record", id.0));
+            }
+            stack.extend(reader.children(id));
+        }
+        if reached.len() != tree.len() {
+            let unreachable: Vec<u64> = tree
+                .ids()
+                .filter(|id| !reached.contains(id))
+                .map(|id| id.0)
+                .collect();
+            return Err(format!(
+                "the core keeps records the root cannot reach: {unreachable:?}"
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl Launch {
     pub fn into_engine_client(self) -> (Client, LaunchHandle) {
         let timing = match &self.mode {

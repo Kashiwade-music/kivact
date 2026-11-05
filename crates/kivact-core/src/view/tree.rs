@@ -760,6 +760,12 @@ impl ViewNodes {
     pub(crate) fn len(&self) -> usize {
         self.nodes.0.len()
     }
+
+    /// The IDs of all node records (the test harness's settle check).
+    #[cfg(debug_assertions)]
+    pub(crate) fn ids(&self) -> impl Iterator<Item = NodeId> + '_ {
+        self.nodes.0.keys().copied()
+    }
 }
 
 impl ViewNodes {
