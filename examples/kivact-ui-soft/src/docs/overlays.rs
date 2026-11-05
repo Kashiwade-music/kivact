@@ -4,11 +4,13 @@ use kivact::interaction::{Command, DialogMode, MenuEntry, Toast, toaster};
 use kivact::state::IntoBinding;
 use kivact::state::{Binding, signal};
 use kivact::style::style;
-use kivact::ui::{ButtonVariant, button, command_palette, dialog, menu, toast_region, tooltip};
+use kivact::ui::{
+    ButtonVariant, button, command_palette, dialog, hover_card, menu, toast_region, tooltip,
+};
 use kivact::view::{Node, NodeBuilder, row, text};
 use kivact_ui_soft::{
     LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, dialog_header, drawer_header,
-    hover_card, lightbox, media_overlay,
+    lightbox, media_overlay,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {

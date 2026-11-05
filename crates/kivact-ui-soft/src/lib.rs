@@ -169,7 +169,7 @@ pub use form_layout::{
 };
 pub use grid::{Grid, GridColumns, GridRepeat, GridSpan, Span, grid, grid_span};
 pub use heading::{Heading, HeadingDisplay, heading};
-pub use hover_card::{FocusTrigger, HoverCard, hover_card, hover_card_text};
+pub use hover_card::hover_card_text;
 pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};

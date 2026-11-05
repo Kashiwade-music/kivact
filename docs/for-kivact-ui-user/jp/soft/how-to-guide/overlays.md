@@ -29,3 +29,5 @@ Soft の lightbox は dialog と zoom/pan の振る舞いを共有します。`u
 画像の失敗は画像 node の状態から読み取り、翻訳された代替表示を出します。bottom sheet は
 高さ、scrim、purpose、focus、padding、snap point の option を維持し、離したときの速度と
 snap の選択に共通の drag の振る舞いを使います。
+
+プレビューには `kivact::ui::hover_card(factory).attach(trigger)` を使います。Soft は表面の recipe、ポインターで開く 300 ms と閉じる 200 ms の遅延、画面端の余白を設定します。配置、整列、フォーカスによる開閉、制御された表示状態、変更コールバックは標準 builder で指定します。`soft::hover_card_text(label)` はキーボードで到達できる装飾済みトリガーです。
