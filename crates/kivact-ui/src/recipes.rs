@@ -622,6 +622,7 @@ recipe_table! {
         heading(heading_recipe): HeadingState = look_metrics::heading,
         avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
+        avatar_group_member(avatar_group_member_recipe): usize = super::look_indicators::avatar_group_member,
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
         avatar_image(avatar_image_recipe): crate::AvatarState = super::look_indicators::avatar_image,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
