@@ -8,7 +8,6 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -19,11 +18,11 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl IntoView {
+fn header(dark: Signal<bool>) -> impl Component {
     row((
         image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
         column((
-            text("タスク").role(Role::Heading).style(style().font_size(28).weight(700)),
+            text("タスク").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
             text("今日やること").style(style().color(ColorToken::TextMuted)),
         ))
         .style(style().gap(2).grow(1)),
@@ -32,7 +31,7 @@ fn header(dark: Signal<bool>) -> impl IntoView {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -46,7 +45,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
@@ -64,7 +63,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>) -> impl IntoView {
+fn tasks_screen(dark: Signal<bool>) -> impl Component {
     let tasks = signal(vec![
         Task { id: 1, title: "牛乳を買う".to_owned(), done: false },
         Task { id: 2, title: "チュートリアルを書く".to_owned(), done: false },
@@ -132,6 +131,8 @@ fn main() -> kivact::Result<()> {
 
 **テーマの色。** `ColorToken::Surface`、`Text`、`TextMuted`、`SurfaceAlt`、`Border`、`Accent` などは色の*名前*で、実際にどんな色になるかは、そのときのテーマが決めます。ほとんどの色にはトークンを使うと、同じコードがライトテーマでもダークテーマでも通用します。固定の色が必要なときは、`rgb(0x336699)` を使います。
 
+**画像とフォントのバイト列。** `image(LOGO)` は、このプログラムに埋め込んだ SVG のバイト列を使います。ファイルをビルド時に埋め込む場合は `include_bytes!("logo.svg").as_slice()` を渡せます。実行時に得たバイト列は、`kivact::view::AssetBytes::new(bytes)` に所有する `Vec<u8>` を渡して保持します。生成した生の RGBA 画素には `kivact::draw::Pixels::new(width, height, rgba)` を使い、`rgba` にも 1 画素あたり 4 バイトの `Vec<u8>` を渡せます。同じバイト列を再利用するときは、保持した `AssetBytes` を clone します。フォントは `.run(app)` の前に `App::fonts(iter)` で登録し、埋め込みフォントのバイトスライスなどをイテレーターから渡します。これらの API が、データを保持する領域を管理します。
+
 **ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(kivact::ui::ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
 
 **アクセシブルな名前。** スクリーンリーダーはコントロールを役割と名前で読み上げ、キーボード操作やテストのツールも、同じ方法でコントロールを見つけます。そのため、すべてのコントロールに名前が必要です。
@@ -139,7 +140,7 @@ fn main() -> kivact::Result<()> {
 - 文字から作るコントロールは、すでに名前を持っています。ボタンのラベル、チェックボックスの名前、テキスト欄の名前です。
 - `.name(..)` は、名前を設定または上書きします。削除ボタンはどれも「削除」と読まれてしまうので、それぞれ「牛乳を買う を削除」のように、タスクの名前を含めています。名前にはクロージャを渡せるので、タイトルの変更に追従します。
 - 画像のように文字を持たない要素は、`.name(..)` が代替テキストになるので、必ず付けます。名前のない画像は装飾とみなされ、支援技術には伝わりません。ここのロゴには「タスクのロゴ」という名前を付けています。
-- `.role(..)` は、view がどんな種類のものかを表します。`text(..)` に `Role::Heading` を付けると、タイトルが見出しになります。`Role::List` と `Role::ListItem` を使い、一覧に名前を付けると、スクリーンリーダーは「タスク一覧」と読み上げ、項目数も伝えられます。
+- `.role(..)` は、view がどんな種類のものかを表します。`text(..)` に `Role::Heading` と `.level(1)` を付けると、タイトルがレベル 1 の見出しになります。`Role::List` と `Role::ListItem` を使い、一覧に名前を付けると、スクリーンリーダーは「タスク一覧」と読み上げ、項目数も伝えられます。
 
 **ダークモード。** アプリのテーマは値で、`provide_theme(theme, || ..)` で、その中のすべてに適用できます。シグナル、`memo`、クロージャを渡せば、アプリの実行中にテーマを切り替えられます。Kivact は既存の view のスタイルを更新するだけで、作り直しはしません。ここでは、「ダークモード」スイッチが `dark` シグナルを編集し、`memo` がそれを `Theme::dark()` または `Theme::light()` に変換します。`provide_theme` 自身は何も描かないため、いちばん外側の view に `background(ColorToken::Surface)` と `color(ColorToken::Text)` を付けています。Web ページが `body` に指定するのと同じです。
 

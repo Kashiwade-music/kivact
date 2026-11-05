@@ -10,7 +10,6 @@
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -21,11 +20,11 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl IntoView {
+fn header(dark: Signal<bool>) -> impl Component {
     row((
         image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
         column((
-            text("タスク").role(Role::Heading).style(style().font_size(28).weight(700)),
+            text("タスク").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
             text("今日やること").style(style().color(ColorToken::TextMuted)),
         ))
         .style(style().gap(2).grow(1)),
@@ -34,7 +33,7 @@ fn header(dark: Signal<bool>) -> impl IntoView {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -48,7 +47,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
@@ -66,7 +65,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl IntoView {
+fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Component {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());
@@ -162,7 +161,7 @@ fn main() -> kivact::Result<()> {
 **`resource(source, load)`** は、非同期の処理を開始し、その進み具合を状態として保持します。
 
 - `source` は、処理への入力となるリアクティブな値で、ここでは `attempt` シグナルです。Kivact は最初に一度処理を開始し、`source` が変わるたびに、もう一度開始します。処理の実行中に `source` が変わった場合、その古い処理の結果は捨てられます。
-- `load` は、現在の `source` の値を受け取り、`kivact::Result<T>` を返す `async` 関数です。成功なら `Ok(値)`、失敗なら `Err(UiError::msg("..."))` を返します。`std::error::Error` を実装する任意のエラーには `?` が使え、`UiError` に変換されます。
+- `load` は、現在の `source` の値を受け取り、`kivact::Result<T>` を返す `async` 関数です。成功なら `Ok(値)`、失敗なら `Err(UiError::msg("..."))` を返します。`std::error::Error + Send + Sync + 'static` を満たすエラーには `?` が使え、`UiError` に変換されます。
 
 `load_tasks` は、ファイルの読み込みやサーバーの呼び出しの代わりです。`kivact::task::sleep(..).await` はウィンドウを止めずに待つので、待っているあいだもウィンドウは操作できます。`load` には、`fn` もクロージャも使えます。大きなファイルの読み込みのように時間のかかる同期処理は、`kivact::task::blocking(..)` に任せてください。
 
@@ -176,7 +175,7 @@ fn main() -> kivact::Result<()> {
 
 **`dynamic(source, build)`** は、値に応じて表示するものを選びます。`source` が変わるたびに、Kivact は古い view を破棄し、新しい値で `build` を呼びます。ここでは状態ごとに専用の view があり、`match` によって、すべての状態を扱っているかを Rust が確かめます。分岐ごとに返す view の種類が違うため、どれも `.into_view()` で終え、共通の型にそろえています。
 
-分岐の中で作った状態は、その分岐が生きているあいだだけ残ります。`tasks_screen` は、データが届いたときに `tasks` シグナルを作ります。「もう一度試す」を押すと新しい読み込みが始まり、その結果から新しい画面が組み立てられます。
+各分岐を作るクロージャは、新しい子のセットアップで実行されます。そこで作った状態は、その分岐が生きているあいだだけ残ります。`tasks_screen` は、データが届いたときに `tasks` シグナルを作ります。「もう一度試す」を押すと新しい読み込みが始まり、その結果から新しい画面が組み立てられます。読み込みをまたいで残したい状態は、`dynamic` の外側のセットアップに置き、子へハンドルを渡します。
 
 **状態メッセージの役割。** 読み込み中のメッセージには `Role::Status`、エラーには `Role::Alert` を付けています。表示されたときに、スクリーンリーダーが読み上げます。
 

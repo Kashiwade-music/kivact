@@ -9,7 +9,7 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl IntoView {
+fn header() -> impl Component {
     column((
         text("タスク"),
         text("今日やること"),
@@ -17,11 +17,11 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(title: &str) -> impl IntoView {
+fn task_row(title: impl IntoText) -> impl Component {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl IntoView {
+fn task_list() -> impl Component {
     column((
         task_row("牛乳を買う"),
         task_row("チュートリアルを書く"),
@@ -54,7 +54,7 @@ fn main() -> kivact::Result<()> {
 
 ## 新しく出てきたもの
 
-**`signal(0)`** は、初期値 `0` の状態を作ります。戻り値は `Signal<i32>` で、数値そのものではなく、状態への小さなハンドルです。ハンドルは `Copy` なので、複製しなくても、いくつものクロージャに渡せます。
+**`signal(0)`** は、初期値 `0` の状態を作ります。戻り値は `Signal<i32>` で、数値そのものではなく、状態への小さなハンドルです。ハンドルは `Copy` なので、明示的な `clone()` なしで、いくつものクロージャに渡せます。どのハンドルも同じ状態を読み書きします。
 
 シグナルは、次のメソッドで使います。
 
@@ -72,6 +72,21 @@ fn main() -> kivact::Result<()> {
 **なぜ `move` なのか。** これらのクロージャは、`app` が戻った後でも使われるため、ローカル変数を借用できません。`move` は、ハンドルをクロージャの中へコピーします。`Signal` は `Copy` なので、同じ `completed` を複数の `move` クロージャに渡せます。`move` がないと、借用した値よりクロージャが長く生きる可能性がある、というコンパイルエラーになります。
 
 **セットアップは一度だけ実行されます。** React の経験があれば、ここが大きな違いです。`app` は、状態が変わるたびに再実行される render 関数ではありません。画面を組み立てるときに一度だけ実行され、その中で作ったシグナルは、画面のその部分が生きている間ずっと残ります。その後は、シグナルを読んでいるクロージャだけが再実行されます。シグナルをコンポーネントの本体で作り、イベントハンドラの中では作らないのも、このためです。
+
+## React／Solid との対応
+
+名前を一対一で置き換えるより、値の役割で選ぶと整理しやすくなります。ここで使う日常的な名前は `use kivact::prelude::*;` に含まれています。
+
+| React／Solid での役割 | Kivact | 使う場面 |
+| --- | --- | --- |
+| `useState`／`createSignal` | `signal` | 現在の値を持ち、読み書きする。 |
+| `useMemo`／`createMemo` | `memo` | ほかの状態から値を計算し、結果を共有する。 |
+| `value` と `onChange` による制御された入力 | `Binding<T>` | 同じ値の読み取りと書き込みを 1 つのハンドルにまとめる。 |
+| 子に渡すイベント処理 | `Callback<T>`／`callback` | 操作を型付きの引数とともに渡し、呼び出す。 |
+| `useEffect`／`createEffect` | `effect` | 読んだ状態の変化に応じて外部との同期処理を行う。表示する値の計算には `memo` を使う。 |
+| `useReducer` に effect と timer を加えたもの | `Machine` | 状態、イベント、遷移、実行する effect やタイマーをまとめ、複数段階の振る舞いを表す。 |
+
+このカウンターには `signal` と `memo` で十分です。色と件数のように独立して変わる値は、それぞれのシグナルに置けます。長押し、待機、実行、キャンセルのように段階とイベントの組み合わせに規則がある振る舞いは、`Machine` で遷移を一か所にまとめます。`Machine` の定義に進むときは `kivact::state` の型を使います。詳しい対応は [React／Solid から来た人向けのガイド](../how-to-guide/coming-from-react-or-solid.md) にあります。
 
 ## 実行する
 

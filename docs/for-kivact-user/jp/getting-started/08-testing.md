@@ -21,7 +21,6 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -32,11 +31,11 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl IntoView {
+fn header(dark: Signal<bool>) -> impl Component {
     row((
         image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
         column((
-            text("タスク").role(Role::Heading).style(style().font_size(28).weight(700)),
+            text("タスク").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
             text("今日やること").style(style().color(ColorToken::TextMuted)),
         ))
         .style(style().gap(2).grow(1)),
@@ -45,7 +44,7 @@ fn header(dark: Signal<bool>) -> impl IntoView {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -59,7 +58,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
@@ -77,7 +76,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl IntoView {
+fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Component {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());
@@ -245,7 +244,9 @@ mod tests {
 
 **`#[cfg(test)] mod tests`** は、`cargo test` のときだけコンパイルされます。`#[test]` を付けた関数が、それぞれ 1 つのテストです。
 
-**`kivact::test::render(app)`** は、実際のウィンドウでアプリを組み立て、`Screen` を返します。ウィンドウはほかの作業からフォーカスを奪わずに開き、テストが終わると閉じます。画面は**仮想時計**で動くので、テストが実時間で待つことはありません。`screen.advance(LOAD)` は、時計を 600 ミリ秒進めます。仮の読み込みが終わるのに十分な時間です。
+**`kivact::test::render(app)`** は、App 全体を `arvane-virtual` のバックエンドで組み立て、`Screen` を返します。手元では、描画されたフレームを実ウィンドウへミラー表示できます。ミラー表示は任意で、環境変数 `KIVACT_TEST_MIRROR=off` で無効にできます。検証する App や入力経路は同じです。
+
+この例の `sleep` は**仮想時計**で進みます。`screen.advance(LOAD)` は時計を 600 ミリ秒進め、仮の読み込みを完了させます。実際のネットワークや背景処理まで仮想時計で完了するわけではないため、そのような処理をテストするときは、結果が届いたことを待ってから確認します。
 
 **クエリは、利用者やスクリーンリーダーと同じ方法で要素を探します。**
 
@@ -253,7 +254,7 @@ mod tests {
 - `get_by_text("残り 3 件")` は、画面上の文字を探します。
 - `get_by_*` は、一致するものがない場合や複数ある場合に、読みやすいメッセージとともにテストを失敗させます。`query_by_*` は代わりに `Option` を返すので、`query_by_role(..).is_none()` のように、何かが*ない*ことを確かめるときに使います。`all_by_*` は `Vec` を返します。
 
-**操作は本物の入力です。** `.click()` は要素を押し、`.type_text("..")` はテキスト欄に入力し、`.press_key(Key::Enter)` はキーを押します。これらは、利用者が実際にそれをできるかも確認します。無効な要素や、ほかの要素に隠れた要素をクリックすると、テストは失敗します。
+**操作は App の入力経路を通ります。** `.click()` は要素を押し、`.type_text("..")` はテキスト欄に入力し、`.press_key(Key::Enter)` はキーを押します。これらは、利用者が実際にそれをできるかも確認します。無効な要素や、ほかの要素に隠れた要素をクリックすると、テストは失敗します。
 
 **アサーション。** 要素の状態は、`.is_disabled()`、`.checked()` (`Option<CheckedState>`)、`.value()` (欄の文字) で読み取ります。判定には、普通の `assert!` と `assert_eq!` を使います。
 
@@ -265,7 +266,7 @@ mod tests {
 cargo test
 ```
 
-テストの実行中は、ウィンドウが一瞬ずつ現れます。結果は次のようになります。
+ミラー表示を有効にしている場合は、ウィンドウが一瞬ずつ現れることがあります。ターミナルには次のような結果が表示されます。
 
 ```text
 running 5 tests
@@ -278,12 +279,12 @@ test tests::the_first_load_fails_and_trying_again_shows_the_tasks ... ok
 test result: ok. 5 passed; 0 failed
 ```
 
-最初のテストの `"残り 3 件"` を `"残り 4 件"` に変えて、もう一度実行してみてください。テストは失敗し、メッセージに画面上にあったものが一覧で示されます。Kivact は、失敗したウィンドウのスクリーンショットとアクセシビリティツリーも `target/kivact-test-failures/` に保存します。正確なパスは失敗メッセージに書かれています。確かめたら、元に戻してください。
+最初のテストの `"残り 3 件"` を `"残り 4 件"` に変えて、もう一度実行してみてください。テストは失敗し、メッセージに画面上にあったものが一覧で示されます。Kivact は、失敗した描画フレームとアクセシビリティツリーも `target/kivact-test-failures/` に保存します。正確なパスは失敗メッセージに書かれています。確かめたら、元に戻してください。
 
 知っておくことが 2 つあります。
 
-- `kivact::test::render` を使うテストのバイナリでは、テストの中から `App::run` を呼べません。テストのウィンドウはすべて、1 つのイベントループを共有するからです。そのため `main` をテストから呼ぶことはできません。コンポーネント (`app`) をテストしてください。
-- テストのウィンドウを開くプロセスは、同時に 1 つにしてください。複数の `cargo test` を同時に実行するのは避けましょう。
+- テストでは `render(app)` に view を作る関数を渡します。画面を描画するテストのバイナリでは、テストドライバーが App のイベントループを管理するため、`App::run` や `main` をテストから呼びません。
+- テストのプロセスは同時に 1 つにします。Kivact のチェックアウト内では `dev/tools/window-lock.sh -- cargo test` を使うと、ほかの worktree と共通のウィンドウロックを使えます。`KIVACT_TEST_MIRROR=off` の場合も同じです。
 
 ## 次に読むもの
 
