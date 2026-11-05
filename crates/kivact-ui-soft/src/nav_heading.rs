@@ -471,8 +471,7 @@ impl IntoView for SideNavHeading {
                 row((
                     glyph,
                     labels,
-                    end
-                        .map(|end| node().hidden(rail).child(end)),
+                    end.map(|end| node().hidden(rail).child(end)),
                     chevron,
                 ))
                 .style(move || {
