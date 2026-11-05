@@ -1,7 +1,7 @@
 //! Role: Layout and navigation tests: resizable, carousel, tabs, scroller and sidebar.
 
-use super::navigation::{light, options, page};
-use crate::support::{assert_clean, distance, pixel};
+use super::navigation::page;
+use crate::support::{distance, pixel};
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::ui::ButtonVariant;
@@ -24,25 +24,30 @@ fn mount_resizable(
     start: Vec<f64>,
     grip: bool,
 ) -> (Screen, Signal<Vec<f64>>) {
-    kivact::test::render_with_handle(light(), move || {
-        let sizes = signal(start);
-        (
-            sizes,
-            page(
-                kivact::ui::split(
-                    sizes,
-                    vec![
-                        text("One").test_id("one").into_view(),
-                        text("Two").test_id("two").into_view(),
-                        text("Three").test_id("three").into_view(),
-                    ],
-                )
-                .orientation(orientation)
-                .grip(grip)
-                .style(style().width(600).height(300)),
-            ),
-        )
-    })
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        move || {
+            let sizes = signal(start);
+            (
+                sizes,
+                page(
+                    kivact::ui::split(
+                        sizes,
+                        vec![
+                            text("One").test_id("one").into_view(),
+                            text("Two").test_id("two").into_view(),
+                            text("Three").test_id("three").into_view(),
+                        ],
+                    )
+                    .orientation(orientation)
+                    .grip(grip)
+                    .style(style().width(600).height(300)),
+                ),
+            )
+        },
+    )
 }
 
 #[test]
@@ -123,7 +128,8 @@ fn split_drags_and_keys_move_the_boundary_within_min_sizes() {
     drag_by(&first, 5000.0);
     let after = sizes.get_untracked();
     assert!(near(after[1], 0.1, 0.01), "{after:?}");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 fn mount_carousel(
@@ -131,26 +137,31 @@ fn mount_carousel(
     per_view: f64,
     orientation: Orientation,
 ) -> (Screen, Signal<usize>) {
-    kivact::test::render_with_handle(light(), move || {
-        let index = signal(0usize);
-        let carousel = kivact::ui::carousel(
-            index,
-            (0..5)
-                .map(|n| text(format!("Slide {n}")).test_id(format!("s{n}")))
-                .collect::<Vec<_>>(),
-        )
-        .orientation(orientation)
-        .items_per_view(per_view);
-        let carousel = if looped { carousel.looping() } else { carousel };
-        (
-            index,
-            page(
-                carousel
-                    .test_id("carousel")
-                    .style(style().width(240).height(120).margin(48)),
-            ),
-        )
-    })
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        move || {
+            let index = signal(0usize);
+            let carousel = kivact::ui::carousel(
+                index,
+                (0..5)
+                    .map(|n| text(format!("Slide {n}")).test_id(format!("s{n}")))
+                    .collect::<Vec<_>>(),
+            )
+            .orientation(orientation)
+            .items_per_view(per_view);
+            let carousel = if looped { carousel.looping() } else { carousel };
+            (
+                index,
+                page(
+                    carousel
+                        .test_id("carousel")
+                        .style(style().width(240).height(120).margin(48)),
+                ),
+            )
+        },
+    )
 }
 
 #[test]
@@ -201,32 +212,39 @@ fn carousel_steps_with_buttons_and_keys_and_stops_at_the_ends() {
     index.set(40);
     screen.run_until_idle();
     assert!(next.is_disabled());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    // Off-viewport slides are intentionally clipped, as in the catalog layout check.
+    screen.assert_layout_with(&kivact::test::LayoutCheck::default().ignore_test_id("carousel"));
 }
 
 #[test]
 fn line_tabs_select_move_and_mark_the_selected_tab_with_an_underline() {
     use kivact::interaction::ListItem;
-    let (screen, current) = kivact::test::render_with_handle(light(), || {
-        let current = signal("overview");
-        (
-            current,
-            page(
-                tabs(
-                    "Tabs",
-                    vec![
-                        ListItem::new("overview", "Overview"),
-                        ListItem::new("analytics", "Analytics"),
-                        ListItem::new("reports", "Reports").disabled(true),
-                        ListItem::new("settings", "Settings"),
-                    ],
-                    current,
-                )
-                .variant(basic::TabsVariant::Line)
-                .content(|key| text(format!("Panel {key}"))),
-            ),
-        )
-    });
+    let (screen, current) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        || {
+            let current = signal("overview");
+            (
+                current,
+                page(
+                    tabs(
+                        "Tabs",
+                        vec![
+                            ListItem::new("overview", "Overview"),
+                            ListItem::new("analytics", "Analytics"),
+                            ListItem::new("reports", "Reports").disabled(true),
+                            ListItem::new("settings", "Settings"),
+                        ],
+                        current,
+                    )
+                    .variant(basic::TabsVariant::Line)
+                    .content(|key| text(format!("Panel {key}"))),
+                ),
+            )
+        },
+    );
     screen.get_by_role(Role::TabList, "Tabs");
     let overview = screen.get_by_role(Role::Tab, "Overview");
     let analytics = screen.get_by_role(Role::Tab, "Analytics");
@@ -265,7 +283,8 @@ fn line_tabs_select_move_and_mark_the_selected_tab_with_an_underline() {
     assert_eq!(current.get_untracked(), "settings");
     screen.press_key(Key::ArrowLeft);
     assert_eq!(current.get_untracked(), "analytics");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 fn app_sidebar(
@@ -319,25 +338,30 @@ fn mount_sidebar(
     side: basic::SidebarSide,
     mode: kivact::style::ThemeMode,
 ) -> (Screen, Signal<bool>) {
-    kivact::test::render_with_handle(options(mode), move || {
-        let open = signal(true);
-        (
-            open,
-            column(
-                basic::sidebar_provider(
-                    open,
-                    app_sidebar(collapsible, variant, side),
-                    column((
-                        basic::sidebar_trigger().test_id("trigger"),
-                        text("Page content"),
-                    ))
-                    .style(style().padding(8).gap(8)),
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(mode))
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        move || {
+            let open = signal(true);
+            (
+                open,
+                column(
+                    basic::sidebar_provider(
+                        open,
+                        app_sidebar(collapsible, variant, side),
+                        column((
+                            basic::sidebar_trigger().test_id("trigger"),
+                            text("Page content"),
+                        ))
+                        .style(style().padding(8).gap(8)),
+                    )
+                    .test_id("provider"),
                 )
-                .test_id("provider"),
+                .style(style().width(800).height(500)),
             )
-            .style(style().width(800).height(500)),
-        )
-    })
+        },
+    )
 }
 
 fn width_of(screen: &Screen, id: &str) -> f64 {
@@ -394,5 +418,6 @@ fn sidebar_toggles_by_trigger_shortcut_and_rail_between_256_and_48() {
     assert!(!open.get_untracked());
     rail.click();
     assert!(open.get_untracked());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

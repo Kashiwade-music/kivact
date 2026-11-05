@@ -1,5 +1,5 @@
 //! Role: Graph curves, interpolation, view ranges and edit requests.
-use kivact::style::{Color, rgb};
+use kivact::style::Color;
 /// A handle offset in the same time and value units as its curve key.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct CurveTangent {
@@ -48,7 +48,7 @@ impl Curve {
         Self {
             id,
             label: label.into(),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             keys,
         }
     }

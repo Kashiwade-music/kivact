@@ -1,6 +1,6 @@
 //! Role: The data table's constructor and the options a caller turns on.
 use super::types::{DataTable, DataTableContext, DataTableTreeIndent, Grouping, TreeConfig};
-use crate::DataColumn;
+use crate::column_values::DataColumn;
 use crate::layer::with_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
@@ -505,7 +505,10 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Reserve a leading status lane and resolve each row's optional marker.
     /// The lane is separate from the indexed data columns.
-    pub fn row_status(mut self, status: impl Fn(&R) -> Option<super::RowStatus> + 'static) -> Self {
+    pub fn row_status(
+        mut self,
+        status: impl Fn(&R) -> Option<crate::table_values::RowStatus> + 'static,
+    ) -> Self {
         self.row_status = Some(Rc::new(status));
         self
     }

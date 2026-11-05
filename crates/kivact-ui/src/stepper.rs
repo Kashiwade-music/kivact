@@ -268,11 +268,12 @@ fn collapsed_navigation(
     variants: crate::variants::Variants,
     previous: bool,
 ) -> Option<View> {
-    let recipe: fn(&crate::UiRecipes) -> &crate::Recipe<StepperState> = if previous {
-        |r| r.stepper_recipes().previous_recipe()
-    } else {
-        |r| r.stepper_recipes().next_recipe()
-    };
+    let recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<StepperState> =
+        if previous {
+            |r| r.stepper_recipes().previous_recipe()
+        } else {
+            |r| r.stepper_recipes().next_recipe()
+        };
     let target = memo(move || {
         items.with(|items| {
             let current = current.get();
@@ -492,11 +493,12 @@ fn step_decoration(
     state: impl Fn() -> StepperItemState + 'static,
     part: StepDecoration,
 ) -> Node {
-    let pick: fn(&crate::UiRecipes) -> &crate::Recipe<StepperItemState> = match part {
-        StepDecoration::Leading => |r| r.stepper_recipes().leading_recipe(),
-        StepDecoration::Trailing => |r| r.stepper_recipes().trailing_recipe(),
-        StepDecoration::Progress => |r| r.stepper_recipes().progress_recipe(),
-    };
+    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<StepperItemState> =
+        match part {
+            StepDecoration::Leading => |r| r.stepper_recipes().leading_recipe(),
+            StepDecoration::Trailing => |r| r.stepper_recipes().trailing_recipe(),
+            StepDecoration::Progress => |r| r.stepper_recipes().progress_recipe(),
+        };
     crate::layer::with_recipe_style(
         node().hit_testable(false).focusable(false),
         pick,

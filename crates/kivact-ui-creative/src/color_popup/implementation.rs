@@ -12,7 +12,7 @@ use kivact::state::{IntoText, binding, machine, memo, signal};
 use kivact::style::{ColorToken, style};
 use kivact::view::{Role, column, show, text};
 
-use kivact::style::{Color, pct, rgba};
+use kivact::style::{Color, pct};
 use kivact::view::{DismissReason, Placement, overlay};
 
 /// A live color edit transaction: Escape restores the opening color; outside dismissal commits.
@@ -83,11 +83,13 @@ pub fn color_popup(
         .with_node(move |node| node.part(trigger))
         .with_node(move |node| {
             node.style(move || {
-                let swatch = style().background(value.get()).color(rgba(0, 0.0));
+                let swatch = style()
+                    .background(value.get())
+                    .color(crate::color::transparent_ink());
                 style()
                     .width(pct(100))
                     .background(value.get())
-                    .color(rgba(0, 0.0))
+                    .color(crate::color::transparent_ink())
                     .hover(swatch.clone())
                     .pressed(swatch.clone())
                     .focus(swatch)

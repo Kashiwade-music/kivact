@@ -161,7 +161,7 @@ pub(super) fn paint(draw: &mut Draw, geometry: Geometry, color: Color, hue: f64)
         for y in 0..2 {
             draw.fill_rect(
                 Rect::new(x as f64 * 6.0, alpha.y + y as f64 * 6.0, 6.0, 6.0),
-                kivact::style::rgb(if (x + y) % 2 == 0 { 0x57585d } else { 0x272830 }),
+                crate::color::checker_color((x + y) % 2 == 0),
             );
         }
     }

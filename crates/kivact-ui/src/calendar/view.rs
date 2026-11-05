@@ -1,7 +1,7 @@
 //! Role: The Calendar builder and the month panels view it builds.
 
-use super::state::CalendarCaption;
 use super::state::Shared;
+use crate::calendar_values::CalendarCaption;
 use kivact_core::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
 use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
@@ -27,6 +27,7 @@ use std::rc::Rc;
 // xtask-allow(state-fields): Setup builder options are independent bindings, callbacks and display capabilities.
 pub struct Calendar {
     root: Node,
+    cell_size: Value<f64>,
     variants: crate::variants::Variants,
     selection: CalendarSelection,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
@@ -56,7 +57,7 @@ pub struct Calendar {
     variable_rows: Value<bool>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     marks: Rc<dyn Fn(CalendarDate) -> Option<kivact_interaction::Tone>>,
-    events: Value<Vec<super::state::CalendarEvent>>,
+    events: Value<Vec<crate::calendar_values::CalendarEvent>>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     weekend: Rc<dyn Fn(Weekday) -> Option<kivact_interaction::Tone>>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
@@ -79,6 +80,13 @@ fn new(selection: CalendarSelection) -> Calendar {
             kivact_core::custom::PartState::default,
         ),
         variants,
+        cell_size: kivact_core::state::memo(|| {
+            kivact_core::style::use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .calendar
+                .cell_size
+        }),
         selection,
         month: None,
         disabled: Rc::new(|_| false),
@@ -113,6 +121,24 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 }
 
 impl Calendar {
+    pub(crate) fn sheet_month(&self, fallback: CalendarMonth) -> Binding<CalendarMonth> {
+        self.displayed_month.unwrap_or_else(|| {
+            let mut month = self.month.unwrap_or(fallback);
+            if let Some(min) = self.min.get_untracked() {
+                month = month.max(min.month_of());
+            }
+            if let Some(max) = self.max.get_untracked() {
+                month = month.min(max.month_of());
+            }
+            signal(month).into_binding()
+        })
+    }
+    pub(crate) fn touch(mut self) -> Self {
+        let size = self.cell_size;
+        self.cell_size = kivact_core::state::memo(move || size.get().max(44.0));
+        self
+    }
+
     /// Pass a kit-defined appearance to every calendar part recipe.
     pub fn variant(self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
@@ -134,7 +160,10 @@ impl Calendar {
         }
     }
     /// Up to three event dots for each date.
-    pub fn events(mut self, events: impl IntoValue<Vec<super::state::CalendarEvent>>) -> Self {
+    pub fn events(
+        mut self,
+        events: impl IntoValue<Vec<crate::calendar_values::CalendarEvent>>,
+    ) -> Self {
         self.events = events.into_value();
         self
     }
@@ -307,7 +336,7 @@ impl IntoView for Calendar {
             on_commit: self.on_commit,
             on_activate: self.on_activate,
         };
-        let body = calendar_body(&self, month, rules, focus_day, autofocus);
+        let body = calendar_body(&self, month, rules, focus_day, autofocus, swipe);
         let status = kivact_core::view::node()
             .name(kivact_core::i18n::message_with(
                 "calendar.showing_month",
@@ -496,8 +525,10 @@ fn calendar_body(
     rules: CalendarRules,
     focus_day: CalendarDate,
     autofocus: kivact_core::state::MachineHandle<super::navigation::FocusSnapshot>,
+    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
 ) -> View {
     let count = calendar.count;
+    let cell_size = calendar.cell_size;
     let caption = calendar.caption;
     let week_start = calendar.week_start;
     let selection = calendar.selection;
@@ -517,12 +548,18 @@ fn calendar_body(
                 count.get().clamp(1, 12),
                 caption.get(),
                 week_start.map(|day| day.get()),
+                cell_size.get(),
             )
         },
-        move |(count, caption, week_start)| {
-            let policy = calendar_policy(&rules, count, week_start, focus_day);
+        move |(count, caption, week_start, cell_size)| {
+            let policy =
+                calendar_policy(&rules, count, week_start, focus_day).activation_guard(move |_| {
+                    !matches!(swipe.get(), super::navigation::Swipe::Released)
+                });
             let grid = use_calendar_grid(month, selection, policy);
             let shared = Rc::new(Shared {
+                swipe,
+                cell_size,
                 variants: variants.clone(),
                 grid,
                 month,
@@ -539,7 +576,14 @@ fn calendar_body(
                 range,
             });
             let panels = month_panels(shared, autofocus);
-            kivact_core::view::column((range_prompt(grid, selection), panels))
+            kivact_core::view::column((
+                range_prompt(grid, selection),
+                panels,
+                kivact_core::view::node()
+                    .role(Role::Status)
+                    .name(grid.selection_status())
+                    .live_region(kivact_core::view::LiveRegion::Polite),
+            ))
         },
     )
     .into_view()

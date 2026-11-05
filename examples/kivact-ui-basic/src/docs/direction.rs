@@ -15,7 +15,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "provider",
                 "Provider",
-                "basic::direction に方向と子を作る関数を渡します。内側では use_direction が渡した方向を返します。",
+                "provide_direction に方向と子を作る関数を渡します。内側では use_direction が渡した方向を返します。",
                 provider,
             ),
             Example::new(

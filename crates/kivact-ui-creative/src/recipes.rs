@@ -8,7 +8,7 @@ use kivact::draw::{LineCap, LineJoin, Path, Shadow, Stroke};
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::DialogMode;
 use kivact::interaction::{ListItemState, MenuItemState, PopupState, TabListState, TabState};
-use kivact::style::{Align, Direction, Justify, Position, Style, Theme, pct, rgba, style};
+use kivact::style::{Align, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact::ui::Look;
 use kivact::ui::{
     ButtonState, ButtonVariant, CheckableState, ControlSize, DialogState, SelectTriggerState,
@@ -22,6 +22,10 @@ use crate::tokens::Tokens;
 /// compare their recipes by identity and installing the kit's theme again
 /// never restyles.
 pub(crate) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Process-wide immutable recipe table, initialized once so theme equality retains recipe identity."
+    )]
     static RECIPES: std::sync::OnceLock<UiRecipes> = std::sync::OnceLock::new();
     RECIPES.get_or_init(build).clone()
 }
@@ -63,69 +67,12 @@ fn build() -> UiRecipes {
                 .option(|_| select_option)
                 .check(|_| select_check)
                 .indicator(|_| |_: &Theme, _: &Look<PopupState>| mark())
-        })
-        .menu(|menu| {
-            menu.trigger(|_| |t: &Theme, _: &Look<PopupState>| crate::controls::button_style(t))
-                .surface(|_| {
-                    |t: &Theme, _: &Look<PopupState>| {
-                        crate::feedback::glass_style(t).direction(Direction::Column)
-                    }
-                })
-                .item(|_| menu_item)
-                .shortcut(|_| {
-                    |t: &Theme, _: &Look<MenuItemState>| {
-                        style()
-                            .font_family(t.ext::<Tokens>().mono_font.as_str())
-                            .font_size(10)
-                    }
-                })
-                .separator(|_| {
-                    |_: &Theme, _: &Look<PartState>| {
-                        style().height(1).background(ColorName::Hair).margin_y(4)
-                    }
-                })
-                .check(|_| |_: &Theme, _: &Look<MenuItemState>| mark())
-                .submenu(|_| |_: &Theme, _: &Look<MenuItemState>| mark())
-        })
-        .dialog(|dialog| {
-            dialog
-                .surface(|_| dialog_surface)
-                .scrim(|_| {
-                    |_: &Theme, _: &Look<DialogState>| style().background(rgba(0x050608, 0.35))
-                })
-                // The title over the description, clear of the close button.
-                .header(|_| |_: &Theme, _: &Look<DialogState>| style().gap(4).padding_right(28))
-                .title(|_| |_: &Theme, _: &Look<DialogState>| style().weight(600))
-                .description(|_| |_: &Theme, _: &Look<DialogState>| style().color(ColorName::Muted))
-                .body(|_| |_: &Theme, _: &Look<DialogState>| style().gap(8))
-                .footer(|_| {
-                    |_: &Theme, _: &Look<DialogState>| style().gap(8).justify_content(Justify::End)
-                })
-        })
-        .tooltip(|tooltip| {
-            tooltip.surface(|_| {
-                |_: &Theme, _: &Look<PopupState>| {
-                    style()
-                        .padding(10)
-                        .max_width(320)
-                        .radius(8)
-                        .color(ColorName::Text)
-                        .background(rgba(0x1e1f26, 0.94))
-                        .backdrop_blur(22)
-                        .border(1, ColorName::HairStrong)
-                        .shadow(Shadow::new(0., 10., 24., rgba(0, 0.5)))
-                }
-            })
-        })
-        .tabs(|tabs| {
-            tabs.list(|_| |t: &Theme, _: &Look<TabListState>| crate::layout::tab_track_style(t))
-                .tab(|_| |t: &Theme, _: &Look<TabState>| crate::layout::tab_option_style(t, false))
-                .panel(|_| |_: &Theme, _: &Look<TabState>| style())
-        })
+        });
+    let recipes = overlays(recipes)
         .toggle_group(|group| {
             group.item(|_| {
                 |t: &Theme, s: &Look<kivact::ui::ToggleGroupItemState>| {
-                    toggle_button(t, &Look::new(s.toggle.clone()))
+                    toggle_button(t, &Look::new(s.toggle))
                 }
             })
         })
@@ -205,10 +152,14 @@ fn button(t: &Theme, s: &Look<ButtonState>) -> Style {
             .hover(style().background(p.accent_high).color(p.accent_ink)),
         ButtonVariant::Danger => base.hover(style().background(p.x.with_alpha(0.16)).color(p.x)),
         ButtonVariant::Ghost | ButtonVariant::Link => base
-            .background(rgba(0, 0.))
+            .background(crate::color::transparent_ink())
             .border(0, p.hair)
             .color(p.muted)
-            .hover(style().background(rgba(0xffffff, 0.07)).color(p.text_high)),
+            .hover(
+                style()
+                    .background(crate::color::menu_hover())
+                    .color(p.text_high),
+            ),
         _ => base,
     };
     let base = match s.size {
@@ -294,11 +245,11 @@ fn dropdown_surface(t: &Theme) -> Style {
         .padding(5)
         .min_width(160)
         .radius(12)
-        .background(rgba(0x1e1f26, 0.94))
+        .background(crate::color::overlay_surface())
         .backdrop_blur(22)
-        .border(1, rgba(0xffffff, 0.1))
+        .border(1, crate::color::overlay_border())
         .color(t.ext::<Tokens>().text)
-        .shadow(Shadow::new(0., 10., 24., rgba(0, 0.6)))
+        .shadow(Shadow::new(0., 10., 24., crate::color::menu_shadow()))
 }
 fn dropdown_option(t: &Theme) -> Style {
     let p = t.ext::<Tokens>();
@@ -311,4 +262,69 @@ fn dropdown_option(t: &Theme) -> Style {
         .radius(6)
         .hover(style().background(kivact::style::ColorToken::Hover))
         .selected(style().color(p.accent_high))
+}
+
+/// Install floating-surface and tab recipes after basic controls.
+fn overlays(recipes: UiRecipes) -> UiRecipes {
+    recipes
+        .menu(|menu| {
+            menu.trigger(|_| |t: &Theme, _: &Look<PopupState>| crate::controls::button_style(t))
+                .surface(|_| {
+                    |t: &Theme, _: &Look<PopupState>| {
+                        crate::feedback::glass_style(t).direction(Direction::Column)
+                    }
+                })
+                .item(|_| menu_item)
+                .shortcut(|_| {
+                    |t: &Theme, _: &Look<MenuItemState>| {
+                        style()
+                            .font_family(t.ext::<Tokens>().mono_font.as_str())
+                            .font_size(10)
+                    }
+                })
+                .separator(|_| {
+                    |_: &Theme, _: &Look<PartState>| {
+                        style().height(1).background(ColorName::Hair).margin_y(4)
+                    }
+                })
+                .check(|_| |_: &Theme, _: &Look<MenuItemState>| mark())
+                .submenu(|_| |_: &Theme, _: &Look<MenuItemState>| mark())
+        })
+        .dialog(|dialog| {
+            dialog
+                .surface(|_| dialog_surface)
+                .scrim(|_| {
+                    |_: &Theme, _: &Look<DialogState>| {
+                        style().background(crate::color::modal_backdrop())
+                    }
+                })
+                // The title over the description, clear of the close button.
+                .header(|_| |_: &Theme, _: &Look<DialogState>| style().gap(4).padding_right(28))
+                .title(|_| |_: &Theme, _: &Look<DialogState>| style().weight(600))
+                .description(|_| |_: &Theme, _: &Look<DialogState>| style().color(ColorName::Muted))
+                .body(|_| |_: &Theme, _: &Look<DialogState>| style().gap(8))
+                .footer(|_| {
+                    |_: &Theme, _: &Look<DialogState>| style().gap(8).justify_content(Justify::End)
+                })
+        })
+        .tooltip(|tooltip| {
+            tooltip.surface(|_| {
+                |_: &Theme, _: &Look<PopupState>| {
+                    style()
+                        .padding(10)
+                        .max_width(320)
+                        .radius(8)
+                        .color(ColorName::Text)
+                        .background(crate::color::overlay_surface())
+                        .backdrop_blur(22)
+                        .border(1, ColorName::HairStrong)
+                        .shadow(Shadow::new(0., 10., 24., crate::color::dialog_shadow()))
+                }
+            })
+        })
+        .tabs(|tabs| {
+            tabs.list(|_| |t: &Theme, _: &Look<TabListState>| crate::layout::tab_track_style(t))
+                .tab(|_| |t: &Theme, _: &Look<TabState>| crate::layout::tab_option_style(t, false))
+                .panel(|_| |_: &Theme, _: &Look<TabState>| style())
+        })
 }

@@ -59,7 +59,7 @@ fn calendar_keys_move_focus_and_enter_selects() {
     );
     assert_eq!(
         screen
-            .get_by_role(Role::Status, "November 2026")
+            .get_by_role(Role::Status, "Showing November 2026")
             .live_region(),
         LiveRegion::Polite
     );
@@ -141,13 +141,17 @@ fn date_input_commits_draft_and_calendar_returns_focus() {
         },
     );
     screen.get_by_role(Role::GridCell, "2026-10-15");
-    assert!(screen.get_by_role(Role::TextBox, "Due").is_focused());
+    assert!(
+        screen
+            .get_by_role(Role::GridCell, "2026-10-14")
+            .is_focused()
+    );
     screen.get_by_role(Role::Button, "Choose date").click();
     screen.get_by_role(Role::Button, "Choose date").click();
     screen.get_by_role(Role::GridCell, "2026-10-15").click();
     assert_eq!(selected.get_untracked(), Some(date(15)));
     screen.get_by_role(Role::Status, "Date selected: 2026-10-15");
-    assert!(screen.get_by_role(Role::TextBox, "Due").is_focused());
+    assert!(screen.get_by_role(Role::Button, "Choose date").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -158,6 +162,8 @@ fn date_range_input_closes_and_returns_focus_after_second_choice() {
         (
             selected,
             kivact::ui::date_range_input("Window", selected)
+                .picker_label("Window")
+                .presentation(kivact::ui::DatePresentation::Desktop)
                 .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10))),
         )
     });
@@ -182,6 +188,8 @@ fn range_presets_validate_endpoints_and_publish_only_on_activation() {
         (
             selected,
             kivact::ui::date_range_input("Preset window", selected)
+                .picker_label("Preset window")
+                .presentation(kivact::ui::DatePresentation::Desktop)
                 .min(Some(date(6)))
                 .max(Some(date(24)))
                 .min_range_span(3)

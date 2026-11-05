@@ -82,7 +82,7 @@ impl IntoView for Stat {
         let trend = self.trend;
         let state = move || StatState { trend: trend.get() };
         let variants = &self.variants;
-        let wrap = |view: View, pick: fn(&crate::UiRecipes) -> &crate::Recipe<StatState>| {
+        let wrap = |view: View, pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<StatState>| {
             with_base_recipe_style(node().child(view), pick, variants, state)
         };
         let label = wrap(

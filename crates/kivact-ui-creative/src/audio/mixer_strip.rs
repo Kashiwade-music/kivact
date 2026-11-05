@@ -125,32 +125,7 @@ impl IntoView for MixerStrip {
                     .font_size(10),
             )
         });
-        let routing = routing.map(|(routes, route)| {
-            let route_binding = route.optional();
-            kivact::ui::select(
-                message("creative.mixer.routing", "Input routing"),
-                move || {
-                    routes
-                        .get()
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, name)| ListItem::new(i, name))
-                        .collect::<Vec<_>>()
-                },
-                route_binding,
-            )
-            .placeholder("")
-            .with_node(move |node| node.hidden(move || routes.with(Vec::is_empty)))
-            .with_node(move |node| {
-                node.style(
-                    style()
-                        .width(pct(100))
-                        .height(21)
-                        .font_size(10)
-                        .padding_x(4),
-                )
-            })
-        });
+        let routing = routing_control(routing);
         let mute_label = message("creative.mixer.mute", "M");
         let solo_label = message("creative.mixer.solo", "S");
         let tiny = |label: Value<String>, state: Binding<bool>| {
@@ -194,4 +169,36 @@ impl IntoView for MixerStrip {
         ));
         root.child(content).into_view()
     }
+}
+
+/// Render the caller-owned optional input-route selector.
+fn routing_control(
+    routing: Option<(Value<Vec<String>>, Binding<usize>)>,
+) -> Option<kivact::ui::Select<usize>> {
+    routing.map(|(routes, route)| {
+        let route_binding = route.optional();
+        kivact::ui::select(
+            message("creative.mixer.routing", "Input routing"),
+            move || {
+                routes
+                    .get()
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, name)| ListItem::new(i, name))
+                    .collect::<Vec<_>>()
+            },
+            route_binding,
+        )
+        .placeholder("")
+        .with_node(move |node| node.hidden(move || routes.with(Vec::is_empty)))
+        .with_node(move |node| {
+            node.style(
+                style()
+                    .width(pct(100))
+                    .height(21)
+                    .font_size(10)
+                    .padding_x(4),
+            )
+        })
+    })
 }

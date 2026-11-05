@@ -1,10 +1,9 @@
 //! Role: Chart and data table tests: colors, tooltips, filtering, sorting, paging.
 
-use crate::support::{assert_clean, distance};
+use crate::support::distance;
 use kivact::interaction::SortOrder;
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::test::RenderOptions;
 use kivact::test::Screen;
 use kivact::view::SortDirection;
 use kivact_ui_basic as basic;
@@ -19,13 +18,6 @@ fn page(child: impl IntoView) -> Node {
             .grow(1)
             .align_items(Align::Start),
     )
-}
-
-fn options(mode: kivact::style::ThemeMode) -> RenderOptions {
-    RenderOptions::from_env()
-        .window_size(640.0, 2400.0)
-        .theme(basic::theme(mode))
-        .reduced_motion()
 }
 
 fn config() -> basic::ChartConfig {
@@ -163,7 +155,12 @@ fn payments_table() -> (Handles, impl IntoView) {
 }
 
 fn mount_payments() -> (Screen, Handles) {
-    kivact::test::render_with_handle(options(kivact::style::ThemeMode::Light), payments_table)
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(640.0, 2400.0)
+            .reduced_motion(),
+        payments_table,
+    )
 }
 
 /// The window y of the text `what`.
@@ -191,7 +188,8 @@ fn data_table_filters_rows_and_returns_to_the_first_page() {
     assert!(screen.query_by_text("ken99@example.com").is_none());
     screen.get_by_text("0 of 1 row(s) selected.");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
@@ -227,7 +225,8 @@ fn data_table_sorts_with_the_header_buttons() {
         Some((2, SortOrder::Ascending))
     );
     screen.get_by_text("$15.00");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 /// How many pixels of `screen` inside `rect` are near `color`.
@@ -263,7 +262,13 @@ fn mount_chart(
     mode: kivact::style::ThemeMode,
     chart: impl FnOnce() -> basic::Chart + 'static,
 ) -> Screen {
-    kivact::test::render_with_handle(options(mode), move || ((), page(chart()))).0
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(mode))
+            .window_size(640.0, 2400.0)
+            .reduced_motion(),
+        move || ((), page(chart())),
+    )
+    .0
 }
 
 #[test]
@@ -290,7 +295,8 @@ fn every_chart_kind_draws_its_series_in_their_colors_in_both_themes() {
                     "{kind:?} draws the {name} series in {mode:?}"
                 );
             }
-            assert_clean(&screen);
+            assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+            screen.assert_layout_clean();
             screen.assert_layout();
         }
     }
@@ -328,5 +334,6 @@ fn hovering_a_chart_shows_the_tooltip_card_with_the_values() {
     screen.mouse_leave();
     screen.run_until_idle();
     assert!(screen.query_by_text("February").is_none());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

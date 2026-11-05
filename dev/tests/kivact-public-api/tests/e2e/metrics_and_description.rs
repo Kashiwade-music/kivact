@@ -1,4 +1,4 @@
-//! Role: Verify accessible metrics, headings and term-detail associations through public builders.
+//! Role: Verify accessible metrics, headings and term-detail associations.
 use crate::support::mount;
 use kivact::prelude::*;
 use kivact::ui::{self, ProgressVariant, Trend};

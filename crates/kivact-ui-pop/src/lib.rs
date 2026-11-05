@@ -15,6 +15,8 @@
 //! `kivact::i18n::message`: an App replaces them with
 //! `App::messages`.
 
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
+
 mod button;
 mod chips;
 mod choice;
@@ -31,6 +33,7 @@ mod recipes_badge;
 mod recipes_calendar;
 mod recipes_chat;
 mod recipes_collections;
+mod recipes_controls;
 mod recipes_extra;
 mod recipes_feedback;
 mod recipes_field;

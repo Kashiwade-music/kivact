@@ -209,7 +209,7 @@ restore its opener focus; outside dismissal preserves the newly focused
 control. `WindowOptions` sets a separate title, width, center or top-right
 placement, modal containment and chrome spacing (`WindowOptions::default()` is
 a 520-pixel nonmodal centered window). Its content factory receives a
-`ToolWindow` whose `close()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
+`ToolWindowApi` whose `close()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
 the factory again. Modal backdrop presses keep the confirmation open,
 while Escape closes it. Optional backdrop blur uses ordinary public styles.
 
@@ -221,14 +221,14 @@ fn tool_window() -> impl IntoView {
     ui::window_button("Settings…",
         ui::WindowOptions::default().title("Settings").width(340.0)
             .position(ui::WindowPosition::TopRight { right: 40.0, top: 120.0 }),
-        |window: ui::ToolWindow| kivact::ui::button("Apply").on_press(move || window.close()))
+        |window: ui::ToolWindowApi| kivact::ui::button("Apply").on_press(move || window.close()))
 }
 ```
 
 `window(anchor, open, options).content(content)` is the same window that the
 application opens and closes through a `Binding<bool>`; `window_button` is
 a button and a state of its own on top of it. Every way to close it (the close
-button, Escape, Dismiss, `ToolWindow::close`, an outside press on a
+button, Escape, Dismiss, `ToolWindowApi::close`, an outside press on a
 nonmodal window, unmounting) writes `false`. A nonmodal window gives the focus
 back with `anchor.restore_focus()`, which does nothing if the anchor has gone;
 a modal window gives it back to the element that had it when it opened. Each
@@ -335,3 +335,5 @@ The theme fills these `UiRecipes` entries:
 - `stat`
 - `description_list`
 <!-- /kivact-recipes -->
+
+Rows follow the core layout direction automatically, including right-to-left layouts.

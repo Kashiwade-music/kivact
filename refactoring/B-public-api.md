@@ -846,7 +846,7 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 | `ui::Segmented`（付録 C.2） | `ui::RadioGroupVariant::Segmented` | 改名 | K-0 |
 | progress の `Ring`・`Gauge`、alert の banner（付録 C.2） | `ui::ProgressVariant::{Bar, Ring, Gauge}`、`ui::AlertVariant::Banner` | 改名 | K-9b（progress）、K-6b（alert） |
 | `basic::DialogLook`、`basic::MenuLook`、soft `SegmentedLook`、game `GameCellLook`（付録 C.1・C.4） | `DialogVariant`、`MenuVariant`、`SegmentedVariant`、`GameCellVariant` | 改名 | K-7a〜K-7e |
-| `App::fonts(iter)`（旧 B.1） | 作らない（`App::font` を繰り返す。`RenderOptions::fonts(TestFonts)` と衝突するため） | 削除 | C-1 (決定) (決定) |
+| `App::fonts(iter)` | `App::fonts(impl IntoIterator<Item = Asset>)`。既存fontと同じ順序・検証で登録 | C.6の一括登録を正準化 | K-7c |
 | `RenderOptions::with_theme`・`reduced_motion`（旧 作業手順書 N-7） | `RenderOptions::with_theme(theme)`、`reduced_motion()`（C-1 の builder に含む） | 署名の変更 | C-1 |
 
 ## W6 和集合の追加契約
@@ -858,3 +858,7 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 | passive content | Stat value_content/label_content/chart、Description term_content、Avatar fallback_content、badge_label recipe |
 | code block | line_numbers(IntoValue<bool>)、highlight(content, Fn(&T,&str,&S)->(Vec<StyledRange>,S)) |
 | chat | author は IntoText、sender は ChatSender、empty は predicate と content、history_revision は外部 dataset stamp |
+| picker invocation | `DialogApi::return_focus(IntoValue<NodeRef>)`、各pickerの`picker_label(IntoText)`。実際の起動元をopening payloadで保持 |
+| recipe input | BreadcrumbItemState.current/input、CardState.input/has_media/has_footer、avatar_image/status_content/group_member/group_overflowは実ノードのreadonly投影 |
+| input/collection slots | RadioGroup.item_node、InputGroupのactualcontext、NavigationMenu.action/navigation_menu_link、PaginationItemStateで独自controllerを置換 |
+| syntax | `basic::rust_source(&str)->Vec<CodeLine>`とpretokenized`rust_lines`。source解析とpalette適用を分離 |

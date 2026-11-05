@@ -40,6 +40,7 @@ pub struct Dialog {
     width: Option<Value<Length>>,
     description: Option<Value<String>>,
     initial_focus: Option<NodeRef>,
+    return_focus: Option<Value<NodeRef>>,
     dismiss: Option<DismissOn>,
     closable: Value<bool>,
     media: Option<kivact_core::view::ViewFn>,
@@ -85,6 +86,7 @@ pub fn dialog(title: impl IntoText, open: impl kivact_core::state::IntoBinding<b
         width: None,
         description: None,
         initial_focus: None,
+        return_focus: None,
         dismiss: None,
         closable: true.into_value(),
         media: None,
@@ -94,6 +96,11 @@ pub fn dialog(title: impl IntoText, open: impl kivact_core::state::IntoBinding<b
     }
 }
 impl Dialog {
+    pub(crate) fn return_focus(mut self, target: Value<NodeRef>) -> Self {
+        self.return_focus = Some(target);
+        self
+    }
+
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -265,6 +272,9 @@ impl Dialog {
         }
         if let Some(dismiss) = self.dismiss {
             behavior = behavior.dismiss(dismiss);
+        }
+        if let Some(target) = self.return_focus {
+            behavior = behavior.return_focus(target);
         }
         let mut anchor = node_ref();
         let trigger = trigger.map(|mut trigger| {

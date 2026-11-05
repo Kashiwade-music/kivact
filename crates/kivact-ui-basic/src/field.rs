@@ -191,3 +191,5 @@ impl IntoView for FieldSeparator {
         root.into_view()
     }
 }
+
+impl kivact::ui::Variant for FieldLegendVariant {}

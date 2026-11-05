@@ -36,7 +36,7 @@ pub fn sparkline(points: impl IntoValue<Vec<f64>>) -> impl kivact::view::Compone
             d.fill_path(
                 &area.line_to(Point::new(s.width, s.height)).close(),
                 linear_gradient(180)
-                    .stop(kivact::style::rgba(0x2b8bd8, 0.32), pct(0))
+                    .stop(crate::tokens::sparkline_fill(), pct(0))
                     .stop(Color::TRANSPARENT, pct(100)),
             );
             d.stroke_path(

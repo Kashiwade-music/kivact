@@ -2,7 +2,7 @@
 
 use kivact::draw::Pixels;
 use kivact::geometry::{Point, Size};
-use kivact::style::{Color, rgb};
+use kivact::style::Color;
 
 /// A labeled typed socket. Its index in the node's list is its identity.
 #[derive(Clone, Debug, PartialEq)]
@@ -56,7 +56,7 @@ impl Default for NodeData {
             label: String::new(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             inputs: Vec::new(),
             outputs: Vec::new(),
             parameters: Vec::new(),
@@ -78,7 +78,7 @@ impl NodeData {
             label: label.into(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             inputs,
             outputs,
             ..Self::default()

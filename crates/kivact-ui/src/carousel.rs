@@ -140,6 +140,7 @@ impl IntoView for Carousel {
 #[derive(Clone, Copy)]
 struct Layout {
     api: kivact_interaction::CarouselApi,
+    navigation: Value<kivact_interaction::CarouselState>,
     mode: CarouselMode,
     looping: bool,
     snap: Value<Snap>,
@@ -176,7 +177,7 @@ impl Layout {
     }
     fn recipe_state(self) -> CarouselSurfaceState {
         CarouselSurfaceState {
-            state: self.api.state().get(),
+            state: self.navigation.get(),
             orientation: self.orientation.get(),
             direction: self.rtl.get(),
         }
@@ -196,6 +197,7 @@ fn prepare(carousel: &mut Carousel) -> Layout {
     let shown = memo(move || api.index().get().min(last.get()));
     Layout {
         api,
+        navigation: api.state(),
         mode: carousel.mode,
         looping: carousel.looping,
         snap: carousel.snap,
@@ -250,7 +252,7 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
     effect(move || {
         let at = c.shown.get();
         if !matches!(
-            c.api.state().get(),
+            c.navigation.get(),
             kivact_interaction::CarouselState::Idle { .. }
         ) {
             return;

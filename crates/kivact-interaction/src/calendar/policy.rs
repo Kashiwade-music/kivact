@@ -22,6 +22,7 @@ pub enum CalendarSelection {
 #[derive(Clone)]
 pub struct CalendarOptions {
     pub(super) disabled: Rc<dyn Fn(CalendarDate) -> bool>,
+    pub(super) activation_guard: Rc<dyn Fn(CalendarDate) -> bool>,
     pub(super) months: usize,
     pub(super) min_span: Value<u32>,
     pub(super) max_span: Value<Option<u32>>,
@@ -35,6 +36,7 @@ impl Default for CalendarOptions {
     fn default() -> Self {
         Self {
             disabled: Rc::new(|_| false),
+            activation_guard: Rc::new(|_| true),
             months: 1,
             min_span: 1.into_value(),
             max_span: None.into_value(),
@@ -56,6 +58,14 @@ impl CalendarOptions {
     /// read signals; the days follow it.
     pub fn disabled(mut self, f: impl Fn(CalendarDate) -> bool + 'static) -> Self {
         self.disabled = Rc::new(f);
+        self
+    }
+
+    /// Admit an activation before either selection transition runs, without
+    /// changing the day's published availability. Gesture owners use this
+    /// to suppress the trailing activation of a completed swipe.
+    pub fn activation_guard(mut self, guard: impl Fn(CalendarDate) -> bool + 'static) -> Self {
+        self.activation_guard = Rc::new(guard);
         self
     }
 

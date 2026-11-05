@@ -34,7 +34,7 @@ pub(crate) fn heading(_: &Theme, s: &Look<HeadingState>) -> kivact::style::Style
         .line_height(1.2)
         .color(ColorToken::Text)
 }
-pub(crate) fn stat(r: StatRecipes) -> StatRecipes {
+fn stat_frame(r: StatRecipes) -> StatRecipes {
     r.root(|_| {
         |t: &Theme, _: &Look<StatState>| {
             let p = t.ext::<Tokens>();
@@ -67,62 +67,66 @@ pub(crate) fn stat(r: StatRecipes) -> StatRecipes {
                 .justify_content(kivact::style::Justify::Center)
         }
     })
-    .label(|_| {
-        |_: &Theme, _: &Look<StatState>| {
-            style()
-                .grid_column((1, 3))
-                .grid_row(2)
-                .margin_x(20)
-                .font_size(13)
-                .weight(500)
-                .color(ColorToken::TextMuted)
-        }
-    })
-    .value(|_| {
-        |_: &Theme, _: &Look<StatState>| {
-            style()
-                .grid_column((1, 3))
-                .grid_row(3)
-                .margin_x(20)
-                .font_size(26)
-                .weight(600)
-                .line_height(1.2)
-        }
-    })
-    .delta(|_| {
-        |t: &Theme, s: &Look<StatState>| {
-            let hue = s.variant::<StatHue>().map_or(
-                match s.trend {
-                    Trend::Up => Hue::Mint,
-                    Trend::Down => Hue::Red,
-                    Trend::Neutral => Hue::Gray,
-                },
-                |h| h.0.get(),
-            );
-            style()
-                .grid_column(2)
-                .grid_row(1)
-                .margin_right(20)
-                .align_self(Align::Center)
-                .justify_self(Align::End)
-                .font_size(11)
-                .padding_x(6)
-                .padding_y(1)
-                .radius(4)
-                .border(1, ColorToken::Border)
-                .background(ColorToken::Surface)
-                .color(t.ext::<Tokens>().hue(hue).1)
-        }
-    })
-    .chart(|_| {
-        |_: &Theme, _: &Look<StatState>| {
-            style()
-                .grid_column((1, 3))
-                .grid_row(4)
-                .margin_top(8)
-                .min_width(1)
-        }
-    })
+}
+
+pub(crate) fn stat(r: StatRecipes) -> StatRecipes {
+    stat_frame(r)
+        .label(|_| {
+            |_: &Theme, _: &Look<StatState>| {
+                style()
+                    .grid_column((1, 3))
+                    .grid_row(2)
+                    .margin_x(20)
+                    .font_size(13)
+                    .weight(500)
+                    .color(ColorToken::TextMuted)
+            }
+        })
+        .value(|_| {
+            |_: &Theme, _: &Look<StatState>| {
+                style()
+                    .grid_column((1, 3))
+                    .grid_row(3)
+                    .margin_x(20)
+                    .font_size(26)
+                    .weight(600)
+                    .line_height(1.2)
+            }
+        })
+        .delta(|_| {
+            |t: &Theme, s: &Look<StatState>| {
+                let hue = s.variant::<StatHue>().map_or(
+                    match s.trend {
+                        Trend::Up => Hue::Mint,
+                        Trend::Down => Hue::Red,
+                        Trend::Neutral => Hue::Gray,
+                    },
+                    |h| h.0.get(),
+                );
+                style()
+                    .grid_column(2)
+                    .grid_row(1)
+                    .margin_right(20)
+                    .align_self(Align::Center)
+                    .justify_self(Align::End)
+                    .font_size(11)
+                    .padding_x(6)
+                    .padding_y(1)
+                    .radius(4)
+                    .border(1, ColorToken::Border)
+                    .background(ColorToken::Surface)
+                    .color(t.ext::<Tokens>().hue(hue).1)
+            }
+        })
+        .chart(|_| {
+            |_: &Theme, _: &Look<StatState>| {
+                style()
+                    .grid_column((1, 3))
+                    .grid_row(4)
+                    .margin_top(8)
+                    .min_width(1)
+            }
+        })
 }
 pub(crate) fn description_list(r: DescriptionListRecipes) -> DescriptionListRecipes {
     r.root(|prev| move |t: &Theme, s: &_| prev(t, s).gap(0))

@@ -114,6 +114,7 @@ struct PopupOptions {
     anchor: Option<NodeRef>,
     initial_focus: InitialFocus,
     focus_return: Option<FocusReturn>,
+    return_focus_target: Option<Value<NodeRef>>,
     anchor_starts_focus_range: Option<Value<bool>>,
     modal: bool,
 }
@@ -138,7 +139,13 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
     let own_anchor = node_ref();
     let machine = machine(
         State::Closed,
-        || Machine,
+        move || Machine {
+            focused: focused_node(),
+            focus_inside: disclosure
+                .content
+                .mounted_node()
+                .is_some_and(|panel| disclosure.content.focus_was_in(panel)),
+        },
         move |cx, effect| match effect {
             machine::Effect::Misuse => raise(
                 ErrorKind::Message,
@@ -270,6 +277,12 @@ impl PopupApi {
         self
     }
 
+    pub(crate) fn return_focus_target(self, target: Value<NodeRef>) -> Self {
+        self.settings
+            .update(|settings| settings.return_focus_target = Some(target));
+        self
+    }
+
     /// Replace the policy of the opening in progress, for its close. Runs
     /// while the surface is bound.
     pub(crate) fn set_opening_policy(self, policy: FocusReturn) {
@@ -278,6 +291,14 @@ impl PopupApi {
 
     /// The caller's policy, or the anchor on `DISMISS`.
     fn base_policy(self) -> FocusReturn {
+        if let Some(target) = self.settings.get().return_focus_target {
+            return FocusReturn {
+                target: FocusReturnTarget::Anchor(target.get_untracked()),
+                on: crate::ReasonSet::DISMISS
+                    .union(crate::ReasonSet::PROGRAMMATIC)
+                    .union(crate::ReasonSet::UNMOUNT),
+            };
+        }
         self.settings
             .get()
             .focus_return

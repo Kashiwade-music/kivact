@@ -2,7 +2,7 @@
 use super::values::{
     DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState,
 };
-use crate::data_table::group_state::DataTableGroupState;
+use crate::table_values::DataTableGroupState;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, LineJoin, Stroke};
 use kivact_core::geometry::Point;

@@ -35,6 +35,10 @@ pub struct Tokens {
     pub secondary_foreground: Color,
     /// `--muted`: quiet fills such as tab lists, skeletons and kbd.
     pub muted: Color,
+    /// Neutral tinted bubble fill, independently customizable.
+    pub bubble_tinted: Color,
+    /// Hover fill of an actionable tinted bubble.
+    pub bubble_tinted_hover: Color,
     /// `--muted-foreground`: secondary text.
     pub muted_foreground: Color,
     /// `--accent`: the focused menu or select row.
@@ -49,6 +53,8 @@ pub struct Tokens {
     pub input: Color,
     /// `--ring`: the focus indication.
     pub ring: Color,
+    /// Thumb fill of a switch in either scheme.
+    pub switch_thumb: Color,
     /// `--chart-1` to `--chart-5`.
     pub chart: [Color; 5],
     /// `--sidebar`: the sidebar surface.
@@ -67,7 +73,7 @@ pub struct Tokens {
     pub sidebar_border: Color,
     /// `--sidebar-ring`.
     pub sidebar_ring: Color,
-    /// The syntax colors of [`code_block`](crate::code_block).
+    /// The syntax colors of [`code_block`](kivact::ui::code_block).
     pub code: CodeColors,
 }
 
@@ -135,6 +141,18 @@ impl Tokens {
             secondary: pick(0xf5f5f5, 0x262626),
             secondary_foreground: pick(0x171717, 0xfafafa),
             muted: pick(0xf5f5f5, 0x262626),
+            bubble_tinted: Color::from_rgba_f64(
+                if dark { 0.180 } else { 0.910 },
+                if dark { 0.180 } else { 0.910 },
+                if dark { 0.180 } else { 0.910 },
+                1.0,
+            ),
+            bubble_tinted_hover: Color::from_rgba_f64(
+                if dark { 0.227 } else { 0.843 },
+                if dark { 0.227 } else { 0.843 },
+                if dark { 0.227 } else { 0.843 },
+                1.0,
+            ),
             muted_foreground: pick(0x737373, 0xa1a1a1),
             accent: pick(0xf5f5f5, 0x262626),
             accent_foreground: pick(0x171717, 0xfafafa),
@@ -150,6 +168,7 @@ impl Tokens {
                 rgb(0xe5e5e5)
             },
             ring: pick(0xa1a1a1, 0x737373),
+            switch_thumb: Color::WHITE,
             chart: [
                 rgb(0xd4d4d4),
                 rgb(0x737373),

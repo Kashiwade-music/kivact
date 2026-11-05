@@ -1,4 +1,4 @@
-//! Role: Display selectable source code with themed syntax, numbering and clipboard feedback.
+//! Role: Present selectable code with syntax, numbering and clipboard feedback.
 use crate::code_values::CodeBlockState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
