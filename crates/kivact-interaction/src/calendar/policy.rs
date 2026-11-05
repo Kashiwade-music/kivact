@@ -94,3 +94,22 @@ impl CalendarOptions {
         self
     }
 }
+
+impl From<kivact_core::state::Signal<Option<CalendarDate>>> for CalendarSelection {
+    fn from(value: kivact_core::state::Signal<Option<CalendarDate>>) -> Self {
+        use kivact_core::state::IntoBinding;
+        Self::Single(value.into_binding())
+    }
+}
+impl From<Binding<Option<CalendarDate>>> for CalendarSelection {
+    fn from(value: Binding<Option<CalendarDate>>) -> Self { Self::Single(value) }
+}
+impl From<kivact_core::state::Signal<Option<DateRange>>> for CalendarSelection {
+    fn from(value: kivact_core::state::Signal<Option<DateRange>>) -> Self {
+        use kivact_core::state::IntoBinding;
+        Self::Range(value.into_binding())
+    }
+}
+impl From<Binding<Option<DateRange>>> for CalendarSelection {
+    fn from(value: Binding<Option<DateRange>>) -> Self { Self::Range(value) }
+}

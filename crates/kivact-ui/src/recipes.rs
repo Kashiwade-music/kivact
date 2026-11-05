@@ -197,6 +197,22 @@ macro_rules! recipe_table {
 }
 
 recipe_table! {
+    /// Calendar panels and date cells.
+    CalendarRecipes {
+        root(root_recipe): PartState = super::look_calendar::root,
+        month(month_recipe): PartState = super::look_calendar::month,
+        day(day_recipe): super::CalendarDayVisual = super::look_calendar::day,
+        range(range_recipe): kivact_interaction::CalendarDayState = super::look_calendar::range,
+    }
+}
+recipe_table! {
+    /// Date and time field layouts and touch wheel surfaces.
+    DateInputRecipes {
+        root(root_recipe): PartState = super::look_calendar::input,
+        wheel(wheel_recipe): PartState = super::look_calendar::wheel,
+    }
+}
+recipe_table! {
     /// The recipes of a [`select`](super::select).
     SelectRecipes {
         /// The trigger, which knows whether it shows the placeholder. Its
@@ -578,6 +594,8 @@ recipe_table! {
         text_area(text_area_recipe): TextInputState = look::text_area,
     }
     tables {
+        calendar(calendar_recipes): CalendarRecipes,
+        date_input(date_input_recipes): DateInputRecipes,
         select(select_recipes): SelectRecipes,
         menu(menu_recipes): MenuRecipes,
         dialog(dialog_recipes): DialogRecipes,
