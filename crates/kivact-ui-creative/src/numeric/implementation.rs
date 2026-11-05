@@ -1,10 +1,9 @@
 //! Role: Numeric controls of the Creative kit: number, value_slider, knob and fader.
 use super::machine;
 
-use kivact::draw::{Draw, Path, TextFormat};
-use kivact::draw::{LineCap, LineJoin, Stroke, linear_gradient};
+use kivact::draw::Draw;
+use kivact::draw::linear_gradient;
 use kivact::geometry::{Point, Rect, Size};
-use kivact::i18n::message;
 use kivact::interaction::{
     DragCoordinates, DragPhase, DragUpdate, FocusReturn, use_drag, use_popup, use_scalar,
 };
@@ -24,7 +23,8 @@ use kivact::view::{
 };
 use std::rc::Rc;
 
-type TextParser = Rc<dyn Fn(&str, f64) -> Result<f64, String>>;
+use super::paint::{draw_fader, draw_knob};
+use super::text::{TextParser, display_value, format_scalar, scalar_parser};
 
 /// Numeric geometry, with identical binding and keyboard behavior.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -347,176 +347,6 @@ impl IntoView for Numeric {
     }
 }
 
-fn draw_knob(
-    d: &mut Draw,
-    size: Size,
-    n: f64,
-    color: kivact::style::Color,
-    label: &str,
-    value: &str,
-    bipolar: bool,
-) {
-    let p = d.theme().ext::<crate::tokens::Tokens>();
-    let scale = (size.width / 58.0).clamp(0.5, 1.0);
-    let center = Point::new(size.width / 2.0, 24.0 * scale);
-    let point = |a: f64, radius: f64| {
-        Point::new(
-            center.x + radius * scale * a.sin(),
-            center.y - radius * scale * a.cos(),
-        )
-    };
-    let a0 = -2.35;
-    let arc = |start: f64, end: f64| {
-        let mut path = Path::new().move_to(point(start, 19.0));
-        for i in 1..=48 {
-            path = path.line_to(point(start + (end - start) * i as f64 / 48.0, 19.0));
-        }
-        path
-    };
-    let stroke = Stroke::new(3.5 * scale)
-        .cap(LineCap::Round)
-        .join(LineJoin::Round);
-    d.stroke_path(&arc(a0, 2.35), &stroke, p.hair_strong);
-    d.stroke_path(
-        &arc(if bipolar { 0.0 } else { a0 }, a0 + n * 4.7),
-        &stroke,
-        color,
-    );
-    d.rounded_rect(
-        Rect::new(
-            center.x - 15.0 * scale,
-            9.0 * scale,
-            30.0 * scale,
-            30.0 * scale,
-        ),
-        15.0 * scale,
-        linear_gradient(180).colors([p.strong, Color::token(ColorToken::Raised)]),
-    );
-    d.line(
-        point(a0 + n * 4.7, 7.0),
-        point(a0 + n * 4.7, 12.0),
-        2.6,
-        p.text_high,
-    );
-    let label_style = TextFormat {
-        size: 10.5,
-        color: p.dim,
-        align: kivact::style::TextAlign::Center,
-        ..TextFormat::default()
-    };
-    d.text(label, Point::new(center.x, 48.0 * scale + 7.0), label_style);
-    d.text(
-        value,
-        Point::new(center.x, 48.0 * scale + 22.0),
-        TextFormat {
-            size: 10.5,
-            color: p.text,
-            family: Some(p.mono_font.clone()),
-            align: kivact::style::TextAlign::Center,
-            ..TextFormat::default()
-        },
-    );
-}
-
-fn draw_fader(d: &mut Draw, size: Size, n: f64, color: kivact::style::Color, value: &str) {
-    let p = d.theme().ext::<crate::tokens::Tokens>();
-    let x = size.width / 2.0;
-    let top = 8.0;
-    let height = (size.height - 30.0).max(1.0);
-    d.rounded_rect(Rect::new(x - 3.0, top, 6.0, height), 3.0, p.canvas);
-    d.rounded_rect(
-        Rect::new(x - 2.0, top + height * (1.0 - n), 4.0, height * n),
-        2.0,
-        color.with_alpha(0.6),
-    );
-    for i in 0..=10 {
-        let y = top + i as f64 * height / 10.0;
-        d.line(
-            Point::new(x - 17.0, y),
-            Point::new(x - 10.0, y),
-            1.0,
-            p.hair_strong,
-        );
-    }
-    let y = top + height * (1.0 - n);
-    d.rounded_rect(
-        Rect::new(x - 11.0, y - 5.0, 22.0, 11.0),
-        3.0,
-        linear_gradient(180).colors([p.muted, p.strong]),
-    );
-    d.line(
-        Point::new(x - 9.0, y),
-        Point::new(x + 9.0, y),
-        1.0,
-        p.canvas,
-    );
-    d.text(
-        value,
-        Point::new(x, size.height - 8.0),
-        TextFormat {
-            size: 10.0,
-            color: p.text,
-            align: kivact::style::TextAlign::Center,
-            family: Some(p.mono_font.clone()),
-            ..TextFormat::default()
-        },
-    );
-}
-
-fn format_scalar(value: f64, precision: usize, unit: &str, fps: Option<u32>) -> String {
-    if let Some(fps) = fps {
-        let f = value.max(0.0).floor() as u64;
-        let fps = u64::from(fps);
-        format!(
-            "{:02}:{:02}:{:02}:{:02}",
-            f / (fps * 3600),
-            f / (fps * 60) % 60,
-            f / fps % 60,
-            f % fps
-        )
-    } else {
-        format!("{value:.*}{unit}", precision)
-    }
-}
-fn parse_scalar(s: &str, fps: Option<u32>, current: f64) -> Option<f64> {
-    let s = s.trim();
-    if let Some(fps) = fps {
-        if s.contains(':') {
-            let parts = s
-                .split(':')
-                .map(str::parse::<u64>)
-                .collect::<std::result::Result<Vec<_>, _>>()
-                .ok()?;
-            if !(2..=4).contains(&parts.len()) {
-                return None;
-            }
-            let mut fields = [0_u64; 4];
-            fields[4 - parts.len()..].copy_from_slice(&parts);
-            if fields[1] >= 60 || fields[2] >= 60 || fields[3] >= u64::from(fps) {
-                return None;
-            }
-            let result = ((fields[0] as f64 * 60.0 + fields[1] as f64) * 60.0 + fields[2] as f64)
-                * f64::from(fps)
-                + fields[3] as f64;
-            return result.is_finite().then_some(result);
-        }
-        if s.starts_with(['+', '-']) {
-            return evaluate_expression(s).map(|delta| current + delta);
-        }
-    }
-    evaluate_expression(s)
-}
-/// Evaluate finite scalar arithmetic (+, -, *, /, parentheses and pi).
-pub fn evaluate_expression(s: &str) -> Option<f64> {
-    let mut p = Parser {
-        input: s.as_bytes(),
-        at: 0,
-    };
-    let value = p.expression()?;
-    p.spaces();
-    (p.at == p.input.len() && value.is_finite()).then_some(value)
-}
-
 impl Numeric {
     fn prepare(self) -> (Node, NumericView) {
         let Self {
@@ -563,21 +393,7 @@ impl Numeric {
         let reference = node_ref();
         let rect = reference.rect();
         let parse = scalar_parser(text_parser, timecode);
-        let mixed_text = message("creative.numeric.mixed", "Mixed");
-        let suffix = unit;
-        let shown = (move || {
-            if mixed.get() {
-                mixed_text.get()
-            } else {
-                format_scalar(
-                    value.get().clamp(min.get(), max.get()),
-                    precision.get(),
-                    &suffix.get(),
-                    timecode.map(|fps| fps.get()),
-                )
-            }
-        })
-        .into_value();
+        let shown = display_value(mixed, value, min, max, precision, unit, timecode);
         let mapping = Mapping {
             kind,
             min,
@@ -1117,107 +933,4 @@ impl NumericView {
             });
         }
     }
-}
-
-struct Parser<'a> {
-    input: &'a [u8],
-    at: usize,
-}
-impl Parser<'_> {
-    fn spaces(&mut self) {
-        while self.input.get(self.at).is_some_and(u8::is_ascii_whitespace) {
-            self.at += 1;
-        }
-    }
-    fn expression(&mut self) -> Option<f64> {
-        let mut value = self.product()?;
-        loop {
-            self.spaces();
-            match self.input.get(self.at) {
-                Some(b'+') => {
-                    self.at += 1;
-                    value += self.product()?;
-                }
-                Some(b'-') => {
-                    self.at += 1;
-                    value -= self.product()?;
-                }
-                _ => return Some(value),
-            }
-        }
-    }
-    fn product(&mut self) -> Option<f64> {
-        let mut value = self.atom()?;
-        loop {
-            self.spaces();
-            match self.input.get(self.at) {
-                Some(b'*') => {
-                    self.at += 1;
-                    value *= self.atom()?;
-                }
-                Some(b'/') => {
-                    self.at += 1;
-                    value /= self.atom()?;
-                }
-                _ => return Some(value),
-            }
-        }
-    }
-    fn atom(&mut self) -> Option<f64> {
-        self.spaces();
-        if self.input.get(self.at) == Some(&b'-') {
-            self.at += 1;
-            return Some(-self.atom()?);
-        }
-        if self.input.get(self.at) == Some(&b'+') {
-            self.at += 1;
-            return self.atom();
-        }
-        if self.input.get(self.at) == Some(&b'(') {
-            self.at += 1;
-            let v = self.expression()?;
-            self.spaces();
-            if self.input.get(self.at) != Some(&b')') {
-                return None;
-            }
-            self.at += 1;
-            return Some(v);
-        }
-        if self.input.get(self.at..self.at + 2) == Some(b"pi") {
-            self.at += 2;
-            return Some(std::f64::consts::PI);
-        }
-        let start = self.at;
-        while self
-            .input
-            .get(self.at)
-            .is_some_and(|c| c.is_ascii_digit() || *c == b'.')
-        {
-            self.at += 1;
-        }
-        std::str::from_utf8(self.input.get(start..self.at)?)
-            .ok()?
-            .parse()
-            .ok()
-    }
-}
-
-fn scalar_parser(text_parser: Option<TextParser>, timecode: Option<Value<u32>>) -> TextParser {
-    let not_finite = message("creative.numeric.not_finite", "Enter a finite number");
-    // `from` is the value the text field opened with, which a relative
-    // entry such as `+5` is added to.
-    Rc::new(move |s: &str, from: f64| -> Result<f64, String> {
-        match text_parser.as_ref() {
-            Some(parser) => parser(s, from).and_then(|v| {
-                if v.is_finite() {
-                    Ok(v)
-                } else {
-                    Err(not_finite.get())
-                }
-            }),
-            None => {
-                parse_scalar(s, timecode.map(|fps| fps.get()), from).ok_or_else(|| not_finite.get())
-            }
-        }
-    })
 }
