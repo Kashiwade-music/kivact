@@ -112,3 +112,5 @@ fn tone(tone: kivact_interaction::Tone) -> ColorToken {
         kivact_interaction::Tone::Danger => ColorToken::Danger,
     }
 }
+
+pub(super) fn avatar_group_overflow(_: &Theme, _: &usize) -> Style { style() }

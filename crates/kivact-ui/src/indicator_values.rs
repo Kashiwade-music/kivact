@@ -49,6 +49,8 @@ pub struct IndicatorTokens {
     pub stagger_ms: f64,
     pub line_height: f64,
     pub gap: f64,
+    /// Logical pixels shared by adjacent avatars.
+    pub avatar_overlap: f64,
 }
 impl Default for IndicatorTokens {
     fn default() -> Self {
@@ -60,6 +62,7 @@ impl Default for IndicatorTokens {
             stagger_ms: 100.0,
             line_height: 16.0,
             gap: 6.0,
+            avatar_overlap: 8.0,
         }
     }
 }
