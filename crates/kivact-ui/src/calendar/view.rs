@@ -420,15 +420,20 @@ impl IntoView for Calendar {
                 )
             },
         );
-        let status = kivact_core::view::text(navigation.state())
-            .with_node(|n| n.role(Role::Status))
-            .live_region(kivact_core::view::LiveRegion::Polite)
-            .style(
-                style()
-                    .position(kivact_core::style::Position::Absolute)
-                    .size(1, 1)
-                    .opacity(0.0),
-            );
+        let announcement = navigation.state();
+        let status = kivact_core::view::text(kivact_core::i18n::message_with(
+            "calendar.showing_month",
+            "Showing {month}",
+            move || [("month", announcement.get())],
+        ))
+        .with_node(|n| n.role(Role::Status))
+        .live_region(kivact_core::view::LiveRegion::Polite)
+        .style(
+            style()
+                .position(kivact_core::style::Position::Absolute)
+                .size(1, 1)
+                .opacity(0.0),
+        );
         root.on_pointer(move |event| {
             swipe.send(super::navigation::Event::Pointer(event));
             if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
