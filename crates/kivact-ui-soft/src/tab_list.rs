@@ -63,26 +63,36 @@ use kivact::view::overlay;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// How the tab strip distributes its available width.
 pub enum TabLayout {
     #[default]
+    /// Size tabs to their contents.
     Hug,
+    /// Distribute the available width across tabs.
     Fill,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Accessibility and keyboard pattern used by a tab strip.
 pub enum TabPattern {
     #[default]
+    /// Use navigation controls without tab-panel semantics.
     Navigation,
+    /// Use tab roles and manual keyboard selection for associated panels.
     Tabs,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// How a tab strip handles content wider than its viewport.
 pub enum TabOverflow {
     #[default]
+    /// Scroll the strip and provide overflow affordances.
     Scroll,
+    /// Allow the strip content to overflow without a scrolling viewport.
     Visible,
 }
 
+/// A keyed tab with retained icon and trailing-content slots.
 pub struct Tab<K> {
     root: Node,
     key: K,
@@ -94,6 +104,7 @@ pub struct Tab<K> {
     panel: Option<NodeRef>,
 }
 
+/// Create a tab identified by `key` and named by `label`.
 pub fn tab<K>(key: K, label: impl IntoText) -> Tab<K> {
     Tab {
         root: node(),
@@ -108,22 +119,27 @@ pub fn tab<K>(key: K, label: impl IntoText) -> Tab<K> {
 }
 
 impl<K> Tab<K> {
+    /// Mount the tab's leading icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
+    /// Mount an alternative icon once for the selected tab.
     pub fn selected_icon(mut self, icon: impl IntoView) -> Self {
         self.selected_icon = Some(icon.into_view());
         self
     }
+    /// Hide the visible label while retaining its accessible name.
     pub fn label_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
         self.label_hidden = hidden.into_value();
         self
     }
+    /// Mount trailing tab content once.
     pub fn end_content(mut self, end: impl IntoView) -> Self {
         self.end = Some(kivact::view::component(move || end.into_view()));
         self
     }
+    /// Associate the tab with an existing panel node reference.
     pub fn panel(mut self, panel: NodeRef) -> Self {
         self.panel = Some(panel);
         self
@@ -138,6 +154,7 @@ impl<K> NodeBuilder for Tab<K> {
 }
 
 #[derive(Clone)]
+/// A keyed option inside a tab-strip menu.
 pub struct TabMenuOption<K> {
     key: K,
     label: Value<String>,
@@ -146,6 +163,7 @@ pub struct TabMenuOption<K> {
 }
 
 impl<K> TabMenuOption<K> {
+    /// Create a selectable menu option with its destination key and label.
     pub fn new(key: K, label: impl IntoText) -> Self {
         Self {
             key,
@@ -154,22 +172,26 @@ impl<K> TabMenuOption<K> {
             disabled: false,
         }
     }
+    /// Build this option's icon when its menu content opens.
     pub fn icon<V: IntoView>(mut self, icon: impl IntoViewFn<V>) -> Self {
         self.icon = Some(icon.into_view_fn());
         self
     }
+    /// Prevent this option from being chosen.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 }
 
+/// A menu trigger embedded in the tab strip.
 pub struct TabMenu<K> {
     root: Node,
     label: Value<String>,
     options: Vec<TabMenuOption<K>>,
 }
 
+/// Create a labeled tab-strip menu from keyed options in visible order.
 pub fn tab_menu<K>(label: impl IntoText, options: Vec<TabMenuOption<K>>) -> TabMenu<K> {
     TabMenu {
         root: node(),
@@ -185,8 +207,11 @@ impl<K> NodeBuilder for TabMenu<K> {
     }
 }
 
+/// An ordinary tab or embedded menu in a tab strip.
 pub enum TabEntry<K> {
+    /// A directly selectable tab.
     Tab(Tab<K>),
+    /// A menu whose entries select tab keys.
     Menu(TabMenu<K>),
 }
 
@@ -209,6 +234,7 @@ struct Look {
     divider: bool,
 }
 
+/// A keyed tab or navigation strip with optional selected-panel content.
 pub struct TabList<K: ItemKey> {
     root: Node,
     label: Value<String>,
@@ -221,6 +247,7 @@ pub struct TabList<K: ItemKey> {
     content: Option<kivact::view::ViewFn<K>>,
 }
 
+/// Create a named strip bound to the currently selected key.
 pub fn tab_list<K: ItemKey>(name: impl IntoText, binding: impl IntoBinding<K>) -> TabList<K> {
     TabList {
         root: node(),
@@ -240,42 +267,52 @@ pub fn tab_list<K: ItemKey>(name: impl IntoText, binding: impl IntoBinding<K>) -
 }
 
 impl<K: ItemKey> TabList<K> {
+    /// Replace the strip entries with tabs and embedded menus in the supplied order.
     pub fn tabs(mut self, tabs: impl IntoIterator<Item = impl Into<TabEntry<K>>>) -> Self {
         self.entries.extend(tabs.into_iter().map(Into::into));
         self
     }
+    /// Append one directly selectable tab.
     pub fn tab(mut self, tab: Tab<K>) -> Self {
         self.entries.push(tab.into());
         self
     }
+    /// Append one menu trigger to the strip.
     pub fn menu(mut self, menu: TabMenu<K>) -> Self {
         self.entries.push(menu.into());
         self
     }
+    /// Choose the tab-strip control size.
     pub fn size(mut self, size: ControlSize) -> Self {
         self.look.size = size;
         self
     }
+    /// Choose content-sized tabs or equal-width tabs.
     pub fn layout(mut self, layout: TabLayout) -> Self {
         self.look.layout = layout;
         self
     }
+    /// Draw a divider below the tab strip.
     pub fn divider(mut self, divider: bool) -> Self {
         self.look.divider = divider;
         self
     }
+    /// Choose navigation semantics or the tab-and-panel keyboard pattern.
     pub fn pattern(mut self, pattern: impl IntoValue<TabPattern>) -> Self {
         self.pattern = pattern.into_value();
         self
     }
+    /// Choose scrolling or visible overflow for the strip.
     pub fn overflow(mut self, overflow: impl IntoValue<TabOverflow>) -> Self {
         self.overflow = overflow.into_value();
         self
     }
+    /// Extend the strip into the surrounding layout's horizontal inset.
     pub fn full_bleed(mut self, full_bleed: impl IntoValue<bool>) -> Self {
         self.full_bleed = full_bleed.into_value();
         self
     }
+    /// Build the selected key's panel whenever the selection changes.
     pub fn content<V: IntoView>(mut self, panel: impl Fn(K) -> V + 'static) -> Self {
         self.content = Some(panel.into());
         self

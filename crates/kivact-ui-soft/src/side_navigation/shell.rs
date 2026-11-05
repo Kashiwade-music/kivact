@@ -45,12 +45,17 @@ use kivact::view::node_ref;
 use kivact::view::row;
 use kivact::view::scroll;
 
+/// Ownership and initial state of a sidebar's collapsed rail.
 pub enum SideNavCollapse {
+    /// Keep rail collapse state locally, starting from `default`.
     Uncontrolled { default: bool },
+    /// Read and write the application's rail collapse binding.
     Controlled(Binding<bool>),
 }
 
 // xtask-allow(state-fields): Construction metrics and optional caller collapse binding; the default is used only without that binding and is not a runtime lifecycle flag.
+/// Initial width, width bounds and optional collapse binding for a resizable sidebar.
+/// `Default` starts expanded at 260 px, bounded to 180–480 px.
 pub struct SideNavResize {
     default_width: f64,
     min: f64,
@@ -95,6 +100,7 @@ impl SideNavResize {
     }
 }
 
+/// A sidebar with a scrollable entry region and retained header and footer slots.
 pub struct SideNav {
     root: Node,
     children: View,
@@ -107,6 +113,7 @@ pub struct SideNav {
     collapse_button: Value<bool>,
 }
 
+/// Mount sidebar entries once within the shared sidebar context.
 pub fn side_nav(children: impl IntoView) -> SideNav {
     SideNav {
         root: node()
@@ -144,14 +151,17 @@ impl SideNav {
         self.icons = Some(icons.into_view());
         self
     }
+    /// Choose local or application-owned rail collapse state.
     pub fn collapsible(mut self, collapse: SideNavCollapse) -> Self {
         self.collapse = Some(collapse);
         self
     }
+    /// Show or hide the sidebar's built-in collapse toggle.
     pub fn collapse_button(mut self, show: impl IntoValue<bool>) -> Self {
         self.collapse_button = show.into_value();
         self
     }
+    /// Enable resizing with the supplied initial width, bounds and collapse ownership.
     pub fn resizable(mut self, resize: SideNavResize) -> Self {
         self.resize = Some(resize);
         self
@@ -414,6 +424,7 @@ impl IntoView for SideNav {
     }
 }
 
+/// A control that toggles the sidebar's collapsed rail.
 pub struct SideNavCollapseButton {
     root: Node,
     binding: Option<Binding<bool>>,
@@ -421,6 +432,7 @@ pub struct SideNavCollapseButton {
     label: Option<Value<String>>,
 }
 
+/// Create a collapse toggle using the surrounding sidebar context.
 pub fn side_nav_collapse_button() -> SideNavCollapseButton {
     SideNavCollapseButton {
         root: node(),
@@ -431,14 +443,17 @@ pub fn side_nav_collapse_button() -> SideNavCollapseButton {
 }
 
 impl SideNavCollapseButton {
+    /// Override the surrounding sidebar's collapse binding.
     pub fn binding(mut self, collapsed: impl IntoBinding<bool>) -> Self {
         self.binding = Some(collapsed.into_binding());
         self
     }
+    /// Set the collapse toggle button size.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
+    /// Override the toggle's accessible label.
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self

@@ -47,6 +47,7 @@ use kivact::view::overlay;
 use kivact::view::show;
 
 #[derive(Clone, Copy, Default)]
+/// Copy handle for the surrounding app shell's mobile drawer state.
 pub struct AppShellMobile {
     context: Option<MobileContext>,
 }
@@ -91,6 +92,7 @@ impl Machine for MobileMachine {
         }
     }
 }
+/// Read mobile navigation from the surrounding app shell, or an inert default outside one.
 pub fn use_app_shell_mobile() -> AppShellMobile {
     try_use_context::<AppShellMobile>()
         .map(|value| value.get())
@@ -136,11 +138,13 @@ impl AppShellMobile {
             }),
         }
     }
+    /// Return whether the configured shell currently uses its mobile layout.
     pub fn is_mobile(self) -> bool {
         self.context.is_some_and(|context| {
             matches!(context.state.get(), AppShellMobileState::Mobile { .. })
         })
     }
+    /// Return whether the mobile-layout drawer is currently open.
     pub fn is_open(self) -> bool {
         self.context.is_some_and(|context| {
             matches!(
@@ -151,25 +155,31 @@ impl AppShellMobile {
             )
         })
     }
+    /// Return whether an app shell provided mobile navigation controls.
     pub fn is_enabled(self) -> bool {
         self.context.is_some()
     }
+    /// Return whether the shell uses an automatic drawer toggle; true outside a configured shell.
     pub fn has_auto_toggle(self) -> bool {
         self.context.is_none_or(|context| context.auto_toggle)
     }
+    /// Return the configured drawer's node reference, or `None` outside a shell.
     pub fn drawer_ref(self) -> Option<NodeRef> {
         self.context.map(|context| context.drawer)
     }
+    /// Request that the configured drawer open; do nothing outside a shell.
     pub fn open(self) {
         if let Some(context) = self.context {
             context.open.set(true);
         }
     }
+    /// Request that the configured drawer close; do nothing outside a shell.
     pub fn close(self) {
         if let Some(context) = self.context {
             context.open.set(false);
         }
     }
+    /// Invert the configured drawer's open binding; do nothing outside a shell.
     pub fn toggle(self) {
         if let Some(context) = self.context {
             context.open.set(!context.open.get());
@@ -178,13 +188,18 @@ impl AppShellMobile {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Logical edge on which a mobile navigation drawer opens.
 pub enum DrawerSide {
+    /// Open at the reading direction's start edge.
     Start,
+    /// Open at the reading direction's end edge.
     End,
     #[default]
+    /// Choose the edge nearest the drawer toggle, falling back to the logical end.
     Auto,
 }
 
+/// A modal navigation drawer whose content is rebuilt on each opening.
 pub struct MobileNav {
     root: Node,
     open: Option<Binding<bool>>,
@@ -196,6 +211,7 @@ pub struct MobileNav {
     content: ViewFn,
 }
 
+/// Create a drawer whose content factory runs whenever the drawer opens.
 pub fn mobile_nav<V: IntoView>(content: impl IntoViewFn<V>) -> MobileNav {
     MobileNav {
         root: node(),
@@ -210,27 +226,33 @@ pub fn mobile_nav<V: IntoView>(content: impl IntoViewFn<V>) -> MobileNav {
 }
 
 impl MobileNav {
+    /// Use an application-owned open binding instead of the surrounding shell binding.
     pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
         self.open = Some(open.into_binding());
         self
     }
+    /// Set drawer width in pixels; negative widths are clamped to zero.
     pub fn width(mut self, width: impl IntoValue<f64>) -> Self {
         let width = width.into_value();
         self.width = (move || width.get().max(0.0)).into_value();
         self
     }
+    /// Choose the logical edge or automatic placement of the drawer.
     pub fn side(mut self, side: impl IntoValue<DrawerSide>) -> Self {
         self.side = side.into_value();
         self
     }
+    /// Set the drawer's accessible navigation label.
     pub fn name(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self
     }
+    /// Set a plain-text drawer heading.
     pub fn header(mut self, header: impl IntoText) -> Self {
         self.header = Some(header.into_text_value());
         self
     }
+    /// Build custom heading content each time the drawer opens.
     pub fn header_view<V: IntoView>(mut self, header: impl IntoViewFn<V>) -> Self {
         self.header_view = Some(header.into_view_fn());
         self
@@ -398,12 +420,14 @@ impl IntoView for MobileNav {
     }
 }
 
+/// An app-shell drawer toggle with an optional custom icon.
 pub struct MobileNavToggle {
     root: Node,
     label: Option<Value<String>>,
     icon: Option<View>,
 }
 
+/// Create a toggle for the surrounding app shell's mobile navigation.
 pub fn mobile_nav_toggle() -> MobileNavToggle {
     MobileNavToggle {
         root: node(),
@@ -413,10 +437,12 @@ pub fn mobile_nav_toggle() -> MobileNavToggle {
 }
 
 impl MobileNavToggle {
+    /// Override the drawer toggle's accessible label.
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self
     }
+    /// Mount a replacement toggle icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
