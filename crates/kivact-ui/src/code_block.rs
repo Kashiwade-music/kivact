@@ -348,10 +348,13 @@ impl CodeSource {
         let variants = variants.clone();
         let motion = kivact_core::style::use_tokens::<crate::UiTokens>()
             .disclosure
-            .motion;
+            .motion
+            .clone();
         show(disclosure.is_open(), move || {
             node()
                 .part(disclosure.content())
+                .role(Role::Group)
+                .name(name)
                 .child(self.viewport(name, state, &variants))
                 .style(style().exit_size(Orientation::Vertical).transition(
                     kivact_core::style::TransitionProp::Size,
@@ -370,7 +373,7 @@ impl CodeSource {
         name: Value<String>,
         state: Value<CodeBlockState>,
         variants: &Variants,
-    ) -> Node {
+    ) -> View {
         let editing = TextEditing::new(self.code)
             .multiline()
             .read_only(true)
@@ -398,6 +401,7 @@ impl CodeSource {
             Some(height) => style().max_height(height.get()),
             None => style(),
         })
+        .into_view()
     }
 }
 fn native_editor(
