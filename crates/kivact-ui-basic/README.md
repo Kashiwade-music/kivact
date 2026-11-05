@@ -59,11 +59,10 @@ through Kivact's public font API and set the `family` of `theme.text()` with `Th
 `"Geist Mono", monospace`.
 
 State lives in caller-owned signals and bindings. Collections are read-only
-`impl IntoValue<Vec<T>>` inputs, and requests such as a code block's copy
-press are reported through callbacks; writing to the clipboard, persistence
-and business rules remain application concerns. `kivact::view::provide_direction` provides a
-reading direction that the kit's direction-aware components honor; the
-standard `kivact::ui` components do not mirror.
+`impl IntoValue<Vec<T>>` inputs. Core handles code-block clipboard writes and
+reports copy presses through callbacks; persistence and business rules remain
+application concerns. `kivact::view::provide_direction` provides a
+reading direction that the kit's direction-aware components honor; standard `kivact::ui` components read the same direction context.
 
 Builder components implement `NodeBuilder` and `IntoView` and install their
 own default style and semantics first, so ordinary `NodeBuilder` modifiers
@@ -114,7 +113,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
-| `basic.message_scroller.end` | Scroll to end |
 | `basic.questionnaire.label` | Questionnaire |
 | `basic.questionnaire.next` | Next |
 | `basic.questionnaire.previous` | Previous |
@@ -222,6 +220,8 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `breadcrumb`
 - `pagination`
 - `code_block`
+- `chat_message`
+- `chat_thread`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

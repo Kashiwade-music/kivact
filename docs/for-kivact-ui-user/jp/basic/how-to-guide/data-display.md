@@ -220,6 +220,29 @@ fn snippet() -> impl IntoView {
 - コードのフォントは `Geist Mono` です。[テーマとトークン](theme-and-tokens.md)の説明に従って登録してください。登録しないときは、システムの等幅フォントが使われます。
 - コピーに成功すると、ボタンが少しの間「Copied」になります。この文言は `code_block.*` のメッセージから来ます。
 
+## 会話を表示する
+
+発言ごとに `kivact::ui::chat_message(author)` を一つ使い、`.content(..)`、`.avatar(..)`、`.footer(..)`、`.align(ChatAlign::End)` を指定します。`basic::BubbleVariant` は Basic の7種類の配色です。単独の吹き出しは author を空にし、`.variant(basic::ChatLayout::Bubble)` を指定します。通常の発言行は既定の Message 配置を使います。リアクションには標準の `.reactions(..)` と `.reactions_side(..)` を使います。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_basic as basic;
+
+fn conversation() -> impl IntoView {
+    kivact::ui::chat_thread(column((
+        kivact::ui::chat_message("Ada")
+            .content("Lunch at noon?")
+            .variant(basic::BubbleVariant::Secondary),
+        kivact::ui::chat_message("You")
+            .content("Sounds good.")
+            .align(kivact::ui::ChatAlign::End),
+    )).style(style().gap(6)))
+    .style(style().height(240).width(360))
+}
+```
+
+`chat_thread` がログの意味、スクロール、末尾に戻る操作を提供します。親に高さを指定してください。Core は末尾を表示している間は追加された内容に追従し、読者が上に離れると追従を止めます。末尾へ戻るかジャンプ操作を使うと追従を再開します。
+
 ## 処理の詳細を表示する
 
 処理の行は通常の row で組み立てます。開閉する詳細は `kivact::ui::disclosure(label, open).variant(basic::DisclosureVariant::Trace).content(..).attach(trigger)` を使います。trigger にアイコン、題名、所要時間を置き、同じ open 束縛を読むことでシェブロンを回転できます。Core が押下、キー操作、展開の意味を管理し、Trace variant が薄い文字と縦の罫線を描きます。

@@ -220,6 +220,29 @@ fn snippet() -> impl IntoView {
 - The code font is `Geist Mono`; register it as described in [Theme and tokens](theme-and-tokens.md#choose-the-fonts). Without it a system monospace font is used.
 - After a successful copy the button reads "Copied" for a moment. The words come from `code_block.*` messages.
 
+## Show a conversation
+
+Use one `kivact::ui::chat_message(author)` for each entry, with `.content(..)`, `.avatar(..)`, `.footer(..)` and `.align(ChatAlign::End)` as needed. `basic::BubbleVariant` selects the seven Basic color treatments. A standalone bubble uses `.variant(basic::ChatLayout::Bubble)` and an empty author; ordinary rows use the default Message layout. Reactions use the canonical `.reactions(..)` and `.reactions_side(..)` slots.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_basic as basic;
+
+fn conversation() -> impl IntoView {
+    kivact::ui::chat_thread(column((
+        kivact::ui::chat_message("Ada")
+            .content("Lunch at noon?")
+            .variant(basic::BubbleVariant::Secondary),
+        kivact::ui::chat_message("You")
+            .content("Sounds good.")
+            .align(kivact::ui::ChatAlign::End),
+    )).style(style().gap(6)))
+    .style(style().height(240).width(360))
+}
+```
+
+`chat_thread` provides the semantic log, scrolling and jump-to-latest action. Give it a bounded height. Core follows new content until the reader scrolls away; it resumes when the reader reaches the end or uses the jump action.
+
 ## Show activity details
 
 Use ordinary rows for activity lines. For expandable detail, use `kivact::ui::disclosure(label, open).variant(basic::DisclosureVariant::Trace).content(..).attach(trigger)`. The caller supplies the icon, title and duration in `trigger`; the same `open` binding can rotate its chevron. Core owns activation, keyboard input and expanded semantics, while the Trace variant draws the muted detail and vertical rule.

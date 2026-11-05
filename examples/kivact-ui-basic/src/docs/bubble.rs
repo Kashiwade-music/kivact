@@ -16,7 +16,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "variants",
                 "Variants",
-                "BubbleVariant の 7 種類です。bubble_group で縦に並べます。",
+                "BubbleVariant の 7 種類です。column で縦に並べます。",
                 variants,
             ),
             Example::new(
@@ -43,48 +43,81 @@ pub(crate) fn page() -> Page {
 
 // example: variants
 fn variants() -> impl IntoView {
-    basic::bubble_group((
-        basic::bubble("Default"),
-        basic::bubble("Secondary").variant(basic::BubbleVariant::Secondary),
-        basic::bubble("Muted").variant(basic::BubbleVariant::Muted),
-        basic::bubble("Tinted").variant(basic::BubbleVariant::Tinted),
-        basic::bubble("Outline").variant(basic::BubbleVariant::Outline),
-        basic::bubble("Ghost").variant(basic::BubbleVariant::Ghost),
-        basic::bubble("Destructive").variant(basic::BubbleVariant::Destructive),
+    column((
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Default"),
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Secondary")
+            .variant(basic::BubbleVariant::Secondary),
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Muted")
+            .variant(basic::BubbleVariant::Muted),
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Tinted")
+            .variant(basic::BubbleVariant::Tinted),
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Outline")
+            .variant(basic::BubbleVariant::Outline),
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Ghost")
+            .variant(basic::BubbleVariant::Ghost),
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Destructive")
+            .variant(basic::BubbleVariant::Destructive),
     ))
+    .style(style().min_width(0).gap(8))
     .style(style().width(360))
 }
 // end example
 
 // example: align
 fn align() -> impl IntoView {
-    basic::bubble_group((
-        basic::bubble("Are we still on for lunch?").variant(basic::BubbleVariant::Secondary),
-        basic::bubble("Yes, see you at noon.").align(basic::BubbleAlign::End),
+    column((
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Are we still on for lunch?")
+            .variant(basic::BubbleVariant::Secondary),
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Yes, see you at noon.")
+            .align(kivact::ui::ChatAlign::End),
     ))
+    .style(style().min_width(0).gap(8))
     .style(style().width(360))
 }
 // end example
 
 // example: reactions
 fn reactions() -> impl IntoView {
-    basic::bubble_group((
-        basic::bubble("Shipped the release!")
+    column((
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Shipped the release!")
             .variant(basic::BubbleVariant::Muted)
             .reactions({
                 row((text("👀"), text("🚀"), text("+2")))
                     .role(Role::Image)
                     .name("Reactions: eyes, rocket, and 2 more")
             }),
-        basic::bubble("Tests passed on the first try.")
-            .align(basic::BubbleAlign::End)
-            .reactions_side(basic::BubbleReactionsSide::Top)
+        kivact::ui::chat_message("")
+            .variant(basic::ChatLayout::Bubble)
+            .content("Tests passed on the first try.")
+            .align(kivact::ui::ChatAlign::End)
+            .reactions_side(kivact::ui::ChatReactionsSide::Top)
             .reactions({
                 row((text("🎉"), text("👏")))
                     .role(Role::Image)
                     .name("Reactions: party popper, clapping hands")
             }),
     ))
+    .style(style().min_width(0).gap(8))
     .style(style().width(360))
 }
 // end example
@@ -92,7 +125,9 @@ fn reactions() -> impl IntoView {
 // example: pressable
 fn pressable() -> impl IntoView {
     let count = signal(0);
-    basic::bubble(text(move || format!("Pressed {} times", count.get())))
+    kivact::ui::chat_message("")
+        .variant(basic::ChatLayout::Bubble)
+        .content(text(move || format!("Pressed {} times", count.get())))
         .variant(basic::BubbleVariant::Outline)
         .on_press(move || count.update(|n| *n += 1))
 }

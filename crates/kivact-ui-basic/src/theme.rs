@@ -66,6 +66,10 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_icons(crate::icons::set())
         .with(p)
         .with(kivact::ui::UiTokens {
+            chat: kivact::ui::ChatTokens {
+                follow_slack: 1.5,
+                ..kivact::ui::ChatTokens::default()
+            },
             code_block: kivact::ui::CodeBlockTokens {
                 font_size: 14.0,
                 line_height: 23.0,

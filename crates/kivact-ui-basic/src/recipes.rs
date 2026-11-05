@@ -83,6 +83,8 @@ fn build() -> UiRecipes {
         .breadcrumb(crate::breadcrumb::recipes)
         .pagination(crate::pagination::recipes)
         .code_block(crate::code_block::recipes)
+        .chat_message(crate::chat::recipes)
+        .chat_thread(crate::message_scroller::recipes)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts

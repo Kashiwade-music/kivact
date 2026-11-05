@@ -54,6 +54,7 @@ mod button;
 mod card;
 mod chart;
 mod chat;
+mod chat_colors;
 mod choice;
 mod code_block;
 mod color;
@@ -107,16 +108,13 @@ pub use attachment::{
 pub use badge::BadgeVariant;
 pub use card::{CardLook, CardSize};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
-pub use chat::{
-    Bubble, BubbleAlign, BubbleReactionsSide, BubbleVariant, Message, MessageAlign, bubble,
-    bubble_group, message, message_group,
-};
+pub use chat::ChatLayout;
+pub use chat_colors::BubbleVariant;
 pub use empty::EmptyMediaVariant;
 pub use item::{ItemLook, ItemMediaVariant, ItemSize, ItemVariant};
 pub use line_tabs::TabsVariant;
 pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
-pub use message_scroller::{MessageScroller, message_scroller};
 pub use scroll_area::{ScrollArea, scroll_area};
 pub use sidebar::{
     Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenuButton, SidebarMenuButtonSize,
