@@ -48,7 +48,11 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
     tracks.update(|tracks| tracks[4].automation_label = "Volume".into());
     let selected = signal(vec![10u64]);
     let snap = signal(true);
-    let zoom = signal(26.0);
+    let transform = signal(kivact::interaction::ViewTransform {
+        scale: 26.0,
+        ..Default::default()
+    });
+    let zoom = transform.project(|pose| &pose.scale, |pose| &mut pose.scale);
     let tool = signal(ui::TimelineTool::Select);
     let unit = signal(Some("beat".to_owned()));
     let loop_range = signal((0.0, 16.0));
@@ -108,7 +112,7 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
             tracks,
             ui::ArrangementState {
                 selection: selected.into_binding(),
-                zoom: zoom.into_binding(),
+                transform: transform.into_binding(),
                 tool: tool.into_binding(),
                 playhead: bind(
                     move || state.get().frame / 12.0,

@@ -104,7 +104,7 @@ Timeline and DopeSheet accept read-only item values. Their
 `on_edit(|event: EditorEvent<TimeRequest>| ..)` reports `Begin`, absolute `Retime`
 or `Delete` requests, and `Commit` or `Cancel`. Applications apply requests to
 their own items and restore them on cancellation; ignored requests leave items
-unchanged. Playhead, selection, zoom and pan are the bindings of `TimeState`. Each drag proposal
+unchanged. Playhead and selection are bindings of `TimeState`; its `transform: Binding<ViewTransform>` owns both the horizontal scale and pixel scroll offset. Each drag proposal
 uses the items at `Begin`, so applying only the latest request is sufficient.
 In every domain editor a drag reports `Begin` at its first change, not at the
 press: a press that does not move selects or, as a stationary double click,

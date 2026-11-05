@@ -131,7 +131,7 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point, origin: Point, snapshot: &Snapsh
         (Drag::Pan, Snapshot::View(_, p)) => {
             let next = Point::new(p.x + pos.x - origin.x, p.y + pos.y - origin.y);
             if next != s.offset.get() {
-                s.gesture.change(|| s.pan.set(next));
+                s.gesture.change(|| s.set_offset(next));
             }
         }
         (Drag::Items, Snapshot::Items(initial)) => {
@@ -220,9 +220,9 @@ pub(crate) fn wheel<T: TimeItem>(s: State<T>, e: WheelEvent) -> Handled {
     if (next_scale, next_offset) != (scale, offset) {
         s.edit.once(s.view_snapshot(), || {
             if zooms {
-                s.zoom.set(next_scale);
+                s.set_scale(next_scale);
             }
-            s.pan.set(next_offset);
+            s.set_offset(next_offset);
         });
     }
     Handled::Yes
@@ -250,9 +250,8 @@ pub(crate) fn key<T: TimeItem>(s: State<T>, e: KeyEvent) -> Handled {
         }
         Key::Home => {
             s.edit.once(s.view_snapshot(), || {
-                s.pan.set(Point::new(0.0, 0.0));
-                s.zoom
-                    .set(1.0_f64.clamp(s.bounds.get().min(), s.bounds.get().max()));
+                s.set_offset(Point::new(0.0, 0.0));
+                s.set_scale(1.0_f64.clamp(s.bounds.get().min(), s.bounds.get().max()));
             });
         }
         _ if selection::select_all(&e) => s.choose.select_all(),

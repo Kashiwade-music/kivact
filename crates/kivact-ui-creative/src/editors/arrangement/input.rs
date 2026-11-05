@@ -290,7 +290,7 @@ fn motion(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
                 let from = origin;
                 let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
                 if next != state.offset.get() {
-                    state.gesture.change(|| state.pan.set(next));
+                    state.gesture.change(|| state.set_offset(next));
                 }
             }
         }
@@ -352,7 +352,7 @@ pub(crate) fn key(state: State, e: KeyEvent) -> Handled {
         }
         Key::Home => {
             state.edit.once(state.view_snapshot(), || {
-                state.pan.set(Point::new(0.0, 0.0));
+                state.set_offset(Point::new(0.0, 0.0));
             });
         }
         _ => return Handled::No,
@@ -389,9 +389,9 @@ pub(crate) fn wheel(state: State, e: WheelEvent) -> Handled {
     if (next_scale, next_offset) != (scale, offset) {
         state.edit.once(state.view_snapshot(), || {
             if zooms {
-                state.zoom.set(next_scale);
+                state.set_scale(next_scale);
             }
-            state.pan.set(next_offset);
+            state.set_offset(next_offset);
         });
     }
     Handled::Yes

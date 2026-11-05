@@ -90,7 +90,10 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
     let (keys, selected) = super::animation_model::bindings(graph, graph_selected);
     let initial_keys = signal(None);
     let channels = [signal(true), signal(true), signal(true)];
-    let zoom = signal(6.8);
+    let transform = signal(kivact::interaction::ViewTransform {
+        scale: 6.8,
+        offset: Point::new(12.0, 0.0),
+    });
     let graph_view = signal(ui::GraphView {
         time: (-20.0, 200.0),
         value: (-2.0, 3.0),
@@ -131,10 +134,9 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
         ui::dope_sheet(
             keys,
             ui::TimeState {
-                pan: (signal(Point::new(12.0, 0.0))).into_binding(),
                 selection: selected,
                 playhead: playhead(state),
-                zoom: zoom.into_binding(),
+                transform: transform.into_binding(),
             },
         )
         .on_edit(move |event| match event {

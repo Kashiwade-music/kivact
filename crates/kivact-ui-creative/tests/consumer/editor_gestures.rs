@@ -26,8 +26,6 @@ struct Model {
     curves: Signal<Vec<ui::Curve>>,
     nodes: Signal<Vec<ui::NodeData>>,
     selection: Signal<Vec<u64>>,
-    pan: Signal<Point>,
-    zoom: Signal<f64>,
     frame: Signal<f64>,
     transform: Signal<ViewTransform>,
     view: Signal<ui::GraphView>,
@@ -155,10 +153,11 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             curves,
             nodes,
             selection: signal(Vec::new()),
-            pan: signal(Point::new(0.0, 0.0)),
-            zoom: signal(if kind == Kind::Arrangement { 20.0 } else { 1.0 }),
             frame: signal(0.0),
-            transform: signal(ViewTransform::default()),
+            transform: signal(ViewTransform {
+                scale: if kind == Kind::Arrangement { 20.0 } else { 1.0 },
+                ..ViewTransform::default()
+            }),
             view: signal(ui::GraphView {
                 time: (0.0, 440.0),
                 value: (-258.0, 0.0),
@@ -186,8 +185,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                 ),
                 ui::ArrangementState {
                     selection: model.selection.into_binding(),
-                    pan: model.pan.into_binding(),
-                    zoom: model.zoom.into_binding(),
+                    transform: model.transform.into_binding(),
                     ..ui::ArrangementState::new()
                 },
             )
@@ -199,8 +197,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                 clips,
                 ui::TimeState {
                     selection: model.selection.into_binding(),
-                    pan: model.pan.into_binding(),
-                    zoom: model.zoom.into_binding(),
+                    transform: model.transform.into_binding(),
                     playhead: model.frame.into_binding(),
                 },
             )
@@ -214,8 +211,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                 keys,
                 ui::TimeState {
                     selection: model.selection.into_binding(),
-                    pan: model.pan.into_binding(),
-                    zoom: model.zoom.into_binding(),
+                    transform: model.transform.into_binding(),
                     playhead: model.frame.into_binding(),
                 },
             )
