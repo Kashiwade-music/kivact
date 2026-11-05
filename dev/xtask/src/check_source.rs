@@ -352,13 +352,14 @@ pub(crate) fn type_names(ty: &syn::Type) -> BTreeSet<String> {
 }
 
 #[cfg(test)]
+// An official kit identity keeps kit-only rules active in checker fixtures.
 pub(crate) fn fixture(text: &str) -> Source {
     Source {
-        package: "kivact-ui-demo".into(),
+        package: "kivact-ui-soft".into(),
         target: None,
         library: true,
         module: "widgets".into(),
-        path: "crates/kivact-ui-demo/src/widgets.rs".into(),
+        path: "crates/kivact-ui-soft/src/widgets.rs".into(),
         text: text.into(),
         items: syn::parse_file(text).unwrap().items,
         attrs: syn::parse_file(text).unwrap().attrs,
@@ -382,7 +383,7 @@ mod tests {
         .unwrap();
         std::fs::write(
             directory.join("Cargo.toml"),
-            "[package]\nname = 'kivact-ui-demo'\n[[bin]]\nname = 'tool'\npath = 'tool.rs'",
+            "[package]\nname = 'kivact-ui-soft'\n[[bin]]\nname = 'tool'\npath = 'tool.rs'",
         )
         .unwrap();
         std::fs::write(
@@ -407,10 +408,10 @@ mod tests {
         }
         assert_eq!(api_errors.len(), 1);
         let policy = root.join("policy.toml");
-        std::fs::write(&policy, "[state_fields]\nskip = ['kivact-ui-demo']").unwrap();
+        std::fs::write(&policy, "[state_fields]\nskip = ['kivact-ui-soft']").unwrap();
         let options = crate::check_cli::Options {
             only: Some("state-fields".into()),
-            package: Some("kivact-ui-demo".into()),
+            package: Some("kivact-ui-soft".into()),
             ..Default::default()
         };
         assert_eq!(
