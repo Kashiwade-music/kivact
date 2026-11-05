@@ -154,7 +154,10 @@ fn description_list_pairs_terms_and_details() {
         .get_by_role(Role::Button, "Open profile");
     let actions = list
         .get_by_role(Role::ListItem, "Action")
-        .get_by_role(Role::Group, "Action");
+        .all_by_role(Role::Group, "Action")
+        .into_iter()
+        .find(|group| group.query_by_role(Role::Button, "Open profile").is_some())
+        .expect("detail group contains the profile action");
     let action_labels = actions.labelled_by();
     assert_eq!(action_labels.len(), 1);
     assert_eq!(action_labels[0].name(), "Action");

@@ -82,7 +82,7 @@ impl IntoView for Description {
     fn into_view(self) -> View {
         let label = node_ref();
         let term_content = match self.term_content {
-            Some(view) => node().name(self.term).child(view),
+            Some(view) => node().role(Role::Group).name(self.term).child(view),
             None => text(self.term).name(self.term),
         };
         let term = with_base_recipe_style(
