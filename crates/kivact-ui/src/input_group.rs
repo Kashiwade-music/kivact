@@ -4,25 +4,10 @@ use super::variants::{Variant, Variants};
 use super::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{
-    IntoChildren, IntoView, Node, NodeBuilder, ReadingDirection, Role, View, node, node_ref, row,
-    text, use_direction,
+    IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref, row, text, use_direction,
 };
 
-/// Input group size and reading direction passed to its recipes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct InputGroupState {
-    pub size: ControlSize,
-    pub direction: ReadingDirection,
-}
-// xtask-allow(state-fields): Read-only projection of member position and NodeRef focus-within, never independent behavior state.
-/// A member's position, inherited size, and actual focus-within observation.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct InputGroupMemberState {
-    pub group: InputGroupState,
-    pub first: bool,
-    pub last: bool,
-    pub focused: bool,
-}
+use crate::component_values::{InputGroupMemberState, InputGroupState};
 enum Controls<C> {
     Built(C),
     Scoped(Box<dyn FnOnce() -> C>),

@@ -129,7 +129,7 @@ fn search_and_copy() -> impl IntoView {
 
 ## Pick one or several options from a long list
 
-`basic::combobox(items, selected)` is a text box with a filtered list. The items are `ListItem`s. The selection type decides the mode: `signal(None)` (an `Option<K>`) picks one, `signal(Vec::new())` picks several and shows them as removable chips:
+`kivact::ui::combobox("Framework", items, selected)` is a text box with a filtered list. The items are `ListItem`s. The selection type decides the mode: `signal(None)` (an `Option<K>`) picks one, `signal(Vec::new())` picks several; add `.chips()` to show removable chips:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -144,12 +144,12 @@ fn frameworks() -> impl IntoView {
     let one = signal(None);
     let many = signal(vec!["next"]);
     column((
-        basic::combobox(items.clone(), one)
+        kivact::ui::combobox("Framework", items.clone(), one)
             .placeholder("Select a framework")
             .name("Framework")
             .show_clear(true)
             .style(style().width(260)),
-        basic::combobox(items, many)
+        kivact::ui::combobox("Frameworks", items, many).chips()
             .placeholder("Add framework")
             .name("Frameworks")
             .style(style().width(360)),
@@ -158,7 +158,7 @@ fn frameworks() -> impl IntoView {
 }
 ```
 
-- Give it `.name(..)`: it is the accessible name, since a combobox has no label of its own. Wrap it in a `field` to show one.
+- The first argument is the accessible name. Wrap the combobox in a `field` to show a visible label.
 - `.empty_text("No frameworks found.")` replaces the text shown when the filter matches nothing; `.disabled(true)` turns it off.
 - For short lists, the standard `select("Language", items, signal)` is simpler. `basic::native_select(items, signal)` is a select with the plain bordered look of a browser's.
 
@@ -233,4 +233,4 @@ fn verify() -> impl IntoView {
 
 - [Overlays](overlays.md): put a form into a dialog or a sheet.
 - [Navigation](navigation.md): tabs and wizards between pages of fields.
-- Rustdoc: `cargo doc -p kivact-ui-basic --open` for the input group, combobox, pickers and `input_otp`; `cargo doc -p kivact-ui --open` for `field`, `select` and `text_input`.
+- Rustdoc: `cargo doc -p kivact-ui-basic --open` for the input group and pickers and `input_otp`; `cargo doc -p kivact-ui --open` for `combobox`, `field`, `select` and `text_input`.

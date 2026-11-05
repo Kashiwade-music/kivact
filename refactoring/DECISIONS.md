@@ -155,3 +155,10 @@
 | 2026-11-05 | K-8 | Core viewport と snapshot 境界 | ViewTransform types 正準、hidden port で単一 ZoomPanApi 接続。context-local render purpose と immutable CPU fallback。 |
 | 2026-11-05 | K-6a | Creative KeyGlyph は keyboard ではない | keyframe の Diamond 等を描く domain enum のため Creative に残し、kbd への誤った移行指定を C.2 から削除。 |
 | 2026-11-05 | K-5 | Lightbox pan の正準操作 | use_zoom_pan の middle/Space-primary/touch を採用し、lightbox 独自 primary-drag model を廃止。 |
+| 2026-11-05 | K-2b | custom chooser の選択 owner | selection_field を追加し popup/sheet と caller search binding を使う。fake key/selection state は作らない。 |
+| 2026-11-05 | K-1b/K-6a | Kit recipe で表せない内容と方向 | CarouselSurfaceState と icon controls、Dropzone.icon、Avatar.fallback_content、badge_label を追加し visual wrapper を廃止。 |
+| 2026-11-05 | K-3b | responsive と count の authority | PageCount enum で pages/items を排他にし、Stepper collapsed は geometry の派生値。 |
+| 2026-11-05 | K-4 | static colspan の公開意味 | Semantics/Node/native/Element まで同じ column_span を接続。 |
+| 2026-11-05 | K-9a | author、history、共通 API | author IntoText、sender enum、line_numbers reactive に統一。外部 dataset revision だけ follow hook に渡す。 |
+| 2026-11-05 | K-9b | stat の animation と chart | caller Animated と独立 sparkline を slot に合成し、stat に数値状態を重複させない。 |
+| 2026-11-05 | K-8 | viewport の内部依存 | viewport の environment read と GPU adapter read のみを精密な module edge 例外とする。新たな service state を複製しない。 |

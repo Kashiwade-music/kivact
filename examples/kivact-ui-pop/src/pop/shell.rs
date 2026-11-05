@@ -202,8 +202,8 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 (i == 6)
                     .then(|| text("24").style(style().font_size(12).color(ColorToken::TextMuted))),
                 (i == 10).then(|| {
-                    ui::badge("3")
-                        .hue(ui::Hue::Pink)
+                    kivact::ui::badge("3")
+                        .variant(ui::BadgeHue::new(ui::Hue::Pink))
                         .variant(ui::BadgeVariant::Count)
                 }),
             );
@@ -323,7 +323,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             ))
             .style(style().padding(12).gap(8).radius(10)),
             row((
-                ui::avatar("SN").size(32).halo(true),
+                ({
+                    let initials = kivact::state::IntoText::into_text_value("SN");
+                    let look = ui::AvatarLook::default().size(32).halo(true);
+                    kivact::ui::avatar(initials)
+                        .fallback_content(move || kivact::view::text(initials))
+                        .variant(look)
+                        .status_content(look.decorations())
+                }),
                 column((
                     text("先生").style(style().weight(600)),
                     text("Lv.72 · 管理者")
@@ -420,7 +427,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             notices.update(|items| items.iter_mut().for_each(|item| item.unread = false))
         })
         .style(style().width(36)),
-        ui::avatar("SN").size(32),
+        ({
+            let initials = kivact::state::IntoText::into_text_value("SN");
+            let look = ui::AvatarLook::default().size(32);
+            kivact::ui::avatar(initials)
+                .fallback_content(move || kivact::view::text(initials))
+                .variant(look)
+                .status_content(look.decorations())
+        }),
     ))
     .style(
         style()
@@ -547,10 +561,38 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                     column((
                         text("活動ポイントを 20 消費して「外郭地区のパトロール」を開始します。"),
                         row((
-                            ui::avatar("MN").halo(true),
-                            ui::avatar("HK").hue(330.0).halo(true),
-                            ui::avatar("YZ").hue(45.0).halo(true),
-                            ui::avatar("AR").hue(160.0).halo(true),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("MN");
+                                let look = ui::AvatarLook::default().halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("HK");
+                                let look = ui::AvatarLook::default().hue(330.0).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("YZ");
+                                let look = ui::AvatarLook::default().hue(45.0).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("AR");
+                                let look = ui::AvatarLook::default().hue(160.0).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
                         ))
                         .style(
                             style()
@@ -663,13 +705,21 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 .content(move || {
                     column((
                         row((
-                            ui::avatar("MN").size(72).halo(true),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("MN");
+                                let look = ui::AvatarLook::default().size(72).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
                             column((
                                 text("アズール学園 · 調査部").style(style().weight(600)),
                                 text("★★★").style(style().color(rgb(0xf2bf0a))),
                                 wrap((
-                                    ui::badge("ストライカー"),
-                                    ui::badge("後衛").hue(ui::Hue::Gray),
+                                    kivact::ui::badge("ストライカー"),
+                                    kivact::ui::badge("後衛")
+                                        .variant(ui::BadgeHue::new(ui::Hue::Gray)),
                                 )),
                             ))
                             .style(style().gap(6)),
@@ -686,8 +736,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                         ),
                         ui::key_value("レベル", text("Lv.86")),
                         ui::key_value("絆ランク", text("Rank 20")),
-                        ui::key_value("攻撃タイプ", ui::badge("爆発").hue(ui::Hue::Red)),
-                        ui::key_value("防御タイプ", ui::badge("重装甲").hue(ui::Hue::Yellow)),
+                        ui::key_value(
+                            "攻撃タイプ",
+                            kivact::ui::badge("爆発").variant(ui::BadgeHue::new(ui::Hue::Red)),
+                        ),
+                        ui::key_value(
+                            "防御タイプ",
+                            kivact::ui::badge("重装甲").variant(ui::BadgeHue::new(ui::Hue::Yellow)),
+                        ),
                         text("個別設定").style(style().font_size(15).weight(600).margin_top(8)),
                         row((
                             text("メイン編成に固定").style(style().grow(1)),

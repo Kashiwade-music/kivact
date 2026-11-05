@@ -129,3 +129,63 @@ fn button_group_is_one_tab_stop() {
     assert!(screen.get_by_role(Role::Button, "After").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn group_orientation_updates_layout_and_roving_without_losing_selection() {
+    let (screen, (axis, selection)) = mount(|| {
+        let axis = signal(Orientation::Horizontal);
+        let selection = signal(Some("a"));
+        (
+            (axis, selection),
+            column((
+                toggle_group(
+                    "Reactive toggles",
+                    vec![
+                        ListItem::new("a", "Choice A"),
+                        ListItem::new("b", "Choice B"),
+                    ],
+                    selection,
+                )
+                .orientation(axis),
+                button_group(
+                    "Reactive actions",
+                    (
+                        button("First action"),
+                        button_group_separator().test_id("reactive-divider"),
+                        button("Last action"),
+                    ),
+                )
+                .orientation(axis),
+            )),
+        )
+    });
+    let first = screen.get_by_role(Role::Button, "Choice A");
+    first.focus();
+    screen.press_key(Key::ArrowRight);
+    assert!(screen.get_by_role(Role::Button, "Choice B").is_focused());
+    axis.set(Orientation::Vertical);
+    screen.run_until_idle();
+    assert_eq!(selection.get_untracked(), Some("a"));
+    assert_eq!(
+        screen.get_by_test_id("reactive-divider").orientation(),
+        Orientation::Horizontal
+    );
+    screen.press_key(Key::ArrowUp);
+    assert!(first.is_focused());
+    screen.get_by_role(Role::Button, "First action").focus();
+    screen.press_key(Key::ArrowDown);
+    assert!(screen.get_by_role(Role::Button, "Last action").is_focused());
+    axis.set(Orientation::Horizontal);
+    screen.run_until_idle();
+    assert_eq!(
+        screen.get_by_test_id("reactive-divider").orientation(),
+        Orientation::Vertical
+    );
+    screen.press_key(Key::ArrowLeft);
+    assert!(
+        screen
+            .get_by_role(Role::Button, "First action")
+            .is_focused()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

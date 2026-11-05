@@ -27,7 +27,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
     .into_iter()
     .zip(["進行中", "完了", "保留", "期限切れ", "NEW", "下書き"])
     .map(|(hue, s)| {
-        let badge = ui::badge(s).hue(hue);
+        let badge = kivact::ui::badge(s).variant(ui::BadgeHue::new(hue));
         // Full-width labels retain their 12 px em width, 8 px side padding
         // and 1 px borders when the source's inline row wraps.
         if s.is_ascii() {
@@ -62,17 +62,17 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 column((
                     wrap(badges),
                     wrap((
-                        ui::badge("オンライン")
-                            .hue(ui::Hue::Mint)
+                        kivact::ui::badge("オンライン")
+                            .variant(ui::BadgeHue::new(ui::Hue::Mint))
                             .variant(ui::BadgeVariant::Dot),
-                        ui::badge("離席中")
-                            .hue(ui::Hue::Yellow)
+                        kivact::ui::badge("離席中")
+                            .variant(ui::BadgeHue::new(ui::Hue::Yellow))
                             .variant(ui::BadgeVariant::Dot),
-                        ui::badge("オフライン")
-                            .hue(ui::Hue::Gray)
+                        kivact::ui::badge("オフライン")
+                            .variant(ui::BadgeHue::new(ui::Hue::Gray))
                             .variant(ui::BadgeVariant::Dot),
-                        ui::badge("Lv.90").variant(ui::BadgeVariant::Solid),
-                        ui::badge("EX").variant(ui::BadgeVariant::Slant),
+                        kivact::ui::badge("Lv.90").variant(ui::BadgeVariant::Solid),
+                        kivact::ui::badge("EX").variant(ui::BadgeVariant::Slant),
                     )),
                     ui::chip_list(chip_tags)
                         .on_add(move || {
@@ -104,27 +104,84 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 "アバター・ヘイロー",
                 column((
                     wrap((
-                        ui::avatar("MN").size(72).halo(true),
-                        ui::avatar("HK").size(56).hue(330.0).halo(true),
-                        ui::avatar("YZ").hue(45.0).halo(true),
-                        ui::avatar("AR").size(32).hue(160.0),
-                        ui::avatar("K").size(24).hue(265.0),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("MN");
+                            let look = ui::AvatarLook::default().size(72).halo(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("HK");
+                            let look = ui::AvatarLook::default().size(56).hue(330.0).halo(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("YZ");
+                            let look = ui::AvatarLook::default().hue(45.0).halo(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("AR");
+                            let look = ui::AvatarLook::default().size(32).hue(160.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("K");
+                            let look = ui::AvatarLook::default().size(24).hue(265.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
                     ))
                     .style(style().align_items(Align::End)),
                     row((
-                        ui::avatar("MN").size(32),
-                        ui::avatar("HK")
-                            .size(32)
-                            .hue(330.0)
-                            .style(style().margin_left(-8)),
-                        ui::avatar("YZ")
-                            .size(32)
-                            .hue(45.0)
-                            .style(style().margin_left(-8)),
-                        ui::avatar("AR")
-                            .size(32)
-                            .hue(160.0)
-                            .style(style().margin_left(-8)),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("MN");
+                            let look = ui::AvatarLook::default().size(32);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("HK");
+                            let look = ui::AvatarLook::default().size(32).hue(330.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        })
+                        .style(style().margin_left(-8)),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("YZ");
+                            let look = ui::AvatarLook::default().size(32).hue(45.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        })
+                        .style(style().margin_left(-8)),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("AR");
+                            let look = ui::AvatarLook::default().size(32).hue(160.0);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        })
+                        .style(style().margin_left(-8)),
                         node()
                             .child(
                                 text("+8")
@@ -144,7 +201,14 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     ))
                     .style(style().align_items(Align::Center)),
                     row((
-                        ui::avatar("HK").hue(330.0).halo(true).online(true),
+                        ({
+                            let initials = kivact::state::IntoText::into_text_value("HK");
+                            let look = ui::AvatarLook::default().hue(330.0).halo(true).online(true);
+                            kivact::ui::avatar(initials)
+                                .fallback_content(move || kivact::view::text(initials))
+                                .variant(look)
+                                .status_content(look.decorations())
+                        }),
                         column((
                             text("春日 ハルカ").style(style().weight(600)),
                             muted("セレスト女学院 · 救護騎士団").style(style().font_size(12)),
@@ -228,7 +292,8 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .tone(ui::Hue::Blue)
                                 .trailing({
                                     row((
-                                        ui::badge("承認済").hue(ui::Hue::Mint.into_value()),
+                                        kivact::ui::badge("承認済")
+                                            .variant(ui::BadgeHue::new(ui::Hue::Mint.into_value())),
                                         kivact::ui::button("報告書メニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
@@ -242,7 +307,9 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .tone(ui::Hue::Gray)
                                 .trailing({
                                     row((
-                                        ui::badge("レビュー待ち").hue(ui::Hue::Yellow.into_value()),
+                                        kivact::ui::badge("レビュー待ち").variant(
+                                            ui::BadgeHue::new(ui::Hue::Yellow.into_value()),
+                                        ),
                                         kivact::ui::button("申請メニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
@@ -256,7 +323,8 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .tone(ui::Hue::Gray)
                                 .trailing({
                                     row((
-                                        ui::badge("下書き").hue(ui::Hue::Gray),
+                                        kivact::ui::badge("下書き")
+                                            .variant(ui::BadgeHue::new(ui::Hue::Gray)),
                                         kivact::ui::button("シフトメニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
@@ -292,12 +360,23 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                             ),
                             ui::key_value(
                                 "担当",
-                                row((ui::avatar("M").size(24), text("空崎 ミナト")))
-                                    .style(style().gap(8).align_items(Align::Center)),
+                                row((
+                                    ({
+                                        let initials =
+                                            kivact::state::IntoText::into_text_value("M");
+                                        let look = ui::AvatarLook::default().size(24);
+                                        kivact::ui::avatar(initials)
+                                            .fallback_content(move || kivact::view::text(initials))
+                                            .variant(look)
+                                            .status_content(look.decorations())
+                                    }),
+                                    text("空崎 ミナト"),
+                                ))
+                                .style(style().gap(8).align_items(Align::Center)),
                             ),
                             ui::key_value(
                                 "ステータス",
-                                ui::badge("進行中").variant(ui::BadgeVariant::Dot),
+                                kivact::ui::badge("進行中").variant(ui::BadgeVariant::Dot),
                             ),
                             ui::key_value("期限", text("2026/10/10 (土) 18:00")),
                             ui::key_value(
@@ -610,18 +689,23 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                     .filter(move |s, q| contains(s.name, q) || contains(s.club, q))
                     .cell(|s| {
                         row((
-                            ui::avatar(
-                                s.name
-                                    .split(' ')
-                                    .nth(1)
-                                    .unwrap_or("?")
-                                    .chars()
-                                    .next()
-                                    .unwrap_or('?')
-                                    .to_string(),
-                            )
-                            .size(32)
-                            .hue(s.hue),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value(
+                                    s.name
+                                        .split(' ')
+                                        .nth(1)
+                                        .unwrap_or("?")
+                                        .chars()
+                                        .next()
+                                        .unwrap_or('?')
+                                        .to_string(),
+                                );
+                                let look = ui::AvatarLook::default().size(32).hue(s.hue);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
                             column((
                                 text(s.name).style(style().weight(500)),
                                 text(s.club)
@@ -637,11 +721,13 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                 kivact::ui::DataColumn::new("役割", |s: &Student| s.role.to_owned())
                     .width(220.0)
                     .cell(|s| {
-                        ui::badge(s.role).hue(if s.role == "ストライカー" {
-                            ui::Hue::Red
-                        } else {
-                            ui::Hue::Blue
-                        })
+                        kivact::ui::badge(s.role).variant(ui::BadgeHue::new(
+                            if s.role == "ストライカー" {
+                                ui::Hue::Red
+                            } else {
+                                ui::Hue::Blue
+                            },
+                        ))
                     }),
                 kivact::ui::DataColumn::new("Lv.", |s: &Student| s.level.to_string())
                     .width(70.0)
@@ -664,12 +750,12 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                 kivact::ui::DataColumn::new("状態", |s: &Student| s.status.to_owned())
                     .width(142.0)
                     .cell(|s| {
-                        ui::badge(s.status)
-                            .hue(match s.status {
+                        kivact::ui::badge(s.status)
+                            .variant(ui::BadgeHue::new(match s.status {
                                 "出撃中" => ui::Hue::Blue,
                                 "待機" => ui::Hue::Mint,
                                 _ => ui::Hue::Gray,
-                            })
+                            }))
                             .variant(ui::BadgeVariant::Dot)
                     }),
             ],

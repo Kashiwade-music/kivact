@@ -7,7 +7,7 @@ use kivact::test::render_with_handle;
 use kivact::ui::select;
 use kivact::view::Key;
 use kivact::view::Role;
-use kivact_ui_soft::{selector, theme};
+use kivact_ui_soft::theme;
 
 fn options() -> RenderOptions {
     RenderOptions::from_env().theme(theme(ThemeMode::Light))
@@ -25,7 +25,10 @@ fn choices() -> Vec<ListItem<&'static str>> {
 fn soft_selector_arrows_open_at_the_edges_without_committing() {
     let (screen, value) = render_with_handle(options(), || {
         let value = signal(Some("middle"));
-        (value, selector("Choice", choices(), value))
+        (
+            value,
+            kivact::ui::select("Choice", choices(), value).open_on_arrow(true),
+        )
     });
     let trigger = screen.get_by_role(Role::ComboBox, "Choice");
     screen.press_key(Key::Tab);

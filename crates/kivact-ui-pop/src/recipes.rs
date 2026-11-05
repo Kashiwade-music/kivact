@@ -40,6 +40,11 @@ pub(crate) fn recipes() -> UiRecipes {
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .avatar(|_| crate::recipes_avatar::avatar)
+        .badge(|_| crate::recipes_badge::badge)
+        .badge_label(|_| crate::recipes_badge::label)
+        .skeleton(|_| crate::recipes_indicators::skeleton)
+        .spinner(|_| crate::recipes_indicators::spinner)
         .toolbar(crate::recipes_groups::toolbar)
         .toggle_group(crate::recipes_groups::toggle_group)
         .button_group(crate::recipes_groups::button_group)

@@ -8,6 +8,7 @@ use kivact_core::view::{
     IntoView, Node, NodeBuilder, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
 use kivact_interaction::use_follow_end;
+// xtask-allow(state-fields): Independent builder inputs and slots; use_follow_end owns the complete following and anchor state.
 /// A scrollable message log that follows new content until the reader scrolls away.
 pub struct ChatThread {
     root: Node,
@@ -15,7 +16,7 @@ pub struct ChatThread {
     viewport: Option<NodeRef>,
     history_revision: Option<Value<u64>>,
     composer: Option<View>,
-    empty: Option<View>,
+    empty: Option<(Value<bool>, View)>,
     loading_top: Value<bool>,
     streaming: Value<bool>,
     gap: Option<Value<f64>>,
@@ -57,9 +58,9 @@ impl ChatThread {
         self.composer = Some(content.into_view());
         self
     }
-    /// Supply empty-log content; its presence is controlled by the caller.
-    pub fn empty(mut self, content: impl IntoView) -> Self {
-        self.empty = Some(content.into_view());
+    /// Show empty-log content when the caller's collection is empty.
+    pub fn empty(mut self, when: impl IntoValue<bool>, content: impl IntoView) -> Self {
+        self.empty = Some((when.into_value(), content.into_view()));
         self
     }
     /// Show an earlier-history loading status above the messages.
@@ -112,9 +113,13 @@ impl IntoView for ChatThread {
         let gap = self.gap;
         let align = self.align;
         let messages = with_recipe_style(
-            node()
-                .node_ref(content)
-                .child((loading, self.empty, self.children, typing)),
+            node().node_ref(content).child((
+                loading,
+                self.empty
+                    .map(|(when, view)| node().hidden(move || !when.get()).child(view)),
+                self.children,
+                typing,
+            )),
             |r| r.chat_thread_recipes().content_recipe(),
             &self.variants,
             state,
@@ -122,7 +127,8 @@ impl IntoView for ChatThread {
         .style(move || {
             let s = style()
                 .direction(Direction::Column)
-                .min_height(kivact_core::style::pct(100))
+                .grow(1)
+                .shrink(0)
                 .justify_content(if align.get() == ChatAlign::End {
                     kivact_core::style::Justify::End
                 } else {

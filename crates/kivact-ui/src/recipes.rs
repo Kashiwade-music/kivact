@@ -45,17 +45,19 @@
 //! `check` for a select, and `x` for the close of a dialog and a toast. A
 //! look without a mark makes the recipe's box zero-sized.
 use super::DataTableGroupState;
+use super::look_feedback;
 use super::values::{
     AxisState, ButtonState, CheckableState, DataTableCellState, DataTableCheckState,
     DataTablePageState, DataTableRowState, DialogState, FieldState, ProgressState,
     SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState,
 };
 use super::variants::Look;
-use super::{
-    AlertState, CardState, EmptyStateState, InputGroupMemberState, InputGroupState, look_feedback,
-};
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use crate::{HeadingState, StatState, look_files, look_metrics, look_static_collections};
+use crate::component_values::{
+    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
+    StatState,
+};
+use crate::{look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
@@ -64,7 +66,7 @@ use kivact_interaction::{
     DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
     TableHeaderState, ToastState, TreeItemState,
 };
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 /// A style derived from the theme and the actual state of a component's
 /// part with the component's kit-defined variants ([`Look`]): what a
@@ -128,7 +130,8 @@ macro_rules! recipe_table {
 
         impl $name {
             fn default_table() -> &'static Self {
-                static DEFAULT: OnceLock<$name> = OnceLock::new();
+                #[expect(clippy::disallowed_types, reason = "Immutable global recipe defaults are initialized once and share stable recipe identities.")]
+                static DEFAULT: std::sync::OnceLock<$name> = std::sync::OnceLock::new();
                 DEFAULT.get_or_init(|| Self {
                     $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
                     $( $( $table: Default::default(), )* )?
@@ -327,7 +330,7 @@ recipe_table! {
 recipe_table! {
     /// Theme surface of a hover preview.
     HoverCardRecipes {
-        surface(surface_recipe): crate::HoverCardSurfaceState = look_extra::hover_card,
+        surface(surface_recipe): crate::hover_card_values::HoverCardSurfaceState = look_extra::hover_card,
     }
 }
 
@@ -619,6 +622,7 @@ recipe_table! {
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
+        badge_label(badge_label_recipe): crate::BadgeState = super::look_indicators::badge_label,
         spinner(spinner_recipe): crate::SpinnerState = super::look_indicators::spinner,
         skeleton(skeleton_recipe): crate::SkeletonState = super::look_indicators::skeleton,
         button(button_recipe): ButtonState = look::button,
@@ -756,23 +760,23 @@ recipe_table! {
 recipe_table! {
     /// Toolbar surface recipes.
     ToolbarRecipes {
-        root(root_recipe): crate::ToolbarState = crate::toolbar::root_style,
+        root(root_recipe): crate::collection_values::ToolbarState = crate::toolbar::root_style,
     }
 }
 recipe_table! {
     /// Toggle group surface and item recipes.
     ToggleGroupRecipes {
-        root(root_recipe): crate::ToggleGroupState = crate::toggle_group::root_style,
-        item(item_recipe): crate::ToggleGroupItemState = crate::toggle_group::item_style,
+        root(root_recipe): crate::group_types::ToggleGroupState = crate::group_look::toggle_root,
+        item(item_recipe): crate::group_types::ToggleGroupItemState = crate::group_look::toggle_item,
     }
 }
 recipe_table! {
     /// Joined action group surface and auxiliary cell recipes.
     ButtonGroupRecipes {
-        root(root_recipe): crate::ButtonGroupState = crate::button_group::root_style,
-        member(member_recipe): crate::ButtonGroupMemberState = crate::button_group::member_style,
-        separator(separator_recipe): crate::ButtonGroupState = crate::button_group::separator_style,
-        text(text_recipe): crate::ButtonGroupState = crate::button_group::text_style,
+        root(root_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_root,
+        member(member_recipe): crate::group_types::ButtonGroupMemberState = crate::group_look::button_member,
+        separator(separator_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_separator,
+        text(text_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_text,
     }
 }
 
@@ -919,7 +923,7 @@ recipe_table! {
         media(media_recipe): crate::ChatMessageState = crate::look_chat::slot,
         icon(icon_recipe): crate::ChatMessageState = crate::look_chat::slot,
         actions(actions_recipe): crate::ChatMessageState = crate::look_chat::slot,
-        reactions(reactions_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        reactions(reactions_recipe): crate::ChatMessageState = crate::look_chat::reactions,
     }
 }
 
@@ -929,7 +933,7 @@ recipe_table! {
         root(root_recipe): crate::ChatThreadState = crate::look_chat::thread_root,
         viewport(viewport_recipe): crate::ChatThreadState = crate::look_chat::viewport,
         content(content_recipe): crate::ChatThreadState = crate::look_chat::column,
-        scroll_button(scroll_button_recipe): crate::ChatThreadState = crate::look_chat::slot,
+        scroll_button(scroll_button_recipe): crate::ChatThreadState = crate::look_chat::jump,
         composer(composer_recipe): crate::ChatThreadState = crate::look_chat::slot,
     }
 }

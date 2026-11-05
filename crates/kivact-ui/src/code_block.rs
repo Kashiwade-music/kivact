@@ -1,12 +1,15 @@
 //! Role: Display selectable source code with themed syntax, numbering and clipboard feedback.
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use kivact_core::custom::{Part, TextEditing, part};
+use kivact_core::custom::{NodeRefExt, Part, TextEditing, part};
 use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Value, signal};
 use kivact_core::style::{Length, StyledRange, style};
-use kivact_core::view::{IntoView, Node, NodeBuilder, Role, ScrollAxes, View, node, scroll, text};
+use kivact_core::view::{
+    IntoView, Node, NodeBuilder, Role, ScrollAxes, View, node, node_ref, scroll, text,
+};
 use kivact_interaction::{use_copy_feedback, use_disclosure};
 use std::time::Duration;
+// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
 /// Rendered source facts supplied to code-block recipes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CodeBlockState {
@@ -15,6 +18,7 @@ pub struct CodeBlockState {
     pub expanded: bool,
     pub copied: bool,
 }
+// xtask-allow(state-fields): Independent builder inputs and slots; native editing, use_disclosure and use_copy_feedback own interaction state.
 /// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {
     root: Node,
@@ -232,12 +236,14 @@ impl IntoView for CodeBlock {
             )
         });
         let on_copy = self.on_copy;
+        let copied_label = kivact_core::i18n::message("code_block.copied", "Copied");
+        let copy_label = kivact_core::i18n::message("code_block.copy", "Copy");
         let copy = with_recipe_style(
             crate::button(move || {
                 if copied.get() {
-                    kivact_core::i18n::message("code_block.copied", "Copied").get()
+                    copied_label.get()
                 } else {
-                    kivact_core::i18n::message("code_block.copy", "Copy").get()
+                    copy_label.get()
                 }
             })
             .hidden(move || !self.copy_button.get())
@@ -274,6 +280,8 @@ impl IntoView for CodeBlock {
             wrap: wrapped.get(),
             rows: Some((1, usize::MAX)),
         });
+        let editor_ref = node_ref();
+        let editor_rect = editor_ref.rect();
         let editor = Part::new(part(|s| s).state(), move |node| {
             node.role(Role::TextBox)
                 .focusable(true)
@@ -281,27 +289,38 @@ impl IntoView for CodeBlock {
                 .text_editing(editing)
         });
         let editor = with_recipe_style(
-            node().part(editor),
+            node().part(editor).node_ref(editor_ref),
             |r| r.code_block_recipes().code_recipe(),
             &self.variants,
             state,
         );
         let gutter = with_recipe_style(
             text(move || {
-                code.with(|s| {
-                    (1..=s.split('\n').count())
-                        .map(|n| n.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                })
+                let _geometry = editor_rect.get();
+                code.with(|source| crate::code_gutter::numbers(editor_ref, source))
             })
             .hidden(move || !numbered.get()),
             |r| r.code_block_recipes().gutter_recipe(),
             &self.variants,
             state,
-        );
+        )
+        .style(move || {
+            let _geometry = editor_rect.get();
+            let _source = code.get();
+            match editor_ref.text_layout(0..2).and_then(|layout| {
+                layout
+                    .lines
+                    .get(1)
+                    .map(|next| next.baseline - layout.lines[0].baseline)
+            }) {
+                Some(height) if height > 0.0 => {
+                    style().line_height(kivact_core::style::LineHeight::px(height))
+                }
+                _ => style(),
+            }
+        });
         let body = with_recipe_style(
-            node().child((gutter, editor)),
+            node().child((editor, gutter)),
             |r| r.code_block_recipes().body_recipe(),
             &self.variants,
             state,

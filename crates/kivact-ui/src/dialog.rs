@@ -29,6 +29,7 @@ use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_r
 use kivact_core::view::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
+// xtask-allow(state-fields): Independent construction bindings, focus targets and content slots; modal lifecycle belongs to DialogApi.
 pub struct Dialog {
     open: Binding<bool>,
     title: Value<String>,

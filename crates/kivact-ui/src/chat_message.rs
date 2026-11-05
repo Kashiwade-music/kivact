@@ -1,9 +1,12 @@
 //! Role: Assemble a named chat message with caller supplied content and metadata.
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use crate::{ChatMessageState, ChatMessageStatus, ChatSender};
-use kivact_core::state::{IntoText, IntoValue, Value};
+use crate::{
+    ChatAlign, ChatBubbleGroup, ChatMessageState, ChatMessageStatus, ChatReactionsSide, ChatSender,
+};
+use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, View, node, text};
+// xtask-allow(state-fields): Independent builder inputs and view slots; this builder owns no persistent interaction state.
 /// A message with independent content, author and supporting slots.
 pub struct ChatMessage {
     root: Node,
@@ -20,6 +23,11 @@ pub struct ChatMessage {
     icon: Option<View>,
     actions: Option<View>,
     reactions: Option<View>,
+    align: Option<Value<ChatAlign>>,
+    group: ChatBubbleGroup,
+    reactions_side: Value<ChatReactionsSide>,
+    bubble_width: Option<Value<kivact_core::style::Length>>,
+    on_press: Option<Callback<()>>,
     variants: Variants,
 }
 /// A message attributed to `author`; put its body in `.content(..)`.
@@ -39,10 +47,40 @@ pub fn chat_message(author: impl IntoText) -> ChatMessage {
         icon: None,
         actions: None,
         reactions: None,
+        align: None,
+        group: ChatBubbleGroup::Single,
+        reactions_side: ChatReactionsSide::Bottom.into_value(),
+        bubble_width: None,
+        on_press: None,
         variants: Variants::default(),
     }
 }
 impl ChatMessage {
+    /// Align the message independently of participant role.
+    pub fn align(mut self, align: impl IntoValue<ChatAlign>) -> Self {
+        self.align = Some(align.into_value());
+        self
+    }
+    /// Join the body with neighboring messages from the same participant.
+    pub fn group(mut self, group: ChatBubbleGroup) -> Self {
+        self.group = group;
+        self
+    }
+    /// Place the reaction slot above or below the body.
+    pub fn reactions_side(mut self, side: impl IntoValue<ChatReactionsSide>) -> Self {
+        self.reactions_side = side.into_value();
+        self
+    }
+    /// Set the width of the inner bubble while preserving the message row's width.
+    pub fn bubble_width(mut self, width: impl IntoValue<kivact_core::style::Length>) -> Self {
+        self.bubble_width = Some(width.into_value());
+        self
+    }
+    /// Make the body actionable using shared button keyboard and accessibility semantics.
+    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        self.on_press = Some(press.into());
+        self
+    }
     /// Set the participant role independently of their displayed name.
     pub fn sender(mut self, sender: impl IntoValue<ChatSender>) -> Self {
         self.sender = sender.into_value();
@@ -118,9 +156,25 @@ impl IntoView for ChatMessage {
     fn into_view(self) -> View {
         let sender = self.sender;
         let status = self.status;
+        let align = self.align;
+        let group = self.group;
+        let side = self.reactions_side;
+        let has_reactions = self.reactions.is_some();
+        let actionable = self.on_press.is_some();
         let state = move || ChatMessageState {
             sender: sender.get(),
             status: status.map(|s| s.get()),
+            align: align.map(|v| v.get()).unwrap_or_else(|| {
+                if sender.get() == ChatSender::User {
+                    ChatAlign::End
+                } else {
+                    ChatAlign::Start
+                }
+            }),
+            group,
+            reactions_side: side.get(),
+            has_reactions,
+            actionable,
         };
         let variants = &self.variants;
         let author = with_recipe_style(
@@ -137,24 +191,19 @@ impl IntoView for ChatMessage {
                 state,
             )
         });
+        let sending = kivact_core::i18n::message("chat_message.sending", "Sending");
+        let sent = kivact_core::i18n::message("chat_message.sent", "Sent");
+        let delivered = kivact_core::i18n::message("chat_message.delivered", "Delivered");
+        let read = kivact_core::i18n::message("chat_message.read", "Read");
+        let failed = kivact_core::i18n::message("chat_message.error", "Failed");
         let status = self.status.map(|s| {
             with_recipe_style(
                 text(move || match s.get() {
-                    ChatMessageStatus::Sending => {
-                        kivact_core::i18n::message("chat_message.sending", "Sending").get()
-                    }
-                    ChatMessageStatus::Sent => {
-                        kivact_core::i18n::message("chat_message.sent", "Sent").get()
-                    }
-                    ChatMessageStatus::Delivered => {
-                        kivact_core::i18n::message("chat_message.delivered", "Delivered").get()
-                    }
-                    ChatMessageStatus::Read => {
-                        kivact_core::i18n::message("chat_message.read", "Read").get()
-                    }
-                    ChatMessageStatus::Error => {
-                        kivact_core::i18n::message("chat_message.error", "Failed").get()
-                    }
+                    ChatMessageStatus::Sending => sending.get(),
+                    ChatMessageStatus::Sent => sent.get(),
+                    ChatMessageStatus::Delivered => delivered.get(),
+                    ChatMessageStatus::Read => read.get(),
+                    ChatMessageStatus::Error => failed.get(),
                 }),
                 |r| r.chat_message_recipes().status_recipe(),
                 variants,
@@ -243,6 +292,15 @@ impl IntoView for ChatMessage {
             variants,
             state,
         );
+        let mut body = body;
+        if let Some(press) = self.on_press {
+            body = body
+                .part(kivact_interaction::use_button().control())
+                .on_press(move || press.call(()));
+        }
+        if let Some(width) = self.bubble_width {
+            body = body.style(move || kivact_core::style::style().width(width.get()));
+        }
         with_base_recipe_style(
             self.root,
             |r| r.chat_message_recipes().root_recipe(),

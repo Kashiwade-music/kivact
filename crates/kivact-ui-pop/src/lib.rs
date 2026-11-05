@@ -30,11 +30,14 @@ mod messaging;
 mod notifications;
 mod patterns;
 mod recipes;
+mod recipes_avatar;
+mod recipes_badge;
 mod recipes_collections;
 mod recipes_extra;
 mod recipes_field;
 mod recipes_files;
 mod recipes_groups;
+mod recipes_indicators;
 mod recipes_input;
 mod recipes_palette;
 mod recipes_small;
@@ -52,15 +55,17 @@ pub use date::{
     Calendar, CalendarEvent, DateInput, DateRangeInput, calendar, date_input, date_range_input,
 };
 pub use display::{
-    Alert, Avatar, Badge, BadgeVariant, EmptyState, ListItem, Skeleton, StatCard, alert, avatar,
-    badge, dots_loader, empty_state, key_value, list_item, panel, progress_ring, section_heading,
-    skeleton, sparkline, spinner, stat_card,
+    Alert, EmptyState, ListItem, StatCard, alert, empty_state, key_value, list_item, panel,
+    progress_ring, section_heading, sparkline, stat_card,
 };
 pub use messaging::{
     Message, MessageGroup, Thread, message, message_group, thread, typing_message,
 };
 pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
 pub use patterns::{AgendaItem, Stepper, agenda_item, breadcrumb, stepper};
+pub use recipes_avatar::AvatarLook;
+pub use recipes_badge::{BadgeHue, BadgeVariant};
+pub use recipes_indicators::SpinnerLook;
 pub use recipes_small::{Segments, Striped};
 pub use resize::resizable_text_area;
 pub use tabs::tab_label;

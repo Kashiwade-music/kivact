@@ -7,14 +7,6 @@ use kivact_core::view::{
     HandlerResult, IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref, text,
 };
 
-/// Visual overrides for static lists and item rows.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ItemListTokens {
-    pub gap: Option<f64>,
-    pub padding: Option<f64>,
-    pub row_gap: Option<f64>,
-    pub description_size: Option<f64>,
-}
 /// A nonselectable semantic list.
 pub struct ItemList {
     root: Node,
@@ -156,7 +148,7 @@ impl IntoView for ItemRow {
         }
         let part = part(|s| s);
         let state = part.state();
-        let wrap = |view: View, pick: fn(&crate::UiRecipes) -> &crate::Recipe<PartState>| {
+        let wrap = |view: View, pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<PartState>| {
             with_base_recipe_style(node().child(view), pick, &variants, move || state.get())
         };
         let title = wrap(

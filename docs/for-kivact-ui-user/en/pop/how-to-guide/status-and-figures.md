@@ -59,7 +59,7 @@ for a screen with several sections. Put a `panel` around each section.
 ## List records with a status
 
 `pop::list_item(title)` is a row for a record: an optional round icon, a title
-with a subtitle, and a trailing view. `pop::badge(label)` is the status chip.
+with a subtitle, and a trailing view. `kivact::ui::badge(label)` is the status chip.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -87,9 +87,9 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
                     .tone(pop::Hue::Blue)
                     .trailing({
                         if customer.active {
-                            pop::badge("Active").hue(pop::Hue::Mint)
+                            kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))
                         } else {
-                            pop::badge("Paused").hue(pop::Hue::Gray)
+                            kivact::ui::badge("Paused").variant(pop::BadgeHue::new(pop::Hue::Gray))
                         }
                     })
             },
@@ -123,7 +123,7 @@ fn details() -> impl IntoView {
     pop::panel((
         pop::key_value("Name", text("Haruka Sato")),
         pop::key_value("Plan", text("Team")),
-        pop::key_value("Status", pop::badge("Active").hue(pop::Hue::Mint)),
+        pop::key_value("Status", kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))),
         pop::key_value(
             "Storage",
             pop::progress_ring(72.0, "Used", pop::Hue::Blue.into_value()),
@@ -143,10 +143,7 @@ with `.name("Upload progress")`.
 
 ## Show who
 
-`pop::avatar(initials)` draws a round avatar. `.size(px)`, `.hue(degrees)`
-(a color angle from 0 to 360, not a `Hue`), `.halo(true)` and `.online(true)`
-adjust it. Avatars are for display; put them in a button when they should be
-clickable.
+Use `kivact::ui::avatar(name)` with `pop::AvatarLook` for the Pop pixel diameter, continuous hue, halo and online decoration. Pass literal initials through `.fallback_content(|| text("AS"))` and mount `look.decorations()` through `.status_content(..)`. The same look is supplied with `.variant(look)`.
 
 ## Hue and Tone: which one
 
@@ -164,3 +161,15 @@ a `Hue`, decide the color; when a standard or message component asks for a
   empty states and toasts
 - [Set up the Pop theme and tokens](theme-and-tokens.md) to change the hues
 - All display components: `cargo doc -p kivact-ui-pop --open`
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn person() -> impl IntoView {
+    let look = pop::AvatarLook::default().size(48).hue(330.0).halo(true).online(true);
+    kivact::ui::avatar("AS")
+        .fallback_content(|| text("AS"))
+        .variant(look)
+        .status_content(look.decorations())
+}
+```

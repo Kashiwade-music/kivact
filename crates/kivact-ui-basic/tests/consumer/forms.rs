@@ -248,7 +248,7 @@ fn combobox_filters_chooses_and_clears() {
         (
             value,
             page(
-                basic::combobox(fruits(), value)
+                kivact::ui::combobox("Fruit", fruits(), value)
                     .placeholder("Select fruit")
                     .show_clear(true)
                     .name("Fruit")

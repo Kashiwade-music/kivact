@@ -43,7 +43,9 @@ fn default() -> impl IntoView {
                 .border(1, basic::ColorName::Border),
         )
     };
-    basic::collapsible(open)
+    kivact::ui::disclosure("Details", open)
+        .variant(basic::DisclosureVariant::Plain)
+        .animated(false)
         .content(move || {
             column((
                 repository("@radix-ui/primitives"),
@@ -74,7 +76,9 @@ fn initially_open() -> impl IntoView {
             }
             .to_string()
         }),
-        basic::collapsible(open)
+        kivact::ui::disclosure("Details", open)
+            .variant(basic::DisclosureVariant::Plain)
+            .animated(false)
             .content(|| basic::paragraph("Order #4189 shipped on Friday and arrives on Tuesday."))
             .attach(
                 button("Toggle details")

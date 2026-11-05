@@ -45,7 +45,7 @@ fn figures() -> impl IntoView {
 
 ## 状態付きのレコードを並べる
 
-`pop::list_item(title)` は、レコード 1 件の行です。丸いアイコン（任意）、タイトルとサブタイトル、末尾に置くビューを持ちます。`pop::badge(label)` は状態のチップです。
+`pop::list_item(title)` は、レコード 1 件の行です。丸いアイコン（任意）、タイトルとサブタイトル、末尾に置くビューを持ちます。`kivact::ui::badge(label)` は状態のチップです。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -73,9 +73,9 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
                     .tone(pop::Hue::Blue)
                     .trailing({
                         if customer.active {
-                            pop::badge("Active").hue(pop::Hue::Mint)
+                            kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))
                         } else {
-                            pop::badge("Paused").hue(pop::Hue::Gray)
+                            kivact::ui::badge("Paused").variant(pop::BadgeHue::new(pop::Hue::Gray))
                         }
                     })
             },
@@ -102,7 +102,7 @@ fn details() -> impl IntoView {
     pop::panel((
         pop::key_value("Name", text("Haruka Sato")),
         pop::key_value("Plan", text("Team")),
-        pop::key_value("Status", pop::badge("Active").hue(pop::Hue::Mint)),
+        pop::key_value("Status", kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))),
         pop::key_value(
             "Storage",
             pop::progress_ring(72.0, "Used", pop::Hue::Blue.into_value()),
@@ -117,7 +117,7 @@ fn details() -> impl IntoView {
 
 ## 誰かを見せる
 
-`pop::avatar(initials)` は丸いアバターを描きます。`.size(px)`、`.hue(degrees)`（0 から 360 の色相角で、`Hue` ではありません）、`.halo(true)`、`.online(true)` で調整します。アバターは表示用です。クリックさせたいときはボタンに入れてください。
+`kivact::ui::avatar(name)` に `pop::AvatarLook` を渡すと、Pop のピクセル直径、連続色相、halo と online の装飾を使えます。イニシャルの文字列は `.fallback_content(|| text("AS"))` に渡し、`look.decorations()` は `.status_content(..)` に一度だけ構築します。同じ look を `.variant(look)` に渡します。
 
 ## Hue と Tone: どちらを使うか
 
@@ -129,3 +129,15 @@ fn details() -> impl IntoView {
 - [メッセージと通知を出す](messages-and-notifications.md): アラート、空の状態、トースト。
 - [Pop のテーマとトークンを設定する](theme-and-tokens.md): 色相の変更。
 - すべての表示コンポーネント: `cargo doc -p kivact-ui-pop --open`
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn person() -> impl IntoView {
+    let look = pop::AvatarLook::default().size(48).hue(330.0).halo(true).online(true);
+    kivact::ui::avatar("AS")
+        .fallback_content(|| text("AS"))
+        .variant(look)
+        .status_content(look.decorations())
+}
+```

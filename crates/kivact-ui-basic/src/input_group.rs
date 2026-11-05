@@ -131,14 +131,6 @@ impl InputGroup {
     }
 }
 
-impl InputGroup {
-    /// Bind `anchor` to the group's box, for a popup that opens below it.
-    pub(crate) fn anchored(mut self, anchor: NodeRef) -> Self {
-        self.anchor = Some(anchor);
-        self
-    }
-}
-
 impl NodeBuilder for InputGroup {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {

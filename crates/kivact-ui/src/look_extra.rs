@@ -299,7 +299,7 @@ pub(super) fn drawer_handle(_: &Theme, state: &DialogState) -> Style {
     }
 }
 
-pub(super) fn hover_card(t: &Theme, _: &crate::HoverCardSurfaceState) -> Style {
+pub(super) fn hover_card(t: &Theme, _: &crate::hover_card_values::HoverCardSurfaceState) -> Style {
     tooltip(
         t,
         &PopupState {

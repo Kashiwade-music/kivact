@@ -85,7 +85,7 @@ fn notifications_card(
                 basic::field_separator(),
                 field(
                     "Reminders",
-                    basic::toggle_group(reminders, reminder).variant(basic::ToggleVariant::Outline),
+                    kivact::ui::toggle_group("Options", reminders, reminder).variant(basic::ToggleVariant::Outline),
                 ),
             ))
         })

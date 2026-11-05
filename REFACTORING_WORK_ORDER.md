@@ -2294,6 +2294,8 @@ wave W6。付録 C の作業。
 
 ### K-2b combobox の family と select の sheet
 
+- **custom chooser の補完**: `ui::selection_field(label:IntoText,value_label:IntoText)` は content(Fn()->V)、presentation(SelectPresentation)、open(binding)、variant を持つ。既存 popup/sheet 境界を使い、ダミーの選択 key や別 selection machine を作らず、caller の検索 binding を保持する。
+
 - **実装時の契約補完**: 公開 ComboboxMode::{Inline,Popup} は unit variant、open(binding) は private presentation descriptor に格納。query は Query::{Local(String),Shared(Binding<String>)} の単一 owner。SelectPresentation::{Popover,BottomSheet,Adaptive}。chips/exclude_selected は structural option。
 
 - **目的**: 付録 C.2 の combobox 系、select の touch の sheet。設計書 17.18 節の C-35。付録 A の SM-K16、SM-K17、SM-K919。
@@ -2328,6 +2330,8 @@ wave W6。付録 C の作業。
 
 ### K-3b pagination・stepper・breadcrumb・navigation menu
 
+- **和集合の補完**: PaginationMode::{Pages,Input,Count,Compact,Dots,None}。PageItem::{First,Previous,Page(usize),Ellipsis,Next,Last}。page binding は0始まり、入力文字列は1始まり。PageCount::{Pages,Items} が count/total_items の authority を選ぶ。NavOpen 遷移が on_open_change を通知する。StepperState.collapsed は rect/count/min_step_width から派生し、StepperTokens に閾値と connector_gap を持つ。
+
 - **目的**: 付録 C.2 の pagination、stepper、breadcrumb、navigation menu。付録 A の SM-K12、SM-K13、SM-K922、SM-K923。
 - **決定済みの形**:
   - `ui::pagination(count: impl IntoValue<usize>, page: impl IntoBinding<usize>)`、`.siblings(impl IntoValue<usize>)`、`.item(impl Fn(PageItem) -> V + 'static)`（basic の静的な part の組み立て）。
@@ -2343,6 +2347,8 @@ wave W6。付録 C の作業。
 - **規模**: L。**並列**: K-0 の後、ほかの K と並べてよい。
 
 ### K-4 collection と creative と game
+
+- **semantics の補完**: TableCell.col_span は正準 Semantics.column_span と Node.column_span、native AccessKit、Element.column_span まで接続する。Tree.header/reveal と marker recipe を保持する。ItemRow の title_content/description_content/header/footer は view slot。
 
 - **目的**: 付録 C.2 の tree の採用、static table、item list。付録 A の SM-K11、SM-K33（frame の loop と focus の復元）、SM-K917。
 - **決定済みの形**:
@@ -2374,6 +2380,8 @@ wave W6。付録 C の作業。
 
 ### K-6a badge・avatar・skeleton・spinner・kbd
 
+- **見た目の補完**: Avatar.fallback_content(IntoViewFn) は画像なし・最終画像失敗の両経路を共通化する。badge_label recipe で文字だけの transform 等を指定する。Creative KeyGlyph は keyframe 描画の domain enum であり、kbd へ移さない。
+
 - **実装時の契約補完**: kbd_combo(Vec<Key>) に modifiers(IntoValue<Modifiers>) を追加し、既存 Key にない modifier を正準 Modifiers で表す。meta の記号は Capabilities.command_key に従う。
 
 - **目的**: 付録 C.2 の Tier 2 の一部。付録 A の SM-K32、SM-K10（`avatar_group.rs` の部分）、SM-K916。
@@ -2392,6 +2400,8 @@ wave W6。付録 C の作業。
 
 ### K-6b empty state・alert・card・input group
 
+- **和集合の補完**: Alert content/collapsible/open/dismissible/dismiss_label、EmptyState.heading_level、input_group_with を保持。InputGroupMemberState は列挙位置・方向・実際の focus_within を派生させる。色・密度・elevation は各 kit の Variant と recipe。
+
 - **目的**: 付録 C.2 の Tier 2 の残り。付録 A の SM-K22、SM-K23。
 - **決定済みの形**:
   - empty state:
@@ -2399,7 +2409,7 @@ wave W6。付録 C の作業。
     - 一度だけ `announcer` で読み上げる（`enum Announcement { Pending, Spoken }`）。
   - alert:
     - `ui::alert(title)`、`.description(..)`、`.tone(..)`、`.icon(..)`、`.on_dismiss(..)`、`.variant(..)`（banner は `AlertVariant::Banner`）。
-    - 閉じた後の focus の復元は core の `restore_focus`（SM-K22: `enum BannerState { Shown, Dismissed }`）。
+    - 閉じた後の focus の復元は core の `restore_focus`（SM-K22: `enum BannerState { Shown { restore: Option<NodeRef> }, Dismissed }`）。
     - G-5 の既定の失敗の表示をこれに差し替える。
   - card: `ui::card(children: impl IntoView)`、`.header(impl IntoView)`、`.media(impl IntoView)`、`.footer(impl IntoView)`、`.on_press(..)`、`.selected(impl IntoBinding<bool>)`。
   - input group: `ui::input_group(label, children: impl IntoChildren)`、`ui::input_addon(text)`（basic と soft の `input_group_text` は `input_addon`）。
@@ -2429,6 +2439,8 @@ wave W6。付録 C の作業。
 
 ### K-9a chat と code block
 
+- **公開契約の補完**: chat_message(author:IntoText) と sender(ChatSender) を分ける。line_numbers(IntoValue<bool>) に統一し alias は作らない。highlight は T-1 の content と状態付き行 callback と同じ署名。chat_thread.empty(predicate,content)、history_revision は外部 dataset の実 revision をそのまま use_follow_end に渡す。Pop の conversation-preview thread と Soft の音声 dictation は domain に残す。
+
 - **目的**: 設計書 17.15 節の chat と code block。
 - **決定済みの形**:
   - chat:
@@ -2437,7 +2449,7 @@ wave W6。付録 C の作業。
     - `ui::typing_indicator()`。
     - `ui::chat_composer(value: impl IntoBinding<String>)`（`.on_submit(..)`）。
   - code block:
-    - `ui::code_block(code: impl IntoValue<String>)`。builder: `.line_numbers()`、`.highlight(..)`（引数は T-1 の `line_styles` と同じ形）、`.wrap(impl IntoValue<bool>)`。copy の button は `use_copy_feedback`。
+    - `ui::code_block(code: impl IntoValue<String>)`。builder: `.line_numbers(impl IntoValue<bool>)`、`.highlight(..)`（引数は T-1 の `line_styles` と同じ形）、`.wrap(impl IntoValue<bool>)`。copy の button は `use_copy_feedback`。
     - 言語ごとの構文の色の関数は kit に残す（basic の `rust_lines` は `highlight` に渡す関数になる）。
   - soft の `streaming_text`・`chat_tool_calls`・`chat_token` は soft に残す。
 - **試験**: 足す。`chat_thread_is_a_log_and_follows_the_end`、`code_block_copies_and_numbers_lines`。
@@ -2445,6 +2457,8 @@ wave W6。付録 C の作業。
 - **規模**: L。**並列**: K-2a の後。ほかの K と並べてよい。
 
 ### K-9b progress の variant・stat・heading・description list・aspect ratio
+
+- **公開契約の補完**: Trend::{Up,Down,Neutral}、delta(IntoText)、icon/chart/value_content/label_content は view slot。Description.term_content は term の accessible text を保ち可視内容だけ差し替える。独立 sparkline や caller Animated を合成し、stat に別の数値 owner を作らない。
 
 - **目的**: 設計書 17.15 節の残りの行。
 - **決定済みの形**:

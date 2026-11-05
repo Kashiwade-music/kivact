@@ -140,6 +140,22 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            combobox: kivact::ui::ComboboxTokens {
+                foreground: colors.text_primary,
+                muted: colors.text_secondary,
+                background: colors.bg_popover,
+                border: colors.border,
+                active_background: colors.overlay_hover,
+                chip_background: colors.accent_muted,
+                focus: colors.accent,
+                field_radius: Some(tokens.radius.element),
+                option_radius: tokens.radius.element,
+                chip_radius: tokens.radius.element,
+                focus_ring: Some(tokens.sizes.focus_ring_width),
+                disabled_opacity: Some(tokens.sizes.disabled_opacity),
+                empty_font_size: Some(tokens.typography.body.size_px),
+                ..Default::default()
+            },
             hover_card: kivact::ui::HoverCardTokens {
                 offset: tokens.spacing.s1,
                 viewport_margin: tokens.spacing.layer_viewport_gutter,

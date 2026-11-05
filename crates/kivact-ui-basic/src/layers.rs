@@ -5,7 +5,6 @@ use crate::button::{Look, button_style};
 use kivact::custom::PartState;
 use kivact::style::{Position, Style, style, use_theme};
 use kivact::ui::ControlSize;
-use kivact::view::{Node, node};
 
 /// The layer behind a modal: `fixed inset-0 bg-black/10 backdrop-blur-xs`,
 /// in the theme's `overlay` color (black at 10 % in both modes). Call it
@@ -16,11 +15,6 @@ pub(crate) fn scrim_style() -> Style {
         .inset(0)
         .background(use_theme().get().colors().overlay)
         .backdrop_blur(4)
-}
-
-/// A node drawn as [`scrim_style`].
-pub(crate) fn scrim() -> Node {
-    node().style(scrim_style)
 }
 
 /// A title: `text-sm font-medium` in the popover foreground. Call it inside

@@ -24,6 +24,7 @@ use std::rc::Rc;
 /// What a tab shows, from its item and its state.
 type TabContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<TabState>)>;
 
+// xtask-allow(state-fields): Optional panel, item and activation configuration; selection and focus belong to TabListApi.
 pub struct Tabs<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
