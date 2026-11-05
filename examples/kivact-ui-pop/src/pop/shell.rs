@@ -344,8 +344,8 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             .padding_top(12)
             .padding_x(8)
             .padding_bottom(8)
-            .background(ui::Color::Background)
-            .border_right(1, ui::Color::Line),
+            .background(ui::ColorName::Background)
+            .border_right(1, ui::ColorName::Line),
     );
     let notices = signal(vec![
         ui::NotificationItem {
@@ -429,8 +429,8 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             .padding_x(24)
             .gap(12)
             .align_items(Align::Center)
-            .background(ui::Color::Background)
-            .border_bottom(1, ui::Color::Line),
+            .background(ui::ColorName::Background)
+            .border_bottom(1, ui::ColorName::Line),
     );
     let content = column((
         section_views,
@@ -483,7 +483,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
         ))
         .style(style().grow(1).min_width(0).height(pct(100))),
     ))
-    .style(style().background(ui::Color::Background))
+    .style(style().background(ui::ColorName::Background))
     .style(style().size(pct(100), pct(100)));
     let mut commands = SECTIONS
         .iter()
