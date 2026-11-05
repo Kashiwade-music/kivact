@@ -263,7 +263,7 @@ impl NodeRefExt for NodeRef {
     #[track_caller]
     fn is_visible(&self) -> bool {
         let (rt, _) = self.state(Location::caller());
-        let revision = ViewState::tree_mut(&rt).visibility_revision(Location::caller());
+        let revision = ViewState::tree(&rt).visibility_revision();
         revision.track();
         self.tracked_node()
             .is_some_and(|token| ViewState::tree(&rt).is_visible(token.node.node))
@@ -272,7 +272,7 @@ impl NodeRefExt for NodeRef {
     fn is_in_live_region(&self) -> bool {
         let at = Location::caller();
         let (rt, _) = self.state(at);
-        let revision = ViewState::tree_mut(&rt).live_region_revision(at);
+        let revision = ViewState::tree(&rt).live_region_revision();
         revision.track();
         self.tracked_node()
             .is_some_and(|token| ViewState::tree(&rt).is_in_live_region(token.node.node))

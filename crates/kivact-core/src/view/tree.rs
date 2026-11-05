@@ -413,16 +413,14 @@ impl ViewNodes {
         self.engine.reader()
     }
 
-    /// A value-less visibility notification owned by the App root, created
-    /// for choice controllers tracking ancestor visibility.
-    pub(crate) fn visibility_revision(&mut self, at: &'static Location<'static>) -> Notifier {
-        let _ = at;
+    /// A value-less visibility notification owned by the App root, for
+    /// choice controllers tracking ancestor visibility.
+    pub(crate) fn visibility_revision(&self) -> Notifier {
         self.visibility_revision
     }
 
     /// Track changes to live-region ancestry.
-    pub(crate) fn live_region_revision(&mut self, at: &'static Location<'static>) -> Notifier {
-        let _ = at;
+    pub(crate) fn live_region_revision(&self) -> Notifier {
         self.live_region_revision
     }
 
