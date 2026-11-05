@@ -7,9 +7,10 @@ use kivact::ui::{
     ButtonVariant, ControlSize, button, button_group, checkbox, progress, radio_group,
     range_slider, slider, switch, toggle_button, toggle_group,
 };
+use kivact::ui::{RadioGroupVariant, toolbar};
 use kivact::view::Orientation;
 use kivact::view::{Node, NodeBuilder, column, icon, row};
-use kivact_ui_soft::{check_indicator, radio_indicator, segmented_control, toolbar, toolbar_item};
+use kivact_ui_soft::{check_indicator, keyboard_hint, radio_indicator, with_key_hints};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
@@ -33,19 +34,22 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "segmented-control" => specimen(
             "Choose a view",
-            segmented_control(
+            radio_group(
                 "View",
                 vec![ListItem::new("list", "List"), ListItem::new("grid", "Grid")],
                 signal(Some("list")),
-            ),
-            "segmented_control(\"View\", items, selection)",
+            )
+            .variant(RadioGroupVariant::Segmented),
+            "radio_group(\"View\", items, selection).variant(RadioGroupVariant::Segmented)",
         ),
         "toolbar" => specimen(
             "Keyboard navigation between tools",
-            toolbar("Editing")
-                .start((toolbar_item(button("Undo")),))
-                .end((toolbar_item(button("Redo")),)),
-            "toolbar(\"Editing\").start(|| toolbar_item(button(\"Undo\")))",
+            with_key_hints(Orientation::Horizontal, || {
+                toolbar("Editing")
+                    .start((keyboard_hint(button("Undo")),))
+                    .end((keyboard_hint(button("Redo")),))
+            }),
+            "toolbar(\"Editing\").start(|| keyboard_hint(button(\"Undo\")))",
         ),
         "indicator" => specimen(
             "Selection marks",

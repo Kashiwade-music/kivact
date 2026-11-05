@@ -1,11 +1,12 @@
 //! Role: Demonstrate Soft badges, placeholders and status indicators.
 use super::specimen::specimen;
 use kivact::style::{Align, style};
+use kivact::ui::badge;
 use kivact::ui::{ControlSize, spinner};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     BadgeVariant, BannerStatus, SkeletonRadius, SpinnerShade, SpinnerVariant, StatusDotVariant,
-    TokenColor, badge, banner, skeleton, status_dot, token,
+    TokenColor, banner, skeleton, status_dot, token,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -14,14 +15,14 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             "Semantic and categorical colors",
             row((
                 badge("Neutral"),
-                badge("Info").variant(BadgeVariant::Info),
-                badge("Success").variant(BadgeVariant::Success),
-                badge("Warning").variant(BadgeVariant::Warning),
-                badge("Error").variant(BadgeVariant::Error),
+                badge("Info").tone(kivact::interaction::Tone::Info),
+                badge("Success").tone(kivact::interaction::Tone::Success),
+                badge("Warning").tone(kivact::interaction::Tone::Warning),
+                badge("Error").tone(kivact::interaction::Tone::Danger),
                 badge("Design").variant(BadgeVariant::Purple),
             ))
             .style(style().gap(8).wrap(true)),
-            "badge(\"Success\").variant(BadgeVariant::Success)",
+            "badge(\"Success\").tone(kivact::interaction::Tone::Success)",
         ),
         "skeleton" => specimen(
             "Staggered placeholders",

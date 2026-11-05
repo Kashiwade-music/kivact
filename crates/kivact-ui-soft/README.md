@@ -41,7 +41,7 @@ The standard APIs in this table come from `kivact::ui`.
 | App Shell | `app_shell`, `use_app_shell_mobile` |
 | Aspect Ratio | `aspect_ratio` |
 | Avatar | `avatar`, `avatar_group`, `avatar_group_overflow`, `avatar_status_dot` |
-| Badge / Banner / Blockquote | `badge`, `banner`, `blockquote` |
+| Badge / Banner / Blockquote | Standard `badge` with semantic `tone` or Soft categorical `BadgeVariant`; `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
 | Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
@@ -79,7 +79,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Radio | `radio_list`, standard `ListItem` |
 | Resizable | standard `splitter(...).collapsible(..).snaps(..)` |
 | Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area` |
-| Segmented Control | `segmented_control`, standard `ListItem` |
+| Segmented Control | Standard `radio_group(...).variant(RadioGroupVariant::Segmented)` and `ListItem`; Soft `SegmentedLayout` and `SegmentedIconOnly` style options |
 | Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
 | Skeleton / Slider / Spinner / Status Dot | `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
 | Stepper | `stepper`, `step` |
@@ -88,7 +88,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
 | Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, `time_input`, standard `text_input` and `text_area` |
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
-| Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, `toolbar`, `toolbar_item` |
+| Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, standard `toolbar`, Soft `with_key_hints` and `keyboard_hint` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
 | Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
 | Typeahead | Standard `combobox` and `ListItem`; configure `.search(..)`, `.debounce(..)`, `.placeholder(..)`, and `.empty_text(..)`. |
@@ -303,8 +303,7 @@ native text and view composition. The application chooses the appearance. Overfl
 mounted items and use provisional widths until measurements arrive.
 
 Toolbar slots use one Tab stop. Arrow keys move among eligible controls and
-respect the caret inside a text field. `toolbar_item(..)` registers a control
-for the keyboard hint.
+respect the caret inside a text field. `with_key_hints(axis, || view)` owns one timed hint; `keyboard_hint(target)` observes each actual target.
 
 Date and time wheels currently use numeric labels. Truncation hints show
 the full label on hover when native layout cuts the text. Citation and
@@ -363,6 +362,7 @@ Number, date, and time filter fields validate values entered as text.
 - `button_icon`
 - `button_busy`
 - `toggle`
+- `toolbar`
 - `button_group`
 - `toggle_group`
 - `checkbox`
@@ -375,6 +375,7 @@ Number, date, and time filter fields validate values entered as text.
 - `radio_group`
 - `slider`
 - `progress`
+- `badge`
 - `spinner`
 - `kbd`
 - `kbd_key`

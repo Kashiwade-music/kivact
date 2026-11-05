@@ -146,6 +146,13 @@ pub fn theme(mode: ThemeMode) -> Theme {
                 gap: tokens.spacing.s2,
                 ..Default::default()
             },
+            toolbar: kivact::ui::ToolbarTokens {
+                background: kivact::style::Color::TRANSPARENT,
+                border: colors.border,
+                padding: tokens.spacing.s3,
+                gap: tokens.spacing.s1,
+                min_height: tokens.sizes.control_md + tokens.spacing.s3 * 2.0,
+            },
             button_group: kivact::ui::ButtonGroupTokens {
                 radius: tokens.radius.element,
                 divider: colors.border,

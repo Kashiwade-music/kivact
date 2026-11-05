@@ -42,6 +42,7 @@ mod icons;
 mod indicator;
 mod input_group;
 mod kbd;
+mod key_hints;
 mod layout;
 mod lightbox;
 mod link;
@@ -59,6 +60,7 @@ mod pagination;
 mod power_search;
 mod recipe_style;
 mod recipes;
+mod recipes_badge;
 mod recipes_collections;
 mod recipes_combobox;
 mod recipes_controls;
@@ -101,7 +103,6 @@ mod timer;
 mod timestamp;
 mod token;
 mod tokens;
-mod toolbar;
 mod top_nav;
 mod visually_hidden;
 
@@ -149,10 +150,7 @@ pub use disclosure_appearance::{ChevronPosition, DisclosureDensity, DisclosureVa
 pub use divider::{Divider, DividerVariant, divider};
 pub use elevation::Elevation;
 pub use empty_state::{EmptyState, empty_state};
-pub use feedback::{
-    Badge, BadgeVariant, Skeleton, SkeletonRadius, StatusDot, StatusDotVariant, badge, skeleton,
-    status_dot,
-};
+pub use feedback::{Skeleton, SkeletonRadius, StatusDot, StatusDotVariant, skeleton, status_dot};
 pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status};
 pub use file_input::{FileInput, file_input};
 pub use form_layout::{
@@ -165,6 +163,7 @@ pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
 pub use input_group::{InputGroup, input_group, input_group_text, input_group_with};
+pub use key_hints::{keyboard_hint, with_key_hints};
 pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_footer,
     layout_header, layout_panel,
@@ -187,13 +186,12 @@ pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
-pub use recipes_groups::ButtonGroupVariant;
+pub use recipes_badge::BadgeVariant;
+pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
-pub use segmented_control::{
-    Segmented, SegmentedControl, SegmentedIconOnly, SegmentedLayout, segmented_control,
-};
+pub use segmented_control::{SegmentedIconOnly, SegmentedLayout};
 pub use shadows::Shadows;
 pub use side_navigation::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
@@ -256,7 +254,6 @@ pub use timestamp::{
 };
 pub use token::{Token, TokenColor, token};
 pub use tokens::{Motion, Radius, Sizes, Spacing, TextStyle, Tokens, Typography};
-pub use toolbar::{Edge, Toolbar, toolbar, toolbar_item};
 pub use top_nav::{
     TopNav, TopNavItem, TopNavMegaMenu, TopNavMegaMenuFeaturedCard, TopNavMegaMenuItem, TopNavMenu,
     TopNavMenuItem, top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu,

@@ -10,7 +10,6 @@ use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::node;
 use kivact::view::row;
-use kivact::view::text;
 
 use kivact::state::IntoText;
 use kivact::style::Align;
@@ -20,116 +19,6 @@ use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::Role;
 use kivact::view::View;
-
-/// Semantic or decorative colors of a read-only badge.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum BadgeVariant {
-    #[default]
-    Neutral,
-    Info,
-    Success,
-    Warning,
-    Error,
-    Blue,
-    Cyan,
-    Green,
-    Orange,
-    Pink,
-    Purple,
-    Red,
-    Teal,
-    Yellow,
-    Gray,
-}
-
-/// Read-only status label.
-pub struct Badge {
-    root: Node,
-    label: Value<String>,
-    variant: Value<BadgeVariant>,
-    icon: Option<View>,
-}
-
-#[track_caller]
-pub fn badge(label: impl IntoText) -> Badge {
-    let label = label.into_text_value();
-    Badge {
-        root: row(()).name(label),
-        label,
-        variant: (BadgeVariant::Neutral).into_value(),
-        icon: None,
-    }
-}
-
-impl Badge {
-    pub fn variant(mut self, variant: impl IntoValue<BadgeVariant>) -> Self {
-        self.variant = variant.into_value();
-        self
-    }
-
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-}
-
-impl NodeBuilder for Badge {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Badge {
-    fn into_view(self) -> View {
-        let variant = self.variant.get();
-        self.root
-            .with_node(move |node| {
-                node.base_style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let c = &t.colors;
-                    let (fill, ink) = match variant {
-                        BadgeVariant::Info => (c.info, c.on_info),
-                        BadgeVariant::Success => (c.success, c.on_success),
-                        BadgeVariant::Warning => (c.warning, c.on_warning),
-                        BadgeVariant::Error => (c.error, c.on_error),
-                        _ => {
-                            let hue = match variant {
-                                BadgeVariant::Blue => c.hue.blue,
-                                BadgeVariant::Cyan => c.hue.cyan,
-                                BadgeVariant::Green => c.hue.green,
-                                BadgeVariant::Orange => c.hue.orange,
-                                BadgeVariant::Pink => c.hue.pink,
-                                BadgeVariant::Purple => c.hue.purple,
-                                BadgeVariant::Red => c.hue.red,
-                                BadgeVariant::Teal => c.hue.teal,
-                                BadgeVariant::Yellow => c.hue.yellow,
-                                _ => c.hue.gray,
-                            };
-                            (hue.bg, hue.text)
-                        }
-                    };
-                    style()
-                        .min_height(t.sizes.badge_height)
-                        .min_width(0)
-                        .max_width(pct(100))
-                        .radius(t.radius.full)
-                        .padding_x(t.spacing.s2)
-                        .gap(t.spacing.s1)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center)
-                        .background(fill)
-                        .color(ink)
-                        .font_size(12)
-                        .line_height(20.0 / 12.0)
-                        .weight(500)
-                })
-            })
-            .child(self.icon.map(|icon| icon_box(icon, 12.0)))
-            .child(text(self.label).style(style().min_width(0).text_wrap(false).line_clamp(1)))
-            .into_view()
-    }
-}
 
 pub(crate) fn icon_box(icon: View, size: f64) -> Node {
     node().style(style().size(size, size).shrink(0)).child(icon)
@@ -315,4 +204,4 @@ impl IntoView for StatusDot {
     }
 }
 
-kivact::state::constant_value!(BadgeVariant, SkeletonRadius);
+kivact::state::constant_value!(SkeletonRadius);

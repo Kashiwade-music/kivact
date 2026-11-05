@@ -6,14 +6,15 @@ use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::test::render_with_handle;
 use kivact::ui::ControlSize;
+use kivact::ui::badge;
 use kivact::ui::button;
 use kivact::view::Key;
 use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact_ui_soft::{
-    BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, code_block, heading,
-    icon, input_group_with, status_dot,
+    BannerStatus, IconSize, StatusDotVariant, banner, code_block, heading, icon, input_group_with,
+    status_dot,
 };
 use std::cell::Cell;
 use std::rc::Rc;
@@ -138,7 +139,7 @@ fn content_components_publish_their_names_and_roles() {
             column((
                 heading(2, "Workspace"),
                 icon("search").size(IconSize::Lg).label("Search icon"),
-                badge("Review").variant(BadgeVariant::Warning),
+                badge("Review").tone(kivact::interaction::Tone::Warning),
                 status_dot(StatusDotVariant::Success, "Online"),
             ))
         },
