@@ -5,16 +5,7 @@ use kivact_core::view::{
 };
 use std::rc::Rc;
 
-/// A cell in a pagination bar; page indices are zero based.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum PageItem {
-    First,
-    Previous,
-    Page(usize),
-    Ellipsis,
-    Next,
-    Last,
-}
+use crate::PageItem;
 /// Structural pagination presentations, including an editable page number.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PaginationMode {
@@ -300,7 +291,10 @@ fn page_control(
             }),
         |r| r.pagination_recipes().item_recipe(),
         &options.variants,
-        move || selected.get(),
+        move || crate::PaginationItemState {
+            current: selected.get(),
+            item: cell,
+        },
     )
     .child(body)
     .into_view()

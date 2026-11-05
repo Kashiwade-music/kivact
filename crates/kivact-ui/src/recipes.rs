@@ -860,7 +860,7 @@ recipe_table! {
     /// Page control and gap recipes.
     PaginationRecipes {
         root(root_recipe): () = crate::look_navigation::root,
-        item(item_recipe): bool = crate::look_navigation::current,
+        item(item_recipe): crate::navigation_values::PaginationItemState = crate::look_navigation::pagination_item,
         ellipsis(ellipsis_recipe): () = crate::look_navigation::part,
     }
 }

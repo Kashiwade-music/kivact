@@ -11,3 +11,21 @@ pub struct NavigationLinkState {
 pub struct NavigationTriggerState {
     pub open: bool,
 }
+
+/// A cell in a pagination bar; page indices are zero based.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PageItem {
+    First,
+    Previous,
+    Page(usize),
+    Ellipsis,
+    Next,
+    Last,
+}
+
+/// Actual page cell and selection supplied to the cell recipe.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PaginationItemState {
+    pub current: bool,
+    pub item: PageItem,
+}

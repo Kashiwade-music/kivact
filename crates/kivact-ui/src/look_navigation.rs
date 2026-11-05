@@ -66,15 +66,6 @@ pub(super) fn part<S>(_: &Theme, _: &Look<S>) -> Style {
         .align_items(Align::Center)
         .gap(4)
 }
-pub(super) fn current(t: &Theme, l: &Look<bool>) -> Style {
-    style()
-        .color(if **l {
-            t.colors().text
-        } else {
-            t.colors().text_muted
-        })
-        .weight(if **l { 600 } else { 400 })
-}
 pub(super) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     let p = &t.ext::<crate::UiTokens>().navigation_menu;
     style()
@@ -141,4 +132,14 @@ pub(super) fn link_icon(
     _: &Look<crate::navigation_values::NavigationLinkState>,
 ) -> Style {
     style().shrink(0)
+}
+
+pub(super) fn pagination_item(t: &Theme, s: &Look<crate::PaginationItemState>) -> Style {
+    style()
+        .color(if s.current {
+            t.colors().text
+        } else {
+            t.colors().text_muted
+        })
+        .weight(if s.current { 600 } else { 400 })
 }
