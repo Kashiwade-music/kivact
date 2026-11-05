@@ -92,22 +92,7 @@ const SOURCE_IDS: [&str; 22] = [
 
 /// Mount the complete catalog through public component APIs.
 pub fn catalog() -> impl IntoView {
-    let accent = signal(ui::Accent::Iris);
-    let compact = signal(false);
-    let category = signal(Some(Category::All));
-    let filter = signal(String::new());
-    let current = signal(0_usize);
-    let sidebar_open = signal(true);
-    let status = signal("Ready — Space: Play · F3: Search · F12: Render".to_string());
-    let transport = signal(TransportState::default());
-    super::audio_values::playback(transport);
-    let search = signal(false);
-    let pie = signal(ui::PieState::default());
-    let pointer = signal(Point::new(0.0, 0.0));
-    let pie_zone = node_ref();
-    let viewport_ref = node_ref();
-    let shading = signal(1_usize);
-    let viewport_grid = signal(true);
+    let controls = CatalogControls::new();
     let pie_entries = std::rc::Rc::new(vec![
         ui::PieEntry::new("Wireframe", 180.0, "aperture"),
         ui::PieEntry::new("Rendered", 0.0, "eye"),
@@ -118,289 +103,11 @@ pub fn catalog() -> impl IntoView {
         ui::PieEntry::new("Flat Lighting", 135.0, "app-window"),
         ui::PieEntry::new("Studio Lighting", 45.0, "bulb"),
     ]);
-    let choose_pie = move |index: usize| {
-        match index {
-            0 => shading.set(0),
-            1..=3 => shading.set(1),
-            4 => shading.set(4),
-            5 => viewport_grid.update(|v| *v = !*v),
-            _ => {}
-        }
-        status.set(format!(
-            "Shading: {}",
-            [
-                "Wireframe",
-                "Rendered",
-                "Solid",
-                "Material Preview",
-                "Toggle X-Ray",
-                "Toggle Overlays",
-                "Flat Lighting",
-                "Studio Lighting"
-            ][index]
-        ));
-    };
     let refs = std::rc::Rc::new((0..SECTIONS.len()).map(|_| node_ref()).collect::<Vec<_>>());
-    let refs_for_shell = refs.clone();
     let rects = std::rc::Rc::new(refs.iter().map(NodeRef::rect).collect::<Vec<_>>());
-    let main_scroll = node_ref();
-    let main_offset = main_scroll.scroll_offset();
     kivact::style::provide_theme(
-        move || {
-            let theme = ui::theme_with(
-                kivact::style::ThemeMode::Dark,
-                ui::ThemeOptions {
-                    accent: accent.get(),
-                    density: if compact.get() {
-                        ui::Density::Compact
-                    } else {
-                        ui::Density::Comfortable
-                    },
-                },
-            );
-            let mut palette = (*theme.ext::<ui::Tokens>()).clone();
-            palette.body_font = "Geist".into();
-            palette.mono_font = "Geist Mono".into();
-            let text = kivact::style::theme::Typography {
-                family: Some(palette.body_font.clone()),
-                ..theme.text().clone()
-            };
-            theme.with_text(text).with(palette)
-        },
-        move || {
-            let bodies = vec![
-                buttons(status).into_view(),
-                numeric(transport).into_view(),
-                selection().into_view(),
-                indicators().into_view(),
-                transport_section(transport).into_view(),
-                knobs().into_view(),
-                meters(transport).into_view(),
-                mixer(transport).into_view(),
-                properties().into_view(),
-                docking().into_view(),
-                outliner().into_view(),
-                media().into_view(),
-                layers(transport).into_view(),
-                timeline(transport, status).into_view(),
-                animation(transport).into_view(),
-                nodes().into_view(),
-                grading().into_view(),
-                picker().into_view(),
-                viewport(shading, viewport_grid, viewport_ref, pointer).into_view(),
-                menus(status, pie, pointer, pie_zone, search).into_view(),
-                dialogs(status).into_view(),
-                jobs(status).into_view(),
-            ];
-            let sections = bodies
-                .into_iter()
-                .enumerate()
-                .map(|(i, body)| {
-                    let (title, _, group, subtitle) = SECTIONS[i];
-                    let collapsed = signal(false);
-                    let query_title = title.to_lowercase();
-                    column((
-                        row((
-                            text(format!("{:02}", i + 1))
-                                .style(
-                                    style()
-                                        .font_family("Geist Mono")
-                                        .font_size(10.5)
-                                        .padding_x(6)
-                                        .padding_y(2)
-                                        .radius(6),
-                                )
-                                .style(move || {
-                                    let t = &use_theme().get();
-                                    let p = t.ext::<ui::Tokens>();
-                                    style()
-                                        .background(p.accent.with_alpha(0.14))
-                                        .color(p.accent)
-                                }),
-                            text(title)
-                                .role(Role::Heading)
-                                .style(style().font_size(14).weight(600)),
-                            text(subtitle)
-                                .style(style().font_size(11.5).grow(1).min_width(0))
-                                .style(style().color(ui::ColorName::Dim)),
-                            kivact::ui::button("Copy component link")
-                                .hide_label(true)
-                                .icon(kivact::view::icon("link"))
-                                .variant(kivact::ui::ButtonVariant::Ghost)
-                                .on_press(move || {
-                                    status.set(format!("Component {:02} · {title}", i + 1))
-                                }),
-                            kivact::ui::button(format!("Collapse {title}"))
-                                .hide_label(true)
-                                .icon(kivact::view::icon("chevron-down"))
-                                .variant(kivact::ui::ButtonVariant::Ghost)
-                                .style(move || {
-                                    style().rotate(if collapsed.get() { -90.0 } else { 0.0 })
-                                })
-                                .on_press(move || collapsed.update(|v| *v = !*v)),
-                        ))
-                        .style(
-                            style()
-                                .height(46)
-                                .padding_left(16)
-                                .padding_right(10)
-                                .gap(10)
-                                .align_items(Align::Center),
-                        )
-                        .style(style().border_bottom(1, ui::ColorName::Hair)),
-                        node().hidden(collapsed).child(body),
-                    ))
-                    .with_node(|node| node.node_ref(refs[i]))
-                    .test_id(format!("creative-section-{}", i + 1))
-                    .hidden(move || {
-                        category.get().is_some_and(|selected| {
-                            selected != Category::All && selected != category_for_group(group)
-                        }) || !query_title.contains(&filter.get().to_lowercase())
-                    })
-                    .style(
-                        style()
-                            .background(ui::ColorName::Island)
-                            .radius(12)
-                            .border(1, ui::ColorName::Hair)
-                            .min_width(0)
-                            .shrink(0),
-                    )
-                })
-                .collect::<Vec<_>>();
-            let main =
-                scroll(column((hero(compact), sections)).style(style().gap(8).padding_right(2)))
-                    .with_node(|node| node.node_ref(main_scroll))
-                    .test_id("creative-main")
-                    .style(style().grow(1).min_width(0).min_height(0))
-                    .style(
-                        style()
-                            .scrollbar_color(ui::ColorName::HairStrong, rgba(0, 0.0))
-                            .scrollbar_width(kivact::style::ScrollbarWidth::Thin),
-                    );
-            column((
-                topbar(accent, compact, category, sidebar_open, search, status),
-                toolbar(transport, status),
-                row((
-                    sidebar(
-                        category,
-                        filter,
-                        current,
-                        rects.clone(),
-                        main_scroll,
-                        main_offset,
-                    )
-                    .hidden(move || !sidebar_open.get()),
-                    main,
-                ))
-                .style(move || {
-                    style()
-                        .grow(1)
-                        .basis(0)
-                        .min_height(0)
-                        .min_width(0)
-                        .padding(if compact.get() { 4 } else { 8 })
-                        .gap(if compact.get() { 4 } else { 8 })
-                        .align_items(Align::Stretch)
-                }),
-                row((
-                    text("◉ Select   ◉ Pan View   ◉ Context Menu").style(style().font_size(10.5)),
-                    text(status)
-                        .role(Role::Status)
-                        .live_region(LiveRegion::Polite)
-                        .style(style().grow(1).text_align(TextAlign::Center).font_size(11)),
-                    text(move || {
-                        format!(
-                            "Scene Shot 010   {:.0} f   1920×1080  24 fps   v0.1.0",
-                            transport.get().frame
-                        )
-                    })
-                    .style(style().font_family("Geist Mono").font_size(10.5)),
-                ))
-                .style(
-                    style()
-                        .height(26)
-                        .shrink(0)
-                        .padding_x(14)
-                        .align_items(Align::Center)
-                        .gap(16),
-                )
-                .style(style().color(ui::ColorName::Dim)),
-                operator_search(search, status, refs_for_shell.clone()),
-                kivact::ui::toast_region(kivact::interaction::toaster()),
-                ui::pie_menu(pie_entries.as_ref().clone(), pie).on_activate(choose_pie),
-            ))
-            .test_id("creative-catalog")
-            .style(style().size(pct(100), pct(100)).min_height(0))
-            .style(
-                style()
-                    .background(ui::ColorName::Canvas)
-                    .color(ui::ColorName::Text)
-                    .font_family("Geist, 'Noto Sans JP', sans-serif")
-                    .font_size(12.5)
-                    .line_height(1.4),
-            )
-            .on_pointer(move |e| {
-                if matches!(
-                    e.phase(),
-                    PointerPhase::Move | PointerPhase::Enter | PointerPhase::Down(_)
-                ) {
-                    pointer.set(e.window_pos());
-                    if matches!(pie.get(), ui::PieState::Open { .. }) {
-                        let mut next = pie.get();
-                        next.pointer(e.window_pos(), &pie_entries);
-                        pie.set(next);
-                    }
-                }
-                Handled::No
-            })
-            .on_key_up(move |e| {
-                if e.key() == Key::Char('z')
-                    && matches!(
-                        pie.get(),
-                        ui::PieState::Open {
-                            mode: ui::PieMode::Held,
-                            ..
-                        }
-                    )
-                {
-                    if let ui::PieState::Open {
-                        hot: Some(index), ..
-                    } = pie.get()
-                    {
-                        choose_pie(index);
-                    }
-                    pie.set(ui::PieState::default());
-                    return Handled::Yes;
-                }
-                Handled::No
-            })
-            .on_key(move |e| match e.key() {
-                Key::Char('z')
-                    if !e.repeat()
-                        && !e.modifiers().ctrl
-                        && !e.modifiers().alt
-                        && matches!(pie.get(), ui::PieState::Closed)
-                        && (pie_zone.hit_test(pointer.get())
-                            || viewport_ref.hit_test(pointer.get())) =>
-                {
-                    pie.set(ui::PieState::open_at(pointer.get(), true));
-                    Handled::Yes
-                }
-                Key::F(3) => {
-                    search.set(true);
-                    Handled::Yes
-                }
-                Key::F(12) => {
-                    status.set("Render Image · Catalog simulation complete".into());
-                    Handled::Yes
-                }
-                Key::Char('d') if e.modifiers().ctrl && e.modifiers().alt => {
-                    compact.update(|v| *v = !*v);
-                    Handled::Yes
-                }
-                _ => Handled::No,
-            })
-        },
+        move || catalog_theme(controls.accent, controls.compact),
+        move || catalog_frame(controls, refs.clone(), rects.clone(), pie_entries.clone()),
     )
 }
 
@@ -412,54 +119,8 @@ fn topbar(
     search: Signal<bool>,
     status: Signal<String>,
 ) -> impl IntoView {
-    let choices = [
-        ui::Accent::Iris,
-        ui::Accent::Lime,
-        ui::Accent::Aqua,
-        ui::Accent::Coral,
-        ui::Accent::Amber,
-    ];
-    let colors = choices
-        .into_iter()
-        .map(|choice| {
-            node()
-                .role(Role::Button)
-                .name(format!("Accent {choice:?}"))
-                .focusable(true)
-                .with_node(|node| node.selected(move || accent.get() == choice))
-                .on_press(move || accent.set(choice))
-                .style(
-                    style()
-                        .size(14, 14)
-                        .radius(7)
-                        .background(choice.colors().0)
-                        .shrink(0)
-                        .selected(style().ring(2, choice.colors().0))
-                        .hover(style().scale(1.15)),
-                )
-        })
-        .collect::<Vec<_>>();
-    let menus = ["File", "Edit", "View", "Render", "Window", "Help"]
-        .into_iter()
-        .map(|label| {
-            kivact::ui::menu(
-                label,
-                vec![
-                    MenuEntry::item("new", "New Project").with_shortcut("Ctrl N"),
-                    MenuEntry::item("open", "Open...").with_shortcut("Ctrl O"),
-                    MenuEntry::separator(),
-                    MenuEntry::item("preferences", "Preferences..."),
-                ],
-            )
-            .on_activate(move |key: &'static str| status.set(format!("{label} · {key}")))
-            .offset(0.0)
-            .attach(
-                kivact::ui::button(label)
-                    .variant(kivact::ui::ButtonVariant::Ghost)
-                    .style(style().height(28).padding_x(8)),
-            )
-        })
-        .collect::<Vec<_>>();
+    let colors = accent_controls(accent);
+    let menus = application_menus(status);
     row((
         row((
             node()
@@ -562,51 +223,9 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
         separator(),
         ui::transport(super::audio_values::controls(state))
             .on_to_start(move || state.update(|s| s.frame = 0.0)),
-        row((
-            text("TC")
-                .style(style().font_size(9.5))
-                .style(style().color(ui::ColorName::Accent)),
-            text(move || smpte(state.get().frame))
-                .test_id("catalog-playback-frame")
-                .value_text(move || state.get().frame.to_string())
-                .style(style().weight(600)),
-            text("BAR")
-                .style(style().font_size(9.5))
-                .style(style().color(ui::ColorName::Accent)),
-            text("1.1.1"),
-        ))
-        .style(
-            style()
-                .height(30)
-                .padding_x(12)
-                .gap(10)
-                .radius(9)
-                .font_family("Geist Mono")
-                .align_items(Align::Center),
-        )
-        .style(style().background(ui::ColorName::Canvas)),
+        transport_readout(state),
         spacer(),
-        column(
-            [("CPU", 0.22_f64), ("DSK", 0.07_f64)]
-                .into_iter()
-                .map(|(label, value)| {
-                    line((
-                        text(label).style(style().font_size(8.0)),
-                        kivact::ui::progress(Some(value))
-                            .name(label)
-                            .style(style().size(56, 4))
-                            .draw(move |d, size| {
-                                d.rounded_rect(
-                                    Rect::new(0.0, 0.0, size.width * value, size.height),
-                                    2.0,
-                                    rgb(0x34d399),
-                                )
-                            }),
-                    ))
-                })
-                .collect::<Vec<_>>(),
-        )
-        .style(style().font_family("Geist Mono").gap(3)),
+        performance_meters(),
         separator(),
         kivact::ui::button("Render  F12")
             .icon(kivact::view::icon("aperture"))
@@ -640,6 +259,14 @@ fn sidebar(
     main_scroll: NodeRef,
     main_offset: Value<Point>,
 ) -> Node {
+    let navigation = CatalogNavigation {
+        category,
+        filter,
+        current,
+        rects,
+        main_scroll,
+        main_offset,
+    };
     let groups = [
         "CONTROLS",
         "AUDIO",
@@ -650,113 +277,7 @@ fn sidebar(
     ]
     .into_iter()
     .enumerate()
-    .map(|(g, title)| {
-        let collapsed = signal(false);
-        let rects = rects.clone();
-        let rows = SECTIONS
-            .iter()
-            .enumerate()
-            .filter(|(_, item)| item.2 == g + 1)
-            .map(|(i, (title, code, _, _))| {
-                let title = *title;
-                let query = title.to_lowercase();
-                let rect = rects[i];
-                row((
-                    text(format!("{:02}", i + 1))
-                        .style(style().font_family("Geist Mono").font_size(9).single_line()),
-                    kivact::view::icon(section_icon(i)),
-                    text(title).style(style().grow(1).single_line()),
-                    text(*code)
-                        .style(style().font_family("Geist Mono").font_size(9).single_line())
-                        .style(style().color(ui::ColorName::Dim)),
-                ))
-                .role(Role::TreeItem)
-                .name(title)
-                .focusable(true)
-                .with_node(|node| node.selected(move || current.get() == i))
-                .test_id(format!("creative-nav-{}", SOURCE_IDS[i]))
-                .hidden(move || collapsed.get() || !query.contains(&filter.get().to_lowercase()))
-                .on_press(move || {
-                    current.set(i);
-                    category.set(Some(Category::All));
-                    if let Some(rect) = rect.get() {
-                        main_scroll.scroll_to(
-                            Point::new(0.0, (main_offset.get().y + rect.y - 100.0).max(0.0)),
-                            kivact::view::ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
-                        );
-                    }
-                })
-                .style(
-                    style()
-                        .height(28)
-                        .padding_x(8)
-                        .gap(7)
-                        .radius(7)
-                        .align_items(Align::Center)
-                        .color(ui::ColorName::Muted)
-                        .hover(
-                            style()
-                                .background(ColorToken::Hover)
-                                .color(ui::ColorName::TextHigh),
-                        )
-                        .selected(
-                            style()
-                                .background(ui::ColorName::Selection)
-                                .color(ui::ColorName::TextHigh),
-                        )
-                        .focus(style().ring(1, ui::ColorName::Accent)),
-                )
-            })
-            .collect::<Vec<_>>();
-        column((
-            row((
-                kivact::view::icon("chevron-down")
-                    .style(move || style().rotate(if collapsed.get() { -90.0 } else { 0.0 })),
-                kivact::view::icon(
-                    [
-                        "click",
-                        "volume",
-                        "layout-columns",
-                        "timeline",
-                        "schema",
-                        "app-window",
-                    ][g],
-                ),
-                text(title).style(style().grow(1)),
-                text(format!(
-                    "{}",
-                    SECTIONS.iter().filter(|s| s.2 == g + 1).count()
-                )),
-            ))
-            .role(Role::Button)
-            .name(title)
-            .focusable(true)
-            .expanded(move || !collapsed.get())
-            .style(
-                style()
-                    .height(26)
-                    .font_size(10.5)
-                    .justify_content(Justify::Start)
-                    .gap(6)
-                    .padding_x(7)
-                    .align_items(Align::Center)
-                    .margin_top(6),
-            )
-            .style(
-                style()
-                    .color(ui::ColorName::Dim)
-                    .focus(style().ring(1, ui::ColorName::Accent)),
-            )
-            .on_press(move || collapsed.update(|v| *v = !*v)),
-            rows,
-        ))
-        .style(style().shrink(0))
-        .hidden(move || {
-            category.get().is_some_and(|selected| {
-                selected != Category::All && selected != category_for_group(g + 1)
-            })
-        })
-    })
+    .map(|(g, title)| sidebar_group(g, title, navigation.clone()))
     .collect::<Vec<_>>();
     column((
         row((
@@ -838,4 +359,722 @@ fn section_icon(i: usize) -> &'static str {
         "app-window",
         "loader",
     ][i]
+}
+
+fn accent_controls(accent: Signal<ui::Accent>) -> Vec<Node> {
+    let choices = [
+        ui::Accent::Iris,
+        ui::Accent::Lime,
+        ui::Accent::Aqua,
+        ui::Accent::Coral,
+        ui::Accent::Amber,
+    ];
+    choices
+        .into_iter()
+        .map(|choice| {
+            node()
+                .role(Role::Button)
+                .name(format!("Accent {choice:?}"))
+                .focusable(true)
+                .with_node(|node| node.selected(move || accent.get() == choice))
+                .on_press(move || accent.set(choice))
+                .style(
+                    style()
+                        .size(14, 14)
+                        .radius(7)
+                        .background(choice.colors().0)
+                        .shrink(0)
+                        .selected(style().ring(2, choice.colors().0))
+                        .hover(style().scale(1.15)),
+                )
+        })
+        .collect::<Vec<_>>()
+}
+
+fn application_menus(status: Signal<String>) -> Vec<kivact::view::View> {
+    ["File", "Edit", "View", "Render", "Window", "Help"]
+        .into_iter()
+        .map(|label| {
+            kivact::ui::menu(
+                label,
+                vec![
+                    MenuEntry::item("new", "New Project").with_shortcut("Ctrl N"),
+                    MenuEntry::item("open", "Open...").with_shortcut("Ctrl O"),
+                    MenuEntry::separator(),
+                    MenuEntry::item("preferences", "Preferences..."),
+                ],
+            )
+            .on_activate(move |key: &'static str| status.set(format!("{label} · {key}")))
+            .offset(0.0)
+            .attach(
+                kivact::ui::button(label)
+                    .variant(kivact::ui::ButtonVariant::Ghost)
+                    .style(style().height(28).padding_x(8)),
+            )
+            .into_view()
+        })
+        .collect::<Vec<_>>()
+}
+
+fn transport_readout(state: Signal<TransportState>) -> Node {
+    row((
+        text("TC")
+            .style(style().font_size(9.5))
+            .style(style().color(ui::ColorName::Accent)),
+        text(move || smpte(state.get().frame))
+            .test_id("catalog-playback-frame")
+            .value_text(move || state.get().frame.to_string())
+            .style(style().weight(600)),
+        text("BAR")
+            .style(style().font_size(9.5))
+            .style(style().color(ui::ColorName::Accent)),
+        text("1.1.1"),
+    ))
+    .style(
+        style()
+            .height(30)
+            .padding_x(12)
+            .gap(10)
+            .radius(9)
+            .font_family("Geist Mono")
+            .align_items(Align::Center),
+    )
+    .style(style().background(ui::ColorName::Canvas))
+}
+
+fn performance_meters() -> Node {
+    column(
+        [("CPU", 0.22_f64), ("DSK", 0.07_f64)]
+            .into_iter()
+            .map(|(label, value)| {
+                line((
+                    text(label).style(style().font_size(8.0)),
+                    kivact::ui::progress(Some(value))
+                        .name(label)
+                        .style(style().size(56, 4))
+                        .draw(move |d, size| {
+                            d.rounded_rect(
+                                Rect::new(0.0, 0.0, size.width * value, size.height),
+                                2.0,
+                                rgb(0x34d399),
+                            )
+                        }),
+                ))
+            })
+            .collect::<Vec<_>>(),
+    )
+    .style(style().font_family("Geist Mono").gap(3))
+}
+
+#[derive(Clone)]
+struct CatalogNavigation {
+    // xtask-allow(state-fields): Existing application category binding supplied to navigation presentation.
+    category: Signal<Option<Category>>,
+    filter: Signal<String>,
+    current: Signal<usize>,
+    // xtask-allow(state-fields): Read-only optional measured section rectangles; missing geometry is not a navigation phase.
+    rects: std::rc::Rc<Vec<Value<Option<Rect>>>>,
+    main_scroll: NodeRef,
+    main_offset: Value<Point>,
+}
+
+fn sidebar_group(g: usize, title: &'static str, navigation: CatalogNavigation) -> Node {
+    let collapsed = signal(false);
+    let CatalogNavigation {
+        category,
+        filter,
+        current,
+        rects,
+        main_scroll,
+        main_offset,
+    } = navigation;
+    let rows = sidebar_rows(
+        g,
+        collapsed,
+        CatalogNavigation {
+            category,
+            filter,
+            current,
+            rects,
+            main_scroll,
+            main_offset,
+        },
+    );
+    column((
+        row((
+            kivact::view::icon("chevron-down")
+                .style(move || style().rotate(if collapsed.get() { -90.0 } else { 0.0 })),
+            kivact::view::icon(
+                [
+                    "click",
+                    "volume",
+                    "layout-columns",
+                    "timeline",
+                    "schema",
+                    "app-window",
+                ][g],
+            ),
+            text(title).style(style().grow(1)),
+            text(format!(
+                "{}",
+                SECTIONS.iter().filter(|s| s.2 == g + 1).count()
+            )),
+        ))
+        .role(Role::Button)
+        .name(title)
+        .focusable(true)
+        .expanded(move || !collapsed.get())
+        .style(
+            style()
+                .height(26)
+                .font_size(10.5)
+                .justify_content(Justify::Start)
+                .gap(6)
+                .padding_x(7)
+                .align_items(Align::Center)
+                .margin_top(6),
+        )
+        .style(
+            style()
+                .color(ui::ColorName::Dim)
+                .focus(style().ring(1, ui::ColorName::Accent)),
+        )
+        .on_press(move || collapsed.update(|v| *v = !*v)),
+        rows,
+    ))
+    .style(style().shrink(0))
+    .hidden(move || {
+        category.get().is_some_and(|selected| {
+            selected != Category::All && selected != category_for_group(g + 1)
+        })
+    })
+}
+
+fn sidebar_rows(g: usize, collapsed: Signal<bool>, navigation: CatalogNavigation) -> Vec<Node> {
+    let CatalogNavigation {
+        category,
+        filter,
+        current,
+        rects,
+        main_scroll,
+        main_offset,
+    } = navigation;
+    SECTIONS
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| item.2 == g + 1)
+        .map(|(i, (title, code, _, _))| {
+            let title = *title;
+            let query = title.to_lowercase();
+            let rect = rects[i];
+            row((
+                text(format!("{:02}", i + 1))
+                    .style(style().font_family("Geist Mono").font_size(9).single_line()),
+                kivact::view::icon(section_icon(i)),
+                text(title).style(style().grow(1).single_line()),
+                text(*code)
+                    .style(style().font_family("Geist Mono").font_size(9).single_line())
+                    .style(style().color(ui::ColorName::Dim)),
+            ))
+            .role(Role::TreeItem)
+            .name(title)
+            .focusable(true)
+            .with_node(|node| node.selected(move || current.get() == i))
+            .test_id(format!("creative-nav-{}", SOURCE_IDS[i]))
+            .hidden(move || collapsed.get() || !query.contains(&filter.get().to_lowercase()))
+            .on_press(move || {
+                current.set(i);
+                category.set(Some(Category::All));
+                if let Some(rect) = rect.get() {
+                    main_scroll.scroll_to(
+                        Point::new(0.0, (main_offset.get().y + rect.y - 100.0).max(0.0)),
+                        kivact::view::ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
+                    );
+                }
+            })
+            .style(
+                style()
+                    .height(28)
+                    .padding_x(8)
+                    .gap(7)
+                    .radius(7)
+                    .align_items(Align::Center)
+                    .color(ui::ColorName::Muted)
+                    .hover(
+                        style()
+                            .background(ColorToken::Hover)
+                            .color(ui::ColorName::TextHigh),
+                    )
+                    .selected(
+                        style()
+                            .background(ui::ColorName::Selection)
+                            .color(ui::ColorName::TextHigh),
+                    )
+                    .focus(style().ring(1, ui::ColorName::Accent)),
+            )
+        })
+        .collect::<Vec<_>>()
+}
+
+fn choose_shading(
+    index: usize,
+    shading: Signal<usize>,
+    viewport_grid: Signal<bool>,
+    status: Signal<String>,
+) {
+    match index {
+        0 => shading.set(0),
+        1..=3 => shading.set(1),
+        4 => shading.set(4),
+        5 => viewport_grid.update(|v| *v = !*v),
+        _ => {}
+    }
+    status.set(format!(
+        "Shading: {}",
+        [
+            "Wireframe",
+            "Rendered",
+            "Solid",
+            "Material Preview",
+            "Toggle X-Ray",
+            "Toggle Overlays",
+            "Flat Lighting",
+            "Studio Lighting"
+        ][index]
+    ));
+}
+
+fn catalog_theme(accent: Signal<ui::Accent>, compact: Signal<bool>) -> kivact::style::Theme {
+    let theme = ui::theme_with(
+        kivact::style::ThemeMode::Dark,
+        ui::ThemeOptions {
+            accent: accent.get(),
+            density: if compact.get() {
+                ui::Density::Compact
+            } else {
+                ui::Density::Comfortable
+            },
+        },
+    );
+    let mut palette = (*theme.ext::<ui::Tokens>()).clone();
+    palette.body_font = "Geist".into();
+    palette.mono_font = "Geist Mono".into();
+    let text = kivact::style::theme::Typography {
+        family: Some(palette.body_font.clone()),
+        ..theme.text().clone()
+    };
+    theme.with_text(text).with(palette)
+}
+
+fn catalog_status(status: Signal<String>, transport: Signal<TransportState>) -> Node {
+    row((
+        text("◉ Select   ◉ Pan View   ◉ Context Menu").style(style().font_size(10.5)),
+        text(status)
+            .role(Role::Status)
+            .live_region(LiveRegion::Polite)
+            .style(style().grow(1).text_align(TextAlign::Center).font_size(11)),
+        text(move || {
+            format!(
+                "Scene Shot 010   {:.0} f   1920×1080  24 fps   v0.1.0",
+                transport.get().frame
+            )
+        })
+        .style(style().font_family("Geist Mono").font_size(10.5)),
+    ))
+    .style(
+        style()
+            .height(26)
+            .shrink(0)
+            .padding_x(14)
+            .align_items(Align::Center)
+            .gap(16),
+    )
+    .style(style().color(ui::ColorName::Dim))
+}
+
+fn catalog_section(
+    i: usize,
+    body: kivact::view::View,
+    reference: NodeRef,
+    category: Signal<Option<Category>>,
+    filter: Signal<String>,
+    status: Signal<String>,
+) -> Node {
+    let (title, _, group, subtitle) = SECTIONS[i];
+    let collapsed = signal(false);
+    let query_title = title.to_lowercase();
+    column((
+        section_heading(i, title, subtitle, collapsed, status),
+        node().hidden(collapsed).child(body),
+    ))
+    .with_node(|node| node.node_ref(reference))
+    .test_id(format!("creative-section-{}", i + 1))
+    .hidden(move || {
+        category.get().is_some_and(|selected| {
+            selected != Category::All && selected != category_for_group(group)
+        }) || !query_title.contains(&filter.get().to_lowercase())
+    })
+    .style(
+        style()
+            .background(ui::ColorName::Island)
+            .radius(12)
+            .border(1, ui::ColorName::Hair)
+            .min_width(0)
+            .shrink(0),
+    )
+}
+
+fn section_heading(
+    i: usize,
+    title: &'static str,
+    subtitle: &'static str,
+    collapsed: Signal<bool>,
+    status: Signal<String>,
+) -> Node {
+    row((
+        text(format!("{:02}", i + 1))
+            .style(
+                style()
+                    .font_family("Geist Mono")
+                    .font_size(10.5)
+                    .padding_x(6)
+                    .padding_y(2)
+                    .radius(6),
+            )
+            .style(move || {
+                let t = &use_theme().get();
+                let p = t.ext::<ui::Tokens>();
+                style()
+                    .background(p.accent.with_alpha(0.14))
+                    .color(p.accent)
+            }),
+        text(title)
+            .role(Role::Heading)
+            .style(style().font_size(14).weight(600)),
+        text(subtitle)
+            .style(style().font_size(11.5).grow(1).min_width(0))
+            .style(style().color(ui::ColorName::Dim)),
+        kivact::ui::button("Copy component link")
+            .hide_label(true)
+            .icon(kivact::view::icon("link"))
+            .variant(kivact::ui::ButtonVariant::Ghost)
+            .on_press(move || status.set(format!("Component {:02} · {title}", i + 1))),
+        kivact::ui::button(format!("Collapse {title}"))
+            .hide_label(true)
+            .icon(kivact::view::icon("chevron-down"))
+            .variant(kivact::ui::ButtonVariant::Ghost)
+            .style(move || style().rotate(if collapsed.get() { -90.0 } else { 0.0 }))
+            .on_press(move || collapsed.update(|v| *v = !*v)),
+    ))
+    .style(
+        style()
+            .height(46)
+            .padding_left(16)
+            .padding_right(10)
+            .gap(10)
+            .align_items(Align::Center),
+    )
+    .style(style().border_bottom(1, ui::ColorName::Hair))
+}
+
+fn catalog_pointer(
+    e: kivact::view::PointerEvent,
+    pointer: Signal<Point>,
+    pie: Signal<ui::PieState>,
+    pie_entries: &[ui::PieEntry],
+) -> Handled {
+    if matches!(
+        e.phase(),
+        PointerPhase::Move | PointerPhase::Enter | PointerPhase::Down(_)
+    ) {
+        pointer.set(e.window_pos());
+        if matches!(pie.get(), ui::PieState::Open { .. }) {
+            let mut next = pie.get();
+            next.pointer(e.window_pos(), pie_entries);
+            pie.set(next);
+        }
+    }
+    Handled::No
+}
+
+fn catalog_key_up(
+    e: kivact::view::KeyEvent,
+    pie: Signal<ui::PieState>,
+    choose_pie: impl Fn(usize),
+) -> Handled {
+    if e.key() == Key::Char('z')
+        && matches!(
+            pie.get(),
+            ui::PieState::Open {
+                mode: ui::PieMode::Held,
+                ..
+            }
+        )
+    {
+        if let ui::PieState::Open {
+            hot: Some(index), ..
+        } = pie.get()
+        {
+            choose_pie(index);
+        }
+        pie.set(ui::PieState::default());
+        return Handled::Yes;
+    }
+    Handled::No
+}
+
+fn catalog_key(
+    e: kivact::view::KeyEvent,
+    pie: Signal<ui::PieState>,
+    pointer: Signal<Point>,
+    zones: (NodeRef, NodeRef),
+    search: Signal<bool>,
+    status: Signal<String>,
+    compact: Signal<bool>,
+) -> Handled {
+    let (pie_zone, viewport_ref) = zones;
+    match e.key() {
+        Key::Char('z')
+            if !e.repeat()
+                && !e.modifiers().ctrl
+                && !e.modifiers().alt
+                && matches!(pie.get(), ui::PieState::Closed)
+                && (pie_zone.hit_test(pointer.get()) || viewport_ref.hit_test(pointer.get())) =>
+        {
+            pie.set(ui::PieState::open_at(pointer.get(), true));
+            Handled::Yes
+        }
+        Key::F(3) => {
+            search.set(true);
+            Handled::Yes
+        }
+        Key::F(12) => {
+            status.set("Render Image · Catalog simulation complete".into());
+            Handled::Yes
+        }
+        Key::Char('d') if e.modifiers().ctrl && e.modifiers().alt => {
+            compact.update(|v| *v = !*v);
+            Handled::Yes
+        }
+        _ => Handled::No,
+    }
+}
+
+fn catalog_frame(
+    controls: CatalogControls,
+    refs: std::rc::Rc<Vec<NodeRef>>,
+    rects: std::rc::Rc<Vec<Value<Option<Rect>>>>,
+    pie_entries: std::rc::Rc<Vec<ui::PieEntry>>,
+) -> Node {
+    let choose_pie = move |index| {
+        choose_shading(
+            index,
+            controls.shading,
+            controls.viewport_grid,
+            controls.status,
+        )
+    };
+    let bodies = catalog_bodies(controls);
+    let sections = bodies
+        .into_iter()
+        .enumerate()
+        .map(|(i, body)| {
+            catalog_section(
+                i,
+                body,
+                refs[i],
+                controls.category,
+                controls.filter,
+                controls.status,
+            )
+        })
+        .collect::<Vec<_>>();
+    let main =
+        scroll(column((hero(controls.compact), sections)).style(style().gap(8).padding_right(2)))
+            .with_node(|node| node.node_ref(controls.main_scroll))
+            .test_id("creative-main")
+            .style(style().grow(1).min_width(0).min_height(0))
+            .style(
+                style()
+                    .scrollbar_color(ui::ColorName::HairStrong, rgba(0, 0.0))
+                    .scrollbar_width(kivact::style::ScrollbarWidth::Thin),
+            );
+    column((
+        topbar(
+            controls.accent,
+            controls.compact,
+            controls.category,
+            controls.sidebar_open,
+            controls.search,
+            controls.status,
+        ),
+        toolbar(controls.transport, controls.status),
+        catalog_workspace(controls, rects.clone(), main),
+        catalog_status(controls.status, controls.transport),
+        operator_search(controls.search, controls.status, refs.clone()),
+        kivact::ui::toast_region(kivact::interaction::toaster()),
+        ui::pie_menu(pie_entries.as_ref().clone(), controls.pie).on_activate(choose_pie),
+    ))
+    .test_id("creative-catalog")
+    .style(style().size(pct(100), pct(100)).min_height(0))
+    .style(
+        style()
+            .background(ui::ColorName::Canvas)
+            .color(ui::ColorName::Text)
+            .font_family("Geist, 'Noto Sans JP', sans-serif")
+            .font_size(12.5)
+            .line_height(1.4),
+    )
+    .on_pointer(move |e| catalog_pointer(e, controls.pointer, controls.pie, &pie_entries))
+    .on_key_up(move |e| catalog_key_up(e, controls.pie, choose_pie))
+    .on_key(move |e| {
+        catalog_key(
+            e,
+            controls.pie,
+            controls.pointer,
+            (controls.pie_zone, controls.viewport_ref),
+            controls.search,
+            controls.status,
+            controls.compact,
+        )
+    })
+}
+
+/// Existing application handles shared by catalog chrome and chapter factories.
+#[derive(Clone, Copy)]
+struct CatalogControls {
+    accent: Signal<ui::Accent>,
+    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    compact: Signal<bool>,
+    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    category: Signal<Option<Category>>,
+    filter: Signal<String>,
+    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    current: Signal<usize>,
+    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    sidebar_open: Signal<bool>,
+    status: Signal<String>,
+    transport: Signal<TransportState>,
+    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    search: Signal<bool>,
+    pie: Signal<ui::PieState>,
+    pointer: Signal<Point>,
+    pie_zone: NodeRef,
+    viewport_ref: NodeRef,
+    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    shading: Signal<usize>,
+    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    viewport_grid: Signal<bool>,
+    main_scroll: NodeRef,
+    main_offset: Value<Point>,
+}
+impl CatalogControls {
+    fn new() -> Self {
+        let accent = signal(ui::Accent::Iris);
+        let compact = signal(false);
+        let category = signal(Some(Category::All));
+        let filter = signal(String::new());
+        let current = signal(0_usize);
+        let sidebar_open = signal(true);
+        let status = signal("Ready — Space: Play · F3: Search · F12: Render".to_string());
+        let transport = signal(TransportState::default());
+        super::audio_values::playback(transport);
+        let search = signal(false);
+        let pie = signal(ui::PieState::default());
+        let pointer = signal(Point::new(0.0, 0.0));
+        let pie_zone = node_ref();
+        let viewport_ref = node_ref();
+        let shading = signal(1_usize);
+        let viewport_grid = signal(true);
+        let main_scroll = node_ref();
+        let main_offset = main_scroll.scroll_offset();
+        Self {
+            accent,
+            compact,
+            category,
+            filter,
+            current,
+            sidebar_open,
+            status,
+            transport,
+            search,
+            pie,
+            pointer,
+            pie_zone,
+            viewport_ref,
+            shading,
+            viewport_grid,
+            main_scroll,
+            main_offset,
+        }
+    }
+}
+
+fn catalog_bodies(controls: CatalogControls) -> Vec<kivact::view::View> {
+    vec![
+        buttons(controls.status).into_view(),
+        numeric(controls.transport).into_view(),
+        selection().into_view(),
+        indicators().into_view(),
+        transport_section(controls.transport).into_view(),
+        knobs().into_view(),
+        meters(controls.transport).into_view(),
+        mixer(controls.transport).into_view(),
+        properties().into_view(),
+        docking().into_view(),
+        outliner().into_view(),
+        media().into_view(),
+        layers(controls.transport).into_view(),
+        timeline(controls.transport, controls.status).into_view(),
+        animation(controls.transport).into_view(),
+        nodes().into_view(),
+        grading().into_view(),
+        picker().into_view(),
+        viewport(
+            controls.shading,
+            controls.viewport_grid,
+            controls.viewport_ref,
+            controls.pointer,
+        )
+        .into_view(),
+        menus(
+            controls.status,
+            controls.pie,
+            controls.pointer,
+            controls.pie_zone,
+            controls.search,
+        )
+        .into_view(),
+        dialogs(controls.status).into_view(),
+        jobs(controls.status).into_view(),
+    ]
+}
+
+fn catalog_workspace(
+    controls: CatalogControls,
+    rects: std::rc::Rc<Vec<Value<Option<Rect>>>>,
+    main: impl IntoView,
+) -> Node {
+    row((
+        sidebar(
+            controls.category,
+            controls.filter,
+            controls.current,
+            rects.clone(),
+            controls.main_scroll,
+            controls.main_offset,
+        )
+        .hidden(move || !controls.sidebar_open.get()),
+        main,
+    ))
+    .style(move || {
+        style()
+            .grow(1)
+            .basis(0)
+            .min_height(0)
+            .min_width(0)
+            .padding(if controls.compact.get() { 4 } else { 8 })
+            .gap(if controls.compact.get() { 4 } else { 8 })
+            .align_items(Align::Stretch)
+    })
 }
