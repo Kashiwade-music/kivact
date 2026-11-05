@@ -1,5 +1,7 @@
 //! Role: Render reactive progress steps with semantic current-step metadata.
-use crate::navigation_values::{CollapsedSteps, StepStatus, StepperItemState, StepperState};
+use crate::navigation_values::{
+    CollapsedSteps, StepIndicatorKind, StepStatus, StepperItemState, StepperState,
+};
 use kivact_core::custom::Reactive;
 use kivact_core::state::{IntoText, IntoValue, Value, memo};
 use kivact_core::style::{Direction, style};
@@ -178,9 +180,22 @@ impl IntoView for Stepper {
         } = self;
         let reference = node_ref();
         let layout = responsive_layout(items, current, orientation, min_step_width, reference);
-        let previous =
-            collapsed_navigation(activate.clone(), current, layout, variants.clone(), true);
-        let next = collapsed_navigation(activate.clone(), current, layout, variants.clone(), false);
+        let previous = collapsed_navigation(
+            activate.clone(),
+            items,
+            current,
+            layout,
+            variants.clone(),
+            true,
+        );
+        let next = collapsed_navigation(
+            activate.clone(),
+            items,
+            current,
+            layout,
+            variants.clone(),
+            false,
+        );
         let child_variants = variants.clone();
         let children = for_index(items, move |index, item| {
             step_row(
@@ -247,6 +262,7 @@ fn responsive_layout(
 }
 fn collapsed_navigation(
     activate: Option<Rc<dyn Fn(usize)>>,
+    items: Value<Vec<StepperItem>>,
     current: Value<usize>,
     layout: Value<StepperState>,
     variants: crate::variants::Variants,
@@ -258,6 +274,18 @@ fn collapsed_navigation(
         } else {
             |r| r.stepper_recipes().next_recipe()
         };
+    let target = memo(move || {
+        items.with(|items| {
+            let current = current.get();
+            if previous {
+                (0..current.min(items.len()))
+                    .rev()
+                    .find(|at| !items[*at].disabled.get())
+            } else {
+                (current.saturating_add(1)..items.len()).find(|at| !items[*at].disabled.get())
+            }
+        })
+    });
     activate.map(|activate| {
         show(
             move || layout.get().collapsed,
@@ -270,19 +298,11 @@ fn collapsed_navigation(
                 };
                 crate::layer::with_recipe_style(
                     crate::button(label)
-                        .disabled(move || {
-                            if previous {
-                                current.get() == 0
-                            } else {
-                                current.get().saturating_add(1) >= layout.get().count
-                            }
-                        })
+                        .disabled(move || target.get().is_none())
                         .on_press(move || {
-                            activate(if previous {
-                                current.get_untracked().saturating_sub(1)
-                            } else {
-                                current.get_untracked().saturating_add(1)
-                            })
+                            if let Some(target) = target.get_untracked() {
+                                activate(target);
+                            }
                         }),
                     recipe,
                     &variants,
@@ -302,6 +322,7 @@ fn step_row(
     activate: Option<Rc<dyn Fn(usize)>>,
     variants: crate::variants::Variants,
 ) -> impl IntoView {
+    let interactive = activate.is_some();
     let state = move || {
         item.with(|item| StepperItemState {
             count: layout.get().count,
@@ -309,6 +330,13 @@ fn step_row(
             index,
             current: current.get(),
             status: item.status,
+            interactive,
+            indicator: match item.indicator {
+                StepIndicator::Auto => StepIndicatorKind::Auto,
+                StepIndicator::Number => StepIndicatorKind::Number,
+                StepIndicator::None => StepIndicatorKind::None,
+                StepIndicator::Custom(_) => StepIndicatorKind::Custom,
+            },
             collapsed: layout.get().collapsed,
             disabled: item.disabled.get(),
             optional: item.optional.get(),
