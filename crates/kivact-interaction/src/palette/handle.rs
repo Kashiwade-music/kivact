@@ -308,6 +308,7 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
                     label: command.label.clone(),
                     disabled: command.disabled,
                     icon: None,
+                    pressed_icon: None,
                     description: None,
                 })
                 .collect::<Vec<_>>()

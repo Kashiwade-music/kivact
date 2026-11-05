@@ -75,6 +75,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                             // Menu activation is independently guarded by the row part.
                             disabled: entry.is_disabled() && !retain_disabled_focus,
                             icon: None,
+                            pressed_icon: None,
                             description: None,
                         })
                     })
