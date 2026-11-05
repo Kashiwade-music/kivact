@@ -23,10 +23,14 @@ use kivact::view::View;
 use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Scrollable directions supported by a viewport.
 pub enum ScrollAxis {
+    /// Scroll horizontally.
     Inline,
     #[default]
+    /// Scroll vertically; the default.
     Block,
+    /// Allow both horizontal and vertical scrolling.
     Both,
 }
 
@@ -41,6 +45,7 @@ impl ScrollAxis {
 }
 
 // xtask-allow(state-fields): Independent NodeBuilder setup options for axis, padding, bleed, and focusability.
+/// Named region with native scrolling and a tab stop when its content overflows.
 pub struct ScrollableArea {
     root: Node,
     child: View,
@@ -52,6 +57,7 @@ pub struct ScrollableArea {
     force_focusable: Option<Value<bool>>,
 }
 
+/// Create a named vertical viewport with zero padding and no bleed.
 pub fn scrollable_area(label: impl IntoText, child: impl IntoView) -> ScrollableArea {
     ScrollableArea {
         root: node()
@@ -73,18 +79,22 @@ impl ScrollableArea {
         self.force_focusable = Some(value);
         self
     }
+    /// Choose native scrolling axes at construction from a constant or reactive input.
     pub fn axis(mut self, axis: impl IntoValue<ScrollAxis>) -> Self {
         self.axis = axis.into_value();
         self
     }
+    /// Reactively cancel inherited inline insets and enable requested top/bottom bleed.
     pub fn full_bleed(mut self, full_bleed: impl IntoValue<bool>) -> Self {
         self.full_bleed = full_bleed.into_value();
         self
     }
+    /// Cancel the inherited top inset when full bleed is enabled; off by default.
     pub fn bleed_top(mut self, bleed: impl IntoValue<bool>) -> Self {
         self.bleed_top = bleed.into_value();
         self
     }
+    /// Cancel the inherited bottom inset when full bleed is enabled; off by default.
     pub fn bleed_bottom(mut self, bleed: impl IntoValue<bool>) -> Self {
         self.bleed_bottom = bleed.into_value();
         self
