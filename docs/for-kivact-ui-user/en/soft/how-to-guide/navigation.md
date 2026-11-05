@@ -37,3 +37,5 @@ content belongs in `.handle(..)`; its style controls the divider, visibility, po
 Use `LayoutRegion::width(..)` when a layout panel follows the same size binding. A supplied end
 resize slot controls its own reversed direction. Observe scroll boundaries with `NodeRef::scroll_state()`;
 scrollable areas use the core keyboard scroll behavior.
+
+Use standard `disclosure(title, open).content(factory)` and `.animated(true)` for expandable sections. The Soft theme supplies the original spring transition. `disclosure_group(signal(None::<K>))` gives single selection; a `Vec<K>` binding gives multiple selection. `.panel(key, title, factory)` replaces keyed kit sections. Set `.variant(soft::DisclosureVariant { dividers: true, ..Default::default() })` for separators; `chevron` accepts `ChevronPosition::Start` or `End`, and `density` accepts `Some(DisclosureDensity::Compact)`, `Balanced`, or `Spacious`. These visual variants apply to both standalone sections and groups and follow text direction. `.always_open()` replaces disabled collapsing; `.content(factory).attach(trigger)` supplies a custom trigger. Create `signal(default_open)` at the call site for an initial opening.

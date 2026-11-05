@@ -28,9 +28,20 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     show(
                         move || !dismissed_info.get(),
                         move || {
-                            ui::alert("メンテナンスのお知らせ")
+                            let tone = kivact::state::IntoValue::into_value(
+                                kivact::interaction::Tone::Info,
+                            );
+                            kivact::ui::alert("メンテナンスのお知らせ")
+                                .tone(tone)
+                                .icon(kivact::view::icon(move || {
+                                    kivact::style::Icon::named(match tone.get() {
+                                        kivact::interaction::Tone::Danger => "alert-circle",
+                                        kivact::interaction::Tone::Warning => "alert-triangle",
+                                        kivact::interaction::Tone::Success => "circle-check",
+                                        _ => "info-circle",
+                                    })
+                                }))
                                 .description("10/08 02:00〜06:00 の間、一部機能が利用できません。")
-                                .tone(kivact::interaction::Tone::Info)
                                 .actions({
                                     kivact::ui::button("お知らせを閉じる")
                                         .variant(kivact::ui::ButtonVariant::Ghost)
@@ -44,9 +55,20 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     show(
                         move || !dismissed_success.get(),
                         move || {
-                            ui::alert("作戦成功！")
+                            let tone = kivact::state::IntoValue::into_value(
+                                kivact::interaction::Tone::Success,
+                            );
+                            kivact::ui::alert("作戦成功！")
+                                .tone(tone)
+                                .icon(kivact::view::icon(move || {
+                                    kivact::style::Icon::named(match tone.get() {
+                                        kivact::interaction::Tone::Danger => "alert-circle",
+                                        kivact::interaction::Tone::Warning => "alert-triangle",
+                                        kivact::interaction::Tone::Success => "circle-check",
+                                        _ => "info-circle",
+                                    })
+                                }))
                                 .description("報酬が受取ボックスに送られました。")
-                                .tone(kivact::interaction::Tone::Success)
                                 .actions({
                                     kivact::ui::button("成功通知を閉じる")
                                         .variant(kivact::ui::ButtonVariant::Ghost)
@@ -57,24 +79,49 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 })
                         },
                     ),
-                    ui::alert("活動ポイントが残りわずかです")
-                        .description("あと 12 で上限に達します。今すぐ使う")
-                        .tone(kivact::interaction::Tone::Warning),
-                    ui::alert("同期に失敗しました")
-                        .description("通信状態を確認してから再試行してください。")
-                        .tone(kivact::interaction::Tone::Danger)
-                        .actions({
-                            kivact::ui::button("再試行")
-                                .size(kivact::ui::ControlSize::Small)
-                                .variant(kivact::ui::ButtonVariant::Secondary)
-                                .on_press(move || {
-                                    notify.call((
-                                        ui::Hue::Blue,
-                                        "同期しています".into(),
-                                        "再試行を開始しました。".into(),
-                                    ))
+                    {
+                        let tone = kivact::state::IntoValue::into_value(
+                            kivact::interaction::Tone::Warning,
+                        );
+                        kivact::ui::alert("活動ポイントが残りわずかです")
+                            .tone(tone)
+                            .icon(kivact::view::icon(move || {
+                                kivact::style::Icon::named(match tone.get() {
+                                    kivact::interaction::Tone::Danger => "alert-circle",
+                                    kivact::interaction::Tone::Warning => "alert-triangle",
+                                    kivact::interaction::Tone::Success => "circle-check",
+                                    _ => "info-circle",
                                 })
-                        }),
+                            }))
+                            .description("あと 12 で上限に達します。今すぐ使う")
+                    },
+                    {
+                        let tone =
+                            kivact::state::IntoValue::into_value(kivact::interaction::Tone::Danger);
+                        kivact::ui::alert("同期に失敗しました")
+                            .tone(tone)
+                            .icon(kivact::view::icon(move || {
+                                kivact::style::Icon::named(match tone.get() {
+                                    kivact::interaction::Tone::Danger => "alert-circle",
+                                    kivact::interaction::Tone::Warning => "alert-triangle",
+                                    kivact::interaction::Tone::Success => "circle-check",
+                                    _ => "info-circle",
+                                })
+                            }))
+                            .description("通信状態を確認してから再試行してください。")
+                            .actions({
+                                kivact::ui::button("再試行")
+                                    .size(kivact::ui::ControlSize::Small)
+                                    .variant(kivact::ui::ButtonVariant::Secondary)
+                                    .on_press(move || {
+                                        notify.call((
+                                            ui::Hue::Blue,
+                                            "同期しています".into(),
+                                            "再試行を開始しました。".into(),
+                                        ))
+                                    })
+                            })
+                    },
                 ))
                 .style(style().gap(16)),
             )),
@@ -167,10 +214,11 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 ))
                 .style(style().gap(0)),
             )),
-            ui::panel(
-                ui::empty_state("まだ依頼がありません")
+            kivact::ui::card(
+                kivact::ui::empty_state("まだ依頼がありません")
+                    .icon(ui::empty_illustration())
                     .description("新しい依頼を作成して、生徒たちに仕事をお願いしましょう。")
-                    .content({
+                    .actions({
                         wrap((
                             kivact::ui::button("依頼を作成")
                                 .icon(kivact::view::icon("plus"))
@@ -404,7 +452,7 @@ pub(super) fn schedule() -> Node {
         "Schedule",
         "カレンダー・予定リスト",
         cards_grid((
-            ui::panel(
+            kivact::ui::card(
                 ui::calendar(date, CalendarDate::new(2026, 10, 3))
                     .weekend(|day| match day {
                         kivact::i18n::Weekday::Sunday => Some(ui::Hue::Red),
@@ -423,7 +471,7 @@ pub(super) fn schedule() -> Node {
                     .test_id("pop-calendar"),
             )
             .style(style().grid_column(GridPlacement::span(5))),
-            ui::panel(
+            kivact::ui::card(
                 column((
                     row((
                         text(move || {

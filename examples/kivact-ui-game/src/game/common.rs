@@ -19,7 +19,7 @@ pub(super) fn segmented<K: kivact::state::ItemKey>(
 ) -> RadioGroup<K> {
     radio_group(label, options, value)
         .orientation(Orientation::Horizontal)
-        .variant(g::Segmented)
+        .variant(kivact::ui::RadioGroupVariant::Segmented)
 }
 
 pub(super) fn suppress_search_shortcut(event: kivact::view::KeyEvent) -> Handled {

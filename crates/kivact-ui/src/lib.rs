@@ -230,9 +230,10 @@ pub use calendar::{Calendar, CalendarCaption, CalendarDayVisual, CalendarEvent, 
 
 mod calendar_tokens;
 mod look_calendar;
-pub use calendar_tokens::CalendarTokens;
+pub use calendar_tokens::{CalendarEventVisual, CalendarTokens};
 
 mod date_input;
+mod date_trigger;
 pub use date_input::{DateInput, DatePresentation, date_input};
 
 mod date_wheel;
@@ -260,6 +261,8 @@ pub use carousel_tokens::CarouselTokens;
 pub use dropzone_tokens::DropzoneTokens;
 pub use recipes::{CarouselRecipes, DropzoneRecipes};
 mod carousel_geometry;
+mod disclosure_values;
+pub use disclosure_values::{DisclosureGroupPosition, DisclosureRecipeState};
 mod disclosure_group;
 pub use disclosure_group::{DisclosureGroup, disclosure_group};
 
@@ -365,6 +368,7 @@ mod chat_tokens;
 mod chat_values;
 mod code_block;
 mod code_editing;
+mod code_gutter;
 mod composer_history;
 mod look_chat;
 mod typing_indicator;

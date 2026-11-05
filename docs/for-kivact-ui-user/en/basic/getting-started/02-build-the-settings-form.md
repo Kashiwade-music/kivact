@@ -46,7 +46,7 @@ fn profile_card(
                 .description("Choose how others see you.")
                 .action({
                     show(changed, || {
-                        basic::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
+                        kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                     })
                 }),
         )

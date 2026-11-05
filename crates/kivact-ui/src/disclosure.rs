@@ -28,6 +28,7 @@ pub struct Disclosure {
     always_open: bool,
     heading_level: Option<u32>,
     animation: Option<Value<bool>>,
+    group: Option<crate::DisclosureGroupPosition>,
 }
 
 /// A section titled `title` that `open` opens and closes, showing what
@@ -90,12 +91,17 @@ pub fn disclosure(
         always_open: false,
         heading_level: None,
         animation: None,
+        group: None,
     }
 }
 
 impl Disclosure {
+    pub(crate) fn group_position(mut self, index: usize, count: usize) -> Self {
+        self.group = Some(crate::DisclosureGroupPosition { index, count });
+        self
+    }
     pub(crate) fn group_variants(mut self, variants: Variants) -> Self {
-        self.variants = variants;
+        self.variants = self.variants.inherited(&variants);
         self
     }
 
@@ -133,12 +139,13 @@ impl Disclosure {
         let motion = self.motion;
         let animation = self.animation;
         let variants = self.variants;
+        let group = self.group;
         self.root
             .style(style().direction(kivact_core::style::Direction::Column))
             .child((
                 trigger,
                 show(details.is_open(), move || {
-                    content_region(details, &content, &motion, animation, &variants)
+                    content_region(details, &content, &motion, animation, &variants, group)
                 }),
             ))
     }
@@ -198,6 +205,7 @@ impl IntoView for Disclosure {
         let motion = self.motion;
         let animation = self.animation;
         let variants = self.variants;
+        let group = self.group;
         let part = details.trigger();
         let state = part.state();
         let title = self.title;
@@ -205,13 +213,13 @@ impl IntoView for Disclosure {
             node().child(icon("chevron-down")),
             |recipes| recipes.disclosure_recipes().indicator_recipe(),
             &variants,
-            move || state.get(),
+            move || crate::DisclosureRecipeState::from_part(state.get(), group),
         );
         let trigger = with_recipe_style(
             node().part(part).name(title),
             |recipes| recipes.disclosure_recipes().trigger_recipe(),
             &variants,
-            move || state.get(),
+            move || crate::DisclosureRecipeState::from_part(state.get(), group),
         )
         .child((
             text(title).style(super::helpers::label_style().grow(1)),
@@ -228,14 +236,14 @@ impl IntoView for Disclosure {
         let build = self.content;
         let region = {
             let variants = variants.clone();
-            move || content_region(details, &build, &motion, animation, &variants)
+            move || content_region(details, &build, &motion, animation, &variants, group)
         };
         let body = show(shown, region);
         with_base_recipe_style(
             self.root,
             |recipes| recipes.disclosure_recipes().root_recipe(),
             &variants,
-            move || state.get(),
+            move || crate::DisclosureRecipeState::from_part(state.get(), group),
         )
         .child(trigger)
         .child(body)
@@ -251,6 +259,7 @@ fn content_region(
     motion: &DisclosureMotion,
     animation: Option<Value<bool>>,
     variants: &Variants,
+    group: Option<crate::DisclosureGroupPosition>,
 ) -> Node {
     let part = details.content();
     let content_state = part.state();
@@ -258,10 +267,11 @@ fn content_region(
         node().part(part),
         |recipes| recipes.disclosure_recipes().content_recipe(),
         variants,
-        move || content_state.get(),
+        move || crate::DisclosureRecipeState::from_part(content_state.get(), group),
     );
     let duration = motion.duration;
     let default_animate = motion.animate;
+    let transition = motion.transition.clone();
     let region = region.style(move || {
         if animation.map_or(default_animate, |value| value.get()) {
             style()
@@ -269,7 +279,9 @@ fn content_region(
                 .exit_size(Orientation::Vertical)
                 .transition(
                     TransitionProp::Size,
-                    Transition::tween(duration.as_secs_f64() * 1000.0, Easing::EaseOut),
+                    transition.clone().unwrap_or_else(|| {
+                        Transition::tween(duration.as_secs_f64() * 1000.0, Easing::EaseOut)
+                    }),
                 )
         } else {
             style()

@@ -4,7 +4,6 @@ mod content;
 mod feedback;
 
 pub use content::{
-    Alert, ListItem, StatCard, alert, key_value, list_item, panel, progress_ring, section_heading,
-    sparkline, stat_card,
+    ListItem, StatCard, key_value, list_item, progress_ring, section_heading, sparkline, stat_card,
 };
-pub use feedback::{EmptyState, empty_state};
+pub use feedback::empty_illustration;

@@ -8,12 +8,15 @@ pub struct DisclosureTokens {
 pub struct DisclosureMotion {
     pub animate: bool,
     pub duration: Duration,
+    /// Optional theme transition; absent uses the duration-based ease-out tween.
+    pub transition: Option<kivact_core::motion::Transition>,
 }
 impl Default for DisclosureMotion {
     fn default() -> Self {
         Self {
             animate: false,
             duration: Duration::from_millis(200),
+            transition: None,
         }
     }
 }

@@ -63,8 +63,8 @@ use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
 use kivact_interaction::DropzoneState;
 use kivact_interaction::{
-    DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
-    TableHeaderState, ToastState, TreeItemState,
+    ListItemState, MenuItemState, PopupState, TabListState, TabState, TableHeaderState, ToastState,
+    TreeItemState,
 };
 use std::sync::Arc;
 
@@ -209,6 +209,9 @@ recipe_table! {
     CalendarRecipes {
         root(root_recipe): PartState = super::look_calendar::root,
         month(month_recipe): PartState = super::look_calendar::month,
+        caption(caption_recipe): PartState = super::look_calendar::month,
+        events(events_recipe): PartState = super::look_calendar::events,
+        event(event_recipe): super::CalendarEventVisual = super::look_calendar::event,
         day(day_recipe): super::CalendarDayVisual = super::look_calendar::day,
         range(range_recipe): kivact_interaction::CalendarDayState = super::look_calendar::range,
     }
@@ -521,17 +524,17 @@ recipe_table! {
 
 recipe_table! {
     /// The recipes of a [`disclosure`](super::disclosure); all of them get
-    /// the trigger's or the content's [`DisclosureState`].
+    /// the trigger's or the content's [`crate::DisclosureRecipeState`].
     DisclosureRecipes {
         /// The column of the trigger over the content.
-        root(root_recipe): DisclosureState = look_extra::disclosure_root,
+        root(root_recipe): crate::DisclosureRecipeState = look_extra::disclosure_root,
         /// The trigger: the title and the indicator in a row.
-        trigger(trigger_recipe): DisclosureState = look_extra::disclosure_trigger,
+        trigger(trigger_recipe): crate::DisclosureRecipeState = look_extra::disclosure_trigger,
         /// The box of the trigger's `chevron-down` icon, which a look turns
         /// while the content is open.
-        indicator(indicator_recipe): DisclosureState = look_extra::disclosure_indicator,
+        indicator(indicator_recipe): crate::DisclosureRecipeState = look_extra::disclosure_indicator,
         /// The content under the trigger.
-        content(content_recipe): DisclosureState = look_extra::disclosure_content,
+        content(content_recipe): crate::DisclosureRecipeState = look_extra::disclosure_content,
     }
 }
 

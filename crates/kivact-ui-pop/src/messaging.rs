@@ -97,14 +97,14 @@ impl IntoView for Thread {
         } = self;
         let portrait = match portrait {
             Some(portrait) => portrait,
-            None => ({
+            None => {
                 let initials = kivact::state::IntoText::into_text_value(initials);
                 let look = crate::AvatarLook::default().size(32);
                 kivact::ui::avatar(initials)
                     .fallback_content(move || kivact::view::text(initials))
                     .variant(look)
                     .status_content(look.decorations())
-            })
+            }
             .into_view(),
         };
         root.child((
@@ -147,14 +147,14 @@ pub fn typing_message(initials: impl IntoText) -> impl kivact::view::Component {
             .essential(),
     );
     row((
-        ({
+        {
             let initials = kivact::state::IntoText::into_text_value(initials);
             let look = crate::AvatarLook::default().size(24);
             kivact::ui::avatar(initials)
                 .fallback_content(move || kivact::view::text(initials))
                 .variant(look)
                 .status_content(look.decorations())
-        }),
+        },
         node()
             .style(style().size(54, 30).radius_corners(4, 14, 14, 14))
             .style(style().background(crate::ColorName::SurfaceActive))
@@ -328,14 +328,14 @@ impl IntoView for MessageGroup {
         });
         self.root
             .child((
-                ({
+                {
                     let initials = kivact::state::IntoText::into_text_value(initials);
                     let look = crate::AvatarLook::default().size(24);
                     kivact::ui::avatar(initials)
                         .fallback_content(move || kivact::view::text(initials))
                         .variant(look)
                         .status_content(look.decorations())
-                })
+                }
                 .hidden(mine),
                 bubble,
             ))

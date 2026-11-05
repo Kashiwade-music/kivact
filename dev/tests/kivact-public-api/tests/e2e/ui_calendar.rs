@@ -112,3 +112,47 @@ fn time_input_accepts_hours_and_minutes() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn date_fields_attach_to_existing_buttons_without_constructing_editors() {
+    let (screen, (date, range, presses)) = mount(|| {
+        let date = signal(None::<CalendarDate>);
+        let range = signal(None::<DateRange>);
+        let presses = signal(0usize);
+        (
+            (date, range, presses),
+            column((
+                ui::date_input("Date picker", date)
+                    .presentation(DatePresentation::Desktop)
+                    .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10)))
+                    .attach(
+                        button("Pick date")
+                            .test_id("date-trigger")
+                            .on_press(move || presses.update(|n| *n += 1)),
+                    ),
+                ui::date_range_input("Range picker", range)
+                    .presentation(DatePresentation::Desktop)
+                    .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10)))
+                    .attach(button("Pick range")),
+            )),
+        )
+    });
+    assert!(screen.query_by_role(Role::TextBox, "Date picker").is_none());
+    assert!(screen.query_by_role(Role::TextBox, "Start date").is_none());
+    let trigger = screen.get_by_test_id("date-trigger");
+    trigger.click();
+    assert_eq!(presses.get_untracked(), 1);
+    screen.get_by_role(Role::GridCell, "2026-10-14").click();
+    assert_eq!(date.get_untracked(), Some(day(14)));
+    assert!(screen.query_by_role(Role::GridCell, "2026-10-14").is_none());
+    assert!(trigger.is_focused());
+    screen.get_by_role(Role::Button, "Pick range").click();
+    screen.get_by_role(Role::GridCell, "2026-10-12").click();
+    screen.get_by_role(Role::GridCell, "2026-10-18").click();
+    assert_eq!(
+        range.get_untracked(),
+        Some(DateRange::new(day(12), day(18)))
+    );
+    assert!(screen.query_by_role(Role::GridCell, "2026-10-12").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

@@ -28,7 +28,10 @@ type Constraint = Rc<dyn Fn(CalendarDate) -> bool>;
 /// A range field whose endpoints always form an ordered [`DateRange`].
 pub struct DateRangeInput {
     root: Node,
+    variants: crate::variants::Variants,
     label: Value<String>,
+    start_label: Value<String>,
+    end_label: Value<String>,
     value: Binding<Option<DateRange>>,
     format: Value<DateStyle>,
     custom_format: Option<Rc<dyn Fn(CalendarDate) -> String>>,
@@ -51,7 +54,10 @@ pub fn date_range_input(
 ) -> DateRangeInput {
     DateRangeInput {
         root: node(),
+        variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
+        start_label: message("date.start", "Start date"),
+        end_label: message("date.end", "End date"),
         value: range.into_binding(),
         format: DateStyle::Iso.into_value(),
         custom_format: None,
@@ -69,6 +75,25 @@ pub fn date_range_input(
     }
 }
 impl DateRangeInput {
+<<<<<<< C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\2
+    /// Set the accessible label of the start-date editor.
+    pub fn start_label(mut self, label: impl IntoText) -> Self {
+        self.start_label = label.into_text_value();
+        self
+    }
+    /// Set the accessible label of the end-date editor.
+    pub fn end_label(mut self, label: impl IntoText) -> Self {
+        self.end_label = label.into_text_value();
+        self
+    }
+
+=======
+    /// Add a visual variant shared by the field and its picker surface.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+>>>>>>> C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\3
     /// Format both endpoints.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -144,9 +169,21 @@ impl NodeBuilder for DateRangeInput {
 }
 impl IntoView for DateRangeInput {
     fn into_view(self) -> View {
+        self.render(crate::date_trigger::FieldPresentation::Text)
+    }
+}
+impl DateRangeInput {
+    /// Open the shared range picker from a caller-owned trigger, without endpoint editors.
+    pub fn attach<T: NodeBuilder + IntoView + 'static>(self, trigger: T) -> View {
+        self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
+    }
+    fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
         let Self {
             root,
+            variants,
             label,
+            start_label,
+            end_label,
             value,
             format,
             custom_format,
@@ -184,6 +221,74 @@ impl IntoView for DateRangeInput {
                 value.set(next);
             }
         });
+        let open = signal(false);
+        let trigger_focus = match &field {
+            crate::date_trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
+            crate::date_trigger::FieldPresentation::Text => None,
+        };
+        let content = move || {
+            let local = signal(value.get_untracked());
+            let accepted = accept.clone();
+            let mut picker = calendar(local)
+                .min(min)
+                .max(max)
+                .range_span(min_span, max_span)
+                .number_of_months(2usize)
+                .on_commit(move || {
+                    if let Some(next) = local.get_untracked().filter(|next| accepted(*next)) {
+                        value.set(Some(next));
+                        open.set(false);
+                        if let Some(focus) = trigger_focus {
+                            focus.restore_focus();
+                        }
+                    }
+                });
+            if let Some(day) = week_start {
+                picker = picker.week_start(day);
+            }
+            if let Some(configure) = &configure {
+                picker = configure(picker);
+            }
+            let accepted = accept.clone();
+            let choices = kivact_core::view::dynamic(
+                move || presets.map(|presets| presets.get()).unwrap_or_default(),
+                move |presets| {
+                    column(
+                        presets
+                            .into_iter()
+                            .map(|preset| {
+                                let accepted = accepted.clone();
+                                button(preset.label).on_press(move || {
+                                    let range = (preset.range)();
+                                    if accepted(range) {
+                                        value.set(Some(range));
+                                        open.set(false);
+                                        if let Some(focus) = trigger_focus {
+                                            focus.restore_focus();
+                                        }
+                                    }
+                                })
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                },
+            );
+            column((choices, picker))
+        };
+
+        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+            return root
+                .child(
+                    attach.view(
+                        dialog(label, open)
+                            .with_variants(&variants)
+                            .mode(presentation.mode())
+                            .hide_title(true)
+                            .content(content),
+                    ),
+                )
+                .into_view();
+        }
         let start = binding(
             move || value.get().map(DateRange::start),
             move |next| {
@@ -227,16 +332,23 @@ impl IntoView for DateRangeInput {
             },
             move |valid| validation.send(ValidationEvent::End(valid)),
         );
-        let mut first = date_input(message("date.start", "Start date"), start)
+        let mut first = date_input(start_label, start)
             .format(format)
             .min(min)
             .max(max)
+<<<<<<< C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\2
             .presentation(presentation);
+        let mut last = date_input(end_label, end)
+=======
+            .presentation(presentation)
+            .with_variants(&variants);
         let mut last = date_input(message("date.end", "End date"), end)
+>>>>>>> C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\3
             .format(format)
             .min(min)
             .max(max)
-            .presentation(presentation);
+            .presentation(presentation)
+            .with_variants(&variants);
         first = first.valid(start_valid);
         last = last.valid(end_valid);
         if let Some(placeholder) = placeholder {
@@ -252,61 +364,18 @@ impl IntoView for DateRangeInput {
             first = first.week_start(day);
             last = last.week_start(day);
         }
-        let open = signal(false);
-        let trigger = button(message("date.range_open", "Choose date range"));
-        let content = move || {
-            let local = signal(value.get_untracked());
-            let accepted = accept.clone();
-            let mut picker = calendar(local)
-                .min(min)
-                .max(max)
-                .range_span(min_span, max_span)
-                .number_of_months(2usize)
-                .on_commit(move || {
-                    if let Some(next) = local.get_untracked().filter(|next| accepted(*next)) {
-                        value.set(Some(next));
-                        open.set(false);
-                    }
-                });
-            if let Some(day) = week_start {
-                picker = picker.week_start(day);
-            }
-            if let Some(configure) = &configure {
-                picker = configure(picker);
-            }
-            let accepted = accept.clone();
-            let choices = kivact_core::view::dynamic(
-                move || presets.map(|presets| presets.get()).unwrap_or_default(),
-                move |presets| {
-                    column(
-                        presets
-                            .into_iter()
-                            .map(|preset| {
-                                let accepted = accepted.clone();
-                                button(preset.label).on_press(move || {
-                                    let range = (preset.range)();
-                                    if accepted(range) {
-                                        value.set(Some(range));
-                                        open.set(false);
-                                    }
-                                })
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                },
-            );
-            column((choices, picker))
-        };
         let root = crate::layer::with_base_recipe_style(
             root,
             |r| r.date_range_input_recipes().root_recipe(),
-            &crate::variants::Variants::default(),
+            &variants,
             kivact_core::custom::PartState::default,
         );
+        let trigger = button(message("date.range_open", "Choose date range"));
         root.child(row((
             first,
             last,
             dialog(label, open)
+                .with_variants(&variants)
                 .mode(presentation.mode())
                 .hide_title(true)
                 .content(content)

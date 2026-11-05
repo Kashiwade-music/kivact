@@ -91,7 +91,7 @@ pub(super) fn messaging() -> Node {
             .unread(move || unread.with(|counts| counts[i]))
             .with_node(|node| node.selected(move || active.get() == i))
             .portrait({
-                ({
+                {
                     let initials = kivact::state::IntoText::into_text_value(initials);
                     let look = ui::AvatarLook::default()
                         .size(32)
@@ -100,7 +100,7 @@ pub(super) fn messaging() -> Node {
                         .fallback_content(move || kivact::view::text(initials))
                         .variant(look)
                         .status_content(look.decorations())
-                })
+                }
             })
             .test_id(format!("pop-thread-{i}"))
             .on_press(move || {
@@ -253,14 +253,14 @@ pub(super) fn messaging() -> Node {
     });
     let main = column((
         row((
-            ({
+            {
                 let initials = kivact::state::IntoText::into_text_value("MN");
                 let look = ui::AvatarLook::default().size(32).halo(true).online(true);
                 kivact::ui::avatar(initials)
                     .fallback_content(move || kivact::view::text(initials))
                     .variant(look)
                     .status_content(look.decorations())
-            }),
+            },
             column((
                 text(move || names[active.get()].to_string()).style(style().weight(600)),
                 text("調査部 · オンライン").style(style().font_size(12).color(rgb(0x0f8a6a))),
@@ -317,7 +317,7 @@ pub(super) fn messaging() -> Node {
         "10",
         "Messaging",
         "トーク — 生徒とのやりとり",
-        ui::panel(row((list, main)).style(style().height(560)))
+        kivact::ui::card(row((list, main)).style(style().height(560)))
             .style(style().padding(0).clip(true)),
     )
 }

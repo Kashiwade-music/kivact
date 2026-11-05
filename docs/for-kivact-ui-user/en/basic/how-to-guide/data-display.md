@@ -141,12 +141,12 @@ use kivact_ui_basic as basic;
 fn people() -> impl IntoView {
     column((
         row((
-            basic::badge("Active"),
-            basic::badge("Draft").variant(basic::BadgeVariant::Secondary),
-            basic::badge("Failed").variant(basic::BadgeVariant::Destructive),
-            basic::badge("Verified")
+            kivact::ui::badge("Active"),
+            kivact::ui::badge("Draft").variant(basic::BadgeVariant::Secondary),
+            kivact::ui::badge("Failed").variant(basic::BadgeVariant::Destructive),
+            kivact::ui::badge("Verified")
                 .variant(basic::BadgeVariant::Outline)
-                .icon(icon("badge-check")),
+                .icon(icon("badge-check").style(style().size(12,12))),
         ))
         .style(style().gap(8).align_items(Align::Center)),
         basic::avatar_group((

@@ -280,7 +280,7 @@ fn root() -> impl IntoView {
 - `.tone(..)` は `Neutral`（アイコンなし）、`Success`、`Info`、`Warning`、`Danger` です。テーマがトーンのアイコンを描きます。`Warning` と `Danger` は、スクリーンリーダーにより緊急のものとして通知されます。
 - トーストは 5 秒で閉じます。`.duration(Some(Duration::from_secs(2)))` で変え、`.duration(None)` にすると、閉じられるまで残ります。`push` は id を返し、`toaster().dismiss(id)` でそのトーストを消せます。
 - `.action("Undo", move || ..)` はボタンを足します。押すとクロージャが実行され、トーストが閉じます。クロージャはトーストが所有するので、押下のハンドラの中で作って積めます。
-- 処理中を示すトーストには、`.icon(|| basic::spinner())` と `.duration(None)` を使い、処理が終わったら閉じます。
+- 処理中を示すトーストには、`.icon(|| kivact::ui::spinner())` と `.duration(None)` を使い、処理が終わったら閉じます。
 - 複数のトーストは、最新のものの後ろに最大 3 つまで重なります。ポインターが乗るか、フォーカスが入ると一覧に開きます。`hold_all_on_hover(true)` を付けると、開いている間はすべてのトーストの時間が止まります。
 
 ## 関連項目

@@ -27,6 +27,7 @@ use std::rc::Rc;
 // xtask-allow(state-fields): Setup builder options are independent bindings, callbacks and display capabilities.
 pub struct Calendar {
     root: Node,
+    variants: crate::variants::Variants,
     selection: CalendarSelection,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     month: Option<CalendarMonth>,
@@ -69,13 +70,15 @@ pub struct Calendar {
 }
 
 fn new(selection: CalendarSelection) -> Calendar {
+    let variants = crate::variants::Variants::default();
     Calendar {
         root: crate::layer::with_base_recipe_style(
             node().with_node(|root| root.role(Role::Group)),
             |r| r.calendar_recipes().root_recipe(),
-            &crate::variants::Variants::default(),
+            &variants,
             kivact_core::custom::PartState::default,
         ),
+        variants,
         selection,
         month: None,
         disabled: Rc::new(|_| false),
@@ -110,6 +113,12 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 }
 
 impl Calendar {
+    /// Pass a kit-defined appearance to every calendar part recipe.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+
     pub(crate) fn range_validator(&self) -> impl Fn(DateRange) -> bool + use<> {
         let (min, max, min_span, max_span) = (self.min, self.max, self.min_span, self.max_span);
         let disabled = self.disabled.clone();
@@ -279,6 +288,7 @@ impl IntoView for Calendar {
     fn into_view(self) -> View {
         let Calendar {
             root,
+            variants,
             selection,
             month,
             disabled,
@@ -385,6 +395,7 @@ impl IntoView for Calendar {
                 let grid = use_calendar_grid(month, selection, policy);
                 let first = grid.week_start();
                 let shared = Rc::new(Shared {
+                    variants: variants.clone(),
                     grid,
                     month,
                     count,
@@ -400,7 +411,7 @@ impl IntoView for Calendar {
                     range,
                 });
                 let names = Rc::new(super::caption::Names::new());
-                dynamic(
+                let panels = dynamic(
                     move || (month.get(), first.get()),
                     move |(month, first)| {
                         let panels = (0..shared.count)
@@ -417,7 +428,8 @@ impl IntoView for Calendar {
                         on_mount(move || autofocus.send(grid));
                         row(panels).style(style().gap(16))
                     },
-                )
+                );
+                kivact_core::view::column((range_prompt(grid, selection), panels))
             },
         );
         let status = kivact_core::view::text(navigation.state())
@@ -441,4 +453,32 @@ impl IntoView for Calendar {
         .child((body, status))
         .into_view()
     }
+}
+
+fn range_prompt(
+    grid: kivact_interaction::CalendarGridApi,
+    selection: CalendarSelection,
+) -> Option<Node> {
+    if !matches!(selection, CalendarSelection::Range(_)) {
+        return None;
+    }
+    let picking = grid.is_picking_range();
+    let start = kivact_core::i18n::message("calendar.range.pick_start", "Pick a start date");
+    let end = kivact_core::i18n::message("calendar.range.pick_end", "Pick an end date");
+    Some(
+        kivact_core::view::text(move || {
+            if picking.get() {
+                end.get()
+            } else {
+                start.get()
+            }
+        })
+        .role(Role::Status)
+        .live_region(kivact_core::view::LiveRegion::Polite)
+        .style(
+            style()
+                .font_size(12)
+                .color(kivact_core::style::ColorToken::TextMuted),
+        ),
+    )
 }

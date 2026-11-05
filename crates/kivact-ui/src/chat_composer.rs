@@ -133,24 +133,17 @@ impl NodeBuilder for ChatComposer {
         &mut self.root
     }
 }
-impl IntoView for ChatComposer {
-    fn into_view(mut self) -> View {
+impl ChatComposer {
+    fn submission(
+        &self,
+        disabled: Value<bool>,
+        history: kivact_core::state::MachineHandle<crate::composer_history::Policy>,
+    ) -> Callback<()> {
         let value = self.value;
         let stopped = self.stop_shown;
-        let status = self.status;
-        let disabled = self
-            .root
-            .accessible_disabled()
-            .unwrap_or_else(|| false.into_value());
-        let state = move || ChatComposerState {
-            stopped: stopped.get(),
-            status: status.get(),
-        };
-        let input_ref = node_ref();
-        let history = crate::composer_history::use_history(input_ref);
         let keep_history = self.history;
         let submit = self.on_submit;
-        let send = callback(move |()| {
+        callback(move |()| {
             if disabled.get_untracked() || stopped.get_untracked() {
                 return;
             }
@@ -163,53 +156,48 @@ impl IntoView for ChatComposer {
                 value.set(String::new());
                 submit.call(draft.to_owned());
             }
-        });
-        let input = with_recipe_style(
-            crate::text_area(
-                kivact_core::i18n::message("chat_composer.input", "Message input"),
-                value,
-            )
-            .placeholder(self.placeholder)
-            .disabled(disabled)
-            .node_ref(input_ref)
-            .forward_keys(vec![Key::Enter])
-            .on_key(move |event: KeyEvent| {
-                if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
-                    send.call(());
-                    Handled::Yes
-                } else if keep_history.get_untracked()
-                    && event.modifiers() == Modifiers::default()
-                    && matches!(event.key(), Key::ArrowUp | Key::ArrowDown)
-                    && let Some(editor) = input_ref.edit_state()
-                {
-                    let selection = editor.selection();
-                    let at_start = selection.start == 0;
-                    let at_end = selection.end == editor.value().len();
-                    let eligible = match event.key() {
-                        Key::ArrowUp => at_start && (selection.is_empty() || at_end),
-                        Key::ArrowDown => at_end && (selection.is_empty() || at_start),
-                        _ => false,
-                    };
-                    if eligible {
-                        history.send(crate::composer_history::Event::Recall {
-                            previous: event.key() == Key::ArrowUp,
-                            draft: editor.value().to_owned(),
-                        });
-                        Handled::Yes
-                    } else {
-                        Handled::No
-                    }
-                } else {
-                    Handled::No
-                }
-            }),
-            |r| r.chat_composer_recipes().input_recipe(),
-            &self.variants,
-            state,
-        );
+        })
+    }
+    fn input_and_submission(
+        &self,
+        disabled: Value<bool>,
+        state: impl Fn() -> ChatComposerState + Copy + 'static,
+    ) -> (crate::TextInput, Callback<()>) {
+        let input_ref = node_ref();
+        let history = crate::composer_history::use_history(input_ref);
+        let send = self.submission(disabled, history);
+        let keep_history = self.history;
+        let input = crate::text_area(
+            kivact_core::i18n::message("chat_composer.input", "Message input"),
+            self.value,
+        )
+        .placeholder(self.placeholder)
+        .disabled(disabled)
+        .node_ref(input_ref)
+        .forward_keys(vec![Key::Enter])
+        .on_key(move |event| composer_key(event, input_ref, send, history, keep_history));
+        (
+            with_recipe_style(
+                input,
+                |r| r.chat_composer_recipes().input_recipe(),
+                &self.variants,
+                state,
+            ),
+            send,
+        )
+    }
+    fn send_control(
+        &mut self,
+        disabled: Value<bool>,
+        send: Callback<()>,
+        state: impl Fn() -> ChatComposerState + Copy + 'static,
+    ) -> crate::Button {
+        let stopped = self.stop_shown;
         let stop = self.on_stop;
-        let send_icon = self.send_icon.unwrap_or_else(|| node().into_view());
-        let stop_icon = self.stop_icon.unwrap_or_else(|| node().into_view());
+        let submit = self.on_submit;
+        let value = self.value;
+        let send_icon = self.send_icon.take().unwrap_or_else(|| node().into_view());
+        let stop_icon = self.stop_icon.take().unwrap_or_else(|| node().into_view());
         let stop_label = kivact_core::i18n::message("chat_composer.stop", "Stop");
         let send_label = kivact_core::i18n::message("chat_composer.send", "Send");
         let control = crate::button(move || {
@@ -240,91 +228,152 @@ impl IntoView for ChatComposer {
                 send.call(())
             }
         });
-        let control = with_recipe_style(
+        with_recipe_style(
             control,
             |r| r.chat_composer_recipes().send_recipe(),
             &self.variants,
             state,
+        )
+    }
+    fn header(&mut self, state: impl Fn() -> ChatComposerState + Copy + 'static) -> Node {
+        let context = composer_slot(
+            self.header_context.take(),
+            |r| r.chat_composer_recipes().header_context_recipe(),
+            &self.variants,
+            state,
         );
-        let drawer = self.drawer.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_composer_recipes().drawer_recipe(),
-                &self.variants,
-                state,
-            )
-        });
-        let header_actions = self.header_actions.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_composer_recipes().header_actions_recipe(),
-                &self.variants,
-                state,
-            )
-        });
-        let header_context = self.header_context.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_composer_recipes().header_context_recipe(),
-                &self.variants,
-                state,
-            )
-        });
-        let footer_actions = self.footer_actions.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_composer_recipes().footer_actions_recipe(),
-                &self.variants,
-                state,
-            )
-        });
-        let send_actions = self.send_actions.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_composer_recipes().send_actions_recipe(),
-                &self.variants,
-                state,
-            )
-        });
-
-        let header = with_recipe_style(
-            node().child((header_context, header_actions)),
+        let actions = composer_slot(
+            self.header_actions.take(),
+            |r| r.chat_composer_recipes().header_actions_recipe(),
+            &self.variants,
+            state,
+        );
+        with_recipe_style(
+            node().child((context, actions)),
             |r| r.chat_composer_recipes().header_recipe(),
             &self.variants,
             state,
-        );
-        let footer = with_recipe_style(
-            node().child((footer_actions, send_actions, control)),
-            |r| r.chat_composer_recipes().footer_recipe(),
+        )
+    }
+    fn footer(
+        &mut self,
+        control: crate::Button,
+        state: impl Fn() -> ChatComposerState + Copy + 'static,
+    ) -> Node {
+        let actions = composer_slot(
+            self.footer_actions.take(),
+            |r| r.chat_composer_recipes().footer_actions_recipe(),
             &self.variants,
             state,
         );
+        let send_actions = composer_slot(
+            self.send_actions.take(),
+            |r| r.chat_composer_recipes().send_actions_recipe(),
+            &self.variants,
+            state,
+        );
+        with_recipe_style(
+            node().child((actions, send_actions, control)),
+            |r| r.chat_composer_recipes().footer_recipe(),
+            &self.variants,
+            state,
+        )
+    }
+    fn diagnostic(
+        &self,
+        side: ComposerStatusPosition,
+        state: impl Fn() -> ChatComposerState + Copy + 'static,
+    ) -> Node {
+        let status = self.status;
+        let position = self.status_position;
+        let diagnostic = text(move || {
+            status.with(|s| match s {
+                Some(ComposerStatus::Error(s) | ComposerStatus::Warning(s)) => s.clone(),
+                None => String::new(),
+            })
+        })
+        .role(Role::Status)
+        .hidden(move || status.with(Option::is_none) || position.get() != side);
+        with_recipe_style(
+            diagnostic,
+            |r| r.chat_composer_recipes().status_recipe(),
+            &self.variants,
+            state,
+        )
+    }
+}
+fn composer_slot(
+    view: Option<View>,
+    recipe: fn(&crate::UiRecipes) -> &crate::Recipe<ChatComposerState>,
+    variants: &Variants,
+    state: impl Fn() -> ChatComposerState + Copy + 'static,
+) -> Option<Node> {
+    view.map(|view| with_recipe_style(node().child(view), recipe, variants, state))
+}
+fn composer_key(
+    event: KeyEvent,
+    input: kivact_core::view::NodeRef,
+    send: Callback<()>,
+    history: kivact_core::state::MachineHandle<crate::composer_history::Policy>,
+    keep_history: Value<bool>,
+) -> Handled {
+    if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
+        send.call(());
+        return Handled::Yes;
+    }
+    if !keep_history.get_untracked()
+        || event.modifiers() != Modifiers::default()
+        || !matches!(event.key(), Key::ArrowUp | Key::ArrowDown)
+    {
+        return Handled::No;
+    }
+    let Some(editor) = input.edit_state() else {
+        return Handled::No;
+    };
+    let selection = editor.selection();
+    let at_start = selection.start == 0;
+    let at_end = selection.end == editor.value().len();
+    let eligible = match event.key() {
+        Key::ArrowUp => at_start && (selection.is_empty() || at_end),
+        Key::ArrowDown => at_end && (selection.is_empty() || at_start),
+        _ => false,
+    };
+    if !eligible {
+        return Handled::No;
+    }
+    history.send(crate::composer_history::Event::Recall {
+        previous: event.key() == Key::ArrowUp,
+        draft: editor.value().to_owned(),
+    });
+    Handled::Yes
+}
+impl IntoView for ChatComposer {
+    fn into_view(mut self) -> View {
+        let stopped = self.stop_shown;
+        let status = self.status;
+        let state = move || ChatComposerState {
+            stopped: stopped.get(),
+            status: status.get(),
+        };
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
+        let (input, send) = self.input_and_submission(disabled, state);
+        let control = self.send_control(disabled, send, state);
+        let header = self.header(state);
+        let footer = self.footer(control, state);
         let surface = with_recipe_style(
             node().child((header, input, footer)),
             |r| r.chat_composer_recipes().surface_recipe(),
             &self.variants,
             state,
         );
-        let position = self.status_position;
-        let diagnostic = move |side| {
-            text(move || {
-                status.with(|s| match s {
-                    Some(ComposerStatus::Error(s) | ComposerStatus::Warning(s)) => s.clone(),
-                    None => String::new(),
-                })
-            })
-            .role(Role::Status)
-            .hidden(move || status.with(Option::is_none) || position.get() != side)
-        };
-        let top = with_recipe_style(
-            diagnostic(ComposerStatusPosition::Top),
-            |r| r.chat_composer_recipes().status_recipe(),
-            &self.variants,
-            state,
-        );
-        let bottom = with_recipe_style(
-            diagnostic(ComposerStatusPosition::Bottom),
-            |r| r.chat_composer_recipes().status_recipe(),
+        let top = self.diagnostic(ComposerStatusPosition::Top, state);
+        let bottom = self.diagnostic(ComposerStatusPosition::Bottom, state);
+        let drawer = composer_slot(
+            self.drawer.take(),
+            |r| r.chat_composer_recipes().drawer_recipe(),
             &self.variants,
             state,
         );

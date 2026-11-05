@@ -40,6 +40,7 @@ impl Machine for Controller {
 /// A Gregorian date and wall-clock time, with no time zone conversion.
 pub struct DateTimeInput {
     root: Node,
+    variants: crate::variants::Variants,
     label: Value<String>,
     value: Binding<Option<DateTime>>,
     format: Value<DateStyle>,
@@ -56,6 +57,7 @@ pub fn date_time_input(
 ) -> DateTimeInput {
     DateTimeInput {
         root: node(),
+        variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         value: value.into_binding(),
         format: DateStyle::Iso.into_value(),
@@ -67,6 +69,11 @@ pub fn date_time_input(
     }
 }
 impl DateTimeInput {
+    /// Add a visual variant shared by the field and its picker surface.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
     /// Date text format.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -116,6 +123,7 @@ impl IntoView for DateTimeInput {
     fn into_view(self) -> View {
         let Self {
             root,
+            variants,
             label,
             value,
             format,
@@ -166,7 +174,8 @@ impl IntoView for DateTimeInput {
             .format(format)
             .min(move || min.get().map(|value| value.date))
             .max(move || max.get().map(|value| value.date))
-            .presentation(presentation);
+            .presentation(presentation)
+            .with_variants(&variants);
         if let Some(day) = week_start {
             date_field = date_field.week_start(day);
         }
@@ -174,7 +183,8 @@ impl IntoView for DateTimeInput {
             .format(move || TimeStyle {
                 seconds: seconds.get(),
             })
-            .presentation(presentation);
+            .presentation(presentation)
+            .with_variants(&variants);
         let state = machine(DateTimeInputState::Closed, || Controller, |_, ()| {});
         let open = binding(
             move || matches!(state.get(), DateTimeInputState::Open { .. }),
@@ -226,13 +236,14 @@ impl IntoView for DateTimeInput {
         let root = crate::layer::with_base_recipe_style(
             root,
             |r| r.date_time_input_recipes().root_recipe(),
-            &crate::variants::Variants::default(),
+            &variants,
             kivact_core::custom::PartState::default,
         );
         root.name(label)
             .child(column((
                 row((date_field, time_field)),
                 dialog(label, open)
+                    .with_variants(&variants)
                     .mode(presentation.mode())
                     .content(content)
                     .attach(trigger),

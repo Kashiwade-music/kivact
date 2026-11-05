@@ -96,5 +96,5 @@ pub(crate) fn toggle_item(
     theme: &kivact_core::style::Theme,
     look: &crate::Look<ToggleGroupItemState>,
 ) -> kivact_core::style::Style {
-    crate::look::toggle_button(theme, &crate::Look::new(look.toggle.clone()))
+    crate::look::toggle_button(theme, &crate::Look::new(look.toggle))
 }

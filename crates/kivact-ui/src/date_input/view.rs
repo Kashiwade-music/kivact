@@ -4,7 +4,6 @@ use super::machine::{
     TypedSnapshot,
 };
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
 use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Edge;
@@ -42,6 +41,7 @@ impl DatePresentation {
 /// An editable locale-sensitive date, created by [`date_input`].
 pub struct DateInput {
     root: Node,
+    variants: crate::variants::Variants,
     label: Value<String>,
     value: Binding<Option<CalendarDate>>,
     format: Value<DateStyle>,
@@ -61,6 +61,7 @@ pub fn date_input(
 ) -> DateInput {
     DateInput {
         root: node(),
+        variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         value: value.into_binding(),
         format: DateStyle::Iso.into_value(),
@@ -75,6 +76,15 @@ pub fn date_input(
     }
 }
 impl DateInput {
+    /// Add a visual variant shared by the field and its picker surface.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+    pub(crate) fn with_variants(self, variants: &crate::variants::Variants) -> Self {
+        self.variants.merge(variants);
+        self
+    }
     /// Date text format, read reactively.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -129,8 +139,22 @@ impl NodeBuilder for DateInput {
 }
 impl IntoView for DateInput {
     fn into_view(self) -> View {
+        self.render(crate::date_trigger::FieldPresentation::Text)
+    }
+}
+impl DateInput {
+    /// Open the configured picker from a caller-owned button, without a text editor.
+    /// The trigger keeps its handlers, focus identity and accessible name.
+    pub fn attach<T: NodeBuilder + IntoView + 'static>(self, trigger: T) -> View {
+        self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
+    }
+    fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
+        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+            return self.render_trigger(attach);
+        }
         let Self {
             root,
+            variants,
             label,
             value,
             format,
@@ -241,15 +265,68 @@ impl IntoView for DateInput {
             row((
                 field,
                 dialog(label, open)
+                    .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
                     .content(content)
                     .attach(toggle),
             )),
             |r| r.date_input_recipes().root_recipe(),
-            &Variants::default(),
+            &variants,
             PartState::default,
         ))
+        .into_view()
+    }
+}
+
+impl DateInput {
+    fn render_trigger(self, attach: crate::date_trigger::AttachTrigger) -> View {
+        let Self {
+            root,
+            variants,
+            label,
+            value,
+            valid,
+            min,
+            max,
+            week_start,
+            presentation,
+            configure,
+            ..
+        } = self;
+        let open = kivact_core::state::signal(false);
+        let focus = attach.focus;
+        let content = move || {
+            let selected = binding(value, move |next| {
+                value.set(next);
+                if let Some(valid) = valid {
+                    valid.set(true);
+                }
+                open.set(false);
+                focus.restore_focus();
+            });
+            let mut picker = calendar(selected).min(min).max(max).autofocus(true);
+            if let Some(day) = week_start {
+                picker = picker.week_start(day);
+            }
+            if let Some(configure) = &configure {
+                picker = configure(picker);
+            }
+            if presentation.sheet() {
+                crate::date_wheel::date_panel(selected, picker).into_view()
+            } else {
+                picker.into_view()
+            }
+        };
+        root.child(
+            attach.view(
+                dialog(label, open)
+                    .with_variants(&variants)
+                    .mode(presentation.mode())
+                    .hide_title(true)
+                    .content(content),
+            ),
+        )
         .into_view()
     }
 }
