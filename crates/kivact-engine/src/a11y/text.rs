@@ -58,12 +58,7 @@ impl Model {
             })
             .expect("invariant: editing node has editing state");
         let value = edit.value();
-        let mut ids = || loop {
-            let id = a11y.ids.next().0;
-            if !tree.contains(NodeId(id)) {
-                break id;
-            }
-        };
+        let mut ids = || a11y.ids.fresh(tree);
         let (mut lines, _) = crate::measure::input::edit_lines(
             tree,
             &self.measure,
