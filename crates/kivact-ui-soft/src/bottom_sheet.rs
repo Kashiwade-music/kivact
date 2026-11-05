@@ -100,6 +100,7 @@ pub enum DialogPurpose {
     Info,
 }
 
+// xtask-allow(state-fields): Independent setup options for sheet purpose, sizing, scrim, focus target, and content.
 pub struct BottomSheet {
     label: kivact::state::Value<String>,
     open: Binding<bool>,

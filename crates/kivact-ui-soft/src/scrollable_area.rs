@@ -40,6 +40,7 @@ impl ScrollAxis {
     }
 }
 
+// xtask-allow(state-fields): Independent NodeBuilder setup options for axis, padding, bleed, and focusability.
 pub struct ScrollableArea {
     root: Node,
     child: View,
