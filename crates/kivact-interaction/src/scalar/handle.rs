@@ -1,7 +1,7 @@
 //! Role: Scalar binding writes, key steps, assistive actions and parts.
 
 use super::data::ScalarState;
-use super::edit_state::{Edit, Shared, register_focus};
+use super::edit_state::{Edit, Shared, register_focus, register_host_disabled};
 use super::ops::ScalarOps;
 use super::range::follow_range;
 use super::track::{Grip, Target, fraction};
@@ -44,9 +44,8 @@ pub struct ScalarApi {
 /// Use this binding as the sole writer of a scalar value.
 ///
 /// `range` bounds and quantizes every write. It may be reactive: pass a
-/// constant [`ScalarRange`], or a closure, a `Signal` or a `Value` of one
-/// ([``]). The published bounds and Home/End follow the current
-/// range; when the range changes and the value is now outside it, the scalar
+/// constant [`ScalarRange`], or a closure, a `Signal` or a `Value` of one.
+/// The published bounds and Home/End follow the current range; when the range changes and the value is now outside it, the scalar
 /// writes the value back inside through the binding, once however many parts
 /// are attached. Creation does not write state; a range given as a closure
 /// becomes a memo. Setup only.
@@ -324,14 +323,7 @@ impl ScalarApi {
         let part_state = input.state();
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
-            let caller_disabled = host.accessible_disabled();
-            let own_disabled = shared.settings.get().disabled;
-            shared.settings.update(|settings| {
-                settings.disabled = Some(memo(move || {
-                    caller_disabled.is_some_and(|value| value.get())
-                        || own_disabled.is_some_and(|value| value.get())
-                }))
-            });
+            register_host_disabled(shared, host.accessible_disabled());
             let surface = host.part(input).node_ref(target).focus_on_press(edit.thumb);
             let surface = shared.touch_source(surface, Grip::Track);
             shared.pointer.attach_track(target.rect(), axis);
@@ -392,19 +384,10 @@ impl ScalarApi {
         });
         let part_state = input.state();
         self.edit.observed.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
-            let caller_disabled = host.accessible_disabled();
-            let own_disabled = shared.settings.get().disabled;
-            shared.settings.update(|settings| {
-                settings.disabled = Some(memo(move || {
-                    caller_disabled.is_some_and(|value| value.get())
-                        || own_disabled.is_some_and(|value| value.get())
-                }))
-            });
+            register_host_disabled(shared, host.accessible_disabled());
             let mut control = host
                 .part(input)
-                .node_ref(target)
                 .role(role)
                 .focusable(true)
                 .value_now(value)

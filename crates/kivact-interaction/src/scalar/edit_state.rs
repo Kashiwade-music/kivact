@@ -25,6 +25,10 @@ pub(crate) struct Shared {
     focus: MachineHandle<Machine>,
     /// Whether each thumb has the focus; a drag the focus leaves is canceled.
     thumb_focus: Signal<Vec<Value<bool>>>,
+    // xtask-allow(state-fields): per-mount caller inputs, each removed with its mount; independent of the focus registrations.
+    /// The disabled state each mounted thumb or track received from its
+    /// caller; any true value disables the whole scalar.
+    host_disabled: Signal<Vec<Value<bool>>>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -42,7 +46,11 @@ impl Shared {
         let pointer = Pointer::new();
         let settings = OptionsCell::new(ScalarOptions::default());
         let options = settings.value();
-        let disabled = memo(move || options.get().disabled.is_some_and(|d| d.get()));
+        let host_disabled = signal(Vec::<Value<bool>>::new());
+        let disabled = memo(move || {
+            options.get().disabled.is_some_and(|d| d.get())
+                || host_disabled.with(|hosts| hosts.iter().any(|d| d.get()))
+        });
         let thumb_focus = signal(Vec::<Value<bool>>::new());
         let drag = track::drag(session, snapshot, pointer, disabled);
         let focus = machine(
@@ -65,6 +73,7 @@ impl Shared {
             settings,
             focus,
             thumb_focus,
+            host_disabled,
         }
     }
 
@@ -74,6 +83,9 @@ impl Shared {
             .get()
             .disabled
             .is_some_and(|disabled| disabled.get())
+            || self
+                .host_disabled
+                .with(|hosts| hosts.iter().any(|disabled| disabled.get()))
     }
 
     pub(crate) fn enable_touch(self, config: TouchSliderGesture) {
@@ -187,6 +199,24 @@ pub(super) fn register_focus(shared: Shared, focused: Value<bool>) {
             if was_focused {
                 shared.focus.send(Event::ThumbBlur);
             }
+        }
+    });
+}
+
+/// Register the disabled state a mounted thumb or track received from its
+/// caller; the registration ends with that mount's owner. Setup only.
+pub(super) fn register_host_disabled(shared: Shared, disabled: Option<Value<bool>>) {
+    let Some(disabled) = disabled else {
+        return;
+    };
+    shared.host_disabled.update(|hosts| hosts.push(disabled));
+    on_cleanup(move || {
+        if shared.host_disabled.try_get_untracked().is_some() {
+            shared.host_disabled.update(|hosts| {
+                if let Some(at) = hosts.iter().position(|host| *host == disabled) {
+                    hosts.remove(at);
+                }
+            });
         }
     });
 }
