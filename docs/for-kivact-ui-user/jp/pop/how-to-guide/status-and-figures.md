@@ -117,7 +117,7 @@ fn details() -> impl IntoView {
 
 ## 誰かを見せる
 
-`pop::avatar(initials)` は丸いアバターを描きます。`.size(px)`、`.hue(degrees)`（0 から 360 の色相角で、`Hue` ではありません）、`.halo(true)`、`.online(true)` で調整します。アバターは表示用です。クリックさせたいときはボタンに入れてください。
+`kivact::ui::avatar(name)` に `pop::AvatarLook` を渡すと、Pop のピクセル直径、連続色相、halo と online の装飾を使えます。イニシャルの文字列は `.fallback_content(|| text("AS"))` に渡し、`look.decorations()` は `.status_content(..)` に一度だけ構築します。同じ look を `.variant(look)` に渡します。
 
 ## Hue と Tone: どちらを使うか
 
@@ -129,3 +129,15 @@ fn details() -> impl IntoView {
 - [メッセージと通知を出す](messages-and-notifications.md): アラート、空の状態、トースト。
 - [Pop のテーマとトークンを設定する](theme-and-tokens.md): 色相の変更。
 - すべての表示コンポーネント: `cargo doc -p kivact-ui-pop --open`
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn person() -> impl IntoView {
+    let look = pop::AvatarLook::default().size(48).hue(330.0).halo(true).online(true);
+    kivact::ui::avatar("AS")
+        .fallback_content(|| text("AS"))
+        .variant(look)
+        .status_content(look.decorations())
+}
+```

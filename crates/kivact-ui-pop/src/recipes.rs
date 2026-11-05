@@ -40,6 +40,7 @@ pub(crate) fn recipes() -> UiRecipes {
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .avatar(|_| crate::recipes_avatar::avatar)
         .badge(|_| crate::recipes_badge::badge)
         .badge_label(|_| crate::recipes_badge::label)
         .skeleton(|_| crate::recipes_indicators::skeleton)

@@ -91,9 +91,16 @@ pub(super) fn messaging() -> Node {
             .unread(move || unread.with(|counts| counts[i]))
             .with_node(|node| node.selected(move || active.get() == i))
             .portrait({
-                ui::avatar(initials)
-                    .size(32)
-                    .hue([205.0, 330.0, 45.0, 160.0][i])
+                ({
+                    let initials = kivact::state::IntoText::into_text_value(initials);
+                    let look = ui::AvatarLook::default()
+                        .size(32)
+                        .hue([205.0, 330.0, 45.0, 160.0][i]);
+                    kivact::ui::avatar(initials)
+                        .fallback_content(move || kivact::view::text(initials))
+                        .variant(look)
+                        .status_content(look.decorations())
+                })
             })
             .test_id(format!("pop-thread-{i}"))
             .on_press(move || {
@@ -246,7 +253,14 @@ pub(super) fn messaging() -> Node {
     });
     let main = column((
         row((
-            ui::avatar("MN").size(32).halo(true).online(true),
+            ({
+                let initials = kivact::state::IntoText::into_text_value("MN");
+                let look = ui::AvatarLook::default().size(32).halo(true).online(true);
+                kivact::ui::avatar(initials)
+                    .fallback_content(move || kivact::view::text(initials))
+                    .variant(look)
+                    .status_content(look.decorations())
+            }),
             column((
                 text(move || names[active.get()].to_string()).style(style().weight(600)),
                 text("調査部 · オンライン").style(style().font_size(12).color(rgb(0x0f8a6a))),

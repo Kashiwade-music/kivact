@@ -323,7 +323,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             ))
             .style(style().padding(12).gap(8).radius(10)),
             row((
-                ui::avatar("SN").size(32).halo(true),
+                ({
+                    let initials = kivact::state::IntoText::into_text_value("SN");
+                    let look = ui::AvatarLook::default().size(32).halo(true);
+                    kivact::ui::avatar(initials)
+                        .fallback_content(move || kivact::view::text(initials))
+                        .variant(look)
+                        .status_content(look.decorations())
+                }),
                 column((
                     text("先生").style(style().weight(600)),
                     text("Lv.72 · 管理者")
@@ -420,7 +427,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
             notices.update(|items| items.iter_mut().for_each(|item| item.unread = false))
         })
         .style(style().width(36)),
-        ui::avatar("SN").size(32),
+        ({
+            let initials = kivact::state::IntoText::into_text_value("SN");
+            let look = ui::AvatarLook::default().size(32);
+            kivact::ui::avatar(initials)
+                .fallback_content(move || kivact::view::text(initials))
+                .variant(look)
+                .status_content(look.decorations())
+        }),
     ))
     .style(
         style()
@@ -547,10 +561,38 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                     column((
                         text("活動ポイントを 20 消費して「外郭地区のパトロール」を開始します。"),
                         row((
-                            ui::avatar("MN").halo(true),
-                            ui::avatar("HK").hue(330.0).halo(true),
-                            ui::avatar("YZ").hue(45.0).halo(true),
-                            ui::avatar("AR").hue(160.0).halo(true),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("MN");
+                                let look = ui::AvatarLook::default().halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("HK");
+                                let look = ui::AvatarLook::default().hue(330.0).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("YZ");
+                                let look = ui::AvatarLook::default().hue(45.0).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("AR");
+                                let look = ui::AvatarLook::default().hue(160.0).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
                         ))
                         .style(
                             style()
@@ -663,7 +705,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 .content(move || {
                     column((
                         row((
-                            ui::avatar("MN").size(72).halo(true),
+                            ({
+                                let initials = kivact::state::IntoText::into_text_value("MN");
+                                let look = ui::AvatarLook::default().size(72).halo(true);
+                                kivact::ui::avatar(initials)
+                                    .fallback_content(move || kivact::view::text(initials))
+                                    .variant(look)
+                                    .status_content(look.decorations())
+                            }),
                             column((
                                 text("アズール学園 · 調査部").style(style().weight(600)),
                                 text("★★★").style(style().color(rgb(0xf2bf0a))),

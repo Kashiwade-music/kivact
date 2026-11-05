@@ -4,12 +4,12 @@ use crate::{Hue, Tokens};
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::draw::{Shadow, Transform, linear_gradient};
 use kivact::geometry::Point;
-use kivact::motion::{Animated, Easing, Repeat, Transition, animated};
+use kivact::motion::{Easing, Transition, animated};
 use kivact::state::Value;
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, ColorToken, Direction, Justify, pct, style};
-use kivact::view::{IntoView, Role, View, show};
+use kivact::view::{IntoView, Role, View};
 use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
 
 /// A bordered 14 px-radius surface with original 24 px content inset.
@@ -25,130 +25,6 @@ pub fn panel(content: impl IntoView) -> Node {
             .radius(p.panel_radius)
             .shadow(Shadow::new(0, 1, 3, ColorToken::Shadow))
     })
-}
-
-pub struct Avatar {
-    root: Node,
-    initials: Value<String>,
-    size: Value<f64>,
-    hue: Value<f64>,
-    halo: Value<bool>,
-    online: Value<bool>,
-}
-#[track_caller]
-pub fn avatar(initials: impl IntoText) -> Avatar {
-    Avatar {
-        root: node(),
-        initials: initials.into_text_value(),
-        size: 40.0.into_value(),
-        hue: 205.0.into_value(),
-        halo: false.into_value(),
-        online: false.into_value(),
-    }
-}
-impl Avatar {
-    /// The diameter in logical pixels (at least 16; the default is 40). A
-    /// pixel number rather than a length: the initials, the halo and the
-    /// online dot are drawn in proportion to it.
-    pub fn size(mut self, size: impl IntoValue<f64>) -> Self {
-        let size = size.into_value();
-        self.size = (move || size.get().max(16.0)).into_value();
-        self
-    }
-    pub fn hue(mut self, hue: impl IntoValue<f64>) -> Self {
-        let hue = hue.into_value();
-        self.hue = hue.into_value();
-        self
-    }
-    /// Draw an animated halo over the avatar while true (constant or
-    /// reactive).
-    #[track_caller]
-    pub fn halo(mut self, on: impl IntoValue<bool>) -> Self {
-        self.halo = on.into_value();
-        self
-    }
-    /// Draw the online dot while true (constant or reactive).
-    #[track_caller]
-    pub fn online(mut self, on: impl IntoValue<bool>) -> Self {
-        self.online = on.into_value();
-        self
-    }
-}
-impl NodeBuilder for Avatar {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Avatar {
-    fn into_view(self) -> View {
-        let size = self.size;
-        let hue = self.hue;
-        let root = self.root.style(move || {
-            style()
-                .size(size.get(), size.get())
-                .shrink(0)
-                .radius(999)
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .color(Color::WHITE)
-                .background(linear_gradient(140).colors([
-                    kivact::style::hsl(hue.get(), 0.85, 0.7),
-                    kivact::style::hsl(hue.get() + 18.0, 0.75, 0.52),
-                ]))
-                .font_family("Barlow, sans-serif")
-                .italic(true)
-                .weight(800)
-                .font_size(size.get() * 0.36)
-        });
-        let halo = show(self.halo, move || {
-            let offset = Animated::from(
-                0.0f64,
-                -3.0f64,
-                Transition::tween(1600, Easing::EaseInOut)
-                    .repeat(Repeat::Forever)
-                    .alternate(),
-            );
-            node().style(move || {
-                style()
-                    .position(kivact::style::Position::Absolute)
-                    .left(pct(14))
-                    .right(pct(14))
-                    .top(size.get() * -0.22)
-                    .height(size.get() * 0.2)
-                    .radius(pct(50))
-                    .border(
-                        (size.get() * 0.045).max(2.0),
-                        kivact::style::hsl(hue.get(), 0.95, 0.62),
-                    )
-                    .shadow(Shadow::new(
-                        0,
-                        0,
-                        8,
-                        kivact::style::hsl(hue.get(), 1.0, 0.65),
-                    ))
-                    .translate(0, offset.get())
-            })
-        });
-        let online = show(self.online, move || {
-            node().style(move || {
-                let t = &use_theme().get();
-                style()
-                    .position(kivact::style::Position::Absolute)
-                    .right(0)
-                    .bottom(0)
-                    .size(size.get() * 0.28, size.get() * 0.28)
-                    .radius(999)
-                    .background(t.ext::<Tokens>().mint)
-                    .ring(2, t.colors().surface)
-            })
-        });
-        root.child(halo)
-            .child(online)
-            .child(text(self.initials))
-            .into_view()
-    }
 }
 
 /// A 72 px circular progress gauge, with the percentage retained as text.
