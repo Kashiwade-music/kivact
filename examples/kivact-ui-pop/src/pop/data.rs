@@ -706,7 +706,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                 }),
             )
             .orientation(Orientation::Horizontal)
-            .variant(ui::Segmented);
+            .variant(kivact::ui::Segmented);
             let actions = row((
                 kivact::ui::button("TSV")
                     .variant(kivact::ui::ButtonVariant::Secondary)

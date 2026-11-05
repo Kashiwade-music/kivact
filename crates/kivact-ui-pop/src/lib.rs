@@ -9,7 +9,7 @@
 //! look, so tabs, radio groups, sliders and the toast region are
 //! `kivact::ui::tabs`, `radio_group`, `slider` and `toast_region`; the kit
 //! adds what they do not have ([`tab_label`] for a tab's count badge,
-//! [`Segmented`] for a segmented radio group,
+//! [`kivact::ui::Segmented`] for a segmented radio group,
 //! the rest). Its theme also draws `kivact::ui::list` and
 //! `kivact::ui::data_table`.
 //!
@@ -34,6 +34,7 @@ mod recipes_collections;
 mod recipes_extra;
 mod recipes_field;
 mod recipes_files;
+mod recipes_groups;
 mod recipes_input;
 mod recipes_palette;
 mod recipes_small;
@@ -46,7 +47,6 @@ mod upload;
 
 pub use button::{ButtonTone, Slant};
 pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
-pub use choice::Segmented;
 pub use color::ColorName;
 pub use date::{
     Calendar, CalendarEvent, DateInput, DateRangeInput, calendar, date_input, date_range_input,

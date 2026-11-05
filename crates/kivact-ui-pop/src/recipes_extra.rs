@@ -1,5 +1,5 @@
 //! Role: Pop recipes for compound standard controls and button decoration.
-use crate::choice::{Segmented, choice_list, choice_option, select_list, select_option};
+use crate::choice::{choice_list, choice_option, select_list, select_option};
 use crate::tokens::Hue;
 use crate::tokens::Tokens;
 use kivact::custom::PartState;
@@ -13,6 +13,7 @@ use kivact::style::{
     Align, Color, ColorToken, Cursor, Direction, Justify, Position, Style, Theme, pct, style,
 };
 use kivact::ui::Look;
+use kivact::ui::Segmented;
 use kivact::ui::{
     AxisState, ButtonState, CheckableState, DialogRecipes, DialogState, MenuRecipes,
     RadioGroupRecipes, SelectRecipes, SliderRecipes, TabsRecipes, ToastRecipes,

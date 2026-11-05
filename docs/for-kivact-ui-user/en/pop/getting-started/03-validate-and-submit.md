@@ -77,7 +77,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
                 plan,
             )
             .orientation(Orientation::Horizontal)
-            .variant(pop::Segmented),
+            .variant(kivact::ui::Segmented),
         ),
         pop::date_input("Birth date", birth, today).valid(birth_valid),
         show(move || birth_error.get().is_some(), move || {

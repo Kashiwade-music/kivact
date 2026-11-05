@@ -51,6 +51,9 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `toolbar`
+- `toggle_group`
+- `button_group`
 - `dropzone`
 - `field`
 - `button`
