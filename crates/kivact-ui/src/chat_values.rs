@@ -70,9 +70,9 @@ kivact_core::state::constant_value!(
     ComposerStatus,
     ComposerStatusPosition
 );
+// xtask-allow(state-fields): Read-only recipe facts projected from independent sender, layout, delivery and slot inputs.
 /// Message facts passed to every message recipe.
 #[derive(Clone, Debug, PartialEq)]
-// xtask-allow(state-fields): Read-only recipe facts projected from independent sender, layout, delivery and slot inputs.
 pub struct ChatMessageState {
     pub sender: ChatSender,
     pub status: Option<ChatMessageStatus>,
@@ -87,9 +87,9 @@ pub struct ChatMessageState {
 pub struct ChatThreadState {
     pub distance: f64,
 }
+// xtask-allow(state-fields): Read-only recipe facts projected from independent response and validation inputs.
 /// Composer facts supplied to its recipes.
 #[derive(Clone, Debug, PartialEq)]
-// xtask-allow(state-fields): Read-only recipe facts projected from independent response and validation inputs.
 pub struct ChatComposerState {
     pub stopped: bool,
     pub status: Option<ComposerStatus>,

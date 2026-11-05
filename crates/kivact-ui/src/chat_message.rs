@@ -6,8 +6,8 @@ use crate::{
 };
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, View, node, text};
-/// A message with independent content, author and supporting slots.
 // xtask-allow(state-fields): Independent builder inputs and view slots; this builder owns no persistent interaction state.
+/// A message with independent content, author and supporting slots.
 pub struct ChatMessage {
     root: Node,
     author: Value<String>,

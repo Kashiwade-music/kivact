@@ -7,17 +7,17 @@ use kivact_core::style::{Length, StyledRange, style};
 use kivact_core::view::{IntoView, Node, NodeBuilder, Role, ScrollAxes, View, node, scroll, text};
 use kivact_interaction::{use_copy_feedback, use_disclosure};
 use std::time::Duration;
+// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
 /// Rendered source facts supplied to code-block recipes.
 #[derive(Clone, Debug, PartialEq)]
-// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
 pub struct CodeBlockState {
     pub numbered: bool,
     pub wrapped: bool,
     pub expanded: bool,
     pub copied: bool,
 }
-/// A read-only multiline editor and its header, gutter and footer.
 // xtask-allow(state-fields): Independent builder inputs and slots; native editing, use_disclosure and use_copy_feedback own interaction state.
+/// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {
     root: Node,
     code: Value<String>,

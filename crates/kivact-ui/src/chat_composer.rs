@@ -8,8 +8,8 @@ use kivact_core::view::{
     Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, Role, View,
     node, node_ref, text,
 };
-/// A multiline draft with independent action slots and optional submission history.
 // xtask-allow(state-fields): Independent draft binding, diagnostic inputs and slots; History owns recall and shared native editing owns the draft session.
+/// A multiline draft with independent action slots and optional submission history.
 pub struct ChatComposer {
     root: Node,
     value: Binding<String>,
