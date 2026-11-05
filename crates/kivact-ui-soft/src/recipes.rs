@@ -66,6 +66,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .disclosure(crate::recipes_collections::disclosure)
                 .splitter(crate::recipes_collections::splitter)
                 .split(crate::recipes_collections::split)
+                .item_list(crate::soft_list::recipes)
                 .list(crate::recipes_collections::list)
                 .tree(crate::recipes_collections::tree)
                 .table(crate::recipes_table::table)

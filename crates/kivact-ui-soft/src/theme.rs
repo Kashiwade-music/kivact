@@ -140,6 +140,11 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            item_list: kivact::ui::ItemListTokens {
+                title_lines: Some(1),
+                description_lines: Some(1),
+                ..Default::default()
+            },
             dropzone: kivact::ui::DropzoneTokens {
                 padding: Some(tokens.spacing.s3),
                 min_height: Some(96.0),
