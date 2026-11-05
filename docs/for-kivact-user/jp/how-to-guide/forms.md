@@ -399,3 +399,5 @@ fn editor_actions() -> impl IntoView {
 変えられます。無効化には共通の `NodeBuilder` の `.disabled(source)` を使います。
 テーマは対応する `UiTokens` と `UiRecipes` の表で見た目を変えます。
 呼び出し側のスタイルは recipe より優先します。
+
+`radio_group(...).item_node(|target, item, state| target.with_node(...))` は、キットのキーボードヒントなどを付けるために完成済みの標準ターゲットを渡します。受け取った target に modifier を付けて返し、別のネイティブなフォーカスや選択の owner を作らないでください。`.item(...)` は内容だけを置き換え、両方の slot を組み合わせられます。

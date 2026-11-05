@@ -30,3 +30,5 @@ Selection storage, clearing and selected-name display belong to the caller: stor
 Carousel recipes expose root, viewport, track, slide, previous and next. Dropzone recipes expose root, label, hint and status. `UiTokens` groups optional theme overrides under `carousel` and `dropzone`; default visual values remain in the standard recipes.
 
 The [APG carousel pattern](https://www.w3.org/WAI/ARIA/apg/patterns/carousel/) informs the native semantics. Native groups use names containing Carousel/Slide because role descriptions are unavailable. A focusable carousel group additionally supports arrow navigation. There is no automatic rotation; the regular buttons retain keyboard focus when activated. Headless custom views can use `interaction::use_carousel` and `interaction::use_dropzone`.
+
+`.accept_drop(enabled)` gates drag/drop input independently of `.pick_on_press()`. A reactive change to false ends any current drag-over visit through the shared leave event, while native picking remains available. Use this for a compact picker-only field.

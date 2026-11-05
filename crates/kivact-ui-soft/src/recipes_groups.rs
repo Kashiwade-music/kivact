@@ -101,3 +101,66 @@ pub(crate) fn toggle_group(r: ToggleGroupRecipes) -> ToggleGroupRecipes {
         }
     })
 }
+
+/// Neutral surface treatment for a standard toolbar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ToolbarVariant(pub crate::SectionVariant);
+impl kivact::ui::Variant for ToolbarVariant {}
+impl Default for ToolbarVariant {
+    fn default() -> Self {
+        Self(crate::SectionVariant::Transparent)
+    }
+}
+pub(crate) fn toolbar(r: kivact::ui::ToolbarRecipes) -> kivact::ui::ToolbarRecipes {
+    r.root(|_| {
+        |theme: &Theme, s: &Look<kivact::ui::ToolbarState>| {
+            let t = theme.ext::<Tokens>();
+            let variant = s.variant::<ToolbarVariant>().copied().unwrap_or_default().0;
+            let fill = match variant {
+                crate::SectionVariant::Section => t.colors.bg_surface,
+                crate::SectionVariant::Transparent => kivact::style::Color::TRANSPARENT,
+                crate::SectionVariant::Muted => t.colors.bg_muted,
+            };
+            let height = match s.size {
+                kivact::ui::ControlSize::ExtraSmall | kivact::ui::ControlSize::Small => 28.0,
+                kivact::ui::ControlSize::Medium => 32.0,
+                kivact::ui::ControlSize::Large => 36.0,
+            };
+            let vertical = s.orientation == Orientation::Vertical;
+            let mut base = style()
+                .background(fill)
+                .padding(t.spacing.s3)
+                .width(kivact::style::pct(100))
+                .min_height(height + t.spacing.s3 * 2.0)
+                .direction(direction(s.orientation, s.rtl))
+                .align_items(if vertical {
+                    Align::Stretch
+                } else {
+                    Align::Center
+                });
+            if s.centered && !vertical {
+                base = base
+                    .display(kivact::style::Display::Grid)
+                    .grid_template_columns((
+                        kivact::style::Track::minmax(0, kivact::style::Track::fr(1)),
+                        kivact::style::Length::Auto,
+                        kivact::style::Track::minmax(0, kivact::style::Track::fr(1)),
+                    ));
+            } else {
+                base = base.justify_content(kivact::style::Justify::SpaceBetween);
+            }
+            for edge in &s.dividers {
+                base = match edge {
+                    kivact::ui::ToolbarEdge::Top => base.border_top(1, t.colors.border),
+                    kivact::ui::ToolbarEdge::Bottom => base.border_bottom(1, t.colors.border),
+                    kivact::ui::ToolbarEdge::Start if !s.rtl => {
+                        base.border_left(1, t.colors.border)
+                    }
+                    kivact::ui::ToolbarEdge::End if s.rtl => base.border_left(1, t.colors.border),
+                    _ => base.border_right(1, t.colors.border),
+                };
+            }
+            base
+        }
+    })
+}

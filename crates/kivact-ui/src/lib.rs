@@ -300,6 +300,7 @@ pub use toolbar::{Toolbar, toolbar};
 mod alert;
 mod card;
 mod empty_state;
+mod empty_state_changes;
 mod input_group;
 mod input_group_context;
 pub use input_group_context::use_input_group_state;
@@ -324,6 +325,7 @@ pub use spinner::{Spinner, spinner};
 
 mod avatar;
 mod avatar_group;
+mod avatar_initials;
 pub use avatar::{Avatar, avatar};
 pub use avatar_group::{AvatarGroup, avatar_group};
 

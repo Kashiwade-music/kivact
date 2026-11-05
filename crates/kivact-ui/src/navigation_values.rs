@@ -14,6 +14,8 @@ pub enum StepStatus {
 /// Recipe state for an individual step.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StepperItemState {
+    pub count: usize,
+    pub orientation: Orientation,
     pub index: usize,
     pub current: usize,
     pub status: StepStatus,

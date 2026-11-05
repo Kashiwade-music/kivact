@@ -293,6 +293,8 @@ fn step_row(
 ) -> impl IntoView {
     let state = move || {
         item.with(|item| StepperItemState {
+            count: layout.get().count,
+            orientation: layout.get().orientation,
             index,
             current: current.get(),
             status: item.status,

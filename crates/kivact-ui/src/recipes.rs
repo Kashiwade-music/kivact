@@ -620,6 +620,7 @@ recipe_table! {
     UiRecipes {
         /// Typography for a semantic heading.
         heading(heading_recipe): HeadingState = look_metrics::heading,
+        avatar_status_content(avatar_status_content_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status_content,
         avatar_status(avatar_status_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         avatar_group_member(avatar_group_member_recipe): usize = super::look_indicators::avatar_group_member,
@@ -819,6 +820,7 @@ recipe_table! {
         media(media_recipe): CardState = look_feedback::card_media,
         content(content_recipe): CardState = look_feedback::card_region,
         footer(footer_recipe): CardState = look_feedback::card_region,
+        overlay(overlay_recipe): CardState = look_feedback::card_overlay,
     }
 }
 recipe_table! {

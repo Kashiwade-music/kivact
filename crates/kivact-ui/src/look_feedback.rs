@@ -187,3 +187,7 @@ pub(super) fn alert_control(_: &Theme, _: &Look<AlertState>) -> Style {
 pub(super) fn group_block(_: &Theme, _: &Look<InputGroupState>) -> Style {
     style()
 }
+
+pub(super) fn card_overlay(_: &Theme, _: &Look<CardState>) -> Style {
+    style()
+}

@@ -18,6 +18,7 @@ pub struct Dropzone {
     hint: Value<String>,
     filters: Value<Vec<(String, Vec<String>)>>,
     multiple: bool,
+    accept_drop: Value<bool>,
     pick_on_press: bool,
     validate: FileValidator,
     on_files: Rc<dyn Fn(Vec<FileInfo>) -> kivact_core::Result<()>>,
@@ -32,12 +33,20 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
         hint: String::new().into_value(),
         filters: Vec::new().into_value(),
         multiple: false,
+        accept_drop: true.into_value(),
         pick_on_press: false,
         validate: Rc::new(|_| None),
         on_files: Rc::new(|_| Ok(())),
     }
 }
 impl Dropzone {
+    /// Accept drag/drop input independently of the native picker. A policy
+    /// change to false ends the active drag-over visit without clearing files.
+    pub fn accept_drop(mut self, enabled: impl IntoValue<bool>) -> Self {
+        self.accept_drop = enabled.into_value();
+        self
+    }
+
     /// Add decorative content above the label, mounted once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
@@ -96,6 +105,7 @@ impl IntoView for Dropzone {
             hint,
             filters,
             multiple,
+            accept_drop,
             pick_on_press,
             validate,
             on_files,
@@ -108,6 +118,13 @@ impl IntoView for Dropzone {
         if multiple {
             api = api.multiple();
         }
+        // A policy change is a real leave event into the shared drop machine,
+        // so a rejected drag cannot retain stale hover feedback.
+        kivact_core::state::effect_on(accept_drop, move |enabled| {
+            if !enabled {
+                api.leave();
+            }
+        });
         let state = api.state();
         let reference = kivact_core::view::node_ref();
         let status_ref = kivact_core::view::node_ref();
@@ -127,7 +144,17 @@ impl IntoView for Dropzone {
         .name(label)
         .invalid(move || matches!(state.get(), DropzoneState::Failed(_)))
         .on_file(move |event| {
-            if disabled.get_untracked() || matches!(state.get_untracked(), DropzoneState::Picking) {
+            if event.phase == FilePhase::Leave {
+                api.leave();
+                return Handled::No;
+            }
+            if !accept_drop.get_untracked()
+                || disabled.get_untracked()
+                || matches!(state.get_untracked(), DropzoneState::Picking)
+            {
+                if event.phase == FilePhase::Drop {
+                    api.leave();
+                }
                 return Handled::No;
             }
             match event.phase {

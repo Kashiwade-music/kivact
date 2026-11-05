@@ -1,244 +1,107 @@
-//! Role: Present a centered empty-state title, description, and actions.
-use kivact::custom::NodeRefExt;
-
-use crate::{TextColor, TextJustify, TextKind, text};
-use kivact::interaction::announcer;
-use kivact::state::IntoText;
-use kivact::state::IntoValue;
-use kivact::state::Value;
-use kivact::state::effect;
-use kivact::state::on_mount;
-use kivact::state::signal;
-use kivact::state::var;
-use kivact::style::Align;
-use kivact::style::Direction;
-use kivact::style::Justify;
-use kivact::style::pct;
-use kivact::style::style;
-use kivact::view::IntoView;
-use kivact::view::LiveRegion;
-use kivact::view::Node;
-use kivact::view::NodeBuilder;
-use kivact::view::ReadingDirection;
-use kivact::view::View;
-use kivact::view::column;
-use kivact::view::node;
-use kivact::view::node_ref;
-use kivact::view::use_direction;
-
-/// A centered message for a region with no content.
-pub struct EmptyState {
-    root: Node,
-    title: Value<String>,
-    description: Option<Value<String>>,
-    icon: Option<View>,
-    actions: Option<View>,
-    heading_level: kivact::state::Value<u32>,
+//! Role: Style canonical empty-state content with Neutral spacing.
+use kivact::state::{IntoValue, Value};
+use kivact::style::{Align, Direction, Justify, TextAlign, Theme, pct, style};
+use kivact::ui::{EmptyStateRecipes, EmptyStateState, Look};
+/// Reactive visual density of an empty message, without announcement state.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EmptyStateVariant {
     compact: Value<bool>,
 }
-
-/// Create an empty state with a semantic heading.
-pub fn empty_state(title: impl IntoText) -> EmptyState {
-    EmptyState {
-        root: node(),
-        title: title.into_text_value(),
-        description: None,
-        icon: None,
-        actions: None,
-        heading_level: 3.into_value(),
-        compact: false.into_value(),
+impl EmptyStateVariant {
+    /// Stack actions and use the compact spacing scale.
+    pub fn compact(compact: impl IntoValue<bool>) -> Self {
+        Self {
+            compact: compact.into_value(),
+        }
     }
 }
-
-impl EmptyState {
-    /// Set the supporting description.
-    pub fn description(mut self, description: impl IntoText) -> Self {
-        self.description = Some(description.into_text_value());
-        self
-    }
-
-    /// Add a decorative visual above the title.
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-
-    /// Add actions below the message.
-    pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(actions.into_view());
-        self
-    }
-
-    /// Override the heading's accessibility level.
-    pub fn heading_level(mut self, level: impl IntoValue<u32>) -> Self {
-        let level = level.into_value();
-        self.heading_level = (move || level.get().clamp(1, 6)).into_value();
-        self
-    }
-
-    /// Use compact spacing and stack the actions.
-    pub fn compact(mut self, compact: impl IntoValue<bool>) -> Self {
-        self.compact = compact.into_value();
-        self
-    }
+impl kivact::ui::Variant for EmptyStateVariant {}
+fn compact(s: &Look<EmptyStateState>) -> bool {
+    s.variant::<EmptyStateVariant>()
+        .is_some_and(|variant| variant.compact.get())
 }
-
-impl NodeBuilder for EmptyState {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for EmptyState {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            title,
-            description,
-            icon,
-            actions,
-            heading_level,
-            compact,
-        } = self;
-        let notices = announcer();
-        let source = node_ref();
-        let mounted = signal(None::<bool>);
-        let first = var(true);
-        let spoken = var(String::new());
-        let has_notice = var(false);
-        effect(move || {
-            let Some(initial) = mounted.get() else {
-                return;
-            };
-            let initial = first.update(|first| std::mem::replace(first, false)) && initial;
-            let visible = source.is_visible();
-            if !visible {
-                spoken.set(String::new());
-            }
-            let eligible = visible && !source.is_in_live_region();
-            let message = if eligible {
-                announcement_text(&title.get(), description.map(|text| text.get()).as_deref())
+pub(crate) fn empty_state(r: EmptyStateRecipes) -> EmptyStateRecipes {
+    r.root(|_| {
+        |theme: &Theme, s: &Look<EmptyStateState>| {
+            let t = theme.ext::<crate::Tokens>();
+            let (gap, x, y) = if compact(s) {
+                (t.spacing.s2, t.spacing.s4, t.spacing.s4)
             } else {
-                String::new()
+                (t.spacing.s4, t.spacing.s6, t.spacing.s8)
             };
-            if message.is_empty() {
-                if has_notice.update(|has_notice| std::mem::replace(has_notice, false)) {
-                    notices.announce("", LiveRegion::Polite);
-                }
-            } else if spoken.with(|spoken| *spoken != message) {
-                spoken.set(message.clone());
-                if !initial {
-                    notices.announce(message, LiveRegion::Polite);
-                    has_notice.set(true);
-                }
-            }
-        });
-        let text_group = column((
-            text(title)
-                .kind(TextKind::Large)
-                .justify(TextJustify::Center)
-                .heading_level(heading_level)
-                .style(move || {
-                    if compact.get() {
-                        style().font_size(
-                            kivact::style::use_tokens::<crate::Tokens>()
-                                .typography
-                                .size_md,
-                        )
-                    } else {
-                        style()
-                    }
-                }),
-            description.map(|description| {
-                text(description)
-                    .color(TextColor::Secondary)
-                    .justify(TextJustify::Center)
-                    .style(move || {
-                        if compact.get() {
-                            style().font_size(
-                                kivact::style::use_tokens::<crate::Tokens>()
-                                    .typography
-                                    .size_sm,
-                            )
-                        } else {
-                            style()
-                        }
-                    })
-            }),
-        ))
-        .node_ref(source)
-        .on_attach(move |_| {
-            let initial = kivact::platform::is_initial_render().get();
-            // Establish the empty live region before placing any text in it.
-            on_mount(move || mounted.set(Some(initial)));
-        })
-        .style(
+            style()
+                .direction(Direction::Column)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center)
+                .width(pct(100))
+                .min_width(0)
+                .gap(gap)
+                .padding_x(x)
+                .padding_y(y)
+        }
+    })
+    .title(|_| {
+        |theme: &Theme, s: &Look<EmptyStateState>| {
+            let t = theme.ext::<crate::Tokens>();
+            let font = t.typography.large;
+            style()
+                .max_width(360)
+                .min_width(0)
+                .text_align(TextAlign::Center)
+                .font_size(if compact(s) {
+                    t.typography.size_md
+                } else {
+                    font.size_px
+                })
+                .line_height(font.line_height_px / font.size_px)
+                .weight(font.weight)
+                .color(t.colors.text_primary)
+        }
+    })
+    .description(|_| {
+        |theme: &Theme, s: &Look<EmptyStateState>| {
+            let t = theme.ext::<crate::Tokens>();
+            let font = t.typography.body;
+            style()
+                .max_width(360)
+                .min_width(0)
+                .text_align(TextAlign::Center)
+                .margin_top(-if compact(s) {
+                    t.spacing.s2
+                } else {
+                    t.spacing.s4
+                })
+                .font_size(if compact(s) {
+                    t.typography.size_sm
+                } else {
+                    font.size_px
+                })
+                .line_height(font.line_height_px / font.size_px)
+                .color(t.colors.text_secondary)
+        }
+    })
+    .icon(|_| {
+        |_: &Theme, _: &Look<EmptyStateState>| {
             style()
                 .align_items(Align::Center)
-                .max_width(360)
-                .min_width(0),
-        );
-
-        let actions = actions.map(|actions| {
-            node()
-                .style(move || {
-                    let spacing = &kivact::style::use_tokens::<crate::Tokens>().spacing;
-                    let direction = if compact.get() {
-                        Direction::Column
-                    } else if use_direction().get() == ReadingDirection::Rtl {
-                        Direction::RowReverse
-                    } else {
-                        Direction::Row
-                    };
-                    style()
-                        .direction(direction)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center)
-                        .gap(spacing.s2)
-                        .margin_top(spacing.s1)
-                })
-                .child(actions)
-        });
-
-        root.with_node(move |node| {
-            node.base_style(move || {
-                let spacing = &kivact::style::use_tokens::<crate::Tokens>().spacing;
-                let (gap, padding_x, padding_y) = if compact.get() {
-                    (spacing.s2, spacing.s4, spacing.s4)
+                .justify_content(Justify::Center)
+        }
+    })
+    .actions(|_| {
+        |theme: &Theme, s: &Look<EmptyStateState>| {
+            let t = theme.ext::<crate::Tokens>();
+            style()
+                .direction(if compact(s) {
+                    Direction::Column
+                } else if crate::stack::rtl() {
+                    Direction::RowReverse
                 } else {
-                    (spacing.s4, spacing.s6, spacing.s8)
-                };
-                style()
-                    .direction(Direction::Column)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .width(pct(100))
-                    .min_width(0)
-                    .gap(gap)
-                    .padding_x(padding_x)
-                    .padding_y(padding_y)
-            })
-        })
-        .child(icon)
-        .child(text_group)
-        .child(actions)
-        .child(notices.outlet())
-        .into_view()
-    }
-}
-
-fn announcement_text(title: &str, description: Option<&str>) -> String {
-    let normalize = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let title = normalize(title);
-    let description = description.map(normalize).unwrap_or_default();
-    if title.is_empty() {
-        description
-    } else if description.is_empty() {
-        title
-    } else if title.ends_with(['.', '!', '?']) {
-        format!("{title} {description}")
-    } else {
-        format!("{title}. {description}")
-    }
+                    Direction::Row
+                })
+                .align_items(Align::Center)
+                .justify_content(Justify::Center)
+                .gap(t.spacing.s2)
+                .margin_top(t.spacing.s1)
+        }
+    })
 }

@@ -304,7 +304,9 @@ pub(super) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
 }
 
 fn group(theme: &Theme, orientation: &Look<Orientation>) -> Style {
-    if orientation.variant::<crate::Segmented>().is_some() {
+    if orientation.variant::<kivact::ui::RadioGroupVariant>()
+        == Some(&kivact::ui::RadioGroupVariant::Segmented)
+    {
         return crate::segmented_control::track(theme, orientation);
     }
     let t = theme.ext::<Tokens>();
@@ -316,7 +318,9 @@ fn group(theme: &Theme, orientation: &Look<Orientation>) -> Style {
 }
 
 fn item(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<crate::Segmented>().is_some() {
+    if s.variant::<kivact::ui::RadioGroupVariant>()
+        == Some(&kivact::ui::RadioGroupVariant::Segmented)
+    {
         return crate::segmented_control::segment(theme, s);
     }
     let t = theme.ext::<Tokens>();
@@ -335,7 +339,9 @@ fn item(theme: &Theme, s: &Look<CheckableState>) -> Style {
 }
 
 fn indicator(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<crate::Segmented>().is_some() {
+    if s.variant::<kivact::ui::RadioGroupVariant>()
+        == Some(&kivact::ui::RadioGroupVariant::Segmented)
+    {
         return style().size(0, 0).clip(true);
     }
     let t = theme.ext::<Tokens>();
@@ -346,7 +352,9 @@ fn indicator(theme: &Theme, s: &Look<CheckableState>) -> Style {
 }
 
 fn mark(theme: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<crate::Segmented>().is_some() {
+    if s.variant::<kivact::ui::RadioGroupVariant>()
+        == Some(&kivact::ui::RadioGroupVariant::Segmented)
+    {
         return style().size(0, 0).clip(true);
     }
     let t = theme.ext::<Tokens>();

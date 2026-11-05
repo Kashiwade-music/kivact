@@ -19,6 +19,7 @@ pub struct AlertState {
 /// Card semantics supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardState {
+    pub input: Option<kivact_core::custom::PartState>,
     pub selected: Option<bool>,
     pub disabled: bool,
     pub interactive: bool,
