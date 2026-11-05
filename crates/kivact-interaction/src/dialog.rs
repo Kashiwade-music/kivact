@@ -40,7 +40,7 @@ use kivact_core::view::{DismissReason, NodeRef, Role, node_ref};
 
 use crate::options_cell::OptionsCell;
 
-use super::focus_return::{FocusReturn, FocusReturnTarget, PopupCloseReason, ReasonSet};
+use super::focus_return::{FocusReturn, PopupCloseReason};
 use super::popup::{PopupApi, PopupState, use_popup};
 
 /// What a [`DialogApi`] is.
@@ -161,12 +161,9 @@ pub fn use_dialog(open: impl kivact_core::state::IntoBinding<bool>, kind: Dialog
         .modal(kind != DialogMode::Popover)
         .focus_first();
     if kind == DialogMode::Popover {
-        popup.focus_return(FocusReturn {
-            target: FocusReturnTarget::Anchor(popup.anchor_ref()),
-            on: ReasonSet::DISMISS
-                .union(ReasonSet::PROGRAMMATIC)
-                .union(ReasonSet::UNMOUNT),
-        });
+        // Resolve the configured anchor at each opening, after setup has
+        // installed an external anchor or the trigger has mounted.
+        popup.return_focus_target(popup.anchor_value());
     }
     DialogApi {
         popup,
