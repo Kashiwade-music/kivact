@@ -48,6 +48,8 @@ impl NodeRef {
     #[track_caller]
     pub fn scroll_state(&self) -> Value<ScrollState> {
         require_setup("NodeRef::scroll_state");
+        // Keep host geometry reports active even when scrolling is disabled.
+        let _ = self.rect();
         let node = *self;
         memo(move || {
             node.observed_status(|observation| observation.scroll_state.get())

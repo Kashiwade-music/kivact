@@ -5,26 +5,45 @@ use kivact::geometry::Point;
 use kivact::motion::{Easing, FrameRate, Transition, frame_loop};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
-use kivact::view::{Asset, ImageStatus, ScrollBehavior, ScrollState};
+use kivact::view::{Asset, ImageStatus, ScrollAxes, ScrollBehavior, ScrollState};
 use std::time::Duration;
 
 #[test]
 fn scroll_state_follows_the_scroll_position() {
-    let (screen, (target, state, height, shown)) = mount(|| {
+    let (screen, (target, state, height, shown, axes)) = mount(|| {
         let target = node_ref();
         let state = target.scroll_state();
         let height = signal(500.0);
+        let axes = signal(ScrollAxes::Vertical);
         let shown = signal(true);
         (
-            (target, state, height, shown),
+            (target, state, height, shown, axes),
             show(shown, move || {
-                scroll(node().style(move || style().height(height.get()).shrink(0)))
+                scroll(node().style(move || style().width(400).height(height.get()).shrink(0)))
                     .node_ref(target)
+                    .axes(axes)
                     .style(style().size(200, 100))
             }),
         )
     });
     assert_eq!(state.get(), ScrollState::AtStart);
+    height.set(50.0);
+    screen.run_until_idle();
+    assert_eq!(
+        state.get(),
+        ScrollState::NotScrollable,
+        "extent changed at offset zero"
+    );
+    axes.set(ScrollAxes::Horizontal);
+    screen.run_until_idle();
+    assert_eq!(
+        state.get(),
+        ScrollState::AtStart,
+        "axes changed without changing geometry"
+    );
+    axes.set(ScrollAxes::Vertical);
+    height.set(500.0);
+    screen.run_until_idle();
     target.scroll_to(Point::new(0.0, 120.0), ScrollBehavior::Instant);
     screen.run_until_idle();
     assert_eq!(state.get(), ScrollState::Middle);

@@ -539,7 +539,12 @@ impl Model {
     }
 
     fn report_geometry(&mut self, engine: &mut arvane::Engine) {
-        let scrollers: Vec<NodeId> = self.tree.scrollers.iter().copied().collect();
+        let scrollers: Vec<NodeId> = self
+            .tree
+            .scrollers
+            .union(&self.tree.observed)
+            .copied()
+            .collect();
         for id in scrollers {
             let Some(l) = self.computed_layout(id) else {
                 continue;
@@ -549,7 +554,8 @@ impl Model {
             let Some(n) = self.tree.get_mut(id) else {
                 continue;
             };
-            let state = crate::tree::node::ScrollReport(n.scroll, l.size, l.content_size);
+            let state =
+                crate::tree::node::ScrollReport(n.scroll, l.size, l.content_size, n.scroll_axes());
             if n.sent_scroll.update(state).is_some() {
                 self.push(HostEvent::ScrollChanged {
                     node: id,
