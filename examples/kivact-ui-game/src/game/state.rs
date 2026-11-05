@@ -4,9 +4,13 @@ use kivact::state::Signal;
 
 #[derive(Clone, Copy)]
 pub(super) struct Demo {
+    // xtask-allow(state-fields): Caller-owned open binding for the independent create dialog.
     pub(super) create: Signal<bool>,
+    // xtask-allow(state-fields): Caller-owned open binding for the independent delete dialog.
     pub(super) delete: Signal<bool>,
+    // xtask-allow(state-fields): Caller-owned open binding for the independent details drawer.
     pub(super) drawer: Signal<bool>,
+    // xtask-allow(state-fields): Caller-owned open binding for the independent command palette.
     pub(super) palette: Signal<bool>,
     pub(super) rows: Signal<Vec<Record>>,
     pub(super) selected: Signal<Vec<String>>,
