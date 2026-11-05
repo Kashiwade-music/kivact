@@ -97,7 +97,7 @@ mod tests {
             &source,
             &toml::Table::new(),
             &Default::default(),
-            &["kivact_ui_demo::widgets::LoadPhase".into()].into(),
+            &["kivact_ui_soft::widgets::LoadPhase".into()].into(),
             &crate::public_surface::Surface::default(),
             &mut errors,
         );
@@ -113,7 +113,7 @@ mod tests {
         check(
             &source,
             &policy,
-            &["kivact_ui_demo::widgets::Widget".into()].into(),
+            &["kivact_ui_soft::widgets::Widget".into()].into(),
             &Default::default(),
             &crate::public_surface::Surface::default(),
             &mut errors,
@@ -145,8 +145,8 @@ mod tests {
         super::check(
             &source,
             &toml::Table::new(),
-            &["kivact_ui_demo::other::Widget".into()].into(),
-            &["kivact_ui_demo::other::LoadState".into()].into(),
+            &["kivact_ui_soft::other::Widget".into()].into(),
+            &["kivact_ui_soft::other::LoadState".into()].into(),
             &Default::default(),
             &mut errors,
         );

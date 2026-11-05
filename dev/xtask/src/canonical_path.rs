@@ -44,9 +44,9 @@ mod tests {
     fn rejects_duplicate_non_prelude_paths() {
         let mut source = crate::check_source::fixture("pub struct Widget;");
         source.module.clear();
-        let target = "kivact_ui_demo::Widget".to_owned();
+        let target = "kivact_ui_soft::Widget".to_owned();
         let mut surface = crate::public_surface::Surface::default();
-        for path in ["kivact_ui_demo::Widget", "kivact_ui_demo::prelude::Widget"] {
+        for path in ["kivact_ui_soft::Widget", "kivact_ui_soft::prelude::Widget"] {
             surface.exports.insert(path.into(), target.clone());
         }
         let mut errors = Vec::new();
@@ -54,7 +54,7 @@ mod tests {
         assert!(errors.is_empty());
         surface
             .exports
-            .insert("kivact_ui_demo::other::Widget".into(), target);
+            .insert("kivact_ui_soft::other::Widget".into(), target);
         super::check(&source, &surface, &mut errors);
         assert_eq!(errors.len(), 1);
     }
