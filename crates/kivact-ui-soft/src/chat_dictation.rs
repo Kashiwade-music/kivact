@@ -12,6 +12,7 @@ fn control_side(size: ControlSize) -> i32 {
         ControlSize::Large => 44,
     }
 }
+// xtask-allow(state-fields): Read-only application-owned microphone capability and sampled audio facts; the control owns no recording transitions.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DictationState {
     pub supported: bool,
