@@ -153,6 +153,47 @@ impl Editor {
                 .style(move || selection_style(self.whole()))
                 .into_view();
         }
+        let reference = self.block_reference(id);
+        let name = message_with(
+            "soft.rich_text.block",
+            "{label}, block {index}",
+            move || {
+                let index = self
+                    .document
+                    .with(|doc| doc.blocks.iter().position(|block| block.id == id))
+                    .unwrap_or_default()
+                    + 1;
+                [("label", label.get()), ("index", index.to_string())]
+            },
+        );
+        let command = Rc::new(Cell::new(None));
+        let editing = self.block_editing(id, block, kind.prose(), command.clone());
+        let style_kind = kind.clone();
+        let field = node()
+            .node_ref(reference)
+            .with_node(move |node| node.role(Role::TextBox))
+            .focusable(true)
+            .name(name)
+            .text_editing(editing)
+            .style(move || editor_style(&style_kind, self.whole()))
+            .on_pointer(move |event| {
+                if matches!(event.phase(), PointerPhase::Down(_)) {
+                    self.state
+                        .send(BlockEvent::Selection(BlockSelection::Caret));
+                }
+                Handled::No
+            })
+            .on_key(move |_| {
+                let Some(command) = command.take() else {
+                    return Handled::No;
+                };
+                self.run(id, reference, command);
+                Handled::Yes
+            });
+        self.decorate_block(id, block, kind, field)
+    }
+
+    fn block_reference(self, id: usize) -> NodeRef {
         let reference = node_ref();
         self.references
             .update(|references| references.insert(id, reference));
@@ -175,22 +216,18 @@ impl Editor {
                 reference.set_edit_session(TextSession::caret_at(0));
             }
         });
-        let name = message_with(
-            "soft.rich_text.block",
-            "{label}, block {index}",
-            move || {
-                let index = self
-                    .document
-                    .with(|doc| doc.blocks.iter().position(|block| block.id == id))
-                    .unwrap_or_default()
-                    + 1;
-                [("label", label.get()), ("index", index.to_string())]
-            },
-        );
-        let command = Rc::new(Cell::new(None));
-        let native_command = command.clone();
-        let prose = kind.prose();
-        let editing = TextEditing::new(move || block.with(|block| block.body.clone()))
+        reference
+    }
+
+    fn block_editing(
+        self,
+        id: usize,
+        block: Value<Block>,
+        prose: bool,
+        command: Rc<Cell<Option<Command>>>,
+    ) -> TextEditing {
+        let native_command = command;
+        TextEditing::new(move || block.with(|block| block.body.clone()))
             .multiline()
             .line_layout(|| EditLineLayout {
                 wrap: true,
@@ -246,29 +283,10 @@ impl Editor {
             .on_selection_change(move |_| {
                 self.state
                     .send(BlockEvent::Selection(BlockSelection::Caret))
-            });
-        let style_kind = kind.clone();
-        let field = node()
-            .node_ref(reference)
-            .with_node(move |node| node.role(Role::TextBox))
-            .focusable(true)
-            .name(name)
-            .text_editing(editing)
-            .style(move || editor_style(&style_kind, self.whole()))
-            .on_pointer(move |event| {
-                if matches!(event.phase(), PointerPhase::Down(_)) {
-                    self.state
-                        .send(BlockEvent::Selection(BlockSelection::Caret));
-                }
-                Handled::No
             })
-            .on_key(move |_| {
-                let Some(command) = command.take() else {
-                    return Handled::No;
-                };
-                self.run(id, reference, command);
-                Handled::Yes
-            });
+    }
+
+    fn decorate_block(self, id: usize, block: Value<Block>, kind: Kind, field: Node) -> View {
         match kind {
             Kind::List { number, checked } => {
                 let marker = if checked.is_some() {

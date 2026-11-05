@@ -157,16 +157,18 @@ pub enum InstantFormat {
     UnixSeconds,
 }
 
-// xtask-allow(state-fields): Immutable detail formatting choices; zone, label and copy permission are independent presentation inputs.
 /// A row in the timestamp details.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TimestampEntry {
+    // xtask-allow(state-fields): Optional per-entry time zone is an immutable formatting override.
     /// Optional time zone overriding the main timestamp zone for this entry.
     pub zone: Option<TimeZone>,
     /// Date and time format for this detail row.
     pub format: InstantFormat,
+    // xtask-allow(state-fields): Optional prefix label is independent authored presentation text.
     /// Optional label preceding the detail value.
     pub label: Option<String>,
+    // xtask-allow(state-fields): Copy permission is a presentation capability, not a clipboard phase.
     /// Whether the detail value offers a copy action.
     pub copyable: bool,
 }
@@ -201,14 +203,15 @@ pub enum TimestampFormat {
     UnixSeconds,
 }
 
-// xtask-allow(state-fields): Independent construction inputs and shared clock handle; the existing TimestampTick machine owns refresh scheduling.
 /// A date or relative timestamp with optional details.
 pub struct Timestamp {
     text: StyledText,
     clock: MachineHandle<TimestampTick>,
     settings: Rc<RefCell<TimestampSettings>>,
+    // xtask-allow(state-fields): Detail visibility is a caller input independent of the refresh clock phase.
     details: Value<bool>,
     entries: Value<Vec<TimestampEntry>>,
+    // xtask-allow(state-fields): Live refresh is a caller policy input; TimestampTick alone owns scheduling.
     live: Value<bool>,
 }
 

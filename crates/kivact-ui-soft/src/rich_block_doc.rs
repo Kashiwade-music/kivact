@@ -56,24 +56,7 @@ impl Document {
             next: first,
             newline,
         };
-        let mut start = 0;
-        let lines: Vec<_> = source
-            .split_inclusive('\n')
-            .map(|raw| {
-                let text = raw
-                    .strip_suffix('\n')
-                    .map(|text| text.strip_suffix('\r').unwrap_or(text))
-                    .unwrap_or(raw);
-                let line = Line {
-                    text,
-                    start,
-                    end: start + text.len(),
-                    next: start + raw.len(),
-                };
-                start = line.next;
-                line
-            })
-            .collect();
+        let lines = source_lines(source);
         let mut index = 0;
         while index < lines.len() {
             let line = lines[index];
@@ -87,60 +70,7 @@ impl Document {
                 index += 1;
                 continue;
             }
-            let (kind, body_start, body_end, last) =
-                if let Some((ch, length, info)) = fence(line.text) {
-                    let closing = (index + 1..lines.len()).find(|&i| {
-                        fence(lines[i].text).is_some_and(|(end, len, info)| {
-                            end == ch && len >= length && info.is_empty()
-                        })
-                    });
-                    let (end, last) = match closing {
-                        Some(last) if last > index + 1 => (lines[last - 1].end, last),
-                        Some(last) => (line.next, last),
-                        None => (lines[lines.len() - 1].end.max(line.next), lines.len() - 1),
-                    };
-                    (
-                        Kind::Code(info.split_whitespace().next().unwrap_or("").into()),
-                        line.next,
-                        end,
-                        last,
-                    )
-                } else if let Some((level, body)) = heading(line.text) {
-                    let start = line.offset(body);
-                    (Kind::Heading(level), start, start + body.len(), index)
-                } else if let Some(body) = quote(line.text) {
-                    (Kind::Quote, line.offset(body), line.end, index)
-                } else if !is_rule(line.text)
-                    && let Some((_, number, body)) = list_marker(line.text)
-                {
-                    let (checked, body) = task(body);
-                    (
-                        Kind::List { number, checked },
-                        line.offset(body),
-                        line.end,
-                        index,
-                    )
-                } else if is_rule(line.text) || reference(line.text).is_some() {
-                    (Kind::Preview, line.start, line.end, index)
-                } else if is_table(&lines, index) {
-                    let mut last = index + 1;
-                    while lines
-                        .get(last + 1)
-                        .is_some_and(|line| line.text.contains('|') && !line.text.trim().is_empty())
-                    {
-                        last += 1;
-                    }
-                    (Kind::Preview, line.start, lines[last].end, last)
-                } else {
-                    let mut last = index;
-                    while lines.get(last + 1).is_some_and(|line| {
-                        !line.text.trim().is_empty() && !begins_block(line.text)
-                    }) && !is_table(&lines, last + 1)
-                    {
-                        last += 1;
-                    }
-                    (Kind::Paragraph, line.start, lines[last].end, last)
-                };
+            let (kind, body_start, body_end, last) = block_span(&lines, index);
             let terminal = lines[last];
             let id = doc.fresh();
             doc.blocks.push(Block {
@@ -345,5 +275,83 @@ mod tests {
         assert_eq!(doc.markdown(), "Oneé\r\n\r\n two\r\n\r\n# unchanged\r\n");
         assert_eq!(doc.merge(id), Some((0, 5)));
         assert_eq!(doc.markdown(), "Oneé two\r\n\r\n# unchanged\r\n");
+    }
+}
+
+fn source_lines(source: &str) -> Vec<Line<'_>> {
+    let mut start = 0;
+    source
+        .split_inclusive('\n')
+        .map(|raw| {
+            let text = raw
+                .strip_suffix('\n')
+                .map(|text| text.strip_suffix('\r').unwrap_or(text))
+                .unwrap_or(raw);
+            let line = Line {
+                text,
+                start,
+                end: start + text.len(),
+                next: start + raw.len(),
+            };
+            start = line.next;
+            line
+        })
+        .collect()
+}
+
+fn block_span(lines: &[Line<'_>], index: usize) -> (Kind, usize, usize, usize) {
+    let line = lines[index];
+    if let Some((ch, length, info)) = fence(line.text) {
+        let closing = (index + 1..lines.len()).find(|&i| {
+            fence(lines[i].text)
+                .is_some_and(|(end, len, info)| end == ch && len >= length && info.is_empty())
+        });
+        let (end, last) = match closing {
+            Some(last) if last > index + 1 => (lines[last - 1].end, last),
+            Some(last) => (line.next, last),
+            None => (lines[lines.len() - 1].end.max(line.next), lines.len() - 1),
+        };
+        (
+            Kind::Code(info.split_whitespace().next().unwrap_or("").into()),
+            line.next,
+            end,
+            last,
+        )
+    } else if let Some((level, body)) = heading(line.text) {
+        let start = line.offset(body);
+        (Kind::Heading(level), start, start + body.len(), index)
+    } else if let Some(body) = quote(line.text) {
+        (Kind::Quote, line.offset(body), line.end, index)
+    } else if !is_rule(line.text)
+        && let Some((_, number, body)) = list_marker(line.text)
+    {
+        let (checked, body) = task(body);
+        (
+            Kind::List { number, checked },
+            line.offset(body),
+            line.end,
+            index,
+        )
+    } else if is_rule(line.text) || reference(line.text).is_some() {
+        (Kind::Preview, line.start, line.end, index)
+    } else if is_table(lines, index) {
+        let mut last = index + 1;
+        while lines
+            .get(last + 1)
+            .is_some_and(|line| line.text.contains('|') && !line.text.trim().is_empty())
+        {
+            last += 1;
+        }
+        (Kind::Preview, line.start, lines[last].end, last)
+    } else {
+        let mut last = index;
+        while lines
+            .get(last + 1)
+            .is_some_and(|line| !line.text.trim().is_empty() && !begins_block(line.text))
+            && !is_table(lines, last + 1)
+        {
+            last += 1;
+        }
+        (Kind::Paragraph, line.start, lines[last].end, last)
     }
 }
