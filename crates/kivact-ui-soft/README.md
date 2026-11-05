@@ -113,10 +113,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.alert_dialog.cancel` | Cancel |
 | `soft.app_shell.main` | Main content |
 | `soft.app_shell.skip_to_content` | Skip to content |
-| `soft.banner.collapse` | Collapse |
-| `soft.banner.dismiss` | Dismiss |
-| `soft.banner.dismiss_titled` | {dismiss} {title} |
-| `soft.banner.expand` | Expand |
 | `soft.chat.tool_calls.complete` | Complete |
 | `soft.chat.tool_calls.detail` | Details for {name} |
 | `soft.chat.tool_calls.details` | Details |
@@ -364,16 +360,17 @@ Number, date, and time filter fields validate values entered as text.
 - `list`
 - `tree`
 - `data_table`
+- `breadcrumb`
+- `empty_state`
+- `input_group`
+- `card`
+- `avatar`
+- `avatar_image`
+- `avatar_status`
+- `avatar_status_content`
+- `avatar_group`
+- `avatar_group_member`
+- `avatar_group_overflow`
+- `stepper`
+- `alert`
 <!-- /kivact-recipes -->
-
-Filled recipe table: `breadcrumb` (root, list, actual item, separator).
-
-Filled recipe table: `empty_state` (root, title, description, icon, actions).
-
-Filled recipe table: `input_group` (root, label, members, member, addon).
-
-Filled recipe table: `card` (root, header, media, content, footer, overlay).
-
-Filled scalar recipes: `avatar`, `avatar_image`, `avatar_status`, `avatar_status_content`, `avatar_group`, `avatar_group_member`, `avatar_group_overflow`.
-
-Filled recipe table: `stepper` (root, item, layout, body, track, leading, trailing, progress, indicator, label, description, content, end_content, previous, next).

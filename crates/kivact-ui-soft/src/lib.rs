@@ -106,7 +106,7 @@ pub use aspect_ratio::aspect_ratio;
 pub use avatar::{AvatarAppearance, AvatarGroupAppearance, avatar_silhouette};
 pub use avatar_options::AvatarSize;
 pub use avatar_status_dot::{AvatarStatus, AvatarStatusDot, avatar_status_dot};
-pub use banner::{Banner, BannerContainer, BannerStatus, banner};
+pub use banner::{BannerAppearance, BannerContainer, banner_icon};
 pub use blockquote::{Blockquote, blockquote, blockquote_text};
 pub use bottom_sheet::{
     BottomSheet, DialogPurpose, SheetHeight, SnapPoint, bottom_sheet, bottom_sheet_flow,
