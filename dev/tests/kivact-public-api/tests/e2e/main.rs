@@ -108,12 +108,12 @@ mod apg_menu;
 mod apg_menu_button;
 mod apg_menubar;
 
-mod ui_calendar;
 mod apg_carousel;
-mod ui_carousel;
-mod ui_dropzone;
-mod ui_disclosure_surfaces;
 mod apg_toolbar;
+mod ui_calendar;
+mod ui_carousel;
+mod ui_disclosure_surfaces;
+mod ui_dropzone;
 mod ui_toolbar;
 mod viewport;
 #[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]

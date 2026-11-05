@@ -169,12 +169,11 @@ pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
 pub use progress::{Progress, ProgressMotion, ProgressTokens, progress};
 pub use recipes::{
-    CalendarRecipes, CommandPaletteRecipes, DataTableRecipes, DateInputRecipes,
+    CalendarRecipes, ComboboxRecipes, CommandPaletteRecipes, DataTableRecipes, DateInputRecipes,
     DateRangeInputRecipes, DateTimeInputRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
     ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes, Recipe,
     SelectRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, TabsRecipes, TagInputRecipes,
     TimeInputRecipes, ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
-    ComboboxRecipes,
 };
 pub use split::{Split, split};
 pub use tag_input::{TagInput, tag_input};
@@ -268,8 +267,8 @@ pub use hover_card::{FocusTrigger, HoverCard, HoverCardSurfaceState, HoverCardTo
 
 pub use recipes::HoverCardRecipes;
 
-mod drawer_swipe;
 mod combobox;
+mod drawer_swipe;
 mod selector_presentation;
 pub use combobox::{Combobox, ComboboxTokens, combobox};
 pub use kivact_interaction::ComboboxMode;
