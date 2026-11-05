@@ -2,7 +2,6 @@
 use crate::arrangement_model::arrangement as app_arrangement;
 use crate::graph_support::app_graph;
 use crate::node_support::app_node_editor;
-use crate::support::clean;
 use crate::time_support::{app_dope_sheet, app_timeline};
 use kivact::geometry::{Point, Size};
 use kivact::interaction::ViewTransform;
@@ -285,7 +284,7 @@ fn item_drag_writes_consumer_positions_with_and_without_snap() {
             };
             assert_eq!(after[0].position.y, before[0].position.y + dy, "{kind:?}");
             assert_eq!(&after[1..], &before[1..], "{kind:?}: other items stay put");
-            clean(&screen);
+            assert!(screen.errors().is_empty(), "{:?}", screen.errors());
         }
     }
 }
@@ -304,7 +303,7 @@ fn marquee_selects_intersecting_items_and_escape_clears_selection() {
         assert_eq!(model.selection.get_untracked(), [1, 2, 3], "{kind:?}");
         canvas.press_key(Key::Escape);
         assert!(model.selection.get_untracked().is_empty(), "{kind:?}");
-        clean(&screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
 
@@ -324,7 +323,7 @@ fn playhead_arrow_keys_edit_the_time_without_moving_selected_items() {
             "{kind:?}"
         );
         assert_eq!(model.snapshot(), before, "{kind:?}");
-        clean(&screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
 
@@ -355,5 +354,5 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
         .drag(Point::new(231.0, 40.0), Point::new(251.0, 40.0));
     assert_eq!(data.get_untracked()[0].start, 50.0);
     assert_eq!(data.get_untracked()[0].duration, 110.0);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

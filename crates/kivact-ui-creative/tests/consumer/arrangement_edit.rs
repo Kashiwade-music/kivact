@@ -1,7 +1,6 @@
 //! Role: Arrangement edits transact exactly the model fields they own.
 use crate::arrangement_model;
 use crate::arrangement_model::arrangement as app_arrangement;
-use crate::support::clean;
 use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
@@ -123,7 +122,7 @@ fn clip_drag_uses_one_transaction_and_snap_from_the_original_position() {
         m.observed.get_untracked(),
         [(EditPhase::Begin, 2.0), (EditPhase::Commit, 4.0)]
     );
-    clean(&s);
+    assert!(s.errors().is_empty(), "{:?}", s.errors());
 }
 #[test]
 fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
@@ -170,5 +169,5 @@ fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
     s.run_until_idle();
     root.press_key(Key::ArrowLeft);
     assert_eq!(start(), 4.5, "an invalid step falls back to one beat");
-    clean(&s);
+    assert!(s.errors().is_empty(), "{:?}", s.errors());
 }

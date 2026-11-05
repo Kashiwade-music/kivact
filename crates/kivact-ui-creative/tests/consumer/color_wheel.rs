@@ -1,5 +1,4 @@
 //! Role: Color wheel model inputs, accessible targets and edit cancellation.
-use crate::support::clean;
 use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::style::Color;
@@ -64,7 +63,7 @@ fn color_wheel_regions_keys_actions_and_gray_hue_preservation() {
     sv.a11y_set_value("NaN,0.5");
     hue.a11y_set_value("inf");
     assert!(log.borrow().is_empty());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -88,5 +87,5 @@ fn hsv_picker_value_and_alpha_are_independent() {
     let r = alpha.rect().expect("alpha strip");
     alpha.drag(r.center(), Point::new(r.x + r.width * 0.25, r.center().y));
     assert!((color.get_untracked().components()[3] - 0.25).abs() < 0.01);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

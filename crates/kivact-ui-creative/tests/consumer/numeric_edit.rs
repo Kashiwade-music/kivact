@@ -1,6 +1,5 @@
 //! Role: `Numeric`'s edit phases, text parser, mixed value and reactive property state.
 
-use crate::support::clean;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::EditPhase::{Begin, Commit};
@@ -58,7 +57,7 @@ fn a_scrub_is_one_edit_from_press_to_release() {
         screen.query_by_role(Role::TextBox, "Gain").is_none(),
         "a scrub does not open the text field"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -105,5 +104,5 @@ fn numeric_arithmetic_submit_cancel_and_blur_commit() {
     screen.get_by_role(Role::TextBox, "Gain").type_text("3 * 2");
     screen.get_by_role(Role::Button, "Outside").click();
     assert_eq!(value.get_untracked(), 6.0);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

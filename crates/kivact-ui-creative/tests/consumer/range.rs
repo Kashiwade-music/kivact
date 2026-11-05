@@ -1,6 +1,5 @@
 //! Role: The two-endpoint range on the range scalar's track, thumbs and body.
 
-use crate::support::clean;
 use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
@@ -51,5 +50,5 @@ fn a_range_track_press_moves_the_nearer_end_which_the_keys_then_edit() {
     assert!((span.get_untracked().0 - 20.0 - moved).abs() < 1e-3);
     screen.press_key(Key::ArrowRight);
     assert!((span.get_untracked().0 - 21.0 - moved).abs() < 1e-3);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

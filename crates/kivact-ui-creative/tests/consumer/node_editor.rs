@@ -1,7 +1,6 @@
 //! Role: Node editor sockets, links, deletion and parameters through the public API.
 
 use crate::node_support::app_node_editor;
-use crate::support::clean;
 use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
 use kivact::view::A11yAction;
@@ -82,7 +81,7 @@ fn typed_multiple_sockets_validate_reconnect_and_delete_nodes() {
     screen.get_by_test_id("nodes").press_key(Key::Delete);
     assert_eq!(data.get_untracked().len(), 1);
     assert!(links.get_untracked().is_empty());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -128,7 +127,7 @@ fn a_keyboard_connection_ends_when_the_editor_loses_focus() {
         links.get_untracked().is_empty(),
         "the pending connection ended with the focus"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -169,5 +168,5 @@ fn node_parameters_accept_finite_set_value_drag_and_toggle() {
     assert_eq!(alpha.checked(), Some(CheckedState::Checked));
     value.drag(Point::new(60.0, 90.0), Point::new(40.0, 90.0));
     assert_eq!(value.value_range().2, Some(0.8));
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

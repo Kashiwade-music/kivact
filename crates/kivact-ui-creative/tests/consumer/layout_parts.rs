@@ -3,7 +3,7 @@
 //! The standard split, property rows and state buttons, windows an application opens
 //! and closes, and panels with a header of their own.
 
-use crate::support::{clean, near};
+use crate::support::near;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::test::{Element, Screen};
@@ -90,5 +90,5 @@ fn a_property_row_lays_out_label_leading_value_and_trailing_in_order() {
         .rect()
         .expect("only");
     assert!(near(only.x, 90.0 + 4.0, 0.6), "{only:?}");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
