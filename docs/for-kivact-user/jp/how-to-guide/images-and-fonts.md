@@ -209,3 +209,5 @@ fn main() -> kivact::Result<()> {
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): ウィンドウを止めずに画像を読み込む。
 - [翻訳とロケール](i18n.md): 他の文字体系のフォントと文字の向き。
 - リファレンス: `cargo doc -p kivact --open` で `Asset` と `ImageFit` を検索。
+
+NodeRef の `scroll_state()` は `NotScrollable`・`AtStart`・`Middle`・`AtEnd`、`image_status()` は `Loading`・`Ready`・`Failed` のリアクティブな値を返します。reader は setup で作ります。画像の状態は再試行を含めて現在の source に追従します。

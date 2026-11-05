@@ -99,8 +99,8 @@ trusted_derives = [
 # "from -> to"（`crate::` を省く。from はその module だけ、to はその module と子孫）。どの参照にも
 # 使われない例外も error にする。
 [module_rules.kivact-core]
-# Canonical style/state facades only reexport composition and owner access from the view leaves.
-except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner"]
+# Canonical facades reexport owner access; the motion boundary adapter accepts the public NodeRef handle.
+except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "motion::frame_loop -> view::node_ref"]
 
 [module_rules.kivact-core.uses]
 state = []

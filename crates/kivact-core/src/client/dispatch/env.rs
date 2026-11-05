@@ -37,9 +37,19 @@ pub(super) fn frame_tick(
     MotionState::of(rt).on_frame_tick(rt, now_ns, estimated_present_ns, clock);
 }
 
-pub(super) fn scroll_changed(rt: &Runtime, node: NodeId, offset: Point, viewport: Size) {
+pub(super) fn scroll_changed(
+    rt: &Runtime,
+    node: NodeId,
+    offset: Point,
+    viewport: Size,
+    content: Size,
+) {
     if let Some(h) = handler(rt, node, |h| h.scroll.clone()) {
-        let s = ScrollState { offset, viewport };
+        let s = ScrollState {
+            offset,
+            viewport,
+            content,
+        };
         run_handler(rt, node_owner(rt, node), || {
             h.call(s)?;
             Ok(())

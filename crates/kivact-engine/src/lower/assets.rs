@@ -112,6 +112,14 @@ impl ArvaneAssets {
     }
 
     /// Current readiness without starting a load or consuming any notices.
+    pub(crate) fn image_status(&self, asset: &Asset) -> kivact_types::ImageStatus {
+        match self.status(asset) {
+            Some(ImageState::Ready { .. }) => kivact_types::ImageStatus::Ready,
+            Some(ImageState::Failed(_)) => kivact_types::ImageStatus::Failed,
+            Some(ImageState::Pending) | None => kivact_types::ImageStatus::Loading,
+        }
+    }
+
     pub(crate) fn status(&self, asset: &Asset) -> Option<ImageState> {
         self.store.peek(asset)
     }

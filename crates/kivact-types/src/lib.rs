@@ -12,6 +12,7 @@ pub mod env;
 pub mod geometry;
 pub mod gpu;
 pub mod ids;
+pub mod image_status;
 pub mod input;
 pub mod layout;
 pub mod motion;
@@ -45,6 +46,7 @@ pub use gpu::{
 pub use ids::{
     FocusTarget, IdHasher, IdMap, NodeId, RegionId, RequestId, Revision, SemanticsId, TextRunId,
 };
+pub use image_status::ImageStatus;
 pub use input::{
     ButtonPress, FileDrop, FilePhase, ImeInput, InputPurpose, Key, KeyCode, KeyInput, KeyPhase,
     Modifiers, MouseButton, PointerButtons, PointerId, PointerKind, PointerPhase, PointerSample,

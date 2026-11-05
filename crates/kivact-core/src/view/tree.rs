@@ -27,6 +27,7 @@ pub(crate) struct ScrollState {
     pub offset: kivact_types::Point,
     /// Size of the visible area.
     pub viewport: kivact_types::Size,
+    pub content: kivact_types::Size,
 }
 
 type SecondaryContextHandler = Handler<PointerEvent>;
@@ -231,6 +232,8 @@ pub(crate) struct NodeObservation {
     pub(crate) rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) text_truncated: Signal<bool>,
     pub(crate) scroll: Signal<crate::geometry::Point>,
+    pub(crate) scroll_state: Signal<super::node_status::ScrollState>,
+    pub(crate) image_status: Signal<kivact_types::ImageStatus>,
     pub(crate) scene_revision: Notifier,
     pub(crate) editing_revision: Notifier,
 }
@@ -406,6 +409,7 @@ impl ViewNodes {
         id: NodeId,
         at: &'static Location<'static>,
     ) -> Option<NodeObservation> {
+        let image_status = self.reader().image_status(id);
         let node = self.nodes.0.get_mut(&id)?;
         if let Some(observation) = node.observation {
             return Some(observation);
@@ -414,6 +418,10 @@ impl ViewNodes {
             rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             text_truncated: node.owner.signal(false, at),
             scroll: node.owner.signal(crate::geometry::Point::default(), at),
+            scroll_state: node
+                .owner
+                .signal(super::node_status::ScrollState::NotScrollable, at),
+            image_status: node.owner.signal(image_status, at),
             scene_revision: node.owner.notifier(at),
             editing_revision: node.owner.notifier(at),
         };
@@ -428,7 +436,11 @@ impl ViewNodes {
             )));
         });
         let scroll = observation.scroll;
-        handlers.observe_scroll(move |state| scroll.set(state.offset));
+        let scroll_state = observation.scroll_state;
+        handlers.observe_scroll(move |state| {
+            scroll.set(state.offset);
+            scroll_state.set(super::node_status::classify_scroll(state));
+        });
         node.observation = Some(observation);
         Some(observation)
     }

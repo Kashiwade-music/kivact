@@ -58,6 +58,14 @@ pub enum ButtonVariant {
 
 impl Variant for ButtonVariant {}
 
+/// Standard presentation of a radio group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RadioGroupVariant {
+    /// Adjacent choices drawn as a segmented control.
+    Segmented,
+}
+impl Variant for RadioGroupVariant {}
+
 /// The metrics a control is drawn at; the recipe decides what each size
 /// means.
 ///

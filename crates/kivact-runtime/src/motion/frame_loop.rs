@@ -7,7 +7,7 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{LoopCell, LoopRun, LoopState, MotionState};
+use super::state::{LoopCell, LoopGate, LoopRun, LoopState, MotionState};
 use super::values::{FrameInfo, FrameRate};
 
 use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
@@ -32,6 +32,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
         f: crate::reactive::Handler::from_fn(f),
         state: owner.signal(LoopState::Stopped, at),
         frames: Cell::new(0),
+        gate: Cell::new(LoopGate::Always),
     });
     MotionState::of(&rt).register_loop(&cell);
     FrameLoop {
@@ -40,6 +41,25 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
 }
 
 impl FrameLoop {
+    /// Host adapter bridge: restrict scheduling to an observed node lifetime.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn with_presence_gate(self, gate: Value<bool>) -> Self {
+        crate::require_setup("FrameLoop::while_present");
+        let (rt, cell) = self.cell(Location::caller());
+        cell.gate.set(LoopGate::While(gate));
+        let app = rt.id();
+        cell.owner.with_setup(move || {
+            crate::effect(move || {
+                let _ = gate.get();
+                if let Some(rt) = Runtime::get(app) {
+                    rt.request_turn();
+                }
+            })
+        });
+        self
+    }
+
     fn cell(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<LoopCell>) {
         let c = self.handle.get();
         (c.owner.runtime(), c)

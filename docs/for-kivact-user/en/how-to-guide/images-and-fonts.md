@@ -250,3 +250,5 @@ such problems (see [Test your app](testing.md)), and
   the window.
 - [Internationalization](i18n.md): fonts for other scripts and text direction.
 - Reference: `cargo doc -p kivact --open`, search for `Asset` and `ImageFit`.
+
+Node references expose reactive `scroll_state()` (`NotScrollable`, `AtStart`, `Middle`, `AtEnd`) and `image_status()` (`Loading`, `Ready`, `Failed`) values. Create these readers during setup. Image status follows the current source, including retries.

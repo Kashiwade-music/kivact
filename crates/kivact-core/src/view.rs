@@ -27,6 +27,7 @@ pub(crate) mod mount;
 mod node_draw;
 mod node_modifiers;
 pub(crate) mod node_ref;
+mod node_status;
 pub(crate) mod overlays;
 pub(crate) mod owner;
 pub(crate) mod part;
@@ -74,6 +75,7 @@ pub use kivact_types::{
 };
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
+pub use node_status::{ImageStatus, ScrollState};
 #[doc(inline)]
 pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
 

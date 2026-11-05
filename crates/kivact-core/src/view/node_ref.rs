@@ -66,6 +66,15 @@ impl NodeRef {
 }
 
 impl NodeRef {
+    pub(crate) fn observed_status<T>(
+        &self,
+        read: impl FnOnce(crate::view::tree::NodeObservation) -> T,
+    ) -> Option<T> {
+        let (_, state) = self.state(Location::caller());
+        let bound = state.bound.try_get().and_then(RefState::bound)?;
+        observation(self.app, bound.target()).map(read)
+    }
+
     /// The runtime and state of this ref; located `WrongApp` and `Disposed`.
     pub(crate) fn state(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<NodeRefState>) {
         let s = self.state.get();

@@ -155,6 +155,11 @@ pub enum HostEvent {
     /// directory) and the reason. Sent once per node and image, and once
     /// per missing family (on the first node using it); the node draws
     /// nothing (an image) or uses the system UI font (a family).
+    /// A projection of an image node's current asset loading result.
+    ImageStatusChanged {
+        node: NodeId,
+        status: kivact_types::ImageStatus,
+    },
     AssetFailed {
         node: NodeId,
         message: String,

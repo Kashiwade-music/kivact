@@ -276,3 +276,5 @@ mod tests {
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): タイマーとバックグラウンド処理。
 - [アプリをテストする](testing.md): 仮想時計と `RenderOptions`。
 - API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::motion` と `kivact::style::Style` を開いてください。
+
+`frame_loop(callback).while_present(node_ref)` は参照先が entering・leaving・未束縛の間、フレームの要求を止めます。present に戻ると要求した rate で再開します。停止中も `start`・`stop`・`rate` の意味は変わらず、`stop` した loop は再マウントされても停止したままです。
