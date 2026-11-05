@@ -751,17 +751,21 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                                 .border(1, ColorToken::Border)
                                 .background(ColorToken::SurfaceAlt),
                         ),
-                        kivact::ui::description("レベル", text("Lv.86")),
-                        kivact::ui::description("絆ランク", text("Rank 20")),
-                        kivact::ui::description(
-                            "攻撃タイプ",
-                            kivact::ui::badge("爆発").variant(ui::BadgeHue::new(ui::Hue::Red)),
-                        ),
-                        kivact::ui::description(
-                            "防御タイプ",
-                            kivact::ui::badge("重装甲").variant(ui::BadgeHue::new(ui::Hue::Yellow)),
-                        ),
-                        text("個別設定").style(style().font_size(15).weight(600).margin_top(8)),
+                        kivact::ui::description_list((
+                            kivact::ui::description("レベル", text("Lv.86")),
+                            kivact::ui::description("絆ランク", text("Rank 20")),
+                            kivact::ui::description(
+                                "攻撃タイプ",
+                                kivact::ui::badge("爆発").variant(ui::BadgeHue::new(ui::Hue::Red)),
+                            ),
+                            kivact::ui::description(
+                                "防御タイプ",
+                                kivact::ui::badge("重装甲")
+                                    .variant(ui::BadgeHue::new(ui::Hue::Yellow)),
+                            ),
+                            text("個別設定").style(style().font_size(15).weight(600).margin_top(8)),
+                        ))
+                        .style(style().gap(12)),
                         row((
                             text("メイン編成に固定").style(style().grow(1)),
                             kivact::ui::switch("メイン編成に固定", pin_student)

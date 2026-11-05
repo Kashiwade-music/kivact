@@ -5,13 +5,10 @@
 //! builder accepts the public [`kivact::view::NodeBuilder`] modifiers.
 //! Install [`theme`] or add [`Tokens`] to an existing Kivact theme.
 //!
-//! The kit's theme gives the standard components of `kivact::ui` the Pop
-//! look, so tabs, radio groups, sliders and the toast region are
-//! `kivact::ui::tabs`, `radio_group`, `slider` and `toast_region`; the kit
-//! adds what they do not have ([`tab_label`] for a tab's count badge,
-//! [`kivact::ui::RadioGroupVariant::Segmented`] for a segmented radio group,
-//! the rest). Its theme also draws `kivact::ui::list` and
-//! `kivact::ui::data_table`.
+//! The theme supplies the Pop appearance for standard controls, collections,
+//! calendars, chat and metric components in `kivact::ui`. The kit adds typed
+//! appearance variants, tab labels, chart primitives and domain-specific
+//! conversation-preview and scheduling rows.
 //!
 //! The texts the components show themselves (a dialog's close button, the
 //! command palette's hint) are English and read through

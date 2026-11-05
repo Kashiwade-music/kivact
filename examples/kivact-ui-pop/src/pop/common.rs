@@ -1,6 +1,6 @@
 //! Role: Shared layout and text builders for Pop catalog specimens.
 
-use kivact::prelude::{ColorToken, IntoView, Node, Role, column, grid, row, text};
+use kivact::prelude::{ColorToken, IntoView, Node, NodeBuilder, column, grid, row, text};
 use kivact::style::{Align, style};
 use kivact::style::{GridPlacement, Track};
 use kivact_ui_pop as ui;
@@ -23,8 +23,7 @@ pub(super) fn columns(children: impl IntoView, count: u16) -> Node {
 
 pub(super) fn card(title: &str, content: impl IntoView) -> kivact::ui::Card {
     kivact::ui::card((
-        row(text(title.to_string())
-            .role(Role::Heading)
+        row(kivact::ui::heading(title.to_string(), 3)
             .style(style().font_size(15).weight(600).line_height(1.2)))
         .style(
             style()

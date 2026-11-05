@@ -67,9 +67,6 @@ pub(crate) fn message(r: ChatMessageRecipes) -> ChatMessageRecipes {
             let base = prev(t, s);
             if s.variant::<PopBubble>().is_some() {
                 base.position(kivact::style::Position::Absolute)
-                    .size(0, 0)
-                    .font_size(0)
-                    .clip(true)
                     .visibility(kivact::style::Visibility::Hidden)
             } else {
                 base.color(t.ext::<Tokens>().text)
@@ -81,9 +78,6 @@ pub(crate) fn message(r: ChatMessageRecipes) -> ChatMessageRecipes {
             let base = prev(t, s);
             if s.variant::<PopBubble>().is_some() && s.align == ChatAlign::End {
                 base.position(kivact::style::Position::Absolute)
-                    .size(0, 0)
-                    .font_size(0)
-                    .clip(true)
                     .visibility(kivact::style::Visibility::Hidden)
             } else {
                 base

@@ -4,9 +4,8 @@ A Kivact UI kit for compact desktop business applications: calm slate
 surfaces, narrow blue gradients and yellow accents.
 
 The kit depends only on the public `kivact` crate. Its theme restyles the
-standard components of `kivact::ui`, and it adds business components such as
-stat cards, timelines and
-conversation threads.
+standard components of `kivact::ui`, and adds timelines, scheduling rows,
+conversation-preview rows and standalone chart primitives.
 
 ```rust,no_run
 use kivact::prelude::*;

@@ -393,7 +393,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                     .style(style().gap(8))
                                 }),
                         )),
-                        column((
+                        kivact::ui::description_list((
                             kivact::ui::description(
                                 "依頼ID",
                                 row((
