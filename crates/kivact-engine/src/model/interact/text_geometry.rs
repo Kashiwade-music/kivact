@@ -57,7 +57,7 @@ pub(crate) fn shape_static_text(
     id: NodeId,
     engine: &mut arvane::Engine,
     area_width: f64,
-) -> Option<std::sync::Arc<kivact_types::ShapedText>> {
+) -> Option<kivact_types::ShapedTextSnapshot> {
     let node = host.node(id)?;
     let mut style = crate::lower::assets::text_style(engine, &host.text_props(id));
     style.color = kivact_types::ComputedTextStyle::default().color;

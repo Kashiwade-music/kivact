@@ -10,8 +10,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use std::sync::Arc;
-
 use kivact_types::{
     ComputedTextStyle, InlineBox, ShapedInlineText, TextMetrics, TextRun, TextShaper,
 };
@@ -58,7 +56,7 @@ impl TextMeasurer {
         &self,
         run: &TextRun,
         max_width: Option<f64>,
-    ) -> Option<Arc<kivact_types::render::ShapedText>> {
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
         let engine = self.engine.try_borrow_mut();
         debug_assert!(
             engine.is_ok(),
@@ -78,7 +76,7 @@ impl TextShaper for TextMeasurer {
         &self,
         run: &TextRun,
         max_width: Option<f64>,
-    ) -> Option<Arc<kivact_types::render::ShapedText>> {
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
         TextMeasurer::shape(self, run, max_width)
     }
 

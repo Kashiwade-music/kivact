@@ -3,7 +3,7 @@
 use crate::asset;
 use crate::error::{self, Failure};
 use kivact_types::ComputedTextStyle;
-use kivact_types::render::{InlineBox, RichText, ShapedInlineText, ShapedText};
+use kivact_types::render::{InlineBox, RichText, ShapedInlineText};
 use kivact_types::{Size, TextMetrics};
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -134,7 +134,7 @@ impl Engine {
         text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<Arc<ShapedText>, Failure> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, Failure> {
         self.text
             .get_mut()
             .shape(text.into(), style, max_width)
@@ -149,7 +149,7 @@ impl Engine {
         text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<Arc<ShapedText>, Failure> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, Failure> {
         self.text
             .get_mut()
             .shape_glyphs(text.into(), style, max_width)

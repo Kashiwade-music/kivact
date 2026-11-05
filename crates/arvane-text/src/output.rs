@@ -368,7 +368,7 @@ struct Segment {
 
 /// What a planned paragraph draws.
 pub(crate) struct Drawn {
-    pub(crate) runs: Vec<Arc<GlyphRun>>,
+    pub(crate) runs: Vec<kivact_types::render::GlyphRunSnapshot>,
     pub(crate) decorations: Vec<TextDecorationRect>,
     pub(crate) highlights: Vec<TextHighlight>,
 }
@@ -427,7 +427,7 @@ pub(crate) fn draw(
                 color,
                 metrics: Metrics::of(run.run().metrics()),
             });
-            runs.push(Arc::new(glyph_run));
+            runs.push(glyph_run.into());
         }
         if let (Some(cut), Some(ellipsis)) = (cut, ellipsis)
             && let Some(template) = &ellipsis.run
@@ -450,7 +450,7 @@ pub(crate) fn draw(
                 color: style.color,
                 metrics: ellipsis.metrics,
             });
-            runs.push(Arc::new(run));
+            runs.push(run.into());
         }
     }
     Drawn {
@@ -472,7 +472,7 @@ fn glyph_run(
         .entry(run.font().data.id())
         .or_insert_with(|| Arc::from(run.font().data.as_ref()));
     GlyphRun {
-        font: Arc::clone(font),
+        font: kivact_types::AssetBytes::from_shared(Arc::clone(font)),
         font_index: run.font().index,
         font_size: f64::from(run.font_size()),
         color: ComputedTextStyle::default().color,

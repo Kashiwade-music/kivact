@@ -4,7 +4,7 @@
 use super::color::ColorMatrix;
 use super::effect::{Backdrop, BoxShadow, Layer};
 use super::paint::Paint;
-use super::shaped::GlyphRun;
+use super::shaped::GlyphRunSnapshot;
 use crate::color::Rgba;
 use crate::geometry::Transform;
 use crate::geometry::{Point, Rect};
@@ -12,7 +12,6 @@ use crate::gpu::ExternalFrame;
 use crate::scene::Pixels;
 use crate::scene::Stroke;
 use crate::scene::{PathCmd, Shape};
-use std::sync::Arc;
 
 /// Portable drawing operation, usable on any thread.
 ///
@@ -153,7 +152,7 @@ pub enum RenderCmd {
     /// A run of already shaped glyphs.
     Glyphs {
         /// Immutable layout-local glyph payload.
-        run: Arc<GlyphRun>,
+        run: GlyphRunSnapshot,
         /// Logical translation before the active scene transform.
         origin: Point,
         /// Override the shaped color; `None` preserves it.

@@ -18,7 +18,6 @@ use kivact_types::Asset;
 use std::panic::Location;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::reactive::Owner;
 use crate::reactive::data::{Binding, BindingRepr, Signal, Value};
@@ -576,7 +575,7 @@ asset_into_value! {
     impl[const N: usize] &'static [u8; N];
     impl[] &'static [u8];
     impl[] Vec<u8>;
-    impl[] Arc<[u8]>;
+    impl[] kivact_types::AssetBytes;
     impl[] &'static str;
     impl[] String;
     impl[] PathBuf;

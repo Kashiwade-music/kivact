@@ -27,7 +27,7 @@ fn text(node: &SemanticsNode) -> Option<&SemanticsText> {
 
 /// The runs of a node's text (none without one).
 fn runs_of(node: Option<&SemanticsNode>) -> &[Arc<SemanticsTextRun>] {
-    node.and_then(text).map_or(&[], |t| &t.runs[..])
+    node.and_then(text).map_or(&[], |t| &t.runs.as_shared()[..])
 }
 
 /// The runs of `old` that `new` drops, and those it adds: the runs

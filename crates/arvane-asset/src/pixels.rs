@@ -56,7 +56,7 @@ impl AssetImage {
 
     /// The straight-alpha RGBA rows, `width * height * 4` bytes.
     pub fn rgba(&self) -> &Arc<[u8]> {
-        &self.pixels.rgba
+        self.pixels.rgba.as_shared()
     }
 
     /// Bytes the pixels take.

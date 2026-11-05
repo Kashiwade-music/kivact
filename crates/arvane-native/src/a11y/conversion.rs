@@ -451,7 +451,7 @@ fn text_positions<const N: usize>(
 ) -> [accesskit::TextPosition; N] {
     let first = text
         .runs
-        .first()
+        .get(0)
         .expect("invariant: validated text has a run");
     let offsets = offsets.map(|offset| offset.saturating_sub(text.start));
     let mut found = [(first, 0u32); N];

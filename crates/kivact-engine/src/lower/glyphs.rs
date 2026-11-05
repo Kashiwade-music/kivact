@@ -85,7 +85,7 @@ fn glyphs(
 ) {
     for run in &shaped.runs {
         out.push(D::Glyphs {
-            run: std::sync::Arc::clone(run),
+            run: run.clone(),
             origin,
             color,
         });
@@ -213,7 +213,7 @@ pub(crate) fn shape_run(
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
     max_width: Option<f64>,
-) -> Option<std::sync::Arc<kivact_types::render::ShapedText>> {
+) -> Option<kivact_types::ShapedTextSnapshot> {
     let style = run_style(engine, run, inherited);
     if !(style.font_size.is_finite() && style.font_size > 0.0) {
         return None;

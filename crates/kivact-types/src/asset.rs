@@ -15,12 +15,12 @@ use std::sync::Arc;
 
 /// An image or a font file: bytes embedded in the executable
 /// (`include_bytes!("logo.svg")`), bytes obtained at run time (`Vec<u8>`,
-/// `Arc<[u8]>`), or a file read at run time (`"cover.jpg"`, a `String`, a
+/// [`AssetBytes`]), or a file read at run time (`"cover.jpg"`, a `String`, a
 /// `PathBuf`, a `&Path`). Every property that takes an image accepts these
 /// directly; a closure returns an `Asset` (`move || Asset::from(path.get())`).
 ///
 /// Two assets are equal when they are the same source: the same path, the
-/// same embedded bytes (address and length), or the same `Arc` allocation
+/// same embedded bytes (address and length), or the same retained byte allocation
 /// (not equal content). The image cache keys on the same identity, so:
 ///
 /// - Create an `Asset` from run-time bytes once, outside closures that
@@ -28,7 +28,7 @@ use std::sync::Arc;
 ///   there: clones are the same asset. `Asset::from(bytes.clone())` with a
 ///   `Vec<u8>` makes a new allocation, hence a new asset, every time; each
 ///   is decoded again, and on hosts that decode on a worker thread a
-///   canvas redrawn every frame never shows its image. An `Arc<[u8]>` you
+///   canvas redrawn every frame never shows its image. An `AssetBytes` value you
 ///   keep and clone is the same asset too.
 /// - Name embedded bytes with a `static` (or write the `include_bytes!`
 ///   expression where it is used), not a `const`: a `const` is copied into
@@ -50,7 +50,7 @@ pub enum Asset {
     /// and length, never copied.
     Static(&'static [u8]),
     /// Bytes obtained at run time, keyed by the `Arc` allocation.
-    Shared(Arc<[u8]>),
+    Shared(AssetBytes),
 }
 
 impl PartialEq for Asset {
@@ -58,7 +58,7 @@ impl PartialEq for Asset {
         match (self, other) {
             (Asset::Path(a), Asset::Path(b)) => a == b,
             (Asset::Static(a), Asset::Static(b)) => a.as_ptr() == b.as_ptr() && a.len() == b.len(),
-            (Asset::Shared(a), Asset::Shared(b)) => Arc::ptr_eq(a, b),
+            (Asset::Shared(a), Asset::Shared(b)) => a.same_allocation(b),
             _ => false,
         }
     }
@@ -114,13 +114,13 @@ impl From<&'static [u8]> for Asset {
 impl From<Vec<u8>> for Asset {
     /// Bytes obtained at run time (a file read by the app, an HTTP body).
     fn from(bytes: Vec<u8>) -> Asset {
-        Asset::Shared(Arc::from(bytes))
+        Asset::Shared(bytes.into())
     }
 }
 
-impl From<Arc<[u8]>> for Asset {
-    /// Bytes obtained at run time, shared (equal while the same `Arc`).
-    fn from(bytes: Arc<[u8]>) -> Asset {
+impl From<AssetBytes> for Asset {
+    /// Retained bytes share the same asset cache identity across clones.
+    fn from(bytes: AssetBytes) -> Asset {
         Asset::Shared(bytes)
     }
 }
@@ -150,5 +150,57 @@ impl From<&Path> for Asset {
     /// A file read at run time.
     fn from(path: &Path) -> Asset {
         Asset::Path(path.to_owned())
+    }
+}
+
+/// Immutable binary data whose clones retain one byte allocation.
+/// Equality and hashing compare byte contents; `same_allocation` tests storage identity.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct AssetBytes(Arc<[u8]>);
+impl AssetBytes {
+    /// Retain owned bytes without cloning their contents.
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self(bytes.into())
+    }
+    /// Copy borrowed bytes once into retained storage.
+    pub fn copy_from_slice(bytes: &[u8]) -> Self {
+        Self(Arc::from(bytes))
+    }
+    /// Whether both values retain the same byte allocation.
+    pub fn same_allocation(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+    /// Adopt backend-owned bytes without copying or changing allocation identity.
+    // xtask-allow(internal-contract): Asset/font/renderer adapters retain an existing backend allocation; application inputs use owned bytes.
+    #[doc(hidden)]
+    pub fn from_shared(bytes: Arc<[u8]>) -> Self {
+        Self(bytes)
+    }
+    /// Borrow the retained allocation for a backend that requires shared ownership.
+    // xtask-allow(internal-contract): Asset/font/renderer adapters bridge shared backend resources without copying their bytes.
+    #[doc(hidden)]
+    pub fn as_shared(&self) -> &Arc<[u8]> {
+        &self.0
+    }
+}
+impl From<Vec<u8>> for AssetBytes {
+    fn from(bytes: Vec<u8>) -> Self {
+        Self::new(bytes)
+    }
+}
+impl<const N: usize> From<[u8; N]> for AssetBytes {
+    fn from(bytes: [u8; N]) -> Self {
+        Self(Arc::from(bytes))
+    }
+}
+impl std::ops::Deref for AssetBytes {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        &self.0
+    }
+}
+impl AsRef<[u8]> for AssetBytes {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
     }
 }

@@ -183,7 +183,7 @@ impl ArvaneAssets {
         let image = kivact_types::scene::Pixels {
             width: pixels.width(),
             height: pixels.height(),
-            rgba: std::sync::Arc::clone(pixels.rgba()),
+            rgba: kivact_types::AssetBytes::from_shared(std::sync::Arc::clone(pixels.rgba())),
         };
         Some((image, region))
     }

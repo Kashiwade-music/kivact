@@ -85,7 +85,7 @@ impl Derived {
     /// `image`'s pixels through `matrix` (straight alpha).
     pub(crate) fn filtered(&mut self, image: &Pixels, matrix: &ColorMatrix) -> Pixels {
         let key = (
-            Arc::as_ptr(&image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
             image.width,
             image.height,
             matrix.0.map(f64::to_bits),
@@ -104,7 +104,7 @@ impl Derived {
             height: image.height,
             rgba: rgba.into(),
         };
-        let source = Some(Arc::clone(&image.rgba));
+        let source = Some(Arc::clone(image.rgba.as_shared()));
         Self::keep(
             &mut self.filtered,
             &mut self.bytes,
@@ -160,7 +160,7 @@ impl Derived {
             return image.clone();
         }
         let key = (
-            Arc::as_ptr(&image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
             image.width,
             image.height,
             width,
@@ -171,7 +171,7 @@ impl Derived {
             return entry.image.clone();
         }
         let source = ImageSource::from_peniko_image_data(&peniko::ImageData {
-            data: Blob::new(Arc::new(Arc::clone(&image.rgba))),
+            data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
             format: ImageFormat::Rgba8,
             alpha_type: ImageAlphaType::Alpha,
             width: image.width,
@@ -198,7 +198,7 @@ impl Derived {
                 f64::from(height),
             ));
         });
-        let source = Some(Arc::clone(&image.rgba));
+        let source = Some(Arc::clone(image.rgba.as_shared()));
         Self::keep(
             &mut self.resampled,
             &mut self.bytes,

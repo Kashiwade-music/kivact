@@ -375,7 +375,7 @@ fn validate_content(command: &RenderCmd, fonts: &mut Fonts) -> Result<bool, Rend
             origin,
             color: override_color,
         } => {
-            let count = fonts.glyphs(&run.font, run.font_index)?;
+            let count = fonts.glyphs(run.font.as_shared(), run.font_index)?;
             if !run.font_size.is_finite()
                 || run.font_size <= 0.0
                 || run.glyphs.iter().any(|glyph| {

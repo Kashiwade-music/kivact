@@ -1,7 +1,6 @@
 //! Role: Passive native editor paint facts prepared by the model for frame rendering.
 
 use kivact_types::{Point, Rect, Rgba};
-use std::sync::Arc;
 
 pub(crate) struct PreparedInputPaint {
     pub(crate) area: Rect,
@@ -36,7 +35,7 @@ pub(crate) enum InputPaintOp {
         style: kivact_types::TextDecorationStyle,
     },
     Glyphs {
-        shaped: Arc<kivact_types::render::ShapedText>,
+        shaped: kivact_types::ShapedTextSnapshot,
         origin: Point,
         color: Option<Rgba>,
     },

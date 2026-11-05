@@ -90,7 +90,7 @@ impl Model {
         let char_of = |at: usize| lines.char_of_byte(value, at).clamp(start, end);
         let selection = (char_of(edit.anchor()), char_of(edit.caret()));
         SemanticsText {
-            runs,
+            runs: kivact_types::SemanticsTextRuns::from_shared(runs),
             start,
             selection,
             caret,
@@ -139,7 +139,7 @@ impl Model {
             })
             .collect();
         Some(SemanticsText {
-            runs: runs.into(),
+            runs: kivact_types::SemanticsTextRuns::from_shared(runs.into()),
             start: authored.start,
             selection: authored.selection,
             caret: shifted(authored.caret, dx, dy),

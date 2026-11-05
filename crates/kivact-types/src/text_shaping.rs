@@ -1,6 +1,5 @@
 //! Role: Backend-neutral text shaping and measurement queries.
-use crate::{InlineBox, ShapedInlineText, ShapedText, TextMetrics, TextRun};
-use std::sync::Arc;
+use crate::{InlineBox, ShapedInlineText, ShapedTextSnapshot, TextMetrics, TextRun};
 
 /// What a host measures and shapes text with, for a callback that has no
 /// engine of its own: a scene's text run as it would be drawn in the node
@@ -13,9 +12,9 @@ pub trait TextShaper {
 
     /// `run`'s text shaped with its carets and lines, wrapped at
     /// `max_width` (`None`: one line per hard line). Equal inputs share one
-    /// `Arc`. `None` when it cannot be shaped. The result owns its data, so
+    /// shaping allocation. `None` when it cannot be shaped. The result owns its data, so
     /// the shaper is not borrowed afterwards.
-    fn shape(&self, run: &TextRun, max_width: Option<f64>) -> Option<Arc<ShapedText>>;
+    fn shape(&self, run: &TextRun, max_width: Option<f64>) -> Option<ShapedTextSnapshot>;
 
     /// Shape a paragraph with measured inline objects when the host supports it.
     fn shape_inline(

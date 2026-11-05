@@ -128,7 +128,7 @@ impl EditLines {
         text: &str,
         i: usize,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::render::ShapedText>> {
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
         self.ensure(text, i, engine);
         self.line(i)?.0.shape.shaped().cloned()
     }
@@ -426,7 +426,7 @@ impl EditLines {
         i: usize,
         color: kivact_types::Rgba,
         engine: &mut arvane::Engine,
-    ) -> Option<Arc<kivact_types::render::ShapedText>> {
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
         let content = self.content(i)?;
         let mut style = self.key.style.clone();
         style.color = color;

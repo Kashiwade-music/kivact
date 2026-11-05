@@ -6,7 +6,6 @@ use kivact_types::render::{InlineBox, InlineBoxPlacement, RichText, ShapedInline
 use kivact_types::{Rect, TextAlign};
 use parley::{Alignment, AlignmentOptions, InlineBoxKind, PositionedLayoutItem};
 use std::collections::HashSet;
-use std::sync::Arc;
 
 impl TextEngine {
     /// Shape text and measured inline objects together, using the same font
@@ -87,7 +86,7 @@ impl TextEngine {
         });
         let placements = placements(&layout, boxes.len());
         Ok(ShapedInlineText {
-            text: Arc::new(ShapedText {
+            text: kivact_types::ShapedTextSnapshot::new(ShapedText {
                 size: plan.size,
                 baseline: plan.baseline,
                 runs: drawn.runs,

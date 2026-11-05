@@ -239,10 +239,8 @@ const MEASURED_ENTRIES: usize = 4096;
 /// a whole when a font is registered, so no answer of the old collection
 /// survives.
 pub(crate) struct Cache {
-    pub(crate) shaped: Generations<
-        TextKey,
-        Result<std::sync::Arc<kivact_types::render::ShapedText>, crate::TextError>,
-    >,
+    pub(crate) shaped:
+        Generations<TextKey, Result<kivact_types::ShapedTextSnapshot, crate::TextError>>,
     pub(crate) measured: Generations<TextKey, Result<kivact_types::TextMetrics, crate::TextError>>,
     pub(crate) families: HashMap<String, bool>,
     pub(crate) font_names: Option<Vec<String>>,

@@ -53,7 +53,7 @@ pub(crate) fn file_version(path: &Path) -> FileVersion {
 pub(crate) fn read(asset: &Asset) -> Result<Encoded, AssetError> {
     match asset {
         Asset::Static(b) => Ok(Encoded::Static(b)),
-        Asset::Shared(b) => Ok(Encoded::Shared(Arc::clone(b))),
+        Asset::Shared(b) => Ok(Encoded::Shared(Arc::clone(b.as_shared()))),
         Asset::Path(p) => read_file(asset, p).map(Encoded::Shared),
     }
 }

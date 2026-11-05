@@ -224,7 +224,7 @@ impl TextEngine {
         text: RichText<'_>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<Arc<ShapedText>, TextError> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
         self.shape_cached(text, style, max_width, true)
     }
 
@@ -235,7 +235,7 @@ impl TextEngine {
         text: RichText<'_>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<Arc<ShapedText>, TextError> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
         self.shape_cached(text, style, max_width, false)
     }
 
@@ -245,12 +245,12 @@ impl TextEngine {
         style: &ComputedTextStyle,
         max_width: Option<f64>,
         carets: bool,
-    ) -> Result<Arc<ShapedText>, TextError> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
         let key = TextKey::new(text, style, max_width, true).with_carets(carets);
         self.cache.shaped.get(key).unwrap_or_else(|key| {
             let result = self
                 .shape_with(text, style, max_width, carets)
-                .map(Arc::new);
+                .map(kivact_types::ShapedTextSnapshot::new);
             self.cache.shaped.insert(key, result.clone());
             result
         })
@@ -397,7 +397,7 @@ fn trim_capsize(shaped: &mut ShapedText, top: f64, bottom: f64) {
     shaped.size.height = bottom - top;
     shaped.baseline -= top;
     for run in &mut shaped.runs {
-        for glyph in &mut Arc::make_mut(run).glyphs {
+        for glyph in &mut run.make_mut().glyphs {
             glyph.y -= top;
         }
     }
