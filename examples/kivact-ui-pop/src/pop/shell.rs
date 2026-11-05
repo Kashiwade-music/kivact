@@ -662,11 +662,27 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                             .style(style().grow(1)),
                             kivact::ui::field(
                                 "期限",
-                                ui::date_input(
-                                    "依頼期限",
-                                    request_date,
-                                    CalendarDate::new(2026, 10, 3),
-                                )
+                                {
+                                    let value: kivact::state::Binding<kivact::i18n::CalendarDate> =
+                                        kivact::state::IntoBinding::into_binding(request_date);
+                                    let value = kivact::state::binding(
+                                        move || Some(value.get()),
+                                        move |day| {
+                                            if let Some(day) = day {
+                                                value.set(day);
+                                            }
+                                        },
+                                    );
+                                    kivact::ui::date_input("依頼期限", value).calendar(
+                                        move |calendar| {
+                                            calendar
+                                                .today(CalendarDate::new(2026, 10, 3))
+                                                .month_title(|date| {
+                                                    format!("{}.{:02}", date.year(), date.month())
+                                                })
+                                        },
+                                    )
+                                }
                                 .style(style().width(180)),
                             ),
                         ))

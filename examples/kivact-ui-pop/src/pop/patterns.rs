@@ -453,22 +453,36 @@ pub(super) fn schedule() -> Node {
         "カレンダー・予定リスト",
         cards_grid((
             kivact::ui::card(
-                ui::calendar(date, CalendarDate::new(2026, 10, 3))
-                    .weekend(|day| match day {
-                        kivact::i18n::Weekday::Sunday => Some(ui::Hue::Red),
-                        kivact::i18n::Weekday::Saturday => Some(ui::Hue::Blue),
-                        _ => None,
-                    })
-                    .events(
-                        SCHEDULE_EVENTS
-                            .into_iter()
-                            .map(|(day, _, _, _, color, _)| ui::CalendarEvent {
-                                date: CalendarDate::new(2026, 10, day),
-                                color: rgb(color),
-                            })
-                            .collect::<Vec<_>>(),
-                    )
-                    .test_id("pop-calendar"),
+                {
+                    let selected: kivact::state::Binding<kivact::i18n::CalendarDate> =
+                        kivact::state::IntoBinding::into_binding(date);
+                    let selected = kivact::state::binding(
+                        move || Some(selected.get()),
+                        move |day| {
+                            if let Some(day) = day {
+                                selected.set(day);
+                            }
+                        },
+                    );
+                    kivact::ui::calendar(selected)
+                        .today(CalendarDate::new(2026, 10, 3))
+                        .month_title(|date| format!("{}.{:02}", date.year(), date.month()))
+                }
+                .variant(ui::WeekendHue::new(|day| match day {
+                    kivact::i18n::Weekday::Sunday => Some(ui::Hue::Red),
+                    kivact::i18n::Weekday::Saturday => Some(ui::Hue::Blue),
+                    _ => None,
+                }))
+                .events(
+                    SCHEDULE_EVENTS
+                        .into_iter()
+                        .map(|(day, _, _, _, color, _)| kivact::ui::CalendarEvent {
+                            date: CalendarDate::new(2026, 10, day),
+                            color: rgb(color),
+                        })
+                        .collect::<Vec<_>>(),
+                )
+                .test_id("pop-calendar"),
             )
             .style(style().grid_column(GridPlacement::span(5))),
             kivact::ui::card(

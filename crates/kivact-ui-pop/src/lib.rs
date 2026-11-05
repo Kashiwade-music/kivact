@@ -22,7 +22,6 @@ mod button;
 mod chips;
 mod choice;
 mod color;
-mod date;
 mod display;
 mod form;
 mod icons;
@@ -32,6 +31,7 @@ mod patterns;
 mod recipes;
 mod recipes_avatar;
 mod recipes_badge;
+mod recipes_calendar;
 mod recipes_collections;
 mod recipes_extra;
 mod recipes_feedback;
@@ -52,9 +52,7 @@ mod upload;
 pub use button::{ButtonTone, Slant};
 pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
 pub use color::ColorName;
-pub use date::{
-    Calendar, CalendarEvent, DateInput, DateRangeInput, calendar, date_input, date_range_input,
-};
+
 pub use display::{
     ListItem, StatCard, empty_illustration, key_value, list_item, progress_ring, section_heading,
     sparkline, stat_card,
@@ -66,6 +64,7 @@ pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
 pub use patterns::{AgendaItem, Stepper, agenda_item, breadcrumb, stepper};
 pub use recipes_avatar::AvatarLook;
 pub use recipes_badge::{BadgeHue, BadgeVariant};
+pub use recipes_calendar::WeekendHue;
 pub use recipes_indicators::SpinnerLook;
 pub use recipes_small::{Segments, Striped};
 pub use resize::resizable_text_area;

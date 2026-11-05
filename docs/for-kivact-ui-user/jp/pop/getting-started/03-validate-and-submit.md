@@ -78,12 +78,12 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
             .orientation(Orientation::Horizontal)
             .variant(kivact::ui::RadioGroupVariant::Segmented),
         ),
-        pop::date_input("生年月日", birth, today).valid(birth_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(birth); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("生年月日",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
         show(move || birth_error.get().is_some(), move || {
             text(move || birth_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
         }),
-        pop::date_input("開始日", start, today).valid(start_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(start); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("開始日",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
         show(move || start_error.get().is_some(), move || {
             text(move || start_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
@@ -181,7 +181,7 @@ mod tests {
 
 **検証はアプリが持ちます。** それぞれの `memo` が、シグナルから値を導き出します。`memo` は、読んだシグナルが変わったときだけ再計算されます。`.error(name_error)` は `Option<String>` を受け取り、問題があるあいだ `Some` になります。すると欄はコントロールの下にメッセージを出し、コントロールを無効な状態として印を付け、スクリーンリーダー向けにメッセージを関連付けます。名前とメールのエラーは `attempted` も読むので、ユーザーが一度ボタンを押すまで静かなままです。
 
-**`pop::date_input(label, value, today)`** は、カレンダーのポップアップが付いた編集可能な日付欄です。テキストは `YYYY-MM-DD` の形式で、シグナル（`birth`）は、テキストが完全で実在する日付になったときだけ変わります。入力途中の文字が状態に届くことはありません。`today` は呼び出し側が渡します。そのためコンポーネントの動きが予測しやすく、テストもしやすくなります。プログラムは `CalendarDate::today()` を渡し、テストは固定の日付を渡します。
+**`kivact::ui::date_input(label, optional_value)`** は、カレンダーのポップアップが付いた編集可能な日付欄です。テキストは `YYYY-MM-DD` の形式で、シグナル（`birth`）は、テキストが完全で実在する日付になったときだけ変わります。入力途中の文字が状態に届くことはありません。`.calendar(|calendar| calendar.today(today))` は呼び出し側が指定します。そのためコンポーネントの動きが予測しやすく、テストもしやすくなります。プログラムは `CalendarDate::today()` を渡し、テストは固定の日付を渡します。
 
 **`.valid(signal)`** は、テキストが実在する日付のあいだ `true`、そうでなければ `false` を書き込みます。コンポーネントは自前の形式エラー（"Use YYYY-MM-DD" や "This date does not exist"）を表示します。「過去であること」のような業務ルールはアプリの責任です。`birth_error` と `start_error` は、テキストが有効なときだけ値を検査するので、2 つのメッセージが重なることはありません。
 

@@ -40,6 +40,9 @@ pub(crate) fn recipes() -> UiRecipes {
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .calendar(crate::recipes_calendar::calendar)
+        .date_input(crate::recipes_calendar::date_input)
+        .date_range_input(crate::recipes_calendar::date_range_input)
         .kbd(|_| crate::recipes_indicators::kbd)
         .empty_state(crate::recipes_feedback::empty_state)
         .alert(crate::recipes_feedback::alert)
