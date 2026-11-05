@@ -57,8 +57,13 @@ fn viewport_shows_pixels_with_fit() {
         screen
             .screenshot()
             .pixels
-            .chunks_exact(4)
-            .filter(|p| p[0] > 180 && p[1] < 80 && p[2] < 80)
+            .iter()
+            .filter(|&&pixel| {
+                let red = (pixel >> 16) & 0xff;
+                let green = (pixel >> 8) & 0xff;
+                let blue = pixel & 0xff;
+                red > 180 && green < 80 && blue < 80
+            })
             .count()
     };
     let contained = red_count();
@@ -67,7 +72,7 @@ fn viewport_shows_pixels_with_fit() {
     let filled = red_count();
     assert!(
         contained > 2000 && filled > contained + 2000,
-        "fit changes the painted area"
+        "fit changes the painted area: contain={contained}, fill={filled}"
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
