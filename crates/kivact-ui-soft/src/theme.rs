@@ -88,6 +88,10 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_icons(crate::icons::set())
         .with_overlay_margin(tokens.spacing.layer_viewport_gutter)
         .with(InteractionPolicy {
+            hover_card: kivact::interaction::HoverCardTiming {
+                open_delay: Duration::from_millis(300),
+                close_delay: Duration::from_millis(200),
+            },
             menu: MenuPolicy {
                 press: MenuPress(true),
                 disabled_focus: DisabledMenuFocus::Retain,
@@ -136,6 +140,10 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            hover_card: kivact::ui::HoverCardTokens {
+                offset: tokens.spacing.s1,
+                viewport_margin: tokens.spacing.layer_viewport_gutter,
+            },
             button: ButtonTokens {
                 busy_motion: ButtonBusyMotion {
                     spin_ms: tokens.motion.slow_min,

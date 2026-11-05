@@ -15,6 +15,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .select(crate::recipes_select::select)
                 .menu(crate::recipes_menu::menu)
                 .dialog(crate::recipes_dialog::dialog)
+                .hover_card(crate::recipes_popup::hover_card)
                 .tooltip(crate::recipes_popup::tooltip)
                 .toast(crate::recipes_popup::toast)
                 .command_palette(crate::recipes_popup_command::command_palette)

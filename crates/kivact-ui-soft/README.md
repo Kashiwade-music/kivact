@@ -62,7 +62,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Empty State | `empty_state` |
 | Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, `input_group`, `input_group_text`, and `file_input` for the surrounding controls. |
 | Heading | `heading` |
-| Hover Card | `hover_card`. The builder owns delayed visibility. |
+| Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
 | Icon | `icon`, `ICON_NAMES` |
 | Indicator | `checkbox_indicator`, `check_indicator`, `radio_indicator` |
 | Item / Kbd | `item`, `kbd` |
@@ -381,6 +381,7 @@ Number, date, and time filter fields validate values entered as text.
 - `select`
 - `menu`
 - `dialog`
+- `hover_card`
 - `tooltip`
 - `toast`
 - `command_palette`
