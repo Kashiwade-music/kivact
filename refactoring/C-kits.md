@@ -85,7 +85,7 @@
 | empty state | `ui::empty_state(title)`、`.description(..)`、`.icon(impl IntoView)`、`.actions(impl IntoView)`、`.announce()` | basic `empty.rs`、pop `display.rs:915`、game `feedback.rs:323`、soft `empty_state.rs` | 読み上げは SM-K23 |
 | alert と banner | `ui::alert(title)`、`.description(..)`、`.tone(..)`、`.icon(..)`、`.on_dismiss(..)`、`.variant(..)`（banner は variant） | basic、pop `display.rs:650`、game `feedback.rs:30,145`、soft `banner.rs`、creative `feedback.rs:45`（notice） | 閉じた後の focus の復元は中核（SM-K22） |
 | card | `ui::card(children: impl IntoView)`、`.header(impl IntoView)`、`.media(impl IntoView)`、`.footer(impl IntoView)`。`ui::clickable_card(..).on_press(..)`、`ui::selectable_card(selected: impl Into<Binding<bool>>)` | basic `card.rs:121`（slot の closure）、soft `card.rs:43`・clickable・selectable | basic の `FnOnce` の slot は `impl IntoView` に（API-6）。pop の `stat_card` は Tier 3 |
-| kbd | `ui::kbd(keys: impl IntoText)`、`ui::kbd_combo(keys: Vec<Key>)`（OS の記号は `Capabilities.command_key`） | basic `kbd`・`kbd_group`、soft `kbd.rs`、creative `KeyGlyph` | soft の macOS の分岐（`kbd.rs:14`）を消す（DEP-3） |
+| kbd | `ui::kbd(keys: impl IntoText)`、`ui::kbd_combo(keys: impl IntoValue<Vec<Key>>).modifiers(impl IntoValue<Modifiers>)`（OS の記号は `Capabilities.command_key`） | basic `kbd`・`kbd_group`、soft `kbd.rs`（creative `KeyGlyph` は keyboard ではなく keyframe glyph のため domain に残す） | soft の macOS の分岐（`kbd.rs:14`）を消す（DEP-3） |
 | input group | `ui::input_group(label, children: impl IntoChildren)`、`ui::input_addon(text)` | basic `input_group.rs:95`、game `input.rs:45`、soft `input_group.rs` | basic と soft の `input_group_text` は `input_addon` に |
 
 ### Tier 3: この再設計で上げる（設計書 17.15 節。中核の API はそこの表）
@@ -176,7 +176,7 @@ soft の breakpoint の関数（`viewport_below`、`viewport_from`、`is_compact
 
 ### creative
 
-- 消す（中核へ）: outliner の木の振る舞いの部分（`ui::tree` の上に作り直す）、notice（`ui::alert` の variant）、`KeyGlyph`（`ui::kbd`）、`viewport_surface`（`kivact::view::viewport`、設計書 17.13 節）、property_row の表示の部分（`ui::description_list` で組む）
+- 消す（中核へ）: outliner の木の振る舞いの部分（`ui::tree` の上に作り直す）、notice（`ui::alert` の variant）、`viewport_surface`（`kivact::view::viewport`、設計書 17.13 節）、property_row の表示の部分（`ui::description_list` で組む）
 - 残す: 編集の部品（arrangement、graph_editor、node_editor、timeline、dope_sheet）、color（color_wheel、color_popup、gradient_editor、bezier_curve、curve_preview）、numeric（number、value_slider、knob、fader、`value_range`、property_row、property_state_button）、dock、panel、panel_group、media_tile、tree_row、document_tabs、window、window_button、popup_button、split_button、search_picker、pie_menu、audio（meter、mixer_strip、transport）
 - 状態機械: SM-K11、K30
 - 編集の部品の zoom・pan の model の不揃い（`zoom: Binding<f64>` ＋ `pan: Binding<Point>`、`ViewTransform`、`GraphView`）を `use_zoom_pan` の `ViewTransform` 一つにする

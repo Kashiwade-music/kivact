@@ -498,6 +498,7 @@ fn filled_recipe_keys(kit: &UiRecipes) -> Vec<&'static str> {
     .filter_map(|(key, filled)| filled.then_some(key))
     .collect();
     keys.extend(filled_extended_recipe_keys(kit, &defaults));
+    keys.extend(filled_feedback_recipe_keys(kit, &defaults));
     keys.sort_unstable();
     keys
 }
@@ -552,6 +553,46 @@ fn filled_extended_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'s
         (
             "button_group",
             kit.button_group_recipes() != defaults.button_group_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect()
+}
+
+/// Theme tables for passive content, feedback and navigation.
+fn filled_feedback_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'static str> {
+    [
+        (
+            "empty_state",
+            kit.empty_state_recipes() != defaults.empty_state_recipes(),
+        ),
+        ("alert", kit.alert_recipes() != defaults.alert_recipes()),
+        ("card", kit.card_recipes() != defaults.card_recipes()),
+        (
+            "input_group",
+            kit.input_group_recipes() != defaults.input_group_recipes(),
+        ),
+        ("table", kit.table_recipes() != defaults.table_recipes()),
+        (
+            "item_list",
+            kit.item_list_recipes() != defaults.item_list_recipes(),
+        ),
+        (
+            "pagination",
+            kit.pagination_recipes() != defaults.pagination_recipes(),
+        ),
+        (
+            "breadcrumb",
+            kit.breadcrumb_recipes() != defaults.breadcrumb_recipes(),
+        ),
+        (
+            "stepper",
+            kit.stepper_recipes() != defaults.stepper_recipes(),
+        ),
+        (
+            "navigation_menu",
+            kit.navigation_menu_recipes() != defaults.navigation_menu_recipes(),
         ),
     ]
     .into_iter()

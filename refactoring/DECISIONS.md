@@ -153,3 +153,5 @@
 | 2026-11-05 | K-3a | joined control の layout state | ButtonGroupMember solid reactive/keep_size structural、toggle recipe の位置は列挙で派生。 |
 | 2026-11-05 | K-6a | Key に modifier がない | kbd_combo に canonical Modifiers 入力を加え command_key capability から記号化。 |
 | 2026-11-05 | K-8 | Core viewport と snapshot 境界 | ViewTransform types 正準、hidden port で単一 ZoomPanApi 接続。context-local render purpose と immutable CPU fallback。 |
+| 2026-11-05 | K-6a | Creative KeyGlyph は keyboard ではない | keyframe の Diamond 等を描く domain enum のため Creative に残し、kbd への誤った移行指定を C.2 から削除。 |
+| 2026-11-05 | K-5 | Lightbox pan の正準操作 | use_zoom_pan の middle/Space-primary/touch を採用し、lightbox 独自 primary-drag model を廃止。 |

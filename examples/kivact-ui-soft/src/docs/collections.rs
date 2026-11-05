@@ -7,14 +7,13 @@ use kivact::style::style;
 use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, data_table};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
-    ChatSender, DictationState, FormDirection, GridColumns, ResizableConfig, ResizeSize, Space,
-    ToolCall, ToolStatus, aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center,
-    chat_bubble, chat_composer, chat_dictation_button, chat_layout, chat_message,
-    chat_system_message, chat_tool_calls, clickable_card, collapsible_default, collapsible_group,
-    divider, form_layout, form_row, grid, hstack, item, layout, layout_content, layout_header,
-    layout_panel, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
-    pagination, resize_handle, scrollable_area, section, selectable_card, stack_item, tree_list,
-    use_resizable,
+    ChatSender, DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus,
+    aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center, chat_bubble, chat_composer,
+    chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
+    clickable_card, collapsible_default, collapsible_group, divider, form_layout, form_row, grid,
+    hstack, item, layout, layout_content, layout_header, list, list_item, metadata_item,
+    metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section, selectable_card,
+    stack_item, tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -338,40 +337,28 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
             column((controls, pinned, folders)).style(style().gap(12))
         }
         "resizable" | "resize-handle" => {
-            let state = use_resizable(ResizableConfig {
-                default_size: ResizeSize::Px(144.0),
-                min_size: ResizeSize::Px(88.0),
-                max_size: ResizeSize::Px(216.0),
-                collapsible: true,
-                snaps: vec![88.0, 144.0, 216.0],
-                ..ResizableConfig::default()
-            });
-            let panel = state.clone();
-            let status = state.clone();
+            let width = signal(144.0);
             specimen(
                 "Drag or use the arrow keys. Enter toggles collapse.",
                 (
-                    layout()
-                        .start(layout_panel(text("Navigation")).resizable(panel))
-                        .start_resize_handle(resize_handle(state).divider(true))
-                        .content(layout_content(text("Content")))
-                        .style(style().width(360).height(92)),
-                    text(move || format!("Navigation width: {:.0} px", status.size())),
+                    kivact::ui::splitter(
+                        "Navigation width",
+                        width,
+                        kivact::interaction::ScalarRange::new(88.0, 216.0)
+                            .expect("invariant: ordered panel bounds"),
+                    )
+                    .collapsible(44.0)
+                    .snaps(vec![88.0, 144.0, 216.0])
+                    .start(text("Navigation"))
+                    .end(text("Content"))
+                    .style(style().width(360).height(92)),
+                    text(move || format!("Navigation width: {:.0} px", width.get())),
                 ),
-                r#"let state = use_resizable(ResizableConfig {
-    default_size: ResizeSize::Px(144.0),
-    min_size: ResizeSize::Px(88.0),
-    max_size: ResizeSize::Px(216.0),
-    collapsible: true,
-    snaps: vec![88.0, 144.0, 216.0],
-    ..ResizableConfig::default()
-});
-let panel = state.clone();
-layout()
-    .start(move || layout_panel(text("Navigation")).resizable(panel))
-    .start_resize_handle(resize_handle(state).divider(true))
-    .content(|| layout_content(text("Content")))
-    .style(style().width(360).height(92))"#,
+                r#"let width = signal(144.0);
+kivact::ui::splitter("Navigation width", width,
+    ScalarRange::new(88.0, 216.0).expect("ordered bounds"))
+    .collapsible(44.0).snaps(vec![88.0, 144.0, 216.0])
+    .start(text("Navigation")).end(text("Content"))"#,
             )
         }
         _ => return None,

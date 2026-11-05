@@ -155,10 +155,10 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-3a | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
 | K-3b | doing | | 実装中 |
 | K-4 | doing | | 実装中 |
-| K-5 | doing | | 実装中 |
+| K-5 | merged | 159d169d | navigation3/overlay8/state-fields0、catalog追従check0 |
 | K-6a | doing | | 実装中 |
 | K-6b | doing | | 実装中 |
-| K-8 | doing | 2ee14ff5 | source統合/workspacecheck0、固定E2E検証中 |
+| K-8 | merged | 6eac920f | viewport/GPU対象6中5+修正1passed、workspacecheck0 |
 | K-9a | todo | | |
 | K-9b | todo | | |
 | K-7a | todo | | |
