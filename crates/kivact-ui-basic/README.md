@@ -226,6 +226,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `avatar_group_member`
 - `avatar_status`
 - `table`
+- `item_list`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

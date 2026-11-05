@@ -194,3 +194,5 @@ fn snippet() -> impl IntoView {
 - [フォーム](forms.md): 入力欄、ピッカー、検証。
 - [テーマとトークン](theme-and-tokens.md): グラフとコードの色はテーマのトークンに従います。
 - rustdoc: グラフ、表、コードブロックの型は `cargo doc -p kivact-ui-basic --open`、`data_table` は `cargo doc -p kivact-ui --open`。
+
+`kivact::ui::item_list(children)` は標準の `item_row(title)` を並べます。枠とメディアの見た目は `.variant(basic::ItemVariant::Outline)`、`.variant(basic::ItemMediaVariant::Image)` で指定します。`basic::ItemSize::Sm` は画像を 40 px から 32 px にします。リアクティブな密度は `.variant(basic::ItemLook::default().size(size))` です。media、actions、header、footer は通常の view の slot です。

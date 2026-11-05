@@ -194,3 +194,5 @@ fn snippet() -> impl IntoView {
 - [Forms](forms.md): inputs, pickers and validation.
 - [Theme and tokens](theme-and-tokens.md): chart and code colors follow the theme's tokens.
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the chart, table and code block types, and `cargo doc -p kivact-ui --open` for `data_table`.
+
+`kivact::ui::item_list(children)` groups standard `item_row(title)` rows. Set `basic::ItemVariant` and `basic::ItemMediaVariant` with `.variant(..)`; `basic::ItemSize::Sm` keeps a 32 px image instead of 40 px. For reactive density use `.variant(basic::ItemLook::default().size(size))`. Media, actions, header and footer remain ordinary view slots.
