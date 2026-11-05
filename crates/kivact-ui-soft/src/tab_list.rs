@@ -479,22 +479,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
             } else {
                 strip.into_view()
             };
-            let strip = node()
-                .style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let (left, right) = inset.sides();
-                    let base = style()
-                        .direction(Direction::Column)
-                        .margin_left(-left)
-                        .margin_right(-right)
-                        .min_width(0);
-                    if look.divider {
-                        base.border_bottom(t.sizes.border_width, t.colors.border)
-                    } else {
-                        base
-                    }
-                })
-                .child(strip);
+            let strip = strip_frame(strip, inset, look);
             let panel = content.map(|content| {
                 dynamic(binding, move |key| {
                     let panel = node().child(content.call(key.clone()));
@@ -701,14 +686,7 @@ fn tab_menu_view<K: ItemKey>(
     } = menu;
     let options: Rc<[TabMenuOption<K>]> = options.into();
     let entries = options.clone();
-    let options_for_label = options.clone();
-    let shown_label = memo(move || {
-        let selected = binding.get();
-        options_for_label
-            .iter()
-            .find(|option| option.key == selected)
-            .map_or_else(|| label.get(), |option| option.label.get())
-    });
+    let shown_label = selected_menu_label(options.clone(), binding, label);
     let behavior = use_menu(move || {
         let selected = binding.get();
         entries
@@ -745,7 +723,7 @@ fn tab_menu_view<K: ItemKey>(
         .with_node(move |node| node.base_style(move || tab_style(look, selected.get(), false)))
         .child((
             stable_label(shown_label, selected),
-            menu_chevron(open),
+            crate::nav_heading::menu_chevron(open),
             indicator(look, selected, true),
         ));
     let menu = behavior.show(move || {
@@ -766,34 +744,13 @@ fn tab_menu_view<K: ItemKey>(
                 .padding_y(t.spacing.s1)
                 .weight(t.typography.weight_semibold)
         });
-        let panel = column((header, rows)).style(|| {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
-            let mut base = style()
-                .padding(t.spacing.s1)
-                .gap(t.spacing.s0_5)
-                .min_width(160)
-                .background(t.colors.bg_popover)
-                .radius(t.radius.container);
-            for shadow in &t.shadows.low {
-                base = base.shadow(*shadow);
-            }
-            base
-        });
+        let panel = column((header, rows)).style(|| crate::nav_heading::tab_menu_surface());
         overlay(anchor, Placement::Below, panel)
             .offset(4)
             .with_node(move |node| node.part(behavior.content()))
             .name(label)
     });
     (trigger, menu).into_view()
-}
-
-fn icon_check() -> Node {
-    icon("check").style(|| {
-        let t = kivact::style::use_tokens::<crate::Tokens>();
-        style()
-            .size(t.sizes.icon_sm, t.sizes.icon_sm)
-            .color(t.colors.accent)
-    })
 }
 
 kivact::state::constant_value!(TabOverflow, TabPattern);
@@ -1068,54 +1025,46 @@ fn menu_option<K: ItemKey>(
         .icon
         .as_ref()
         .map(|icon| tab_glyph(icon.call(()), ControlSize::Medium, || false));
-    let check = icon_check().hidden(move || !selected.get());
+    let check = crate::nav_heading::menu_check().hidden(move || !selected.get());
     row((
         icon,
         text(option.label).style(style().grow(1).single_line()),
         check,
     ))
     .with_node(move |node| node.part(part))
-    .style(move || {
-        let t = kivact::style::use_tokens::<crate::Tokens>();
-        let role = t.typography.body;
-        let input = state.get().input;
-        let base = style()
-            .direction(logical_row())
-            .padding_x(t.spacing.s3)
-            .padding_y(t.spacing.s2)
-            .align_items(Align::Center)
-            .gap(t.spacing.s2)
-            .radius(t.radius.element)
-            .font_size(role.size_px)
-            .line_height(role.line_height_px / role.size_px)
-            .color(t.colors.text_primary)
-            .weight(if selected.get() {
-                t.typography.weight_medium
-            } else {
-                role.weight
-            })
-            .disabled(style().opacity(t.sizes.disabled_opacity));
-        if input.hovered || input.focused {
-            base.background(t.colors.overlay_hover)
-        } else {
-            base
-        }
-    })
+    .style(move || crate::nav_heading::menu_option_style(state.get().input, selected.get()))
 }
 
-fn menu_chevron(open: Value<bool>) -> Node {
-    icon("chevron-down").style(move || {
-        style()
-            .size(16, 16)
-            .rotate(if open.get() { 180 } else { 0 })
-            .transition(
-                TransitionProp::Paint,
-                Transition::tween(
-                    kivact::style::use_tokens::<crate::Tokens>().motion.fast as f64,
-                    kivact::style::use_tokens::<crate::Tokens>()
-                        .motion
-                        .ease_standard,
-                ),
-            )
+fn strip_frame(strip: View, inset: ContainerInset, look: Look) -> Node {
+    node()
+        .style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let (left, right) = inset.sides();
+            let base = style()
+                .direction(Direction::Column)
+                .margin_left(-left)
+                .margin_right(-right)
+                .min_width(0);
+            if look.divider {
+                base.border_bottom(t.sizes.border_width, t.colors.border)
+            } else {
+                base
+            }
+        })
+        .child(strip)
+}
+
+fn selected_menu_label<K: ItemKey>(
+    options: Rc<[TabMenuOption<K>]>,
+    binding: Binding<K>,
+    label: Value<String>,
+) -> Value<String> {
+    let options_for_label = options;
+    memo(move || {
+        let selected = binding.get();
+        options_for_label
+            .iter()
+            .find(|option| option.key == selected)
+            .map_or_else(|| label.get(), |option| option.label.get())
     })
 }
