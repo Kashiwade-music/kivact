@@ -334,7 +334,7 @@ fn block_span(lines: &[Line<'_>], index: usize) -> (Kind, usize, usize, usize) {
         )
     } else if is_rule(line.text) || reference(line.text).is_some() {
         (Kind::Preview, line.start, line.end, index)
-    } else if is_table(&lines, index) {
+    } else if is_table(lines, index) {
         let mut last = index + 1;
         while lines
             .get(last + 1)
@@ -348,7 +348,7 @@ fn block_span(lines: &[Line<'_>], index: usize) -> (Kind, usize, usize, usize) {
         while lines
             .get(last + 1)
             .is_some_and(|line| !line.text.trim().is_empty() && !begins_block(line.text))
-            && !is_table(&lines, last + 1)
+            && !is_table(lines, last + 1)
         {
             last += 1;
         }

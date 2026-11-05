@@ -59,7 +59,6 @@ pub enum ToolStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-// xtask-allow(state-fields): Passive application-owned execution records; identity, result and diagnostic metadata are not a local lifecycle model.
 /// Application-owned identity, execution result and optional diagnostics for one tool call.
 pub struct ToolCall {
     /// Stable identity used when reconciling tool-call rows.
@@ -68,14 +67,17 @@ pub struct ToolCall {
     pub name: String,
     /// Current execution status.
     pub status: ToolStatus,
+    // xtask-allow(state-fields): Optional target is application-owned display metadata, not a pending command.
     /// Optional target description shown beside the tool name.
     pub target: Option<String>,
+    // xtask-allow(state-fields): Optional duration is a reported measurement, not a locally scheduled timer.
     /// Optional execution duration.
     pub duration: Option<Duration>,
     /// Number of additions shown in the change summary.
     pub additions: u32,
     /// Number of deletions shown in the change summary.
     pub deletions: u32,
+    // xtask-allow(state-fields): Optional diagnostic text is supplied by the application, not a local error phase.
     /// Optional failure details.
     pub error: Option<String>,
 }

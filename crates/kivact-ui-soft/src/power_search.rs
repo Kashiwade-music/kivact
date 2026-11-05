@@ -133,39 +133,7 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
             .mode(DialogMode::Popover)
             .hide_title(true)
             .width(Length::Auto)
-            .content(move || {
-                let operators = vec![
-                    ListItem::new(SearchOperator::Is, message("soft.power_search.is", "Is")),
-                    ListItem::new(
-                        SearchOperator::IsNot,
-                        message("soft.power_search.is_not", "Is not"),
-                    ),
-                    ListItem::new(
-                        SearchOperator::Contains,
-                        message("soft.power_search.contains", "Contains"),
-                    ),
-                ];
-                let save = button(message("soft.power_search.apply", "Apply"))
-                    .disabled(move || {
-                        field.get().is_none()
-                            || operator.get().is_none()
-                            || value.get().trim().is_empty()
-                    })
-                    .on_press(move || {
-                        editor.send(SearchEvent::Apply);
-                    });
-                row((
-                    select(message("soft.power_search.field", "Field"), fields, field),
-                    select(
-                        message("soft.power_search.operator", "Operator"),
-                        operators,
-                        operator,
-                    ),
-                    text_input(message("soft.power_search.value", "Value"), value),
-                    save,
-                ))
-                .style(style().wrap(true).gap(8).padding(12))
-            })
+            .content(move || filter_form(fields, field, operator, value, editor))
             .attach(trigger)
     }
 }
@@ -358,4 +326,42 @@ fn filter_tokens<K: ItemKey>(
             })
         },
     )
+}
+
+fn filter_form<K: ItemKey>(
+    fields: Value<Vec<ListItem<K>>>,
+    field: Binding<Option<K>>,
+    operator: Binding<Option<SearchOperator>>,
+    value: Binding<String>,
+    editor: kivact::state::MachineHandle<SearchMachine<K>>,
+) -> Node {
+    let operators = vec![
+        ListItem::new(SearchOperator::Is, message("soft.power_search.is", "Is")),
+        ListItem::new(
+            SearchOperator::IsNot,
+            message("soft.power_search.is_not", "Is not"),
+        ),
+        ListItem::new(
+            SearchOperator::Contains,
+            message("soft.power_search.contains", "Contains"),
+        ),
+    ];
+    let save = button(message("soft.power_search.apply", "Apply"))
+        .disabled(move || {
+            field.get().is_none() || operator.get().is_none() || value.get().trim().is_empty()
+        })
+        .on_press(move || {
+            editor.send(SearchEvent::Apply);
+        });
+    row((
+        select(message("soft.power_search.field", "Field"), fields, field),
+        select(
+            message("soft.power_search.operator", "Operator"),
+            operators,
+            operator,
+        ),
+        text_input(message("soft.power_search.value", "Value"), value),
+        save,
+    ))
+    .style(style().wrap(true).gap(8).padding(12))
 }
