@@ -14,6 +14,7 @@ enum AvatarStatusSource {
     None,
     Mounted { label: Value<Option<String>> },
 }
+// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; image state belongs to NodeRef.
 pub struct Avatar {
     root: Node,
     name: Value<String>,
@@ -92,6 +93,7 @@ fn picture(asset: Asset, fallback: Option<Asset>, name: Value<String>) -> View {
     let status = reference.image_status();
     let photo = kivact_core::view::image(asset)
         .node_ref(reference)
+        .on_image_error(|_| ())
         .fit(ImageFit::Cover)
         .style(
             style()
@@ -120,30 +122,56 @@ fn initials(name: &str) -> String {
         .collect()
 }
 impl IntoView for Avatar {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
         let name = self.name;
+        let accessible_name = self.root.accessible_name().unwrap_or(name);
         let status = self.status;
         let size = self.size;
         let shape = self.shape;
         let src = self.src;
         let fallback = self.fallback;
-        let source = if self.status_content.is_some() || status.get().is_some() {
-            AvatarStatusSource::Mounted {
-                label: (move || status.get().map(|tone| format!("{tone:?}"))).into_value(),
-            }
-        } else {
-            AvatarStatusSource::None
-        };
-        let label = move || match source {
-            AvatarStatusSource::None => name.get(),
-            AvatarStatusSource::Mounted { label } => label
+        let labels = [
+            kivact_core::i18n::message("avatar.status.neutral", "Neutral"),
+            kivact_core::i18n::message("avatar.status.info", "Information"),
+            kivact_core::i18n::message("avatar.status.success", "Available"),
+            kivact_core::i18n::message("avatar.status.warning", "Away"),
+            kivact_core::i18n::message("avatar.status.danger", "Busy"),
+            kivact_core::i18n::message("avatar.status.accent", "Active"),
+        ];
+        let status_label = (move || {
+            status.get().map(|tone| {
+                labels[match tone {
+                    Tone::Neutral => 0,
+                    Tone::Info => 1,
+                    Tone::Success => 2,
+                    Tone::Warning => 3,
+                    Tone::Danger => 4,
+                    Tone::Accent => 5,
+                }]
                 .get()
-                .map_or_else(|| name.get(), |label| format!("{}, {label}", name.get())),
+            })
+        })
+        .into_value();
+        let source = move || {
+            if status_label.get().is_some() {
+                AvatarStatusSource::Mounted {
+                    label: status_label,
+                }
+            } else {
+                AvatarStatusSource::None
+            }
+        };
+        let label = move || match source() {
+            AvatarStatusSource::None => accessible_name.get(),
+            AvatarStatusSource::Mounted { label } => label.get().map_or_else(
+                || accessible_name.get(),
+                |label| format!("{}, {label}", accessible_name.get()),
+            ),
         };
         let content = dynamic(
-            move || src.get().or_else(|| fallback.get()),
-            move |asset| match asset {
-                Some(asset) => picture(asset, fallback.get(), name),
+            move || (src.get(), fallback.get()),
+            move |(asset, fallback)| match asset.or_else(|| fallback.clone()) {
+                Some(asset) => picture(asset, fallback, name),
                 None => text(move || initials(&name.get())).into_view(),
             },
         );
