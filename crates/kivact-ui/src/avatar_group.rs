@@ -53,11 +53,15 @@ impl IntoView for AvatarGroup {
                     &variants,
                     move || index,
                 )
-                .base_style(move || style().margin_left(if index == 0 { 0 } else { -8 }))
+                .base_style(move || {
+                    let overlap=kivact_core::style::use_tokens::<crate::UiTokens>().indicators.avatar_overlap;
+                    style().margin_left(if index==0 {0.0} else {-overlap})
+                })
                 .hidden(move || index >= max.get())
                 .child(child)
             })
             .collect::<Vec<_>>();
+        let overflow_variants = self.variants.clone();
         crate::layer::with_base_recipe_style(
             self.root,
             |r| r.avatar_group_recipe(),
@@ -67,7 +71,14 @@ impl IntoView for AvatarGroup {
         .child(children)
         .child(show(
             move || count > max.get(),
-            move || text(move || format!("+{}", count.saturating_sub(max.get()))),
+            move || {
+                crate::layer::with_recipe_style(
+                    text(move || format!("+{}", count.saturating_sub(max.get()))),
+                    |r| r.avatar_group_overflow_recipe(),
+                    &overflow_variants,
+                    move || count.saturating_sub(max.get()),
+                )
+            },
         ))
         .into_view()
     }
