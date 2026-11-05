@@ -152,9 +152,6 @@ pub(crate) struct Route {
     // xtask-allow(state-fields): capture and primary press have independent lifetimes.
     pub(crate) capture: Option<Capture>,
     pub(crate) press: Option<Press>,
-    /// A listener released this gesture's capture: until its final `Up`,
-    /// the gesture's events are hit-tested, its `Up` included.
-    pub(crate) released: bool,
 }
 
 /// Capture retains both its target and the reason it survives a move.
@@ -162,12 +159,17 @@ pub(crate) struct Route {
 pub(crate) enum Capture {
     Implicit(NodeId),
     Explicit(NodeId),
+    /// A listener released the capture: until the gesture's final `Up`,
+    /// its events are hit-tested, that `Up` included.
+    Released,
 }
 
 impl Capture {
-    pub(crate) fn target(self) -> NodeId {
+    /// The node the gesture's events go to, if any is captured.
+    pub(crate) fn target(self) -> Option<NodeId> {
         match self {
-            Self::Implicit(target) | Self::Explicit(target) => target,
+            Self::Implicit(target) | Self::Explicit(target) => Some(target),
+            Self::Released => None,
         }
     }
 }
@@ -340,7 +342,9 @@ impl Track {
     }
 
     pub(crate) fn capture(&self) -> Option<NodeId> {
-        self.route().and_then(|r| r.capture).map(Capture::target)
+        self.route()
+            .and_then(|r| r.capture)
+            .and_then(Capture::target)
     }
 
     pub(crate) fn pressed(&self) -> &[NodeId] {
@@ -437,7 +441,8 @@ impl PointerState {
             if let Some(route) = track.routed_mut() {
                 if route
                     .capture
-                    .is_some_and(|capture| !tree.live(capture.target()))
+                    .and_then(Capture::target)
+                    .is_some_and(|target| !tree.live(target))
                 {
                     route.capture = None;
                 }

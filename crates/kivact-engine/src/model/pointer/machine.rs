@@ -293,7 +293,7 @@ impl Model {
             capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())));
         if let Some(t) = target.filter(|t| self.tree.get(*t).is_some_and(|n| !n.disabled())) {
             let route = self.pointer.state.track_mut(pointer).route_mut();
-            if route.capture.is_none() {
+            if route.capture.and_then(Capture::target).is_none() {
                 route.capture = Some(Capture::Implicit(t));
             }
             self.send_pointer(
@@ -462,7 +462,7 @@ impl Model {
             .state
             .track(pointer)
             .route()
-            .is_some_and(|route| route.released);
+            .is_some_and(|route| route.capture == Some(Capture::Released));
         let released = self
             .pointer
             .state
@@ -488,7 +488,6 @@ impl Model {
         };
         if released && let Some(route) = self.pointer.state.track_mut(pointer).routed_mut() {
             route.capture = None;
-            route.released = false;
         }
         let listener = || {
             hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer()))
@@ -566,10 +565,9 @@ impl Model {
                 route.capture = Some(Capture::Explicit(node));
             } else if route
                 .capture
-                .is_some_and(|capture| capture.target() == node)
+                .is_some_and(|capture| capture.target() == Some(node))
             {
-                route.capture = None;
-                route.released = true;
+                route.capture = Some(Capture::Released);
             }
         }
     }
