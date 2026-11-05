@@ -298,3 +298,47 @@ fn compact_steps_skip_disabled_items_and_all_keeps_its_structure() {
     assert!(all.get_by_role(Role::ListItem, "Last").is_visible());
     assert!(all.errors().is_empty(), "{:?}", all.errors());
 }
+
+#[test]
+fn canonical_dots_wrap_actual_focus_and_summary_tracks_item_units() {
+    let (screen, page) = kivact::test::render_with_handle(options(400.0), || {
+        let page = signal(2usize);
+        (
+            page,
+            kivact::ui::pagination(3usize, page).mode(kivact::ui::PaginationMode::Dots),
+        )
+    });
+    let last = screen.get_by_role(Role::Button, "3");
+    last.focus();
+    last.press_key(Key::ArrowRight);
+    assert_eq!(page.get_untracked(), 0);
+    assert!(screen.get_by_role(Role::Button, "1").is_focused());
+    screen.press_key(Key::ArrowLeft);
+    assert_eq!(page.get_untracked(), 2);
+    assert!(screen.get_by_role(Role::Button, "3").is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    let (summary, size) = kivact::test::render_with_handle(options(400.0), || {
+        let size = signal(20u32);
+        (
+            size,
+            kivact::ui::pagination(0usize, signal(1usize))
+                .total_items(95u64)
+                .page_size(size)
+                .summary(|facts| {
+                    text(move || {
+                        let facts = facts.get();
+                        let total = facts.total_items.unwrap();
+                        let first = (facts.page as u64 * u64::from(facts.page_size) + 1).min(total);
+                        let last =
+                            ((facts.page as u64 + 1) * u64::from(facts.page_size)).min(total);
+                        format!("{first}–{last} of {total}")
+                    })
+                }),
+        )
+    });
+    assert!(summary.get_by_text("21–40 of 95").exists());
+    size.set(40);
+    summary.run_until_idle();
+    assert!(summary.get_by_text("41–80 of 95").exists());
+    assert!(summary.errors().is_empty(), "{:?}", summary.errors());
+}

@@ -196,26 +196,26 @@ impl IntoView for Pagination {
             }
         });
         let items = visible_cells(current, count, siblings, first_last, mode);
-        let options = PageOptions {
+        let options = Rc::new(PageOptions {
             step,
             has_more,
             item,
             format,
             mode,
             variants: variants.clone(),
-        };
-        let controls = for_each(
-            items,
-            |cell| *cell,
-            move |cell| page_control(cell.get().1, page, current, count, disabled, &options),
-        );
+        });
+        let controls = render_controls(items, page, current, count, disabled, options, first_last);
         let facts = summary_source(total_items, page_size, current, count, has_more);
         let summary = render_summary(summary, mode, facts, &variants);
         let input = (mode == PaginationMode::Input)
             .then(|| crate::pagination_draft::input(page, count, page_label, disabled));
         let sizes = page_size.map(|size| size_selector(size, size_options, page));
         crate::layer::with_base_recipe_style(
-            root.roving_focus(Orientation::Horizontal),
+            if mode == PaginationMode::Dots {
+                root
+            } else {
+                root.roving_focus(Orientation::Horizontal)
+            },
             |r| r.pagination_recipes().root_recipe(),
             &variants,
             || (),
@@ -248,6 +248,7 @@ fn page_control(
     count: Value<usize>,
     disabled: Value<bool>,
     options: &PageOptions,
+    dot: Option<DotNavigation>,
 ) -> View {
     let (label, body) = page_content(cell, options);
     if matches!(cell, PageItem::Ellipsis) {
@@ -264,35 +265,38 @@ fn page_control(
     let step = options.step;
     let selected = memo(move || matches!(cell, PageItem::Page(n) if n == current.get()));
     let mode = options.mode;
+    let control = crate::button("")
+        .name(label)
+        .with_node(|n| n.role(Role::Button))
+        .with_node(|n| n.selected(selected))
+        .with_node(|n| n.current_item(move || selected.get().then_some(CurrentItem::Page)))
+        .disabled(move || {
+            control_disabled(
+                cell,
+                current.get(),
+                count.get(),
+                disabled.get(),
+                has_more.get(),
+            )
+        })
+        .on_press(move || {
+            let at = current.get_untracked();
+            let last = count.get_untracked().saturating_sub(1);
+            let delta = step.get_untracked().max(1);
+            let next = target_page(cell, at, last, delta);
+            page.set(if has_more.get_untracked() {
+                next
+            } else {
+                next.min(last)
+            });
+        });
+    let control = if let Some(dot) = dot {
+        dot_control(control, dot, page, selected, disabled)
+    } else {
+        control
+    };
     crate::layer::with_recipe_style(
-        crate::button("")
-            .name(label)
-            .with_node(|n| n.role(Role::Button))
-            .with_node(|n| n.selected(selected))
-            .with_node(|n| n.current_item(move || selected.get().then_some(CurrentItem::Page)))
-            .disabled(move || {
-                disabled.get()
-                    || match cell {
-                        PageItem::First | PageItem::Previous => {
-                            current.get() == 0 || count.get() == 0
-                        }
-                        PageItem::Next | PageItem::Last => {
-                            !has_more.get() && current.get().saturating_add(1) >= count.get()
-                        }
-                        _ => false,
-                    }
-            })
-            .on_press(move || {
-                let at = current.get_untracked();
-                let last = count.get_untracked().saturating_sub(1);
-                let delta = step.get_untracked().max(1);
-                let next = target_page(cell, at, last, delta);
-                page.set(if has_more.get_untracked() {
-                    next
-                } else {
-                    next.min(last)
-                });
-            }),
+        control,
         |r| r.pagination_recipes().item_recipe(),
         &options.variants,
         move || crate::PaginationItemState {
@@ -427,4 +431,165 @@ fn render_summary(
         )
         .into_view(),
     )
+}
+
+/// Immutable ports for exactly the mounted dots in one actual count scope.
+#[derive(Clone)]
+struct DotNavigation {
+    index: usize,
+    targets: Rc<Vec<kivact_core::view::NodeRef>>,
+}
+fn dot_control(
+    control: crate::Button,
+    dot: DotNavigation,
+    page: Binding<usize>,
+    selected: Value<bool>,
+    disabled: Value<bool>,
+) -> crate::Button {
+    let direction = kivact_core::view::use_direction();
+    control
+        .node_ref(dot.targets[dot.index])
+        .focusable(move || selected.get() && !disabled.get())
+        .on_key(move |event| {
+            use kivact_core::view::{Handled, Key, ReadingDirection};
+            if disabled.get() {
+                return Handled::No;
+            }
+            let forward = match event.key() {
+                Key::ArrowLeft => direction.get_untracked() == ReadingDirection::Rtl,
+                Key::ArrowRight => direction.get_untracked() != ReadingDirection::Rtl,
+                _ => return Handled::No,
+            };
+            let count = dot.targets.len();
+            let target = if forward {
+                (dot.index + 1) % count
+            } else {
+                dot.index.checked_sub(1).unwrap_or(count - 1)
+            };
+            page.set(target);
+            dot.targets[page.get_untracked().min(count - 1)].focus();
+            Handled::Yes
+        })
+}
+fn render_controls(
+    items: Value<Vec<(usize, PageItem)>>,
+    page: Binding<usize>,
+    current: Value<usize>,
+    count: Value<usize>,
+    disabled: Value<bool>,
+    options: Rc<PageOptions>,
+    first_last: Value<bool>,
+) -> View {
+    if options.mode == PaginationMode::Dots {
+        return dot_controls(page, current, count, disabled, options, first_last);
+    }
+    for_each(
+        items,
+        |cell| *cell,
+        move |cell| page_control(cell.get().1, page, current, count, disabled, &options, None),
+    )
+    .into_view()
+}
+fn dot_controls(
+    page: Binding<usize>,
+    current: Value<usize>,
+    count: Value<usize>,
+    disabled: Value<bool>,
+    options: Rc<PageOptions>,
+    first_last: Value<bool>,
+) -> View {
+    let first_options = options.clone();
+    let first = kivact_core::view::show(first_last, move || {
+        page_control(
+            PageItem::First,
+            page,
+            current,
+            count,
+            disabled,
+            &first_options,
+            None,
+        )
+    });
+    let previous = page_control(
+        PageItem::Previous,
+        page,
+        current,
+        count,
+        disabled,
+        &options,
+        None,
+    );
+    let next = page_control(
+        PageItem::Next,
+        page,
+        current,
+        count,
+        disabled,
+        &options,
+        None,
+    );
+    let last_options = options.clone();
+    let last = kivact_core::view::show(first_last, move || {
+        page_control(
+            PageItem::Last,
+            page,
+            current,
+            count,
+            disabled,
+            &last_options,
+            None,
+        )
+    });
+    let variants = options.variants.clone();
+    let dots = kivact_core::view::dynamic(count, move |n| {
+        let targets = Rc::new(
+            (0..n)
+                .map(|_| kivact_core::view::node_ref())
+                .collect::<Vec<_>>(),
+        );
+        (0..n)
+            .map(|index| {
+                page_control(
+                    PageItem::Page(index),
+                    page,
+                    current,
+                    count,
+                    disabled,
+                    &options,
+                    Some(DotNavigation {
+                        index,
+                        targets: targets.clone(),
+                    }),
+                )
+            })
+            .collect::<Vec<_>>()
+    });
+    let dots = crate::layer::with_recipe_style(
+        node()
+            .role(Role::Group)
+            .name(kivact_core::i18n::message(
+                "pagination.dots",
+                "Page indicators",
+            ))
+            .child(dots),
+        |r| r.pagination_recipes().dots_recipe(),
+        &variants,
+        || (),
+    );
+    (first, previous, dots, next, last).into_view()
+}
+
+fn control_disabled(
+    cell: PageItem,
+    current: usize,
+    count: usize,
+    disabled: bool,
+    has_more: bool,
+) -> bool {
+    disabled
+        || match cell {
+            PageItem::First | PageItem::Previous => current == 0 || count == 0,
+            PageItem::Next | PageItem::Last => !has_more && current.saturating_add(1) >= count,
+            _ => false,
+        }
 }
