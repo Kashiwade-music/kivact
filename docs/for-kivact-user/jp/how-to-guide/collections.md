@@ -1,5 +1,7 @@
 # 静的なコレクションを表示する
 
+[English](../../en/how-to-guide/collections.md)
+
 静的な表には `ui::table`、セルのグリッド移動・並べ替え・フィルターが必要な表には `ui::data_table` を使います。静的な表は table・row-group・row・column-header・cell の役割を公開します。キーボード移動や選択の動作は追加しません。
 
 ```no_run
@@ -36,7 +38,7 @@ fn documents() -> impl IntoView {
 }
 ```
 
-`.on_press(..)` を付けると行がフォーカスを受け取り、クリック・Enter・Space・支援技術による実行に対応します。list-item の役割は保ちます。`.header(..)` と `.footer(..)` は主な行の上下にコンテンツを追加します。`.title_content(..)` は読み上げ名を保ったまま表示するタイトルを置き換え、`.description_content(..)` は説明の view を置き換えます。説明は `described_by` で関連付けます。先頭のマーカーは、ほかのメディアと一緒に `.media(..)` に置きます。ほかのコントロールを実行するには、継承された `NodeBuilder` の操作から対象の `NodeRef::activate()` を呼べます。
+`.on_press(..)` を付けると行がフォーカスを受け取り、クリック・Enter・Space・支援技術による実行に対応します。list-item の役割は保ちます。`.header(..)` と `.footer(..)` は主な行の上下にコンテンツを追加します。`.title_content(..)` は読み上げ名を保ったまま表示するタイトルを置き換え、`.description_content(..)` は説明の view を置き換えます。説明は `described_by` で関連付けます。先頭の装飾には `.marker(view)`、画像などには `.media(view)` を使い分けます。行全体の操作を、行の中のチェックボックスなどへ委譲するときは `.delegate_to(target)` にそのコントロールの `NodeRef` を渡します。子のチェック状態やキー操作を行側で作り直す必要はありません。
 
 階層には `ui::tree(label, nodes).expanded(expanded).selection(selected)` を使います。共有のツリー移動を使い、展開状態は枝にだけ公開します。`.item(..)` は行の中身、`.header(..)` は行の前のコンテンツを指定します。`.reveal(gap, transition)` は presence による枝の表示と退場を使います。選択されたキーとフォーカスを持つ行は別の状態です。展開と選択の binding はアプリケーションが所有します。
 

@@ -1,5 +1,7 @@
 # ナビゲーション
 
+[English](../../en/how-to-guide/navigation.md)
+
 中核のナビゲーション部品にアプリケーションのデータを渡します。kit の theme を設定すると recipe と token が切り替わります。
 
 ```rust,no_run
@@ -40,22 +42,16 @@ Navigation の trigger は hover で開きます。click、Enter、Space、Arrow
 
 `breadcrumb(items).current(current_key)` は既定の末尾の現在ページを上書きします。リアクティブな `Option<K>` を受け取り、`Some(key)` はそのキー、明示的な `None` は現在ページなしを表します。メソッドを省略すると末尾が現在ページになります。
 
-Stepper の項目レシピには、同じレスポンシブ配置の投影から `index`、`count`、実際の `orientation` が渡されます。外観バリアントに軸や項目数を複製する必要はありません。
+## 表示を変えても標準の操作を保つ
 
-Breadcrumb の項目レシピは `BreadcrumbItemState { current, input }` を受け取ります。`input` は実際のリンクのパーツから渡され、非操作・現在ページのラベルにはありません。ホバー時の下線などの文字表現はこの投影を使用します。描画のみの疑似状態スタイルでは文字装飾を変更できません。
+`.summary(|facts| view)` はページ数や件数の表示を追加します。受け取る `PaginationSummary` は現在の page、page count、総件数などの読み取り用の値です。件数を別のシグナルへコピーせず、この値からラベルを作れます。独自のボタンの内容には `.item(...)` を使い、ページを変える処理や focus の移動は Pagination に任せます。
 
-Stepper は実際の装飾パーツ `leading`、`trailing`、`progress`（既定は寸法ゼロ）と、`layout`・`track` コンテナのレシピを公開します。これらには実際の軸・項目数を含む同じ `StepperItemState` が渡されます。`.collapsed_steps(CollapsedSteps::Current)` はコンパクト時に現在の項目だけを表示します（既定）。`All` は選択やレスポンシブ閾値を変更せず全項目を表示します。
+Stepper の `.collapsed_steps(CollapsedSteps::Current)` は、コンパクトな幅で現在の項目だけを表示する既定の方針です。`All` は全項目を表示します。項目の `.indicator(...)` に `StepIndicator::Auto`、`Number`、`None` を渡すと、状態に応じた印、常に番号、印なしを選べます。文字や画像など任意の表示には `StepIndicator::custom(|| view)` を渡します。
 
-各工程のレシピには実際の `StepIndicatorKind` と独立した `interactive` 設定も渡され、メタデータを外観バリアントに複製する必要はありません。コンパクト表示の前後移動は同じ項目ベクトルと現在位置から最も近い有効な項目を導出します。
+テーマを書く場合、各工程の `StepperItemState` から index、count、実際の orientation を読めます。`layout` と `track` は配置、`leading`、`trailing`、`progress` は追加の装飾です。Breadcrumb の `BreadcrumbItemState` には current と実際の入力状態が渡るため、現在ページや hover に合った文字色・下線を設定できます。詳細は [テーマのガイド](theming.md) を参照してください。
 
-`pagination(count, page).summary(|facts| view)` は実際の `Value<PaginationSummary>` から要約を構成します。`page` はゼロ始まり、`count` はページ数、`total_items` は省略可能な項目総数、`page_size` はページごとの項目数です。表示する先頭・末尾の項目はコールバック内で導出し、範囲の端点を複製して保存しません。`has_more` は未確定のリモート件数を表します。`PaginationItemState.mode` は実際の構造モードを投影し、点と数字のレシピでバリアントに複製する必要はありません。
+## メニュー内から画面を切り替える
 
-Dots は実際の全ページを表示します。左右キーは読み方向に従い、端で循環しながら選択と実際の対象フォーカスを移動します。点の Tab 順序には選択中の点だけが入ります。Dots は実際の対象に移動し、他のモードは既存のルートのロービングフォーカスを使用します。件数が変わると点のマウント範囲だけを作り直し、フォーカスのレジストリは持ちません。
+単純なリンクのコールバックには標準の `navigation_menu` の action を使います。独自のパネル内容では `navigation_menu_link(label)` を使うと、操作に必要な意味とメニューを閉じる動作を同じナビゲーションに接続できます。アプリはリンク先への遷移を行い、開閉やキーボード処理をコピーしません。
 
-Pagination は実際の `controls`、`sizes`、`input` レシピの枠を公開し、既定は中立な `Display::Contents` です。サイズ選択は操作群の前に置き、Count/Compact/Input は既存の要約・編集欄を前後移動の間に配置します。実際の同じ要約投影を使用し、ページやフォーカスの所有者は追加しません。
-
-`PaginationWindow::Adjacent` は標準の近隣ページのウィンドウです。構築時の `.window(PaginationWindow::Buffered)` は端を埋め、区切りの前に5ページと兄弟ページの余裕を保持します。短い範囲は全ページを表示します。`NavigationMenuApi::panel_key()` は動的マウントのファクトリを含め、構築時に実際のパネル識別子を割り当てます。イベント世代、レジストリ、表示キャッシュではありません。標準 navigation-menu も同じ割り当て元を使用します。`interaction::use_menu_with_open(entries, open_binding)` は実際に受け入れられた popup の入力元をナビゲーション所有者から渡します。外部ホバーによる表示はフォーカス要求なしでメニュー階層を初期化し、上下キーは従来の表示とフォーカスを保ちます。拒否された setter は実際の表示やフォーカスを変更しません。`.trigger_action(callback)` は既存のトリガーの押下操作を構築時に置換するもので、監視用ではありません。ホバーから固定表示への移行には `navigation.toggle(panel_key)` を使用します。他のトリガーキーと popup の終了は標準動作です。
-
-制御されたメニューは既存の表示開始方法の記録で、外部表示とトリガーによる表示を区別します。外部表示では内容マウント時の暗黙の先頭項目フォーカスを行いません。置換したトリガー操作後に表示が受け入れられた場合は標準のトリガー開始方法と先頭フォーカス要求を使用し、拒否・非表示の場合はフォーカスを要求しません。
-
-同じナビゲーションのマシンは、一つの可視 `NavOpen` と、実際に待機している表示・退出コマンドの識別子を内部に持ちます。`panel_removed(key)` はそのキーの表示中パネルまたは待機コマンドだけを解除します。B が待機中に A を破棄しても B の要求を保持し、A の遅延表示前に破棄した場合は存在しないキーを後から表示状態にしません。ドメインのパネルの終了処理と適用条件の変更はこの実際のイベントを送り、レジストリ、複製、追加シグナル、世代カウンターは持ちません。
+独自のトリガーが必要な場合は `use_menu_with_open(entries, open_binding)` で開閉をアプリの binding に接続します。`.trigger_action(callback)` は通常の押下動作を置き換える設定で、表示変更の監視用 callback ではありません。外部から表示する場合と、トリガーで表示する場合では最初の focus の扱いが異なるため、表示後に手動で focus を動かす補正を重ねないようにします。[独自コントロール](custom-controls.md)には Part の合成方法があります。
