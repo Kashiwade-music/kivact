@@ -16,8 +16,11 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 /// What an option shows, from its item and its state.
+type ItemNode<K> = Rc<dyn Fn(Node, Value<ListItem<K>>, Value<CheckableState>) -> Node>;
+
 type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<CheckableState>)>;
 
+// xtask-allow(state-fields): Setup-only binding, content and target-modifier slots; actual selection and navigation belong to use_list.
 /// A set of mutually exclusive choices (`Role::RadioGroup`), created by
 /// [`radio_group`].
 pub struct RadioGroup<K: kivact_core::state::ItemKey> {
@@ -31,6 +34,7 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
     item: Option<OptionContent<K>>,
+    item_node: Option<ItemNode<K>>,
     variants: Variants,
 }
 
@@ -98,6 +102,7 @@ pub fn radio_group<K: kivact_core::state::ItemKey>(
         size: super::values::default_control_size().into_value(),
         on_edit: None,
         item: None,
+        item_node: None,
         variants,
     }
 }
@@ -177,6 +182,20 @@ impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     }
 }
 
+impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
+    /// Add modifiers to the complete canonical radio target, after its name,
+    /// behavior and content have been installed. Return the supplied target
+    /// with modifiers; do not create a second native focus or selection owner.
+    /// This composes with [`Self::item`], which only replaces inner content.
+    pub fn item_node(
+        mut self,
+        modify: impl Fn(Node, Value<ListItem<K>>, Value<CheckableState>) -> Node + 'static,
+    ) -> Self {
+        self.item_node = Some(Rc::new(modify));
+        self
+    }
+}
+
 impl<K: kivact_core::state::ItemKey> NodeBuilder for RadioGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -194,6 +213,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
             size,
             on_edit,
             item: slot,
+            item_node,
             variants,
         } = self;
         let edit = EditSession::new(move |initial: Option<K>| value.set(initial));
@@ -266,7 +286,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
                     )
                         .into_view(),
                 };
-                with_recipe_style(
+                let target = with_recipe_style(
                     node()
                         .part(member)
                         .role(Role::RadioButton)
@@ -276,7 +296,11 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
                     move || check.get(),
                 )
                 .child(indicator)
-                .child(content)
+                .child(content);
+                match &item_node {
+                    Some(modify) => modify(target, item, check),
+                    None => target,
+                }
             },
         );
         let reversed = orientation == Orientation::Horizontal
