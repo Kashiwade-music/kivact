@@ -348,7 +348,7 @@ mod navigation_link;
 mod navigation_menu;
 mod navigation_values;
 pub use navigation_link::{NavigationMenuLink, navigation_menu_link};
-pub use navigation_values::NavigationLinkState;
+pub use navigation_values::{NavigationLinkState, NavigationTriggerState};
 mod navigation_tokens;
 mod pagination;
 mod pagination_draft;

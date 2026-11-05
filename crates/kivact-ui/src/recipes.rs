@@ -891,7 +891,7 @@ recipe_table! {
     /// Navigation landmark, panel trigger and panel surface recipes.
     NavigationMenuRecipes {
         root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::navigation_root,
-        trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
+        trigger(trigger_recipe): crate::navigation_values::NavigationTriggerState = crate::look_navigation::part,
         action(action_recipe): kivact_interaction::NavOpen = crate::look_navigation::action,
         panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
         link(link_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link,
