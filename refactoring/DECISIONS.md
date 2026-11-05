@@ -145,3 +145,4 @@
 | 2026-11-05 | I-7/G-4b | duration切替で以前のtimingが新設定を上書き | retargetは新target/configured Transitionを基準にする。duration0のdrag即時追従とProportionalの累積短縮を正しく扱い、motion/swipe12件で確認。 |
 | 2026-11-05 | G-3 | restored_stateの同期読み取り経路 | Environmentにlaunch時readonly snapshotを一箇所で持つ。virtual scriptだけが永続mapを所有し次launch snapshotを作る。desktop capability false、coreのshadow cacheは作らない。 |
 | 2026-11-05 | G-2/fix-G5-11 | queued inputのcapture最終値を現在eventと誤認 | 実releaseを既存requestsの一時mailboxで渡しhandler/default後にcleanup。reader状態の推測・weak registry cache・shadow capture stateは持たない。 |
+| 2026-11-05 | K-0 | runtime FrameLoopはcore NodeRefへ依存できない | 公開Core motion handleを正準境界adapterとし、runtimeの単一loop ownerへpresence gateを渡す。互換aliasやcore側rate/stateの写しは作らない。 |

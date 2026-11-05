@@ -2207,7 +2207,7 @@ wave W6。付録 C の作業。
 - **決定済みの形**:
   - `NodeRef::scroll_state() -> Value<ScrollState>`、`enum ScrollState { NotScrollable, AtStart, Middle, AtEnd }`。
   - `NodeRef::image_status() -> Value<ImageStatus>`、`enum ImageStatus { Loading, Ready, Failed }`。
-  - `FrameLoop::while_present(self, node: NodeRef) -> Self`（その node が present の間だけ動く）。
+  - `FrameLoop::while_present(self, node: NodeRef) -> Self`（その node が present の間だけ動く）。公開 handle は core の motion 境界で定義し、runtime の単一 loop owner を包む。runtime の gate bridge へ readonly presence を渡し、core 側に rate/state の写しを作らない。
   - `RadioGroupVariant::Segmented`（標準の variant）。
   - kit の `Color` enum を `ColorName` に改名する（basic、pop、game、creative）。soft は `ColorName` enum を新しく足す（`Colors` の struct の field 名と一対一）。
   - game と creative の `ThemeOptions` trait を消し、`theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme`（`ThemeOptions` は struct。game は `{ density }`、creative は `{ accent, density }`。creative の `install()` は `theme_with` に統合する）。

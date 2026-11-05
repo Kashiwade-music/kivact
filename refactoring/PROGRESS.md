@@ -147,7 +147,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | G-4b | merged | 0703861 | motion11 passed、check/fmt0 |
 | G-4c | merged | 814ca08 | 固定統合environment/scroll17 passed、workspacecheck/fmt0 |
 | G-5 | merged | a3d8db9 | async6/doc538+1 passed、scopedcheck/state-fields0 |
-| K-0 | todo | | |
+| K-0 | doing | | |
 | K-1a | todo | | |
 | K-1b | todo | | |
 | K-2a | todo | | |
@@ -166,8 +166,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-7c | todo | | |
 | K-7d | todo | | |
 | K-7e | todo | | |
-| H-G1 | todo | | |
-| H-G2 | todo | | |
+| H-G1 | doing | | |
+| H-G2 | doing | | |
 | H-G3 | todo | | |
 | H-G4 | todo | | |
 | H-G5 | todo | | |
