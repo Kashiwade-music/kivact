@@ -280,7 +280,7 @@ fn root() -> impl IntoView {
 - `.tone(..)` is `Neutral` (no icon), `Success`, `Info`, `Warning` or `Danger`. The theme draws the icon of the tone, and `Warning` and `Danger` are announced more urgently to screen readers.
 - A toast closes after five seconds. `.duration(Some(Duration::from_secs(2)))` changes that and `.duration(None)` keeps it until it is dismissed. `push` returns an id: `toaster().dismiss(id)` removes the toast.
 - `.action("Undo", move || ..)` adds a button. Pressing it runs the closure and dismisses the toast. The closure belongs to the toast, so a press handler can build and push one.
-- For a toast that shows work in progress, use `.icon(|| basic::spinner())` with `.duration(None)`, then dismiss it when the work finishes.
+- For a toast that shows work in progress, use `.icon(|| kivact::ui::spinner())` with `.duration(None)`, then dismiss it when the work finishes.
 - Several toasts stack behind the newest, up to three. They open into a list while the pointer is over them or focus is inside, and with `hold_all_on_hover(true)` the time of every toast pauses while they are open.
 
 ## See also

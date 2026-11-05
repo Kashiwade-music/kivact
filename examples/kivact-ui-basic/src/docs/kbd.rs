@@ -3,7 +3,6 @@ use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -17,13 +16,13 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "default",
                 "Default",
-                "basic::kbd に文字を渡すと、一つのキーキャップになります。",
+                "kivact::ui::kbd に文字を渡すと、一つのキーキャップになります。",
                 default,
             ),
             Example::new(
                 "group",
                 "Group",
-                "basic::kbd_group で複数のキーを組み合わせて、ショートカットを表します。",
+                "row で複数のキーを組み合わせて、ショートカットを表します。",
                 group,
             ),
             Example::new(
@@ -39,10 +38,10 @@ pub(crate) fn page() -> Page {
 // example: default
 fn default() -> impl IntoView {
     row((
-        basic::kbd("Ctrl"),
-        basic::kbd("Shift"),
-        basic::kbd("Esc"),
-        basic::kbd("⌘"),
+        kivact::ui::kbd("Ctrl"),
+        kivact::ui::kbd("Shift"),
+        kivact::ui::kbd("Esc"),
+        kivact::ui::kbd("⌘"),
     ))
     .style(style().gap(8).align_items(Align::Center))
 }
@@ -51,8 +50,8 @@ fn default() -> impl IntoView {
 // example: group
 fn group() -> impl IntoView {
     column((
-        basic::kbd_group((basic::kbd("Ctrl"), basic::kbd("B"))),
-        basic::kbd_group((basic::kbd("Ctrl"), basic::kbd("Shift"), basic::kbd("P"))),
+        row((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("B"))).style(style().align_items(Align::Center).gap(4)),
+        row((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("Shift"), kivact::ui::kbd("P"))).style(style().align_items(Align::Center).gap(4)),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }
@@ -63,10 +62,10 @@ fn in_button() -> impl IntoView {
     row((
         button("Accept")
             .variant(ButtonVariant::Outline)
-            .trailing(basic::kbd("⏎")),
+            .trailing(kivact::ui::kbd("⏎")),
         button("Cancel")
             .variant(ButtonVariant::Outline)
-            .trailing(basic::kbd("Esc")),
+            .trailing(kivact::ui::kbd("Esc")),
     ))
     .style(style().gap(8))
 }

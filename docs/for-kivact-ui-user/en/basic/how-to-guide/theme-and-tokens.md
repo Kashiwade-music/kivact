@@ -214,7 +214,7 @@ fn toolbar() -> impl IntoView {
     row((
         button("Download").icon(icon("download")),
         button("Settings").icon(icon("settings")).hide_label(true),
-        basic::badge("New").icon(icon("sparkles")),
+        kivact::ui::badge("New").icon(icon("sparkles")),
     ))
     .style(style().gap(8))
 }

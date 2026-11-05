@@ -21,6 +21,11 @@ kivact_core::state::constant_value!(AvatarShape);
 #[derive(Clone, Debug, PartialEq)]
 pub struct BadgeState {
     pub tone: Tone,
+    pub input: kivact_core::custom::PartState,
+    /// Whether the badge has an activation callback.
+    pub actionable: bool,
+    pub leading_icon: bool,
+    pub trailing_icon: bool,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct AvatarState {

@@ -3,7 +3,6 @@ use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -17,7 +16,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "default",
                 "Default",
-                "basic::spinner() をそのまま置きます。色は文字色に従います。",
+                "kivact::ui::spinner() をそのまま置きます。色は文字色に従います。",
                 default,
             ),
             Example::new(
@@ -38,7 +37,7 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
-    basic::spinner()
+    kivact::ui::spinner()
 }
 // end example
 
@@ -58,7 +57,7 @@ fn in_button() -> impl IntoView {
 // example: with-text
 fn with_text() -> impl IntoView {
     row((
-        basic::spinner(),
+        kivact::ui::spinner(),
         text("Processing payment...").style(style().font_size(14)),
     ))
     .style(style().gap(8).align_items(Align::Center))
