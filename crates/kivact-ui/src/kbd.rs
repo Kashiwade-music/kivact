@@ -1,8 +1,7 @@
 //! Role: Present literal and typed shortcuts with platform command-key glyphs.
 use crate::variants::{Variant, Variants};
-use kivact_core::platform::{CommandKey, capabilities};
+use kivact_core::platform::capabilities;
 use kivact_core::state::{IntoText, IntoValue, Value};
-use kivact_core::style::{Align, style};
 use kivact_core::view::{
     IntoView, Key, Modifiers, Node, NodeBuilder, Role, View, for_index, row, text,
 };
@@ -29,40 +28,21 @@ impl NodeBuilder for Kbd {
         &mut self.root
     }
 }
-fn token(key: &str, command: CommandKey) -> String {
-    match key.trim().to_ascii_lowercase().as_str() {
-        "mod" => if command == CommandKey::Command {
-            "\u{2318}"
-        } else {
-            "Ctrl"
-        }
-        .to_owned(),
-        "cmd" | "command" => "\u{2318}".into(),
-        "ctrl" | "control" => "Ctrl".into(),
-        "shift" => "Shift".into(),
-        "alt" => "Alt".into(),
-        _ => key.trim().to_owned(),
-    }
-}
 impl IntoView for Kbd {
     fn into_view(self) -> View {
-        let keys = self.keys;
+        let names = super::kbd_labels::KeyNames::new();
         let platform = capabilities();
-        let label = move || {
-            keys.get()
+        let caps = (move || {
+            self.keys
+                .get()
                 .split('+')
-                .map(|key| token(key, platform.get().command_key))
+                .map(str::trim)
+                .filter(|key| !key.is_empty())
+                .map(|key| names.literal(key, platform.get().command_key))
                 .collect::<Vec<_>>()
-                .join(" + ")
-        };
-        crate::layer::with_base_recipe_style(
-            self.root.name(label),
-            |r| r.kbd_recipe(),
-            &self.variants,
-            || (),
-        )
-        .child(text(label))
-        .into_view()
+        })
+        .into_value();
+        render(self.root, caps, self.variants)
     }
 }
 pub struct KbdCombo {
@@ -96,59 +76,60 @@ impl NodeBuilder for KbdCombo {
         &mut self.root
     }
 }
-fn key_name(key: Key) -> String {
-    match key {
-        Key::Char(c) => c.to_string(),
-        Key::Enter => "Enter".into(),
-        Key::Tab => "Tab".into(),
-        Key::Backspace => "Backspace".into(),
-        Key::ArrowUp => "Up".into(),
-        Key::ArrowDown => "Down".into(),
-        Key::ArrowLeft => "Left".into(),
-        Key::ArrowRight => "Right".into(),
-        Key::F(n) => format!("F{n}"),
-        other => format!("{other:?}"),
-    }
-}
 impl IntoView for KbdCombo {
     fn into_view(self) -> View {
-        let keys = self.keys;
-        let modifiers = self.modifiers;
+        let names = super::kbd_labels::KeyNames::new();
         let platform = capabilities();
-        let labels = (move || {
-            let m = modifiers.get();
-            let mut labels = Vec::new();
-            if m.ctrl {
-                labels.push("Ctrl".to_owned());
+        let caps = (move || {
+            let command = platform.get().command_key;
+            let modifiers = self.modifiers.get();
+            let mut caps = Vec::new();
+            for (enabled, key) in [
+                (modifiers.ctrl, "ctrl"),
+                (modifiers.meta, "mod"),
+                (modifiers.alt, "alt"),
+                (modifiers.shift, "shift"),
+            ] {
+                if enabled {
+                    caps.push(names.literal(key, command));
+                }
             }
-            if m.meta {
-                labels.push(token("mod", platform.get().command_key));
-            }
-            if m.alt {
-                labels.push("Alt".into());
-            }
-            if m.shift {
-                labels.push("Shift".into());
-            }
-            labels.extend(keys.get().into_iter().map(key_name));
-            labels
+            caps.extend(
+                self.keys
+                    .get()
+                    .into_iter()
+                    .map(|key| names.typed(key, command)),
+            );
+            caps
         })
         .into_value();
-        let variants = self.variants;
-        self.root
-            .name(move || labels.get().join(" + "))
-            .base_style(style().align_items(Align::Center).gap(4))
-            .child(for_index(
-                move || labels.get(),
-                move |_, label| {
-                    crate::layer::with_base_recipe_style(
-                        row(text(label)),
-                        |r| r.kbd_recipe(),
-                        &variants,
-                        || (),
-                    )
-                },
-            ))
-            .into_view()
+        render(self.root, caps, self.variants)
     }
+}
+fn render(root: Node, caps: Value<Vec<crate::KbdKeyState>>, variants: Variants) -> View {
+    let separator = kivact_core::i18n::message("kbd.separator", " + ");
+    crate::layer::with_base_recipe_style(
+        root.name(move || {
+            caps.get()
+                .into_iter()
+                .map(|cap| cap.label)
+                .collect::<Vec<_>>()
+                .join(&separator.get())
+        }),
+        |r| r.kbd_recipe(),
+        &variants,
+        || (),
+    )
+    .child(for_index(
+        move || caps.get(),
+        move |_, cap| {
+            crate::layer::with_base_recipe_style(
+                row(text(move || cap.get().glyph)),
+                |r| r.kbd_key_recipe(),
+                &variants,
+                move || cap.get(),
+            )
+        },
+    ))
+    .into_view()
 }

@@ -624,6 +624,7 @@ recipe_table! {
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
+        kbd_key(kbd_key_recipe): crate::KbdKeyState = super::look_indicators::kbd_key,
         badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
         badge_label(badge_label_recipe): crate::BadgeState = super::look_indicators::badge_label,
         spinner(spinner_recipe): crate::SpinnerState = super::look_indicators::spinner,

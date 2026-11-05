@@ -3,7 +3,7 @@
 use kivact::state::IntoBinding;
 use std::time::Duration;
 
-use crate::{SpinnerShade, SpinnerSize, spinner};
+use crate::{SpinnerShade, SpinnerVariant};
 use kivact::custom::EditState;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_disclosure;
@@ -22,6 +22,7 @@ use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::TransitionProp;
 use kivact::style::style;
+use kivact::ui::{ControlSize, spinner};
 use kivact::view::Handled;
 use kivact::view::IntoView;
 use kivact::view::Key;
@@ -173,14 +174,17 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
         move || visible.get() && status.get() == ToolStatus::Pending,
         move || {
             spinner()
-                .size(SpinnerSize::Sm)
-                .shade(SpinnerShade::Subtle)
+                .size(ControlSize::ExtraSmall)
+                .variant(SpinnerVariant {
+                    shade: SpinnerShade::Subtle,
+                    ..Default::default()
+                })
                 .name(status_label)
         },
     );
     let running = show(
         move || visible.get() && status.get() == ToolStatus::Running,
-        move || spinner().size(SpinnerSize::Sm).name(status_label),
+        move || spinner().size(ControlSize::ExtraSmall).name(status_label),
     );
     let result = text(move || {
         let glyph = if status.get() == ToolStatus::Error {

@@ -140,6 +140,12 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            indicators: kivact::ui::IndicatorTokens {
+                period_ms: tokens.motion.slow_min,
+                reduced_period_ms: Some(3000),
+                gap: tokens.spacing.s2,
+                ..Default::default()
+            },
             button_group: kivact::ui::ButtonGroupTokens {
                 radius: tokens.radius.element,
                 divider: colors.border,
