@@ -89,40 +89,8 @@ impl IntoView for TimeInput {
             presentation,
         } = self;
         let locale = use_locale();
-        let initial = value
-            .get_untracked()
-            .map_or(TimeDraft::Empty, |value| TimeDraft::Valid {
-                text: String::new(),
-                value,
-            });
-        let state = machine(
-            TimeInputState::Closed(initial),
-            move || Snapshot {
-                seconds: seconds.get(),
-                min: min.get(),
-                max: max.get(),
-            },
-            move |_, next| value.set(next),
-        );
-        kivact_core::state::effect(move || state.send(Event::External(value.get())));
-        let draft = binding(
-            move || match state.get().draft() {
-                TimeDraft::Invalid(text) => text.clone(),
-                TimeDraft::Valid { text, value: _ } if !text.is_empty() => text.clone(),
-                _ => value
-                    .get()
-                    .map(|value| {
-                        locale.get().format_time(
-                            value,
-                            TimeStyle {
-                                seconds: seconds.get(),
-                            },
-                        )
-                    })
-                    .unwrap_or_default(),
-            },
-            move |text| state.send(Event::Text(text)),
-        );
+        let state = time_controller(value, seconds, min, max);
+        let draft = time_text(state, value, seconds, locale);
         let input_ref = kivact_core::view::node_ref();
         let button_ref = kivact_core::view::node_ref();
         let return_focus = kivact_core::state::memo(move || match state.get() {
@@ -180,4 +148,55 @@ impl IntoView for TimeInput {
         ))
         .into_view()
     }
+}
+
+fn time_text(
+    state: kivact_core::state::MachineHandle<Snapshot>,
+    value: Binding<Option<TimeOfDay>>,
+    seconds: Value<bool>,
+    locale: Value<kivact_core::i18n::Locale>,
+) -> Binding<String> {
+    binding(
+        move || match state.get().draft() {
+            TimeDraft::Invalid(text) => text.clone(),
+            TimeDraft::Valid { text, value: _ } if !text.is_empty() => text.clone(),
+            _ => value
+                .get()
+                .map(|value| {
+                    locale.get().format_time(
+                        value,
+                        TimeStyle {
+                            seconds: seconds.get(),
+                        },
+                    )
+                })
+                .unwrap_or_default(),
+        },
+        move |text| state.send(Event::Text(text)),
+    )
+}
+
+fn time_controller(
+    value: Binding<Option<TimeOfDay>>,
+    seconds: Value<bool>,
+    min: Value<Option<TimeOfDay>>,
+    max: Value<Option<TimeOfDay>>,
+) -> kivact_core::state::MachineHandle<Snapshot> {
+    let initial = value
+        .get_untracked()
+        .map_or(TimeDraft::Empty, |value| TimeDraft::Valid {
+            text: String::new(),
+            value,
+        });
+    let state = machine(
+        TimeInputState::Closed(initial),
+        move || Snapshot {
+            seconds: seconds.get(),
+            min: min.get(),
+            max: max.get(),
+        },
+        move |_, next| value.set(next),
+    );
+    kivact_core::state::effect(move || state.send(Event::External(value.get())));
+    state
 }

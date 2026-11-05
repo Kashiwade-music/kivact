@@ -34,6 +34,6 @@ fn date_picker_weekday_headers_publish_full_names_and_month_changes_are_announce
     screen.get_by_role(Role::ColumnHeader, "Monday");
     screen.get_by_role(Role::Button, "Next month").click();
     assert_eq!(month.get_untracked(), CalendarMonth::new(2026, 11));
-    screen.get_by_role(Role::Status, "November 2026");
+    screen.get_by_role(Role::Status, "Showing November 2026");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

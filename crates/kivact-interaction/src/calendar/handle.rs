@@ -267,10 +267,11 @@ fn marks(choice: Choice, day: CalendarDate) -> (bool, bool, CalendarSpan) {
         Choice::Range { value, pick } => {
             let range = match pick.get() {
                 super::machine::RangePick::Picking {
+                    anchor, preview, ..
+                } => Some(kivact_core::i18n::DateRange::new(
                     anchor,
-                    preview: Some(preview),
-                    ..
-                } => Some(kivact_core::i18n::DateRange::new(anchor, preview)),
+                    preview.unwrap_or(anchor),
+                )),
                 _ => value.get(),
             };
             match range {

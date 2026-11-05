@@ -168,6 +168,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             mark: marks(day).or_else(|| weekend(day.weekday())),
         },
     );
+    let button = button.style(move || style().size(cell_size, cell_size));
     let band = with_recipe_style(
         node(),
         |r| r.calendar_recipes().range_recipe(),

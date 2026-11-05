@@ -5,7 +5,7 @@ use kivact_core::i18n::{
 };
 use kivact_core::state::{Binding, Value, binding, machine, memo};
 use kivact_core::view::{
-    Handled, IntoView, Key, Node, NodeBuilder, NodeRef, View, column, dynamic, node_ref, row,
+    Handled, IntoView, Key, Node, NodeBuilder, View, column, dynamic, node_ref, row,
 };
 // xtask-allow(state-fields): Independent immutable construction inputs and caller bindings.
 pub(crate) struct Inputs {
@@ -21,8 +21,6 @@ pub(crate) struct Inputs {
     pub variants: crate::variants::Variants,
 }
 pub(crate) fn render(i: Inputs) -> View {
-    let date_ref = node_ref();
-    let time_ref = node_ref();
     let button_ref = node_ref();
     let state = machine(DateTimeInputState::Closed, || Controller, |_, ()| {});
     let open = binding(
@@ -40,64 +38,9 @@ pub(crate) fn render(i: Inputs) -> View {
         _ => button_ref,
     });
     let fields = super::date_time_input::field_bindings(i.value, i.min, i.max);
-    let locale = use_locale();
     let date = fields.date;
     let time = fields.time;
-    let draft = binding(
-        move || {
-            date.get()
-                .map(|date| locale.get().format_date(date, i.format.get()))
-                .unwrap_or_default()
-        },
-        move |text: String| {
-            if let Some(parsed) = locale.get_untracked().parse_date(&text) {
-                date.set(Some(parsed));
-            }
-        },
-    );
-    let field = crate::text_input(message("date_time.date", "Date"), draft)
-        .node_ref(date_ref)
-        .with_node(|n| n.expanded(open))
-        .forward_keys(vec![Key::ArrowDown])
-        .on_key(move |event: kivact_core::view::KeyEvent| {
-            if event.key() == Key::ArrowDown {
-                state.send(Event::Open(Panel::Date, date_ref));
-                Handled::Yes
-            } else {
-                Handled::No
-            }
-        });
-    let time_draft = binding(
-        move || {
-            time.get()
-                .map(|time| {
-                    locale.get().format_time(
-                        time,
-                        TimeStyle {
-                            seconds: i.seconds.get(),
-                        },
-                    )
-                })
-                .unwrap_or_default()
-        },
-        move |text: String| {
-            if let Some(parsed) = crate::time_input::parse_time(&text, i.seconds.get_untracked()) {
-                time.set(Some(parsed));
-            }
-        },
-    );
-    let time_label = crate::text_input(message("date_time.time", "Time"), time_draft)
-        .node_ref(time_ref)
-        .with_node(|n| n.expanded(open))
-        .forward_keys(vec![Key::ArrowDown])
-        .on_key(move |event: kivact_core::view::KeyEvent| {
-            if event.key() == Key::ArrowDown {
-                state.send(Event::Open(Panel::Time, time_ref));
-                Handled::Yes
-            } else {
-                Handled::No
-            }
-        });
+    let editors = editors(date, time, i.format, i.seconds, open, state);
     let trigger = crate::button(
         i.picker_label
             .unwrap_or_else(|| message("date_time.open", "Choose date and time")),
@@ -106,8 +49,7 @@ pub(crate) fn render(i: Inputs) -> View {
     let content = picker_content(i.min, i.max, i.week_start, i.seconds, date, time, state);
     i.root
         .child(row((
-            field,
-            time_label,
+            editors,
             crate::dialog(i.label, open)
                 .with_variants(&i.variants)
                 .mode(crate::DatePresentation::BottomSheet.mode())
@@ -160,4 +102,73 @@ fn picker_content(
             },
         )
     })
+}
+
+fn editors(
+    date: Binding<Option<CalendarDate>>,
+    time: Binding<Option<kivact_core::i18n::TimeOfDay>>,
+    format: Value<DateStyle>,
+    seconds: Value<bool>,
+    open: Binding<bool>,
+    state: kivact_core::state::MachineHandle<Controller>,
+) -> Node {
+    let date_ref = node_ref();
+    let time_ref = node_ref();
+    let locale = use_locale();
+    let draft = binding(
+        move || {
+            date.get()
+                .map(|date| locale.get().format_date(date, format.get()))
+                .unwrap_or_default()
+        },
+        move |text: String| {
+            if let Some(parsed) = locale.get_untracked().parse_date(&text) {
+                date.set(Some(parsed));
+            }
+        },
+    );
+    let field = crate::text_input(message("date_time.date", "Date"), draft)
+        .node_ref(date_ref)
+        .with_node(|n| n.expanded(open))
+        .forward_keys(vec![Key::ArrowDown])
+        .on_key(move |event: kivact_core::view::KeyEvent| {
+            if event.key() == Key::ArrowDown {
+                state.send(Event::Open(Panel::Date, date_ref));
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        });
+    let time_draft = binding(
+        move || {
+            time.get()
+                .map(|time| {
+                    locale.get().format_time(
+                        time,
+                        TimeStyle {
+                            seconds: seconds.get(),
+                        },
+                    )
+                })
+                .unwrap_or_default()
+        },
+        move |text: String| {
+            if let Some(parsed) = crate::time_input::parse_time(&text, seconds.get_untracked()) {
+                time.set(Some(parsed));
+            }
+        },
+    );
+    let time_label = crate::text_input(message("date_time.time", "Time"), time_draft)
+        .node_ref(time_ref)
+        .with_node(|n| n.expanded(open))
+        .forward_keys(vec![Key::ArrowDown])
+        .on_key(move |event: kivact_core::view::KeyEvent| {
+            if event.key() == Key::ArrowDown {
+                state.send(Event::Open(Panel::Time, time_ref));
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        });
+    row((field, time_label))
 }

@@ -31,7 +31,7 @@ fn date_sheet_uses_calendar_and_month_wheels_without_staging_the_date() {
     screen.get_by_role(Role::Button, "October 2026").click();
     screen
         .get_by_role(Role::SpinButton, "Month")
-        .press_key(Key::ArrowDown);
+        .press_key(Key::ArrowUp);
     assert_eq!(selected.get_untracked(), Some(start));
     screen.get_by_role(Role::Button, "Done").click();
     screen.get_by_role(Role::GridCell, "2026-11-15").click();
@@ -67,7 +67,7 @@ fn time_sheet_wheels_commit_each_step_before_save() {
     screen.advance(Duration::from_millis(600));
     screen
         .get_by_role(Role::SpinButton, "Minute")
-        .press_key(Key::ArrowDown);
+        .press_key(Key::ArrowUp);
     assert_eq!(
         selected.get_untracked(),
         Some(kivact::i18n::TimeOfDay {
@@ -78,7 +78,7 @@ fn time_sheet_wheels_commit_each_step_before_save() {
     );
     screen
         .get_by_role(Role::SpinButton, "Second")
-        .press_key(Key::ArrowDown);
+        .press_key(Key::ArrowUp);
     assert_eq!(
         selected.get_untracked(),
         Some(kivact::i18n::TimeOfDay {
@@ -124,7 +124,7 @@ fn combined_sheet_advances_from_date_to_time_and_keeps_the_committed_date() {
     screen.advance(Duration::from_millis(400));
     screen
         .get_by_role(Role::SpinButton, "Hour")
-        .press_key(Key::ArrowDown);
+        .press_key(Key::ArrowUp);
     assert_eq!(
         selected.get_untracked().unwrap().time,
         kivact::i18n::TimeOfDay {
@@ -162,6 +162,7 @@ fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
         screen
             .get_by_role(Role::TextBox, "Due")
             .press_key(Key::ArrowDown);
+        screen.advance(Duration::from_millis(600));
         let day = screen.get_by_role(Role::GridCell, "2026-10-20");
         let bounds = day.accessibility_bounds().unwrap();
         assert!((bounds.width - 44.0).abs() < 1.0);
@@ -235,7 +236,7 @@ fn time_wheel_flick_projects_to_a_detent_and_exposes_increment_actions() {
     assert_eq!(selected.get_untracked().unwrap().minute, snapped);
     minute.a11y(A11yAction::Increment);
     assert_eq!(selected.get_untracked().unwrap().minute, snapped + 1);
-    minute.press_key(Key::PageUp);
+    minute.press_key(Key::PageDown);
     assert_eq!(selected.get_untracked().unwrap().minute, snapped - 9);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

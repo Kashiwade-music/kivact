@@ -80,7 +80,13 @@ fn new(selection: CalendarSelection) -> Calendar {
             kivact_core::custom::PartState::default,
         ),
         variants,
-        cell_size: 32.0.into_value(),
+        cell_size: kivact_core::state::memo(|| {
+            kivact_core::style::use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .calendar
+                .cell_size
+        }),
         selection,
         month: None,
         disabled: Rc::new(|_| false),
@@ -116,7 +122,8 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 
 impl Calendar {
     pub(crate) fn touch(mut self) -> Self {
-        self.cell_size = 44.0.into_value();
+        let size = self.cell_size;
+        self.cell_size = kivact_core::state::memo(move || size.get().max(44.0));
         self
     }
 

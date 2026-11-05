@@ -1,7 +1,7 @@
 //! Role: Immediate date selection with a sheet-owned month/year panel.
 use kivact_core::i18n::{CalendarDate, CalendarMonth, NameWidth, message, use_locale};
 use kivact_core::state::{Binding, Machine, Step, binding, machine, signal};
-use kivact_core::view::{IntoView, Node, NodeBuilder, column, dynamic};
+use kivact_core::view::{IntoView, Node, NodeBuilder, column, dynamic, row};
 #[derive(Clone, Copy, PartialEq)]
 enum DateSheetPanel {
     Calendar,
@@ -60,20 +60,22 @@ pub(crate) fn panel(value: Binding<Option<CalendarDate>>, picker: crate::Calenda
         move |show| {
             if show {
                 column((
-                    crate::date_wheel::wheel(
-                        message("date.month", "Month"),
-                        number,
-                        1.0,
-                        12.0,
-                        false,
-                    ),
-                    crate::date_wheel::wheel(
-                        message("date.year", "Year"),
-                        year,
-                        1.0,
-                        9999.0,
-                        false,
-                    ),
+                    row((
+                        crate::date_wheel::wheel(
+                            message("date.month", "Month"),
+                            number,
+                            1.0,
+                            12.0,
+                            false,
+                        ),
+                        crate::date_wheel::wheel(
+                            message("date.year", "Year"),
+                            year,
+                            1.0,
+                            9999.0,
+                            false,
+                        ),
+                    )),
                     crate::button(message("date.done", "Done"))
                         .on_press(move || state.send(Event::Calendar)),
                 ))

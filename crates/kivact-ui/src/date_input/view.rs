@@ -220,56 +220,15 @@ impl DateInput {
             .hide_label(true)
             .icon(icon("calendar"))
             .node_ref(button_ref);
-        let content = move || {
-            let selected = binding(value, move |next| match next {
-                Some(date) => state.send(if presentation.sheet() {
-                    Event::SheetPick(date)
-                } else {
-                    Event::Pick(date)
-                }),
-                None => state.send(Event::Clear),
-            });
-            let picker = date_picker(
-                selected,
-                min,
-                max,
-                week_start,
-                presentation,
-                configure.as_ref(),
-            );
-            if presentation.sheet() {
-                kivact_core::view::column((
-                    picker,
-                    button(message("date.save", "Save")).on_press(move || state.send(Event::Close)),
-                ))
-                .into_view()
-            } else {
-                picker
-            }
-        };
-        root.child(with_recipe_style(
-            row((
-                field,
-                dialog(message("date.open", "Choose date"), open)
-                    .with_variants(&variants)
-                    .mode(presentation.mode())
-                    .return_focus(return_focus)
-                    .hide_title(true)
-                    .content(content)
-                    .attach(toggle),
-            )),
-            |r| r.date_input_recipes().root_recipe(),
-            &variants,
-            PartState::default,
-        ))
-        .child(error)
-        .child(
-            kivact_core::view::node()
-                .role(kivact_core::view::Role::Status)
-                .name(announcement)
-                .live_region(kivact_core::view::LiveRegion::Polite),
-        )
-        .into_view()
+        let content = picker_content(value, state, min, max, week_start, presentation, configure);
+        let picker = dialog(message("date.open", "Choose date"), open)
+            .with_variants(&variants)
+            .mode(presentation.mode())
+            .return_focus(return_focus)
+            .hide_title(true)
+            .content(move || content.call(()))
+            .attach(toggle);
+        date_layout(root, field, picker, error, announcement, &variants)
     }
 }
 
@@ -563,4 +522,66 @@ fn draft_binding(
         },
         move |text: String| typed.send(TypedEvent::Edit(text)),
     )
+}
+
+fn picker_content(
+    value: Binding<Option<CalendarDate>>,
+    state: kivact_core::state::MachineHandle<Snapshot>,
+    min: Value<Option<CalendarDate>>,
+    max: Value<Option<CalendarDate>>,
+    week_start: Option<Value<Weekday>>,
+    presentation: DatePresentation,
+    configure: Option<Rc<dyn Fn(Calendar) -> Calendar>>,
+) -> kivact_core::view::ViewFn {
+    kivact_core::view::ViewFn::from(move |()| {
+        let selected = binding(value, move |next| match next {
+            Some(date) => state.send(if presentation.sheet() {
+                Event::SheetPick(date)
+            } else {
+                Event::Pick(date)
+            }),
+            None => state.send(Event::Clear),
+        });
+        let picker = date_picker(
+            selected,
+            min,
+            max,
+            week_start,
+            presentation,
+            configure.as_ref(),
+        );
+        if presentation.sheet() {
+            kivact_core::view::column((
+                picker,
+                button(message("date.save", "Save")).on_press(move || state.send(Event::Close)),
+            ))
+            .into_view()
+        } else {
+            picker
+        }
+    })
+}
+
+fn date_layout(
+    root: Node,
+    field: crate::TextInput,
+    picker: View,
+    error: Node,
+    announcement: Value<String>,
+    variants: &crate::variants::Variants,
+) -> View {
+    root.child(with_recipe_style(
+        row((field, picker)),
+        |r| r.date_input_recipes().root_recipe(),
+        variants,
+        PartState::default,
+    ))
+    .child(error)
+    .child(
+        kivact_core::view::node()
+            .role(kivact_core::view::Role::Status)
+            .name(announcement)
+            .live_region(kivact_core::view::LiveRegion::Polite),
+    )
+    .into_view()
 }

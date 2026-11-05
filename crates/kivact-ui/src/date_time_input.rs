@@ -167,58 +167,30 @@ impl IntoView for DateTimeInput {
             seconds,
         } = self;
         let DateTimeFields { date, time } = field_bindings(value, min, max);
-        let mut date_field = date_input(message("date_time.date", "Date"), date)
-            .format(format)
-            .min(move || min.get().map(|value| value.date))
-            .max(move || max.get().map(|value| value.date))
-            .presentation(presentation)
-            .with_variants(&variants);
-        if let Some(day) = week_start {
-            date_field = date_field.week_start(day);
-        }
-        let time_field = time_input(message("date_time.time", "Time"), time)
-            .format(move || TimeStyle {
-                seconds: seconds.get(),
-            })
-            .presentation(presentation)
-            .with_variants(&variants);
+        let editors = desktop_editors(
+            date,
+            time,
+            (format, seconds),
+            min,
+            max,
+            week_start,
+            presentation,
+            &variants,
+        );
         let (state, open) = picker_controller();
         let trigger = button(
             picker_label.unwrap_or_else(|| message("date_time.open", "Choose date and time")),
         );
-        let content = move || {
-            let tabs = picker_tabs(state);
-            let body = kivact_core::view::dynamic(
-                move || state.get(),
-                move |phase| match phase {
-                    DateTimeInputState::Open {
-                        panel: Panel::Date, ..
-                    } => {
-                        let mut picker = calendar(date)
-                            .min(move || min.get().map(|value| value.date))
-                            .max(move || max.get().map(|value| value.date));
-                        if let Some(day) = week_start {
-                            picker = picker.week_start(day);
-                        }
-                        if presentation.sheet() {
-                            crate::date_wheel::date_panel(date, picker).into_view()
-                        } else {
-                            picker.into_view()
-                        }
-                    }
-                    DateTimeInputState::Open {
-                        panel: Panel::Time, ..
-                    } => crate::date_wheel::time_panel(time, seconds).into_view(),
-                    DateTimeInputState::Closed => node().into_view(),
-                },
-            );
-            column((
-                tabs,
-                body,
-                button(message("date_time.done", "Done"))
-                    .on_press(move || state.send(Event::Close)),
-            ))
-        };
+        let content = desktop_content(
+            date,
+            time,
+            min,
+            max,
+            week_start,
+            presentation,
+            seconds,
+            state,
+        );
         let root = crate::layer::with_base_recipe_style(
             root,
             |r| r.date_time_input_recipes().root_recipe(),
@@ -227,11 +199,11 @@ impl IntoView for DateTimeInput {
         );
         root.name(label)
             .child(column((
-                row((date_field, time_field)),
+                editors,
                 dialog(label, open)
                     .with_variants(&variants)
                     .mode(presentation.mode())
-                    .content(content)
+                    .content(move || content.call(()))
                     .attach(trigger),
             )))
             .into_view()
@@ -314,4 +286,77 @@ fn picker_tabs(state: kivact_core::state::MachineHandle<Controller>) -> Node {
         button(message("date_time.time", "Time"))
             .on_press(move || state.send(Event::Switch(Panel::Time))),
     ))
+}
+
+fn desktop_editors(
+    date: Binding<Option<CalendarDate>>,
+    time: Binding<Option<TimeOfDay>>,
+    formats: (Value<DateStyle>, Value<bool>),
+    min: Value<Option<DateTime>>,
+    max: Value<Option<DateTime>>,
+    week_start: Option<Value<Weekday>>,
+    presentation: DatePresentation,
+    variants: &crate::variants::Variants,
+) -> Node {
+    let (format, seconds) = formats;
+    let mut date_field = date_input(message("date_time.date", "Date"), date)
+        .format(format)
+        .min(move || min.get().map(|value| value.date))
+        .max(move || max.get().map(|value| value.date))
+        .presentation(presentation)
+        .with_variants(&variants);
+    if let Some(day) = week_start {
+        date_field = date_field.week_start(day);
+    }
+    let time_field = time_input(message("date_time.time", "Time"), time)
+        .format(move || TimeStyle {
+            seconds: seconds.get(),
+        })
+        .presentation(presentation)
+        .with_variants(&variants);
+    row((date_field, time_field))
+}
+
+fn desktop_content(
+    date: Binding<Option<CalendarDate>>,
+    time: Binding<Option<TimeOfDay>>,
+    min: Value<Option<DateTime>>,
+    max: Value<Option<DateTime>>,
+    week_start: Option<Value<Weekday>>,
+    presentation: DatePresentation,
+    seconds: Value<bool>,
+    state: kivact_core::state::MachineHandle<Controller>,
+) -> kivact_core::view::ViewFn {
+    kivact_core::view::ViewFn::from(move |()| {
+        let tabs = picker_tabs(state);
+        let body = kivact_core::view::dynamic(
+            move || state.get(),
+            move |phase| match phase {
+                DateTimeInputState::Open {
+                    panel: Panel::Date, ..
+                } => {
+                    let mut picker = calendar(date)
+                        .min(move || min.get().map(|value| value.date))
+                        .max(move || max.get().map(|value| value.date));
+                    if let Some(day) = week_start {
+                        picker = picker.week_start(day);
+                    }
+                    if presentation.sheet() {
+                        crate::date_wheel::date_panel(date, picker).into_view()
+                    } else {
+                        picker.into_view()
+                    }
+                }
+                DateTimeInputState::Open {
+                    panel: Panel::Time, ..
+                } => crate::date_wheel::time_panel(time, seconds).into_view(),
+                DateTimeInputState::Closed => node().into_view(),
+            },
+        );
+        column((
+            tabs,
+            body,
+            button(message("date_time.done", "Done")).on_press(move || state.send(Event::Close)),
+        ))
+    })
 }

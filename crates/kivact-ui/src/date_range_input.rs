@@ -277,8 +277,7 @@ impl DateRangeInput {
                 .range_span(min_span, max_span)
                 .number_of_months(2usize)
                 .on_commit(move || {
-                    if let Some(next) = value.get_untracked().filter(|next| accepted(*next)) {
-                        value.set(Some(next));
+                    if value.get_untracked().is_some_and(|next| accepted(next)) {
                         open.set(false);
                         if let Some(focus) = trigger_focus {
                             focus.restore_focus();
@@ -330,7 +329,12 @@ impl DateRangeInput {
                     )
                 },
             );
-            column((choices, picker))
+            row((
+                kivact_core::view::node()
+                    .child(choices)
+                    .style(kivact_core::style::style().width(180)),
+                picker,
+            ))
         })
     }
     /// Render independently validated endpoint editors with the shared order diagnostic.

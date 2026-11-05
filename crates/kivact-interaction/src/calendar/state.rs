@@ -55,6 +55,7 @@ pub(super) fn create(
     let registry = roving.clone();
     let selection_status = signal(String::new());
     let chosen = kivact_core::i18n::message("calendar.chosen", "Date selected");
+    let range_chosen = kivact_core::i18n::message("calendar.range_chosen", "Date range selected");
     let started = kivact_core::i18n::message("calendar.range_started", "Start date selected");
     let cancelled =
         kivact_core::i18n::message("calendar.range_cancelled", "Range selection cancelled");
@@ -69,7 +70,7 @@ pub(super) fn create(
                         value.set(Some(range));
                         selection_status.set(format!(
                             "{}: {} - {}",
-                            chosen.get_untracked(),
+                            range_chosen.get_untracked(),
                             range.start(),
                             range.end()
                         ));
@@ -231,6 +232,10 @@ impl State {
         if self.disabled(day) {
             return;
         }
+        self.roving.requested.set(Some(day));
+        if matches!(self.choice,Choice::Range {pick,..} if matches!(pick.get(),RangePick::Idle)) {
+            self.roving.focus(&day, |day| !self.disabled(*day));
+        }
         let done = match self.choice {
             Choice::Single(value) => {
                 value.set(Some(day));
@@ -250,7 +255,6 @@ impl State {
                 done
             }
         };
-        self.roving.requested.set(Some(day));
         if !self.shows(day.month_of()) {
             self.month.set(day.month_of());
         }
@@ -266,7 +270,7 @@ impl State {
             return Handled::No;
         }
         if event.key() == Key::Escape
-            && let Choice::Range { value, pick } = self.choice
+            && let Choice::Range { pick, .. } = self.choice
             && let RangePick::Picking { .. } = pick.get()
         {
             pick.send(machine::Event::Cancel);

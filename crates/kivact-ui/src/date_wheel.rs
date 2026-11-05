@@ -42,15 +42,7 @@ pub(crate) fn wheel(
             release.notify();
         }
     });
-    let row_height = move || {
-        let theme = kivact_core::style::use_theme().get();
-        let tokens = theme.ext::<crate::UiTokens>();
-        if time {
-            tokens.time_input.wheel_row_height
-        } else {
-            tokens.date_input.wheel_row_height
-        }
-    };
+    let row_height = move || wheel_row_height(time);
     let normalize = move |next: f64| {
         if time {
             min + (next - min).rem_euclid(max.get_untracked() - min + 1.0)
@@ -67,10 +59,10 @@ pub(crate) fn wheel(
         .on_key(move |event: kivact_core::view::KeyEvent| {
             use kivact_core::view::Key;
             let steps = match event.key() {
-                Key::ArrowDown => 1.0,
-                Key::ArrowUp => -1.0,
-                Key::PageDown => 10.0,
-                Key::PageUp => -10.0,
+                Key::ArrowDown => -1.0,
+                Key::ArrowUp => 1.0,
+                Key::PageDown => -10.0,
+                Key::PageUp => 10.0,
                 _ => return Handled::No,
             };
             scalar.once(|| scalar.set(normalize(value.get_untracked() + steps)));
@@ -234,4 +226,14 @@ fn wheel_drag(
             }
             release.notify();
         })
+}
+
+fn wheel_row_height(time: bool) -> f64 {
+    let theme = kivact_core::style::use_theme().get();
+    let tokens = theme.ext::<crate::UiTokens>();
+    if time {
+        tokens.time_input.wheel_row_height
+    } else {
+        tokens.date_input.wheel_row_height
+    }
 }
