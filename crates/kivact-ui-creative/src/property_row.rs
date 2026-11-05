@@ -14,6 +14,7 @@ use kivact::view::{Node, NodeBuilder, node, row, text};
 
 use crate::PropertyState;
 
+// xtask-allow(state-fields): Optional leading and trailing views are independent construction slots; the description composition owns no interaction lifecycle.
 /// A property of an inspector: its label, its value control and the slots
 /// around them. See [`property_row`].
 pub struct PropertyRow {
