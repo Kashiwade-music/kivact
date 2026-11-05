@@ -42,11 +42,11 @@ fn shell() -> impl IntoView {
             basic::separator()
                 .orientation(Orientation::Vertical)
                 .style(style().height(16)),
-            basic::breadcrumb_content((
-                basic::breadcrumb_link("Acme"),
-                basic::breadcrumb_separator(),
-                basic::breadcrumb_page(move || page.get().to_string()),
-            )),
+            kivact::ui::breadcrumb(move || vec![
+                kivact::interaction::ListItem::new("root", "Acme"),
+                kivact::interaction::ListItem::new("current", page.get().to_string()),
+            ])
+            .separator(|| icon("chevron-right").style(style().size(14, 14))),
         ))
         .style(style().height(48).padding_x(12).gap(8).align_items(Align::Center)),
         kivact::ui::heading(move || page.get().to_string(), 4).style(style().padding(12)),
@@ -102,7 +102,7 @@ fn account() -> impl IntoView {
 
 ## Show where the user is
 
-A breadcrumb is `basic::breadcrumb_content((..))` of links, separators and the current page. Links take `.on_press(..)`; the current page is not a link:
+Pass keyed `ListItem`s to `kivact::ui::breadcrumb(items)`. The last item is the current page; `.on_activate(..)` receives the key of an earlier item:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -110,17 +110,17 @@ use kivact_ui_basic as basic;
 
 fn trail() -> impl IntoView {
     let at = signal(String::from("Components"));
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("Home").on_press(move || at.set("Home".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_link("Components").on_press(move || at.set("Components".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page(at),
-    ))
+    kivact::ui::breadcrumb(move || vec![
+        kivact::interaction::ListItem::new("home", "Home"),
+        kivact::interaction::ListItem::new("components", "Components"),
+        kivact::interaction::ListItem::new("current", at.get()),
+    ])
+    .on_activate(move |key| at.set(if key == "home" { "Home" } else { "Components" }.into()))
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
 }
 ```
 
-Put `basic::breadcrumb_ellipsis()` between separators to stand for hidden levels. If a plain list of names is enough, `basic::breadcrumb(vec!["Home".to_string(), "Docs".to_string()])` builds the whole trail from text.
+Use `.item(..)` to draw an ellipsis for a disabled entry representing hidden levels. `.separator(..)` supplies decorative chevrons; choose `chevron-left` inside a right-to-left boundary.
 
 ## Add a menu bar
 

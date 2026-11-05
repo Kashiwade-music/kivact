@@ -2,33 +2,32 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
         slug: "breadcrumb",
         name: "Breadcrumb",
         description: "現在のページまでの階層を示す部品です。「Breadcrumb」という名前の Navigation として公開され、direction の中では向きが反転します。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::interaction::ListItem;",
         source: include_str!("breadcrumb.rs"),
         align: PreviewAlign::Center,
         examples: vec![
             Example::new(
                 "default",
                 "Default",
-                "breadcrumb_link、breadcrumb_separator、breadcrumb_page を並べます。リンクは on_press で押せます。",
+                "ListItem のキーと名前を渡し、on_activate でリンクのキーを受け取ります。",
                 default,
             ),
             Example::new(
                 "ellipsis",
                 "Ellipsis",
-                "breadcrumb_ellipsis で省略した階層を表します。",
+                "item スロットで省略した階層を表します。",
                 ellipsis,
             ),
             Example::new(
                 "rtl",
                 "Right to left",
-                "basic::direction で Rtl を渡すと、並びと区切りの向きが反転します。",
+                "provide_direction で Rtl を渡すと、並びと区切りの向きが反転します。",
                 rtl,
             ),
         ],
@@ -38,40 +37,48 @@ pub(crate) fn page() -> Page {
 // example: default
 fn default() -> impl IntoView {
     let at = signal(String::from("Components"));
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("Home").on_press(move || at.set("Home".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_link("Components").on_press(move || at.set("Components".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page(at),
-    ))
+    kivact::ui::breadcrumb(move || {
+        vec![
+            ListItem::new("home", "Home"),
+            ListItem::new("components", "Components"),
+            ListItem::new("current", at.get()),
+        ]
+    })
+    .on_activate(move |key| at.set(if key == "home" { "Home" } else { "Components" }.into()))
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
 }
 // end example
 
 // example: ellipsis
 fn ellipsis() -> impl IntoView {
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("Home").on_press(|| {}),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_ellipsis(),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_link("Components").on_press(|| {}),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page("Breadcrumb"),
-    ))
+    kivact::ui::breadcrumb(vec![
+        ListItem::new("home", "Home"),
+        ListItem::new("more", "More").disabled(true),
+        ListItem::new("components", "Components"),
+        ListItem::new("current", "Breadcrumb"),
+    ])
+    .on_activate(|_| {})
+    .item(|item| {
+        if *item.key() == "more" {
+            icon("ellipsis").style(style().size(20, 20)).into_view()
+        } else {
+            text(item.label()).into_view()
+        }
+    })
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
 }
 // end example
 
 // example: rtl
 fn rtl() -> impl IntoView {
     kivact::view::provide_direction(kivact::view::ReadingDirection::Rtl, || {
-        basic::breadcrumb_content((
-            basic::breadcrumb_link("Home").on_press(|| {}),
-            basic::breadcrumb_separator(),
-            basic::breadcrumb_link("Docs").on_press(|| {}),
-            basic::breadcrumb_separator(),
-            basic::breadcrumb_page("Page"),
-        ))
+        kivact::ui::breadcrumb(vec![
+            ListItem::new("home", "Home"),
+            ListItem::new("docs", "Docs"),
+            ListItem::new("page", "Page"),
+        ])
+        .on_activate(|_| {})
+        .separator(|| icon("chevron-left").style(style().size(14, 14)))
         .style(style().width(280))
     })
 }

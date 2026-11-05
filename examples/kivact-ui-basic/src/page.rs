@@ -39,12 +39,12 @@ fn content(page: &'static Page) -> Node {
     )
 }
 
-fn breadcrumb(name: &'static str) -> impl kivact::view::Component {
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("コンポーネント"),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page(name),
-    ))
+fn breadcrumb(name: &'static str) -> impl IntoView {
+    kivact::ui::breadcrumb(vec![
+        kivact::interaction::ListItem::new("root", "コンポーネント"),
+        kivact::interaction::ListItem::new("current", name),
+    ])
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
     .style(style().font_size(14))
 }
 

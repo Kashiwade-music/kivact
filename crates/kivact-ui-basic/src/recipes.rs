@@ -80,6 +80,7 @@ fn build() -> UiRecipes {
         .heading(|_| crate::typography::heading)
         .input_group(crate::input_group::recipes)
         .navigation_menu(crate::navigation_menu::recipes)
+        .breadcrumb(crate::breadcrumb::recipes)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts

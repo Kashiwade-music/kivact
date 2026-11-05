@@ -42,11 +42,11 @@ fn shell() -> impl IntoView {
             basic::separator()
                 .orientation(Orientation::Vertical)
                 .style(style().height(16)),
-            basic::breadcrumb_content((
-                basic::breadcrumb_link("Acme"),
-                basic::breadcrumb_separator(),
-                basic::breadcrumb_page(move || page.get().to_string()),
-            )),
+            kivact::ui::breadcrumb(move || vec![
+                kivact::interaction::ListItem::new("root", "Acme"),
+                kivact::interaction::ListItem::new("current", page.get().to_string()),
+            ])
+            .separator(|| icon("chevron-right").style(style().size(14, 14))),
         ))
         .style(style().height(48).padding_x(12).gap(8).align_items(Align::Center)),
         kivact::ui::heading(move || page.get().to_string(), 4).style(style().padding(12)),
@@ -102,7 +102,7 @@ fn account() -> impl IntoView {
 
 ## 今どこにいるかを示す
 
-パンくずは、リンク、区切り、現在のページを並べた `basic::breadcrumb_content((..))` です。リンクは `.on_press(..)` を取り、現在のページはリンクではありません。
+`kivact::ui::breadcrumb(items)` にキー付きの `ListItem` を渡します。最後の項目が現在のページで、それ以前の項目を押すと `.on_activate(..)` がキーを受け取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -110,17 +110,17 @@ use kivact_ui_basic as basic;
 
 fn trail() -> impl IntoView {
     let at = signal(String::from("Components"));
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("Home").on_press(move || at.set("Home".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_link("Components").on_press(move || at.set("Components".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page(at),
-    ))
+    kivact::ui::breadcrumb(move || vec![
+        kivact::interaction::ListItem::new("home", "Home"),
+        kivact::interaction::ListItem::new("components", "Components"),
+        kivact::interaction::ListItem::new("current", at.get()),
+    ])
+    .on_activate(move |key| at.set(if key == "home" { "Home" } else { "Components" }.into()))
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
 }
 ```
 
-隠した階層の代わりに、区切りの間へ `basic::breadcrumb_ellipsis()` を置きます。名前の一覧だけで足りるなら、`basic::breadcrumb(vec!["Home".to_string(), "Docs".to_string()])` が文字だけからパンくず全体を作ります。
+省略する階層は無効な項目にして、`.item(..)` スロットで ellipsis を描きます。`.separator(..)` で区切りのアイコンを渡し、右から左の境界では `chevron-left` を使います。
 
 ## メニューバーを足す
 

@@ -111,8 +111,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 
 | Key | English default |
 |---|---|
-| `basic.breadcrumb.label` | Breadcrumb |
-| `basic.breadcrumb.more` | More |
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
@@ -230,6 +228,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `heading`
 - `input_group`
 - `navigation_menu`
+- `breadcrumb`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

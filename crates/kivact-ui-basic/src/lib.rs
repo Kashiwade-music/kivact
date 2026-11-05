@@ -105,10 +105,6 @@ pub use attachment::{
     attachment_action, attachment_group,
 };
 pub use badge::BadgeVariant;
-pub use breadcrumb::{
-    BreadcrumbLink, breadcrumb, breadcrumb_content, breadcrumb_ellipsis, breadcrumb_link,
-    breadcrumb_page, breadcrumb_separator,
-};
 pub use card::{CardLook, CardSize};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
 pub use chat::{
