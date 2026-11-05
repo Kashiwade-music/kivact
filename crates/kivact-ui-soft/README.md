@@ -51,7 +51,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
 | Citation / Code / Code Block | `citation`, `code`, `code_block` |
-| Collapsible | `collapsible`, `collapsible_group`. Disclosure state belongs to the binding. |
+| Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selection)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
 | Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
 | Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
 | Date Input | `date_input`, `date_range_input`, `date_time_input` |

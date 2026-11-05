@@ -140,6 +140,16 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            disclosure: kivact::ui::DisclosureTokens {
+                motion: kivact::ui::DisclosureMotion {
+                    transition: Some(Transition::spring(Spring {
+                        stiffness: 157.91,
+                        damping: 25.13,
+                        mass: 1.0,
+                    })),
+                    ..Default::default()
+                },
+            },
             combobox: kivact::ui::ComboboxTokens {
                 foreground: colors.text_primary,
                 muted: colors.text_secondary,

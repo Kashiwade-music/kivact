@@ -82,7 +82,7 @@ fn layout_components_mount_and_interact() {
                     }),
             ),
             soft::selectable_card("Select option", selected, text("Selectable")),
-            soft::collapsible("Disclosure", open).content(|| text("Disclosure body")),
+            kivact::ui::disclosure("Disclosure", open).content(|| text("Disclosure body")),
             soft::pagination(page).total_pages(20),
             soft::tab_list("Test tabs", tab)
                 .tabs([soft::tab("one", "One"), soft::tab("two", "Two")])

@@ -19,7 +19,6 @@ mod choice_list;
 mod citation;
 mod code;
 mod code_block;
-mod collapsible;
 mod color;
 mod color_name;
 mod container_reveal;
@@ -28,6 +27,7 @@ mod date_range_input;
 mod date_time_input;
 mod date_touch;
 mod dialog_header;
+mod disclosure_appearance;
 mod divider;
 mod elevation;
 mod empty_state;
@@ -135,11 +135,6 @@ pub use code_block::{
     CodeBlock, CodeBlockContainer, CodeBlockSize, CodeBlockWidth, CodeLanguage, CodeLanguageInput,
     SyntaxTheme, TokenKind, code_block,
 };
-pub use collapsible::{
-    ChevronPosition, Collapsible, CollapsibleConfig, CollapsibleGroup, CollapsibleState,
-    DisclosureDensity, GroupMode, collapsible, collapsible_default, collapsible_group,
-    use_collapsible,
-};
 pub use color::{Colors, DataColors, HueColors, Hues, SyntaxColors};
 pub use color_name::ColorName;
 pub use container_reveal::{
@@ -152,6 +147,7 @@ pub use date_touch::DatePresentation;
 pub use dialog_header::{
     DialogHeader, DrawerHeader, EdgeCompensation, dialog_header, drawer_header,
 };
+pub use disclosure_appearance::{ChevronPosition, DisclosureDensity, DisclosureVariant};
 pub use divider::{Divider, DividerVariant, divider};
 pub use elevation::Elevation;
 pub use empty_state::{EmptyState, empty_state};
