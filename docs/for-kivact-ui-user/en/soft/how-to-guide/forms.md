@@ -25,7 +25,7 @@ fn event_form(save: impl Fn(String, CalendarDate) + 'static) -> impl IntoView {
                 }
             }),
     ))
-    .style(|| style().gap(soft::tokens().spacing.s3))
+    .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
 }
 ```
 

@@ -1,7 +1,7 @@
 //! Role: Present a centered empty-state title, description, and actions.
 use kivact::custom::NodeRefExt;
 
-use crate::{TextColor, TextJustify, TextKind, text, tokens};
+use crate::{TextColor, TextJustify, TextKind, text};
 use kivact::interaction::announcer;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
@@ -141,7 +141,11 @@ impl IntoView for EmptyState {
                 .heading_level(heading_level)
                 .style(move || {
                     if compact.get() {
-                        style().font_size(tokens().typography.size_md)
+                        style().font_size(
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .typography
+                                .size_md,
+                        )
                     } else {
                         style()
                     }
@@ -152,7 +156,11 @@ impl IntoView for EmptyState {
                     .justify(TextJustify::Center)
                     .style(move || {
                         if compact.get() {
-                            style().font_size(tokens().typography.size_sm)
+                            style().font_size(
+                                kivact::style::use_tokens::<crate::Tokens>()
+                                    .typography
+                                    .size_sm,
+                            )
                         } else {
                             style()
                         }
@@ -175,7 +183,7 @@ impl IntoView for EmptyState {
         let actions = actions.map(|actions| {
             node()
                 .style(move || {
-                    let spacing = &tokens().spacing;
+                    let spacing = &kivact::style::use_tokens::<crate::Tokens>().spacing;
                     let direction = if compact.get() {
                         Direction::Column
                     } else if use_direction().get() == ReadingDirection::Rtl {
@@ -195,7 +203,7 @@ impl IntoView for EmptyState {
 
         root.with_node(move |node| {
             node.base_style(move || {
-                let spacing = &tokens().spacing;
+                let spacing = &kivact::style::use_tokens::<crate::Tokens>().spacing;
                 let (gap, padding_x, padding_y) = if compact.get() {
                     (spacing.s2, spacing.s4, spacing.s4)
                 } else {

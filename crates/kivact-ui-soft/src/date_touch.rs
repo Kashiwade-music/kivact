@@ -2,7 +2,7 @@
 use crate::bottom_sheet::{SheetHeight, bottom_sheet};
 use crate::calendar::{Calendar, calendar, month_title};
 use crate::recipes_field::frame;
-use crate::theme_access::tokens;
+
 use crate::time_of_day::TimeOfDay;
 use kivact::custom::PartState;
 use kivact::custom::clock_now;
@@ -98,7 +98,7 @@ pub(super) fn trigger(
             }
         })
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             frame(&t, &PartState::default(), false)
                 .min_width(120)
                 .height(t.sizes.control_md)
@@ -386,7 +386,7 @@ fn wheel(
     // The band stays fixed while the labels move. Extra labels prevent a
     // projected release from exposing the ends of the rendered strip.
     let band = node().hit_testable(false).style(move || {
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         style()
             .position(Position::Absolute)
             .left(0)
@@ -410,7 +410,7 @@ fn wheel(
                 .hit_testable(false)
                 .child(text(shown))
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let distance = delta as f64 * WHEEL_ROW + offset.get();
                     let falloff = (distance.abs() / 146.0).min(1.0);
                     let selected = distance.abs() <= WHEEL_ROW / 2.0;
@@ -557,7 +557,7 @@ fn wheel(
             Handled::Yes
         })
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .position(Position::Relative)
                 .direction(Direction::Column)

@@ -3,8 +3,8 @@ use kivact::state::IntoValue;
 use kivact::view::IntoViewFn;
 use kivact::view::ViewFn;
 
+use crate::Elevation;
 use crate::feedback::icon_box;
-use crate::{Elevation, tokens};
 use kivact::custom::Owner;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
@@ -194,7 +194,7 @@ impl IntoView for Banner {
         };
 
         let foreground = move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             match status {
                 BannerStatus::Info => t.colors.on_info_muted,
                 BannerStatus::Warning => t.colors.on_warning_muted,
@@ -213,7 +213,7 @@ impl IntoView for Banner {
                 }
             };
             let chevron = icon("chevron-down").style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .color(foreground())
                     .rotate(if details.is_open().get() { 180 } else { 0 })
@@ -272,7 +272,11 @@ impl IntoView for Banner {
                         .shrink(0)
                         .max_width(pct(100))
                         .margin_y(-4)
-                        .color(tokens().colors.text_primary)
+                        .color(
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .colors
+                                .text_primary,
+                        )
                 })
             })
         });
@@ -301,7 +305,7 @@ impl IntoView for Banner {
         let header =
             row((icon_box(leading_icon, 20.0), label, action_area)).with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let background = match status {
                         BannerStatus::Info => t.colors.info_muted,
                         BannerStatus::Warning => t.colors.warning_muted,
@@ -331,7 +335,7 @@ impl IntoView for Banner {
             show(open, move || {
                 let mut area = column(content.call(())).with_node(move |node| {
                     node.base_style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let radius = if card { t.radius.container } else { 0.0 };
                         style()
                             .padding_y(12)
@@ -356,7 +360,7 @@ impl IntoView for Banner {
         root.hidden(move || dismissed.get())
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     elevation.apply(
                         style().radius(if card { t.radius.container } else { 0.0 }),
                         &t,

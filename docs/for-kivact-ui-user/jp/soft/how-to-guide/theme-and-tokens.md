@@ -2,7 +2,7 @@
 
 [English](../../../en/soft/how-to-guide/theme-and-tokens.md)
 
-スタイルクロージャー内で `soft::tokens()` を読み取ると、独自のサーフェスも最も近いテーマに追従します。背景・境界線・文字には用途別の色を使い、余白と角丸には周囲のコントロールと共通のトークンを使います。
+スタイルクロージャー内で `kivact::style::use_tokens::<soft::Tokens>()` を読み取ると、独自のサーフェスも最も近いテーマに追従します。背景・境界線・文字には用途別の色を使い、余白と角丸には周囲のコントロールと共通のトークンを使います。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -14,7 +14,7 @@ fn project_summary() -> impl IntoView {
         soft::text("Three milestones remain.").color(soft::TextColor::Secondary),
     ))
     .style(|| {
-        let p = soft::tokens();
+        let p = kivact::style::use_tokens::<soft::Tokens>();
         style()
             .padding(p.spacing.s4)
             .gap(p.spacing.s2)

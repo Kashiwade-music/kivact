@@ -1,6 +1,6 @@
 //! Role: Render themed body, supporting, code, and display text.
 
-use crate::{TextStyle, Tokens, Typography, tokens};
+use crate::{TextStyle, Tokens, Typography};
 use kivact::state::Value;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
@@ -263,7 +263,7 @@ impl IntoView for Text {
         } = self;
         let root = root.with_node(move |node| {
             node.base_style(move || {
-                let tokens = tokens();
+                let tokens = kivact::style::use_tokens::<crate::Tokens>();
                 let mut look = type_style(
                     &tokens,
                     kind.get(),

@@ -183,7 +183,11 @@ impl<K: ItemKey> IntoView for SegmentedControl<K> {
             .disabled(disabled)
             .style(move || {
                 if disabled.get() {
-                    style().opacity(crate::tokens().sizes.disabled_opacity)
+                    style().opacity(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .sizes
+                            .disabled_opacity,
+                    )
                 } else {
                     style()
                 }

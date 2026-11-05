@@ -9,7 +9,7 @@ use crate::nav_heading::{
 use crate::side_navigation::items::{logical_row, side_row_style};
 use crate::side_navigation::{SideNavItem, side_nav_item};
 use crate::stack::{Space, rtl};
-use crate::tokens;
+
 use kivact::interaction::Delays;
 use kivact::interaction::use_dialog;
 use kivact::interaction::use_hover_surface;
@@ -132,7 +132,7 @@ impl IntoView for TopNav {
                     provide(TopNavCx { anchor, align }, move || {
                         node()
                             .style(move || {
-                                let t = tokens();
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
                                 style()
                                     .direction(if mode == ShellNavMode::Drawer {
                                         Direction::Column
@@ -164,7 +164,7 @@ impl IntoView for TopNav {
             };
             let leading = node()
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(if mode == ShellNavMode::Drawer {
                             Direction::Column
@@ -186,7 +186,7 @@ impl IntoView for TopNav {
             root.node_ref(anchor)
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let base = style().min_width(0).gap(t.spacing.s1);
                         if mode == ShellNavMode::Drawer {
                             base.direction(Direction::Column).width(pct(100))
@@ -335,7 +335,7 @@ fn top_item_style(
     disabled: bool,
     open: bool,
 ) -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.label;
     let base = style()
         .direction(logical_row())
@@ -456,7 +456,7 @@ fn menu_trigger(label: Value<String>, open: Value<bool>) -> Node {
     row((
         text(label),
         icon("chevron-down").style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .size(t.sizes.icon_sm, t.sizes.icon_sm)
                 .rotate(if open.get() { 180 } else { 0 })
@@ -608,7 +608,7 @@ impl IntoView for TopNavMegaMenu {
                         .style(style().grow(1).shrink(1).basis(200).min_width(0))
                 });
                 let body = row((grid, featured)).style(|| {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(logical_row())
                         .wrap(true)
@@ -620,7 +620,7 @@ impl IntoView for TopNavMegaMenu {
                         )
                 });
                 let panel = scroll(body).node_ref(surface_ref).style(|| {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     popup_surface()
                         .max_height(pct(100) - t.spacing.s3)
                         .clip(true)
@@ -694,7 +694,7 @@ impl IntoView for TopNavMegaMenuItem {
             let glyph = icon.map(|glyph| {
                 node()
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let size = if drawer {
                             t.sizes.control_md
                         } else {
@@ -717,16 +717,16 @@ impl IntoView for TopNavMegaMenuItem {
             ))
             .style(move || {
                 style().min_width(0).gap(if drawer {
-                    tokens().spacing.s0_5
+                    kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5
                 } else {
-                    tokens().spacing.s1
+                    kivact::style::use_tokens::<crate::Tokens>().spacing.s1
                 })
             });
             let root = root
                 .name(title)
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let base = style()
                             .direction(logical_row())
                             .align_items(Align::Start)
@@ -768,7 +768,7 @@ impl IntoView for TopNavMegaMenuItem {
 }
 
 fn title_style() -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.body;
     style()
         .font_size(role.size_px)
@@ -858,7 +858,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
                         }
                     })
                     .style(|| {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         supporting()
                             .direction(logical_row())
                             .gap(t.spacing.s1)
@@ -874,12 +874,12 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
                 link,
             ))
             .style(|| {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style().padding(t.spacing.s4).gap(t.spacing.s2)
             });
             root.with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let base = style()
                         .direction(Direction::Column)
                         .clip(true)

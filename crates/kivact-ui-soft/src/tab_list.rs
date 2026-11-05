@@ -2,7 +2,7 @@
 use crate::scrollable_area::use_scroll_overflow;
 use crate::side_navigation::items::logical_row;
 use crate::stack::{ContainerInset, rtl};
-use crate::tokens;
+
 use kivact::draw::linear_gradient;
 use kivact::geometry::Point;
 use kivact::interaction::ListActivation;
@@ -542,7 +542,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
                 })
                 .collect::<Vec<_>>();
             let strip = row(children).node_ref(strip_ref).style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let (left, right) = inset.sides();
                 let mut base = style()
                     .direction(logical_row())
@@ -616,7 +616,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
             };
             let strip = node()
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let (left, right) = inset.sides();
                     let base = style()
                         .direction(Direction::Column)
@@ -649,7 +649,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
 }
 
 fn tab_style(look: Look, selected: bool, disabled: bool) -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.label;
     let base = style()
         .position(Position::Relative)
@@ -687,7 +687,7 @@ fn tab_style(look: Look, selected: bool, disabled: bool) -> kivact::style::Style
 }
 
 fn tab_height(size: ControlSize) -> f64 {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     match size {
         ControlSize::Small => t.sizes.control_sm,
         ControlSize::Large => t.sizes.control_lg,
@@ -702,11 +702,15 @@ fn stable_label(label: Value<String>, selected: Value<bool>) -> Node {
             .style(|| {
                 style()
                     .opacity(0.0)
-                    .weight(tokens().typography.weight_semibold)
+                    .weight(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .typography
+                            .weight_semibold,
+                    )
                     .text_wrap(false)
             }),
         text(label).style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .weight(if selected.get() {
                     t.typography.weight_semibold
@@ -738,7 +742,7 @@ fn tab_glyph(glyph: View, size: ControlSize, hidden: impl Fn() -> bool + 'static
 
 fn indicator(look: Look, selected: Value<bool>, menu: bool) -> Node {
     node().hit_testable(false).style(move || {
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         let gap = if look.divider {
             t.spacing.s1 + t.sizes.border_width
         } else {
@@ -797,7 +801,7 @@ fn tab_scroll_arrow(
             }
         })
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let base = style()
                 .position(Position::Absolute)
                 .top(0)
@@ -883,8 +887,10 @@ fn tab_menu_view<K: ItemKey>(
                     .transition(
                         TransitionProp::Paint,
                         Transition::tween(
-                            tokens().motion.fast as f64,
-                            tokens().motion.ease_standard,
+                            kivact::style::use_tokens::<crate::Tokens>().motion.fast as f64,
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .motion
+                                .ease_standard,
                         ),
                     )
             }),
@@ -914,7 +920,7 @@ fn tab_menu_view<K: ItemKey>(
                 ))
                 .with_node(move |node| node.part(part))
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let role = t.typography.body;
                     let input = state.get().input;
                     let base = style()
@@ -942,14 +948,14 @@ fn tab_menu_view<K: ItemKey>(
             },
         );
         let header = text(label).style(|| {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             crate::nav_heading::supporting()
                 .padding_x(t.spacing.s3)
                 .padding_y(t.spacing.s1)
                 .weight(t.typography.weight_semibold)
         });
         let panel = column((header, rows)).style(|| {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let mut base = style()
                 .padding(t.spacing.s1)
                 .gap(t.spacing.s0_5)
@@ -971,7 +977,7 @@ fn tab_menu_view<K: ItemKey>(
 
 fn icon_check() -> Node {
     icon("check").style(|| {
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         style()
             .size(t.sizes.icon_sm, t.sizes.icon_sm)
             .color(t.colors.accent)

@@ -1,5 +1,5 @@
 //! Role: Render syntax-highlighted code with line and copy controls.
-use crate::{IconSize, SyntaxColors, icon, tokens, visually_hidden};
+use crate::{IconSize, SyntaxColors, icon, visually_hidden};
 use kivact::i18n::message;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
@@ -331,7 +331,10 @@ impl IntoView for CodeBlock {
             container,
             syntax_theme,
         } = self;
-        let palette = memo(move || syntax_theme.unwrap_or_else(|| tokens().colors.syntax));
+        let palette = memo(move || {
+            syntax_theme
+                .unwrap_or_else(|| kivact::style::use_tokens::<crate::Tokens>().colors.syntax)
+        });
         let lang = match (language.label(), diff.get()) {
             ("", false) => String::new(),
             ("", true) => "diff.get()".to_owned(),
@@ -363,7 +366,7 @@ impl IntoView for CodeBlock {
             move || !can_collapse.get() || expanded.get(),
             move |open| expanded.set(open),
         ));
-        let motion = tokens().motion;
+        let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
         let copied = signal(false);
         let copied_label = message("soft.code_block.copied", "Copied");
         let controls = row((
@@ -375,7 +378,7 @@ impl IntoView for CodeBlock {
         .style(|| {
             style()
                 .align_items(Align::Center)
-                .gap(tokens().spacing.s1)
+                .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
                 .shrink(0)
         });
         let header_title = dynamic(can_collapse, move |can_collapse| {
@@ -402,7 +405,11 @@ impl IntoView for CodeBlock {
                 ))
                 .with_node(move |node| node.part(disclosure.trigger()))
                 .name(disclosure_label)
-                .style(|| style().gap(tokens().spacing.s1).align_items(Align::Center))
+                .style(|| {
+                    style()
+                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
+                        .align_items(Align::Center)
+                })
             } else {
                 label
             }
@@ -467,7 +474,7 @@ impl IntoView for CodeBlock {
         let inside = if has_header {
             column((
                 row((header_title, controls)).style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let mut look = style()
                         .justify_content(Justify::SpaceBetween)
                         .align_items(Align::Center)
@@ -490,15 +497,15 @@ impl IntoView for CodeBlock {
                 node().style(style().grow(1).min_width(0)).child(body),
                 controls.style(|| {
                     style()
-                        .margin_x(tokens().spacing.s2)
-                        .margin_top(tokens().spacing.s2)
+                        .margin_x(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+                        .margin_top(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
                 }),
             ))
         };
         let root = root.node_ref(host);
         root.with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let look = style()
                     .direction(Direction::Column)
                     .min_width(0)
@@ -638,7 +645,7 @@ fn render_lines(
             );
             let gutter = numbered.then(|| {
                 text(format!("{:>digits$}", index + 1)).style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .shrink(0)
                         .padding_right(p.spacing.s3)
@@ -652,12 +659,12 @@ fn render_lines(
             let marker_text = marker.map(|marker| {
                 text(marker.to_string()).style(move || {
                     style()
-                        .margin_right(tokens().spacing.s2)
+                        .margin_right(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
                         .color(palette.get().punctuation)
                 })
             });
             row((gutter, marker_text, code)).style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let c = palette.get();
                 let look = style().align_items(Align::Start).padding_x(p.spacing.s4);
                 if highlighted {
@@ -675,7 +682,7 @@ fn render_lines(
         })
         .collect::<Vec<_>>();
     column(rows).style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         let metrics = p.typography.code;
         style()
             .padding_y(p.spacing.s3)

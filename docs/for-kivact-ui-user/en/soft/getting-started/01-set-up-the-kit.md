@@ -17,7 +17,7 @@ fn main() -> kivact::Result<()> {
                 soft::heading(1, "Settings"),
                 soft::text("Manage your profile and appearance."),
             ))
-            .style(|| style().gap(soft::tokens().spacing.s3))
+            .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
         })
 }
 ```

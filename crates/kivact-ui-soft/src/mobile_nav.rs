@@ -1,7 +1,7 @@
 //! Role: Render the responsive Neutral navigation drawer and its toggle.
 use crate::layout::LayoutInset;
 use crate::stack::{ContainerInset, rtl};
-use crate::tokens;
+
 use kivact::interaction::use_dialog;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
@@ -279,7 +279,7 @@ impl IntoView for MobileNav {
                     }),
                 };
                 let scrim = node().style(|| {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let hidden = style().opacity(0.0);
                     style()
                         .position(Position::Fixed)
@@ -303,7 +303,7 @@ impl IntoView for MobileNav {
                         text(label)
                             .with_node(move |node| node.part(behavior.title()))
                             .style(|| {
-                                let t = tokens();
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
                                 let text = t.typography.heading2;
                                 style()
                                     .font_size(text.size_px)
@@ -325,7 +325,7 @@ impl IntoView for MobileNav {
                 .hide_label(true)
                 .on_press(move || open.set(false));
                 let header = row((title, close)).style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(if rtl() {
                             Direction::RowReverse
@@ -352,7 +352,7 @@ impl IntoView for MobileNav {
                         .style(|| {
                             style()
                                 .direction(Direction::Column)
-                                .padding(tokens().spacing.s2)
+                                .padding(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
                         })
                         .child(contents),
                 )
@@ -360,7 +360,7 @@ impl IntoView for MobileNav {
                 let panel = node()
                     .node_ref(drawer)
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let offset = if right { pct(100) } else { pct(-100) };
                         let hidden = style().translate_x(offset);
                         let base = style()

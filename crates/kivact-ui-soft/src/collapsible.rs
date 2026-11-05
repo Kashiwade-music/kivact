@@ -1,6 +1,6 @@
 //! Role: Render Neutral disclosure triggers and coordinate groups.
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::interaction::use_disclosure;
 use kivact::motion::Spring;
 use kivact::motion::Transition;
@@ -200,7 +200,7 @@ impl IntoView for Collapsible {
                 ChevronPosition::End => "chevron-down",
             })
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let mirrored = position == ChevronPosition::Start && rtl();
                 let degrees = match (position, open.get()) {
                     (ChevronPosition::Start, true) if mirrored => -90,
@@ -228,7 +228,7 @@ impl IntoView for Collapsible {
             .with_node(move |node| node.part(disclosure.trigger()))
             .disabled(disabled)
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(if rtl() {
                         Direction::RowReverse
@@ -250,7 +250,7 @@ impl IntoView for Collapsible {
                 let region = node()
                     .with_node(move |node| node.part(disclosure.content()))
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .direction(Direction::Column)
                             .font_size(t.typography.body.size_px)
@@ -261,7 +261,7 @@ impl IntoView for Collapsible {
                     });
                 let details = node()
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .direction(Direction::Column)
                             .shrink(0)
@@ -296,7 +296,7 @@ impl IntoView for Collapsible {
 }
 
 fn padding_for(density: Option<DisclosureDensity>) -> f64 {
-    let s = tokens().spacing;
+    let s = kivact::style::use_tokens::<crate::Tokens>().spacing;
     match density {
         Some(DisclosureDensity::Compact) => s.s1,
         Some(DisclosureDensity::Balanced) => s.s2,
@@ -404,7 +404,7 @@ impl IntoView for CollapsibleGroup {
                 .map(|(index, item)| {
                     if dividers.get() && index > 0 {
                         item.style(move || {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             style().border_top(t.sizes.border_width, t.colors.border)
                         })
                     } else {

@@ -23,7 +23,7 @@ fn project_view() -> impl IntoView {
             _ => soft::heading(2, "Summary"),
         }),
     ))
-    .style(|| style().gap(soft::tokens().spacing.s4))
+    .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s4))
 }
 ```
 

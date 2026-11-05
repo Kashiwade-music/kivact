@@ -1,7 +1,7 @@
 //! Role: Single and multiple option selection and custom selector popovers.
 use crate::recipes_field::frame;
 use crate::selector_surface::{SelectorPresentation, sheet, touch_tap};
-use crate::theme_access::tokens;
+
 use crate::typeahead::Typeahead;
 use kivact::custom::PartState;
 use kivact::interaction::DialogMode;
@@ -190,7 +190,7 @@ pub fn complex_selector_with_presentation<V: IntoView>(
             Handled::No
         })
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             frame(&t, &PartState::default(), false)
                 .height(32)
                 .padding_x(12)

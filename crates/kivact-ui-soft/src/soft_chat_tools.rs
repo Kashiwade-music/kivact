@@ -3,7 +3,7 @@
 use kivact::state::IntoBinding;
 use std::time::Duration;
 
-use crate::{SpinnerShade, SpinnerSize, spinner, tokens};
+use crate::{SpinnerShade, SpinnerSize, spinner};
 use kivact::custom::EditState;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_disclosure;
@@ -144,7 +144,7 @@ impl ChatToolCalls {
 }
 
 fn disclosure_style() -> kivact::style::Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -193,7 +193,7 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
     .name(status_label)
     .hidden(move || matches!(status.get(), ToolStatus::Pending | ToolStatus::Running))
     .style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         style()
             .shrink(0)
             .single_line()
@@ -205,7 +205,11 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
     });
     let label = text(move || call.with(|call| call.name.clone())).style(move || {
         style()
-            .font_family(tokens().typography.family_code)
+            .font_family(
+                kivact::style::use_tokens::<crate::Tokens>()
+                    .typography
+                    .family_code,
+            )
             .weight(500)
             .min_width(24)
             .single_line()
@@ -228,7 +232,11 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
         .hidden(move || call.with(|call| call.additions == 0))
         .style(move || {
             style()
-                .color(tokens().colors.text_success)
+                .color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_success,
+                )
                 .single_line()
                 .shrink(0)
         });
@@ -236,7 +244,11 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
         .hidden(move || call.with(|call| call.deletions == 0))
         .style(move || {
             style()
-                .color(tokens().colors.text_error)
+                .color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_error,
+                )
                 .single_line()
                 .shrink(0)
         });
@@ -250,7 +262,11 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
                 .min_height(24)
                 .min_width(0)
                 .align_items(Align::Center)
-                .color(tokens().colors.text_secondary)
+                .color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_secondary,
+                )
         }),
         status_label,
     )
@@ -259,7 +275,7 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
 fn tool_chevron(open: impl IntoValue<bool>) -> Node {
     let open = open.into_value();
     icon("chevron-down").style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         style()
             .size(14, 14)
             .shrink(0)
@@ -288,7 +304,7 @@ impl IntoView for ChatToolCalls {
             move |shown| open.set(shown),
         );
         let disclosure = use_disclosure(rows_open);
-        let motion = tokens().motion;
+        let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
         let title = label.unwrap_or_else(|| {
             message_with(
                 "soft.chat.tool_calls.group_label",
@@ -355,7 +371,13 @@ impl IntoView for ChatToolCalls {
                         },
                     ))
                     .hidden(move || call.with(|call| call.error.is_none()))
-                    .style(move || style().padding_left(22).color(tokens().colors.text_error));
+                    .style(move || {
+                        style().padding_left(22).color(
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .colors
+                                .text_error,
+                        )
+                    });
                     let summary = if let Some(detail) = &detail {
                         let expanded = signal(false);
                         let disclosure =
@@ -460,7 +482,7 @@ impl ChatToken {
 }
 
 fn token_colors(tone: ChatTokenTone) -> (kivact::style::Color, kivact::style::Color) {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     match tone {
         ChatTokenTone::Neutral => (p.colors.neutral, p.colors.text_primary),
         ChatTokenTone::Info => (p.colors.info_muted, p.colors.on_info_muted),

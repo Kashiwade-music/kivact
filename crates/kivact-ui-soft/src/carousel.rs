@@ -1,7 +1,7 @@
 //! Role: Render a horizontal Neutral carousel with measured scroll controls.
 use crate::scrollable_area::{ScrollAxis, use_scroll_overflow};
 use crate::stack::{Space, rtl};
-use crate::tokens;
+
 use kivact::draw::linear_gradient;
 use kivact::geometry::Point;
 use kivact::motion::Transition;
@@ -440,7 +440,7 @@ fn pill(handle: CarouselHandle, next: bool) -> impl IntoView {
         "chevron-left"
     })
     .style(|| {
-        let size = tokens().sizes.icon_xsm;
+        let size = kivact::style::use_tokens::<crate::Tokens>().sizes.icon_xsm;
         style().size(size, size)
     });
     button(label)
@@ -452,7 +452,7 @@ fn pill(handle: CarouselHandle, next: bool) -> impl IntoView {
         .disabled(move || !handle.can_scroll(next))
         .on_press(move || handle.step(next))
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let visible = handle.can_scroll(next);
             let size = t.sizes.control_sm;
             let base = style()

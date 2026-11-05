@@ -1,6 +1,6 @@
 //! Role: Static table elements and presentation helpers for the standard DataTable.
 
-use crate::{ItemDensity, tokens};
+use crate::ItemDensity;
 use kivact::state::Binding;
 use kivact::state::IntoBinding;
 use kivact::state::IntoText;
@@ -61,7 +61,9 @@ pub fn table_footer(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
         .with_node(move |node| node.role(Role::RowGroup))
         .with_node(move |node| {
-            node.base_style(move || style().background(tokens().colors.bg_muted))
+            node.base_style(move || {
+                style().background(kivact::style::use_tokens::<crate::Tokens>().colors.bg_muted)
+            })
         })
 }
 
@@ -118,7 +120,7 @@ impl IntoView for TableRow {
         } = self;
         root.with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let mut row = style()
                     .width(pct(100))
                     .min_width(0)
@@ -224,7 +226,7 @@ impl IntoView for TableCell {
         } = self;
         root.with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let mut cell = style()
                     .direction(Direction::Row)
                     .justify_content(align.get().justify())
@@ -315,7 +317,7 @@ fn toolbar_button(
         .on_press(action)
         .with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(Direction::Row)
                     .justify_content(Justify::Center)
@@ -349,7 +351,7 @@ impl<K: PropValue> IntoView for TableSelectionToolbar<K> {
         root.hidden(move || count.get() == 0)
             .with_node(move |node| {
                 node.base_style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(Direction::Row)
                         .align_items(Align::Center)
@@ -404,7 +406,11 @@ pub fn table_pagination(
                     .gap(8)
                     .margin_top(8)
                     .font_size(12)
-                    .color(tokens().colors.text_secondary)
+                    .color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
             })
         })
 }
@@ -416,7 +422,11 @@ pub fn table_row_index(index: impl IntoValue<usize>) -> impl kivact::view::Compo
             style()
                 .font_size(12)
                 .text_align(kivact::style::TextAlign::End)
-                .color(tokens().colors.text_secondary)
+                .color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_secondary,
+                )
         })
     })
 }
@@ -440,7 +450,7 @@ pub fn table_row_status(
         .name(label)
         .with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let color = match tone.get() {
                     RowStatusTone::Neutral => p.colors.icon_secondary,
                     RowStatusTone::Success => p.colors.text_success,

@@ -5,7 +5,6 @@ use kivact::state::PropValue;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::tokens;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::node;
@@ -86,10 +85,11 @@ where
         indicator: kivact::view::ViewFn::from(|hidden: Value<Vec<T>>| {
             text(move || format!("+{}", hidden.with(Vec::len)))
                 .style(move || {
-                    style()
-                        .padding_x(5)
-                        .font_size(12)
-                        .color(tokens().colors.text_secondary)
+                    style().padding_x(5).font_size(12).color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
                 })
                 .into_view()
         }),

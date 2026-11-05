@@ -1,5 +1,5 @@
 //! Role: Reveal in-place actions on hover and keyboard focus.
-use crate::tokens;
+
 use kivact::interaction::Delays;
 use kivact::interaction::use_delayed;
 use kivact::motion::Transition;
@@ -76,7 +76,7 @@ pub fn reveal_content(
     let fade_out = if kivact::platform::is_motion_reduced().get() {
         0
     } else {
-        tokens().motion.fast
+        kivact::style::use_tokens::<crate::Tokens>().motion.fast
     };
     let in_flow = use_delayed(
         visible,
@@ -86,7 +86,7 @@ pub fn reveal_content(
         },
     );
     move || {
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         let base = style()
             .opacity(if visible.get() { 1.0 } else { 0.0 })
             .transition(

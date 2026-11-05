@@ -6,7 +6,6 @@ use kivact::view::ViewFn;
 use kivact::state::ItemKey;
 use kivact::state::PropValue;
 
-use crate::tokens;
 use kivact::i18n::message;
 use kivact::interaction::use_follow_end;
 use kivact::state::IntoText;
@@ -131,7 +130,11 @@ impl IntoView for ChatMessage {
                     .font_size(12)
                     .line_height(20.0 / 12.0)
                     .weight(600)
-                    .color(tokens().colors.text_secondary)
+                    .color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
             })
         });
         let name_offset = if name.is_some() { 20 } else { 0 };
@@ -284,7 +287,7 @@ impl IntoView for ChatBubble {
         };
         let bubble = node()
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let mut bubble = style()
                     .direction(Direction::Column)
                     .min_width(0)
@@ -335,7 +338,11 @@ impl IntoView for ChatBubble {
                     .font_size(12)
                     .line_height(20.0 / 12.0)
                     .weight(600)
-                    .color(tokens().colors.text_secondary)
+                    .color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
             })
         });
         let metadata =
@@ -442,7 +449,7 @@ impl IntoView for ChatMetadata {
                     MessageStatus::Error => "! Error",
                 })
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().color(if status.get() == MessageStatus::Error {
                         p.colors.text_error
                     } else {
@@ -465,7 +472,11 @@ impl IntoView for ChatMetadata {
                     .margin_top(4)
                     .font_size(12)
                     .line_height(20.0 / 12.0)
-                    .color(tokens().colors.text_secondary)
+                    .color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
             })
         })
         .child(segments)
@@ -519,7 +530,12 @@ impl IntoView for ChatSystemMessage {
         let divider = self.variant.get() == SystemMessageVariant::Divider;
         let line = || {
             divider.then(|| {
-                node().style(move || style().grow(1).height(1).background(tokens().colors.border))
+                node().style(move || {
+                    style()
+                        .grow(1)
+                        .height(1)
+                        .background(kivact::style::use_tokens::<crate::Tokens>().colors.border)
+                })
             })
         };
         self.root
@@ -533,7 +549,11 @@ impl IntoView for ChatSystemMessage {
                         .gap(if divider { 12 } else { 6 })
                         .font_size(12)
                         .line_height(20.0 / 12.0)
-                        .color(tokens().colors.text_secondary)
+                        .color(
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .colors
+                                .text_secondary,
+                        )
                 })
             })
             .child((line(), self.icon, text(self.text), line()))
@@ -742,7 +762,7 @@ pub fn chat_scroll_button(
         .hidden(move || !visible.get())
         .with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)

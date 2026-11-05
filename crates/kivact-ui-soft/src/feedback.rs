@@ -1,5 +1,5 @@
 //! Role: Render badges, loading placeholders, and status indicators.
-use crate::tokens;
+
 use kivact::motion::Animated;
 use kivact::motion::Easing;
 use kivact::motion::Repeat;
@@ -86,7 +86,7 @@ impl IntoView for Badge {
         self.root
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let c = &t.colors;
                     let (fill, ink) = match variant {
                         BadgeVariant::Info => (c.info, c.on_info),
@@ -197,7 +197,7 @@ impl IntoView for Skeleton {
         self.root
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let radius = match radius {
                         SkeletonRadius::None | SkeletonRadius::R0 => 0.0,
                         SkeletonRadius::R1 => t.radius.inner,
@@ -285,7 +285,7 @@ impl IntoView for StatusDot {
         self.root
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let c = &t.colors;
                     let (fill, ink) = match variant {
                         StatusDotVariant::Success => (c.success, c.on_success),

@@ -97,7 +97,7 @@ The standard APIs in this table come from `kivact::ui`.
 
 ## Theme, tokens, fonts, and icons
 
-Pass `ThemeMode::Light` or `ThemeMode::Dark` to `theme`. Read `tokens()`
+Pass `ThemeMode::Light` or `ThemeMode::Dark` to `theme`. Read `kivact::style::use_tokens::<Tokens>()`
 inside a style closure to access the active Neutral colors, spacing, radius,
 typography, shadows, and motion. Register Figtree with the app when supplying
 the font. The catalog includes the font and license. `ICON_NAMES` lists the
@@ -355,3 +355,41 @@ Number, date, and time filter fields validate values entered as text.
 | C-22, C-25, C-38 | Text shows a hint when native shaping reports truncation. Citation and timestamp use solid underlines. Text supports measured cap-height trimming. `form_row(..)` places labels and fields in the shared tracks of a horizontal-label form. |
 | C-26 | Soft respects Kivact's reduced-motion preference and the application's override. System detection depends on the platform. |
 | C-33, C-34 | The kit supplies its own static list. Overflow List measures mounted items and uses provisional widths before layout. |
+
+## Filled standard recipes
+
+<!-- kivact-recipes -->
+- `button`
+- `button_content`
+- `button_icon`
+- `button_busy`
+- `toggle`
+- `checkbox`
+- `checkbox_indicator`
+- `checkbox_check`
+- `checkbox_mixed`
+- `switch`
+- `switch_track`
+- `switch_thumb`
+- `radio_group`
+- `slider`
+- `progress`
+- `text_input`
+- `text_area`
+- `field`
+- `number_input`
+- `tag_input`
+- `select`
+- `menu`
+- `dialog`
+- `tooltip`
+- `toast`
+- `command_palette`
+- `tabs`
+- `disclosure`
+- `splitter`
+- `split`
+- `list`
+- `tree`
+- `data_table`
+<!-- /kivact-recipes -->

@@ -1,6 +1,6 @@
 //! Role: Render a named, wrapping Neutral breadcrumb trail.
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::state::IntoValue;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
@@ -105,7 +105,7 @@ impl IntoView for Breadcrumbs {
                     row((separator, item.build(variant.get(), current)))
                         .with_node(move |node| node.role(Role::ListItem))
                         .style(|| {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             style()
                                 .direction(logical_row())
                                 .align_items(Align::Center)
@@ -117,7 +117,7 @@ impl IntoView for Breadcrumbs {
                 row(children)
                     .with_node(move |node| node.role(Role::List))
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let text = if variant.get() == BreadcrumbsVariant::Default {
                             t.typography.body
                         } else {
@@ -211,7 +211,7 @@ impl BreadcrumbItem {
             .node_ref(hover_ref)
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let base = style()
                         .direction(logical_row())
                         .align_items(Align::Center)
@@ -243,7 +243,7 @@ impl BreadcrumbItem {
                 title,
                 popup.as_ref().map(|_| {
                     icon("chevron-down").style(|| {
-                        let size = tokens().sizes.icon_xsm;
+                        let size = kivact::style::use_tokens::<crate::Tokens>().sizes.icon_xsm;
                         style().size(size, size)
                     })
                 }),

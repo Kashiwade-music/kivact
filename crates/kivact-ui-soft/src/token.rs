@@ -3,7 +3,7 @@ use kivact::state::IntoValue;
 
 use crate::feedback::icon_box;
 use crate::recipe_style::{overlay, ring};
-use crate::{HueColors, Hues, tokens};
+use crate::{HueColors, Hues};
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::icon;
@@ -182,7 +182,7 @@ impl IntoView for Token {
             row(())
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let mut base = style()
                             .direction(direction)
                             .gap(4)
@@ -257,7 +257,7 @@ impl IntoView for Token {
                 .on_press(move || remove.call(()))
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .size(24, 24)
                             .shrink(0)
@@ -276,7 +276,7 @@ impl IntoView for Token {
         self.root
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let (fill, ink) = color
                         .hue(&t.colors.hue)
                         .map_or((t.colors.neutral, t.colors.text_primary), |hue| {

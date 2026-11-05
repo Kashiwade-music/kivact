@@ -2,7 +2,7 @@
 
 [日本語](../../../jp/soft/how-to-guide/theme-and-tokens.md)
 
-Read `soft::tokens()` inside a style closure so a custom surface follows the nearest theme. Use semantic colors for the surface, border, and text. Use the spacing and radius tokens to align the custom view with the surrounding controls.
+Read `kivact::style::use_tokens::<soft::Tokens>()` inside a style closure so a custom surface follows the nearest theme. Use semantic colors for the surface, border, and text. Use the spacing and radius tokens to align the custom view with the surrounding controls.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -14,7 +14,7 @@ fn project_summary() -> impl IntoView {
         soft::text("Three milestones remain.").color(soft::TextColor::Secondary),
     ))
     .style(|| {
-        let p = soft::tokens();
+        let p = kivact::style::use_tokens::<soft::Tokens>();
         style()
             .padding(p.spacing.s4)
             .gap(p.spacing.s2)

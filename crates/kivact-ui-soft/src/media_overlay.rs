@@ -1,6 +1,6 @@
 //! Role: Layer actions or labels within the bounds of their media.
 use crate::recipes_dialog::{focus as focus_ring, motion};
-use crate::theme_access::tokens;
+
 use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::style::Align;
@@ -108,7 +108,7 @@ impl MediaOverlay {
         let content = column(self.content.call(()))
             .hidden(move || !visible.get())
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let background = match self.scrim {
                     OverlayScrim::Dark => p.colors.overlay_scrim,
                     OverlayScrim::Light => rgba(0xffffff, 0.6),
@@ -147,7 +147,7 @@ impl MediaOverlay {
             .style(|| {
                 style()
                     .overflow(Overflow::Hidden)
-                    .focus_visible(focus_ring(&tokens()))
+                    .focus_visible(focus_ring(&kivact::style::use_tokens::<crate::Tokens>()))
             })
     }
 }

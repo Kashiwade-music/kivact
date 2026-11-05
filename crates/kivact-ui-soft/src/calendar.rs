@@ -1,5 +1,5 @@
 //! Role: Soft calendar and its single-date and range selection surfaces.
-use crate::theme_access::tokens;
+
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday, message, message_with};
 use kivact::interaction::CalendarOptions;
 use kivact::interaction::CalendarSelection;
@@ -508,7 +508,7 @@ impl IntoView for Calendar {
                                             .justify_content(Justify::Center)
                                             .font_size(14)
                                             .weight(600)
-                                            .color(tokens().colors.text_primary)
+                                            .color(kivact::style::use_tokens::<crate::Tokens>().colors.text_primary)
                                     }),
                                 next,
                             ))
@@ -532,7 +532,7 @@ impl IntoView for Calendar {
                                                         .align_items(Align::Center)
                                                         .justify_content(Justify::Center)
                                                         .font_size(12)
-                                                        .color(tokens().colors.text_secondary)
+                                                        .color(kivact::style::use_tokens::<crate::Tokens>().colors.text_secondary)
                                                 })
                                                 .into_view()
                                         })
@@ -566,7 +566,7 @@ impl IntoView for Calendar {
                                                                     )
                                                                     .font_size(14)
                                                                     .color(
-                                                                        tokens()
+                                                                        kivact::style::use_tokens::<crate::Tokens>()
                                                                             .colors
                                                                             .text_secondary,
                                                                     )
@@ -577,7 +577,7 @@ impl IntoView for Calendar {
                                                     let part = grid.cell(month, date);
                                                     let state = part.state();
                                                     let band = node().style(move || {
-                                                        let t = tokens();
+                                                        let t = kivact::style::use_tokens::<crate::Tokens>();
                                                         let band = style()
                                                             .position(Position::Absolute)
                                                             .top(2)
@@ -694,7 +694,7 @@ impl IntoView for Calendar {
                                                         ));
                                                     }
                                                     let puck = move || {
-                                                        let t = tokens();
+                                                        let t = kivact::style::use_tokens::<crate::Tokens>();
                                                         let state = state.get();
                                                         let selected = state.edge;
                                                         let mut day = style()

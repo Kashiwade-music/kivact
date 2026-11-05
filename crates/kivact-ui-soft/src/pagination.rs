@@ -1,6 +1,6 @@
 //! Role: Render one-based pagination with Neutral controls and a moving page window.
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::i18n::{message, message_with};
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
@@ -319,7 +319,7 @@ impl IntoView for Pagination {
                                     }
                                     Cell::LeftGap | Cell::RightGap => row(text("…"))
                                         .style(move || {
-                                            let t = tokens();
+                                            let t = kivact::style::use_tokens::<crate::Tokens>();
                                             let dimension = dimension(size.get());
                                             style()
                                                 .min_width(dimension)
@@ -423,7 +423,7 @@ impl IntoView for Pagination {
                         .style(controls_style),
                     ))
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .direction(logical_row())
                             .align_items(Align::Center)
@@ -486,11 +486,11 @@ fn controls_style() -> kivact::style::Style {
     style()
         .direction(logical_row())
         .align_items(Align::Center)
-        .gap(tokens().spacing.s1)
+        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
 }
 
 fn dimension(size: ControlSize) -> f64 {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     if size == ControlSize::Small {
         t.sizes.control_sm
     } else {
@@ -499,7 +499,7 @@ fn dimension(size: ControlSize) -> f64 {
 }
 
 fn secondary() -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     style()
         .font_size(t.typography.supporting.size_px)
         .line_height(1.4286)
@@ -525,7 +525,7 @@ fn page_button(model: Model, page: u32, size: ControlSize) -> impl IntoView {
         })
         .style(move || {
             if model.page() == page {
-                style().background(tokens().colors.neutral)
+                style().background(kivact::style::use_tokens::<crate::Tokens>().colors.neutral)
             } else {
                 style()
             }
@@ -642,7 +642,7 @@ fn dots(model: Model, total: u32, size: ControlSize) -> Node {
                     Handled::Yes
                 })
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let dot = if size == ControlSize::Small {
                         t.spacing.s1_5
                     } else {

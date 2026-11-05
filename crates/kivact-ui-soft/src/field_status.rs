@@ -1,5 +1,5 @@
 //! Role: Present an attached or detached field validation message.
-use crate::theme_access::tokens;
+
 use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::view::Node;
@@ -104,7 +104,7 @@ impl IntoView for FieldStatus {
                 text(label),
             ))
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let c = &t.colors;
                 let (background, color) = match kind {
                     StatusKind::Error => (c.error_muted, c.on_error_muted),

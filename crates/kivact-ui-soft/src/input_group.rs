@@ -1,6 +1,6 @@
 //! Role: Join independently framed form controls in one labelled row.
 use crate::recipes_field::height;
-use crate::theme_access::tokens;
+
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
@@ -39,7 +39,8 @@ fn join<V: NodeBuilder + IntoView>(
     let (left, right) = if rtl { (last, first) } else { (first, last) };
     let reference = node_ref();
     let focus_within = reference.focus_within();
-    let size_style = move || style().height(height(&tokens(), size));
+    let size_style =
+        move || style().height(height(&kivact::style::use_tokens::<crate::Tokens>(), size));
     let child = if try_use_context::<InheritMemberSize>()
         .map(|value| value.get())
         .is_some_and(|setting| setting.0)
@@ -51,7 +52,7 @@ fn join<V: NodeBuilder + IntoView>(
     child
         .node_ref(reference)
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let left = if left { t.radius.element } else { 0.0 };
             let right = if right { t.radius.element } else { 0.0 };
             let s = style().radius_corners(left, right, right, left);
@@ -168,7 +169,7 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
         root.child(
             column((
                 text(label).node_ref(label_ref).style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .font_size(t.typography.body.size_px)
                         .weight(t.typography.weight_medium)
@@ -184,7 +185,7 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
 
 pub fn input_group_text(label: impl IntoText) -> impl kivact::view::Component {
     node().child(text(label)).style(move || {
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         Style::default()
             .padding_x(8)
             .align_items(Align::Center)

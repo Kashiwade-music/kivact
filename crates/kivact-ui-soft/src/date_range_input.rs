@@ -1,7 +1,7 @@
 //! Role: Date range field and its two-month popover.
 use crate::calendar::{Calendar, calendar_range, calendar_status};
 use crate::recipes_field::frame;
-use crate::theme_access::tokens;
+
 use kivact::custom::PartState;
 use kivact::i18n::{CalendarDate, DateRange, message};
 use kivact::interaction::DialogMode;
@@ -174,7 +174,7 @@ impl IntoView for DateRangeInput {
             .child(text(shown))
             .node_ref(trigger_ref)
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 frame(&t, &PartState::default(), false)
                     .height(t.sizes.control_md)
                     .direction(Direction::Row)
@@ -256,7 +256,7 @@ impl IntoView for DateRangeInput {
                                         }
                                     })
                                     .style(move || {
-                                        let t = tokens();
+                                        let t = kivact::style::use_tokens::<crate::Tokens>();
                                         let c = &t.colors;
                                         let s = style()
                                             .width(pct(100))
@@ -293,7 +293,7 @@ impl IntoView for DateRangeInput {
                                 .with_node(move |node| node.role(Role::Group))
                                 .name(preset_label)
                                 .style(move || {
-                                    let t = tokens();
+                                    let t = kivact::style::use_tokens::<crate::Tokens>();
                                     let s = style().min_width(140).padding(12).gap(4);
                                     if rtl {
                                         s.border_left(1, t.colors.border_emphasized)

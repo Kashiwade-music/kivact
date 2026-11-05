@@ -1,7 +1,7 @@
 //! Role: Joined Neutral action buttons with roving keyboard focus.
 use kivact::view::IntoChildren;
 
-use crate::{Elevation, tokens};
+use crate::Elevation;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::node;
@@ -147,7 +147,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
                         .enumerate()
                         .map(|(index, child)| {
                             node().child(child).style(move || {
-                                let t = tokens();
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
                                 let [tl, tr, br, bl] = corners(
                                     vertical,
                                     rtl,
@@ -168,7 +168,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
             .roving_focus(self.orientation.get())
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     elevation.apply(
                         style()
                             .direction(direction)
@@ -208,7 +208,7 @@ impl IntoView for GroupMember {
         };
         button
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let first = index == 0;
                 let last = index + 1 == layout.count.get();
                 let [tl, tr, br, bl] =

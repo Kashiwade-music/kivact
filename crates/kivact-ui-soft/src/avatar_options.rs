@@ -1,5 +1,4 @@
 //! Role: Share Avatar sizes and silhouettes across the avatar family.
-use crate::tokens;
 
 /// The diameter of an avatar.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -42,7 +41,7 @@ pub enum AvatarShape {
 
 impl AvatarShape {
     pub(crate) fn radius(self) -> f64 {
-        let r = &tokens().radius;
+        let r = &kivact::style::use_tokens::<crate::Tokens>().radius;
         match self {
             Self::Circle => r.full,
             Self::Rounded => r.element,

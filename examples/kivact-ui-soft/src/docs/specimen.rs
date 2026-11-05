@@ -4,7 +4,7 @@ use kivact::view::IntoView;
 use kivact::view::{Node, column, text};
 
 pub(super) fn specimen(title: &str, view: impl IntoView, source: &'static str) -> Node {
-    let tokens = kivact_ui_soft::tokens();
+    let tokens = kivact::style::use_tokens::<kivact_ui_soft::Tokens>();
     column((
         text(title.to_owned()).style(style().weight(600)),
         column(view).style(style().gap(12).padding(16)),
@@ -16,7 +16,7 @@ pub(super) fn specimen(title: &str, view: impl IntoView, source: &'static str) -
         ),
     ))
     .style(|| {
-        let tokens = kivact_ui_soft::tokens();
+        let tokens = kivact::style::use_tokens::<kivact_ui_soft::Tokens>();
         style()
             .gap(8)
             .padding(12)

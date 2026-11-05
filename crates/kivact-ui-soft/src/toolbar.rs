@@ -5,7 +5,7 @@ use kivact::view::IntoChildren;
 
 use std::time::Duration;
 
-use crate::{SectionVariant, kbd, tokens};
+use crate::{SectionVariant, kbd};
 use kivact::motion::Easing;
 use kivact::motion::Transition;
 use kivact::state::IntoText;
@@ -258,7 +258,7 @@ impl IntoView for Toolbar {
                 })
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let c = &t.colors;
                         let fill = match variant {
                             SectionVariant::Section => c.bg_surface,
@@ -339,7 +339,7 @@ pub(crate) fn keyboard_hint(
         ))
         .hit_testable(false)
         .style(|| {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let base = style()
                 .gap(4)
                 .padding_x(8)

@@ -1,5 +1,5 @@
 //! Role: Labelled rows of checkbox and radio options.
-use crate::theme_access::tokens;
+
 use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
 use kivact::view::Node;
@@ -127,7 +127,13 @@ fn checkbox_row(
 ) -> Node {
     let control_ref = node_ref();
     let details = show_some(description, |description| {
-        text(description).style(move || style().font_size(12).color(tokens().colors.text_secondary))
+        text(description).style(move || {
+            style().font_size(12).color(
+                kivact::style::use_tokens::<crate::Tokens>()
+                    .colors
+                    .text_secondary,
+            )
+        })
     });
     let control = checkbox(label, checked)
         .hide_label(true)
@@ -142,7 +148,7 @@ fn checkbox_row(
             }
         })
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .align_items(Align::Center)
                 .min_height(32)

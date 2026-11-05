@@ -1,7 +1,7 @@
 //! Role: Render the Neutral card surface and propagate its content insets.
+use crate::Elevation;
 use crate::layout::LayoutInset;
 use crate::stack::{ContainerInset, Space};
-use crate::{Elevation, tokens};
 use kivact::custom::PartState;
 use kivact::draw::Shadow;
 use kivact::interaction::use_button;
@@ -143,7 +143,7 @@ impl IntoView for Card {
             disabled,
         } = self;
         provide((), move || {
-            let token = tokens();
+            let token = kivact::style::use_tokens::<crate::Tokens>();
             let bordered = variant.get() == CardVariant::Default;
             let logical_padding = padding.map_or(token.spacing.card_padding, Space::px);
             let physical_padding = (logical_padding
@@ -197,7 +197,7 @@ impl IntoView for Card {
             };
             let mut root = root.with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let c = t.colors;
                     let bg = match variant.get() {
                         CardVariant::Default => c.bg_card,
@@ -281,7 +281,7 @@ impl IntoView for Card {
 
 fn card_overlay(input: Value<PartState>) -> Node {
     node().hit_testable(false).style(move || {
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         let state = input.get();
         let color = if state.disabled {
             Color::TRANSPARENT

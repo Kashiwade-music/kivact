@@ -2,7 +2,6 @@
 use kivact::state::IntoValue;
 use kivact::state::Value;
 
-use crate::tokens;
 use kivact::draw::LineCap;
 use kivact::draw::Path;
 use kivact::draw::Stroke;
@@ -131,7 +130,7 @@ impl IntoView for Spinner {
         frame_loop(move |frame| elapsed.set(frame.now.as_secs_f64() * 1000.0))
             .start(FrameRate::Display);
         let glyph = node().style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let (ink, track) = match shade {
                 SpinnerShade::Default => (t.colors.accent, t.colors.track),
                 SpinnerShade::Subtle => (t.colors.text_secondary, t.colors.track),
@@ -179,7 +178,11 @@ impl IntoView for Spinner {
                 node()
                     .style(|| {
                         style()
-                            .color(tokens().colors.text_primary)
+                            .color(
+                                kivact::style::use_tokens::<crate::Tokens>()
+                                    .colors
+                                    .text_primary,
+                            )
                             .font_size(14)
                             .line_height(20.0 / 14.0)
                             .weight(700)

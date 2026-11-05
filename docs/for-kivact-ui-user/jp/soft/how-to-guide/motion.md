@@ -12,7 +12,7 @@ use kivact_ui_soft as soft;
 
 fn hover_surface() -> impl IntoView {
     soft::text("Build information").style(|| {
-        let p = soft::tokens();
+        let p = kivact::style::use_tokens::<soft::Tokens>();
         style()
             .padding(p.spacing.s2)
             .radius(p.radius.element)

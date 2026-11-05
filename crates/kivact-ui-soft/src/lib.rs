@@ -21,6 +21,7 @@ mod code;
 mod code_block;
 mod collapsible;
 mod color;
+mod color_name;
 mod container_reveal;
 mod date_input;
 mod date_range_input;
@@ -94,7 +95,6 @@ mod stepper;
 mod tab_list;
 mod text;
 mod theme;
-mod theme_access;
 mod theme_scope;
 mod thumbnail;
 mod time_input;
@@ -145,6 +145,7 @@ pub use collapsible::{
     use_collapsible,
 };
 pub use color::{Colors, DataColors, HueColors, Hues, SyntaxColors};
+pub use color_name::ColorName;
 pub use container_reveal::{
     RevealContent, RevealForce, RevealVisibility, reveal_container, reveal_content,
 };
@@ -267,7 +268,6 @@ pub use text::{
     WordBreak, text,
 };
 pub use theme::theme;
-pub use theme_access::tokens;
 pub use theme_scope::{MediaMode, media_theme, syntax_theme};
 pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
 pub use time_input::{TimeInput, time_input};

@@ -1,7 +1,7 @@
 //! Role: Render Neutral progress steps and a width-sensitive summary.
 use crate::side_navigation::items::logical_row;
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::i18n::message;
 use kivact::motion::Transition;
 use kivact::view::IntoViewFn;
@@ -286,7 +286,7 @@ impl IntoView for Stepper {
             let list = node()
                 .with_node(move |node| node.role(Role::List))
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(if vertical {
                             Direction::Column
@@ -324,7 +324,7 @@ impl IntoView for Stepper {
                                     text(step.label).style(move || step_text(true, false, false)),
                                 ))
                                 .style(|| {
-                                    let t = tokens();
+                                    let t = kivact::style::use_tokens::<crate::Tokens>();
                                     style()
                                         .direction(logical_row())
                                         .align_items(Align::Center)
@@ -337,7 +337,7 @@ impl IntoView for Stepper {
                             .style(|| {
                                 style()
                                     .align_items(Align::Center)
-                                    .gap(tokens().spacing.s0_5)
+                                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
                             })
                         })
                 });
@@ -353,7 +353,7 @@ impl IntoView for Stepper {
                     style()
                         .direction(logical_row())
                         .align_items(Align::Center)
-                        .gap(tokens().spacing.s2)
+                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
                         .justify_content(if controls {
                             Justify::SpaceBetween
                         } else {
@@ -366,7 +366,7 @@ impl IntoView for Stepper {
                     node.base_style(|| {
                         style()
                             .direction(Direction::Column)
-                            .gap(tokens().spacing.s2)
+                            .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
                     })
                 })
                 .child((list, summary))
@@ -435,7 +435,7 @@ impl Step {
         let bar = node()
             .hidden(move || on_track && !cx.compact.get())
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let base = style()
                     .radius(t.radius.full)
                     .shrink(0)
@@ -457,7 +457,7 @@ impl Step {
         let indicator = step_indicator(summary, cx);
         let connector = |leading: bool, absent: bool| {
             node().style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let filled = if leading {
                     index <= cx.active.get()
                 } else {
@@ -508,7 +508,11 @@ impl Step {
         let optional = optional.get().then(|| {
             text(message("soft.stepper.optional", "• Optional")).style(|| {
                 style()
-                    .color(tokens().colors.text_secondary)
+                    .color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
                     .text_wrap(false)
             })
         });
@@ -518,7 +522,7 @@ impl Step {
             Some(indicator.call(()))
         };
         let label_row = row((leading, label_node, optional, end)).style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .direction(logical_row())
                 .align_items(Align::Center)
@@ -531,7 +535,7 @@ impl Step {
         });
         let description = description.map(|description| {
             text(description).style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let base = description_style();
                 if has_indicator && !on_track {
                     if rtl() {
@@ -545,7 +549,7 @@ impl Step {
             })
         });
         let labels = column((label_row, description)).style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let base = style()
                 .padding_y(density_padding(density))
                 .padding_x(if density == StepDensity::Spacious {
@@ -581,7 +585,7 @@ impl Step {
         let content = content.map(|content| {
             node()
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let padding = if density == StepDensity::Spacious {
                         t.spacing.s3
                     } else {
@@ -608,7 +612,7 @@ impl Step {
         let track = track.map(|track| track.hidden(cx.compact));
         root.with_node(move |node| {
             node.base_style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let base = style().min_width(0).gap(t.spacing.s0_5);
                 if cx.vertical {
                     base.direction(logical_row()).align_items(Align::Stretch)
@@ -654,7 +658,7 @@ fn step_indicator(step: Summary, cx: StepperCx) -> ViewFn {
             if !number && index == active {
                 return node()
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .size(t.spacing.s4, t.spacing.s4)
                             .radius(t.radius.full)
@@ -674,16 +678,31 @@ fn step_indicator(step: Summary, cx: StepperCx) -> ViewFn {
                 )
             {
                 let (glyph, color) = match status {
-                    StepStatus::Success => ("circle-check", tokens().colors.text_success),
-                    StepStatus::Warning => ("triangle-alert", tokens().colors.text_warning),
-                    _ => ("circle-x", tokens().colors.text_error),
+                    StepStatus::Success => (
+                        "circle-check",
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_success,
+                    ),
+                    StepStatus::Warning => (
+                        "triangle-alert",
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_warning,
+                    ),
+                    _ => (
+                        "circle-x",
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_error,
+                    ),
                 };
                 return icon(glyph)
                     .style(move || style().size(16, 16).color(color))
                     .into_view();
             }
             let badge = move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let base = style()
                     .size(t.spacing.s4, t.spacing.s4)
                     .radius(t.radius.full)
@@ -710,7 +729,7 @@ fn step_indicator(step: Summary, cx: StepperCx) -> ViewFn {
         });
         node()
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .size(t.spacing.s4, t.spacing.s4)
                     .shrink(0)
@@ -728,7 +747,7 @@ fn step_indicator(step: Summary, cx: StepperCx) -> ViewFn {
 }
 
 fn indicator_colors(status: StepStatus) -> (Color, Color) {
-    let c = tokens().colors;
+    let c = kivact::style::use_tokens::<crate::Tokens>().colors;
     match status {
         StepStatus::Default => (c.accent, c.bg_surface),
         StepStatus::Accent => (c.accent, c.on_accent),
@@ -739,7 +758,7 @@ fn indicator_colors(status: StepStatus) -> (Color, Color) {
 }
 
 fn density_padding(density: StepDensity) -> f64 {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     match density {
         StepDensity::Compact => t.spacing.s1,
         StepDensity::Balanced => t.spacing.s2,
@@ -748,7 +767,7 @@ fn density_padding(density: StepDensity) -> f64 {
 }
 
 fn step_text(active: bool, future: bool, disabled: bool) -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.body;
     style()
         .font_size(role.size_px)
@@ -769,7 +788,7 @@ fn step_text(active: bool, future: bool, disabled: bool) -> kivact::style::Style
 }
 
 fn description_style() -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     style()
         .font_size(t.typography.supporting.size_px)
         .line_height(t.spacing.s4 / t.typography.supporting.size_px)

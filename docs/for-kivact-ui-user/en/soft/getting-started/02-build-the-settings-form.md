@@ -19,7 +19,7 @@ fn settings(save: impl Fn(String) + 'static) -> impl IntoView {
             .disabled(move || display_name.get().trim().is_empty())
             .on_press(move || save(display_name.get().trim().to_owned())),
     ))
-    .style(|| style().gap(soft::tokens().spacing.s3))
+    .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
 }
 ```
 

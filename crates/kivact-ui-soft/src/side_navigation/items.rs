@@ -5,7 +5,7 @@ use super::context::{SideNavCx, nav_cx};
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
 use crate::mobile_nav::use_app_shell_mobile;
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::i18n::message_with;
 use kivact::interaction::Delays;
 use kivact::interaction::DialogMode;
@@ -223,7 +223,7 @@ impl IntoView for SideNavItem {
                 .style(style().grow(1).min_width(0).single_line());
             let chevron = disclosure.map(|disclosure| {
                 let glyph = icon("chevron-down").style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .size(t.spacing.s6, t.spacing.s6)
                         .rotate(if disclosure.is_open().get() { 180 } else { 0 })
@@ -293,8 +293,11 @@ impl IntoView for SideNavItem {
                         .min_width(0)
                         .align_self(Align::Stretch)
                         .align_items(Align::Center)
-                        .gap(tokens().spacing.s2)
-                        .focus_visible(crate::recipe_style::ring(&tokens(), tokens().colors.accent))
+                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+                        .focus_visible(crate::recipe_style::ring(
+                            &kivact::style::use_tokens::<crate::Tokens>(),
+                            kivact::style::use_tokens::<crate::Tokens>().colors.accent,
+                        ))
                         .justify_content(if cx.rail() {
                             Justify::Center
                         } else {
@@ -339,7 +342,7 @@ impl IntoView for SideNavItem {
             let actions = actions.map(|actions| {
                 row(actions)
                     .hidden(move || cx.rail())
-                    .style(|| style().gap(tokens().spacing.s1))
+                    .style(|| style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1))
             });
             let bar = row((primary, separate_chevron, actions)).style(move || {
                 side_row_style(
@@ -363,10 +366,11 @@ impl IntoView for SideNavItem {
                         ..cx
                     };
                     provide(cx, move || {
-                        let group = column(child.map(|slot| slot.call(())))
-                            .style(|| style().gap(tokens().spacing.s0_5));
+                        let group = column(child.map(|slot| slot.call(()))).style(|| {
+                            style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
+                        });
                         if let Some(disclosure) = disclosure {
-                            let motion = tokens().motion;
+                            let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
                             group
                                 .with_node(move |node| node.role(Role::Group))
                                 .with_node(move |node| node.part(disclosure.content()))
@@ -403,7 +407,7 @@ impl IntoView for SideNavItem {
                     };
                     let surface = column((
                         text(label).style(|| {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             style()
                                 .padding_y(t.spacing.s1)
                                 .padding_x(t.spacing.s2)
@@ -415,7 +419,7 @@ impl IntoView for SideNavItem {
                     ))
                     .node_ref(popup_ref)
                     .style(|| {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let mut base = style()
                             .background(t.colors.bg_popover)
                             .min_width(180)
@@ -449,7 +453,7 @@ fn icon_box(
     node()
         .hidden(hidden)
         .style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .size(t.sizes.icon_sm, t.sizes.icon_sm)
                 .shrink(0)
@@ -481,7 +485,7 @@ pub(crate) fn side_row_style(
     selected: bool,
     disabled: bool,
 ) -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let height = match size {
         ControlSize::Small => t.sizes.control_sm,
         ControlSize::Large => t.sizes.control_lg,
@@ -587,7 +591,11 @@ impl IntoView for SideNavSection {
             let cx = nav_cx();
             let title = text(title).style(|| {
                 style()
-                    .weight(tokens().typography.weight_semibold)
+                    .weight(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .typography
+                            .weight_semibold,
+                    )
                     .single_line()
             });
             let header = row((
@@ -596,7 +604,7 @@ impl IntoView for SideNavSection {
             ))
             .hidden(move || header_hidden.get() || cx.rail())
             .style(|| {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(logical_row())
                     .padding_y(t.spacing.s1)
@@ -611,7 +619,7 @@ impl IntoView for SideNavSection {
             });
             root.with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let base = style()
                         .direction(Direction::Column)
                         .padding_y(t.spacing.s1)

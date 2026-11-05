@@ -6,7 +6,6 @@ use kivact::state::PropValue;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::tokens;
 use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
@@ -261,7 +260,7 @@ impl Item {
             Some(content) => content,
             None => text(label)
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .font_size(14)
                         .line_height(20.0 / 14.0)
@@ -276,7 +275,7 @@ impl Item {
             None => description.map(|value| {
                 text(value)
                     .style(move || {
-                        let p = tokens();
+                        let p = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .font_size(12)
                             .line_height(20.0 / 12.0)
@@ -309,7 +308,7 @@ impl Item {
         attached_root
             .with_node(move |node| {
                 node.base_style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let mut row = style()
                         .direction(Direction::Row)
                         .min_width(0)
@@ -603,7 +602,10 @@ impl ListAppearance {
             }
             let (index, count) = position.get();
             if self.dividers.get() && index + 1 < count {
-                row = row.border_bottom(1, tokens().colors.border);
+                row = row.border_bottom(
+                    1,
+                    kivact::style::use_tokens::<crate::Tokens>().colors.border,
+                );
             }
             row
         })

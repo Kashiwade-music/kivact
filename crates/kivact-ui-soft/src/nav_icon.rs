@@ -1,5 +1,5 @@
 //! Role: Display a round accent icon for navigation headings.
-use crate::tokens;
+
 use kivact::view::NodeBuilder;
 use kivact::view::node;
 
@@ -13,7 +13,7 @@ pub fn nav_icon(icon: impl IntoView) -> impl kivact::view::Component {
     node()
         .with_node(move |node| {
             node.base_style(|| {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let size = t.sizes.control_md;
                 style()
                     .size(size, size)
