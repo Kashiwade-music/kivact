@@ -28,6 +28,7 @@ type Constraint = Rc<dyn Fn(CalendarDate) -> bool>;
 /// A range field whose endpoints always form an ordered [`DateRange`].
 pub struct DateRangeInput {
     root: Node,
+    variants: crate::variants::Variants,
     label: Value<String>,
     value: Binding<Option<DateRange>>,
     format: Value<DateStyle>,
@@ -51,6 +52,7 @@ pub fn date_range_input(
 ) -> DateRangeInput {
     DateRangeInput {
         root: node(),
+        variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         value: range.into_binding(),
         format: DateStyle::Iso.into_value(),
@@ -69,6 +71,11 @@ pub fn date_range_input(
     }
 }
 impl DateRangeInput {
+    /// Add a visual variant shared by the field and its picker surface.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
     /// Format both endpoints.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -155,6 +162,7 @@ impl DateRangeInput {
     fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
         let Self {
             root,
+            variants,
             label,
             value,
             format,
@@ -253,6 +261,7 @@ impl DateRangeInput {
                 .child(
                     attach.view(
                         dialog(label, open)
+                            .with_variants(&variants)
                             .mode(presentation.mode())
                             .hide_title(true)
                             .content(content),
@@ -307,12 +316,14 @@ impl DateRangeInput {
             .format(format)
             .min(min)
             .max(max)
-            .presentation(presentation);
+            .presentation(presentation)
+            .with_variants(&variants);
         let mut last = date_input(message("date.end", "End date"), end)
             .format(format)
             .min(min)
             .max(max)
-            .presentation(presentation);
+            .presentation(presentation)
+            .with_variants(&variants);
         first = first.valid(start_valid);
         last = last.valid(end_valid);
         if let Some(placeholder) = placeholder {
@@ -331,7 +342,7 @@ impl DateRangeInput {
         let root = crate::layer::with_base_recipe_style(
             root,
             |r| r.date_range_input_recipes().root_recipe(),
-            &crate::variants::Variants::default(),
+            &variants,
             kivact_core::custom::PartState::default,
         );
         let trigger = button(message("date.range_open", "Choose date range"));
@@ -339,6 +350,7 @@ impl DateRangeInput {
             first,
             last,
             dialog(label, open)
+                .with_variants(&variants)
                 .mode(presentation.mode())
                 .hide_title(true)
                 .content(content)

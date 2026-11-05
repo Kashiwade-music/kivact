@@ -103,6 +103,10 @@ impl Dialog {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
+    pub(crate) fn with_variants(self, variants: &Variants) -> Self {
+        self.variants.merge(variants);
+        self
+    }
     pub fn variant(self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
