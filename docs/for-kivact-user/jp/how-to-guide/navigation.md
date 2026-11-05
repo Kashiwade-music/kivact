@@ -51,3 +51,5 @@ Stepper は実際の装飾パーツ `leading`、`trailing`、`progress`（既定
 `pagination(count, page).summary(|facts| view)` は実際の `Value<PaginationSummary>` から要約を構成します。`page` はゼロ始まり、`count` はページ数、`total_items` は省略可能な項目総数、`page_size` はページごとの項目数です。表示する先頭・末尾の項目はコールバック内で導出し、範囲の端点を複製して保存しません。`has_more` は未確定のリモート件数を表します。`PaginationItemState.mode` は実際の構造モードを投影し、点と数字のレシピでバリアントに複製する必要はありません。
 
 Dots は実際の全ページを表示します。左右キーは読み方向に従い、端で循環しながら選択と実際の対象フォーカスを移動します。点の Tab 順序には選択中の点だけが入ります。Dots は実際の対象に移動し、他のモードは既存のルートのロービングフォーカスを使用します。件数が変わると点のマウント範囲だけを作り直し、フォーカスのレジストリは持ちません。
+
+Pagination は実際の `controls`、`sizes`、`input` レシピの枠を公開し、既定は中立な `Display::Contents` です。サイズ選択は操作群の前に置き、Count/Compact/Input は既存の要約・編集欄を前後移動の間に配置します。実際の同じ要約投影を使用し、ページやフォーカスの所有者は追加しません。
