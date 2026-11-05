@@ -248,7 +248,7 @@ pub use date_time_input::{DateTimeInput, date_time_input};
 mod date_input_tokens;
 pub use date_input_tokens::DateInputTokens;
 mod carousel;
-pub use carousel::{Carousel, CarouselMode, Snap, carousel};
+pub use carousel::{Carousel, CarouselMode, CarouselSurfaceState, Snap, carousel};
 
 mod dropzone;
 pub use dropzone::{Dropzone, dropzone};
