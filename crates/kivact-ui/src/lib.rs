@@ -352,3 +352,28 @@ pub use description_list::{Description, DescriptionList, description, descriptio
 pub use heading::{Heading, HeadingState, heading};
 pub use recipes::{DescriptionListRecipes, StatRecipes};
 pub use stat::{Stat, StatState, Trend, stat};
+
+mod chat_composer;
+mod chat_message;
+mod chat_thread;
+mod chat_tokens;
+mod chat_values;
+mod code_block;
+mod code_editing;
+mod composer_history;
+mod look_chat;
+mod typing_indicator;
+pub use chat_composer::{ChatComposer, chat_composer};
+pub use chat_message::{ChatMessage, chat_message};
+pub use chat_thread::{ChatThread, chat_thread};
+pub use chat_tokens::{ChatTokens, CodeBlockTokens};
+pub use chat_values::{
+    ChatAlign, ChatComposerState, ChatMessageState, ChatMessageStatus, ChatMessageVariant,
+    ChatSender, ChatThreadState, ComposerStatus, ComposerStatusPosition, TypingIndicatorState,
+};
+pub use code_block::{CodeBlock, CodeBlockState, code_block};
+pub use recipes::{
+    ChatComposerRecipes, ChatMessageRecipes, ChatThreadRecipes, CodeBlockRecipes,
+    TypingIndicatorRecipes,
+};
+pub use typing_indicator::{TypingIndicator, typing_indicator};
