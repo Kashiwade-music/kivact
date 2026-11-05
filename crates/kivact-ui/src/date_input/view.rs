@@ -153,7 +153,7 @@ impl DateInput {
             return self.render_trigger(attach);
         }
         let Self {
-            root,
+            mut root,
             variants,
             label,
             value,
@@ -167,6 +167,8 @@ impl DateInput {
             presentation,
             configure,
         } = self;
+        let external_invalid = root.accessible_invalid();
+        let described_by = root.accessible_described_by();
         let locale = use_locale();
         let initial = value.get_untracked().map_or(Draft::Empty, Draft::Valid);
         let state = machine(
@@ -233,15 +235,36 @@ impl DateInput {
         );
         let error_ref = kivact_core::view::node_ref();
         let error = date_diagnostic(typed.state(), locale, error_ref);
-        let field = text_input(label, draft)
+        let mut field = text_input(label, draft)
             .with_node(|node| node.described_by(error_ref))
             .placeholder(placeholder)
-            .invalid(move || matches!(typed.get(), TypedDate::Editing { ref text, validation: DateValidation::Checked } if !text.trim().is_empty() || matches!(state.get().draft(), Draft::Invalid(_))))
+            .invalid(move || {
+                external_invalid.is_some_and(|invalid| invalid.get())
+                    || checked_invalid(&typed.get())
+            })
             .forward_keys(vec![Key::ArrowDown])
-            .on_key(move |event: KeyEvent| { if event.key() == Key::ArrowDown { state.send(Event::Open(OpenedBy::Input)); Handled::Yes } else { Handled::No } })
-             .on_draft_commit(move |text| {
-                if let Some(date) = value.get_untracked().filter(|date| custom_format.as_ref().is_some_and(|format| format(*date) == text)) { state.send(Event::Pick(date)); } else { typed.send(TypedEvent::Commit(text)); }
+            .on_key(move |event: KeyEvent| {
+                if event.key() == Key::ArrowDown {
+                    state.send(Event::Open(OpenedBy::Input));
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
+            .on_draft_commit(move |text| {
+                if let Some(date) = value.get_untracked().filter(|date| {
+                    custom_format
+                        .as_ref()
+                        .is_some_and(|format| format(*date) == text)
+                }) {
+                    state.send(Event::Pick(date));
+                } else {
+                    typed.send(TypedEvent::Commit(text));
+                }
             });
+        for reference in described_by {
+            field = field.with_node(|node| node.described_by(reference));
+        }
         let toggle = button(message("date.open", "Choose date"))
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
