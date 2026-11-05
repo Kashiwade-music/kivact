@@ -872,6 +872,9 @@ recipe_table! {
         item(item_recipe): crate::navigation_values::PaginationItemState = crate::look_navigation::pagination_item,
         ellipsis(ellipsis_recipe): () = crate::look_navigation::part,
         dots(dots_recipe): () = crate::look_navigation::part,
+        controls(controls_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
+        sizes(sizes_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
+        input(input_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
         summary(summary_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::part,
     }
 }
