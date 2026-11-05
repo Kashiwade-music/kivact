@@ -51,6 +51,8 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `badge`
+- `badge_label`
 - `skeleton`
 - `spinner`
 - `toolbar`

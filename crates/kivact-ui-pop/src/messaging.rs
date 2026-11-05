@@ -1,6 +1,6 @@
 //! Role: Conversation rows, bubbles and typing indicators with caller-owned state.
 
-use crate::{Hue, Tokens, avatar, badge};
+use crate::{Hue, Tokens, avatar};
 use kivact::i18n;
 use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::state::Value;
@@ -116,8 +116,8 @@ impl IntoView for Thread {
             show(
                 move || unread.get() > 0,
                 move || {
-                    badge(move || unread.get().to_string())
-                        .hue(Hue::Pink)
+                    kivact::ui::badge(move || unread.get().to_string())
+                        .variant(crate::BadgeHue::new(Hue::Pink))
                         .variant(crate::BadgeVariant::Count)
                         .into_view()
                 },

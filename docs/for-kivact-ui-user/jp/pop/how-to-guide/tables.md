@@ -39,7 +39,7 @@ fn orders() -> impl IntoView {
                     } else {
                         pop::Hue::Yellow
                     };
-                    pop::badge(order.status).hue(hue)
+                    kivact::ui::badge(order.status).variant(pop::BadgeHue::new(hue))
                 },
             ),
             DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
