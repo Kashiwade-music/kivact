@@ -351,12 +351,21 @@ fn step_contents(
         move || state().optional,
         || text(kivact_core::i18n::message("stepper.optional", "Optional")),
     );
-    let body = column((label, description, optional, extra));
-    node()
-        .style(style().direction(Direction::Row))
-        .child(indicator)
-        .child(body)
-        .child(end)
+    let body = crate::layer::with_recipe_style(
+        column((label, description, optional, extra)),
+        |r| r.stepper_recipes().body_recipe(),
+        variants,
+        state,
+    );
+    crate::layer::with_recipe_style(
+        node(),
+        |r| r.stepper_recipes().layout_recipe(),
+        variants,
+        state,
+    )
+    .child(indicator)
+    .child(body)
+    .child(end)
 }
 fn step_indicator(indicator: StepIndicator, index: usize, current: Value<usize>) -> Option<View> {
     match indicator {

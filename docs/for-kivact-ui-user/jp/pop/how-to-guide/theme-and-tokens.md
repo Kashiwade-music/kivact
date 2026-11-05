@@ -129,7 +129,7 @@ fn highlight(content: impl IntoView) -> Node {
 
 ## フォントと文字組み
 
-フォントはアプリが持ちます。同梱するファイルを `App::font` で登録し、テーマの文字設定でファミリー名を指定します。キットのカタログは、本文に Inter、日本語に Noto Sans JP を使っています。Pop の 3 つのコンポーネント（`BadgeVariant::Slant` のバッジ、アバター、番号付きの `section_heading`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` にフォールバックします。
+フォントはアプリが持ちます。同梱するファイルを `App::font` で登録し、テーマの文字設定でファミリー名を指定します。キットのカタログは、本文に Inter、日本語に Noto Sans JP を使っています。Pop の 3 つのコンポーネント（`BadgeVariant::Slant` のバッジ、アバター、番号付きの `SectionNumber`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` にフォールバックします。
 
 ```rust,no_run
 use kivact::prelude::*;

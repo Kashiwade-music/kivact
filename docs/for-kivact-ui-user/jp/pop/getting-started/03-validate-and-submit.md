@@ -168,6 +168,7 @@ mod tests {
             },
         );
         start.type_text("2026-10-01");
+        start.press_key(Key::Enter);
         screen.get_by_text("今日以降の日付を選んでください");
     }
 }
@@ -181,7 +182,7 @@ mod tests {
 
 **検証はアプリが持ちます。** それぞれの `memo` が、シグナルから値を導き出します。`memo` は、読んだシグナルが変わったときだけ再計算されます。`.error(name_error)` は `Option<String>` を受け取り、問題があるあいだ `Some` になります。すると欄はコントロールの下にメッセージを出し、コントロールを無効な状態として印を付け、スクリーンリーダー向けにメッセージを関連付けます。名前とメールのエラーは `attempted` も読むので、ユーザーが一度ボタンを押すまで静かなままです。
 
-**`kivact::ui::date_input(label, optional_value)`** は、カレンダーのポップアップが付いた編集可能な日付欄です。テキストは `YYYY-MM-DD` の形式で、シグナル（`birth`）は、テキストが完全で実在する日付になったときだけ変わります。入力途中の文字が状態に届くことはありません。`.calendar(|calendar| calendar.today(today))` は呼び出し側が指定します。そのためコンポーネントの動きが予測しやすく、テストもしやすくなります。プログラムは `CalendarDate::today()` を渡し、テストは固定の日付を渡します。
+**`kivact::ui::date_input(label, optional_value)`** は、カレンダーのポップアップが付いた編集可能な日付欄です。テキストは `YYYY-MM-DD` の形式で、シグナル（`birth`）は、完全で実在する日付を Enter またはフォーカス移動で確定したときだけ変わります。入力途中の文字が状態に届くことはありません。`.calendar(|calendar| calendar.today(today))` は呼び出し側が指定します。そのためコンポーネントの動きが予測しやすく、テストもしやすくなります。プログラムは `CalendarDate::today()` を渡し、テストは固定の日付を渡します。
 
 **`.valid(signal)`** は、テキストが実在する日付のあいだ `true`、そうでなければ `false` を書き込みます。コンポーネントは自前の形式エラー（"Use YYYY-MM-DD" や "This date does not exist"）を表示します。「過去であること」のような業務ルールはアプリの責任です。`birth_error` と `start_error` は、テキストが有効なときだけ値を検査するので、2 つのメッセージが重なることはありません。
 

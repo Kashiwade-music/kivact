@@ -1335,3 +1335,8 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 ### SM-K924 controlled visibility の補完
 
 - Alert.visible(Binding<bool>) がある場合は実 binding だけを可視性の authority とする。Local Shown/Dismissed と controlled source は排他的な型で選ぶ。controlled 側は source への参照と復帰先 history だけを持ち、visible bool を別 signal/state に写さない。拒否された setter は非表示・復帰・完了通知を起こさず、on_dismiss は受理後の完了通知。request callback は caller binding setter へ写す。
+
+### SM-K927 date sheet の月年 panel
+
+- **場所**: Core date input の BottomSheet 内 Calendar / MonthYear 切り替え。
+- **解消後**: `DateSheetPanel::{Calendar, MonthYear}` を actual sheet content owner の Machine が持つ。閉じた picker に独立した無意味な phase を残さない。date-time の Date/Time は既存 Open panel payload を使い、Save date で Time、Save time で閉じる。range の一つ目は anchor/preview を stage し、二つ目だけを caller binding に確定、Cancel は binding を書かない。

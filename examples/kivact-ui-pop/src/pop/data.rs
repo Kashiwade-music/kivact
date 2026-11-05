@@ -265,9 +265,69 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                     .style(style().gap(8)),
                     columns(
                         (
-                            ui::progress_ring(72.0, "出席率", ui::Hue::Blue.into_value()),
-                            ui::progress_ring(45.0, "予算消化", ui::Hue::Yellow.into_value()),
-                            ui::progress_ring(91.0, "達成率", ui::Hue::Mint.into_value()),
+                            {
+                                let percent: kivact::state::Value<f64> =
+                                    kivact::state::IntoValue::into_value(72.0);
+                                let label = kivact::state::IntoText::into_text_value("出席率");
+                                kivact::view::column((
+                                    kivact::ui::progress(move || Some(percent.get() / 100.0))
+                                        .name(label)
+                                        .variant(kivact::ui::ProgressVariant::Ring)
+                                        .variant(ui::ProgressHue(ui::Hue::Blue.into_value())),
+                                    kivact::view::text(label).style(
+                                        kivact::style::style()
+                                            .font_size(12)
+                                            .color(kivact::style::ColorToken::TextMuted),
+                                    ),
+                                ))
+                                .style(
+                                    kivact::style::style()
+                                        .align_items(kivact::style::Align::Center)
+                                        .gap(6),
+                                )
+                            },
+                            {
+                                let percent: kivact::state::Value<f64> =
+                                    kivact::state::IntoValue::into_value(45.0);
+                                let label = kivact::state::IntoText::into_text_value("予算消化");
+                                kivact::view::column((
+                                    kivact::ui::progress(move || Some(percent.get() / 100.0))
+                                        .name(label)
+                                        .variant(kivact::ui::ProgressVariant::Ring)
+                                        .variant(ui::ProgressHue(ui::Hue::Yellow.into_value())),
+                                    kivact::view::text(label).style(
+                                        kivact::style::style()
+                                            .font_size(12)
+                                            .color(kivact::style::ColorToken::TextMuted),
+                                    ),
+                                ))
+                                .style(
+                                    kivact::style::style()
+                                        .align_items(kivact::style::Align::Center)
+                                        .gap(6),
+                                )
+                            },
+                            {
+                                let percent: kivact::state::Value<f64> =
+                                    kivact::state::IntoValue::into_value(91.0);
+                                let label = kivact::state::IntoText::into_text_value("達成率");
+                                kivact::view::column((
+                                    kivact::ui::progress(move || Some(percent.get() / 100.0))
+                                        .name(label)
+                                        .variant(kivact::ui::ProgressVariant::Ring)
+                                        .variant(ui::ProgressHue(ui::Hue::Mint.into_value())),
+                                    kivact::view::text(label).style(
+                                        kivact::style::style()
+                                            .font_size(12)
+                                            .color(kivact::style::ColorToken::TextMuted),
+                                    ),
+                                ))
+                                .style(
+                                    kivact::style::style()
+                                        .align_items(kivact::style::Align::Center)
+                                        .gap(6),
+                                )
+                            },
                         ),
                         3,
                     ),
@@ -333,8 +393,8 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                     .style(style().gap(8))
                                 }),
                         )),
-                        column((
-                            ui::key_value(
+                        kivact::ui::description_list((
+                            kivact::ui::description(
                                 "依頼ID",
                                 row((
                                     text("REQ-2026-1003").style(
@@ -358,7 +418,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                         }),
                                 )),
                             ),
-                            ui::key_value(
+                            kivact::ui::description(
                                 "担当",
                                 row((
                                     {
@@ -374,12 +434,12 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 ))
                                 .style(style().gap(8).align_items(Align::Center)),
                             ),
-                            ui::key_value(
+                            kivact::ui::description(
                                 "ステータス",
                                 kivact::ui::badge("進行中").variant(ui::BadgeVariant::Dot),
                             ),
-                            ui::key_value("期限", text("2026/10/10 (土) 18:00")),
-                            ui::key_value(
+                            kivact::ui::description("期限", text("2026/10/10 (土) 18:00")),
+                            kivact::ui::description(
                                 "エリア",
                                 row((
                                     kivact::view::icon("map-pin"),

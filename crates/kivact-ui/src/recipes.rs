@@ -879,6 +879,8 @@ recipe_table! {
         previous(previous_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
         next(next_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
         item(item_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_item,
+        layout(layout_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_layout,
+        body(body_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_body,
         indicator(indicator_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
         label(label_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
         description(description_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,

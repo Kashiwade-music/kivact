@@ -142,3 +142,26 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 - [業務画面で数値・状態・レコードを見せる](status-and-figures.md)
 - [日付と期間を選ばせる](dates-and-calendars.md): カレンダーの文言のキーについて。
 - トーストの API は `cargo doc -p kivact --open` の `kivact::ui::Toast`、`Toaster`、`toast_region`、Pop 全体のコンポーネントは `cargo doc -p kivact-ui-pop --open` で確認できます。
+
+メッセージのログには標準の `chat_thread`、`chat_message(author)`、`chat_composer`、`typing_indicator` を使います。`PopBubble` はコンパクトな吹き出しです。`.sender(..)` は著者名とは独立した参加者の役割、`.content(..)` は任意のビュー、`.time(..)` はアプリが整形した時刻です。段落のグループは `ChatBubbleGroup::First`、`Middle`、`Last` を持つメッセージを並べ、最初にアバター、最後に時刻を置きます。共有のログが末尾への追従を持ち、履歴、ストリーミング、revision はアプリが持ちます。`pop::thread` は選択、未読数、プレビューを持つ会話の一覧行として残ります。標準の `code_block` は行番号、ハイライト、折り返し、コピーのフィードバックを提供します。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn conversation() -> impl IntoView {
+    let draft=signal(String::new());
+    let sent=signal(Vec::<String>::new());
+    kivact::ui::chat_thread((
+        kivact::ui::chat_message("Haruka").content(text("The report is ready."))
+            .time("09:12").variant(pop::PopBubble),
+        for_index(sent,|_,message|kivact::ui::chat_message("You")
+            .sender(kivact::ui::ChatSender::User)
+            .content(text(message)).variant(pop::PopBubble)),
+    )).composer(kivact::ui::chat_composer(draft)
+        .on_submit(move|message|sent.update(|sent|sent.push(message))))
+}
+fn source() -> impl IntoView {
+    kivact::ui::code_block("let answer = 42;".to_owned())
+        .title("Example").language("Rust").line_numbers(true).wrap(true)
+}
+```

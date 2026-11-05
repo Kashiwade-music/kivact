@@ -308,7 +308,12 @@ impl IntoView for Calendar {
             on_activate: self.on_activate,
         };
         let body = calendar_body(&self, month, rules, focus_day, autofocus);
-        let status = kivact_core::view::text(announcement)
+        let status = kivact_core::view::node()
+            .name(kivact_core::i18n::message_with(
+                "calendar.showing_month",
+                "Showing {month}",
+                move || [("month", announcement.get())],
+            ))
             .with_node(|n| n.role(Role::Status))
             .live_region(kivact_core::view::LiveRegion::Polite)
             .style(

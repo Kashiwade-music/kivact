@@ -14,6 +14,13 @@ pub(crate) fn dropzone(r: DropzoneRecipes) -> DropzoneRecipes {
 fn root(t: &Theme, s: &Look<DropzoneState>) -> Style {
     let p = t.ext::<Tokens>();
     let hovered = matches!(**s, DropzoneState::DragOver { .. });
+    let invalid = matches!(
+        **s,
+        DropzoneState::Failed(_)
+            | DropzoneState::DragOver {
+                valid: kivact::interaction::Validity::Invalid(_)
+            }
+    );
     style()
         .direction(Direction::Column)
         .align_items(Align::Center)
@@ -21,7 +28,16 @@ fn root(t: &Theme, s: &Look<DropzoneState>) -> Style {
         .padding_x(16)
         .padding_y(24)
         .gap(4)
-        .border(1, if hovered { p.blue } else { p.line_strong })
+        .border(
+            1,
+            if invalid {
+                p.red
+            } else if hovered {
+                p.blue
+            } else {
+                p.line_strong
+            },
+        )
         .border_style(BorderStyle::Dashed)
         .radius(10)
         .background(if hovered {

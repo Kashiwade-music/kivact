@@ -309,12 +309,11 @@ pub(super) fn navigation(notify: Callback<(ui::Hue, String, String)>) -> Node {
         "09", "Navigation", "パンくず・ステッパー・アコーディオン・タイムライン",
         cards_grid((
             card("パンくず・ステッパー", column((
-                ui::breadcrumb(["ホーム", "依頼", "中央区 外郭地区", "REQ-1003"].into_iter().map(str::to_owned).collect::<Vec<_>>()),
-                ui::stepper(
-                    vec!["依頼受付".into(), "編成".into(), "作戦実行".into(), "報告".into()],
+                kivact::ui::breadcrumb(["ホーム", "依頼", "中央区 外郭地区", "REQ-1003"].into_iter().enumerate().map(|(key,label)|kivact::interaction::ListItem::new(key,label)).collect::<Vec<_>>()).separator(||kivact::view::icon("chevron-right")),
+                kivact::ui::stepper(
+                    [("依頼受付","10/01"),("編成","10/02"),("作戦実行","進行中"),("報告","—")].into_iter().map(|(label,note)|kivact::ui::StepperItem::new(label).description(note)).collect::<Vec<_>>(),
                     current,
-                )
-                .notes(vec!["10/01".into(), "10/02".into(), "進行中".into(), "—".into()]),
+                ).variant(ui::DiamondSteps).min_step_width(0),
                 wrap((
                     kivact::ui::button("戻る").variant(kivact::ui::ButtonVariant::Secondary).size(kivact::ui::ControlSize::Small).icon(kivact::view::icon("chevron-left")).test_id("pop-step-prev").disabled(move || current.get() == 0).on_press(move || current.update(|v| *v = v.saturating_sub(1))),
                     kivact::ui::button("次へ").size(kivact::ui::ControlSize::Small).icon(kivact::view::icon("chevron-right")).test_id("pop-step-next").disabled(move || current.get() == 4).on_press(move || {
