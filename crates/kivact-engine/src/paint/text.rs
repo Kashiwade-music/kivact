@@ -1,6 +1,6 @@
 //! Role: Model-aware fill, scene and text painting orchestration.
 
-use crate::lower::context::Context;
+use crate::lower::context::{Context, Purpose};
 use crate::lower::effects::Tint;
 use crate::lower::glyphs::{Colors, push_text};
 use crate::lower::shape::BoxShape;
@@ -53,7 +53,7 @@ impl Model {
         tint: &Tint,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
-        cpu_pixels: bool,
+        purpose: Purpose,
     ) {
         let inherited = scene
             .cmds
@@ -61,7 +61,7 @@ impl Model {
             .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if crate::lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
         let mut context = self.painting();
-        context.cpu_pixels = cpu_pixels;
+        context.purpose = purpose;
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
         let dropped = context.finish().dropped;
         if dropped == 0 {

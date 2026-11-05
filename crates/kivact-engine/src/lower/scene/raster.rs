@@ -44,7 +44,7 @@ impl Context<'_> {
                 opacity,
                 pixelated,
             } => {
-                if self.cpu_pixels
+                if self.purpose == crate::lower::context::Purpose::Cpu
                     && let Some(image) = cpu_pixels
                 {
                     state.out.push(D::ImageSampled {

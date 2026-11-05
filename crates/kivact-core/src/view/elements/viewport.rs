@@ -1,6 +1,7 @@
 //! Role: Display application-owned pixels through the standard canvas pipeline.
 use crate::draw::{ImageOptions, Pixels};
 use crate::geometry::{Rect, Size};
+use crate::gpu_interop::GpuFrame;
 use crate::state::{IntoValue, Value, callback, effect, memo};
 use crate::view::{
     HandlerResult, ImageFit, IntoView, Node, NodeBuilder, Role, View, node, node_ref,
@@ -16,7 +17,6 @@ pub trait ViewportTransform: 'static {
     fn attach(self, node: Node, content: Value<Rect>) -> Node;
 }
 type Attach = Box<dyn FnOnce(Node, Value<Rect>) -> Node>;
-use crate::gpu_interop::GpuFrame;
 
 /// The surface's measured logical size and physical rendering extent.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -27,6 +27,7 @@ pub struct SurfaceSize {
     pub scale_factor: f64,
 }
 
+// xtask-allow(state-fields): Immutable NodeBuilder inputs select independent display and attachment capabilities; the attached zoom/pan machine owns all interaction phases.
 /// Application pixels painted by a canvas with standard node modifiers.
 pub struct Viewport {
     root: Node,
@@ -117,9 +118,9 @@ impl IntoView for Viewport {
         });
         let sent = RefCell::new(Sent::new());
         effect(move || {
-            if let Some(size) = size.get()
+            if let Some(resize) = resize
+                && let Some(size) = size.get()
                 && sent.borrow_mut().update(size).is_some()
-                && let Some(resize) = resize
             {
                 resize.call(size);
             }

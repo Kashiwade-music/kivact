@@ -26,7 +26,7 @@ impl Model {
         let previous = std::mem::replace(&mut self.paint.list, list);
         let scale = self.paint.scale;
         self.paint.scale = 1.0;
-        let scene = self.paint_scene_list(engine, true);
+        let scene = self.paint_scene_list(engine, crate::lower::context::Purpose::Cpu);
         self.paint.scale = scale;
         self.paint.raster.set(scale);
         self.paint.list = previous;

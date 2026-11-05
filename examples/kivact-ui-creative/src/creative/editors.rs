@@ -785,13 +785,12 @@ pub(super) fn viewport(
                         pointer.set(zoom.to_content(event.pos()));
                         kivact::view::Handled::No
                     })
-                    .region(
-                        kivact::draw::RegionId(1),
-                        kivact::custom::Part::new(
-                            kivact::custom::part(|input| input).state(),
-                            |node| node.role(Role::Image).name("Sample area"),
-                        ),
-                    )
+                    .region(kivact::draw::RegionId(1), {
+                        let input = kivact::custom::part(|input| input);
+                        kivact::custom::Part::new(input.state(), move |node| {
+                            node.part(input).role(Role::Image).name("Sample area")
+                        })
+                    })
                     .draw_over(move |draw, _| {
                         let top = zoom.to_view(Point::new(220.0, 110.0));
                         let bottom = zoom.to_view(Point::new(420.0, 250.0));
