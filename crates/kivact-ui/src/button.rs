@@ -278,58 +278,7 @@ impl Button {
                 move || state.get(),
             )
         };
-        let phase = signal(0.0f64);
-        let period = memo(|| {
-            let motion = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .button
-                .busy_motion;
-            if kivact_core::platform::is_motion_reduced().get() {
-                motion.reduced_spin_ms
-            } else {
-                motion.spin_ms
-            }
-            .max(1) as f64
-        });
-        let clock = frame_loop(move |frame| {
-            let period = period.get();
-            let elapsed = frame.now.as_secs_f64() * 1000.0;
-            phase.set(elapsed.rem_euclid(period) / period);
-        });
-        let busy_machine = machine(
-            BusyPhase::Idle,
-            || {
-                let motion = use_theme()
-                    .get()
-                    .ext::<crate::UiTokens>()
-                    .button
-                    .busy_motion;
-                BusyInput {
-                    delay: if kivact_core::platform::is_motion_reduced().get() {
-                        0
-                    } else {
-                        motion.reveal_delay_ms
-                    },
-                    fade: motion.reveal_fade_ms,
-                    active: kivact_core::platform::is_surface_active().get(),
-                }
-            },
-            move |_, running| {
-                if running {
-                    clock.start(FrameRate::Hz(60.0));
-                } else {
-                    clock.stop();
-                }
-            },
-        );
-        let loading = memo(move || state.get().busy);
-        busy_machine.send(BusyEvent::Changed(loading.get_untracked()));
-        busy_machine.feed(loading, BusyEvent::Changed);
-        busy_machine.feed(kivact_core::platform::is_surface_active(), |_| {
-            BusyEvent::SurfaceChanged
-        });
-        let reveal_pending = memo(move || busy_machine.get() == BusyPhase::Waiting);
+        let (phase, reveal_pending) = busy_animation(state);
         let content = with_recipe_style(
             row((
                 self.icon.map(slot),
@@ -396,3 +345,60 @@ impl IntoView for Button {
 }
 
 pub use crate::button_tokens::{ButtonBusyMotion, ButtonTokens};
+
+/// Drive the busy clock and delayed reveal from the actual button state.
+fn busy_animation(state: Value<ButtonState>) -> (Value<f64>, Value<bool>) {
+    let phase = signal(0.0f64);
+    let period = memo(|| {
+        let motion = use_theme()
+            .get()
+            .ext::<crate::UiTokens>()
+            .button
+            .busy_motion;
+        if kivact_core::platform::is_motion_reduced().get() {
+            motion.reduced_spin_ms
+        } else {
+            motion.spin_ms
+        }
+        .max(1) as f64
+    });
+    let clock = frame_loop(move |frame| {
+        let period = period.get();
+        let elapsed = frame.now.as_secs_f64() * 1000.0;
+        phase.set(elapsed.rem_euclid(period) / period);
+    });
+    let busy_machine = machine(
+        BusyPhase::Idle,
+        || {
+            let motion = use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .button
+                .busy_motion;
+            BusyInput {
+                delay: if kivact_core::platform::is_motion_reduced().get() {
+                    0
+                } else {
+                    motion.reveal_delay_ms
+                },
+                fade: motion.reveal_fade_ms,
+                active: kivact_core::platform::is_surface_active().get(),
+            }
+        },
+        move |_, running| {
+            if running {
+                clock.start(FrameRate::Hz(60.0));
+            } else {
+                clock.stop();
+            }
+        },
+    );
+    let loading = memo(move || state.get().busy);
+    busy_machine.send(BusyEvent::Changed(loading.get_untracked()));
+    busy_machine.feed(loading, BusyEvent::Changed);
+    busy_machine.feed(kivact_core::platform::is_surface_active(), |_| {
+        BusyEvent::SurfaceChanged
+    });
+    let reveal_pending = memo(move || busy_machine.get() == BusyPhase::Waiting);
+    (phase.into_value(), reveal_pending.into_value())
+}

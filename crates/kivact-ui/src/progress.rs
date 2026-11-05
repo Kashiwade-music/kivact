@@ -176,41 +176,7 @@ impl IntoView for Progress {
             animated(fill, transition)
         }
         .into_value();
-        let phase = signal(0.0f64);
-        let period = memo(|| {
-            let motion = use_theme().get().ext::<crate::UiTokens>().progress.motion;
-            if is_motion_reduced().get() {
-                motion.reduced_period_ms
-            } else {
-                Some(motion.period_ms)
-            }
-        });
-        let clock = frame_loop(move |frame| {
-            if let Some(period) = period.get() {
-                let period = period.max(1) as f64;
-                let elapsed = frame.now.as_secs_f64() * 1000.0;
-                phase.set(elapsed.rem_euclid(period) / period);
-            }
-        });
-        let motion_machine = machine(
-            ProgressMotionPhase::Stopped,
-            || ProgressMotionInput,
-            move |_, phase_state| match phase_state {
-                ProgressMotionPhase::Running => clock.start(FrameRate::Hz(30.0)),
-                ProgressMotionPhase::Stopped => {
-                    clock.stop();
-                    phase.set(0.0);
-                }
-            },
-        );
-        let running = memo(move || {
-            (target.get().is_none() || moving.get())
-                && period.get().is_some()
-                && is_surface_active().get()
-        });
-        motion_machine.send(running.get_untracked());
-        motion_machine.feed(running, |running| running);
-        let phase = phase.into_value();
+        let phase = motion_clock(target.into_value(), moving);
         let state = memo(move || ProgressState {
             value: target.get(),
             size: size.get(),
@@ -259,3 +225,42 @@ impl IntoView for Progress {
 }
 
 pub use crate::progress_tokens::{ProgressMotion, ProgressTokens};
+
+/// Drive indeterminate motion only while a visible surface needs it.
+fn motion_clock(target: Value<Option<f64>>, moving: Value<bool>) -> Value<f64> {
+    let phase = signal(0.0f64);
+    let period = memo(|| {
+        let motion = use_theme().get().ext::<crate::UiTokens>().progress.motion;
+        if is_motion_reduced().get() {
+            motion.reduced_period_ms
+        } else {
+            Some(motion.period_ms)
+        }
+    });
+    let clock = frame_loop(move |frame| {
+        if let Some(period) = period.get() {
+            let period = period.max(1) as f64;
+            let elapsed = frame.now.as_secs_f64() * 1000.0;
+            phase.set(elapsed.rem_euclid(period) / period);
+        }
+    });
+    let motion_machine = machine(
+        ProgressMotionPhase::Stopped,
+        || ProgressMotionInput,
+        move |_, phase_state| match phase_state {
+            ProgressMotionPhase::Running => clock.start(FrameRate::Hz(30.0)),
+            ProgressMotionPhase::Stopped => {
+                clock.stop();
+                phase.set(0.0);
+            }
+        },
+    );
+    let running = memo(move || {
+        (target.get().is_none() || moving.get())
+            && period.get().is_some()
+            && is_surface_active().get()
+    });
+    motion_machine.send(running.get_untracked());
+    motion_machine.feed(running, |running| running);
+    phase.into_value()
+}
