@@ -68,7 +68,7 @@ fn dropzone_picker_cancellation_and_failure_allow_retry() {
     screen.get_by_role(Role::Button, "Choose").click();
     assert!(
         screen
-            .get_by_role(Role::Status, "Picker unavailable")
+            .get_by_role(Role::Alert, "Picker unavailable")
             .text()
             .contains("Picker unavailable")
     );
