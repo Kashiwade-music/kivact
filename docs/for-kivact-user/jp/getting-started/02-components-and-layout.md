@@ -79,6 +79,8 @@ fn counter_panel() -> impl IntoView {
 
 `counter_panel()` を呼んだだけでは、クロージャの中はまだ実行されません。返された view がマウントされると一度だけ実行され、そこで作った状態、effect、後片付けは、その子のライフサイクルに結び付きます。子が取り除かれると一緒に破棄されます。`component` は箱のない `View` を返すため、この例のスタイルは内側の `column` に付けています。
 
+`signal` や `memo` の初期化は、App のルート、`component`、`show`、`dynamic`、`for_each` が実行するセットアップに置きます。再計算される `text(move || ...)` や `style(move || ...)` の中では、セットアップ済みの値を読みます。
+
 ## 実行する
 
 ```text
