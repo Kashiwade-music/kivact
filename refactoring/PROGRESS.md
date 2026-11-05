@@ -12,7 +12,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | CP3 | b0aad13 | 0 | 0 | — | — | 101→失敗4 target個別0、GPU6 passed | — | Clippy 8.69s / 固定public3.62s | 通過、固定 gate の公開308/Game3と対象 docs 0 |
 | CP4 | 19dfddc | 0 | 0 | 0（ab3322a） | 0（18件） | 101→失敗19 target個別0 | 101→失敗19 target個別0 | Clippy16.83s / WSL75s | 通過。固定a9e6377 public30/doc0、Creative追加2はc97d2c6で0 |
 | CP5 | b3b2cf0 | 0 | 0 | — | — | 101→失敗5 target個別0、GPU6 passed | — | Clippy19.52s | 通過、Enter/disabled既定の意図的APG移行とSoft初期enter修正 |
-| CP6 | e71dfb18 | 0 | 0（関数長/禁止型含む） | 実行中 | — | 実行中 | — | Clippy1.68s | 軽gate通過、固定gateでfullstatic/E2E実行 |
+| CP6 | 114d7bbb | 0 | 0（関数長/禁止型含む） | 0（40crate/108graph） | — | 101→失敗5targetのnamed再実行0、GPU6/6 | — | Clippy1.68s | 通過。docsはF1で全体確認 |
 
 - 2026-11-05: 作業手順書と設計書（19 章）を改訂。W2 から再開する。`target/foundation-v3/` は不要（消してよい）。
 
@@ -173,9 +173,9 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | H-G4 | merged | 114d7bbb | 親fullstatic40crate/108graph 0、全workspace厳格Clippy0 |
 | H-G5 | merged | 98adadd0 | 全5kit完了。Soft Clippy/8規約0、lib3/consumer96全通過、実測cache単一owner |
 | H-G6 | merged | e71dfb18 | 全skip空、outer/test分割、親全workspace厳格Clippy0、fullstatic既知7件修正済み再検証 |
-| F-1 | doing | | 六分割の恒久文書へ |
-| F-2 | doing | | 検査と雛形の最終整理 |
-| F-3 | todo | | |
+| F-1 | merged | a8b45a5a | 6組統合、doctest583pass/12ignored、unit1、failed2のみ再実行0、ENJP39+52組一致 |
+| F-2 | merged | 033abf8e | 全skip空、workspace lintへ統一、全Clippy0/fullstatic40crate108graph0/features20/20 |
+| F-3 | doing | | G-final Windows/WSL/mirrorと恒久記録・下書き・一時指示書削除 |
 | fix-G4-8 | merged | 143d513 | public2/Soft7/catalog15/Game1 passed |
 | fix-G5-7 | merged | f52935c | Creative42+固定advanced1/catalog3 passed |
 | fix-G5-8 | merged | c40d5cb | Basic navigation1 passed |
@@ -200,14 +200,15 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G5-12 | merged | 99b03e7 | PopのSkip fixture、元のfailed1件0 |
 | fix-G5-13 | merged | ee2ea2d | 初期展開は自然高、既存consumer2件0 |
 
-- W6中間: `19e889d3` で workspace Clippy全target/feature `-D warnings` 0、fmt 0。残るK3b/K4/Soft K7/H-G5/H-G6とCP6は継続中。
+| fix-CP6-native | merged | 114d7bbb | named2/2+scopedcheck0、timeout再現せずsource変更なし |
+| fix-CP6-async | merged | de9bed0b | example/Tokio named2/2+Clippy0、spinner Status |
+| fix-CP6-ui | merged | a5679c9f | named2/2+Clippy0、custom term実Group参照とsemantic階層 |
+| fix-CP6-pop | merged | 768c6a6f | named3/3+Clippy0、Desktop/Alert/実glyph |
+| fix-CP6-xtask | merged | 5ae0a73e | 36unit全通過、official kit fixture、Clippy0 |
+
+- CP6: W6全unit統合済み。失敗ケースは同じ契約を保って個別再検証し、G-finalへ進む。
 - W6保持契約: Root `0a94b560` の整合ビルドから metrics4/code1/scroll2/keyboard4/date5/touch5 の21件がMIRRORoff共有lockで全通過。
 - `755d4867` のpure metadata default修正後、Root整合catalog全ページ1/1通過。旧native異常終了は解消。
 
-- CP6固定114d7bbb: fullstatic40crate/108graph 0、GPU6/6 0。workspace試験はcompile中のdisk不足で未実行、古いinactive cache回収後に再開。
+- CP6固定114d7bbb: fullstatic40crate/108graph 0、GPU6/6 0。disk不足をinactive cache回収で解消し、workspace全体→failed5target個別修正の全確認を完了。
 
-| fix-CP6-native | doing | | native wheel SPI timeoutと後続Poisonのnamed2を再検証 |
-| fix-CP6-async | doing | | example/Tokio pendingをcanonical spinner Statusで確認 |
-| fix-CP6-ui | doing | | Contents semantic階層とdescription term/detail関係 |
-| fix-CP6-pop | doing | | Desktop date/Alert picker error/実icon |
-| fix-CP6-xtask | doing | | official kitのfixture identityへ9例を追従 |
