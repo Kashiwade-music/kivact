@@ -27,7 +27,7 @@ pub(crate) fn recipes() -> UiRecipes {
 }
 
 fn build() -> UiRecipes {
-    UiRecipes::default()
+    let recipes = UiRecipes::default()
         .button(|_| button)
         .button_content(|_| {
             |_: &Theme, _: &Look<ButtonState>| {
@@ -138,7 +138,8 @@ fn build() -> UiRecipes {
         .list(crate::recipes_collections::list)
         .data_table(crate::recipes_collections::data_table)
         .progress(crate::recipes_controls::progress)
-        .disclosure(crate::recipes_controls::disclosure)
+        .disclosure(crate::recipes_controls::disclosure);
+    crate::recipes_indicators::install(recipes)
 }
 fn select_trigger(t: &Theme, s: &Look<SelectTriggerState>) -> Style {
     // The heights of the buttons of the same size.

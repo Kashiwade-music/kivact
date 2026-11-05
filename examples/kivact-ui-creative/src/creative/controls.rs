@@ -15,6 +15,23 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
     let curve = signal(ui::CubicBezier::default());
     specs((
         spec(
+            "Standard indicators",
+            "状態・読み込み・ショートカット",
+            col((
+                line((
+                    kivact::ui::badge("Ready").tone(kivact::interaction::Tone::Success),
+                    kivact::ui::avatar("Ada Lovelace")
+                        .size(kivact::ui::ControlSize::Small)
+                        .status(Some(kivact::interaction::Tone::Success)),
+                    kivact::ui::spinner().size(kivact::ui::ControlSize::Small),
+                    kivact::ui::kbd("mod+shift+p"),
+                )),
+                kivact::ui::skeleton()
+                    .lines(2)
+                    .shape(kivact::ui::SkeletonShape::Text),
+            )),
+        ),
+        spec(
             "Cubic easing",
             "同じ曲線を編集・プレビュー",
             col((

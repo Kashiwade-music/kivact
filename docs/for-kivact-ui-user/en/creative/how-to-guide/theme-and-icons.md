@@ -185,3 +185,5 @@ All keys start with `creative.`. Each component's rustdoc lists the keys it read
 - The kit's README lists every built-in icon name: `crates/kivact-ui-creative/README.md` in the repository.
 - Full API: `cargo doc -p kivact-ui-creative --open`
 - All the controls in the kit's look: `cargo run -p kivact-ui-creative-catalog`
+
+Standard `kivact::ui::badge`, `avatar`, `avatar_group`, `skeleton`, `spinner`, `kbd` and `kbd_combo` use Creative recipes. Semantic tones use the kit palette, key caps use the monospace font, and skeleton and spinner motion remain owned by Core. Creative `KeyGlyph` continues to mean a keyframe marker. See [Indicators and keyboard shortcuts](../../../../for-kivact-user/en/how-to-guide/indicators.md) for all image, fallback, status, size and motion options.

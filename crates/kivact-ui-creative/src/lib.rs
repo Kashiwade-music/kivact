@@ -43,6 +43,7 @@ mod range;
 mod recipes;
 mod recipes_collections;
 mod recipes_controls;
+mod recipes_indicators;
 mod tabs;
 mod theme;
 mod timeline;
