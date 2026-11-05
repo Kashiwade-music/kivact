@@ -152,11 +152,16 @@ fn description_list_pairs_terms_and_details() {
     assert_eq!(labels[0].text(), "Owner");
     list.get_by_role(Role::ListItem, "Action")
         .get_by_role(Role::Button, "Open profile");
-    let actions = list
-        .get_by_role(Role::ListItem, "Action")
+    let action_pair = screen.within(list.get_by_role(Role::ListItem, "Action"));
+    let actions = action_pair
         .all_by_role(Role::Group, "Action")
         .into_iter()
-        .find(|group| group.query_by_role(Role::Button, "Open profile").is_some())
+        .find(|group| {
+            screen
+                .within(*group)
+                .query_by_role(Role::Button, "Open profile")
+                .is_some()
+        })
         .expect("detail group contains the profile action");
     let action_labels = actions.labelled_by();
     assert_eq!(action_labels.len(), 1);
