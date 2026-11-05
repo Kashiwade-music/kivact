@@ -662,10 +662,10 @@ fn filled_content_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'st
 
 #[test]
 fn kit_readme_lists_the_filled_recipes() {
-    let kits: [(&str, fn(ThemeMode) -> Theme, &str); 5] = [
+    let kits = [
         (
             "basic",
-            kivact_ui_basic::theme,
+            kivact_ui_basic::theme as fn(ThemeMode) -> Theme,
             include_str!("../../../../../crates/kivact-ui-basic/README.md"),
         ),
         (

@@ -82,9 +82,9 @@ mod side_navigation;
 mod soft_chat_tools;
 mod soft_list;
 
+mod recipes_table;
 mod soft_overflow;
 mod soft_table;
-mod recipes_table;
 mod soft_tree;
 mod spinner;
 mod stack;
@@ -176,6 +176,7 @@ pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
 pub use recipes_metrics::HeadingDisplay;
 pub use recipes_metrics::{LabelPosition, MetadataColumns, MetadataLook};
 pub use recipes_skeleton::SkeletonRadius;
+pub use recipes_table::{TableCellAppearance, TableRowAppearance};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
@@ -194,8 +195,9 @@ pub use soft_list::{
     list_item, list_items,
 };
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
-pub use soft_table::{RowStatusTone, RowStatusDot, TableSelectionToolbar, table_row_status, table_selection_toolbar};
-pub use recipes_table::{TableCellAppearance, TableRowAppearance};
+pub use soft_table::{
+    RowStatusDot, RowStatusTone, TableSelectionToolbar, table_row_status, table_selection_toolbar,
+};
 pub use soft_tree::TreeLook;
 pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{

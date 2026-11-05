@@ -9,8 +9,8 @@ use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, item,
-    layout, layout_content, layout_header, list, list_item, nav_icon,
-    overflow_list, pagination, scrollable_area, section, stack_item,
+    layout, layout_content, layout_header, list, list_item, nav_icon, overflow_list, pagination,
+    scrollable_area, section, stack_item,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {

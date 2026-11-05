@@ -132,7 +132,6 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
                     move || state.get().cycling,
                     move |v| state.update(|s| s.cycling = v),
                 ),
-                ..ui::ArrangementState::new()
             },
         )
         .length(64.0)

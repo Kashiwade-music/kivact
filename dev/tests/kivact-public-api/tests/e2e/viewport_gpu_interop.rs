@@ -232,7 +232,9 @@ fn shows_the_gpu_frame(surface: Surface) {
                 assert!(
                     snapshot
                         .rgba
-                        .chunks_exact(4)
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
                         .filter(|p| p[0] > 180 && p[1] > 60 && p[1] < 130 && p[2] < 80)
                         .count()
                         > (W * H / 2) as usize

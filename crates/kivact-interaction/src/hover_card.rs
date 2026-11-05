@@ -1,4 +1,4 @@
-//! Role: Project preview visibility and opening provenance from the shared hover surface.
+//! Role: Project preview visibility and provenance from the shared hover surface.
 use crate::{DelayedPhase, Delays, HoverCardTiming, HoverSurfaceApi};
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, effect_on, memo};
 use kivact_core::view::NodeRef;
