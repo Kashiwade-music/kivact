@@ -346,33 +346,14 @@ fn drag_source_with_samples_once_at_the_accepted_press() {
     let updates = Rc::new(RefCell::new(Vec::new()));
     let sampled = calls.clone();
     let seen = updates.clone();
-    let (screen, (payload, disabled, active)) = mount_with(real_window(), move || {
-        let payload = signal(3);
-        let disabled = signal(false);
-        let started = seen.clone();
-        let moved = seen.clone();
-        let ended = seen.clone();
-        let drag = use_drag(DragCoordinates::Window)
-            .slop(10)
-            .disabled(disabled)
-            .on_start(move |update: DragUpdate<i32>| started.borrow_mut().push(update.payload))
-            .on_update(move |update: DragUpdate<i32>| moved.borrow_mut().push(update.payload))
-            .on_end(move |update: DragUpdate<i32>| ended.borrow_mut().push(update.payload));
-        let active = drag.active_payload();
-        let source = drag.source_with(move || {
-            sampled.set(sampled.get() + 1);
-            payload.get_untracked()
-        });
-        (
-            (payload, disabled, active),
-            node()
-                .test_id("stepper")
-                .name("Drag snapshot")
-                .focusable(true)
-                .style(style().size(100, 100))
-                .part(source),
-        )
-    });
+    let (
+        screen,
+        DragSnapshot {
+            payload,
+            disabled,
+            active,
+        },
+    ) = mount_with(real_window(), move || drag_snapshot_scene(sampled, seen));
     assert_eq!(calls.get(), 0, "setup must not sample the payload");
     assert_eq!(active.get(), None, "idle has no payload");
     let at = center(&screen);
@@ -436,4 +417,44 @@ fn drag_source_with_samples_once_at_the_accepted_press() {
     assert_eq!(calls.get(), 2);
     assert_eq!(active.get(), None);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+struct DragSnapshot {
+    payload: Signal<i32>,
+    disabled: Signal<bool>,
+    active: Value<Option<i32>>,
+}
+fn drag_snapshot_scene(
+    sampled: Rc<std::cell::Cell<i32>>,
+    seen: Rc<RefCell<Vec<i32>>>,
+) -> (DragSnapshot, impl IntoView) {
+    let payload = signal(3);
+    let disabled = signal(false);
+    let started = seen.clone();
+    let moved = seen.clone();
+    let ended = seen.clone();
+    let drag = use_drag(DragCoordinates::Window)
+        .slop(10)
+        .disabled(disabled)
+        .on_start(move |update: DragUpdate<i32>| started.borrow_mut().push(update.payload))
+        .on_update(move |update: DragUpdate<i32>| moved.borrow_mut().push(update.payload))
+        .on_end(move |update: DragUpdate<i32>| ended.borrow_mut().push(update.payload));
+    let active = drag.active_payload();
+    let source = drag.source_with(move || {
+        sampled.set(sampled.get() + 1);
+        payload.get_untracked()
+    });
+    (
+        DragSnapshot {
+            payload,
+            disabled,
+            active,
+        },
+        node()
+            .test_id("stepper")
+            .name("Drag snapshot")
+            .focusable(true)
+            .style(style().size(100, 100))
+            .part(source),
+    )
 }
