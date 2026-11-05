@@ -110,101 +110,13 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                 .keep_mounted()
                 .content(|key| {
                     if key == "format" {
-                        column((
-                            ui::property_row(
-                                "Preset",
-                                kivact::ui::select(
-                                    "Render preset",
-                                    keyed_options([
-                                        ("hdtv-1080p", "HDTV 1080p"),
-                                        ("4k-uhd", "4K UHD"),
-                                        ("4k-dci", "4K DCI"),
-                                    ]),
-                                    signal(Some("hdtv-1080p".to_owned())),
-                                )
-                                .placeholder("")
-                                .name("Render preset")
-                                .style(style().width(pct(100))),
-                            ),
-                            ui::property_row(
-                                "Resolution",
-                                column((
-                                    num("X", 1920.0, 1.0, 65536.0, 0, " px"),
-                                    num("Y", 1080.0, 1.0, 65536.0, 0, " px"),
-                                ))
-                                .style(style().gap(1)),
-                            ),
-                            ui::property_row(
-                                "Scale",
-                                ui::value_slider("Resolution scale", signal(100.0))
-                                    .label_visible(false)
-                                    .range(1.0..=100.0)
-                                    .step(1.0)
-                                    .precision(0)
-                                    .unit(" %")
-                                    .style(style().width(pct(100))),
-                            ),
-                            ui::property_row(
-                                "Frame Rate",
-                                kivact::ui::select(
-                                    "Render frame rate",
-                                    keyed_options([
-                                        ("23-98", "23.98"),
-                                        ("24", "24"),
-                                        ("25", "25"),
-                                        ("30", "30"),
-                                        ("60", "60"),
-                                    ]),
-                                    signal(Some("24".to_owned())),
-                                )
-                                .placeholder("")
-                                .name("Render frame rate")
-                                .style(style().width(pct(100))),
-                            ),
-                        ))
-                        .role(kivact::view::Role::List)
-                        .style(style().padding(14).gap(3))
+                        render_format_fields()
+                            .role(kivact::view::Role::List)
+                            .style(style().padding(14).gap(3))
                     } else {
-                        column((
-                            ui::property_row(
-                                "Container",
-                                kivact::ui::select(
-                                    "Render container",
-                                    keyed_options([
-                                        ("quicktime", "QuickTime"),
-                                        ("mp4", "MP4"),
-                                        ("mxf-op1a", "MXF OP1a"),
-                                        ("matroska", "Matroska"),
-                                    ]),
-                                    signal(Some("quicktime".to_owned())),
-                                )
-                                .placeholder("")
-                                .name("Render container")
-                                .style(style().width(pct(100))),
-                            ),
-                            ui::property_row(
-                                "Codec",
-                                kivact::ui::select(
-                                    "Render codec",
-                                    keyed_options([
-                                        ("prores-422-hq", "ProRes 422 HQ"),
-                                        ("prores-4444", "ProRes 4444"),
-                                        ("dnxhr-hqx", "DNxHR HQX"),
-                                        ("h265", "H.265"),
-                                    ]),
-                                    signal(Some("prores-422-hq".to_owned())),
-                                )
-                                .placeholder("")
-                                .name("Render codec")
-                                .style(style().width(pct(100))),
-                            ),
-                            ui::property_row(
-                                "Audio",
-                                kivact::ui::checkbox("Embed 48 kHz PCM", signal(true)),
-                            ),
-                        ))
-                        .role(kivact::view::Role::List)
-                        .style(style().padding(14).gap(3))
+                        render_encoding_fields()
+                            .role(kivact::view::Role::List)
+                            .style(style().padding(14).gap(3))
                     }
                 }),
                 window_footer((
@@ -615,4 +527,100 @@ fn dialogs_banner() -> kivact::view::Node {
                     .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("info")).dismissible(true),
             )),
         )
+}
+
+fn render_format_fields() -> Node {
+    column((
+        ui::property_row(
+            "Preset",
+            kivact::ui::select(
+                "Render preset",
+                keyed_options([
+                    ("hdtv-1080p", "HDTV 1080p"),
+                    ("4k-uhd", "4K UHD"),
+                    ("4k-dci", "4K DCI"),
+                ]),
+                signal(Some("hdtv-1080p".to_owned())),
+            )
+            .placeholder("")
+            .name("Render preset")
+            .style(style().width(pct(100))),
+        ),
+        ui::property_row(
+            "Resolution",
+            column((
+                num("X", 1920.0, 1.0, 65536.0, 0, " px"),
+                num("Y", 1080.0, 1.0, 65536.0, 0, " px"),
+            ))
+            .style(style().gap(1)),
+        ),
+        ui::property_row(
+            "Scale",
+            ui::value_slider("Resolution scale", signal(100.0))
+                .label_visible(false)
+                .range(1.0..=100.0)
+                .step(1.0)
+                .precision(0)
+                .unit(" %")
+                .style(style().width(pct(100))),
+        ),
+        ui::property_row(
+            "Frame Rate",
+            kivact::ui::select(
+                "Render frame rate",
+                keyed_options([
+                    ("23-98", "23.98"),
+                    ("24", "24"),
+                    ("25", "25"),
+                    ("30", "30"),
+                    ("60", "60"),
+                ]),
+                signal(Some("24".to_owned())),
+            )
+            .placeholder("")
+            .name("Render frame rate")
+            .style(style().width(pct(100))),
+        ),
+    ))
+}
+
+fn render_encoding_fields() -> Node {
+    column((
+        ui::property_row(
+            "Container",
+            kivact::ui::select(
+                "Render container",
+                keyed_options([
+                    ("quicktime", "QuickTime"),
+                    ("mp4", "MP4"),
+                    ("mxf-op1a", "MXF OP1a"),
+                    ("matroska", "Matroska"),
+                ]),
+                signal(Some("quicktime".to_owned())),
+            )
+            .placeholder("")
+            .name("Render container")
+            .style(style().width(pct(100))),
+        ),
+        ui::property_row(
+            "Codec",
+            kivact::ui::select(
+                "Render codec",
+                keyed_options([
+                    ("prores-422-hq", "ProRes 422 HQ"),
+                    ("prores-4444", "ProRes 4444"),
+                    ("dnxhr-hqx", "DNxHR HQX"),
+                    ("h265", "H.265"),
+                ]),
+                signal(Some("prores-422-hq".to_owned())),
+            )
+            .placeholder("")
+            .name("Render codec")
+            .style(style().width(pct(100))),
+        ),
+        ui::property_row(
+            "Audio",
+            kivact::ui::checkbox("Embed 48 kHz PCM", signal(true)),
+        ),
+    ))
 }

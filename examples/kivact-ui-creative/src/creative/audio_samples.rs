@@ -334,44 +334,7 @@ fn knobs_rotary_knob() -> Node {
         "Rotary Knob",
         "ノブ",
         col((
-            line((
-                ui::knob("Gain", signal(0.0))
-                    .range(-24.0..=24.0)
-                    .precision(1)
-                    .unit(" dB")
-                    .bipolar(true)
-                    .accent_color(rgb(0x9b9ea8)),
-                ui::knob("Pan", signal(0.0))
-                    .range(-100.0..=100.0)
-                    .step(1.0)
-                    .precision(0)
-                    .bipolar(true)
-                    .accent_color(rgb(0x5aa9ff)),
-                ui::knob("Freq", signal(1.2))
-                    .range(0.02..=20.0)
-                    .reset_to(1.0)
-                    .logarithmic(true)
-                    .precision(2)
-                    .unit(" kHz")
-                    .accent_color(rgb(0x34d399)),
-                ui::knob("Q", signal(0.71))
-                    .range(0.1..=18.0)
-                    .reset_to(0.71)
-                    .logarithmic(true)
-                    .precision(2)
-                    .accent_color(rgb(0x9b9ea8)),
-                ui::knob("Drive", signal(35.0))
-                    .range(0.0..=100.0)
-                    .precision(0)
-                    .unit(" %")
-                    .accent_color(rgb(0xff5c6c)),
-                ui::knob("Mix", signal(100.0))
-                    .range(0.0..=100.0)
-                    .reset_to(100.0)
-                    .precision(0)
-                    .unit(" %"),
-            ))
-            .style(style().gap(10)),
+            gain_knob_bank().style(style().gap(10)),
             line((
                 note("EQ BAND").style(style().font_size(10.5).width(52)),
                 ui::knob("Lo", signal(80.0))
@@ -590,4 +553,44 @@ fn meters_loudness(integrated: kivact::state::MachineHandle<Measurement>) -> Nod
         ))
         .style(style().gap(8)),
     )
+}
+
+fn gain_knob_bank() -> Node {
+    line((
+        ui::knob("Gain", signal(0.0))
+            .range(-24.0..=24.0)
+            .precision(1)
+            .unit(" dB")
+            .bipolar(true)
+            .accent_color(rgb(0x9b9ea8)),
+        ui::knob("Pan", signal(0.0))
+            .range(-100.0..=100.0)
+            .step(1.0)
+            .precision(0)
+            .bipolar(true)
+            .accent_color(rgb(0x5aa9ff)),
+        ui::knob("Freq", signal(1.2))
+            .range(0.02..=20.0)
+            .reset_to(1.0)
+            .logarithmic(true)
+            .precision(2)
+            .unit(" kHz")
+            .accent_color(rgb(0x34d399)),
+        ui::knob("Q", signal(0.71))
+            .range(0.1..=18.0)
+            .reset_to(0.71)
+            .logarithmic(true)
+            .precision(2)
+            .accent_color(rgb(0x9b9ea8)),
+        ui::knob("Drive", signal(35.0))
+            .range(0.0..=100.0)
+            .precision(0)
+            .unit(" %")
+            .accent_color(rgb(0xff5c6c)),
+        ui::knob("Mix", signal(100.0))
+            .range(0.0..=100.0)
+            .reset_to(100.0)
+            .precision(0)
+            .unit(" %"),
+    ))
 }
