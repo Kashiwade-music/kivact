@@ -1,7 +1,7 @@
 //! Role: The Calendar builder and the month panels view it builds.
 
-use super::state::CalendarCaption;
 use super::state::Shared;
+use crate::calendar_values::CalendarCaption;
 use kivact_core::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
 use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
@@ -57,7 +57,7 @@ pub struct Calendar {
     variable_rows: Value<bool>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     marks: Rc<dyn Fn(CalendarDate) -> Option<kivact_interaction::Tone>>,
-    events: Value<Vec<super::state::CalendarEvent>>,
+    events: Value<Vec<crate::calendar_values::CalendarEvent>>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     weekend: Rc<dyn Fn(Weekday) -> Option<kivact_interaction::Tone>>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
@@ -160,7 +160,10 @@ impl Calendar {
         }
     }
     /// Up to three event dots for each date.
-    pub fn events(mut self, events: impl IntoValue<Vec<super::state::CalendarEvent>>) -> Self {
+    pub fn events(
+        mut self,
+        events: impl IntoValue<Vec<crate::calendar_values::CalendarEvent>>,
+    ) -> Self {
         self.events = events.into_value();
         self
     }

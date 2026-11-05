@@ -11,7 +11,6 @@ mod chrome;
 mod column_keys;
 mod filter_value;
 mod filters;
-pub(crate) mod group_state;
 mod grouped;
 mod metadata;
 mod navigation;
@@ -27,6 +26,5 @@ pub use crate::data_table_tokens::{
 };
 pub use builder::data_table;
 pub use filter_value::{FilterField, FilterUi};
-pub use group_state::DataTableGroupState;
-pub use row_status::RowStatus;
+
 pub use types::{DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent};

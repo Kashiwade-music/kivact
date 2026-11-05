@@ -1,4 +1,4 @@
-//! Role: Announce accepted multiple-selection transactions without mirroring selection state.
+//! Role: Announce accepted multiple-selection edits without mirroring selection.
 use kivact_core::state::{ItemKey, Signal, Value, signal};
 use kivact_core::view::{LiveRegion, View};
 use kivact_interaction::{Announcer, ListItem, announcer};

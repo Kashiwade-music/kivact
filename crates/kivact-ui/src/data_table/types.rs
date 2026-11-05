@@ -1,5 +1,5 @@
 //! Role: The state of a data table: its builder fields, slots and live context.
-use crate::DataColumn;
+use crate::column_values::DataColumn;
 use crate::variants::Variants;
 
 use kivact_core::state::{Binding, Callback, Value};
@@ -25,7 +25,7 @@ pub(super) type CellSlot<R> = kivact_core::view::ViewFn<(Value<R>, usize)>;
 pub(super) type Slot<R, K> = Box<dyn FnOnce(DataTableContext<R, K>) -> View>;
 pub(super) type RowContextMenu<R> = kivact_core::view::ViewFn<(Value<R>, Node)>;
 pub(super) type RowSelectable<R> = Rc<dyn Fn(&R) -> bool>;
-pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<super::RowStatus>>;
+pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<crate::table_values::RowStatus>>;
 pub(super) type RowColor<R> = Rc<dyn Fn(&R) -> Option<Color>>;
 /// Names a row in text.
 pub(super) type RowName<R> = Rc<dyn Fn(&R) -> String>;
