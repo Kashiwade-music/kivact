@@ -16,30 +16,43 @@ use kivact::view::View;
 use kivact::view::column;
 use kivact::view::node_ref;
 
+/// Visibility trigger for media overlay content.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ShowOn {
+    /// Keep the overlay visible, the default.
     #[default]
     Always,
+    /// Reveal while the base is hovered or contains keyboard focus.
     Hover,
+    /// Reveal while the base contains keyboard focus.
     Focus,
 }
 
+/// Background treatment behind overlay content.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OverlayScrim {
+    /// Dark scrim, the default.
     #[default]
     Dark,
+    /// Light scrim.
     Light,
+    /// No scrim.
     None,
 }
 
+/// Placement of content inside the media bounds.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OverlayPosition {
+    /// Fill the media bounds, the default.
     #[default]
     Fill,
+    /// Place content along the bottom edge.
     Bottom,
+    /// Place content along the top edge.
     Top,
 }
 
+/// Media-bound content with visibility and scrim presentation choices.
 pub struct MediaOverlay {
     content: View,
     show_on: ShowOn,
@@ -62,31 +75,37 @@ pub fn media_overlay(content: impl IntoView) -> MediaOverlay {
 }
 
 impl MediaOverlay {
+    /// Choose the automatic visibility trigger; always visible by default.
     pub fn show_on(mut self, value: ShowOn) -> Self {
         self.show_on = value;
         self
     }
 
+    /// Override automatic visibility with a read-only reactive input.
     pub fn open(mut self, value: impl IntoValue<bool>) -> Self {
         self.open = Some(value.into_value());
         self
     }
 
+    /// Choose the background treatment; dark by default.
     pub fn scrim(mut self, value: OverlayScrim) -> Self {
         self.scrim = value;
         self
     }
 
+    /// Choose the placement within the media; fill by default.
     pub fn position(mut self, value: OverlayPosition) -> Self {
         self.position = value;
         self
     }
 
+    /// Choose the content alignment; end by default.
     pub fn align(mut self, value: OverlayAlign) -> Self {
         self.align = value;
         self
     }
 
+    /// Mount the base and overlay content once inside a shared media frame.
     pub fn attach(self, base: impl IntoView) -> Node {
         let root = node_ref();
         let hover = root.hovered();
