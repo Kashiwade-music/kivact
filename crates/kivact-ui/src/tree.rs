@@ -233,49 +233,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
         }
         let list = behavior.list();
         let state = list.state();
-        let row_variants = variants.clone();
-        let ancestors = behavior.ancestor_last();
-        let has_branches = kivact_core::state::memo(move || {
-            behavior
-                .rows()
-                .with(|rows| rows.iter().any(|row| row.branch.has_children()))
-        });
-
-        let rows = tree_rows(
-            behavior,
-            |_| (),
-            move |key, row, part| {
-                let state = part.state();
-                let recipe_state = row_recipe(
-                    key.clone(),
-                    row,
-                    state,
-                    ancestors,
-                    has_branches.into_value(),
-                    marker_content.is_some(),
-                );
-                let label = behavior.label(key.clone());
-                let marker = row_marker(
-                    behavior,
-                    key,
-                    row,
-                    state,
-                    recipe_state.into_value(),
-                    &row_variants,
-                    marker_content.as_ref(),
-                );
-                let content = item
-                    .as_ref()
-                    .map_or_else(|| text(label).into_view(), |item| item.call((row, state)));
-                with_recipe_style(
-                    node().part(part),
-                    |r| r.tree_recipes().item_recipe(),
-                    &row_variants,
-                    move || recipe_state.get(),
-                )
-                .child((marker, content))
-            },
-        );
+        let rows = render_rows(behavior, variants.clone(), item, marker_content);
         let rows = match reveal {
             Some((gap, transition)) => rows.reveal(gap, transition),
             None => rows,
@@ -358,4 +316,55 @@ fn row_recipe<K: kivact_core::state::ItemKey>(
         custom_marker,
     })
     .into_value()
+}
+
+fn render_rows<K: kivact_core::state::ItemKey>(
+    behavior: TreeApi<K>,
+    variants: Variants,
+    item: Option<RowContent<K>>,
+    marker_content: Option<kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
+) -> TreeRows<K> {
+    let row_variants = variants;
+    let ancestors = behavior.ancestor_last();
+    let has_branches = kivact_core::state::memo(move || {
+        behavior
+            .rows()
+            .with(|rows| rows.iter().any(|row| row.branch.has_children()))
+    });
+
+    tree_rows(
+        behavior,
+        |_| (),
+        move |key, row, part| {
+            let state = part.state();
+            let recipe_state = row_recipe(
+                key.clone(),
+                row,
+                state,
+                ancestors,
+                has_branches.into_value(),
+                marker_content.is_some(),
+            );
+            let label = behavior.label(key.clone());
+            let marker = row_marker(
+                behavior,
+                key,
+                row,
+                state,
+                recipe_state.into_value(),
+                &row_variants,
+                marker_content.as_ref(),
+            );
+            let content = item
+                .as_ref()
+                .map_or_else(|| text(label).into_view(), |item| item.call((row, state)));
+            with_recipe_style(
+                node().part(part),
+                |r| r.tree_recipes().item_recipe(),
+                &row_variants,
+                move || recipe_state.get(),
+            )
+            .child((marker, content))
+        },
+    )
 }
