@@ -137,13 +137,19 @@ Machine は独自 control のための、小さい reducer に effect と timer 
 | API-14 | bool query は is_/has_、それ以外は名詞。get_/_value は使わず、更新は set/動詞、失敗可能は try_。略語は a11y/ime/id 以外を増やさない |
 | API-15 | Api、State、Variant、Recipes、Tokens、Options、Policy、Mode、Kind、Event、Phase、Reason を役割どおり使う。InteractionPolicy の入れ子も Policy |
 
+### 公開 module と利用者の入口
+
+root は App、Result、UiError、ErrorKind。state、view、geometry、style、draw、motion、task、i18n、platform、diagnostics、interaction、ui、custom を意味ごとの正準 module とし、test/embed/gpu_interop は feature の入口とする。prelude は日常の利用に必要な名前を明示再公開し、同じ型を別の業務 module からも出さない。custom は正式な独自部品境界で、内部 engine の型を直接使わせない。
+
+定数 prop は literal または所有 crate の constant_value で扱う。保存用 Reactive は独自 data 型の作者のための境界であり、通常利用者に Prop や内部 ID を見せない。binding は caller の値の書込み先、Selection は single/multiple の選択、CalendarSelection は日付の Single/Range descriptor であり、異なる情報を一つの conversion trait に押し込めない。
+
 ### handler の語彙と実行
 
 HandlerResult は `()`、Handled、Result<(), UiError>、Result<Handled, UiError> の四つを受ける。Handled は Yes/No/PreventDefault を区別し、合成でも PreventDefault を失わない。`noop()` は伝播する。bubble しない callback は Handled を捨てるため、その戻り値で calendar の選択を拒否できない。拒否には実遷移前の activation_guard のような policy を使う。
 
 内部 handler は runtime の一つの Handler<E> に揃える。payload なしの Callback は setup に限らず現在の owner の下で構築できるが、owner なしでは misuse。payload ありは Fn を受け、必要なら Callback.to_fn を使う。user handler、Part、既定動作の順序で伝播と既定動作の防止を区別する。
 
-イベントは on_press、on_edit(EditPhase)、on_submit、on_activate(key)、drag の on_start/on_update/on_end、on_files、on_dismiss(reason)、on_complete/on_exit_complete、on_error(UiError)、on_composition_change、on_active_change、on_add/on_remove/on_reorder とする。selection は binding が正本で、通知のための on_select を足さない。支援技術 action は a11y_action に登録する。
+state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node の実装用 on_attach(PartMount) と区別する。イベントは on_press、on_edit(EditPhase)、on_submit、on_activate(key)、drag の on_start/on_update/on_end、on_files、on_dismiss(reason)、on_complete/on_exit_complete、on_error(UiError)、on_composition_change、on_active_change、on_add/on_remove/on_reorder とする。selection は binding が正本で、通知のための on_select を足さない。支援技術 action は a11y_action に登録する。
 
 ### 構造 option と slot
 
@@ -151,9 +157,13 @@ HandlerResult は `()`、Handled、Result<(), UiError>、Result<Handled, UiError
 
 構造の例は DialogMode、keep_mounted、single/multiple selection、ComboboxMode、CarouselMode、RowHeight、variant、keep_focus、modal、region_events、located_at_caller、release_offscreen_focus、TextEditing の multiline/report_text、table の expand_all、overlay の keep_anchor_clear/at_least_anchor_width、Span の italic、Transition の essential/alternate、carousel の looping、drop zone の multiple/pick_on_press、combobox の free_text/chips、disclosure の always_open、empty の announce、drawer/sidebar の side と collapsible、OTP groups/pattern、hover card/menu の delay、step indicator の indicator、skeleton の index、date の presentation である。
 
-ListItem、MenuEntry、Command、TreeNode、DataColumn、ToastOptions、StepperItem は passive な値として構築し、collection の reactive 性は外側に持つ。RenderOptions、AppOptions、ThemeOptions、InteractionPolicy は構築前の private field と setter にまとめる。variant の Default では owner を要する reactive 値を作らず、必要な reactive 値は明示 setter に渡す。
+ListItem、MenuEntry、Command、TreeNode、DataColumn、ToastOptions、StepperItem は passive な値として構築し、collection の reactive 性は外側に持つ。RenderOptions と AppOptions は private field と setter にまとめる。ThemeOptions と InteractionPolicy のような FRU の設定値は公開 field を持ち、構築前の通常値として渡す。variant の Default では owner を要する reactive 値を作らず、必要な reactive 値は明示 setter に渡す。
 
 `view::component(FnOnce → IntoView)` は mount 時に一度だけ実行する setup の境界。新しい child owner と透明な fragment の下で hook/cleanup を保つ。eager に factory を呼ぶことや、unit の context を provide して owner を偽造することでは代用しない。再度開く content は必要な factory を保ち、捨てた editor owner を再利用しない。
+
+API-11 の診断は blanket impl の内側の bound を rustc が先に報告する場合もある。診断属性に加えて rustdoc の冒頭とガイドにも同じ修正 hint を記し、属性の文言が常に表示されることまでは前提にしない。
+
+API-8 は診断と標準 Rust Error の実際の境界にも限定例外を持つ。UiError/ErrorKind と diagnostics の Trace/NodeInfo/Snapshot の source location、および UiError.from_boxed の Error interop は元の意味を保ち、通常の部品へ拡大しない。理由は定義の直前に記す。__private や cross-crate bridge の到達性を止めるのは doc(hidden) と理由付き internal-contract の両方がある実装 edge だけである。IntoValue/IntoText の内部変換、Value/Binding の runtime/location、TextParagraph の backend adapter が該当する。外部部品の契約である NodeBuilder.node_mut は単に hidden であることだけでは検査対象から外さない。
 
 ### 共有データの境界
 
@@ -234,6 +244,14 @@ mount と report の安定化、入力ごとの dispatch、async settle（最大
 
 reactive の frame kind（Handler/Setup/Computation）と pure/tracking/owner/writer は別の事実であり、untrack/callback/pure が元の kind を消さない。Watcher の最初の評価は依存と queue を初期化するだけで通知しない。以後の callback は untracked で呼び、値の PartialEq 比較を勝手に加えない。
 
+## 検証と保守の単位
+
+一つの関数は80 code行、fileは1000 code行を上限とする。長い処理は意味のある helper に分け、line packing、無意味な型/module、新しいstate、抑制属性で件数だけを減らさない。依存、状態、effect書込み、公開署名、正準path、名前衝突、kit色、OS分岐、構造optionを全workspaceで検査する。検査の例外は実際の境界と理由に限る。
+
+behavior の保存は既存 E2E の契約で確認する。trace は失敗診断用で、golden やf64の丸め一致を作らない。windowを開く試験は全worktreeで同じlockを使う。通常は既定並列、実際に同時doctest compile/linkでlink.exe1180とrustc ICEが起きたためkivact-docsだけ別実行でtest-threads=1とする。GPU試験は別の逐次実行。Cargo job数は制限しない。これはCPU buildの並列性とwindow/focus/実際のlink障害を混同しないための区別である。
+
+変更後の意味情報も実 node から検証する。AsyncViewの既定pendingはStatus Loading、pickerエラーはAlert、Contentsはlayoutの透明性とa11y Group/論理階層を両立する。Desktop操作を検証するdate fixtureは明示Desktop、一般のAdaptive fixtureはtouchのSaveを保つ。iconは実install済みglyphで確かめ、timeoutやdescription relation欠落を期待値の緩和で隠さない。
+
 ## 追加・変更するときのチェックリスト
 
 共通して、実際の要求を確認し、一つの事実の持ち主を決め、型・builder・変換の重複を作らず、公開契約の E2E と必要な英日ガイドを更新する。境界の増設だけで配管を増やさない。
@@ -254,5 +272,17 @@ reactive の frame kind（Handler/Setup/Computation）と pure/tracking/owner/wr
 | 独自 editor | custom の文字編集、IME session、line_styles と decorations。内容と cross-line state を純粋な callback で解析し、byte range を使う。子や独自描画を失わせない |
 | アプリの描画表示 | 標準 viewport と canonical ViewTransform。domain 固有の time/value 座標は独立した意味を持つ場合だけ保持 |
 | E2E | App 全体を virtual backend と本番 presenter/driver で動かす。mirror は任意。Screen の共通 helper と既存の数値・focus・binding assertion を保つ |
+
+### 最初に読む実装の場所
+
+以下は追加の入口となる現行fileである。新しい性質に必要なleafを選び、すべてを無条件に変更しない。
+
+| 変更 | 主なfile |
+|---|---|
+| semantics/Role | types の `src/semantics/node.rs`・`semantics/values.rs`、core の `src/view/node_modifiers.rs`・`view/mount/semantics.rs`、native の `src/a11y/conversion.rs` |
+| text style | types の `src/text/properties.rs`・`text/computed.rs`・`text/primitives.rs`、style の `src/text.rs`・`sheet.rs`、arvane-text の `src/build.rs` |
+| OS service | types の `src/platform.rs`・`env.rs`、native の `src/services.rs` と `port/<os>/services.rs`、core の `src/platform/services.rs` |
+| layout/paint | types の `src/layout.rs`・`paint.rs`、style の `src/sheet.rs`・`paint/`、layout の `src/style/` または engine の `src/lower/` |
+| 標準部品 | interaction の該当behavior、ui の該当部品と `tokens.rs`・`recipes.rs`、公開API試験の `tests/e2e/`、英日guideとkitの実recipe一覧 |
 
 APG は公式の keyboard interaction と roles/states/properties を基準にする。作者の platform context menu、閉じた Select の矢印/Alt+Down、Tooltip の遅延の決定は優先する。規定されていない時間は InteractionPolicy に残す。検証の手順とコマンドは [CONTRIBUTING](../../CONTRIBUTING.md)、背景は[設計判断](decisions.md)を参照する。

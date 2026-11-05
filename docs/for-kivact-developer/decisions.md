@@ -88,6 +88,51 @@
 | 2026-11-05 | ADR-19.45 | Creative picker を全て標準 combobox に置換するか | 共通 body は標準 API を使うが、Creative 固有の column-follow picker は kit に残す | column に追従する domain の意味が一般の選択 field と異なるため |
 | 2026-11-05 | ADR-19.46 | 一度だけ mount する setup closure をどう渡すか | view::component(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
 
+### 実装決定の契約上の補足
+
+次の細部も上表と同じ 2026-11-05 の決定に含む。問いと理由は対応する ADR を参照する。
+
+- ADR-19.1: Backend は run だけで、事前 capabilities/open_child/shutdown は持たない。ShellOptions は native constructor の引数で寸法検証もそこで行う。embed 内部の同名 Backend は ChildPort とした。native への通常依存は外し、既存 native/embed E2E のための arvane の dev-dependency は許す。embed Session は handler を drop した直後、DetachedThreads があれば module を保持する。
+- ADR-19.2: SteppedBackend.start は window を作り handler.start を呼んでから返す。Idle は next_deadline/redraw_requested/woken を持つ。試験 host は handler を loop と共有し、engine の既存 inject は試験専用で残す。node query は同じ handler から読む。a11y の公開を frame 後へ揃え、turn 後に redraw 要求があれば必ず描き、見たときだけ描く経路と KIVACT_TEST_LIVE は廃止する。
+- ADR-19.2: GPU の renderer 通知を待つ wake は最大5秒。frame の readback は keeps_frames の window だけで行い keep_frame へ渡す。test_font/gpu_unavailable は presenter/text を知る arvane root に所属し、arvane に test feature は置かない。既存 arvane E2E は handler 内で実行する Harness.with、Script、Probe で契約を保つ。virtual に winit を持ち込まない。
+- ADR-19.3: raw は Key/Ime/Drop。PlatformKey は Vk（physical code付き）/Keysym/Code で winit 型を含めない。IME は Preedit/Commit/End/Reconvert、DropSession は Idle/Hovering/Dropped。Win32/winit は既存 repeat を明示し、X11 の未指定だけ押下集合から導出する。Screen.raw_input から Script.raw を通す公開試験口を持つ。
+- ADR-19.4: CPU の native 提示形式は Xrgb8888。clipboard/dialog 等の個別 ShellWindow service method を並べず perform に統合する。現行対象はすべて同期に回答するため、返信から Host/window に戻る別経路は作らない。CommandKey の既定は Ctrl、ContextMenuTrigger は Release。virtual は memory clipboard、dialog queue、記録を保ち、respond の request→optional result callback で上書きする。別の PlatformRequestKind は不要。
+- ADR-19.5: ChildStatus は Running/Stopped(cause,window)、ChildLifecycle は Opening/Live/Disposed/Leaked、HandlerSlot は Unstarted/Running(handler,control)。Win32 の drain 中にも event callback が走るため ReentryGuard と DrainGuard は同時に有効となり得る。X11 の atomic guard は ConnectionAlive と名付ける。
+- ADR-19.6: skip が GPU 連続 loss を reset する点は旧実装との差として受け入れた。Healthy/Skipping(frames)/Losing(losses) は相互排他で、Recover/FallbackToCpu/Fail を返す。
+- ADR-19.7: GPU import 未対応の公開分類は既存 Unavailable と具体的理由を使い、新しい FailureKind::Unsupported は足さない。core 単独 build の GPU 試験は gpu_unavailable で skip できる。anchor-deps の専用検査は作らない。
+- ADR-19.8: HostPhase は Starting/Running/Exiting/Closed、AppPresence は Foreground/Suspended、Surface は Drawable(generation)/Unavailable(NoSurface/ZeroSize)、LastPresent は Settled/Skipped(retry_at_ns)。どの phase でも presence/surface は独立した事実。SurfaceLost は再作成後の一回の HostFailure であり Unavailable::Lost を作らない。
+- ADR-19.8: Launch の Pending/Running payload は Box 所有。Starting は引数を移して実 Host/Model を構築中の状態で event は invariant 違反。waker が得られる start で本物の asset store を作り、inline dummy store の差替えを廃止する。前回 Environment は Sent の借用で読み theme/motion override を保つ。
+- ADR-19.9: lower は resolved style/DrawList/text run→scene の変換で tree/input を知らない。BoxShape、asset adapter/event、shape は lower 内に留め types へ広げない。一回の Context 内の Cell/RefCell は残し、finish が dropped 件数と failures を一度だけ返す。
+- ADR-19.10: 変化がなくても overlay の再配置と geometry drain は可能でなければならない。LayoutReasons は PASS/STYLE/VIEWPORT、settle は sync→layout→lint→sync の唯一の順序を持つ。hit test/file drop/wheel/redraw の前に必要な settle を呼ぶ。旧 columns/state は private、実施結果の Kept/Updated も private とする。
+- ADR-19.11: authored display は optional、computed display は確定値。Contents は共通の flatten 処理で消費し Taffy へ渡さない。hidden は display mode と別で保持する。
+- ADR-19.12: TransitionProp::Size を使い Orientation 方向に presence scale を適用する。公開 Presence は Entering/Present/Leaving、内部 Pending/Animating は両方 Entering。engine の通知と Reader から NodeRef.presence が初回 query で signal を作る。parent が直接読む item size/min/max/basis にも scale を適用し、child の natural style/cache は保つ。
+- ADR-19.13: MouseGesture は Route/Scrollbar/SelectText、TouchGesture は Route/Pending/Pan。press/capture は listener の有無や副buttonでも異なるため struct Route のまま。KeyDownTargets は passive focus 宛先表で routing 実装へ逆依存しない。
+- ADR-19.14: soft_keyboard の owner は専用の text-input/IME 処理であり一般 HostPhase へ複製しない。OS service の状態統一は window perform の判断で済ませる。
+- ADR-19.15: handler/turn/time を reactive より上の独立 module にすると既存 binding/callback が HandlerResult を使うことで循環する。Runtime は一つで、host module の inherent impl が上位の構築/settle/finish を提供する。motion は task に依存しない。
+- ADR-19.16: Runtime の内部 extension OnceCell は constructor が返る前に埋まり外から空を観測できない。build の panic は registry から外す。build 中に signal/trigger/selector は作れるが ext は読めない。Driver、late waker 設定、optional root、turn_requested の保存は置かない。blocking threads の既定は min(4, CPU数)。
+- ADR-19.17: TurnReport は timer/drain の最短 deadline と ExitState。exit は Running/Draining(deadline)/Exited、request_exit の再呼出しで deadline を延ばさない。eventなしでも mount boundary がなければ report_now で終わる。before revision と done revision は所定の位置で一回ずつ読む。
+- ADR-19.17: mount 待ちは unstamped と revision付き awaiting の型付き queue。deliver_reports は開始 snapshot だけを配送し後の報告は次回へ残す。frame request は時刻と writer revision の write であり bool にしない。finish が user effect/ready task/later report/client pending から一度だけ wake を決める。commit 上限時は user effect を abandon して Cycle を報告する。
+- ADR-19.18: MotionEnv は reduced_motion/surface_active/frame_period_ns の readonly Value を constructor の Extensions に置く。attach_env、optional env、reduced-motion setter の mirror は作らない。motion 有効化時の既存 reduce_motion は保つ。Sleep は Unregistered(deadline)/Registered(id)/Fired、Drop は cancel queue に積む。
+- ADR-19.19: effect_on の Watcher は User queue、Animated は Internal queue で最初に評価する。生成時へ評価を早めると setup 値になり元の最初の user round の値を失うため行わない。WriteInPureContext の既存 misuse は変更しない。
+- ADR-19.20: AsyncCell を書くのは start/finish/reset のみで、state/latest getter を memo にしない。latest の読み手を無関係な state change で起こさない。Drain は Queue/All runner だけから作り Weak registry で保持。shutdown 後 blocking は新 UiError を返さず invariant panic とする。root破棄と最後のpoll後なので正当なApp codeからは届かない。
+- ADR-19.21: use_app_state の初回 init は root setup で実行して root context に provide する。Extensions は固定 storage の借用を返すため、unsafe な後付け増設 map とは統合しない。
+- ADR-19.22: task 完了 handler は Handler<Result<T,UiError>> で、各 handler へ結果を clone して渡す。既存 on_done が持つ T:Clone の契約内で行う。
+- ADR-19.23: dispatch 自体も Idle/Running(queue) 一つの enum。after は同 variant の前 task を cancel し、その場で Sleep を作ってから spawn する。effect は machine owner の handler frame で順に実行する。
+- ADR-19.24: AppOptions は内部 launch module の設定で facade から再公開しない。RenderOptions だけの host_locale/dark/scale/mirror/gpu/frame period/from_env などはその builder に置く。font の登録元を保持し、拒否時の報告を失わない。
+- ADR-19.25: LaunchHandle.inspect は起動済みのときだけ存在。core だけが答える root/app_view/位置/owner/why/runtime stats/turn record と engine Reader を分ける。semantics snapshot は Reader の host tree を辿る。旧 core tree の一致検査は木の統合までの一時検証で恒久 API ではない。
+- ADR-19.26: theme install/query、style/span compile、record、scroll-axis adapter は hidden internal free function とし旧 inherent method を残さない。THEMED は縮まない ThemeColor interning cache であり theme ごとの可変状態ではない。
+- ADR-19.28: Removed の ids は論理削除した subtree の前順。handler records は tree borrow が終わってから drop。退場 paint が残っていても core handler、asset failure と NodeRef の detach は論理削除で処理する。
+- ADR-19.29: flow の show/dynamic/for_each/for_index/virtual-list行/error-boundary/provide は Contents の実箱を作る。箱自体にsemantics/hit/focusを付けず、未挿入の部分木も親なしの実箱として構築可能。a11y の論理 hierarchy を保つ後の修正は追加判断を参照する。
+- ADR-19.31〜33: HandlerResult の変換 method と NodeBuilder.node_mut は hidden な実装口。外部 builder の実装可能性は維持する。payloadなしcallbackをownerの種類で不当に制限しない。
+- ADR-19.35: policy は Clone/Debug/PartialEq/Default と公開 field を持つ FRU 値。tooltip delay/skip は500/300ms、hover card open/close は600/300msで部品別上書きも残す。toast slop8px、select slop10px、menu drift context10/other13px。drawer close fraction0.3、flick speed0.6、distance4。現在の追加 field と正確な署名はrustdocを参照する。
+- ADR-19.36: 初期 tokens は button busy、progress motion、toast row motion、toggle label reservation、dialog center、disclosure motion、data table sticky/row-status。各部品が所有する nested struct を追加して拡張する。値だけが違う既存 recipe を後から全て作り替える作業はしない。
+- ADR-19.38: overlay margin は inset の数値で既定0。負数/NaN、未設定modeを no-fit sentinel として使わない。
+- ADR-19.39: DragUpdate.velocity は px/ms、track_velocity 未指定は ZERO。axis_lock は slop を越えた最初の軸に固定し交差方向deltaを0にする。raw touch gesture は primary touch/pen filter、slop前の見た目、activation抑止時点を自分のMachineで持つ。switch10px/month6pxは名前付きprivate定数、既存thresholdを変えない。
+- ADR-19.40: 対応の履歴は I-1=Disclosure/Dialog/AlertDialog/Tooltip、I-2a=Combobox/Select Listbox、I-2b=Menu、I-3=Button/Checkbox/Switch、I-4a=List/Tree/Tabs/Radio、I-4b=Grid/Table、I-5a=Slider、I-5b=Splitter、U-2=Spinbutton、K-1b=Carousel、K-2a=Accordion、K-3a=Toolbar、K-3b=Breadcrumb、K-4=Tree semantics、K-6b=Alert。独立した後段I-8は廃止。試験は apg_<pattern> と操作を表す名前で契約を確かめる。
+- ADR-19.41: toast は行の exit_size、tree は子行の enter_size/exit_size。二重slots/live-slots、generation、高さAnimated、previous_open/last_heightの補修を除き、RowReveal/ToastRowPhaseという代替Machineも作らない。
+- ADR-19.42: content T は Clone+PartialEq、cross-line S は PartialEq+Default。line_styles は (&T,line,&S)→(ranges,next S)、全文decorations は &T→decorations。StyledRange はoptional foreground/background/decoration、DecorationKind はUnderline(style)/Outline/Background。古い行番号だけの案ではcontentとblock-comment等の状態を失うため採用しなかった。
+- ADR-19.43: C35 の option 名は実際の kit 利用から決め、未確認の仕様一覧を先に作らない。実装の分担ではcalendarの和集合は日付側に含める。Paint に既存 text color が含まれることはE2Eで確認する。
+
 ## 追加で確定した境界
 
 | 日付 | ID | 問い | 決定 | 理由 |
@@ -97,7 +142,9 @@
 | 2026-11-05 | BOUNDARY-03 | editor drag と domain selection を混ぜるか | editor は zero slop。pointer/origin/payload は Drag、選択意図は domain、numeric payload は一度だけ保持 | 入力経路と選択の意味が異なるため |
 | 2026-11-05 | BOUNDARY-04 | authored text decoration に backend 型を出すか | Color/TextLength を入口とし Rgba/TextLen は内部解決値。Draw と呼び Canvas alias は置かない | API の値と backend 表現を分け一つの名前にするため |
 | 2026-11-05 | API8-01 | immutable bytes と shaping の共有を利用者へ露出するか | AssetBytes、ShapedTextSnapshot、GlyphRunSnapshot、SemanticsTextRuns で private Arc を隠す。owned Vec/iterator と参照 query を普通の入口にし、実 backend の shared allocation は理由付き hidden bridge で再利用 | allocation identity/caching/cheap clone を維持しながら ordinary API の Arc をなくすため。Vec 変換の allocation 不要は保証しない |
+| 2026-11-05 | API8-03 | 診断とRust Errorの情報まで同義wrapperで隠すか | UiError/ErrorKindとdiagnosticsのsource Location、UiError.from_boxedの標準Error interopは定義上の理由付き例外にする。普通の部品には広げない | 診断の出所と標準Errorの相互運用は実際の境界であり、同義wrapperを増やすと意味と使いやすさを失うため |
 | 2026-11-05 | API8-02 | Draw の measurer をアプリが install するか | set_text_measurer は doc(hidden) と precise internal-contract を付す自動 mount/offscreen bridge | 普通の Draw 利用に手動 install の順序を要求するのは不適切であり、実際の呼出者は内部二経路だけのため |
+| 2026-11-05 | BOUNDARY-05 | Contents と a11y の論理構造をどう両立するか | layout/paint/input の透過走査を共有しつつ、意味のある論理 hierarchy を a11y で保ち、bounds は実 children の合併にする | 透明 layout を理由に既存の親子意味や正確な bounds を失わないため |
 | 2026-11-05 | STATE-01 | Creative jobs の一つの running を Machine にするか | 独立したrun/stop入力を保ちprogress/amountを測定値とする。effectは実FrameLoopのstart/stopのみ | 他Signalの補修がなく、phaseのためのboolではないため |
 | 2026-11-05 | STATE-X901 | catalog chat の text と typing をどう表すか | ChatContent::Message(text)/Typing。id/mine は passive identity/著者情報 | 空textとtypingの無効組合せを除き、既存時間と通知/選択ownerを保つため |
 | 2026-11-05 | STATE-X902 | integrated meter の latch をどこが持つか | 単一測定ownerがUnmeasured/Measuredと実transportのSample/Resetを処理 | playing mirror、時刻、epochを追加せず測定の事実を保つため |
@@ -105,7 +152,7 @@
 
 ## 基盤再設計の判断台帳
 
-以下は当時の判断台帳の全124行を、問いと決定・理由を省略せず収録したものである。同じunitの複数判断も別行で保持する。旧名、古い件数、当時の検証結果は履歴であり、現行APIの別名や追加のgateを定義しない。欄内の決定と理由は原記録どおり一体として記す。
+以下は当時の判断台帳の全126行を、問いと決定・理由を省略せず収録したものである。同じunitの複数判断も別行で保持する。旧名、古い件数、当時の検証結果は履歴であり、現行APIの別名や追加のgateを定義しない。欄内の決定と理由は原記録どおり一体として記す。
 
 | 日付 | unit | 問い | 決定・理由 |
 |---|---|---|---|
@@ -233,6 +280,9 @@
 | 2026-11-05 | H-G6 | 検査の適用先 | KIT規則の対象は公式5kitの正確なpackage名とし、同prefixのcatalogアプリを誤認しない。Generation/Rgba/Insetsは状態機械/色/幾何の値操作で構造optionではない。Transition::alternateは構築時の再生方向として明示登録する。全skipは空にする。 |
 | 2026-11-05 | H-G6 | Creative jobs の running | 単独のrun/stop要求は18.14の独立bool事実。progress/amountは数値測定であり、effectは実FrameLoopのstart/stopのみを行う。別Signalの補正をしないため、bool置換だけのMachineは追加せず既存のapp所有値を保持する。 |
 | 2026-11-05 | H-G6 | Draw text measurer の境界 | 実使用はmountとOffscreenの2つの自動install経路だけ。ユーザーにInstall-before-drawを要求するAPIを残さず、doc(hidden)+理由付きinternal-contractのcross-crate bridgeへ分類する。通常の描画・段落測定は自動install済みhostを使う。 |
+
+| 2026-11-05 | CP6/F1 | docsの試験スケジュール | 並列doctestの同時compile/linkでlink.exe1180とrustc ICEが実際に発生した。0.6節の失敗crate例外としてkivact-docsだけ--test-threads=1で別実行する。workspace集約はdocsとGPUproducerを除いて既定並列、GPU6件も従来通り別の逐次実行。Cargoのjob数は制限しない。 |
+| 2026-11-05 | fix-CP6 | 変更後の契約に合わせる試験 | AsyncView既定pendingはStatus Loading、pickerエラーはAlert、Display::Contentsはlayoutが透明でもa11y Groupと論理階層を保つ。Desktop専用date fixtureは明示Desktop、汎用adaptiveはtouchのSaveを保つ。iconは実インストール済みglyphで検査する。未知のnative timeoutとdescriptionの関係欠落は期待を弱めず原因を切り分ける。 |
 
 ## 調査・停止・定義の追記
 
