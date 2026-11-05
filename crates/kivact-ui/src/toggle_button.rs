@@ -79,9 +79,9 @@ fn toggle_label(
     )
 }
 
+// xtask-allow(state-fields): Independent builder labels, enabled/busy inputs and optional edit callback; checked value belongs to the caller binding.
 /// A button that stays pressed, created by [`toggle_button`]. Its behavior and
 /// semantics are those of [`use_toggle_button`].
-// xtask-allow(state-fields): Independent builder labels, enabled/busy inputs and optional edit callback; checked value belongs to the caller binding.
 pub struct ToggleButton {
     root: Node,
     label: Value<String>,

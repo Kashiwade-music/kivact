@@ -273,16 +273,7 @@ impl IntoView for NumberInput {
         let field = text_input(label, edit)
             .disabled(disabled)
             .invalid(move || {
-                invalid.get()
-                    || match typed.get() {
-                        NumberText::Value(_) => false,
-                        NumberText::Typed { text, .. } => {
-                            let range = range.get();
-                            locale.get().parse_number(&text).is_none_or(|value| {
-                                !value.is_finite() || value < range.min() || value > range.max()
-                            })
-                        }
-                    }
+                invalid.get() || text_invalid(&typed.get(), range.get(), &locale.get())
             })
             .with_node(|node| node.base_style(style().grid_row(1).grid_column(2)))
             .node_ref(input_ref)
@@ -336,4 +327,14 @@ fn step_button(
         .on_press(move || {
             number.once(|| number.step_by(steps));
         })
+}
+
+/// Validate a pending textual edit against the caller's current numeric bounds.
+fn text_invalid(text: &NumberText, range: ScalarRange, locale: &Locale) -> bool {
+    match text {
+        NumberText::Value(_) => false,
+        NumberText::Typed { text, .. } => locale
+            .parse_number(text)
+            .is_none_or(|value| !value.is_finite() || value < range.min() || value > range.max()),
+    }
 }
