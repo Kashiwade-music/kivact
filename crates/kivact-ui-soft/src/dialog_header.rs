@@ -19,13 +19,18 @@ use kivact::view::row;
 use kivact::view::text;
 use std::rc::Rc;
 
+/// Negative inset applied around the trailing header controls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EdgeCompensation {
+    /// Compensate the inline end by eight pixels.
     Inline,
+    /// Compensate the top and bottom by eight pixels.
     Block,
+    /// Apply both inline and block compensation.
     All,
 }
 
+/// Dialog heading with optional subtitle, side content and close action.
 pub struct DialogHeader {
     title: View,
     subtitle: Option<View>,
@@ -36,6 +41,7 @@ pub struct DialogHeader {
     divider: kivact::state::Value<bool>,
 }
 
+/// Create a heading without subtitle, side content, divider or close action.
 pub fn dialog_header(title: impl IntoText) -> DialogHeader {
     DialogHeader {
         title: text(title)
@@ -63,9 +69,11 @@ pub fn drawer_header(title: impl IntoText) -> DrawerHeader {
     DrawerHeader(dialog_header(title))
 }
 
+/// Visual drawer heading; the enclosing drawer owns its accessible name.
 pub struct DrawerHeader(DialogHeader);
 
 impl DialogHeader {
+    /// Add secondary text below the title.
     pub fn subtitle(mut self, subtitle: impl IntoText) -> Self {
         self.subtitle = Some(
             text(subtitle)
@@ -81,26 +89,31 @@ impl DialogHeader {
         self
     }
 
+    /// Mount content once before the title.
     pub fn header_start(mut self, content: impl IntoView) -> Self {
         self.start = Some(content.into_view());
         self
     }
 
+    /// Mount content once beside the trailing close control.
     pub fn header_end(mut self, content: impl IntoView) -> Self {
         self.end = Some(content.into_view());
         self
     }
 
+    /// Override the trailing-control inset; a close control otherwise compensates both axes.
     pub fn header_end_compensation(mut self, compensation: EdgeCompensation) -> Self {
         self.compensation = Some(compensation);
         self
     }
 
+    /// Enable the bottom divider from a read-only input; false by default.
     pub fn header_divider(mut self, divider: impl IntoValue<bool>) -> Self {
         self.divider = divider.into_value();
         self
     }
 
+    /// Add a close button that calls the application callback.
     pub fn on_close(mut self, close: impl Into<Callback<()>>) -> Self {
         let close: Callback<()> = close.into();
         self.close = Some(Rc::new(move || close.call(())));
@@ -164,31 +177,37 @@ impl DialogHeader {
 }
 
 impl DrawerHeader {
+    /// Add secondary text below the title.
     pub fn subtitle(mut self, subtitle: impl IntoText) -> Self {
         self.0 = self.0.subtitle(subtitle);
         self
     }
 
+    /// Mount content once before the title.
     pub fn header_start(mut self, content: impl IntoView) -> Self {
         self.0 = self.0.header_start(content);
         self
     }
 
+    /// Mount content once beside the trailing close control.
     pub fn header_end(mut self, content: impl IntoView) -> Self {
         self.0 = self.0.header_end(content);
         self
     }
 
+    /// Override the trailing-control inset; a close control otherwise compensates both axes.
     pub fn header_end_compensation(mut self, compensation: EdgeCompensation) -> Self {
         self.0 = self.0.header_end_compensation(compensation);
         self
     }
 
+    /// Enable the bottom divider from a read-only input; false by default.
     pub fn header_divider(mut self, divider: impl IntoValue<bool>) -> Self {
         self.0 = self.0.header_divider(divider);
         self
     }
 
+    /// Add a close button that calls the application callback.
     pub fn on_close(mut self, close: impl Into<Callback<()>>) -> Self {
         let close: Callback<()> = close.into();
         self.0 = self.0.on_close(close);

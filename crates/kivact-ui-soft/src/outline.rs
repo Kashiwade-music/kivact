@@ -44,15 +44,21 @@ use kivact::view::node_ref;
 use std::rc::Rc;
 use std::time::Duration;
 
+/// One heading destination in a table of contents.
 #[derive(Clone, PartialEq)]
 pub struct OutlineItem {
+    /// Stable identifier used by the active binding and callbacks.
     pub id: String,
+    /// Visible link label.
     pub label: String,
+    /// Heading depth used for indentation.
     pub level: u8,
+    /// Mounted heading to observe and scroll into view.
     pub target: NodeRef,
 }
 
 impl OutlineItem {
+    /// Describe a heading destination without creating or owning its node.
     pub fn new(
         id: impl Into<String>,
         label: impl Into<String>,
@@ -68,13 +74,17 @@ impl OutlineItem {
     }
 }
 
+/// Vertical spacing of outline links.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OutlineDensity {
+    /// Standard outline spacing, the default.
     #[default]
     Default,
+    /// Tighter outline spacing.
     Compact,
 }
 
+/// Heading navigation with optional scroll tracking and controlled active state.
 pub struct Outline {
     root: Node,
     items: Value<Vec<OutlineItem>>,
@@ -89,6 +99,7 @@ pub struct Outline {
     end: Option<Callback<String>>,
 }
 
+/// Create a table of contents with standard spacing, zero offset and scrolling enabled.
 pub fn outline(items: impl IntoValue<Vec<OutlineItem>>) -> Outline {
     Outline {
         root: node()
@@ -111,30 +122,37 @@ pub fn outline(items: impl IntoValue<Vec<OutlineItem>>) -> Outline {
 }
 
 impl Outline {
+    /// Connect the caller's optional active heading identifier.
     pub fn active(mut self, active: impl IntoBinding<Option<String>>) -> Self {
         self.active = Some(active.into_binding());
         self
     }
+    /// Choose the link spacing; standard by default.
     pub fn density(mut self, density: impl IntoValue<OutlineDensity>) -> Self {
         self.density = density.into_value();
         self
     }
+    /// Set the heading activation and scroll inset in logical pixels; defaults to zero.
     pub fn offset(mut self, offset: impl IntoValue<f64>) -> Self {
         self.offset = offset.into_value();
         self
     }
+    /// Observe and scroll within this viewport instead of the window.
     pub fn scroll_container(mut self, viewport: NodeRef) -> Self {
         self.viewport = Some(viewport);
         self
     }
+    /// Observe this content node so layout changes update heading tracking.
     pub fn scroll_content(mut self, content: NodeRef) -> Self {
         self.content = Some(content);
         self
     }
+    /// Enable scrolling on link activation when mounted; true by default.
     pub fn scroll_on_press(mut self, scroll: impl IntoValue<bool>) -> Self {
         self.scroll_on_press = scroll.into_value();
         self
     }
+    /// Report the heading identifier when scroll tracking changes the active heading.
     pub fn on_active_change<R: HandlerResult>(
         mut self,
         change: impl Fn(String) -> R + 'static,
@@ -142,6 +160,7 @@ impl Outline {
         self.change = Some(callback(change));
         self
     }
+    /// Report the destination identifier before navigation begins.
     pub fn on_navigate_start<R: HandlerResult>(
         mut self,
         start: impl Fn(String) -> R + 'static,
@@ -149,6 +168,7 @@ impl Outline {
         self.start = Some(callback(start));
         self
     }
+    /// Report the destination identifier when scrolling finishes, or immediately without animated scrolling.
     pub fn on_navigate_end<R: HandlerResult>(
         mut self,
         end: impl Fn(String) -> R + 'static,

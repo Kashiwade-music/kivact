@@ -43,14 +43,19 @@ use kivact::view::node_ref;
 use kivact::view::overlay;
 use kivact::view::show;
 
+/// Image and descriptive text for one gallery entry.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LightboxMedia {
+    /// Image asset to display.
     pub image: Asset,
+    /// Alternative text used to name the displayed image.
     pub alt: String,
+    /// Optional visible caption beneath the image.
     pub caption: Option<String>,
 }
 
 impl LightboxMedia {
+    /// Create an image entry without a caption.
     pub fn image(image: impl Into<Asset>, alt: impl Into<String>) -> Self {
         Self {
             image: image.into(),
@@ -60,6 +65,7 @@ impl LightboxMedia {
     }
 }
 
+/// Modal image gallery controlled by open and optional index bindings.
 // xtask-allow(state-fields): Independent setup options for external bindings, initial index, and zoom availability.
 pub struct Lightbox {
     open: Binding<bool>,
@@ -69,6 +75,7 @@ pub struct Lightbox {
     view: Option<Binding<LightboxView>>,
 }
 
+/// Create a gallery starting at index zero with zoom disabled.
 pub fn lightbox(
     open: impl IntoBinding<bool>,
     media: impl IntoValue<Vec<LightboxMedia>>,
@@ -83,11 +90,13 @@ pub fn lightbox(
 }
 
 impl Lightbox {
+    /// Use the caller's zero-based active-index binding.
     pub fn index(mut self, index: impl IntoBinding<usize>) -> Self {
         self.index = Some(index.into_binding());
         self
     }
 
+    /// Enable zoom and pan interaction; disabled by default and fixed at setup.
     pub fn zoom(mut self, zoom: bool) -> Self {
         self.zoom = zoom;
         self
@@ -106,12 +115,14 @@ enum LightboxState {
     Open { index: usize, view: LightboxView },
 }
 
+/// Shared gallery handle owning its open, selected-image and zoom state.
 #[derive(Clone, Copy)]
 pub struct LightboxHandle {
     state: Signal<LightboxState>,
     media: Value<Vec<LightboxMedia>>,
 }
 
+/// Create a closed gallery handle over a read-only media collection.
 pub fn use_lightbox(media: impl IntoValue<Vec<LightboxMedia>>) -> LightboxHandle {
     LightboxHandle {
         state: signal(LightboxState::Closed),
@@ -120,6 +131,7 @@ pub fn use_lightbox(media: impl IntoValue<Vec<LightboxMedia>>) -> LightboxHandle
 }
 
 impl LightboxHandle {
+    /// Open the zero-based gallery entry in fit-to-view mode.
     pub fn open(self, index: usize) {
         self.state.set(LightboxState::Open {
             index,
@@ -127,14 +139,17 @@ impl LightboxHandle {
         });
     }
 
+    /// Close this gallery.
     pub fn close(self) {
         self.state.set(LightboxState::Closed);
     }
 
+    /// Observe whether this gallery is open.
     pub fn is_open(self) -> Value<bool> {
         (move || matches!(self.state.get(), LightboxState::Open { .. })).into_value()
     }
 
+    /// Create a gallery view connected to this handle's existing state.
     pub fn view(self) -> Lightbox {
         let open = binding(
             move || matches!(self.state.get(), LightboxState::Open { .. }),
@@ -176,6 +191,7 @@ impl LightboxHandle {
         lightbox
     }
 
+    /// Return an activation callback that opens the given zero-based entry.
     pub fn trigger(self, index: usize) -> impl Fn() + 'static {
         move || self.open(index)
     }

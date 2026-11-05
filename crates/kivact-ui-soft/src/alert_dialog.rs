@@ -22,6 +22,7 @@ use kivact::view::row;
 use kivact::view::show;
 use std::rc::Rc;
 
+/// Confirmation dialog with a cancel button and an optional application action.
 pub struct AlertDialog {
     dialog: kivact::ui::Dialog,
     open: Binding<bool>,
@@ -31,6 +32,7 @@ pub struct AlertDialog {
     loading: Value<bool>,
 }
 
+/// Create a 400-pixel alert modal with cancel focused initially and no close affordance.
 pub fn alert_dialog(
     title: impl IntoText,
     description: impl IntoText,
@@ -52,27 +54,32 @@ pub fn alert_dialog(
 }
 
 impl AlertDialog {
+    /// Add the confirmation action; the callback decides whether and when to close the dialog.
     pub fn action(mut self, label: impl Into<String>, action: impl Into<Callback<()>>) -> Self {
         let action: Callback<()> = action.into();
         self.action = Some((label.into(), Rc::new(move || action.call(()))));
         self
     }
 
+    /// Replace the localized cancel-button label.
     pub fn cancel_label(mut self, label: impl Into<String>) -> Self {
         self.cancel = Some(label.into());
         self
     }
 
+    /// Choose the confirmation-button appearance; danger by default.
     pub fn action_variant(mut self, variant: ButtonVariant) -> Self {
         self.variant = variant;
         self
     }
 
+    /// Show the confirmation button as busy from a read-only input; false by default.
     pub fn action_loading(mut self, loading: impl IntoValue<bool>) -> Self {
         self.loading = loading.into_value();
         self
     }
 
+    /// Set the dialog width; defaults to 400 pixels.
     pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
         self.dialog = self.dialog.width(width);
         self

@@ -76,30 +76,44 @@ impl Sheet {
     }
 }
 
+/// Maximum sheet height, capped at 92 percent of the viewport.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum SheetHeight {
+    /// Fit the measured content height.
     Hug,
+    /// Use 62 percent of the viewport height, the default.
     #[default]
     Capped,
+    /// Use 92 percent of the viewport height.
     Tall,
+    /// Height in logical pixels.
     Px(f64),
+    /// Height as a fraction of the viewport height.
     Fraction(f64),
 }
 
+/// Visible sheet height at an additional draggable detent.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SnapPoint {
+    /// Visible height in logical pixels.
     Px(f64),
+    /// Visible height as a fraction of the viewport height.
     Fraction(f64),
 }
 
+/// Dismissal rules for a bottom sheet.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DialogPurpose {
+    /// Require an explicit application action; ignore Escape, outside presses and drag dismissal.
     Required,
+    /// Allow Escape, while ignoring outside presses and drag dismissal.
     Form,
+    /// Allow Escape, outside presses and downward drag dismissal; the default.
     #[default]
     Info,
 }
 
+/// Bottom-aligned sheet rebuilt on each opening from the caller's open binding.
 // xtask-allow(state-fields): Independent setup options for sheet purpose, sizing, scrim, focus target, and content.
 pub struct BottomSheet {
     label: kivact::state::Value<String>,
@@ -113,6 +127,7 @@ pub struct BottomSheet {
     content: Option<ViewFn>,
 }
 
+/// Create an informational sheet with capped height, a scrim and 16-pixel body padding.
 pub fn bottom_sheet(label: impl IntoText, open: impl IntoBinding<bool>) -> BottomSheet {
     BottomSheet {
         label: label.into_text_value(),
@@ -150,37 +165,44 @@ pub fn bottom_sheet_flow<K: PropValue>(
 }
 
 impl BottomSheet {
+    /// Choose fixed dismissal rules; informational by default.
     pub fn purpose(mut self, purpose: DialogPurpose) -> Self {
         self.purpose = purpose;
         self
     }
 
+    /// Choose the maximum sheet height; capped by default.
     pub fn height(mut self, height: SheetHeight) -> Self {
         self.height = height;
         self
     }
 
+    /// Set extra visible-height detents; the fully open position is always included.
     pub fn snap_points(mut self, points: impl IntoIterator<Item = SnapPoint>) -> Self {
         self.snap_points = points.into_iter().collect();
         self
     }
 
+    /// Enable the scrim; its value at mounting also chooses modal presentation.
     pub fn scrim(mut self, scrim: impl IntoValue<bool>) -> Self {
         self.scrim = scrim.into_value();
         self
     }
 
+    /// Set body padding in four-pixel spacing steps; defaults to four steps.
     pub fn padding(mut self, step: impl IntoValue<f64>) -> Self {
         let step = step.into_value();
         self.padding = (move || step.get() * 4.0).into_value();
         self
     }
 
+    /// Restore focus to this target after closing instead of relying on the default opener.
     pub fn final_focus(mut self, target: NodeRef) -> Self {
         self.final_focus = Some(target);
         self
     }
 
+    /// Build body content anew for each opening; no content is installed by default.
     pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
         self.content = Some(content.into_view_fn());
         self

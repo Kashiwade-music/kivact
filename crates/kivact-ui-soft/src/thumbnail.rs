@@ -44,8 +44,10 @@ const SIDE: f64 = 64.0;
 /// When the remove button is visible.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RemoveReveal {
+    /// Reveal on hover or keyboard focus, the default.
     #[default]
     Hover,
+    /// Keep the remove control visible.
     Always,
 }
 
