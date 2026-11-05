@@ -188,7 +188,7 @@ pub use recipes_table::{TableCellAppearance, TableRowAppearance};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
-pub use segmented_control::{SegmentedIconOnly, SegmentedLayout};
+pub use segmented_control::{SegmentedLayout, SegmentedLook};
 pub use shadows::Shadows;
 pub use side_navigation::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,

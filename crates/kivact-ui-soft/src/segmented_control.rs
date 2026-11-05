@@ -11,9 +11,14 @@ pub enum SegmentedLayout {
     Fill,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SegmentedIconOnly;
-impl Variant for SegmentedLayout {}
-impl Variant for SegmentedIconOnly {}
+/// Geometry and content presentation of standard segmented radios.
+pub struct SegmentedLook {
+    /// Whether segments hug their content or share the available width.
+    pub layout: SegmentedLayout,
+    /// Reserve compact geometry for caller-provided icon-only content.
+    pub icon_only: bool,
+}
+impl Variant for SegmentedLook {}
 pub(crate) fn track(theme: &Theme, look: &Look<Orientation>) -> Style {
     let t = theme.ext::<Tokens>();
     let mut base = style()
@@ -23,10 +28,16 @@ pub(crate) fn track(theme: &Theme, look: &Look<Orientation>) -> Style {
         .padding(4)
         .radius(t.radius.element)
         .background(t.colors.neutral);
-    if look.variant::<SegmentedLayout>() == Some(&SegmentedLayout::Fill) {
+    if look
+        .variant::<SegmentedLook>()
+        .is_some_and(|look| look.layout == SegmentedLayout::Fill)
+    {
         base = base.width(pct(100));
     }
-    if look.variant::<SegmentedIconOnly>().is_some() {
+    if look
+        .variant::<SegmentedLook>()
+        .is_some_and(|look| look.icon_only)
+    {
         base.shrink(0)
     } else {
         base.max_width(pct(100)).min_width(0)
@@ -68,7 +79,10 @@ pub(crate) fn segment(theme: &Theme, look: &Look<CheckableState>) -> Style {
             .hover(style().background(c.overlay_hover))
             .pressed(style().background(c.overlay_pressed));
     }
-    if look.variant::<SegmentedLayout>() == Some(&SegmentedLayout::Fill) {
+    if look
+        .variant::<SegmentedLook>()
+        .is_some_and(|look| look.layout == SegmentedLayout::Fill)
+    {
         base = base.grow(1).basis(0);
     }
     fast(&t, base)
