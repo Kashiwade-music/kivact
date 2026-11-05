@@ -13,9 +13,8 @@ use kivact::style::{Align, Justify};
 use kivact::style::{Overflow, TextOverflow};
 use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, TestFonts, render, render_with};
 
-static NOTO: &[u8] = include_bytes!(
-    "../../../../../examples/kivact-ui-pop/assets/fonts/notosansjp/NotoSansJP[wght].ttf"
-);
+static NOTO: &[u8] =
+    include_bytes!("../../../../../examples/shared-assets/fonts/notosansjp/NotoSansJP[wght].ttf");
 
 const GRAY: u32 = 0xdddddd;
 

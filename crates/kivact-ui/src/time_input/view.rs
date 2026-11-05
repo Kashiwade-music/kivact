@@ -11,6 +11,7 @@ pub struct TimeInput {
     root: Node,
     variants: crate::variants::Variants,
     label: Value<String>,
+    picker_label: Option<Value<String>>,
     value: Binding<Option<TimeOfDay>>,
     seconds: Value<bool>,
     min: Value<Option<TimeOfDay>>,
@@ -23,6 +24,7 @@ pub fn time_input(label: impl IntoText, value: impl IntoBinding<Option<TimeOfDay
         root: node(),
         variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
+        picker_label: None,
         value: value.into_binding(),
         seconds: false.into_value(),
         min: None.into_value(),
@@ -31,6 +33,12 @@ pub fn time_input(label: impl IntoText, value: impl IntoBinding<Option<TimeOfDay
     }
 }
 impl TimeInput {
+    /// Name the separate picker button independently of the text editor.
+    pub fn picker_label(mut self, label: impl IntoText) -> Self {
+        self.picker_label = Some(label.into_text_value());
+        self
+    }
+
     /// Add a visual variant shared by the field and its picker surface.
     pub fn variant(self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
@@ -73,6 +81,7 @@ impl IntoView for TimeInput {
             root,
             variants,
             label,
+            picker_label,
             value,
             seconds,
             min,
@@ -80,59 +89,57 @@ impl IntoView for TimeInput {
             presentation,
         } = self;
         let locale = use_locale();
-        let initial = value
-            .get_untracked()
-            .map_or(TimeDraft::Empty, |value| TimeDraft::Valid {
-                text: String::new(),
-                value,
-            });
-        let state = machine(
-            TimeInputState::Closed(initial),
-            move || Snapshot {
-                seconds: seconds.get(),
-                min: min.get(),
-                max: max.get(),
-            },
-            move |_, next| value.set(next),
-        );
-        kivact_core::state::effect(move || state.send(Event::External(value.get())));
-        let draft = binding(
-            move || match state.get().draft() {
-                TimeDraft::Invalid(text) => text.clone(),
-                TimeDraft::Valid { text, value: _ } if !text.is_empty() => text.clone(),
-                _ => value
-                    .get()
-                    .map(|value| {
-                        locale.get().format_time(
-                            value,
-                            TimeStyle {
-                                seconds: seconds.get(),
-                            },
-                        )
-                    })
-                    .unwrap_or_default(),
-            },
-            move |text| state.send(Event::Text(text)),
-        );
-        let field = text_input(label, draft)
-            .placeholder("HH:MM")
-            .invalid(move || matches!(state.get().draft(), TimeDraft::Invalid(_)))
-            .on_draft_commit(move |text| state.send(Event::Commit(text)));
-        let toggle =
-            button(message("time.open", "Choose time")).on_press(move || state.send(Event::Open));
+        let state = time_controller(value, seconds, min, max);
+        let draft = time_text(state, value, seconds, locale);
+        let input_ref = kivact_core::view::node_ref();
+        let button_ref = kivact_core::view::node_ref();
+        let return_focus = kivact_core::state::memo(move || match state.get() {
+            TimeInputState::Open { invoker, .. } => invoker,
+            _ => button_ref,
+        });
         let open = binding(
             move || state.get().is_open(),
-            move |open| state.send(if open { Event::Open } else { Event::Close }),
+            move |open| {
+                state.send(if open {
+                    Event::Open(button_ref)
+                } else {
+                    Event::Close
+                })
+            },
         );
-        let picked = binding(value, move |next| state.send(Event::Pick(next)));
+        let field = text_input(label, draft)
+            .node_ref(input_ref)
+            .with_node(|n| n.expanded(open))
+            .placeholder("HH:MM")
+            .invalid(move || matches!(state.get().draft(), TimeDraft::Invalid(_)))
+            .forward_keys(vec![kivact_core::view::Key::ArrowDown])
+            .on_key(move |event: kivact_core::view::KeyEvent| {
+                if event.key() == kivact_core::view::Key::ArrowDown {
+                    state.send(Event::Open(input_ref));
+                    kivact_core::view::Handled::Yes
+                } else {
+                    kivact_core::view::Handled::No
+                }
+            })
+            .on_draft_commit(move |text| state.send(Event::Commit(text)));
+        let toggle = button(picker_label.unwrap_or_else(|| message("time.open", "Choose time")))
+            .node_ref(button_ref);
+        let picked = binding(value, move |next| value.set(next));
         root.child(with_recipe_style(
             row((
                 field,
                 dialog(label, open)
                     .with_variants(&variants)
                     .mode(presentation.mode())
+                    .return_focus(return_focus)
                     .hide_title(true)
-                    .content(move || crate::date_wheel::time_panel(picked, seconds))
+                    .content(move || {
+                        kivact_core::view::column((
+                            crate::date_wheel::time_panel(picked, seconds),
+                            button(message("time.save", "Save"))
+                                .on_press(move || state.send(Event::Close)),
+                        ))
+                    })
                     .attach(toggle),
             )),
             |r| r.time_input_recipes().root_recipe(),
@@ -141,4 +148,55 @@ impl IntoView for TimeInput {
         ))
         .into_view()
     }
+}
+
+fn time_text(
+    state: kivact_core::state::MachineHandle<Snapshot>,
+    value: Binding<Option<TimeOfDay>>,
+    seconds: Value<bool>,
+    locale: Value<kivact_core::i18n::Locale>,
+) -> Binding<String> {
+    binding(
+        move || match state.get().draft() {
+            TimeDraft::Invalid(text) => text.clone(),
+            TimeDraft::Valid { text, value: _ } if !text.is_empty() => text.clone(),
+            _ => value
+                .get()
+                .map(|value| {
+                    locale.get().format_time(
+                        value,
+                        TimeStyle {
+                            seconds: seconds.get(),
+                        },
+                    )
+                })
+                .unwrap_or_default(),
+        },
+        move |text| state.send(Event::Text(text)),
+    )
+}
+
+fn time_controller(
+    value: Binding<Option<TimeOfDay>>,
+    seconds: Value<bool>,
+    min: Value<Option<TimeOfDay>>,
+    max: Value<Option<TimeOfDay>>,
+) -> kivact_core::state::MachineHandle<Snapshot> {
+    let initial = value
+        .get_untracked()
+        .map_or(TimeDraft::Empty, |value| TimeDraft::Valid {
+            text: String::new(),
+            value,
+        });
+    let state = machine(
+        TimeInputState::Closed(initial),
+        move || Snapshot {
+            seconds: seconds.get(),
+            min: min.get(),
+            max: max.get(),
+        },
+        move |_, next| value.set(next),
+    );
+    kivact_core::state::effect(move || state.send(Event::External(value.get())));
+    state
 }

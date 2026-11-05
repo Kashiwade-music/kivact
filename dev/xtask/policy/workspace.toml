@@ -445,7 +445,7 @@ list = [
     "Menu::at_least_anchor_width", "Span::italic", "Transition::essential",
     "Carousel::looping", "Dropzone::multiple", "DropzoneApi::multiple", "Dropzone::pick_on_press",
     "Combobox::free_text", "Combobox::chips", "Combobox::exclude_selected", "Disclosure::always_open", "DisclosureApi::always_open",
-    "EmptyState::announce", "Drawer::side", "Sidebar::collapsible", "SidebarProvider::side",
+    "EmptyState::announce", "EmptyState::announce_changes", "Drawer::side", "Sidebar::collapsible", "SidebarProvider::side",
     "InputOtp::groups", "InputOtp::pattern", "HoverCard::open_delay", "HoverCard::close_delay",
     "TopNavMenu::delay_ms", "TopNavMenu::hide_delay_ms",
     "TopNavMegaMenu::delay_ms", "TopNavMegaMenu::hide_delay_ms",
