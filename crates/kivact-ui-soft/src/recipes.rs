@@ -7,6 +7,7 @@ pub(super) fn recipes() -> UiRecipes {
     RECIPES
         .get_or_init(|| {
             crate::recipes_controls::register(UiRecipes::default())
+                .heading(|_| crate::recipes_metrics::heading)
                 .text_input(|_| crate::recipes_field::text_input)
                 .text_area(|_| crate::recipes_field::text_area)
                 .calendar(crate::recipes_calendar::calendar)

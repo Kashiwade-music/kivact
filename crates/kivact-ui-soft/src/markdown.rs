@@ -2,7 +2,7 @@
 use crate::markdown_parser::{Alignment, Block, ListEntry, parse, reference};
 use crate::{
     CitationSource, CitationVariant, CodeLanguage, CodeLanguageInput, blockquote, citation,
-    code_block, heading,
+    code_block,
 };
 use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
@@ -437,7 +437,7 @@ impl Renderer<'_> {
         let view = if let Some(render) = &self.options.render_heading {
             render.call((level, title.to_owned()))
         } else {
-            heading(level, title).into_view()
+            kivact::ui::heading(title, level.clamp(1, 6) as u8).into_view()
         };
         let Some(links) = &self.options.heading_links else {
             return view;

@@ -19,8 +19,8 @@ fn project_view() -> impl IntoView {
             view,
         ).variant(kivact::ui::RadioGroupVariant::Segmented),
         dynamic(view, |view| match view {
-            Some("activity") => soft::heading(2, "Activity"),
-            _ => soft::heading(2, "Summary"),
+            Some("activity") => kivact::ui::heading("Activity", 2),
+            _ => kivact::ui::heading("Summary", 2),
         }),
     ))
     .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s4))
