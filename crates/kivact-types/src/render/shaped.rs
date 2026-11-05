@@ -157,7 +157,7 @@ pub struct TextHighlight {
     pub span: usize,
 }
 
-/// Retained immutable shapedtext data; cloning preserves the shaping allocation.
+/// Retained immutable shaped text data; cloning preserves the shaping allocation.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ShapedTextSnapshot(Arc<ShapedText>);
 impl ShapedTextSnapshot {
@@ -206,7 +206,7 @@ impl std::ops::Deref for ShapedTextSnapshot {
     }
 }
 
-/// Retained immutable glyphrun data; cloning preserves the shaping allocation.
+/// Retained immutable glyph run data; cloning preserves the shaping allocation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GlyphRunSnapshot(Arc<GlyphRun>);
 impl GlyphRunSnapshot {

@@ -871,7 +871,7 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 
 ### H-G6 API-8 の共有データ境界
 
-- AssetBytesはprivate Arcの不変バイト列。Asset::Shared、Pixels.rgbaとGlyphRun.fontが同じ型を使い、Vecからコピーせず構築できる。Pixels::newはimpl Into<AssetBytes>を取る。
+- AssetBytesはprivate Arcの不変バイト列。Asset::Shared、Pixels.rgbaとGlyphRun.fontが同じ型を使い、Vecを通常の所有値として受け取る。Pixels::newはimpl Into<AssetBytes>を取る。
 - ShapedTextSnapshot / GlyphRunSnapshotは既存の不変描画データのcheap-clone handle。既存custom::TextLayoutとは別名にし、allocation identityと参照の読み取りを維持する。
 - SemanticsTextRunsは既存runデータの共有list。利用者はowned SemanticsTextRunのiterator/Vecで構築し、iter/get/indexはrunを参照する。backendは既存Arcのrun/listを再利用する。
 - backendがすでに持つ共有allocationの受け渡しだけはdoc(hidden)と理由付きinternal-contractを両方持つfrom_shared等のbridgeを使う。From<Arc<_>>を通常の公開入口に足さず、ユーザー入口の署名からArcを除去する。

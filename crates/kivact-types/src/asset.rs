@@ -158,7 +158,7 @@ impl From<&Path> for Asset {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct AssetBytes(Arc<[u8]>);
 impl AssetBytes {
-    /// Retain owned bytes without cloning their contents.
+    /// Create immutable shared storage from owned bytes.
     pub fn new(bytes: Vec<u8>) -> Self {
         Self(bytes.into())
     }
