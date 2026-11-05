@@ -321,9 +321,9 @@ APG は公式の keyboard interaction と roles/states/properties を基準に�
 | `crates/arvane-text/src/inline.rs` | inline objectを含むparagraphのbreak処理にも同じ方針を使う |
 | `crates/arvane-text/src/cache.rs` | 計測・描画結果のTextKeyへ新しい入力を反映し、違う方針の結果を再利用しない |
 | `crates/arvane-text/src/layouts.rs` | 再利用するParley layoutのKeyを確認し、新方針を保持する構築状態もkeyへ反映する。幅だけの再改行とshape入力の区別は保つ |
-| `crates/kivact-core/src/style.rs` | facadeのstyleは明示再公開なので、新しい値を利用者が名前で書けるように再公開する。新しい変換やadapterは不要 |
+| `crates/kivact-style/src/facade.rs` | 所有crateが管理する公開style語彙の明示リストへ値を加える。coreはこの限定された語彙をそのまま転送するため変更しない |
 
-**機能の実装は3 crate・13 file、再公開だけのcoreを含む実際の変更先は4 crate・14 file。** engineは既存ComputedTextStyle.inheritと共有値をそのまま使うため、追加のstyle modelやadapterは不要。既存resolve.rsはTextExtras全体をresolve_extrasへ渡すので、この方針では変更しない。coreのexportを無視して「全変更が3 crate」とは数えない。新しい値を公開せず内部だけに限定する、という別のscopeとも混同しない。
+**再公開を含め3 runtime crate・14 file。** 公開style語彙のリストもkivact-styleが所有し、coreのstyle moduleはkivact_style::facadeだけを転送する。これにより新しい値を公開してもcoreのexportを二重に編集しない。engineは既存ComputedTextStyle.inheritと共有値をそのまま使うため、追加のstyle modelやadapterは不要。既存resolve.rsはTextExtras全体をresolve_extrasへ渡すので、この方針では変更しない。
 
 #### beep: windowが答えるOS service
 
@@ -340,9 +340,8 @@ PlatformRequestのBeepとCapabilitiesの対応可否を追加し、WindowsとX11
 | `crates/arvane-native/src/port/x11/window.rs` | X11 embed windowの同じperformとcapabilitiesを共通leafへつなぐ |
 | `crates/kivact-core/src/platform/services.rs` | 既存ask/HostRequest::Platformを使う利用者向けbeep関数と結果の変換を加える |
 | `crates/kivact-core/src/platform.rs` | 同じplatform moduleから関数を再公開する |
-| `crates/arvane-virtual/src/window.rs` | 既存performの網羅的matchとCapabilitiesの全fieldを明記したliteralを追従させる。respondが先に応答でき、既定は実音を鳴らさずDoneとする |
 
-**本番の機能実装は3 crate・9 file、virtual backendの追従を含む実際の変更先は4 crate・10 file。** shellの既存window.perform、arvaneの転送とcapabilityのstruct-update、engineのHostRequest::Platform配送、coreのrequest waiterは変更不要。virtualのrespond登録はgenericだが、現在の網羅的matchと全field literalは型追加だけではコンパイルできないため、追従1 fileを省略して数えない。virtualの動作を試験することと、service adapterをもう一層追加することは別である。
+**3 runtime crate・9 file。** shellの既存window.perform、arvaneの転送とcapabilityのstruct-update、engineのHostRequest::Platform配送、coreのrequest waiterは変更不要。virtualも既存のgenericな経路を使い、source fileの変更は不要。VirtualOptions.capabilitiesの既定はCapabilities::defaultを基にするため、新しいbeep可否はfalse。virtualのperformはScript.respondを先に読み、新しい未指定requestは既存fallbackのUnsupportedとなる。試験の作者がbeep対応環境を作るときだけoptionsのcapabilityを指定し、Script.respondでDone等を明示する。capabilityがtrueでも未指定requestを自動的に成功扱いしない。
 
 #### background_blend_mode: 背景だけのpaint性質
 
@@ -385,9 +384,9 @@ pointer/focusによるpreviewとcaller bindingの確定値を区別する小さ�
 | 追加例 | 機能実装のcrate / file | 再公開・検証も含む変更先 | 既存境界で不要なもの |
 |---|---|---|---|
 | key_shortcuts | 3 / 3 | 3 crate / 3 file | engine/shellの意味情報の別コピー、NodeBuilderの同義setter |
-| text_wrap_style | 3 / 13 | 4 crate / 14 file（coreの再公開1 file） | engineの継承model、styleからbackendへの別adapter |
-| beep | 3 / 9 | 4 crate / 10 file（virtualの追従1 file） | shell/arvaneのservice別method、engineのservice別転送 |
+| text_wrap_style | 3 / 14 | 3 crate / 14 file（所有style語彙の再公開を含む） | coreのexport追従、engineの継承model、別adapter |
+| beep | 3 / 9 | 3 crate / 9 file | virtualのsource追従、shell/arvaneのservice別method、engineのservice別転送 |
 | background_blend_mode | 3 / 5 | 3 crate / 5 file | render命令のvariant追加、CPU/GPU adapter |
 | Rating | 2 / 8 | E2E込み3 package / 11 Rust file、英日guide込み13 file | facade wrapper、engine変更、kit別behavior |
 
-この確認はcodeを書かない列挙だけで完了する。変更先の正確な総数と、機能の意味を実装する3層という境界の根拠を別に記した。再公開やvirtual backendの網羅性に必要な追従を隠して、総数まで3であるとは主張しない。
+この確認はcodeを書かない列挙だけで完了する。最初の四例は、公開語彙を所有crateに集め、共有transportとvirtualの未対応既定を使うことで、それぞれ3 runtime crateに収まる。標準部品はinteractionとuiの2 runtime crateで完結し、公開E2Eを含めても3 packageである。
