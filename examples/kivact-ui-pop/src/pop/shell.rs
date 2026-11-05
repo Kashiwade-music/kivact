@@ -674,15 +674,15 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                                             }
                                         },
                                     );
-                                    kivact::ui::date_input("依頼期限", value).calendar(
-                                        move |calendar| {
+                                    kivact::ui::date_input("依頼期限", value)
+                                        .presentation(kivact::ui::DatePresentation::Desktop)
+                                        .calendar(move |calendar| {
                                             calendar
                                                 .today(CalendarDate::new(2026, 10, 3))
                                                 .month_title(|date| {
                                                     format!("{}.{:02}", date.year(), date.month())
                                                 })
-                                        },
-                                    )
+                                        })
                                 }
                                 .style(style().width(180)),
                             ),
