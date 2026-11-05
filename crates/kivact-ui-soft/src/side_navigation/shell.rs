@@ -5,12 +5,10 @@ use super::items::logical_row;
 
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
 use crate::mobile_nav::use_app_shell_mobile;
-use crate::resizable::{
-    PillPlacement, ResizableConfig, ResizableState, ResizeSize, resize_handle, use_resizable,
-};
 use crate::stack::rtl;
 
 use kivact::i18n::message;
+use kivact::interaction::{ScalarRange, use_splitter};
 use kivact::motion::Spring;
 use kivact::motion::Transition;
 use kivact::motion::animated;
@@ -37,6 +35,7 @@ use kivact::view::IntoView;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
+use kivact::view::Orientation;
 use kivact::view::Placement;
 use kivact::view::Role;
 use kivact::view::View;
@@ -186,49 +185,34 @@ impl IntoView for SideNav {
                 None
             };
             let resize = if mode == ShellNavMode::Desktop {
-                resize.map(|resize| {
-                    use_resizable(ResizableConfig {
-                        default_size: ResizeSize::Px(resize.default_width),
-                        min_size: ResizeSize::Px(resize.min),
-                        max_size: ResizeSize::Px(resize.max),
-                        collapsible: true,
-                        collapse_threshold: 160.0,
-                        default_collapsed: resize.default_collapsed,
-                        collapsed: resize.collapsed,
-                        ..ResizableConfig::default()
-                    })
-                })
+                resize
             } else {
                 None
             };
-            let collapsed = if let Some(state) = resize.clone() {
-                let writer = state.clone();
-                Some(binding(
-                    move || state.is_collapsed(),
-                    move |collapsed| {
-                        if collapsed {
-                            writer.collapse();
-                        } else {
-                            writer.expand();
-                        }
-                    },
-                ))
-            } else {
-                collapse.map(|collapse| match collapse {
-                    SideNavCollapse::Uncontrolled { default } => signal(default).into_binding(),
-                    SideNavCollapse::Controlled(collapsed) => collapsed,
+            let collapsed = resize
+                .as_ref()
+                .map(|resize| {
+                    resize
+                        .collapsed
+                        .unwrap_or_else(|| signal(resize.default_collapsed).into_binding())
                 })
-            };
+                .or_else(|| {
+                    collapse.map(|collapse| match collapse {
+                        SideNavCollapse::Uncontrolled { default } => signal(default).into_binding(),
+                        SideNavCollapse::Controlled(collapsed) => collapsed,
+                    })
+                });
+            let expanded_width =
+                signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
             let cx = SideNavCx {
                 collapsed,
                 ..SideNavCx::default()
             };
-            let resize_style = resize.clone();
             let target = move || {
                 if cx.rail() {
                     kivact::style::use_tokens::<crate::Tokens>().spacing.s12
                 } else {
-                    resize_style.as_ref().map_or(260.0, ResizableState::size)
+                    expanded_width.get()
                 }
             };
             let animated_width = if resize.is_none() && collapsed.is_some() {
@@ -339,14 +323,70 @@ impl IntoView for SideNav {
                     style().width(pct(100)).grow(1)
                 }
             });
-            let grip = resize.map(|state| {
-                // The sidebar's rail remains 48 px while its content is collapsed.
-                resize_handle(state)
-                    .overlay(true)
-                    .pill_placement(PillPlacement::End)
-                    .always_visible(false)
+            let grip = resize.map(|resize| {
+                let size = binding(
+                    move || {
+                        if collapsed.is_some_and(|collapsed| collapsed.get()) {
+                            0.0
+                        } else {
+                            expanded_width.get()
+                        }
+                    },
+                    move |size| {
+                        if let Some(collapsed) = collapsed {
+                            collapsed.set(size < 160.0);
+                        }
+                        if size >= 160.0 {
+                            expanded_width.set(size.clamp(resize.min, resize.max));
+                        }
+                    },
+                );
+                let behavior = use_splitter(
+                    size,
+                    ScalarRange::new(0.0, resize.max)
+                        .expect("invariant: sidebar maximum is positive"),
+                    Orientation::Horizontal,
+                )
+                .collapsible(160.0 / resize.max)
+                .key_step(10.0)
+                .expect("invariant: sidebar keyboard step is positive");
+                let part = behavior.handle();
+                let visual = part.state();
+                node()
+                    .part(part)
                     .name(message("soft.side_nav.resize", "Resize sidebar"))
-                    .with_node(move |node| node.controls(nav_ref))
+                    .controls(nav_ref)
+                    .style(move || {
+                        let base = style()
+                            .position(Position::Absolute)
+                            .top(0)
+                            .bottom(0)
+                            .width(16)
+                            .align_items(Align::Center)
+                            .justify_content(Justify::Center)
+                            .cursor(kivact::style::Cursor::EwResize);
+                        if rtl() { base.left(0) } else { base.right(0) }
+                    })
+                    .child(node().style(move || {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        let state = visual.get();
+                        style()
+                            .size(3, t.spacing.s8)
+                            .radius(t.radius.full)
+                            .translate_x(if rtl() { -7.0 } else { 7.0 })
+                            .opacity(
+                                if state.dragging || state.input.hovered || state.input.focused {
+                                    1.0
+                                } else {
+                                    0.0
+                                },
+                            )
+                            .background(if state.dragging {
+                                t.colors.border_emphasized
+                            } else {
+                                t.colors.border
+                            })
+                    }))
             });
             root.child((controls, grip))
         })

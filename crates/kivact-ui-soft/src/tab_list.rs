@@ -1,5 +1,4 @@
 //! Role: Render Neutral tabs, manual keyboard selection and overflow menus.
-use crate::scrollable_area::use_scroll_overflow;
 use crate::side_navigation::items::logical_row;
 use crate::stack::{ContainerInset, rtl};
 
@@ -570,7 +569,19 @@ impl<K: ItemKey> IntoView for TabList<K> {
                     .name(label)
             };
             let strip = if scrollable {
-                let state = use_scroll_overflow(viewport_ref, strip_ref);
+                let state = viewport_ref.scroll_state();
+                let start = kivact::state::memo(move || {
+                    matches!(
+                        state.get(),
+                        kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtEnd
+                    )
+                });
+                let end = kivact::state::memo(move || {
+                    matches!(
+                        state.get(),
+                        kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtStart
+                    )
+                });
                 let viewport = scroll(strip)
                     .axes(ScrollAxes::Horizontal)
                     .node_ref(viewport_ref)
@@ -579,8 +590,8 @@ impl<K: ItemKey> IntoView for TabList<K> {
                             .scrollbar_width(ScrollbarWidth::None)
                             .min_width(0)
                             .max_width(pct(100));
-                        let start = state.start.get();
-                        let end = state.end.get();
+                        let start = start.get();
+                        let end = end.get();
                         if !start && !end {
                             return base;
                         }
@@ -603,8 +614,8 @@ impl<K: ItemKey> IntoView for TabList<K> {
                     None
                 } else {
                     Some((
-                        tab_scroll_arrow(look.size, viewport_ref, state.start, false),
-                        tab_scroll_arrow(look.size, viewport_ref, state.end, true),
+                        tab_scroll_arrow(look.size, viewport_ref, start, false),
+                        tab_scroll_arrow(look.size, viewport_ref, end, true),
                     ))
                 };
                 node()

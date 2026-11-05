@@ -28,7 +28,6 @@ impl LayoutInset {
     }
 }
 
-use crate::resizable::{ResizableState, ResizeHandle};
 use crate::stack::{Space, rtl};
 
 use kivact::view::Node;
@@ -63,8 +62,8 @@ pub struct Layout {
     start: Option<LayoutRegion>,
     end: Option<LayoutRegion>,
     content: Option<LayoutRegion>,
-    start_resize: Option<ResizeHandle>,
-    end_resize: Option<ResizeHandle>,
+    start_resize: Option<View>,
+    end_resize: Option<View>,
     height: Value<LayoutHeight>,
     padding: Option<Space>,
     content_width: Option<Value<Length>>,
@@ -121,12 +120,12 @@ impl Layout {
         self.content_width = Some(width.into_value());
         self
     }
-    pub fn start_resize_handle(mut self, handle: ResizeHandle) -> Self {
-        self.start_resize = Some(handle);
+    pub fn start_resize_handle(mut self, handle: impl IntoView) -> Self {
+        self.start_resize = Some(handle.into_view());
         self
     }
-    pub fn end_resize_handle(mut self, handle: ResizeHandle) -> Self {
-        self.end_resize = Some(handle.reversed(true));
+    pub fn end_resize_handle(mut self, handle: impl IntoView) -> Self {
+        self.end_resize = Some(handle.into_view());
         self
     }
     pub fn default_dividers(mut self, enabled: impl IntoValue<bool>) -> Self {
@@ -286,7 +285,6 @@ pub struct LayoutRegion {
     padding: Option<Space>,
     padding_bottom: Option<Space>,
     scrollable: Value<bool>,
-    resizable: Option<ResizableState>,
     width: Option<Value<Length>>,
 }
 
@@ -299,7 +297,6 @@ fn region(kind: Region, children: impl IntoView) -> LayoutRegion {
         padding: None,
         padding_bottom: None,
         scrollable: (!matches!(kind, Region::Header | Region::Footer)).into_value(),
-        resizable: None,
         width: None,
     }
 }
@@ -334,10 +331,6 @@ impl LayoutRegion {
         self.padding_bottom = Some(padding);
         self
     }
-    pub fn resizable(mut self, state: ResizableState) -> Self {
-        self.resizable = Some(state);
-        self
-    }
     pub fn scrollable(mut self, scrollable: impl IntoValue<bool>) -> Self {
         self.scrollable = scrollable.into_value();
         self
@@ -370,7 +363,6 @@ impl IntoView for LayoutRegion {
             padding,
             padding_bottom,
             scrollable,
-            resizable,
             width,
         } = self;
         provide((), move || {
@@ -464,9 +456,7 @@ impl IntoView for LayoutRegion {
                     }
                     if matches!(kind, Region::Start | Region::End) {
                         base = base.clip(true);
-                        if let Some(state) = &resizable {
-                            base = base.width(state.size());
-                        } else if let Some(width) = width {
+                        if let Some(width) = width {
                             base = base.width(width.get());
                         }
                     }

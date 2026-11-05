@@ -56,15 +56,21 @@ fn layout_components_mount_and_interact() {
         let tab = signal("one");
         let viewport = node_ref();
         let target = node_ref();
-        let resize = soft::use_resizable(soft::ResizableConfig::default());
-        let panel = resize.clone();
+        let resize = signal(250.0);
         column((
             soft::card(
                 soft::layout()
                     .height(soft::LayoutHeight::Auto)
                     .header(soft::layout_header(text("Header")).divider(true))
-                    .start(soft::layout_panel(text("Panel")).resizable(panel))
-                    .start_resize_handle(soft::resize_handle(resize))
+                    .start(
+                        soft::layout_panel(text("Panel"))
+                            .width(move || kivact::style::Length::Px(resize.get())),
+                    )
+                    .start_resize_handle(kivact::ui::splitter(
+                        "Resize panel",
+                        resize,
+                        kivact::interaction::ScalarRange::new(50.0, 600.0).expect("valid range"),
+                    ))
                     .content({
                         soft::layout_content(soft::section(soft::vstack((
                             soft::grid((text("First"), text("Second")))

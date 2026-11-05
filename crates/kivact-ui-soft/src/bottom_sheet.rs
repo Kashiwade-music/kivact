@@ -1,14 +1,12 @@
 //! Role: Present a bottom-aligned sheet with draggable detents.
 use crate::recipes_dialog::{body_text, motion, shadows};
 
-use kivact::custom::clock_now;
 use kivact::interaction::DialogMode;
 use kivact::interaction::DismissOn;
 use kivact::interaction::DragAxis;
 use kivact::interaction::DragCoordinates;
 use kivact::interaction::DragPhase;
 use kivact::interaction::DragUpdate;
-use kivact::interaction::DragVelocity;
 use kivact::interaction::nearest_snap;
 use kivact::interaction::project_release;
 use kivact::interaction::pull_to_snap;
@@ -22,7 +20,6 @@ use kivact::state::IntoValue;
 use kivact::state::PropValue;
 use kivact::state::binding;
 use kivact::state::signal;
-use kivact::state::var;
 use kivact::style::Align;
 use kivact::style::Justify;
 use kivact::style::Overflow;
@@ -47,7 +44,6 @@ use kivact::view::show;
 use std::rc::Rc;
 use std::time::Duration;
 
-const VELOCITY_WINDOW: Duration = Duration::from_millis(100);
 const PROJECTION_MIN_TRAVEL: f64 = 48.0;
 const PROJECTION_DECAY: Duration = Duration::from_millis(499);
 const SHEET_AXIS: DragAxis = DragAxis::Vertical;
@@ -55,6 +51,30 @@ const DISMISS_FRACTION: f64 = 0.4;
 const OVERSHOOT_RESISTANCE: f64 = 0.35;
 const OVERSHOOT_LIMIT: f64 = 48.0;
 const SNAP_PULL_RADIUS: f64 = 40.0;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Sheet {
+    Resting { snap: usize },
+    Dragging { from: usize, offset: f64 },
+    Settling { to: usize },
+}
+
+impl Sheet {
+    fn snap(self) -> usize {
+        match self {
+            Self::Resting { snap } => snap,
+            Self::Dragging { from, .. } => from,
+            Self::Settling { to } => to,
+        }
+    }
+
+    fn offset(self, detents: &[f64]) -> f64 {
+        match self {
+            Self::Dragging { offset, .. } => offset,
+            state => detents[state.snap().min(detents.len() - 1)],
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum SheetHeight {
@@ -191,9 +211,7 @@ impl IntoView for BottomSheet {
         };
         let behavior = use_dialog(open, kind).dismiss(dismiss);
         show(open, move || {
-            let dragged = signal(None::<f64>);
-            let selected = signal(0usize);
-            let velocity = var(DragVelocity::new(VELOCITY_WINDOW));
+            let sheet = signal(Sheet::Resting { snap: 0 });
             let body_ref = node_ref();
             let body_rect = body_ref.rect();
             let height = self.height;
@@ -208,15 +226,18 @@ impl IntoView for BottomSheet {
             let scrim_detents = detents.clone();
             let end_detents = detents.clone();
             let drag = use_drag::<()>(DragCoordinates::Window)
-                .on_start(move |update| {
-                    velocity.update(|velocity| velocity.reset(clock_now(), update.pos));
+                .track_velocity()
+                .on_start(move |_| {
                     let (_, detents) = detents();
-                    dragged.set(Some(detents[selected.get().min(detents.len() - 1)]));
+                    let from = sheet.get().snap().min(detents.len() - 1);
+                    sheet.set(Sheet::Dragging {
+                        from,
+                        offset: detents[from],
+                    });
                 })
                 .on_update(move |update: DragUpdate<()>| {
-                    velocity.update(|velocity| velocity.record(clock_now(), update.pos));
                     let (full, detents) = update_detents();
-                    let start = detents[selected.get().min(detents.len() - 1)];
+                    let start = detents[sheet.get().snap().min(detents.len() - 1)];
                     let raw = start + SHEET_AXIS.component(update.delta);
                     let shortest = detents[detents.len() - 1];
                     let dismiss_line = shortest + (full - shortest) * DISMISS_FRACTION;
@@ -227,12 +248,15 @@ impl IntoView for BottomSheet {
                     } else {
                         raw
                     };
-                    dragged.set(Some(offset));
+                    sheet.set(Sheet::Dragging {
+                        from: sheet.get().snap(),
+                        offset,
+                    });
                 })
                 .on_end(move |update: DragUpdate<()>| {
                     if update.phase == DragPhase::End {
                         let (full, detents) = end_detents();
-                        let current = selected.get().min(detents.len() - 1);
+                        let current = sheet.get().snap().min(detents.len() - 1);
                         let start = detents[current];
                         let travel = SHEET_AXIS.component(update.delta);
                         let position = start + travel;
@@ -240,9 +264,7 @@ impl IntoView for BottomSheet {
                             .past_slop(update.delta, PROJECTION_MIN_TRAVEL)
                             .is_some()
                         {
-                            let speed = velocity.with(|velocity| {
-                                SHEET_AXIS.component(velocity.pixels_per_ms(clock_now()))
-                            });
+                            let speed = SHEET_AXIS.component(update.velocity);
                             project_release(position, speed, PROJECTION_DECAY)
                         } else {
                             position
@@ -258,11 +280,15 @@ impl IntoView for BottomSheet {
                                 (0, &detents[..=current])
                             };
                             if let Some(index) = nearest_snap(projected, candidates) {
-                                selected.set(first + index);
+                                sheet.set(Sheet::Settling { to: first + index });
                             }
                         }
                     }
-                    dragged.set(None);
+                    if update.phase == DragPhase::Cancel {
+                        sheet.set(Sheet::Resting {
+                            snap: sheet.get().snap(),
+                        });
+                    }
                 });
             let handle = node()
                 .with_node(move |node| node.part(drag.source(())))
@@ -293,9 +319,7 @@ impl IntoView for BottomSheet {
                 let full =
                     sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
                 let detents = offsets(full, viewport, &position_points);
-                let offset = dragged
-                    .get()
-                    .unwrap_or(detents[selected.get().min(detents.len() - 1)]);
+                let offset = sheet.get().offset(&detents);
                 let base = shadows(body_text(&p), &p.shadows.high)
                     .width(pct(100))
                     .max_width(640)
@@ -313,7 +337,7 @@ impl IntoView for BottomSheet {
                 } else {
                     base.height(full)
                 };
-                if dragged.get().is_some() {
+                if matches!(sheet.get(), Sheet::Dragging { .. }) {
                     base
                 } else {
                     motion(base, &p, 300).enter(style().translate_y(pct(100)))
@@ -325,9 +349,7 @@ impl IntoView for BottomSheet {
                     .style(move || {
                         let p = kivact::style::use_tokens::<crate::Tokens>();
                         let (full, detents) = scrim_detents();
-                        let offset = dragged
-                            .get()
-                            .unwrap_or(detents[selected.get().min(detents.len() - 1)]);
+                        let offset = sheet.get().offset(&detents);
                         let shortest = detents[detents.len() - 1];
                         let visible = full - shortest;
                         let opacity = if detents.len() > 1 && visible <= full * 0.25 {
@@ -344,7 +366,7 @@ impl IntoView for BottomSheet {
                             .inset(0)
                             .background(p.colors.overlay_scrim)
                             .opacity(opacity);
-                        if dragged.get().is_some() {
+                        if matches!(sheet.get(), Sheet::Dragging { .. }) {
                             base
                         } else {
                             motion(base, &p, 300).enter(style().opacity(0.0))

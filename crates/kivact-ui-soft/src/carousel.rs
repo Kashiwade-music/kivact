@@ -1,5 +1,5 @@
 //! Role: Render a horizontal Neutral carousel with measured scroll controls.
-use crate::scrollable_area::{ScrollAxis, use_scroll_overflow};
+use crate::scrollable_area::ScrollAxis;
 use crate::stack::{Space, rtl};
 
 use kivact::draw::linear_gradient;
@@ -334,7 +334,7 @@ impl IntoView for Carousel {
                     .align_items(Align::Center)
                     .gap(gap.get().px())
             });
-            let overflow = use_scroll_overflow(handle.viewport, handle.content);
+            let overflow = handle.viewport.scroll_state();
             if options.snap {
                 let offset = handle.viewport.scroll_offset();
                 let last = Cell::new(0.0);
@@ -358,7 +358,7 @@ impl IntoView for Carousel {
                     if event.modifiers().shift
                         && event.delta().y != 0.0
                         && event.delta().x == 0.0
-                        && overflow.any.get()
+                        && (overflow.get() != kivact::view::ScrollState::NotScrollable)
                     {
                         handle.viewport.scroll_by(
                             Point {
@@ -374,11 +374,21 @@ impl IntoView for Carousel {
                 })
                 .style(move || {
                     let base = style().scrollbar_width(ScrollbarWidth::None).min_width(0);
-                    if !edge_fade.get() || !overflow.any.get() {
+                    if !edge_fade.get()
+                        || !(overflow.get() != kivact::view::ScrollState::NotScrollable)
+                    {
                         return base;
                     }
-                    let fade_start = options.looping || overflow.start.get();
-                    let fade_end = options.looping || overflow.end.get();
+                    let fade_start = options.looping
+                        || matches!(
+                            overflow.get(),
+                            kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtEnd
+                        );
+                    let fade_end = options.looping
+                        || matches!(
+                            overflow.get(),
+                            kivact::view::ScrollState::Middle | kivact::view::ScrollState::AtStart
+                        );
                     let mut mask = linear_gradient(if rtl() { 270 } else { 90 });
                     let opaque = Color::BLACK;
                     let middle = rgba(0, 0.3);

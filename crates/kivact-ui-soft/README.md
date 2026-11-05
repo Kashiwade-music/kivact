@@ -77,7 +77,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Popover | Standard `dialog(...).kind(DialogKind::Popover)` and `kivact::view::overlay` |
 | Power Search / Progress Bar | `power_search`, standard `progress` |
 | Radio | `radio_list`, standard `ListItem` |
-| Resizable | `use_resizable`, `resize_handle`, standard `split` |
+| Resizable | standard `splitter(...).collapsible(..).snaps(..)` |
 | Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area` |
 | Segmented Control | `segmented_control`, standard `ListItem` |
 | Selector | `selector`, `complex_selector`, `multi_selector`. The Kivact interaction layer supplies combobox state. |
@@ -237,7 +237,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.power_search.value` | Value |
 | `soft.relative_time.now` | now |
 | `soft.relative_time.yesterday` | yesterday |
-| `soft.resize_handle.label` | Resize handle |
 | `soft.rich_text.bold` | Bold |
 | `soft.rich_text.inline_code` | Inline code |
 | `soft.rich_text.italic` | Italic |

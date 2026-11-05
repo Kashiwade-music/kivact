@@ -12,11 +12,14 @@ use kivact::view::image;
 use kivact::view::node;
 use kivact::view::text;
 
+use kivact::geometry::Point;
 use kivact::interaction::DialogMode;
+use kivact::interaction::{ViewTransform, use_zoom_pan};
 use kivact::state::Binding;
 use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::Value;
+use kivact::state::binding;
 use kivact::state::signal;
 use kivact::style::Align;
 use kivact::style::Justify;
@@ -63,6 +66,7 @@ pub struct Lightbox {
     media: Value<Vec<LightboxMedia>>,
     index: Option<Binding<usize>>,
     zoom: bool,
+    view: Option<Binding<LightboxView>>,
 }
 
 pub fn lightbox(
@@ -74,6 +78,7 @@ pub fn lightbox(
         media: media.into_value(),
         index: None,
         zoom: false,
+        view: None,
     }
 }
 
@@ -89,37 +94,86 @@ impl Lightbox {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum LightboxView {
+    Fit,
+    Zoomed { pan: Point },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum LightboxState {
+    Closed,
+    Open { index: usize, view: LightboxView },
+}
+
 #[derive(Clone, Copy)]
 pub struct LightboxHandle {
-    open: Signal<bool>,
-    index: Signal<usize>,
+    state: Signal<LightboxState>,
     media: Value<Vec<LightboxMedia>>,
 }
 
 pub fn use_lightbox(media: impl IntoValue<Vec<LightboxMedia>>) -> LightboxHandle {
     LightboxHandle {
-        open: signal(false),
-        index: signal(0),
+        state: signal(LightboxState::Closed),
         media: media.into_value(),
     }
 }
 
 impl LightboxHandle {
     pub fn open(self, index: usize) {
-        self.index.set(index);
-        self.open.set(true);
+        self.state.set(LightboxState::Open {
+            index,
+            view: LightboxView::Fit,
+        });
     }
 
     pub fn close(self) {
-        self.open.set(false);
+        self.state.set(LightboxState::Closed);
     }
 
     pub fn is_open(self) -> Value<bool> {
-        self.open.into_value()
+        (move || matches!(self.state.get(), LightboxState::Open { .. })).into_value()
     }
 
     pub fn view(self) -> Lightbox {
-        lightbox(self.open, self.media).index(self.index)
+        let open = binding(
+            move || matches!(self.state.get(), LightboxState::Open { .. }),
+            move |open| {
+                if open {
+                    self.open(0);
+                } else {
+                    self.close();
+                }
+            },
+        );
+        let index = binding(
+            move || match self.state.get() {
+                LightboxState::Closed => 0,
+                LightboxState::Open { index, .. } => index,
+            },
+            move |index| {
+                self.state.update(|state| {
+                    if let LightboxState::Open { index: current, .. } = state {
+                        *current = index;
+                    }
+                });
+            },
+        );
+        let mut lightbox = lightbox(open, self.media).index(index);
+        lightbox.view = Some(binding(
+            move || match self.state.get() {
+                LightboxState::Closed => LightboxView::Fit,
+                LightboxState::Open { view, .. } => view,
+            },
+            move |view| {
+                self.state.update(|state| {
+                    if let LightboxState::Open { view: current, .. } = state {
+                        *current = view;
+                    }
+                })
+            },
+        ));
+        lightbox
     }
 
     pub fn trigger(self, index: usize) -> impl Fn() + 'static {
@@ -145,33 +199,61 @@ impl IntoView for Lightbox {
         let close_ref = node_ref();
         let behavior = use_dialog(open, DialogMode::Modal).initial_focus(close_ref);
         show(open, move || {
-            let zoomed = signal(false);
-            let pan = signal((0.0f64, 0.0f64));
+            let view = self
+                .view
+                .unwrap_or_else(|| signal(LightboxView::Fit).into_binding());
+            let zoomed = move || matches!(view.get(), LightboxView::Zoomed { .. });
+            let transform = binding(
+                move || match view.get() {
+                    LightboxView::Fit => ViewTransform {
+                        scale: 1.0,
+                        offset: Point::new(0.0, 0.0),
+                    },
+                    LightboxView::Zoomed { pan } => ViewTransform {
+                        scale: 2.0,
+                        offset: pan,
+                    },
+                },
+                move |transform: ViewTransform| {
+                    view.set(if transform.scale <= 1.0 {
+                        LightboxView::Fit
+                    } else {
+                        LightboxView::Zoomed {
+                            pan: transform.offset,
+                        }
+                    })
+                },
+            );
+            let zoom_behavior = use_zoom_pan(transform).scale_range(1.0, 2.0);
             let zoom = self.zoom;
             let step = move |delta: isize| {
                 let next = active().saturating_add_signed(delta);
                 if next < media.get().len() && next != active() {
                     index.set(next);
-                    zoomed.set(false);
-                    pan.set((0.0, 0.0));
+                    view.set(LightboxView::Fit);
                 }
             };
             let set_zoom = move |on| {
-                zoomed.set(on);
-                if !on {
-                    pan.set((0.0, 0.0));
-                }
+                view.set(if on {
+                    LightboxView::Zoomed {
+                        pan: Point::new(0.0, 0.0),
+                    }
+                } else {
+                    LightboxView::Fit
+                });
             };
             let content = kivact::view::dynamic(selected, move |item| {
                 item.map(|item| {
-                    let failed = signal(false);
+                    let photo_ref = node_ref();
+                    let status = photo_ref.image_status();
+                    let failed = move || status.get() == kivact::view::ImageStatus::Failed;
                     let photo = image(item.image)
                         .name(item.alt)
+                        .node_ref(photo_ref)
                         .hidden(failed)
-                        .on_image_error(move |_| failed.set(true))
                         .style(move || {
-                            let (x, y) = pan.get();
-                            let scale = if zoomed.get() { 2.0 } else { 1.0 };
+                            let Point { x, y } = transform.get().offset;
+                            let scale = if zoomed() { 2.0 } else { 1.0 };
                             style()
                                 .width(pct(100))
                                 .min_height(0)
@@ -185,27 +267,14 @@ impl IntoView for Lightbox {
                                 )
                         });
                     let photo = if zoom {
-                        let drag_start = kivact::state::var((0.0f64, 0.0f64));
-                        let drag = kivact::interaction::use_drag::<()>(
-                            kivact::interaction::DragCoordinates::Window,
-                        )
-                        .on_start(move |_| drag_start.set(pan.get()))
-                        .on_update(
-                            move |event: kivact::interaction::DragUpdate<()>| {
-                                if zoomed.get() {
-                                    let (x, y) = drag_start.get();
-                                    pan.set((x + event.delta.x, y + event.delta.y));
-                                }
-                            },
-                        );
                         photo
-                            .with_node(move |node| node.part(drag.source(())))
+                            .with_node(move |node| node.part(zoom_behavior.viewport()))
                             .on_pointer(move |event| {
                                 if let kivact::view::PointerPhase::Up(press) = event.phase()
                                     && press.clicks == 2
                                     && press.button == kivact::view::MouseButton::Primary
                                 {
-                                    set_zoom(!zoomed.get());
+                                    set_zoom(!zoomed());
                                 }
                                 Handled::No
                             })
@@ -226,20 +295,14 @@ impl IntoView for Lightbox {
                         "soft.lightbox.image_unavailable",
                         "Image unavailable",
                     );
-                    let fallback = text(move || {
-                        if failed.get() {
-                            error.get()
-                        } else {
-                            String::new()
-                        }
-                    })
-                    .with_node(move |node| node.role(Role::Status))
-                    .live_region(LiveRegion::Polite)
-                    .style(move || {
-                        body_text(&kivact::style::use_tokens::<crate::Tokens>())
-                            .color(rgb(0xffffff))
-                            .position(Position::Absolute)
-                    });
+                    let fallback = text(move || if failed() { error.get() } else { String::new() })
+                        .with_node(move |node| node.role(Role::Status))
+                        .live_region(LiveRegion::Polite)
+                        .style(move || {
+                            body_text(&kivact::style::use_tokens::<crate::Tokens>())
+                                .color(rgb(0xffffff))
+                                .position(Position::Absolute)
+                        });
                     column((photo, fallback, caption)).style(
                         style()
                             .width(pct(100))
@@ -258,7 +321,7 @@ impl IntoView for Lightbox {
             let zoom_control = zoom.then(|| {
                 icon_button("search", "soft.lightbox.zoom", "Zoom")
                     .with_node(move |node| node.selected(zoomed))
-                    .on_press(move || set_zoom(!zoomed.get()))
+                    .on_press(move || set_zoom(!zoomed()))
                     .style(control_position().top(12).right(52))
             });
             let controls = show(
@@ -312,11 +375,12 @@ impl IntoView for Lightbox {
                         Key::ArrowDown => (0, 1),
                         _ => return Handled::No,
                     };
-                    if zoomed.get() {
-                        pan.update(|(x, y)| {
-                            *x -= dx as f64 * 50.0;
-                            *y -= dy as f64 * 50.0;
-                        });
+                    if zoomed() {
+                        if let LightboxView::Zoomed { mut pan } = view.get() {
+                            pan.x -= dx as f64 * 50.0;
+                            pan.y -= dy as f64 * 50.0;
+                            view.set(LightboxView::Zoomed { pan });
+                        }
                     } else if dx != 0 {
                         step(if rtl { -dx } else { dx });
                     } else {
