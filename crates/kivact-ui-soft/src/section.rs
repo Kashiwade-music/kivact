@@ -62,6 +62,7 @@ impl std::ops::BitOr for Edges {
 struct SectionPadding(f64);
 
 /// Full-width surface that cancels inherited inline insets and pads its content.
+// xtask-allow(state-fields): Independent immutable content, visual variant, logical padding/divider and edge-bleed inputs; no surface lifecycle or copied interaction state.
 pub struct Section {
     root: Node,
     content: View,

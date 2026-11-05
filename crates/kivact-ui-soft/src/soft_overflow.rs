@@ -16,7 +16,7 @@ use kivact::state::Value;
 use kivact::state::callback;
 use kivact::state::effect_on;
 use kivact::state::memo;
-use kivact::state::signal;
+use kivact::state::{Machine, Step, machine};
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Overflow;
@@ -28,6 +28,42 @@ use kivact::view::View;
 use kivact::view::for_each;
 use kivact::view::node_ref;
 use kivact::view::show;
+use std::collections::HashSet;
+use std::marker::PhantomData;
+
+/// The cache holds only actual measured layout facts (SM-K928).
+struct WidthMeasurements<K>(PhantomData<K>);
+enum Measurement<K> {
+    Measured(K, f64),
+    Retain(HashSet<K>),
+}
+impl<K: ItemKey> Machine for WidthMeasurements<K> {
+    type State = HashMap<K, f64>;
+    type Event = Measurement<K>;
+    type Effect = ();
+    fn transition(
+        &self,
+        state: &Self::State,
+        event: Self::Event,
+    ) -> Step<Self::State, Self::Event, ()> {
+        let mut next = state.clone();
+        match event {
+            Measurement::Measured(key, width) => {
+                if state.get(&key) == Some(&width) {
+                    return Step::stay();
+                }
+                next.insert(key, width);
+            }
+            Measurement::Retain(keys) => {
+                next.retain(|key, _| keys.contains(key));
+                if next.len() == state.len() {
+                    return Step::stay();
+                }
+            }
+        }
+        Step::to(next)
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum OverflowFit {
@@ -239,7 +275,11 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
             OverflowMeasure::ParentWidth(parent) => parent.rect(),
         };
         let measure_items = item_width.is_none();
-        let widths_cache = signal(HashMap::<K, f64>::new());
+        let widths_cache = machine(
+            HashMap::<K, f64>::new(),
+            || WidthMeasurements(PhantomData),
+            |_, ()| {},
+        );
         let widths_key = key.clone();
         let split = memo(move || {
             items.with(|items| {
@@ -250,12 +290,15 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
                 };
                 let widths: Vec<_> = match &item_width {
                     Some(width) => items.iter().map(width).collect(),
-                    None => widths_cache.with(|cache| {
-                        items
-                            .iter()
-                            .map(|item| cache.get(&widths_key(item)).copied().unwrap_or(80.0))
-                            .collect()
-                    }),
+                    None => {
+                        let cache = widths_cache.get();
+                        {
+                            items
+                                .iter()
+                                .map(|item| cache.get(&widths_key(item)).copied().unwrap_or(80.0))
+                                .collect()
+                        }
+                    }
                 };
                 for count in (floor..=ceiling).rev() {
                     let hidden = items.len() - count;
@@ -326,7 +369,7 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
             effect_on(items, move |items| {
                 let active: std::collections::HashSet<_> =
                     items.iter().map(|item| active_key(item)).collect();
-                widths_cache.update(|cache| cache.retain(|key, _| active.contains(key)));
+                widths_cache.send(Measurement::Retain(active));
             });
         }
         let row_key = key.clone();
@@ -342,9 +385,7 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
                     let width = memo(move || rect.get().map(|rect| rect.width));
                     effect_on(width, move |width| {
                         if let Some(width) = *width {
-                            widths_cache.update(|cache| {
-                                cache.insert(key.clone(), width);
-                            });
+                            widths_cache.send(Measurement::Measured(key.clone(), width));
                         }
                     });
                     root.node_ref(item_ref)

@@ -72,6 +72,7 @@ pub(crate) fn rtl() -> bool {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
+// xtask-allow(state-fields): Passive optional logical padding values resolved by precedence; these numerical style fields are independent configuration, not runtime flags.
 pub(crate) struct Padding {
     pub all: Option<Space>,
     pub x: Option<Space>,
