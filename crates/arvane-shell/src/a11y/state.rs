@@ -98,11 +98,12 @@ impl AcceptedTree {
     }
 
     /// Apply and validate the nodes carried by `update` (same root).
-    /// Returns those nodes and the text runs they added.
+    /// Returns the nodes that differ from the accepted ones and the text runs
+    /// they added; `None` when neither a node nor the focus changed.
     pub(crate) fn apply(
         &mut self,
         update: &SemanticsUpdate,
-    ) -> Result<Applied, AccessibilityError> {
+    ) -> Result<Option<Applied>, AccessibilityError> {
         let mut incoming: HashMap<SemanticsId, &SemanticsNode> = HashMap::new();
         for node in &update.nodes {
             if incoming.insert(node.id, node).is_some() {
@@ -110,7 +111,11 @@ impl AcceptedTree {
             }
             check_values(node)?;
         }
-        let changed: Vec<&SemanticsNode> = update.nodes.iter().collect();
+        let changed: Vec<&SemanticsNode> = update
+            .nodes
+            .iter()
+            .filter(|n| self.nodes.get(&n.id) != Some(*n))
+            .collect();
         let edits = self.reparent(&changed, &incoming)?;
         self.check_update(update, &changed, &incoming, &edits)?;
         let dropped = self.dropped(&incoming, &edits);
@@ -127,6 +132,9 @@ impl AcceptedTree {
                     && (incoming.contains_key(&id) || self.nodes.contains_key(&id))
             },
         )?;
+        if changed.is_empty() && update.focus == self.focus {
+            return Ok(None);
+        }
         self.runs.commit(&runs);
         // Commit.
         self.focus = update.focus;
@@ -164,10 +172,10 @@ impl AcceptedTree {
                 }
             }
         }
-        Ok(Applied {
+        Ok(Some(Applied {
             nodes: ids,
             runs: runs.added.into_iter().map(|(_, run)| run).collect(),
-        })
+        }))
     }
 
     /// Validate ancestry and focus against the proposed parent edits.

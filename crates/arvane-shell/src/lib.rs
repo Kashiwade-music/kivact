@@ -48,7 +48,6 @@ pub use clicks::ClickCounter;
 pub use contacts::Contacts;
 pub use events::ShellEvent;
 pub use ime::ShellImeText;
-pub use kivact_types::FilePhase;
 pub use kivact_types::render::CpuFrame;
 pub use modifiers::ModifierState;
 pub use mouse::Mouse;
