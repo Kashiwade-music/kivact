@@ -55,6 +55,12 @@ pub(crate) fn recipes() -> UiRecipes {
 fn build() -> UiRecipes {
     UiRecipes::default()
         .field(crate::recipes_field::field)
+        .badge(|_| crate::recipes_indicators::badge)
+        .badge_label(|_| crate::recipes_indicators::badge_label)
+        .avatar(|_| crate::recipes_indicators::avatar)
+        .avatar_status(|_| crate::recipes_indicators::avatar_status)
+        .avatar_group(|base| move |t, s| base(t, s).align_items(Align::Center))
+        .avatar_group_overflow(|_| crate::recipes_indicators::avatar_overflow)
         .tree(crate::recipes_collections::tree)
         .table(crate::recipes_collections::table)
         .item_list(crate::recipes_collections::item_list)

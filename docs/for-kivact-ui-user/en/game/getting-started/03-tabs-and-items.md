@@ -86,7 +86,7 @@ fn loadout() -> impl IntoView {
     game::hud(
         column((
             game::section_heading("01", "LOADOUT", "Squad 04"),
-            game::badge("READY", Tone::Success),
+            kivact::ui::badge("READY").tone(Tone::Success),
             tabs(
                 "Slot",
                 vec![

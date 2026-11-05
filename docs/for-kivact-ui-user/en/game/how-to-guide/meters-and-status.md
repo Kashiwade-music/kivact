@@ -98,8 +98,8 @@ fn scoreboard() -> impl IntoView {
 
 ## Show a status
 
-`game::badge(label, tone)` is a short status label with a square dot.
-`game::tag_badge(label, tone, BadgeVariant::..)` picks the look: `Dot` (the
+`kivact::ui::badge(label).tone(tone)` is a short status label with a square dot.
+`kivact::ui::badge(label).tone(tone) .variant(BadgeVariant::..)` picks the look: `Dot` (the
 default), `Plain`, `Solid` or `Outline`. Both return a node that takes the usual
 `.style(..)`, `.test_id(..)` and other modifiers.
 
@@ -110,9 +110,9 @@ use kivact_ui_game as game;
 
 fn statuses() -> impl IntoView {
     row((
-        game::badge("RUNNING", Tone::Info),
-        game::tag_badge("v2.4.1", Tone::Neutral, game::BadgeVariant::Outline),
-        game::tag_badge("OFFLINE", Tone::Danger, game::BadgeVariant::Solid),
+        kivact::ui::badge("RUNNING").tone(Tone::Info),
+        kivact::ui::badge("v2.4.1").tone(Tone::Neutral) .variant(game::BadgeVariant::Outline),
+        kivact::ui::badge("OFFLINE").tone(Tone::Danger) .variant(game::BadgeVariant::Solid),
     ))
     .style(style().gap(8).margin(24))
 }
@@ -165,7 +165,7 @@ use kivact_ui_game as game;
 fn sheet() -> impl IntoView {
     game::property_list(vec![
         ("CALLSIGN".to_owned(), game::mono("VIPER-02").into_view()),
-        ("STATUS".to_owned(), game::badge("ACTIVE", Tone::Success).into_view()),
+        ("STATUS".to_owned(), kivact::ui::badge("ACTIVE").tone(Tone::Success).into_view()),
         ("SQUAD".to_owned(), text("Alpha").into_view()),
     ])
 }
@@ -201,3 +201,5 @@ fn log(events: Signal<Vec<(String, String)>>) -> impl IntoView {
 - [Set the theme and density](theme-and-density.md) for colors and fonts
 - [Show items in lists and trees](item-lists-and-selection.md)
 - Every component with its options: `cargo doc -p kivact-ui-game --open`
+
+Use `kivact::ui::avatar(name)` with `.fallback_content(..)` when supplying exact initials rather than initials derived from a full name. `.variant(game::AvatarVariant { side: 32., color })` chooses logical-pixel dimensions and the console fill; `.status(Some(Tone::Success))` adds the square presence marker. Group avatars with `kivact::ui::avatar_group(children).max(3usize)`. For partially loaded groups, `.total(8usize)` states the total participant count, including the supplied avatars; three visible avatars then show the styled `+5` tile. The theme sets the overlap to six logical pixels.

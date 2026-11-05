@@ -32,6 +32,7 @@ mod recipes_collections;
 mod recipes_field;
 mod recipes_files;
 mod recipes_groups;
+mod recipes_indicators;
 mod recipes_input;
 mod recipes_navigation;
 mod recipes_palette;
@@ -44,14 +45,12 @@ mod tokens;
 pub use button::{chevron, tool_button};
 pub use choice::{Boxed, ChoiceCard, Navigation, card_label, navigation_label};
 pub use color::ColorName;
-pub use display::{
-    ActivityEntry, Avatar, BadgeVariant, Gauge, Kpi, activity, avatar, avatar_more, avatar_stack,
-    badge, gauge, kpi, property_list, ring, tag_badge,
-};
+pub use display::{ActivityEntry, Gauge, Kpi, activity, gauge, kpi, property_list, ring};
 pub use feedback::{Alert, Banner, EmptyState, Skeleton, alert, banner, empty_state, skeleton};
 pub use overlays::{IconMenu, icon_menu};
 pub use recipes::{ButtonTone, Slant};
 pub use recipes_groups::GameInputGroupVariant;
+pub use recipes_indicators::{AvatarVariant, BadgeVariant};
 pub use recipes_small::Striped;
 pub use surface::{cut_corner, halo, hud, mono, section_heading};
 pub use table::GameCellVariant;

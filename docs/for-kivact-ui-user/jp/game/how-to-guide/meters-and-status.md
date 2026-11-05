@@ -83,7 +83,7 @@ fn scoreboard() -> impl IntoView {
 
 ## 状態を見せる
 
-`game::badge(label, tone)` は、四角い点の付いた短い状態ラベルです。`game::tag_badge(label, tone, BadgeVariant::..)` は見た目を選べます。`Dot`（既定）、`Plain`、`Solid`、`Outline` です。どちらも、通常の `.style(..)` や `.test_id(..)` などの修飾子を受け取るノードを返します。
+`kivact::ui::badge(label).tone(tone)` は、四角い点の付いた短い状態ラベルです。`kivact::ui::badge(label).tone(tone) .variant(BadgeVariant::..)` は見た目を選べます。`Dot`（既定）、`Plain`、`Solid`、`Outline` です。どちらも、通常の `.style(..)` や `.test_id(..)` などの修飾子を受け取るノードを返します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -92,9 +92,9 @@ use kivact_ui_game as game;
 
 fn statuses() -> impl IntoView {
     row((
-        game::badge("RUNNING", Tone::Info),
-        game::tag_badge("v2.4.1", Tone::Neutral, game::BadgeVariant::Outline),
-        game::tag_badge("OFFLINE", Tone::Danger, game::BadgeVariant::Solid),
+        kivact::ui::badge("RUNNING").tone(Tone::Info),
+        kivact::ui::badge("v2.4.1").tone(Tone::Neutral) .variant(game::BadgeVariant::Outline),
+        kivact::ui::badge("OFFLINE").tone(Tone::Danger) .variant(game::BadgeVariant::Solid),
     ))
     .style(style().gap(8).margin(24))
 }
@@ -137,7 +137,7 @@ use kivact_ui_game as game;
 fn sheet() -> impl IntoView {
     game::property_list(vec![
         ("CALLSIGN".to_owned(), game::mono("VIPER-02").into_view()),
-        ("STATUS".to_owned(), game::badge("ACTIVE", Tone::Success).into_view()),
+        ("STATUS".to_owned(), kivact::ui::badge("ACTIVE").tone(Tone::Success).into_view()),
         ("SQUAD".to_owned(), text("Alpha").into_view()),
     ])
 }
@@ -169,3 +169,5 @@ fn log(events: Signal<Vec<(String, String)>>) -> impl IntoView {
 - [テーマと密度を設定する](theme-and-density.md): 色とフォントについて。
 - [一覧とツリーでアイテムを見せる](item-lists-and-selection.md)
 - 各コンポーネントとそのオプション: `cargo doc -p kivact-ui-game --open`
+
+フルネームからの頭文字ではなく正確なイニシャルを表示する場合、`kivact::ui::avatar(name)` に `.fallback_content(..)` を指定します。`.variant(game::AvatarVariant { side: 32., color })` で論理ピクセル単位の大きさと色を選び、`.status(Some(Tone::Success))` で四角い在席マーカーを加えます。`kivact::ui::avatar_group(children).max(3usize)` でまとめます。一部だけ読み込んでいる場合、`.total(8usize)` は渡したアバターを含む参加者の総数です。3 人を表示すると同じ形の `+5` タイルが表示されます。テーマは重なりを 6 論理ピクセルに設定します。

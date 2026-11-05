@@ -288,7 +288,13 @@ pub(super) fn overlays(scene: Demo) -> Node {
                     .content(move || {
                         list((
                             row((
-                                g::avatar("MS").size(44.).color(rgb(0x0a62c2)).online(None),
+                                kivact::ui::avatar("MS")
+                                    .fallback_content(|| text("MS"))
+                                    .variant(g::AvatarVariant {
+                                        side: 44.,
+                                        color: rgb(0x0a62c2),
+                                    })
+                                    .status(None),
                                 column((
                                     text("真柴 ソウ").style(style().weight(700)),
                                     g::mono("ADMIN · 整備部")
@@ -299,7 +305,8 @@ pub(super) fn overlays(scene: Demo) -> Node {
                             row((
                                 text("ステータス").style(style().color(ColorToken::TextMuted)),
                                 spacer(),
-                                g::badge("Online", kivact::interaction::Tone::Success),
+                                kivact::ui::badge("Online")
+                                    .tone(kivact::interaction::Tone::Success),
                             )),
                             row((
                                 text("担当中").style(style().color(ColorToken::TextMuted)),
@@ -319,10 +326,13 @@ pub(super) fn overlays(scene: Demo) -> Node {
                             .focusable(true)
                             .child(
                                 row((
-                                    g::avatar("MS")
-                                        .size(32.)
-                                        .color(rgb(0x0a62c2))
-                                        .online(Some(kivact::interaction::Tone::Success)),
+                                    kivact::ui::avatar("MS")
+                                        .fallback_content(|| text("MS"))
+                                        .variant(g::AvatarVariant {
+                                            side: 32.,
+                                            color: rgb(0x0a62c2),
+                                        })
+                                        .status(Some(kivact::interaction::Tone::Success)),
                                     column((
                                         text("真柴 ソウ").style(style().weight(700)),
                                         text("クリックで詳細").style(
@@ -449,7 +459,9 @@ pub(super) fn drawer_body() -> Node {
         g::property_list(vec![
             (
                 "Status".into(),
-                g::badge("RUNNING", kivact::interaction::Tone::Info).into_view(),
+                kivact::ui::badge("RUNNING")
+                    .tone(kivact::interaction::Tone::Info)
+                    .into_view(),
             ),
             ("Owner".into(), text("整備部 / 真柴").into_view()),
             ("Due".into(), g::mono("2026-10-10").into_view()),
@@ -567,7 +579,7 @@ pub(super) fn layout() -> impl kivact::view::Component {
     let document_body = list((
         g::mono(move || document.get().trim_end_matches(".md").to_uppercase()).style(style().color(ColorToken::Accent)),
         text(document_title).test_id("game-document-title").style(style().font_size(18).weight(900)),
-        line((g::badge("RUNNING", kivact::interaction::Tone::Info), g::tag_badge("整備部", kivact::interaction::Tone::Neutral, g::BadgeVariant::Plain), g::mono("updated 09:38").style(style().color(ColorToken::TextMuted)))),
+        line((kivact::ui::badge("RUNNING").tone(kivact::interaction::Tone::Info), kivact::ui::badge("整備部").tone(kivact::interaction::Tone::Neutral) .variant(g::BadgeVariant::Plain), g::mono("updated 09:38").style(style().color(ColorToken::TextMuted)))),
         text("点検対象は配電盤 12 基、冷却ユニット 4 基。前回点検で指摘された 2 件の是正状況を確認し、結果を監査ログへ記録する。作業時間帯は 10:00–15:00 を予定。")
             .style(style().font_size(12.5).color(ColorToken::TextMuted).line_height(1.75)),
         node().style(style().padding_x(12).padding_y(10).background(rgb(0x0c1f36)).border_left(3, rgb(0x2ec4f0)))

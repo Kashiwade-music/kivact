@@ -65,18 +65,18 @@ pub(super) fn display(scene: Demo) -> Node {
                     "DSP-02",
                     "バッジ / ステータス",
                     line((
-                        g::badge("RUNNING", kivact::interaction::Tone::Info),
-                        g::badge("PASSED", kivact::interaction::Tone::Success),
-                        g::badge("PENDING", kivact::interaction::Tone::Warning),
-                        g::badge("FAILED", kivact::interaction::Tone::Danger),
-                        g::tag_badge("ARCHIVED", kivact::interaction::Tone::Neutral, g::BadgeVariant::Plain),
-                        g::tag_badge("V2.4.0", kivact::interaction::Tone::Info, g::BadgeVariant::Solid),
-                        g::tag_badge("BETA", kivact::interaction::Tone::Accent, g::BadgeVariant::Plain)
+                        kivact::ui::badge("RUNNING").tone(kivact::interaction::Tone::Info),
+                        kivact::ui::badge("PASSED").tone(kivact::interaction::Tone::Success),
+                        kivact::ui::badge("PENDING").tone(kivact::interaction::Tone::Warning),
+                        kivact::ui::badge("FAILED").tone(kivact::interaction::Tone::Danger),
+                        kivact::ui::badge("ARCHIVED").tone(kivact::interaction::Tone::Neutral) .variant(g::BadgeVariant::Plain),
+                        kivact::ui::badge("V2.4.0").tone(kivact::interaction::Tone::Info) .variant(g::BadgeVariant::Solid),
+                        kivact::ui::badge("BETA").tone(kivact::interaction::Tone::Accent) .variant(g::BadgeVariant::Plain)
                             .style(style().color(rgb(0x13233a))),
-                        g::tag_badge("PROD", kivact::interaction::Tone::Info, g::BadgeVariant::Outline),
+                        kivact::ui::badge("PROD").tone(kivact::interaction::Tone::Info) .variant(g::BadgeVariant::Outline),
                         row((
                             text("受信箱"),
-                            g::tag_badge("24", kivact::interaction::Tone::Danger, g::BadgeVariant::Solid)
+                            kivact::ui::badge("24").tone(kivact::interaction::Tone::Danger) .variant(g::BadgeVariant::Solid)
                                 .style(style().padding_x(5)),
                         ))
                         .style(style().gap(6)),
@@ -152,18 +152,19 @@ pub(super) fn display(scene: Demo) -> Node {
                     "アバター",
                     list((
                         line((
-                            g::avatar("KM").size(40.).color(rgb(0x1283f0)).online(Some(kivact::interaction::Tone::Success)),
-                            g::avatar("SA").size(32.).color(rgb(0x0c1f36)).online(Some(kivact::interaction::Tone::Warning)),
-                            g::avatar("TN").size(24.).color(rgb(0x12a06e)).online(Some(kivact::interaction::Tone::Neutral)),
-                            g::avatar_stack(vec![
-                                ("HI".into(), rgb(0x1283f0)),
-                                ("YU".into(), rgb(0xd98300)),
-                                ("RK".into(), rgb(0xe0364d)),
-                            ]),
-                            g::avatar_more(5).style(style().margin_left(-18)),
+                            kivact::ui::avatar("KM").fallback_content(|| text("KM")).variant(g::AvatarVariant { side: 40., color: rgb(0x1283f0) }).status(Some(kivact::interaction::Tone::Success)),
+                            kivact::ui::avatar("SA").fallback_content(|| text("SA")).variant(g::AvatarVariant { side: 32., color: rgb(0x0c1f36) }).status(Some(kivact::interaction::Tone::Warning)),
+                            kivact::ui::avatar("TN").fallback_content(|| text("TN")).variant(g::AvatarVariant { side: 24., color: rgb(0x12a06e) }).status(Some(kivact::interaction::Tone::Neutral)),
+                            kivact::ui::avatar_group(vec![
+                                ("HI", rgb(0x1283f0)), ("YU", rgb(0xd98300)), ("RK", rgb(0xe0364d)),
+                            ].into_iter().map(|(name,color)| {
+                                kivact::ui::avatar(name).fallback_content(move || text(name))
+                                    .variant(g::AvatarVariant { side:32., color })
+                                    .style(style().border(2,ColorToken::Surface))
+                            }).collect::<Vec<_>>()).total(8usize).max(3usize),
                         )),
                         row((
-                            g::avatar("MS").size(32.).color(rgb(0x0a62c2)).online(None),
+                            kivact::ui::avatar("MS").fallback_content(|| text("MS")).variant(g::AvatarVariant { side: 32., color: rgb(0x0a62c2) }).status(None),
                             column((
                                 text("真柴 ソウ").style(style().weight(700)),
                                 g::mono("ADMIN · 整備部")
@@ -202,7 +203,7 @@ pub(super) fn display(scene: Demo) -> Node {
                         ),
                         (
                             "STATUS".into(),
-                            g::badge("ACTIVE", kivact::interaction::Tone::Success).into_view(),
+                            kivact::ui::badge("ACTIVE").tone(kivact::interaction::Tone::Success).into_view(),
                         ),
                         ("OWNER".into(), text("整備部 / 真柴").into_view()),
                         ("CREATED".into(), g::mono("2026-09-28 14:02").into_view()),
@@ -218,7 +219,7 @@ pub(super) fn display(scene: Demo) -> Node {
                             .size(kivact::ui::ControlSize::Small)
                             .variant(kivact::ui::ButtonVariant::Secondary)
                             .on_press(move || scene.drawer.set(true)),
-                    ).child(g::tag_badge("ON", kivact::interaction::Tone::Success, g::BadgeVariant::Plain)
+                    ).child(kivact::ui::badge("ON").tone(kivact::interaction::Tone::Success) .variant(g::BadgeVariant::Plain)
                         .style(style().position(Position::Absolute).right(16).top(16))),
                 ),
             ),

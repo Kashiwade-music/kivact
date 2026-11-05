@@ -847,8 +847,12 @@ pub(super) fn navigation() -> Node {
                 .variant(g::Navigation)
                 .item(|item, state| {
                     let count = match item.with_untracked(|item| item.key().clone()).as_str() {
-                        "operations" => Some(g::badge("3", kivact::interaction::Tone::Info)),
-                        "security" => Some(g::badge("!", kivact::interaction::Tone::Danger)),
+                        "operations" => {
+                            Some(kivact::ui::badge("3").tone(kivact::interaction::Tone::Info))
+                        }
+                        "security" => {
+                            Some(kivact::ui::badge("!").tone(kivact::interaction::Tone::Danger))
+                        }
                         _ => None,
                     };
                     (g::navigation_label(item, state), count)

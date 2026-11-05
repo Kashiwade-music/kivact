@@ -28,7 +28,7 @@ fn loadout() -> impl IntoView {
         column((
             game::section_heading("01", "LOADOUT", "Squad 04"),
             row((
-                game::badge("READY", Tone::Success),
+                kivact::ui::badge("READY").tone(Tone::Success),
                 game::mono("SLOT 2"),
             ))
             .style(style().gap(12).align_items(Align::Center)),
@@ -76,7 +76,7 @@ fn main() -> kivact::Result<()> {
 
 **`game::hud(content)`** はステップ 1 の枠で、枠線と 2 つのアクセント色のカギ括弧を持つ面です。関連するコントロールのまとまりごとに 1 つ巻きます。**`game::section_heading(number, title, description)`** は、画面のセクションの番号付き見出しです。
 
-**`game::badge(label, tone)`** は、四角い点の付いた小さな状態ラベルです。`Tone` は Kivact 共通の意味の enum で、`Neutral`、`Info`、`Success`、`Warning`、`Danger`、`Accent` があります。意味を伝えると、色はテーマが選びます。
+**`kivact::ui::badge(label).tone(tone)`** は、四角い点の付いた小さな状態ラベルです。`Tone` は Kivact 共通の意味の enum で、`Neutral`、`Info`、`Success`、`Warning`、`Danger`、`Accent` があります。意味を伝えると、色はテーマが選びます。
 
 **`game::gauge(label, value)`** は、`value` の分だけ点灯する斜めのバーの列で、全体の本数は `.total(n)` で決めます（指定しなければ 100）。第 1 引数はアクセシブルな名前で、画面には表示されません。そのためプログラムでは `labeled` で自分でキャプションを描いています。ゲージは `Signal<usize>` を読むので、バーはシグナルに追従します。**`game::ring(label, value, tone)`** は 0 から 100 の値を表す円形のメーターです。百分率とその下にラベルを中央に表示し、メーターが最初に現れたときと値が変わるたびに、弧が値まで伸びます。
 

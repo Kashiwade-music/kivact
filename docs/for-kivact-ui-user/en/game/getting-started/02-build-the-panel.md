@@ -29,7 +29,7 @@ fn loadout() -> impl IntoView {
         column((
             game::section_heading("01", "LOADOUT", "Squad 04"),
             row((
-                game::badge("READY", Tone::Success),
+                kivact::ui::badge("READY").tone(Tone::Success),
                 game::mono("SLOT 2"),
             ))
             .style(style().gap(12).align_items(Align::Center)),
@@ -85,7 +85,7 @@ two accent brackets. Put one around each group of related controls.
 **`game::section_heading(number, title, description)`** is the numbered
 heading of a screen section.
 
-**`game::badge(label, tone)`** is a small status label with a square dot.
+**`kivact::ui::badge(label).tone(tone)`** is a small status label with a square dot.
 `Tone` is Kivact's shared meaning enum: `Neutral`, `Info`, `Success`,
 `Warning`, `Danger` and `Accent`. You say what the status means and the
 theme picks the color.
