@@ -84,13 +84,13 @@ fn kbd_uses_the_platform_command_key() {
     } else {
         "Control + K"
     };
-    screen.get_by_role(Role::Image, name);
-    screen.get_by_text(if name == "Command + K" {
+    let typed = screen.within(screen.get_by_role(Role::Image, name));
+    typed.get_by_text(if name == "Command + K" {
         "\u{2318}"
     } else {
         "Ctrl"
     });
-    screen.get_by_text("K");
+    typed.get_by_text("K");
     screen.get_by_role(
         Role::Image,
         if name == "Command + K" {
