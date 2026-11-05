@@ -70,7 +70,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Lightbox / Link | `lightbox`, `use_lightbox`, `link` |
 | List | `list`, `list_items`, `list_item` |
 | Markdown | `markdown` |
-| Metadata List | `metadata_list`, `metadata_item` |
+| Metadata List | Standard `description_list` / `description`; share `MetadataLook` across list and pairs. |
 | More Menu | `more_menu` |
 | Navigation | `mobile_nav`, `mobile_nav_toggle`, `nav_heading_menu`, `nav_icon`, `side_nav`, `side_nav_collapse_button`, `side_nav_heading`, `side_nav_item`, `side_nav_section`, `top_nav`, `top_nav_heading`, `top_nav_item`, `top_nav_menu`, `top_nav_mega_menu`, `top_nav_mega_menu_item`, `top_nav_featured_card` |
 | Number Input / Outline / Overflow List / Overlay / Pagination | Standard `number_input`, `outline`, `pagination`, `overflow_list`, `media_overlay` |
@@ -314,6 +314,8 @@ Number, date, and time filter fields validate values entered as text.
 ## Filled standard recipes
 
 <!-- kivact-recipes -->
+- `stat`
+- `description_list`
 - `heading`
 - `button`
 - `button_content`
