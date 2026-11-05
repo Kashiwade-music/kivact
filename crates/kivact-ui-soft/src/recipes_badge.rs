@@ -23,6 +23,22 @@ impl kivact::ui::Variant for BadgeVariant {}
 pub(crate) fn badge(theme: &Theme, s: &Look<BadgeState>) -> Style {
     let t = theme.ext::<Tokens>();
     let c = &t.colors;
+    if s.variant::<crate::RowStatusDot>().is_some() {
+        let color = match s.tone {
+            Tone::Success => c.text_success,
+            Tone::Warning => c.text_warning,
+            Tone::Danger => c.text_error,
+            _ => c.icon_secondary,
+        };
+        return style()
+            .size(8, 8)
+            .min_height(8)
+            .min_width(8)
+            .padding(0)
+            .gap(0)
+            .radius(4)
+            .background(color);
+    }
     let (fill, ink) = match s.tone {
         Tone::Info | Tone::Accent => (c.info, c.on_info),
         Tone::Success => (c.success, c.on_success),

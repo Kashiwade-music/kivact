@@ -8,7 +8,6 @@ use kivact::geometry::Rect;
 use kivact::interaction::SortOrder;
 use kivact::interaction::TabState;
 use kivact::interaction::TableHeaderState;
-use kivact::interaction::TreeItemState;
 use kivact::motion::Transition;
 use kivact::style::Align;
 use kivact::style::Cursor;
@@ -30,6 +29,7 @@ use kivact::ui::SplitRecipes;
 use kivact::ui::SplitterRecipes;
 use kivact::ui::TabsRecipes;
 use kivact::ui::TreeRecipes;
+use kivact::ui::TreeRowRecipeState;
 use kivact::view::Orientation;
 use kivact::view::ReadingDirection;
 use kivact::view::use_direction;
@@ -45,30 +45,113 @@ fn focus(p: &Tokens) -> Style {
 pub(crate) fn tree(recipes: TreeRecipes) -> TreeRecipes {
     recipes
         .root(|_| |_: &Theme, _: &_| style().direction(Direction::Column).gap(2))
-        .item(|_| {
-            |theme: &Theme, row: &Look<TreeItemState>| {
-                let tokens = theme.ext::<Tokens>();
-                let rtl = use_direction().get() == ReadingDirection::Rtl;
-                let indent = 8 + row.level.saturating_sub(1) * 16;
-                style()
-                    .enter_size(Orientation::Vertical)
-                    .exit_size(Orientation::Vertical)
-                    .direction(if rtl {
-                        Direction::RowReverse
+        .item(|_| tree_item)
+        .marker(|_| tree_marker)
+}
+fn tree_item(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
+    let p = theme.ext::<Tokens>();
+    let appearance = row
+        .variant::<crate::TreeLook>()
+        .copied()
+        .unwrap_or_default();
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let indent = 8 + row.level.saturating_sub(1) * 16;
+    let mut look = style()
+        .enter_size(Orientation::Vertical)
+        .exit_size(Orientation::Vertical)
+        .direction(if rtl {
+            Direction::RowReverse
+        } else {
+            Direction::Row
+        })
+        .position(Position::Relative)
+        .align_items(Align::Center)
+        .min_width(0)
+        .gap(8)
+        .padding_y(
+            appearance
+                .density
+                .map_or(crate::ItemDensity::Balanced, |density| density.get())
+                .padding(),
+        )
+        .padding_left(if rtl { 8 } else { indent })
+        .padding_right(if rtl { indent } else { 8 })
+        .radius(p.radius.element)
+        .color(p.colors.text_primary)
+        .font_size(14)
+        .line_height(20.0 / 14.0)
+        .hover(style().background(p.colors.overlay_hover))
+        .selected(style().background(p.colors.accent_muted))
+        .focus_visible(focus(&p));
+    if appearance.guides.is_none_or(|guides| guides.get()) && !row.ancestor_last.is_empty() {
+        let mut lines: Vec<_> = row
+            .ancestor_last
+            .iter()
+            .copied()
+            .skip(1)
+            .map(|last| (!last).then_some(true))
+            .collect();
+        lines.push(Some(!row.is_last));
+        let guide = p.colors.border_emphasized;
+        look = look.paint(move |draw, size| {
+            for (ancestor, extend) in lines.iter().enumerate() {
+                if let Some(extend) = extend {
+                    let inset = 16.0 + ancestor as f64 * 16.0;
+                    let x = if rtl {
+                        size.width - inset - 0.5
                     } else {
-                        Direction::Row
-                    })
-                    .align_items(Align::Center)
-                    .min_width(0)
-                    .gap(8)
-                    .padding_y(crate::ItemDensity::Balanced.padding())
-                    .padding_left(if rtl { 8 } else { indent })
-                    .padding_right(if rtl { indent } else { 8 })
-                    .radius(tokens.radius.element)
-                    .color(tokens.colors.text_primary)
-                    .hover(style().background(tokens.colors.overlay_hover))
-                    .selected(style().background(tokens.colors.accent_muted))
-                    .focus_visible(focus(&tokens))
+                        inset - 0.5
+                    };
+                    let height = if *extend {
+                        size.height + 2.0
+                    } else {
+                        size.height
+                    };
+                    draw.rounded_rect(Rect::new(x, 0.0, 1.0, height), 0.5, guide);
+                }
+            }
+        });
+    }
+    look
+}
+fn tree_marker(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
+    let p = theme.ext::<Tokens>();
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let branch = row.branch.has_children() && !row.custom_marker;
+    let angle = if row.branch.is_expanded() {
+        if rtl { -90.0 } else { 90.0 }
+    } else {
+        0.0
+    };
+    let ink = p.colors.icon_secondary;
+    style()
+        .size(16, 16)
+        .shrink(0)
+        .font_size(if row.custom_marker { 14 } else { 0 })
+        .color(ink)
+        .rotate(angle)
+        .transition(
+            TransitionProp::Paint,
+            Transition::tween(125.0, p.motion.ease_standard),
+        )
+        .paint(move |draw, _| {
+            if branch {
+                let x = if rtl {
+                    [10.0, 6.0, 10.0]
+                } else {
+                    [6.0, 10.0, 6.0]
+                };
+                draw.polyline(
+                    [
+                        Point::new(x[0], 4.0),
+                        Point::new(x[1], 8.0),
+                        Point::new(x[2], 12.0),
+                    ],
+                    &Stroke::new(4.0 / 3.0)
+                        .cap(LineCap::Round)
+                        .join(kivact::draw::LineJoin::Round),
+                    ink,
+                );
             }
         })
 }

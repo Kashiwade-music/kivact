@@ -116,3 +116,11 @@ pub struct PaginationSummary {
     pub page_size: u32,
     pub has_more: bool,
 }
+
+/// Construction-time enumeration of the numbered page window.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PaginationWindow {
+    #[default]
+    Adjacent,
+    Buffered,
+}

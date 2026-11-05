@@ -107,7 +107,9 @@ fn viewport_snapshot_draws_its_pixels() {
     assert!(
         image
             .rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|p| p[0] > 180 && p[1] < 80 && p[2] < 80)
             .count()
             > 2000

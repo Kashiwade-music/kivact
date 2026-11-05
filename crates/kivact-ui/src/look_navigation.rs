@@ -156,3 +156,7 @@ pub(super) fn pagination_item(t: &Theme, s: &Look<crate::PaginationItemState>) -
 pub(super) fn stepper_decoration(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
     style().size(0, 0)
 }
+
+pub(super) fn pagination_wrapper(_: &Theme, _: &Look<crate::PaginationSummary>) -> Style {
+    style().display(kivact_core::style::Display::Contents)
+}

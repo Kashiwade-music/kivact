@@ -159,8 +159,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-6a | merged | 9290fc1f | 5kit移行、実avatar/status/overflowとkeyboard各partを使用 |
 | K-6b | merged | 3efe0ee9 | 5kit empty/card/input_group/alert移行、Softdismiss-focus1 0 |
 | K-8 | merged | 6eac920f | viewport/GPU対象6中5+修正1passed、workspacecheck0 |
-| K-9a | doing | 0b4a7754 | Basic/Pop/Game移行済、Soft残 |
-| K-9b | doing | dcbf67aa | Basic/Pop/Game/Creative移行済、Soft残 |
+| K-9a | merged | 4425bce9 | 5kit移行、Softkeyboard4/scroll2/composer1/code1/catalog1/docs18 0 |
+| K-9b | merged | b9ca0188 | 5kit移行、Softmetrics4/progress2 0、native階層は親aggregate確認 |
 | K-7a | merged | 1c64e91b | consumer32/catalog3/EN42+JP42/runnable2/rustdoc13 0 |
 | K-7b | merged | a7e2f0f8 | consumer16/catalog3/docs44+2/scoped規約0 |
 | K-7c | merged | 2a34e21b | Game consumer12/catalog3/rustdoc3/scoped contracts0 |
@@ -170,7 +170,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
 | H-G3 | doing | ce4294 | 中核の状態整理を統合、全体静的のdispatch葉分離を修正中 |
 | H-G4 | doing | 28617746 | UI+interaction統合check/scoped静的0、全体gate待ち |
-| H-G5 | doing | 97c7b47e | Game Clippy/static/consumer12/rustdoc3 0、他kitはK7後 |
+| H-G5 | doing | cec72f52 | Basic/Pop/Game/Creative完了、親workspaceClippy19e889d3 0、Soft残 |
 | H-G6 | todo | | |
 | F-1 | todo | | |
 | F-2 | todo | | |
@@ -198,3 +198,5 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G4-17 | merged | 75c7185 | APG Enter移行、元のfailed3件各0 |
 | fix-G5-12 | merged | 99b03e7 | PopのSkip fixture、元のfailed1件0 |
 | fix-G5-13 | merged | ee2ea2d | 初期展開は自然高、既存consumer2件0 |
+
+- W6中間: `19e889d3` で workspace Clippy全target/feature `-D warnings` 0、fmt 0。残るK3b/K4/Soft K7/H-G5/H-G6とCP6は継続中。

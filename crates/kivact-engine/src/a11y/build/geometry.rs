@@ -1,4 +1,4 @@
-//! Role: Derive logical semantic order and boxless group geometry from retained nodes.
+//! Role: Derive semantic hierarchy and boxless bounds from retained nodes.
 use crate::model::Model;
 use kivact_types::{NodeId, Rect};
 

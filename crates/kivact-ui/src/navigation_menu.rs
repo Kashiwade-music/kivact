@@ -129,7 +129,7 @@ impl IntoView for NavigationMenu {
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
         let mut children = Vec::new();
-        for (at, entry) in links.into_iter().enumerate() {
+        for entry in links {
             let Link { label, content } = match entry {
                 Entry::Panel(link) => link,
                 Entry::Action { label, press } => {
@@ -137,6 +137,7 @@ impl IntoView for NavigationMenu {
                     continue;
                 }
             };
+            let at = api.panel_key();
             let shown = memo(
                 move || matches!(state.get(), NavOpen::Hover(i) | NavOpen::Pinned(i) if i == at),
             );

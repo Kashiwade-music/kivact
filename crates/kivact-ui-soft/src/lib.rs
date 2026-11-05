@@ -48,7 +48,6 @@ mod more_menu;
 mod nav_heading;
 mod nav_icon;
 mod outline;
-mod pagination;
 mod power_search;
 mod recipe_style;
 mod recipes;
@@ -68,6 +67,7 @@ mod recipes_field;
 mod recipes_groups;
 mod recipes_menu;
 mod recipes_metrics;
+mod recipes_pagination;
 mod recipes_popup;
 mod recipes_popup_command;
 mod recipes_select;
@@ -82,7 +82,8 @@ mod shadows;
 mod side_navigation;
 mod soft_chat_tools;
 mod soft_list;
-mod soft_metadata;
+
+mod recipes_table;
 mod soft_overflow;
 mod soft_table;
 mod soft_tree;
@@ -168,14 +169,18 @@ pub use nav_heading::{
 };
 pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
-pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use recipes_badge::BadgeVariant;
 pub use recipes_code::{CodeAppearance, CodeBlockContainer, CodeBlockSize, CodeBlockWidth};
 pub use recipes_dropzone::DropzoneVariant;
 pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
 pub use recipes_metrics::HeadingDisplay;
+pub use recipes_metrics::{LabelPosition, MetadataColumns, MetadataLook};
+pub use recipes_pagination::{
+    PaginationAppearance, pagination_count, pagination_page_summary, pagination_status,
+};
 pub use recipes_skeleton::SkeletonRadius;
+pub use recipes_table::{TableCellAppearance, TableRowAppearance};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
@@ -189,16 +194,11 @@ pub use soft_chat_tools::{
     ChatToken, ChatTokenTone, ChatToolCalls, StreamSpeed, ToolCall, ToolStatus, chat_token,
     chat_tokenized_text, chat_tool_calls, streaming_text, use_streaming_text,
 };
-pub use soft_metadata::{
-    LabelPosition, MetadataColumns, MetadataItem, MetadataList, metadata_item, metadata_list,
-};
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{
-    RowStatusTone, TableAlign, TableCell, TableDensity, TableRow, TableSelectionToolbar, table,
-    table_body, table_cell, table_footer, table_head, table_header, table_pagination, table_row,
-    table_row_index, table_row_status, table_selection_toolbar,
+    RowStatusDot, RowStatusTone, TableSelectionToolbar, table_row_status, table_selection_toolbar,
 };
-pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
+pub use soft_tree::TreeLook;
 pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,

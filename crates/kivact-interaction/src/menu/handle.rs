@@ -11,7 +11,7 @@ use kivact_core::custom::raise;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
 use kivact_core::state::{Callback, Value, memo};
-use kivact_core::state::{IntoValue, callback};
+use kivact_core::state::{IntoBinding, IntoValue, callback, signal};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
@@ -126,7 +126,20 @@ impl<K: kivact_core::state::ItemKey> Copy for MenuApi<K> {}
 pub fn use_menu<K: kivact_core::state::ItemKey>(
     entries: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> MenuApi<K> {
-    let session = Session::new(entries.into_value(), callback(|_: K| ()));
+    use_menu_with_open(entries, signal(false))
+}
+/// A menu whose popup observes the caller's accepted open binding directly.
+/// External opening does not request item focus; keyboard triggers retain canonical focus behavior.
+#[track_caller]
+pub fn use_menu_with_open<K: kivact_core::state::ItemKey>(
+    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    open: impl IntoBinding<bool>,
+) -> MenuApi<K> {
+    let session = Session::new(
+        entries.into_value(),
+        callback(|_: K| ()),
+        open.into_binding(),
+    );
     let level = Level::new(session, Vec::new(), session.is_open());
     MenuApi { session, level }
 }
@@ -172,6 +185,14 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         })
     }
 
+    /// Replace the actual trigger's press action during setup; this is not an observer.
+    /// ArrowUp/Down retain canonical opening and initial focus, and popup dismissal is unchanged.
+    pub fn trigger_action(self, action: impl Fn() + 'static) -> Self {
+        self.session
+            .options
+            .update(|options| options.trigger_action = Some(callback(move |()| action())));
+        self
+    }
     /// Handle activation of a menu item.
     pub fn on_activate<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
         self.session
@@ -302,7 +323,9 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                     Handled::Yes
                 })
                 .on_press(move || {
-                    if session.is_open().get() {
+                    if let Some(action) = session.options.get().trigger_action {
+                        action.call(());
+                    } else if session.is_open().get() {
                         session.close(PopupCloseReason::Programmatic);
                     } else {
                         session.open_from_button();

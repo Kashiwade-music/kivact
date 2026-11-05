@@ -26,7 +26,7 @@ fn tree_list_expands_and_collapses_with_arrow_keys() {
             TreeNode::new(1, None, "Folder"),
             TreeNode::new(2, Some(1), "Document"),
         ];
-        soft::tree_list("Files", nodes, signal(Vec::new()))
+        kivact::ui::tree("Files", nodes).expanded(signal(Vec::new()))
     });
 
     assert_eq!(

@@ -51,3 +51,7 @@ Stepper は実際の装飾パーツ `leading`、`trailing`、`progress`（既定
 `pagination(count, page).summary(|facts| view)` は実際の `Value<PaginationSummary>` から要約を構成します。`page` はゼロ始まり、`count` はページ数、`total_items` は省略可能な項目総数、`page_size` はページごとの項目数です。表示する先頭・末尾の項目はコールバック内で導出し、範囲の端点を複製して保存しません。`has_more` は未確定のリモート件数を表します。`PaginationItemState.mode` は実際の構造モードを投影し、点と数字のレシピでバリアントに複製する必要はありません。
 
 Dots は実際の全ページを表示します。左右キーは読み方向に従い、端で循環しながら選択と実際の対象フォーカスを移動します。点の Tab 順序には選択中の点だけが入ります。Dots は実際の対象に移動し、他のモードは既存のルートのロービングフォーカスを使用します。件数が変わると点のマウント範囲だけを作り直し、フォーカスのレジストリは持ちません。
+
+Pagination は実際の `controls`、`sizes`、`input` レシピの枠を公開し、既定は中立な `Display::Contents` です。サイズ選択は操作群の前に置き、Count/Compact/Input は既存の要約・編集欄を前後移動の間に配置します。実際の同じ要約投影を使用し、ページやフォーカスの所有者は追加しません。
+
+`PaginationWindow::Adjacent` は標準の近隣ページのウィンドウです。構築時の `.window(PaginationWindow::Buffered)` は端を埋め、区切りの前に5ページと兄弟ページの余裕を保持します。短い範囲は全ページを表示します。`NavigationMenuApi::panel_key()` は動的マウントのファクトリを含め、構築時に実際のパネル識別子を割り当てます。イベント世代、レジストリ、表示キャッシュではありません。標準 navigation-menu も同じ割り当て元を使用します。`interaction::use_menu_with_open(entries, open_binding)` は実際に受け入れられた popup の入力元をナビゲーション所有者から渡します。外部ホバーによる表示はフォーカス要求なしでメニュー階層を初期化し、上下キーは従来の表示とフォーカスを保ちます。拒否された setter は実際の表示やフォーカスを変更しません。`.trigger_action(callback)` は既存のトリガーの押下操作を構築時に置換するもので、監視用ではありません。ホバーから固定表示への移行には `navigation.toggle(panel_key)` を使用します。他のトリガーキーと popup の終了は標準動作です。

@@ -8,7 +8,8 @@ use kivact_core::state::{
 };
 use kivact_core::style::{Length, StyledRange, style};
 use kivact_core::view::{
-    IntoView, Node, NodeBuilder, Role, ScrollAxes, View, node, node_ref, scroll, text,
+    IntoView, Node, NodeBuilder, Orientation, Role, ScrollAxes, View, node, node_ref, scroll, show,
+    text,
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
@@ -17,7 +18,6 @@ use std::time::Duration;
 pub struct CodeBlock {
     root: Node,
     code: Value<String>,
-    editing: TextEditing,
     title: Option<Value<String>>,
     language: Option<Value<String>>,
     language_label: Value<bool>,
@@ -36,7 +36,7 @@ pub struct CodeBlock {
     highlight: Option<Highlight>,
     variants: Variants,
 }
-type Highlight = Box<dyn FnOnce(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>;
+type Highlight = Box<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>;
 /// Display `code` with native selection and a copy button.
 /// `line_numbers(true)` enables a reactive gutter; `.highlight(content, f)` uses
 /// the same content and cross-line state contract as `TextEditing::line_styles`.
@@ -45,10 +45,6 @@ pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
     CodeBlock {
         root: node(),
         code,
-        editing: TextEditing::new(code)
-            .multiline()
-            .read_only(true)
-            .behavior(crate::code_editing::code_keys),
         title: None,
         language: None,
         language_label: true.into_value(),
@@ -98,7 +94,9 @@ impl CodeBlock {
         F: Fn(&T, &str, &S) -> (Vec<StyledRange>, S) + 'static,
     {
         let content = content.into_value();
+        let f = std::rc::Rc::new(f);
         self.highlight = Some(Box::new(move |editor, lines, diff| {
+            let f = f.clone();
             editor.line_styles(
                 move || (content.get(), lines.get(), diff.get()),
                 move |(content, lines, diff), line, state: &(S, usize)| {
@@ -185,10 +183,13 @@ struct CodePresentation {
     can_collapse: Value<bool>,
     feedback: CopyFeedbackApi,
 }
+// xtask-allow(state-fields): Read-only source and formatting inputs rebuild the native editor on each disclosure opening; no interaction phase is stored here.
 /// Inputs consumed together when constructing the one native source editor.
 struct CodeSource {
     code: Value<String>,
-    editing: TextEditing,
+    highlight: Option<Highlight>,
+    highlight_lines: Value<Vec<u32>>,
+    diff: Value<bool>,
     max_height: Option<Value<Length>>,
 }
 impl CodeBlock {
@@ -343,7 +344,46 @@ impl CodeBlock {
 impl CodeSource {
     fn render(self, presentation: &CodePresentation, variants: &Variants) -> View {
         let state = presentation.state;
-        let (editor, reference) = native_editor(self.editing, presentation.name, variants, state);
+        let name = presentation.name;
+        let disclosure = presentation.disclosure;
+        let variants = variants.clone();
+        let motion = kivact_core::style::use_tokens::<crate::UiTokens>()
+            .disclosure
+            .motion
+            .clone();
+        show(disclosure.is_open(), move || {
+            node()
+                .part(disclosure.content())
+                .role(Role::Group)
+                .name(name)
+                .child(self.viewport(name, state, &variants))
+                .style(style().exit_size(Orientation::Vertical).transition(
+                    kivact_core::style::TransitionProp::Size,
+                    motion.transition.clone().unwrap_or_else(|| {
+                        kivact_core::motion::Transition::tween(
+                            motion.duration.as_secs_f64() * 1000.0,
+                            kivact_core::motion::Easing::EaseOut,
+                        )
+                    }),
+                ))
+        })
+        .into_view()
+    }
+    fn viewport(
+        &self,
+        name: Value<String>,
+        state: Value<CodeBlockState>,
+        variants: &Variants,
+    ) -> View {
+        let editing = TextEditing::new(self.code)
+            .multiline()
+            .read_only(true)
+            .behavior(crate::code_editing::code_keys);
+        let editing = match &self.highlight {
+            Some(highlight) => highlight(editing, self.highlight_lines, self.diff),
+            None => crate::code_editing::plain_highlight(editing, self.highlight_lines, self.diff),
+        };
+        let (editor, reference) = native_editor(editing, name, variants, state);
         let gutter = crate::code_gutter::gutter(reference, self.code, variants, state);
         let body = with_recipe_style(
             node().child((editor, gutter)),
@@ -351,12 +391,9 @@ impl CodeSource {
             variants,
             move || state.get(),
         );
-        let open = presentation.disclosure.is_open();
         let max_height = self.max_height;
         with_recipe_style(
-            scroll(body)
-                .axes(ScrollAxes::Both)
-                .hidden(move || !open.get()),
+            scroll(body).axes(ScrollAxes::Both),
             |r| r.code_block_recipes().viewport_recipe(),
             variants,
             move || state.get(),
@@ -408,15 +445,11 @@ impl IntoView for CodeBlock {
                 move || state.get(),
             )
         });
-        let editing = match self.highlight {
-            Some(highlight) => highlight(self.editing, self.highlight_lines, self.diff),
-            None => {
-                crate::code_editing::plain_highlight(self.editing, self.highlight_lines, self.diff)
-            }
-        };
         let source = CodeSource {
             code: self.code,
-            editing,
+            highlight: self.highlight,
+            highlight_lines: self.highlight_lines,
+            diff: self.diff,
             max_height: self.max_height,
         };
         let viewport = source.render(&presentation, &self.variants);

@@ -64,7 +64,6 @@ use kivact_core::view::Orientation;
 use kivact_interaction::DropzoneState;
 use kivact_interaction::{
     ListItemState, MenuItemState, PopupState, TabListState, TabState, TableHeaderState, ToastState,
-    TreeItemState,
 };
 use std::sync::Arc;
 
@@ -458,9 +457,9 @@ recipe_table! {
         /// The column containing the visible rows.
         root(root_recipe): PartState = look_collections::list,
         /// A row with the expansion indicator and its content.
-        item(item_recipe): TreeItemState = look_collections::tree_item,
+        item(item_recipe): crate::tree_values::TreeRowRecipeState = look_collections::tree_item,
         /// The branch indicator or matching leaf spacer.
-        marker(marker_recipe): TreeItemState = look_collections::tree_marker,
+        marker(marker_recipe): crate::tree_values::TreeRowRecipeState = look_collections::tree_marker,
     }
 }
 
@@ -874,6 +873,9 @@ recipe_table! {
         item(item_recipe): crate::navigation_values::PaginationItemState = crate::look_navigation::pagination_item,
         ellipsis(ellipsis_recipe): () = crate::look_navigation::part,
         dots(dots_recipe): () = crate::look_navigation::part,
+        controls(controls_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
+        sizes(sizes_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
+        input(input_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
         summary(summary_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::part,
     }
 }

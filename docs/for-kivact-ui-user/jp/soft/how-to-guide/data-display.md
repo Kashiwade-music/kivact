@@ -11,9 +11,9 @@ use kivact_ui_soft as soft;
 fn build_details() -> impl IntoView {
     column((
         kivact::ui::heading("Build details", 2),
-        soft::metadata_list(vec![
-            soft::metadata_item("Status", soft::text("Passed")),
-            soft::metadata_item("Revision", soft::code("ae72f04")),
+        kivact::ui::description_list(vec![
+            kivact::ui::description("Status", soft::text("Passed")),
+            kivact::ui::description("Revision", soft::code("ae72f04")),
         ]),
     ))
     .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
@@ -73,6 +73,30 @@ fn projects() -> impl IntoView {
 
 見出しには `kivact::ui::heading(value, level)` を使います。`HeadingDisplay::D1`、`D2`、`D3` を `.variant(..)` に渡すと、意味上のレベルを維持したまま表示用の文字組みを変えられます。色、太さ、行数制限、折り返し、整列、capsize、取り消し線はノードのスタイルで指定します。省略時のツールチップは `ui::tooltip(value).enabled(anchor.text_truncated()).attach(heading.node_ref(anchor))` で合成し、呼び出し側がアンカーを持ちます。進捗は従来の Bar の動きとトーンに加え、`ProgressVariant::Ring` と `Gauge` にも対応します。
 
+用語と値の一覧には `ui::description_list` と `ui::description` を使い、一覧と各行に同じ `MetadataLook` を指定します。`columns(Single/Multi/Count(n))`、`label_position(Start/Top)`、`label_width(px)`、`orientation(Vertical/Horizontal)` で元の見た目の選択肢を維持し、値はリアクティブにもできます。単一列で横並びのラベル幅はグリッドの最も広い用語に揃い、計測値のコピーは不要です。アイコンや独自の用語表示は `term_content` に合成し、アクセシブルな用語は維持します。タイトルは一覧の外に置きます。表示件数の上限と開閉を制御する場合は、次の例のように呼び出し側で上限と Core disclosure の binding を持ち、トリガーの文字列をアプリ側で翻訳します。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui;
+use kivact_ui_soft::{MetadataColumns, MetadataLook};
+
+fn expandable_details() -> impl IntoView {
+    let expanded = signal(false);
+    let limit = signal(2usize);
+    let layout = MetadataLook::default().columns(MetadataColumns::Multi);
+    let attributes = [("Owner", "Ada"), ("Status", "Ready"), ("Revision", "ae72f04")];
+    let pairs = attributes.into_iter().enumerate().map(move |(index, (term, value))| {
+        node().hidden(move || index >= limit.get() && !expanded.get())
+            .child(ui::description(term, text(value)).variant(layout))
+    }).collect::<Vec<_>>();
+    column((
+        ui::heading("Project details", 3),
+        ui::description_list(pairs).variant(layout),
+        ui::disclosure(move || if expanded.get() { "Show less" } else { "Show more" }, expanded),
+    ))
+}
+```
+
 ## Chat と source block
 
 Soft theme では `kivact::ui::{chat_thread, chat_message, chat_composer, typing_indicator, code_block}` を使います。message list と layout は `chat_thread(for_each(items, key, render))` で組みます。`empty`、`loading_top`、`streaming`、`gap`、`align`、`composer`、`viewport_ref`、`history_revision`、`scroll_button` は標準 builder の入力です。履歴を先頭へ足す更新では、実際の dataset revision を `history_revision` に渡します。
@@ -82,3 +106,35 @@ Soft theme では `kivact::ui::{chat_thread, chat_message, chat_composer, typing
 Soft の `ChatDensity`、`BubbleVariant`、`SystemMessageVariant`、`ComposerElevation` は標準の `.variant(...)` に渡します。`ChatAppearance` はそれらの reactive value を保持します。source の `CodeBlockSize`、`CodeBlockWidth`、`CodeBlockContainer` も `.variant(...)` に渡し、reactive value は `CodeAppearance` にまとめます。copy feedback、行番号、強調行、diff、折り返し、高さ、controlled expansion、開閉の閾値、末尾 content は `ui::code_block` の入力として残ります。
 
 言語 tokenizer は Soft に残ります。組み込みの `CodeLanguageInput::Named` または独自の `CodeLanguage` を `code_highlight` に渡し、標準 `highlight` の行 callback から呼びます。callback の content source に現在の `Tokens.colors.syntax` または明示的な `SyntaxColors` を渡すと、palette の reactive な上書きを保てます。`syntax_theme` は引き続き子の palette を供給します。streaming text、tool call、token、アプリが所有する dictation は Soft の domain です。
+
+階層の collection は `kivact::ui::tree(label, nodes).expanded(expanded)` で作ります。Soft の tree recipe が行の密度、祖先のガイド線、開閉マーカーのアニメーションを描きます。`.variant(soft::TreeLook::default().density(soft::ItemDensity::Compact).guides(false))` で見た目を変更でき、密度とガイド表示には reactive な値も渡せます。選択、activation、header、行の独自の内容には `.selection(..)`、`.on_activate(..)`、`.header(..)`、`.item(..)` を使います。`.marker_content(..)` には実際の行と祖先の projection が渡されます。
+
+枝の表示には `.reveal(2.0, kivact::motion::Transition::tween(734.77, kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0)))` を使います。閉じた行は直ちにキーボード操作の対象から外れ、退出する絵はアニメーションの間保持されます。共通の開閉ラベルは `tree.toggle_children` です。
+
+## テーブル
+
+静的なテーブルには `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}` を使います。Soft theme は実際の recipe を装飾します。`TableAlign` は `TableCell::align(TextAlign)` に対応し、`width` と reactive な `col_span` は標準 cell の入力です。`.variant(...)` に `TableRowAppearance::new(dividers, hover, striped)` または `TableCellAppearance::new(density, vertical_align, divider)` を渡します。各入力は reactive value を受け付けます。従来の `TableDensity` alias は `ItemDensity` に統一します。行の選択は `.with_node(|node| node.selected(selected))` で指定します。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_soft as soft;
+
+fn summary() -> impl IntoView {
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head(text("Project")),
+            kivact::ui::table_head(text("Status")),
+        )),)),
+        kivact::ui::table_body((kivact::ui::table_row((
+            kivact::ui::table_cell(text("Design")).variant(
+                soft::TableCellAppearance::new(soft::ItemDensity::Compact,
+                    kivact::style::Align::Center, true)),
+            kivact::ui::table_cell(soft::table_row_status("Passed", soft::RowStatusTone::Success)),
+        )).variant(soft::TableRowAppearance::new(true, true, false)),)),
+    ))
+}
+```
+
+`table_selection_toolbar(selection)` は `clear_label`、`selection_label`、`actions` を維持し、表示と件数を呼び出し側の selection binding から導出します。clear button と toolbar は標準部品です。`table_row_status(label, RowStatusTone)` の四つの色は標準 badge の `RowStatusDot` appearance で描画します。
+
+DataTable の 0 始まりの page binding には標準 `pagination(page_count, page)` を使い、`.summary(...)` でページ数を表示できます。`table_row_index(index)` は `text(move || index.get().to_string())` に `TextAlign::End` と theme の secondary text color を指定する形に対応します。操作できる表には引き続き `data_table` と `DataColumn` を使います。並べ替え、選択、filter、列幅と順序、sticky column、paging、row status、tree/group row、empty content、row action、toolbar/footer slot の持ち主と API は変わりません。

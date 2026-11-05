@@ -5,7 +5,7 @@ use kivact_core::view::{
 };
 use std::rc::Rc;
 
-use crate::{PageItem, PaginationMode, PaginationSummary};
+use crate::{PageItem, PaginationMode, PaginationSummary, PaginationWindow};
 /// Page controls backed by the application's zero-based page binding.
 pub struct Pagination {
     root: Node,
@@ -22,6 +22,7 @@ pub struct Pagination {
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,
     mode: PaginationMode,
+    window: PaginationWindow,
     // xtask-allow(state-fields): Optional caller-provided presentation slot selected only during construction.
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
@@ -50,6 +51,7 @@ pub fn pagination(count: impl IntoValue<usize>, page: impl IntoBinding<usize>) -
         size_options: Vec::<u32>::new().into_value(),
         page_label: kivact_core::i18n::message("pagination.page", "Page"),
         mode: PaginationMode::Pages,
+        window: PaginationWindow::Adjacent,
         item: None,
         format: Rc::new(|n| n.to_string()),
         summary: None,
@@ -102,6 +104,11 @@ impl Pagination {
         self.mode = mode;
         self
     }
+    /// Choose page-window enumeration without adding a second paging authority.
+    pub fn window(mut self, window: PaginationWindow) -> Self {
+        self.window = window;
+        self
+    }
     /// Replace the visible contents of every cell; behavior stays on the cell.
     pub fn item<V: IntoView>(mut self, f: impl Fn(PageItem) -> V + 'static) -> Self {
         self.item = Some(Rc::new(move |item| f(item).into_view()));
@@ -131,27 +138,22 @@ impl NodeBuilder for Pagination {
         &mut self.root
     }
 }
-fn cells(page: usize, count: usize, siblings: usize, ends: bool) -> Vec<(usize, PageItem)> {
+fn cells(
+    page: usize,
+    count: usize,
+    siblings: usize,
+    ends: bool,
+    window: PaginationWindow,
+) -> Vec<(usize, PageItem)> {
     let mut out = Vec::new();
     if ends {
         out.push(PageItem::First);
     }
     out.push(PageItem::Previous);
-    let mut shown = vec![0, count.saturating_sub(1)];
-    shown.extend(
-        page.saturating_sub(siblings)..=page.saturating_add(siblings).min(count.saturating_sub(1)),
-    );
-    shown.retain(|n| *n < count);
-    shown.sort_unstable();
-    shown.dedup();
-    let mut last = None;
-    for n in shown {
-        if last.is_some_and(|before| n > before + 1) {
-            out.push(PageItem::Ellipsis);
-        }
-        out.push(PageItem::Page(n));
-        last = Some(n);
-    }
+    out.extend(match window {
+        PaginationWindow::Adjacent => adjacent_pages(page, count, siblings),
+        PaginationWindow::Buffered => buffered_pages(page, count, siblings),
+    });
     out.push(PageItem::Next);
     if ends {
         out.push(PageItem::Last);
@@ -175,6 +177,7 @@ impl IntoView for Pagination {
             size_options,
             page_label,
             mode,
+            window,
             item,
             format,
             summary,
@@ -195,36 +198,33 @@ impl IntoView for Pagination {
                 page.get().min(count.get().saturating_sub(1))
             }
         });
-        let items = visible_cells(current, count, siblings, first_last, mode);
         let options = Rc::new(PageOptions {
             step,
             has_more,
             item,
             format,
             mode,
+            window,
+            siblings,
+            first_last,
             variants: variants.clone(),
         });
-        let controls = render_controls(items, page, current, count, disabled, options, first_last);
         let facts = summary_source(total_items, page_size, current, count, has_more);
-        let summary = render_summary(summary, mode, facts, &variants);
-        let input = (mode == PaginationMode::Input)
-            .then(|| crate::pagination_draft::input(page, count, page_label, disabled));
-        let sizes = page_size.map(|size| size_selector(size, size_options, page));
-        crate::layer::with_base_recipe_style(
-            if mode == PaginationMode::Dots {
-                root
-            } else {
-                root.roving_focus(Orientation::Horizontal)
+        render_pagination(
+            root,
+            page,
+            current,
+            count,
+            disabled,
+            options,
+            PageExtras {
+                summary,
+                page_size,
+                size_options,
+                page_label,
+                facts,
             },
-            |r| r.pagination_recipes().root_recipe(),
-            &variants,
-            || (),
         )
-        .child(controls)
-        .child(summary)
-        .child(input)
-        .child(sizes)
-        .into_view()
     }
 }
 
@@ -239,6 +239,9 @@ struct PageOptions {
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
     mode: PaginationMode,
+    window: PaginationWindow,
+    siblings: Value<usize>,
+    first_last: Value<bool>,
     variants: crate::variants::Variants,
 }
 fn page_control(
@@ -265,6 +268,7 @@ fn page_control(
     let step = options.step;
     let selected = memo(move || matches!(cell, PageItem::Page(n) if n == current.get()));
     let mode = options.mode;
+    let click_targets = dot.as_ref().map(|dot| dot.targets.clone());
     let control = crate::button("")
         .name(label)
         .with_node(|n| n.role(Role::Button))
@@ -289,6 +293,9 @@ fn page_control(
             } else {
                 next.min(last)
             });
+            if let Some(targets) = &click_targets {
+                targets[page.get_untracked().min(targets.len() - 1)].focus();
+            }
         });
     let control = if let Some(dot) = dot {
         dot_control(control, dot, page, selected, disabled)
@@ -324,9 +331,16 @@ fn visible_cells(
     siblings: Value<usize>,
     first_last: Value<bool>,
     mode: PaginationMode,
+    window: PaginationWindow,
 ) -> Value<Vec<(usize, PageItem)>> {
     memo(move || {
-        let mut cells = cells(current.get(), count.get(), siblings.get(), first_last.get());
+        let mut cells = cells(
+            current.get(),
+            count.get(),
+            siblings.get(),
+            first_last.get(),
+            window,
+        );
         if mode != PaginationMode::Pages && mode != PaginationMode::Dots {
             cells.retain(|(_, c)| !matches!(c, PageItem::Page(_) | PageItem::Ellipsis));
         }
@@ -471,25 +485,112 @@ fn dot_control(
             Handled::Yes
         })
 }
+// xtask-allow(state-fields): Independent actual presentation slots assembled once, with no page or focus state.
+struct ControlContent {
+    summary: Option<View>,
+    input: Option<View>,
+}
 fn render_controls(
-    items: Value<Vec<(usize, PageItem)>>,
     page: Binding<usize>,
     current: Value<usize>,
     count: Value<usize>,
     disabled: Value<bool>,
     options: Rc<PageOptions>,
-    first_last: Value<bool>,
+    middle: ControlContent,
 ) -> View {
     if options.mode == PaginationMode::Dots {
-        return dot_controls(page, current, count, disabled, options, first_last);
+        return (
+            dot_controls(
+                page,
+                current,
+                count,
+                disabled,
+                options.clone(),
+                options.first_last,
+            ),
+            middle.summary,
+            middle.input,
+        )
+            .into_view();
     }
-    for_each(
-        items,
-        |cell| *cell,
-        move |cell| page_control(cell.get().1, page, current, count, disabled, &options, None),
+    if matches!(
+        options.mode,
+        PaginationMode::Count | PaginationMode::Compact | PaginationMode::Input
+    ) {
+        return compact_controls(page, current, count, disabled, options, middle);
+    }
+    let items = visible_cells(
+        current,
+        count,
+        options.siblings,
+        options.first_last,
+        options.mode,
+        options.window,
+    );
+    (
+        for_each(
+            items,
+            |cell| *cell,
+            move |cell| page_control(cell.get().1, page, current, count, disabled, &options, None),
+        ),
+        middle.summary,
+        middle.input,
     )
-    .into_view()
+        .into_view()
 }
+fn compact_controls(
+    page: Binding<usize>,
+    current: Value<usize>,
+    count: Value<usize>,
+    disabled: Value<bool>,
+    options: Rc<PageOptions>,
+    middle: ControlContent,
+) -> View {
+    let first_options = options.clone();
+    let first = kivact_core::view::show(options.first_last, move || {
+        page_control(
+            PageItem::First,
+            page,
+            current,
+            count,
+            disabled,
+            &first_options,
+            None,
+        )
+    });
+    let previous = page_control(
+        PageItem::Previous,
+        page,
+        current,
+        count,
+        disabled,
+        &options,
+        None,
+    );
+    let next = page_control(
+        PageItem::Next,
+        page,
+        current,
+        count,
+        disabled,
+        &options,
+        None,
+    );
+    let last_options = options.clone();
+    let last = kivact_core::view::show(options.first_last, move || {
+        page_control(
+            PageItem::Last,
+            page,
+            current,
+            count,
+            disabled,
+            &last_options,
+            None,
+        )
+    });
+    (first, previous, middle.summary, middle.input, next, last).into_view()
+}
+
 fn dot_controls(
     page: Binding<usize>,
     current: Value<usize>,
@@ -592,4 +693,133 @@ fn control_disabled(
             PageItem::Next | PageItem::Last => !has_more && current.saturating_add(1) >= count,
             _ => false,
         }
+}
+
+// xtask-allow(state-fields): Immutable rendering slots and original caller sources; no independent interaction state or cache.
+struct PageExtras {
+    summary: Option<SummarySlot>,
+    page_size: Option<Binding<u32>>,
+    size_options: Value<Vec<u32>>,
+    page_label: Value<String>,
+    facts: Value<PaginationSummary>,
+}
+fn render_pagination(
+    root: Node,
+    page: Binding<usize>,
+    current: Value<usize>,
+    count: Value<usize>,
+    disabled: Value<bool>,
+    options: Rc<PageOptions>,
+    extras: PageExtras,
+) -> View {
+    let PageExtras {
+        summary,
+        page_size,
+        size_options,
+        page_label,
+        facts,
+    } = extras;
+    let mode = options.mode;
+    let variants = options.variants.clone();
+    let summary = render_summary(summary, mode, facts, &variants);
+    let input = (mode == PaginationMode::Input)
+        .then(|| crate::pagination_draft::input(page, count, page_label, disabled));
+    let input = input.map(|view| {
+        presentation_part(view, &variants, facts, |r| {
+            r.pagination_recipes().input_recipe()
+        })
+    });
+    let sizes = page_size.map(|size| {
+        presentation_part(
+            size_selector(size, size_options, page),
+            &variants,
+            facts,
+            |r| r.pagination_recipes().sizes_recipe(),
+        )
+    });
+    let controls = render_controls(
+        page,
+        current,
+        count,
+        disabled,
+        options,
+        ControlContent {
+            summary,
+            input: input.map(IntoView::into_view),
+        },
+    );
+    let controls = presentation_part(controls, &variants, facts, |r| {
+        r.pagination_recipes().controls_recipe()
+    });
+    crate::layer::with_base_recipe_style(
+        if mode == PaginationMode::Dots {
+            root
+        } else {
+            root.roving_focus(Orientation::Horizontal)
+        },
+        |r| r.pagination_recipes().root_recipe(),
+        &variants,
+        || (),
+    )
+    .child(sizes)
+    .child(controls)
+    .into_view()
+}
+
+fn presentation_part(
+    content: impl IntoView,
+    variants: &crate::variants::Variants,
+    facts: Value<PaginationSummary>,
+    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<PaginationSummary>,
+) -> Node {
+    crate::layer::with_recipe_style(node().child(content), recipe, variants, move || facts.get())
+}
+
+fn adjacent_pages(page: usize, count: usize, siblings: usize) -> Vec<PageItem> {
+    let mut out = Vec::new();
+    let mut shown = vec![0, count.saturating_sub(1)];
+    shown.extend(
+        page.saturating_sub(siblings)..=page.saturating_add(siblings).min(count.saturating_sub(1)),
+    );
+    shown.retain(|n| *n < count);
+    shown.sort_unstable();
+    shown.dedup();
+    let mut last = None;
+    for n in shown {
+        if last.is_some_and(|before| n > before + 1) {
+            out.push(PageItem::Ellipsis);
+        }
+        out.push(PageItem::Page(n));
+        last = Some(n);
+    }
+    out
+}
+fn buffered_pages(page: usize, count: usize, siblings: usize) -> Vec<PageItem> {
+    let adjacent = siblings.saturating_mul(2);
+    if count <= 5usize.saturating_add(adjacent) {
+        return (0..count).map(PageItem::Page).collect();
+    }
+    let current = page.min(count - 1);
+    let left = current.saturating_sub(siblings);
+    let right = current.saturating_add(siblings).min(count - 1);
+    let gap_left = left > 1;
+    let gap_right = right < count - 2;
+    let mut cells = Vec::new();
+    if gap_left {
+        cells.extend([PageItem::Page(0), PageItem::Ellipsis]);
+    }
+    let (start, end) = match (gap_left, gap_right) {
+        (false, true) => (0, 2usize.saturating_add(adjacent)),
+        (true, false) => (
+            count.saturating_sub(3usize.saturating_add(adjacent)),
+            count - 1,
+        ),
+        (true, true) => (left, right),
+        (false, false) => (0, count - 1),
+    };
+    cells.extend((start..=end).map(PageItem::Page));
+    if gap_right {
+        cells.extend([PageItem::Ellipsis, PageItem::Page(count - 1)]);
+    }
+    cells
 }

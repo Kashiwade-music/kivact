@@ -70,7 +70,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Lightbox / Link | `lightbox`, `use_lightbox`, `link` |
 | List | `ui::item_list`, `ui::item_row`; `ListLook`, `ItemLook`, `ItemDensity`, `ItemAlign`, `ItemLayout`, `ListEdge` |
 | Markdown | `markdown` |
-| Metadata List | `metadata_list`, `metadata_item` |
+| Metadata List | Standard `description_list` / `description`; share `MetadataLook` across list and pairs. |
 | More Menu | `more_menu` |
 | Navigation | `mobile_nav`, `mobile_nav_toggle`, `nav_heading_menu`, `nav_icon`, `side_nav`, `side_nav_collapse_button`, `side_nav_heading`, `side_nav_item`, `side_nav_section`, `top_nav`, `top_nav_heading`, `top_nav_item`, `top_nav_menu`, `top_nav_mega_menu`, `top_nav_mega_menu_item`, `top_nav_featured_card` |
 | Number Input / Outline / Overflow List / Overlay / Pagination | Standard `number_input`, `outline`, `pagination`, `overflow_list`, `media_overlay` |
@@ -84,13 +84,13 @@ The standard APIs in this table come from `kivact::ui`.
 | Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
 | Stepper | Standard `stepper`, `StepperItem`, `StepIndicator`, `StepStatus`; Soft `StepperAppearance` |
 | Switch | Standard `switch` |
-| Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
+| Table | Standard `table`, header/body/footer/row/cell builders, `data_table`, `DataColumn`, and `pagination`; Soft `TableRowAppearance`, `TableCellAppearance`, `table_selection_toolbar`, and `table_row_status`. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
 | Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, standard `time_input`, `text_input` and `text_area` |
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
 | Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, standard `toolbar`, Soft `with_key_hints` and `keyboard_hint` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
-| Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
+| Tree List | `kivact::ui::tree` with `TreeLook` density and ancestor guides |
 | Typeahead | Standard `combobox` and `ListItem`; configure `.search(..)`, `.debounce(..)`, `.placeholder(..)`, and `.empty_text(..)`. |
 | VisuallyHidden | `visually_hidden` |
 | Utilities | `theme`, `tokens`, `media_theme`, `syntax_theme`, `kivact::platform::window_size`, and `kivact::platform::copy_text`. Internationalization Provider maps to `App::locale` and `App::messages`, Layer Provider to `kivact::view::overlay`, and Link Provider to `link_with` with an application callback. Kivact handles node references and diagnostics. |
@@ -122,8 +122,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.chat.tool_calls.pending` | Pending |
 | `soft.chat.tool_calls.running` | Running |
 | `soft.chat_dictation_button.label` | Dictation |
-| `soft.chat_send_button.send` | Send |
-| `soft.chat_send_button.stop` | Stop |
 | `soft.citation.source` | Source {number} |
 | `soft.date.open` | Choose date |
 | `soft.date_range.placeholder` | Select date range |
@@ -153,29 +151,11 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.link.new_tab` | (opens in new tab) |
 | `soft.markdown.task_list` | Task list |
 | `soft.markdown_heading_links.copy` | Copy link to {heading} |
-| `soft.metadata_list.show_less` | Show less |
-| `soft.metadata_list.show_more` | Show more |
 | `soft.mobile_nav.close` | Close navigation |
 | `soft.mobile_nav.navigation` | Navigation |
 | `soft.mobile_nav.open` | Open navigation |
 | `soft.more_menu.label` | More options |
 | `soft.outline.label` | Table of contents |
-| `soft.pagination.count` | {from}–{to} of {total} |
-| `soft.pagination.first` | Go to first page |
-| `soft.pagination.go_to_page` | Go to page {page} |
-| `soft.pagination.go_to_page_input` | Go to page |
-| `soft.pagination.items_per_page` | Items per page |
-| `soft.pagination.label` | Pagination |
-| `soft.pagination.last` | Go to last page |
-| `soft.pagination.next` | Go to next page |
-| `soft.pagination.next_by` | Go forward {step} pages |
-| `soft.pagination.of_total_pages` | / {total} |
-| `soft.pagination.page_announce` | Page {current} |
-| `soft.pagination.page_indicators` | Page indicators |
-| `soft.pagination.page_label` | Page |
-| `soft.pagination.page_of_total` | Page {current} of {total} |
-| `soft.pagination.previous` | Go to previous page |
-| `soft.pagination.previous_by` | Go back {step} pages |
 | `soft.power_search.add` | Add filter |
 | `soft.power_search.apply` | Apply |
 | `soft.power_search.contains` | Contains |
@@ -214,7 +194,7 @@ Controls also use the standard Kivact messages where applicable.
 | `combobox.token_removed` | Removed {label} |
 | `soft.token.remove` | Remove {label} |
 | `soft.top_nav.label` | Top navigation |
-| `soft.tree_list.toggle_children` | Toggle children |
+| `tree.toggle_children` | Toggle children |
 | `combobox.empty` | No results found. |
 | `combobox.failed` | Could not load suggestions. |
 | `combobox.loading` | Loading… |
@@ -290,7 +270,7 @@ Number, date, and time filter fields validate values entered as text.
 
 | Work-order item | Current behavior |
 | --- | --- |
-| C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `TreeList::animated(true)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
+| C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `kivact::ui::tree(..).reveal(2.0, transition)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
 | C-08, C-10 | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
 | C-09, C-37 | Bottom Sheet uses shared drag velocity, axis, slop, release projection, snap, and overshoot calculations. It supplies its own detents and dismissal rules. Carousel snaps after native scrolling settles. Slider uses relative touch tracking and release coast. Native scrolling can take over a same-axis Slider drag inside a scroll view. Toast pauses its timer during touch or pen swipes. Switch uses touch lift and drag with one paint transition per phase. |
 | C-11, C-17, C-18, C-39 | Disabled Soft buttons and menu rows can receive keyboard focus. Use `MenuEntry::disabled_reason(..)` to supply a tooltip for a disabled menu row. Menus support press and drag selection. Edge autoscroll remains pending. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. |
@@ -303,6 +283,8 @@ Number, date, and time filter fields validate values entered as text.
 ## Filled standard recipes
 
 <!-- kivact-recipes -->
+- `stat`
+- `description_list`
 - `heading`
 - `button`
 - `button_content`
@@ -353,6 +335,7 @@ Number, date, and time filter fields validate values entered as text.
 - `split`
 - `list`
 - `tree`
+- `tree_marker`
 - `data_table`
 - `breadcrumb`
 - `empty_state`
@@ -367,5 +350,8 @@ Number, date, and time filter fields validate values entered as text.
 - `avatar_group_overflow`
 - `stepper`
 - `alert`
+- `pagination`
 - `item_list`
 <!-- /kivact-recipes -->
+
+Pagination presentation helpers: `PaginationAppearance`, `pagination_count`, `pagination_page_summary`, and `pagination_status` use actual canonical summary facts.

@@ -9,8 +9,8 @@ use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, item,
-    layout, layout_content, layout_header, list, list_item, metadata_item, metadata_list, nav_icon,
-    overflow_list, pagination, scrollable_area, section, stack_item, tree_list,
+    layout, layout_content, layout_header, list, list_item, nav_icon, overflow_list,
+    scrollable_area, section, stack_item,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -169,31 +169,40 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "pagination" => specimen(
             "Navigate result pages",
-            pagination(signal(1)).total_pages(12).first_last(true),
-            "pagination(page).total_pages(12).first_last(true)",
+            kivact::ui::pagination(12usize, signal(0usize))
+                .window(kivact::ui::PaginationWindow::Buffered)
+                .first_last(true)
+                .summary(kivact_ui_soft::pagination_status),
+            "pagination(12usize, page).window(PaginationWindow::Buffered).first_last(true).summary(soft::pagination_status)",
         ),
         "metadata-list" | "metadata-list-item" => specimen(
             "Document properties",
-            metadata_list((
-                metadata_item("Owner", text("Avery Morgan")),
-                metadata_item("Status", text("In review")),
+            kivact::ui::description_list((
+                kivact::ui::description("Owner", text("Avery Morgan")),
+                kivact::ui::description("Status", text("In review")),
             )),
-            "metadata_list((metadata_item(\"Owner\", text(\"Avery Morgan\")), status))",
+            "kivact::ui::description_list((kivact::ui::description(\"Owner\", text(\"Avery Morgan\")), status))",
         ),
         "tree-list" => specimen(
             "Expandable files",
-            tree_list(
+            kivact::ui::tree(
                 "Files",
                 vec![
                     TreeNode::new("src", None, "src"),
                     TreeNode::new("main.rs", Some("src"), "main.rs"),
                     TreeNode::new("README.md", None, "README.md"),
                 ],
-                signal(vec!["src"]),
             )
-            .animated(true)
+            .expanded(signal(vec!["src"]))
+            .reveal(
+                2.0,
+                kivact::motion::Transition::tween(
+                    734.77,
+                    kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0),
+                ),
+            )
             .style(style().width(240)),
-            "tree_list(\"Files\", files, expanded).animated(true)",
+            "kivact::ui::tree(\"Files\", files).expanded(expanded).reveal(2.0, transition)",
         ),
         "nav-icon" => specimen(
             "Navigation icon",
@@ -337,7 +346,25 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 .style(style().width(350)),
                 "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .initially_expanded()",
             );
-            column((controls, pinned, folders)).style(style().gap(12))
+            let static_table = specimen(
+                "Static rows with Soft appearance",
+                kivact::ui::table((
+                    kivact::ui::table_header((kivact::ui::table_row((
+                        kivact::ui::table_head(text("Project")),
+                        kivact::ui::table_head(text("Status")),
+                    )),)),
+                    kivact::ui::table_body((kivact::ui::table_row((
+                        kivact::ui::table_cell(text("Design")),
+                        kivact::ui::table_cell(kivact_ui_soft::table_row_status(
+                            "Passed",
+                            kivact_ui_soft::RowStatusTone::Success,
+                        )),
+                    ))
+                    .variant(kivact_ui_soft::TableRowAppearance::new(true, true, false)),)),
+                )),
+                "table((table_header(rows), table_body(rows)))\n    // table_row(...).variant(TableRowAppearance::new(true, true, false))",
+            );
+            column((static_table, controls, pinned, folders)).style(style().gap(12))
         }
         "resizable" | "resize-handle" => {
             let width = signal(144.0);

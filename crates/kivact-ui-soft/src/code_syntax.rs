@@ -69,6 +69,7 @@ impl From<CodeLanguage> for CodeLanguageInput {
 }
 
 impl CodeLanguageInput {
+    /// The visible language name; plaintext has no header label.
     pub fn label(&self) -> &str {
         match self {
             Self::Named(name) if name == "plaintext" => "",
@@ -90,10 +91,15 @@ pub fn code_highlight(
     line: &str,
     palette: &SyntaxColors,
 ) -> Vec<StyledRange> {
+    let mut offset = 0;
     language
         .tokenize(line)
         .into_iter()
-        .map(|(range, kind)| {
+        .filter_map(|(range, kind)| {
+            if range.start < offset || range.is_empty() || line.get(range.clone()).is_none() {
+                return None;
+            }
+            offset = range.end;
             let color = match kind {
                 TokenKind::Keyword => palette.keyword,
                 TokenKind::Type => palette.r#type,
@@ -110,12 +116,12 @@ pub fn code_highlight(
                 TokenKind::Property => palette.property,
             };
 
-            StyledRange {
+            Some(StyledRange {
                 range,
                 color: Some(color),
                 background: None,
                 decoration: None,
-            }
+            })
         })
         .collect()
 }
