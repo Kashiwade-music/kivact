@@ -178,3 +178,18 @@ fn file_example_uses_picker_storage_and_clear_without_accepting_field_drops() {
     assert!(field.is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn item_list_examples_keep_native_positions_in_both_appearances() {
+    for mode in [ThemeMode::Light, ThemeMode::Dark] {
+        for page in ["list", "item"] {
+            let screen = render_with(RenderOptions::from_env(), move || catalog_at(mode, page));
+            let design = screen.get_by_role(Role::ListItem, "Design");
+            let archive = screen.get_by_role(Role::ListItem, "Archive");
+            assert_eq!(design.pos_in_set(), Some(1));
+            assert_eq!(archive.pos_in_set(), Some(3));
+            assert_eq!(archive.set_size(), Some(3));
+            assert!(screen.errors().is_empty(), "{page}: {:?}", screen.errors());
+        }
+    }
+}
