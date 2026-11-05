@@ -5,7 +5,12 @@ use kivact_core::style::{style, use_theme};
 use kivact_core::view::{Node, NodeRef, node};
 use kivact_interaction::{DragCoordinates, DragPhase, DragUpdate, InteractionPolicy, use_drag};
 
-pub(crate) fn handle(edge: Edge, panel: NodeRef, open: Binding<bool>) -> (Node, Value<f64>) {
+pub(crate) fn handle(
+    edge: Edge,
+    panel: NodeRef,
+    open: Binding<bool>,
+    variants: &crate::variants::Variants,
+) -> (Node, Value<f64>) {
     let pulled = signal(0.0);
     let policy = use_theme().get().ext::<InteractionPolicy>().drawer.swipe;
     let rect = panel.rect();
@@ -43,7 +48,7 @@ pub(crate) fn handle(edge: Edge, panel: NodeRef, open: Binding<bool>) -> (Node, 
                 kivact_core::i18n::message("drawer.drag_handle", "Drag to close"),
             ),
             |recipes| recipes.dialog_recipes().drag_handle_recipe(),
-            &crate::variants::Variants::default(),
+            variants,
             move || crate::DialogState {
                 input: state.get().input,
                 open: open.get(),
