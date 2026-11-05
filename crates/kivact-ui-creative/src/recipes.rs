@@ -122,6 +122,13 @@ fn build() -> UiRecipes {
                 .tab(|_| |t: &Theme, _: &Look<TabState>| crate::layout::tab_option_style(t, false))
                 .panel(|_| |_: &Theme, _: &Look<TabState>| style())
         })
+        .toggle_group(|group| {
+            group.item(|_| {
+                |t: &Theme, s: &Look<kivact::ui::ToggleGroupItemState>| {
+                    toggle_button(t, &Look::new(s.toggle.clone()))
+                }
+            })
+        })
         .radio_group(crate::recipes_controls::radio_group)
         .slider(crate::recipes_controls::slider)
         .toast(crate::recipes_controls::toast)

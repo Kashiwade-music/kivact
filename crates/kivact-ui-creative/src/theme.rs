@@ -73,6 +73,26 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
     t.with_colors(colors)
         .with_space(space)
         .with_control_height(p.row)
+        .with(kivact::ui::UiTokens {
+            toolbar: kivact::ui::ToolbarTokens {
+                background: p.header,
+                border: p.hair,
+                padding: p.gap,
+                gap: 4.0,
+                min_height: p.row,
+            },
+            toggle_group: kivact::ui::ToggleGroupTokens { gap: 4.0 },
+            button_group: kivact::ui::ButtonGroupTokens {
+                gap: 0.0,
+                joined: true,
+                radius: 7.0,
+                divider: p.hair,
+                solid_divider: p.accent_ink.with_alpha(0.22),
+                text_background: p.field,
+                text_color: p.text,
+            },
+            ..Default::default()
+        })
         .with(p)
         .with(crate::recipes::recipes())
 }
