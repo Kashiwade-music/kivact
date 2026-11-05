@@ -117,3 +117,10 @@ pub(super) fn item_body(t: &Theme, _: &crate::collection_values::ItemRowState) -
                 .unwrap_or(t.space().sm),
         )
 }
+
+pub(super) fn list_header(t: &Theme, _: &PartState) -> Style {
+    style().font_size(t.text().size_small).weight(600)
+}
+pub(super) fn marker(_: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
+    style().shrink(0).min_width(16).direction(Direction::Row)
+}

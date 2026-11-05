@@ -852,6 +852,8 @@ recipe_table! {
 recipe_table! {
     /// Static list and item-row part recipes.
     ItemListRecipes {
+        list_header(list_header_recipe): PartState = look_static_collections::list_header,
+        marker(marker_recipe): crate::collection_values::ItemRowState = look_static_collections::marker,
         root(root_recipe): PartState = look_static_collections::list,
         item(item_recipe): crate::collection_values::ItemRowState = look_static_collections::item,
         body(body_recipe): crate::collection_values::ItemRowState = look_static_collections::item_body,
