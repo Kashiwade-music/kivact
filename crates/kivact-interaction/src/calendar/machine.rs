@@ -11,12 +11,9 @@ pub(super) enum RangePick {
     },
 }
 pub(super) enum Event {
-    ExternalValueChanged(Option<DateRange>),
-    Choose {
-        day: CalendarDate,
-        current: Option<DateRange>,
-    },
-    Cancel(Option<DateRange>),
+    ExternalValueChanged,
+    Choose { day: CalendarDate },
+    Cancel,
     Preview(Option<CalendarDate>),
 }
 pub(super) enum Effect {
@@ -41,7 +38,7 @@ impl MachineTrait for Machine {
                     Step::to(RangePick::Picking { anchor, preview })
                 }
             },
-            Event::ExternalValueChanged(_) => Step::to(RangePick::Idle),
+            Event::ExternalValueChanged => Step::to(RangePick::Idle),
             Event::Choose { day, .. } => match *state {
                 RangePick::Idle => Step::to(RangePick::Picking {
                     anchor: day,
@@ -52,7 +49,7 @@ impl MachineTrait for Machine {
                     Step::to(RangePick::Idle).with(Effect::Commit(DateRange::new(anchor, day)))
                 }
             },
-            Event::Cancel(_) => Step::to(RangePick::Idle).with(Effect::Cancelled),
+            Event::Cancel => Step::to(RangePick::Idle).with(Effect::Cancelled),
         }
     }
 }

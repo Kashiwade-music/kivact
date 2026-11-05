@@ -3,7 +3,7 @@ use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{CalendarDate, TimeOfDay, message};
-use kivact_core::state::{Binding, IntoValue, Value, binding, notifier, signal};
+use kivact_core::state::{Binding, IntoValue, Value, binding, notifier};
 use kivact_core::view::{
     EditPhase, Handled, Node, NodeBuilder, Role, WheelEvent, column, node, row, text,
 };

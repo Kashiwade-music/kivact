@@ -82,6 +82,7 @@ impl Default for DismissOn {
 #[derive(Clone, Copy, Default)]
 struct DialogOptions {
     dismiss: Option<DismissOn>,
+    return_focus: Option<Value<NodeRef>>,
 }
 
 #[derive(Clone, Copy)]
@@ -209,6 +210,16 @@ impl DialogApi {
         self
     }
 
+    /// Snapshot this target once per opening for keyboard, selection and
+    /// programmatic focus restoration. Outside presses retain outside focus.
+    /// Setup only; the supplied value is read by the opening's focus owner.
+    pub fn return_focus(mut self, target: impl kivact_core::state::IntoValue<NodeRef>) -> Self {
+        let target = target.into_value();
+        self.settings
+            .update(|settings| settings.return_focus = Some(target));
+        self
+    }
+
     /// The node a [`DialogMode::Popover`] is placed at, for a popover opened
     /// by a node without the [`trigger`](Self::trigger) part. A popover needs
     /// an anchor or a trigger; the other kinds ignore it. Setup only.
@@ -320,15 +331,15 @@ impl DialogApi {
                 }
             });
         }
-        if self.popover() {
+        if self.popover() || self.settings.get().return_focus.is_some() {
             // Whatever closes a popover while the focus is inside it, the
             // focus goes back to the anchor. A modal gets this from the
             // overlay's own cleanup.
             self.popup.set_opening_policy(FocusReturn {
-                target: FocusReturnTarget::Anchor(match self.mode {
+                target: FocusReturnTarget::Anchor(self.settings.get().return_focus.map(|target|target.get_untracked()).unwrap_or_else(||match self.mode {
                     DialogOptionsMode::Popover { anchor } => anchor.get_untracked(),
-                    _ => unreachable!("invariant: only popovers install anchor restoration"),
-                }),
+                    _ => unreachable!("invariant: only popovers without an explicit target use anchor restoration"),
+                })),
                 on: ReasonSet::DISMISS
                     .union(ReasonSet::PROGRAMMATIC)
                     .union(ReasonSet::UNMOUNT),

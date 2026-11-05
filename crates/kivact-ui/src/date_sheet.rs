@@ -1,6 +1,6 @@
 //! Role: Immediate date selection with a sheet-owned month/year panel.
 use kivact_core::i18n::{CalendarDate, CalendarMonth, NameWidth, message, use_locale};
-use kivact_core::state::{Binding, IntoBinding, Machine, Step, binding, machine, signal};
+use kivact_core::state::{Binding, Machine, Step, binding, machine, signal};
 use kivact_core::view::{IntoView, Node, NodeBuilder, column, dynamic};
 #[derive(Clone, Copy, PartialEq)]
 enum DateSheetPanel {
@@ -31,7 +31,6 @@ pub(crate) fn panel(value: Binding<Option<CalendarDate>>, picker: crate::Calenda
     let month = signal(initial);
     let locale = use_locale();
     let state = machine(DateSheetPanel::Calendar, || Controller, |_, ()| {});
-    let selected = binding(value, move |next| value.set(next));
     let title = crate::button(move || {
         format!(
             "{} {}",
@@ -84,7 +83,6 @@ pub(crate) fn panel(value: Binding<Option<CalendarDate>>, picker: crate::Calenda
             }
         },
     );
-    let _ = selected;
     column((
         title,
         wheels,

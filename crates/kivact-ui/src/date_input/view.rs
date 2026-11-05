@@ -43,6 +43,7 @@ pub struct DateInput {
     root: Node,
     variants: crate::variants::Variants,
     label: Value<String>,
+    picker_label: Option<Value<String>>,
     value: Binding<Option<CalendarDate>>,
     format: Value<DateStyle>,
     custom_format: Option<Rc<dyn Fn(CalendarDate) -> String>>,
@@ -63,6 +64,7 @@ pub fn date_input(
         root: node(),
         variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
+        picker_label: None,
         value: value.into_binding(),
         format: DateStyle::Iso.into_value(),
         custom_format: None,
@@ -76,6 +78,12 @@ pub fn date_input(
     }
 }
 impl DateInput {
+    /// Name the separate picker button independently of the text editor.
+    pub fn picker_label(mut self, label: impl IntoText) -> Self {
+        self.picker_label = Some(label.into_text_value());
+        self
+    }
+
     /// Add a visual variant shared by the field and its picker surface.
     pub fn variant(self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
@@ -156,6 +164,7 @@ impl DateInput {
             mut root,
             variants,
             label,
+            picker_label,
             value,
             format,
             custom_format,
@@ -170,7 +179,7 @@ impl DateInput {
         let external_invalid = root.accessible_invalid();
         let described_by = root.accessible_described_by();
         let locale = use_locale();
-        let state = date_controller(value, valid, min, max, locale);
+        let (state, announcement) = date_controller(value, valid, min, max, locale);
         let open = picker_open(state);
         let typed = typed_controller(value, valid, min, max, locale, state);
         kivact_core::state::effect(move || {
@@ -181,6 +190,15 @@ impl DateInput {
         let draft = draft_binding(typed, format, custom_format.clone(), locale);
         let error_ref = kivact_core::view::node_ref();
         let error = date_diagnostic(typed.state(), locale, error_ref);
+        let input_ref = kivact_core::view::node_ref();
+        let button_ref = kivact_core::view::node_ref();
+        let return_focus = kivact_core::state::memo(move || match state.get() {
+            DateInputState::Open {
+                opened_by: OpenedBy::Input,
+                ..
+            } => input_ref,
+            _ => button_ref,
+        });
         let field = date_editor(
             EditorInputs {
                 label,
@@ -194,11 +212,14 @@ impl DateInput {
             state,
             draft,
             error_ref,
-        );
-        let toggle = button(message("date.open", "Choose date"))
+        )
+        .node_ref(input_ref)
+        .with_node(|node| node.expanded(open));
+        let toggle = button(picker_label.unwrap_or_else(|| message("date.open", "Choose date")))
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
-            .icon(icon("calendar"));
+            .icon(icon("calendar"))
+            .node_ref(button_ref);
         let content = move || {
             let selected = binding(value, move |next| match next {
                 Some(date) => state.send(if presentation.sheet() {
@@ -232,6 +253,7 @@ impl DateInput {
                 dialog(message("date.open", "Choose date"), open)
                     .with_variants(&variants)
                     .mode(presentation.mode())
+                    .return_focus(return_focus)
                     .hide_title(true)
                     .content(content)
                     .attach(toggle),
@@ -241,6 +263,12 @@ impl DateInput {
             PartState::default,
         ))
         .child(error)
+        .child(
+            kivact_core::view::node()
+                .role(kivact_core::view::Role::Status)
+                .name(announcement)
+                .live_region(kivact_core::view::LiveRegion::Polite),
+        )
         .into_view()
     }
 }
@@ -268,8 +296,10 @@ impl DateInput {
                 if let Some(valid) = valid {
                     valid.set(true);
                 }
-                open.set(false);
-                focus.restore_focus();
+                if !presentation.sheet() {
+                    open.set(false);
+                    focus.restore_focus();
+                }
             });
             let mut picker = calendar(selected).min(min).max(max).autofocus(true);
             if let Some(day) = week_start {
@@ -279,7 +309,14 @@ impl DateInput {
                 picker = configure(picker);
             }
             if presentation.sheet() {
-                crate::date_wheel::date_panel(selected, picker).into_view()
+                kivact_core::view::column((
+                    crate::date_wheel::date_panel(selected, picker),
+                    button(message("date.save", "Save")).on_press(move || {
+                        open.set(false);
+                        focus.restore_focus();
+                    }),
+                ))
+                .into_view()
             } else {
                 picker.into_view()
             }
@@ -351,9 +388,11 @@ fn date_controller(
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
     locale: Value<kivact_core::i18n::Locale>,
-) -> kivact_core::state::MachineHandle<Snapshot> {
+) -> (kivact_core::state::MachineHandle<Snapshot>, Value<String>) {
+    let announcement = kivact_core::state::signal(String::new());
+    let chosen = message("calendar.chosen", "Date selected");
     let initial = value.get_untracked().map_or(Draft::Empty, Draft::Valid);
-    machine(
+    let controller = machine(
         DateInputState::Closed { draft: initial },
         move || Snapshot {
             locale: locale.get(),
@@ -362,11 +401,15 @@ fn date_controller(
         },
         move |_, next| {
             value.set(next);
+            if let Some(date) = next {
+                announcement.set(format!("{}: {date}", chosen.get_untracked()));
+            }
             if let Some(valid) = valid {
                 valid.set(true);
             }
         },
-    )
+    );
+    (controller, announcement.into_value())
 }
 /// Bind picker visibility to the controller's open/close transitions.
 fn picker_open(state: kivact_core::state::MachineHandle<Snapshot>) -> Binding<bool> {

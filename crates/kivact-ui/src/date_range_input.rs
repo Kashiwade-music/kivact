@@ -30,6 +30,7 @@ impl DateRangePreset {
 type Constraint = Rc<dyn Fn(CalendarDate) -> bool>;
 /// A range field whose endpoints always form an ordered [`DateRange`].
 pub struct DateRangeInput {
+    picker_label: Option<Value<String>>,
     root: Node,
     variants: crate::variants::Variants,
     label: Value<String>,
@@ -56,6 +57,7 @@ pub fn date_range_input(
     range: impl IntoBinding<Option<DateRange>>,
 ) -> DateRangeInput {
     DateRangeInput {
+        picker_label: None,
         root: node(),
         variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
@@ -78,6 +80,12 @@ pub fn date_range_input(
     }
 }
 impl DateRangeInput {
+    /// Name the separate picker button independently of the text editor.
+    pub fn picker_label(mut self, label: impl IntoText) -> Self {
+        self.picker_label = Some(label.into_text_value());
+        self
+    }
+
     /// Set the accessible label of the start-date editor.
     pub fn start_label(mut self, label: impl IntoText) -> Self {
         self.start_label = label.into_text_value();
@@ -208,7 +216,10 @@ impl DateRangeInput {
             &self.variants,
             kivact_core::custom::PartState::default,
         );
-        let trigger = button(message("date.range_open", "Choose date range"));
+        let trigger = button(
+            self.picker_label
+                .unwrap_or_else(|| message("date.range_open", "Choose date range")),
+        );
         root.child(row((
             first,
             last,
@@ -259,15 +270,14 @@ impl DateRangeInput {
         let configure = self.configure.clone();
         let presets = self.presets;
         kivact_core::view::ViewFn::from(move |()| {
-            let local = signal(value.get_untracked());
             let accepted = accept.clone();
-            let mut picker = calendar(local)
+            let mut picker = calendar(value)
                 .min(min)
                 .max(max)
                 .range_span(min_span, max_span)
                 .number_of_months(2usize)
                 .on_commit(move || {
-                    if let Some(next) = local.get_untracked().filter(|next| accepted(*next)) {
+                    if let Some(next) = value.get_untracked().filter(|next| accepted(*next)) {
                         value.set(Some(next));
                         open.set(false);
                         if let Some(focus) = trigger_focus {
@@ -288,18 +298,33 @@ impl DateRangeInput {
                     column(
                         presets
                             .into_iter()
-                            .map(|preset| {
+                            .enumerate()
+                            .map(|(index, preset)| {
                                 let accepted = accepted.clone();
-                                button(preset.label).on_press(move || {
-                                    let range = (preset.range)();
-                                    if accepted(range) {
-                                        value.set(Some(range));
-                                        open.set(false);
-                                        if let Some(focus) = trigger_focus {
-                                            focus.restore_focus();
+                                let range = preset.range.clone();
+                                let selected_range = range.clone();
+                                let disabled_range = range.clone();
+                                let enabled = accepted.clone();
+                                let reference = kivact_core::view::node_ref();
+                                if index == 0 {
+                                    kivact_core::state::on_mount(move || reference.focus());
+                                }
+                                button(preset.label)
+                                    .node_ref(reference)
+                                    .with_node(|node| {
+                                        node.selected(move || value.get() == Some(selected_range()))
+                                    })
+                                    .disabled(move || !enabled(disabled_range()))
+                                    .on_press(move || {
+                                        let range = (preset.range)();
+                                        if accepted(range) {
+                                            value.set(Some(range));
+                                            open.set(false);
+                                            if let Some(focus) = trigger_focus {
+                                                focus.restore_focus();
+                                            }
                                         }
-                                    }
-                                })
+                                    })
                             })
                             .collect::<Vec<_>>(),
                     )

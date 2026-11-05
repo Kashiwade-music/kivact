@@ -80,7 +80,10 @@ pub(super) fn create(
                     machine::Effect::Cancelled => selection_status.set(cancelled.get_untracked()),
                 },
             );
-            effect(move || pick.send(machine::Event::ExternalValueChanged(value.get())));
+            effect(move || {
+                value.get();
+                pick.send(machine::Event::ExternalValueChanged)
+            });
             Choice::Range { value, pick }
         }
     };
@@ -164,12 +167,13 @@ impl State {
                 Choice::Range { pick, .. } => match pick.get() {
                     RangePick::Picking { anchor, .. } => {
                         let span = anchor.to_days().abs_diff(day.to_days()) + 1;
-                        span < u64::from(self.policy.min_span.get().max(1))
-                            || self
-                                .policy
-                                .max_span
-                                .get()
-                                .is_some_and(|max| span > u64::from(max))
+                        day != anchor
+                            && (span < u64::from(self.policy.min_span.get().max(1))
+                                || self
+                                    .policy
+                                    .max_span
+                                    .get()
+                                    .is_some_and(|max| span > u64::from(max)))
                     }
                     RangePick::Idle => false,
                 },
@@ -234,10 +238,15 @@ impl State {
                     .set(format!("{}: {day}", self.chosen_message.get_untracked()));
                 true
             }
-            Choice::Range { value, pick } => {
-                let current = value.get_untracked();
+            Choice::Range { pick, .. } => {
+                if matches!(pick.get(),RangePick::Picking{anchor,..} if anchor==day)
+                    && self.policy.min_span.get() > 1
+                {
+                    pick.send(machine::Event::Cancel);
+                    return;
+                }
                 let done = matches!(pick.get(), RangePick::Picking { .. });
-                pick.send(machine::Event::Choose { day, current });
+                pick.send(machine::Event::Choose { day });
                 done
             }
         };
@@ -260,7 +269,7 @@ impl State {
             && let Choice::Range { value, pick } = self.choice
             && let RangePick::Picking { .. } = pick.get()
         {
-            pick.send(machine::Event::Cancel(value.get_untracked()));
+            pick.send(machine::Event::Cancel);
             return Handled::Yes;
         }
         let column = day.weekday().days_since(self.first_day.get_untracked()) as i32;
