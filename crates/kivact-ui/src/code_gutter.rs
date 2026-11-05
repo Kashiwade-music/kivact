@@ -27,3 +27,38 @@ pub(super) fn numbers(editor: NodeRef, source: &str) -> String {
     }
     rows.join("\n")
 }
+
+pub(super) fn gutter(
+    editor: NodeRef,
+    code: kivact_core::state::Value<String>,
+    variants: &crate::variants::Variants,
+    state: kivact_core::state::Value<crate::CodeBlockState>,
+) -> kivact_core::view::Node {
+    use kivact_core::view::text;
+    let geometry = editor.rect();
+    crate::layer::with_recipe_style(
+        text(move || {
+            let _geometry = geometry.get();
+            code.with(|source| numbers(editor, source))
+        })
+        .hidden(move || !state.get().numbered),
+        |r| r.code_block_recipes().gutter_recipe(),
+        variants,
+        move || state.get(),
+    )
+    .style(move || {
+        let _geometry = geometry.get();
+        let _source = code.get();
+        match editor.text_layout(0..2).and_then(|layout| {
+            layout
+                .lines
+                .get(1)
+                .map(|next| next.baseline - layout.lines[0].baseline)
+        }) {
+            Some(height) if height > 0.0 => {
+                kivact_core::style::style().line_height(kivact_core::style::LineHeight::px(height))
+            }
+            _ => kivact_core::style::style(),
+        }
+    })
+}

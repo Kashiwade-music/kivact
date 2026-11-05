@@ -152,8 +152,8 @@ impl NodeBuilder for ChatMessage {
         &mut self.root
     }
 }
-impl IntoView for ChatMessage {
-    fn into_view(self) -> View {
+impl ChatMessage {
+    fn recipe_state(&self) -> impl Fn() -> ChatMessageState + Copy + 'static {
         let sender = self.sender;
         let status = self.status;
         let align = self.align;
@@ -161,7 +161,7 @@ impl IntoView for ChatMessage {
         let side = self.reactions_side;
         let has_reactions = self.reactions.is_some();
         let actionable = self.on_press.is_some();
-        let state = move || ChatMessageState {
+        move || ChatMessageState {
             sender: sender.get(),
             status: status.map(|s| s.get()),
             align: align.map(|v| v.get()).unwrap_or_else(|| {
@@ -175,7 +175,29 @@ impl IntoView for ChatMessage {
             reactions_side: side.get(),
             has_reactions,
             actionable,
-        };
+        }
+    }
+    fn render_status(&self, state: impl Fn() -> ChatMessageState + Copy + 'static) -> Option<Node> {
+        let status = self.status?;
+        let sending = kivact_core::i18n::message("chat_message.sending", "Sending");
+        let sent = kivact_core::i18n::message("chat_message.sent", "Sent");
+        let delivered = kivact_core::i18n::message("chat_message.delivered", "Delivered");
+        let read = kivact_core::i18n::message("chat_message.read", "Read");
+        let failed = kivact_core::i18n::message("chat_message.error", "Failed");
+        Some(with_recipe_style(
+            text(move || match status.get() {
+                ChatMessageStatus::Sending => sending.get(),
+                ChatMessageStatus::Sent => sent.get(),
+                ChatMessageStatus::Delivered => delivered.get(),
+                ChatMessageStatus::Read => read.get(),
+                ChatMessageStatus::Error => failed.get(),
+            }),
+            |r| r.chat_message_recipes().status_recipe(),
+            &self.variants,
+            state,
+        ))
+    }
+    fn render_body(&mut self, state: impl Fn() -> ChatMessageState + Copy + 'static) -> Node {
         let variants = &self.variants;
         let author = with_recipe_style(
             text(self.author),
@@ -191,97 +213,55 @@ impl IntoView for ChatMessage {
                 state,
             )
         });
-        let sending = kivact_core::i18n::message("chat_message.sending", "Sending");
-        let sent = kivact_core::i18n::message("chat_message.sent", "Sent");
-        let delivered = kivact_core::i18n::message("chat_message.delivered", "Delivered");
-        let read = kivact_core::i18n::message("chat_message.read", "Read");
-        let failed = kivact_core::i18n::message("chat_message.error", "Failed");
-        let status = self.status.map(|s| {
-            with_recipe_style(
-                text(move || match s.get() {
-                    ChatMessageStatus::Sending => sending.get(),
-                    ChatMessageStatus::Sent => sent.get(),
-                    ChatMessageStatus::Delivered => delivered.get(),
-                    ChatMessageStatus::Read => read.get(),
-                    ChatMessageStatus::Error => failed.get(),
-                }),
-                |r| r.chat_message_recipes().status_recipe(),
-                variants,
-                state,
-            )
-        });
-        let content = self.content.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().content_recipe(),
-                variants,
-                state,
-            )
-        });
-        let avatar = self.avatar.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().avatar_recipe(),
-                variants,
-                state,
-            )
-        });
-        let header = self.header.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().header_recipe(),
-                variants,
-                state,
-            )
-        });
-        let footer = self.footer.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().footer_recipe(),
-                variants,
-                state,
-            )
-        });
-        let metadata = self.metadata.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().metadata_recipe(),
-                variants,
-                state,
-            )
-        });
-        let media = self.media.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().media_recipe(),
-                variants,
-                state,
-            )
-        });
-        let icon = self.icon.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().icon_recipe(),
-                variants,
-                state,
-            )
-        });
-        let actions = self.actions.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().actions_recipe(),
-                variants,
-                state,
-            )
-        });
-        let reactions = self.reactions.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r| r.chat_message_recipes().reactions_recipe(),
-                variants,
-                state,
-            )
-        });
+        let status = self.render_status(state);
+        let content = message_slot(
+            self.content.take(),
+            |r| r.chat_message_recipes().content_recipe(),
+            variants,
+            state,
+        );
+        let header = message_slot(
+            self.header.take(),
+            |r| r.chat_message_recipes().header_recipe(),
+            variants,
+            state,
+        );
+        let footer = message_slot(
+            self.footer.take(),
+            |r| r.chat_message_recipes().footer_recipe(),
+            variants,
+            state,
+        );
+        let metadata = message_slot(
+            self.metadata.take(),
+            |r| r.chat_message_recipes().metadata_recipe(),
+            variants,
+            state,
+        );
+        let media = message_slot(
+            self.media.take(),
+            |r| r.chat_message_recipes().media_recipe(),
+            variants,
+            state,
+        );
+        let icon = message_slot(
+            self.icon.take(),
+            |r| r.chat_message_recipes().icon_recipe(),
+            variants,
+            state,
+        );
+        let actions = message_slot(
+            self.actions.take(),
+            |r| r.chat_message_recipes().actions_recipe(),
+            variants,
+            state,
+        );
+        let reactions = message_slot(
+            self.reactions.take(),
+            |r| r.chat_message_recipes().reactions_recipe(),
+            variants,
+            state,
+        );
 
         let body = with_recipe_style(
             node().child((
@@ -292,7 +272,9 @@ impl IntoView for ChatMessage {
             variants,
             state,
         );
-        let mut body = body;
+        self.configure_body(body)
+    }
+    fn configure_body(&self, mut body: Node) -> Node {
         if let Some(press) = self.on_press {
             body = body
                 .part(kivact_interaction::use_button().control())
@@ -301,10 +283,31 @@ impl IntoView for ChatMessage {
         if let Some(width) = self.bubble_width {
             body = body.style(move || kivact_core::style::style().width(width.get()));
         }
+        body
+    }
+}
+fn message_slot(
+    view: Option<View>,
+    recipe: fn(&crate::UiRecipes) -> &crate::Recipe<ChatMessageState>,
+    variants: &Variants,
+    state: impl Fn() -> ChatMessageState + Copy + 'static,
+) -> Option<Node> {
+    view.map(|view| with_recipe_style(node().child(view), recipe, variants, state))
+}
+impl IntoView for ChatMessage {
+    fn into_view(mut self) -> View {
+        let state = self.recipe_state();
+        let body = self.render_body(state);
+        let avatar = message_slot(
+            self.avatar.take(),
+            |r| r.chat_message_recipes().avatar_recipe(),
+            &self.variants,
+            state,
+        );
         with_base_recipe_style(
             self.root,
             |r| r.chat_message_recipes().root_recipe(),
-            variants,
+            &self.variants,
             state,
         )
         .child((avatar, body))
