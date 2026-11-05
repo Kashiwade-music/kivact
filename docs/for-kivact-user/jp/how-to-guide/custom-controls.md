@@ -617,13 +617,15 @@ impl Machine for CopyButton {
     }
 }
 
-fn copy_button(text: impl IntoValue<String>) -> impl Component {
+fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
     let text = text.into_value();
-    let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
-        CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
-    });
-    button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
-        .on_press(move || m.send(CopyEvent::Pressed))
+    component(move || {
+        let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
+            CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
+        });
+        button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
+            .on_press(move || m.send(CopyEvent::Pressed))
+    })
 }
 ```
 
