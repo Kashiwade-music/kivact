@@ -744,7 +744,7 @@ fn tab_menu_view<K: ItemKey>(
                 .padding_y(t.spacing.s1)
                 .weight(t.typography.weight_semibold)
         });
-        let panel = column((header, rows)).style(|| crate::nav_heading::tab_menu_surface());
+        let panel = column((header, rows)).style(crate::nav_heading::tab_menu_surface);
         overlay(anchor, Placement::Below, panel)
             .offset(4)
             .with_node(move |node| node.part(behavior.content()))
