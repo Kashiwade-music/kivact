@@ -289,3 +289,5 @@ impl DateRange {
         self.start <= date && date <= self.end
     }
 }
+
+kivact_runtime::constant_value!(CalendarDate, CalendarMonth, DateRange);

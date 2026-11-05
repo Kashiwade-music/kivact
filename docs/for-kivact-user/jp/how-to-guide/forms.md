@@ -320,3 +320,43 @@ Password は値を隠し、クリップボードやアクセシビリティへ�
 `platform::capabilities().get().state_restoration` で確認します。デスクトップは false で保存を無視します。
 仮想テストでは `screen.script().save_state()` で保存を要求し、
 `screen.script().saved_state()` を次の起動の `RenderOptions::restored_state` に渡します。
+
+## カレンダーと日付・時刻の入力
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::i18n::{CalendarDate, DateRange, DateStyle, TimeOfDay, DateTime, TimeStyle};
+use kivact::ui::{self, DatePresentation};
+fn dates() -> impl IntoView {
+    let day = signal(None::<CalendarDate>);
+    let range = signal(None::<DateRange>);
+    let time = signal(None::<TimeOfDay>);
+    let appointment = signal(None::<DateTime>);
+    column((
+        ui::calendar(day),
+        ui::date_input("Date", day).format(DateStyle::Short),
+        ui::date_range_input("Period", range),
+        ui::time_input("Time", time).format(TimeStyle { seconds: false }),
+        ui::date_time_input("Appointment", appointment)
+            .time_format(TimeStyle { seconds: true })
+            .presentation(DatePresentation::Adaptive),
+    ))
+}
+```
+
+`calendar` は単日または順序付き範囲の Signal / Binding を受け取ります。
+表示月は `month` の Binding で管理します。`today`、`min`、`max`、`week_start`
+はリアクティブな値を受け取れます。`disabled_dates` は選択を禁止し、`marks`
+は日付を装飾します。`range_span` は両端を含む日数を制限します。
+月・年のメニューには `caption(CalendarCaption::Dropdown)` を使います。
+
+文字列は `Locale::parse_date` で ISO またはロケールの日付として解釈します。
+Enter は確定し、下矢印はカレンダーを開きます。カレンダーの矢印、Home/End、
+Page Up/Down は移動し、Enter / Space は選択します。月名・曜日名はロケールに
+従います。`DatePresentation::Adaptive` は `Capabilities.touch` に従って
+下端のシートを選び、`Desktop` / `BottomSheet` は表示方法を明示します。
+wheel は spinbutton のキーと支援技術の値操作に対応します。
+
+外観は `UiTokens.calendar`、`UiTokens.date_input`、`UiTokens.time_input` と
+`UiRecipes` の `calendar`、`date_input`、`date_range_input`、`time_input`、
+`date_time_input` の recipe table で変更します。

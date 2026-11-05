@@ -377,3 +377,84 @@ the launch snapshot. Check `platform::capabilities().get().state_restoration`; d
 backends report false and ignore saves. Virtual tests can request a save with
 `screen.script().save_state()` and pass `screen.script().saved_state()` into the next
 launch's `RenderOptions::restored_state`.
+
+
+## Calendar and date/time fields
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::i18n::{CalendarDate, DateRange, DateStyle, TimeOfDay, DateTime, TimeStyle};
+use kivact::ui::{self, DatePresentation};
+
+fn dates() -> impl IntoView {
+    let day = signal(None::<CalendarDate>);
+    let range = signal(None::<DateRange>);
+    let time = signal(None::<TimeOfDay>);
+    let appointment = signal(None::<DateTime>);
+    column((
+        ui::calendar(day),
+        ui::date_input("Date", day).format(DateStyle::Short),
+        ui::date_range_input("Period", range),
+        ui::time_input("Time", time).format(TimeStyle { seconds: false }),
+        ui::date_time_input("Appointment", appointment)
+            .time_format(TimeStyle { seconds: true })
+            .presentation(DatePresentation::Adaptive),
+    ))
+}
+```
+
+`calendar` takes a single-date or range signal/binding. Its `month` binding owns
+paging; `today`, `min`, `max` and `week_start` can be reactive. `disabled_dates`
+rejects dates, while `marks` only decorates them. Range endpoints are ordered.
+Use `caption(CalendarCaption::Dropdown)` for month/year menus and
+`year_navigation(true)` for year paging. `range_span` limits the inclusive day count.
+
+Date fields parse ISO and locale date text through `Locale::parse_date`. Enter
+commits text; Arrow Down opens the date calendar. Calendar arrows, Home/End and
+Page Up/Down navigate without selecting; Enter or Space selects. The first day
+of the week and month/weekday names follow the locale. `DatePresentation::Adaptive`
+uses `Capabilities.touch` to choose a bottom sheet; `Desktop` and `BottomSheet`
+choose explicitly. Sheet wheels support spinbutton keys and assistive value actions.
+
+The theme owns `UiTokens.calendar`, `UiTokens.date_input`, `UiTokens.time_input`
+and the `calendar`, `date_input`, `date_range_input`, `time_input`, `date_time_input`
+recipe tables of `UiRecipes`.
+
+## Calendar and date/time fields
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::i18n::{CalendarDate, DateRange, DateStyle, TimeOfDay, DateTime, TimeStyle};
+use kivact::ui::{self, DatePresentation};
+fn dates() -> impl IntoView {
+    let day = signal(None::<CalendarDate>);
+    let range = signal(None::<DateRange>);
+    let time = signal(None::<TimeOfDay>);
+    let appointment = signal(None::<DateTime>);
+    column((
+        ui::calendar(day),
+        ui::date_input("Date", day).format(DateStyle::Short),
+        ui::date_range_input("Period", range),
+        ui::time_input("Time", time).format(TimeStyle { seconds: false }),
+        ui::date_time_input("Appointment", appointment)
+            .time_format(TimeStyle { seconds: true })
+            .presentation(DatePresentation::Adaptive),
+    ))
+}
+```
+
+`calendar` accepts single-date and ordered-range signals/bindings. `month` is the
+paging binding; `today`, `min`, `max` and `week_start` accept reactive values.
+`disabled_dates` rejects dates; `marks` decorates them. `range_span` limits the
+inclusive day count. Use `caption(CalendarCaption::Dropdown)` for month/year menus.
+
+Fields parse ISO and locale text through `Locale::parse_date`. Enter commits;
+Arrow Down opens the date calendar. Calendar arrows, Home/End and Page Up/Down
+navigate; Enter/Space selects. Month/weekday names follow the locale.
+`DatePresentation::Adaptive` selects a bottom sheet using `Capabilities.touch`;
+`Desktop` and `BottomSheet` select explicitly. Sheet wheels support spinbutton
+keys and assistive value actions.
+
+Style them through `UiTokens.calendar`, `UiTokens.date_input`, `UiTokens.time_input`
+and the `calendar`, `date_input`, `date_range_input`, `time_input`, `date_time_input`
+recipe tables of `UiRecipes`.

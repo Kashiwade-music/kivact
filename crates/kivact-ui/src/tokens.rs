@@ -10,6 +10,8 @@ use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiTokens {
     pub calendar: crate::CalendarTokens,
+    pub date_input: crate::DateInputTokens,
+    pub time_input: crate::DateInputTokens,
     pub button: ButtonTokens,
     pub progress: ProgressTokens,
     pub toast: ToastTokens,

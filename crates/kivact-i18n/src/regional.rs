@@ -32,7 +32,7 @@ impl Locale {
         formatter.format(&icu_date(date)).to_string()
     }
 
-    /// Parse ISO 8601 or a numeric date in locale order; two-digit years use 2000 to 2099.
+    /// Parse ISO 8601, locale month names, or a numeric date in locale order; two-digit years use 2000 to 2099.
     pub fn parse_date(&self, text: &str) -> Option<CalendarDate> {
         let text = text.trim();
         let iso: Vec<_> = text.split('-').collect();
@@ -51,6 +51,9 @@ impl Locale {
         let formatted = formatter.format(&date);
         let pattern = formatted.pattern().write_to_string().into_owned();
         let order = date_order(&pattern);
+        if let Some(date) = named_date(self, text, &pattern) {
+            return Some(date);
+        }
         let numbers = crate::numbers::date_fields(self, text, &pattern)?;
         if numbers.len() != 3 || order.len() != 3 {
             return None;
@@ -214,4 +217,47 @@ fn date_order(pattern: &str) -> Vec<char> {
         }
     }
     order
+}
+
+/// Parse the locale's own stand-alone month names without an English table.
+fn named_date(locale: &Locale, text: &str, pattern: &str) -> Option<CalendarDate> {
+    let lower = text.to_lowercase();
+    for month in 1..=12 {
+        for width in [NameWidth::Long, NameWidth::Short] {
+            let name = locale.month_name(month, width).to_lowercase();
+            if name.is_empty() || !name.chars().any(char::is_alphabetic) {
+                continue;
+            }
+            let Some(start) = lower.find(&name) else {
+                continue;
+            };
+            let end = start + name.len();
+            if lower[..start]
+                .chars()
+                .next_back()
+                .is_some_and(char::is_alphabetic)
+                || lower[end..].chars().next().is_some_and(char::is_alphabetic)
+            {
+                continue;
+            }
+            let rest = format!("{} {}", &lower[..start], &lower[end..]);
+            let fields = crate::numbers::date_fields(locale, &rest, pattern)?;
+            let [first, second] = fields.as_slice() else {
+                continue;
+            };
+            let (year, day) = if first.len() >= 4 {
+                (first, second)
+            } else {
+                (second, first)
+            };
+            let mut parsed_year = year.parse::<i32>().ok()?;
+            if year.len() <= 2 {
+                parsed_year += 2000;
+            }
+            if let Some(date) = CalendarDate::checked(parsed_year, month, day.parse().ok()?) {
+                return Some(date);
+            }
+        }
+    }
+    None
 }

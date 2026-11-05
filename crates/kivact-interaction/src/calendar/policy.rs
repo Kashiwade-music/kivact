@@ -23,6 +23,8 @@ pub enum CalendarSelection {
 pub struct CalendarOptions {
     pub(super) disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     pub(super) months: usize,
+    pub(super) min_span: Value<u32>,
+    pub(super) max_span: Value<Option<u32>>,
     pub(super) week_start: Option<Value<Weekday>>,
     pub(super) initial_focus: Option<CalendarDate>,
     pub(super) select_on_move: bool,
@@ -34,6 +36,8 @@ impl Default for CalendarOptions {
         Self {
             disabled: Rc::new(|_| false),
             months: 1,
+            min_span: 1.into_value(),
+            max_span: None.into_value(),
             week_start: None,
             initial_focus: None,
             select_on_move: false,
@@ -59,6 +63,18 @@ impl CalendarOptions {
     /// with the keys keeps the focused day among them.
     pub fn months(mut self, count: usize) -> Self {
         self.months = count.clamp(1, 12);
+        self
+    }
+
+    /// Inclusive day-count bounds for completing a range. The first pick
+    /// remains an anchor even when it is shorter than this minimum.
+    pub fn range_span(
+        mut self,
+        min: impl IntoValue<u32>,
+        max: impl IntoValue<Option<u32>>,
+    ) -> Self {
+        self.min_span = min.into_value();
+        self.max_span = max.into_value();
         self
     }
 
@@ -102,7 +118,9 @@ impl From<kivact_core::state::Signal<Option<CalendarDate>>> for CalendarSelectio
     }
 }
 impl From<Binding<Option<CalendarDate>>> for CalendarSelection {
-    fn from(value: Binding<Option<CalendarDate>>) -> Self { Self::Single(value) }
+    fn from(value: Binding<Option<CalendarDate>>) -> Self {
+        Self::Single(value)
+    }
 }
 impl From<kivact_core::state::Signal<Option<DateRange>>> for CalendarSelection {
     fn from(value: kivact_core::state::Signal<Option<DateRange>>) -> Self {
@@ -111,5 +129,7 @@ impl From<kivact_core::state::Signal<Option<DateRange>>> for CalendarSelection {
     }
 }
 impl From<Binding<Option<DateRange>>> for CalendarSelection {
-    fn from(value: Binding<Option<DateRange>>) -> Self { Self::Range(value) }
+    fn from(value: Binding<Option<DateRange>>) -> Self {
+        Self::Range(value)
+    }
 }

@@ -66,7 +66,7 @@ impl CalendarGridApi {
                         selected,
                         edge,
                         span,
-                        disabled: (shared.policy.disabled)(day),
+                        disabled: shared.disabled(day),
                     }
                 })
         })
@@ -74,6 +74,14 @@ impl CalendarGridApi {
 
     fn state(self) -> Rc<State> {
         self.state.get()
+    }
+
+    /// Preview a range endpoint during pointer exploration. It never writes
+    /// the caller's selection; leaving a cell clears the preview.
+    pub fn preview(self, day: Option<CalendarDate>) {
+        if let Choice::Range { pick, .. } = self.state().choice {
+            pick.send(super::machine::Event::Preview(day));
+        }
     }
 
     /// The first day of the week the grid lays out.
@@ -166,8 +174,8 @@ impl CalendarGridApi {
     pub fn cell(self, month: CalendarMonth, day: CalendarDate) -> Part<CalendarDayState> {
         let state = self.state();
         let disabled = {
-            let policy = state.policy.disabled.clone();
-            memo(move || policy(day))
+            let state = state.clone();
+            memo(move || state.disabled(day))
         };
         let choice = state.choice;
         let marks = memo(move || marks(choice, day));
@@ -205,7 +213,18 @@ impl CalendarGridApi {
                 .selected(memo(move || marks.get().0))
                 .disabled(disabled);
             let pointers = state.clone();
-            let attachment = attachment.on_press(move || pointers.pick(day));
+            let preview = state.clone();
+            let attachment =
+                attachment
+                    .on_press(move || pointers.pick(day))
+                    .on_pointer(move |event| {
+                        if let Choice::Range { pick, .. } = preview.choice {
+                            if event.phase() == kivact_core::view::PointerPhase::Move {
+                                pick.send(super::machine::Event::Preview(Some(day)));
+                            }
+                        }
+                        Handled::No
+                    });
             if day.month_of() != month {
                 return attachment;
             }
@@ -264,20 +283,30 @@ fn marks(choice: Choice, day: CalendarDate) -> (bool, bool, CalendarSpan) {
             let chosen = value.with(|value| *value == Some(day));
             (chosen, chosen, CalendarSpan::None)
         }
-        Choice::Range { value, .. } => value.with(|range| match range {
-            Some(range) if range.contains(day) => {
-                let span = if range.start() == range.end() {
-                    CalendarSpan::None
-                } else if day == range.start() {
-                    CalendarSpan::Start
-                } else if day == range.end() {
-                    CalendarSpan::End
-                } else {
-                    CalendarSpan::Middle
-                };
-                (true, day == range.start() || day == range.end(), span)
+        Choice::Range { value, pick } => {
+            let range = match pick.get() {
+                super::machine::RangePick::Picking {
+                    anchor,
+                    preview: Some(preview),
+                    ..
+                } => Some(kivact_core::i18n::DateRange::new(anchor, preview)),
+                _ => value.get(),
+            };
+            match range {
+                Some(range) if range.contains(day) => {
+                    let span = if range.start() == range.end() {
+                        CalendarSpan::None
+                    } else if day == range.start() {
+                        CalendarSpan::Start
+                    } else if day == range.end() {
+                        CalendarSpan::End
+                    } else {
+                        CalendarSpan::Middle
+                    };
+                    (true, day == range.start() || day == range.end(), span)
+                }
+                _ => (false, false, CalendarSpan::None),
             }
-            _ => (false, false, CalendarSpan::None),
-        }),
+        }
     }
 }

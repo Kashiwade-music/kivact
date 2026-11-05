@@ -213,6 +213,21 @@ recipe_table! {
     }
 }
 recipe_table! {
+    /// The parts of a date-range field.
+    DateRangeInputRecipes { root(root_recipe): PartState = super::look_calendar::input, }
+}
+recipe_table! {
+    /// The parts of a wall-clock field.
+    TimeInputRecipes {
+        root(root_recipe): PartState = super::look_calendar::input,
+        wheel(wheel_recipe): PartState = super::look_calendar::wheel,
+    }
+}
+recipe_table! {
+    /// The parts of a date-and-time field.
+    DateTimeInputRecipes { root(root_recipe): PartState = super::look_calendar::input, }
+}
+recipe_table! {
     /// The recipes of a [`select`](super::select).
     SelectRecipes {
         /// The trigger, which knows whether it shows the placeholder. Its
@@ -596,6 +611,9 @@ recipe_table! {
     tables {
         calendar(calendar_recipes): CalendarRecipes,
         date_input(date_input_recipes): DateInputRecipes,
+        date_range_input(date_range_input_recipes): DateRangeInputRecipes,
+        time_input(time_input_recipes): TimeInputRecipes,
+        date_time_input(date_time_input_recipes): DateTimeInputRecipes,
         select(select_recipes): SelectRecipes,
         menu(menu_recipes): MenuRecipes,
         dialog(dialog_recipes): DialogRecipes,

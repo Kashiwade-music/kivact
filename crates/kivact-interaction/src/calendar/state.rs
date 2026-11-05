@@ -1,6 +1,6 @@
 //! Role: Calendar state shares the shown months, the selection and the day registry.
 
-use super::machine::{self, CalendarRangePhase};
+use super::machine::{self, RangePick};
 use super::policy::{CalendarOptions, CalendarSelection};
 use crate::policy::grid::GridMove;
 use crate::roving::{Observation, Roving};
@@ -55,7 +55,7 @@ pub(super) fn create(
         CalendarSelection::Single(value) => Choice::Single(value),
         CalendarSelection::Range(value) => {
             let pick = machine(
-                CalendarRangePhase::Start,
+                RangePick::Idle,
                 || machine::Machine,
                 move |_, next| value.set(next),
             );
@@ -137,6 +137,21 @@ fn reconcile(state: &State) {
 impl State {
     pub(super) fn disabled(&self, day: CalendarDate) -> bool {
         (self.policy.disabled)(day)
+            || match self.choice {
+                Choice::Range { value, pick } => match pick.get().current(value.get()) {
+                    RangePick::Picking { anchor, .. } => {
+                        let span = anchor.to_days().abs_diff(day.to_days()) + 1;
+                        span < u64::from(self.policy.min_span.get().max(1))
+                            || self
+                                .policy
+                                .max_span
+                                .get()
+                                .is_some_and(|max| span > u64::from(max))
+                    }
+                    RangePick::Idle => false,
+                },
+                Choice::Single(_) => false,
+            }
     }
 
     /// Whether `month` is one of the shown months.
@@ -198,7 +213,7 @@ impl State {
                 let current = value.get_untracked();
                 let done = matches!(
                     pick.state().get_untracked().current(current),
-                    CalendarRangePhase::End { .. }
+                    RangePick::Picking { .. }
                 );
                 pick.send(machine::Event::Choose { day, current });
                 done
@@ -221,7 +236,7 @@ impl State {
         }
         if event.key() == Key::Escape
             && let Choice::Range { value, pick } = self.choice
-            && let CalendarRangePhase::End { .. } =
+            && let RangePick::Picking { .. } =
                 pick.state().get_untracked().current(value.get_untracked())
         {
             pick.send(machine::Event::Cancel(value.get_untracked()));

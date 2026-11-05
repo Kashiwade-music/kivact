@@ -3,18 +3,19 @@ use kivact_core::i18n::{CalendarDate, DateRange};
 use kivact_core::state::{Machine as MachineTrait, Step};
 
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum CalendarRangePhase {
-    Start,
-    End {
+pub(super) enum RangePick {
+    Idle,
+    Picking {
         anchor: CalendarDate,
+        preview: Option<CalendarDate>,
         before: Option<DateRange>,
     },
 }
-impl CalendarRangePhase {
+impl RangePick {
     pub(super) fn current(self, value: Option<DateRange>) -> Self {
         match self {
-            Self::End { anchor, .. } if value != Some(DateRange::new(anchor, anchor)) => {
-                Self::Start
+            Self::Picking { anchor, .. } if value != Some(DateRange::new(anchor, anchor)) => {
+                Self::Idle
             }
             phase => phase,
         }
@@ -27,10 +28,11 @@ pub(super) enum Event {
         current: Option<DateRange>,
     },
     Cancel(Option<DateRange>),
+    Preview(Option<CalendarDate>),
 }
 pub(super) struct Machine;
 impl MachineTrait for Machine {
-    type State = CalendarRangePhase;
+    type State = RangePick;
     type Event = Event;
     type Effect = Option<DateRange>;
     fn transition(
@@ -39,22 +41,29 @@ impl MachineTrait for Machine {
         event: Event,
     ) -> Step<Self::State, Event, Self::Effect> {
         match event {
+            Event::Preview(preview) => match *state {
+                RangePick::Idle => Step::stay(),
+                RangePick::Picking { anchor, before, .. } => Step::to(RangePick::Picking {
+                    anchor,
+                    before,
+                    preview,
+                }),
+            },
             Event::ExternalValueChanged(current) => Step::to(state.current(current)),
             Event::Choose { day, current } => match state.current(current) {
-                CalendarRangePhase::Start => Step::to(CalendarRangePhase::End {
+                RangePick::Idle => Step::to(RangePick::Picking {
                     anchor: day,
+                    preview: None,
                     before: current,
                 })
                 .with(Some(DateRange::new(day, day))),
-                CalendarRangePhase::End { anchor, .. } => {
-                    Step::to(CalendarRangePhase::Start).with(Some(DateRange::new(anchor, day)))
+                RangePick::Picking { anchor, .. } => {
+                    Step::to(RangePick::Idle).with(Some(DateRange::new(anchor, day)))
                 }
             },
             Event::Cancel(current) => match state.current(current) {
-                CalendarRangePhase::Start => Step::to(CalendarRangePhase::Start),
-                CalendarRangePhase::End { before, .. } => {
-                    Step::to(CalendarRangePhase::Start).with(before)
-                }
+                RangePick::Idle => Step::to(RangePick::Idle),
+                RangePick::Picking { before, .. } => Step::to(RangePick::Idle).with(before),
             },
         }
     }

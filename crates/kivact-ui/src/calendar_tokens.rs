@@ -7,5 +7,11 @@ pub struct CalendarTokens {
     pub week_gap: f64,
 }
 impl Default for CalendarTokens {
-    fn default() -> Self { Self { cell_size: 32.0, month_gap: 16.0, week_gap: 8.0 } }
+    fn default() -> Self {
+        Self {
+            cell_size: 32.0,
+            month_gap: 16.0,
+            week_gap: 8.0,
+        }
+    }
 }
