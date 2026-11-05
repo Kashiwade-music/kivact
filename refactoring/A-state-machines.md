@@ -1311,3 +1311,8 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 |---|---|---|---|
 | SM-G2901 | arvane-shell/src/mouse.rs | MousePosition::{Unknown, Outside(Point), Inside(Point)}。到着前の座標なし状態と既知の内外を表し、保持buttonsは独立入力のまま。 | H-G2 |
 | SM-G2902 | arvane-asset/src/store/worker.rs | WorkerThread::{Running { jobs, thread }, Joined}。shutdownでsenderを閉じjoinし、既存panic伝播を保持。completion receiverとstop要求は独立。 | H-G2 |
+
+### SM-C901 path trim contour の終端
+
+- **場所**: kivact-style/src/path/trim.rs の Contour.closed/closing_edge。
+- **解消後**: `enum ContourEnd { Open, Closed, ClosingEdge }`。Closed は既に起点に戻る閉路、ClosingEdge は最後の segment が暗黙の閉じ辺。emit と trim は enum から派生させ、不可能な open+closing-edge を作らない。
