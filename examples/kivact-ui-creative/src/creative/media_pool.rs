@@ -145,7 +145,7 @@ fn media_tiles(
     tile_size: kivact::state::Signal<f64>,
     shown: kivact::state::Value<Vec<super::common::TextRow>>,
     pick: impl Fn(u64, bool, bool) + Copy + 'static,
-) -> kivact::view::Node {
+) -> impl IntoView {
     show(
         move || mode.with(|key| key.as_deref() == Some("list")),
         move || {
@@ -175,7 +175,7 @@ fn media_table(
     sort: kivact::state::Signal<Option<(usize, kivact::interaction::SortOrder)>>,
     rows: kivact::state::Signal<Vec<super::common::TextRow>>,
     widths: kivact::state::Signal<Vec<f64>>,
-) -> kivact::view::Node {
+) -> impl IntoView {
     show(
         move || mode.with(|key| key.as_deref() == Some("tiles")),
         move || {
