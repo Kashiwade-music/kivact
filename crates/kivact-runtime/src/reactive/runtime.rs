@@ -1,7 +1,7 @@
 //! Role: Runtime construction and shared arena queries.
 
 use crate::reactive::AppId;
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 
 use crate::reactive::arena::Arena;
 use crate::reactive::data::{Diag, LiveCounts, Runtime, Sched};
@@ -29,7 +29,11 @@ impl Runtime {
                 slot: 0,
                 generation: 0,
             },
-            ext: OnceCell::new(),
+            #[expect(
+                clippy::disallowed_types,
+                reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+            )]
+            ext: std::cell::OnceCell::new(),
             mount_revision: Cell::new(kivact_types::Revision(0)),
             unstamped: RefCell::new(Vec::new()),
             awaiting: RefCell::new(std::collections::VecDeque::new()),

@@ -1,3 +1,4 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Playwright-like Testing Library over real windows (feature `test`).
 //!
 //! `render` mounts a root on the engine's in-process test driver: the

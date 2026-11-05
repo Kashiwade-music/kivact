@@ -6,7 +6,7 @@
 //! host that runs the App's turns.
 
 use kivact_types::cell::Registry;
-use std::cell::{OnceCell, RefCell};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -79,7 +79,11 @@ impl Scheduler {
 /// completes the future, by `cancel`, or with its owner.
 pub(crate) struct TaskCell {
     /// Set right after the spawn, before the first poll.
-    pub(super) task: OnceCell<super::executor::RawTask>,
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+    )]
+    pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }
 
 /// Everything the task subsystem keeps per App, driven by the host that runs

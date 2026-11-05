@@ -1,3 +1,4 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Typed editing state and text layout contracts.
 //!
 //! Owned native editing state, composition and shaped layout snapshots.
