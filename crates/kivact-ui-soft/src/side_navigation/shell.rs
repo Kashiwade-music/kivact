@@ -32,14 +32,12 @@ use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::tooltip;
 use kivact::view::IntoView;
-use kivact::view::IntoViewFn;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::Orientation;
 use kivact::view::Placement;
 use kivact::view::Role;
 use kivact::view::View;
-use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::icon;
 use kivact::view::node;
@@ -54,11 +52,11 @@ pub enum SideNavCollapse {
 
 // xtask-allow(state-fields): Construction metrics and optional caller collapse binding; the default is used only without that binding and is not a runtime lifecycle flag.
 pub struct SideNavResize {
-    pub default_width: f64,
-    pub min: f64,
-    pub max: f64,
-    pub default_collapsed: bool,
-    pub collapsed: Option<Binding<bool>>,
+    default_width: f64,
+    min: f64,
+    max: f64,
+    default_collapsed: bool,
+    collapsed: Option<Binding<bool>>,
 }
 
 impl Default for SideNavResize {
@@ -73,13 +71,37 @@ impl Default for SideNavResize {
     }
 }
 
+impl SideNavResize {
+    /// Set the initial expanded width in pixels.
+    pub fn width(mut self, width: impl Into<f64>) -> Self {
+        self.default_width = width.into();
+        self
+    }
+    /// Set the allowed expanded width range in pixels.
+    pub fn range(mut self, min: impl Into<f64>, max: impl Into<f64>) -> Self {
+        self.min = min.into();
+        self.max = max.into();
+        self
+    }
+    /// Start an uncontrolled sidebar collapsed.
+    pub fn initially_collapsed(mut self) -> Self {
+        self.default_collapsed = true;
+        self
+    }
+    /// Use the caller's single collapse binding.
+    pub fn collapsed(mut self, collapsed: impl IntoBinding<bool>) -> Self {
+        self.collapsed = Some(collapsed.into_binding());
+        self
+    }
+}
+
 pub struct SideNav {
     root: Node,
     children: View,
-    header: Option<ViewFn>,
-    top: Option<ViewFn>,
-    footer: Option<ViewFn>,
-    icons: Option<ViewFn>,
+    header: Option<View>,
+    top: Option<View>,
+    footer: Option<View>,
+    icons: Option<View>,
     collapse: Option<SideNavCollapse>,
     resize: Option<SideNavResize>,
     collapse_button: Value<bool>,
@@ -102,20 +124,20 @@ pub fn side_nav(children: impl IntoView) -> SideNav {
 }
 
 impl SideNav {
-    pub fn header<V: IntoView>(mut self, header: impl IntoViewFn<V>) -> Self {
-        self.header = Some(header.into_view_fn());
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = Some(header.into_view());
         self
     }
-    pub fn top_content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
-        self.top = Some(content.into_view_fn());
+    pub fn top_content(mut self, content: impl IntoView) -> Self {
+        self.top = Some(content.into_view());
         self
     }
-    pub fn footer<V: IntoView>(mut self, footer: impl IntoViewFn<V>) -> Self {
-        self.footer = Some(footer.into_view_fn());
+    pub fn footer(mut self, footer: impl IntoView) -> Self {
+        self.footer = Some(footer.into_view());
         self
     }
-    pub fn footer_icons<V: IntoView>(mut self, icons: impl IntoViewFn<V>) -> Self {
-        self.icons = Some(icons.into_view_fn());
+    pub fn footer_icons(mut self, icons: impl IntoView) -> Self {
+        self.icons = Some(icons.into_view());
         self
     }
     pub fn collapsible(mut self, collapse: SideNavCollapse) -> Self {
@@ -174,10 +196,7 @@ impl IntoView for SideNav {
                             .align_items(Align::Center)
                             .justify_content(Justify::SpaceBetween)
                     })
-                    .child((
-                        header.map(|slot| slot.call(())),
-                        icons.map(|slot| slot.call(())),
-                    ));
+                    .child((header.map(|slot| slot), icons.map(|slot| slot)));
             }
             let nav_ref = node_ref();
             let collapse = if mode == ShellNavMode::Desktop {
@@ -232,21 +251,18 @@ impl IntoView for SideNav {
             let has_bottom =
                 footer.is_some() || icons.is_some() || collapse_button.get() && collapsed.is_some();
             let controls = provide(cx, move || {
-                let top = column((
-                    header.map(|slot| slot.call(())),
-                    top.map(|slot| slot.call(())),
-                ))
-                .style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let mut base = style().gap(t.spacing.s2).shrink(0);
-                    if has_top && mode == ShellNavMode::Desktop {
-                        base = base.padding(t.spacing.s2);
-                    }
-                    if cx.rail() {
-                        base = base.align_items(Align::Center);
-                    }
-                    base
-                });
+                let top =
+                    column((header.map(|slot| slot), top.map(|slot| slot))).style(move || {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        let mut base = style().gap(t.spacing.s2).shrink(0);
+                        if has_top && mode == ShellNavMode::Desktop {
+                            base = base.padding(t.spacing.s2);
+                        }
+                        if cx.rail() {
+                            base = base.align_items(Align::Center);
+                        }
+                        base
+                    });
                 let items = column(children).style(move || {
                     let t = kivact::style::use_tokens::<crate::Tokens>();
                     let mut base = style().gap(t.spacing.s0_5);
@@ -276,7 +292,7 @@ impl IntoView for SideNav {
                     let controls = row((
                         (collapse_button.get() && collapsed.is_some())
                             .then(|| side_nav_collapse_button().size(ControlSize::Small)),
-                        icons.map(|slot| slot.call(())),
+                        icons.map(|slot| slot),
                     ))
                     .style(move || {
                         style()
@@ -289,7 +305,7 @@ impl IntoView for SideNav {
                             .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
                     });
                     column((
-                        footer.map(|slot| node().hidden(move || cx.rail()).child(slot.call(()))),
+                        footer.map(|slot| node().hidden(move || cx.rail()).child(slot)),
                         controls,
                     ))
                     .style(move || {

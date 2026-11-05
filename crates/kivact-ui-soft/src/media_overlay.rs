@@ -10,10 +10,9 @@ use kivact::style::Position;
 use kivact::style::pct;
 use kivact::style::style;
 use kivact::view::IntoView;
-use kivact::view::IntoViewFn;
 use kivact::view::Node;
 use kivact::view::OverlayAlign;
-use kivact::view::ViewFn;
+use kivact::view::View;
 use kivact::view::column;
 use kivact::view::node_ref;
 
@@ -42,7 +41,7 @@ pub enum OverlayPosition {
 }
 
 pub struct MediaOverlay {
-    content: ViewFn,
+    content: View,
     show_on: ShowOn,
     open: Option<Value<bool>>,
     scrim: OverlayScrim,
@@ -50,9 +49,9 @@ pub struct MediaOverlay {
     align: OverlayAlign,
 }
 
-pub fn media_overlay<V: IntoView>(content: impl IntoViewFn<V>) -> MediaOverlay {
+pub fn media_overlay(content: impl IntoView) -> MediaOverlay {
     MediaOverlay {
-        content: content.into_view_fn(),
+        content: content.into_view(),
         show_on: ShowOn::Always,
         open: None,
         scrim: OverlayScrim::Dark,
@@ -104,7 +103,7 @@ impl MediaOverlay {
             )
         });
         let reveal_from_keyboard = open.is_none() && mode != ShowOn::Always;
-        let content = column(self.content.call(()))
+        let content = column(self.content)
             .hidden(move || !visible.get())
             .style(move || {
                 let p = kivact::style::use_tokens::<crate::Tokens>();
