@@ -5,5 +5,3 @@ d8694f65cd70c3e5e600ead37657aab0adb5f63b275d0c1f6f4a7046de222145  112196  barlow
 186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f  4377  barlowcondensed/OFL.txt
 48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda  187208  jetbrainsmono/JetBrainsMono[wght].ttf
 b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d  4399  jetbrainsmono/OFL.txt
-c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f  9589900  notosansjp/NotoSansJP[wght].ttf
-1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9  4388  notosansjp/OFL.txt

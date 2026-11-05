@@ -29,7 +29,7 @@ pub fn messages() -> Messages {
         ("palette.label", "コマンドパレット"),
         ("palette.placeholder", "コマンド・操作を検索..."),
         ("palette.search", "コマンド検索"),
-        ("game.skeleton.label", "読み込み中"),
+        ("spinner.loading", "読み込み中"),
         ("switch.off", "OFF"),
         ("switch.on", "ON"),
         ("data_table.actions", "操作"),

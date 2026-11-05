@@ -18,3 +18,13 @@ Test fixture and font references across packages are test inputs, not permission
 This inventory covers material in this repository. Licenses of Cargo dependencies are declared in their own packages and are not repeated here.
 
 The internal `kivact-test` harness uses the same bundled Tuffy test font and upstream font notices as `kivact-engine`; this move adds no third-party assets.
+
+## Shared catalog fonts
+
+The Game catalog reads the byte-identical Noto Sans JP font from
+[`examples/shared-assets/fonts/notosansjp`](examples/shared-assets/fonts/notosansjp).
+Its original [SIL Open Font License](examples/shared-assets/fonts/notosansjp/OFL.txt),
+[provenance](examples/shared-assets/fonts/SOURCE.md) and
+[SHA-256 records](examples/shared-assets/fonts/SHA256SUMS.txt) move with the font.
+The other catalogs retain their existing copies until their K-7 migrations.
+Game's Barlow Condensed and JetBrains Mono remain in its own assets directory.
