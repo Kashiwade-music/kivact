@@ -1,0 +1,55 @@
+//! Role: Define passive indicator states and theme metrics.
+use crate::ControlSize;
+use kivact_interaction::Tone;
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SkeletonShape {
+    #[default]
+    Rect,
+    Circle,
+    Text,
+    Rounded,
+}
+kivact_core::state::constant_value!(SkeletonShape);
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AvatarShape {
+    #[default]
+    Circle,
+    Rounded,
+    Square,
+}
+kivact_core::state::constant_value!(AvatarShape);
+#[derive(Clone, Debug, PartialEq)]
+pub struct BadgeState {
+    pub tone: Tone,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct AvatarState {
+    pub size: ControlSize,
+    pub shape: AvatarShape,
+    pub status: Option<Tone>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct SkeletonState {
+    pub shape: SkeletonShape,
+    pub pulse: f64,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct SpinnerState {
+    pub size: ControlSize,
+    pub turn: f64,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct IndicatorTokens {
+    pub period_ms: u64,
+    pub line_height: f64,
+    pub gap: f64,
+}
+impl Default for IndicatorTokens {
+    fn default() -> Self {
+        Self {
+            period_ms: 1000,
+            line_height: 16.0,
+            gap: 6.0,
+        }
+    }
+}

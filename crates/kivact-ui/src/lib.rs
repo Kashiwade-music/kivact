@@ -285,3 +285,24 @@ pub use toggle_group::{
     ToggleGroup, ToggleGroupItemState, ToggleGroupState, ToggleGroupTokens, toggle_group,
 };
 pub use toolbar::{Toolbar, ToolbarEdge, ToolbarState, ToolbarTokens, toolbar};
+
+mod badge;
+mod indicator_values;
+mod look_indicators;
+mod skeleton;
+mod spinner;
+pub use badge::{Badge, badge};
+pub use indicator_values::{
+    AvatarShape, AvatarState, BadgeState, IndicatorTokens, SkeletonShape, SkeletonState,
+    SpinnerState,
+};
+pub use skeleton::{Skeleton, skeleton};
+pub use spinner::{Spinner, spinner};
+
+mod avatar;
+mod avatar_group;
+pub use avatar::{Avatar, avatar};
+pub use avatar_group::{AvatarGroup, avatar_group};
+
+mod kbd;
+pub use kbd::{Kbd, KbdCombo, kbd, kbd_combo};

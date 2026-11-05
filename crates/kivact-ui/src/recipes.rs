@@ -605,6 +605,13 @@ recipe_table! {
     /// # let _ = theme;
     /// ```
     UiRecipes {
+        avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
+        avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
+        avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
+        kbd(kbd_recipe): () = super::look_indicators::kbd,
+        badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
+        spinner(spinner_recipe): crate::SpinnerState = super::look_indicators::spinner,
+        skeleton(skeleton_recipe): crate::SkeletonState = super::look_indicators::skeleton,
         button(button_recipe): ButtonState = look::button,
         /// The row of a button's icons, label and children.
         button_content(button_content_recipe): ButtonState = look::button_content,

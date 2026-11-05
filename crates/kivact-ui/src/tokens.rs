@@ -9,6 +9,7 @@ use crate::toggle_button_tokens::ToggleButtonTokens;
 use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiTokens {
+    pub indicators: crate::IndicatorTokens,
     pub calendar: crate::CalendarTokens,
     pub date_input: crate::DateInputTokens,
     pub time_input: crate::DateInputTokens,
