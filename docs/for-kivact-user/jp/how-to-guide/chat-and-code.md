@@ -15,7 +15,7 @@ use kivact::ui::{chat_composer, chat_message, chat_thread, ChatMessageStatus, Ch
 fn conversation() -> impl IntoView {
     let draft = signal(String::new());
     let messages = signal(vec!["Welcome!".to_owned()]);
-    let history = for_each(messages, |message| message.clone(), |message| {
+    let history = for_index(messages, |_, message| {
         chat_message("Ada")
             .sender(ChatSender::Assistant)
             .content(text(message))
