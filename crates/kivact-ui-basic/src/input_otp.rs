@@ -132,20 +132,7 @@ impl IntoView for InputOtp {
         // `.disabled(..)` ignores input and dims the slots.
         let disabled: Option<Value<bool>> = root.accessible_disabled();
         let current = value.into_value();
-        // Keep only accepted characters, at most `length` of them.
-        let filtered = binding(current, move |typed: String| {
-            let kept: String = typed
-                .chars()
-                .filter(|c| pattern.accepts(*c))
-                .take(length)
-                .collect();
-            value.set(kept.clone());
-            if kept.chars().count() == length
-                && let Some(complete) = complete
-            {
-                complete.call(kept);
-            }
-        });
+        let filtered = accepted_value(value, current, pattern, length, complete);
         let editor_ref = node_ref();
         let focused = editor_ref.focused();
         let active = memo(move || current.with(|v| v.chars().count()).min(length - 1));
@@ -257,4 +244,26 @@ fn slot(
                 s
             }
         })
+}
+
+fn accepted_value(
+    value: kivact::state::Binding<String>,
+    current: Value<String>,
+    pattern: OtpPattern,
+    length: usize,
+    complete: Option<kivact::state::Callback<String>>,
+) -> kivact::state::Binding<String> {
+    binding(current, move |typed: String| {
+        let kept: String = typed
+            .chars()
+            .filter(|c| pattern.accepts(*c))
+            .take(length)
+            .collect();
+        value.set(kept.clone());
+        if kept.chars().count() == length
+            && let Some(complete) = complete
+        {
+            complete.call(kept);
+        }
+    })
 }

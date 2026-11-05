@@ -2,7 +2,7 @@
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use kivact_core::custom::PartState;
-use kivact_core::i18n::{CalendarDate, TimeOfDay, message};
+use kivact_core::i18n::{TimeOfDay, message};
 use kivact_core::state::{Binding, IntoValue, Value, binding, notifier};
 use kivact_core::view::{
     EditPhase, Handled, Node, NodeBuilder, Role, WheelEvent, column, node, row, text,
@@ -89,9 +89,6 @@ pub(crate) fn wheel(
         &Variants::default(),
         PartState::default,
     )
-}
-pub(crate) fn date_panel(value: Binding<Option<CalendarDate>>, picker: crate::Calendar) -> Node {
-    crate::date_sheet::panel(value, picker)
 }
 pub(crate) fn time_panel(value: Binding<Option<TimeOfDay>>, seconds: Value<bool>) -> Node {
     let time = binding(

@@ -81,52 +81,9 @@ pub(crate) fn paint(
     let Ok(scene) = state.scene.get() else { return };
     let keys = state.visible.get();
     let selected = state.selected.get();
-    for (index, lane) in lanes.get().iter().enumerate() {
-        let y = graph_lane_y(index);
-        draw.layer(
-            Layer::new().clip_rect(Rect::new(
-                0.0,
-                y,
-                (GRAPH_LANE_WIDTH - settings.cells_width.get()).max(0.0),
-                crate::editors::shared::metrics::KEY_LANE,
-            )),
-            |draw| label(draw, &lane.label, 8.0, y, 11.0, p.text),
-        );
-        if let Some(id) = scene.id(&Target::Lane(lane.id)) {
-            draw.region(
-                id,
-                Rect::new(
-                    0.0,
-                    y,
-                    GRAPH_LANE_WIDTH,
-                    crate::editors::shared::metrics::KEY_LANE,
-                ),
-            );
-        }
-    }
+    lane_labels(draw, lanes, settings, &scene);
     draw.layer(Layer::new().clip_rect(space.plot), |draw| {
-        for lane in lanes.get() {
-            let curve: Vec<_> = keys.iter().filter(|key| key.curve == lane.id).collect();
-            for segment in curve.windows(2) {
-                let a = &segment[0].key;
-                let b = &segment[1].key;
-                let from = space.point(a.time, a.value);
-                let to = space.point(b.time, b.value);
-                let path = Path::new().move_to(from);
-                let path = match a.interpolation {
-                    Interpolation::Constant => {
-                        path.line_to(space.point(b.time, a.value)).line_to(to)
-                    }
-                    Interpolation::Linear => path.line_to(to),
-                    Interpolation::Bezier => path.cubic_to(
-                        space.point(a.time + a.out_tangent.time, a.value + a.out_tangent.value),
-                        space.point(b.time + b.in_tangent.time, b.value + b.in_tangent.value),
-                        to,
-                    ),
-                };
-                draw.stroke_path(&path, &Stroke::new(1.5), segment[0].color);
-            }
-        }
+        curve_lines(draw, space, &keys, lanes);
         for key in &keys {
             if !selected.contains(&key.key.id) {
                 continue;
@@ -180,5 +137,65 @@ pub(crate) fn paint(
     });
     if let Some(id) = scene.id(&Target::Playhead) {
         draw.region(id, Rect::new(SIDEBAR, 0.0, space.plot.width, RULER));
+    }
+}
+
+fn curve_lines(
+    draw: &mut Draw,
+    space: Space,
+    keys: &[crate::editors::graph::gesture::VisibleKey],
+    lanes: Value<Vec<Lane>>,
+) {
+    for lane in lanes.get() {
+        let curve: Vec<_> = keys.iter().filter(|key| key.curve == lane.id).collect();
+        for segment in curve.windows(2) {
+            let a = &segment[0].key;
+            let b = &segment[1].key;
+            let from = space.point(a.time, a.value);
+            let to = space.point(b.time, b.value);
+            let path = Path::new().move_to(from);
+            let path = match a.interpolation {
+                Interpolation::Constant => path.line_to(space.point(b.time, a.value)).line_to(to),
+                Interpolation::Linear => path.line_to(to),
+                Interpolation::Bezier => path.cubic_to(
+                    space.point(a.time + a.out_tangent.time, a.value + a.out_tangent.value),
+                    space.point(b.time + b.in_tangent.time, b.value + b.in_tangent.value),
+                    to,
+                ),
+            };
+            draw.stroke_path(&path, &Stroke::new(1.5), segment[0].color);
+        }
+    }
+}
+
+fn lane_labels(
+    draw: &mut Draw,
+    lanes: Value<Vec<Lane>>,
+    settings: &Settings,
+    scene: &crate::editors::shared::targets::Scene<Target>,
+) {
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
+    for (index, lane) in lanes.get().iter().enumerate() {
+        let y = graph_lane_y(index);
+        draw.layer(
+            Layer::new().clip_rect(Rect::new(
+                0.0,
+                y,
+                (GRAPH_LANE_WIDTH - settings.cells_width.get()).max(0.0),
+                crate::editors::shared::metrics::KEY_LANE,
+            )),
+            |draw| label(draw, &lane.label, 8.0, y, 11.0, p.text),
+        );
+        if let Some(id) = scene.id(&Target::Lane(lane.id)) {
+            draw.region(
+                id,
+                Rect::new(
+                    0.0,
+                    y,
+                    GRAPH_LANE_WIDTH,
+                    crate::editors::shared::metrics::KEY_LANE,
+                ),
+            );
+        }
     }
 }

@@ -37,6 +37,7 @@ impl Model {
                 }
             }
         }
+        self.invalidate_boxless_ancestors(&mut dirty);
         let mut order: Vec<_> = dirty.into_iter().collect();
         order.sort_by_key(|id| (self.tree().chain(Some(*id)).len(), *id));
         let mut nodes = Vec::new();

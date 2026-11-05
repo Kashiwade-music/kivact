@@ -97,6 +97,7 @@ enum StepKind {
     Input { placeholder: Option<String> },
 }
 
+// xtask-allow(state-fields): Immutable authored question data; optional is independent validation configuration, not progress or answer state.
 /// One question of a [`Questionnaire`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuestionnaireStep {
@@ -160,10 +161,10 @@ impl QuestionnaireStep {
 /// so the application can read it back, restore it or reset it. Submitting
 /// reports the sheet once; the Submit button stays disabled until a step or
 /// an answer changes.
-/// The root is a `Role::Group` named by the message `questionnaire.label`
+/// The root is a `Role::Group` named by the message `basic.questionnaire.label`
 /// ("Questionnaire") unless the caller names it. The texts are messages:
-/// `questionnaire.previous`, `questionnaire.skip`, `questionnaire.next`,
-/// `questionnaire.submit` and `questionnaire.progress`.
+/// `basic.questionnaire.previous`, `basic.questionnaire.skip`, `basic.questionnaire.next`,
+/// `basic.questionnaire.submit` and `basic.questionnaire.progress`.
 pub struct Questionnaire {
     root: Node,
     steps: Value<Vec<QuestionnaireStep>>,
@@ -278,37 +279,7 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItem
                 .into_view(),
         );
     }
-    let indicator = node()
-        .child(node().style(move || {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
-            style()
-                .position(Position::Absolute)
-                .left(3)
-                .top(3)
-                .size(8, 8)
-                .radius(4)
-                .background(if state.get().selected {
-                    p.primary_foreground
-                } else {
-                    Color::TRANSPARENT
-                })
-        }))
-        .style(move || {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
-            let selected = state.get().selected;
-            style()
-                .position(Position::Relative)
-                .size(16, 16)
-                .shrink(0)
-                .margin_top(2)
-                .radius(8)
-                .border(1, if selected { p.primary } else { p.input })
-                .background(if selected {
-                    p.primary
-                } else {
-                    Color::TRANSPARENT
-                })
-        });
+    let indicator = choice_indicator(state);
     node()
         .with_node(|root| root.part(part))
         .with_node(|root| root.role(Role::RadioButton))
@@ -418,26 +389,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
             );
         }
         StepKind::Input { placeholder } => {
-            let text_value = binding(
-                move || {
-                    answer.with(|a| match a {
-                        QuestionnaireAnswer::Answered(text) => text.clone(),
-                        _ => String::new(),
-                    })
-                },
-                move |s: String| {
-                    answer.set(if s.is_empty() {
-                        QuestionnaireAnswer::Unanswered
-                    } else {
-                        QuestionnaireAnswer::Answered(s)
-                    });
-                },
-            );
-            let mut input = text_input(title, text_value).style(style().min_height(32));
-            if let Some(hint) = placeholder {
-                input = input.placeholder(hint.clone());
-            }
-            parts.push(input.into_view());
+            parts.push(input_answer(title, placeholder, answer));
         }
     }
     column(parts).style(style().gap(if step.description.is_some() { 8 } else { 0 }))
@@ -473,13 +425,6 @@ impl IntoView for Questionnaire {
                     .unwrap_or_else(node)
             },
         );
-        let answered = memo(move || {
-            answers.with(|a| matches!(a.get(index.get()), Some(QuestionnaireAnswer::Answered(_))))
-        });
-        let optional =
-            memo(move || steps.with(|all| all.get(index.get()).is_some_and(|s| s.optional)));
-        let first = memo(move || index.get() == 0);
-        let last = memo(move || index.get() + 1 >= total.get());
         // Submitting reports the answer sheet once; a changed step or answer
         // asks again.
         let phase = machine(
@@ -496,52 +441,7 @@ impl IntoView for Questionnaire {
         );
         phase.feed(index, |_| Event::StepChanged);
         phase.feed(answers, |_| Event::AnswersChanged);
-        let submitted = memo(move || {
-            matches!(phase.get(), Phase::Submitted { at, answers: all }
-                if at == index.get() && all == answers.get())
-        });
-        let finish = move || phase.send(Event::Submit);
-        let previous = kivact::view::show(memo(move || !first.get()), move || {
-            button(message("basic.questionnaire.previous", "Previous"))
-                .variant(ButtonVariant::Outline)
-                .on_press(move || current.set(index.get().saturating_sub(1)))
-                .style(style().align_self(Align::Start))
-        });
-        let skip = kivact::view::show(optional, move || {
-            button(message("basic.questionnaire.skip", "Skip"))
-                .variant(ButtonVariant::Outline)
-                .disabled(memo(move || last.get() && submitted.get()))
-                .on_press(move || {
-                    set_answer(answers, index.get(), QuestionnaireAnswer::Skipped);
-                    if last.get() {
-                        finish();
-                    } else {
-                        current.set(index.get() + 1);
-                    }
-                })
-        });
-        let forward = dynamic(
-            move || last.get(),
-            move |is_last| {
-                let blocked = memo(move || !answered.get() && !optional.get());
-                if is_last {
-                    button(message("basic.questionnaire.submit", "Submit"))
-                        .disabled(memo(move || blocked.get() || submitted.get()))
-                        .on_press(finish)
-                } else {
-                    button(message("basic.questionnaire.next", "Next"))
-                        .disabled(blocked)
-                        .on_press(move || current.set(index.get() + 1))
-                }
-            },
-        );
-        let actions = row((node().style(style().grow(1)).child(previous), skip, forward)).style(
-            style()
-                .align_items(Align::Center)
-                .justify_content(Justify::Start)
-                .gap(6)
-                .min_height(32),
-        );
+        let actions = questionnaire_actions(current, answers, steps, index, total, phase);
         root.child(
             text(progress).style(
                 style()
@@ -556,4 +456,127 @@ impl IntoView for Questionnaire {
         .child(actions)
         .into_view()
     }
+}
+
+fn choice_indicator(state: Value<ListItemState>) -> Node {
+    node()
+        .child(node().style(move || {
+            let p = kivact::style::use_tokens::<crate::Tokens>();
+            style()
+                .position(Position::Absolute)
+                .left(3)
+                .top(3)
+                .size(8, 8)
+                .radius(4)
+                .background(if state.get().selected {
+                    p.primary_foreground
+                } else {
+                    Color::TRANSPARENT
+                })
+        }))
+        .style(move || {
+            let p = kivact::style::use_tokens::<crate::Tokens>();
+            let selected = state.get().selected;
+            style()
+                .position(Position::Relative)
+                .size(16, 16)
+                .shrink(0)
+                .margin_top(2)
+                .radius(8)
+                .border(1, if selected { p.primary } else { p.input })
+                .background(if selected {
+                    p.primary
+                } else {
+                    Color::TRANSPARENT
+                })
+        })
+}
+
+fn input_answer(
+    title: String,
+    placeholder: &Option<String>,
+    answer: Binding<QuestionnaireAnswer>,
+) -> View {
+    let text_value = binding(
+        move || {
+            answer.with(|a| match a {
+                QuestionnaireAnswer::Answered(text) => text.clone(),
+                _ => String::new(),
+            })
+        },
+        move |s: String| {
+            answer.set(if s.is_empty() {
+                QuestionnaireAnswer::Unanswered
+            } else {
+                QuestionnaireAnswer::Answered(s)
+            });
+        },
+    );
+    let mut input = text_input(title, text_value).style(style().min_height(32));
+    if let Some(hint) = placeholder {
+        input = input.placeholder(hint.clone());
+    }
+    input.into_view()
+}
+
+fn questionnaire_actions(
+    current: Binding<usize>,
+    answers: Binding<Vec<QuestionnaireAnswer>>,
+    steps: Value<Vec<QuestionnaireStep>>,
+    index: Value<usize>,
+    total: Value<usize>,
+    phase: kivact::state::MachineHandle<Submission>,
+) -> Node {
+    let answered = memo(move || {
+        answers.with(|a| matches!(a.get(index.get()), Some(QuestionnaireAnswer::Answered(_))))
+    });
+    let optional = memo(move || steps.with(|all| all.get(index.get()).is_some_and(|s| s.optional)));
+    let first = memo(move || index.get() == 0);
+    let last = memo(move || index.get() + 1 >= total.get());
+    let submitted = memo(move || {
+        matches!(phase.get(), Phase::Submitted { at, answers: all }
+                if at == index.get() && all == answers.get())
+    });
+    let finish = move || phase.send(Event::Submit);
+    let previous = kivact::view::show(memo(move || !first.get()), move || {
+        button(message("basic.questionnaire.previous", "Previous"))
+            .variant(ButtonVariant::Outline)
+            .on_press(move || current.set(index.get().saturating_sub(1)))
+            .style(style().align_self(Align::Start))
+    });
+    let skip = kivact::view::show(optional, move || {
+        button(message("basic.questionnaire.skip", "Skip"))
+            .variant(ButtonVariant::Outline)
+            .disabled(memo(move || last.get() && submitted.get()))
+            .on_press(move || {
+                set_answer(answers, index.get(), QuestionnaireAnswer::Skipped);
+                if last.get() {
+                    finish();
+                } else {
+                    current.set(index.get() + 1);
+                }
+            })
+    });
+    let forward = dynamic(
+        move || last.get(),
+        move |is_last| {
+            let blocked = memo(move || !answered.get() && !optional.get());
+            if is_last {
+                button(message("basic.questionnaire.submit", "Submit"))
+                    .disabled(memo(move || blocked.get() || submitted.get()))
+                    .on_press(finish)
+            } else {
+                button(message("basic.questionnaire.next", "Next"))
+                    .disabled(blocked)
+                    .on_press(move || current.set(index.get() + 1))
+            }
+        },
+    );
+    row((node().style(style().grow(1)).child(previous), skip, forward)).style(
+        style()
+            .align_items(Align::Center)
+            .justify_content(Justify::Start)
+            .gap(6)
+            .min_height(32),
+    )
 }

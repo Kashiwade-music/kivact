@@ -7,12 +7,10 @@ use crate::editors::arrangement::a11y::texts::ArrangementTexts;
 use crate::editors::arrangement::model::{ArrangementRequest, TimelineMarker, TimelineTrack};
 use kivact::custom::NodeRefExt;
 
-use kivact::interaction::{DragCoordinates, EditSession};
+use kivact::interaction::EditSession;
 use kivact::state::{Callback, Value, signal};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Cursor, Overflow, pct, style};
-use kivact::view::EditPhase;
-use kivact::view::MouseButton;
 use kivact::view::{A11yAction, HandlerResult, IntoView, Role, View, node_ref};
 use kivact::view::{Node, NodeBuilder, node};
 
@@ -138,161 +136,18 @@ impl NodeBuilder for Arrangement {
 
 impl IntoView for Arrangement {
     fn into_view(self) -> View {
-        let Self {
+        let Prepared {
             root,
-            items,
-            tracks,
-            length,
-            ruler,
-            loop_min_duration,
-            state:
-                ArrangementState {
-                    selection: selected,
-                    playhead,
-                    loop_range,
-                    cycling,
-                    transform,
-                    tool: tool_binding,
-                },
-            markers,
-            snap,
-            step,
+            state,
+            reference,
             add_track,
-            on_edit,
-        } = self;
-        ruler.report();
-        let report = callback(|error| -> kivact::Result<()> { Err(error) });
-        let length = kivact::state::memo(move || {
-            let value = length.get();
-            if value.is_finite() && value > 0.0 {
-                value
-            } else {
-                report.call(kivact::UiError::msg(
-                    "arrangement length must be finite and positive",
-                ));
-                0.0
-            }
-        });
-        let texts = ArrangementTexts::new();
-        let data = items.into_value();
-        let track_data = tracks.into_value();
-
-        let selection = selected.into_value();
-        let regions =
-            crate::editors::arrangement::a11y::targets::create(track_data, data, selection);
-        let order = kivact::state::memo(move || {
-            data.get()
-                .into_iter()
-                .filter(crate::editors::shared::model::drawable)
-                .map(|c| kivact::interaction::ListItem::new(c.id, c.label))
-                .collect::<Vec<_>>()
-        });
-        let choose = crate::editors::shared::selection::controller(order, selected);
-        let frame = playhead.into_value();
-        let range = loop_range.into_value();
-        let cycle = cycling.into_value();
-        let pixels = kivact::state::memo(move || transform.get().scale);
-        let offset = kivact::state::memo(move || transform.get().offset);
-        let tool = tool_binding.into_value();
-        let active_auto = signal(None::<(u64, u64)>);
-        let restore = super::edit::Restore {
-            playhead,
-            loop_range,
-            cycling,
-            transform,
-        };
-        let reference = node_ref();
-        let rect = reference.rect();
-        let edit = crate::editors::shared::model::observed(
-            EditSession::new(move |snapshot| super::edit::restore(restore, snapshot)),
-            on_edit.map(|observer| {
-                callback(move |phase| {
-                    observer.call(match phase {
-                        EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
-                        EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
-                        EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                    })
-                })
-            }),
-        );
-        let gesture =
-            kivact::interaction::use_drag::<super::gesture::Snapshot>(DragCoordinates::Local)
-                .slop(0.0)
-                .buttons([MouseButton::Middle]);
-        let press = crate::editors::shared::gesture::CanvasGesture::new(gesture);
-        let gesture = gesture.edit_on_change(edit, move || {
-            press
-                .initial()
-                .unwrap_or_else(|| super::gesture::Snapshot::Clips(Vec::new()))
-        });
-        let state = State {
-            size: kivact::state::memo(move || {
-                let r = rect.get().unwrap_or_default();
-                kivact::geometry::Size::new(r.width, r.height)
-            }),
-            data,
-            length,
-            bounds: ruler.zoom,
-            min_duration: ruler.min_duration,
-            loop_min_duration,
-            on_edit,
-            track_data,
-            selected,
-            selection,
-            playhead,
-            frame,
-            loop_range,
-            range,
-            cycle,
-            cycling,
-            transform,
-            pixels,
-            offset,
-            tool_binding,
-            tool,
-            markers,
-            snap,
-            step,
-            active_auto,
-            edit,
-            press,
-            gesture,
-            regions,
-            texts,
-            choose,
-        };
+        } = self.prepare();
+        let data = state.data;
+        let track_data = state.track_data;
+        let selection = state.selection;
         let gesture = super::input::drag(state);
         let availability = kivact::custom::part(|input| input);
-        let availability_state = availability.state();
-        let focus = reference.focus_within();
-        kivact::state::effect(move || {
-            let focused = focus.get();
-            let visible = reference.is_visible();
-            let clips = state.data.get();
-            let tracks = state.track_data.get();
-            let missing = state.initial().is_some_and(|v| match v {
-                super::gesture::Snapshot::Clips(initial) => initial.iter().any(|v| {
-                    !clips
-                        .iter()
-                        .any(|c| c.id == v.0 && tracks.iter().any(|t| t.id == c.lane))
-                }),
-                super::gesture::Snapshot::Automation(track, id, Some(_)) => !tracks
-                    .iter()
-                    .any(|t| t.id == track && t.automation.iter().any(|p| p.id == id)),
-                super::gesture::Snapshot::Automation(track, _, None) => {
-                    !tracks.iter().any(|t| t.id == track)
-                }
-                _ => false,
-            });
-            let input = availability_state.get();
-            state.press.inputs_changed(
-                focused,
-                visible && !input.hidden,
-                !input.disabled,
-                !missing,
-                move || state.cancel(),
-            );
-        });
+        observe_inputs(state, reference, availability.state());
         let action = callback(move |event| super::edit::a11y(state, add_track, event));
         let semantic_items = kivact::state::memo(move || super::a11y::semantic(state));
         let root = root.regions(
@@ -343,4 +198,194 @@ impl IntoView for Arrangement {
             })
             .into_view()
     }
+}
+
+struct Prepared {
+    root: Node,
+    state: State,
+    reference: kivact::view::NodeRef,
+    add_track: Option<Callback<()>>,
+}
+impl Arrangement {
+    fn prepare(self) -> Prepared {
+        let Self {
+            root,
+            items,
+            tracks,
+            length,
+            ruler,
+            loop_min_duration,
+            state:
+                ArrangementState {
+                    selection: selected,
+                    playhead,
+                    loop_range,
+                    cycling,
+                    transform,
+                    tool: tool_binding,
+                },
+            markers,
+            snap,
+            step,
+            add_track,
+            on_edit,
+        } = self;
+        ruler.report();
+        let length = validated_length(length);
+        let texts = ArrangementTexts::new();
+        let data = items.into_value();
+        let track_data = tracks.into_value();
+
+        let collection = collection_inputs(data, track_data, selected);
+        let frame = playhead.into_value();
+        let range = loop_range.into_value();
+        let cycle = cycling.into_value();
+        let pixels = kivact::state::memo(move || transform.get().scale);
+        let offset = kivact::state::memo(move || transform.get().offset);
+        let tool = tool_binding.into_value();
+        let active_auto = signal(None::<(u64, u64)>);
+        let reference = node_ref();
+        let rect = reference.rect();
+        let edit = arrangement_edit(playhead, loop_range, cycling, transform, on_edit);
+        let (press, gesture) = crate::editors::shared::gesture::CanvasGesture::editor(edit, || {
+            super::gesture::Snapshot::Clips(Vec::new())
+        });
+        let state = State {
+            size: crate::editors::shared::model::canvas_size(rect),
+            data,
+            length,
+            bounds: ruler.zoom,
+            min_duration: ruler.min_duration,
+            loop_min_duration,
+            on_edit,
+            track_data,
+            selected,
+            selection: collection.selection,
+            playhead,
+            frame,
+            loop_range,
+            range,
+            cycle,
+            cycling,
+            transform,
+            pixels,
+            offset,
+            tool_binding,
+            tool,
+            markers,
+            snap,
+            step,
+            active_auto,
+            edit,
+            press,
+            gesture,
+            regions: collection.regions,
+            texts,
+            choose: collection.choose,
+        };
+        Prepared {
+            root,
+            state,
+            reference,
+            add_track,
+        }
+    }
+}
+
+fn observe_inputs(
+    state: State,
+    reference: kivact::view::NodeRef,
+    availability_state: Value<kivact::custom::PartState>,
+) {
+    let focus = reference.focus_within();
+    kivact::state::effect(move || {
+        let focused = focus.get();
+        let visible = reference.is_visible();
+        let clips = state.data.get();
+        let tracks = state.track_data.get();
+        let missing = state.initial().is_some_and(|v| match v {
+            super::gesture::Snapshot::Clips(initial) => initial.iter().any(|v| {
+                !clips
+                    .iter()
+                    .any(|c| c.id == v.0 && tracks.iter().any(|t| t.id == c.lane))
+            }),
+            super::gesture::Snapshot::Automation(track, id, Some(_)) => !tracks
+                .iter()
+                .any(|t| t.id == track && t.automation.iter().any(|p| p.id == id)),
+            super::gesture::Snapshot::Automation(track, _, None) => {
+                !tracks.iter().any(|t| t.id == track)
+            }
+            _ => false,
+        });
+        let input = availability_state.get();
+        state.press.inputs_changed(
+            focused,
+            visible && !input.hidden,
+            !input.disabled,
+            !missing,
+            move || state.cancel(),
+        );
+    });
+}
+
+fn validated_length(length: Value<f64>) -> Value<f64> {
+    let report = callback(|error| -> kivact::Result<()> { Err(error) });
+    kivact::state::memo(move || {
+        let value = length.get();
+        if value.is_finite() && value > 0.0 {
+            value
+        } else {
+            report.call(kivact::UiError::msg(
+                "arrangement length must be finite and positive",
+            ));
+            0.0
+        }
+    })
+    .into_value()
+}
+
+struct CollectionInputs {
+    selection: Value<Vec<u64>>,
+    regions: Value<crate::editors::arrangement::a11y::targets::Regions>,
+    choose: kivact::interaction::ListApi<u64>,
+}
+fn collection_inputs(
+    data: Value<Vec<Clip>>,
+    track_data: Value<Vec<TimelineTrack>>,
+    selected: kivact::state::Binding<Vec<u64>>,
+) -> CollectionInputs {
+    let selection = selected.into_value();
+    let regions = crate::editors::arrangement::a11y::targets::create(track_data, data, selection);
+    let order = kivact::state::memo(move || {
+        data.get()
+            .into_iter()
+            .filter(crate::editors::shared::model::drawable)
+            .map(|c| kivact::interaction::ListItem::new(c.id, c.label))
+            .collect::<Vec<_>>()
+    });
+    let choose = crate::editors::shared::selection::controller(order, selected);
+    CollectionInputs {
+        selection,
+        regions,
+        choose,
+    }
+}
+
+fn arrangement_edit(
+    playhead: kivact::state::Binding<f64>,
+    loop_range: kivact::state::Binding<(f64, f64)>,
+    cycling: kivact::state::Binding<bool>,
+    transform: kivact::state::Binding<kivact::interaction::ViewTransform>,
+    on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<ArrangementRequest>>>,
+) -> EditSession<super::gesture::Snapshot> {
+    let restore = super::edit::Restore {
+        playhead,
+        loop_range,
+        cycling,
+        transform,
+    };
+    crate::editors::shared::model::observed(
+        EditSession::new(move |snapshot| super::edit::restore(restore, snapshot)),
+        crate::editors::shared::model::phase_observer(on_edit),
+    )
 }

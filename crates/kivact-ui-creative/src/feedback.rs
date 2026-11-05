@@ -434,12 +434,7 @@ fn window_layer<V: IntoView>(
     title: Value<String>,
     content: impl Fn(ToolWindowApi) -> V + 'static,
 ) -> Node {
-    let value = open.into_value();
-    kivact::state::on_cleanup(move || {
-        if value.try_get() == Some(true) {
-            open.set(false);
-        }
-    });
+    close_removed_window(open);
     let reference = node_ref();
     let bounds = reference.rect();
     let kind = if options.modal {
@@ -460,114 +455,16 @@ fn window_layer<V: IntoView>(
         let collapsed = signal(false);
         let offset = signal(Point::new(0.0, 0.0));
         // The offset and box at the press, which the drag moves from.
-        let mover = use_drag::<Option<(Point, Rect)>>(DragCoordinates::Window).on_update(
-            move |update: DragUpdate<Option<(Point, Rect)>>| {
-                let Some((initial, rect)) = update.payload else {
-                    return;
-                };
-                let viewport = platform::window_size().get();
-                let base = options.position.origin(viewport, rect);
-                let proposed = Point::new(
-                    base.x + initial.x + update.delta.x,
-                    base.y + initial.y + update.delta.y,
-                );
-                offset.set(Point::new(
-                    proposed.x.clamp(
-                        -rect.width + 80.0,
-                        (viewport.width - 80.0).max(-rect.width + 80.0),
-                    ) - base.x,
-                    proposed.y.clamp(0.0, (viewport.height - 30.0).max(0.0)) - base.y,
-                ));
-            },
+        let mover = window_mover(offset, options.position);
+        let header = window_header(
+            options.clone(),
+            title,
+            collapsed,
+            mover,
+            bounds,
+            offset,
+            close,
         );
-        let (minimize_label, close_label) = (
-            message("creative.window.minimize", "Minimize window"),
-            message("creative.window.close", "Close window"),
-        );
-        let window_icon = options.icon.clone();
-        let mut header = row((
-            options.icon.is_some().then(move || {
-                icon(window_icon.clone().unwrap_or(Icon::named("settings")))
-                    .style(style().color(crate::ColorName::Accent))
-            }),
-            text(title).style(style().weight(600).grow(1)),
-            (!options.modal).then(move || {
-                kivact::ui::button(minimize_label)
-                    .variant(ButtonVariant::Secondary)
-                    .hide_label(true)
-                    .icon(kivact::view::icon("chevron-down"))
-                    .with_node(move |node| {
-                        node.on_pointer_default(|event| {
-                            if matches!(event.phase(), PointerPhase::Down(_)) {
-                                Handled::Yes
-                            } else {
-                                Handled::No
-                            }
-                        })
-                    })
-                    .on_press(move || collapsed.update(|value| *value = !*value))
-            }),
-            kivact::ui::button(close_label)
-                .variant(ButtonVariant::Secondary)
-                .hide_label(true)
-                .icon(kivact::view::icon("x"))
-                .with_node(move |node| {
-                    node.on_pointer_default(|event| {
-                        if matches!(event.phase(), PointerPhase::Down(_)) {
-                            Handled::Yes
-                        } else {
-                            Handled::No
-                        }
-                    })
-                })
-                .on_press(move || close.close()),
-        ))
-        .name(message_with(
-            "creative.window.title_bar",
-            "{title} title bar",
-            move || [("title", title.get())],
-        ))
-        .style(move || {
-            let t = &use_theme().get();
-            style()
-                .height(options.titlebar_height)
-                .padding_left(options.titlebar_padding.0)
-                .padding_right(options.titlebar_padding.1)
-                .gap(8)
-                .align_items(Align::Center)
-                .background(t.ext::<crate::tokens::Tokens>().header)
-                .cursor(if options.modal {
-                    kivact::style::Cursor::Default
-                } else {
-                    kivact::style::Cursor::Grab
-                })
-        });
-        if !options.modal {
-            header = header
-                .role(Role::Button)
-                .focusable(true)
-                .expanded(move || !collapsed.get())
-                .a11y_action(A11yAction::Toggle, move |_| collapsed.update(|v| *v = !*v))
-                .on_pointer_default(move |e| {
-                    if matches!(
-                        e.phase(),
-                        PointerPhase::Down(ButtonPress {
-                            button: MouseButton::Primary,
-                            clicks: 2..
-                        })
-                    ) {
-                        mover.cancel();
-                        collapsed.update(|v| *v = !*v);
-                        return Handled::Yes;
-                    }
-                    Handled::No
-                })
-                .part(mover.source_with(move || {
-                    bounds
-                        .get_untracked()
-                        .map(|rect| (offset.get_untracked(), rect))
-                }));
-        }
         let window = overlay(
             node_ref(),
             Placement::Center,
@@ -612,23 +509,163 @@ fn window_layer<V: IntoView>(
             })
         })
         .with_node(move |node| node.part(dialog.content()));
-        column((
-            (options.modal && options.backdrop_blur > 0.0).then(move || {
-                node().style(
-                    style()
-                        .position(Position::Fixed)
-                        .top(0)
-                        .right(0)
-                        .bottom(0)
-                        .left(0)
-                        .z_index(100)
-                        .background(crate::color::transparent_backdrop())
-                        .backdrop_blur(options.backdrop_blur),
-                )
-            }),
-            window,
-        ))
-        .style(style().gap(0))
+        column((window_backdrop(&options), window)).style(style().gap(0))
     });
     column((layer,)).style(style().gap(0))
+}
+
+fn window_mover(
+    offset: kivact::state::Signal<Point>,
+    position: WindowPosition,
+) -> kivact::interaction::DragApi<Option<(Point, Rect)>> {
+    use_drag::<Option<(Point, Rect)>>(DragCoordinates::Window).on_update(
+        move |update: DragUpdate<Option<(Point, Rect)>>| {
+            let Some((initial, rect)) = update.payload else {
+                return;
+            };
+            let viewport = platform::window_size().get();
+            let base = position.origin(viewport, rect);
+            let proposed = Point::new(
+                base.x + initial.x + update.delta.x,
+                base.y + initial.y + update.delta.y,
+            );
+            offset.set(Point::new(
+                proposed.x.clamp(
+                    -rect.width + 80.0,
+                    (viewport.width - 80.0).max(-rect.width + 80.0),
+                ) - base.x,
+                proposed.y.clamp(0.0, (viewport.height - 30.0).max(0.0)) - base.y,
+            ));
+        },
+    )
+}
+
+fn window_header(
+    options: WindowOptions,
+    title: Value<String>,
+    collapsed: kivact::state::Signal<bool>,
+    mover: kivact::interaction::DragApi<Option<(Point, Rect)>>,
+    bounds: Value<Option<Rect>>,
+    offset: kivact::state::Signal<Point>,
+    close: ToolWindowApi,
+) -> Node {
+    let (minimize_label, close_label) = (
+        message("creative.window.minimize", "Minimize window"),
+        message("creative.window.close", "Close window"),
+    );
+    let window_icon = options.icon.clone();
+    let header_options = options.clone();
+    let mut header = row((
+        options.icon.is_some().then(move || {
+            icon(window_icon.clone().unwrap_or(Icon::named("settings")))
+                .style(style().color(crate::ColorName::Accent))
+        }),
+        text(title).style(style().weight(600).grow(1)),
+        (!options.modal).then(move || {
+            kivact::ui::button(minimize_label)
+                .variant(ButtonVariant::Secondary)
+                .hide_label(true)
+                .icon(kivact::view::icon("chevron-down"))
+                .with_node(move |node| {
+                    node.on_pointer_default(|event| {
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
+                            Handled::Yes
+                        } else {
+                            Handled::No
+                        }
+                    })
+                })
+                .on_press(move || collapsed.update(|value| *value = !*value))
+        }),
+        kivact::ui::button(close_label)
+            .variant(ButtonVariant::Secondary)
+            .hide_label(true)
+            .icon(kivact::view::icon("x"))
+            .with_node(move |node| {
+                node.on_pointer_default(|event| {
+                    if matches!(event.phase(), PointerPhase::Down(_)) {
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
+            })
+            .on_press(move || close.close()),
+    ))
+    .name(message_with(
+        "creative.window.title_bar",
+        "{title} title bar",
+        move || [("title", title.get())],
+    ))
+    .style(move || window_header_style(&header_options));
+    if !options.modal {
+        header = header
+            .role(Role::Button)
+            .focusable(true)
+            .expanded(move || !collapsed.get())
+            .a11y_action(A11yAction::Toggle, move |_| collapsed.update(|v| *v = !*v))
+            .on_pointer_default(move |e| {
+                if matches!(
+                    e.phase(),
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        clicks: 2..
+                    })
+                ) {
+                    mover.cancel();
+                    collapsed.update(|v| *v = !*v);
+                    return Handled::Yes;
+                }
+                Handled::No
+            })
+            .part(mover.source_with(move || {
+                bounds
+                    .get_untracked()
+                    .map(|rect| (offset.get_untracked(), rect))
+            }));
+    }
+    header
+}
+
+fn window_header_style(options: &WindowOptions) -> kivact::style::Style {
+    let t = &use_theme().get();
+    style()
+        .height(options.titlebar_height)
+        .padding_left(options.titlebar_padding.0)
+        .padding_right(options.titlebar_padding.1)
+        .gap(8)
+        .align_items(Align::Center)
+        .background(t.ext::<crate::tokens::Tokens>().header)
+        .cursor(if options.modal {
+            kivact::style::Cursor::Default
+        } else {
+            kivact::style::Cursor::Grab
+        })
+}
+
+fn window_backdrop(options: &WindowOptions) -> Option<Node> {
+    let modal = options.modal;
+    let blur = options.backdrop_blur;
+    (modal && blur > 0.0).then(move || {
+        node().style(
+            style()
+                .position(Position::Fixed)
+                .top(0)
+                .right(0)
+                .bottom(0)
+                .left(0)
+                .z_index(100)
+                .background(crate::color::transparent_backdrop())
+                .backdrop_blur(blur),
+        )
+    })
+}
+
+fn close_removed_window(open: Binding<bool>) {
+    let value = open.into_value();
+    kivact::state::on_cleanup(move || {
+        if value.try_get() == Some(true) {
+            open.set(false);
+        }
+    });
 }
