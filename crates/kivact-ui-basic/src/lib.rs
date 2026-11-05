@@ -51,7 +51,6 @@ mod avatar;
 mod badge;
 mod breadcrumb;
 mod button;
-mod button_group;
 mod calendar;
 mod card;
 mod chart;
@@ -59,7 +58,6 @@ mod chat;
 mod choice;
 mod code_block;
 mod color;
-mod combobox;
 mod date_picker;
 mod disclosure;
 mod drawer;
@@ -83,6 +81,8 @@ mod primitives;
 mod questionnaire;
 mod recipes;
 mod recipes_collections;
+mod recipes_combobox;
+mod recipes_groups;
 mod recipes_command;
 mod recipes_controls;
 mod recipes_dialog;
@@ -109,7 +109,6 @@ pub use breadcrumb::{
     BreadcrumbLink, breadcrumb, breadcrumb_content, breadcrumb_ellipsis, breadcrumb_link,
     breadcrumb_page, breadcrumb_separator,
 };
-pub use button_group::{ButtonGroup, button_group, button_group_separator, button_group_text};
 pub use card::{Card, CardHeader, CardSize, card, card_header};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
 pub use chat::{
@@ -142,12 +141,11 @@ pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 
 pub use alert_dialog::AlertDialogSize;
 pub use calendar::{Calendar, CalendarCaption, calendar, calendar_range};
-pub use choice::{ToggleGroup, ToggleVariant, toggle_group};
+pub use choice::ToggleVariant;
 pub use code_block::{
     CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
 };
 pub use color::ColorName;
-pub use combobox::{Combobox, combobox};
 pub use date_picker::{DatePicker, DateRangePicker, date_picker, date_range_picker};
 pub use disclosure::DisclosureVariant;
 pub use drawer::DrawerVariant;

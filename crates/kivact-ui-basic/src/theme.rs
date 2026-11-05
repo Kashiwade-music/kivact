@@ -65,5 +65,16 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_control_height(32.0)
         .with_icons(crate::icons::set())
         .with(p)
+        .with(kivact::ui::UiTokens {
+            combobox: kivact::ui::ComboboxTokens {
+                list_height: 252.0,
+                popup_offset: 4.0,
+                field_radius: Some(0.0),
+                chip_radius: 0.0,
+                option_radius: 0.0,
+                ..kivact::ui::ComboboxTokens::default()
+            },
+            ..kivact::ui::UiTokens::default()
+        })
         .with(crate::recipes::recipes())
 }

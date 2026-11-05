@@ -141,5 +141,5 @@ pub(crate) fn trigger_style(
     } else {
         with_focus(s, p)
     };
-    crate::button_group::joined(s)
+    s
 }
