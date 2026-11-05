@@ -170,8 +170,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
 | H-G3 | doing | ce4294 | 中核の状態整理を統合、全体静的のdispatch葉分離を修正中 |
 | H-G4 | doing | 28617746 | UI+interaction統合check/scoped静的0、全体gate待ち |
-| H-G5 | doing | cec72f52 | Basic/Pop/Game/Creative完了、親workspaceClippy19e889d3 0、Soft残 |
-| H-G6 | todo | | |
+| H-G5 | merged | 98adadd0 | 全5kit完了。Soft Clippy/8規約0、lib3/consumer96全通過、実測cache単一owner |
+| H-G6 | doing | 98adadd0 | 全skipを解除、outer/test長関数の統合点検と分割 |
 | F-1 | todo | | |
 | F-2 | todo | | |
 | F-3 | todo | | |

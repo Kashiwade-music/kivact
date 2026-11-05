@@ -11,5 +11,12 @@ pub(crate) fn strings(table: &toml::Table, key: &str) -> Vec<String> {
         .collect()
 }
 pub(crate) fn is_kit(package: &str) -> bool {
-    package.starts_with("kivact-ui-")
+    matches!(
+        package,
+        "kivact-ui-basic"
+            | "kivact-ui-pop"
+            | "kivact-ui-game"
+            | "kivact-ui-creative"
+            | "kivact-ui-soft"
+    )
 }
