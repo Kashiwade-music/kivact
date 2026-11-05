@@ -119,7 +119,7 @@ fn theme_switch_changes_existing_nodes_and_pixels_without_remounting_state() {
                             kivact::style::ThemeMode::Light
                         })
                     },
-                    move || ui::panel(kivact::ui::checkbox("Sync", checked)),
+                    move || kivact::ui::card(kivact::ui::checkbox("Sync", checked)),
                 ),
             )
         });

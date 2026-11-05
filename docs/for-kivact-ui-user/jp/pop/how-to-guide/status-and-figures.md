@@ -41,7 +41,7 @@ fn figures() -> impl IntoView {
 
 ## パネルと見出しでまとめる
 
-`pop::panel(children)` は、枠線付きで子要素を縦に並べるカードです。`pop::section_heading(number, title, subtitle)` は、複数のセクションを持つ画面向けの番号付き見出しです。セクションごとに `panel` で囲みます。
+`kivact::ui::card(children)` は、枠線付きで子要素を縦に並べるカードです。`pop::section_heading(number, title, subtitle)` は、複数のセクションを持つ画面向けの番号付き見出しです。セクションごとに `panel` で囲みます。
 
 ## 状態付きのレコードを並べる
 
@@ -60,7 +60,7 @@ struct Customer {
 }
 
 fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
-    pop::panel((
+    kivact::ui::card((
         pop::section_heading("01", "Customers", "Last 7 days"),
         for_each(
             rows,
@@ -99,7 +99,7 @@ use kivact::prelude::*;
 use kivact_ui_pop as pop;
 
 fn details() -> impl IntoView {
-    pop::panel((
+    kivact::ui::card((
         pop::key_value("Name", text("Haruka Sato")),
         pop::key_value("Plan", text("Team")),
         pop::key_value("Status", kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))),

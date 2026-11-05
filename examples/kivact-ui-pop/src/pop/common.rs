@@ -21,8 +21,8 @@ pub(super) fn columns(children: impl IntoView, count: u16) -> Node {
     )
 }
 
-pub(super) fn card(title: &str, content: impl IntoView) -> Node {
-    ui::panel((
+pub(super) fn card(title: &str, content: impl IntoView) -> kivact::ui::Card {
+    kivact::ui::card((
         row(text(title.to_string())
             .role(Role::Heading)
             .style(style().font_size(15).weight(600).line_height(1.2)))
@@ -37,7 +37,7 @@ pub(super) fn card(title: &str, content: impl IntoView) -> Node {
     ))
 }
 
-pub(super) fn half(v: Node) -> Node {
+pub(super) fn half<C: kivact::view::Component>(v: C) -> C {
     v.style(style().grid_column(GridPlacement::span(6)))
 }
 
