@@ -1,139 +1,56 @@
-//! Role: Draw console badges and cut-corner avatars through standard recipes.
+//! Role: Draw console loading placeholder geometry.
 use crate::Tokens;
-use crate::display::ToneExt;
-use kivact::draw::Shape;
+use kivact::draw::Layer;
 use kivact::geometry::Rect;
-use kivact::style::{Align, Color, ColorToken, Justify, Position, Style, Theme, pct, style};
-use kivact::ui::{AvatarState, BadgeState, Look};
+use kivact::style::{Style, Theme, pct, style};
+use kivact::ui::{Look, SkeletonState};
 
-/// Status, version and environment badge treatments.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum BadgeVariant {
-    #[default]
-    Dot,
-    Plain,
-    Solid,
-    Outline,
+/// A console loading row with an avatar and two caption placeholders.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SkeletonVariant {
+    Rows,
 }
-impl kivact::ui::Variant for BadgeVariant {}
+impl kivact::ui::Variant for SkeletonVariant {}
 
-/// Console avatar dimensions and application-selected fill.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct AvatarVariant {
-    pub side: f64,
-    pub color: Color,
-}
-impl kivact::ui::Variant for AvatarVariant {}
-
-pub(crate) fn badge(t: &Theme, s: &Look<BadgeState>) -> Style {
-    let variant = s.variant::<BadgeVariant>().copied().unwrap_or_default();
-    let tone = s.tone;
-    let dot = variant == BadgeVariant::Dot;
-    let mut result = style()
-        .height(20)
-        .min_height(20)
-        .align_self(Align::Start)
-        .padding_x(9)
-        .padding_left(if dot { 20 } else { 9 })
-        .gap(5)
-        .align_items(Align::Center)
-        .radius(0)
-        .font_family(t.ext::<Tokens>().mono_family.as_str())
-        .font_size(11.5)
-        .color(if tone == kivact::interaction::Tone::Accent {
-            t.ext::<Tokens>().navy
-        } else if variant == BadgeVariant::Solid {
-            t.colors().accent_text
-        } else {
-            tone.color(t)
-        })
-        .background(match variant {
-            BadgeVariant::Solid => tone.color(t),
-            BadgeVariant::Outline => Color::TRANSPARENT,
-            _ => tone.weak(t),
-        });
-    if variant == BadgeVariant::Outline {
-        result = result.border(1, tone.color(t));
-    } else {
-        result = result.clip_path(
-            Shape::polygon()
-                .point(4, 0)
-                .point(pct(100), 0)
-                .point(pct(100) - 4, pct(100))
-                .point(0, pct(100)),
-        );
+pub(crate) fn skeleton(t: &Theme, s: &Look<SkeletonState>) -> Style {
+    if s.variant::<SkeletonVariant>().is_none() {
+        let base = style()
+            .min_height(16)
+            .width(pct(100))
+            .background(t.ext::<Tokens>().surface_3)
+            .opacity(s.pulse);
+        return match s.shape {
+            kivact::ui::SkeletonShape::Circle => base.size(36, 36).radius(999),
+            kivact::ui::SkeletonShape::Rounded => base.radius(t.radius().md),
+            kivact::ui::SkeletonShape::Text => base.radius(t.radius().sm),
+            kivact::ui::SkeletonShape::Rect => base.radius(0),
+        };
     }
-    if dot {
-        let color = tone.color(t);
-        result = result.paint(move |d, _| d.fill_rect(Rect::new(9., 7., 6., 6.), color));
-    }
-    result
-}
-pub(crate) fn badge_label(_: &Theme, _: &Look<BadgeState>) -> Style {
-    style()
-}
-pub(crate) fn avatar(t: &Theme, s: &Look<AvatarState>) -> Style {
-    let variant = s
-        .variant::<AvatarVariant>()
-        .copied()
-        .unwrap_or(AvatarVariant {
-            side: match s.size {
-                kivact::ui::ControlSize::ExtraSmall => 20.,
-                kivact::ui::ControlSize::Small => 24.,
-                kivact::ui::ControlSize::Medium => 36.,
-                kivact::ui::ControlSize::Large => 48.,
-            },
-            color: t.colors().accent,
-        });
-    style()
-        .size(variant.side, variant.side)
-        .radius(0)
-        .clip(false)
-        .align_items(Align::Center)
-        .justify_content(Justify::Center)
-        .font_family(t.ext::<Tokens>().display_family.as_str())
-        .font_size(variant.side * 0.44)
-        .weight(700)
-        .italic(true)
-        .color(t.colors().accent_text)
-        .paint(move |d, s| {
-            d.fill_shape(
-                s.to_rect(),
-                &Shape::polygon()
-                    .point(0, 0)
-                    .point(pct(100), 0)
-                    .point(pct(100), pct(100) - variant.side / 4.)
-                    .point(pct(100) - variant.side / 4., pct(100))
-                    .point(0, pct(100)),
-                variant.color,
-            );
-        })
-}
-pub(crate) fn avatar_status(t: &Theme, s: &Look<AvatarState>) -> Style {
-    style()
-        .position(Position::Absolute)
-        .right(-2)
-        .bottom(-2)
-        .size(10, 10)
-        .radius(0)
-        .border(2, ColorToken::Surface)
-        .background(s.status.unwrap_or_default().color(t))
-}
-pub(crate) fn avatar_overflow(t: &Theme, _: &Look<usize>) -> Style {
-    style()
-        .size(32, 32)
-        .align_items(Align::Center)
-        .justify_content(Justify::Center)
-        .font_family(t.ext::<Tokens>().mono_family.as_str())
-        .font_size(10)
-        .color(t.ext::<Tokens>().text_3)
-        .background(t.ext::<Tokens>().surface_3)
-        .clip_path(
-            Shape::polygon()
-                .point(0, 0)
-                .point(pct(100), 0)
-                .point(pct(100), pct(100) - 8)
-                .point(pct(100) - 8, pct(100))
-                .point(0, pct(100)),
-        )
+    let phase = (1.0 - s.pulse) * 2.0;
+    style().height(36).width(pct(100)).paint(move |d, _| {
+        for rect in [
+            Rect::new(0., 0., 36., 36.),
+            Rect::new(48., 4., 160., 10.),
+            Rect::new(48., 22., 230., 10.),
+        ] {
+            let layer = if rect.x == 0.0 {
+                Layer::new().area(rect).clip(&crate::cut_corner(8.))
+            } else {
+                Layer::new().clip_rect(rect)
+            };
+            d.layer(layer, |d| {
+                let p = d.theme().ext::<Tokens>();
+                d.fill_rect(rect, p.surface_3);
+                let x = rect.x + rect.width * (phase * 3.0 - 1.0);
+                d.fill_rect(
+                    Rect::new(x, rect.y, rect.width * 0.3, rect.height),
+                    kivact::draw::linear_gradient(100).colors([
+                        p.surface_3,
+                        d.theme().colors().surface_alt,
+                        p.surface_3,
+                    ]),
+                );
+            });
+        }
+    })
 }

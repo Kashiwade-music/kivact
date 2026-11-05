@@ -112,16 +112,14 @@ fn console_theme() -> Theme {
 /// `include_bytes!("../assets/BarlowCondensed-Bold.ttf")`.
 fn application(display: &'static [u8], mono: &'static [u8], text: &'static [u8]) -> App {
     App::new("Console")
-        .font(display)
-        .font(mono)
-        .font(text)
+        .fonts([display, mono, text])
         .theme(console_theme())
 }
 # fn main() {}
 ```
 
 - `display_family` はボタン、タブ、見出し、大きな数字に使われ、`mono_family` は `game::mono`、表のキャプションなど機械的なテキストに使われます。既定はそれぞれ `sans-serif` と `monospace` です。
-- フォントはアプリが持ちます。ファイルを `App::font` で登録し、ファミリー名には、ファイル名ではなく、フォントの内部に書かれた名前を使います。
+- フォントはアプリが持ちます。ファイルを `App::fonts` で登録し、ファミリー名には、ファイル名ではなく、フォントの内部に書かれた名前を使います。
 - `theme_with` で密度を選んでから、テーマのトークンを編集します。
 
 標準部品が使うキットの色（アクセント、成功、警告、危険、枠線）は、トークンではなくテーマのパレット（`theme.colors()` と `.with_colors(..)`）にあります。標準コンポーネントがパレットを読むためです。トークンには、キットが上乗せする値が入っています。アクセントをあらゆる場所で変えたいときは、気になるトークンに加えて `colors.accent` も変更します。

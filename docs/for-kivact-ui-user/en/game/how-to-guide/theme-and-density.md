@@ -128,9 +128,7 @@ fn console_theme() -> Theme {
 /// `include_bytes!("../assets/BarlowCondensed-Bold.ttf")`.
 fn application(display: &'static [u8], mono: &'static [u8], text: &'static [u8]) -> App {
     App::new("Console")
-        .font(display)
-        .font(mono)
-        .font(text)
+        .fonts([display, mono, text])
         .theme(console_theme())
 }
 # fn main() {}
@@ -139,7 +137,7 @@ fn application(display: &'static [u8], mono: &'static [u8], text: &'static [u8])
 - `display_family` is used by buttons, tabs, headings and big numbers;
   `mono_family` by `game::mono`, KPI captions and the table captions.
   Both default to `sans-serif` and `monospace`.
-- Fonts belong to the application: register each file with `App::font` and use
+- Fonts belong to the application: register each file with `App::fonts` and use
   the family name written inside the font, not the file name.
 - Choose the density with `theme_with` before customizing the theme tokens.
 
