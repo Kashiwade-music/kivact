@@ -33,6 +33,7 @@ mod overlays;
 mod recipes;
 mod recipes_collections;
 mod recipes_field;
+mod recipes_files;
 mod recipes_input;
 mod recipes_palette;
 mod recipes_small;
@@ -49,7 +50,7 @@ pub use display::{
     badge, gauge, kpi, property_list, ring, tag_badge,
 };
 pub use feedback::{Alert, Banner, EmptyState, Skeleton, alert, banner, empty_state, skeleton};
-pub use input::{Dropzone, dropzone, input_adorned, input_group, input_group_content};
+pub use input::{input_adorned, input_group, input_group_content};
 pub use layout::{TreeEntry, tree};
 pub use navigation::{breadcrumb, pagination, stepper};
 pub use overlays::{IconMenu, icon_menu};
