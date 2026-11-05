@@ -111,7 +111,7 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
         show(move || !loading.get() && count.get() == 0, || {
             kivact::ui::empty_state("No orders yet").icon(pop::empty_illustration())
                 .description("Orders appear here as soon as customers check out.")
-                .content(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
+                .actions(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
         show(loading, || row((kivact::ui::spinner(), text("Loading orders")))
             .style(style().gap(8))),
