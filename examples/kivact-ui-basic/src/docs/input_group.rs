@@ -44,10 +44,15 @@ pub(crate) fn page() -> Page {
 // example: icon
 fn icon() -> impl IntoView {
     let query = signal(String::new());
-    basic::input_group(basic::input_group_input("Search", query).placeholder("Search..."))
-        .start(kivact::view::icon("search"))
-        .end(basic::input_group_text("12 results"))
-        .style(style().width(320))
+    kivact::ui::input_group(
+        "Search",
+        (kivact::ui::text_input("Search", query)
+            .variant(basic::InputGroupControl)
+            .placeholder("Search..."),),
+    )
+    .start(kivact::view::icon("search"))
+    .end(kivact::ui::input_addon("12 results"))
+    .style(style().width(320))
 }
 // end example
 
@@ -55,35 +60,49 @@ fn icon() -> impl IntoView {
 fn button_addon() -> impl IntoView {
     let url = signal(String::from("https://example.com"));
     let copied = signal(false);
-    basic::input_group(basic::input_group_input("Link", url))
-        .end(
-            basic::input_group_button("Copy")
-                .icon(kivact::view::icon(if copied.get() {
-                    "check"
-                } else {
-                    "copy"
-                }))
-                .on_press(move || copied.set(true)),
-        )
-        .style(style().width(320))
+    kivact::ui::input_group(
+        "Link",
+        (kivact::ui::text_input("Link", url).variant(basic::InputGroupControl),),
+    )
+    .end(
+        kivact::ui::button("Copy")
+            .variant(kivact::ui::ButtonVariant::Ghost)
+            .variant(basic::InputGroupButtonSize::Xs)
+            .style(style().margin_right(-4.8))
+            .icon(kivact::view::icon(if copied.get() {
+                "check"
+            } else {
+                "copy"
+            }))
+            .on_press(move || copied.set(true)),
+    )
+    .style(style().width(320))
 }
 // end example
 
 // example: textarea
 fn textarea() -> impl IntoView {
     let body = signal(String::new());
-    basic::input_group(basic::input_group_textarea("Message", body).placeholder("Write a message"))
-        .block_end(basic::input_group_text("0 / 280"))
-        .style(style().width(320))
+    kivact::ui::input_group(
+        "Message",
+        (kivact::ui::text_area("Message", body)
+            .variant(basic::InputGroupControl)
+            .placeholder("Write a message"),),
+    )
+    .block_end(kivact::ui::input_addon("0 / 280"))
+    .style(style().width(320))
 }
 // end example
 
 // example: invalid
 fn invalid() -> impl IntoView {
     let value = signal(String::from("not an email"));
-    basic::input_group(basic::input_group_input("Email", value))
-        .start(kivact::view::icon("mail"))
-        .invalid(true)
-        .style(style().width(320))
+    kivact::ui::input_group(
+        "Email",
+        (kivact::ui::text_input("Email", value).variant(basic::InputGroupControl),),
+    )
+    .start(kivact::view::icon("mail"))
+    .invalid(true)
+    .style(style().width(320))
 }
 // end example

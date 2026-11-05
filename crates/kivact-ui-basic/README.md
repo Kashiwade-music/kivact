@@ -229,6 +229,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `item_list`
 - `card`
 - `heading`
+- `input_group`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,

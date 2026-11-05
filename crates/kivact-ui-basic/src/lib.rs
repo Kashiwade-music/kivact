@@ -149,10 +149,7 @@ pub use field::{
     field_set,
 };
 pub use icons::ICON_NAMES;
-pub use input_group::{
-    InputGroup, InputGroupButton, InputGroupButtonSize, input_group, input_group_button,
-    input_group_input, input_group_text, input_group_textarea,
-};
+pub use input_group::{InputGroupButtonLook, InputGroupButtonSize, InputGroupControl};
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
 pub use primitives::{

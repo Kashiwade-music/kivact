@@ -78,6 +78,7 @@ fn build() -> UiRecipes {
         .item_list(crate::item::recipes)
         .card(crate::card::recipes)
         .heading(|_| crate::typography::heading)
+        .input_group(crate::input_group::recipes)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts
@@ -124,15 +125,21 @@ fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
         s
     };
     // button.tsx `size="icon"`: a square, as wide as the button is high.
-    if state.icon_only {
+    let s = if state.icon_only {
         s.aspect_ratio(1.0).padding_x(0)
     } else {
         s
-    }
+    };
+    crate::input_group::button(state).map_or(s.clone(), |look| s.merge(&look))
 }
 
 fn button_content(_: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
     let (_, _, gap, _) = metrics(state.size);
+    let gap = if crate::input_group::button_icon(state).is_some() {
+        4.0
+    } else {
+        gap
+    };
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -143,6 +150,7 @@ fn button_content(_: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
 /// The box of a button's icons: `size-4`, `size-3.5` in a small button.
 fn button_icon(_: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
     let (_, _, _, side) = metrics(state.size);
+    let side = crate::input_group::button_icon(state).unwrap_or(side);
     style()
         .size(side, side)
         .shrink(0)
@@ -358,24 +366,34 @@ fn field(t: &Theme, state: &kivact::ui::Look<TextInputState>) -> Style {
 }
 
 fn text_input(t: &Theme, state: &kivact::ui::Look<TextInputState>) -> Style {
-    field(t, state)
+    let base = field(t, state)
         .height(match state.size {
             ControlSize::ExtraSmall => 24,
             ControlSize::Small => 28,
             ControlSize::Medium => 32,
             ControlSize::Large => 36,
         })
-        .padding_y(4)
+        .padding_y(4);
+    if state.variant::<crate::InputGroupControl>().is_some() {
+        crate::input_group::control(base, false)
+    } else {
+        base
+    }
 }
 
 /// `min-h-16 field-sizing-content`: at least 64 px, growing with the lines
 /// of the value (a native text area does not wrap, and it is never lower
 /// than three lines).
 fn text_area(t: &Theme, state: &kivact::ui::Look<TextInputState>) -> Style {
-    field(t, state)
+    let base = field(t, state)
         .min_height(64)
         .padding_y(8)
-        .line_height(16.0 / 12.0)
+        .line_height(16.0 / 12.0);
+    if state.variant::<crate::InputGroupControl>().is_some() {
+        crate::input_group::control(base, true)
+    } else {
+        base
+    }
 }
 
 fn hover_card_surface(t: &Theme, _: &kivact::ui::Look<kivact::ui::HoverCardSurfaceState>) -> Style {
