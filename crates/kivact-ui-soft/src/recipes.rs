@@ -13,6 +13,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .carousel(crate::recipes_carousel::carousel)
                 .breadcrumb(crate::breadcrumbs::breadcrumb)
                 .empty_state(crate::empty_state::empty_state)
+                .input_group(crate::input_group::input_group)
                 .dropzone(crate::recipes_dropzone::dropzone)
                 .date_input(|r| {
                     r.root(|_| crate::recipes_calendar::field)

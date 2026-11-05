@@ -5,10 +5,10 @@ use kivact::interaction::ScalarRange;
 use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{ControlSize, field, number_input, text_area, text_input};
+use kivact::ui::{input_addon, input_group_with};
 use kivact::view::{Node, NodeBuilder, column};
 use kivact_ui_soft::{
-    FieldStatusVariant, StatusKind, checkbox_list, field_status, input_group_text,
-    input_group_with, power_search, rich_text_editor,
+    FieldStatusVariant, StatusKind, checkbox_list, field_status, power_search, rich_text_editor,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -168,12 +168,12 @@ kivact::ui::select("Locked team", teams(), signal(Some("engineering"))).open_on_
             "Address with prefix",
             input_group_with("Website", || {
                 (
-                    input_group_text("https://"),
+                    input_addon("https://"),
                     text_input("Domain", signal("example.com".to_owned())),
                 )
             })
             .style(style().width(280)),
-            "input_group_with(\"Website\", || (input_group_text(\"https://\"), domain()))",
+            "input_group_with(\"Website\", || (input_addon(\"https://\"), domain()))",
         ),
         "file-input" => column((
             specimen("Choose a file", file_target("Attachment", false), "dropzone(label).pick_on_press().on_files(store_files)"),

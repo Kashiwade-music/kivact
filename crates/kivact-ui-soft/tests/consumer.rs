@@ -8,13 +8,13 @@ use kivact::test::render_with_handle;
 use kivact::ui::ControlSize;
 use kivact::ui::badge;
 use kivact::ui::button;
+use kivact::ui::input_group_with;
 use kivact::view::Key;
 use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact_ui_soft::{
-    BannerStatus, IconSize, StatusDotVariant, banner, code_block, heading, icon, input_group_with,
-    status_dot,
+    BannerStatus, IconSize, StatusDotVariant, banner, code_block, heading, icon, status_dot,
 };
 use std::cell::Cell;
 use std::rc::Rc;
