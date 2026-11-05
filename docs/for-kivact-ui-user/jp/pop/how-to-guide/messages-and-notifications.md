@@ -8,7 +8,7 @@
 
 ## ページにアラートを出す
 
-`pop::alert(title)` は、タイトル、任意の説明、任意の操作を持つインラインの枠です。色は標準の `kivact::interaction::Tone` で決まります。
+`kivact::ui::alert(title)` は、タイトル、任意の説明、任意の操作を持つインラインの枠です。色は標準の `kivact::interaction::Tone` で決まります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -17,10 +17,7 @@ use kivact_ui_pop as pop;
 
 fn payment_status(failed: Signal<bool>) -> impl IntoView {
     show(failed, || {
-        pop::alert("Payment failed")
-            .tone(Tone::Danger)
-            .description("Your card was declined. Update it and try again.")
-            .actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))
+        {let tone=kivact::state::IntoValue::into_value(Tone::Danger); kivact::ui::alert("Payment failed").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description("Your card was declined. Update it and try again.").actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))}
     })
 }
 # fn main() {}
@@ -112,9 +109,9 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
     column((
         show(loading, || kivact::ui::skeleton().lines(3)),
         show(move || !loading.get() && count.get() == 0, || {
-            pop::empty_state("No orders yet")
+            kivact::ui::empty_state("No orders yet").icon(pop::empty_illustration())
                 .description("Orders appear here as soon as customers check out.")
-                .content(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
+                .actions(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
         show(loading, || row((kivact::ui::spinner(), text("Loading orders")))
             .style(style().gap(8))),
@@ -126,7 +123,7 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 
 - `kivact::ui::skeleton().lines(n)` は、文字が入る場所に仮のバーを描きます。
 - `kivact::ui::spinner()` と `kivact::ui::spinner().variant(pop::SpinnerLook::Dots)` は小さなアニメーション付きのローダーで、スクリーンリーダー向けに "Loading" という名前が付きます（メッセージ `spinner.loading`）。
-- `pop::empty_state(title)` は、イラスト、説明、任意の操作を描きます。
+- `kivact::ui::empty_state(title).icon(pop::empty_illustration())` は、イラスト、説明、任意の操作を描きます。
 
 読み込みの開始と完了（データが届いたら `loading` を更新するタスク）はコアの話題で、非同期処理のコアのガイドで扱います。
 

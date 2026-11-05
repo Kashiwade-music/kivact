@@ -19,7 +19,7 @@ fn sign_up() -> impl IntoView {
     let plan = signal(Some("team"));
     let terms = signal(false);
 
-    pop::panel((
+    kivact::ui::card((
         text("新規アカウント").style(style().font_size(20).weight(600)),
         field(
             "名前",

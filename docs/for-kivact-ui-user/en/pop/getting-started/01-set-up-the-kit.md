@@ -46,7 +46,7 @@ use kivact_ui_pop as pop;
 
 fn sign_up() -> impl IntoView {
     let name = signal(String::new());
-    pop::panel((
+    kivact::ui::card((
         text("New account").style(style().font_size(20).weight(600)),
         text_input("Name", name),
         button("Create account"),
@@ -76,7 +76,7 @@ Three things are new:
 - `pop::theme(ThemeMode::Light)` builds the Pop theme, and
   `App::theme(..)` installs it for the whole window. The result is an
   ordinary Kivact `Theme`. Use `ThemeMode::Dark` for the dark palette.
-- `pop::panel(..)` is a Pop component: a bordered, rounded card that lays its
+- `kivact::ui::card(..)` is a Pop component: a bordered, rounded card that lays its
   children out in a column.
 - `use kivact_ui_pop as pop;` is only a short name. Components of the kit are
   written `pop::name`; standard components stay unqualified.

@@ -52,7 +52,7 @@ fn figures() -> impl IntoView {
 
 ## Group content in a panel with a heading
 
-`pop::panel(children)` is a bordered card that lays its children out in a
+`kivact::ui::card(children)` is a bordered card that lays its children out in a
 column. `pop::section_heading(number, title, subtitle)` is a numbered heading
 for a screen with several sections. Put a `panel` around each section.
 
@@ -74,7 +74,7 @@ struct Customer {
 }
 
 fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
-    pop::panel((
+    kivact::ui::card((
         pop::section_heading("01", "Customers", "Last 7 days"),
         for_each(
             rows,
@@ -120,7 +120,7 @@ use kivact::prelude::*;
 use kivact_ui_pop as pop;
 
 fn details() -> impl IntoView {
-    pop::panel((
+    kivact::ui::card((
         pop::key_value("Name", text("Haruka Sato")),
         pop::key_value("Plan", text("Team")),
         pop::key_value("Status", kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))),

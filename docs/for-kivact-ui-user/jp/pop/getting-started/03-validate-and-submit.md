@@ -54,7 +54,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
             && terms.get()
     });
 
-    pop::panel((
+    kivact::ui::card((
         text("新規アカウント").style(style().font_size(20).weight(600)),
         field("名前", text_input("名前", name).placeholder("お名前を入力"))
             .hint("請求書に表示されます。")
@@ -107,9 +107,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
         ))
         .style(style().gap(8).justify_content(Justify::End)),
         show(created, move || {
-            pop::alert("アカウントを作成しました")
-                .tone(Tone::Success)
-                .description(move || format!("ようこそ、{}さん。", name.get()))
+            {let tone=kivact::state::IntoValue::into_value(Tone::Success); kivact::ui::alert("アカウントを作成しました").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description(move || format!("ようこそ、{}さん。", name.get()))}
         }),
     ))
     .style(style().width(420).margin(24).gap(12))
@@ -187,7 +185,7 @@ mod tests {
 
 **`.valid(signal)`** は、テキストが実在する日付のあいだ `true`、そうでなければ `false` を書き込みます。コンポーネントは自前の形式エラー（"Use YYYY-MM-DD" や "This date does not exist"）を表示します。「過去であること」のような業務ルールはアプリの責任です。`birth_error` と `start_error` は、テキストが有効なときだけ値を検査するので、2 つのメッセージが重なることはありません。
 
-**`show(condition, || view)`** は、条件が真のあいだだけビューを配置します。`Tone::Success` は `pop::alert` を緑にします。アラートなどの表示コンポーネントは、意味を標準の `kivact::interaction::Tone` で受け取ります。
+**`show(condition, || view)`** は、条件が真のあいだだけビューを配置します。`Tone::Success` は `kivact::ui::alert` を緑にします。アラートなどの表示コンポーネントは、意味を標準の `kivact::interaction::Tone` で受け取ります。
 
 **テスト**は、アプリと同じテーマを `RenderOptions` で渡して同じ見た目で描き、ロールとアクセシブルな名前、つまりスクリーンリーダーが読み上げる言葉で要素を探します。日付欄のテキストを置き換えるには、Ctrl+A で全選択してから入力します。
 

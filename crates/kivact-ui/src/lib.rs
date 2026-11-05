@@ -230,7 +230,7 @@ pub use calendar::{Calendar, CalendarCaption, CalendarDayVisual, CalendarEvent, 
 
 mod calendar_tokens;
 mod look_calendar;
-pub use calendar_tokens::CalendarTokens;
+pub use calendar_tokens::{CalendarEventVisual, CalendarTokens};
 
 mod date_input;
 mod date_trigger;
