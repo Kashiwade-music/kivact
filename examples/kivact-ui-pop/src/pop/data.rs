@@ -118,7 +118,7 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
         .filter(query)
         .page(page, 6)
         .toolbar(move |context| student_toolbar(context, status, page, query, sheet, visible))
-        .footer(|context| student_footer(context)),)),
+        .footer(student_footer),)),
     )
 }
 
