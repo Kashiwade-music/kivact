@@ -39,13 +39,13 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "list" | "list-item" | "item" => specimen(
             "Workspace items",
-            list((
-                list_item("Design").description("Active project"),
-                list_item("Documentation").description("In review"),
-                item("Archive"),
+            kivact::ui::item_list((
+                kivact::ui::item_row("Design").description("Active project"),
+                kivact::ui::item_row("Documentation").description("In review"),
+                kivact::ui::item_row("Archive"),
             ))
             .style(style().width(240)),
-            "list((list_item(\"Design\"), list_item(\"Documentation\")))",
+            "kivact::ui::item_list((kivact::ui::item_row(\"Design\"), kivact::ui::item_row(\"Documentation\")))",
         ),
         "card" => specimen(
             "Project surface",

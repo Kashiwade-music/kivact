@@ -33,6 +33,7 @@ mod icon;
 mod icons;
 mod indicator;
 mod input_group;
+mod item_values;
 mod kbd;
 mod key_hints;
 mod layout;
@@ -145,6 +146,7 @@ pub use hover_card::hover_card_text;
 pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
+pub use item_values::{ItemAlign, ItemDensity, ItemLayout, ItemLook, ListEdge, ListLook};
 pub use key_hints::{keyboard_hint, with_key_hints};
 pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_footer,
@@ -186,10 +188,6 @@ pub use side_navigation::{
 pub use soft_chat_tools::{
     ChatToken, ChatTokenTone, ChatToolCalls, StreamSpeed, ToolCall, ToolStatus, chat_token,
     chat_tokenized_text, chat_tool_calls, streaming_text, use_streaming_text,
-};
-pub use soft_list::{
-    Item, ItemAlign, ItemDensity, ItemLayout, List, ListDensity, ListEdge, ListMarker, item, list,
-    list_item, list_items,
 };
 pub use soft_metadata::{
     LabelPosition, MetadataColumns, MetadataItem, MetadataList, metadata_item, metadata_list,

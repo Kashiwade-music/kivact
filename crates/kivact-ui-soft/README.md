@@ -68,7 +68,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Item / Kbd | `item`, standard parsed `kbd` and typed `kbd_combo` |
 | Layout | `center`, `form_layout`, `grid`, `grid_span`, `hstack`, `layout`, `layout_content`, `layout_footer`, `layout_header`, `layout_panel`, `section`, `stack`, `stack_item`, `vstack` |
 | Lightbox / Link | `lightbox`, `use_lightbox`, `link` |
-| List | `list`, `list_items`, `list_item` |
+| List | `ui::item_list`, `ui::item_row`; `ListLook`, `ItemLook`, `ItemDensity`, `ItemAlign`, `ItemLayout`, `ListEdge` |
 | Markdown | `markdown` |
 | Metadata List | `metadata_list`, `metadata_item` |
 | More Menu | `more_menu` |
@@ -367,4 +367,5 @@ Number, date, and time filter fields validate values entered as text.
 - `avatar_group_overflow`
 - `stepper`
 - `alert`
+- `item_list`
 <!-- /kivact-recipes -->

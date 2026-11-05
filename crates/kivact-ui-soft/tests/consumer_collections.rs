@@ -55,9 +55,19 @@ fn tree_list_expands_and_collapses_with_arrow_keys() {
 fn reactive_list_adds_a_list_item() {
     let screen = render_with(options(), || {
         let items = signal(vec![String::from("First")]);
+        let rows =
+            kivact::state::memo(move || items.get().into_iter().enumerate().collect::<Vec<_>>());
+        let count = kivact::state::memo(move || rows.with(Vec::len));
         column((
             button("Add second").on_press(move || items.update(|rows| rows.push("Second".into()))),
-            soft::list_items(items, Clone::clone, soft::list_item).test_id("reactive-list"),
+            kivact::ui::item_list((kivact::view::for_each(
+                rows,
+                |(_, item)| item.clone(),
+                move |row| {
+                    kivact::ui::item_row(move || row.get().1).position(move || row.get().0, count)
+                },
+            ),))
+            .test_id("reactive-list"),
         ))
     });
 
