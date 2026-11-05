@@ -162,6 +162,12 @@ pub fn theme(mode: ThemeMode) -> Theme {
                 wheel_row_height: 28.0,
                 wheel_width: 80.0,
             },
+            stepper: kivact::ui::StepperTokens {
+                gap: 4.0,
+                padding: 0.0,
+                min_step_width: 112.0,
+                connector_gap: 0.0,
+            },
             indicators: kivact::ui::IndicatorTokens {
                 avatar_overlap: 9.0,
                 period_ms: tokens.motion.slow_min,

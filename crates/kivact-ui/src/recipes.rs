@@ -803,6 +803,9 @@ recipe_table! {
     /// Recipes for a persistent alert and optional details.
     AlertRecipes {
         root(root_recipe): AlertState = look_feedback::alert_root,
+        header(header_recipe): AlertState = look_feedback::alert_wrapper,
+        message(message_recipe): AlertState = look_feedback::alert_wrapper,
+        controls(controls_recipe): AlertState = look_feedback::alert_wrapper,
         title(title_recipe): AlertState = look_feedback::alert_title,
         description(description_recipe): AlertState = look_feedback::alert_description,
         icon(icon_recipe): AlertState = look_feedback::alert_icon,

@@ -82,7 +82,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Segmented Control | Standard `radio_group(...).variant(RadioGroupVariant::Segmented)` and `ListItem`; Soft `SegmentedLayout` and `SegmentedIconOnly` style options |
 | Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
 | Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
-| Stepper | `stepper`, `step` |
+| Stepper | Standard `stepper`, `StepperItem`, `StepIndicator`, `StepStatus`; Soft `StepperAppearance` |
 | Switch | Standard `switch` |
 | Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
@@ -215,9 +215,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.side_nav.resize` | Resize sidebar |
 | `soft.spinner.loading` | Loading |
 | `soft.stepper.label` | Progress |
-| `soft.stepper.next` | Next step |
-| `soft.stepper.optional` | • Optional |
-| `soft.stepper.previous` | Previous step |
 | `soft.table.label` | Table |
 | `soft.thumbnail.fallback_name` | Thumbnail |
 | `soft.thumbnail.open` | Open {name} |
@@ -378,3 +375,5 @@ Filled recipe table: `input_group` (root, label, members, member, addon).
 Filled recipe table: `card` (root, header, media, content, footer, overlay).
 
 Filled scalar recipes: `avatar`, `avatar_image`, `avatar_status`, `avatar_status_content`, `avatar_group`, `avatar_group_member`, `avatar_group_overflow`.
+
+Filled recipe table: `stepper` (root, item, layout, body, track, leading, trailing, progress, indicator, label, description, content, end_content, previous, next).

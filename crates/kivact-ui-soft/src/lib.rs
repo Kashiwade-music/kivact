@@ -213,10 +213,7 @@ pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
     center, hstack, stack, stack_item, vstack,
 };
-pub use stepper::{
-    Step, StepCollapsedVariant, StepDensity, StepIndicator, StepIndicatorPosition, StepStatus,
-    Stepper, step, stepper,
-};
+pub use stepper::{StepCollapsedVariant, StepDensity, StepIndicatorPosition, StepperAppearance};
 pub use tab_list::{
     Tab, TabEntry, TabLayout, TabList, TabMenu, TabMenuOption, TabOverflow, TabPattern, tab,
     tab_list, tab_menu,
