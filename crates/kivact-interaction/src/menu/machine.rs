@@ -113,42 +113,7 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
         else {
             return Step::stay();
         };
-        let mut timer = None;
-        match event {
-            Event::Request(request) => *want = request,
-            Event::Hover(depth, key) if !matches!(want, Some(Want::Command { .. })) => *want = Some(Want::Hover { depth, key }),
-            Event::Focus(depth, key) => {
-                for level in levels.iter_mut() { level.highlight = None; }
-                if let Some(level) = levels.get_mut(depth) { level.highlight = key; }
-            }
-            Event::OpenSubmenu(depth, key) => open_level(levels, depth, key),
-            Event::Truncate(depth) => truncate(levels, depth),
-            Event::Typeahead(typed) => *typeahead = typed,
-            Event::Rest(depth, key, over, opens) => {
-                let parent = levels.get(depth + 1).and_then(|level| level.parent.clone());
-                if let Some(level) = levels.get_mut(depth) {
-                    if opens {
-                        if over && !matches!(&level.submenu, Submenu::Open { key: current } if current == &key) {
-                            level.submenu = Submenu::Opening { key: key.clone() };
-                            timer = Some((true, depth, key));
-                        } else if !over && matches!(&level.submenu, Submenu::Opening { key: current } if current == &key) {
-                            level.submenu = Submenu::None;
-                        }
-                    } else if over && let Some(parent) = parent {
-                        level.submenu = Submenu::Closing { key: parent.clone() };
-                        timer = Some((false, depth, parent));
-                    } else if !over && let Submenu::Closing { key } = &level.submenu {
-                        level.submenu = Submenu::Open { key: key.clone() };
-                    }
-                }
-            }
-            Event::OpenAfter(depth, key) => {
-                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Opening { key: current } if current == &key)) { open_level(levels, depth, key); }
-            }
-            Event::CloseAfter(depth, key)
-                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Closing { key: current } if current == &key)) => { truncate(levels, depth); }
-            _ => {}
-        }
+        let timer = update_level_event(levels, want, typeahead, event);
         // All topology repairs happen in this transition, before publishing state.
         let path: Vec<K> = levels
             .iter()
@@ -215,4 +180,49 @@ fn truncate<K>(levels: &mut Vec<SessionLevel<K>>, depth: usize) {
     if let Some(level) = levels.get_mut(depth) {
         level.submenu = Submenu::None;
     }
+}
+
+fn update_level_event<K: kivact_core::state::ItemKey>(
+    levels: &mut Vec<SessionLevel<K>>,
+    want: &mut Option<Want<K>>,
+    typeahead: &mut Typeahead,
+    event: Event<K>,
+) -> Option<(bool, usize, K)> {
+    let mut timer = None;
+    match event {
+            Event::Request(request) => *want = request,
+            Event::Hover(depth, key) if !matches!(want, Some(Want::Command { .. })) => *want = Some(Want::Hover { depth, key }),
+            Event::Focus(depth, key) => {
+                for level in levels.iter_mut() { level.highlight = None; }
+                if let Some(level) = levels.get_mut(depth) { level.highlight = key; }
+            }
+            Event::OpenSubmenu(depth, key) => open_level(levels, depth, key),
+            Event::Truncate(depth) => truncate(levels, depth),
+            Event::Typeahead(typed) => *typeahead = typed,
+            Event::Rest(depth, key, over, opens) => {
+                let parent = levels.get(depth + 1).and_then(|level| level.parent.clone());
+                if let Some(level) = levels.get_mut(depth) {
+                    if opens {
+                        if over && !matches!(&level.submenu, Submenu::Open { key: current } if current == &key) {
+                            level.submenu = Submenu::Opening { key: key.clone() };
+                            timer = Some((true, depth, key));
+                        } else if !over && matches!(&level.submenu, Submenu::Opening { key: current } if current == &key) {
+                            level.submenu = Submenu::None;
+                        }
+                    } else if over && let Some(parent) = parent {
+                        level.submenu = Submenu::Closing { key: parent.clone() };
+                        timer = Some((false, depth, parent));
+                    } else if !over && let Submenu::Closing { key } = &level.submenu {
+                        level.submenu = Submenu::Open { key: key.clone() };
+                    }
+                }
+            }
+            Event::OpenAfter(depth, key) => {
+                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Opening { key: current } if current == &key)) { open_level(levels, depth, key); }
+            }
+            Event::CloseAfter(depth, key)
+                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Closing { key: current } if current == &key)) => { truncate(levels, depth); }
+            _ => {}
+        }
+    timer
 }

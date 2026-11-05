@@ -496,21 +496,7 @@ pub fn use_tree<K: kivact_core::state::ItemKey>(
     );
     // The active row that a closing parent hid is replaced by the
     // nearest ancestor that is still shown.
-    let list = list.leave_to(move |gone: &K| {
-        nodes.with(|nodes| {
-            let forest = Forest::build(nodes);
-            let mut at = forest.index.get(gone).copied();
-            while let Some(node) = at {
-                at = forest.parent[node];
-                if let Some(parent) = at
-                    && keys.with(|keys| keys.contains(&forest.keys[parent]))
-                {
-                    return Some(forest.keys[parent].clone());
-                }
-            }
-            None
-        })
-    });
+    let list = list.leave_to(move |gone: &K| nearest_visible_ancestor(nodes, keys, gone));
     let shared = Rc::new(Shared {
         nodes,
         expanded,
@@ -879,4 +865,24 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
         }
         Handled::Yes
     }
+}
+
+fn nearest_visible_ancestor<K: kivact_core::state::ItemKey>(
+    nodes: Value<Vec<TreeNode<K>>>,
+    keys: Value<Vec<K>>,
+    gone: &K,
+) -> Option<K> {
+    nodes.with(|nodes| {
+        let forest = Forest::build(nodes);
+        let mut at = forest.index.get(gone).copied();
+        while let Some(node) = at {
+            at = forest.parent[node];
+            if let Some(parent) = at
+                && keys.with(|keys| keys.contains(&forest.keys[parent]))
+            {
+                return Some(forest.keys[parent].clone());
+            }
+        }
+        None
+    })
 }

@@ -339,6 +339,45 @@ impl ScalarApi {
         })
     }
 
+    fn part_action(self, event: &A11yEvent) {
+        // Only an action that will write is an edit: a value that is
+        // not a number reports nothing.
+        let writes = match &event.request {
+            A11yRequest::SetValue(v) => v.parse::<f64>().ok().is_some_and(f64::is_finite),
+            _ => true,
+        };
+        if writes && let Some(step) = self.current_key_step() {
+            self.once(|| self.ops.a11y(event, step));
+        }
+    }
+
+    fn part_key(self, role: Role, event: &KeyEvent) -> Handled {
+        let shared = self.edit.shared;
+        if event.key() == Key::Escape
+            && (shared.finish_touch(true) || shared.drag.cancel().is_some())
+        {
+            return Handled::Yes;
+        }
+        if role == Role::SpinButton
+            && (matches!(event.key(), Key::ArrowLeft | Key::ArrowRight)
+                || (matches!(event.key(), Key::Home | Key::End)
+                    && event.modifiers() != Modifiers::default()))
+        {
+            return Handled::No;
+        }
+        let mirror = role == Role::Slider && shared.mirrored();
+        match self.ops.key_op(event.key(), mirror) {
+            Some(op)
+                if self
+                    .current_key_step()
+                    .is_some_and(|step| self.once(|| self.ops.apply(op, step))) =>
+            {
+                Handled::Yes
+            }
+            _ => Handled::No,
+        }
+    }
+
     #[track_caller]
     fn part(self, role: Role) -> Part<ScalarState> {
         let (value, range) = (self.value(), self.ops.range);
@@ -369,31 +408,7 @@ impl ScalarApi {
                 .role(role)
                 .focusable(true)
                 .value_now(value)
-                .on_key(move |event: KeyEvent| {
-                    if event.key() == Key::Escape
-                        && (shared.finish_touch(true) || shared.drag.cancel().is_some())
-                    {
-                        return Handled::Yes;
-                    }
-                    if role == Role::SpinButton
-                        && (matches!(event.key(), Key::ArrowLeft | Key::ArrowRight)
-                            || (matches!(event.key(), Key::Home | Key::End)
-                                && event.modifiers() != Modifiers::default()))
-                    {
-                        return Handled::No;
-                    }
-                    let mirror = role == Role::Slider && shared.mirrored();
-                    match self.ops.key_op(event.key(), mirror) {
-                        Some(op)
-                            if self
-                                .current_key_step()
-                                .is_some_and(|step| self.once(|| self.ops.apply(op, step))) =>
-                        {
-                            Handled::Yes
-                        }
-                        _ => Handled::No,
-                    }
-                });
+                .on_key(move |event: KeyEvent| self.part_key(role, &event));
             control = match self.edit.bounds {
                 Some((min, max)) => control.value_min(min).value_max(max),
                 None => control
@@ -421,17 +436,7 @@ impl ScalarApi {
                 A11yAction::SetValue,
             ] {
                 control = control.a11y_action(action, move |event: A11yEvent| {
-                    // Only an action that will write is an edit: a value that is
-                    // not a number reports nothing.
-                    let writes = match &event.request {
-                        A11yRequest::SetValue(v) => {
-                            v.parse::<f64>().ok().is_some_and(f64::is_finite)
-                        }
-                        _ => true,
-                    };
-                    if writes && let Some(step) = self.current_key_step() {
-                        self.once(|| self.ops.a11y(&event, step));
-                    }
+                    self.part_action(&event);
                 });
             }
             let state = part_state;

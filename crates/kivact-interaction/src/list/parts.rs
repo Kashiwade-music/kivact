@@ -96,20 +96,7 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
         active: active.get(),
     });
     let part_state = input.state();
-    let observed = state.item_states;
-    observed.update(|states| {
-        states.insert(key.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let item_key = key.get();
-                if states.get(&item_key) == Some(&part_state) {
-                    states.remove(&item_key);
-                }
-            });
-        }
-    });
+    observe_item(&state, key, part_state);
     let attachment = Part::new(part_state, move |host| {
         let attachment = host.part(input);
         let keys = state.clone();
@@ -129,67 +116,98 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
             .on_key(move |event| super::input::key(&keys, &key.get(), event, None))
             .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
         attachment.on_attach(move |mount| {
-            // Registry removal requires the same reference identity used at insertion.
-            let node = mount.node;
-            let owner = Owner::current();
-            // The bound state is reset when the owner goes, on every path below.
-            owner.on_cleanup(move || bound.set(ItemMount::Unbound));
-            if Owner::root() != state.root {
-                bound.set(ItemMount::Rejected);
-                owner.report(ErrorKind::WrongApp, "ListApi item belongs to another App");
-                return;
-            }
-            let item_key = key.get();
-            if state.roving.contains(&item_key) {
-                bound.set(ItemMount::Rejected);
-                owner.report(
-                    ErrorKind::Message,
-                    "ListApi: an item with this key is already mounted",
-                );
-                return;
-            }
-            // Resolve structural focus only after validating the mounting App.
-            let retained_focus = state.options.get().retained_focus.get_untracked();
-            let focus = if retained_focus {
-                machine::Focus::Retained
-            } else {
-                machine::Focus::Physical
-            };
-            state.pending.send(machine::Event::MountFocus(focus));
-            state.roving.insert(
-                item_key.clone(),
-                Member {
-                    node: mount.node,
-                    eligible: if retained_focus {
-                        true.into_value()
-                    } else {
-                        mount.eligible
-                    },
-                    disabled: if retain_disabled_focus {
-                        false.into_value()
-                    } else {
-                        mount.disabled
-                    },
-                    hidden: mount.hidden,
-                },
-            );
-            bound.set(ItemMount::Admitted);
-            let id = node.mounted_node();
-            let weak = Rc::downgrade(&state);
-            owner.on_cleanup(move || {
-                let Some(state) = weak.upgrade() else {
-                    return;
-                };
-                if !state.roving.remove(&item_key, node) {
-                    return;
-                }
-                let current = kivact_core::custom::focused_node();
-                if id.is_some() && current == id {
-                    state.roving.restore_from.set(current);
-                }
-            });
-            state.pending_mounted(&key.get());
+            mount_item(state.clone(), key, bound, retain_disabled_focus, mount);
         })
     });
     (attachment, bound)
+}
+
+fn mount_item<K: kivact_core::state::ItemKey>(
+    state: Rc<State<K>>,
+    key: kivact_core::state::Var<K>,
+    bound: Signal<ItemMount>,
+    retain_disabled_focus: bool,
+    mount: kivact_core::custom::PartMount,
+) {
+    // Registry removal requires the same reference identity used at insertion.
+    let node = mount.node;
+    let owner = Owner::current();
+    // The bound state is reset when the owner goes, on every path below.
+    owner.on_cleanup(move || bound.set(ItemMount::Unbound));
+    if Owner::root() != state.root {
+        bound.set(ItemMount::Rejected);
+        owner.report(ErrorKind::WrongApp, "ListApi item belongs to another App");
+        return;
+    }
+    let item_key = key.get();
+    if state.roving.contains(&item_key) {
+        bound.set(ItemMount::Rejected);
+        owner.report(
+            ErrorKind::Message,
+            "ListApi: an item with this key is already mounted",
+        );
+        return;
+    }
+    // Resolve structural focus only after validating the mounting App.
+    let retained_focus = state.options.get().retained_focus.get_untracked();
+    let focus = if retained_focus {
+        machine::Focus::Retained
+    } else {
+        machine::Focus::Physical
+    };
+    state.pending.send(machine::Event::MountFocus(focus));
+    state.roving.insert(
+        item_key.clone(),
+        Member {
+            node: mount.node,
+            eligible: if retained_focus {
+                true.into_value()
+            } else {
+                mount.eligible
+            },
+            disabled: if retain_disabled_focus {
+                false.into_value()
+            } else {
+                mount.disabled
+            },
+            hidden: mount.hidden,
+        },
+    );
+    bound.set(ItemMount::Admitted);
+    let id = node.mounted_node();
+    let weak = Rc::downgrade(&state);
+    owner.on_cleanup(move || {
+        let Some(state) = weak.upgrade() else {
+            return;
+        };
+        if !state.roving.remove(&item_key, node) {
+            return;
+        }
+        let current = kivact_core::custom::focused_node();
+        if id.is_some() && current == id {
+            state.roving.restore_from.set(current);
+        }
+    });
+    state.pending_mounted(&key.get());
+}
+
+fn observe_item<K: kivact_core::state::ItemKey>(
+    state: &State<K>,
+    key: kivact_core::state::Var<K>,
+    part_state: kivact_core::state::Value<ListItemState>,
+) {
+    let observed = state.item_states;
+    observed.update(|states| {
+        states.insert(key.get(), part_state);
+    });
+    kivact_core::state::on_cleanup(move || {
+        if observed.try_get_untracked().is_some() {
+            observed.update(|states| {
+                let item_key = key.get();
+                if states.get(&item_key) == Some(&part_state) {
+                    states.remove(&item_key);
+                }
+            });
+        }
+    });
 }

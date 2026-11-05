@@ -672,13 +672,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             let key = key.clone();
             memo(move || active.with(|active| active.as_ref() == Some(&key)))
         };
-        let is_value = {
-            let key = key.clone();
-            memo(move || match selection {
-                Selection::Multiple(values) => values.with(|values| values.contains(&key)),
-                Selection::Single(value) => value.with(|value| value.as_ref() == Some(&key)),
-            })
-        };
+        let is_value = self.item_selected(key.clone());
         let disabled = memo(move || item.with(|item| item.as_ref().is_none_or(|(_, d)| *d)));
         let input = part(move |input| ListItemState {
             input,
@@ -730,33 +724,21 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 })
                 .on_press(move || self.choose(press_key.clone()))
                 .on_attach(move |_| {
-                    rows.update(|rows| {
-                        rows.insert(held.clone(), row);
-                    });
-                    // An option removes its entry only while it still holds it, so
-                    // a disposed reference is never left in the map.
-                    let leave = held.clone();
-                    on_cleanup(move || {
-                        if rows.try_get_untracked().is_some() {
-                            rows.update(|rows| {
-                                if rows.get(&leave) == Some(&row) {
-                                    rows.remove(&leave);
-                                }
-                            });
-                        }
-                    });
-                    effect(move || {
-                        if is_active.get() {
-                            row.scroll_into_view();
-                        }
-                    });
-                    on_mount(move || {
-                        if is_active.get() {
-                            row.scroll_into_view();
-                        }
-                    });
+                    register_row(rows, held.clone(), row);
+                    follow_active_row(row, is_active);
                 })
         })
+    }
+
+    fn item_selected(self, key: K) -> Value<bool> {
+        let selection = self.selection;
+        {
+            let key = key.clone();
+            memo(move || match selection {
+                Selection::Multiple(values) => values.with(|values| values.contains(&key)),
+                Selection::Single(value) => value.with(|value| value.as_ref() == Some(&key)),
+            })
+        }
     }
 
     /// Present the same combobox state with a different editor anchor.
@@ -771,4 +753,39 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     pub(crate) fn input_ref(self) -> NodeRef {
         self.input_ref
     }
+}
+
+fn register_row<K: kivact_core::state::ItemKey>(
+    rows: Signal<HashMap<K, NodeRef>>,
+    held: K,
+    row: NodeRef,
+) {
+    rows.update(|rows| {
+        rows.insert(held.clone(), row);
+    });
+    // An option removes its entry only while it still holds it, so
+    // a disposed reference is never left in the map.
+    let leave = held.clone();
+    on_cleanup(move || {
+        if rows.try_get_untracked().is_some() {
+            rows.update(|rows| {
+                if rows.get(&leave) == Some(&row) {
+                    rows.remove(&leave);
+                }
+            });
+        }
+    });
+}
+
+fn follow_active_row(row: NodeRef, is_active: Value<bool>) {
+    effect(move || {
+        if is_active.get() {
+            row.scroll_into_view();
+        }
+    });
+    on_mount(move || {
+        if is_active.get() {
+            row.scroll_into_view();
+        }
+    });
 }

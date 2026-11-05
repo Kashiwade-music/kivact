@@ -106,72 +106,15 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
             .and_then(|key| order.with(|order| order.position(&key)))
             .unwrap_or_else(|| pending.state().get().position)
     });
-    let active = memo(move || {
-        order.try_get()?;
-        targets.track();
-        let requested = requested.get();
-        let selected = selected_value.get();
-        order.with(|order| {
-            let available = |key: &K| {
-                targets
-                    .with_members(|targets| targets.get(key).is_some_and(|entry| entry.available()))
-            };
-            if let Some(key) = requested.as_ref() {
-                // A caller scroll callback can materialize a requested logical row.
-                // Keep that destination authoritative until its node mounts.
-                let virtual_request = option_values.get().scroll.is_some()
-                    && pending.state().get().focus == machine::Focus::Physical
-                    && !targets.contains(key);
-                if order.enabled(key) && (available(key) || virtual_request) {
-                    return Some(key.clone());
-                }
-                if mode == ListMode::Select {
-                    let moved = option_values
-                        .get()
-                        .leave
-                        .as_ref()
-                        .and_then(|leave| leave(key));
-                    if let Some(moved) = moved.filter(|key| order.enabled(key) && available(key)) {
-                        return Some(moved);
-                    }
-                    let keys = order.keys();
-                    return keys
-                        .iter()
-                        .skip(position.get())
-                        .find(|key| order.enabled(key) && available(key))
-                        .cloned()
-                        .or_else(|| {
-                            keys.iter()
-                                .rev()
-                                .find(|key| order.enabled(key) && available(key))
-                                .cloned()
-                        });
-                }
-            }
-            let keys = order.keys();
-            let preference = keys
-                .iter()
-                .find(|key| selected.contains(key) && order.enabled(key) && available(key));
-            preference.cloned().or_else(|| {
-                // Keep the last tab stop's ordinal when a selected item disappears.
-                // An empty selection still starts a fresh entry at the first item.
-                let start = if mode == ListMode::Select && !selected.is_empty() {
-                    position.get()
-                } else {
-                    0
-                };
-                keys.iter()
-                    .skip(start)
-                    .find(|key| order.enabled(key) && available(key))
-                    .or_else(|| {
-                        keys.iter()
-                            .rev()
-                            .find(|key| order.enabled(key) && available(key))
-                    })
-                    .cloned()
-            })
-        })
-    });
+    let active = active_value(
+        order,
+        targets,
+        selected_value,
+        option_values,
+        pending,
+        mode,
+        position,
+    );
     let state = Rc::new(State {
         item_states: signal(std::collections::HashMap::new()),
         container_state: signal(None),
@@ -191,36 +134,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         pending,
     });
     let stored = owner.store("ListApi", state.clone());
-    let duplicates = RefCell::new(Vec::<K>::new());
-    effect(move || {
-        if stored.try_get().is_none() {
-            return;
-        }
-        // History follows the derived tab stop even before an explicit focus request.
-        if let Some(at) = state
-            .active
-            .get()
-            .and_then(|key| state.order.with(|order| order.position(&key)))
-        {
-            pending.send(machine::Event::Position(at));
-        }
-        let next = state.order.with(|order| order.duplicates().to_vec());
-        if *duplicates.borrow() != next {
-            if !next.is_empty() {
-                owner.report(
-                    ErrorKind::Message,
-                    format!(
-                        "ListApi: {} duplicate logical key(s); first occurrence wins",
-                        next.len()
-                    ),
-                );
-            }
-            *duplicates.borrow_mut() = next;
-        }
-        if state.pending.state().get().focus == machine::Focus::Physical {
-            reconcile(&state);
-        }
-    });
+    observe_list(state, stored);
     stored
 }
 
@@ -395,4 +309,117 @@ fn reconcile<K: kivact_core::state::ItemKey>(state: &State<K>) {
     state
         .roving
         .reconcile(observation, |key| state.enabled(key));
+}
+
+fn active_value<K: kivact_core::state::ItemKey>(
+    order: Value<Order<K>>,
+    targets: Roving<K>,
+    selected_value: Value<Vec<K>>,
+    option_values: Value<ListSetupOptions<K>>,
+    pending: MachineHandle<machine::Machine<K>>,
+    mode: ListMode,
+    position: Value<usize>,
+) -> Value<Option<K>> {
+    let requested = targets.requested;
+    memo(move || {
+        order.try_get()?;
+        targets.track();
+        let requested = requested.get();
+        let selected = selected_value.get();
+        order.with(|order| {
+            let available = |key: &K| {
+                targets
+                    .with_members(|targets| targets.get(key).is_some_and(|entry| entry.available()))
+            };
+            if let Some(key) = requested.as_ref() {
+                // A caller scroll callback can materialize a requested logical row.
+                // Keep that destination authoritative until its node mounts.
+                let virtual_request = option_values.get().scroll.is_some()
+                    && pending.state().get().focus == machine::Focus::Physical
+                    && !targets.contains(key);
+                if order.enabled(key) && (available(key) || virtual_request) {
+                    return Some(key.clone());
+                }
+                if mode == ListMode::Select {
+                    let moved = option_values
+                        .get()
+                        .leave
+                        .as_ref()
+                        .and_then(|leave| leave(key));
+                    if let Some(moved) = moved.filter(|key| order.enabled(key) && available(key)) {
+                        return Some(moved);
+                    }
+                    let keys = order.keys();
+                    return keys
+                        .iter()
+                        .skip(position.get())
+                        .find(|key| order.enabled(key) && available(key))
+                        .cloned()
+                        .or_else(|| {
+                            keys.iter()
+                                .rev()
+                                .find(|key| order.enabled(key) && available(key))
+                                .cloned()
+                        });
+                }
+            }
+            let keys = order.keys();
+            let preference = keys
+                .iter()
+                .find(|key| selected.contains(key) && order.enabled(key) && available(key));
+            preference.cloned().or_else(|| {
+                // Keep the last tab stop's ordinal when a selected item disappears.
+                // An empty selection still starts a fresh entry at the first item.
+                let start = if mode == ListMode::Select && !selected.is_empty() {
+                    position.get()
+                } else {
+                    0
+                };
+                keys.iter()
+                    .skip(start)
+                    .find(|key| order.enabled(key) && available(key))
+                    .or_else(|| {
+                        keys.iter()
+                            .rev()
+                            .find(|key| order.enabled(key) && available(key))
+                    })
+                    .cloned()
+            })
+        })
+    })
+}
+
+fn observe_list<K: kivact_core::state::ItemKey>(state: Rc<State<K>>, stored: Owned<Rc<State<K>>>) {
+    let owner = state.owner;
+    let pending = state.pending;
+    let duplicates = RefCell::new(Vec::<K>::new());
+    effect(move || {
+        if stored.try_get().is_none() {
+            return;
+        }
+        // History follows the derived tab stop even before an explicit focus request.
+        if let Some(at) = state
+            .active
+            .get()
+            .and_then(|key| state.order.with(|order| order.position(&key)))
+        {
+            pending.send(machine::Event::Position(at));
+        }
+        let next = state.order.with(|order| order.duplicates().to_vec());
+        if *duplicates.borrow() != next {
+            if !next.is_empty() {
+                owner.report(
+                    ErrorKind::Message,
+                    format!(
+                        "ListApi: {} duplicate logical key(s); first occurrence wins",
+                        next.len()
+                    ),
+                );
+            }
+            *duplicates.borrow_mut() = next;
+        }
+        if state.pending.state().get().focus == machine::Focus::Physical {
+            reconcile(&state);
+        }
+    });
 }

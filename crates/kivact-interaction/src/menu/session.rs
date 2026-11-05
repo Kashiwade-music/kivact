@@ -81,15 +81,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             },
         );
         let state = machine.state();
-        let typed = kivact_core::state::binding(
-            move || {
-                state.with(|state| match state {
-                    State::Closed => Typeahead::default(),
-                    State::Open { typeahead, .. } => typeahead.clone(),
-                })
-            },
-            move |typed| machine.send(Event::Typeahead(typed)),
-        );
+        let typed = typeahead_binding(machine);
         let path = memo(move || state.with(State::path));
         let focus_key = memo(move || state.with(State::focus));
         let want = memo(move || {
@@ -241,4 +233,19 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             self.close_level(depth);
         }
     }
+}
+
+fn typeahead_binding<K: kivact_core::state::ItemKey>(
+    machine: MachineHandle<Machine<K>>,
+) -> kivact_core::state::Binding<Typeahead> {
+    let state = machine.state();
+    kivact_core::state::binding(
+        move || {
+            state.with(|state| match state {
+                State::Closed => Typeahead::default(),
+                State::Open { typeahead, .. } => typeahead.clone(),
+            })
+        },
+        move |typed| machine.send(Event::Typeahead(typed)),
+    )
 }

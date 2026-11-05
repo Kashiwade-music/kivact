@@ -119,6 +119,101 @@ impl Machine {
         }
         step.with(Effect::Finish(session, commit))
     }
+    fn pinch(&self, first: kivact_core::view::PointerId, at: Point, event: PointerEvent) -> Pinch {
+        Pinch {
+            fingers: [
+                Finger {
+                    pointer: first,
+                    start: at,
+                    now: at,
+                },
+                Finger {
+                    pointer: event.id(),
+                    start: event.pos(),
+                    now: event.pos(),
+                },
+            ],
+            transform: self.transform,
+        }
+    }
+    fn touch_pointer(
+        &self,
+        state: &State,
+        next: &mut State,
+        event: PointerEvent,
+        valid: bool,
+    ) -> Option<(Step<State, Event, Effect>, Handled)> {
+        match event.phase() {
+            PointerPhase::Down(_) => {
+                if valid {
+                    next.touches().push((event.id(), event.pos()));
+                }
+                let others: Vec<_> = next
+                    .touches()
+                    .iter()
+                    .copied()
+                    .filter(|(id, _)| *id != event.id())
+                    .collect();
+                if valid && others.len() == 1 && !state.active() {
+                    let (first, at) = others[0];
+                    let pinch = self.pinch(first, at, event);
+                    let touches = std::mem::take(next.touches());
+                    return Some((
+                        Step::to(State::Pinch {
+                            pinch,
+                            touches,
+                            session: self.session.clone(),
+                        })
+                        .with(Effect::Begin(self.session.clone(), self.transform)),
+                        Handled::Yes,
+                    ));
+                }
+            }
+            PointerPhase::Move => {
+                if valid
+                    && let Some(touch) = next.touches().iter_mut().find(|(id, _)| *id == event.id())
+                {
+                    touch.1 = event.pos();
+                }
+                if let State::Pinch { pinch, .. } = &mut *next
+                    && let Some(finger) = pinch
+                        .fingers
+                        .iter_mut()
+                        .find(|finger| finger.pointer == event.id())
+                {
+                    if valid {
+                        finger.now = event.pos();
+                        let value = pinched(*pinch, self.options);
+                        return Some((
+                            Step::to(next.clone()).with(Effect::Write(value)),
+                            Handled::Yes,
+                        ));
+                    }
+                    return Some((Step::to(next.clone()), Handled::Yes));
+                }
+            }
+            PointerPhase::Up(_) | PointerPhase::Cancel => {
+                next.touches().retain(|(id, _)| *id != event.id());
+                if let State::Pinch { pinch, .. } = &mut *next
+                    && let Some(finger) = pinch
+                        .fingers
+                        .iter_mut()
+                        .find(|finger| finger.pointer == event.id())
+                {
+                    let commit = matches!(event.phase(), PointerPhase::Up(_));
+                    let write = if commit && valid {
+                        finger.now = event.pos();
+                        Some(pinched(*pinch, self.options))
+                    } else {
+                        None
+                    };
+                    return Some((self.stop(next, commit, write), Handled::Yes));
+                }
+            }
+            PointerPhase::Enter | PointerPhase::Leave => {}
+        }
+        None
+    }
     pub(super) fn pointer(
         &self,
         state: &State,
@@ -126,89 +221,12 @@ impl Machine {
     ) -> (Step<State, Event, Effect>, Handled) {
         let mut next = state.clone();
         let valid = finite(event.pos());
-        if event.kind() == PointerKind::Touch {
-            match event.phase() {
-                PointerPhase::Down(_) => {
-                    if valid {
-                        next.touches().push((event.id(), event.pos()));
-                    }
-                    let others: Vec<_> = next
-                        .touches()
-                        .iter()
-                        .copied()
-                        .filter(|(id, _)| *id != event.id())
-                        .collect();
-                    if valid && others.len() == 1 && !state.active() {
-                        let (first, at) = others[0];
-                        let pinch = Pinch {
-                            fingers: [
-                                Finger {
-                                    pointer: first,
-                                    start: at,
-                                    now: at,
-                                },
-                                Finger {
-                                    pointer: event.id(),
-                                    start: event.pos(),
-                                    now: event.pos(),
-                                },
-                            ],
-                            transform: self.transform,
-                        };
-                        let touches = std::mem::take(next.touches());
-                        return (
-                            Step::to(State::Pinch {
-                                pinch,
-                                touches,
-                                session: self.session.clone(),
-                            })
-                            .with(Effect::Begin(self.session.clone(), self.transform)),
-                            Handled::Yes,
-                        );
-                    }
-                }
-                PointerPhase::Move => {
-                    if valid
-                        && let Some(touch) =
-                            next.touches().iter_mut().find(|(id, _)| *id == event.id())
-                    {
-                        touch.1 = event.pos();
-                    }
-                    if let State::Pinch { pinch, .. } = &mut next
-                        && let Some(finger) = pinch
-                            .fingers
-                            .iter_mut()
-                            .find(|finger| finger.pointer == event.id())
-                    {
-                        if valid {
-                            finger.now = event.pos();
-                            let value = pinched(*pinch, self.options);
-                            return (Step::to(next).with(Effect::Write(value)), Handled::Yes);
-                        }
-                        return (Step::to(next), Handled::Yes);
-                    }
-                }
-                PointerPhase::Up(_) | PointerPhase::Cancel => {
-                    next.touches().retain(|(id, _)| *id != event.id());
-                    if let State::Pinch { pinch, .. } = &mut next
-                        && let Some(finger) = pinch
-                            .fingers
-                            .iter_mut()
-                            .find(|finger| finger.pointer == event.id())
-                    {
-                        let commit = matches!(event.phase(), PointerPhase::Up(_));
-                        let write = if commit && valid {
-                            finger.now = event.pos();
-                            Some(pinched(*pinch, self.options))
-                        } else {
-                            None
-                        };
-                        return (self.stop(&next, commit, write), Handled::Yes);
-                    }
-                }
-                PointerPhase::Enter | PointerPhase::Leave => {}
-            }
+        if event.kind() == PointerKind::Touch
+            && let Some(step) = self.touch_pointer(state, &mut next, event, valid)
+        {
+            return step;
         }
+
         if let PointerPhase::Down(press) = event.phase() {
             let button = press.button;
             if !state.active()

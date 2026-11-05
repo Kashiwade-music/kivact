@@ -246,42 +246,7 @@ impl CalendarGridApi {
                 .focusable(is_active)
                 .on_key(move |event: KeyEvent| -> Handled { keys.key(day, &event) })
                 .on_attach(move |mount| {
-                    let owner = Owner::current();
-                    if Owner::root() != state.root {
-                        owner.report(
-                            ErrorKind::WrongApp,
-                            "CalendarGridApi cell belongs to another App",
-                        );
-                        return;
-                    }
-                    if state.roving.contains(&day) {
-                        owner.report(
-                            ErrorKind::Message,
-                            "CalendarGridApi: a cell for this day is already mounted",
-                        );
-                        return;
-                    }
-                    let node = mount.node;
-                    state.roving.insert(
-                        day,
-                        Member {
-                            node,
-                            eligible: mount.eligible,
-                            disabled: mount.disabled,
-                            hidden: mount.hidden,
-                        },
-                    );
-                    let mounted = node.mounted_node();
-                    let weak = Rc::downgrade(&state);
-                    owner.on_cleanup(move || {
-                        let Some(state) = weak.upgrade() else {
-                            return;
-                        };
-                        let focused = mounted.is_some() && state.owner.focused_node() == mounted;
-                        if state.roving.remove(&day, node) && focused {
-                            state.roving.restore_from.set(mounted);
-                        }
-                    });
+                    mount_cell(state.clone(), day, mount);
                 })
         })
     }
@@ -320,4 +285,43 @@ fn marks(choice: Choice, day: CalendarDate) -> (bool, bool, CalendarSpan) {
             }
         }
     }
+}
+
+fn mount_cell(state: Rc<State>, day: CalendarDate, mount: kivact_core::custom::PartMount) {
+    let owner = Owner::current();
+    if Owner::root() != state.root {
+        owner.report(
+            ErrorKind::WrongApp,
+            "CalendarGridApi cell belongs to another App",
+        );
+        return;
+    }
+    if state.roving.contains(&day) {
+        owner.report(
+            ErrorKind::Message,
+            "CalendarGridApi: a cell for this day is already mounted",
+        );
+        return;
+    }
+    let node = mount.node;
+    state.roving.insert(
+        day,
+        Member {
+            node,
+            eligible: mount.eligible,
+            disabled: mount.disabled,
+            hidden: mount.hidden,
+        },
+    );
+    let mounted = node.mounted_node();
+    let weak = Rc::downgrade(&state);
+    owner.on_cleanup(move || {
+        let Some(state) = weak.upgrade() else {
+            return;
+        };
+        let focused = mounted.is_some() && state.owner.focused_node() == mounted;
+        if state.roving.remove(&day, node) && focused {
+            state.roving.restore_from.set(mounted);
+        }
+    });
 }

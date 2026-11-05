@@ -345,93 +345,15 @@ where
         }
     };
     // The indices of the rows that pass the filter, in sorted order.
-    let ordered = {
-        let (columns, shown) = (columns.clone(), shown.clone());
-        memo(move || {
-            let query = query
-                .get()
-                .map(|query| query.get().trim().to_string())
-                .unwrap_or_default();
-            let sort = sort.get().map(|sort| sort.get()).unwrap_or_default();
-            let column_queries = column_queries
-                .get()
-                .map(|queries| queries.get())
-                .unwrap_or_default();
-            let typed = typed_queries
-                .get()
-                .map(|queries| queries.get())
-                .unwrap_or_default();
-            let shown = if query.is_empty() && column_queries.is_empty() && typed.is_empty() {
-                Vec::new()
-            } else {
-                shown()
-            };
-            let global_matchers: Vec<_> = shown
-                .iter()
-                .filter_map(|column| column.matches.as_ref())
-                .collect();
-            let column_matchers: Vec<_> = column_queries
-                .iter()
-                .filter_map(|(key, text)| {
-                    let text = text.trim();
-                    if text.is_empty() {
-                        return None;
-                    }
-                    let column = shown.iter().find(|column| &column.key == key)?;
-                    Some((column.matches.as_ref()?, text))
-                })
-                .collect();
-            let typed_matchers: Vec<_> = shown
-                .iter()
-                .filter_map(|column| {
-                    let value = typed.get(&column.key).filter(|value| !value.is_empty())?;
-                    Some((column.matches_value.as_ref()?, value))
-                })
-                .collect();
-            rows.with(|rows| {
-                let mut kept: Vec<usize> = (0..rows.len())
-                    .filter(|&i| {
-                        let row = &rows[i];
-                        (query.is_empty()
-                            || global_matchers.iter().any(|matches| matches(row, &query)))
-                            && column_matchers
-                                .iter()
-                                .all(|(matches, text)| matches(row, text))
-                            && typed_matchers
-                                .iter()
-                                .all(|(matches, value)| matches(row, value))
-                    })
-                    .collect();
-                let comparisons: Vec<_> = sort
-                    .into_iter()
-                    .filter_map(|(key, direction)| {
-                        let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
-                        Some((compare, direction))
-                    })
-                    .collect();
-                if !comparisons.is_empty() {
-                    kept.sort_by(|&a, &b| {
-                        comparisons
-                            .iter()
-                            .find_map(|(compare, direction)| {
-                                let order = compare(&rows[a], &rows[b]);
-                                let order = if *direction == SortOrder::Descending {
-                                    order.reverse()
-                                } else {
-                                    order
-                                };
-                                (order != Ordering::Equal).then_some(order)
-                            })
-                            .unwrap_or(Ordering::Equal)
-                    });
-                }
-                match arrangement.get() {
-                    Some(arrange) => arrange(rows, kept),
-                    None => kept,
-                }
-            })
-        })
-    };
+    let ordered = ordered_rows(
+        rows,
+        columns.clone(),
+        sort,
+        query,
+        column_queries,
+        arrangement,
+        typed_queries,
+    );
     let count = memo(move || ordered.with(Vec::len));
     let pages = memo(move || {
         let count = count.get();
@@ -603,4 +525,112 @@ impl<
     pub fn page_count(self) -> Value<usize> {
         self.pages
     }
+}
+
+fn ordered_rows<R: kivact_core::state::PropValue, C: kivact_core::state::ItemKey>(
+    rows: Value<Vec<R>>,
+    columns: Rc<[ColumnDef<R, C>]>,
+    sort: Signal<Option<Sort<C>>>,
+    query: Signal<Option<Value<String>>>,
+    column_queries: Signal<Option<ColumnQueries<C>>>,
+    arrangement: Signal<Option<RowArrangement<R>>>,
+    typed_queries: Signal<Option<TypedQueries<C>>>,
+) -> Value<Vec<usize>> {
+    memo(move || {
+        let query = query
+            .get()
+            .map(|query| query.get().trim().to_string())
+            .unwrap_or_default();
+        let sort = sort.get().map(|sort| sort.get()).unwrap_or_default();
+        let column_queries = column_queries
+            .get()
+            .map(|queries| queries.get())
+            .unwrap_or_default();
+        let typed = typed_queries
+            .get()
+            .map(|queries| queries.get())
+            .unwrap_or_default();
+        let shown = if query.is_empty() && column_queries.is_empty() && typed.is_empty() {
+            Vec::new()
+        } else {
+            columns
+                .iter()
+                .filter(|column| column.visible.get())
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+        rows.with(|rows| {
+            let mut kept = matching_rows(rows, &shown, &query, &column_queries, &typed);
+            let comparisons: Vec<_> = sort
+                .into_iter()
+                .filter_map(|(key, direction)| {
+                    let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
+                    Some((compare, direction))
+                })
+                .collect();
+            if !comparisons.is_empty() {
+                kept.sort_by(|&a, &b| {
+                    comparisons
+                        .iter()
+                        .find_map(|(compare, direction)| {
+                            let order = compare(&rows[a], &rows[b]);
+                            let order = if *direction == SortOrder::Descending {
+                                order.reverse()
+                            } else {
+                                order
+                            };
+                            (order != Ordering::Equal).then_some(order)
+                        })
+                        .unwrap_or(Ordering::Equal)
+                });
+            }
+            match arrangement.get() {
+                Some(arrange) => arrange(rows, kept),
+                None => kept,
+            }
+        })
+    })
+}
+
+fn matching_rows<R, C: PartialEq + Eq + std::hash::Hash>(
+    rows: &[R],
+    shown: &[ColumnDef<R, C>],
+    query: &str,
+    column_queries: &[(C, String)],
+    typed: &HashMap<C, FilterValue>,
+) -> Vec<usize> {
+    let global_matchers: Vec<_> = shown
+        .iter()
+        .filter_map(|column| column.matches.as_ref())
+        .collect();
+    let column_matchers: Vec<_> = column_queries
+        .iter()
+        .filter_map(|(key, text)| {
+            let text = text.trim();
+            if text.is_empty() {
+                return None;
+            }
+            let column = shown.iter().find(|column| &column.key == key)?;
+            Some((column.matches.as_ref()?, text))
+        })
+        .collect();
+    let typed_matchers: Vec<_> = shown
+        .iter()
+        .filter_map(|column| {
+            let value = typed.get(&column.key).filter(|value| !value.is_empty())?;
+            Some((column.matches_value.as_ref()?, value))
+        })
+        .collect();
+    (0..rows.len())
+        .filter(|&i| {
+            let row = &rows[i];
+            (query.is_empty() || global_matchers.iter().any(|matches| matches(row, query)))
+                && column_matchers
+                    .iter()
+                    .all(|(matches, text)| matches(row, text))
+                && typed_matchers
+                    .iter()
+                    .all(|(matches, value)| matches(row, value))
+        })
+        .collect()
 }

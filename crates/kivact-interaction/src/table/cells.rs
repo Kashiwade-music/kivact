@@ -94,20 +94,7 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
             active: false,
         });
         let part_state = input.state();
-        let observed = state.cell_states;
-        observed.update(|states| {
-            states.insert(id.get(), part_state);
-        });
-        kivact_core::state::on_cleanup(move || {
-            if observed.try_get_untracked().is_some() {
-                observed.update(|states| {
-                    let key = id.get();
-                    if states.get(&key) == Some(&part_state) {
-                        states.remove(&key);
-                    }
-                });
-            }
-        });
+        observe_cell(&state, id, part_state);
         let target = kivact_core::view::node_ref();
         return Part::new(part_state, move |host| {
             host.part(input).node_ref(target).role(role)
@@ -123,20 +110,7 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
         active: is_active.get(),
     });
     let part_state = input.state();
-    let observed = state.cell_states;
-    observed.update(|states| {
-        states.insert(id.get(), part_state);
-    });
-    kivact_core::state::on_cleanup(move || {
-        if observed.try_get_untracked().is_some() {
-            observed.update(|states| {
-                let key = id.get();
-                if states.get(&key) == Some(&part_state) {
-                    states.remove(&key);
-                }
-            });
-        }
-    });
+    observe_cell(&state, id, part_state);
     Part::new(part_state, move |host| {
         host.part(input)
             .role(Role::GridCell)
@@ -171,44 +145,7 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
                 Handled::No
             })
             .on_attach(move |mount| {
-                let owner = Owner::current();
-                if Owner::root() != state.root {
-                    owner.report(
-                        ErrorKind::WrongApp,
-                        "DataTableApi cell belongs to another App",
-                    );
-                    return;
-                }
-                let (key, column) = id.get();
-                let cell = Target::Cell(key, column);
-                if state.roving.contains(&cell) {
-                    owner.report(
-                        ErrorKind::Message,
-                        "DataTableApi: a cell with this row and column is already mounted",
-                    );
-                    return;
-                }
-                let node = mount.node;
-                state.roving.insert(
-                    cell.clone(),
-                    Member {
-                        node,
-                        eligible: mount.eligible,
-                        disabled: mount.disabled,
-                        hidden: mount.hidden,
-                    },
-                );
-                let mounted = node.mounted_node();
-                let weak = Rc::downgrade(&state);
-                owner.on_cleanup(move || {
-                    let Some(state) = weak.upgrade() else {
-                        return;
-                    };
-                    let focused = mounted.is_some() && state.owner.focused_node() == mounted;
-                    if state.roving.remove(&cell, node) && focused {
-                        state.roving.restore_from.set(mounted);
-                    }
-                });
+                mount_cell(state.clone(), id.get(), mount);
             })
     })
 }
@@ -280,4 +217,70 @@ fn key_down<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     }
     state.focus_cell(next);
     Handled::Yes
+}
+
+fn mount_cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: Rc<State<K, C>>,
+    id: (K, C),
+    mount: kivact_core::custom::PartMount,
+) {
+    let owner = Owner::current();
+    if Owner::root() != state.root {
+        owner.report(
+            ErrorKind::WrongApp,
+            "DataTableApi cell belongs to another App",
+        );
+        return;
+    }
+    let (key, column) = id;
+    let cell = Target::Cell(key, column);
+    if state.roving.contains(&cell) {
+        owner.report(
+            ErrorKind::Message,
+            "DataTableApi: a cell with this row and column is already mounted",
+        );
+        return;
+    }
+    let node = mount.node;
+    state.roving.insert(
+        cell.clone(),
+        Member {
+            node,
+            eligible: mount.eligible,
+            disabled: mount.disabled,
+            hidden: mount.hidden,
+        },
+    );
+    let mounted = node.mounted_node();
+    let weak = Rc::downgrade(&state);
+    owner.on_cleanup(move || {
+        let Some(state) = weak.upgrade() else {
+            return;
+        };
+        let focused = mounted.is_some() && state.owner.focused_node() == mounted;
+        if state.roving.remove(&cell, node) && focused {
+            state.roving.restore_from.set(mounted);
+        }
+    });
+}
+
+fn observe_cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: &State<K, C>,
+    id: kivact_core::state::Var<(K, C)>,
+    part_state: kivact_core::state::Value<TableCellState>,
+) {
+    let observed = state.cell_states;
+    observed.update(|states| {
+        states.insert(id.get(), part_state);
+    });
+    kivact_core::state::on_cleanup(move || {
+        if observed.try_get_untracked().is_some() {
+            observed.update(|states| {
+                let key = id.get();
+                if states.get(&key) == Some(&part_state) {
+                    states.remove(&key);
+                }
+            });
+        }
+    });
 }
