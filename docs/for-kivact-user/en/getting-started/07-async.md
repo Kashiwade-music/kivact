@@ -10,7 +10,6 @@ In this step the app loads its saved tasks when it starts. Loading takes a momen
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -21,11 +20,11 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl IntoView {
+fn header(dark: Signal<bool>) -> impl Component {
     row((
         image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
-            text("Tasks").role(Role::Heading).style(style().font_size(28).weight(700)),
+            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
             text("Things to do today").style(style().color(ColorToken::TextMuted)),
         ))
         .style(style().gap(2).grow(1)),
@@ -34,7 +33,7 @@ fn header(dark: Signal<bool>) -> impl IntoView {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -48,7 +47,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl IntoView {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
@@ -66,7 +65,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl IntoView {
+fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Component {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());
@@ -162,7 +161,7 @@ fn main() -> kivact::Result<()> {
 **`resource(source, load)`** starts an asynchronous job and keeps its progress as state.
 
 - `source` is reactive input for the job, here the `attempt` signal. Kivact starts the job once at the beginning, then starts it again whenever `source` changes. If a job is still running when the source changes, its result is discarded.
-- `load` is an `async` function that receives the current source value and returns `kivact::Result<T>`: `Ok(value)` on success or `Err(UiError::msg("..."))` on failure. Use `?` on any error type that implements `std::error::Error`, and it converts into a `UiError`.
+- `load` is an `async` function that receives the current source value and returns `kivact::Result<T>`: `Ok(value)` on success or `Err(UiError::msg("..."))` on failure. Use `?` on an error implementing `std::error::Error + Send + Sync + 'static`, and it converts into a `UiError`.
 
 `load_tasks` stands in for reading a file or calling a server. `kivact::task::sleep(..).await` waits without blocking the window, so the window stays responsive. A `fn` or a closure both work as `load`. Slow synchronous work, such as reading a big file, belongs in `kivact::task::blocking(..)`.
 
@@ -175,6 +174,10 @@ To let you see every state, the fake loader fails on the first attempt. Remove t
 - `Ready(value)`: the job succeeded with a value.
 
 **`dynamic(source, build)`** picks what to show from a value. Whenever `source` changes, Kivact discards the old view and calls `build` with the new value. Here each state gets its own view, and the `match` makes Rust check that you handled all of them. Because the arms return different kinds of views, each ends in `.into_view()` to give them one common type.
+
+The `build` callback runs in the new branch’s setup owner, so creating the task
+signal inside `tasks_screen` is valid. Keep state that must survive branch
+changes outside `dynamic`, and pass its handles into the branch.
 
 State created inside a branch lives only as long as that branch. `tasks_screen` creates the `tasks` signal when the data arrives, and "Try again" starts a new load, which builds a fresh screen from the new result.
 

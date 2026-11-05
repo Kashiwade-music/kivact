@@ -10,7 +10,7 @@ until you type something, and it clears the field after adding.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl IntoView {
+fn header() -> impl Component {
     column((
         text("Tasks"),
         text("Things to do today"),
@@ -18,11 +18,11 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(title: &str) -> impl IntoView {
+fn task_row(title: impl IntoText) -> impl Component {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl IntoView {
+fn task_list() -> impl Component {
     column((
         task_row("Buy milk"),
         task_row("Write the tutorial"),
@@ -90,6 +90,11 @@ argument is a `Signal<String>`; the field and the signal are connected in both
 directions. Typing updates `draft`, and calling `draft.set(..)` changes what
 the field shows. That is how the program clears the field after adding.
 
+The control accepts any `impl IntoBinding<String>`. Passing `draft` connects
+its existing signal directly. For a field inside a larger struct, use
+`bind!(profile.name)` to edit that field without a second signal; step 5 uses
+the same pattern for task checkboxes.
+
 The first argument is the field's **name**. Screen readers announce it, and
 tests use it to find the field. It is not drawn on screen, which is why the
 field also has `.placeholder(..)`, the hint shown while the field is empty.
@@ -102,7 +107,7 @@ closure is `Copy` itself and can be passed twice.
 **`.disabled(move || ..)`** takes a closure that reads state, like `text` does.
 The Add button is disabled while the draft is empty or only spaces. Here
 `draft.with(|text| ..)` looks at the string without copying it, whereas
-`draft.get()` returns a copy.
+`draft.get()` clones the current string.
 
 The `add` closure also checks for an empty title, because Enter in the field
 can run it even when the button is disabled.
