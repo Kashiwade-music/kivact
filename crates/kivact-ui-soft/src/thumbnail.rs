@@ -250,7 +250,7 @@ impl IntoView for Thumbnail {
                         }),
                 )
         });
-        let loading_message = message("soft.spinner.loading", "Loading");
+        let loading_message = message("spinner.loading", "Loading");
         let announce = visually_hidden(move || {
             if has_source && loading.get() {
                 loading_message.get()

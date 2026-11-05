@@ -459,7 +459,7 @@ impl Renderer<'_> {
         let url = format!("{}#{}{}{}", links.base_url, links.id_prefix, slug, suffix);
         let title = title.to_owned();
         let label = message_with(
-            "soft.markdown_heading_links.copy",
+            "soft.markdown.copy_heading_link",
             "Copy link to {heading}",
             move || [("heading", title.clone())],
         );
