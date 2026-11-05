@@ -54,12 +54,18 @@ impl IntoView for AvatarGroup {
                 .map_or(count, |total| total.get().max(count))
                 .saturating_sub(count.min(max.get()))
         };
+        let variants = self.variants.clone();
         let children = self
             .children
             .into_iter()
             .enumerate()
             .map(move |(index, child)| {
-                node()
+                crate::layer::with_base_recipe_style(
+                    node(),
+                    |r| r.avatar_group_member_recipe(),
+                    &variants,
+                    move || index,
+                )
                     .base_style(move || {
                         let overlap = kivact_core::style::use_tokens::<crate::UiTokens>()
                             .indicators

@@ -614,6 +614,7 @@ recipe_table! {
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         /// Presentation of the hidden avatar count, including its actual count.
         avatar_group_overflow(avatar_group_overflow_recipe): usize = super::look_indicators::avatar_group_overflow,
+        avatar_group_member(avatar_group_member_recipe): usize = super::look_indicators::avatar_group_member,
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         kbd_key(kbd_key_recipe): crate::KbdKeyState = super::look_indicators::kbd_key,
