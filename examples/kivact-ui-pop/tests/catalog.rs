@@ -156,48 +156,7 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
         ["有効なメールアドレスを入力してください。"]
     );
     replace(&screen, "生徒名 *", "空崎 ミナト・調査");
-    let memo = screen.get_by_role(Role::TextBox, "依頼メモ");
-    memo.commit("現地の安全を確認してください。");
-    assert_eq!(
-        screen.get_by_role(Role::TextBox, "依頼メモ").value(),
-        Some("現地の安全を確認してください。".into())
-    );
-    let initial_memo = memo.rect().expect("memo laid out");
-    assert_eq!(initial_memo.height, 80.0);
-    let resize = |delta: f64| {
-        let grip = screen
-            .get_by_test_id("pop-memo-resize")
-            .get_by_role(Role::Splitter, "テキスト欄の高さを変更");
-        grip.hover();
-        let rect = grip.rect().expect("resize grip laid out");
-        let x = rect.x + rect.width / 2.0;
-        let y = rect.y + rect.height / 2.0;
-        screen.mouse_move(x, y);
-        screen.mouse_down(MouseButton::Primary);
-        screen.mouse_move(x, y + delta / 2.0);
-        screen.mouse_move(x, y + delta);
-        screen.mouse_up(MouseButton::Primary);
-    };
-    resize(48.0);
-    assert_eq!(memo.rect().unwrap().height, 128.0);
-    assert_eq!(memo.rect().unwrap().width, initial_memo.width);
-    assert!(memo.is_focused());
-    assert_eq!(memo.value(), Some("現地の安全を確認してください。".into()));
-    screen.type_text("継続入力");
-    assert_eq!(
-        memo.value(),
-        Some("現地の安全を確認してください。継続入力".into())
-    );
-    screen.evidence("pop-state-textarea-expanded");
-    resize(-200.0);
-    assert_eq!(memo.rect().unwrap().height, 72.0);
-    assert_eq!(memo.rect().unwrap().width, initial_memo.width);
-    assert!(memo.is_focused());
-    assert_eq!(
-        memo.value(),
-        Some("現地の安全を確認してください。継続入力".into())
-    );
-    screen.evidence("pop-state-textarea-minimum");
+    edit_and_resize_memo(&screen);
     let tags = screen.get_by_role(Role::TextBox, "タグを追加");
     tags.type_text("連携");
     tags.press_key(Key::Enter);
@@ -248,6 +207,52 @@ fn pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme() {
     );
     screen.evidence("pop-state-forms-dark");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[cfg(test)]
+fn edit_and_resize_memo(screen: &Screen) {
+    let memo = screen.get_by_role(Role::TextBox, "依頼メモ");
+    memo.commit("現地の安全を確認してください。");
+    assert_eq!(
+        screen.get_by_role(Role::TextBox, "依頼メモ").value(),
+        Some("現地の安全を確認してください。".into())
+    );
+    let initial_memo = memo.rect().expect("memo laid out");
+    assert_eq!(initial_memo.height, 80.0);
+    let resize = |delta: f64| {
+        let grip = screen
+            .get_by_test_id("pop-memo-resize")
+            .get_by_role(Role::Splitter, "テキスト欄の高さを変更");
+        grip.hover();
+        let rect = grip.rect().expect("resize grip laid out");
+        let x = rect.x + rect.width / 2.0;
+        let y = rect.y + rect.height / 2.0;
+        screen.mouse_move(x, y);
+        screen.mouse_down(MouseButton::Primary);
+        screen.mouse_move(x, y + delta / 2.0);
+        screen.mouse_move(x, y + delta);
+        screen.mouse_up(MouseButton::Primary);
+    };
+    resize(48.0);
+    assert_eq!(memo.rect().unwrap().height, 128.0);
+    assert_eq!(memo.rect().unwrap().width, initial_memo.width);
+    assert!(memo.is_focused());
+    assert_eq!(memo.value(), Some("現地の安全を確認してください。".into()));
+    screen.type_text("継続入力");
+    assert_eq!(
+        memo.value(),
+        Some("現地の安全を確認してください。継続入力".into())
+    );
+    screen.evidence("pop-state-textarea-expanded");
+    resize(-200.0);
+    assert_eq!(memo.rect().unwrap().height, 72.0);
+    assert_eq!(memo.rect().unwrap().width, initial_memo.width);
+    assert!(memo.is_focused());
+    assert_eq!(
+        memo.value(),
+        Some("現地の安全を確認してください。継続入力".into())
+    );
+    screen.evidence("pop-state-textarea-minimum");
 }
 
 #[test]
