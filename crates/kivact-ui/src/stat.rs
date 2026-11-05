@@ -4,24 +4,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, node, text};
 
-/// The direction of change, independent of whether that change is desirable.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Trend {
-    /// The statistic has increased.
-    Up,
-    /// The statistic has decreased.
-    Down,
-    /// The statistic is steady or has no stated direction.
-    #[default]
-    Neutral,
-}
-kivact_core::state::constant_value!(Trend);
-/// Semantic state shared by all statistic recipes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct StatState {
-    /// Direction supplied by the application; it does not imply a success or danger tone.
-    pub trend: Trend,
-}
+use crate::component_values::{StatState, Trend};
 // xtask-allow(state-fields): Optional views and text are builder slots, not runtime phases; trend is application-owned reactive input.
 /// A statistic labelled by its visible label, created by [`stat`].
 pub struct Stat {

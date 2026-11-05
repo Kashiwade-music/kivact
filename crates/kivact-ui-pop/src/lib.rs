@@ -34,6 +34,7 @@ mod recipes_avatar;
 mod recipes_badge;
 mod recipes_collections;
 mod recipes_extra;
+mod recipes_feedback;
 mod recipes_field;
 mod recipes_files;
 mod recipes_groups;
@@ -55,8 +56,8 @@ pub use date::{
     Calendar, CalendarEvent, DateInput, DateRangeInput, calendar, date_input, date_range_input,
 };
 pub use display::{
-    Alert, EmptyState, ListItem, StatCard, alert, empty_state, key_value, list_item, panel,
-    progress_ring, section_heading, sparkline, stat_card,
+    ListItem, StatCard, empty_illustration, key_value, list_item, progress_ring, section_heading,
+    sparkline, stat_card,
 };
 pub use messaging::{
     Message, MessageGroup, Thread, message, message_group, thread, typing_message,

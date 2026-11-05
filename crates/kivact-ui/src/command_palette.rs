@@ -17,6 +17,7 @@ use std::rc::Rc;
 type Filter<K> = Rc<dyn Fn(&str, &Command<K>) -> bool>;
 type Footer = View;
 
+// xtask-allow(state-fields): Construction-only bindings, command source, recipe variants and optional content slots; mounted navigation belongs to CommandPaletteApi.
 /// A searchable command palette in a modal, created by [`command_palette`].
 ///
 /// It is a view: put it in the tree once; it draws nothing while the palette
@@ -173,67 +174,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
             .hidden(move || !palette.is_open().get())
             .child({
                 let plain = PartState::default;
-                let groups = for_each(
-                    palette.visible(),
-                    |group| (group.index, group.heading.is_some()),
-                    {
-                        let variants = variants.clone();
-                        move |group| {
-                            let index = group.with_untracked(|group| group.index);
-                            let heading = group.with_untracked(|group| group.heading.clone());
-                            let commands = memo(move || group.with(|group| group.commands.clone()));
-                            let rows = for_each(commands, |command| command.key().clone(), {
-                                let variants = variants.clone();
-                                move |command| {
-                                    let key =
-                                        command.with_untracked(|command| command.key().clone());
-                                    row_view(palette, key, command, &variants)
-                                }
-                            });
-                            let Some(heading) = heading else {
-                                return rows.into_view();
-                            };
-                            column((
-                                with_recipe_style(
-                                    text(move || heading.get()),
-                                    |r| r.command_palette_recipes().group_recipe(),
-                                    &variants,
-                                    plain,
-                                ),
-                                rows,
-                            ))
-                            .part(palette.group(index))
-                            .into_view()
-                        }
-                    },
-                );
-                let field = with_recipe_style(
-                    node()
-                        .part(
-                            use_text_edit(palette.query())
-                                .placeholder(placeholder)
-                                .control(),
-                        )
-                        .part(palette.input()),
-                    |r| r.command_palette_recipes().field_recipe(),
-                    &variants,
-                    plain,
-                );
-                // The magnifier is drawn while the theme has an image for it.
-                let mark = use_theme().get().icons().get("search").map(|_| {
-                    with_recipe_style(
-                        icon(Icon::named("search")),
-                        |r| r.command_palette_recipes().search_icon_recipe(),
-                        &variants,
-                        plain,
-                    )
-                });
-                let search = with_recipe_style(
-                    row((mark, field)),
-                    |r| r.command_palette_recipes().search_recipe(),
-                    &variants,
-                    plain,
-                );
+                let groups = command_groups(palette, &variants);
+                let search = search_field(palette, placeholder, &variants);
                 let list = with_recipe_style(
                     scroll(column(groups).part(palette.list())),
                     |r| r.command_palette_recipes().list_recipe(),
@@ -329,4 +271,81 @@ fn row_view<K: kivact_core::state::ItemKey>(
     )
     .child((mark, label, hint))
     .into_view()
+}
+
+/// Render the current visible command groups using the shared palette parts.
+fn command_groups<K: kivact_core::state::ItemKey>(
+    palette: kivact_interaction::CommandPaletteApi<K>,
+    variants: &Variants,
+) -> impl IntoView {
+    let plain = PartState::default;
+    for_each(
+        palette.visible(),
+        |group| (group.index, group.heading.is_some()),
+        {
+            let variants = variants.clone();
+            move |group| {
+                let index = group.with_untracked(|group| group.index);
+                let heading = group.with_untracked(|group| group.heading.clone());
+                let commands = memo(move || group.with(|group| group.commands.clone()));
+                let rows = for_each(commands, |command| command.key().clone(), {
+                    let variants = variants.clone();
+                    move |command| {
+                        let key = command.with_untracked(|command| command.key().clone());
+                        row_view(palette, key, command, &variants)
+                    }
+                });
+                let Some(heading) = heading else {
+                    return rows.into_view();
+                };
+                column((
+                    with_recipe_style(
+                        text(move || heading.get()),
+                        |r| r.command_palette_recipes().group_recipe(),
+                        &variants,
+                        plain,
+                    ),
+                    rows,
+                ))
+                .part(palette.group(index))
+                .into_view()
+            }
+        },
+    )
+}
+
+/// Render the query editor and optional themed search icon.
+fn search_field<K: kivact_core::state::ItemKey>(
+    palette: kivact_interaction::CommandPaletteApi<K>,
+    placeholder: Value<String>,
+    variants: &Variants,
+) -> impl IntoView {
+    let plain = PartState::default;
+    let field = with_recipe_style(
+        node()
+            .part(
+                use_text_edit(palette.query())
+                    .placeholder(placeholder)
+                    .control(),
+            )
+            .part(palette.input()),
+        |r| r.command_palette_recipes().field_recipe(),
+        variants,
+        plain,
+    );
+    // The magnifier is drawn while the theme has an image for it.
+    let mark = use_theme().get().icons().get("search").map(|_| {
+        with_recipe_style(
+            icon(Icon::named("search")),
+            |r| r.command_palette_recipes().search_icon_recipe(),
+            variants,
+            plain,
+        )
+    });
+    with_recipe_style(
+        row((mark, field)),
+        |r| r.command_palette_recipes().search_recipe(),
+        variants,
+        plain,
+    )
 }

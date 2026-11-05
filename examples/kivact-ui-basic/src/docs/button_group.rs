@@ -43,43 +43,55 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
-    kivact::ui::button_group("Actions", (
-        button("Archive").variant(ButtonVariant::Outline),
-        button("Report").variant(ButtonVariant::Outline),
-        button("Snooze").variant(ButtonVariant::Outline),
-    ))
+    kivact::ui::button_group(
+        "Actions",
+        (
+            button("Archive").variant(ButtonVariant::Outline),
+            button("Report").variant(ButtonVariant::Outline),
+            button("Snooze").variant(ButtonVariant::Outline),
+        ),
+    )
 }
 // end example
 
 // example: vertical
 fn vertical() -> impl IntoView {
-    kivact::ui::button_group("Actions", (
-        button("Top").variant(ButtonVariant::Outline),
-        kivact::ui::button_group_separator(),
-        button("Middle").variant(ButtonVariant::Outline),
-        button("Bottom").variant(ButtonVariant::Outline),
-    ))
+    kivact::ui::button_group(
+        "Actions",
+        (
+            button("Top").variant(ButtonVariant::Outline),
+            kivact::ui::button_group_separator(),
+            button("Middle").variant(ButtonVariant::Outline),
+            button("Bottom").variant(ButtonVariant::Outline),
+        ),
+    )
     .orientation(Orientation::Vertical)
 }
 // end example
 
 // example: separator
 fn separator() -> impl IntoView {
-    kivact::ui::button_group("Actions", (
-        button("Copy").variant(ButtonVariant::Secondary),
-        kivact::ui::button_group_separator(),
-        button("Paste").variant(ButtonVariant::Secondary),
-    ))
+    kivact::ui::button_group(
+        "Actions",
+        (
+            button("Copy").variant(ButtonVariant::Secondary),
+            kivact::ui::button_group_separator(),
+            button("Paste").variant(ButtonVariant::Secondary),
+        ),
+    )
 }
 // end example
 
 // example: text
 fn with_text() -> impl IntoView {
     let url = signal(String::from("example.com"));
-    kivact::ui::button_group("Actions", (
-        kivact::ui::button_group_text("https://"),
-        text_input("URL", url).style(style().width(160)),
-        button("Go").variant(ButtonVariant::Outline),
-    ))
+    kivact::ui::button_group(
+        "Actions",
+        (
+            kivact::ui::button_group_text("https://"),
+            text_input("URL", url).style(style().width(160)),
+            button("Go").variant(ButtonVariant::Outline),
+        ),
+    )
 }
 // end example

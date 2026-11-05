@@ -30,6 +30,8 @@ pub struct DateRangeInput {
     root: Node,
     variants: crate::variants::Variants,
     label: Value<String>,
+    start_label: Value<String>,
+    end_label: Value<String>,
     value: Binding<Option<DateRange>>,
     format: Value<DateStyle>,
     custom_format: Option<Rc<dyn Fn(CalendarDate) -> String>>,
@@ -54,6 +56,8 @@ pub fn date_range_input(
         root: node(),
         variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
+        start_label: message("date.start", "Start date"),
+        end_label: message("date.end", "End date"),
         value: range.into_binding(),
         format: DateStyle::Iso.into_value(),
         custom_format: None,
@@ -76,6 +80,17 @@ impl DateRangeInput {
         self.variants.add(variant);
         self
     }
+    /// Set the accessible label of the start-date editor.
+    pub fn start_label(mut self, label: impl IntoText) -> Self {
+        self.start_label = label.into_text_value();
+        self
+    }
+    /// Set the accessible label of the end-date editor.
+    pub fn end_label(mut self, label: impl IntoText) -> Self {
+        self.end_label = label.into_text_value();
+        self
+    }
+
     /// Format both endpoints.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -164,6 +179,8 @@ impl DateRangeInput {
             root,
             variants,
             label,
+            start_label,
+            end_label,
             value,
             format,
             custom_format,
@@ -312,13 +329,13 @@ impl DateRangeInput {
             },
             move |valid| validation.send(ValidationEvent::End(valid)),
         );
-        let mut first = date_input(message("date.start", "Start date"), start)
+        let mut first = date_input(start_label, start)
             .format(format)
             .min(min)
             .max(max)
             .presentation(presentation)
             .with_variants(&variants);
-        let mut last = date_input(message("date.end", "End date"), end)
+        let mut last = date_input(end_label, end)
             .format(format)
             .min(min)
             .max(max)

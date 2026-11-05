@@ -98,39 +98,40 @@ pub(super) fn frame(
     })
     .collect::<Vec<_>>())
     .style(style().gap(4));
-    let tools = g::toolbar((
-        g::tool_button(message("game.window.new", "New"))
-            .icon(kivact::view::icon("plus"))
-            .hide_label(true)
-            .on_press(move || command("new")),
-        g::tool_button(message("game.window.save", "Save"))
-            .icon(kivact::view::icon("device-floppy"))
-            .hide_label(true)
-            .on_press(move || command("save")),
-        g::tool_button(message("game.window.run", "Run"))
-            .icon(kivact::view::icon("player-play"))
-            .hide_label(true)
-            .on_press(move || command("run")),
-        g::tool_button(message("game.window.pause", "Pause"))
-            .icon(kivact::view::icon("player-pause"))
-            .hide_label(true)
-            .on_press(move || command("pause")),
-        spacer(),
-        segmented(
-            message("game.window.mode", "Mode"),
-            vec![
-                ListItem::new("edit", message("game.window.edit", "Edit")),
-                ListItem::new("preview", message("game.window.preview", "Preview")),
-            ],
-            mode,
-        ),
-    ))
-    .style(
-        style()
-            .padding_x(8)
-            .padding_y(4)
-            .background(ColorToken::SurfaceAlt),
-    );
+    let tools = kivact::ui::toolbar("Console tools")
+        .start((
+            g::tool_button(message("game.window.new", "New"))
+                .icon(kivact::view::icon("plus"))
+                .hide_label(true)
+                .on_press(move || command("new")),
+            g::tool_button(message("game.window.save", "Save"))
+                .icon(kivact::view::icon("device-floppy"))
+                .hide_label(true)
+                .on_press(move || command("save")),
+            g::tool_button(message("game.window.run", "Run"))
+                .icon(kivact::view::icon("player-play"))
+                .hide_label(true)
+                .on_press(move || command("run")),
+            g::tool_button(message("game.window.pause", "Pause"))
+                .icon(kivact::view::icon("player-pause"))
+                .hide_label(true)
+                .on_press(move || command("pause")),
+            spacer(),
+            segmented(
+                message("game.window.mode", "Mode"),
+                vec![
+                    ListItem::new("edit", message("game.window.edit", "Edit")),
+                    ListItem::new("preview", message("game.window.preview", "Preview")),
+                ],
+                mode,
+            ),
+        ))
+        .style(
+            style()
+                .padding_x(8)
+                .padding_y(4)
+                .background(ColorToken::SurfaceAlt),
+        );
     let document_pane = column((
         show(
             move || mode.get() == Some("edit"),

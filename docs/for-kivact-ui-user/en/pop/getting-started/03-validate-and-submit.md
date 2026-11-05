@@ -55,7 +55,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
             && terms.get()
     });
 
-    pop::panel((
+    kivact::ui::card((
         text("New account").style(style().font_size(20).weight(600)),
         field("Name", text_input("Name", name).placeholder("Your full name"))
             .hint("Shown on your invoices.")
@@ -108,9 +108,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
         ))
         .style(style().gap(8).justify_content(Justify::End)),
         show(created, move || {
-            pop::alert("Account created")
-                .tone(Tone::Success)
-                .description(move || format!("Welcome, {}.", name.get()))
+            {let tone=kivact::state::IntoValue::into_value(Tone::Success); kivact::ui::alert("Account created").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description(move || format!("Welcome, {}.", name.get()))}
         }),
     ))
     .style(style().width(420).margin(24).gap(12))
@@ -208,7 +206,7 @@ date does not exist"). Business rules, such as "in the past", are yours:
 so the two messages never overlap.
 
 **`show(condition, || view)`** mounts the view only while the condition is
-true. `Tone::Success` turns `pop::alert` green; alerts and similar display
+true. `Tone::Success` turns `kivact::ui::alert` green; alerts and similar display
 components take their meaning from the standard `kivact::interaction::Tone`.
 
 **The test** passes `pop::theme(..)` through `RenderOptions`, so it draws the

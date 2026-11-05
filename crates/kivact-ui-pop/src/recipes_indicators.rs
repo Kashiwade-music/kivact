@@ -84,3 +84,18 @@ pub(crate) fn spinner(t: &Theme, s: &Look<SpinnerState>) -> Style {
             d.stroke_path(&arc(0.25), &stroke, accent);
         })
 }
+
+pub(crate) fn kbd(t: &Theme, _: &Look<()>) -> Style {
+    let p = t.ext::<Tokens>();
+    style()
+        .min_height(20)
+        .min_width(20)
+        .padding_x(6)
+        .radius(4)
+        .background(p.surface_muted)
+        .border(1, p.line)
+        .border_bottom(2, p.line_strong)
+        .color(p.text_muted)
+        .font_size(12)
+        .text_wrap(false)
+}

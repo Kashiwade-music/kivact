@@ -477,13 +477,16 @@ pub(super) fn table(scene: Demo) -> impl kivact::view::Component {
                 .border_bottom(1, ColorToken::Border),
         ),
         row((
-            g::input_adorned(
-                kivact::view::icon("search").style(style().size(15, 15)),
-                kivact::ui::text_input("案件を検索", query)
+            kivact::ui::input_group(
+                "",
+                (kivact::ui::text_input("案件を検索", query)
                     .test_id("game-table-search")
-                    .placeholder("ID・件名・担当で絞り込み"),
-                (),
+                    .placeholder("ID・件名・担当で絞り込み")
+                    .style(style().width(pct(100)).padding_left(34).padding_right(52)),),
             )
+            .variant(g::GameInputGroupVariant::Adorned)
+            .start(kivact::view::icon("search").style(style().size(15, 15)))
+            .end(())
             .style(style().width(260)),
             segmented(
                 "Status",

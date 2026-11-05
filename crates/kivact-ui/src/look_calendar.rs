@@ -80,3 +80,14 @@ pub(super) fn wheel(t: &Theme, _: &PartState) -> Style {
         .background(ColorToken::Surface)
         .color(ColorToken::Text)
 }
+
+pub(super) fn events(_: &Theme, _: &PartState) -> Style {
+    style()
+        .direction(Direction::Row)
+        .position(Position::Absolute)
+        .bottom(2)
+        .gap(2)
+}
+pub(super) fn event(_: &Theme, s: &crate::CalendarEventVisual) -> Style {
+    style().size(3, 3).radius(2).background(s.color)
+}

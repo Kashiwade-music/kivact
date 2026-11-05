@@ -132,13 +132,13 @@ fn pagination_moves_focus_only_when_the_page_changes() {
         (
             page,
             column((
-                g::pagination(
+                kivact::ui::pagination(
+                    12,
                     binding(page, move |next: usize| {
                         if next != 2 {
                             page.set(next);
                         }
                     }),
-                    12,
                 ),
                 kivact::ui::button("Elsewhere"),
             )),

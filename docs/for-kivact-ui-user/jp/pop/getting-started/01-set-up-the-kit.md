@@ -39,7 +39,7 @@ use kivact_ui_pop as pop;
 
 fn sign_up() -> impl IntoView {
     let name = signal(String::new());
-    pop::panel((
+    kivact::ui::card((
         text("新規アカウント").style(style().font_size(20).weight(600)),
         text_input("名前", name),
         button("アカウントを作成"),
@@ -65,7 +65,7 @@ cargo run
 新しく出てきたものは 3 つです。
 
 - `pop::theme(ThemeMode::Light)` が Pop テーマを作り、`App::theme(..)` がウィンドウ全体に適用します。結果は普通の Kivact の `Theme` です。ダークの配色が欲しいときは `ThemeMode::Dark` を使います。
-- `pop::panel(..)` は Pop のコンポーネントで、枠線と角丸を持つカードです。子要素を縦に並べます。
+- `kivact::ui::card(..)` は Pop のコンポーネントで、枠線と角丸を持つカードです。子要素を縦に並べます。
 - `use kivact_ui_pop as pop;` は短い別名にすぎません。キットのコンポーネントは `pop::名前`、標準コンポーネントは修飾なしで書きます。
 
 状態はこれまでどおり `signal` に持ちます。キットがデータを持つことはありません。`name` はあなたのもので、`text_input` はそれを読み書きするだけです。

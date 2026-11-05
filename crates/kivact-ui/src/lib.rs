@@ -1,3 +1,4 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Standard UI components with theme support.
 //!
 //! Standard components: the few controls a first screen needs without an
@@ -180,7 +181,7 @@ pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};
 pub use toggle_button::{ToggleButton, ToggleButtonTokens, ToggleLabelReservation, toggle_button};
-pub use tree::{Tree, TreeRows, TreeTokens, tree, tree_rows};
+pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
@@ -229,7 +230,7 @@ pub use calendar::{Calendar, CalendarCaption, CalendarDayVisual, CalendarEvent, 
 
 mod calendar_tokens;
 mod look_calendar;
-pub use calendar_tokens::CalendarTokens;
+pub use calendar_tokens::{CalendarEventVisual, CalendarTokens};
 
 mod date_input;
 mod date_trigger;
@@ -264,7 +265,7 @@ mod disclosure_group;
 pub use disclosure_group::{DisclosureGroup, disclosure_group};
 
 mod hover_card;
-pub use hover_card::{FocusTrigger, HoverCard, HoverCardSurfaceState, HoverCardTokens, hover_card};
+pub use hover_card::{FocusTrigger, HoverCard, hover_card};
 
 pub use recipes::HoverCardRecipes;
 
@@ -291,19 +292,17 @@ pub use group_types::{
 };
 pub use recipes::{ButtonGroupRecipes, ToggleGroupRecipes, ToolbarRecipes};
 pub use toggle_group::{ToggleGroup, toggle_group};
-pub use toolbar::{Toolbar, ToolbarEdge, ToolbarState, ToolbarTokens, toolbar};
+pub use toolbar::{Toolbar, toolbar};
 
 mod alert;
 mod card;
 mod empty_state;
 mod input_group;
 mod look_feedback;
-pub use alert::{Alert, AlertState, AlertVariant, alert};
-pub use card::{Card, CardState, card};
-pub use empty_state::{EmptyState, EmptyStateState, empty_state};
-pub use input_group::{
-    InputGroup, InputGroupMemberState, InputGroupState, input_addon, input_group, input_group_with,
-};
+pub use alert::{Alert, AlertVariant, alert};
+pub use card::{Card, card};
+pub use empty_state::{EmptyState, empty_state};
+pub use input_group::{InputGroup, input_addon, input_group, input_group_with};
 pub use recipes::{AlertRecipes, CardRecipes, EmptyStateRecipes, InputGroupRecipes};
 mod badge;
 mod indicator_values;
@@ -328,11 +327,11 @@ pub use kbd::{Kbd, KbdCombo, kbd, kbd_combo};
 mod item_list;
 mod look_static_collections;
 mod table;
-pub use item_list::{ItemList, ItemListTokens, ItemRow, item_list, item_row};
+pub use item_list::{ItemList, ItemRow, item_list, item_row};
 pub use recipes::{ItemListRecipes, TableRecipes};
 pub use table::{
-    Table, TableCell, TableTokens, table, table_body, table_cell, table_footer, table_head,
-    table_header, table_row,
+    Table, TableCell, table, table_body, table_cell, table_footer, table_head, table_header,
+    table_row,
 };
 mod breadcrumb;
 mod look_navigation;
@@ -356,9 +355,9 @@ mod heading;
 mod look_metrics;
 mod stat;
 pub use description_list::{Description, DescriptionList, description, description_list};
-pub use heading::{Heading, HeadingState, heading};
+pub use heading::{Heading, heading};
 pub use recipes::{DescriptionListRecipes, StatRecipes};
-pub use stat::{Stat, StatState, Trend, stat};
+pub use stat::{Stat, stat};
 
 mod chat_composer;
 mod chat_message;
@@ -367,6 +366,7 @@ mod chat_tokens;
 mod chat_values;
 mod code_block;
 mod code_editing;
+mod code_gutter;
 mod composer_history;
 mod look_chat;
 mod typing_indicator;
@@ -385,3 +385,15 @@ pub use recipes::{
     TypingIndicatorRecipes,
 };
 pub use typing_indicator::{TypingIndicator, typing_indicator};
+
+mod collection_values;
+mod component_values;
+mod hover_card_values;
+pub use collection_values::{
+    ItemListTokens, TableTokens, ToolbarEdge, ToolbarState, ToolbarTokens, TreeTokens,
+};
+pub use component_values::{
+    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
+    StatState, Trend,
+};
+pub use hover_card_values::{HoverCardSurfaceState, HoverCardTokens};

@@ -2,7 +2,7 @@
 use kivact::draw::{Shape, linear_gradient};
 use kivact::prelude::*;
 use kivact::style::{Direction, Position};
-use kivact_ui_pop::{self as ui, Hue, Tokens, panel};
+use kivact_ui_pop::{self as ui, Hue, Tokens};
 /// All mission content is public data; fetching, rewards and locking belong to the application.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Mission {
@@ -31,7 +31,7 @@ pub(super) fn mission_card(mission: Mission, action: impl Into<Callback<()>>) ->
     let locked = mission.locked;
     let progress_label = or_message(mission.progress_label, "mission.progress", "Progress");
     let action_label = or_message(mission.action_label, "mission.open", "Open");
-    panel((
+    kivact::ui::card((
         node()
             .style(move || {
                 let t = &use_theme().get();

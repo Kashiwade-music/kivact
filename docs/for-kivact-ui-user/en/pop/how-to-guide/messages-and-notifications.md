@@ -12,7 +12,7 @@ when to show one, stores a history or marks it read.
 
 ## Show an alert on the page
 
-`pop::alert(title)` is an inline box with a title, an optional description and
+`kivact::ui::alert(title)` is an inline box with a title, an optional description and
 optional actions. Its color comes from the standard `kivact::interaction::Tone`.
 
 ```rust,no_run
@@ -22,10 +22,7 @@ use kivact_ui_pop as pop;
 
 fn payment_status(failed: Signal<bool>) -> impl IntoView {
     show(failed, || {
-        pop::alert("Payment failed")
-            .tone(Tone::Danger)
-            .description("Your card was declined. Update it and try again.")
-            .actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))
+        {let tone=kivact::state::IntoValue::into_value(Tone::Danger); kivact::ui::alert("Payment failed").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description("Your card was declined. Update it and try again.").actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))}
     })
 }
 # fn main() {}
@@ -141,9 +138,9 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
     column((
         show(loading, || kivact::ui::skeleton().lines(3)),
         show(move || !loading.get() && count.get() == 0, || {
-            pop::empty_state("No orders yet")
+            kivact::ui::empty_state("No orders yet").icon(pop::empty_illustration())
                 .description("Orders appear here as soon as customers check out.")
-                .content(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
+                .actions(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
         show(loading, || row((kivact::ui::spinner(), text("Loading orders")))
             .style(style().gap(8))),
@@ -156,7 +153,7 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 - `kivact::ui::skeleton().lines(n)` draws placeholder bars where text will appear.
 - `kivact::ui::spinner()` and `kivact::ui::spinner().variant(pop::SpinnerLook::Dots)` are small animated loaders; they
   are named "Loading" for screen readers (message `spinner.loading`).
-- `pop::empty_state(title)` draws an illustration, a description and an
+- `kivact::ui::empty_state(title).icon(pop::empty_illustration())` draws an illustration, a description and an
   optional action.
 
 How to start and finish loading (a task that sets `loading` when data arrives)

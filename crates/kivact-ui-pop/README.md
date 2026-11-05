@@ -5,7 +5,7 @@ surfaces, narrow blue gradients and yellow accents.
 
 The kit depends only on the public `kivact` crate. Its theme restyles the
 standard components of `kivact::ui`, and it adds business components such as
-date inputs, file dropzones, stat cards, timelines and
+stat cards, timelines and
 conversation threads.
 
 ```rust,no_run
@@ -16,7 +16,7 @@ use kivact_ui_pop as pop;
 fn settings() -> impl IntoView {
     let sync = signal(true);
     let name = signal(String::new());
-    pop::panel(
+    kivact::ui::card(
         column((
             field("Display name", text_input("Display name", name)),
             switch("Sync reports", sync),
@@ -51,6 +51,11 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `kbd`
+- `empty_state`
+- `alert`
+- `card`
+- `input_group`
 - `avatar`
 - `badge`
 - `badge_label`
