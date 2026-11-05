@@ -18,9 +18,7 @@ mod dock_model;
 mod editor_gestures;
 #[path = "consumer/glyphs.rs"]
 mod glyphs;
-#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
-#[path = "consumer/gpu_interop.rs"]
-mod gpu_interop;
+
 #[path = "consumer/gradient.rs"]
 mod gradient;
 #[path = "consumer/graph_domain.rs"]

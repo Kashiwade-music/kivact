@@ -84,20 +84,21 @@ fn viewport() -> impl IntoView {
 
 `SharedImage` は UI スレッド用のハンドルです (`Clone` ですが `Send` ではありません)。作成した owner に属し、そのコンポーネントが消えるとリンクが閉じ、エンジンの待機は即座に戻り、ウィンドウは最後のフレームを解放します。
 
-creative kit のビューポートコンポーネントも、同じ 2 つの供給元を受け取ります。
+中核の viewport も、同じ 2 つの供給元を受け取ります。
 
 ```rust,ignore
 use kivact::gpu_interop::shared_image;
-use kivact_ui_creative::viewport_surface;
+use kivact::view::viewport;
+use kivact::draw::Pixels;
 
 let image = shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-viewport_surface(move || pixels.pixels())
+viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, vec![0; 4].into())))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
 ```
 
-kit 自身の `gpu-interop` feature が必要です。このサーフェスはフレームをズームとパンし、ポインターを画像のピクセル座標に写します。
+`kivact` の `gpu-interop` feature を使います。`.transform(use_zoom_pan(binding))` でズームとパンを接続し、`ZoomPanApi::to_content` と `to_view` で座標を変換します。`NodeRef::snapshot` は GPU 表示中も viewport 自身の CPU の Pixels を使います。
 
 ### ビューのサイズに追従する
 

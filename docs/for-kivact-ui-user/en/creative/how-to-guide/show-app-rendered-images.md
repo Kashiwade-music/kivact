@@ -4,14 +4,15 @@
 
 Goal: show an image your application produces (a 3D viewport, a composite, a histogram, a node preview) in a pannable, zoomable surface, receive pointer positions in image coordinates, and keep heavy rendering off the UI thread.
 
-The kit draws and navigates; it never renders your scene. You give it RGBA pixels, and it handles fitting, zoom, pan, overlays and input. This guide assumes you finished the [tutorial](../getting-started/README.md). Building images and passing them between threads is covered more generally in the core guide [Draw with a canvas](../../../../for-kivact-user/en/how-to-guide/canvas.md#show-frames-from-your-own-renderer).
+The core viewport displays and navigates the image your application renders. You give it RGBA pixels, and it handles fitting, zoom, pan, overlays and input. This guide assumes you finished the [tutorial](../getting-started/README.md). Building images and passing them between threads is covered more generally in the core guide [Draw with a canvas](../../../../for-kivact-user/en/how-to-guide/canvas.md#show-frames-from-your-own-renderer).
 
 ## Show an image with zoom and pan
 
 ```rust,no_run
 use kivact::draw::{Pixels};
 use kivact::geometry::{Point, Rect, Size};
-use kivact::interaction::ViewTransform;
+use kivact::interaction::{ViewTransform, use_zoom_pan};
+use kivact::view::{SurfaceSize, viewport};
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
 use kivact_ui_creative as ui;
@@ -37,11 +38,12 @@ fn render(tint: f64) -> Pixels {
 fn viewer() -> impl IntoView {
     let tint = signal(0.5);
     let transform = signal(ViewTransform::default());
+    let zoom = use_zoom_pan(transform);
     let surface = signal(Size::new(0.0, 0.0));
     let pointer = signal(Point::new(0.0, 0.0));
 
-    // Re-renders whenever `tint` changes; `None` would show only the background.
-    let frame = memo(move || Some(render(tint.get())));
+    // Re-renders whenever `tint` changes.
+    let frame = memo(move || render(tint.get()));
 
     column((
         row((
@@ -58,13 +60,19 @@ fn viewer() -> impl IntoView {
             }),
         ))
         .style(style().gap(8)),
-        ui::viewport_surface(frame)
-            .transform(transform)
-            .on_resize(move |size: ui::SurfaceSize| surface.set(size.logical))
-            .on_pointer(move |event: ui::SurfacePointer| pointer.set(event.position))
-            .overlay(|draw, _transform| {
-                draw.stroke_rect(Rect::new(200.0, 100.0, 240.0, 160.0), 1.0, rgb(0xffd25a));
-            })
+        viewport(frame)
+            .transform(zoom)
+            .on_resize(move |size: SurfaceSize| surface.set(size.logical))
+            .with_node(move |node| node
+                .on_pointer(move |event| {
+                    pointer.set(zoom.to_content(event.pos()));
+                    kivact::view::Handled::No
+                })
+                .draw_over(move |draw, _| {
+                    let a = zoom.to_view(Point::new(200.0, 100.0));
+                    let b = zoom.to_view(Point::new(440.0, 260.0));
+                    draw.stroke_rect(Rect::new(a.x, a.y, b.x-a.x, b.y-a.y), 1.0, rgb(0xffd25a));
+                }))
             .name("Viewer")
             .style(style().height(400)),
     ))
@@ -82,13 +90,13 @@ Run it. The image fits the surface at first. Scroll to zoom around the pointer, 
 
 ### What the surface does for you
 
-- **Without `.transform(..)` the image always fits** the surface. With a `Binding<ViewTransform>` you own the zoom and pan, so you can save it, reset it (as **Fit** does) or share it between two viewers.
-- **Coordinates are the image's.** `on_pointer` reports each `SurfacePointer` (position, phase, modifiers; a press's button is in the phase) with `position` in pixels of the *image*, whatever the zoom is. `overlay(|draw, transform| ..)` draws in the same coordinates. Use `transform` when you need the current scale, for example to keep a handle the same size on screen.
-- **`regions(..)`** adds accessible, clickable rectangles in image coordinates (`SurfaceRegion::new(id, name, role, bounds)`); the `region` field of a pointer event says which one is under the pointer.
+- **Without `.transform(..)` the image follows `.fit(..)`**, which defaults to `ImageFit::Contain`. Pass `use_zoom_pan(transform)` to share your binding and attach zoom and pan behavior.
+- **Convert coordinates with `ZoomPanApi`.** Standard pointer events carry view-local positions; `zoom.to_content(event.pos())` maps them to the image. Use `zoom.to_view(point)` to position overlays in `draw_over`.
+- **Canvas regions provide accessible targets.** Declare them with `Node::region` or `regions`, then paint their geometry with `Draw::region` in view coordinates. Pointer capture uses the standard pointer API.
 - **`pixelated(true)`** samples the nearest pixel when you zoom in past the native size, which is what you want for pixel inspection.
 - **`on_resize`** reports a `SurfaceSize`: the logical size, the physical pixel size and the scale factor. Render at `physical_width` by `physical_height` for a sharp image on a high-density display, and re-render when it changes.
 - **Equality decides repainting.** `Pixels` values are compared by identity, so cloning or passing the same `Pixels` again costs nothing, and a new `Pixels` triggers a repaint.
-- **3D, compositing and scopes are yours.** The surface does not know what the pixels mean. A histogram or waveform is just another image you render from your data, shown in another `viewport_surface`.
+- **3D, compositing and scopes are yours.** The surface does not know what the pixels mean. A histogram or waveform is just another image you render from your data, shown in another `viewport`.
 
 Touch screens zoom and pan with two fingers. There is no separate trackpad pinch event yet; a pinch that arrives as a wheel event zooms.
 
@@ -109,8 +117,8 @@ fn render(frame: u32) -> Pixels {
 }
 
 /// Starts a renderer and returns the signal that always holds its latest frame.
-fn start_renderer() -> Signal<Option<Pixels>> {
-    let image = signal(None);
+fn start_renderer() -> Signal<Pixels> {
+    let image = signal(render(0));
     let (sender, receiver) = async_channel::bounded::<Pixels>(2);
 
     std::thread::spawn(move || {
@@ -129,7 +137,7 @@ fn start_renderer() -> Signal<Option<Pixels>> {
             while let Ok(later) = receiver.try_recv() {
                 newest = later;
             }
-            image.set(Some(newest));
+            image.set(newest);
         }
     });
     image
@@ -137,7 +145,7 @@ fn start_renderer() -> Signal<Option<Pixels>> {
 
 fn live_view() -> impl IntoView {
     let image = start_renderer();
-    ui::viewport_surface(image)
+    kivact::view::viewport(image)
         .pixelated(true)
         .name("Live view")
         .style(style().height(300))
@@ -148,12 +156,12 @@ Add `async-channel` to your `Cargo.toml` for this example. The task started with
 
 ## Show a GPU frame without reading it back (experimental)
 
-If your renderer already draws on the GPU, reading each frame back to the CPU as `Pixels` can cost more than the frame budget. An experimental path shares the GPU image with the window instead. It is limited to Windows and Linux, needs the `gpu-interop` feature of both `kivact` and `kivact-ui-creative`, and is described in full in the core guide [Share GPU textures with a canvas](../../../../for-kivact-user/en/how-to-guide/gpu-texture-sharing.md).
+If your renderer already draws on the GPU, reading each frame back to the CPU as `Pixels` can cost more than the frame budget. An experimental path shares the GPU image with the window instead. It is limited to Windows and Linux, needs the `gpu-interop` feature of `kivact`, and is described in full in the core guide [Share GPU textures with a canvas](../../../../for-kivact-user/en/how-to-guide/gpu-texture-sharing.md).
 
 ```toml
 [dependencies]
 kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["gpu-interop"] }
-kivact-ui-creative = { git = "https://github.com/Kashiwade-music/kivact", features = ["gpu-interop"] }
+kivact-ui-creative = { git = "https://github.com/Kashiwade-music/kivact" }
 ```
 
 The surface then has `gpu_frame(..)`, which takes an optional frame:
@@ -161,12 +169,12 @@ The surface then has `gpu_frame(..)`, which takes an optional frame:
 ```text
 let image = kivact::gpu_interop::shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-ui::viewport_surface(move || pixels.pixels())
+kivact::view::viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, vec![0; 4].into())))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
 ```
 
-While `gpu_frame` supplies a frame and the window has a GPU device, the surface shows it. Otherwise (the device is not ready, the window renders on the CPU, or the frame was lost) it shows the `Pixels` you passed to `viewport_surface`, so keep both. The size of whichever image is shown drives fit, zoom, pointer coordinates, overlays and regions. This API may change without notice.
+While `gpu_frame` supplies a frame and the window has a GPU device, the surface shows it. Otherwise (the device is not ready, the window renders on the CPU, or the frame was lost) it shows the `Pixels` you passed to `viewport`, so keep both. The displayed image supplies the natural size. `NodeRef::snapshot` draws the viewport’s own CPU `Pixels`, including when its window displays a GPU frame. This API may change without notice.
 
 ## See also
 

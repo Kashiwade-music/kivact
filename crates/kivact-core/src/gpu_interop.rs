@@ -50,7 +50,7 @@
 //!
 //! use kivact::gpu_interop::{self, ShareMode};
 //! use kivact::view::{IntoView, NodeBuilder, image};
-//! use kivact_ui_creative::viewport_surface;
+//! use kivact::view::viewport;
 //!
 //! fn viewport() -> impl IntoView {
 //!     let image = gpu_interop::shared_image(1280, 720);
@@ -74,7 +74,7 @@
 //!     // Frames on the GPU; the CPU's pictures while the window cannot
 //!     // import.
 //!     let (frame, pixels) = (image.clone(), image);
-//!     viewport_surface(move || pixels.pixels()).gpu_frame(move || frame.frame())
+//!     viewport(move || pixels.pixels().unwrap_or_else(|| kivact::draw::Pixels::new(1, 1, vec![0; 4].into()))).gpu_frame(move || frame.frame())
 //! }
 //! ```
 //!

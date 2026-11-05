@@ -1,7 +1,7 @@
-//! Role: Shared GPU frames and CPU fallback in viewport_surface.
+//! Role: Shared GPU frames and CPU fallback in viewport.
 //!
 //! The App is the recommended one: a `gpu_interop::shared_image` whose
-//! `frame()` and `pixels()` go to `viewport_surface(..).gpu_frame(..)`. The
+//! `frame()` and `pixels()` go to `viewport(..).gpu_frame(..)`. The
 //! engine is `gpu-interop-producer` (a device of its own on the window's
 //! adapter, its frames a known picture), on a thread of its own with the
 //! image's `ShareLink`, as in the public API's `gpu_interop` e2e; the
@@ -30,7 +30,7 @@ use kivact::draw::Pixels;
 use kivact::gpu_interop::{self, GpuAdapter, ShareLink, ShareMode, ShareRequest, ShareStatus};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable};
-use kivact_ui_creative as ui;
+use kivact::view::viewport;
 
 /// The frame's size, and the surface's.
 const W: u32 = 256;
@@ -68,28 +68,40 @@ struct Surface {
     screen: Screen,
     adapter: Value<Option<GpuAdapter>>,
     image: gpu_interop::SharedImage,
+    capture: Callback<mpsc::Sender<kivact::Result<Pixels>>>,
 }
 
 impl Surface {
     #[track_caller]
     fn mount(options: RenderOptions) -> Surface {
-        let (screen, (adapter, image)) = kivact::test::render_with_handle(options, move || {
-            let adapter = memo(gpu_interop::adapter);
-            let image = gpu_interop::shared_image(W, H);
-            let handles = (adapter, image.clone());
-            let (frame, pixels) = (image.clone(), image);
-            (
-                handles,
-                ui::viewport_surface(move || pixels.pixels())
-                    .gpu_frame(move || frame.frame())
-                    .pixelated(true)
-                    .with_node(move |node| node.style(style().size(W, H))),
-            )
-        });
+        let (screen, (adapter, image, capture)) =
+            kivact::test::render_with_handle(options, move || {
+                let adapter = memo(gpu_interop::adapter);
+                let image = gpu_interop::shared_image(W, H);
+                let target = node_ref();
+                let capture = callback(move |reply: mpsc::Sender<kivact::Result<Pixels>>| {
+                    kivact::task::spawn(async move {
+                        reply
+                            .send(target.snapshot().await)
+                            .expect("snapshot receiver lives");
+                    });
+                });
+                let handles = (adapter, image.clone(), capture);
+                let (frame, pixels) = (image.clone(), image);
+                (
+                    handles,
+                    viewport(move || pixels.pixels().unwrap_or_else(empty_pixels))
+                        .gpu_frame(move || frame.frame())
+                        .node_ref(target)
+                        .pixelated(true)
+                        .with_node(move |node| node.style(style().size(W, H))),
+                )
+            });
         Surface {
             screen,
             adapter,
             image,
+            capture,
         }
     }
 
@@ -157,7 +169,6 @@ fn gpu_surface() -> Result<Surface, String> {
     let surface = Surface::mount(
         RenderOptions::from_env()
             .window_size(W as f64, (H + 40) as f64)
-            .theme(ui::theme(kivact::style::ThemeMode::Dark))
             .reduced_motion()
             .gpu()
             .mirror(MirrorMode::Required),
@@ -210,6 +221,22 @@ fn shows_the_gpu_frame(surface: Surface) {
             link.publish(&request, frame.slot, frame.value);
             ui.ask(move |surface| {
                 assert_eq!(surface.image.status(), ShareStatus::Ready);
+                let (send, receive) = mpsc::channel();
+                surface.capture.call(send);
+                surface.screen.run_until_idle();
+                let snapshot = receive
+                    .try_recv()
+                    .expect("snapshot completes")
+                    .expect("viewport owns CPU pixels");
+                assert_eq!((snapshot.width, snapshot.height), (W, H));
+                assert!(
+                    snapshot
+                        .rgba
+                        .chunks_exact(4)
+                        .filter(|p| p[0] > 180 && p[1] > 60 && p[1] < 130 && p[2] < 80)
+                        .count()
+                        > (W * H / 2) as usize
+                );
                 assert_eq!(
                     surface.frame_verdict(number),
                     pattern::Verdict::Ok,
@@ -231,4 +258,8 @@ fn the_surface_shows_the_gpu_frame() {
         Ok(surface) => shows_the_gpu_frame(surface),
         Err(reason) => eprintln!("SKIPPED the_surface_shows_the_gpu_frame: {reason}"),
     }
+}
+
+fn empty_pixels() -> Pixels {
+    Pixels::new(1, 1, vec![0, 0, 0, 0].into())
 }

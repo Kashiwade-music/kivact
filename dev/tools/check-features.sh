@@ -37,7 +37,6 @@ entries=(
   kivact-test/embed
   kivact-test/gpu-interop
   kivact-engine/testing
-  kivact-ui-creative/gpu-interop
 )
 
 for entry in "${entries[@]}"; do

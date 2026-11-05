@@ -503,25 +503,3 @@ fn panel_group_ctrl_opens_only_the_chosen_panel_and_a_plain_expand_closes_nothin
     assert_eq!(open, vec![false, true], "Ctrl keeps only the chosen panel");
     clean(&screen);
 }
-
-#[test]
-fn viewport_surface_forwards_application_image_coordinates() {
-    let (screen, position) = kivact::test::render_with_handle(crate::support::options(), || {
-        let position = signal(Point::new(0.0, 0.0));
-        (
-            position,
-            ui::viewport_surface(None)
-                .transform(signal(kivact::interaction::ViewTransform {
-                    offset: Point::new(10.0, 20.0),
-                    scale: 2.0,
-                }))
-                .on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
-                .with_node(move |node| node.style(style().size(300, 200)))
-                .with_node(move |node| node.test_id("viewport")),
-        )
-    });
-    screen.get_by_test_id("viewport").hover();
-    screen.mouse_move(110.0, 120.0);
-    assert_eq!(position.get_untracked(), Point::new(50.0, 50.0));
-    clean(&screen);
-}
