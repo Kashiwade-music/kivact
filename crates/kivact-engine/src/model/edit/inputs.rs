@@ -23,6 +23,11 @@ impl Model {
         edit: Option<EditState>,
     ) -> Option<Box<EditorNode>> {
         let slot = self.tree.nodes.index_of(id);
+        if edit.is_some() && slot.is_some() {
+            self.edits.inputs.insert(id);
+        } else {
+            self.edits.inputs.remove(&id);
+        }
         slot.and_then(|slot| {
             std::mem::replace(
                 &mut self.editors[slot.0],
@@ -213,16 +218,9 @@ impl Model {
         }
     }
 
+    /// The text inputs with an editing state, in id order.
     pub(crate) fn input_ids(&self) -> Vec<NodeId> {
-        let mut ids: Vec<_> = self
-            .tree
-            .nodes
-            .iter()
-            .filter(|(_, node)| self.editors[node.index.0].is_some())
-            .map(|(id, _)| *id)
-            .collect();
-        ids.sort_unstable();
-        ids
+        self.edits.inputs.iter().copied().collect()
     }
 
     /// The session of the text input `id`, read without its text.

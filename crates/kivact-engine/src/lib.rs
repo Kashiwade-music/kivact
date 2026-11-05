@@ -35,15 +35,13 @@
 //! Public are [`run_native`], [`api::HostOptions`], [`contract`] (client contracts),
 //! [`api`] (the owned handles,
 //! the client callbacks, `OffscreenRenderer`, `TextMeasurer` and
-//! `Prop`), and `testing` with the
-//! feature `testing`; everything else is `pub(crate)`. Geometry integration,
+//! `Prop`), [`embed`] (experimental host-window embedding), and `testing`
+//! with the feature `testing`; everything else is `pub(crate)`. Geometry integration,
 //! hit testing, scrolling and scenes share the model's positions. The model
 //! decides what the tree
 //! means; `paint`, `a11y` and `host` only map its state onto Arvane.
 //!
 //! # Invariants
-//!
-//! Feature `embed` exposes experimental host-window embedding through `embed`.
 //!
 //! - The client API exposes no Taffy, Unicode segmentation or native window
 //!   implementation. Geometry and semantics share kivact-types value types.

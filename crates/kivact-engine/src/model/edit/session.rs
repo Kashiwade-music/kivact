@@ -15,8 +15,8 @@
 //!   it; the IME is given no composition range.
 //! - The IME is given its text only when the session, the node's box or
 //!   its transforms changed since the last time; its answers' offsets are
-//!   UTF-16 code units of that text, which starts at byte 0, and reach the
-//!   node as byte offsets (clamped to the text).
+//!   UTF-8 byte offsets of that text, which starts at byte 0, and reach the
+//!   node floored to its char boundaries (clamped to the text).
 
 use super::state::{ImeGiven, SessionSource};
 use crate::contract::{HostEvent, ImeSessionProps};
@@ -101,7 +101,7 @@ impl Model {
         })
     }
 
-    /// The range the IME took for reconversion (UTF-16 code units of the
+    /// The range the IME took for reconversion (UTF-8 byte offsets of the
     /// session's text), to the focused session node if there is one.
     pub(super) fn session_select(&mut self, start: usize, end: usize) -> bool {
         let Some(id) = self.focused_session() else {

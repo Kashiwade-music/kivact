@@ -8,7 +8,7 @@
 //! focus once, records a private event boundary, and synchronizes changes.
 //! The host releases all borrows and completes layout before notifying core.
 //! Platform effects, window settings and the imports and drops of shared
-//! textures (feature `gpu-interop`) run after the turn; fonts register
+//! textures run after the turn; fonts register
 //! immediately. Trusted structural operations retain local debug assertions.
 //!
 //! [`Writer`] and [`Reader`] are concrete types owning the same model and
@@ -26,7 +26,7 @@
 //!   (a unique nonzero node id, no cycle, an insert of a detached node, a
 //!   `before` among the parent's children). There is no second tree to
 //!   validate against and no report of an invalid write; the layout lint
-//!   is a feature of its own (`check`).
+//!   is a module of its own (`check`).
 //! - A commit checks the focus, moves the revision on, records the private
 //!   boundary of the events (`Model::commit_revision`), then synchronizes
 //!   (`Model::sync`).

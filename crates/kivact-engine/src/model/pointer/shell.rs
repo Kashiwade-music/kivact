@@ -67,6 +67,7 @@ impl Model {
             PointerPhase::Down(press) | PointerPhase::Up(press) => {
                 // Where the press or release is; a release outside the
                 // window does not bring the mouse back into it.
+                self.pointer.state.mouse_mut().at = Some(input.position);
                 let pressed = matches!(input.phase, PointerPhase::Down(_));
                 self.mouse_button(input.position, press, pressed, modifiers, engine);
             }
@@ -74,6 +75,7 @@ impl Model {
             // a `Cancel` where the mouse was, and nothing stays hovered.
             PointerPhase::Cancel => {
                 self.report_mouse_position(None);
+                self.pointer.state.mouse_mut().at = Some(input.position);
                 self.cancel_pointer_at(PointerId::MOUSE, input.position);
                 let space = PointerSpace::new(input.position, engine);
                 self.pointer_move(PointerId::MOUSE, None, modifiers, &space);
@@ -87,9 +89,10 @@ impl Model {
         self.pointer.state.mouse().at.unwrap_or_default()
     }
 
+    /// Report the mouse's window position (`None`: outside the window)
+    /// when it differs from the last one reported.
     fn report_mouse_position(&mut self, position: Option<Point>) {
-        if self.pointer.state.mouse().at != position {
-            self.pointer.state.mouse_mut().at = position;
+        if self.pointer.position_sent.update(position).is_some() {
             self.push(HostEvent::MousePosition(position));
         }
     }
@@ -101,6 +104,7 @@ impl Model {
         modifiers: kivact_types::Modifiers,
         engine: &mut arvane::Engine,
     ) {
+        self.pointer.state.mouse_mut().at = Some(at);
         self.report_mouse_position(Some(at));
         if let MouseGesture::Scrollbar(drag) = self.pointer.state.mouse().gesture {
             let local = self.to_local(drag.node, at);

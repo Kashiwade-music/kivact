@@ -66,10 +66,7 @@ impl Model {
                 // Explicit spin actions normalize numbers through their writer;
                 // ordinary native editors still receive text like typing.
                 let input = self.node(id).is_some_and(|n| {
-                    self.editors[n.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some()
+                    self.editors[n.index.0].is_some()
                         && !(n.role() == Some(types::Role::SpinButton)
                             && n.actions().contains(&A::SetValue))
                 });

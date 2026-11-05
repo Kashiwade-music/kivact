@@ -36,7 +36,14 @@ use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId, Revisio
 use crate::model::Model;
 use crate::model::changes::Dirty;
 use crate::model::text::text_reach_of;
-use crate::tree::node::layer_index;
+use crate::tree::node::{HostNode, layer_index};
+
+/// How `node` takes part in its flat parent's children: `None` as a box
+/// of its own, `Some(hidden)` as a Contents node whose children, unless
+/// it is hidden, take its place.
+fn flat_role(node: &HostNode) -> Option<bool> {
+    node.is_transparent().then(|| node.hidden())
+}
 
 impl Model {
     /// End the writes of one revision (the one after the last applied):
@@ -175,6 +182,7 @@ impl Model {
         let Some(node) = self.tree.get_mut(id) else {
             return false;
         };
+        let role = mutation.style.then(|| flat_role(node));
         let Some(old) = field(&mut node.properties) else {
             return false;
         };
@@ -224,8 +232,27 @@ impl Model {
         } else {
             *old = value;
         }
+        if role.is_some_and(|was| self.tree.get(id).is_some_and(|n| flat_role(n) != was)) {
+            self.reflattened(id);
+        }
         self.changed(id, mutation);
         true
+    }
+
+    /// `id` started or stopped being a Contents node, or a Contents node
+    /// was hidden or shown: the children its flat parent lays out and
+    /// draws changed.
+    fn reflattened(&mut self, id: NodeId) {
+        self.tree.forget_flat();
+        self.changes.restack = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
+        if let Some(parent) = self.tree.get(id).and_then(|n| self.tree.flat_parent(n)) {
+            self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
+            self.changes.regroup(parent);
+            self.a11y.node(parent);
+        }
     }
 
     /// [`Model::set_prop`] for a boxed property: the borrowed value is
@@ -365,13 +392,9 @@ impl Model {
         let mut stack = vec![id];
         while let Some(x) = stack.pop() {
             let Some(n) = self.tree.get(x) else { continue };
-            stack.extend(self.tree.flat_children(self.tree.nodes.id_at(n.index)));
+            stack.extend(self.tree.children_ids(n));
             let (slot, kind) = (n.index.0, n.kind());
-            let drawn = kind == NodeType::Text
-                || self.editors[slot]
-                    .as_deref()
-                    .map(|editor| editor.editor.state())
-                    .is_some();
+            let drawn = kind == NodeType::Text || self.editors[slot].is_some();
             let before = self.measure.computed_text(slot);
             self.measure.forget_computed_text(slot);
             if drawn {
@@ -424,12 +447,8 @@ impl Model {
                 let Some(node) = self.tree.get(child) else {
                     continue;
                 };
-                stack.extend(self.tree.flat_children(self.tree.nodes.id_at(node.index)));
-                if (node.kind() == NodeType::Text
-                    || self.editors[node.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some())
+                stack.extend(self.tree.children_ids(node));
+                if (node.kind() == NodeType::Text || self.editors[node.index.0].is_some())
                     || node.measure().is_some()
                 {
                     self.changes.mark(child, Dirty::MEASURE);

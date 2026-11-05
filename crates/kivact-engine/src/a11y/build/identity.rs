@@ -74,10 +74,12 @@ impl Model {
     }
 
     pub(super) fn region_identity(&mut self, owner: types::NodeId, region: types::RegionId) -> u64 {
-        if let Some(&id) = self.a11y.region_ids.get(&(owner, region))
-            && !self.tree().contains(types::NodeId(id))
-        {
-            return id;
+        if let Some(&id) = self.a11y.region_ids.get(&(owner, region)) {
+            if !self.tree().contains(types::NodeId(id)) {
+                return id;
+            }
+            // A node took the region's identity: it is the node's again.
+            self.a11y.native_regions.remove(&id);
         }
         let candidate = self.next_semantics_identity();
         self.a11y.native_regions.insert(candidate, (owner, region));
@@ -86,11 +88,6 @@ impl Model {
     }
 
     pub(in crate::a11y) fn next_semantics_identity(&mut self) -> u64 {
-        loop {
-            let id = self.a11y.ids.next().0;
-            if !self.tree.contains(types::NodeId(id)) {
-                return id;
-            }
-        }
+        self.a11y.ids.fresh(&self.tree)
     }
 }

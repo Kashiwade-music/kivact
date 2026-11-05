@@ -1,13 +1,14 @@
 //! Role: The text inputs' editing state, its index, and the IME's view of it.
 //!
 //! The edit group: which nodes are text inputs with a native editing
-//! state (`HostNode::edit`), and the IME text last given to the window;
+//! state (`Model::editors`), and the IME text last given to the window;
 //! with the writes that keep a node's editing state in step with its
 //! `Editing` prop and controlled value, and the IME's entry points.
 //!
 //! Invariants:
 //! - [`Model::set_edit`] is the only place a node gains or loses its
-//!   editing state, and it keeps the index of text inputs with it: the
+//!   editing state (a removed node's goes with its slot, and the removal
+//!   then sets none), and it keeps the index of text inputs with it: the
 //!   index lists exactly the live nodes with one.
 //! - A controlled value replaces the value but keeps the composition
 //!   (`Editor::set_controlled`); one given while composing is held and

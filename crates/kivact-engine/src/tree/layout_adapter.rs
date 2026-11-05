@@ -41,8 +41,7 @@ impl LayoutTree for NodeTree {
     fn child_at(&self, slot: usize, raw_child: usize) -> usize {
         self.nodes
             .index_of(
-                self.flat_children(self.nodes.id_at(NodeIndex(slot)))
-                    .nth(raw_child)
+                self.flat_child(self.nodes.id_at(NodeIndex(slot)), raw_child)
                     .expect("invariant: layout child exists"),
             )
             .expect("invariant: layout child is retained")

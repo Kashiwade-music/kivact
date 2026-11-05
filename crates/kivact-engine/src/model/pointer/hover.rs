@@ -117,12 +117,7 @@ impl Model {
                 if specified != CursorKind::Auto {
                     return specified;
                 }
-                if self.editors[n.index.0]
-                    .as_deref()
-                    .map(|editor| editor.editor.state())
-                    .is_some()
-                    && !n.disabled()
-                {
+                if self.editors[n.index.0].is_some() && !n.disabled() {
                     return CursorKind::Text;
                 }
                 if n.activatable() {

@@ -25,7 +25,11 @@ impl PaintList {
             self.pass.next();
         }
         for id in changes.regrouped() {
-            self.indices.remove(&id);
+            // A Contents node's children are indexed by the box they are
+            // drawn in.
+            if let Some(holder) = tree.box_of(id) {
+                self.indices.remove(&holder);
+            }
         }
         for id in changes.redrawn() {
             self.forget_ink(id, tree, ink);
@@ -45,7 +49,9 @@ impl PaintList {
         tree: &crate::tree::NodeTree,
         ink: &[std::cell::Cell<Option<Ink>>],
     ) {
-        let mut at = Some(id);
+        // Inks and index entries belong to boxes: a Contents node has
+        // neither, and its children's are held by its flat parent.
+        let mut at = tree.box_of(id);
         while let Some(x) = at {
             let Some(n) = tree.get(x) else {
                 break;
@@ -56,7 +62,7 @@ impl PaintList {
             {
                 break;
             }
-            at = tree.parent_id(n);
+            at = tree.flat_parent(n);
             if let Some(index) = at.and_then(|parent| self.indices.get_mut(&parent)) {
                 index.touch(x);
             }

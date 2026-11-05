@@ -194,11 +194,7 @@ impl Model {
             self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
         }
         match n.kind() {
-            _ if host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some() =>
-            {
+            _ if host.editors[n.index.0].is_some() => {
                 self.paint_input(id, bounds, step.clip, &tint, engine, out);
                 if let Some(scene) = &n.scenes()[0] {
                     self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
@@ -211,10 +207,7 @@ impl Model {
             }
             _ => {}
         }
-        if host.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_none()
+        if host.editors[n.index.0].is_none()
             && let Some(asset) = n.image()
         {
             self.paint_image(id, n, asset, canvas, &tint, out);

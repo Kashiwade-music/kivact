@@ -18,6 +18,17 @@ const MARGIN: f64 = 2.0;
 /// Containers with at least this many children keep a [`ChildIndex`].
 const INDEXED: usize = 32;
 
+/// Whether the listed `step` of node `n` needs a `Close` after its
+/// descendants: it pops a clip, a layer or a transform it pushed, or draws
+/// its `DrawOver` scene.
+fn closes(step: &Step, n: &HostNode) -> bool {
+    step.clips
+        || step.presence_clip.is_some()
+        || step.layers > 0
+        || step.transform.is_some()
+        || (step.own && n.scenes()[1].is_some())
+}
+
 struct Walk<'a> {
     host: &'a Model,
     margin: f64,
@@ -122,9 +133,7 @@ impl Walk<'_> {
             y: o.y - scroll.y,
         };
         self.children(id, n, base, alpha, own_matrix, child_clip);
-        if listed
-            && (clips || layers > 0 || transform.is_some() || (visible && n.scenes()[1].is_some()))
-        {
+        if listed && closes(&step, n) {
             self.out.push(Entry::Close(step));
         }
     }
@@ -223,7 +232,7 @@ impl Walk<'_> {
         if reached.len() > before {
             reached.sort_by_key(|(order, _, _)| *order);
         }
-        if n.place.stacks == crate::tree::node::Stacking::Stacks {
+        if host.sorts_children(n) {
             reached.sort_by_key(|(_, c, _)| host.stack_key(*c));
         }
         for (_, child, at) in reached {
@@ -376,13 +385,7 @@ fn opacity(
 ) -> (bool, u8, f64) {
     // Group opacity over more than one thing it draws.
     let content = match n.kind() {
-        _ if host.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_some() =>
-        {
-            2
-        }
+        _ if host.editors[n.index.0].is_some() => 2,
         NodeType::Text | NodeType::Image => 1,
         _ => 0,
     };

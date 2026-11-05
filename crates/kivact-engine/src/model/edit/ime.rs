@@ -48,9 +48,9 @@ impl Model {
         }
     }
 
-    /// The IME took `start..end` (UTF-16 code units of the text it was
-    /// last given, which starts at byte `start` of `ImeGiven::Input` in the
-    /// focused input's value) for reconversion: it becomes the selection, which the
+    /// The IME took `start..end` (UTF-8 byte offsets, floored to char
+    /// boundaries, of the text it was last given, which starts at byte
+    /// `start` of `ImeGiven::Input` in the focused input's value) for reconversion: it becomes the selection, which the
     /// reconversion's composition replaces. Ignored while composing.
     pub(crate) fn ime_select(&mut self, start: usize, end: usize) {
         if self.session_select(start, end) {

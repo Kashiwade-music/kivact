@@ -179,4 +179,14 @@ impl SemanticsIdAllocator {
             .expect("invariant: semantics identity space cannot exhaust in a process lifetime");
         SemanticsId(id)
     }
+
+    /// The next identity that no node of `tree` has.
+    pub(super) fn fresh(&mut self, tree: &crate::tree::NodeTree) -> u64 {
+        loop {
+            let id = self.next().0;
+            if !tree.contains(kivact_types::NodeId(id)) {
+                return id;
+            }
+        }
+    }
 }

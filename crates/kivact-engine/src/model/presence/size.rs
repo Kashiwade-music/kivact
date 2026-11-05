@@ -2,12 +2,19 @@
 
 use super::state::SizeMotion;
 use crate::model::Model;
-use kivact_types::NodeId;
+use kivact_types::{LayoutProps, NodeId, Orientation};
+
+/// The axis `l` animates its size along when it enters or exits: none
+/// for an unspecified one, which names no axis to scale.
+fn size_axis(l: &LayoutProps, entering: bool) -> Option<Orientation> {
+    (if entering { l.enter_size } else { l.exit_size })
+        .filter(|axis| *axis != Orientation::Unspecified)
+}
 
 impl Model {
     pub(crate) fn size_shown(&self, id: NodeId, entering: bool) -> bool {
         self.tree.get(id).and_then(|n| n.layout()).is_some_and(|l| {
-            (if entering { l.enter_size } else { l.exit_size }).is_some()
+            size_axis(l, entering).is_some()
                 && l.size_transition
                     .as_ref()
                     .is_some_and(|t| !(self.frame.reduced_motion() && t.decorative))
@@ -21,7 +28,7 @@ impl Model {
         let Some(l) = n.layout() else {
             return;
         };
-        let Some(axis) = (if entering { l.enter_size } else { l.exit_size }) else {
+        let Some(axis) = size_axis(l, entering) else {
             return;
         };
         let Some(transition) = l.size_transition.clone() else {
@@ -36,7 +43,7 @@ impl Model {
             .get(&id)
             .map_or(if entering { 0.0 } else { 1.0 }, |m| m.current[0]);
         self.layout
-            .set_presence_scale(n.index.0, Some((axis, from)));
+            .set_presence_scale(&self.tree, n.index.0, Some((axis, from)));
         self.presence.sizes.insert(
             id,
             SizeMotion {
@@ -70,6 +77,7 @@ impl Model {
                     &mut m.spring,
                 );
             self.layout.set_presence_scale(
+                &self.tree,
                 n.index.0,
                 if done && m.to == 1.0 {
                     None

@@ -27,6 +27,8 @@ pub(crate) struct HostNode {
     pub(crate) scroll: Point,
     pub(crate) sent_layout: kivact_types::cell::Sent<LayoutReport>,
     pub(crate) sent_scroll: kivact_types::cell::Sent<ScrollReport>,
+    /// The last published loading status of an `Image` node's asset.
+    pub(crate) sent_image: kivact_types::cell::Sent<kivact_types::ImageStatus>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
     pub(crate) place: Place,
@@ -149,6 +151,7 @@ impl HostNode {
             scroll: Point::default(),
             sent_layout: Default::default(),
             sent_scroll: Default::default(),
+            sent_image: Default::default(),
             place: Place::default(),
             shift: Point::default(),
             presence: NodePresence::Mounted,

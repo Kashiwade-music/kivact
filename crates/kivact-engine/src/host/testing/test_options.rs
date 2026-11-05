@@ -58,8 +58,7 @@ pub struct TestHostOptions {
     /// ([`gpu_unavailable`]). Frames then differ slightly from the CPU's.
     pub gpu: GpuMode,
     /// How the window's GPU device is made, as a native window's
-    /// (`HostOptions::gpu_preference`). Used with feature `gpu-interop`;
-    /// ignored without it.
+    /// (`HostOptions::gpu_preference`).
     pub gpu_preference: kivact_types::GpuPreference,
 }
 

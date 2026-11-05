@@ -33,11 +33,11 @@
 //!   much the source rect is (an SVG stays sharp, within the store's cache
 //!   limit); both are drawn at their opacity, sampled nearest-neighbour
 //!   when pixelated.
-//! - An external frame (`DrawCmd::External`) is, with feature
-//!   `gpu-interop`, Arvane's `RenderCmd::External` at its rect and
-//!   opacity: drawn only by the GPU of the window its image was imported
-//!   into (without the feature nothing is drawn and no command counts as
-//!   dropped). A layer's
+//! - An external frame (`DrawCmd::External`) is Arvane's
+//!   `RenderCmd::External` at its rect and opacity: drawn only by the GPU
+//!   of the window its image was imported into (an Arvane built without
+//!   texture sharing draws nothing, and no command counts as dropped).
+//!   A layer's
 //!   color filter does not reach it (Arvane draws it without a color
 //!   matrix); one with a rect or source that is not finite, or an opacity
 //!   that is not, is dropped.

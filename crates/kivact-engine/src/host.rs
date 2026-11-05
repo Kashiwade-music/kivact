@@ -12,9 +12,9 @@
 //! `run_native` opens an `arvane::Shell`
 //! window at `HostOptions::window_size` (960×720 logical pixels without
 //! one), which it does not validate again (kivact's `App::run` did, once),
-//! and passes no renderer choice: whether and when Arvane starts the GPU,
-//! falls back to the CPU or switches is Arvane's (its default prefers the
-//! GPU). The title and minimum size arrive with the first revision's
+//! and passes only the GPU device wish (`HostOptions::gpu_preference`):
+//! whether and when Arvane starts the GPU, falls back to the CPU or
+//! switches is Arvane's (its default prefers the GPU). The title and minimum size arrive with the first revision's
 //! `Writer::set_window` and are applied after the turn
 //! (`Window::set_min_size`). The engine does not wrap `arvane::Window`
 //! again (size, scale, clock, environment, capabilities, surface
@@ -66,7 +66,7 @@
 //!   GPU and CPU differences (renderer and GPU fallback, frame budget,
 //!   refresh period, click counts, occluded windows, environment variables)
 //!   are Arvane's.
-//! - GPU texture sharing (feature `gpu-interop`): the imports and drops a
+//! - GPU texture sharing: the imports and drops a
 //!   turn wrote (`Writer::import_external`, `Writer::drop_external`) are
 //!   handed to the window after the turn, in order, as the platform
 //!   effects are (the window exists from the client's start on), and each

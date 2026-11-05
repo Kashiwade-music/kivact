@@ -15,6 +15,8 @@ pub(crate) struct Pointer {
     pub(super) file_target: Option<NodeId>,
     // xtask-allow(state-fields): Sent is the last hover report, independent of file drag state.
     pub(super) hover_sent: kivact_types::cell::Sent<Option<FocusTarget>>,
+    // xtask-allow(state-fields): Sent is the last mouse position report (none: outside the window), independent of the mouse track's last event position.
+    pub(super) position_sent: kivact_types::cell::Sent<Option<Point>>,
     pub(super) shown: kivact_types::Cursor,
 }
 
@@ -24,6 +26,11 @@ impl Default for Pointer {
             state: PointerState::default(),
             file_target: None,
             hover_sent: {
+                let mut sent = kivact_types::cell::Sent::new();
+                sent.update(None);
+                sent
+            },
+            position_sent: {
                 let mut sent = kivact_types::cell::Sent::new();
                 sent.update(None);
                 sent
@@ -152,12 +159,17 @@ pub(crate) struct Route {
 pub(crate) enum Capture {
     Implicit(NodeId),
     Explicit(NodeId),
+    /// A listener released the capture: until the gesture's final `Up`,
+    /// its events are hit-tested, that `Up` included.
+    Released,
 }
 
 impl Capture {
-    pub(crate) fn target(self) -> NodeId {
+    /// The node the gesture's events go to, if any is captured.
+    pub(crate) fn target(self) -> Option<NodeId> {
         match self {
-            Self::Implicit(target) | Self::Explicit(target) => target,
+            Self::Implicit(target) | Self::Explicit(target) => Some(target),
+            Self::Released => None,
         }
     }
 }
@@ -330,7 +342,9 @@ impl Track {
     }
 
     pub(crate) fn capture(&self) -> Option<NodeId> {
-        self.route().and_then(|r| r.capture).map(Capture::target)
+        self.route()
+            .and_then(|r| r.capture)
+            .and_then(Capture::target)
     }
 
     pub(crate) fn pressed(&self) -> &[NodeId] {
@@ -427,7 +441,8 @@ impl PointerState {
             if let Some(route) = track.routed_mut() {
                 if route
                     .capture
-                    .is_some_and(|capture| !tree.live(capture.target()))
+                    .and_then(Capture::target)
+                    .is_some_and(|target| !tree.live(target))
                 {
                     route.capture = None;
                 }

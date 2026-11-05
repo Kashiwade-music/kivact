@@ -305,6 +305,19 @@ impl Model {
         (self.z_index(id), sticky)
     }
 
+    /// Whether the children of the node `n` paint in [`stack_key`] order:
+    /// it stacks, or one of its flat children has a z-index (one under a
+    /// Contents node marks that node, not `n`, as stacking).
+    ///
+    /// [`stack_key`]: Model::stack_key
+    pub(crate) fn sorts_children(&self, n: &HostNode) -> bool {
+        n.place.stacks == crate::tree::node::Stacking::Stacks
+            || self
+                .tree
+                .flat_children(self.tree.nodes.id_at(n.index))
+                .any(|id| self.tree.get(id).is_some_and(|child| child.place.has_z()))
+    }
+
     /// The children of the node `n` in paint order: by [`stack_key`], ties
     /// in tree order.
     ///
@@ -314,12 +327,7 @@ impl Model {
         n: &'a HostNode,
     ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator + 'a {
         let children = self.tree.flat_children(self.tree.nodes.id_at(n.index));
-        let sorted = n.place.stacks == crate::tree::node::Stacking::Stacks
-            || self
-                .tree
-                .flat_children(self.tree.nodes.id_at(n.index))
-                .any(|id| self.tree.get(id).is_some_and(|child| child.place.has_z()));
-        if sorted {
+        if self.sorts_children(n) {
             let mut children: Vec<_> = children.collect();
             children.sort_by_key(|id| self.stack_key(*id));
             StackOrder::Sorted(children.into_iter())

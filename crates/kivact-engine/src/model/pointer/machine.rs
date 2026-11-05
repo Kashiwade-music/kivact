@@ -293,7 +293,7 @@ impl Model {
             capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())));
         if let Some(t) = target.filter(|t| self.tree.get(*t).is_some_and(|n| !n.disabled())) {
             let route = self.pointer.state.track_mut(pointer).route_mut();
-            if route.capture.is_none() {
+            if route.capture.and_then(Capture::target).is_none() {
                 route.capture = Some(Capture::Implicit(t));
             }
             self.send_pointer(
@@ -360,12 +360,9 @@ impl Model {
             .filter(|f| f.region.is_none())
             .map(|f| f.node)
             .filter(|f| {
-                self.tree.get(*f).is_some_and(|n| {
-                    self.editors[n.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some()
-                })
+                self.tree
+                    .get(*f)
+                    .is_some_and(|n| self.editors[n.index.0].is_some())
             });
         if let (Some(i), true) = (input, primary)
             && let Some(at) = space.text_offset(self, i)
@@ -445,8 +442,10 @@ impl Model {
     }
 
     /// A button of `pointer` released over `hit` (`None`: nothing, or
-    /// outside the window). Each Up reaches the original listener; the one
-    /// that leaves no button held releases the capture.
+    /// outside the window). Each Up reaches the capturing listener, or the
+    /// enabled listener under the pointer once a listener released its
+    /// capture (none after a `Cancel`); the one that leaves no button held
+    /// releases the capture.
     pub(crate) fn pointer_up(
         &mut self,
         pointer: PointerId,
@@ -458,6 +457,12 @@ impl Model {
         let hit = self.scoped(hit);
         let hit_chain = self.tree.chain(hit);
         let capture = self.pointer.state.track(pointer).capture();
+        let hit_tested = self
+            .pointer
+            .state
+            .track(pointer)
+            .route()
+            .is_some_and(|route| route.capture == Some(Capture::Released));
         let released = self
             .pointer
             .state
@@ -484,10 +489,11 @@ impl Model {
         if released && let Some(route) = self.pointer.state.track_mut(pointer).routed_mut() {
             route.capture = None;
         }
-
-        if let Some(t) =
-            capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())))
-        {
+        let listener = || {
+            hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer()))
+                .filter(|t| self.tree.get(*t).is_some_and(|n| !n.disabled()))
+        };
+        if let Some(t) = capture.or_else(|| hit_tested.then(listener).flatten()) {
             self.send_pointer(
                 pointer,
                 t,
@@ -559,9 +565,9 @@ impl Model {
                 route.capture = Some(Capture::Explicit(node));
             } else if route
                 .capture
-                .is_some_and(|capture| capture.target() == node)
+                .is_some_and(|capture| capture.target() == Some(node))
             {
-                route.capture = None;
+                route.capture = Some(Capture::Released);
             }
         }
     }

@@ -116,10 +116,7 @@ impl Model {
                 out.push(*a);
             }
         }
-        if self.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_some()
+        if self.editors[n.index.0].is_some()
             && !n.read_only()
             && !out.contains(&A11yAction::SetValue)
         {
