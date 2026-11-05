@@ -48,7 +48,7 @@ pub(super) fn spawn_owned(
     let cell = Rc::new(TaskCell {
         #[expect(
             clippy::disallowed_types,
-            reason = "Construction fills this cell before returning or polling; its empty state is inaccessible (design 19, SM-R17)."
+            reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
         )]
         task: std::cell::OnceCell::new(),
     });

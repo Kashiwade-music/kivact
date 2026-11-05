@@ -186,7 +186,7 @@ impl Launch {
         crate::client::trace::record(&rt);
     }
 
-    /// One turn (design §4「turn」): every queued event, then everything
+    /// One turn: every queued event, then everything
     /// they cause (tasks and timers, activations, commits, `on_mount` and
     /// user effects) until nothing is left, the writes committed. The
     /// boundaries among the events only decide when the `on_mount`

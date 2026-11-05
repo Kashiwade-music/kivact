@@ -15,7 +15,7 @@
 //! contexts, node references).
 //!
 //! Invariants (G-01: nothing registered for a disposed component outlives
-//! it; design §4「owner と境界」):
+//! it):
 //! - A registration on an owner that is being disposed or is gone is the
 //!   runtime's to handle, never the caller's to check:
 //!   - a child owner is created disposed (its key is a tombstone), so what

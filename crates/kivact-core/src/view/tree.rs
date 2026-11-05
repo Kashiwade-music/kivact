@@ -263,8 +263,8 @@ pub(crate) struct NodeObservation {
 
 /// Records [`ViewNodes::remove`] deleted. They hold the nodes' handlers, so
 /// user values: the caller drops them after the tree borrow ends, as the
-/// runtime drops what a disposal released (G-01, design §4「arena と
-/// handle」).
+/// runtime drops what a disposal released (G-01): a user `Drop` may use
+/// the tree again.
 #[must_use]
 pub(crate) struct Removed {
     pub(crate) ids: Vec<NodeId>,

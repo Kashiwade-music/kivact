@@ -98,9 +98,9 @@ pub use screen::{
     Screenshot, SemanticNode, Within, failure_dir,
 };
 
-// xtask-allow(os-branch): Native test environment availability is a test platform boundary (design 17.8).
+// xtask-allow(os-branch): Native test environment availability is a test platform boundary.
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 mod parent;
-// xtask-allow(os-branch): Native test environment availability is a test platform boundary (design 17.8).
+// xtask-allow(os-branch): Native test environment availability is a test platform boundary.
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 pub use parent::TestParent;
