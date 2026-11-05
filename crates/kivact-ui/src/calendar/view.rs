@@ -528,7 +528,7 @@ fn calendar_body(
     let cell_size = calendar.cell_size;
     let caption = calendar.caption;
     let week_start = calendar.week_start;
-    let selection = guarded_selection(calendar.selection, swipe);
+    let selection = calendar.selection;
     let outside = calendar.outside;
     let today = calendar.today;
     let variable_rows = calendar.variable_rows;
@@ -549,7 +549,10 @@ fn calendar_body(
             )
         },
         move |(count, caption, week_start, cell_size)| {
-            let policy = calendar_policy(&rules, count, week_start, focus_day);
+            let policy =
+                calendar_policy(&rules, count, week_start, focus_day).activation_guard(move |_| {
+                    !matches!(swipe.get(), super::navigation::Swipe::Released)
+                });
             let grid = use_calendar_grid(month, selection, policy);
             let shared = Rc::new(Shared {
                 swipe,
@@ -581,26 +584,4 @@ fn calendar_body(
         },
     )
     .into_view()
-}
-
-fn guarded_selection(
-    selection: CalendarSelection,
-    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
-) -> CalendarSelection {
-    match selection {
-        CalendarSelection::Single(value) => {
-            CalendarSelection::Single(kivact_core::state::binding(value, move |next| {
-                if !matches!(swipe.get(), super::navigation::Swipe::Released) {
-                    value.set(next);
-                }
-            }))
-        }
-        CalendarSelection::Range(value) => {
-            CalendarSelection::Range(kivact_core::state::binding(value, move |next| {
-                if !matches!(swipe.get(), super::navigation::Swipe::Released) {
-                    value.set(next);
-                }
-            }))
-        }
-    }
 }
