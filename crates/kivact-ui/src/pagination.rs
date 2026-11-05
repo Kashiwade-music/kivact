@@ -257,7 +257,7 @@ impl IntoView for Pagination {
                 crate::layer::with_recipe_style(
                     crate::button("")
                         .name(label)
-                        .with_node(|n| n.role(Role::Link))
+                        .with_node(|n| n.role(Role::Button))
                         .with_node(|n| n.selected(selected))
                         .with_node(|n| {
                             n.current_item(move || selected.get().then_some(CurrentItem::Page))
