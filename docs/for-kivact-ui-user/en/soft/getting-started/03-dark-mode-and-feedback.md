@@ -21,9 +21,11 @@ fn settings_feedback() -> impl IntoView {
                 button("Toggle dark mode").on_press(move || dark.update(|on| *on = !*on)),
                 button("Save").on_press(move || saved.set(true)),
                 show(saved, move || {
-                    soft::banner(soft::BannerStatus::Success, "Settings saved")
+                    kivact::ui::alert("Settings saved")
+                        .tone(kivact::interaction::Tone::Success)
+                        .icon(soft::banner_icon(kivact::interaction::Tone::Success))
                         .description("Your changes are ready to use.")
-                        .dismissable(true)
+                        .dismissible(true)
                         .on_dismiss(move || saved.set(false))
                 }),
             ))

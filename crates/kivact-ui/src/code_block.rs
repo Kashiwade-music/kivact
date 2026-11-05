@@ -183,6 +183,7 @@ struct CodePresentation {
     can_collapse: Value<bool>,
     feedback: CopyFeedbackApi,
 }
+// xtask-allow(state-fields): Read-only source and formatting inputs rebuild the native editor on each disclosure opening; no interaction phase is stored here.
 /// Inputs consumed together when constructing the one native source editor.
 struct CodeSource {
     code: Value<String>,
