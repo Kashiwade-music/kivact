@@ -9,21 +9,20 @@ use kivact::view::Role;
 use kivact_ui_soft::theme;
 use std::time::Duration;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env().theme(theme(ThemeMode::Light))
-}
-
 #[test]
 fn date_sheet_uses_calendar_and_month_wheels_without_staging_the_date() {
     let start = CalendarDate::new(2026, 10, 14);
-    let (screen, selected) = render_with_handle(options(), move || {
-        let selected = signal(Some(start));
-        (
-            selected,
-            kivact::ui::date_input("Due", selected)
-                .presentation(kivact::ui::DatePresentation::BottomSheet),
-        )
-    });
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(theme(ThemeMode::Light)),
+        move || {
+            let selected = signal(Some(start));
+            (
+                selected,
+                kivact::ui::date_input("Due", selected)
+                    .presentation(kivact::ui::DatePresentation::BottomSheet),
+            )
+        },
+    );
     let trigger = screen.get_by_role(Role::TextBox, "Due");
     trigger.press_key(Key::ArrowDown);
     screen.advance(Duration::from_millis(600));
@@ -49,19 +48,20 @@ fn date_sheet_uses_calendar_and_month_wheels_without_staging_the_date() {
 
 #[test]
 fn time_sheet_wheels_commit_each_step_before_save() {
-    let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(Some(kivact::i18n::TimeOfDay {
-            hour: 12,
-            minute: 59,
-            second: 58,
-        }));
-        (
-            selected,
-            kivact::ui::time_input("Reminder", selected)
-                .format(kivact::i18n::TimeStyle { seconds: true })
-                .presentation(kivact::ui::DatePresentation::BottomSheet),
-        )
-    });
+    let (screen, selected) =
+        render_with_handle(RenderOptions::with_theme(theme(ThemeMode::Light)), || {
+            let selected = signal(Some(kivact::i18n::TimeOfDay {
+                hour: 12,
+                minute: 59,
+                second: 58,
+            }));
+            (
+                selected,
+                kivact::ui::time_input("Reminder", selected)
+                    .format(kivact::i18n::TimeStyle { seconds: true })
+                    .presentation(kivact::ui::DatePresentation::BottomSheet),
+            )
+        });
     let trigger = screen.get_by_role(Role::TextBox, "Reminder");
     trigger.press_key(Key::ArrowDown);
     screen.advance(Duration::from_millis(600));
@@ -97,21 +97,24 @@ fn time_sheet_wheels_commit_each_step_before_save() {
 #[test]
 fn combined_sheet_advances_from_date_to_time_and_keeps_the_committed_date() {
     let start = CalendarDate::new(2026, 10, 14);
-    let (screen, selected) = render_with_handle(options(), move || {
-        let selected = signal(Some(kivact::i18n::DateTime {
-            date: start,
-            time: kivact::i18n::TimeOfDay {
-                hour: 12,
-                minute: 15,
-                second: 0,
-            },
-        }));
-        (
-            selected,
-            kivact::ui::date_time_input("Starts at", selected)
-                .presentation(kivact::ui::DatePresentation::BottomSheet),
-        )
-    });
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(theme(ThemeMode::Light)),
+        move || {
+            let selected = signal(Some(kivact::i18n::DateTime {
+                date: start,
+                time: kivact::i18n::TimeOfDay {
+                    hour: 12,
+                    minute: 15,
+                    second: 0,
+                },
+            }));
+            (
+                selected,
+                kivact::ui::date_time_input("Starts at", selected)
+                    .presentation(kivact::ui::DatePresentation::BottomSheet),
+            )
+        },
+    );
     let trigger = screen.get_by_role(Role::TextBox, "Date");
     trigger.press_key(Key::ArrowDown);
     screen.advance(Duration::from_millis(600));
@@ -148,17 +151,20 @@ fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
     let start = CalendarDate::new(2026, 10, 14);
     let bound = CalendarDate::new(2026, 11, 30);
     for direction in [ReadingDirection::Ltr, ReadingDirection::Rtl] {
-        let (screen, selected) = render_with_handle(options(), move || {
-            let selected = signal(Some(start));
-            (
-                selected,
-                provide_direction(direction, move || {
-                    kivact::ui::date_input("Due", selected)
-                        .presentation(kivact::ui::DatePresentation::BottomSheet)
-                        .calendar(move |calendar| calendar.bounds(Some(start), Some(bound)))
-                }),
-            )
-        });
+        let (screen, selected) = render_with_handle(
+            RenderOptions::with_theme(theme(ThemeMode::Light)),
+            move || {
+                let selected = signal(Some(start));
+                (
+                    selected,
+                    provide_direction(direction, move || {
+                        kivact::ui::date_input("Due", selected)
+                            .presentation(kivact::ui::DatePresentation::BottomSheet)
+                            .calendar(move |calendar| calendar.bounds(Some(start), Some(bound)))
+                    }),
+                )
+            },
+        );
         screen
             .get_by_role(Role::TextBox, "Due")
             .press_key(Key::ArrowDown);
@@ -193,18 +199,19 @@ fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
 fn time_wheel_flick_projects_to_a_detent_and_exposes_increment_actions() {
     use kivact::view::A11yAction;
     use kivact::view::PointerKind;
-    let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(Some(kivact::i18n::TimeOfDay {
-            hour: 12,
-            minute: 20,
-            second: 0,
-        }));
-        (
-            selected,
-            kivact::ui::time_input("Reminder", selected)
-                .presentation(kivact::ui::DatePresentation::BottomSheet),
-        )
-    });
+    let (screen, selected) =
+        render_with_handle(RenderOptions::with_theme(theme(ThemeMode::Light)), || {
+            let selected = signal(Some(kivact::i18n::TimeOfDay {
+                hour: 12,
+                minute: 20,
+                second: 0,
+            }));
+            (
+                selected,
+                kivact::ui::time_input("Reminder", selected)
+                    .presentation(kivact::ui::DatePresentation::BottomSheet),
+            )
+        });
     screen
         .get_by_role(Role::TextBox, "Reminder")
         .press_key(Key::ArrowDown);

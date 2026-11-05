@@ -17,7 +17,7 @@ fn soft_mouse_opens_on_press_and_drag_release_selects_once() {
     let chosen = Rc::new(Cell::new(Vec::new()));
     let report = chosen.clone();
     let screen = render_with(
-        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
         move || {
             menu(
                 "Actions",

@@ -13,19 +13,18 @@ use kivact::view::Modifiers;
 use kivact::view::Role;
 use kivact_ui_soft as soft;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env().theme(soft::theme(ThemeMode::Light))
-}
-
 #[test]
 fn composer_inserts_shift_enter_and_recalls_the_last_submission() {
     let submitted = Rc::new(RefCell::new(Vec::new()));
     let received = submitted.clone();
-    let screen = render_with(options(), move || {
-        kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
-            received.borrow_mut().push(message);
-        })
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        move || {
+            kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
+                received.borrow_mut().push(message);
+            })
+        },
+    );
     let input = screen.get_by_role(Role::TextBox, "Message input");
     input.type_text("First line");
     input.press_key_with(
@@ -67,13 +66,16 @@ fn composer_inserts_shift_enter_and_recalls_the_last_submission() {
 
 #[test]
 fn tool_calls_publish_keyboard_disclosures_and_hide_collapsed_details() {
-    let screen = render_with(options(), || {
-        soft::chat_tool_calls(vec![
-            soft::ToolCall::new("read", "Read file").error("Access denied"),
-            soft::ToolCall::new("check", "Check path"),
-        ])
-        .detail(|_| kivact::ui::button("Inspect output"))
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        || {
+            soft::chat_tool_calls(vec![
+                soft::ToolCall::new("read", "Read file").error("Access denied"),
+                soft::ToolCall::new("check", "Check path"),
+            ])
+            .detail(|_| kivact::ui::button("Inspect output"))
+        },
+    );
     let group = screen.get_by_role(Role::Button, "2 tool calls");
     screen.get_by_text("Check path");
     assert!(screen.query_by_text("Read file").is_none());
@@ -125,11 +127,14 @@ fn tool_calls_publish_keyboard_disclosures_and_hide_collapsed_details() {
 fn composer_does_not_submit_during_an_ime_composition() {
     let submitted = Rc::new(RefCell::new(Vec::new()));
     let received = submitted.clone();
-    let screen = render_with(options(), move || {
-        kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
-            received.borrow_mut().push(message);
-        })
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        move || {
+            kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
+                received.borrow_mut().push(message);
+            })
+        },
+    );
     let input = screen.get_by_role(Role::TextBox, "Message input");
     input.compose("仮");
     input.press_key(Key::Enter);
@@ -142,12 +147,15 @@ fn composer_does_not_submit_during_an_ime_composition() {
 
 #[test]
 fn one_tool_call_has_no_group_toggle_and_can_open_its_details() {
-    let screen = render_with(options(), || {
-        soft::chat_tool_calls(vec![
-            soft::ToolCall::new("read", "Read file").status(soft::ToolStatus::Running),
-        ])
-        .detail(|_| kivact::ui::button("Inspect output"))
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        || {
+            soft::chat_tool_calls(vec![
+                soft::ToolCall::new("read", "Read file").status(soft::ToolStatus::Running),
+            ])
+            .detail(|_| kivact::ui::button("Inspect output"))
+        },
+    );
     assert!(screen.query_by_role(Role::Button, "1 tool calls").is_none());
     screen.get_by_role(Role::Status, "Running");
     let details = screen.get_by_role(Role::Button, "Details for Read file");

@@ -5,7 +5,6 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::interaction::MenuEntry;
-use kivact::style::Theme;
 use kivact::style::ThemeMode;
 use kivact::test::RenderOptions;
 use kivact::test::render_with;
@@ -14,16 +13,12 @@ use kivact::view::A11yAction;
 use kivact::view::Key;
 use kivact::view::Role;
 
-fn options(theme: Theme) -> RenderOptions {
-    RenderOptions::from_env().theme(theme)
-}
-
 #[test]
 fn soft_disabled_menu_item_can_explain_why_but_cannot_activate() {
     let chosen = Rc::new(Cell::new(0));
     let report = chosen.clone();
     let screen = render_with(
-        options(kivact_ui_soft::theme(ThemeMode::Light)),
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
         move || {
             menu(
                 "Actions",
@@ -87,18 +82,21 @@ fn explicit_skip_policy_skips_disabled_menu_entries() {
         },
         ..Default::default()
     };
-    let screen = render_with(options(Theme::light().with(policy)), || {
-        menu(
-            "Actions",
-            vec![
-                MenuEntry::item("remove", "Remove")
-                    .disabled(true)
-                    .with_disabled_reason("Owner only"),
-                MenuEntry::item("copy", "Copy"),
-            ],
-        )
-        .on_activate(|_| {})
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(Theme::light().with(policy)),
+        || {
+            menu(
+                "Actions",
+                vec![
+                    MenuEntry::item("remove", "Remove")
+                        .disabled(true)
+                        .with_disabled_reason("Owner only"),
+                    MenuEntry::item("copy", "Copy"),
+                ],
+            )
+            .on_activate(|_| {})
+        },
+    );
     screen
         .get_by_role(Role::Button, "Actions")
         .press_key(Key::ArrowDown);

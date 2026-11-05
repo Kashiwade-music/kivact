@@ -29,7 +29,7 @@ fn soft_toggle_keeps_its_width_when_pressed_and_when_its_label_is_hidden() {
             extra_small_size: 12.0
         }
     );
-    let (screen, pressed) = render_with_handle(RenderOptions::from_env().theme(theme), || {
+    let (screen, pressed) = render_with_handle(RenderOptions::with_theme(theme), || {
         let pressed = signal(false);
         let controls = column((
             toggle_button("Highlight modified rows", pressed),
@@ -85,7 +85,7 @@ fn width_measurement_is_opt_in_and_follows_label_changes() {
     // Use a deliberately larger measuring size to prove that the reservation
     // affects the layout even when the bundled test font has only one weight.
     let (reserved, label) = render_with_handle(
-        RenderOptions::from_env().theme(Theme::light().with(kivact::ui::UiTokens {
+        RenderOptions::with_theme(Theme::light().with(kivact::ui::UiTokens {
             toggle_button: kivact::ui::ToggleButtonTokens {
                 label_reservation: ToggleLabelReservation::Reserve {
                     weight: 600,

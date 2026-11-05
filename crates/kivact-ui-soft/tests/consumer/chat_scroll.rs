@@ -25,7 +25,7 @@ fn offset(screen: &Screen) -> f64 {
 
 fn chat_screen() -> Screen {
     render_with(
-        RenderOptions::from_env().theme(soft::theme(ThemeMode::Light)),
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
         || {
             let items = signal((0..20).collect::<Vec<i32>>());
             let history = signal(0_u64);

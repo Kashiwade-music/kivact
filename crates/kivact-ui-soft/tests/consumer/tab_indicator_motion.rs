@@ -14,11 +14,9 @@ fn selection_crossfades_both_indicators_in_place() {
     for reduced_motion in [false, true] {
         let (screen, selected) = render_with_handle(
             if reduced_motion {
-                RenderOptions::from_env()
-                    .theme(kivact_ui_soft::theme(ThemeMode::Light))
-                    .reduced_motion()
+                RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).reduced_motion()
             } else {
-                RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
+                RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
             },
             || {
                 let selected = signal("a");

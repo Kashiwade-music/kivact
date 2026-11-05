@@ -15,7 +15,7 @@ use kivact::view::provide_direction;
 fn sticky_columns_follow_both_edges_in_ltr_and_rtl() {
     for direction in [ReadingDirection::Ltr, ReadingDirection::Rtl] {
         let screen = render_with(
-            RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
+            RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
             move || {
                 provide_direction(direction, || {
                     let columns = [

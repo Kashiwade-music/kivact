@@ -15,25 +15,22 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-fn options() -> RenderOptions {
-    RenderOptions::default()
-        .theme(kivact_ui_soft::theme(ThemeMode::Light))
-        .mirror(MirrorMode::Off)
-}
-
 #[test]
 fn dismissing_a_toast_removes_its_controls_before_the_row_collapses() {
     let hidden = Rc::new(Cell::new(0));
     let count = hidden.clone();
-    let (screen, _) = render_with_handle(options(), move || {
-        let toasts = toaster();
-        toasts.push(Toast::new("Earlier").duration(None));
-        toasts.push_with(
-            Toast::new("DismissOn me").duration(None),
-            ToastOptions::default().on_dismiss(move |_| count.set(count.get() + 1)),
-        );
-        ((), column((button("Outside"), toast_region(toasts))))
-    });
+    let (screen, _) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        move || {
+            let toasts = toaster();
+            toasts.push(Toast::new("Earlier").duration(None));
+            toasts.push_with(
+                Toast::new("DismissOn me").duration(None),
+                ToastOptions::default().on_dismiss(move |_| count.set(count.get() + 1)),
+            );
+            ((), column((button("Outside"), toast_region(toasts))))
+        },
+    );
     screen.advance(Duration::from_millis(180));
     let earlier_y = || {
         screen
@@ -64,14 +61,17 @@ fn dismissing_a_toast_removes_its_controls_before_the_row_collapses() {
 fn toast_row_does_not_extend_the_auto_dismiss_timer() {
     let hidden = Rc::new(Cell::new(0));
     let count = hidden.clone();
-    let (screen, _) = render_with_handle(options(), move || {
-        let toasts = toaster();
-        toasts.push_with(
-            Toast::new("Automatic").duration(Some(Duration::from_millis(240))),
-            ToastOptions::default().on_dismiss(move |_| count.set(count.get() + 1)),
-        );
-        ((), toast_region(toasts))
-    });
+    let (screen, _) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        move || {
+            let toasts = toaster();
+            toasts.push_with(
+                Toast::new("Automatic").duration(Some(Duration::from_millis(240))),
+                ToastOptions::default().on_dismiss(move |_| count.set(count.get() + 1)),
+            );
+            ((), toast_region(toasts))
+        },
+    );
     screen.advance(Duration::from_millis(210));
     assert!(screen.query_by_role(Role::Status, "Automatic").is_some());
     screen.advance(Duration::from_millis(65));

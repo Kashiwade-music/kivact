@@ -11,18 +11,17 @@ use kivact::view::PointerKind;
 use kivact::view::Role;
 use std::time::Duration;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
-}
-
 #[test]
 fn a_short_or_mouse_drag_does_not_dismiss_but_an_edge_swipe_does() {
     for kind in [PointerKind::Touch, PointerKind::Pen] {
-        let screen = render_with(options(), || {
-            let queue = toaster();
-            queue.push(Toast::new("Saved").duration(None));
-            toast_region(queue)
-        });
+        let screen = render_with(
+            RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+            || {
+                let queue = toaster();
+                queue.push(Toast::new("Saved").duration(None));
+                toast_region(queue)
+            },
+        );
         screen.advance(Duration::from_millis(150));
         let card = || screen.get_by_role(Role::Status, "Saved");
         let rect = card().rect().unwrap();
@@ -71,13 +70,16 @@ fn a_short_or_mouse_drag_does_not_dismiss_but_an_edge_swipe_does() {
 
 #[test]
 fn a_pending_touch_holds_only_its_toasts_timer() {
-    let screen = render_with(options(), || {
-        let queue = toaster();
-        for title in ["Held", "Other"] {
-            queue.push(Toast::new(title).duration(Some(Duration::from_millis(350))));
-        }
-        toast_region(queue)
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let queue = toaster();
+            for title in ["Held", "Other"] {
+                queue.push(Toast::new(title).duration(Some(Duration::from_millis(350))));
+            }
+            toast_region(queue)
+        },
+    );
     screen.advance(Duration::from_millis(150));
     let card = screen.get_by_role(Role::Status, "Held").rect().unwrap();
     let contact = screen.contact_down(PointerKind::Touch, card.x + 24.0, card.y + 8.0);
