@@ -81,6 +81,7 @@ pub(super) fn properties() -> impl IntoView {
                         ui::property_row("Z", num("Z", 1.0, 0.0, 10.0, 3, ""))
                             .test_id("axis-label-z"),
                     ))
+                    .role(kivact::view::Role::List)
                     .style(style().gap(3)),
                     2 => col((
                         num("X", 0.0, -100.0, 100.0, 3, " m"),
@@ -103,6 +104,7 @@ pub(super) fn properties() -> impl IntoView {
                         ),
                         ui::property_row("Pass Index", num("", 0.0, 0.0, 999.0, 0, "")),
                     ))
+                    .role(kivact::view::Role::List)
                     .style(style().gap(3)),
                     4 => col((
                         kivact::ui::checkbox("Show in Viewport", signal(true)),
@@ -146,12 +148,22 @@ pub(super) fn properties() -> impl IntoView {
                         ui::property_row("Color", ui::color_popup("Viewport color", display_color))
                             .test_id("creative-property-display-color"),
                     ))
+                    .role(kivact::view::Role::List)
                 }),
-                ui::notice(
-                    kivact::interaction::Tone::Info,
-                    "Property Editing",
-                    "ドラッグ・ホイール・直接入力・キー操作で編集。",
-                ),
+                kivact::ui::alert("Property Editing")
+                    .tone(kivact::interaction::Tone::Info)
+                    .with_node(|node| {
+                        node.role(kivact::view::Role::Status)
+                            .live_region(kivact::view::LiveRegion::Polite)
+                    })
+                    .description("ドラッグ・ホイール・直接入力・キー操作で編集。")
+                    .variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message(
+                        "creative.notice.dismiss",
+                        "Dismiss notification",
+                    ))
+                    .icon(kivact::view::icon("info")),
             )),
         )
         .style(style().width(316)),
@@ -255,6 +267,7 @@ pub(super) fn docking() -> impl IntoView {
                     .placeholder(""),
                 ),
             ))
+            .role(kivact::view::Role::List)
             .style(style().padding(12)),
         )
         .into_view(),
@@ -422,6 +435,7 @@ fn effects_panel() -> Node {
                 ),
                 ui::property_row("Size", num("Font size", 12.0, 1.0, 300.0, 0, " pt")),
             ))
+            .role(kivact::view::Role::List)
         } else {
             line((
                 kivact::ui::button("Left").variant(kivact::ui::ButtonVariant::Secondary),

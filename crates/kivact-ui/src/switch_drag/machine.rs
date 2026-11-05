@@ -175,7 +175,6 @@ impl MachineTrait for Machine {
     type Event = Event;
     type Effect = Effect;
     fn transition(&self, state: &State, event: Event) -> Step<State, Event, Effect> {
-        let idle = || Step::to(State::Gesture(SwitchGesture::Idle)).cancel(Event::Settle);
         let event = match event {
             Event::Disabled(true) => return idle(),
             Event::Disabled(false) => return Step::stay(),
@@ -235,122 +234,149 @@ impl MachineTrait for Machine {
         };
         match event.phase() {
             PointerPhase::Cancel => idle(),
-            PointerPhase::Move | PointerPhase::Up(_) => {
-                let delta = Point::new(
-                    (event.window_pos().x - contact.origin.x) * self.geometry.sign,
-                    event.window_pos().y - contact.origin.y,
-                );
-                let (mut axis, mut latch) = match *state {
-                    State::Gesture(SwitchGesture::Dragging { axis, latch, .. })
-                    | State::Obscured(SwitchGesture::Dragging { axis, latch, .. }) => {
-                        (Some(axis.direction()), latch)
-                    }
-                    _ => (None, Latch::Initial),
-                };
-                let mut suppress = false;
-                if axis.is_none() {
-                    if DragAxis::Horizontal
-                        .past_slop(delta, SWITCH_SLOP.next_down())
-                        .is_some()
-                        && delta.x.abs() > delta.y.abs()
-                    {
-                        axis = Some(DragAxis::Horizontal);
-                        suppress = true;
-                    } else if DragAxis::Vertical
-                        .past_slop(delta, SWITCH_SLOP.next_down())
-                        .is_some()
-                        && delta.y.abs() >= delta.x.abs()
-                    {
-                        axis = Some(DragAxis::Vertical);
-                    }
-                }
-                if axis == Some(DragAxis::Horizontal) {
-                    let toward = if contact.started_on {
-                        -delta.x
-                    } else {
-                        delta.x
-                    };
-                    let side = if contact.started_on {
-                        self.geometry.on_side
-                    } else {
-                        self.geometry.off_side
-                    };
-                    latch = latch.update(toward, toward >= self.geometry.width - side);
-                }
-                let mut next_value = None;
-                let step = if matches!(event.phase(), PointerPhase::Up(_)) {
-                    if axis == Some(DragAxis::Vertical)
-                        || (!touch && axis != Some(DragAxis::Horizontal))
-                    {
-                        idle()
-                    } else {
-                        let on = if latch.flipped() {
-                            latch.on(contact.started_on)
-                        } else {
-                            !contact.started_on
-                        };
-                        let step = if touch {
-                            Step::to(State::Released {
-                                on,
-                                kind: contact.kind,
-                                lift: Lift::Raised,
-                            })
-                            .after(
-                                Duration::from_millis(235).saturating_sub(Duration::from_nanos(
-                                    self.now.saturating_sub(contact.started),
-                                )),
-                                Event::Settle,
-                            )
-                        } else {
-                            Step::to(State::Released {
-                                on,
-                                kind: contact.kind,
-                                lift: Lift::Settled,
-                            })
-                            .cancel(Event::Settle)
-                        };
-                        if self.value != on {
-                            next_value = Some(on);
-                        }
-                        step
-                    }
-                } else if let Some(axis) = axis {
-                    let axis = match axis {
-                        DragAxis::Horizontal => {
-                            let start = if contact.started_on {
-                                self.geometry.travel()
-                            } else {
-                                0.0
-                            };
-                            Axis::Horizontal {
-                                offset: self
-                                    .geometry
-                                    .band(start + delta.x, latch.on(contact.started_on))
-                                    * self.geometry.sign,
-                            }
-                        }
-                        DragAxis::Vertical => Axis::Vertical,
-                    };
-                    Step::to(State::Gesture(SwitchGesture::Dragging {
-                        contact,
-                        axis,
-                        latch,
-                    }))
-                } else {
-                    Step::stay()
-                };
-                let step = if suppress {
-                    step.with(Effect::Suppress(event))
-                } else {
-                    step
-                };
-                if let Some(next) = next_value {
-                    step.with(Effect::Set(next))
-                } else {
-                    step
-                }
-            }
+            PointerPhase::Move | PointerPhase::Up(_) => self.motion(*state, contact, event),
             _ => Step::stay(),
         }
+    }
+}
+
+/// Cancel gesture tracking and any delayed release settling.
+fn idle() -> Step<State, Event, Effect> {
+    Step::to(State::Gesture(SwitchGesture::Idle)).cancel(Event::Settle)
+}
+impl Machine {
+    /// Update direct manipulation from one tracked move or release.
+    fn motion(
+        &self,
+        state: State,
+        contact: Contact,
+        event: PointerEvent,
+    ) -> Step<State, Event, Effect> {
+        let touch = event.kind() == PointerKind::Touch;
+        let delta = Point::new(
+            (event.window_pos().x - contact.origin.x) * self.geometry.sign,
+            event.window_pos().y - contact.origin.y,
+        );
+        let (mut axis, mut latch) = match state {
+            State::Gesture(SwitchGesture::Dragging { axis, latch, .. })
+            | State::Obscured(SwitchGesture::Dragging { axis, latch, .. }) => {
+                (Some(axis.direction()), latch)
+            }
+            _ => (None, Latch::Initial),
+        };
+        let acquired = axis.is_none().then(|| crossed_axis(delta)).flatten();
+        let suppress = acquired == Some(DragAxis::Horizontal);
+        axis = axis.or(acquired);
+        if axis == Some(DragAxis::Horizontal) {
+            let toward = if contact.started_on {
+                -delta.x
+            } else {
+                delta.x
+            };
+            let side = if contact.started_on {
+                self.geometry.on_side
+            } else {
+                self.geometry.off_side
+            };
+            latch = latch.update(toward, toward >= self.geometry.width - side);
+        }
+        let (step, next_value) = if matches!(event.phase(), PointerPhase::Up(_)) {
+            self.release(contact, axis, latch, touch)
+        } else if let Some(axis) = axis {
+            let axis = match axis {
+                DragAxis::Horizontal => {
+                    let start = if contact.started_on {
+                        self.geometry.travel()
+                    } else {
+                        0.0
+                    };
+                    Axis::Horizontal {
+                        offset: self
+                            .geometry
+                            .band(start + delta.x, latch.on(contact.started_on))
+                            * self.geometry.sign,
+                    }
+                }
+                DragAxis::Vertical => Axis::Vertical,
+            };
+            (
+                Step::to(State::Gesture(SwitchGesture::Dragging {
+                    contact,
+                    axis,
+                    latch,
+                })),
+                None,
+            )
+        } else {
+            (Step::stay(), None)
+        };
+        let step = if suppress {
+            step.with(Effect::Suppress(event))
+        } else {
+            step
+        };
+        if let Some(next) = next_value {
+            step.with(Effect::Set(next))
+        } else {
+            step
+        }
+    }
+    /// Decide the accepted value and delayed touch lift when a contact ends.
+    fn release(
+        &self,
+        contact: Contact,
+        axis: Option<DragAxis>,
+        latch: Latch,
+        touch: bool,
+    ) -> (Step<State, Event, Effect>, Option<bool>) {
+        if axis == Some(DragAxis::Vertical) || (!touch && axis != Some(DragAxis::Horizontal)) {
+            (idle(), None)
+        } else {
+            let on = if latch.flipped() {
+                latch.on(contact.started_on)
+            } else {
+                !contact.started_on
+            };
+            let step = if touch {
+                Step::to(State::Released {
+                    on,
+                    kind: contact.kind,
+                    lift: Lift::Raised,
+                })
+                .after(
+                    Duration::from_millis(235).saturating_sub(Duration::from_nanos(
+                        self.now.saturating_sub(contact.started),
+                    )),
+                    Event::Settle,
+                )
+            } else {
+                Step::to(State::Released {
+                    on,
+                    kind: contact.kind,
+                    lift: Lift::Settled,
+                })
+                .cancel(Event::Settle)
+            };
+            (step, (self.value != on).then_some(on))
+        }
+    }
+}
+
+/// Claim the dominant direct-manipulation axis only after crossing its slop.
+fn crossed_axis(delta: Point) -> Option<DragAxis> {
+    if DragAxis::Horizontal
+        .past_slop(delta, SWITCH_SLOP.next_down())
+        .is_some()
+        && delta.x.abs() > delta.y.abs()
+    {
+        Some(DragAxis::Horizontal)
+    } else if DragAxis::Vertical
+        .past_slop(delta, SWITCH_SLOP.next_down())
+        .is_some()
+        && delta.y.abs() >= delta.x.abs()
+    {
+        Some(DragAxis::Vertical)
+    } else {
+        None
     }
 }

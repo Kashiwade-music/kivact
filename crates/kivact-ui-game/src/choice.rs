@@ -11,15 +11,6 @@ use kivact::view::{column, text};
 
 use crate::Tokens;
 
-/// Slanted single-selection segments: the Game look of a standard radio
-/// group, `kivact::ui::radio_group(..).orientation(Orientation::Horizontal)
-/// .variant(Segmented)`. A segmented control is a
-/// radio group, not tabs; another theme draws the plain radio group.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Segmented;
-
-impl kivact::ui::Variant for Segmented {}
-
 /// Selectable plan cards: the Game look of a standard radio group,
 /// `kivact::ui::radio_group(..).variant(ChoiceCard).item(card_label)`. A
 /// card shows its item's description under the label; a price goes beside
@@ -104,7 +95,7 @@ pub fn card_label<K: Clone + 'static>(
 ///     tabs("Sections", vec![ListItem::new("inbox", "Inbox"), ListItem::new("alerts", "Alerts")], section)
 ///         .orientation(Orientation::Vertical)
 ///         .variant(g::Navigation)
-///         .item(|item, state| (g::navigation_label(item, state), g::badge("3", kivact::interaction::Tone::Info)))
+///         .item(|item, state| (g::navigation_label(item, state), kivact::ui::badge("3").tone(kivact::interaction::Tone::Info)))
 /// }
 /// ```
 pub fn navigation_label<K: Clone + 'static>(

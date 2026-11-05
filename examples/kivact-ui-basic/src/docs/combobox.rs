@@ -2,7 +2,6 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -49,7 +48,7 @@ fn basic() -> impl IntoView {
         ListItem::new("remix", "Remix"),
         ListItem::new("astro", "Astro"),
     ];
-    basic::combobox(items, signal(None))
+    kivact::ui::combobox("Framework", items, signal(None))
         .placeholder("Select a framework")
         .name("Framework")
         .style(style().width(260))
@@ -64,7 +63,7 @@ fn clear() -> impl IntoView {
         ListItem::new("remix", "Remix"),
         ListItem::new("astro", "Astro"),
     ];
-    basic::combobox(items, signal(Some("remix")))
+    kivact::ui::combobox("Framework", items, signal(Some("remix")))
         .show_clear(true)
         .empty_text("No frameworks found.")
         .name("Framework")
@@ -80,7 +79,8 @@ fn multiple() -> impl IntoView {
         ListItem::new("remix", "Remix"),
         ListItem::new("astro", "Astro"),
     ];
-    basic::combobox(items, signal(vec!["next", "astro"]))
+    kivact::ui::combobox("Frameworks", items, signal(vec!["next", "astro"]))
+        .chips()
         .placeholder("Add framework")
         .name("Frameworks")
         .style(style().width(360))
@@ -95,7 +95,7 @@ fn disabled() -> impl IntoView {
         ListItem::new("remix", "Remix"),
         ListItem::new("astro", "Astro"),
     ];
-    basic::combobox(items, signal(Some("nuxt")))
+    kivact::ui::combobox("Framework", items, signal(Some("nuxt")))
         .disabled(true)
         .name("Framework")
         .style(style().width(260))

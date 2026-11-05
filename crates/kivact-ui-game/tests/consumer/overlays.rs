@@ -9,8 +9,12 @@ use std::time::Duration;
 
 #[test]
 fn consumer_modal_menu_command_search_and_focus_restore() {
-    let (screen, (open, command_open, hits)) =
-        kivact::test::render_with_handle(crate::support::options(true), || {
+    let (screen, (open, command_open, hits)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let open = signal(false);
             let command_open = signal(false);
             let hits = signal(0);
@@ -49,7 +53,8 @@ fn consumer_modal_menu_command_search_and_focus_restore() {
                 ))
                 .style(style().padding(20).gap(20)),
             )
-        });
+        },
+    );
     let create = screen.get_by_role(Role::Button, "Create");
     create.focus();
     create.click();
@@ -74,40 +79,64 @@ fn consumer_modal_menu_command_search_and_focus_restore() {
 
 #[test]
 fn consumer_toast_expiry_and_hover_pause() {
-    let (screen, toaster) = kivact::test::render_with_handle(crate::support::options(true), || {
-        let toaster = toaster().max_visible(4);
-        (
-            toaster,
+    let (screen, toaster) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let toaster = toaster().max_visible(4);
             (
-                column((
-                    kivact::ui::button("Notify")
-                        .variant(kivact_ui_game::Slant)
-                        .on_press(move || {
-                            toaster.push(
-                                Toast::new("Saved")
-                                    .body("Ready")
-                                    .tone(Tone::Success)
-                                    .duration(Some(Duration::from_millis(400))),
-                            );
-                        }),
-                    g::banner("NOTICE", kivact::interaction::Tone::Warning, ())
-                        .content({
-                            rich_text(vec![
-                                span("Maintenance:").weight(700).color(rgb(0xffc928)),
-                                span(" read only"),
-                            ])
-                        })
-                        .name("Service notice"),
-                    g::activity(vec![g::ActivityEntry::new(
-                        "09:40",
-                        rich_text(vec![span("Review").weight(700), span(" passed")]),
-                        kivact::interaction::Tone::Success,
-                    )]),
-                )),
-                kivact::ui::toast_region(toaster),
-            ),
-        )
-    });
+                toaster,
+                (
+                    column((
+                        kivact::ui::button("Notify")
+                            .variant(kivact_ui_game::Slant)
+                            .on_press(move || {
+                                toaster.push(
+                                    Toast::new("Saved")
+                                        .body("Ready")
+                                        .tone(Tone::Success)
+                                        .duration(Some(Duration::from_millis(400))),
+                                );
+                            }),
+                        kivact::ui::alert("NOTICE")
+                            .variant(kivact::ui::AlertVariant::Banner)
+                            .tone(kivact::interaction::Tone::Warning)
+                            .icon(kivact::view::icon("alert-triangle"))
+                            .actions(())
+                            .icon(
+                                g::mono("NOTICE").style(
+                                    style()
+                                        .font_size(10)
+                                        .weight(800)
+                                        .padding_x(6)
+                                        .padding_y(4)
+                                        .background(g::ColorName::Yellow),
+                                ),
+                            )
+                            .with_node(|node| {
+                                node.role(Role::Status)
+                                    .live_region(kivact::view::LiveRegion::Polite)
+                            })
+                            .content(move || {
+                                rich_text(vec![
+                                    span("Maintenance:").weight(700).color(rgb(0xffc928)),
+                                    span(" read only"),
+                                ])
+                            })
+                            .name("Service notice"),
+                        g::activity(vec![g::ActivityEntry::new(
+                            "09:40",
+                            rich_text(vec![span("Review").weight(700), span(" passed")]),
+                            kivact::interaction::Tone::Success,
+                        )]),
+                    )),
+                    kivact::ui::toast_region(toaster),
+                ),
+            )
+        },
+    );
     assert!(screen.get_by_text("Maintenance: read only").exists());
     assert!(screen.get_by_text("Review passed").exists());
     screen.get_by_role(Role::Button, "Notify").click();
@@ -140,20 +169,26 @@ fn consumer_toast_expiry_and_hover_pause() {
 
 #[test]
 fn consumer_tooltip_focus_delay_and_blur_use_setup_bound_observation() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(true), || {
-        (
-            (),
-            row((
-                kivact::ui::tooltip("Save with Ctrl+S")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.)
-                    .attach(kivact::ui::button("Save").variant(kivact_ui_game::Slant)),
-                kivact::ui::button("Elsewhere").variant(kivact_ui_game::Slant),
-            ))
-            .style(style().padding(30).gap(24)),
-        )
-    });
+    let (screen, ()) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            (
+                (),
+                row((
+                    kivact::ui::tooltip("Save with Ctrl+S")
+                        .placement(kivact::view::Placement::Below)
+                        .align(kivact::view::OverlayAlign::Center)
+                        .offset(6.)
+                        .attach(kivact::ui::button("Save").variant(kivact_ui_game::Slant)),
+                    kivact::ui::button("Elsewhere").variant(kivact_ui_game::Slant),
+                ))
+                .style(style().padding(30).gap(24)),
+            )
+        },
+    );
     assert_eq!(
         screen.get_by_role(Role::Button, "Save").description(),
         "Save with Ctrl+S"
@@ -182,34 +217,40 @@ fn consumer_tooltip_focus_delay_and_blur_use_setup_bound_observation() {
 
 #[test]
 fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technology_can_dismiss() {
-    let (screen, opens) = kivact::test::render_with_handle(crate::support::options(true), || {
-        let (modal, sheet, popover) = (signal(false), signal(false), signal(false));
-        (
-            (modal, sheet, popover),
-            column((
-                kivact::ui::button("Open modal")
-                    .variant(kivact_ui_game::Slant)
-                    .on_press(move || modal.set(true)),
-                kivact::ui::button("Open sheet")
-                    .variant(kivact_ui_game::Slant)
-                    .on_press(move || sheet.set(true)),
-                kivact::ui::dialog("Rename", modal)
-                    .description("The new name shows everywhere.")
-                    .content(|| {
-                        kivact::ui::text_input("Name", kivact::state::signal(String::new()))
-                    }),
-                kivact::ui::dialog("Details", sheet)
-                    .mode(kivact::interaction::DialogMode::Drawer(
-                        kivact::geometry::Edge::Right,
-                    ))
-                    .content(|| text("Body")),
-                kivact::ui::dialog("Help topic", popover)
-                    .mode(kivact::interaction::DialogMode::Popover)
-                    .content(|| text("Help content"))
-                    .attach(kivact::ui::button("Open help").variant(kivact_ui_game::Slant)),
-            )),
-        )
-    });
+    let (screen, opens) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let (modal, sheet, popover) = (signal(false), signal(false), signal(false));
+            (
+                (modal, sheet, popover),
+                column((
+                    kivact::ui::button("Open modal")
+                        .variant(kivact_ui_game::Slant)
+                        .on_press(move || modal.set(true)),
+                    kivact::ui::button("Open sheet")
+                        .variant(kivact_ui_game::Slant)
+                        .on_press(move || sheet.set(true)),
+                    kivact::ui::dialog("Rename", modal)
+                        .description("The new name shows everywhere.")
+                        .content(|| {
+                            kivact::ui::text_input("Name", kivact::state::signal(String::new()))
+                        }),
+                    kivact::ui::dialog("Details", sheet)
+                        .mode(kivact::interaction::DialogMode::Drawer(
+                            kivact::geometry::Edge::Right,
+                        ))
+                        .content(|| text("Body")),
+                    kivact::ui::dialog("Help topic", popover)
+                        .mode(kivact::interaction::DialogMode::Popover)
+                        .content(|| text("Help content"))
+                        .attach(kivact::ui::button("Open help").variant(kivact_ui_game::Slant)),
+                )),
+            )
+        },
+    );
     let (modal, sheet, popover) = opens;
     for (opener, title, open) in [
         ("Open modal", "Rename", modal),

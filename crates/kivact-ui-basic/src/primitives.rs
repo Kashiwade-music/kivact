@@ -2,13 +2,11 @@
 
 use crate::ColorName;
 
-use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::state::Value;
-use kivact::view::icon;
-use kivact::view::{Node, NodeBuilder, node, row, text};
+use kivact::view::{Node, NodeBuilder, node, text};
 
 use kivact::state::{IntoText, IntoValue};
-use kivact::style::{Align, Direction, Justify, pct, style};
+use kivact::style::{Align, Direction, pct, style};
 use kivact::view::{IntoView, NodeRef, Orientation, Role, View};
 
 /// A form label (label.tsx): 12 px text without leading, centered with its children.
@@ -137,136 +135,4 @@ impl IntoView for Separator {
             })
             .into_view()
     }
-}
-
-/// A keyboard key cap (kbd.tsx): muted, 20 px high, 12 px medium text.
-#[track_caller]
-pub fn kbd(text_value: impl IntoText) -> impl kivact::view::Component {
-    node()
-        .style(
-            style()
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .gap(4)
-                .height(20)
-                .min_width(20)
-                .padding_x(4)
-                .radius(0)
-                .background(ColorName::Muted)
-                .color(ColorName::MutedForeground)
-                .font_size(12)
-                .weight(500)
-                .text_wrap(false),
-        )
-        .child(text(text_value))
-}
-
-/// Key caps shown together, such as a shortcut (`KbdGroup`).
-#[track_caller]
-pub fn kbd_group(children: impl IntoView) -> impl kivact::view::Component {
-    row(children).style(style().align_items(Align::Center).gap(4))
-}
-
-/// A turning Lucide `loader-circle` (spinner.tsx) with `Role::Status`.
-///
-/// Its accessible name is the `spinner.busy` message ("Loading"). The
-/// rotation is essential motion (`Transition::decorative(false)`): it says
-/// that work is going on, so it keeps turning under reduced motion, as the
-/// platforms' own spinners do.
-#[track_caller]
-pub fn spinner() -> impl kivact::view::Component {
-    let turn = Animated::from(
-        0.0f64,
-        360.0f64,
-        Transition::tween(1000, Easing::Linear)
-            .repeat(Repeat::Forever)
-            .essential(),
-    );
-    node()
-        .with_node(|root| root.role(Role::Status))
-        .name(kivact::i18n::message("basic.spinner.busy", "Loading"))
-        .style(move || style().size(16, 16).shrink(0).rotate(turn.get()))
-        .child(icon("loader-circle"))
-}
-
-/// A pulsing muted placeholder (skeleton.tsx); size it with `.style(..)`.
-///
-/// The pulse is decorative motion: under reduced motion the block is opaque
-/// and still.
-#[track_caller]
-pub fn skeleton() -> Skeleton {
-    Skeleton {
-        root: kivact::view::column(()),
-        rows: 1usize.into_value(),
-    }
-}
-/// Presentation builder returned by [`skeleton`].
-pub struct Skeleton {
-    root: Node,
-    rows: kivact::state::Value<usize>,
-}
-impl Skeleton {
-    /// Reactive row count; one by default.
-    pub fn rows(mut self, rows: impl IntoValue<usize>) -> Self {
-        self.rows = rows.into_value();
-        self
-    }
-}
-impl NodeBuilder for Skeleton {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Skeleton {
-    fn into_view(self) -> View {
-        let rows = self.rows;
-        let pulse = Animated::from(
-            1.0f64,
-            0.5f64,
-            Transition::tween(1000, Easing::EaseInOut)
-                .repeat(Repeat::Forever)
-                .alternate(),
-        );
-        self.root
-            .base_style(style().gap(6).clip(true))
-            .child(kivact::view::for_index(
-                move || (0..rows.get()).collect::<Vec<_>>(),
-                move |_, _| {
-                    node().style(move || {
-                        style()
-                            .grow(1)
-                            .min_height(16)
-                            .width(pct(100))
-                            .radius(0)
-                            .background(kivact::style::use_tokens::<crate::Tokens>().muted)
-                            .opacity(if kivact::platform::is_motion_reduced().get() {
-                                1.
-                            } else {
-                                pulse.get()
-                            })
-                    })
-                },
-            ))
-            .into_view()
-    }
-}
-
-/// A box of the full available width whose height follows `ratio` (width / height).
-///
-/// The child is stretched to the box's width; give it `height(pct(100))`
-/// to fill the box.
-#[track_caller]
-pub fn aspect_ratio(ratio: impl Into<f64>, child: impl IntoView) -> impl kivact::view::Component {
-    let ratio = ratio.into();
-    node()
-        .style(
-            style()
-                .direction(Direction::Column)
-                .width(pct(100))
-                .aspect_ratio(ratio)
-                .overflow(kivact::style::Overflow::Hidden),
-        )
-        .child(child)
 }

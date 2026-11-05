@@ -83,7 +83,7 @@ pub(super) fn media() -> impl IntoView {
                 mode,
             )
             .orientation(kivact::view::Orientation::Horizontal)
-            .variant(ui::Segmented)
+            .variant(kivact::ui::RadioGroupVariant::Segmented)
             .test_id("creative-media-mode"),
             kivact::ui::text_input("Search Media Pool", query)
                 .placeholder("Search clips...")

@@ -230,226 +230,19 @@ pub(super) fn route(
     EventHandlers::router(move |event: PointerEvent| {
         let root = &registry.root;
         let mut transitions = Vec::new();
-        let (target, deliver_raw, finish_fallback) = {
-            let mut gestures = registry.gestures.borrow_mut();
-            if event.origin().node != registry.node {
-                (None, false, false)
-            } else {
-                let finish_fallback = gestures.capture(event.id()).is_some_and(|capture| {
-                    capture.state.fallback().is_some_and(|button| {
-                        event.routed.input.phase == PointerPhase::Cancel
-                            || matches!(event.phase(), PointerPhase::Up(press) if press.button == button)
-                    })
-                });
-                if finish_fallback && let Some(capture) = gestures.capture(event.id()) {
-                    capture.state.finish_fallback();
-                }
-                let captured = gestures.capture(event.id()).is_some();
-                if let Some(capture) = gestures.capture(event.id()) {
-                    capture.last = event;
-                }
-                let under = |inside: bool| -> Option<Rc<Target>> {
-                    if !inside {
-                        return None;
-                    }
-                    match event.region() {
-                        Some(id) => registry.lookup(id).filter(|target| target.enabled()),
-                        None => root.enabled().then(|| root.clone()),
-                    }
-                };
-                // A pointer that is not primary hovers no part.
-                let hovered = if event.is_primary() {
-                    gestures.last = Some(event);
-                    let was_inside = matches!(gestures.hover, PrimaryHover::Inside(_));
-                    let inside = match event.phase() {
-                        PointerPhase::Enter => true,
-                        PointerPhase::Leave | PointerPhase::Cancel => false,
-                        PointerPhase::Move | PointerPhase::Down(_) if !captured => true,
-                        _ => was_inside,
-                    };
-                    let hovered = under(inside);
-                    let previous = match std::mem::take(&mut gestures.hover) {
-                        PrimaryHover::Inside(target) => target,
-                        PrimaryHover::Outside => None,
-                    };
-                    if previous.as_ref().map(|target| target.id)
-                        != hovered.as_ref().map(|target| target.id)
-                    {
-                        if let Some(previous) = previous {
-                            transitions.push((previous, PointerPhase::Leave));
-                        }
-                        if let Some(next) = &hovered {
-                            transitions.push((next.clone(), PointerPhase::Enter));
-                        }
-                    }
-                    gestures.hover = if inside {
-                        PrimaryHover::Inside(hovered.clone())
-                    } else {
-                        PrimaryHover::Outside
-                    };
-                    hovered
-                } else {
-                    under(matches!(
-                        event.phase(),
-                        PointerPhase::Down(_) | PointerPhase::Move
-                    ))
-                };
-                if let PointerPhase::Down(press) = event.phase() {
-                    let button = press.button;
-                    if let Some(capture) = gestures.capture(event.id()) {
-                        if let PartCapture::Captured { buttons, .. } = &mut capture.state {
-                            *buttons = buttons.with(button, true);
-                        }
-                    } else {
-                        let state = hovered
-                            .as_ref()
-                            .map(|target| PartCapture::Captured {
-                                target: target
-                                    .region()
-                                    .map(CaptureTarget::Region)
-                                    .unwrap_or_else(|| CaptureTarget::Part(target.clone())),
-                                buttons: PointerButtons::NONE.with(button, true),
-                            })
-                            .unwrap_or_default();
-                        gestures.captures.push(Capture {
-                            pointer: event.id(),
-                            state,
-                            last: event,
-                        });
-                    }
-                }
-                let target = match gestures.capture(event.id()) {
-                    Some(capture) => capture.state.target(&registry),
-                    None => hovered.clone(),
-                };
-                if let PointerPhase::Up(press) = event.phase()
-                    && let Some(capture) = gestures.capture(event.id())
-                {
-                    let empty = match &mut capture.state {
-                        PartCapture::Captured { buttons, .. } => {
-                            *buttons = buttons.with(press.button, false);
-                            buttons.is_empty()
-                        }
-                        PartCapture::None => event.routed.input.buttons.is_empty(),
-                    };
-                    if empty {
-                        gestures.captures.retain(|c| c.pointer != event.id());
-                    }
-                } else if event.routed.input.phase == PointerPhase::Cancel {
-                    gestures.captures.retain(|c| c.pointer != event.id());
-                }
-                (
-                    target,
-                    !matches!(event.phase(), PointerPhase::Enter | PointerPhase::Leave),
-                    finish_fallback,
-                )
-            }
-        };
+        let (target, deliver_raw, finish_fallback) =
+            select_pointer(&registry, event, &mut transitions);
         let mut delivered_finish = false;
-        let result = (|| {
-            // State always sees both logical hover transitions and gesture updates,
-            // even when a caller consumes the original native event or returns an error.
-            for (target, phase) in &transitions {
-                observe(target, event_for(event, target, *phase));
-            }
-            if deliver_raw && let Some(target) = &target {
-                observe(target, event_for(event, target, event.phase()));
-            }
-            let mut handled = own.deliver(event)?;
-            if handled == Handled::Yes {
-                return Ok(Handled::Yes);
-            }
-            for (target, phase) in transitions {
-                handled = handled.and(default(&target, event_for(event, &target, phase))?);
-            }
-            let raw_handled = if deliver_raw && let Some(target) = &target {
-                default(target, event_for(event, target, event.phase()))?
-            } else {
-                Handled::No
-            };
-            handled = handled.and(raw_handled);
-            // Only explicitly opted-in defaults receive unhandled region input
-            // (a prevented default still continues to them).
-            if raw_handled != Handled::Yes
-                && deliver_raw
-                && event.origin().node == registry.node
-                && target
-                    .as_ref()
-                    .is_some_and(|target| target.region().is_some() && target.enabled())
-            {
-                let target = target
-                    .as_ref()
-                    .expect("invariant: a live region target was checked");
-                let event = event_for(event, target, event.phase());
-                delivered_finish = finish_fallback;
-                let result = fallback(root, event)?;
-                handled = handled.and(result);
-                if result == Handled::Yes {
-                    if let PointerPhase::Down(press) = event.phase() {
-                        let button = press.button;
-                        if let PartCapture::Captured {
-                            target: captured, ..
-                        } = &mut registry
-                            .gestures
-                            .borrow_mut()
-                            .capture(event.id())
-                            .expect("invariant: a press creates its pointer's capture")
-                            .state
-                        {
-                            *captured = CaptureTarget::Fallback {
-                                button,
-                                target: target.clone(),
-                            };
-                        }
-                        // Only a primary pointer's press can activate, so
-                        // only its gesture declines the activation. The
-                        // engine remembers it until the click is answered.
-                        if button == MouseButton::Primary
-                            && event.is_primary()
-                            && let Some(region) = target.region()
-                            && let Some(runtime) = root.runtime.upgrade()
-                        {
-                            ViewState::tree(&runtime).engine().adopt_pointer(
-                                registry.node,
-                                region,
-                                event.id(),
-                            );
-                        }
-                    }
-                    return Ok(Handled::Yes);
-                }
-            }
-            Ok(handled)
-        })();
-        // Cleanup follows defaults even if one callback both captures and releases.
-        // Queued input's final Up does not create an explicit release request.
-        if let Some(runtime) = root.runtime.upgrade()
-            && crate::view::requests::take_pointer_release(&runtime, registry.node, event.id())
-        {
-            let released = {
-                let mut gestures = registry.gestures.borrow_mut();
-                let index = gestures
-                    .captures
-                    .iter()
-                    .position(|capture| capture.pointer == event.id());
-                index.map(|index| gestures.captures.remove(index))
-            };
-            if let Some(capture) = released
-                && let Some(target) = capture.state.target(&registry)
-            {
-                let cancelled = event_for(event, &target, PointerPhase::Cancel);
-                observe(&target, cancelled);
-                if let Err(error) = default(&target, cancelled) {
-                    runtime.report(Some(target.owner), error);
-                }
-                if capture.state.fallback().is_some() {
-                    if let Err(error) = fallback(root, cancelled) {
-                        runtime.report(Some(root.owner), error);
-                    }
-                    forget_adoption(&registry, event.id());
-                }
-            }
-        }
+        let result = deliver_pointer(
+            &registry,
+            &own,
+            event,
+            target.as_ref(),
+            (deliver_raw, finish_fallback),
+            transitions,
+            &mut delivered_finish,
+        );
+        cleanup_release(&registry, event);
         // Consuming a terminal event cannot leave an adopted fallback gesture open.
         if finish_fallback && (!delivered_finish || result.is_err()) {
             let mut cancelled = event;
@@ -466,4 +259,256 @@ pub(super) fn route(
         }
         result
     })
+}
+
+fn select_pointer(
+    registry: &Registry,
+    event: PointerEvent,
+    transitions: &mut Vec<(Rc<Target>, PointerPhase)>,
+) -> (Option<Rc<Target>>, bool, bool) {
+    let mut gestures = registry.gestures.borrow_mut();
+    if event.origin().node != registry.node {
+        (None, false, false)
+    } else {
+        let finish_fallback = gestures.capture(event.id()).is_some_and(|capture| {
+            capture.state.fallback().is_some_and(|button| {
+                event.routed.input.phase == PointerPhase::Cancel
+                    || matches!(event.phase(), PointerPhase::Up(press) if press.button == button)
+            })
+        });
+        if finish_fallback && let Some(capture) = gestures.capture(event.id()) {
+            capture.state.finish_fallback();
+        }
+        let captured = gestures.capture(event.id()).is_some();
+        if let Some(capture) = gestures.capture(event.id()) {
+            capture.last = event;
+        }
+        let hovered = hover_pointer(registry, &mut gestures, event, captured, transitions);
+        if let PointerPhase::Down(press) = event.phase() {
+            let button = press.button;
+            if let Some(capture) = gestures.capture(event.id()) {
+                if let PartCapture::Captured { buttons, .. } = &mut capture.state {
+                    *buttons = buttons.with(button, true);
+                }
+            } else {
+                let state = hovered
+                    .as_ref()
+                    .map(|target| PartCapture::Captured {
+                        target: target
+                            .region()
+                            .map(CaptureTarget::Region)
+                            .unwrap_or_else(|| CaptureTarget::Part(target.clone())),
+                        buttons: PointerButtons::NONE.with(button, true),
+                    })
+                    .unwrap_or_default();
+                gestures.captures.push(Capture {
+                    pointer: event.id(),
+                    state,
+                    last: event,
+                });
+            }
+        }
+        let target = match gestures.capture(event.id()) {
+            Some(capture) => capture.state.target(registry),
+            None => hovered.clone(),
+        };
+        if let PointerPhase::Up(press) = event.phase()
+            && let Some(capture) = gestures.capture(event.id())
+        {
+            let empty = match &mut capture.state {
+                PartCapture::Captured { buttons, .. } => {
+                    *buttons = buttons.with(press.button, false);
+                    buttons.is_empty()
+                }
+                PartCapture::None => event.routed.input.buttons.is_empty(),
+            };
+            if empty {
+                gestures.captures.retain(|c| c.pointer != event.id());
+            }
+        } else if event.routed.input.phase == PointerPhase::Cancel {
+            gestures.captures.retain(|c| c.pointer != event.id());
+        }
+        (
+            target,
+            !matches!(event.phase(), PointerPhase::Enter | PointerPhase::Leave),
+            finish_fallback,
+        )
+    }
+}
+
+fn hover_pointer(
+    registry: &Registry,
+    gestures: &mut Gestures,
+    event: PointerEvent,
+    captured: bool,
+    transitions: &mut Vec<(Rc<Target>, PointerPhase)>,
+) -> Option<Rc<Target>> {
+    let root = &registry.root;
+    let under = |inside: bool| -> Option<Rc<Target>> {
+        if !inside {
+            return None;
+        }
+        match event.region() {
+            Some(id) => registry.lookup(id).filter(|target| target.enabled()),
+            None => root.enabled().then(|| root.clone()),
+        }
+    };
+    // A pointer that is not primary hovers no part.
+    if event.is_primary() {
+        gestures.last = Some(event);
+        let was_inside = matches!(gestures.hover, PrimaryHover::Inside(_));
+        let inside = match event.phase() {
+            PointerPhase::Enter => true,
+            PointerPhase::Leave | PointerPhase::Cancel => false,
+            PointerPhase::Move | PointerPhase::Down(_) if !captured => true,
+            _ => was_inside,
+        };
+        let hovered = under(inside);
+        let previous = match std::mem::take(&mut gestures.hover) {
+            PrimaryHover::Inside(target) => target,
+            PrimaryHover::Outside => None,
+        };
+        if previous.as_ref().map(|target| target.id) != hovered.as_ref().map(|target| target.id) {
+            if let Some(previous) = previous {
+                transitions.push((previous, PointerPhase::Leave));
+            }
+            if let Some(next) = &hovered {
+                transitions.push((next.clone(), PointerPhase::Enter));
+            }
+        }
+        gestures.hover = if inside {
+            PrimaryHover::Inside(hovered.clone())
+        } else {
+            PrimaryHover::Outside
+        };
+        hovered
+    } else {
+        under(matches!(
+            event.phase(),
+            PointerPhase::Down(_) | PointerPhase::Move
+        ))
+    }
+}
+
+fn adopt_fallback(registry: &Registry, target: &Rc<Target>, event: PointerEvent) {
+    let root = &registry.root;
+    if let PointerPhase::Down(press) = event.phase() {
+        let button = press.button;
+        if let PartCapture::Captured {
+            target: captured, ..
+        } = &mut registry
+            .gestures
+            .borrow_mut()
+            .capture(event.id())
+            .expect("invariant: a press creates its pointer's capture")
+            .state
+        {
+            *captured = CaptureTarget::Fallback {
+                button,
+                target: target.clone(),
+            };
+        }
+        // Only a primary pointer's press can activate, so
+        // only its gesture declines the activation. The
+        // engine remembers it until the click is answered.
+        if button == MouseButton::Primary
+            && event.is_primary()
+            && let Some(region) = target.region()
+            && let Some(runtime) = root.runtime.upgrade()
+        {
+            ViewState::tree(&runtime)
+                .engine()
+                .adopt_pointer(registry.node, region, event.id());
+        }
+    }
+}
+
+fn deliver_pointer(
+    registry: &Registry,
+    own: &EventHandlers<PointerEvent>,
+    event: PointerEvent,
+    target: Option<&Rc<Target>>,
+    delivery: (bool, bool),
+    transitions: Vec<(Rc<Target>, PointerPhase)>,
+    delivered_finish: &mut bool,
+) -> crate::Result<Handled> {
+    let (deliver_raw, finish_fallback) = delivery;
+    let root = &registry.root;
+
+    // State always sees both logical hover transitions and gesture updates,
+    // even when a caller consumes the original native event or returns an error.
+    for (target, phase) in &transitions {
+        observe(target, event_for(event, target, *phase));
+    }
+    if deliver_raw && let Some(target) = target {
+        observe(target, event_for(event, target, event.phase()));
+    }
+    let mut handled = own.deliver(event)?;
+    if handled == Handled::Yes {
+        return Ok(Handled::Yes);
+    }
+    for (target, phase) in transitions {
+        handled = handled.and(default(&target, event_for(event, &target, phase))?);
+    }
+    let raw_handled = if deliver_raw && let Some(target) = target {
+        default(target, event_for(event, target, event.phase()))?
+    } else {
+        Handled::No
+    };
+    handled = handled.and(raw_handled);
+    // Only explicitly opted-in defaults receive unhandled region input
+    // (a prevented default still continues to them).
+    if raw_handled != Handled::Yes
+        && deliver_raw
+        && event.origin().node == registry.node
+        && target
+            .as_ref()
+            .is_some_and(|target| target.region().is_some() && target.enabled())
+    {
+        let target = target
+            .as_ref()
+            .expect("invariant: a live region target was checked");
+        let event = event_for(event, target, event.phase());
+        *delivered_finish = finish_fallback;
+        let result = fallback(root, event)?;
+        handled = handled.and(result);
+        if result == Handled::Yes {
+            adopt_fallback(registry, target, event);
+            return Ok(Handled::Yes);
+        }
+    }
+    Ok(handled)
+}
+
+fn cleanup_release(registry: &Registry, event: PointerEvent) {
+    let root = &registry.root;
+    // Cleanup follows defaults even if one callback both captures and releases.
+    // Queued input's final Up does not create an explicit release request.
+    if let Some(runtime) = root.runtime.upgrade()
+        && crate::view::requests::take_pointer_release(&runtime, registry.node, event.id())
+    {
+        let released = {
+            let mut gestures = registry.gestures.borrow_mut();
+            let index = gestures
+                .captures
+                .iter()
+                .position(|capture| capture.pointer == event.id());
+            index.map(|index| gestures.captures.remove(index))
+        };
+        if let Some(capture) = released
+            && let Some(target) = capture.state.target(registry)
+        {
+            let cancelled = event_for(event, &target, PointerPhase::Cancel);
+            observe(&target, cancelled);
+            if let Err(error) = default(&target, cancelled) {
+                runtime.report(Some(target.owner), error);
+            }
+            if capture.state.fallback().is_some() {
+                if let Err(error) = fallback(root, cancelled) {
+                    runtime.report(Some(root.owner), error);
+                }
+                forget_adoption(registry, event.id());
+            }
+        }
+    }
 }

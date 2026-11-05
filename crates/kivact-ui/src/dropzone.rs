@@ -7,6 +7,7 @@ use kivact_core::view::{
 };
 use kivact_interaction::{DropzoneState, FileInfo, use_dropzone};
 use std::rc::Rc;
+type FileValidator = Rc<dyn Fn(&FileInfo) -> Option<String>>;
 // xtask-allow(state-fields): Independent setup-only NodeBuilder options; drag and picker lifecycle live in DropzoneState.
 /// A validated file drop target. Native file metadata stays application-owned.
 pub struct Dropzone {
@@ -19,7 +20,7 @@ pub struct Dropzone {
     multiple: bool,
     accept_drop: Value<bool>,
     pick_on_press: bool,
-    validate: Rc<dyn Fn(&FileInfo) -> Option<String>>,
+    validate: FileValidator,
     on_files: Rc<dyn Fn(Vec<FileInfo>) -> kivact_core::Result<()>>,
 }
 /// Create a file drop target labelled by `label`.
@@ -132,18 +133,7 @@ impl IntoView for Dropzone {
         } else {
             root.with_node(|n| n.role(Role::Group))
         };
-        let label_view = crate::layer::with_recipe_style(
-            text(label),
-            |r| r.dropzone_recipes().label_recipe(),
-            &variants,
-            move || state.get(),
-        );
-        let hint_view = crate::layer::with_recipe_style(
-            text(hint),
-            |r| r.dropzone_recipes().hint_recipe(),
-            &variants,
-            move || state.get(),
-        );
+        let (label_view, hint_view) = captions(label, hint, state, &variants);
         crate::layer::with_base_recipe_style(
             root,
             |r| r.dropzone_recipes().root_recipe(),
@@ -175,35 +165,15 @@ impl IntoView for Dropzone {
             Handled::Yes
         })
         .on_press(move || {
-            if !pick_on_press || disabled.get_untracked() || !api.begin_pick() {
-                return;
-            }
-            let request = FileDialog {
-                title: label.get_untracked(),
-                filters: filters.get_untracked(),
-                ..FileDialog::default()
-            };
-            spawn(async move {
-                let result = if multiple {
-                    pick_files(request).await
-                } else {
-                    pick_file(request)
-                        .await
-                        .map(|file| file.map(|file| vec![file]))
-                };
-                match result {
-                    Ok(Some(files)) => {
-                        if disabled.get_untracked() {
-                            api.cancel_pick()
-                        } else {
-                            api.accept(files)
-                        }
-                    }
-                    Ok(None) => api.cancel_pick(),
-                    Err(error) => api.fail(error.into()),
-                }
-                reference.restore_focus();
-            });
+            pick(
+                api,
+                disabled,
+                pick_on_press,
+                label,
+                filters,
+                multiple,
+                reference,
+            )
         })
         .child((
             icon.map(|icon| {
@@ -216,40 +186,118 @@ impl IntoView for Dropzone {
             }),
             label_view,
             hint_view,
-            kivact_core::view::show_some(
-                move || match state.get() {
-                    DropzoneState::Failed(error) => Some(error.to_string()),
-                    _ => None,
-                },
-                {
-                    let variants = variants.clone();
-                    move |message: Value<String>| {
-                        crate::layer::with_recipe_style(
-                            text(message),
-                            |r| r.dropzone_recipes().status_recipe(),
-                            &variants,
-                            move || state.get(),
-                        )
-                        .with_node(|n| n.role(Role::Alert))
-                    }
-                },
-            ),
-            crate::layer::with_recipe_style(
-                text(move || match state.get() {
-                    DropzoneState::Failed(_) => String::new(),
-                    DropzoneState::Picking => "Choosing files…".into(),
-                    DropzoneState::DragOver {
-                        valid: kivact_interaction::Validity::Invalid(message),
-                    } => message,
-                    _ => String::new(),
-                }),
-                |r| r.dropzone_recipes().status_recipe(),
-                &variants,
-                move || state.get(),
-            )
-            .node_ref(status_ref)
-            .with_node(|n| n.role(Role::Status)),
+            failure_status(state, &variants),
+            drag_status(state, &variants, status_ref),
         ))
         .into_view()
     }
+}
+
+/// Run a native file-picking transaction and restore focus on completion.
+fn pick(
+    api: kivact_interaction::DropzoneApi,
+    disabled: Value<bool>,
+    pick_on_press: bool,
+    label: Value<String>,
+    filters: Value<Vec<(String, Vec<String>)>>,
+    multiple: bool,
+    reference: kivact_core::view::NodeRef,
+) {
+    if !pick_on_press || disabled.get_untracked() || !api.begin_pick() {
+        return;
+    }
+    let request = FileDialog {
+        title: label.get_untracked(),
+        filters: filters.get_untracked(),
+        ..FileDialog::default()
+    };
+    spawn(async move {
+        let result = if multiple {
+            pick_files(request).await
+        } else {
+            pick_file(request)
+                .await
+                .map(|file| file.map(|file| vec![file]))
+        };
+        match result {
+            Ok(Some(files)) => {
+                if disabled.get_untracked() {
+                    api.cancel_pick()
+                } else {
+                    api.accept(files)
+                }
+            }
+            Ok(None) => api.cancel_pick(),
+            Err(error) => api.fail(error),
+        }
+        reference.restore_focus();
+    });
+}
+
+/// Expose validation and picker failures through the alert recipe outlet.
+fn failure_status(state: Value<DropzoneState>, variants: &crate::variants::Variants) -> View {
+    kivact_core::view::show_some(
+        move || match state.get() {
+            DropzoneState::Failed(error) => Some(error.to_string()),
+            _ => None,
+        },
+        {
+            let variants = variants.clone();
+            move |message: Value<String>| {
+                crate::layer::with_recipe_style(
+                    text(message),
+                    |r| r.dropzone_recipes().status_recipe(),
+                    &variants,
+                    move || state.get(),
+                )
+                .with_node(|n| n.role(Role::Alert))
+            }
+        },
+    )
+    .into_view()
+}
+
+/// Expose current picking and drag-validation feedback through the status outlet.
+fn drag_status(
+    state: Value<DropzoneState>,
+    variants: &crate::variants::Variants,
+    status_ref: kivact_core::view::NodeRef,
+) -> Node {
+    crate::layer::with_recipe_style(
+        text(move || match state.get() {
+            DropzoneState::Failed(_) => String::new(),
+            DropzoneState::Picking => "Choosing files…".into(),
+            DropzoneState::DragOver {
+                valid: kivact_interaction::Validity::Invalid(message),
+            } => message,
+            _ => String::new(),
+        }),
+        |r| r.dropzone_recipes().status_recipe(),
+        variants,
+        move || state.get(),
+    )
+    .node_ref(status_ref)
+    .with_node(|n| n.role(Role::Status))
+}
+
+/// Render the independent accessible label and application guidance recipes.
+fn captions(
+    label: Value<String>,
+    hint: Value<String>,
+    state: Value<DropzoneState>,
+    variants: &crate::variants::Variants,
+) -> (Node, Node) {
+    let label_view = crate::layer::with_recipe_style(
+        text(label),
+        |r| r.dropzone_recipes().label_recipe(),
+        variants,
+        move || state.get(),
+    );
+    let hint_view = crate::layer::with_recipe_style(
+        text(hint),
+        |r| r.dropzone_recipes().hint_recipe(),
+        variants,
+        move || state.get(),
+    );
+    (label_view, hint_view)
 }

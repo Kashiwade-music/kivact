@@ -17,7 +17,6 @@
 
 mod audio;
 mod bezier;
-mod choice;
 mod color;
 mod color_popup;
 mod color_wheel;
@@ -44,6 +43,9 @@ mod range;
 mod recipes;
 mod recipes_collections;
 mod recipes_controls;
+mod recipes_feedback;
+mod recipes_indicators;
+mod recipes_metrics;
 mod tabs;
 mod theme;
 mod timeline;
@@ -66,7 +68,6 @@ pub use crate::editors::time::view_state::TimeState;
 pub use crate::outliner::view_state::OutlinerState;
 pub use audio::{Meter, MixerStrip, Transport, TransportState, meter, mixer_strip, transport};
 pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
-pub use choice::Segmented;
 pub use color::ColorName;
 pub use color_popup::color_popup;
 pub use color_wheel::{ColorModel, ColorWheel, color_from_hsv, color_to_hsv, color_wheel};
@@ -85,7 +86,7 @@ pub use editors::node::{NodeEditor, node_editor};
 pub use editors::shared::model::EditorEvent;
 pub use editors::shared::ruler::RulerTicks;
 pub use feedback::{
-    Notice, SplitButton, ToolWindow, ToolWindowBuilder, WindowOptions, WindowPosition, notice,
+    NoticeVariant, SplitButton, ToolWindow, ToolWindowBuilder, WindowOptions, WindowPosition,
     popup_button, split_button, window, window_button,
 };
 pub use gradient::{GradientEditor, GradientStop, gradient_editor};

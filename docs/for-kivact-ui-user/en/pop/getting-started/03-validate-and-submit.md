@@ -55,7 +55,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
             && terms.get()
     });
 
-    pop::panel((
+    kivact::ui::card((
         text("New account").style(style().font_size(20).weight(600)),
         field("Name", text_input("Name", name).placeholder("Your full name"))
             .hint("Shown on your invoices.")
@@ -77,14 +77,14 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
                 plan,
             )
             .orientation(Orientation::Horizontal)
-            .variant(pop::Segmented),
+            .variant(kivact::ui::RadioGroupVariant::Segmented),
         ),
-        pop::date_input("Birth date", birth, today).valid(birth_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(birth); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("Birth date",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
         show(move || birth_error.get().is_some(), move || {
             text(move || birth_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
         }),
-        pop::date_input("Start date", start, today).valid(start_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(start); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("Start date",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
         show(move || start_error.get().is_some(), move || {
             text(move || start_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
@@ -108,9 +108,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
         ))
         .style(style().gap(8).justify_content(Justify::End)),
         show(created, move || {
-            pop::alert("Account created")
-                .tone(Tone::Success)
-                .description(move || format!("Welcome, {}.", name.get()))
+            {let tone=kivact::state::IntoValue::into_value(Tone::Success); kivact::ui::alert("Account created").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description(move || format!("Welcome, {}.", name.get()))}
         }),
     ))
     .style(style().width(420).margin(24).gap(12))
@@ -171,6 +169,7 @@ mod tests {
             },
         );
         start.type_text("2026-10-01");
+        start.press_key(Key::Enter);
         screen.get_by_text("Choose today or a later date");
     }
 }
@@ -194,10 +193,10 @@ then shows the message under the control, marks the control invalid and
 connects the message to it for screen readers. The name and email errors also
 read `attempted`, so they stay quiet until the user presses the button once.
 
-**`pop::date_input(label, value, today)`** is an editable date with a
+**`kivact::ui::date_input(label, optional_value)`** is an editable date with a
 calendar popup. The text follows `YYYY-MM-DD`, and the signal (`birth`) only
-changes when the text is a whole, real date, so half-typed input never reaches
-your state. You supply `today` yourself, which keeps the component predictable
+changes when a complete, real date is committed with Enter or by leaving
+the field. Half-typed input stays in the editor. Configure `.calendar(|calendar| calendar.today(today))` yourself, which keeps the component predictable
 and testable: the program passes `CalendarDate::today()` and the test passes a
 fixed date.
 
@@ -208,7 +207,7 @@ date does not exist"). Business rules, such as "in the past", are yours:
 so the two messages never overlap.
 
 **`show(condition, || view)`** mounts the view only while the condition is
-true. `Tone::Success` turns `pop::alert` green; alerts and similar display
+true. `Tone::Success` turns `kivact::ui::alert` green; alerts and similar display
 components take their meaning from the standard `kivact::interaction::Tone`.
 
 **The test** passes `pop::theme(..)` through `RenderOptions`, so it draws the

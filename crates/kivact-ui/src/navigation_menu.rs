@@ -269,13 +269,17 @@ fn navigation_trigger(
     disabled: Value<bool>,
     presentation: &PanelPresentation,
 ) -> View {
-    let state = api.state();
     let shown = presentation.shown;
     let (open_delay, close_delay) = (presentation.open_delay, presentation.close_delay);
     let variants = &presentation.variants;
     crate::layer::with_recipe_style(
         crate::button(label)
             .disabled(disabled)
+            .trailing(kivact_core::view::icon("chevron-down").style(move || {
+                kivact_core::style::style()
+                    .size(12, 12)
+                    .rotate(if shown.get() { 180.0 } else { 0.0 })
+            }))
             .with_node(|n| n.part(pop.trigger()))
             .node_ref(anchor)
             .with_node(|n| n.expanded(shown))
@@ -302,7 +306,7 @@ fn navigation_trigger(
             }),
         |r| r.navigation_menu_recipes().trigger_recipe(),
         variants,
-        move || state.get(),
+        move || crate::NavigationTriggerState { open: shown.get() },
     )
     .into_view()
 }

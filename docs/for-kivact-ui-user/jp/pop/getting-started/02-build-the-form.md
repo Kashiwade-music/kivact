@@ -19,7 +19,7 @@ fn sign_up() -> impl IntoView {
     let plan = signal(Some("team"));
     let terms = signal(false);
 
-    pop::panel((
+    kivact::ui::card((
         text("新規アカウント").style(style().font_size(20).weight(600)),
         field(
             "名前",
@@ -42,7 +42,7 @@ fn sign_up() -> impl IntoView {
                 plan,
             )
             .orientation(Orientation::Horizontal)
-            .variant(pop::Segmented),
+            .variant(kivact::ui::RadioGroupVariant::Segmented),
         )
         .hint("プランはあとから変更できます。"),
         checkbox("利用規約に同意します", terms),
@@ -70,7 +70,7 @@ fn main() -> kivact::Result<()> {
 
 **Rust メモ: `signal(Some("team"))`。** ラジオグループは何も選ばれていない状態を持てるので、プランのシグナルには選択肢のキーを `Option` で包んで持たせます。キーには `Clone + Eq + Hash` を満たす任意の型を使えます。ここでは文字列スライス、あとで自分の `enum` にもできます。
 
-**`radio_group(..).variant(pop::Segmented)`** はラジオグループをセグメントコントロールとして描きます。セグメントコントロールは選択肢を必ず 1 つ選ぶので、タブではなくラジオグループです。`.orientation(Orientation::Horizontal)` で選択肢を横に並べます。`.variant(..)` はキットが標準コンポーネントに見た目を足す方法で、コンポーネント自体は同じまま、描き方だけが変わります。
+**`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)`** はラジオグループをセグメントコントロールとして描きます。セグメントコントロールは選択肢を必ず 1 つ選ぶので、タブではなくラジオグループです。`.orientation(Orientation::Horizontal)` で選択肢を横に並べます。`.variant(..)` はキットが標準コンポーネントに見た目を足す方法で、コンポーネント自体は同じまま、描き方だけが変わります。
 
 **`button(..).variant(pop::ButtonTone::Accent)`** はキット固有のボタンの色調を選びます。Pop には `Accent`（黄色）、`Pink`、`Soft`、`Glass`、`Dark` があります。色調を付けなければ、コアのチュートリアルで使った `kivact::ui::ButtonVariant::Primary`、`Secondary`、`Outline`、`Ghost`、`Link` が Pop の色で描かれます。ボタンには色調と形を両方付けられます。`.variant(pop::Slant)` を足すと平行四辺形になります。`button("アカウントを作成").variant(pop::ButtonTone::Pink).variant(pop::Slant)` を試してみてください。
 

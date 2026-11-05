@@ -1,8 +1,8 @@
 //! Role: Supply token-based default feedback, card and input-group recipes.
-use super::{
+use crate::component_values::{
     AlertState, AlertVariant, CardState, EmptyStateState, InputGroupMemberState, InputGroupState,
-    Look,
 };
+use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
 use kivact_interaction::Tone;
 
@@ -179,6 +179,13 @@ pub(super) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style 
         base.margin_left(-1)
     };
     if s.focused { base.z_index(1) } else { base }
+}
+
+pub(super) fn alert_control(_: &Theme, _: &Look<AlertState>) -> Style {
+    style()
+}
+pub(super) fn group_block(_: &Theme, _: &Look<InputGroupState>) -> Style {
+    style()
 }
 
 pub(super) fn card_overlay(_: &Theme, _: &Look<CardState>) -> Style {

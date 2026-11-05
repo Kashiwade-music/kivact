@@ -58,68 +58,13 @@ pub(crate) fn wheel(
             next.clamp(min, max.get_untracked())
         }
     };
-    let drag = scalar
-        .scrub(
-            use_drag::<f64>(DragCoordinates::Window)
-                .slop(6.0)
-                .axis_lock()
-                .track_velocity(),
-        )
-        .on_update(move |update| {
-            let raw = update.payload - update.delta.y / row_height();
-            scalar.set(normalize(raw));
-            settle_offset.jump_to((raw - raw.round()) * row_height());
-        })
-        .on_end(move |update| {
-            if update.phase == DragPhase::End {
-                let shift = if kivact_core::platform::is_motion_reduced().get() {
-                    update.delta.y
-                } else {
-                    project_release(
-                        update.delta.y,
-                        update.velocity.y,
-                        std::time::Duration::from_millis(180),
-                    )
-                };
-                scalar.set(normalize(update.payload - shift / row_height()));
-            }
-            release.notify();
-        });
+    let drag = wheel_drag(scalar, row_height, normalize, settle_offset, release);
     let control = node()
         .part(scalar.input())
         .part(drag.source_with(move || value.get_untracked()))
         .name(label)
         .focusable(true)
-        .child(column(
-            (-2i32..=2)
-                .map(move |offset| {
-                    text(move || {
-                        release.track();
-                        let next = scalar.value().get() + f64::from(offset);
-                        if next < min || next > max.get() {
-                            String::new()
-                        } else {
-                            format!("{next:02.0}")
-                        }
-                    })
-                    .hit_testable(false)
-                    .style(move || {
-                        let theme = kivact_core::style::use_theme().get();
-                        let tokens = theme.ext::<crate::UiTokens>();
-                        let tokens = if time {
-                            &tokens.time_input
-                        } else {
-                            &tokens.date_input
-                        };
-                        kivact_core::style::style()
-                            .height(tokens.wheel_row_height)
-                            .translate_y(settle_offset.get())
-                            .opacity(if offset == 0 { 1.0 } else { 0.45 })
-                            .weight(if offset == 0 { 600 } else { 400 })
-                    })
-                })
-                .collect::<Vec<_>>(),
-        ))
+        .child(wheel_rows(scalar, min, max, time, settle_offset, release))
         .on_wheel(move |event: WheelEvent| {
             let delta = event.delta().y;
             if !delta.is_finite() || delta == 0.0 {
@@ -129,7 +74,7 @@ pub(crate) fn wheel(
             release.notify();
             Handled::Yes
         });
-    let pick: fn(&crate::UiRecipes) -> &crate::Recipe<PartState> = if time {
+    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<PartState> = if time {
         |r| r.time_input_recipes().wheel_recipe()
     } else {
         |r| r.date_input_recipes().wheel_recipe()
@@ -237,4 +182,82 @@ pub(crate) fn time_panel(value: Binding<Option<TimeOfDay>>, seconds: Value<bool>
         crate::button(message("time.apply", "Apply time"))
             .on_press(move || value.set(Some(time.get_untracked()))),
     ))
+}
+
+/// Render the five visible wheel rows from the authoritative scalar and settle offset.
+fn wheel_rows(
+    scalar: kivact_interaction::ScalarApi,
+    min: f64,
+    max: Value<f64>,
+    time: bool,
+    settle_offset: kivact_core::motion::Animated<f64>,
+    release: kivact_core::state::Notifier,
+) -> Node {
+    column(
+        (-2i32..=2)
+            .map(move |offset| {
+                text(move || {
+                    release.track();
+                    let next = scalar.value().get() + f64::from(offset);
+                    if next < min || next > max.get() {
+                        String::new()
+                    } else {
+                        format!("{next:02.0}")
+                    }
+                })
+                .hit_testable(false)
+                .style(move || {
+                    let theme = kivact_core::style::use_theme().get();
+                    let tokens = theme.ext::<crate::UiTokens>();
+                    let tokens = if time {
+                        &tokens.time_input
+                    } else {
+                        &tokens.date_input
+                    };
+                    kivact_core::style::style()
+                        .height(tokens.wheel_row_height)
+                        .translate_y(settle_offset.get())
+                        .opacity(if offset == 0 { 1.0 } else { 0.45 })
+                        .weight(if offset == 0 { 600 } else { 400 })
+                })
+            })
+            .collect::<Vec<_>>(),
+    )
+}
+
+/// Apply scalar scrubbing and release projection to the discrete wheel.
+fn wheel_drag(
+    scalar: kivact_interaction::ScalarApi,
+    row_height: impl Fn() -> f64 + Copy + 'static,
+    normalize: impl Fn(f64) -> f64 + Copy + 'static,
+    settle_offset: kivact_core::motion::Animated<f64>,
+    release: kivact_core::state::Notifier,
+) -> kivact_interaction::DragApi<f64> {
+    scalar
+        .scrub(
+            use_drag::<f64>(DragCoordinates::Window)
+                .slop(6.0)
+                .axis_lock()
+                .track_velocity(),
+        )
+        .on_update(move |update| {
+            let raw = update.payload - update.delta.y / row_height();
+            scalar.set(normalize(raw));
+            settle_offset.jump_to((raw - raw.round()) * row_height());
+        })
+        .on_end(move |update| {
+            if update.phase == DragPhase::End {
+                let shift = if kivact_core::platform::is_motion_reduced().get() {
+                    update.delta.y
+                } else {
+                    project_release(
+                        update.delta.y,
+                        update.velocity.y,
+                        std::time::Duration::from_millis(180),
+                    )
+                };
+                scalar.set(normalize(update.payload - shift / row_height()));
+            }
+            release.notify();
+        })
 }

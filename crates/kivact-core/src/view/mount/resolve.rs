@@ -29,6 +29,7 @@ use crate::view::element_data::{Common, StyleLayer};
 use crate::view::ime_session::ImeSession;
 use crate::view::node_ref::NodeRef;
 
+// xtask-allow(state-fields): Independent mounting stage inputs are consumed by their respective publishers.
 /// One host node's stage inputs, each moved into exactly one stage.
 pub(super) struct Resolved {
     pub(super) first: FirstWrite,
@@ -52,22 +53,182 @@ pub(super) fn resolve(
     common: Common,
     at: &'static Location<'static>,
 ) -> Resolved {
-    let common = {
-        let mut node =
-            crate::view::element_data::Node::new(crate::view::element_data::Content::Box, None);
-        node.common = common;
-        while !node.common.deferred_parts.is_empty() {
-            let deferred = std::mem::take(&mut node.common.deferred_parts);
-            for apply in deferred {
-                node = node.apply_part(apply);
-            }
+    let mut common = apply_deferred(common);
+    prepare_constraints(&mut common, cx, at);
+    let editing = common.text_editing.take().map(|editing| {
+        let TextEditing {
+            props,
+            on_edit,
+            on_selection,
+            on_phase,
+        } = *editing;
+        common.handlers.edit_phase = on_phase;
+        common.handlers.text = on_edit;
+        common.handlers.selection = on_selection;
+        props
+    });
+    let attached = attach_parts(&mut common, cx, id, at);
+    let focus_stop = common
+        .focusable_source()
+        .as_ref()
+        .is_some_and(|f| f.fixed() != Some(false))
+        || editing.is_some();
+    let local_paint = (!common.style.is_empty() && kind == NodeType::Box && editing.is_none())
+        .then(|| LocalPaintSource {
+            value: Rc::new(RefCell::new(None)),
+            revision: cx.owner.notifier(at),
+        });
+    let draw = prepare_draw(&mut common, cx, attached.as_ref(), local_paint.clone(), at);
+    finish_resolve(
+        common,
+        kind,
+        editing,
+        attached,
+        draw,
+        NodeFacts {
+            kind,
+            focus_stop,
+            local_paint,
+        },
+    )
+}
+
+fn apply_deferred(common: Common) -> Common {
+    let mut node =
+        crate::view::element_data::Node::new(crate::view::element_data::Content::Box, None);
+    node.common = common;
+    while !node.common.deferred_parts.is_empty() {
+        let deferred = std::mem::take(&mut node.common.deferred_parts);
+        for apply in deferred {
+            node = node.apply_part(apply);
         }
-        node.common
+    }
+    node.common
+}
+
+fn prepare_constraints(common: &mut Common, cx: &Mcx<'_>, at: &'static Location<'static>) {
+    for patch in common.semantics.iter().filter(|p| p.part) {
+        use crate::view::semantics_data::SemanticInput;
+        match &patch.input {
+            SemanticInput::Disabled(v) => common.part_constraints.disabled.push(v.clone()),
+            SemanticInput::Hidden(v) => common.part_constraints.hidden.push(v.clone()),
+            SemanticInput::Focusable(v) => common.part_constraints.focusable.push(v.clone()),
+            _ => {}
+        }
+    }
+    if common.part_modal {
+        parts::report_modal_unsupported(cx, at);
+    }
+    let focus_stop = common
+        .focusable_source()
+        .as_ref()
+        .is_some_and(|f| f.fixed() != Some(false))
+        || common.text_editing.is_some();
+    if common.handlers.activate.is_some()
+        && common.role_source().is_none()
+        && !focus_stop
+        && common.part_constraints.focusable.is_empty()
+    {
+        diagnostics::report_unreachable_press(cx, at);
+    }
+}
+
+fn attach_parts(
+    common: &mut Common,
+    cx: &Mcx<'_>,
+    id: NodeId,
+    at: &'static Location<'static>,
+) -> Option<Attached> {
+    let mut actions = common.handlers.actions();
+    for action in common.part_actions.actions() {
+        if !actions.contains(&action) {
+            actions.push(action);
+        }
+    }
+    let attached = if common.part_bindings.is_empty()
+        && common.regions.is_empty()
+        && common.part_constraints.disabled.is_empty()
+        && common.part_constraints.hidden.is_empty()
+        && common.part_constraints.focusable.is_empty()
+    {
+        None
+    } else {
+        let sources = ConstraintSources {
+            disabled: common.disabled_source(),
+            hidden: common.hidden_source(),
+            focusable: common.focusable_source(),
+            required: std::mem::take(&mut common.part_constraints),
+        };
+        let constraints = parts::constraints(sources, cx, at, None);
+        let root = part_input::root_target(
+            &common.handlers,
+            std::mem::take(&mut common.part_actions),
+            constraints,
+            cx,
+        );
+        let registry = regions::prepare(std::mem::take(&mut common.regions), root, cx, id, at);
+        common.handlers =
+            part_input::route(id, std::mem::take(&mut common.handlers), registry.clone());
+        Some(Attached {
+            constraints,
+            bindings: std::mem::take(&mut common.part_bindings),
+            regions: registry,
+        })
     };
-    let role = common.role_source();
+    let mut final_semantics = Common::default();
+    if let Some(attached) = &attached {
+        final_semantics.set_disabled(Prop::value(attached.constraints.disabled));
+        final_semantics.set_hidden(Prop::value(attached.constraints.hidden));
+        final_semantics.set_focusable(Prop::value(attached.constraints.focusable));
+    }
+    if !actions.is_empty() {
+        final_semantics.semantic(Prop::constant(actions), |s, value| s.actions = Some(value));
+    }
+    let next = common.semantics.last().map_or(0, |p| p.layer + 1);
+    for patch in &mut final_semantics.semantics {
+        patch.layer += next;
+    }
+    common.semantics.append(&mut final_semantics.semantics);
+    attached
+}
+
+fn prepare_draw(
+    common: &mut Common,
+    cx: &Mcx<'_>,
+    attached: Option<&Attached>,
+    local_paint: Option<LocalPaintSource>,
+    at: &'static Location<'static>,
+) -> Option<DrawInput> {
+    if common.draw_with_layout.is_some() && common.handlers.selection.is_none() {
+        common.handlers.selection = Some(kivact_runtime::Handler::from_fn(
+            |_: kivact_editing::TextSession| {},
+        ));
+    }
+    let observe_layout =
+        common.draw.is_some() || common.draw_over.is_some() || common.draw_with_layout.is_some();
+    (observe_layout || local_paint.is_some()).then(|| {
+        let size = cx.owner.signal(Size::new(0.0, 0.0), at);
+        common.handlers.observe_layout(move |_, s| size.set(s));
+        DrawInput {
+            below: common.draw.take(),
+            over: common.draw_over.take(),
+            with_layout: common.draw_with_layout.take(),
+            local_paint,
+            regions: attached.map(|a| a.regions.clone()),
+            size,
+        }
+    })
+}
+
+fn finish_resolve(
+    common: Common,
+    _kind: NodeType,
+    editing: Option<crate::view::editing_data::EditorProps>,
+    attached: Option<Attached>,
+    draw: Option<DrawInput>,
+    facts: NodeFacts,
+) -> Resolved {
     let disabled = common.disabled_source();
-    let hidden = common.hidden_source();
-    let focusable = common.focusable_source();
     let selected = common.selected_source();
     let Common {
         deferred_parts: _,
@@ -76,152 +237,36 @@ pub(super) fn resolve(
         node_ref,
         style,
         base_styles: _,
-        mut semantics,
+        semantics,
         focusable_when_disabled,
         roving_focus,
         hit_testable,
         focus_on_press,
-        mut handlers,
-        text_editing,
+        handlers,
+        text_editing: _,
         ime,
-        mut part_constraints,
-        part_actions,
+        part_constraints: _,
+        part_actions: _,
         part_region_events: _,
-        part_bindings,
-        part_modal,
-        regions: declarations,
-        draw: below,
-        draw_over: over,
-        draw_with_layout,
+        part_bindings: _,
+        part_modal: _,
+        regions: _,
+        draw: _,
+        draw_over: _,
+        draw_with_layout: _,
         intrinsic,
         image_fit,
         monochrome,
         at: _,
     } = common;
-    for patch in semantics.iter().filter(|p| p.part) {
-        use crate::view::semantics_data::SemanticInput;
-        match &patch.input {
-            SemanticInput::Disabled(v) => part_constraints.disabled.push(v.clone()),
-            SemanticInput::Hidden(v) => part_constraints.hidden.push(v.clone()),
-            SemanticInput::Focusable(v) => part_constraints.focusable.push(v.clone()),
-            _ => {}
-        }
-    }
-    if part_modal {
-        parts::report_modal_unsupported(cx, at);
-    }
-    let focus_stop_declared =
-        focusable.as_ref().is_some_and(|f| f.fixed() != Some(false)) || text_editing.is_some();
-    if handlers.activate.is_some()
-        && role.is_none()
-        && !focus_stop_declared
-        && part_constraints.focusable.is_empty()
-    {
-        diagnostics::report_unreachable_press(cx, at);
-    }
-    // The node's own edit and session slots; no modifier writes them before mount.
-    let editing = text_editing.map(|editing| {
-        let TextEditing {
-            props,
-            on_edit,
-            on_selection,
-            on_phase,
-        } = *editing;
-        handlers.edit_phase = on_phase;
-        handlers.text = on_edit;
-        handlers.selection = on_selection;
-        props
-    });
-    let mut actions = handlers.actions();
-    for action in part_actions.actions() {
-        if !actions.contains(&action) {
-            actions.push(action);
-        }
-    }
-    let (attached, disabled, hidden, focusable) = if part_bindings.is_empty()
-        && declarations.is_empty()
-        && part_constraints.disabled.is_empty()
-        && part_constraints.hidden.is_empty()
-        && part_constraints.focusable.is_empty()
-    {
-        (None, disabled, hidden, focusable)
-    } else {
-        let sources = ConstraintSources {
-            disabled,
-            hidden,
-            focusable,
-            required: part_constraints,
-        };
-        let constraints = parts::constraints(sources, cx, at, None);
-        let root = part_input::root_target(&handlers, part_actions, constraints, cx);
-        let registry = regions::prepare(declarations, root, cx, id, at);
-        handlers = part_input::route(id, handlers, registry.clone());
-        (
-            Some(Attached {
-                constraints,
-                bindings: part_bindings,
-                regions: registry,
-            }),
-            Some(Prop::value(constraints.disabled)),
-            Some(Prop::value(constraints.hidden)),
-            Some(Prop::value(constraints.focusable)),
-        )
-    };
-    // A focus stop gets the theme's focus ring and disabled look (`kivact_style::internal::compile_style`).
-    let focus_stop =
-        focusable.as_ref().is_some_and(|f| f.fixed() != Some(false)) || editing.is_some();
-    let local_paint =
-        (!style.is_empty() && kind == NodeType::Box && editing.is_none()).then(|| {
-            LocalPaintSource {
-                value: Rc::new(RefCell::new(None)),
-                revision: cx.owner.notifier(at),
-            }
-        });
-    if draw_with_layout.is_some() && handlers.selection.is_none() {
-        handlers.selection = Some(kivact_runtime::Handler::from_fn(
-            |_: kivact_editing::TextSession| {},
-        ));
-    }
-    let observe_layout = below.is_some() || over.is_some() || draw_with_layout.is_some();
-    let draw = (observe_layout || local_paint.is_some()).then(|| {
-        let size = cx.owner.signal(Size::new(0.0, 0.0), at);
-        handlers.observe_layout(move |_, s| size.set(s));
-        DrawInput {
-            below,
-            over,
-            with_layout: draw_with_layout,
-            local_paint: local_paint.clone(),
-            regions: attached.as_ref().map(|a| a.regions.clone()),
-            size,
-        }
-    });
-    // Constraint-derived values are the last layer; they are authoritative for
-    // semantics and input while the authored patch remains the only input source.
-    let mut final_semantics = Common::default();
-    if attached.is_some() {
-        if let Some(source) = disabled.clone() {
-            final_semantics.set_disabled(source);
-        }
-        if let Some(source) = hidden {
-            final_semantics.set_hidden(source);
-        }
-        if let Some(source) = focusable.clone() {
-            final_semantics.set_focusable(source);
-        }
-    }
-    if !actions.is_empty() {
-        final_semantics.semantic(Prop::constant(actions), |s, value| s.actions = Some(value));
-    }
-    let next = semantics.last().map_or(0, |p| p.layer + 1);
-    for patch in &mut final_semantics.semantics {
-        patch.layer += next;
-    }
-    semantics.append(&mut final_semantics.semantics);
     let (early, late) = if semantics.iter().any(|p| p.text) {
         (Vec::new(), semantics)
     } else {
         (semantics, Vec::new())
     };
+    let observe_layout = draw.as_ref().is_some_and(|draw| {
+        draw.below.is_some() || draw.over.is_some() || draw.with_layout.is_some()
+    });
     Resolved {
         first: FirstWrite {
             exit_layout: exit_layout.unwrap_or_default(),
@@ -243,11 +288,7 @@ pub(super) fn resolve(
         disabled,
         selected,
         style,
-        facts: NodeFacts {
-            kind,
-            focus_stop,
-            local_paint,
-        },
+        facts,
         draw,
         late_semantics: late,
         ime,

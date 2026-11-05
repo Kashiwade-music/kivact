@@ -1,5 +1,6 @@
 //! Role: Passive theme data for progress.
 use kivact_core::motion::Easing;
+// xtask-allow(state-fields): Independent immutable animation settings supplied by the theme, not mounted animation state.
 /// Timing of standard progress bars. Configure it through [`crate::UiTokens`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProgressMotion {
@@ -14,6 +15,8 @@ pub struct ProgressMotion {
     /// Optional full clock period in reduced motion. None leaves it still.
     pub reduced_period_ms: Option<u64>,
 }
+
+impl crate::Variant for ProgressMotion {}
 
 impl Default for ProgressMotion {
     fn default() -> Self {

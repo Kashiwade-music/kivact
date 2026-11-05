@@ -4,9 +4,8 @@ A Kivact UI kit for compact desktop business applications: calm slate
 surfaces, narrow blue gradients and yellow accents.
 
 The kit depends only on the public `kivact` crate. Its theme restyles the
-standard components of `kivact::ui`, and it adds business components such as
-date inputs, file dropzones, stat cards, timelines and
-conversation threads.
+standard components of `kivact::ui`, and adds timelines, scheduling rows,
+conversation-preview rows and standalone chart primitives.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -16,7 +15,7 @@ use kivact_ui_pop as pop;
 fn settings() -> impl IntoView {
     let sync = signal(true);
     let name = signal(String::new());
-    pop::panel(
+    kivact::ui::card(
         column((
             field("Display name", text_input("Display name", name)),
             switch("Sync reports", sync),
@@ -51,6 +50,38 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `chat_message`
+- `chat_thread`
+- `chat_composer`
+- `typing_indicator`
+- `code_block`
+- `stat`
+- `heading`
+- `description_list`
+- `breadcrumb`
+- `pagination`
+- `stepper`
+- `navigation_menu`
+- `item_list`
+- `table`
+- `tree`
+- `calendar`
+- `date_input`
+- `date_range_input`
+- `kbd`
+- `empty_state`
+- `alert`
+- `card`
+- `input_group`
+- `avatar`
+- `badge`
+- `badge_label`
+- `skeleton`
+- `spinner`
+- `toolbar`
+- `toggle_group`
+- `button_group`
+- `dropzone`
 - `field`
 - `button`
 - `button_content`

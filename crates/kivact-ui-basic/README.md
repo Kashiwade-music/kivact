@@ -16,7 +16,7 @@ fn settings() -> impl IntoView {
     let sync = signal(true);
     let name = signal(String::new());
     column((
-        basic::h4("Profile"),
+        kivact::ui::heading("Profile", 4),
         basic::label("Display name"),
         kivact::ui::text_input("Display name", name),
         kivact::ui::switch("Sync reports", sync),
@@ -59,11 +59,10 @@ through Kivact's public font API and set the `family` of `theme.text()` with `Th
 `"Geist Mono", monospace`.
 
 State lives in caller-owned signals and bindings. Collections are read-only
-`impl IntoValue<Vec<T>>` inputs, and requests such as a code block's copy
-press are reported through callbacks; writing to the clipboard, persistence
-and business rules remain application concerns. `basic::direction` provides a
-reading direction that the kit's direction-aware components honor; the
-standard `kivact::ui` components do not mirror.
+`impl IntoValue<Vec<T>>` inputs. Core handles code-block clipboard writes and
+reports copy presses through callbacks; persistence and business rules remain
+application concerns. `kivact::view::provide_direction` provides a
+reading direction that the kit's direction-aware components honor; standard `kivact::ui` components read the same direction context.
 
 Builder components implement `NodeBuilder` and `IntoView` and install their
 own default style and semantics first, so ordinary `NodeBuilder` modifiers
@@ -71,7 +70,7 @@ such as `.style(...)`, `.test_id(...)`, `.disabled(...)` and `.name(...)` win
 over the kit's defaults. Parts without options return a `Node`. A slot
 method that places content in a component (`.content(..)`, `.header(..)`,
 `.footer(..)`, `.action(..)`, `.media(..)`, ...) takes a view
-(`card().content(text("Body"))`); a
+(`kivact::ui::card(text("Body"))`); a
 container's children are views.
 
 Icons are drawn with the core `kivact::view::icon(name)`: the theme puts
@@ -87,12 +86,12 @@ alert-dialog.tsx (its width class is `.variant(basic::AlertDialogSize::Sm)`,
 its cancel and action buttons are the footer, and `.closable(false)` leaves
 out the close button it does not have), sheet.tsx and popover.tsx. A
 use_context menu is the standard `kivact::ui::menu(..).attach_context(target)`,
-drawn with use_context-menu.tsx's wider top level. The kit's own overlays
-(`drawer`, which a swipe dismisses, and `hover_card`, which opens on a
-delay) show their content in a fresh branch each time they open, so they
-take their slots (`.content(..)`, `.footer(..)`) as functions and do not
-implement `NodeBuilder`; `hover_card` attaches to a caller trigger with
-`.attach(trigger)`, and the trigger takes the modifiers. Mount the standard
+drawn with use_context-menu.tsx's wider top level. Standard dialogs build their content in a fresh branch whenever they open,
+so `.content(..)` and `.footer(..)` take functions. Swipe drawers use
+`dialog(title, open).mode(DialogMode::Drawer(edge)).variant(basic::DrawerVariant::Drawer)`;
+`.closable(false)` preserves the drawer without a close button. The default
+edge dialog recipe is the sheet look. Standard `kivact::ui::hover_card` attaches
+with `.attach(trigger)`; the trigger takes its own modifiers. Mount the standard
 `kivact::ui::toast_region(toaster()).hold_all_on_hover(true)` once near
 the root to show the toasts pushed with
 `toaster().push(Toast::new(title).tone(..))`: the core `kivact::interaction::Toast`
@@ -111,43 +110,9 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 
 | Key | English default |
 |---|---|
-| `basic.breadcrumb.label` | Breadcrumb |
-| `basic.breadcrumb.more` | More |
-| `basic.calendar.caption` | {month} {year} |
-| `basic.calendar.mon` … `basic.calendar.sun` | Mon … Sun |
-| `basic.calendar.month` | Month |
-| `basic.calendar.month_1` … `basic.calendar.month_12` | January … December |
-| `basic.calendar.short_1` … `basic.calendar.short_12` | Jan … Dec |
-| `basic.calendar.next` | Next month |
-| `basic.calendar.previous` | Previous month |
-| `basic.calendar.year` | Year |
-| `basic.carousel.label` | Carousel |
-| `basic.carousel.next` | Next slide |
-| `basic.carousel.previous` | Previous slide |
-| `basic.carousel.slide` | Slide |
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
-| `basic.code_block.copied` | Copied |
-| `basic.code_block.copy` | Copy |
-| `basic.code_block.name` | Code |
-| `basic.combobox.clear` | Clear |
-| `basic.combobox.empty` | No results found. |
-| `basic.combobox.label` | Combobox |
-| `basic.combobox.remove` | Remove {label} |
-| `basic.combobox.toggle` | Toggle options |
-| `basic.date_picker.format` | {month} {day}, {year} |
-| `basic.date_picker.placeholder` | Pick a date |
-| `basic.date_picker.range` | {start} - {end} |
-| `basic.hover_card.label` | Preview |
-| `basic.message_scroller.end` | Scroll to end |
-| `basic.navigation_menu.label` | Navigation |
-| `basic.pagination.label` | Pagination |
-| `basic.pagination.more` | More pages |
-| `basic.pagination.next` | Next |
-| `basic.pagination.next_page` | Go to next page |
-| `basic.pagination.previous` | Previous |
-| `basic.pagination.previous_page` | Go to previous page |
 | `basic.questionnaire.label` | Questionnaire |
 | `basic.questionnaire.next` | Next |
 | `basic.questionnaire.previous` | Previous |
@@ -155,7 +120,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.questionnaire.skip` | Skip |
 | `basic.questionnaire.submit` | Submit |
 | `basic.sidebar.toggle` | Toggle Sidebar |
-| `basic.spinner.busy` | Loading |
 
 The standard `kivact::ui` components the kit mounts keep their own
 unprefixed keys:
@@ -164,7 +128,7 @@ unprefixed keys:
 |---|---|
 | `data_table.actions` | Actions |
 | `data_table.empty` | No results found. |
-| `data_table.filter` | Filter… |
+| `data_table.filter` | Filter窶ｦ |
 | `data_table.label` | Data table |
 | `data_table.next` | Next |
 | `data_table.page` | Page {page} of {pages} |
@@ -230,4 +194,38 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `progress`
 - `disclosure`
 - `command_palette`
+- `hover_card`
+- `carousel`
+- `combobox`
+- `toggle_group`
+- `button_group`
+- `skeleton`
+- `spinner`
+- `kbd`
+- `badge`
+- `calendar`
+- `empty_state`
+- `alert`
+- `avatar`
+- `avatar_image`
+- `avatar_group`
+- `avatar_group_member`
+- `avatar_group_overflow`
+- `avatar_status`
+- `table`
+- `item_list`
+- `card`
+- `heading`
+- `input_group`
+- `navigation_menu`
+- `breadcrumb`
+- `pagination`
+- `code_block`
+- `chat_message`
+- `chat_thread`
 <!-- /kivact-recipes -->
+
+`kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,
+items per view and looping keep their behavior; previous and next controls remain
+square outline buttons outside the viewport. `kivact::ui::hover_card(content)`
+uses the same 256 px preview surface, alignment, placement and 600/300 ms delays.

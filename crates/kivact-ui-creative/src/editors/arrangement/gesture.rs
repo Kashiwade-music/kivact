@@ -17,7 +17,7 @@ pub(crate) enum Snapshot {
     Playhead(f64),
     Loop((f64, f64)),
     Cycle(bool),
-    View(f64, Point),
+    View(kivact::interaction::ViewTransform),
 }
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Drag {
@@ -64,9 +64,8 @@ pub(crate) struct State {
     pub(crate) cycle: Value<bool>,
     // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) cycling: Binding<bool>,
-    pub(crate) zoom: Binding<f64>,
+    pub(crate) transform: Binding<kivact::interaction::ViewTransform>,
     pub(crate) pixels: Value<f64>,
-    pub(crate) pan: Binding<Point>,
     pub(crate) offset: Value<Point>,
     pub(crate) tool_binding: Binding<TimelineTool>,
     pub(crate) tool: Value<TimelineTool>,

@@ -56,3 +56,40 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     })
     .cell(|prev| move |t: &Theme, s: &_| prev(t, s).padding_x(9).font_size(11.5))
 }
+
+/// Static tables share the editor table's dense header and cell typography.
+pub(crate) fn table(r: kivact::ui::TableRecipes) -> kivact::ui::TableRecipes {
+    r.header(|prev| move |t: &Theme, s: &_| prev(t, s).background(t.ext::<Tokens>().header))
+        .head(|prev| {
+            move |t: &Theme, s: &_| prev(t, s).font_size(10.5).color(t.ext::<Tokens>().dim)
+        })
+        .cell(|prev| move |t: &Theme, s: &_| prev(t, s).padding_x(9).font_size(11.5))
+        .row(|prev| {
+            move |t: &Theme, s: &_| {
+                let p = t.ext::<Tokens>();
+                prev(t, s)
+                    .min_height(p.row)
+                    .hover(style().background(ColorToken::Hover))
+                    .selected(style().background(p.selection))
+            }
+        })
+}
+
+/// Static rows retain shared semantics while matching the editor's density.
+pub(crate) fn item_list(r: kivact::ui::ItemListRecipes) -> kivact::ui::ItemListRecipes {
+    r.item(|prev| {
+        move |t: &Theme, s: &_| {
+            let p = t.ext::<Tokens>();
+            prev(t, s)
+                .min_height(p.row)
+                .padding_x(9)
+                .radius(5)
+                .hover(style().background(ColorToken::Hover))
+                .selected(style().background(p.selection))
+        }
+    })
+    .title(|prev| move |t: &Theme, s: &_| prev(t, s).font_size(11.5).color(t.ext::<Tokens>().text))
+    .description(|prev| {
+        move |t: &Theme, s: &_| prev(t, s).font_size(10.5).color(t.ext::<Tokens>().muted)
+    })
+}

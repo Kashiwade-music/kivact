@@ -20,7 +20,7 @@ pub(super) fn breadcrumb_root(t: &Theme, _: &Look<()>) -> Style {
         .font_size(t.text().size)
         .color(ColorToken::Text)
 }
-pub(super) fn stepper_root(t: &Theme, _: &Look<crate::StepperState>) -> Style {
+pub(super) fn stepper_root(t: &Theme, _: &Look<crate::navigation_values::StepperState>) -> Style {
     let p = &t.ext::<crate::UiTokens>().stepper;
     style()
         .direction(Direction::Row)
@@ -38,7 +38,10 @@ pub(super) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) 
         .font_size(t.text().size)
         .color(ColorToken::Text)
 }
-pub(super) fn stepper_item(t: &Theme, look: &Look<crate::StepperItemState>) -> Style {
+pub(super) fn stepper_item(
+    t: &Theme,
+    look: &Look<crate::navigation_values::StepperItemState>,
+) -> Style {
     let p = &t.ext::<crate::UiTokens>().stepper;
     style()
         .direction(Direction::Row)
@@ -66,15 +69,6 @@ pub(super) fn part<S>(_: &Theme, _: &Look<S>) -> Style {
         .align_items(Align::Center)
         .gap(4)
 }
-pub(super) fn current(t: &Theme, l: &Look<bool>) -> Style {
-    style()
-        .color(if **l {
-            t.colors().text
-        } else {
-            t.colors().text_muted
-        })
-        .weight(if **l { 600 } else { 400 })
-}
 pub(super) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     let p = &t.ext::<crate::UiTokens>().navigation_menu;
     style()
@@ -84,6 +78,12 @@ pub(super) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
         .border(1, ColorToken::Border)
 }
 
+pub(super) fn stepper_layout(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+    style().direction(Direction::Row)
+}
+pub(super) fn stepper_body(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+    style().direction(Direction::Column)
+}
 pub(super) fn breadcrumb_list(_: &Theme, _: &Look<()>) -> Style {
     style().direction(Direction::Row).gap(8)
 }
@@ -143,9 +143,16 @@ pub(super) fn link_icon(
     style().shrink(0)
 }
 
-pub(super) fn stepper_layout(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
-    style().direction(Direction::Row).min_width(0)
+pub(super) fn pagination_item(t: &Theme, s: &Look<crate::PaginationItemState>) -> Style {
+    style()
+        .color(if s.current {
+            t.colors().text
+        } else {
+            t.colors().text_muted
+        })
+        .weight(if s.current { 600 } else { 400 })
 }
+
 pub(super) fn stepper_decoration(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
     style().size(0, 0)
 }

@@ -57,6 +57,7 @@ pub enum RowHeight {
     Measured { estimate: f64 },
 }
 
+// xtask-allow(state-fields): These independent list construction options configure source, row rendering and focus retention.
 /// Virtualized keyed list. Built by [`virtual_list`].
 pub struct VirtualList<T: 'static, K: 'static> {
     items: InputProp<Vec<T>>,
@@ -279,7 +280,6 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
             }));
             // Which row holds the focus changes rarely: only then does the
             // visible range run again, not at every focus move.
-            let held_version = state.borrow().held.changed;
             if keep_focused {
                 let keys = ViewState::of(cx.rt).focus_keys();
                 let weak = cx.weak();
@@ -299,161 +299,16 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
                 viewport,
                 outer,
             });
-            let weak = cx.weak();
-            let parent = cx.owner;
-            let st = state.clone();
-            let warned = kivact_types::cell::ReportOnce::new();
-            let range_seeker = seeker.clone();
-            cx.effect(EffectKind::Internal, at, move || {
-                let reported = viewport.get();
-                let (offset, vh) =
-                    reported.map_or((0.0, UNREPORTED_HEIGHT), |v| (v.offset, v.height));
-                measured_version.track();
-                let Some(rt) = weak.upgrade() else { return };
-                held_version.track();
-                let focused_key = st.borrow().held.key().cloned();
-                let lo = (offset - overscan).max(0.0);
-                let hi = offset + vh + overscan;
-                // Visible slice: (key, item clone if new or changed, top, height)
-                let mut visible: Vec<(K, Option<T>, f64, Option<f64>)> = Vec::new();
-                let mut dups = Vec::new();
-                // Items and keys only compute values: pure.
-                let total = kivact_runtime::pure(|| items.with(|list| {
-                    let s = st.borrow();
-                    match height {
-                        RowHeight::Fixed(h) => {
-                            let h = h.max(1.0);
-                            let first = (lo / h).floor() as usize;
-                            let last = ((hi / h).ceil() as usize).min(list.len());
-                            let mut seen = std::collections::HashSet::new();
-                            for (i, it) in list.iter().enumerate().take(last).skip(first) {
-                                let k = key(it);
-                                if !seen.insert(k.clone()) {
-                                    dups.push(key_hash(&k));
-                                    continue;
-                                }
-                                let need = match s.rows.get(&k) {
-                                    Some(r) => r.sig.with_untracked(|cur| cur != it),
-                                    None => true,
-                                };
-                                visible.push((k, need.then(|| it.clone()), i as f64 * h, Some(h)));
-                            }
-                            // The row with the focus stays mounted outside the range.
-                            if let Some(fk) = focused_key.as_ref().filter(|fk| !seen.contains(*fk))
-                                && let Some((i, it)) =
-                                    list.iter().enumerate().find(|(_, it)| key(it) == *fk)
-                            {
-                                let need = match s.rows.get(fk) {
-                                    Some(r) => r.sig.with_untracked(|cur| cur != it),
-                                    None => true,
-                                };
-                                let top = i as f64 * h;
-                                let at = visible.partition_point(|v| v.2 < top);
-                                visible.insert(
-                                    at,
-                                    (fk.clone(), need.then(|| it.clone()), top, Some(h)),
-                                );
-                            }
-                            list.len() as f64 * h
-                        }
-                        RowHeight::Measured { estimate } => {
-                            let mut y = 0.0f64;
-                            let mut seen = std::collections::HashSet::new();
-                            for it in list {
-                                let k = key(it);
-                                let h = s.measured.get(&k).copied().unwrap_or(estimate).max(1.0);
-                                if (y + h >= lo && y <= hi) || focused_key.as_ref() == Some(&k) {
-                                    if !seen.insert(k.clone()) {
-                                        dups.push(key_hash(&k));
-                                    } else {
-                                        let need = match s.rows.get(&k) {
-                                            Some(r) => r.sig.with_untracked(|cur| cur != it),
-                                            None => true,
-                                        };
-                                        visible.push((k, need.then(|| it.clone()), y, None));
-                                    }
-                                }
-                                y += h;
-                            }
-                            // Forget measurements of keys that left the list
-                            // (bounded cache).
-                            drop(s);
-                            let mut sm = st.borrow_mut();
-                            if sm.measured.len() > list.len() + UNCONSTRAINED_ROWS {
-                                let live: std::collections::HashSet<K> = list.iter().map(|it| key(it)).collect();
-                                sm.measured.retain(|k, _| live.contains(k));
-                            }
-                            y
-                        }
-                    }
-                }));
-                // The host reported a viewport as tall as the content: the
-                // list is not height-constrained and every row is mounted
-                // (typically a flex ancestor without `min_height(0)`).
-                if let Some(v) = reported
-                    && v.height > 0.0
-                    && v.height + 0.5 >= total
-                    && visible.len() >= UNCONSTRAINED_ROWS
-                    && warned.note()
-                {
-                    let msg = format!(
-                        "virtual_list at {at}: viewport ({:.0}px) is as tall as its                          content ({total:.0}px), so all {} rows are mounted; give the list a                          bounded height (e.g. `min_height(0)` on flex ancestors or a fixed height)",
-                        v.height,
-                        visible.len()
-                    );
-                    rt.warn(msg);
-                }
-                for h in dups {
-                    rt.report(None, UiError::new(
-                        ErrorKind::DuplicateKey { key_hash: h },
-                        "duplicate virtual_list key; later item dropped",
-                        Some(at),
-                    ));
-                }
-                ViewState::tree_mut(&rt).update(
-                    spacer,
-                    PropValue::Layout(LayoutProps {
-                        height: px(total),
-                        min_height: px(total),
-                        shrink: 0.0,
-                        position: Position::Relative,
-                        ..LayoutProps::default()
-                    }),
-                    rt.running_effect(),
-                );
-                apply_visible(
-                    &rt,
-                    parent,
-                    spacer,
-                    &st,
-                    visible,
-                    &row,
-                    measured_version,
-                    at,
-                );
-                range_seeker.run(&rt);
-            });
-            // Scroll to the row `scroll_to` names, at mount and after each
-            // change of the request.
-            if scroll_to.fixed().is_none_or(|v| v.is_some()) {
-                let weak = cx.weak();
-                let last: RefCell<Option<K>> = RefCell::new(None);
-                cx.effect(EffectKind::Internal, at, move || {
-                    let request = scroll_to.get();
-                    let Some(rt) = weak.upgrade() else { return };
-                    if *last.borrow() == request {
-                        return;
-                    }
-                    last.borrow_mut().clone_from(&request);
-                    let Some(request) = request else { return };
-                    seeker.state.borrow_mut().seek = Seek::Pending {
-                        key: request,
-                        issued: None,
-                        steps: 0,
-                    };
-                    untrack(|| seeker.run(&rt));
-                });
-            }
+            bind_visible(
+                cx,
+                seeker.clone(),
+                row,
+                spacer,
+                overscan,
+                measured_version,
+                at,
+            );
+            bind_scroll_to(cx, scroll_to, seeker, at);
             outer
         })
     }
@@ -611,22 +466,7 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
     measured_version: Notifier,
     at: &'static Location<'static>,
 ) {
-    let keep: std::collections::HashSet<K> = visible.iter().map(|(k, ..)| k.clone()).collect();
-    let gone: Vec<VRow<T>> = {
-        let mut s = state.borrow_mut();
-        let dead: Vec<K> = s
-            .rows
-            .keys()
-            .filter(|k| !keep.contains(*k))
-            .cloned()
-            .collect();
-        dead.into_iter().filter_map(|k| s.rows.remove(&k)).collect()
-    };
-    for r in gone {
-        let removed = ViewState::tree_mut(rt).remove(r.wrapper);
-        removed.commit(rt);
-        r.owner.dispose();
-    }
+    remove_hidden_rows(rt, state, &visible);
     // Wrappers in item order, and which of them are new.
     let mut order: Vec<NodeId> = Vec::with_capacity(visible.len());
     let mut fresh: Vec<bool> = Vec::with_capacity(visible.len());
@@ -765,5 +605,236 @@ impl<K: PartialEq> HeldState<K> {
             self.value = next;
             self.changed.notify();
         }
+    }
+}
+
+impl<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue> Seeker<K, T> {
+    fn visible(
+        &self,
+        lo: f64,
+        hi: f64,
+        focused_key: Option<K>,
+    ) -> (f64, Vec<(K, Option<T>, f64, Option<f64>)>, Vec<u64>) {
+        let mut visible = Vec::new();
+        let mut dups = Vec::new();
+        let total = kivact_runtime::pure(|| {
+            self.items.with(|list| {
+                let s = self.state.borrow();
+                match self.height {
+                    RowHeight::Fixed(h) => self.fixed_visible(
+                        list,
+                        &s,
+                        h,
+                        (lo, hi),
+                        focused_key.as_ref(),
+                        (&mut visible, &mut dups),
+                    ),
+                    RowHeight::Measured { estimate } => {
+                        let mut y = 0.0f64;
+                        let mut seen = std::collections::HashSet::new();
+                        for it in list {
+                            let k = (self.key)(it);
+                            let h = s.measured.get(&k).copied().unwrap_or(estimate).max(1.0);
+                            if (y + h >= lo && y <= hi) || focused_key.as_ref() == Some(&k) {
+                                if !seen.insert(k.clone()) {
+                                    dups.push(key_hash(&k));
+                                } else {
+                                    let need = match s.rows.get(&k) {
+                                        Some(r) => r.sig.with_untracked(|cur| cur != it),
+                                        None => true,
+                                    };
+                                    visible.push((k, need.then(|| it.clone()), y, None));
+                                }
+                            }
+                            y += h;
+                        }
+                        // Forget measurements of keys that left the list
+                        // (bounded cache).
+                        drop(s);
+                        let mut sm = self.state.borrow_mut();
+                        if sm.measured.len() > list.len() + UNCONSTRAINED_ROWS {
+                            let live: std::collections::HashSet<K> =
+                                list.iter().map(|it| (self.key)(it)).collect();
+                            sm.measured.retain(|k, _| live.contains(k));
+                        }
+                        y
+                    }
+                }
+            })
+        });
+        (total, visible, dups)
+    }
+}
+
+impl<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue> Seeker<K, T> {
+    fn fixed_visible(
+        &self,
+        list: &[T],
+        s: &VState<K, T>,
+        h: f64,
+        range: (f64, f64),
+        focused_key: Option<&K>,
+        output: (&mut Vec<(K, Option<T>, f64, Option<f64>)>, &mut Vec<u64>),
+    ) -> f64 {
+        let (lo, hi) = range;
+        let (visible, dups) = output;
+        let h = h.max(1.0);
+        let first = (lo / h).floor() as usize;
+        let last = ((hi / h).ceil() as usize).min(list.len());
+        let mut seen = std::collections::HashSet::new();
+        for (i, it) in list.iter().enumerate().take(last).skip(first) {
+            let k = (self.key)(it);
+            if !seen.insert(k.clone()) {
+                dups.push(key_hash(&k));
+                continue;
+            }
+            let need = match s.rows.get(&k) {
+                Some(r) => r.sig.with_untracked(|cur| cur != it),
+                None => true,
+            };
+            visible.push((k, need.then(|| it.clone()), i as f64 * h, Some(h)));
+        }
+        // The row with the focus stays mounted outside the range.
+        if let Some(fk) = focused_key.filter(|fk| !seen.contains(*fk))
+            && let Some((i, it)) = list
+                .iter()
+                .enumerate()
+                .find(|(_, it)| (self.key)(it) == *fk)
+        {
+            let need = match s.rows.get(fk) {
+                Some(r) => r.sig.with_untracked(|cur| cur != it),
+                None => true,
+            };
+            let top = i as f64 * h;
+            let at = visible.partition_point(|v| v.2 < top);
+            visible.insert(at, (fk.clone(), need.then(|| it.clone()), top, Some(h)));
+        }
+        list.len() as f64 * h
+    }
+}
+
+fn bind_visible<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
+    cx: &Mcx<'_>,
+    seeker: Rc<Seeker<K, T>>,
+    row: RowFn<K, T>,
+    spacer: NodeId,
+    overscan: f64,
+    measured_version: Notifier,
+    at: &'static Location<'static>,
+) {
+    let weak = cx.weak();
+    let parent = cx.owner;
+    let st = seeker.state.clone();
+    let warned = kivact_types::cell::ReportOnce::new();
+    let range_seeker = seeker.clone();
+    cx.effect(EffectKind::Internal, at, move || {
+                let reported = seeker.viewport.get();
+                let (offset, vh) =
+                    reported.map_or((0.0, UNREPORTED_HEIGHT), |v| (v.offset, v.height));
+                measured_version.track();
+                let Some(rt) = weak.upgrade() else { return };
+                seeker.state.borrow().held.changed.track();
+                let focused_key = st.borrow().held.key().cloned();
+                let lo = (offset - overscan).max(0.0);
+                let hi = offset + vh + overscan;
+                // Visible slice: (key, item clone if new or changed, top, height)
+                let (total, visible, dups) = range_seeker.visible(lo, hi, focused_key);
+                // The host reported a viewport as tall as the content: the
+                // list is not height-constrained and every row is mounted
+                // (typically a flex ancestor without `min_height(0)`).
+                if let Some(v) = reported
+                    && v.height > 0.0
+                    && v.height + 0.5 >= total
+                    && visible.len() >= UNCONSTRAINED_ROWS
+                    && warned.note()
+                {
+                    let msg = format!(
+                        "virtual_list at {at}: viewport ({:.0}px) is as tall as its                          content ({total:.0}px), so all {} rows are mounted; give the list a                          bounded height (e.g. `min_height(0)` on flex ancestors or a fixed height)",
+                        v.height,
+                        visible.len()
+                    );
+                    rt.warn(msg);
+                }
+                for h in dups {
+                    rt.report(None, UiError::new(
+                        ErrorKind::DuplicateKey { key_hash: h },
+                        "duplicate virtual_list key; later item dropped",
+                        Some(at),
+                    ));
+                }
+                ViewState::tree_mut(&rt).update(
+                    spacer,
+                    PropValue::Layout(LayoutProps {
+                        height: px(total),
+                        min_height: px(total),
+                        shrink: 0.0,
+                        position: Position::Relative,
+                        ..LayoutProps::default()
+                    }),
+                    rt.running_effect(),
+                );
+                apply_visible(
+                    &rt,
+                    parent,
+                    spacer,
+                    &st,
+                    visible,
+                    &row,
+                    measured_version,
+                    at,
+                );
+                range_seeker.run(&rt);
+            });
+}
+
+fn remove_hidden_rows<K: kivact_runtime::ItemKey, T: 'static>(
+    rt: &Runtime,
+    state: &RefCell<VState<K, T>>,
+    visible: &[(K, Option<T>, f64, Option<f64>)],
+) {
+    let keep: std::collections::HashSet<K> = visible.iter().map(|(k, ..)| k.clone()).collect();
+    let gone: Vec<VRow<T>> = {
+        let mut s = state.borrow_mut();
+        let dead: Vec<K> = s
+            .rows
+            .keys()
+            .filter(|k| !keep.contains(*k))
+            .cloned()
+            .collect();
+        dead.into_iter().filter_map(|k| s.rows.remove(&k)).collect()
+    };
+    for r in gone {
+        let removed = ViewState::tree_mut(rt).remove(r.wrapper);
+        removed.commit(rt);
+        r.owner.dispose();
+    }
+}
+
+fn bind_scroll_to<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
+    cx: &Mcx<'_>,
+    scroll_to: InputProp<Option<K>>,
+    seeker: Rc<Seeker<K, T>>,
+    at: &'static Location<'static>,
+) {
+    // Scroll to the row `scroll_to` names, at mount and after each
+    // change of the request.
+    if scroll_to.fixed().is_none_or(|v| v.is_some()) {
+        let weak = cx.weak();
+        let last: RefCell<Option<K>> = RefCell::new(None);
+        cx.effect(EffectKind::Internal, at, move || {
+            let request = scroll_to.get();
+            let Some(rt) = weak.upgrade() else { return };
+            if *last.borrow() == request {
+                return;
+            }
+            last.borrow_mut().clone_from(&request);
+            let Some(request) = request else { return };
+            seeker.state.borrow_mut().seek = Seek::Pending {
+                key: request,
+                issued: None,
+                steps: 0,
+            };
+            untrack(|| seeker.run(&rt));
+        });
     }
 }

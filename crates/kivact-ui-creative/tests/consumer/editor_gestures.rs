@@ -2,7 +2,6 @@
 use crate::arrangement_model::arrangement as app_arrangement;
 use crate::graph_support::app_graph;
 use crate::node_support::app_node_editor;
-use crate::support::clean;
 use crate::time_support::{app_dope_sheet, app_timeline};
 use kivact::geometry::{Point, Size};
 use kivact::interaction::ViewTransform;
@@ -26,8 +25,6 @@ struct Model {
     curves: Signal<Vec<ui::Curve>>,
     nodes: Signal<Vec<ui::NodeData>>,
     selection: Signal<Vec<u64>>,
-    pan: Signal<Point>,
-    zoom: Signal<f64>,
     frame: Signal<f64>,
     transform: Signal<ViewTransform>,
     view: Signal<ui::GraphView>,
@@ -155,10 +152,11 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
             curves,
             nodes,
             selection: signal(Vec::new()),
-            pan: signal(Point::new(0.0, 0.0)),
-            zoom: signal(if kind == Kind::Arrangement { 20.0 } else { 1.0 }),
             frame: signal(0.0),
-            transform: signal(ViewTransform::default()),
+            transform: signal(ViewTransform {
+                scale: if kind == Kind::Arrangement { 20.0 } else { 1.0 },
+                ..ViewTransform::default()
+            }),
             view: signal(ui::GraphView {
                 time: (0.0, 440.0),
                 value: (-258.0, 0.0),
@@ -186,8 +184,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                 ),
                 ui::ArrangementState {
                     selection: model.selection.into_binding(),
-                    pan: model.pan.into_binding(),
-                    zoom: model.zoom.into_binding(),
+                    transform: model.transform.into_binding(),
                     ..ui::ArrangementState::new()
                 },
             )
@@ -199,8 +196,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                 clips,
                 ui::TimeState {
                     selection: model.selection.into_binding(),
-                    pan: model.pan.into_binding(),
-                    zoom: model.zoom.into_binding(),
+                    transform: model.transform.into_binding(),
                     playhead: model.frame.into_binding(),
                 },
             )
@@ -214,8 +210,7 @@ fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
                 keys,
                 ui::TimeState {
                     selection: model.selection.into_binding(),
-                    pan: model.pan.into_binding(),
-                    zoom: model.zoom.into_binding(),
+                    transform: model.transform.into_binding(),
                     playhead: model.frame.into_binding(),
                 },
             )
@@ -289,7 +284,7 @@ fn item_drag_writes_consumer_positions_with_and_without_snap() {
             };
             assert_eq!(after[0].position.y, before[0].position.y + dy, "{kind:?}");
             assert_eq!(&after[1..], &before[1..], "{kind:?}: other items stay put");
-            clean(&screen);
+            assert!(screen.errors().is_empty(), "{:?}", screen.errors());
         }
     }
 }
@@ -308,7 +303,7 @@ fn marquee_selects_intersecting_items_and_escape_clears_selection() {
         assert_eq!(model.selection.get_untracked(), [1, 2, 3], "{kind:?}");
         canvas.press_key(Key::Escape);
         assert!(model.selection.get_untracked().is_empty(), "{kind:?}");
-        clean(&screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
 
@@ -328,7 +323,7 @@ fn playhead_arrow_keys_edit_the_time_without_moving_selected_items() {
             "{kind:?}"
         );
         assert_eq!(model.snapshot(), before, "{kind:?}");
-        clean(&screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
 
@@ -359,5 +354,5 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
         .drag(Point::new(231.0, 40.0), Point::new(251.0, 40.0));
     assert_eq!(data.get_untracked()[0].start, 50.0);
     assert_eq!(data.get_untracked()[0].duration, 110.0);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -24,10 +24,8 @@ pub(super) fn feedback(scene: Demo) -> Node {
             wide(specimen(
                 "FBK-01",
                 "システムバナー",
-                g::banner(
-                    "NOTICE",
-                    kivact::interaction::Tone::Warning,
-                    row((
+                kivact::ui::alert("NOTICE").variant(kivact::ui::AlertVariant::Banner)
+                .tone(kivact::interaction::Tone::Warning).actions(row((
                         g::mono("T-41:20:00").style(style().color(rgb(0x9fb7d2))),
                         kivact::ui::button("詳細")
                             .variant(kivact_ui_game::Slant)
@@ -41,9 +39,10 @@ pub(super) fn feedback(scene: Demo) -> Node {
                                 );
                             }),
                     ))
-                    .style(style().gap(14).align_items(Align::Center)),
-                )
-                .content( rich_text(vec![
+                    .style(style().gap(14).align_items(Align::Center)))
+
+                .with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
+.content(move || rich_text(vec![
                     span("計画メンテナンス:").weight(700).color(rgb(0xffc928)),
                     span(" 10/05 (日) 02:00–04:00 JST に API が読み取り専用になります。"),
                 ])),
@@ -53,15 +52,15 @@ pub(super) fn feedback(scene: Demo) -> Node {
                 "インラインアラート",
                 list((
                     kivact::view::show(info, move || {
-                        g::alert("新しいバージョンがあります").description("v2.5.0 で監査ログのエクスポートが追加されました。").tone(kivact::interaction::Tone::Info)
-                        .on_dismiss(move || info.set(false))
+                        kivact::ui::alert("新しいバージョンがあります").description("v2.5.0 で監査ログのエクスポートが追加されました。").tone(kivact::interaction::Tone::Info).icon(kivact::view::icon("info-circle"))
+                        .visible(info).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×")).with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
                     }),
                     kivact::view::show(success, move || {
-                        g::alert("バックアップ完了").description("2.4GB · 所要 3 分 12 秒").tone(kivact::interaction::Tone::Success)
-                        .on_dismiss(move || success.set(false))
+                        kivact::ui::alert("バックアップ完了").description("2.4GB · 所要 3 分 12 秒").tone(kivact::interaction::Tone::Success).icon(kivact::view::icon("circle-check"))
+                        .visible(success).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×")).with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
                     }),
                     kivact::view::show(warning, move || {
-                        g::alert("証明書の期限が近づいています").description("*.ops.example.internal — 残り 9 日").tone(kivact::interaction::Tone::Warning)
+                        kivact::ui::alert("証明書の期限が近づいています").description("*.ops.example.internal — 残り 9 日").tone(kivact::interaction::Tone::Warning).icon(kivact::view::icon("alert-triangle"))
                         .actions( {
                             row((
                                 kivact::ui::button("更新する")
@@ -81,11 +80,11 @@ pub(super) fn feedback(scene: Demo) -> Node {
                             ))
                             .style(style().gap(10).margin_top(6))
                         })
-                        .on_dismiss(move || warning.set(false))
+                        .visible(warning).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×"))
                     }),
                     kivact::view::show(danger, move || {
-                        g::alert("決済連携に失敗しました").description("ERR_UPSTREAM_502 · 3 回再試行後に停止").tone(kivact::interaction::Tone::Danger)
-                        .on_dismiss(move || danger.set(false))
+                        kivact::ui::alert("決済連携に失敗しました").description("ERR_UPSTREAM_502 · 3 回再試行後に停止").tone(kivact::interaction::Tone::Danger).icon(kivact::view::icon("alert-octagon"))
+                        .visible(danger).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×"))
                     }),
                 )),
             ),
@@ -131,7 +130,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
                 "FBK-04",
                 "スケルトン",
                 list((
-                    g::skeleton().rows(2),
+                    kivact::ui::skeleton().variant(g::SkeletonVariant::Rows).lines(2).with_node(|node| node.role(Role::Status)).name(kivact::i18n::message("spinner.loading", "Loading")),
                     node().style(
                         style()
                             .height(64)
@@ -143,7 +142,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
             specimen(
                 "FBK-05",
                 "空状態",
-                g::empty_state("NO RECORDS").description("条件に一致する案件はありません。フィルタを解除するか、新しい案件を登録してください。").content( line((
+                kivact::ui::empty_state("NO RECORDS").icon(()).description("条件に一致する案件はありません。フィルタを解除するか、新しい案件を登録してください。").actions( line((
                         kivact::ui::button("フィルタ解除")
                             .variant(kivact_ui_game::Slant)
                             .size(kivact::ui::ControlSize::Small)
@@ -288,7 +287,13 @@ pub(super) fn overlays(scene: Demo) -> Node {
                     .content(move || {
                         list((
                             row((
-                                g::avatar("MS").size(44.).color(rgb(0x0a62c2)).online(None),
+                                kivact::ui::avatar("MS")
+                                    .fallback_content(|| text("MS"))
+                                    .variant(g::AvatarVariant {
+                                        side: 44.,
+                                        color: rgb(0x0a62c2),
+                                    })
+                                    .status(None),
                                 column((
                                     text("真柴 ソウ").style(style().weight(700)),
                                     g::mono("ADMIN · 整備部")
@@ -299,7 +304,8 @@ pub(super) fn overlays(scene: Demo) -> Node {
                             row((
                                 text("ステータス").style(style().color(ColorToken::TextMuted)),
                                 spacer(),
-                                g::badge("Online", kivact::interaction::Tone::Success),
+                                kivact::ui::badge("Online")
+                                    .tone(kivact::interaction::Tone::Success),
                             )),
                             row((
                                 text("担当中").style(style().color(ColorToken::TextMuted)),
@@ -319,10 +325,13 @@ pub(super) fn overlays(scene: Demo) -> Node {
                             .focusable(true)
                             .child(
                                 row((
-                                    g::avatar("MS")
-                                        .size(32.)
-                                        .color(rgb(0x0a62c2))
-                                        .online(Some(kivact::interaction::Tone::Success)),
+                                    kivact::ui::avatar("MS")
+                                        .fallback_content(|| text("MS"))
+                                        .variant(g::AvatarVariant {
+                                            side: 32.,
+                                            color: rgb(0x0a62c2),
+                                        })
+                                        .status(Some(kivact::interaction::Tone::Success)),
                                     column((
                                         text("真柴 ソウ").style(style().weight(700)),
                                         text("クリックで詳細").style(
@@ -446,14 +455,21 @@ pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
 }
 pub(super) fn drawer_body() -> Node {
     list((
-        g::property_list(vec![
-            (
-                "Status".into(),
-                g::badge("RUNNING", kivact::interaction::Tone::Info).into_view(),
-            ),
-            ("Owner".into(), text("整備部 / 真柴").into_view()),
-            ("Due".into(), g::mono("2026-10-10").into_view()),
-        ]),
+        kivact::ui::description_list(
+            (vec![
+                (
+                    "Status".into(),
+                    kivact::ui::badge("RUNNING")
+                        .tone(kivact::interaction::Tone::Info)
+                        .into_view(),
+                ),
+                ("Owner".into(), text("整備部 / 真柴").into_view()),
+                ("Due".into(), g::mono("2026-10-10").into_view()),
+            ])
+            .into_iter()
+            .map(|(term, detail): (String, _)| kivact::ui::description(term, detail))
+            .collect::<Vec<_>>(),
+        ),
         row((
             text("進捗").style(style().width(46).font_size(12)),
             kivact::ui::progress(Some(0.68))
@@ -487,29 +503,79 @@ pub(super) fn layout() -> impl kivact::view::Component {
             }
         },
     );
-    let entries = vec![
-        g::TreeEntry::folder(
-            "operations",
-            "operations",
-            vec![
-                g::TreeEntry::file("OPS-2041.md", "OPS-2041.md").marker("M"),
-                g::TreeEntry::file("OPS-2042.md", "OPS-2042.md"),
-                g::TreeEntry::file("OPS-2043.md", "OPS-2043.md").marker("A"),
-            ],
+    let nodes = vec![
+        kivact::interaction::TreeNode::new("operations".to_owned(), None, "operations"),
+        kivact::interaction::TreeNode::new(
+            "OPS-2041.md".to_owned(),
+            Some("operations".to_owned()),
+            "OPS-2041.md",
         ),
-        g::TreeEntry::folder(
-            "inventory",
-            "inventory",
-            vec![g::TreeEntry::file("stock.db", "stock.db")],
-        )
-        .collapsed(),
-        g::TreeEntry::folder(
-            "archive",
-            "archive",
-            vec![g::TreeEntry::file("2025_summary.md", "2025_summary.md")],
-        )
-        .collapsed(),
+        kivact::interaction::TreeNode::new(
+            "OPS-2042.md".to_owned(),
+            Some("operations".to_owned()),
+            "OPS-2042.md",
+        ),
+        kivact::interaction::TreeNode::new(
+            "OPS-2043.md".to_owned(),
+            Some("operations".to_owned()),
+            "OPS-2043.md",
+        ),
+        kivact::interaction::TreeNode::new("inventory".to_owned(), None, "inventory"),
+        kivact::interaction::TreeNode::new(
+            "stock.db".to_owned(),
+            Some("inventory".to_owned()),
+            "stock.db",
+        ),
+        kivact::interaction::TreeNode::new("archive".to_owned(), None, "archive"),
+        kivact::interaction::TreeNode::new(
+            "2025_summary.md".to_owned(),
+            Some("archive".to_owned()),
+            "2025_summary.md",
+        ),
     ];
+    let expanded = signal(vec!["operations".to_owned()]);
+    let files = kivact::ui::tree("Workspace files", nodes)
+        .expanded(expanded)
+        .selection(binding(selection, move |key: Option<String>| {
+            if key
+                .as_deref()
+                .is_none_or(|id| !["operations", "inventory", "archive"].contains(&id))
+            {
+                selection.set(key);
+            }
+        }))
+        .on_activate(move |key| {
+            if ["operations", "inventory", "archive"].contains(&key.as_str()) {
+                expanded.update(|keys| {
+                    if keys.contains(&key) {
+                        keys.retain(|k| k != &key);
+                    } else {
+                        keys.push(key);
+                    }
+                });
+            }
+        })
+        .item(|item, _| {
+            let key = item.get_untracked().key;
+            let folder = ["operations", "inventory", "archive"].contains(&key.as_str());
+            let marker = match key.as_str() {
+                "OPS-2041.md" => "M",
+                "OPS-2043.md" => "A",
+                _ => "",
+            };
+            row((
+                kivact::view::icon(if folder { "folder" } else { "file-text" }).style(
+                    style().size(14, 14).color(if folder {
+                        ColorToken::Warning
+                    } else {
+                        ColorToken::TextMuted
+                    }),
+                ),
+                text(key).style(style().grow(1).font_size(12.5)),
+                g::mono(marker),
+            ))
+            .style(style().grow(1).gap(6).align_items(Align::Center))
+        });
     let title = signal("第 3 区画 定期点検".to_owned());
     let priority = signal(Some("medium".to_owned()));
     let notify = signal(true);
@@ -517,7 +583,7 @@ pub(super) fn layout() -> impl kivact::view::Component {
     let document_body = list((
         g::mono(move || document.get().trim_end_matches(".md").to_uppercase()).style(style().color(ColorToken::Accent)),
         text(document_title).test_id("game-document-title").style(style().font_size(18).weight(900)),
-        line((g::badge("RUNNING", kivact::interaction::Tone::Info), g::tag_badge("整備部", kivact::interaction::Tone::Neutral, g::BadgeVariant::Plain), g::mono("updated 09:38").style(style().color(ColorToken::TextMuted)))),
+        line((kivact::ui::badge("RUNNING").tone(kivact::interaction::Tone::Info), kivact::ui::badge("整備部").tone(kivact::interaction::Tone::Neutral) .variant(g::BadgeVariant::Plain), g::mono("updated 09:38").style(style().color(ColorToken::TextMuted)))),
         text("点検対象は配電盤 12 基、冷却ユニット 4 基。前回点検で指摘された 2 件の是正状況を確認し、結果を監査ログへ記録する。作業時間帯は 10:00–15:00 を予定。")
             .style(style().font_size(12.5).color(ColorToken::TextMuted).line_height(1.75)),
         node().style(style().padding_x(12).padding_y(10).background(rgb(0x0c1f36)).border_left(3, rgb(0x2ec4f0)))
@@ -571,10 +637,12 @@ pub(super) fn layout() -> impl kivact::view::Component {
             .style(style().padding(10).gap(8))
         }),
         kivact::ui::disclosure("詳細", signal(false)).content(|| {
-            g::property_list(vec![
-                ("TYPE".into(), "Markdown"),
-                ("STATUS".into(), "Saved"),
-            ])
+            kivact::ui::description_list(
+                (vec![("TYPE".into(), "Markdown"), ("STATUS".into(), "Saved")])
+                    .into_iter()
+                    .map(|(term, detail): (String, _)| kivact::ui::description(term, detail))
+                    .collect::<Vec<_>>(),
+            )
         }),
     ));
     g::hud(column((
@@ -593,13 +661,7 @@ pub(super) fn layout() -> impl kivact::view::Component {
                 .background(ColorToken::SurfaceAlt)
                 .border_bottom(1, ColorToken::Border),
         ),
-        super::window::frame(
-            document,
-            document_title,
-            g::tree(entries, selection),
-            document_body,
-            inspector,
-        ),
+        super::window::frame(document, document_title, files, document_body, inspector),
     )))
     .test_id("LAY-01")
 }

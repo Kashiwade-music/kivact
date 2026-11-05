@@ -8,7 +8,7 @@ pub(crate) fn page() -> Page {
     Page {
         slug: "message",
         name: "Message",
-        description: "チャットの発言を、アバターや見出しとともに表示する部品です。内容には bubble を渡します。",
+        description: "チャットの発言を、アバターや見出しとともに表示する部品です。author と content を指定し、Basic の BubbleVariant で色を選びます。",
         usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("message.rs"),
         align: PreviewAlign::Center,
@@ -22,13 +22,13 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "sent",
                 "Sent",
-                "align に End を渡すと右寄りになります。中の bubble にも End を渡します。",
+                "align に End を渡すと右寄りになります。発言全体の配置に反映されます。",
                 sent,
             ),
             Example::new(
                 "conversation",
                 "Conversation",
-                "message_group で発言を縦に並べます。",
+                "column で発言を縦に並べます。",
                 conversation,
             ),
         ],
@@ -37,33 +37,35 @@ pub(crate) fn page() -> Page {
 
 // example: received
 fn received() -> impl IntoView {
-    basic::message(
-        basic::bubble("Hi! Did you see the new design?").variant(basic::BubbleVariant::Secondary),
-    )
-    .avatar(basic::avatar("AB"))
-    .header(text("Ada"))
-    .footer(text("10:42"))
-    .style(style().width(420))
+    kivact::ui::chat_message("Ada")
+        .content("Hi! Did you see the new design?")
+        .variant(basic::BubbleVariant::Secondary)
+        .avatar(kivact::ui::avatar("AB").fallback_content(|| text("AB")))
+        .footer(text("10:42"))
+        .style(style().width(420))
 }
 // end example
 
 // example: sent
 fn sent() -> impl IntoView {
-    basic::message(basic::bubble("Yes, it looks great.").align(basic::BubbleAlign::End))
-        .align(basic::MessageAlign::End)
-        .header(text("You"))
+    kivact::ui::chat_message("You")
+        .content("Yes, it looks great.")
+        .align(kivact::ui::ChatAlign::End)
         .style(style().width(420))
 }
 // end example
 
 // example: conversation
 fn conversation() -> impl IntoView {
-    basic::message_group((
-        basic::message(basic::bubble("Lunch at noon?").variant(basic::BubbleVariant::Muted))
-            .avatar(basic::avatar("AB")),
-        basic::message(basic::bubble("Sounds good.").align(basic::BubbleAlign::End))
-            .align(basic::MessageAlign::End),
+    column((
+        kivact::ui::chat_message("")
+            .content("Lunch at noon?")
+            .variant(basic::BubbleVariant::Muted)
+            .avatar(kivact::ui::avatar("AB").fallback_content(|| text("AB"))),
+        kivact::ui::chat_message("")
+            .content("Sounds good.")
+            .align(kivact::ui::ChatAlign::End),
     ))
-    .style(style().width(420))
+    .style(style().min_width(0).gap(6).width(420))
 }
 // end example

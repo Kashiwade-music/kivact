@@ -235,10 +235,10 @@ pub fn catalog() -> impl IntoView {
     ));
     let sidebar = sidebar(rects, scroll_node, offset, current, mode);
     let topbar = (
-        g::breadcrumb(vec![
-            "Workspace".into(),
-            "Design System".into(),
-            "Components".into(),
+        kivact::ui::breadcrumb(vec![
+            kivact::interaction::ListItem::new("workspace", "Workspace"),
+            kivact::interaction::ListItem::new("design", "Design System"),
+            kivact::interaction::ListItem::new("components", "Components"),
         ]),
         spacer(),
         node()
@@ -263,36 +263,41 @@ pub fn catalog() -> impl IntoView {
                     .border(1, ColorToken::Border)
                     .color(ColorToken::TextMuted),
             ),
-        g::button_group((
-            kivact::ui::button("標準")
-                .variant(kivact_ui_game::Slant)
-                .test_id("game-density-comfortable")
-                .size(kivact::ui::ControlSize::Small)
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .with_node(|node| node.selected(move || density.get() == g::Density::Comfortable))
-                .style(
-                    style().selected(
-                        style()
-                            .background(ColorToken::Accent)
-                            .color(ColorToken::AccentText),
-                    ),
-                )
-                .on_press(move || density.set(g::Density::Comfortable)),
-            kivact::ui::button("高密度")
-                .variant(kivact_ui_game::Slant)
-                .test_id("game-density-compact")
-                .size(kivact::ui::ControlSize::Small)
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .with_node(|node| node.selected(move || density.get() == g::Density::Compact))
-                .style(
-                    style().selected(
-                        style()
-                            .background(ColorToken::Accent)
-                            .color(ColorToken::AccentText),
-                    ),
-                )
-                .on_press(move || density.set(g::Density::Compact)),
-        )),
+        kivact::ui::button_group(
+            "Console actions",
+            (
+                kivact::ui::button("標準")
+                    .variant(kivact_ui_game::Slant)
+                    .test_id("game-density-comfortable")
+                    .size(kivact::ui::ControlSize::Small)
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .with_node(|node| {
+                        node.selected(move || density.get() == g::Density::Comfortable)
+                    })
+                    .style(
+                        style().selected(
+                            style()
+                                .background(ColorToken::Accent)
+                                .color(ColorToken::AccentText),
+                        ),
+                    )
+                    .on_press(move || density.set(g::Density::Comfortable)),
+                kivact::ui::button("高密度")
+                    .variant(kivact_ui_game::Slant)
+                    .test_id("game-density-compact")
+                    .size(kivact::ui::ControlSize::Small)
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .with_node(|node| node.selected(move || density.get() == g::Density::Compact))
+                    .style(
+                        style().selected(
+                            style()
+                                .background(ColorToken::Accent)
+                                .color(ColorToken::AccentText),
+                        ),
+                    )
+                    .on_press(move || density.set(g::Density::Compact)),
+            ),
+        ),
         kivact::ui::tooltip("通知 (3件)")
             .placement(kivact::view::Placement::Below)
             .align(kivact::view::OverlayAlign::Center)
@@ -464,7 +469,38 @@ fn section_names() -> [(&'static str, &'static str, &'static str); 10] {
 fn section(i: usize, r: NodeRef, content: impl IntoView) -> Node {
     let (_, name, description) = section_names()[i];
     column((
-        g::section_heading(format!("{i:02}"), name.to_uppercase(), description),
+        row((
+            text(format!("{i:02}")).style(move || {
+                let t = kivact::style::use_theme().get();
+                style()
+                    .font_family(t.ext::<g::Tokens>().display_family.as_str())
+                    .font_size(34)
+                    .line_height(0.9)
+                    .weight(800)
+                    .italic(true)
+                    .color(ColorToken::Accent)
+            }),
+            kivact::ui::heading(name.to_uppercase(), 2).variant(g::HeadingVariant::Section),
+            text(description).style(style().font_size(12).color(ColorToken::TextMuted)),
+        ))
+        .style(
+            style()
+                .gap(14)
+                .align_items(Align::End)
+                .padding_bottom(10)
+                .border_bottom(2, ColorToken::Text),
+        )
+        .draw_over(|d, s| {
+            d.fill_path(
+                &kivact::draw::Path::new()
+                    .move_to(kivact::geometry::Point::new(s.width - 44., s.height - 4.))
+                    .line_to(kivact::geometry::Point::new(s.width, s.height - 4.))
+                    .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
+                    .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
+                    .close(),
+                d.theme().ext::<g::Tokens>().yellow,
+            )
+        }),
         content,
     ))
     .with_node(|node| node.node_ref(r))

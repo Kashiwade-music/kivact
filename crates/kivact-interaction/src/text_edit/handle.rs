@@ -272,6 +272,131 @@ impl TextEditApi {
             .update(|options| options.draft_session = Some(session));
         self
     }
+    fn native_options(self, line_layout: Value<EditLineLayout>) -> TextEditing {
+        let owned = self.data;
+        let value = owned.get().binding.into_value();
+        TextEditing::new(move || value.get())
+            .on_edit(move |phase| {
+                let data = owned.get();
+                if data.options.get().draft_commit.is_none()
+                    && let Some(observer) = data.options.get().draft_edit
+                {
+                    observer.call(phase);
+                }
+            })
+            .report_text()
+            .behavior(text_edit_policy)
+            .forward_keys(move || {
+                owned
+                    .get()
+                    .options
+                    .value()
+                    .get()
+                    .forward_keys
+                    .map_or_else(Vec::new, |keys| keys.get())
+            })
+            .line_layout(line_layout)
+            .purpose(move || {
+                owned
+                    .get()
+                    .options
+                    .value()
+                    .get()
+                    .purpose
+                    .map_or(kivact_types::InputPurpose::Text, |value| value.get())
+            })
+            .read_only(move || {
+                owned
+                    .get()
+                    .options
+                    .value()
+                    .get()
+                    .read_only
+                    .is_some_and(|value| value.get())
+            })
+            .max_length(move || {
+                owned
+                    .get()
+                    .options
+                    .value()
+                    .get()
+                    .max_length
+                    .map(|limit| limit.get())
+            })
+            .placeholder(move || {
+                owned
+                    .get()
+                    .options
+                    .value()
+                    .get()
+                    .placeholder
+                    .map_or_else(String::new, |value| value.get())
+            })
+    }
+
+    fn native_editing(
+        self,
+        node: NodeRef,
+        id: Generation,
+        input_draft: InputDraft,
+        line_layout: Value<EditLineLayout>,
+    ) -> TextEditing {
+        let owned = self.data;
+        let binding = owned.get().binding;
+        let value = binding.into_value();
+        self.native_options(line_layout)
+            .on_text_change(move |edit| {
+                let data = owned.get();
+                if !data.is_mounted(id) {
+                    return Ok(());
+                }
+                let composing = edit.composition().is_some();
+                if composing {
+                    data.control
+                        .send(machine::Event::Composition { id, composing });
+                    return Ok(());
+                }
+                let edited = edit.text.unwrap_or_default();
+                if let InputDraft::Drafting(installed) = &input_draft {
+                    (installed.edited)();
+                }
+                binding.set(edited.clone());
+                data.control.send(machine::Event::Composition {
+                    id,
+                    composing: false,
+                });
+                if let Some(value) = value.try_get()
+                    && value != edited
+                {
+                    node.set_edit_value(value);
+                }
+                Ok(())
+            })
+    }
+
+    fn install_draft(
+        self,
+        control: kivact_core::view::Node,
+    ) -> (kivact_core::view::Node, InputDraft) {
+        let data = self.data.get();
+        if let Some(commit) = data.options.get().draft_commit {
+            let (control, installed) = draft::install(
+                DraftOptions {
+                    commit,
+                    on_edit: data.options.get().draft_edit,
+                    return_focus: data.options.get().return_focus,
+                    ended: data.options.get().draft_end,
+                    session: data.options.get().draft_session,
+                },
+                data.binding,
+                control,
+            );
+            (control, InputDraft::Drafting(installed))
+        } else {
+            (control, InputDraft::Immediate)
+        }
+    }
+
     /// Create the focusable TextBox Part for this editor's native leaf.
     #[track_caller]
     pub fn control(self) -> Part<PartState> {
@@ -299,28 +424,10 @@ impl TextEditApi {
             if let Some(label) = data.options.get().label {
                 control = control.name(label);
             }
-            let (control, input_draft) = if let Some(commit) = data.options.get().draft_commit {
-                let (control, installed) = draft::install(
-                    DraftOptions {
-                        commit,
-                        on_edit: data.options.get().draft_edit,
-                        return_focus: data.options.get().return_focus,
-                        ended: data.options.get().draft_end,
-                        session: data.options.get().draft_session,
-                    },
-                    data.binding,
-                    control,
-                );
-                (control, InputDraft::Drafting(installed))
-            } else {
-                (control, InputDraft::Immediate)
-            };
+            let (control, input_draft) = self.install_draft(control);
             let draft_submit = input_draft.clone();
             let owned = self.data;
-            let (binding, lines) = {
-                let data = owned.get();
-                (data.binding, data.lines)
-            };
+            let lines = owned.get().lines;
             // Only the control mounted now writes; each control has its own id.
             let id = {
                 let data = owned.get();
@@ -329,91 +436,7 @@ impl TextEditApi {
                 data.next_control.set(next);
                 id
             };
-            let value = binding.into_value();
-            let editing = TextEditing::new(move || value.get())
-                .on_edit(move |phase| {
-                    let data = owned.get();
-                    if data.options.get().draft_commit.is_none()
-                        && let Some(observer) = data.options.get().draft_edit
-                    {
-                        observer.call(phase);
-                    }
-                })
-                .report_text()
-                .behavior(text_edit_policy)
-                .forward_keys(move || {
-                    owned
-                        .get()
-                        .options
-                        .value()
-                        .get()
-                        .forward_keys
-                        .map_or_else(Vec::new, |keys| keys.get())
-                })
-                .line_layout(line_layout)
-                .purpose(move || {
-                    owned
-                        .get()
-                        .options
-                        .value()
-                        .get()
-                        .purpose
-                        .map_or(kivact_types::InputPurpose::Text, |value| value.get())
-                })
-                .read_only(move || {
-                    owned
-                        .get()
-                        .options
-                        .value()
-                        .get()
-                        .read_only
-                        .is_some_and(|value| value.get())
-                })
-                .max_length(move || {
-                    owned
-                        .get()
-                        .options
-                        .value()
-                        .get()
-                        .max_length
-                        .map(|limit| limit.get())
-                })
-                .placeholder(move || {
-                    owned
-                        .get()
-                        .options
-                        .value()
-                        .get()
-                        .placeholder
-                        .map_or_else(String::new, |value| value.get())
-                })
-                .on_text_change(move |edit| {
-                    let data = owned.get();
-                    if !data.is_mounted(id) {
-                        return Ok(());
-                    }
-                    let composing = edit.composition().is_some();
-                    if composing {
-                        data.control
-                            .send(machine::Event::Composition { id, composing });
-                        return Ok(());
-                    }
-                    let edited = edit.text.unwrap_or_default();
-                    if let InputDraft::Drafting(installed) = &input_draft {
-                        (installed.edited)();
-                    }
-                    binding.set(edited.clone());
-                    data.control.send(machine::Event::Composition {
-                        id,
-                        composing: false,
-                    });
-                    if let Some(value) = value.try_get()
-                        && value != edited
-                    {
-                        node.set_edit_value(value);
-                    }
-                    Ok(())
-                });
+            let editing = self.native_editing(node, id, input_draft, line_layout);
             let editing = if lines == Lines::Multiple {
                 editing.multiline()
             } else {

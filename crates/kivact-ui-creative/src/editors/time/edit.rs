@@ -5,20 +5,29 @@ use kivact::geometry::Point;
 use kivact::state::Binding;
 pub(crate) fn restore(
     playhead: Binding<f64>,
-    zoom: Binding<f64>,
-    pan: Binding<Point>,
+    transform: Binding<kivact::interaction::ViewTransform>,
     snapshot: Snapshot,
 ) {
     match snapshot {
         Snapshot::Items(..) => {}
         Snapshot::Playhead(value) => playhead.set(value),
-        Snapshot::View(z, p) => {
-            zoom.set(z);
-            pan.set(p);
-        }
+        Snapshot::View(pose) => transform.set(pose),
     }
 }
 impl<T: TimeItem> State<T> {
+    pub(crate) fn set_scale(self, scale: f64) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            scale,
+            ..self.transform.get_untracked()
+        });
+    }
+    pub(crate) fn set_offset(self, offset: Point) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            offset,
+            ..self.transform.get_untracked()
+        });
+    }
+
     pub(crate) fn request(self, request: crate::editors::time::model::TimeRequest) {
         if let Some(callback) = self.on_edit {
             callback.call(crate::editors::shared::model::EditorEvent::Request(request));
@@ -66,7 +75,7 @@ impl<T: TimeItem> State<T> {
         )
     }
     pub(crate) fn view_snapshot(self) -> Snapshot {
-        Snapshot::View(self.scale.get_untracked(), self.offset.get_untracked())
+        Snapshot::View(self.transform.get_untracked())
     }
     /// Stop the drag without a callback, canceling its edit.
     pub(crate) fn cancel(self) {

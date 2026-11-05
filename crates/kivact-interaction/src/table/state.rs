@@ -106,53 +106,10 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
     };
     let rows = use_list(items, selection, policy);
     let selected = rows.selected();
-    let starting = memo(move || {
-        columns.with(|columns| {
-            columns
-                .iter()
-                .filter_map(|column| column.width.map(|width| (column.key.clone(), width)))
-                .collect::<HashMap<_, _>>()
-        })
-    });
-    let widths = signal(starting.get_untracked());
+    let widths = initial_widths(columns);
     let roving = Roving::<Target<K, C>>::new();
-    let requested = roving.requested;
     let registry = roving.clone();
-    let tab_stop = memo(move || {
-        keys.try_get()?;
-        registry.track();
-        let available = |cell: &Target<K, C>| {
-            registry.with_members(|cells| cells.get(cell).is_some_and(|entry| entry.available()))
-        };
-        if let Some(cell) = requested.get().filter(|cell| available(cell)) {
-            return Some(cell);
-        }
-        let first_in = |key: &K| {
-            columns.with(|columns| {
-                columns
-                    .iter()
-                    .map(|column| Target::Cell(key.clone(), column.key.clone()))
-                    .find(|cell| available(cell))
-            })
-        };
-        keys.with(|keys| {
-            selected
-                .with(|selected| {
-                    keys.iter()
-                        .filter(|key| selected.contains(key))
-                        .find_map(&first_in)
-                })
-                .or_else(|| keys.iter().find_map(first_in))
-                .or_else(|| {
-                    columns.with(|columns| {
-                        columns
-                            .iter()
-                            .map(|column| Target::Header(column.key.clone()))
-                            .find(|header| available(header))
-                    })
-                })
-        })
-    });
+    let tab_stop = tab_stop_value(keys, columns, selected, registry);
     let active = memo(move || {
         tab_stop.get().and_then(|target| match target {
             Target::Cell(key, column) => Some((key, column)),
@@ -294,4 +251,62 @@ impl<S: Clone + 'static, T> OptionValue<S, T> {
     pub(super) fn with<R>(self, f: impl FnOnce(&T) -> R) -> R {
         f(&self.get())
     }
+}
+
+fn tab_stop_value<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    keys: Value<Vec<K>>,
+    columns: Value<Vec<Header<C>>>,
+    selected: Value<Vec<K>>,
+    registry: Roving<Target<K, C>>,
+) -> Value<Option<Target<K, C>>> {
+    let requested = registry.requested;
+    memo(move || {
+        keys.try_get()?;
+        registry.track();
+        let available = |cell: &Target<K, C>| {
+            registry.with_members(|cells| cells.get(cell).is_some_and(|entry| entry.available()))
+        };
+        if let Some(cell) = requested.get().filter(|cell| available(cell)) {
+            return Some(cell);
+        }
+        let first_in = |key: &K| {
+            columns.with(|columns| {
+                columns
+                    .iter()
+                    .map(|column| Target::Cell(key.clone(), column.key.clone()))
+                    .find(|cell| available(cell))
+            })
+        };
+        keys.with(|keys| {
+            selected
+                .with(|selected| {
+                    keys.iter()
+                        .filter(|key| selected.contains(key))
+                        .find_map(&first_in)
+                })
+                .or_else(|| keys.iter().find_map(first_in))
+                .or_else(|| {
+                    columns.with(|columns| {
+                        columns
+                            .iter()
+                            .map(|column| Target::Header(column.key.clone()))
+                            .find(|header| available(header))
+                    })
+                })
+        })
+    })
+}
+
+fn initial_widths<C: kivact_core::state::ItemKey>(
+    columns: Value<Vec<Header<C>>>,
+) -> Signal<HashMap<C, f64>> {
+    let starting = memo(move || {
+        columns.with(|columns| {
+            columns
+                .iter()
+                .filter_map(|column| column.width.map(|width| (column.key.clone(), width)))
+                .collect::<HashMap<_, _>>()
+        })
+    });
+    signal(starting.get_untracked())
 }

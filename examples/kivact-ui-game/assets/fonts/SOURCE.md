@@ -4,4 +4,4 @@ Copied without byte changes from the original official catalog, retrieved 2026-1
 
 - https://github.com/google/fonts/tree/main/ofl/barlowcondensed
 - https://github.com/google/fonts/tree/main/ofl/jetbrainsmono
-- https://github.com/google/fonts/tree/main/ofl/notosansjp
+- Noto Sans JP is shared at [examples/shared-assets/fonts](../../../shared-assets/fonts/SOURCE.md), with its original font bytes and OFL notice.

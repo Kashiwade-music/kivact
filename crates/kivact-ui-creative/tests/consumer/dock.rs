@@ -4,7 +4,7 @@
 //! drags and container menus. The layout rules are in `dock_model`.
 
 use crate::dock_model::{Layout, container_of, editor_layout, weights};
-use crate::support::{clean, near};
+use crate::support::near;
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::*;
@@ -119,7 +119,7 @@ fn tabs_activate_by_click_arrow_keys_and_invoke_and_publish_roles() {
     text_tab.a11y(A11yAction::Activate);
     assert!(text_tab.is_selected());
     assert_eq!(probe.mounts.get(), 6);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn top_row(layout: &Layout) -> Vec<f64> {
@@ -227,7 +227,7 @@ fn splitters_set_value_step_reset_and_drag_between_two_neighbors() {
         "{column:?}"
     );
     assert_eq!(probe.mounts.get(), 6);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn tab_drags_split_right_and_bottom_and_keep_panels_mounted() {
     assert_eq!(container_of(&layout, "render"), ["render"]);
     assert!(panel(&screen, "Render Manager").y > panel(&screen, "Inspector 1").y);
     assert_eq!(probe.mounts.get(), 6, "moves retain every panel view");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn open(screen: &Screen, button: &str) {
@@ -352,5 +352,5 @@ fn close_buttons_and_commands_remove_closable_tabs_and_report_each() {
     open(&screen, "Project 1 panel menu");
     choose(&screen, &["Close Container"]);
     assert_eq!(probe.closed.get_untracked(), ["project", "text"]);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

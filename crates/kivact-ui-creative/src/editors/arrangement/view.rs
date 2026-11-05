@@ -151,8 +151,7 @@ impl IntoView for Arrangement {
                     playhead,
                     loop_range,
                     cycling,
-                    zoom,
-                    pan,
+                    transform,
                     tool: tool_binding,
                 },
             markers,
@@ -192,16 +191,15 @@ impl IntoView for Arrangement {
         let frame = playhead.into_value();
         let range = loop_range.into_value();
         let cycle = cycling.into_value();
-        let pixels = zoom.into_value();
-        let offset = pan.into_value();
+        let pixels = kivact::state::memo(move || transform.get().scale);
+        let offset = kivact::state::memo(move || transform.get().offset);
         let tool = tool_binding.into_value();
         let active_auto = signal(None::<(u64, u64)>);
         let restore = super::edit::Restore {
             playhead,
             loop_range,
             cycling,
-            zoom,
-            pan,
+            transform,
         };
         let reference = node_ref();
         let rect = reference.rect();
@@ -247,9 +245,8 @@ impl IntoView for Arrangement {
             range,
             cycle,
             cycling,
-            zoom,
+            transform,
             pixels,
-            pan,
             offset,
             tool_binding,
             tool,

@@ -47,7 +47,7 @@ pub(crate) fn item_label<K: Clone + 'static>(item: Value<ListItem<K>>) -> View {
         show(
             move || count.get().is_some(),
             move || {
-                crate::badge(move || count.get().unwrap_or_default())
+                kivact::ui::badge(move || count.get().unwrap_or_default())
                     .variant(crate::BadgeVariant::Count)
             },
         ),

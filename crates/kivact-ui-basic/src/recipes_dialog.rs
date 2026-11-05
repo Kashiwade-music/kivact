@@ -16,13 +16,6 @@ use kivact::style::{
 };
 use kivact::ui::{DialogRecipes, DialogState, Look};
 
-/// A popover drawn without its padding (`p-0`), for a panel whose content
-/// draws its own, such as the date picker's calendar.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Flush;
-
-impl kivact::ui::Variant for Flush {}
-
 /// The width class of an alert dialog; `Default` when it has none.
 fn alert_size(s: &Look<DialogState>) -> AlertDialogSize {
     s.variant::<AlertDialogSize>().copied().unwrap_or_default()
@@ -34,7 +27,8 @@ fn centered(s: &Look<DialogState>) -> bool {
 }
 
 pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
-    r.surface(|_| surface)
+    r.drag_handle(|_| drag_handle)
+        .surface(|_| surface)
         .title(|_| {
             |_: &Theme, s: &Look<DialogState>| {
                 let base = title_style();
@@ -63,6 +57,12 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
                 match s.kind {
                     // sheet.tsx has no body box: the content sits between
                     // the header's and the footer's `p-4`.
+                    DialogMode::Drawer(_)
+                        if s.variant::<crate::DrawerVariant>()
+                            == Some(&crate::DrawerVariant::Drawer) =>
+                    {
+                        base.padding_x(16).padding_top(16)
+                    }
                     DialogMode::Drawer(_) => base.padding_x(16),
                     _ => base.gap(8),
                 }
@@ -91,19 +91,32 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
     match s.kind {
         // popover.tsx: `w-72 p-2.5 gap-2.5 shadow-md`; `p-0` for a flush one.
         DialogMode::Popover => {
-            let pad = if s.variant::<Flush>().is_some() {
+            let pad = if s.variant::<crate::DatePickerVariant>().is_some() {
                 0
             } else {
                 10
             };
-            shadow_md(base)
-                .width(288)
-                .max_width(pct(100))
-                .padding(pad)
-                .gap(pad)
+            let base = if s.variant::<crate::DatePickerVariant>().is_some() {
+                base.width(auto())
+            } else {
+                base.width(288)
+            };
+            shadow_md(base).max_width(pct(100)).padding(pad).gap(pad)
         }
         // sheet.tsx: `shadow-lg` and the border of the inner edge, no ring.
-        DialogMode::Drawer(side) => sheet(shadow_lg(base.ring_none()), side, &p),
+        DialogMode::Drawer(side) => {
+            if s.variant::<crate::DrawerVariant>() == Some(&crate::DrawerVariant::Drawer) {
+                let base = sheet(base.ring_none(), side, &p).position(Position::Relative);
+                match side {
+                    Edge::Top => base.padding_bottom(12).max_height(pct(100) - 96),
+                    Edge::Bottom => base.padding_top(12).max_height(pct(100) - 96),
+                    Edge::Left => base.padding_right(12),
+                    Edge::Right => base.padding_left(12),
+                }
+            } else {
+                sheet(shadow_lg(base.ring_none()), side, &p)
+            }
+        }
         // alert-dialog.tsx: `max-w-sm` or `max-w-xs`.
         DialogMode::AlertModal => base
             .width(match alert_size(s) {
@@ -132,6 +145,11 @@ fn header(_: &Theme, s: &Look<DialogState>) -> Style {
     let column = style().direction(Direction::Column);
     match s.kind {
         // sheet.tsx: `flex flex-col gap-0.5 p-4`.
+        DialogMode::Drawer(_)
+            if s.variant::<crate::DrawerVariant>() == Some(&crate::DrawerVariant::Drawer) =>
+        {
+            column.gap(2).padding(16).padding_bottom(0)
+        }
         DialogMode::Drawer(_) => column.gap(2).padding(16),
         DialogMode::AlertModal if centered(s) => column.gap(6).align_items(Align::Center),
         // alert-dialog.tsx: the media spans the title and the description
@@ -170,6 +188,16 @@ fn media(t: &Theme, s: &Look<DialogState>) -> Style {
 fn footer(_: &Theme, s: &Look<DialogState>) -> Style {
     match s.kind {
         // sheet.tsx: `mt-auto flex flex-col gap-2 p-4`.
+        DialogMode::Drawer(_)
+            if s.variant::<crate::DrawerVariant>() == Some(&crate::DrawerVariant::Drawer) =>
+        {
+            style()
+                .direction(Direction::Column)
+                .margin_top(auto())
+                .gap(8)
+                .padding(16)
+                .padding_top(0)
+        }
         DialogMode::Drawer(_) => style()
             .direction(Direction::Column)
             .margin_top(auto())
@@ -183,5 +211,40 @@ fn footer(_: &Theme, s: &Look<DialogState>) -> Style {
             .direction(Direction::Row)
             .justify_content(Justify::End)
             .gap(8),
+    }
+}
+
+fn drag_handle(t: &Theme, s: &Look<DialogState>) -> Style {
+    if s.variant::<crate::DrawerVariant>() != Some(&crate::DrawerVariant::Drawer) {
+        return style().position(Position::Absolute).size(0, 0).opacity(0);
+    }
+    let DialogMode::Drawer(edge) = s.kind else {
+        return style();
+    };
+    let horizontal = matches!(edge, Edge::Left | Edge::Right);
+    let p = t.ext::<Tokens>();
+    let base = style()
+        .position(Position::Absolute)
+        .shrink(0)
+        .cursor(if s.input.pressed {
+            kivact::style::Cursor::Grabbing
+        } else {
+            kivact::style::Cursor::Grab
+        })
+        .paint(move |d, size| {
+            let (w, h) = if horizontal { (4.0, 48.0) } else { (48.0, 4.0) };
+            let (x, y) = match edge {
+                Edge::Bottom => ((size.width - w) / 2.0, size.height - h),
+                Edge::Top => ((size.width - w) / 2.0, 0.0),
+                Edge::Left => (0.0, (size.height - h) / 2.0),
+                Edge::Right => (size.width - w, (size.height - h) / 2.0),
+            };
+            d.fill_rect(kivact::geometry::Rect::new(x, y, w, h), p.muted);
+        });
+    match edge {
+        Edge::Bottom => base.top(0).left(0).right(0).height(12),
+        Edge::Top => base.bottom(0).left(0).right(0).height(12),
+        Edge::Left => base.right(0).top(0).bottom(0).width(12),
+        Edge::Right => base.left(0).top(0).bottom(0).width(12),
     }
 }

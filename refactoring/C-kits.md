@@ -200,3 +200,7 @@ soft の breakpoint の関数（`viewport_below`、`viewport_from`、`is_compact
 - **creative の feature `gpu-interop`:** 消す（設計書 17.3 節の DEP-4。`viewport` は中核へ移り、`gpu_frame` は facade の feature `gpu-interop` で出る）。
 - **pop と game の recipe:** 値だけが違う recipe を `UiTokens` の値にし、file を形の違う recipe だけにする（設計書 17.7・18.15 節、unit K-0）。
 - **catalog の page:** 中核へ上がった部品の page は、その kit の look（recipe）で中核の部品を見せる page に書き直す（page を消さない: kit の利用者の見本）。
+
+### W6 の domain 区分の補正
+
+Pop の conversation-preview `thread` はメッセージログの chat_thread と別の domain row として残す。Soft dictation は音声入力固有の domain control とし、composer drawer は Core disclosure と slot の合成へ移す。Creative KeyGlyph は keyframe glyph として残す。

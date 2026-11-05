@@ -174,6 +174,61 @@ impl ZoomPanApi {
         self.gesture.send(machine::Event::Stop(commit));
     }
 
+    fn viewport_key(self, event: &KeyEvent, rect: Option<Rect>) -> Handled {
+        let binding = self.transform;
+        let value = binding.into_value();
+        let edit = self.edit;
+        let gesturing = self.gesturing.get_untracked();
+        if self.space.key(event, true) {
+            return if gesturing {
+                Handled::Yes
+            } else {
+                Handled::PreventDefault
+            };
+        }
+        if event.key() == Key::Escape && gesturing {
+            self.stop(false);
+            return Handled::Yes;
+        }
+        if gesturing && matches!(event.key(), Key::Char('+' | '-' | '0')) {
+            return Handled::Yes;
+        }
+        let current = value.get();
+        let Some(rect) = rect else {
+            return Handled::No;
+        };
+        let anchor = Point::new(rect.width / 2.0, rect.height / 2.0);
+        let next = match event.key() {
+            Key::Char('+') => self.zoom(current, anchor, 1.2),
+            Key::Char('-') => self.zoom(current, anchor, 1.0 / 1.2),
+            Key::Char('0') => {
+                let Some(content) = self.settings.get().content else {
+                    return Handled::No;
+                };
+                let bounds = content.get();
+                let fit = ViewTransform::fit(
+                    Size::new(bounds.width, bounds.height),
+                    Size::new(rect.width, rect.height),
+                );
+                // The bounds may not start at the origin: its corner
+                // goes to the surface's.
+                let fit = ViewTransform {
+                    scale: fit.scale,
+                    offset: Point::new(
+                        fit.offset.x - bounds.x * fit.scale,
+                        fit.offset.y - bounds.y * fit.scale,
+                    ),
+                };
+                self.zoom(fit, anchor, 1.0)
+            }
+            _ => return Handled::No,
+        };
+        edit.once(current, || {
+            binding.set(next);
+        });
+        Handled::Yes
+    }
+
     /// A focusable surface using the existing native capture and focus paths.
     ///
     /// Wheel zooms around the pointer by `exp(-delta.y * 0.001)`; `+` and `-`
@@ -275,57 +330,7 @@ impl ZoomPanApi {
                     });
                     Handled::Yes
                 })
-                .on_key(move |event: KeyEvent| {
-                    let gesturing = self.gesturing.get_untracked();
-                    if self.space.key(&event, true) {
-                        return if gesturing {
-                            Handled::Yes
-                        } else {
-                            Handled::PreventDefault
-                        };
-                    }
-                    if event.key() == Key::Escape && gesturing {
-                        self.stop(false);
-                        return Handled::Yes;
-                    }
-                    if gesturing && matches!(event.key(), Key::Char('+' | '-' | '0')) {
-                        return Handled::Yes;
-                    }
-                    let current = value.get();
-                    let Some(rect) = rect.get() else {
-                        return Handled::No;
-                    };
-                    let anchor = Point::new(rect.width / 2.0, rect.height / 2.0);
-                    let next = match event.key() {
-                        Key::Char('+') => self.zoom(current, anchor, 1.2),
-                        Key::Char('-') => self.zoom(current, anchor, 1.0 / 1.2),
-                        Key::Char('0') => {
-                            let Some(content) = self.settings.get().content else {
-                                return Handled::No;
-                            };
-                            let bounds = content.get();
-                            let fit = ViewTransform::fit(
-                                Size::new(bounds.width, bounds.height),
-                                Size::new(rect.width, rect.height),
-                            );
-                            // The bounds may not start at the origin: its corner
-                            // goes to the surface's.
-                            let fit = ViewTransform {
-                                scale: fit.scale,
-                                offset: Point::new(
-                                    fit.offset.x - bounds.x * fit.scale,
-                                    fit.offset.y - bounds.y * fit.scale,
-                                ),
-                            };
-                            self.zoom(fit, anchor, 1.0)
-                        }
-                        _ => return Handled::No,
-                    };
-                    edit.once(current, || {
-                        binding.set(next);
-                    });
-                    Handled::Yes
-                })
+                .on_key(move |event: KeyEvent| self.viewport_key(&event, rect.get()))
                 .on_key_up(move |event: KeyEvent| {
                     if self.space.key(&event, false) {
                         if self.gesturing.get_untracked() {

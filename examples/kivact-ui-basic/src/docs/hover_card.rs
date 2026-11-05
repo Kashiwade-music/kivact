@@ -33,7 +33,7 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
-    basic::hover_card(|| {
+    kivact::ui::hover_card(|| {
         column((
             text("@nextjs").style(style().font_size(14).weight(600)),
             text("The React Framework – created and maintained by @vercel."),
@@ -51,7 +51,7 @@ fn default() -> impl IntoView {
 
 // example: delay
 fn delay() -> impl IntoView {
-    basic::hover_card(|| text("Opens after 100 ms and closes right away."))
+    kivact::ui::hover_card(|| text("Opens after 100 ms and closes right away."))
         .open_delay(Duration::from_millis(100))
         .close_delay(Duration::ZERO)
         .placement(Placement::End)

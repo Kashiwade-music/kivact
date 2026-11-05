@@ -186,7 +186,42 @@ impl Machine {
                 }
             }
         }
-        let next = if release.is_some() {
+        let next = self.position_state(
+            &contact,
+            anchor,
+            phase,
+            along,
+            release.is_some(),
+            &mut effects,
+        );
+        let mut step = Step::to(next);
+        for effect in effects {
+            step = step.with(effect);
+        }
+        if let Some((index, now, units, sign)) = release {
+            step = step.with(Effect::Release {
+                index,
+                now,
+                units,
+                sign,
+                speed_px: geometry.along(contact.velocity.pixels_per_ms(now)),
+            });
+        }
+        step
+    }
+    fn position_state(
+        &self,
+        contact: &Contact,
+        anchor: Option<f64>,
+        phase: PointerPhase,
+        along: f64,
+        releasing: bool,
+        effects: &mut Vec<Effect>,
+    ) -> State {
+        let geometry = self
+            .geometry
+            .expect("invariant: a positioned touch has geometry");
+        if releasing {
             State::Tracking {
                 contact: contact.clone(),
                 anchor: anchor.expect("invariant: a release has a tracking anchor"),
@@ -215,21 +250,7 @@ impl Machine {
             State::Pressed {
                 contact: contact.clone(),
             }
-        };
-        let mut step = Step::to(next);
-        for effect in effects {
-            step = step.with(effect);
         }
-        if let Some((index, now, units, sign)) = release {
-            step = step.with(Effect::Release {
-                index,
-                now,
-                units,
-                sign,
-                speed_px: geometry.along(contact.velocity.pixels_per_ms(now)),
-            });
-        }
-        step
     }
     fn frame(&self, state: &State, now: u64) -> Step<State, Event, Effect> {
         let State::Coasting { coast: run } = state else {

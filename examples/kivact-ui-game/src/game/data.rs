@@ -35,25 +35,45 @@ pub(super) fn display(scene: Demo) -> Node {
             "KPI タイル",
             cards(
                 (
-                    node().child(g::kpi("完了案件", 1284.).decimals(0).unit("").change("↗ 12.4%").tone(kivact::interaction::Tone::Info)
-                        .heading( kpi_heading("target", "完了案件"))
-                        .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
-                        .format(move |value| format_count(value, 0)))
+                    node().child({ let animated = kivact::motion::Animated::from(0.0, 1284., kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
+    let formatted = kivact::state::memo(move || (move |value| format_count(value, 0))(animated.get()));
+    let unit = kivact::state::IntoText::into_text_value("");
+    kivact::ui::stat("完了案件", move || format!("{}{}", formatted.get(), unit.get()))
+        .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Info)
+        .value_content(row((text(formatted), text(unit).style(style().font_size(16).color(ColorToken::TextMuted)))).style(style().gap(2).align_items(Align::Baseline)))
+.label_content(kpi_heading("target", "完了案件"))
+.delta("↗ 12.4%")
+.chart(g::sparkline(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])) })
                         .child(watermark("01")),
-                    node().child(g::kpi("稼働率", 99.97).decimals(2).unit("%").change("↗ 0.02pt").tone(kivact::interaction::Tone::Success)
-                        .heading( kpi_heading("activity", "稼働率"))
-                        .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
-                        .format(move |value| format_count(value, 2)))
+                    node().child({ let animated = kivact::motion::Animated::from(0.0, 99.97, kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
+    let formatted = kivact::state::memo(move || (move |value| format_count(value, 2))(animated.get()));
+    let unit = kivact::state::IntoText::into_text_value("%");
+    kivact::ui::stat("稼働率", move || format!("{}{}", formatted.get(), unit.get()))
+        .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Success)
+        .value_content(row((text(formatted), text(unit).style(style().font_size(16).color(ColorToken::TextMuted)))).style(style().gap(2).align_items(Align::Baseline)))
+.label_content(kpi_heading("activity", "稼働率"))
+.delta("↗ 0.02pt")
+.chart(g::sparkline(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])) })
                         .child(watermark("02")),
-                    node().child(g::kpi("平均処理時間", 4.2).decimals(1).unit("h").change("↘ +0.6h").tone(kivact::interaction::Tone::Warning)
-                        .heading( kpi_heading("clock", "平均処理時間"))
-                        .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
-                        .format(move |value| format_count(value, 1)))
+                    node().child({ let animated = kivact::motion::Animated::from(0.0, 4.2, kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
+    let formatted = kivact::state::memo(move || (move |value| format_count(value, 1))(animated.get()));
+    let unit = kivact::state::IntoText::into_text_value("h");
+    kivact::ui::stat("平均処理時間", move || format!("{}{}", formatted.get(), unit.get()))
+        .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Warning)
+        .value_content(row((text(formatted), text(unit).style(style().font_size(16).color(ColorToken::TextMuted)))).style(style().gap(2).align_items(Align::Baseline)))
+.label_content(kpi_heading("clock", "平均処理時間"))
+.delta("↘ +0.6h")
+.chart(g::sparkline(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])) })
                         .child(watermark("03")),
-                    node().child(g::kpi("未解決インシデント", 7.).decimals(0).unit("").change("↗ +2").tone(kivact::interaction::Tone::Danger)
-                        .heading( kpi_heading("alert-octagon", "未解決インシデント"))
-                        .trend(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])
-                        .format(move |value| format_count(value, 0)))
+                    node().child({ let animated = kivact::motion::Animated::from(0.0, 7., kivact::motion::Transition::tween(900, kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.)));
+    let formatted = kivact::state::memo(move || (move |value| format_count(value, 0))(animated.get()));
+    let unit = kivact::state::IntoText::into_text_value("");
+    kivact::ui::stat("未解決インシデント", move || format!("{}{}", formatted.get(), unit.get()))
+        .variant(g::StatVariant::Kpi).variant(kivact::interaction::Tone::Danger)
+        .value_content(row((text(formatted), text(unit).style(style().font_size(16).color(ColorToken::TextMuted)))).style(style().gap(2).align_items(Align::Baseline)))
+.label_content(kpi_heading("alert-octagon", "未解決インシデント"))
+.delta("↗ +2")
+.chart(g::sparkline(vec![0.24, 0.36, 0.3, 0.66, 0.56, 0.75, 0.58, 0.88])) })
                         .child(watermark("04")),
                 ),
                 220.,
@@ -65,18 +85,18 @@ pub(super) fn display(scene: Demo) -> Node {
                     "DSP-02",
                     "バッジ / ステータス",
                     line((
-                        g::badge("RUNNING", kivact::interaction::Tone::Info),
-                        g::badge("PASSED", kivact::interaction::Tone::Success),
-                        g::badge("PENDING", kivact::interaction::Tone::Warning),
-                        g::badge("FAILED", kivact::interaction::Tone::Danger),
-                        g::tag_badge("ARCHIVED", kivact::interaction::Tone::Neutral, g::BadgeVariant::Plain),
-                        g::tag_badge("V2.4.0", kivact::interaction::Tone::Info, g::BadgeVariant::Solid),
-                        g::tag_badge("BETA", kivact::interaction::Tone::Accent, g::BadgeVariant::Plain)
+                        kivact::ui::badge("RUNNING").tone(kivact::interaction::Tone::Info),
+                        kivact::ui::badge("PASSED").tone(kivact::interaction::Tone::Success),
+                        kivact::ui::badge("PENDING").tone(kivact::interaction::Tone::Warning),
+                        kivact::ui::badge("FAILED").tone(kivact::interaction::Tone::Danger),
+                        kivact::ui::badge("ARCHIVED").tone(kivact::interaction::Tone::Neutral) .variant(g::BadgeVariant::Plain),
+                        kivact::ui::badge("V2.4.0").tone(kivact::interaction::Tone::Info) .variant(g::BadgeVariant::Solid),
+                        kivact::ui::badge("BETA").tone(kivact::interaction::Tone::Accent) .variant(g::BadgeVariant::Plain)
                             .style(style().color(rgb(0x13233a))),
-                        g::tag_badge("PROD", kivact::interaction::Tone::Info, g::BadgeVariant::Outline),
+                        kivact::ui::badge("PROD").tone(kivact::interaction::Tone::Info) .variant(g::BadgeVariant::Outline),
                         row((
                             text("受信箱"),
-                            g::tag_badge("24", kivact::interaction::Tone::Danger, g::BadgeVariant::Solid)
+                            kivact::ui::badge("24").tone(kivact::interaction::Tone::Danger) .variant(g::BadgeVariant::Solid)
                                 .style(style().padding_x(5)),
                         ))
                         .style(style().gap(6)),
@@ -117,7 +137,11 @@ pub(super) fn display(scene: Demo) -> Node {
                     row((
                         list((
                             line((
-                                g::gauge("容量", 7_usize).total(10).tone(kivact::interaction::Tone::Info),
+                                { let total: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(10);
+    let value: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(7_usize);
+    kivact::ui::progress(move || Some(if total.get()==0 {0.0} else {value.get() as f64/total.get() as f64}))
+        .name("容量").variant(kivact::ui::ProgressVariant::Gauge)
+        .variant(g::GaugeSegments(total)).variant(kivact::interaction::Tone::Info) },
                                 text("7/10").style(
                                     style()
                                         .font_family("Barlow Condensed")
@@ -127,7 +151,11 @@ pub(super) fn display(scene: Demo) -> Node {
                                 ),
                             )),
                             line((
-                                g::gauge("容量不足", 2_usize).total(10).tone(kivact::interaction::Tone::Danger),
+                                { let total: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(10);
+    let value: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(2_usize);
+    kivact::ui::progress(move || Some(if total.get()==0 {0.0} else {value.get() as f64/total.get() as f64}))
+        .name("容量不足").variant(kivact::ui::ProgressVariant::Gauge)
+        .variant(g::GaugeSegments(total)).variant(kivact::interaction::Tone::Danger) },
                                 text("2/10").style(
                                     style()
                                         .font_family("Barlow Condensed")
@@ -138,7 +166,11 @@ pub(super) fn display(scene: Demo) -> Node {
                             )),
                             g::mono("CAPACITY UNITS").style(style().color(ColorToken::TextMuted)),
                         )),
-                        g::ring("SLA", 76., kivact::interaction::Tone::Info),
+                        { let value: kivact::state::Value<f64> = kivact::state::IntoValue::into_value(76.);
+    kivact::ui::progress(move || Some(value.get()/100.0)).name("SLA")
+        .variant(kivact::ui::ProgressVariant::Ring)
+        .variant(kivact::ui::ProgressMotion { determinate_ms:900, determinate_easing:kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.), ..Default::default() }).variant(kivact::interaction::Tone::Info)
+        .with_node(|node| node.child(g::mono("SLA").style(style().font_size(9).color(ColorToken::TextMuted)))) },
                     ))
                     .style(
                         style()
@@ -152,18 +184,19 @@ pub(super) fn display(scene: Demo) -> Node {
                     "アバター",
                     list((
                         line((
-                            g::avatar("KM").size(40.).color(rgb(0x1283f0)).online(Some(kivact::interaction::Tone::Success)),
-                            g::avatar("SA").size(32.).color(rgb(0x0c1f36)).online(Some(kivact::interaction::Tone::Warning)),
-                            g::avatar("TN").size(24.).color(rgb(0x12a06e)).online(Some(kivact::interaction::Tone::Neutral)),
-                            g::avatar_stack(vec![
-                                ("HI".into(), rgb(0x1283f0)),
-                                ("YU".into(), rgb(0xd98300)),
-                                ("RK".into(), rgb(0xe0364d)),
-                            ]),
-                            g::avatar_more(5).style(style().margin_left(-18)),
+                            kivact::ui::avatar("KM").fallback_content(|| text("KM")).variant(g::AvatarVariant { side: 40., color: rgb(0x1283f0) }).status(Some(kivact::interaction::Tone::Success)),
+                            kivact::ui::avatar("SA").fallback_content(|| text("SA")).variant(g::AvatarVariant { side: 32., color: rgb(0x0c1f36) }).status(Some(kivact::interaction::Tone::Warning)),
+                            kivact::ui::avatar("TN").fallback_content(|| text("TN")).variant(g::AvatarVariant { side: 24., color: rgb(0x12a06e) }).status(Some(kivact::interaction::Tone::Neutral)),
+                            kivact::ui::avatar_group(vec![
+                                ("HI", rgb(0x1283f0)), ("YU", rgb(0xd98300)), ("RK", rgb(0xe0364d)),
+                            ].into_iter().map(|(name,color)| {
+                                kivact::ui::avatar(name).fallback_content(move || text(name))
+                                    .variant(g::AvatarVariant { side:32., color })
+                                    .style(style().border(2,ColorToken::Surface))
+                            }).collect::<Vec<_>>()).total(8usize).max(3usize),
                         )),
                         row((
-                            g::avatar("MS").size(32.).color(rgb(0x0a62c2)).online(None),
+                            kivact::ui::avatar("MS").fallback_content(|| text("MS")).variant(g::AvatarVariant { side: 32., color: rgb(0x0a62c2) }).status(None),
                             column((
                                 text("真柴 ソウ").style(style().weight(700)),
                                 g::mono("ADMIN · 整備部")
@@ -186,7 +219,7 @@ pub(super) fn display(scene: Demo) -> Node {
                 specimen(
                     "DSP-07",
                     "プロパティリスト",
-                    g::property_list(vec![
+                    kivact::ui::description_list((vec![
                         (
                             "ID".into(),
                             row((
@@ -202,11 +235,11 @@ pub(super) fn display(scene: Demo) -> Node {
                         ),
                         (
                             "STATUS".into(),
-                            g::badge("ACTIVE", kivact::interaction::Tone::Success).into_view(),
+                            kivact::ui::badge("ACTIVE").tone(kivact::interaction::Tone::Success).into_view(),
                         ),
                         ("OWNER".into(), text("整備部 / 真柴").into_view()),
                         ("CREATED".into(), g::mono("2026-09-28 14:02").into_view()),
-                    ]),
+                    ]).into_iter().map(|(term, detail): (String, _)| kivact::ui::description(term, detail)).collect::<Vec<_>>()),
                 ),
                 specimen(
                     "DSP-08",
@@ -218,7 +251,7 @@ pub(super) fn display(scene: Demo) -> Node {
                             .size(kivact::ui::ControlSize::Small)
                             .variant(kivact::ui::ButtonVariant::Secondary)
                             .on_press(move || scene.drawer.set(true)),
-                    ).child(g::tag_badge("ON", kivact::interaction::Tone::Success, g::BadgeVariant::Plain)
+                    ).child(kivact::ui::badge("ON").tone(kivact::interaction::Tone::Success) .variant(g::BadgeVariant::Plain)
                         .style(style().position(Position::Absolute).right(16).top(16))),
                 ),
             ),
@@ -386,14 +419,14 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
     vec![
         kivact::ui::DataColumn::new("ID", |r: &Record| r.id.clone())
             .width(80.)
-            .cell(|r: &Record| g::TableCell::Identifier(r.id.clone()))
+            .cell(|r: &Record| g::GameCellVariant::Identifier(r.id.clone()))
             .compare(|a: &Record, b: &Record| a.id.cmp(&b.id))
             .filter(|r: &Record, q: &str| contains(&r.id, q)),
         kivact::ui::DataColumn::new("件名", |r: &Record| {
             format!("{} {}", r.title, r.description)
         })
         .width(220.)
-        .cell(|r: &Record| g::TableCell::Detail {
+        .cell(|r: &Record| g::GameCellVariant::Detail {
             title: r.title.clone(),
             description: r.description.clone(),
         })
@@ -401,7 +434,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
         .filter(|r: &Record, q: &str| contains(&r.title, q) || contains(&r.description, q)),
         kivact::ui::DataColumn::new("担当", |r: &Record| r.owner.clone())
             .width(124.)
-            .cell(|r: &Record| g::TableCell::User {
+            .cell(|r: &Record| g::GameCellVariant::User {
                 name: r.owner.clone(),
                 initials: r.owner.chars().take(1).collect(),
                 color: owner_color(&r.owner),
@@ -410,7 +443,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
             .filter(|r: &Record, q: &str| contains(&r.owner, q)),
         kivact::ui::DataColumn::new("状態", |r: &Record| r.status.clone())
             .width(118.)
-            .cell(|r: &Record| g::TableCell::Badge {
+            .cell(|r: &Record| g::GameCellVariant::Badge {
                 label: r.status.clone(),
                 tone: r.tone,
             })
@@ -418,7 +451,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
             .filter(|r: &Record, q: &str| contains(&r.status, q)),
         kivact::ui::DataColumn::new("優先度", |r: &Record| format!("P{}", r.priority))
             .width(70.)
-            .cell(|r: &Record| g::TableCell::Badge {
+            .cell(|r: &Record| g::GameCellVariant::Badge {
                 label: format!("P{}", r.priority),
                 tone: if r.priority == 3 {
                     kivact::interaction::Tone::Danger
@@ -429,7 +462,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
             .compare(|a: &Record, b: &Record| a.priority.cmp(&b.priority)),
         kivact::ui::DataColumn::new("進捗", |r: &Record| format!("{:.0}%", r.progress))
             .width(144.)
-            .cell(|r: &Record| g::TableCell::Progress {
+            .cell(|r: &Record| g::GameCellVariant::Progress {
                 value: r.progress,
                 tone: if r.tone == kivact::interaction::Tone::Danger {
                     kivact::interaction::Tone::Danger
@@ -477,13 +510,16 @@ pub(super) fn table(scene: Demo) -> impl kivact::view::Component {
                 .border_bottom(1, ColorToken::Border),
         ),
         row((
-            g::input_adorned(
-                kivact::view::icon("search").style(style().size(15, 15)),
-                kivact::ui::text_input("案件を検索", query)
+            kivact::ui::input_group(
+                "",
+                (kivact::ui::text_input("案件を検索", query)
                     .test_id("game-table-search")
-                    .placeholder("ID・件名・担当で絞り込み"),
-                (),
+                    .placeholder("ID・件名・担当で絞り込み")
+                    .style(style().width(pct(100)).padding_left(34).padding_right(52)),),
             )
+            .variant(g::GameInputGroupVariant::Adorned)
+            .start(kivact::view::icon("search").style(style().size(15, 15)))
+            .end(())
             .style(style().width(260)),
             segmented(
                 "Status",

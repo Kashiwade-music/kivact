@@ -1,30 +1,59 @@
 //! Role: Present persistent alerts and dismissible feedback banners.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use crate::component_values::AlertState;
-use kivact_core::custom::Owner;
+use kivact_core::custom::{NodeToken, Owner};
 use kivact_core::state::{
-    Binding, Callback, IntoBinding, IntoText, IntoValue, Value, effect, signal,
+    Binding, Callback, IntoBinding, IntoText, IntoValue, Machine, MachineHandle, Step, Value,
+    effect, machine, signal,
 };
 use kivact_core::view::{
-    IntoView, IntoViewFn, LiveRegion, Node, NodeBuilder, Role, View, ViewFn, node, node_ref, show,
-    text,
+    IntoView, IntoViewFn, LiveRegion, Node, NodeBuilder, NodeRef, Role, View, ViewFn, node,
+    node_ref, show, text,
 };
 use kivact_interaction::Tone;
 
-/// The structural presentation of an alert.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum AlertVariant {
-    #[default]
-    Default,
-    Banner,
-}
-impl Variant for AlertVariant {}
 #[derive(Clone, Copy, PartialEq)]
-enum BannerState {
-    Shown,
+enum LocalBannerState {
+    Shown { restore: Option<NodeToken> },
     Dismissed,
 }
+#[derive(Clone, Copy)]
+enum BannerState {
+    Local(LocalBannerState),
+    Shared {
+        visible: Binding<bool>,
+        restore: Option<NodeToken>,
+    },
+}
+impl PartialEq for BannerState {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Local(a), Self::Local(b)) => a == b,
+            (
+                Self::Shared {
+                    visible: a,
+                    restore: ar,
+                },
+                Self::Shared {
+                    visible: b,
+                    restore: br,
+                },
+            ) => a.into_value() == b.into_value() && ar == br,
+            _ => false,
+        }
+    }
+}
+impl BannerState {
+    fn visible(self) -> bool {
+        match self {
+            Self::Local(LocalBannerState::Shown { .. }) => true,
+            Self::Local(LocalBannerState::Dismissed) => false,
+            Self::Shared { visible, .. } => visible.get(),
+        }
+    }
+}
+use crate::component_values::AlertState;
+
 // xtask-allow(state-fields): Independent builder slots and inputs; persistent dismissal uses BannerState.
 /// An urgent, persistent message with optional actions and details.
 pub struct Alert {
@@ -39,14 +68,20 @@ pub struct Alert {
     tone: Value<Tone>,
     dismissible: Value<bool>,
     dismiss_label: Value<String>,
+    dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
+    visible: Option<Binding<bool>>,
     variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
 pub fn alert(title: impl IntoText) -> Alert {
+    let title = title.into_text_value();
     Alert {
-        root: node(),
-        title: title.into_text_value(),
+        root: node()
+            .role(Role::Alert)
+            .live_region(LiveRegion::Assertive)
+            .name(title),
+        title,
         description: None,
         icon: None,
         actions: None,
@@ -56,7 +91,9 @@ pub fn alert(title: impl IntoText) -> Alert {
         tone: Tone::Neutral.into_value(),
         dismissible: false.into_value(),
         dismiss_label: "Dismiss notification".into_text_value(),
+        dismiss_content: None,
         dismiss: None,
+        visible: None,
         variants: Variants::default(),
     }
 }
@@ -106,10 +143,21 @@ impl Alert {
         self.dismiss_label = label.into_text_value();
         self
     }
+    /// Replace the visible dismiss contents, preserving the accessible dismiss label.
+    pub fn dismiss_content(mut self, content: impl IntoView) -> Self {
+        self.dismiss_content = Some(content.into_view());
+        self
+    }
     /// Show a dismiss control and report dismissal after restoring focus.
     pub fn on_dismiss(mut self, f: impl Into<Callback<()>>) -> Self {
         self.dismissible = true.into_value();
         self.dismiss = Some(f.into());
+        self
+    }
+    /// Use application-owned visibility. A refused false write keeps the alert visible;
+    /// completed dismissal and focus restoration happen only after acceptance.
+    pub fn visible(mut self, visible: impl IntoBinding<bool>) -> Self {
+        self.visible = Some(visible.into_binding());
         self
     }
     /// Set a structural or theme-defined appearance.
@@ -124,18 +172,9 @@ impl NodeBuilder for Alert {
     }
 }
 impl IntoView for Alert {
-    fn into_view(self) -> View {
-        let phase = signal(BannerState::Shown);
+    fn into_view(mut self) -> View {
         let reference = node_ref();
-        let within = reference.focus_within();
-        let owner = Owner::current();
-        let previous = signal(None);
-        effect(move || {
-            let focused = owner.focused_node();
-            if phase.get() == BannerState::Shown && !within.get() && focused.is_some() {
-                previous.set(focused);
-            }
-        });
+        let phase = banner_dismissal(reference, self.dismiss.take(), self.visible);
         let tone = self.tone;
         let dismissible = self.dismissible;
         let collapsible = self.collapsible;
@@ -152,8 +191,30 @@ impl IntoView for Alert {
             has_actions,
             has_description,
         };
+        let contents = self.render_contents(state, collapsible, open, phase);
+        with_base_recipe_style(
+            self.root,
+            |r| r.alert_recipes().root_recipe(),
+            &self.variants,
+            state,
+        )
+        .node_ref(reference)
+        .hidden(move || !phase.state().get().visible())
+        .child(contents)
+        .into_view()
+    }
+}
+
+impl Alert {
+    fn render_contents(
+        &mut self,
+        state: impl Fn() -> AlertState + Copy + 'static,
+        collapsible: Value<bool>,
+        open: Binding<bool>,
+        phase: MachineHandle<BannerMachine>,
+    ) -> View {
         let variants = &self.variants;
-        let icon = self.icon.map(|view| {
+        let icon = self.icon.take().map(|view| {
             with_recipe_style(
                 node().child(view),
                 |r| r.alert_recipes().icon_recipe(),
@@ -162,12 +223,12 @@ impl IntoView for Alert {
             )
         });
         let title = with_recipe_style(
-            text(self.title),
+            node().child(text(self.title)),
             |r| r.alert_recipes().title_recipe(),
             variants,
             state,
         );
-        let description = self.description.map(|value| {
+        let description = self.description.take().map(|value| {
             with_recipe_style(
                 text(value),
                 |r| r.alert_recipes().description_recipe(),
@@ -175,7 +236,7 @@ impl IntoView for Alert {
                 state,
             )
         });
-        let actions = self.actions.map(|view| {
+        let actions = self.actions.take().map(|view| {
             with_recipe_style(
                 node().child(view),
                 |r| r.alert_recipes().actions_recipe(),
@@ -183,34 +244,8 @@ impl IntoView for Alert {
                 state,
             )
         });
-        let callback = self.dismiss;
-        let dismiss = super::button(self.dismiss_label)
-            .on_press(move || {
-                if phase.get_untracked() == BannerState::Dismissed {
-                    return;
-                }
-                phase.set(BannerState::Dismissed);
-                if let Some(previous) = previous.get_untracked() {
-                    previous.restore_focus();
-                }
-                if let Some(callback) = callback {
-                    callback.call(());
-                }
-            })
-            .hidden(move || !dismissible.get());
-        let toggle = has_details.then(|| {
-            super::button(move || {
-                if open.get() {
-                    "Collapse details"
-                } else {
-                    "Expand details"
-                }
-            })
-            .with_node(move |node| node.expanded(move || open.get()))
-            .hidden(move || !collapsible.get())
-            .on_press(move || open.set(!open.get()))
-        });
-        let content = self.content.map(|content| {
+        let toggle = expansion_toggle(self.content.is_some(), open, collapsible, variants, state);
+        let content = self.content.take().map(|content| {
             let variants = self.variants.clone();
             show(
                 move || !collapsible.get() || open.get(),
@@ -224,18 +259,149 @@ impl IntoView for Alert {
                 },
             )
         });
-        with_base_recipe_style(
-            self.root,
-            |r| r.alert_recipes().root_recipe(),
+        let dismissible = self.dismissible;
+        let dismiss_content = self.dismiss_content.take();
+        let dismiss = with_recipe_style(
+            super::button(self.dismiss_label)
+                .hide_label(dismiss_content.is_some())
+                .child(dismiss_content)
+                .on_press(move || phase.send(BannerEvent::Dismiss))
+                .hidden(move || !dismissible.get()),
+            |r| r.alert_recipes().dismiss_recipe(),
+            variants,
+            state,
+        );
+        (icon, title, description, actions, toggle, content, dismiss).into_view()
+    }
+}
+fn expansion_toggle(
+    has_details: bool,
+    open: Binding<bool>,
+    collapsible: Value<bool>,
+    variants: &Variants,
+    state: impl Fn() -> AlertState + Copy + 'static,
+) -> Option<impl IntoView> {
+    has_details.then(|| {
+        let control = super::button(move || {
+            if open.get() {
+                "Collapse details"
+            } else {
+                "Expand details"
+            }
+        })
+        .with_node(move |node| node.expanded(move || open.get()))
+        .hidden(move || !collapsible.get())
+        .on_press(move || open.set(!open.get()));
+        with_recipe_style(
+            control,
+            |r| r.alert_recipes().toggle_recipe(),
             variants,
             state,
         )
-        .role(Role::Alert)
-        .name(self.title)
-        .live_region(LiveRegion::Assertive)
-        .node_ref(reference)
-        .hidden(move || phase.get() == BannerState::Dismissed)
-        .child((icon, title, description, actions, toggle, content, dismiss))
-        .into_view()
+    })
+}
+
+enum BannerEvent {
+    ExternalFocus {
+        focused: Option<NodeToken>,
+        within: bool,
+    },
+    Dismiss,
+}
+enum BannerEffect {
+    RestoreFocus(NodeToken),
+    NotifyDismiss,
+    RequestDismiss {
+        visible: Binding<bool>,
+        restore: Option<NodeToken>,
+    },
+}
+struct BannerMachine;
+impl Machine for BannerMachine {
+    type State = BannerState;
+    type Event = BannerEvent;
+    type Effect = BannerEffect;
+    fn transition(
+        &self,
+        state: &BannerState,
+        event: BannerEvent,
+    ) -> Step<BannerState, BannerEvent, BannerEffect> {
+        match (*state, event) {
+            (
+                state,
+                BannerEvent::ExternalFocus {
+                    focused: Some(target),
+                    within: false,
+                },
+            ) if state.visible() => Step::to(match state {
+                BannerState::Local(_) => BannerState::Local(LocalBannerState::Shown {
+                    restore: Some(target),
+                }),
+                BannerState::Shared { visible, .. } => BannerState::Shared {
+                    visible,
+                    restore: Some(target),
+                },
+            }),
+            (BannerState::Local(LocalBannerState::Shown { restore }), BannerEvent::Dismiss) => {
+                let step = Step::to(BannerState::Local(LocalBannerState::Dismissed));
+                let step = if let Some(target) = restore {
+                    step.with(BannerEffect::RestoreFocus(target))
+                } else {
+                    step
+                };
+                step.with(BannerEffect::NotifyDismiss)
+            }
+            (BannerState::Shared { visible, restore }, BannerEvent::Dismiss) if visible.get() => {
+                Step::stay().with(BannerEffect::RequestDismiss { visible, restore })
+            }
+            _ => Step::stay(),
+        }
     }
+}
+fn banner_dismissal(
+    reference: NodeRef,
+    callback: Option<Callback<()>>,
+    visible: Option<Binding<bool>>,
+) -> MachineHandle<BannerMachine> {
+    let phase = machine(
+        visible.map_or(
+            BannerState::Local(LocalBannerState::Shown { restore: None }),
+            |visible| BannerState::Shared {
+                visible,
+                restore: None,
+            },
+        ),
+        || BannerMachine,
+        move |_, command| match command {
+            BannerEffect::RestoreFocus(target) => target.restore_focus(),
+            BannerEffect::RequestDismiss { visible, restore } => {
+                visible.set(false);
+                if !visible.get_untracked() {
+                    if let Some(target) = restore {
+                        target.restore_focus();
+                    }
+                    if let Some(callback) = callback {
+                        callback.call(());
+                    }
+                }
+            }
+            BannerEffect::NotifyDismiss => {
+                if let Some(callback) = callback {
+                    callback.call(());
+                }
+            }
+        },
+    );
+    let owner = Owner::current();
+    let within = reference.focus_within();
+    effect(move || {
+        if let Some(visible) = visible {
+            visible.get();
+        }
+        phase.send(BannerEvent::ExternalFocus {
+            focused: owner.focused_node(),
+            within: within.get(),
+        });
+    });
+    phase
 }

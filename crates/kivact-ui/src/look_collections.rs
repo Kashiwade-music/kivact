@@ -1,8 +1,8 @@
 //! Role: Default recipes for the list and the data table.
-use super::DataTableGroupState;
 use super::values::{
     DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState,
 };
+use crate::data_table::group_state::DataTableGroupState;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, LineJoin, Stroke};
 use kivact_core::geometry::Point;

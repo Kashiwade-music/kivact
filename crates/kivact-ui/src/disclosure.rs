@@ -213,13 +213,13 @@ impl IntoView for Disclosure {
             node().child(icon("chevron-down")),
             |recipes| recipes.disclosure_recipes().indicator_recipe(),
             &variants,
-            move || crate::DisclosureRecipeState::from_part(state.get(), group),
+            move || crate::disclosure_values::DisclosureRecipeState::from_part(state.get(), group),
         );
         let trigger = with_recipe_style(
             node().part(part).name(title),
             |recipes| recipes.disclosure_recipes().trigger_recipe(),
             &variants,
-            move || crate::DisclosureRecipeState::from_part(state.get(), group),
+            move || crate::disclosure_values::DisclosureRecipeState::from_part(state.get(), group),
         )
         .child((
             text(title).style(super::helpers::label_style().grow(1)),
@@ -243,7 +243,7 @@ impl IntoView for Disclosure {
             self.root,
             |recipes| recipes.disclosure_recipes().root_recipe(),
             &variants,
-            move || crate::DisclosureRecipeState::from_part(state.get(), group),
+            move || crate::disclosure_values::DisclosureRecipeState::from_part(state.get(), group),
         )
         .child(trigger)
         .child(body)
@@ -267,7 +267,9 @@ fn content_region(
         node().part(part),
         |recipes| recipes.disclosure_recipes().content_recipe(),
         variants,
-        move || crate::DisclosureRecipeState::from_part(content_state.get(), group),
+        move || {
+            crate::disclosure_values::DisclosureRecipeState::from_part(content_state.get(), group)
+        },
     );
     let duration = motion.duration;
     let default_animate = motion.animate;

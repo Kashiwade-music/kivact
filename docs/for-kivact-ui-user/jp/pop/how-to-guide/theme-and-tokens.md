@@ -129,7 +129,7 @@ fn highlight(content: impl IntoView) -> Node {
 
 ## フォントと文字組み
 
-フォントはアプリが持ちます。同梱するファイルを `App::font` で登録し、テーマの文字設定でファミリー名を指定します。キットのカタログは、本文に Inter、日本語に Noto Sans JP を使っています。Pop の 3 つのコンポーネント（`BadgeVariant::Slant` のバッジ、アバター、番号付きの `section_heading`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` にフォールバックします。
+フォントはアプリが持ちます。同梱するファイルを `App::font` で登録し、テーマの文字設定でファミリー名を指定します。キットのカタログは、本文に Inter、日本語に Noto Sans JP を使っています。Pop の 3 つのコンポーネント（`BadgeVariant::Slant` のバッジ、アバター、番号付きの `SectionNumber`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` にフォールバックします。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -158,10 +158,29 @@ fn application(inter: &'static [u8], noto: &'static [u8]) -> App {
 
 ## キットの文言を差し替える
 
-コンポーネントが自分で描く文言（カレンダーの月ボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。キーは `pop.` で始まり、たとえば `pop.date.open` や `pop.date.error.format` です。例は [日付と期間を選ばせる](dates-and-calendars.md) にあります。
+コンポーネントが自分で描く文言（カレンダーの月ボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。標準コンポーネントは中核のキーを使い、たとえば `date.open` や `date.error.format` です。例は [日付と期間を選ばせる](dates-and-calendars.md) にあります。
 
 ## 関連
 
 - [日付と期間を選ばせる](dates-and-calendars.md)
 - [テーブルで行を表示する](tables.md)
 - すべてのトークンとコンポーネント: `cargo doc -p kivact-ui-pop --open`
+
+Pop テーマでは標準のドロップ先を使います。ファイル選択と複数ファイルを明示的に有効にし、装飾アイコンを一度だけ構築するスロットに渡します。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn upload() -> impl IntoView {
+    kivact::ui::dropzone("Upload")
+        .multiple()
+        .pick_on_press()
+        .icon(icon("cloud-upload").style(style().size(24, 24)))
+        .hint("PNG, PDF")
+        .on_files(|files| {
+            for file in files {
+                println!("{}", file.path.display());
+            }
+        })
+}
+```

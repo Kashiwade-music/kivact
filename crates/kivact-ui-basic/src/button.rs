@@ -131,7 +131,7 @@ pub(crate) fn trigger_style(
             }
         }
     };
-    let s = if look == Look::Destructive {
+    if look == Look::Destructive {
         let ring = p.destructive.with_alpha(if dark { 0.4 } else { 0.2 });
         s.focus_visible(
             style()
@@ -140,6 +140,5 @@ pub(crate) fn trigger_style(
         )
     } else {
         with_focus(s, p)
-    };
-    crate::button_group::joined(s)
+    }
 }

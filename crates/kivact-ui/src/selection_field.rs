@@ -76,23 +76,7 @@ impl IntoView for SelectionField {
             .root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
-        let gesture = machine(
-            crate::select::machine::SheetGesture::Idle,
-            move || crate::select::machine::Machine {
-                readiness: if !disabled.get() && !open.get() {
-                    crate::select::machine::Readiness::Ready
-                } else {
-                    crate::select::machine::Readiness::Unavailable
-                },
-                bounds: bounds.get(),
-                slop: kivact_core::style::use_theme()
-                    .get()
-                    .ext::<kivact_interaction::InteractionPolicy>()
-                    .select
-                    .sheet_slop,
-            },
-            |_, effect| match effect {},
-        );
+        let gesture = sheet_gesture(bounds, disabled, open);
         let presentation = self.presentation;
         let part = kivact_core::custom::part(|input| input);
         let input = part.state();
@@ -111,18 +95,7 @@ impl IntoView for SelectionField {
         .node_ref(target)
         .expanded(open)
         .child(text(self.value_label).style(style().grow(1).single_line()))
-        .child(
-            with_recipe_style(
-                node(),
-                |r| r.select_recipes().indicator_recipe(),
-                &self.variants,
-                move || PopupState {
-                    input: Default::default(),
-                    open: open.get(),
-                },
-            )
-            .child(icon("chevron-down")),
-        )
+        .child(indicator(open, &self.variants))
         .on_pointer(move |event| {
             gesture.send(crate::select::machine::Event::Pointer(event));
             Handled::No
@@ -131,27 +104,7 @@ impl IntoView for SelectionField {
             gesture.send(crate::select::machine::Event::Reset);
             Handled::No
         });
-        let popup_open = binding(
-            move || open.get() && surface.get() == Surface::Popup,
-            move |shown| {
-                if shown {
-                    let sheet = presentation.get().uses_sheet()
-                        && matches!(
-                            gesture.get(),
-                            crate::select::machine::SheetGesture::Released(
-                                crate::select::machine::Outcome::Tap
-                            )
-                        );
-                    surface.set(if sheet {
-                        Surface::Sheet
-                    } else {
-                        Surface::Popup
-                    });
-                    gesture.send(crate::select::machine::Event::Reset);
-                }
-                open.set(shown);
-            },
-        );
+        let popup_open = popup_binding(open, surface, presentation, gesture);
         let content = self.content;
         let popup_body = content.clone();
         let variants = self.variants;
@@ -180,4 +133,74 @@ impl IntoView for SelectionField {
             .content(move || content.call(()));
         (popup, sheet).into_view()
     }
+}
+
+/// Recognize touch taps from current chooser availability and measured bounds.
+fn sheet_gesture(
+    bounds: Value<Option<kivact_core::geometry::Rect>>,
+    disabled: Value<bool>,
+    open: Binding<bool>,
+) -> kivact_core::state::MachineHandle<crate::select::machine::Machine> {
+    machine(
+        crate::select::machine::SheetGesture::Idle,
+        move || crate::select::machine::Machine {
+            readiness: if !disabled.get() && !open.get() {
+                crate::select::machine::Readiness::Ready
+            } else {
+                crate::select::machine::Readiness::Unavailable
+            },
+            bounds: bounds.get(),
+            slop: kivact_core::style::use_theme()
+                .get()
+                .ext::<kivact_interaction::InteractionPolicy>()
+                .select
+                .sheet_slop,
+        },
+        |_, effect| match effect {},
+    )
+}
+
+/// Draw the chooser indicator using the shared popup recipe state.
+fn indicator(open: Binding<bool>, variants: &Variants) -> View {
+    with_recipe_style(
+        node(),
+        |r| r.select_recipes().indicator_recipe(),
+        variants,
+        move || PopupState {
+            input: Default::default(),
+            open: open.get(),
+        },
+    )
+    .child(icon("chevron-down"))
+    .into_view()
+}
+
+/// Choose the requested surface using the canonical sheet-tap outcome.
+fn popup_binding(
+    open: Binding<bool>,
+    surface: kivact_core::state::Signal<Surface>,
+    presentation: Value<crate::SelectPresentation>,
+    gesture: kivact_core::state::MachineHandle<crate::select::machine::Machine>,
+) -> Binding<bool> {
+    binding(
+        move || open.get() && surface.get() == Surface::Popup,
+        move |shown| {
+            if shown {
+                let sheet = presentation.get().uses_sheet()
+                    && matches!(
+                        gesture.get(),
+                        crate::select::machine::SheetGesture::Released(
+                            crate::select::machine::Outcome::Tap
+                        )
+                    );
+                surface.set(if sheet {
+                    Surface::Sheet
+                } else {
+                    Surface::Popup
+                });
+                gesture.send(crate::select::machine::Event::Reset);
+            }
+            open.set(shown);
+        },
+    )
 }

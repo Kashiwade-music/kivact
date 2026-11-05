@@ -1,7 +1,6 @@
 //! Role: Time field and its wheel dialog.
 use super::machine::{Event, Snapshot, TimeDraft, TimeInputState};
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
 use crate::{DatePresentation, button, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, TimeStyle, message, use_locale};
@@ -10,6 +9,7 @@ use kivact_core::view::{IntoView, Node, NodeBuilder, View, node, row};
 /// A wall-clock time field with hours and minutes, optionally seconds.
 pub struct TimeInput {
     root: Node,
+    variants: crate::variants::Variants,
     label: Value<String>,
     value: Binding<Option<TimeOfDay>>,
     seconds: Value<bool>,
@@ -21,6 +21,7 @@ pub struct TimeInput {
 pub fn time_input(label: impl IntoText, value: impl IntoBinding<Option<TimeOfDay>>) -> TimeInput {
     TimeInput {
         root: node(),
+        variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         value: value.into_binding(),
         seconds: false.into_value(),
@@ -30,6 +31,15 @@ pub fn time_input(label: impl IntoText, value: impl IntoBinding<Option<TimeOfDay
     }
 }
 impl TimeInput {
+    /// Add a visual variant shared by the field and its picker surface.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+    pub(crate) fn with_variants(self, variants: &crate::variants::Variants) -> Self {
+        self.variants.merge(variants);
+        self
+    }
     /// Format the wall-clock time, read reactively.
     pub fn format(mut self, format: impl IntoValue<TimeStyle>) -> Self {
         let format = format.into_value();
@@ -61,6 +71,7 @@ impl IntoView for TimeInput {
     fn into_view(self) -> View {
         let Self {
             root,
+            variants,
             label,
             value,
             seconds,
@@ -118,13 +129,14 @@ impl IntoView for TimeInput {
             row((
                 field,
                 dialog(label, open)
+                    .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
                     .content(move || crate::date_wheel::time_panel(picked, seconds))
                     .attach(toggle),
             )),
             |r| r.time_input_recipes().root_recipe(),
-            &Variants::default(),
+            &variants,
             PartState::default,
         ))
         .into_view()

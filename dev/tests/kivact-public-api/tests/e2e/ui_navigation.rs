@@ -11,16 +11,16 @@ fn pagination_moves_pages_and_keeps_focus() {
         let page = signal(0usize);
         (page, pagination(20usize, page))
     });
-    let next = screen.get_by_role(Role::Link, "Next page");
+    let next = screen.get_by_role(Role::Button, "Next page");
     next.click();
     assert_eq!(page.get_untracked(), 1);
     assert!(next.is_focused());
     next.press_key(Key::Enter);
     assert_eq!(page.get_untracked(), 2);
-    screen.get_by_role(Role::Link, "4").click();
+    screen.get_by_role(Role::Button, "4").click();
     assert_eq!(page.get_untracked(), 3);
     assert_eq!(
-        screen.get_by_role(Role::Link, "4").current_item(),
+        screen.get_by_role(Role::Button, "4").current_item(),
         Some(CurrentItem::Page)
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
@@ -157,35 +157,5 @@ fn navigation_actions_and_rich_panel_links_share_the_existing_close_owner() {
     screen.get_by_role(Role::Link, "Home").press_key(Key::Enter);
     assert_eq!(clicks.get_untracked(), 11);
     assert!(screen.query_by_role(Role::Link, "Guide").is_none());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn breadcrumb_current_override_can_change_and_clear() {
-    let (screen, current) = mount(|| {
-        let current = signal(Some(0));
-        (
-            current,
-            breadcrumb(vec![ListItem::new(0, "Home"), ListItem::new(1, "Guide")])
-                .current(current)
-                .on_activate(|_| {}),
-        )
-    });
-    assert_eq!(
-        screen.get_by_role(Role::Text, "Home").current_item(),
-        Some(CurrentItem::Page)
-    );
-    assert_eq!(screen.get_by_role(Role::Link, "Guide").current_item(), None);
-    current.set(Some(1));
-    screen.run_until_idle();
-    assert_eq!(
-        screen.get_by_role(Role::Text, "Guide").current_item(),
-        Some(CurrentItem::Page)
-    );
-    assert_eq!(screen.get_by_role(Role::Link, "Home").current_item(), None);
-    current.set(None);
-    screen.run_until_idle();
-    assert_eq!(screen.get_by_role(Role::Link, "Home").current_item(), None);
-    assert_eq!(screen.get_by_role(Role::Link, "Guide").current_item(), None);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

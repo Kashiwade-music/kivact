@@ -1,3 +1,5 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
+
 //! Role: Hard-edged, information-dense operation-console components.
 //!
 //! The complete public API is built from the public `kivact` facade.
@@ -10,7 +12,7 @@
 //! The standard controls of `kivact::ui` (button, checkbox, switch, text
 //! input, select, menu, dialog, tooltip, tabs, radio group, slider,
 //! splitter and toast region) draw in the console's look under [`theme`];
-//! [`Segmented`], [`ChoiceCard`], [`Navigation`] and [`Boxed`] are the
+//! `RadioGroupVariant::Segmented`, [`ChoiceCard`], [`Navigation`] and [`Boxed`] are the
 //! kit's other looks of the radio group and the tabs, given with
 //! `.variant(..)`. The kit adds what the standard controls do not have.
 //!
@@ -24,38 +26,46 @@ mod choice;
 mod choice_style;
 mod color;
 mod display;
-mod feedback;
 mod icons;
-mod input;
-mod layout;
-mod navigation;
 mod overlays;
 mod recipes;
+mod recipes_avatar;
+mod recipes_badge;
 mod recipes_collections;
+mod recipes_extra;
+mod recipes_feedback;
 mod recipes_field;
+mod recipes_files;
+mod recipes_groups;
+mod recipes_indicators;
 mod recipes_input;
+mod recipes_items;
+mod recipes_metrics;
+mod recipes_navigation;
 mod recipes_palette;
+mod recipes_progress;
 mod recipes_small;
+mod sparkline;
 mod surface;
 mod table;
 mod theme;
 mod tokens;
 
-pub use button::{button_group, chevron, tool_button, toolbar};
-pub use choice::{Boxed, ChoiceCard, Navigation, Segmented, card_label, navigation_label};
+pub use button::{chevron, tool_button};
+pub use choice::{Boxed, ChoiceCard, Navigation, card_label, navigation_label};
 pub use color::ColorName;
-pub use display::{
-    ActivityEntry, Avatar, BadgeVariant, Gauge, Kpi, activity, avatar, avatar_more, avatar_stack,
-    badge, gauge, kpi, property_list, ring, tag_badge,
-};
-pub use feedback::{Alert, Banner, EmptyState, Skeleton, alert, banner, empty_state, skeleton};
-pub use input::{Dropzone, dropzone, input_adorned, input_group, input_group_content};
-pub use layout::{TreeEntry, tree};
-pub use navigation::{breadcrumb, pagination, stepper};
+pub use display::{ActivityEntry, activity};
 pub use overlays::{IconMenu, icon_menu};
 pub use recipes::{ButtonTone, Slant};
+pub use recipes_avatar::AvatarVariant;
+pub use recipes_badge::BadgeVariant;
+pub use recipes_groups::GameInputGroupVariant;
+pub use recipes_indicators::SkeletonVariant;
+pub use recipes_metrics::{HeadingVariant, StatVariant};
+pub use recipes_progress::GaugeSegments;
 pub use recipes_small::Striped;
-pub use surface::{cut_corner, halo, hud, mono, section_heading};
-pub use table::TableCell;
+pub use sparkline::sparkline;
+pub use surface::{cut_corner, halo, hud, mono};
+pub use table::GameCellVariant;
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use tokens::{Density, Tokens};

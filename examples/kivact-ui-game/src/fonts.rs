@@ -8,6 +8,6 @@ pub fn fonts() -> &'static [&'static [u8]] {
         include_bytes!("../assets/fonts/barlowcondensed/BarlowCondensed-BoldItalic.ttf"),
         include_bytes!("../assets/fonts/barlowcondensed/BarlowCondensed-ExtraBoldItalic.ttf"),
         include_bytes!("../assets/fonts/jetbrainsmono/JetBrainsMono[wght].ttf"),
-        include_bytes!("../assets/fonts/notosansjp/NotoSansJP[wght].ttf"),
+        include_bytes!("../../shared-assets/fonts/notosansjp/NotoSansJP[wght].ttf"),
     ]
 }

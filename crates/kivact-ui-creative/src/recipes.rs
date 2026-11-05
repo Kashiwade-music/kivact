@@ -27,7 +27,7 @@ pub(crate) fn recipes() -> UiRecipes {
 }
 
 fn build() -> UiRecipes {
-    UiRecipes::default()
+    let recipes = UiRecipes::default()
         .button(|_| button)
         .button_content(|_| {
             |_: &Theme, _: &Look<ButtonState>| {
@@ -122,14 +122,28 @@ fn build() -> UiRecipes {
                 .tab(|_| |t: &Theme, _: &Look<TabState>| crate::layout::tab_option_style(t, false))
                 .panel(|_| |_: &Theme, _: &Look<TabState>| style())
         })
+        .toggle_group(|group| {
+            group.item(|_| {
+                |t: &Theme, s: &Look<kivact::ui::ToggleGroupItemState>| {
+                    toggle_button(t, &Look::new(s.toggle.clone()))
+                }
+            })
+        })
         .radio_group(crate::recipes_controls::radio_group)
         .slider(crate::recipes_controls::slider)
         .toast(crate::recipes_controls::toast)
         .splitter(crate::recipes_controls::splitter)
+        .alert(crate::recipes_feedback::alert)
+        .empty_state(crate::recipes_feedback::empty_state)
+        .card(crate::recipes_feedback::card)
+        .input_group(crate::recipes_feedback::input_group)
+        .table(crate::recipes_collections::table)
+        .item_list(crate::recipes_collections::item_list)
         .list(crate::recipes_collections::list)
         .data_table(crate::recipes_collections::data_table)
         .progress(crate::recipes_controls::progress)
-        .disclosure(crate::recipes_controls::disclosure)
+        .disclosure(crate::recipes_controls::disclosure);
+    crate::recipes_metrics::install(crate::recipes_indicators::install(recipes))
 }
 fn select_trigger(t: &Theme, s: &Look<SelectTriggerState>) -> Style {
     // The heights of the buttons of the same size.

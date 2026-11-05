@@ -103,6 +103,7 @@ pub(super) fn default_control_size() -> ControlSize {
         .map_or_else(ControlSize::default, |size| size.get().0)
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// What a button's recipes know of it: its root, its content row, its
 /// icon boxes and its busy indicator get the same state.
 #[derive(Clone, Debug, PartialEq)]
@@ -152,6 +153,7 @@ impl ButtonState {
     }
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The state of a [`toggle_button`](super::toggle) for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ToggleButtonState {
@@ -232,6 +234,7 @@ pub struct FieldState {
     pub invalid: bool,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The visual position of a switch thumb during an opt-in gesture.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SwitchDragState {
@@ -245,6 +248,7 @@ pub struct SwitchDragState {
     pub released: bool,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The state of a check box, a switch or a radio item for its recipe.
 #[derive(Clone, Copy, Debug)]
 pub struct CheckableState {
@@ -277,6 +281,7 @@ impl PartialEq for CheckableState {
     }
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DialogState {
     pub input: PartState,
@@ -301,6 +306,7 @@ pub struct TooltipArrowState {
     pub offset: f64,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The state of a select's trigger for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SelectTriggerState {
@@ -347,6 +353,7 @@ pub struct ToastGroupState {
     pub above: usize,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The state of a main row of a [`data_table`](super::data_table) for its
 /// recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -395,3 +402,16 @@ pub struct DataTablePageState {
 }
 
 kivact_core::state::constant_value!(ControlSize);
+
+/// Standard progress appearances, read through the existing variant contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProgressVariant {
+    /// A horizontal bar (the default).
+    #[default]
+    Bar,
+    /// A circular track with visible percentage text.
+    Ring,
+    /// A segmented horizontal gauge.
+    Gauge,
+}
+impl Variant for ProgressVariant {}

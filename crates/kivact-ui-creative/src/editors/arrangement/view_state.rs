@@ -1,6 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::arrangement::model::TimelineTool;
-use kivact::geometry::Point;
+use kivact::interaction::ViewTransform;
 use kivact::state::IntoBinding;
 use kivact::state::{Binding, signal};
 /// The view state of an [`arrangement`](crate::editors::arrangement).
@@ -14,10 +14,9 @@ pub struct ArrangementState {
     pub loop_range: Binding<(f64, f64)>,
     /// Whether the loop is on.
     pub cycling: Binding<bool>,
-    /// Logical pixels per beat, inside the arrangement's zoom range.
-    pub zoom: Binding<f64>,
-    /// The scroll offset in logical pixels.
-    pub pan: Binding<Point>,
+    /// The shared view pose. Scale is horizontal pixels per logical time unit;
+    /// offset is scrolling in logical pixels. Lane heights remain unscaled.
+    pub transform: Binding<ViewTransform>,
     /// The editing tool.
     pub tool: Binding<TimelineTool>,
 }
@@ -32,8 +31,11 @@ impl ArrangementState {
             playhead: signal(0.0).into_binding(),
             loop_range: signal((0.0, 16.0)).into_binding(),
             cycling: signal(true).into_binding(),
-            zoom: signal(26.0).into_binding(),
-            pan: signal(Point::new(0.0, 0.0)).into_binding(),
+            transform: signal(ViewTransform {
+                scale: 26.0,
+                ..ViewTransform::default()
+            })
+            .into_binding(),
             tool: signal(TimelineTool::Select).into_binding(),
         }
     }

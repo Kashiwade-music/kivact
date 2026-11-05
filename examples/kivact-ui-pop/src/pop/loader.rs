@@ -21,7 +21,7 @@ pub(super) fn halo_loader() -> Node {
     );
     node()
         .role(Role::Status)
-        .name(message("pop.loader.label", "Loading"))
+        .name(message("spinner.loading", "Loading"))
         .style(style().size(48, 48))
         .draw(move |draw, _| {
             let p = draw.theme().ext::<Tokens>();

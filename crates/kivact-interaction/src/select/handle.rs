@@ -512,10 +512,51 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         self.content_in(true)
     }
 
+    fn focus_initial_option(self) {
+        let Self {
+            session,
+            options,
+            list,
+            selected,
+            ..
+        } = self;
+        let edge = session.state().with_untracked(|state| match state {
+            machine::State::Open {
+                opened_by: machine::OpenedBy::Key(key),
+                ..
+            } => Some(*key),
+            _ => None,
+        });
+        if let Some(edge) = edge {
+            let key = options.with(|options| {
+                let mut enabled = options.iter().filter(|option| !option.disabled);
+                let option = if edge == Key::ArrowUp {
+                    enabled.next_back()
+                } else {
+                    enabled.next()
+                };
+                option.map(|option| option.key.clone())
+            });
+            if let Some(key) = key {
+                list.focus(key);
+            }
+            return;
+        }
+        if selected.get().is_some_and(|key| list.focus(key)) {
+            return;
+        }
+        if let Some(key) = options.with(|options| {
+            options
+                .iter()
+                .find(|option| !option.disabled)
+                .map(|option| option.key.clone())
+        }) {
+            list.focus(key);
+        }
+    }
+
     fn content_in(self, sheet: bool) -> Part<PopupState> {
         let SelectApi {
-            selected,
-            options,
             preview,
             popup,
             list,
@@ -584,39 +625,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         if keep_trigger_focus.get() && !anchor_focused.get() {
                             anchor.restore_focus();
                         }
-                        let edge = session.state().with_untracked(|state| match state {
-                            machine::State::Open {
-                                opened_by: machine::OpenedBy::Key(key),
-                                ..
-                            } => Some(*key),
-                            _ => None,
-                        });
-                        if let Some(edge) = edge {
-                            let key = options.with(|options| {
-                                let mut enabled = options.iter().filter(|option| !option.disabled);
-                                let option = if edge == Key::ArrowUp {
-                                    enabled.next_back()
-                                } else {
-                                    enabled.next()
-                                };
-                                option.map(|option| option.key.clone())
-                            });
-                            if let Some(key) = key {
-                                list.focus(key);
-                            }
-                            return;
-                        }
-                        if selected.get().is_some_and(|key| list.focus(key)) {
-                            return;
-                        }
-                        if let Some(key) = options.with(|options| {
-                            options
-                                .iter()
-                                .find(|option| !option.disabled)
-                                .map(|option| option.key.clone())
-                        }) {
-                            list.focus(key);
-                        }
+                        self.focus_initial_option();
                     });
                 });
             if keep_trigger_focus.get() {
@@ -782,6 +791,7 @@ fn track_preview<K: kivact_core::state::ItemKey>(
     effect(move || {
         let key = hovered.get().or_else(|| active.get());
         untrack(|| {
+            // xtask-allow(effect-writes): S-9 Sent cache suppresses duplicate preview notifications; it does not own selection or focus.
             if reported.update(|last| last.update(key.clone()).is_some()) {
                 preview.call(key);
             }

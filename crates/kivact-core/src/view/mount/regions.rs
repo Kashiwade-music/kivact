@@ -121,24 +121,7 @@ impl Registry {
             let retained: HashSet<_> = wanted.iter().map(|entry| entry.generation).collect();
             for entry in old {
                 if !retained.contains(&entry.generation) {
-                    let next = self
-                        .state
-                        .borrow()
-                        .groups
-                        .iter()
-                        .flatten()
-                        .find(|candidate| {
-                            candidate.id == entry.id && candidate.generation != entry.generation
-                        })
-                        .map(|candidate| RegionEntry::Shadowed {
-                            by: RegionKey(candidate.generation),
-                        })
-                        .unwrap_or(RegionEntry::Pending);
-                    let previous = std::mem::replace(&mut *entry.state.borrow_mut(), next);
-                    if let RegionEntry::Adopted(adopted) = previous {
-                        self.cancel(adopted.target.id);
-                        adopted.owner.dispose();
-                    }
+                    self.retire_entry(&entry);
                 }
             }
             // Removed item state must outlive cancellation and adopted ref cleanup.
@@ -169,6 +152,25 @@ impl Registry {
             }
             self.revision.notify();
         })
+    }
+
+    fn retire_entry(&self, entry: &Entry) {
+        let next = self
+            .state
+            .borrow()
+            .groups
+            .iter()
+            .flatten()
+            .find(|candidate| candidate.id == entry.id && candidate.generation != entry.generation)
+            .map(|candidate| RegionEntry::Shadowed {
+                by: RegionKey(candidate.generation),
+            })
+            .unwrap_or(RegionEntry::Pending);
+        let previous = std::mem::replace(&mut *entry.state.borrow_mut(), next);
+        if let RegionEntry::Adopted(adopted) = previous {
+            self.cancel(adopted.target.id);
+            adopted.owner.dispose();
+        }
     }
 
     fn adopt(self: &Rc<Self>, rt: &Rc<Runtime>, entry: &Entry) -> Rc<Adopted> {

@@ -189,12 +189,7 @@ impl IntoView for Splitter {
             handle,
         } = self;
         let vertical = orientation == Orientation::Vertical;
-        let axis = if vertical {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
-        let mut behavior = use_splitter(size, range, axis).on_edit(move |phase| {
+        let mut behavior = use_splitter(size, range, orientation).on_edit(move |phase| {
             if let Some(on_edit) = on_edit {
                 on_edit.call(phase);
             }
@@ -218,11 +213,6 @@ impl IntoView for Splitter {
         }
         let part = behavior.handle();
         let input = part.state();
-        let orientation = if vertical {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
         let primary = node_ref();
         let handle = with_recipe_style(
             node().part(part).name(name).controls(primary).child(handle),

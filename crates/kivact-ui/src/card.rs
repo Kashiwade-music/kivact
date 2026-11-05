@@ -1,12 +1,13 @@
 //! Role: Compose plain, pressable, or selectable card surfaces.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use crate::component_values::CardState;
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value};
 use kivact_core::view::{
     Handled, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, View, node, node_ref,
 };
 use kivact_interaction::{use_button, use_checkbox};
+
+use crate::component_values::CardState;
 
 // xtask-allow(state-fields): Setup-only independent slots and behavior inputs; selection belongs to the caller binding.
 /// A surface containing optional header, media, content and footer regions.
@@ -91,12 +92,16 @@ impl IntoView for Card {
             _ => None,
         };
         let interactive = !matches!(self.action, CardAction::Plain);
+        let has_media = self.media.is_some();
+        let has_footer = self.footer.is_some();
         let (root, input) = card_target(self.root, self.action, disabled);
         let state = move || CardState {
             selected: selected.map(|selected| selected.get()),
             input: input.map(|input| input.get()),
             disabled: disabled.get(),
             interactive,
+            has_media,
+            has_footer,
         };
         let variants = &self.variants;
         let header = self.header.map(|view| {
@@ -115,12 +120,14 @@ impl IntoView for Card {
                 state,
             )
         });
-        let content = with_recipe_style(
-            node().child(self.content),
-            |r| r.card_recipes().content_recipe(),
-            variants,
-            state,
-        );
+        let content = (!kivact_core::custom::view_is_empty(&self.content)).then(|| {
+            with_recipe_style(
+                node().child(self.content),
+                |r| r.card_recipes().content_recipe(),
+                variants,
+                state,
+            )
+        });
         let footer = self.footer.map(|view| {
             with_recipe_style(
                 node().child(view),
@@ -142,7 +149,7 @@ impl IntoView for Card {
         );
         with_base_recipe_style(root, |r| r.card_recipes().root_recipe(), variants, state)
             .style(kivact_core::style::style().position(kivact_core::style::Position::Relative))
-            .child((header, media, content, footer, overlay))
+            .child((media, header, content, footer, overlay))
             .into_view()
     }
 }

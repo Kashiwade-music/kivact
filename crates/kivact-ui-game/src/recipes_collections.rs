@@ -4,11 +4,9 @@
 //! 160 px columns that share the width beyond that, a cyan-tinted row on
 //! hover and an accent edge on a selected row. Drawn by `kivact::ui::list`
 //! and `kivact::ui::data_table`.
-
 use crate::tokens::Tokens;
 use kivact::style::{ColorToken, Theme, style};
 use kivact::ui::{DataTableRecipes, ListRecipes};
-
 pub(crate) fn list(r: ListRecipes) -> ListRecipes {
     r.item(|prev| {
         move |t: &Theme, s: &_| {
@@ -26,7 +24,6 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
         }
     })
 }
-
 pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     r.frame(|prev| move |t: &Theme, s: &_| prev(t, s).radius(0).background(ColorToken::Surface))
         .header(|prev| {

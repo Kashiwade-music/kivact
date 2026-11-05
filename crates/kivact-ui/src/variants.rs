@@ -137,6 +137,25 @@ impl Variants {
         *ext = std::mem::take(&mut *ext).with(value);
     }
 
+    /// Inherit missing presentation types while retaining explicit caller values.
+    pub(super) fn with_defaults(&self, defaults: &Self) -> Self {
+        let merged = Self::default();
+        merged.merge(defaults);
+        merged.merge(self);
+        merged
+    }
+
+    /// Merge presentation values, replacing only values of the same type.
+    pub(super) fn merge(&self, other: &Self) {
+        let incoming = other.0.borrow().clone();
+        let mut current = self.0.borrow_mut();
+        let entries = Rc::make_mut(&mut current.0);
+        for entry in incoming.0.iter() {
+            entries.retain(|existing| (*existing.value).type_id() != (*entry.value).type_id());
+            entries.push(entry.clone());
+        }
+    }
+
     /// An independent recipe look for one presentation of this component.
     pub(super) fn with<T: Variant>(&self, value: T) -> Self {
         Self(Rc::new(RefCell::new(self.0.borrow().clone().with(value))))

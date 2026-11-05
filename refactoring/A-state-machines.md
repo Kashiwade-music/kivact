@@ -1003,7 +1003,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 ### SM-K22 soft の banner の focus の復元
 - **場所**: `kivact-ui-soft/src/banner.rs:137-155`（`dismissed` と、`Owner::current`・`focused_node` で手で持つ前の focus）
-- **解消後**: core の `restore_focus`（`FocusReturn`）を使い、`enum BannerState { Shown, Dismissed }`
+- **解消後**: core の `restore_focus`（`FocusReturn`）を使い、`enum BannerState { Shown { restore: Option<NodeToken> }, Dismissed }`
 - **unit**: K-6b（banner は `ui::alert` の variant になる）
 
 ### SM-K23 soft の empty state の読み上げ
@@ -1316,3 +1316,27 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 - **場所**: kivact-style/src/path/trim.rs の Contour.closed/closing_edge。
 - **解消後**: `enum ContourEnd { Open, Closed, ClosingEdge }`。Closed は既に起点に戻る閉路、ClosingEdge は最後の segment が暗黙の閉じ辺。emit と trim は enum から派生させ、不可能な open+closing-edge を作らない。
+
+### SM-K924 alert の focus 復帰先
+
+- **場所**: kivact-ui/src/alert.rs の phase と previous Signal、effect の previous.set。
+- **解消後**: `BannerState::{Shown { restore: Option<NodeToken> }, Dismissed}` を Machine が所有。外部 focus と focus_within は event feed、Dismiss は復帰先と通知を一度だけ effect に出す。直前の外部 target を別 signal や cache に複製しない。
+
+### SM-K925 typed range の未確定候補
+
+- **場所**: kivact-ui/src/date_range_input.rs の endpoint validation 集約と即時 DateRange::new 正規化。
+- **解消後**: 単一 `RangeDraft::{Following, Editing { start: Option<CalendarDate>, end: Option<CalendarDate> }}` が候補を所有し、validation は候補から決定する。caller の DateRange は順序が正しい完全な候補だけを書き、invalid order は localized diagnostic として残す。外部 binding の変更で Following へ戻り、別の parsed date signal を複製しない。
+
+### SM-K926 empty state の変化通知
+
+- **場所**: Soft empty-state announcement から Core へ移す初期・可視・変更・祖先 live-region の observer。
+- **解消後**: `.announce()` は既存 Pending/Spoken の一度だけ、`.announce_changes()` は初期表示を抑え、実際の title/description、presence、ancestor live-region を input とする単一 observer。最後に観測・通知した message は名前付き Sent history で重複を抑え、hidden で再 arm する。祖先 live-region が有効なら二重通知を出さず Off への変更後に通知を許す。別 current-message signal や flag の束を持たない。
+
+### SM-K924 controlled visibility の補完
+
+- Alert.visible(Binding<bool>) がある場合は実 binding だけを可視性の authority とする。Local Shown/Dismissed と controlled source は排他的な型で選ぶ。controlled 側は source への参照と復帰先 history だけを持ち、visible bool を別 signal/state に写さない。拒否された setter は非表示・復帰・完了通知を起こさず、on_dismiss は受理後の完了通知。request callback は caller binding setter へ写す。
+
+### SM-K927 date sheet の月年 panel
+
+- **場所**: Core date input の BottomSheet 内 Calendar / MonthYear 切り替え。
+- **解消後**: `DateSheetPanel::{Calendar, MonthYear}` を actual sheet content owner の Machine が持つ。閉じた picker に独立した無意味な phase を残さない。date-time の Date/Time は既存 Open panel payload を使い、Save date で Time、Save time で閉じる。range の一つ目は anchor/preview を stage し、二つ目だけを caller binding に確定、Cancel は binding を書かない。

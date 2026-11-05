@@ -9,7 +9,7 @@ use kivact::interaction::Tone;
 /// The console's cell looks, for a [`DataColumn::cell`](kivact::ui::DataColumn::cell)
 /// to return.
 #[derive(Clone, Debug, PartialEq)]
-pub enum TableCell {
+pub enum GameCellVariant {
     Identifier(String),
     Detail {
         title: String,
@@ -30,7 +30,7 @@ pub enum TableCell {
     },
 }
 
-impl IntoView for TableCell {
+impl IntoView for GameCellVariant {
     fn into_view(self) -> View {
         match self {
             Self::Identifier(v) => crate::mono(v)
@@ -47,12 +47,14 @@ impl IntoView for TableCell {
                 initials,
                 color,
             } => row((
-                crate::avatar(initials).size(24.).color(color),
+                kivact::ui::avatar(initials.clone())
+                    .fallback_content(move || text(initials.clone()))
+                    .variant(crate::AvatarVariant { side: 24., color }),
                 text(name).style(style().font_size(12.5)),
             ))
             .style(style().gap(10).align_items(Align::Center))
             .into_view(),
-            Self::Badge { label, tone } => crate::badge(label, tone).into_view(),
+            Self::Badge { label, tone } => kivact::ui::badge(label).tone(tone).into_view(),
             Self::Progress { value, tone } => row((
                 kivact::ui::progress(Some(value / 100.0))
                     .name(message("game.table.progress", "Progress"))

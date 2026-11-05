@@ -27,6 +27,7 @@ use std::rc::Rc;
 // xtask-allow(state-fields): Setup builder options are independent bindings, callbacks and display capabilities.
 pub struct Calendar {
     root: Node,
+    variants: crate::variants::Variants,
     selection: CalendarSelection,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     month: Option<CalendarMonth>,
@@ -69,13 +70,15 @@ pub struct Calendar {
 }
 
 fn new(selection: CalendarSelection) -> Calendar {
+    let variants = crate::variants::Variants::default();
     Calendar {
         root: crate::layer::with_base_recipe_style(
             node().with_node(|root| root.role(Role::Group)),
             |r| r.calendar_recipes().root_recipe(),
-            &crate::variants::Variants::default(),
+            &variants,
             kivact_core::custom::PartState::default,
         ),
+        variants,
         selection,
         month: None,
         disabled: Rc::new(|_| false),
@@ -110,6 +113,12 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 }
 
 impl Calendar {
+    /// Pass a kit-defined appearance to every calendar part recipe.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+
     pub(crate) fn range_validator(&self) -> impl Fn(DateRange) -> bool + use<> {
         let (min, max, min_span, max_span) = (self.min, self.max, self.min_span, self.max_span);
         let disabled = self.disabled.clone();
@@ -277,150 +286,34 @@ impl NodeBuilder for Calendar {
 
 impl IntoView for Calendar {
     fn into_view(self) -> View {
-        let Calendar {
-            root,
-            selection,
-            month,
-            disabled,
-            count,
-            caption,
-            outside,
-            week_start,
-            on_commit,
-            autofocus,
-            displayed_month,
-            today,
-            min,
-            max,
-            min_span,
-            max_span,
-            variable_rows,
-            marks,
-            events,
-            weekend,
-            year_navigation,
-            month_title,
-            range,
-            on_activate,
-        } = self;
-
-        let anchor = match selection {
+        let anchor = match self.selection {
             CalendarSelection::Single(value) => value.get_untracked(),
             CalendarSelection::Range(value) => value.get_untracked().map(|r| r.start()),
         };
-        let focus_day = anchor.unwrap_or_else(|| today.get_untracked());
-        let month: Binding<CalendarMonth> = displayed_month
-            .unwrap_or_else(|| signal(month.unwrap_or(focus_day.month_of())).into_binding());
-        let locale = kivact_core::i18n::use_locale();
+        let focus_day = anchor.unwrap_or_else(|| self.today.get_untracked());
+        let month: Binding<CalendarMonth> = self
+            .displayed_month
+            .unwrap_or_else(|| signal(self.month.unwrap_or(focus_day.month_of())).into_binding());
         let base_month = month;
-        let navigation = kivact_core::state::machine(
-            String::new(),
-            move || super::navigation::MonthSnapshot {
-                locale: locale.get(),
-            },
-            move |_, next| base_month.set(next),
-        );
-        kivact_core::state::effect(move || {
-            navigation.send(super::navigation::MonthEvent::Observe(base_month.get()))
-        });
-        let month = kivact_core::state::binding(base_month, move |month| {
-            navigation.send(super::navigation::MonthEvent::Navigate(month))
-        });
-        let rtl = kivact_core::view::use_direction();
-        let swipe = kivact_core::state::machine(
-            super::navigation::Swipe::Idle,
-            move || super::navigation::SwipeSnapshot {
-                rtl: rtl.get() == kivact_core::view::ReadingDirection::Rtl,
-            },
-            move |_, shift| {
-                let next = base_month.get_untracked().add_months(shift);
-                let allowed = min.get().is_none_or(|min| next >= min.month_of())
-                    && max.get().is_none_or(|max| next <= max.month_of());
-                if allowed {
-                    month.set(next);
-                }
-            },
-        );
-        let autofocus = kivact_core::state::machine(
-            super::navigation::InitialFocus::Pending,
-            move || super::navigation::FocusSnapshot {
-                requested: autofocus.get(),
-            },
-            |_, grid| {
-                grid.focus_active();
-            },
-        );
-        let body = dynamic(
-            move || {
-                (
-                    count.get().clamp(1, 12),
-                    caption.get(),
-                    week_start.map(|day| day.get()),
-                )
-            },
-            move |(count, caption, week_start)| {
-                let mut policy = CalendarOptions::new()
-                    .disabled({
-                        let disabled = disabled.clone();
-                        move |day| {
-                            disabled(day)
-                                || min.get().is_some_and(|min| day < min)
-                                || max.get().is_some_and(|max| day > max)
-                        }
-                    })
-                    .range_span(min_span, max_span)
-                    .months(count)
-                    .initial_focus(focus_day);
-                if let Some(day) = week_start {
-                    policy = policy.week_start(day);
-                }
-                policy = policy.on_activate(move |day| {
-                    if let Some(commit) = on_commit {
-                        commit.call(());
-                    }
-                    if let Some(activate) = on_activate {
-                        activate.call(day);
-                    }
-                });
-                let grid = use_calendar_grid(month, selection, policy);
-                let first = grid.week_start();
-                let shared = Rc::new(Shared {
-                    grid,
-                    month,
-                    count,
-                    caption,
-                    outside,
-                    today,
-                    variable_rows,
-                    marks: marks.clone(),
-                    events,
-                    weekend: weekend.clone(),
-                    year_navigation,
-                    month_title: month_title.clone(),
-                    range,
-                });
-                let names = Rc::new(super::caption::Names::new());
-                dynamic(
-                    move || (month.get(), first.get()),
-                    move |(month, first)| {
-                        let panels = (0..shared.count)
-                            .map(|i| {
-                                super::panel::month_panel(
-                                    &shared,
-                                    &names,
-                                    i,
-                                    month.add_months(i as i32),
-                                    first,
-                                )
-                            })
-                            .collect::<Vec<_>>();
-                        on_mount(move || autofocus.send(grid));
-                        row(panels).style(style().gap(16))
-                    },
-                )
-            },
-        );
-        let status = kivact_core::view::text(navigation.state())
+        let (month, announcement) = month_navigation(base_month);
+        let swipe = swipe_navigation(base_month, month, self.min, self.max);
+        let autofocus = initial_focus(self.autofocus);
+        let rules = CalendarRules {
+            disabled: self.disabled.clone(),
+            min: self.min,
+            max: self.max,
+            min_span: self.min_span,
+            max_span: self.max_span,
+            on_commit: self.on_commit,
+            on_activate: self.on_activate,
+        };
+        let body = calendar_body(&self, month, rules, focus_day, autofocus);
+        let status = kivact_core::view::node()
+            .name(kivact_core::i18n::message_with(
+                "calendar.showing_month",
+                "Showing {month}",
+                move || [("month", announcement.get())],
+            ))
             .with_node(|n| n.role(Role::Status))
             .live_region(kivact_core::view::LiveRegion::Polite)
             .style(
@@ -429,16 +322,225 @@ impl IntoView for Calendar {
                     .size(1, 1)
                     .opacity(0.0),
             );
-        root.on_pointer(move |event| {
-            swipe.send(super::navigation::Event::Pointer(event));
-            if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
-                event.capture();
-                kivact_core::view::Handled::Yes
+        self.root
+            .on_pointer(move |event| {
+                swipe.send(super::navigation::Event::Pointer(event));
+                if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
+                    event.capture();
+                    kivact_core::view::Handled::Yes
+                } else {
+                    kivact_core::view::Handled::No
+                }
+            })
+            .child((body, status))
+            .into_view()
+    }
+}
+
+fn range_prompt(
+    grid: kivact_interaction::CalendarGridApi,
+    selection: CalendarSelection,
+) -> Option<Node> {
+    if !matches!(selection, CalendarSelection::Range(_)) {
+        return None;
+    }
+    let picking = grid.is_picking_range();
+    let start = kivact_core::i18n::message("calendar.range.pick_start", "Pick a start date");
+    let end = kivact_core::i18n::message("calendar.range.pick_end", "Pick an end date");
+    Some(
+        kivact_core::view::text(move || {
+            if picking.get() {
+                end.get()
             } else {
-                kivact_core::view::Handled::No
+                start.get()
             }
         })
-        .child((body, status))
-        .into_view()
+        .role(Role::Status)
+        .live_region(kivact_core::view::LiveRegion::Polite)
+        .style(
+            style()
+                .font_size(12)
+                .color(kivact_core::style::ColorToken::TextMuted),
+        ),
+    )
+}
+
+// xtask-allow(state-fields): Independent construction constraints and commit observers; CalendarGridApi owns selection and range picking.
+struct CalendarRules {
+    disabled: Rc<dyn Fn(CalendarDate) -> bool>,
+    min: Value<Option<CalendarDate>>,
+    max: Value<Option<CalendarDate>>,
+    min_span: Value<u32>,
+    max_span: Value<Option<u32>>,
+    on_commit: Option<Callback<()>>,
+    on_activate: Option<Callback<CalendarDate>>,
+}
+/// Connect month navigation announcements to its authoritative displayed binding.
+fn month_navigation(base_month: Binding<CalendarMonth>) -> (Binding<CalendarMonth>, Value<String>) {
+    let locale = kivact_core::i18n::use_locale();
+    let navigation = kivact_core::state::machine(
+        String::new(),
+        move || super::navigation::MonthSnapshot {
+            locale: locale.get(),
+        },
+        move |_, next| base_month.set(next),
+    );
+    kivact_core::state::effect(move || {
+        navigation.send(super::navigation::MonthEvent::Observe(base_month.get()))
+    });
+    let month = kivact_core::state::binding(base_month, move |month| {
+        navigation.send(super::navigation::MonthEvent::Navigate(month))
+    });
+    (month, navigation.state())
+}
+/// Apply horizontal swipe commands within the caller's date bounds.
+fn swipe_navigation(
+    base_month: Binding<CalendarMonth>,
+    month: Binding<CalendarMonth>,
+    min: Value<Option<CalendarDate>>,
+    max: Value<Option<CalendarDate>>,
+) -> kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot> {
+    let rtl = kivact_core::view::use_direction();
+    kivact_core::state::machine(
+        super::navigation::Swipe::Idle,
+        move || super::navigation::SwipeSnapshot {
+            rtl: rtl.get() == kivact_core::view::ReadingDirection::Rtl,
+        },
+        move |_, shift| {
+            let next = base_month.get_untracked().add_months(shift);
+            let allowed = min.get().is_none_or(|min| next >= min.month_of())
+                && max.get().is_none_or(|max| next <= max.month_of());
+            if allowed {
+                month.set(next);
+            }
+        },
+    )
+}
+/// Scope the one-shot initial calendar focus request to the mounted owner.
+fn initial_focus(
+    requested: Value<bool>,
+) -> kivact_core::state::MachineHandle<super::navigation::FocusSnapshot> {
+    kivact_core::state::machine(
+        super::navigation::InitialFocus::Pending,
+        move || super::navigation::FocusSnapshot {
+            requested: requested.get(),
+        },
+        |_, grid| {
+            grid.focus_active();
+        },
+    )
+}
+/// Build grid policy from independent disabled-date, range and activation inputs.
+fn calendar_policy(
+    rules: &CalendarRules,
+    count: usize,
+    week_start: Option<Weekday>,
+    focus_day: CalendarDate,
+) -> CalendarOptions {
+    let (min, max) = (rules.min, rules.max);
+    let mut policy = CalendarOptions::new()
+        .disabled({
+            let disabled = rules.disabled.clone();
+            move |day| {
+                disabled(day)
+                    || min.get().is_some_and(|min| day < min)
+                    || max.get().is_some_and(|max| day > max)
+            }
+        })
+        .range_span(rules.min_span, rules.max_span)
+        .months(count)
+        .initial_focus(focus_day);
+    if let Some(day) = week_start {
+        policy = policy.week_start(day);
     }
+    let on_commit = rules.on_commit;
+    let on_activate = rules.on_activate;
+    policy = policy.on_activate(move |day| {
+        if let Some(commit) = on_commit {
+            commit.call(());
+        }
+        if let Some(activate) = on_activate {
+            activate.call(day);
+        }
+    });
+    policy
+}
+/// Render the shared month panels and forward the initial focus event after mount.
+fn month_panels(
+    shared: Rc<Shared>,
+    autofocus: kivact_core::state::MachineHandle<super::navigation::FocusSnapshot>,
+) -> View {
+    let grid = shared.grid;
+    let month = shared.month;
+    let first = grid.week_start();
+    let names = Rc::new(super::caption::Names::new());
+    dynamic(
+        move || (month.get(), first.get()),
+        move |(month, first)| {
+            let panels = (0..shared.count)
+                .map(|i| {
+                    super::panel::month_panel(&shared, &names, i, month.add_months(i as i32), first)
+                })
+                .collect::<Vec<_>>();
+            on_mount(move || autofocus.send(grid));
+            row(panels).style(style().gap(16))
+        },
+    )
+    .into_view()
+}
+
+/// Construct the reactive month body from independent calendar presentation inputs.
+fn calendar_body(
+    calendar: &Calendar,
+    month: Binding<CalendarMonth>,
+    rules: CalendarRules,
+    focus_day: CalendarDate,
+    autofocus: kivact_core::state::MachineHandle<super::navigation::FocusSnapshot>,
+) -> View {
+    let count = calendar.count;
+    let caption = calendar.caption;
+    let week_start = calendar.week_start;
+    let selection = calendar.selection;
+    let outside = calendar.outside;
+    let today = calendar.today;
+    let variable_rows = calendar.variable_rows;
+    let events = calendar.events;
+    let year_navigation = calendar.year_navigation;
+    let range = calendar.range;
+    let variants = calendar.variants.clone();
+    let marks = calendar.marks.clone();
+    let weekend = calendar.weekend.clone();
+    let month_title = calendar.month_title.clone();
+    dynamic(
+        move || {
+            (
+                count.get().clamp(1, 12),
+                caption.get(),
+                week_start.map(|day| day.get()),
+            )
+        },
+        move |(count, caption, week_start)| {
+            let policy = calendar_policy(&rules, count, week_start, focus_day);
+            let grid = use_calendar_grid(month, selection, policy);
+            let shared = Rc::new(Shared {
+                variants: variants.clone(),
+                grid,
+                month,
+                count,
+                caption,
+                outside,
+                today,
+                variable_rows,
+                marks: marks.clone(),
+                events,
+                weekend: weekend.clone(),
+                year_navigation,
+                month_title: month_title.clone(),
+                range,
+            });
+            let panels = month_panels(shared, autofocus);
+            kivact_core::view::column((range_prompt(grid, selection), panels))
+        },
+    )
+    .into_view()
 }

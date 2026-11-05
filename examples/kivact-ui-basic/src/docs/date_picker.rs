@@ -9,7 +9,7 @@ pub(crate) fn page() -> Page {
     Page {
         slug: "date-picker",
         name: "Date Picker",
-        description: "カレンダーから日付や期間を選ぶ部品です。ボタンの幅は表示する文字の幅で、固定の幅を持ちません。幅が必要なときは style で指定します。表示の形式は messages の date_picker.format（既定は {month} {day}, {year}）、期間の区切りは date_picker.range（既定は {start} - {end}）で差し替えられます。",
+        description: "カレンダーから日付や期間を選ぶ部品です。ボタンの幅は表示する文字の幅で、固定の幅を持ちません。幅が必要なときは style で指定します。表示する文字と書式は attach に渡すボタンで指定します。",
         usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("date_picker.rs"),
         align: PreviewAlign::Center,
@@ -45,33 +45,105 @@ pub(crate) fn page() -> Page {
 // example: basic
 fn basic() -> impl IntoView {
     let date = signal(None::<CalendarDate>);
-    basic::date_picker("Date of birth", date).style(style().width(280))
+    let locale = kivact::i18n::use_locale();
+    kivact::ui::date_input("Date of birth", date)
+        .presentation(kivact::ui::DatePresentation::Desktop)
+        .variant(basic::DatePickerVariant::Flush)
+        .calendar(|c| c.variable_rows(true))
+        .attach(
+            button(move || {
+                date.get().map_or_else(
+                    || "Pick a date".to_owned(),
+                    |date| {
+                        locale
+                            .get()
+                            .format_date(date, kivact::i18n::DateStyle::Long)
+                    },
+                )
+            })
+            .name("Date of birth")
+            .icon(icon("calendar"))
+            .variant(kivact::ui::ButtonVariant::Outline)
+            .style(
+                style()
+                    .width(280)
+                    .justify_content(Justify::Start)
+                    .weight(400),
+            ),
+        )
 }
 // end example
 
 // example: format
 fn format() -> impl IntoView {
     let date = signal(Some(CalendarDate::new(2026, 10, 3)));
-    basic::date_picker("Due date", date)
-        .placeholder("Pick a due date")
-        .format(|d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()))
+    kivact::ui::date_input("Due date", date)
+        .presentation(kivact::ui::DatePresentation::Desktop)
+        .variant(basic::DatePickerVariant::Flush)
+        .calendar(|c| c.variable_rows(true))
+        .attach(
+            button(move || {
+                date.get().map_or_else(
+                    || "Pick a due date".to_owned(),
+                    |d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()),
+                )
+            })
+            .name("Due date")
+            .icon(icon("calendar"))
+            .variant(kivact::ui::ButtonVariant::Outline),
+        )
 }
 // end example
 
 // example: range
 fn range() -> impl IntoView {
     let value = signal(None::<DateRange>);
-    basic::date_range_picker("Stay", value)
-        .style(style().width(300))
-        .calendar(|c| c.number_of_months(2))
+    let locale = kivact::i18n::use_locale();
+    kivact::ui::date_range_input("Stay", value)
+        .presentation(kivact::ui::DatePresentation::Desktop)
+        .variant(basic::DatePickerVariant::Flush)
+        .calendar(|c| c.number_of_months(2).variable_rows(true))
+        .attach(
+            button(move || {
+                value.get().map_or_else(
+                    || "Pick a date".to_owned(),
+                    |range| {
+                        format!(
+                            "{} - {}",
+                            locale
+                                .get()
+                                .format_date(range.start(), kivact::i18n::DateStyle::Long),
+                            locale
+                                .get()
+                                .format_date(range.end(), kivact::i18n::DateStyle::Long)
+                        )
+                    },
+                )
+            })
+            .name("Stay")
+            .icon(icon("calendar"))
+            .variant(kivact::ui::ButtonVariant::Outline)
+            .style(style().width(300)),
+        )
 }
 // end example
 
 // example: weekdays
 fn weekdays() -> impl IntoView {
     use kivact::i18n::Weekday;
-    basic::date_picker("Meeting", signal(None)).calendar(|c| {
-        c.disabled_dates(|d| matches!(d.weekday(), Weekday::Saturday | Weekday::Sunday))
-    })
+    let date = signal(None::<CalendarDate>);
+    kivact::ui::date_input("Meeting", date)
+        .presentation(kivact::ui::DatePresentation::Desktop)
+        .variant(basic::DatePickerVariant::Flush)
+        .calendar(|c| {
+            c.variable_rows(true)
+                .disabled_dates(|d| matches!(d.weekday(), Weekday::Saturday | Weekday::Sunday))
+        })
+        .attach(
+            button("Pick a date")
+                .name("Meeting")
+                .icon(icon("calendar"))
+                .variant(kivact::ui::ButtonVariant::Outline),
+        )
 }
 // end example

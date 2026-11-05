@@ -13,6 +13,7 @@ pub struct AppOptions {
     pub(super) settings: AppSettings,
 }
 
+// xtask-allow(state-fields): Independent application construction options do not encode runtime lifecycle.
 /// Canonical application settings that can cross the embedded UI thread boundary.
 #[derive(Clone)]
 pub(crate) struct AppSettings {
@@ -150,10 +151,7 @@ impl AppOptions {
     }
     /// Initial engine settings, derived from the application options.
     pub fn host_options(&self) -> kivact_engine::api::HostOptions {
-        #[cfg(feature = "gpu-interop")]
         let gpu_preference = self.settings.gpu_preference;
-        #[cfg(not(feature = "gpu-interop"))]
-        let gpu_preference = kivact_types::GpuPreference::default();
         kivact_engine::api::HostOptions {
             window_size: self.settings.window_size,
             gpu_preference,

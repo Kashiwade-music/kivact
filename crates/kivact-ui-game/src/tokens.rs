@@ -21,6 +21,14 @@ pub struct Tokens {
     pub primary_hover: Color,
     pub primary_strong: Color,
     pub primary_weak: Color,
+    pub success_weak: Color,
+    pub warning_weak: Color,
+    pub danger_weak: Color,
+    pub on_dark: Color,
+    pub dark_shadow: Color,
+    pub toast_text: Color,
+    pub tape_stripe: Color,
+    pub dropzone_stripe: Color,
     pub cyan: Color,
     pub yellow: Color,
     pub navy: Color,
@@ -50,6 +58,9 @@ impl Tokens {
             tokens.primary_hover = rgb(0x469ff5);
             tokens.primary_strong = rgb(0x1a6cc4);
             tokens.primary_weak = rgba(0x3a9dff, 0.15);
+            tokens.success_weak = rgba(0x2cc48a, 0.14);
+            tokens.warning_weak = rgba(0xf5a524, 0.14);
+            tokens.danger_weak = rgba(0xff5a6e, 0.14);
             tokens.navy = rgb(0x1a3150);
             tokens.canvas = rgb(0x08111c);
             tokens.surface_3 = rgb(0x192d45);
@@ -86,6 +97,14 @@ impl Tokens {
             primary_hover: rgb(0x2b93f5),
             primary_strong: rgb(0x0a62c2),
             primary_weak: rgb(0xe2f0ff),
+            success_weak: rgb(0xddf5eb),
+            warning_weak: rgb(0xfff1d6),
+            danger_weak: rgb(0xfde4e8),
+            on_dark: rgb(0xffffff),
+            dark_shadow: rgb(0x000000),
+            toast_text: rgb(0xb8c9dc),
+            tape_stripe: rgb(0x1a1a1a),
+            dropzone_stripe: rgba(0x1283f0, 0.04),
             cyan: rgb(0x2ec4f0),
             yellow: rgb(0xffc928),
             navy: rgb(0x0c1f36),
@@ -102,5 +121,50 @@ impl Tokens {
             row_height: 42.,
             padding: 20.,
         }
+    }
+}
+
+impl Tokens {
+    /// Resolve the standard palette from the console's mode and passive tokens.
+    pub(crate) fn palette(&self) -> kivact::style::theme::Palette {
+        let mut colors = Theme::light().colors().clone();
+        colors.surface = rgb(0xffffff);
+        colors.surface_alt = rgb(0xf5f8fb);
+        colors.text = rgb(0x13233a);
+        colors.text_muted = self.text_2;
+        colors.accent = rgb(0x1283f0);
+        colors.accent_text = rgb(0xffffff);
+        colors.border = rgb(0xd6e0ea);
+        colors.focus = self.yellow;
+        colors.success = rgb(0x12a06e);
+        colors.warning = rgb(0xd98300);
+        colors.danger = rgb(0xe0364d);
+        colors.overlay = rgba(0x081424, 0.55);
+        colors.shadow = rgba(0x0c1f36, 0.28);
+        colors.selection = self.primary_weak;
+        if self.mode == ThemeMode::Dark {
+            colors.surface = rgb(0x0f1c2c);
+            colors.surface_alt = rgb(0x132438);
+            colors.text = rgb(0xe4edf7);
+            colors.text_muted = self.text_2;
+            colors.accent = rgb(0x2b8ceb);
+            colors.border = rgb(0x1f3550);
+            colors.success = rgb(0x2cc48a);
+            colors.warning = rgb(0xf5a524);
+            colors.danger = rgb(0xff5a6e);
+            colors.overlay = rgba(0x00040a, 0.7);
+            colors.shadow = rgba(0x000000, 0.6);
+            colors.selection = self.primary_weak;
+        }
+        // Rows hover onto the alternate surface and press onto the third; a
+        // light panel floats as the surface itself, a dark one one step lighter.
+        colors.hover = colors.surface_alt;
+        colors.pressed = self.surface_3;
+        colors.raised = if self.mode == ThemeMode::Dark {
+            colors.surface_alt
+        } else {
+            colors.surface
+        };
+        colors
     }
 }

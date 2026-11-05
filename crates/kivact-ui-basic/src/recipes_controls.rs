@@ -11,11 +11,12 @@ use crate::theme_access::{shadow_lg, wide_focus_ring, with_focus};
 use crate::tokens::Tokens;
 use kivact::custom::PartState;
 use kivact::geometry::Rect;
-use kivact::interaction::{DisclosureState, ToastState};
+use kivact::interaction::ToastState;
 use kivact::style::{
     Align, Color, Cursor, Direction, Justify, Overflow, Position, Style, TextDecorationLine, Theme,
     pct, style,
 };
+use kivact::ui::DisclosureRecipeState;
 use kivact::ui::{
     AxisState, CheckableState, DisclosureRecipes, Look, ProgressRecipes, ProgressState,
     RadioGroupRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, ToastGroupState, ToastRecipes,
@@ -398,10 +399,18 @@ pub(crate) fn toggle(t: &Theme, look: &Look<ToggleButtonState>) -> Style {
 
 /// progress.tsx: a 4 px `bg-muted` track that clips its `bg-primary` fill.
 pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|_| progress_track)
+        .fill(|_| progress_fill)
+        .label(|_| progress_label)
 }
 
-fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
+fn progress_track(t: &Theme, state: &Look<ProgressState>) -> Style {
+    if state
+        .variant::<kivact::ui::ProgressVariant>()
+        .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
+    {
+        return crate::recipes_metrics::track(t, state);
+    }
     style()
         .width(pct(100))
         .height(4)
@@ -412,6 +421,12 @@ fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
 
 /// The fill is as wide as the value; an indeterminate bar's segment moves.
 fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
+    if look
+        .variant::<kivact::ui::ProgressVariant>()
+        .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
+    {
+        return crate::recipes_metrics::fill(t, look);
+    }
     let (state, primary) = (**look, t.ext::<Tokens>().primary);
     match state.value {
         Some(value) => style()
@@ -441,14 +456,14 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         .content(|_| disclosure_content)
 }
 
-fn disclosure_root(t: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_root(t: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::Column)
         .width(pct(100))
         .border_bottom(1, t.ext::<Tokens>().border)
 }
 
-fn disclosure_trigger(t: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_trigger(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     let p = t.ext::<Tokens>();
     let s = style()
         .direction(Direction::Row)
@@ -472,7 +487,7 @@ fn disclosure_trigger(t: &Theme, state: &Look<DisclosureState>) -> Style {
 }
 
 /// The chevron: `chevron-down`, turned up while the section is open.
-fn disclosure_indicator(t: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_indicator(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
@@ -480,7 +495,12 @@ fn disclosure_indicator(t: &Theme, state: &Look<DisclosureState>) -> Style {
         .rotate(if state.open { 180 } else { 0 })
 }
 
-fn disclosure_content(t: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_content(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
+    match state.variant::<crate::DisclosureVariant>() {
+        Some(crate::DisclosureVariant::Plain) => return style(),
+        Some(crate::DisclosureVariant::Trace) => return crate::trace::content(t),
+        None => (),
+    }
     style()
         .enter_size(kivact::view::Orientation::Vertical)
         .exit_size(kivact::view::Orientation::Vertical)
@@ -488,4 +508,11 @@ fn disclosure_content(t: &Theme, _: &Look<DisclosureState>) -> Style {
         .font_size(12)
         .color(t.ext::<Tokens>().foreground)
         .padding_bottom(10)
+}
+
+fn progress_label(t: &Theme, _: &Look<ProgressState>) -> Style {
+    style()
+        .font_size(12)
+        .weight(500)
+        .color(t.ext::<Tokens>().foreground)
 }

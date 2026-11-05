@@ -1,9 +1,6 @@
 //! Role: Default recipes for standard multi-part components.
-use super::values::{
-    ControlSize, DialogState, FieldState, ProgressState, SelectTriggerState, TooltipArrowState,
-};
+use super::values::{DialogState, FieldState, SelectTriggerState, TooltipArrowState};
 use kivact_core::custom::PartState;
-use kivact_core::geometry::Rect;
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Position, Style, Theme, pct, style,
 };
@@ -251,11 +248,17 @@ pub(super) fn field_error(t: &Theme, _: &FieldState) -> Style {
 }
 
 /// A disclosure: the trigger over the content.
-pub(super) fn disclosure_root(_: &Theme, _: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_root(
+    _: &Theme,
+    _: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style().direction(Direction::Column)
 }
 /// A disclosure's trigger: the title at the start and the indicator at the end.
-pub(super) fn disclosure_trigger(t: &Theme, _: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_trigger(
+    t: &Theme,
+    _: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -270,7 +273,10 @@ pub(super) fn disclosure_trigger(t: &Theme, _: &crate::DisclosureRecipeState) ->
         .pressed(style().background(ColorToken::Pressed))
 }
 /// The box of a disclosure's `chevron-down` icon, turned up while it is open.
-pub(super) fn disclosure_indicator(_: &Theme, state: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_indicator(
+    _: &Theme,
+    state: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
@@ -278,7 +284,10 @@ pub(super) fn disclosure_indicator(_: &Theme, state: &crate::DisclosureRecipeSta
         .rotate(if state.open { 180 } else { 0 })
 }
 /// A disclosure's content under the trigger.
-pub(super) fn disclosure_content(t: &Theme, _: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_content(
+    t: &Theme,
+    _: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
@@ -286,48 +295,6 @@ pub(super) fn disclosure_content(t: &Theme, _: &crate::DisclosureRecipeState) ->
         .padding_bottom(t.space().md)
         .color(ColorToken::TextMuted)
 }
-/// The height of a progress bar's track.
-fn progress_height(size: ControlSize) -> f64 {
-    match size {
-        ControlSize::ExtraSmall => 3.0,
-        ControlSize::Small => 4.0,
-        ControlSize::Medium => 6.0,
-        ControlSize::Large => 10.0,
-    }
-}
-/// A progress bar's track: a full-width rounded bar that clips its fill.
-pub(super) fn progress_track(_: &Theme, state: &ProgressState) -> Style {
-    let height = progress_height(state.size);
-    style()
-        .width(pct(100))
-        .height(height)
-        .min_width(0)
-        .radius(height / 2.0)
-        .background(ColorToken::Border)
-        .clip(true)
-}
-/// A progress bar's fill, painted from the shown fraction (determinate) or
-/// the moving segment (indeterminate).
-pub(super) fn progress_fill(_: &Theme, state: &ProgressState) -> Style {
-    let state = *state;
-    style()
-        .width(pct(100))
-        .height(pct(100))
-        .paint(move |d, size| {
-            let (x, width) = if state.value.is_some() {
-                (0.0, size.width * state.shown.get().clamp(0.0, 1.0))
-            } else {
-                let (start, length) = state.sweep();
-                (size.width * start, size.width * length)
-            };
-            d.rounded_rect(
-                Rect::new(x, 0.0, width, size.height),
-                size.height / 2.0,
-                ColorToken::Accent,
-            );
-        })
-}
-
 /// Pointer target for pulling a drawer toward its edge.
 pub(super) fn drawer_handle(_: &Theme, state: &DialogState) -> Style {
     if matches!(
@@ -342,7 +309,7 @@ pub(super) fn drawer_handle(_: &Theme, state: &DialogState) -> Style {
     }
 }
 
-pub(super) fn hover_card(t: &Theme, _: &crate::HoverCardSurfaceState) -> Style {
+pub(super) fn hover_card(t: &Theme, _: &crate::hover_card_values::HoverCardSurfaceState) -> Style {
     tooltip(
         t,
         &PopupState {

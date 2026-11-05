@@ -49,30 +49,7 @@ pub fn text_edit_policy(
     let sel = state.selection();
     let caret = state.caret();
     let changed = match key {
-        Key::Char(c) if command => match c.to_ascii_lowercase() {
-            'a' => {
-                state.move_to(0, false);
-                state.move_to(state.value().len(), true);
-                false
-            }
-            'c' | 'x' if sel.is_empty() => false,
-            'c' => {
-                return EditOutcome::Copy {
-                    text: state.selected_text().to_string(),
-                    changed: false,
-                };
-            }
-            'x' => {
-                let text = state.selected_text().to_string();
-                state.replace(sel, "");
-                return EditOutcome::Copy {
-                    text,
-                    changed: true,
-                };
-            }
-            'v' => return EditOutcome::Paste,
-            _ => return EditOutcome::NotEditing,
-        },
+        Key::Char(c) if command => return command_key(state, c),
         Key::Backspace | Key::Delete => {
             let r = if !sel.is_empty() {
                 sel.clone()
@@ -117,5 +94,36 @@ pub fn text_edit_policy(
         EditOutcome::NotEditing
     } else {
         EditOutcome::Done { changed }
+    }
+}
+
+fn command_key(state: &mut EditState, key: char) -> EditOutcome {
+    match key.to_ascii_lowercase() {
+        'a' => {
+            let before = state.selection();
+            let caret = state.caret();
+            state.move_to(0, false);
+            state.move_to(state.value().len(), true);
+            if before == state.selection() && caret == state.caret() {
+                EditOutcome::NotEditing
+            } else {
+                EditOutcome::Done { changed: false }
+            }
+        }
+        'c' | 'x' if state.selection().is_empty() => EditOutcome::NotEditing,
+        'c' => EditOutcome::Copy {
+            text: state.selected_text().to_string(),
+            changed: false,
+        },
+        'x' => {
+            let text = state.selected_text().to_string();
+            state.replace(state.selection(), "");
+            EditOutcome::Copy {
+                text,
+                changed: true,
+            }
+        }
+        'v' => EditOutcome::Paste,
+        _ => EditOutcome::NotEditing,
     }
 }

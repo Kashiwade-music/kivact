@@ -17,6 +17,7 @@ pub(crate) struct Trace {
     sink: RefCell<Option<Sink>>,
 }
 
+// xtask-allow(state-fields): These immutable diagnostic category switches independently enable trace output streams.
 struct Sink {
     file: BufWriter<File>,
     stage: bool,

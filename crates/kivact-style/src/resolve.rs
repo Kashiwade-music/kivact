@@ -43,6 +43,7 @@ use super::sheet::{Direction, Overflow, Position, ScrollbarWidth, Sides, Style};
 use super::theme::value::Theme;
 use super::transform::Transform;
 
+// xtask-allow(state-fields): This compilation result independently contains optional text, state deltas and retained paint.
 /// A [`Style`] compiled against a theme: the engine's node props and the
 /// diagnostics of the compilation, made by [`crate::internal::compile_style`].
 ///
@@ -199,6 +200,7 @@ fn text(s: &Style, theme: &Theme) -> (TextStyle, u32) {
     (t, dropped)
 }
 
+// xtask-allow(state-fields): Independent input facts select compiled style defaults; this value owns no transitions.
 /// How a node takes part in the theme's defaults for interactive elements,
 /// the input of [`crate::internal::compile_style`] next to the style and the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -376,168 +378,93 @@ const DELTA: &[&str] = &[
 /// The properties `s` sets, by the name of the setter that sets them. Every
 /// field of `Style` is named in the destructure, so a new field must be
 /// classified here.
+macro_rules! classify_properties {
+    ($s:expr, $($field:ident => $set:expr, $name:literal;)* @ignored $($ignored:ident),*) => {{
+        let Style { $($field,)* $($ignored: _,)* } = $s;
+        [$(($set, $name),)*].into_iter().filter_map(|(set, name)| set.then_some(name)).collect()
+    }};
+}
+
 fn set_properties(s: &Style) -> Vec<&'static str> {
-    let Style {
-        enter_size,
-        exit_size,
-        local_paint,
-        padding,
-        margin,
-        inset,
-        row_gap,
-        column_gap,
-        width,
-        height,
-        min_width,
-        min_height,
-        max_width,
-        max_height,
-        grow,
-        shrink,
-        basis,
-        aspect_ratio,
-        direction,
-        align,
-        align_self,
-        justify,
-        align_content,
-        display,
-        visibility,
-        grid,
-        wrap,
-        position,
-        overflow,
-        scroll_axes,
-        scroll_snap,
-        background,
-        border_width,
-        border_color,
-        border_style,
-        ring,
-        radius,
-        shadows,
-        opacity,
-        translate,
-        rotate,
-        scale,
-        transform,
-        transform_origin,
-        scrollbar,
-        cursor,
-        z_index,
-        clip,
-        filter,
-        backdrop_filter,
-        blend,
-        mask,
-        clip_path,
-        font_size,
-        weight,
-        color,
-        line_height,
-        text_wrap,
-        text_align,
-        font_family,
-        italic,
-        text,
-        hover,
-        group,
-        group_hover,
-        group_focus,
-        pressed,
-        focus,
-        focus_visible,
-        disabled,
-        selected,
-        enter,
-        exit,
-        transitions,
-        layout_transition,
-        duplicates: _,
-    } = s;
     let sides = Sides::default();
-    let mut out = Vec::new();
-    let mut add = |set: bool, name: &'static str| {
-        if set {
-            out.push(name);
-        }
-    };
-    add(enter_size.is_some(), "enter_size");
-    add(exit_size.is_some(), "exit_size");
-    add(local_paint.is_some(), "paint");
-    add(*padding != sides, "padding");
-    add(*margin != sides, "margin");
-    add(*inset != sides, "inset");
-    add(row_gap.is_some(), "row_gap");
-    add(column_gap.is_some(), "column_gap");
-    add(width.is_some(), "width");
-    add(height.is_some(), "height");
-    add(min_width.is_some(), "min_width");
-    add(min_height.is_some(), "min_height");
-    add(max_width.is_some(), "max_width");
-    add(max_height.is_some(), "max_height");
-    add(grow.is_some(), "grow");
-    add(shrink.is_some(), "shrink");
-    add(basis.is_some(), "basis");
-    add(aspect_ratio.is_some(), "aspect_ratio");
-    add(direction.is_some(), "direction");
-    add(align.is_some(), "align_items");
-    add(align_self.is_some(), "align_self");
-    add(justify.is_some(), "justify_content");
-    add(align_content.is_some(), "align_content");
-    add(display.is_some(), "display");
-    add(visibility.is_some(), "visibility");
-    add(grid.is_some(), "grid");
-    add(wrap.is_some(), "wrap");
-    add(position.is_some(), "position");
-    add(overflow.is_some(), "overflow");
-    add(scroll_snap.is_some(), "scroll_snap");
-    add(scroll_axes.is_some(), "with_scroll_axes");
-    add(background.is_some(), "background");
-    add(border_width.iter().any(Option::is_some), "border_width");
-    add(border_color.iter().any(Option::is_some), "border_color");
-    add(border_style.is_some(), "border_style");
-    add(ring.is_some(), "ring");
-    add(radius.iter().any(Option::is_some), "radius");
-    add(shadows.is_some(), "shadow");
-    add(opacity.is_some(), "opacity");
-    add(translate.iter().any(Option::is_some), "translate");
-    add(rotate.is_some(), "rotate");
-    add(scale.is_some(), "scale");
-    add(transform.is_some(), "transform");
-    add(transform_origin.is_some(), "transform_origin");
-    add(scrollbar.is_some(), "scrollbar");
-    add(cursor.is_some(), "cursor");
-    add(z_index.is_some(), "z_index");
-    add(clip.is_some(), "clip");
-    add(filter.is_some(), "filter");
-    add(backdrop_filter.is_some(), "backdrop_filter");
-    add(blend.is_some(), "blend");
-    add(mask.is_some(), "mask");
-    add(clip_path.is_some(), "clip_path");
-    add(font_size.is_some(), "font_size");
-    add(weight.is_some(), "weight");
-    add(color.is_some(), "color");
-    add(line_height.is_some(), "line_height");
-    add(text_wrap.is_some(), "text_wrap");
-    add(text_align.is_some(), "text_align");
-    add(font_family.is_some(), "font_family");
-    add(italic.is_some(), "italic");
-    add(text.is_some(), "text");
-    add(hover.is_some(), "hover");
-    add(*group, "group");
-    add(group_hover.is_some(), "group_hover");
-    add(group_focus.is_some(), "group_focus");
-    add(pressed.is_some(), "pressed");
-    add(focus.is_some(), "focus");
-    add(focus_visible.is_some(), "focus_visible");
-    add(disabled.is_some(), "disabled");
-    add(selected.is_some(), "selected");
-    add(enter.is_some(), "enter");
-    add(exit.is_some(), "exit");
-    add(!transitions.is_empty(), "transition");
-    add(layout_transition.is_some(), "layout_transition");
-    out
+    classify_properties!(s,
+        enter_size => enter_size.is_some(), "enter_size";
+        exit_size => exit_size.is_some(), "exit_size";
+        local_paint => local_paint.is_some(), "paint";
+        padding => *padding != sides, "padding";
+        margin => *margin != sides, "margin";
+        inset => *inset != sides, "inset";
+        row_gap => row_gap.is_some(), "row_gap";
+        column_gap => column_gap.is_some(), "column_gap";
+        width => width.is_some(), "width";
+        height => height.is_some(), "height";
+        min_width => min_width.is_some(), "min_width";
+        min_height => min_height.is_some(), "min_height";
+        max_width => max_width.is_some(), "max_width";
+        max_height => max_height.is_some(), "max_height";
+        grow => grow.is_some(), "grow";
+        shrink => shrink.is_some(), "shrink";
+        basis => basis.is_some(), "basis";
+        aspect_ratio => aspect_ratio.is_some(), "aspect_ratio";
+        direction => direction.is_some(), "direction";
+        align => align.is_some(), "align_items";
+        align_self => align_self.is_some(), "align_self";
+        justify => justify.is_some(), "justify_content";
+        align_content => align_content.is_some(), "align_content";
+        display => display.is_some(), "display";
+        visibility => visibility.is_some(), "visibility";
+        grid => grid.is_some(), "grid";
+        wrap => wrap.is_some(), "wrap";
+        position => position.is_some(), "position";
+        overflow => overflow.is_some(), "overflow";
+        scroll_snap => scroll_snap.is_some(), "scroll_snap";
+        scroll_axes => scroll_axes.is_some(), "with_scroll_axes";
+        background => background.is_some(), "background";
+        border_width => border_width.iter().any(Option::is_some), "border_width";
+        border_color => border_color.iter().any(Option::is_some), "border_color";
+        border_style => border_style.is_some(), "border_style";
+        ring => ring.is_some(), "ring";
+        radius => radius.iter().any(Option::is_some), "radius";
+        shadows => shadows.is_some(), "shadow";
+        opacity => opacity.is_some(), "opacity";
+        translate => translate.iter().any(Option::is_some), "translate";
+        rotate => rotate.is_some(), "rotate";
+        scale => scale.is_some(), "scale";
+        transform => transform.is_some(), "transform";
+        transform_origin => transform_origin.is_some(), "transform_origin";
+        scrollbar => scrollbar.is_some(), "scrollbar";
+        cursor => cursor.is_some(), "cursor";
+        z_index => z_index.is_some(), "z_index";
+        clip => clip.is_some(), "clip";
+        filter => filter.is_some(), "filter";
+        backdrop_filter => backdrop_filter.is_some(), "backdrop_filter";
+        blend => blend.is_some(), "blend";
+        mask => mask.is_some(), "mask";
+        clip_path => clip_path.is_some(), "clip_path";
+        font_size => font_size.is_some(), "font_size";
+        weight => weight.is_some(), "weight";
+        color => color.is_some(), "color";
+        line_height => line_height.is_some(), "line_height";
+        text_wrap => text_wrap.is_some(), "text_wrap";
+        text_align => text_align.is_some(), "text_align";
+        font_family => font_family.is_some(), "font_family";
+        italic => italic.is_some(), "italic";
+        text => text.is_some(), "text";
+        hover => hover.is_some(), "hover";
+        group => *group, "group";
+        group_hover => group_hover.is_some(), "group_hover";
+        group_focus => group_focus.is_some(), "group_focus";
+        pressed => pressed.is_some(), "pressed";
+        focus => focus.is_some(), "focus";
+        focus_visible => focus_visible.is_some(), "focus_visible";
+        disabled => disabled.is_some(), "disabled";
+        selected => selected.is_some(), "selected";
+        enter => enter.is_some(), "enter";
+        exit => exit.is_some(), "exit";
+        transitions => !transitions.is_empty(), "transition";
+        layout_transition => layout_transition.is_some(), "layout_transition";
+        @ignored duplicates
+    )
 }
 
 /// Push `prefix` + `state.property` for every property the delta states

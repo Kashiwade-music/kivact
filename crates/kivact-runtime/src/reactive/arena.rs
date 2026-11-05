@@ -31,9 +31,26 @@ pub(crate) struct Tomb {
 }
 
 struct Entry<T> {
-    generation: u32,
-    value: Option<T>,
-    tomb: Option<Tomb>,
+    generation: SlotGeneration,
+    state: SlotState<T>,
+}
+
+/// Generation changes only when an occupied slot is removed.
+struct SlotGeneration(u32);
+impl SlotGeneration {
+    fn advance(&mut self) -> bool {
+        if self.0 == u32::MAX {
+            return false;
+        }
+        self.0 += 1;
+        true
+    }
+}
+
+enum SlotState<T> {
+    Occupied(T),
+    Vacant { tomb: Option<Tomb> },
+    Retired { tomb: Option<Tomb> },
 }
 
 pub(crate) struct Arena<T> {
@@ -55,18 +72,16 @@ impl<T> Arena<T> {
         self.len += 1;
         if let Some(slot) = self.free.pop() {
             let e = &mut self.entries[slot as usize];
-            e.value = Some(value);
-            e.tomb = None;
+            e.state = SlotState::Occupied(value);
             return Key {
                 slot,
-                generation: e.generation,
+                generation: e.generation.0,
             };
         }
         let slot = self.entries.len() as u32;
         self.entries.push(Entry {
-            generation: 0,
-            value: Some(value),
-            tomb: None,
+            generation: SlotGeneration(0),
+            state: SlotState::Occupied(value),
         });
         Key {
             slot,
@@ -76,8 +91,11 @@ impl<T> Arena<T> {
 
     pub(crate) fn get(&self, key: Key) -> Option<&T> {
         let e = self.entries.get(key.slot as usize)?;
-        if e.generation == key.generation {
-            e.value.as_ref()
+        if e.generation.0 == key.generation {
+            match &e.state {
+                SlotState::Occupied(value) => Some(value),
+                _ => None,
+            }
         } else {
             None
         }
@@ -85,8 +103,11 @@ impl<T> Arena<T> {
 
     pub(crate) fn get_mut(&mut self, key: Key) -> Option<&mut T> {
         let e = self.entries.get_mut(key.slot as usize)?;
-        if e.generation == key.generation {
-            e.value.as_mut()
+        if e.generation.0 == key.generation {
+            match &mut e.state {
+                SlotState::Occupied(value) => Some(value),
+                _ => None,
+            }
         } else {
             None
         }
@@ -98,14 +119,23 @@ impl<T> Arena<T> {
 
     pub(crate) fn remove(&mut self, key: Key, tomb: Option<Tomb>) -> Option<T> {
         let e = self.entries.get_mut(key.slot as usize)?;
-        if e.generation != key.generation {
+        if e.generation.0 != key.generation {
             return None;
         }
-        let value = e.value.take()?;
+        if !matches!(e.state, SlotState::Occupied(_)) {
+            return None;
+        }
+        let reusable = e.generation.advance();
+        let next = if reusable {
+            SlotState::Vacant { tomb }
+        } else {
+            SlotState::Retired { tomb }
+        };
+        let SlotState::Occupied(value) = std::mem::replace(&mut e.state, next) else {
+            unreachable!("invariant: remove checked the slot was occupied");
+        };
         self.len -= 1;
-        e.tomb = tomb;
-        if e.generation < u32::MAX {
-            e.generation += 1;
+        if reusable {
             self.free.push(key.slot);
         }
         Some(value)
@@ -114,10 +144,12 @@ impl<T> Arena<T> {
     /// Tombstone of `key` if the slot has not been reused since.
     pub(crate) fn tomb(&self, key: Key) -> Option<Tomb> {
         let e = self.entries.get(key.slot as usize)?;
-        if e.value.is_none() && e.generation == key.generation.wrapping_add(1) {
-            e.tomb
-        } else {
-            None
+        if e.generation.0 != key.generation.wrapping_add(1) {
+            return None;
+        }
+        match e.state {
+            SlotState::Vacant { tomb } | SlotState::Retired { tomb } => tomb,
+            SlotState::Occupied(_) => None,
         }
     }
 

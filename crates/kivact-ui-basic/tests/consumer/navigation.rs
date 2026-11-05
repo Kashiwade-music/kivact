@@ -166,10 +166,12 @@ fn navigation_menu_shows_one_panel_at_a_time() {
     let screen = kivact::test::render_with_handle(light(), || {
         (
             (),
-            page(basic::navigation_menu(vec![
-                basic::NavItem::menu("Alpha", || text("Alpha panel")),
-                basic::NavItem::menu("Beta", || text("Beta panel")),
-            ])),
+            page(
+                kivact::ui::navigation_menu("Navigation")
+                    .link("alpha", "Alpha", || text("Alpha panel"))
+                    .link("beta", "Beta", || text("Beta panel"))
+                    .close_delay(std::time::Duration::ZERO),
+            ),
         )
     })
     .0;

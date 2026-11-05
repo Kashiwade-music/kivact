@@ -346,32 +346,7 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
         }
     });
     let visible = combobox.visible();
-    let groups = memo(move || {
-        let mut out = Vec::<CommandGroup<K>>::new();
-        let mut last: Option<Option<String>> = None;
-        visible.with(|keys| {
-            commands.with(|all| {
-                for key in keys {
-                    let Some(command) = all.iter().find(|command| command.key == *key) else {
-                        continue;
-                    };
-                    let group = command.group.as_ref().map(|g| g.get());
-                    if last.as_ref() != Some(&group) {
-                        out.push(CommandGroup {
-                            index: out.len(),
-                            heading: command.group.clone(),
-                            commands: Vec::new(),
-                        });
-                        last = Some(group);
-                    }
-                    if let Some(run) = out.last_mut() {
-                        run.commands.push(command.clone());
-                    }
-                }
-            })
-        });
-        out
-    });
+    let groups = memo(move || command_groups(visible, commands));
     CommandPaletteApi {
         run,
         open,
@@ -538,4 +513,34 @@ impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
         let factory = factory.into_view_fn();
         kivact_core::view::show(self.dialog.is_open(), move || factory.call(())).into_view()
     }
+}
+
+fn command_groups<K: kivact_core::state::ItemKey>(
+    visible: Value<Vec<K>>,
+    commands: Value<Vec<Command<K>>>,
+) -> Vec<CommandGroup<K>> {
+    let mut out = Vec::<CommandGroup<K>>::new();
+    let mut last: Option<Option<String>> = None;
+    visible.with(|keys| {
+        commands.with(|all| {
+            for key in keys {
+                let Some(command) = all.iter().find(|command| command.key == *key) else {
+                    continue;
+                };
+                let group = command.group.as_ref().map(|g| g.get());
+                if last.as_ref() != Some(&group) {
+                    out.push(CommandGroup {
+                        index: out.len(),
+                        heading: command.group.clone(),
+                        commands: Vec::new(),
+                    });
+                    last = Some(group);
+                }
+                if let Some(run) = out.last_mut() {
+                    run.commands.push(command.clone());
+                }
+            }
+        })
+    });
+    out
 }

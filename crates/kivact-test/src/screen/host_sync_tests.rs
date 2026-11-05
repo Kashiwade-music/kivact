@@ -18,10 +18,9 @@ use kivact_runtime::signal;
 fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     use kivact_core::custom::part;
     use kivact_core::view::canvas;
-    use kivact_core::view::{ButtonPress, Handled, MouseButton, PointerKind, PointerPhase};
+    use kivact_core::view::{ButtonPress, Handled, MouseButton, PointerPhase};
     use kivact_engine::contract::HostEvent;
-    use kivact_style::draw::{Point, Rect, RegionId};
-    use kivact_types::{Modifiers, PointerSample};
+    use kivact_style::draw::{Rect, RegionId};
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
     let downs = Rc::new(Cell::new(0));
@@ -64,37 +63,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
         button: MouseButton::Primary,
         clicks: 1,
     };
-    let sample = |id, phase| {
-        let is_primary = id != 22;
-        kivact_engine::contract::Routed {
-            target: Some(node),
-            local: Point::new(20., 20.),
-            captured: false,
-            activation: None,
-            region: Some(kivact_types::RegionId(1)),
-            input: PointerSample {
-                id: kivact_types::PointerId(id),
-                phase,
-                position: Point::new(20., 20.),
-                buttons: kivact_types::PointerButtons::NONE
-                    .with(MouseButton::Primary, matches!(phase, PointerPhase::Down(_))),
-                modifiers: Modifiers::default(),
-                kind: PointerKind::Touch,
-                button: match phase {
-                    PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press.button),
-                    _ => None,
-                },
-                press: match phase {
-                    PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press),
-                    _ => None,
-                },
-                time_ns: 0,
-                pressure: None,
-                tilt: None,
-                is_primary,
-            },
-        }
-    };
+    let sample = |id, phase| gesture_sample(node, id, phase);
     let dispatch = |id, phase| {
         screen
             .host
@@ -370,41 +339,11 @@ fn a_host_edit_that_overrides_the_only_pending_prop_sends_nothing() {
 // normal engine Writer boundary, while mounting/highlighting through public APIs.
 #[test]
 fn replacing_editing_drops_line_state_after_releasing_the_model() {
+    use super::editing_drop_probe::{Probe, State};
     use kivact_core::custom::{TextEditing, part};
-    use kivact_engine::api::Reader;
     use std::cell::RefCell;
     use std::rc::Weak;
 
-    struct Probe {
-        armed: Cell<bool>,
-        drops: Rc<Cell<usize>>,
-        reentered: Rc<Cell<usize>>,
-        reader: Rc<RefCell<Option<(Reader, NodeId)>>>,
-    }
-    impl Drop for Probe {
-        fn drop(&mut self) {
-            if !self.armed.get() {
-                return;
-            }
-            self.drops.set(self.drops.get() + 1);
-            let (reader, independent) = self.reader.borrow().as_ref().unwrap().clone();
-            // This is a different still-live node: replacing the editor must
-            // not invalidate the reference or hold the shared Model borrow.
-            reader.with_node(independent, |node| assert!(node.is_some()));
-            self.reentered.set(self.reentered.get() + 1);
-        }
-    }
-    #[derive(Default)]
-    struct State(Option<Rc<Probe>>);
-    impl PartialEq for State {
-        fn eq(&self, other: &Self) -> bool {
-            match (&self.0, &other.0) {
-                (None, None) => true,
-                (Some(a), Some(b)) => Rc::ptr_eq(a, b),
-                _ => false,
-            }
-        }
-    }
     let drops = Rc::new(Cell::new(0));
     let reentered = Rc::new(Cell::new(0));
     let reader = Rc::new(RefCell::new(None));
@@ -462,4 +401,42 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
     assert!(!writer.set_editing(editor, None));
     assert_eq!(drops.get(), 1, "an equal write does not drop again");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn gesture_sample(
+    node: NodeId,
+    id: u64,
+    phase: kivact_types::PointerPhase,
+) -> kivact_engine::contract::Routed<kivact_types::PointerSample> {
+    use kivact_style::draw::Point;
+    use kivact_types::{Modifiers, MouseButton, PointerKind, PointerPhase, PointerSample};
+    let is_primary = id != 22;
+    kivact_engine::contract::Routed {
+        target: Some(node),
+        local: Point::new(20., 20.),
+        captured: false,
+        activation: None,
+        region: Some(kivact_types::RegionId(1)),
+        input: PointerSample {
+            id: kivact_types::PointerId(id),
+            phase,
+            position: Point::new(20., 20.),
+            buttons: kivact_types::PointerButtons::NONE
+                .with(MouseButton::Primary, matches!(phase, PointerPhase::Down(_))),
+            modifiers: Modifiers::default(),
+            kind: PointerKind::Touch,
+            button: match phase {
+                PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press.button),
+                _ => None,
+            },
+            press: match phase {
+                PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press),
+                _ => None,
+            },
+            time_ns: 0,
+            pressure: None,
+            tilt: None,
+            is_primary,
+        },
+    }
 }

@@ -38,12 +38,12 @@ pub(crate) fn page() -> Page {
 // example: variants
 fn variants() -> impl IntoView {
     row((
-        basic::badge("Badge"),
-        basic::badge("Secondary").variant(basic::BadgeVariant::Secondary),
-        basic::badge("Destructive").variant(basic::BadgeVariant::Destructive),
-        basic::badge("Outline").variant(basic::BadgeVariant::Outline),
-        basic::badge("Ghost").variant(basic::BadgeVariant::Ghost),
-        basic::badge("Link").variant(basic::BadgeVariant::Link),
+        kivact::ui::badge("Badge"),
+        kivact::ui::badge("Secondary").variant(basic::BadgeVariant::Secondary),
+        kivact::ui::badge("Destructive").variant(basic::BadgeVariant::Destructive),
+        kivact::ui::badge("Outline").variant(basic::BadgeVariant::Outline),
+        kivact::ui::badge("Ghost").variant(basic::BadgeVariant::Ghost),
+        kivact::ui::badge("Link").variant(basic::BadgeVariant::Link),
     ))
     .style(style().gap(8).align_items(Align::Center))
 }
@@ -52,12 +52,12 @@ fn variants() -> impl IntoView {
 // example: with-icon
 fn with_icon() -> impl IntoView {
     row((
-        basic::badge("Verified")
+        kivact::ui::badge("Verified")
             .variant(basic::BadgeVariant::Secondary)
-            .icon(icon("badge-check")),
-        basic::badge("Open")
+            .icon(icon("badge-check").style(style().size(12, 12))),
+        kivact::ui::badge("Open")
             .variant(basic::BadgeVariant::Outline)
-            .trailing_icon(icon("arrow-up-right")),
+            .trailing_icon(icon("arrow-up-right").style(style().size(12, 12))),
     ))
     .style(style().gap(8).align_items(Align::Center))
 }
@@ -67,10 +67,10 @@ fn with_icon() -> impl IntoView {
 fn pressable() -> impl IntoView {
     let count = signal(0);
     row((
-        basic::badge(move || format!("Clicked {}", count.get()))
+        kivact::ui::badge(move || format!("Clicked {}", count.get()))
             .variant(basic::BadgeVariant::Outline)
             .on_press(move || count.update(|n| *n += 1)),
-        basic::badge("Reset")
+        kivact::ui::badge("Reset")
             .variant(basic::BadgeVariant::Ghost)
             .on_press(move || count.set(0)),
     ))

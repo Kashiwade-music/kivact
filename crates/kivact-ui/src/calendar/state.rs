@@ -17,6 +17,7 @@ pub enum CalendarCaption {
 /// Everything the month panels and their day cells share.
 // xtask-allow(state-fields): Immutable setup configuration, independent slots and reactive presentation values.
 pub(super) struct Shared {
+    pub(super) variants: crate::variants::Variants,
     /// The keyboard, selection and paging behavior.
     pub(super) grid: CalendarGridApi,
     /// The first shown month.
@@ -54,6 +55,8 @@ pub struct CalendarEvent {
 /// The logical state supplied to a calendar day recipe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CalendarDayVisual {
+    /// Date represented by this recipe projection.
+    pub date: CalendarDate,
     pub day: kivact_interaction::CalendarDayState,
     // xtask-allow(state-fields): Independent drawing fact for today.
     pub today: bool,

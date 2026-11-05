@@ -161,7 +161,7 @@ in other kits.
 Fonts belong to the application. Register the files you ship with `App::font`
 and name the family in the theme's typography. The kit's catalog uses Inter
 for text and Noto Sans JP for Japanese; three Pop components (the
-`BadgeVariant::Slant` badge, avatars and the numbered `section_heading`) ask for the family
+`BadgeVariant::Slant` badge, avatars and the numbered `SectionNumber`) ask for the family
 `Barlow` and fall back to `sans-serif` when it is not registered.
 
 ```rust,no_run
@@ -193,8 +193,8 @@ The family is the name written inside the font file, not the file name.
 
 Texts that components draw themselves (the calendar's month buttons, the date
 format error, a dropzone's picker button) are English. Replace them with
-`App::messages`; the keys start with `pop.`, for example `pop.date.open` and
-`pop.date.error.format`. [Pick dates and ranges](dates-and-calendars.md) shows
+`App::messages`; standard components use canonical keys, for example `date.open` and
+`date.error.format`. [Pick dates and ranges](dates-and-calendars.md) shows
 an example.
 
 ## See also
@@ -202,3 +202,22 @@ an example.
 - [Pick dates and ranges](dates-and-calendars.md)
 - [Show rows in a table](tables.md)
 - Full list of tokens and components: `cargo doc -p kivact-ui-pop --open`
+
+Use the standard drop target with the Pop theme. Enable picking and multiple files explicitly; the decorative icon is a mounted slot.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn upload() -> impl IntoView {
+    kivact::ui::dropzone("Upload")
+        .multiple()
+        .pick_on_press()
+        .icon(icon("cloud-upload").style(style().size(24, 24)))
+        .hint("PNG, PDF")
+        .on_files(|files| {
+            for file in files {
+                println!("{}", file.path.display());
+            }
+        })
+}
+```

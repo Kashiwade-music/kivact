@@ -77,8 +77,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                 crate::TimeState {
                     selection: selected,
                     playhead,
-                    zoom,
-                    pan,
+                    transform,
                 },
             lanes,
             snap,
@@ -100,8 +99,8 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
                 .filter(TimeItem::valid)
                 .collect::<Vec<_>>()
         });
-        let scale = zoom.into_value();
-        let offset = pan.into_value();
+        let scale = kivact::state::memo(move || transform.get().scale);
+        let offset = kivact::state::memo(move || transform.get().offset);
         let _frame = playhead.into_value();
         let visible = kivact::state::memo(move || {
             if let Some(lanes) = lanes {
@@ -159,7 +158,7 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
         );
         let edit = crate::editors::shared::model::observed(
             EditSession::new(move |snapshot| {
-                crate::editors::time::edit::restore(playhead, zoom, pan, snapshot)
+                crate::editors::time::edit::restore(playhead, transform, snapshot)
             }),
             on_edit.map(|observer| {
                 callback(move |phase| {
@@ -185,9 +184,8 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
             on_edit,
             selected,
             selection,
-            zoom,
+            transform,
             scale,
-            pan,
             offset,
             playhead,
             visible,
