@@ -44,6 +44,9 @@ fn main() -> kivact::Result<()> {
   `on_dismiss`); the application applies or rejects them.
 - **Texts.** Default texts are English; replace them with `App::messages`.
 
+- **Reading direction.** Standard components inherit the Core reading direction and
+  automatically reverse their rows where appropriate; the Game theme supplies visual recipes.
+
 ## Documentation
 
 - Tutorial and how-to guides: [English](../../docs/for-kivact-ui-user/en/game/getting-started/README.md),

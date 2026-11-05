@@ -130,7 +130,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
                 "FBK-04",
                 "スケルトン",
                 list((
-                    kivact::ui::skeleton().variant(g::SkeletonVariant::Rows).lines(2).with_node(|node| node.role(Role::Status)).name(kivact::i18n::message("game.skeleton.label", "Loading")),
+                    kivact::ui::skeleton().variant(g::SkeletonVariant::Rows).lines(2).with_node(|node| node.role(Role::Status)).name(kivact::i18n::message("spinner.loading", "Loading")),
                     node().style(
                         style()
                             .height(64)

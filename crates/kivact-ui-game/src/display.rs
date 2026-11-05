@@ -1,7 +1,7 @@
 //! Role: Dense data displays with hard-edged status geometry.
 use kivact::draw::Path;
 use kivact::geometry::Point;
-use kivact::style::{Color, ColorToken, Theme, pct, rgba, style};
+use kivact::style::{Color, ColorToken, Theme, pct, style};
 use kivact::view::{IntoView, Role, View};
 use kivact::view::{NodeBuilder, column, node};
 
@@ -28,32 +28,14 @@ impl ToneExt for Tone {
         }
     }
     fn weak(self, t: &Theme) -> Color {
-        let dark = t.ext::<Tokens>().mode == kivact::style::ThemeMode::Dark;
+        let p = t.ext::<Tokens>();
         match self {
-            Self::Info => t.ext::<Tokens>().primary_weak,
-            Self::Success => {
-                if dark {
-                    rgba(0x2cc48a, 0.14)
-                } else {
-                    kivact::style::rgb(0xddf5eb)
-                }
-            }
-            Self::Warning => {
-                if dark {
-                    rgba(0xf5a524, 0.14)
-                } else {
-                    kivact::style::rgb(0xfff1d6)
-                }
-            }
-            Self::Danger => {
-                if dark {
-                    rgba(0xff5a6e, 0.14)
-                } else {
-                    kivact::style::rgb(0xfde4e8)
-                }
-            }
-            Self::Neutral => t.ext::<Tokens>().surface_3,
-            Self::Accent => t.ext::<Tokens>().yellow,
+            Self::Info => p.primary_weak,
+            Self::Success => p.success_weak,
+            Self::Warning => p.warning_weak,
+            Self::Danger => p.danger_weak,
+            Self::Neutral => p.surface_3,
+            Self::Accent => p.yellow,
         }
     }
 }

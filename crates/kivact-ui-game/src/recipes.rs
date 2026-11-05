@@ -185,12 +185,9 @@ pub(crate) fn button_style(
     let p = t.ext::<Tokens>();
     let skew = skew(slant);
     let (bg, fg, hover, shadow) = match (tone, variant) {
-        (Some(ButtonTone::Dark), _) => (
-            p.navy,
-            t.colors().accent_text,
-            p.sidebar_alt,
-            kivact::style::rgb(0x000000),
-        ),
+        (Some(ButtonTone::Dark), _) => {
+            (p.navy, t.colors().accent_text, p.sidebar_alt, p.dark_shadow)
+        }
         (None, ButtonVariant::Primary) => (
             t.colors().accent,
             t.colors().accent_text,
@@ -390,17 +387,14 @@ fn switch(_: &Theme, state: &Look<CheckableState>) -> Style {
                         Rect::new(0., 0., 40., 20.),
                         if c { primary } else { p.line_strong },
                     );
-                    d.fill_rect(
-                        Rect::new(if c { 23. } else { 3. }, 3., 14., 14.),
-                        kivact::style::rgb(0xffffff),
-                    );
+                    d.fill_rect(Rect::new(if c { 23. } else { 3. }, 3., 14., 14.), p.on_dark);
                     d.text(
                         &state.text.map(|text| text.get()).unwrap_or_default(),
                         Point::new(if c { 5. } else { 20. }, 6.),
                         TextFormat {
                             size: 7.5,
                             weight: 700,
-                            color: kivact::style::rgb(0xffffff),
+                            color: p.on_dark,
                             ..Default::default()
                         },
                     );
@@ -629,7 +623,7 @@ fn tooltip_surface(t: &Theme, _: &Look<PopupState>) -> Style {
         .padding_y(5)
         .max_width(320)
         .background(t.ext::<Tokens>().navy)
-        .color(kivact::style::rgb(0xffffff))
+        .color(t.ext::<Tokens>().on_dark)
         .border_bottom(2, t.ext::<Tokens>().cyan)
         .font_size(11)
 }
@@ -877,7 +871,7 @@ fn toast_card(t: &Theme, state: &Look<ToastState>) -> Style {
         .gap(12)
         .align_items(Align::Start)
         .background(t.ext::<Tokens>().navy)
-        .color(kivact::style::rgb(0xffffff))
+        .color(t.ext::<Tokens>().on_dark)
         .border_left(4, tone_color(t, tone))
 }
 /// The diamond of the tone, in the tone's color.
@@ -888,25 +882,25 @@ fn toast_icon(t: &Theme, state: &Look<ToastState>) -> Style {
         .margin_top(1)
         .color(tone_color(t, state.tone))
 }
-fn toast_title(_: &Theme, _: &Look<ToastState>) -> Style {
+fn toast_title(t: &Theme, _: &Look<ToastState>) -> Style {
     style()
         .weight(700)
         .font_size(13)
-        .color(kivact::style::rgb(0xffffff))
+        .color(t.ext::<Tokens>().on_dark)
 }
-fn toast_body(_: &Theme, _: &Look<ToastState>) -> Style {
-    style().font_size(12).color(kivact::style::rgb(0xb8c9dc))
+fn toast_body(t: &Theme, _: &Look<ToastState>) -> Style {
+    style().font_size(12).color(t.ext::<Tokens>().toast_text)
 }
 /// The close button around the kit's `x`.
-fn toast_close(_: &Theme, _: &Look<ToastState>) -> Style {
+fn toast_close(t: &Theme, _: &Look<ToastState>) -> Style {
     style()
         .size(22, 22)
         .shrink(0)
         .padding(3)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .color(kivact::style::rgb(0xb8c9dc))
-        .hover(style().color(kivact::style::rgb(0xffffff)))
+        .color(t.ext::<Tokens>().toast_text)
+        .hover(style().color(t.ext::<Tokens>().on_dark))
 }
 
 /// A 5 px bar between the panes that lights up under the pointer and while
