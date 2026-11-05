@@ -180,7 +180,6 @@ impl TestParent {
     }
     /// Send an XDND file selection and wait for the receiver's completion.
     pub fn drop_files(&self, files: &[PathBuf], x: f64, y: f64) -> Result<(), ShellError> {
-        use std::os::unix::ffi::OsStrExt;
         let connection = &self.native.connection;
         let child = self.child()?;
         let atom = |name: &[u8]| -> Result<u32, ShellError> {
@@ -230,21 +229,7 @@ impl TestParent {
                 atom(b"XdndActionCopy")?,
             ],
         )?;
-        let mut payload = Vec::new();
-        for file in files {
-            if !file.is_absolute() {
-                return Err(super::error::platform("drop paths must be absolute"));
-            }
-            payload.extend_from_slice(b"file://");
-            for &b in file.as_os_str().as_bytes() {
-                if b.is_ascii_alphanumeric() || b"/-._~".contains(&b) {
-                    payload.push(b);
-                } else {
-                    payload.extend_from_slice(format!("%{b:02X}").as_bytes());
-                }
-            }
-            payload.extend_from_slice(b"\r\n");
-        }
+        let payload = uri_payload(files)?;
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             match connection
@@ -258,41 +243,7 @@ impl TestParent {
                     send(atom(b"XdndDrop")?, [source, 0, x11rb::CURRENT_TIME, 0, 0])?;
                 }
                 Some(x11rb::protocol::Event::SelectionRequest(e)) if e.selection == selection => {
-                    let property = if e.property == 0 {
-                        e.target
-                    } else {
-                        e.property
-                    };
-                    connection
-                        .change_property8(
-                            xproto::PropMode::REPLACE,
-                            e.requestor,
-                            property,
-                            uri,
-                            &payload,
-                        )
-                        .map_err(super::error::platform)?
-                        .check()
-                        .map_err(super::error::platform)?;
-                    connection
-                        .send_event(
-                            false,
-                            e.requestor,
-                            EventMask::NO_EVENT,
-                            xproto::SelectionNotifyEvent {
-                                response_type: xproto::SELECTION_NOTIFY_EVENT,
-                                sequence: 0,
-                                time: e.time,
-                                requestor: e.requestor,
-                                selection,
-                                target: e.target,
-                                property,
-                            },
-                        )
-                        .map_err(super::error::platform)?
-                        .check()
-                        .map_err(super::error::platform)?;
-                    connection.flush().map_err(super::error::platform)?;
+                    send_selection(connection, e, selection, uri, &payload)?;
                 }
                 Some(x11rb::protocol::Event::ClientMessage(e)) if e.type_ == finished => {
                     return if e.data.as_data32()[1] & 1 != 0 {
@@ -620,13 +571,6 @@ impl TestParent {
                 / 8;
         let mut rgba =
             Vec::with_capacity(usize::from(geometry.width) * usize::from(geometry.height) * 4);
-        let component = |pixel: u32, mask: u32| -> u8 {
-            if mask == 0 {
-                return 0;
-            }
-            let shift = mask.trailing_zeros();
-            (((pixel & mask) >> shift) * 255 / (mask >> shift)) as u8
-        };
         for y in 0..usize::from(geometry.height) {
             for x in 0..usize::from(geometry.width) {
                 let offset = y * stride + x * bytes;
@@ -858,51 +802,7 @@ fn map_host(native: &Native, width: u32, height: u32) -> Result<(), ShellError> 
             .map(|reply| reply.atom)
             .map_err(super::error::platform)
     };
-    for (property, data) in [
-        (
-            xproto::AtomEnum::WM_NAME,
-            b"Arvane embedded test host".as_slice(),
-        ),
-        (
-            xproto::AtomEnum::WM_CLASS,
-            b"arvane-test-parent\0ArvaneTestParent\0".as_slice(),
-        ),
-    ] {
-        connection
-            .change_property8(
-                xproto::PropMode::REPLACE,
-                id,
-                property,
-                xproto::AtomEnum::STRING,
-                data,
-            )
-            .map_err(super::error::platform)?
-            .check()
-            .map_err(super::error::platform)?;
-    }
-    for (property, kind, value) in [
-        (
-            atom(b"_NET_WM_PID")?,
-            xproto::AtomEnum::CARDINAL,
-            std::process::id(),
-        ),
-        (
-            atom(b"_NET_WM_WINDOW_TYPE")?,
-            xproto::AtomEnum::ATOM,
-            atom(b"_NET_WM_WINDOW_TYPE_NORMAL")?,
-        ),
-    ] {
-        connection
-            .change_property32(xproto::PropMode::REPLACE, id, property, kind, &[value])
-            .map_err(super::error::platform)?
-            .check()
-            .map_err(super::error::platform)?;
-    }
-    connection
-        .delete_property(id, atom(b"_XEMBED_INFO")?)
-        .map_err(super::error::platform)?
-        .check()
-        .map_err(super::error::platform)?;
+    set_host_identity(connection, id, &atom)?;
     WmHints {
         input: Some(true),
         initial_state: Some(WmHintsState::Normal),
@@ -950,4 +850,134 @@ fn map_host(native: &Native, width: u32, height: u32) -> Result<(), ShellError> 
         .check()
         .map_err(super::error::platform)?;
     connection.flush().map_err(super::error::platform)
+}
+
+/// Encode absolute paths as the XDND URI-list payload.
+fn uri_payload(files: &[PathBuf]) -> Result<Vec<u8>, ShellError> {
+    use std::os::unix::ffi::OsStrExt;
+    let mut payload = Vec::new();
+    for file in files {
+        if !file.is_absolute() {
+            return Err(super::error::platform("drop paths must be absolute"));
+        }
+        payload.extend_from_slice(b"file://");
+        for &b in file.as_os_str().as_bytes() {
+            if b.is_ascii_alphanumeric() || b"/-._~".contains(&b) {
+                payload.push(b);
+            } else {
+                payload.extend_from_slice(format!("%{b:02X}").as_bytes());
+            }
+        }
+        payload.extend_from_slice(b"\r\n");
+    }
+    Ok(payload)
+}
+
+/// Answer the receiver's file selection request.
+fn send_selection(
+    connection: &x11rb::xcb_ffi::XCBConnection,
+    e: xproto::SelectionRequestEvent,
+    selection: u32,
+    uri: u32,
+    payload: &[u8],
+) -> Result<(), ShellError> {
+    let property = if e.property == 0 {
+        e.target
+    } else {
+        e.property
+    };
+    connection
+        .change_property8(
+            xproto::PropMode::REPLACE,
+            e.requestor,
+            property,
+            uri,
+            payload,
+        )
+        .map_err(super::error::platform)?
+        .check()
+        .map_err(super::error::platform)?;
+    connection
+        .send_event(
+            false,
+            e.requestor,
+            EventMask::NO_EVENT,
+            xproto::SelectionNotifyEvent {
+                response_type: xproto::SELECTION_NOTIFY_EVENT,
+                sequence: 0,
+                time: e.time,
+                requestor: e.requestor,
+                selection,
+                target: e.target,
+                property,
+            },
+        )
+        .map_err(super::error::platform)?
+        .check()
+        .map_err(super::error::platform)?;
+    connection.flush().map_err(super::error::platform)?;
+    Ok(())
+}
+
+/// Set the host's ICCCM and EWMH identity before mapping.
+fn set_host_identity(
+    connection: &x11rb::xcb_ffi::XCBConnection,
+    id: u32,
+    atom: &impl Fn(&[u8]) -> Result<u32, ShellError>,
+) -> Result<(), ShellError> {
+    for (property, data) in [
+        (
+            xproto::AtomEnum::WM_NAME,
+            b"Arvane embedded test host".as_slice(),
+        ),
+        (
+            xproto::AtomEnum::WM_CLASS,
+            b"arvane-test-parent\0ArvaneTestParent\0".as_slice(),
+        ),
+    ] {
+        connection
+            .change_property8(
+                xproto::PropMode::REPLACE,
+                id,
+                property,
+                xproto::AtomEnum::STRING,
+                data,
+            )
+            .map_err(super::error::platform)?
+            .check()
+            .map_err(super::error::platform)?;
+    }
+    for (property, kind, value) in [
+        (
+            atom(b"_NET_WM_PID")?,
+            xproto::AtomEnum::CARDINAL,
+            std::process::id(),
+        ),
+        (
+            atom(b"_NET_WM_WINDOW_TYPE")?,
+            xproto::AtomEnum::ATOM,
+            atom(b"_NET_WM_WINDOW_TYPE_NORMAL")?,
+        ),
+    ] {
+        connection
+            .change_property32(xproto::PropMode::REPLACE, id, property, kind, &[value])
+            .map_err(super::error::platform)?
+            .check()
+            .map_err(super::error::platform)?;
+    }
+    connection
+        .delete_property(id, atom(b"_XEMBED_INFO")?)
+        .map_err(super::error::platform)?
+        .check()
+        .map_err(super::error::platform)?;
+    Ok(())
+}
+
+/// Expand one packed color channel into an eight-bit sample.
+fn component(pixel: u32, mask: u32) -> u8 {
+    if mask == 0 {
+        return 0;
+    }
+    let shift = mask.trailing_zeros();
+    (((pixel & mask) >> shift) * 255 / (mask >> shift)) as u8
 }

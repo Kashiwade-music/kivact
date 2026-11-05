@@ -125,6 +125,17 @@ impl Native {
             owner: std::thread::current().id(),
             exists: ConnectionAlive(AtomicBool::new(true)),
         });
+        native.create_child(parent, width, height, info)?;
+        Ok((native, width.into(), height.into(), scale))
+    }
+    /// Install the event mask and XEmbed identity on the new child.
+    fn create_child(
+        &self,
+        parent: u32,
+        width: u16,
+        height: u16,
+        info: u32,
+    ) -> Result<(), ShellError> {
         let mask = EventMask::EXPOSURE
             | EventMask::STRUCTURE_NOTIFY
             | EventMask::POINTER_MOTION
@@ -136,11 +147,10 @@ impl Native {
             | EventMask::LEAVE_WINDOW
             | EventMask::FOCUS_CHANGE
             | EventMask::PROPERTY_CHANGE;
-        native
-            .connection
+        self.connection
             .create_window(
                 x11rb::COPY_DEPTH_FROM_PARENT,
-                id.get(),
+                self.id.get(),
                 parent,
                 0,
                 0,
@@ -154,13 +164,12 @@ impl Native {
             .map_err(super::error::platform)?
             .check()
             .map_err(super::error::platform)?;
-        native
-            .connection
-            .change_property32(PropMode::REPLACE, id.get(), info, info, &[0, 1])
+        self.connection
+            .change_property32(PropMode::REPLACE, self.id.get(), info, info, &[0, 1])
             .map_err(super::error::platform)?
             .check()
             .map_err(super::error::platform)?;
-        Ok((native, width.into(), height.into(), scale))
+        Ok(())
     }
 }
 

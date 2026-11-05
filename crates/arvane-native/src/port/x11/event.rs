@@ -49,6 +49,33 @@ impl Input {
             return Ok(out);
         }
 
+        self.translate_event(event, window, &mut out)?;
+        for event in &out {
+            if let ShellEvent::Focused(focused) = event {
+                window.accessibility.focus(*focused);
+                window.ime.borrow_mut().focus(*focused);
+            }
+        }
+        let now = window.now_ns();
+        for event in &mut out {
+            if let ShellEvent::Pointer(sample) = event {
+                sample.modifiers = self.keyboard.modifiers();
+            }
+            if let ShellEvent::Key(key) = event {
+                key.pointer = self.mouse.window_position();
+            }
+            self.clicks
+                .count(event, || now, || kivact_types::defaults::DOUBLE_CLICK);
+        }
+        Ok(out)
+    }
+    /// Translate one event after XDND and IME filtering.
+    fn translate_event(
+        &mut self,
+        event: Event,
+        window: &mut Window,
+        out: &mut Vec<ShellEvent>,
+    ) -> Result<(), ShellError> {
         let scale = window.scale;
         let point = |x: i16, y: i16| {
             Some(Point {
@@ -65,10 +92,10 @@ impl Input {
                     out.push(ShellEvent::Resized);
                 }
             }
-            Event::FocusIn(_) => self.focus_in(&mut out),
-            Event::FocusOut(_) => self.blur(&mut out),
+            Event::FocusIn(_) => self.focus_in(out),
+            Event::FocusOut(_) => self.blur(out),
             Event::MotionNotify(e) => {
-                self.sync_modifiers(e.state.into(), &mut out);
+                self.sync_modifiers(e.state.into(), out);
                 out.extend(
                     self.mouse
                         .event(PointerPhase::Move, point(e.event_x, e.event_y))
@@ -76,7 +103,7 @@ impl Input {
                 );
             }
             Event::EnterNotify(e) => {
-                self.sync_modifiers(e.state.into(), &mut out);
+                self.sync_modifiers(e.state.into(), out);
                 out.extend(
                     self.mouse
                         .event(PointerPhase::Move, point(e.event_x, e.event_y))
@@ -88,60 +115,9 @@ impl Input {
                     .event(PointerPhase::Leave, None)
                     .map(ShellEvent::Pointer),
             ),
-            Event::ButtonPress(e) => {
-                self.sync_modifiers(e.state.into(), &mut out);
-                if (4..=7).contains(&e.detail) {
-                    let (x, y) = match e.detail {
-                        4 => (0.0, 1.0),
-                        5 => (0.0, -1.0),
-                        6 => (1.0, 0.0),
-                        _ => (-1.0, 0.0),
-                    };
-                    let previous = self.mouse.position();
-                    if let Some(event) = self
-                        .mouse
-                        .event(PointerPhase::Move, point(e.event_x, e.event_y))
-                        && Some(event.position) != previous
-                    {
-                        out.push(ShellEvent::Pointer(event));
-                    }
-                    let settings = kivact_types::PointerSettings::default();
-                    let (x, y) = crate::port::winit::wheel::lines(
-                        x,
-                        y,
-                        u16::from(e.state) & 1 != 0,
-                        window.size().height,
-                        settings.wheel_lines,
-                        settings.wheel_chars,
-                    );
-                    if let Some(position) = self.mouse.position() {
-                        out.push(ShellEvent::Wheel(kivact_types::WheelInput {
-                            delta: kivact_types::Point { x, y },
-                            position,
-                            modifiers: self.keyboard.modifiers(),
-                        }));
-                    }
-                } else if let Some(button) = button(e.detail) {
-                    // Wheel buttons must not move keyboard focus; only real buttons do.
-                    window
-                        .native
-                        .connection
-                        .set_input_focus(InputFocus::PARENT, window.native.id.get(), e.time)
-                        .map_err(super::error::platform)?;
-                    window
-                        .native
-                        .connection
-                        .flush()
-                        .map_err(super::error::platform)?;
-                    out.extend(
-                        self.mouse
-                            .button(button, true, point(e.event_x, e.event_y))
-                            .map(ShellEvent::Pointer),
-                    );
-                }
-            }
+            Event::ButtonPress(e) => self.button_press(e, window, out)?,
             Event::ButtonRelease(e) => {
-                self.sync_modifiers(e.state.into(), &mut out);
+                self.sync_modifiers(e.state.into(), out);
                 if let Some(button) = button(e.detail) {
                     out.extend(
                         self.mouse
@@ -166,32 +142,83 @@ impl Input {
             Event::ClientMessage(e) if e.type_ == window.native.xembed && e.format == 32 => {
                 match e.data.as_data32()[1] {
                     // Only XEMBED_FOCUS_IN moves focus; WINDOW_ACTIVATE (1) does not.
-                    4 => self.focus_in(&mut out),
-                    2 | 5 => self.blur(&mut out),
+                    4 => self.focus_in(out),
+                    2 | 5 => self.blur(out),
                     _ => {}
                 }
             }
             _ => {}
         }
-        for event in &out {
-            if let ShellEvent::Focused(focused) = event {
-                window.accessibility.focus(*focused);
-                window.ime.borrow_mut().focus(*focused);
-            }
-        }
-        let now = window.now_ns();
-        for event in &mut out {
-            if let ShellEvent::Pointer(sample) = event {
-                sample.modifiers = self.keyboard.modifiers();
-            }
-            if let ShellEvent::Key(key) = event {
-                key.pointer = self.mouse.window_position();
-            }
-            self.clicks
-                .count(event, || now, || kivact_types::defaults::DOUBLE_CLICK);
-        }
-        Ok(out)
+        Ok(())
     }
+
+    /// Apply wheel scrolling or a captured button press.
+    fn button_press(
+        &mut self,
+        e: x11rb::protocol::xproto::ButtonPressEvent,
+        window: &mut Window,
+        out: &mut Vec<ShellEvent>,
+    ) -> Result<(), ShellError> {
+        let scale = window.scale;
+        let point = |x: i16, y: i16| {
+            Some(Point {
+                x: f64::from(x) / scale,
+                y: f64::from(y) / scale,
+            })
+        };
+        self.sync_modifiers(e.state.into(), out);
+        if (4..=7).contains(&e.detail) {
+            let (x, y) = match e.detail {
+                4 => (0.0, 1.0),
+                5 => (0.0, -1.0),
+                6 => (1.0, 0.0),
+                _ => (-1.0, 0.0),
+            };
+            let previous = self.mouse.position();
+            if let Some(event) = self
+                .mouse
+                .event(PointerPhase::Move, point(e.event_x, e.event_y))
+                && Some(event.position) != previous
+            {
+                out.push(ShellEvent::Pointer(event));
+            }
+            let settings = kivact_types::PointerSettings::default();
+            let (x, y) = crate::port::winit::wheel::lines(
+                x,
+                y,
+                u16::from(e.state) & 1 != 0,
+                window.size().height,
+                settings.wheel_lines,
+                settings.wheel_chars,
+            );
+            if let Some(position) = self.mouse.position() {
+                out.push(ShellEvent::Wheel(kivact_types::WheelInput {
+                    delta: kivact_types::Point { x, y },
+                    position,
+                    modifiers: self.keyboard.modifiers(),
+                }));
+            }
+        } else if let Some(button) = button(e.detail) {
+            // Wheel buttons must not move keyboard focus; only real buttons do.
+            window
+                .native
+                .connection
+                .set_input_focus(InputFocus::PARENT, window.native.id.get(), e.time)
+                .map_err(super::error::platform)?;
+            window
+                .native
+                .connection
+                .flush()
+                .map_err(super::error::platform)?;
+            out.extend(
+                self.mouse
+                    .button(button, true, point(e.event_x, e.event_y))
+                    .map(ShellEvent::Pointer),
+            );
+        }
+        Ok(())
+    }
+
     pub(super) fn drain_ime(&mut self, window: &Window) -> Vec<ShellEvent> {
         let (raw, returned, cancelled) = window.ime.borrow_mut().drain();
         let mut events: Vec<_> = raw
