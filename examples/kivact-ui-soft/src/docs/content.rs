@@ -110,8 +110,12 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "code-block" => specimen(
             "Rust example",
-            kivact_ui_soft::code_block("fn main() {\n    println!(\"Hello\");\n}")
+            kivact::ui::code_block("fn main() {\n    println!(\"Hello\");\n}")
                 .language("rust")
+                .highlight(
+                    || kivact::style::use_tokens::<kivact_ui_soft::Tokens>().colors.syntax,
+                    |palette, line, _: &()| (kivact_ui_soft::code_highlight(&kivact_ui_soft::CodeLanguageInput::from("rust"), line, palette), ()),
+                )
                 .title("Example source")
                 .language_label(false)
                 .collapsible(true)

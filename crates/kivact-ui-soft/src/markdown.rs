@@ -2,7 +2,6 @@
 use crate::markdown_parser::{Alignment, Block, ListEntry, parse, reference};
 use crate::{
     CitationSource, CitationVariant, CodeLanguage, CodeLanguageInput, blockquote, citation,
-    code_block,
 };
 use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
@@ -415,8 +414,15 @@ impl Renderer<'_> {
                         },
                         |item| item.clone().into(),
                     );
-                code_block(source.to_owned())
-                    .language(syntax)
+                let label = syntax.label().to_owned();
+                kivact::ui::code_block(source.to_owned())
+                    .language(label)
+                    .highlight(
+                        || kivact::style::use_tokens::<crate::Tokens>().colors.syntax,
+                        move |palette, line, _: &()| {
+                            (crate::code_highlight(&syntax, line, palette), ())
+                        },
+                    )
                     .diff(diff)
                     .collapsible(true)
                     .wrap(true)
