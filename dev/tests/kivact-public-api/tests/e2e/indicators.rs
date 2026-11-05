@@ -79,10 +79,16 @@ fn kbd_uses_the_platform_command_key() {
         ))
     });
     let name = if screen.query_by_text("command-platform").is_some() {
-        "\u{2318} + K"
+        "Command + K"
     } else {
-        "Ctrl + K"
+        "Control + K"
     };
     screen.get_by_role(Role::Image, name);
+    screen.get_by_text(if name == "Command + K" {
+        "\u{2318}"
+    } else {
+        "Ctrl"
+    });
+    screen.get_by_text("K");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
