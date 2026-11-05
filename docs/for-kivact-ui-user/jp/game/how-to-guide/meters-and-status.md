@@ -103,8 +103,8 @@ fn statuses() -> impl IntoView {
 
 ## プレイヤーにメッセージを出す
 
-- `game::alert(title)` は、`.description(..)`、`.tone(..)`、`.actions(|| view)` を持つインラインの枠です。閉じるボタンは `.on_dismiss(..)` を渡したときだけ出ます。ハンドラーは要求を伝えるだけなので、アラートを消すには自分のシグナルを空にします（下の例を参照）。
-- `game::banner(title, tone, action)` は、システムメッセージ向けの全幅の帯です。`.content(|| view)` がメッセージで、`action` は末尾に置きたいものです。
+- `kivact::ui::alert(title)` は、`.description(..)`、`.tone(..)`、`.actions(view)` を持つインラインの枠です。`.dismissible(true)` で閉じるボタンを表示し、`.visible(shown)` でアプリケーションの状態を結びます。binding の setter は閉じる要求を拒否できます。`.on_dismiss(..)` は受け入れられた閉じる操作が完了してフォーカスが戻った後の通知です。
+- `kivact::ui::alert(title).variant(kivact::ui::AlertVariant::Banner).tone(tone).actions(action)` は、システムメッセージ向けの全幅の帯です。`.content(|| view)` がメッセージで、`action` は末尾に置きたいものです。
 - `kivact::ui::empty_state(title)` は、`.description(..)` と、操作用の `.actions(view)` を持つ破線のパネルです。`kivact::ui::skeleton().variant(game::SkeletonVariant::Rows).lines(n)` は読み込み中のプレースホルダーです。
 - 短時間だけ出すメッセージはトーストです。`kivact::ui::toast_region(toaster())` を一度だけ配置し、toaster に `Toast::new("Saved").tone(Tone::Success)` を push します。
 
@@ -116,10 +116,11 @@ use kivact_ui_game as game;
 fn warning() -> impl IntoView {
     let shown = signal(true);
     show(shown, move || {
-        game::alert("Low fuel")
+        kivact::ui::alert("Low fuel")
             .tone(Tone::Warning)
             .description("Return to base within 2 minutes.")
-            .on_dismiss(move || shown.set(false))
+            .visible(shown).dismissible(true)
+            .dismiss_label("Close alert").dismiss_content(text("×"))
     })
 }
 # fn main() {}

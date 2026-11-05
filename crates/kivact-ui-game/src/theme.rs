@@ -102,6 +102,8 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
     };
     let mut ui = kivact::ui::UiTokens::default();
     ui.indicators.avatar_overlap = 6.;
+    ui.indicators.gap = 14.;
+    ui.indicators.period_ms = 1400;
     ui.tree.marker_width = Some(10.);
     ui.tree.indent = Some(16.);
     ui.tree.padding = Some(10.);

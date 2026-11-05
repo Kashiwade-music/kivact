@@ -24,10 +24,8 @@ pub(super) fn feedback(scene: Demo) -> Node {
             wide(specimen(
                 "FBK-01",
                 "システムバナー",
-                g::banner(
-                    "NOTICE",
-                    kivact::interaction::Tone::Warning,
-                    row((
+                kivact::ui::alert("NOTICE").variant(kivact::ui::AlertVariant::Banner)
+                .tone(kivact::interaction::Tone::Warning).actions(row((
                         g::mono("T-41:20:00").style(style().color(rgb(0x9fb7d2))),
                         kivact::ui::button("詳細")
                             .variant(kivact_ui_game::Slant)
@@ -41,9 +39,10 @@ pub(super) fn feedback(scene: Demo) -> Node {
                                 );
                             }),
                     ))
-                    .style(style().gap(14).align_items(Align::Center)),
-                )
-                .content( rich_text(vec![
+                    .style(style().gap(14).align_items(Align::Center)))
+
+                .with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
+.content(move || rich_text(vec![
                     span("計画メンテナンス:").weight(700).color(rgb(0xffc928)),
                     span(" 10/05 (日) 02:00–04:00 JST に API が読み取り専用になります。"),
                 ])),
@@ -53,15 +52,15 @@ pub(super) fn feedback(scene: Demo) -> Node {
                 "インラインアラート",
                 list((
                     kivact::view::show(info, move || {
-                        g::alert("新しいバージョンがあります").description("v2.5.0 で監査ログのエクスポートが追加されました。").tone(kivact::interaction::Tone::Info)
-                        .on_dismiss(move || info.set(false))
+                        kivact::ui::alert("新しいバージョンがあります").description("v2.5.0 で監査ログのエクスポートが追加されました。").tone(kivact::interaction::Tone::Info).icon(kivact::view::icon("info-circle"))
+                        .visible(info).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×")).with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
                     }),
                     kivact::view::show(success, move || {
-                        g::alert("バックアップ完了").description("2.4GB · 所要 3 分 12 秒").tone(kivact::interaction::Tone::Success)
-                        .on_dismiss(move || success.set(false))
+                        kivact::ui::alert("バックアップ完了").description("2.4GB · 所要 3 分 12 秒").tone(kivact::interaction::Tone::Success).icon(kivact::view::icon("circle-check"))
+                        .visible(success).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×")).with_node(|node| node.role(Role::Status).live_region(kivact::view::LiveRegion::Polite))
                     }),
                     kivact::view::show(warning, move || {
-                        g::alert("証明書の期限が近づいています").description("*.ops.example.internal — 残り 9 日").tone(kivact::interaction::Tone::Warning)
+                        kivact::ui::alert("証明書の期限が近づいています").description("*.ops.example.internal — 残り 9 日").tone(kivact::interaction::Tone::Warning).icon(kivact::view::icon("alert-triangle"))
                         .actions( {
                             row((
                                 kivact::ui::button("更新する")
@@ -81,11 +80,11 @@ pub(super) fn feedback(scene: Demo) -> Node {
                             ))
                             .style(style().gap(10).margin_top(6))
                         })
-                        .on_dismiss(move || warning.set(false))
+                        .visible(warning).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×"))
                     }),
                     kivact::view::show(danger, move || {
-                        g::alert("決済連携に失敗しました").description("ERR_UPSTREAM_502 · 3 回再試行後に停止").tone(kivact::interaction::Tone::Danger)
-                        .on_dismiss(move || danger.set(false))
+                        kivact::ui::alert("決済連携に失敗しました").description("ERR_UPSTREAM_502 · 3 回再試行後に停止").tone(kivact::interaction::Tone::Danger).icon(kivact::view::icon("alert-octagon"))
+                        .visible(danger).dismissible(true).dismiss_label(kivact::i18n::message("game.alert.close", "Close alert")).dismiss_content(text("×"))
                     }),
                 )),
             ),

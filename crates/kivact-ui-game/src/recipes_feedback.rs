@@ -1,9 +1,10 @@
 //! Role: Draw console empty panels and loading rows through standard recipes.
 use crate::Tokens;
+use crate::display::ToneExt;
 use kivact::draw::{Layer, Path, Stroke};
 use kivact::geometry::{Point, Rect};
-use kivact::style::{Align, BorderStyle, ColorToken, Justify, Style, Theme, pct, style};
-use kivact::ui::{EmptyStateRecipes, Look, SkeletonState};
+use kivact::style::{Align, BorderStyle, ColorToken, Direction, Justify, Style, Theme, pct, style};
+use kivact::ui::{AlertRecipes, AlertState, AlertVariant, EmptyStateRecipes, Look, SkeletonState};
 
 /// A console loading row with an avatar and two caption placeholders.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,6 +59,7 @@ pub(crate) fn empty_state(r: EmptyStateRecipes) -> EmptyStateRecipes {
     r.root(|_| {
         move |_, _| {
             style()
+                .direction(Direction::Column)
                 .width(pct(100))
                 .padding_y(28)
                 .padding_x(16)
@@ -115,4 +117,157 @@ pub(crate) fn empty_state(r: EmptyStateRecipes) -> EmptyStateRecipes {
         }
     })
     .actions(|base| move |t, s| base(t, s).align_items(Align::Center))
+}
+
+pub(crate) fn alert(r: AlertRecipes) -> AlertRecipes {
+    r.root(|_| alert_root)
+        .title(|_| alert_title)
+        .description(|_| {
+            move |_, _| {
+                style()
+                    .grid_column(2)
+                    .grid_row(2)
+                    .font_size(12.5)
+                    .color(ColorToken::TextMuted)
+            }
+        })
+        .icon(|_| alert_icon)
+        .actions(|_| {
+            move |_, s| {
+                if banner(s) {
+                    style()
+                        .grid_column(3)
+                        .grid_row(1)
+                        .align_items(Align::Center)
+                } else {
+                    style().grid_column(2).grid_row(3)
+                }
+            }
+        })
+        .content(|_| {
+            move |_, s| {
+                if banner(s) {
+                    style()
+                        .grid_column(2)
+                        .grid_row(1)
+                        .font_size(12.5)
+                        .color(ColorToken::AccentText)
+                        .grow(1)
+                } else {
+                    style().grid_column(2).grid_row(4)
+                }
+            }
+        })
+        .dismiss(|_| {
+            move |_, _| {
+                style()
+                    .grid_column(3)
+                    .grid_row((1, 3))
+                    .align_self(Align::Start).size(32, 32)
+                    .padding(0)
+                    .background(kivact::style::Color::TRANSPARENT)
+                    .color(ColorToken::TextMuted)
+                    .border_width(0)
+                    .shadow(kivact::draw::Shadow::new(
+                        0,
+                        0,
+                        0,
+                        kivact::style::Color::TRANSPARENT,
+                    ))
+            }
+        })
+        .toggle(|base| move |t, s| base(t, s).grid_column(2).grid_row(4))
+}
+fn banner(s: &Look<AlertState>) -> bool {
+    s.variant::<AlertVariant>() == Some(&AlertVariant::Banner)
+}
+fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
+    let base = style().display(kivact::style::Display::Grid).radius(0);
+    if banner(s) {
+        base.width(pct(100))
+            .height(44)
+            .padding_right(14)
+            .gap(14)
+            .grid_template_columns((
+                kivact::style::auto(),
+                kivact::style::Track::fr(1),
+                kivact::style::auto(),
+            ))
+            .align_items(Align::Center)
+            .background(t.ext::<Tokens>().navy)
+            .color(ColorToken::AccentText)
+    } else {
+        let base = if s.dismissible {
+            base.grid_template_columns((18, kivact::style::Track::fr(1), 32))
+        } else {
+            base.grid_template_columns((18, kivact::style::Track::fr(1)))
+        };
+        base.padding_y(12)
+            .padding_x(14)
+            .column_gap(12)
+            .row_gap(2)
+            .align_items(Align::Start)
+            .background(s.tone.weak(t))
+            .border(1, s.tone.color(t).mix(t.colors().surface, 0.65))
+            .border_left(4, s.tone.color(t))
+    }
+}
+fn alert_title(t: &Theme, s: &Look<AlertState>) -> Style {
+    if banner(s) {
+        banner_tape(t, s)
+            .grid_column(1)
+            .grid_row(1)
+            .font_family(t.ext::<Tokens>().mono_family.as_str())
+            .font_size(10)
+            .weight(800)
+            .text_wrap(false)
+            .padding_x(18)
+            .padding_y(14.25)
+    } else {
+        style().grid_column(2).grid_row(1).font_size(13).weight(700)
+    }
+}
+fn alert_icon(t: &Theme, s: &Look<AlertState>) -> Style {
+    style()
+        .grid_column(1)
+        .grid_row((1, 3))
+        .size(18, 18)
+        .color(s.tone.color(t))
+}
+fn banner_tape(t: &Theme, s: &Look<AlertState>) -> Style {
+    let color = if s.tone == kivact::interaction::Tone::Warning {
+        t.ext::<Tokens>().yellow
+    } else {
+        s.tone.color(t)
+    };
+    style()
+        .grid_column(1)
+        .grid_row(1)
+        .height(pct(100))
+        .padding_x(12)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .color(t.ext::<Tokens>().navy)
+        .paint(move |d, s| {
+            d.layer(Layer::new().clip_rect(s.to_rect()), |d| {
+                d.fill_rect(s.to_rect(), color);
+                let mut x = -44.;
+                while x < s.width + 44. {
+                    d.fill_path(
+                        &Path::new()
+                            .move_to(Point::new(x, s.height))
+                            .line_to(Point::new(x + s.height, 0.))
+                            .line_to(Point::new(x + s.height + 8., 0.))
+                            .line_to(Point::new(x + 8., s.height))
+                            .close(),
+                        kivact::style::rgb(0x1a1a1a),
+                    );
+                    x += 16.;
+                }
+                d.fill_rect(
+                    Rect::new(12., (s.height - 23.5) / 2., s.width - 24., 23.5),
+                    color,
+                );
+            })
+        })
 }

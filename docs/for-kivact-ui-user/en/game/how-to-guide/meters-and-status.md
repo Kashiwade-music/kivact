@@ -121,11 +121,11 @@ fn statuses() -> impl IntoView {
 
 ## Show a message to the player
 
-- `game::alert(title)` is an inline box with `.description(..)`, `.tone(..)`
-  and `.actions(|| view)`. It shows a close button only when you give it
-  `.on_dismiss(..)`; the handler reports the request, and you hide the alert by
-  clearing your own signal (see the example below).
-- `game::banner(title, tone, action)` is a full-width tape for system
+- `kivact::ui::alert(title)` is an inline box with `.description(..)`, `.tone(..)`
+  and `.actions(view)`. `.dismissible(true)` shows the close control.
+  Bind `.visible(shown)` to application state; a binding setter can refuse a dismissal.
+  `.on_dismiss(..)` reports a completed, accepted dismissal after focus returns.
+- `kivact::ui::alert(title).variant(kivact::ui::AlertVariant::Banner).tone(tone).actions(action)` is a full-width tape for system
   messages; `.content(|| view)` is its message and `action` is whatever you
   want at its end.
 - `kivact::ui::empty_state(title)` is a dashed panel with `.description(..)` and
@@ -142,10 +142,11 @@ use kivact_ui_game as game;
 fn warning() -> impl IntoView {
     let shown = signal(true);
     show(shown, move || {
-        game::alert("Low fuel")
+        kivact::ui::alert("Low fuel")
             .tone(Tone::Warning)
             .description("Return to base within 2 minutes.")
-            .on_dismiss(move || shown.set(false))
+            .visible(shown).dismissible(true)
+            .dismiss_label("Close alert").dismiss_content(text("×"))
     })
 }
 # fn main() {}
