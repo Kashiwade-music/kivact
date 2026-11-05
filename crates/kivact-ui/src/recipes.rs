@@ -450,6 +450,8 @@ recipe_table! {
         root(root_recipe): PartState = look_collections::list,
         /// A row with the expansion indicator and its content.
         item(item_recipe): TreeItemState = look_collections::tree_item,
+        /// The branch indicator or matching leaf spacer.
+        marker(marker_recipe): TreeItemState = look_collections::tree_marker,
     }
 }
 
@@ -761,6 +763,7 @@ recipe_table! {
     ItemListRecipes {
         root(root_recipe): PartState = look_static_collections::list,
         item(item_recipe): PartState = look_static_collections::item,
+        body(body_recipe): PartState = look_static_collections::item_body,
         content(content_recipe): PartState = look_static_collections::content,
         title(title_recipe): PartState = look_static_collections::title,
         description(description_recipe): PartState = look_static_collections::description,

@@ -582,6 +582,14 @@ impl Node {
         self
     }
 
+    /// Number of logical columns a table cell covers. Zero is not published.
+    #[track_caller]
+    pub fn column_span(mut self, value: impl IntoValue<u32>) -> Self {
+        self.common
+            .semantic(value.into_prop(), |s, value| s.column_span = Some(value));
+        self
+    }
+
     /// Set the depth of this node in a hierarchy (`aria-level`), counted
     /// from 1: a heading's level, or a tree item's depth. Constant or
     /// reactive. `0` means "not set" and is not published.

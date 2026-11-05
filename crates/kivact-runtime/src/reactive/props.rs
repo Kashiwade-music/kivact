@@ -535,6 +535,7 @@ constant_value!(Rc<str>);
 constant_value!(
     kivact_types::InputPurpose,
     kivact_types::TextDecorationStyle,
+    kivact_types::TextAlign,
     kivact_types::Align,
     kivact_types::FlexDirection,
     kivact_types::Justify,

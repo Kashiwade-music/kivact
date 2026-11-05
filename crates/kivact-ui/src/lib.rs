@@ -180,7 +180,7 @@ pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};
 pub use toggle_button::{ToggleButton, ToggleButtonTokens, ToggleLabelReservation, toggle_button};
-pub use tree::{Tree, TreeRows, tree, tree_rows};
+pub use tree::{Tree, TreeRows, TreeTokens, tree, tree_rows};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
     DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,

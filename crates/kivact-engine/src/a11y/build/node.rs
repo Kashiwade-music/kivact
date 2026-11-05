@@ -390,6 +390,7 @@ pub(super) fn properties(
         .filter(|&v| v != 0 && mapped.set_size.is_none_or(|size| v <= size));
     mapped.row_index = mapped.row_index.filter(|&value| value != 0);
     mapped.column_index = mapped.column_index.filter(|&value| value != 0);
+    mapped.column_span = mapped.column_span.filter(|&value| value != 0);
     mapped.text = None;
     mapped
 }

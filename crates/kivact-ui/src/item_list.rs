@@ -56,13 +56,21 @@ impl IntoView for ItemList {
 pub struct ItemRow {
     root: Node,
     title: Value<String>,
+    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
     title_content: Option<View>,
+    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
     description: Option<Value<String>>,
+    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
     description_content: Option<View>,
+    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
     media: Option<View>,
+    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
     actions: Option<View>,
+    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
     header: Option<View>,
+    // xtask-allow(state-fields): Independent optional construction content slot, not an interaction phase.
     footer: Option<View>,
+    // xtask-allow(state-fields): Independent optional construction callback; mounted input belongs to Part.
     press: Option<Callback<()>>,
     variants: Variants,
 }
@@ -171,17 +179,16 @@ impl IntoView for ItemRow {
         let actions = actions.map(|v| wrap(v, |r| r.item_list_recipes().actions_recipe()));
         let header = header.map(|v| wrap(v, |r| r.item_list_recipes().header_recipe()));
         let footer = footer.map(|v| wrap(v, |r| r.item_list_recipes().footer_recipe()));
+        let body = wrap(node().child((media, content, actions)).into_view(), |r| {
+            r.item_list_recipes().body_recipe()
+        });
         with_base_recipe_style(
             root.part(part),
             |r| r.item_list_recipes().item_recipe(),
             &variants,
             move || state.get(),
         )
-        .child((
-            header,
-            kivact_core::view::row((media, content, actions)),
-            footer,
-        ))
+        .child((header, body, footer))
         .into_view()
     }
 }

@@ -22,9 +22,15 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
     nodes: Value<Vec<TreeNode<K>>>,
     selection: Selection<K>,
     expanded: Binding<Vec<K>>,
+    // xtask-allow(state-fields): Optional custom row content chosen during construction.
     item: Option<RowContent<K>>,
     variants: Variants,
+    // xtask-allow(state-fields): Optional construction callback; navigation transitions belong to use_tree.
     activate: Option<kivact_core::state::Callback<K>>,
+    // xtask-allow(state-fields): Optional construction slot independent of tree navigation.
+    header: Option<View>,
+    // xtask-allow(state-fields): Optional construction transition independent of expansion bindings.
+    reveal: Option<(f64, Transition)>,
 }
 
 /// A named tree with application-owned expansion and selection.
@@ -41,10 +47,22 @@ pub fn tree<K: kivact_core::state::ItemKey>(
         item: None,
         variants: Variants::default(),
         activate: None,
+        header: None,
+        reveal: None,
     }
 }
 
 impl<K: kivact_core::state::ItemKey> Tree<K> {
+    /// Place a header before the visible rows.
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = Some(header.into_view());
+        self
+    }
+    /// Reveal branches with retained presence, as in `tree_rows`.
+    pub fn reveal(mut self, gap: impl Into<f64>, transition: Transition) -> Self {
+        self.reveal = Some((gap.into(), transition));
+        self
+    }
     /// Bind the selected keys.
     pub fn selection(mut self, selection: impl kivact_interaction::IntoSelection<K>) -> Self {
         self.selection = selection.into_selection();
@@ -192,6 +210,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
             activate,
             item,
             variants,
+            header,
+            reveal,
         } = self;
         let mut behavior = use_tree(nodes, expanded, selection);
         if let Some(activate) = activate {
@@ -208,7 +228,12 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
                 let state = part.state();
                 let parent = row.with_untracked(|row| row.branch.has_children());
                 let label = behavior.label(key.clone());
-                let marker = node().style(style().width(16).shrink(0));
+                let marker = with_recipe_style(
+                    node(),
+                    |r| r.tree_recipes().marker_recipe(),
+                    &row_variants,
+                    move || state.get(),
+                );
                 let marker = if parent {
                     marker
                         .role(Role::Generic)
@@ -238,13 +263,28 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
                 .child((marker, content))
             },
         );
+        let rows = match reveal {
+            Some((gap, transition)) => rows.reveal(gap, transition),
+            None => rows,
+        };
         with_base_recipe_style(
             root.part(list),
             |r| r.tree_recipes().root_recipe(),
             &variants,
             move || state.get(),
         )
-        .child(rows)
+        .child((header, rows))
         .into_view()
     }
+}
+
+/// Theme overrides for tree rows.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct TreeTokens {
+    pub marker_width: Option<f64>,
+    pub indent: Option<f64>,
+    pub padding: Option<f64>,
+    pub gap: Option<f64>,
+    pub row_height: Option<f64>,
+    pub radius: Option<f64>,
 }

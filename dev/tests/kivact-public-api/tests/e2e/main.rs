@@ -112,6 +112,7 @@ mod apg_carousel;
 mod apg_toolbar;
 mod ui_calendar;
 mod ui_carousel;
+mod ui_collections;
 mod ui_disclosure_surfaces;
 mod ui_dropzone;
 mod ui_toolbar;
