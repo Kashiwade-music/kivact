@@ -12,7 +12,7 @@ fn settings(save: impl Fn(String) + 'static) -> impl IntoView {
     let display_name = signal(String::new());
 
     column((
-        soft::heading(1, "Profile"),
+        kivact::ui::heading("Profile", 1),
         text_input("Display name", display_name),
         button("Save")
             .variant(kivact::ui::ButtonVariant::Primary)
