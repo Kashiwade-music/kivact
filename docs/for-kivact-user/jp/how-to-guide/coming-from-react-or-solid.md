@@ -105,8 +105,9 @@ fn panel<V: IntoView>(title: &str, child: V) -> impl IntoView {
 }
 
 // コールバックの prop: 呼び出し側が渡すクロージャ。
-fn buttons(on_add: impl Fn() + Copy + 'static) -> impl IntoView {
-    row((button("追加"), button("もう一度追加").on_press(on_add)))
+fn buttons(on_add: impl Into<Callback<()>>) -> impl IntoView {
+    let on_add = on_add.into();
+    row((button("追加").on_press(on_add), button("もう一度追加").on_press(on_add)))
 }
 
 fn app() -> impl IntoView {
@@ -143,7 +144,7 @@ mod tests {
 ```
 
 - 変わりうる prop は `impl IntoValue<T>` を受け取ります。呼び出し側は定数、シグナル、memo、クロージャのどれでも渡せ、あなたは `.into_value()` を一度呼んで、読み取り用の `Value<T>` ハンドルを得ます。
-- コールバックは普通のクロージャです。`impl Fn() + 'static`(引数があれば `Fn(T) + 'static`)として受け取ります。`buttons` のように複数の場所へ渡すなら `Copy` を付けます。アプリで 1 つのハンドラーを複数のコントロールで共有するときは、`callback(|x| ..)` が `Copy` なハンドルを返します(引数がなければ `callback(|_| ..)`)。
+- 入力のないコールバックの prop は `impl Into<Callback<()>>` として受け取ります。`.into()` で一度だけ変換すると、得られるハンドルは `Copy` なので、両方のボタンで同じ操作を使えます。呼び出し側は `move || ...` のクロージャをそのまま渡せます。
 - `()` を返すクロージャを受け取る場所は、`Result<(), UiError>` を返すクロージャも受け取るので、ハンドラーの中で `?` が使えます。エラーは最も近いエラーハンドラーに届きます。
 
 ## effect、クリーンアップ、マウント
@@ -399,27 +400,31 @@ fn main() -> kivact::Result<()> {
 
 クロージャは、シグナルの中を指す `&str` を返せません。借用が `with` で終わるからです。所有する `String`(`n.clone()`、`format!(..)`)を返します。
 
+### クロージャの引数に型が必要なとき
+
+Rust は、クロージャの引数の型を、それを受け取る関数から推論します。`on_key(move |event| ..)` ではそれがうまくいきます。引数の型をクロージャ自身が決める `callback(..)` や `action(..)` では、その引数のメソッドを呼ぶときに型を書きます。`callback(move |word: String| len.set(word.len()))` のようにします。必要なのに書かないと、コンパイラが `type annotations needed` と言います。
+
 ### 6. 数値を返すクロージャーは戻り値の型を合わせる
 
-`impl IntoValue<f64>` の入力には `f64` を返すクロージャーを渡します。Rust は、クロージャーが返す整数を自動で小数へ変換しません。`Signal<i32>` を使うなら、読み取ったところで `as f64` と書きます。エラーの trait 名だけを見るより、まずクロージャーの戻り値を確認すると原因を絞れます。
+整数の定数は小数のプロパティにも渡せますが、保持されるクロージャーはそのプロパティの型をそのまま返す必要があります。Rust は、クロージャーが返す整数を自動で小数へ変換しません。`count` が `Signal<i32>` なら、`move || count.get()` は `IntoValue<f64>` になりません。クロージャーの中で型を変換します。エラーの trait 名だけを見るより、まずクロージャーの戻り値を確認すると原因を絞れます。
 
 ```rust,no_run
 use kivact::prelude::*;
 
-fn width_sample(width: impl IntoValue<f64>) -> impl Component {
-    let width = width.into_value();
-    node().style(move || style().width(width.get()))
-}
-
-fn example() -> impl IntoView {
-    let columns = signal(3_i32);
-    width_sample(move || columns.get() as f64 * 40.0)
+fn count_slider(count: Signal<i32>) -> impl IntoView {
+    let value = binding(
+        move || count.get() as f64,
+        move |next: f64| count.set(next.round() as i32),
+    );
+    slider("Count", value).range(0.0..=100.0)
 }
 ```
 
+通常の数値のプロパティには `move || count.get() as f64` と書きます。ハンドル自体を変換しても、後で読む値は変換されません。
+
 ### 7. prelude の名前を変数で隠さない
 
-`text`、`row`、`list`、`field` は関数名です。同じ scope で `let text = ...` と書くと、その後の `text(...)` は変数を関数として呼ぼうとし、E0618（expected function）になることがあります。行の callback の引数も `row` ではなく `item`、`todo` など、データの意味で名付けます。型の `Action` も、同名の独自型や import を置くと prelude の型が隠れます。混在させるときは `kivact::task::Action` と完全な path を書けます。
+Rust は名前に最も近い束縛を使います。`let text = signal(String::new())` の後では、`text("Hello")` はそのシグナルを呼び出そうとし、E0618（expected function）になります。変数には `label`、`rows`、`choices`、`name_field`、`save_action` のようにデータを表す名前を付け、`text`、`row`、`list`、`field`、`message` は prelude の関数として使えるように残します。行の callback の引数も `row` ではなく `item`、`todo` など、データの意味で名付けます。import した `Action` のような型も同じで、別の item に同じ名前を使わないようにします。名前を残す必要があるときは、`kivact::view::text("Hello")`、`kivact::ui::field("Name", input)`、`kivact::task::Action` のように path を付けて書きます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -428,10 +433,6 @@ fn heading_row(label: String) -> impl Component {
     row((text(label), button("Open")))
 }
 ```
-
-### クロージャの引数に型が必要なとき
-
-Rust は、クロージャの引数の型を、それを受け取る関数から推論します。`on_key(move |event| ..)` ではそれがうまくいきます。引数の型をクロージャ自身が決める `callback(..)` や `action(..)` では、その引数のメソッドを呼ぶときに型を書きます。`callback(move |word: String| len.set(word.len()))` のようにします。必要なのに書かないと、コンパイラが `type annotations needed` と言います。
 
 ## 関連項目
 

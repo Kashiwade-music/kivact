@@ -42,16 +42,47 @@ Navigation の trigger は hover で開きます。click、Enter、Space、Arrow
 
 `breadcrumb(items).current(current_key)` は既定の末尾の現在ページを上書きします。リアクティブな `Option<K>` を受け取り、`Some(key)` はそのキー、明示的な `None` は現在ページなしを表します。メソッドを省略すると末尾が現在ページになります。
 
-## 表示を変えても標準の操作を保つ
+Stepper の項目の recipe は、同じ responsive layout の投影から `index`、`count`、実際の `orientation` を受け取ります。見た目の variant が向きや項目数をコピーする必要はありません。
 
-`.summary(|facts| view)` はページ数や件数の表示を追加します。受け取る `PaginationSummary` は現在の page、page count、総件数などの読み取り用の値です。件数を別のシグナルへコピーせず、この値からラベルを作れます。独自のボタンの内容には `.item(...)` を使い、ページを変える処理や focus の移動は Pagination に任せます。
+Breadcrumb の項目の recipe は `BreadcrumbItemState { current, input }` を受け取ります。`input` は実際のリンクの Part から来る値で、操作できないラベルや現在ページのラベルでは `None` です。hover 時の下線のような状態に応じた文字の装飾はこの値で設定します。描画だけの疑似状態の style では文字の装飾を変えられません。
 
-Stepper の `.collapsed_steps(CollapsedSteps::Current)` は、コンパクトな幅で現在の項目だけを表示する既定の方針です。`All` は全項目を表示します。項目の `.indicator(...)` に `StepIndicator::Auto`、`Number`、`None` を渡すと、状態に応じた印、常に番号、印なしを選べます。文字や画像など任意の表示には `StepIndicator::custom(|| view)` を渡します。
+## ページ操作の形を選ぶ
 
-テーマを書く場合、各工程の `StepperItemState` から index、count、実際の orientation を読めます。`layout` と `track` は配置、`leading`、`trailing`、`progress` は追加の装飾です。Breadcrumb の `BreadcrumbItemState` には current と実際の入力状態が渡るため、現在ページや hover に合った文字色・下線を設定できます。詳細は [テーマのガイド](theming.md) を参照してください。
+ページ番号を知っている利用者には `PaginationMode::Input`、小さな前後の操作には `Compact`、短い視覚的な並びには `Dots` を使います。Dots はすべてのページを含み、Left と Right で選択と focus を動かし、端で折り返し、読む方向に従います。件数の多い結果では、数百個の点より番号付きのページか入力欄が向いています。
+
+`PaginationWindow::Adjacent` は近くのページ番号を表示します。`.window(PaginationWindow::Buffered)` は先頭と末尾の近くでより広い範囲を表示します。これは構築時の設定で、ページ数と現在のページは引き続き変えられます。
+
+項目の範囲を表示するには `.summary(|facts| view)` を使います。callback は 0 始まりの現在のページ、ページ数、省略可能な総件数、page size を持つ `Value<PaginationSummary>` を受け取ります。ページや page size の変更に追従するよう、表示する範囲は text の closure の中でこの値から組み立てます。件数を別のシグナルへコピーする必要はありません。
+
+## コンパクトな工程表示を使いやすく保つ
+
+`.collapsed_steps(CollapsedSteps::Current)` はコンパクトな配置で現在の項目を表示し、`All` はすべての項目を表示します。変わるのは表示だけで、どの工程が現在かは変わりません。前後の操作は無効な工程を飛ばします。選択と status の出所は、現在位置の binding と各 `StepperItem` のままです。
+
+工程の `.indicator(..)` は印を選びます。`StepIndicator::Auto` は工程の status に従い、`Number` は常に番号を表示し、`None` は印を表示しません。文字や画像など任意の内容には `StepIndicator::custom(|| view)` を渡します。
 
 ## メニュー内から画面を切り替える
 
-単純なリンクのコールバックには標準の `navigation_menu` の action を使います。独自のパネル内容では `navigation_menu_link(label)` を使うと、操作に必要な意味とメニューを閉じる動作を同じナビゲーションに接続できます。アプリはリンク先への遷移を行い、開閉やキーボード処理をコピーしません。
+パネルを持たずに直接画面を切り替える最上位の項目には `.action(key, label, press)` を使います。パネルの中の項目は `navigation_menu_link(title)` で作ります。リンクの意味を持ち、操作されると囲んでいるパネルを閉じます。遷移はアプリケーションが行い、開閉やキーボード処理をコピーしません。
 
-独自のトリガーが必要な場合は `use_menu_with_open(entries, open_binding)` で開閉をアプリの binding に接続します。`.trigger_action(callback)` は通常の押下動作を置き換える設定で、表示変更の監視用 callback ではありません。外部から表示する場合と、トリガーで表示する場合では最初の focus の扱いが異なるため、表示後に手動で focus を動かす補正を重ねないようにします。[独自コントロール](custom-controls.md)には Part の合成方法があります。
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui;
+
+fn docs_menu() -> impl IntoView {
+    ui::navigation_menu("Docs")
+        .action("home", "Home", || println!("Go home"))
+        .link("guides", "Guides", || {
+            ui::navigation_menu_link("Getting started")
+                .description("Build the first window")
+                .on_press(|| println!("Open getting started"))
+        })
+}
+```
+
+独自のメニューのトリガーでは、`interaction::use_menu_with_open(entries, open_binding)` で開閉をアプリケーションの binding に接続します。`.trigger_action(callback)` は setup 時にトリガーの通常の押下動作を置き換える設定で、表示の変更を監視する callback ではありません。外部から開いた場合は focus をメニューへ移さず、トリガーからキーボードで開いた場合は標準の最初の focus を保つため、表示後に手動で focus を動かす補正を重ねないようにします。
+
+## 見た目を変える
+
+kit の theme を設定すると、そのナビゲーションの見た目になります。kit 固有の選択には `.variant(..)`、局所的な配置には `.style(..)` を使います。テーマを書く場合は、pagination の `controls`、`sizes`、`input` の recipe、stepper の `leading`、`trailing`、`progress`、`layout`、`track` の recipe を差し替えられます。標準の Part の見た目を変えても、キーボード操作とアクセシビリティの動作は保たれます。詳細は [テーマのガイド](theming.md) を参照してください。
+
+独自のナビゲーションの部品は、trigger ごとに表示用のシグナルを持たせず、`use_navigation_menu` とその panel の key から始めます。controller が遅延して開く動作、固定した panel、閉じる動作、取り外しを扱います。下位の Part を合成する前に [独自コントロール](custom-controls.md) を参照してください。

@@ -41,11 +41,28 @@ fn main() -> kivact::Result<()> {
 
 ## 新しく出てきたもの
 
-**コンポーネントは普通の関数です。** `header()` や `task_row(...)` を呼ぶと、その場で view の記述を作ります。`task_row` の `impl IntoText` は、固定の文字列と、文字を返すリアクティブなクロージャのどちらも受け取れます。
+**view の helper は普通の関数です。** `header`、`task_row`、`task_list` は、呼び出し側が呼んだ時点で実行されます。`task_row` は `impl IntoText` を受け取るので、固定の文字列と、文字を返すリアクティブな値のどちらも渡せます。これらの helper は `impl Component` を返します。修飾できる単一のルートを持つ view なので、呼び出し側で `.style(..)`、`.name(..)` などの標準のノードの修飾を付けられます。分岐や fragment など、修飾できる単一のルートを持たない view を返す場合は `impl IntoView` を使います。
 
-この 3 つの関数は、単一のルートを持つ view を返すので、戻り値を `impl Component` にしています。`Component` は `IntoView` に加えてノードの修飾に対応し、呼び出し側でも `header().style(...)` のように書けます。表示するものを返すだけでよければ `impl IntoView` を使います。
+**セットアップの境界は明示します。** Rust の helper を呼んでも、その状態に新しいライフサイクルは作られません。`App::run(app)` はルートを一度だけセットアップします。状態が変わると、次のステップで扱うリアクティブなクロージャだけが再評価されます。React の render 関数のように、画面全体の関数を毎回呼び直す仕組みではありません。自分専用のシグナル、effect、後片付けを持つ再利用可能な view は `component(move || { .. })` を返します。
 
-`App::run(app)` は `app` を画面のセットアップとして一度呼びます。その中で普通の関数を呼んでも、新しい独立したライフサイクルは作られません。状態が変わると、次のステップで扱うリアクティブなクロージャが再評価されます。React の render 関数のように、画面全体の関数を毎回呼び直す仕組みではありません。
+```rust,no_run
+use kivact::prelude::*;
+
+fn click_counter() -> impl IntoView {
+    component(move || {
+        let count = signal(0);
+        column((
+            text(move || format!("{} 回押しました", count.get())),
+            button("押す").on_press(move || count.update(|n| *n += 1)),
+        ))
+        .style(style().gap(8))
+    })
+}
+```
+
+クロージャはこの view がマウントされた時に一度だけ実行されます。そこで作った状態は view がアンマウントされると破棄されます。`count` を変えるとセットアップを再実行せずに文字だけが更新されます。この境界は見えるレイアウトの箱を追加しません。返される `View` には修飾できる単一のルートがないため、スタイルは内側の `column` に付けます。シグナルとリアクティブなクロージャは次のステップで使います。
+
+`signal` や `memo` は、App のルート、`component`、`show`、`dynamic`、`for_each` が実行するセットアップで作ります。`text(move || ..)` や `style(move || ..)` のようなリアクティブなクロージャは変更のたびに再実行されるため、セットアップ済みの値を読みます。
 
 **`column` と `row`** は、子を縦と横に並べます。子はタプルで渡します (`column((a, b, c))`)。括弧が二重になっているのは、内側がタプルだからで、`column(a, b)` とは書けません。子の型はバラバラでよく、タプルには最大 16 個まで入れられます。
 
@@ -57,29 +74,6 @@ fn main() -> kivact::Result<()> {
 長さの単位は論理ピクセルなので、ディスプレイの拡大率に合わせて拡大されます。`style()` のメソッドは、どれも自分自身を返すので、続けて書けます。
 
 `text` には、文字列リテラル、`&str`、`String` を渡せます。
-
-## マウント時にセットアップする
-
-子が画面に取り付けられる時点まで処理を遅らせ、その子専用の状態や後片付けを持たせたいときは `component(move || ...)` を使います。
-
-```rust,no_run
-use kivact::prelude::*;
-
-fn counter_panel() -> impl IntoView {
-    component(move || {
-        let count = signal(0);
-        column((
-            text(move || format!("回数: {}", count.get())),
-            button("増やす").on_press(move || count.update(|n| *n += 1)),
-        ))
-        .style(style().gap(8))
-    })
-}
-```
-
-`counter_panel()` を呼んだだけでは、クロージャの中はまだ実行されません。返された view がマウントされると一度だけ実行され、そこで作った状態、effect、後片付けは、その子のライフサイクルに結び付きます。子が取り除かれると一緒に破棄されます。`component` は箱のない `View` を返すため、この例のスタイルは内側の `column` に付けています。
-
-`signal` や `memo` の初期化は、App のルート、`component`、`show`、`dynamic`、`for_each` が実行するセットアップに置きます。再計算される `text(move || ...)` や `style(move || ...)` の中では、セットアップ済みの値を読みます。
 
 ## 実行する
 

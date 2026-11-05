@@ -119,26 +119,36 @@ mod tests {
 
 ## Part を合成しても状態の持ち主を増やさない
 
-既存の Part に名前や構造を足したい場合は、`Part::new(state, apply)` で包めます。`state` には元の Part の読み取り用ハンドルをそのまま渡し、`apply` の中で実際のノードへ元の Part を取り付けます。表示のために別の `Signal<bool>` を作って状態をコピーする必要はありません。
+既存の状態の投影と、その振る舞いを取り付けるノードの変換を 1 つにまとめたい場合は、`kivact::custom::Part::new(state, apply)` を使います。`state` は描画用の読み取り専用の情報です。`apply` はホストの `Node` を受け取り、振る舞いを取り付けたそのノードを返します。mount 時に実行されます。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::custom::Part;
-use kivact::interaction::use_button;
+use kivact::interaction::use_switch;
 
-fn action_tile(label: impl IntoText, action: impl Into<Callback<()>>) -> impl Component {
-    let label = label.into_text_value();
-    let control = use_button().control();
-    let state = control.state();
-    let named = Part::new(state, move |host| host.part(control).name(label));
-    node().part(named).on_press(action).child(text(label))
-        .style(move || style().padding(12).opacity(if state.get().pressed { 0.8 } else { 1.0 }))
+fn custom_switch() -> impl IntoView {
+    component(|| {
+        let enabled = signal(false);
+        let api = use_switch(enabled);
+        let state = api.control_state();
+        let control = api.control();
+        let part = Part::new(state, move |host| host.part(control));
+        node().part(part).name("Notifications")
+            .style(move || style().padding(8).background(
+                if state.get().checked.is_checked() {
+                    ColorToken::Accent
+                } else {
+                    ColorToken::Surface
+                }
+            ))
+            .child("Notifications")
+    })
 }
 ```
 
-`Node` 固有の `part`、`role`、`checked`、`expanded`、`selected`、`value_text` は、実際に入力や意味を持つノードに設定します。独自ビルダーの外から変更する場合は `NodeBuilder::with_node` を使います。`Part::new` は入力を配送し直す仕組みではなく、同じノードへ設定を適用するための合成です。クリックとキーの既定動作は元のコントローラーに任せます。
+キーボード、ポインター、アクセシビリティの振る舞いは引き続きスイッチのコントローラーが持ちます。合成した Part は同じ事実を読むだけで、チェックや押下の状態を表す別のシグナルを持ちません。`role` や `checked` のような意味の設定には `Node` 固有のメソッドを使います。ビルダーからは `.with_node(|host| ...)` でそれらのメソッドに届きます。`style`、`disabled`、`name` などの共通の modifier は `NodeBuilder` が提供します。
 
-部品専用の owner が必要なら、コントローラーの作成を `component(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時には controller の cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
+この例のように、部品専用の owner が必要ならコントローラーの作成を `component(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時にはコントローラーの cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
 
 ## キーボード操作つきでリストから選ぶ
 
@@ -434,6 +444,14 @@ mod tests {
 
 ロールもフォーカスもないノードの `.on_press(..)` はポインターでしか届かず、デバッグビルドで報告されます。まずコントローラー (`use_button`) を使ってください。
 
+データの一部だけを描く table・grid では、`Node::row_count` と
+`Node::column_count` に総数の `Option` を渡します。既知の総数には見出し行や
+非表示の列も含め、リモートの総数が不明なら `None` を渡します。
+`Node::row_index` と `Node::column_index` は見出しや非表示の行・列を含めた
+論理上の位置で、1 から数えます。0 は公開しません。ネイティブへの公開時には
+AccessKit の 0 始まりの添字に変換します。標準の `data_table` はフィルター・
+並べ替え・ページ分割後のモデルからこれらのプロパティを求めます。
+
 ## 自前の形を測って描く
 
 レイアウトの規則では表せないサイズのコントロールには、**プリミティブ**を使います。プリミティブは、サイズを関数で計算するリーフ要素です。そのうえで、描画レイヤー、入力ハンドラー、フォーカス、アクセシビリティ、テスト ID と、ノードの持つものはすべて備えています。この API は実験的です。
@@ -581,7 +599,29 @@ mod tests {
 
 binding は確定した値を受け取ります。IME の変換中は、エディターが未確定文字列を自分で保持し、binding には最終的なテキストが渡ります。変更のたびにコードを動かしたいときは、シグナルの代わりに `binding(read, write)` を渡します。ほかにも設定があります。複数行は `use_text_area(value)` で作ります。`.purpose(..)`、`.read_only(..)`、1 行入力で Enter を受ける `.on_submit(..)`、矢印、Tab、Escape のキーを自前のハンドラー (たとえば候補リスト) に渡す `.forward_keys([...])` です。
 
+独自のエディターでアクセシビリティ用の文字を公開するときは、run の一覧に `SemanticsTextRuns::new(Vec<SemanticsTextRun>)` を使います。文字が変わっていないときは、描画のたびに一覧を作り直さず、その値を保持して clone します。標準のテキストコントロールはこの snapshot を自動で公開します。自分で作る必要があるのは、native のテキストモデルを自分で持つエディターだけです。
+
 コードエディターのように、キー入力のたびに全体をコピーできないほど大きな文書には、より低い層の `kivact::custom::TextEditing` を使います。範囲編集を通知し、キーのポリシーを受け取り、行に色を付けられます。実験的な API です。rustdoc を見てください。
+
+### native の編集する文字に描き足す
+
+`TextEditing::line_styles(content, f)` は文字の形や編集の動作を変えずに、行の見た目を設定します。
+関数は content、改行を除いた行、前の行が残した状態を受け取り、`(Vec<StyledRange>, 次の状態)`
+を返します。`kivact::style::StyledRange` の範囲は行内の UTF-8 byte です。
+`color`、`background`、`decoration` で文字色、背景、下線などを設定します。
+`TextDecoration` は theme の色、文字の長さ、`TextDecorationStyle` を受け取ります。
+
+文書全体の byte 範囲には `TextEditing::decorations(content, f)` を使い、
+`kivact::custom::Decoration` を返します。種類は `Background`、`Outline`、
+`Underline(TextDecorationStyle)` です。content と theme の変更に追従します。
+password の値と placeholder にはこれらを描きません。
+
+編集する node には子（`custom::inline_view` を含む）、`draw`、`draw_over` を付けられます。
+描画 layer は native の文字、選択、caret の上に重なります。
+`Node::draw_with_layout` は canvas 座標の `custom::TextLayout` も受け取ります。
+行の箱、caret、選択の矩形、`hit_test` を使い、文字、選択、配置の変更に追従できます。
+`NodeRefExt::text_layout` の単独の問い合わせは window 座標で、指定した行だけを整形します。
+caret と `hit_test` の offset は Unicode scalar 数、見た目の範囲は UTF-8 byte 数です。
 
 ## 状態機械で振る舞いを書く
 
@@ -638,33 +678,3 @@ fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
 - [キャンバスで描く](canvas.md): region と、描画レイヤーで使う描画の語彙。
 - [アプリをテストする](testing.md): 上のテストのように、ロール、キー、フォーカスを確かめる方法。
 - `cargo doc -p kivact-interaction --open` ですべてのコントローラーと Part、`cargo doc -p kivact --open` で `kivact::custom`。
-
-
-### native の編集する文字に描き足す
-
-`TextEditing::line_styles(content, f)` は文字の形や編集の動作を変えずに、行の見た目を設定します。
-関数は content、改行を除いた行、前の行が残した状態を受け取り、`(Vec<StyledRange>, 次の状態)`
-を返します。`kivact::style::StyledRange` の範囲は行内の UTF-8 byte です。
-`color`、`background`、`decoration` で文字色、背景、下線などを設定します。
-`TextDecoration` は theme の色、文字の長さ、`TextDecorationStyle` を受け取ります。
-
-文書全体の byte 範囲には `TextEditing::decorations(content, f)` を使い、
-`kivact::custom::Decoration` を返します。種類は `Background`、`Outline`、
-`Underline(TextDecorationStyle)` です。content と theme の変更に追従します。
-password の値と placeholder にはこれらを描きません。
-
-編集する node には子（`custom::inline_view` を含む）、`draw`、`draw_over` を付けられます。
-描画 layer は native の文字、選択、caret の上に重なります。
-`Node::draw_with_layout` は canvas 座標の `custom::TextLayout` も受け取ります。
-行の箱、caret、選択の矩形、`hit_test` を使い、文字、選択、配置の変更に追従できます。
-`NodeRefExt::text_layout` の単独の問い合わせは window 座標で、指定した行だけを整形します。
-caret と `hit_test` の offset は Unicode scalar 数、見た目の範囲は UTF-8 byte 数です。
-
-
-データの一部だけを描く table・grid では、`Node::row_count` と
-`Node::column_count` に総数の `Option` を渡します。既知の総数には見出し行や
-非表示の列も含め、リモートの総数が不明なら `None` を渡します。
-`Node::row_index` と `Node::column_index` は見出しや非表示の行・列を含めた
-論理上の位置で、1 から数えます。0 は公開しません。ネイティブへの公開時には
-AccessKit の 0 始まりの添字に変換します。標準の `data_table` はフィルター・
-並べ替え・ページ分割後のモデルからこれらのプロパティを求めます。

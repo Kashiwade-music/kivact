@@ -11,29 +11,6 @@
 | `impl Component` を返す関数 | props が少なく、すべて必須のとき。 |
 | ルートの `Node` を持つビルダー構造体 | 省略可能な props、スロット、メソッドにしたほうが読みやすい設定があるとき。 |
 
-## setup に独立した寿命を持たせる
-
-普通の Rust 関数を呼んだだけでは、状態を解放する境界は増えません。呼び出し元と同じ scope に状態や cleanup が登録されます。部品専用の状態、context の読み取り、cleanup を、その部品の mount 位置に結び付けたい場合は `component(move || ...)` を使います。
-
-```rust,no_run
-use kivact::prelude::*;
-
-fn local_counter() -> View {
-    component(move || {
-        let count = signal(0);
-        on_cleanup(|| println!("counter removed"));
-        column((
-            text(move || count.get().to_string()),
-            button("Add").on_press(move || count.update(|n| *n += 1)),
-        ))
-    })
-}
-```
-
-この closure は新しい子 scope が mount されるときに一度だけ実行され、親の context を受け継ぎます。値の変更で closure 全体が再実行されることはありません。取り除かれたときは、その scope の cleanup が実行されます。`component` 自体は context の値を登録しません。子へ値を渡す目的なら `provide(value, factory)` を使います。
-
-`IntoView::into_view` は view への変換であり、変換の呼び出しだけで新しい scope が生まれるわけではありません。ビルダーの最終設定を読み取った後、mount 時の setup が必要な部分を `component` の中に置きます。一度だけ mount する内容は `impl IntoView`、開き直すたびに作る内容は `impl IntoViewFn<V>` または `Fn(...) -> V` で受け取ります。
-
 ## まずは関数で書く
 
 再利用できる最小のコンポーネントは、props を引数で受け取り `impl Component` を返します。
@@ -123,6 +100,29 @@ fn main() -> kivact::Result<()> {
 
 `constant_value!(Tone)` がないと、`badge("Saved", Tone::Info)` はコンパイルできません。`Tone` のシグナル、`Value`、クロージャーは登録なしでも渡せます。prop の型は `Clone + PartialEq` でなければなりません。値が変わっていないときに更新を省くためです。
 
+## setup に独立した寿命を持たせる
+
+普通の Rust 関数は、呼び出し側が評価した時点で呼ばれるだけです。その関数が、mount された 1 つのインスタンスに属するべきシグナル、effect、cleanup を作る場合は `component(move || ...)` を返します。Kivact はこの初期化処理を、そのインスタンスが mount されるときに、専用の owner と mount 先の親の context の下で一度だけ呼びます。インスタンスが取り除かれるとそれらを破棄します。レイアウトの箱は追加しません。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn local_counter(label: impl IntoText) -> impl IntoView {
+    let label = label.into_text_value();
+    component(move || {
+        let count = signal(0);
+        on_cleanup(|| println!("Counter removed"));
+        column((
+            text(label),
+            text(move || count.get().to_string()),
+            button("Increment").on_press(move || count.update(|n| *n += 1)),
+        ))
+    })
+}
+```
+
+`count` を変えると文字が更新されますが、初期化処理は再び呼ばれません。この境界には `impl IntoView` を返します。透過的な `View` は modifier を付けるルートのノードを公開しないためです。見えるルートが必要なら内側に置きます。`component` 自体は context の値を登録しません。子へ値を渡す目的なら `provide(value, factory)` を使います。ビルダーでは、呼び出し側が先にその `Node` を設定し、`IntoView` の実装が `component(move || ...)` を返して最後の setup を mount 時まで遅らせられます。
+
 ## 子要素とスロットを受け取る
 
 内容を包むコンポーネントは、それを `impl IntoView` で受け取ります。複数の子はタプルです。ビューのタプルもビューだからです。`()` は「ここには何もない」を表すので、空のスロットとしても使えます。名前つきスロットを持つコンポーネントは、スロットごとに引数を 1 つ取ります。
@@ -153,7 +153,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`impl IntoView` の値は、mount されると使い切られます。コンポーネントが内容を何度も mount する場合、たとえばセクションを開くたびに作り直す場合は、`show` と同じように、内容を作る関数を受け取ります。
+`impl IntoView` のスロットは一度だけ使い切られます。ビルダーが mount まで保持する必要があるなら `View` として保存します。コンポーネントが内容を何度も mount する場合、たとえばセクションを開くたびに作り直す場合は、`show` と同じように、内容を作る関数を受け取ります。
 
 ```rust,no_run
 use kivact::state::Binding;
@@ -193,7 +193,7 @@ fn main() -> kivact::Result<()> {
 
 ## コールバックを受け取る
 
-コールバックの prop は、呼び出し側が渡すクロージャーです。payload のないものは `impl Into<Callback<()>>` で受け取ります。
+payload のないコールバックは `impl Into<Callback<()>>` で受け取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -203,7 +203,7 @@ use kivact::view::{Handled, KeyEvent};
 pub fn removable_chip(label: impl IntoText, on_remove: impl Into<Callback<()>>) -> impl Component {
     let label = label.into_text_value();
     // `on_remove` は 2 つのハンドラーが使います。素のクロージャーは片方にしか
-    // move できませんが、`callback` は保存して Copy のハンドルを返します。
+    // move できませんが、この変換は保存して Copy のハンドルを返します。
     let remove = on_remove.into();
     row((
         text(label),
@@ -234,7 +234,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`callback` が必要な理由は Rust の事情です。キャプチャしたデータを所有するクロージャーは、1 か所にしか move できず、`Fn` の境界ではクローンもできません。`on_remove.into()` はクロージャーをアプリのアリーナに保存して `Callback` を返します。`Callback` は `Copy` なので、いくつの `move` クロージャーからでも持てます。呼び出しは `.call(引数)` です。入力のないコールバックには、上のように引数として `()` を渡します。
+この変換が必要な理由は Rust の事情です。キャプチャしたデータを所有するクロージャーは、1 か所にしか move できず、`Fn` の境界ではクローンもできません。`on_remove.into()` はクロージャーをアプリのアリーナに保存して `Callback` を返します。`Callback` は `Copy` なので、いくつの `move` クロージャーからでも持てます。呼び出しは `.call(引数)` です。入力のないコールバックには、上のように引数として `()` を渡します。
 
 押下のハンドラーはイベントを受け取りません。React の `event.getModifierState("Control")` のように修飾キーが押されているかを知るには、`modifiers()` を読みます。
 
@@ -400,9 +400,9 @@ mod tests {
 
 - **`NodeBuilder` はメソッド 1 つ。** `fn node_mut(&mut self) -> &mut Node` を書くだけで、`style`、`name`、`disabled`、`test_id`、`on_key`、`on_press`、`draw` などがビルダーで使えます。コンストラクターのあとで呼び出し側が書いた modifier は、コンストラクターが設定した値に勝ちます。
 - **ルートを変えるには `with_node` を使う。** `role`、`checked`、`expanded`、`selected`、`value_text`、`base_style` は `Node` の固有メソッドです。ビルダーでは `.with_node(|root| root.role(Role::Alert))` と書きます。
-- **仕上げは `into_view` で行う。** `into_view` ではすべての設定を受け取ったビルダーを view に変換します。mount 時の setup は `component(move || ...)` の中で一度だけ実行します。setter とスタイルのクロージャーのあいだで `Cell` を共有するのではなく、ここでフィールドを読みます。
-- **状態はインスタンスに属する。** `component` の closure 内で作ったシグナルは、その子 scope が所有します。コンストラクターや通常の関数内で作るだけなら、呼び出した側の scope に属します。したがって同じ画面の 2 つの通知は何も共有しません。文字列キーやグローバルな ID は要りません。
-- **`#[track_caller]` で各インスタンスに名前がつく。** 診断やテスト失敗のレポートは、ノードをビルダーが呼ばれた位置で呼びます。コンストラクターにこの属性を付ければ、各インスタンスは自分の呼び出し位置で報告されます。あとから (`into_view` の中で) ノードを作るコンポーネントは、追跡するコンストラクターでルートに `.located_at_caller()` を付けます。
+- **仕上げは `into_view` で行う。** その時点でビルダーのすべての setter は実行済みです。変換自体は mount 時の callback ではありません。setup を mount まで待たせる必要があるときは、その中で `component(move || ...)` を使います。setter とスタイルのクロージャーのあいだで `Cell` を共有するのではなく、最終的なフィールドを読みます。
+- **状態は setup の owner に属する。** インスタンスのリソースは `component` の初期化処理の中で作ります。コンストラクターで作ると、呼び出し側の現在の setup の owner に属します。このコンポーネントを取り除いたときに effect と callback も破棄する必要があるなら、この境界を使います。そうすれば同じ画面の 2 つの通知は何も共有しません。文字列キーやグローバルな ID は要りません。
+- **`#[track_caller]` で各インスタンスに名前がつく。** 診断やテスト失敗のレポートは、ノードをビルダーが呼ばれた位置で呼びます。コンストラクターにこの属性を付ければ、各インスタンスは自分の呼び出し位置で報告されます。コンポーネントは、追跡するコンストラクターの中で `.located_at_caller()` を使ってルートの位置を記録できます。
 
 ### 呼び出し側が上書きできる既定のスタイル
 
@@ -684,10 +684,3 @@ fn main() -> kivact::Result<()> {
 - [テーマとコンポーネントの見た目を変える](theming.md): アプリ側から見たトークン、recipe、アイコン。
 - [画面をレイアウトする](layout.md): base style で設定できるスタイルのプロパティ。
 - `cargo doc -p kivact --open`: `kivact::view::NodeBuilder`、`kivact::view::Node`、`kivact::style::{Theme, ThemeExtension, IconSet}`。
-
-
-セットアップ中にリアクティブな状態を作る部品は `component(move || view)` を返せます。
-初期化処理は mount 時に一度だけ実行され、親の context を継承します。effect と
-cleanup はその部品に属し、取り除くと破棄されます。表示上の箱は追加しません。
-一度だけ mount する slot は `impl IntoView`、popup を開くたびに作り直す内容は
-`impl Fn() -> V` で受け取ります。

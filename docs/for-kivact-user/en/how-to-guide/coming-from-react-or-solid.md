@@ -163,6 +163,9 @@ mod tests {
 - A callback prop without an input takes `impl Into<Callback<()>>`. Convert it
   once with `.into()`; the resulting handle is `Copy`, so both buttons can use
   the same action. The caller can pass a `move || ...` closure directly.
+- Wherever a closure returning `()` is accepted, a closure returning
+  `Result<(), UiError>` is accepted too, so you can use `?` inside a handler.
+  The error reaches the nearest error handler.
 
 ## Effects, cleanup and mount
 
@@ -477,7 +480,8 @@ says `type annotations needed` when you must.
 
 A constant integer can be accepted by a floating-point property, but a stored
 closure must return that property's exact type. If `count` is a `Signal<i32>`,
-`move || count.get()` cannot provide an `IntoValue<f64>`. Cast inside the closure:
+`move || count.get()` cannot provide an `IntoValue<f64>`. Cast inside the
+closure. When the error names a trait, check the closure's return type first:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -498,11 +502,21 @@ handle itself does not convert the values read later.
 
 Rust uses the nearest binding for a name. After `let text = signal(String::new())`,
 `text("Hello")` tries to call that signal and reports E0618, “expected function”.
-Use names that describe the data: `message`, `rows`, `choices`, `name_field` or
-`save_action`, leaving `text`, `row`, `list` and `field` available as UI functions.
-The same rule applies to an imported type such as `Action`; avoid reusing it for
-another item. If a name must stay, qualify the function, such as
-`kivact::view::text("Hello")` or `kivact::ui::field("Name", input)`.
+Use names that describe the data: `label`, `rows`, `choices`, `name_field` or
+`save_action`, leaving `text`, `row`, `list`, `field` and `message` available as
+prelude functions. Name a row callback's argument after its data too, such as
+`item` or `todo`, rather than `row`. The same rule applies to an imported type
+such as `Action`; avoid reusing it for another item. If a name must stay,
+qualify it, such as `kivact::view::text("Hello")`,
+`kivact::ui::field("Name", input)` or `kivact::task::Action`.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn heading_row(label: String) -> impl Component {
+    row((text(label), button("Open")))
+}
+```
 
 ## See also
 

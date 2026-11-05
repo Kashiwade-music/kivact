@@ -71,22 +71,23 @@ fn main() -> kivact::Result<()> {
 
 **なぜ `move` なのか。** これらのクロージャは、`app` が戻った後でも使われるため、ローカル変数を借用できません。`move` は、ハンドルをクロージャの中へコピーします。`Signal` は `Copy` なので、同じ `completed` を複数の `move` クロージャに渡せます。`move` がないと、借用した値よりクロージャが長く生きる可能性がある、というコンパイルエラーになります。
 
-**セットアップは一度だけ実行されます。** React の経験があれば、ここが大きな違いです。`app` は、状態が変わるたびに再実行される render 関数ではありません。画面を組み立てるときに一度だけ実行され、その中で作ったシグナルは、画面のその部分が生きている間ずっと残ります。その後は、シグナルを読んでいるクロージャだけが再実行されます。シグナルをコンポーネントの本体で作り、イベントハンドラの中では作らないのも、このためです。
+**セットアップはマウントごとに一度だけ実行されます。** `App::run` はルートのセットアップを一度だけ呼びます。普通の helper は呼び出し側のセットアップの中で実行され、`component(move || ..)` はステップ 2 で紹介した明示的なセットアップと後片付けの境界を作ります。React の render 関数より Solid のコンポーネントに近い仕組みです。状態が変わると、セットアップ全体ではなく、その状態を読む小さなリアクティブな式だけが再実行されます。シグナル、memo、binding はセットアップの中で作り、イベントハンドラはそこで作ったハンドルを更新します。
 
 ## React／Solid との対応
 
-名前を一対一で置き換えるより、値の役割で選ぶと整理しやすくなります。ここで使う日常的な名前は `use kivact::prelude::*;` に含まれています。
+React や Solid を知っている場合、名前を一対一で置き換えるより、値の役割で選ぶと整理しやすくなります。よく使う値、binding、callback、effect の名前は prelude に含まれています。
 
-| React／Solid での役割 | Kivact | 使う場面 |
-| --- | --- | --- |
-| `useState`／`createSignal` | `signal` | 現在の値を持ち、読み書きする。 |
-| `useMemo`／`createMemo` | `memo` | ほかの状態から値を計算し、結果を共有する。 |
-| `value` と `onChange` による制御された入力 | `Binding<T>` | 同じ値の読み取りと書き込みを 1 つのハンドルにまとめる。 |
-| 子に渡すイベント処理 | `Callback<T>`／`callback` | 操作を型付きの引数とともに渡し、呼び出す。 |
-| `useEffect`／`createEffect` | `effect` | 読んだ状態の変化に応じて外部との同期処理を行う。表示する値の計算には `memo` を使う。 |
-| `useReducer` に effect と timer を加えたもの | `Machine` | 状態、イベント、遷移、実行する effect やタイマーをまとめ、複数段階の振る舞いを表す。 |
+| React／Solid の概念 | Kivact |
+| --- | --- |
+| `useState`／`createSignal` | `signal(initial)`。`get` か `with` で読み、`set` か `update` で書く |
+| `useMemo`／`createMemo` | 共有する派生値には `memo(move || ..)` |
+| 値の prop や accessor | `impl IntoValue<T>` は定数、シグナル、memo、クロージャを受け取る。`Value<T>` は読み取り専用のハンドル |
+| 制御された入力 | `Binding<T>` が読み取りと書き込みをつなぐ。シグナルをそのまま渡せる |
+| イベントの prop | クロージャ、または `callback(..)` で作って保持する `Callback<T>` |
+| `useEffect`／`createEffect` | `effect(move || ..)` は読んだ状態の変化に応じて UI の外側と同期する。表示する値の計算には `memo` を使う |
+| `useReducer` に effect と timer を加えたもの | `Machine` は関係する状態とイベントをまとめる。遷移は `Step` を返し、effect や期限を付けられる |
 
-このカウンターには `signal` と `memo` で十分です。色と件数のように独立して変わる値は、それぞれのシグナルに置けます。長押し、待機、実行、キャンセルのように段階とイベントの組み合わせに規則がある振る舞いは、`Machine` で遷移を一か所にまとめます。`Machine` の定義に進むときは `kivact::state` の型を使います。詳しい対応は [React／Solid から来た人向けのガイド](../how-to-guide/coming-from-react-or-solid.md) にあります。
+このカウンターには `signal` と `memo` で十分です。独立して編集する値はそれぞれのシグナルに置き、そこから導く値には memo を使います。長押し、待機、実行、キャンセルのように、複数のフラグが一つの操作の段階を表す場合は、複数のシグナルを同期させず、一つの Machine を使います。Machine の定義には `kivact::state::{Machine, Step, machine}` を使います。詳しくは [React／Solid から来た人向けのガイド](../how-to-guide/coming-from-react-or-solid.md) を参照してください。
 
 ## 実行する
 

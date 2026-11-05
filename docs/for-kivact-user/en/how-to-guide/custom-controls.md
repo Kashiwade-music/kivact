@@ -179,6 +179,11 @@ pressed signal. Use `Node`'s inherent methods for semantics such as `role` and
 `checked`. A builder reaches those methods with `.with_node(|host| ...)`;
 `NodeBuilder` supplies its common modifiers such as `style`, `disabled` and `name`.
 
+As in this example, create the controller inside `component(move || ...)` when the
+control needs its own owner. That setup runs once at mounting, and the controller's
+cleanup and timers end with the same lifetime when it is removed. See
+[component lifetimes](custom-components.md#give-setup-its-own-lifetime).
+
 ## Choose from a list with keyboard navigation
 
 A segmented control is a row of options where one is selected. `use_list` provides
@@ -505,6 +510,14 @@ and `value_text` are methods of `Node`, and `Node` provides them to a builder th
 Note that `.on_press(..)` on a node with no role and no focus is only reachable by
 pointer, and debug builds report it. Reach for a controller (`use_button`) first.
 
+For a table or grid that renders only part of its data, `Node::row_count`
+and `Node::column_count` accept an optional total. Include header rows and hidden
+columns in known totals; use `None` for unknown remote totals. `Node::row_index`
+and `Node::column_index` identify the logical position starting at one, including
+headers and hidden rows or columns. An index of zero is omitted. Native publication
+converts indices to AccessKit's zero-based coordinates. The standard `data_table`
+derives these properties from its filtered, sorted, and paged model.
+
 ## Measure and draw your own shape
 
 When a control has a size no layout rule can express, use a **primitive**. A primitive
@@ -687,6 +700,29 @@ For documents too large to copy on every keystroke, such as a code editor, the l
 layer `kivact::custom::TextEditing` reports range edits, takes a key policy and
 colors lines. It is experimental; see its rustdoc.
 
+### Paint native editing text
+
+`TextEditing::line_styles(content, f)` styles each line without changing its
+shaping or editing behavior. The callback receives the content, a line without
+its break, and the previous line's state; return `(Vec<StyledRange>, next_state)`.
+`StyledRange` lives in `kivact::style`; its UTF-8 byte range is relative to that
+line. Its optional `color`, `background` and `decoration` override paint.
+`TextDecoration` accepts theme colors, text lengths and `TextDecorationStyle`.
+
+Use `TextEditing::decorations(content, f)` for document byte ranges. Return
+`kivact::custom::Decoration` values with `Background`, `Outline`, or
+`Underline(TextDecorationStyle)` kinds. Reactive content and theme changes update
+the paint. Password values and placeholders omit range styling.
+
+An editing node accepts children (including `custom::inline_view`), `draw`, and
+`draw_over`. These layers paint over the native text, selection and caret.
+`Node::draw_with_layout` also receives `custom::TextLayout` in canvas coordinates:
+its requested line boxes, caret stops, selection rectangles and `hit_test` query.
+The callback updates after text, selection and geometry changes. Standalone
+`NodeRefExt::text_layout` queries keep window coordinates and only shape the
+requested lines. Caret offsets and `hit_test` results count Unicode scalars;
+style and decoration ranges count UTF-8 bytes.
+
 ## Write behavior with a state machine
 
 A `Machine` makes states and events explicit. Its pure `transition` returns a
@@ -754,36 +790,3 @@ Use the existing clipboard controller when its behavior fits your control.
 - [Test your app](testing.md) to check roles, keys and focus the way the tests above do.
 - `cargo doc -p kivact-interaction --open` for every controller and its Parts, and
   `cargo doc -p kivact --open` for `kivact::custom`.
-
-
-### Paint native editing text
-
-`TextEditing::line_styles(content, f)` styles each line without changing its
-shaping or editing behavior. The callback receives the content, a line without
-its break, and the previous line's state; return `(Vec<StyledRange>, next_state)`.
-`StyledRange` lives in `kivact::style`; its UTF-8 byte range is relative to that
-line. Its optional `color`, `background` and `decoration` override paint.
-`TextDecoration` accepts theme colors, text lengths and `TextDecorationStyle`.
-
-Use `TextEditing::decorations(content, f)` for document byte ranges. Return
-`kivact::custom::Decoration` values with `Background`, `Outline`, or
-`Underline(TextDecorationStyle)` kinds. Reactive content and theme changes update
-the paint. Password values and placeholders omit range styling.
-
-An editing node accepts children (including `custom::inline_view`), `draw`, and
-`draw_over`. These layers paint over the native text, selection and caret.
-`Node::draw_with_layout` also receives `custom::TextLayout` in canvas coordinates:
-its requested line boxes, caret stops, selection rectangles and `hit_test` query.
-The callback updates after text, selection and geometry changes. Standalone
-`NodeRefExt::text_layout` queries keep window coordinates and only shape the
-requested lines. Caret offsets and `hit_test` results count Unicode scalars;
-style and decoration ranges count UTF-8 bytes.
-
-
-For a table or grid that renders only part of its data, `Node::row_count`
-and `Node::column_count` accept an optional total. Include header rows and hidden
-columns in known totals; use `None` for unknown remote totals. `Node::row_index`
-and `Node::column_index` identify the logical position starting at one, including
-headers and hidden rows or columns. An index of zero is omitted. Native publication
-converts indices to AccessKit's zero-based coordinates. The standard `data_table`
-derives these properties from its filtered, sorted, and paged model.

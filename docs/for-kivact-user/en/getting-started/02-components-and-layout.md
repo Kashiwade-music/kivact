@@ -50,9 +50,11 @@ other standard node modifiers. Use `impl IntoView` when the result can be a
 branch, a fragment or another view without one modifiable root.
 
 **A setup boundary is explicit.** Calling a Rust helper does not create a new
-lifetime for its state. `App::run(app)` sets up the root once. For a reusable
-view that should own its own signals, effects and cleanup, return
-`component(move || { .. })`:
+lifetime for its state. `App::run(app)` sets up the root once. When state
+changes, only the reactive closures introduced in the next step run again;
+unlike a React render function, the whole screen function is not called again.
+For a reusable view that should own its own signals, effects and cleanup,
+return `component(move || { .. })`:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -74,6 +76,11 @@ view unmounts; changing `count` updates the text without running setup again.
 The boundary adds no visible layout box. Style the `column` inside it, since
 the returned `View` does not expose a single root to modify. You will use
 signals and reactive closures in the next step.
+
+Create signals and memos in setup code: the App root, `component`, and the
+setup that `show`, `dynamic` and `for_each` run. Reactive closures such as
+`text(move || ..)` and `style(move || ..)` run again on changes, so they read
+values that setup already created.
 
 **`column` and `row`** place their children vertically and horizontally. They
 take their children as a tuple: `column((a, b, c))`. The extra pair of

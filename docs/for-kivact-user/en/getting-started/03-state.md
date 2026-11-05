@@ -99,8 +99,11 @@ small reactive expressions that read that state, rather than the whole setup.
 Create signals, memos and bindings during setup; handlers update the handles
 already created there.
 
-If you know React or Solid, these are the everyday correspondences. The
-prelude already provides the common value, binding and callback names:
+## React and Solid correspondences
+
+If you know React or Solid, choose by the role a value plays rather than by
+renaming one to one. The prelude already provides the common value, binding,
+callback and effect names:
 
 | React / Solid concept | Kivact |
 | --- | --- |
@@ -109,11 +112,13 @@ prelude already provides the common value, binding and callback names:
 | A value prop or accessor | `impl IntoValue<T>` accepts a constant, signal, memo or closure; `Value<T>` is a readonly handle |
 | A controlled input | A `Binding<T>` connects reads and writes; a signal can be passed directly |
 | An event prop | A closure, or a retained `Callback<T>` made with `callback(..)` |
+| `useEffect` / `createEffect` | `effect(move || ..)` synchronizes with something outside the UI when the state it reads changes; compute displayed values with `memo` instead |
 | `useReducer` with effects and timers | `Machine` keeps related states and events together; a transition returns `Step` with optional effects and deadlines |
 
-Use a signal for an independent editable value, and a memo for a value derived
-from it. When several flags describe stages of one operation, use one Machine
-instead of synchronizing several signals. Machine definitions use
+This counter needs only `signal` and `memo`. Use a signal for each independent
+editable value, and a memo for a value derived from it. When several flags
+describe stages of one operation, such as press-and-hold, waiting, running and
+cancelling, use one Machine instead of synchronizing several signals. Machine definitions use
 `kivact::state::{Machine, Step, machine}`. The
 [React and Solid guide](../how-to-guide/coming-from-react-or-solid.md) shows
 these patterns in more detail.

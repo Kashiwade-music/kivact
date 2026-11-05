@@ -138,7 +138,9 @@ fn local_counter(label: impl IntoText) -> impl IntoView {
 
 Changing `count` updates the text; it does not call the initializer again.
 Return `impl IntoView` for this boundary: a transparent `View` does not expose a
-root node for modifiers. Put a visible root inside it when you need one. For a
+root node for modifiers. Put a visible root inside it when you need one.
+`component` itself provides no context value; use `provide(value, factory)` to
+pass a value to its children. For a
 builder, callers configure its `Node` first; its `IntoView` implementation can
 return `component(move || ...)` to defer final setup until mounting.
 
@@ -451,7 +453,8 @@ Points worth knowing about this shape:
 - **State belongs to its setup owner.** Create instance resources inside the
   `component` initializer. Creating them in a constructor instead attaches them
   to the caller's current setup owner. Use the boundary when removal of this
-  component must dispose its effects and callbacks.
+  component must dispose its effects and callbacks. Two notices on the same
+  screen then share nothing; no string keys or global ids are needed.
 - **`#[track_caller]` names each instance.** Diagnostics and test failure reports
   name a node by the place its builder was called. Put the attribute on your
   constructor, and every instance is reported at its own call site. A component

@@ -45,10 +45,15 @@ Cards take content as their required argument, then optional `.header(..)`, `.me
 ## Choose the right feedback behavior
 
 Use an empty state for a quiet explanation of missing content and an alert for a
-message that needs attention. `.announce()` requests one polite empty-state
-announcement after mounting. `.announce_changes()` instead announces a changed
-visible message, including content that arrives after loading, and suppresses
-repeated announcements of the same message. Keep the message concise.
+message that needs attention. Use `.announce()` to announce an empty state once
+after a screen change, or `.announce_changes()` when the same screen should
+announce each changed result, such as search results. Keep the message concise.
+
+`empty_state(title).announce_changes()` announces changes to the normalized
+message. It skips the initial render, announces a late mount or a change while
+visible, and allows the message to be announced again after the empty state has
+been hidden. An actual live-region ancestor suppresses duplicates. You do not
+need to repeat the same message from your own effect.
 
 A card with `.on_press(..)` acts as a button; a card with `.selected(binding)` acts
 as a checkbox. Keep the click destination or selection in application state.
@@ -57,8 +62,21 @@ required `card(content)` argument.
 
 ## Customize the look
 
-Use a kit's `.variant(..)` for its density, color or container choices, or apply
-ordinary styles. Theme authors can style alert `header`, `message` and `controls`
-wrappers, and a card's decorative `overlay`, without replacing the underlying
-interaction. Default alert wrappers use `Display::Contents`, so they add no box
-unless the recipe asks for one. Keep custom actions as real named controls.
+Use a kit's `.variant(..)` for its color, spacing, density, shadow or media frame
+choices, or apply ordinary `.style(..)`. Interaction and announcements stay with
+the standard components. Keep custom actions as real named controls.
+
+Card recipes receive `input: Option<PartState>` from the actual button or
+checkbox part; an ordinary card receives `None`. The `overlay` recipe draws a
+noninteractive decorative node above the content. Its bounds follow the laid-out
+card root, and the theme defines clipping and corner shape.
+
+Alert `header`, `message` and `controls` recipes draw real wrappers around the
+existing icon, title and description, and action, disclosure and dismiss slots.
+They default to `Display::Contents`, so they add no box unless the recipe asks for
+one. Decide their look from the same `AlertState`.
+
+`AlertState.has_content` reports whether the details slot exists, independent of
+whether the alert is collapsible. The standard disclosure control attaches the
+standard tooltip to its actual target; translate its name and hint with the
+`alert.expand` and `alert.collapse` messages.

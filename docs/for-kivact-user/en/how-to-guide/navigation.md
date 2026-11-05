@@ -70,13 +70,49 @@ layout; `All` keeps every item visible. This changes presentation, not which ste
 is current. Previous and next controls skip disabled steps. The current binding
 and each `StepperItem` remain the source for selection and status.
 
+A step's `.indicator(..)` chooses its marker: `StepIndicator::Auto` follows the
+step status, `Number` always shows the step number, and `None` hides the marker.
+Pass `StepIndicator::custom(|| view)` for any other contents, such as a letter
+or an image.
+
+## Navigate from inside a menu
+
+Use `.action(key, label, press)` for a top-level entry that navigates directly
+without a panel. Inside a panel, build entries with `navigation_menu_link(title)`:
+it carries link semantics and closes the surrounding panel when activated. The
+application performs the navigation; it does not copy opening or keyboard
+handling.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui;
+
+fn docs_menu() -> impl IntoView {
+    ui::navigation_menu("Docs")
+        .action("home", "Home", || println!("Go home"))
+        .link("guides", "Guides", || {
+            ui::navigation_menu_link("Getting started")
+                .description("Build the first window")
+                .on_press(|| println!("Open getting started"))
+        })
+}
+```
+
+For a custom menu trigger, connect visibility to an application binding with
+`interaction::use_menu_with_open(entries, open_binding)`. `.trigger_action(callback)`
+replaces the trigger's normal press action during setup; it is not an observer
+of visibility changes. Opening from outside does not move focus into the menu,
+while keyboard opening from the trigger keeps the standard initial focus, so do
+not add a manual focus correction after showing the menu.
+
 ## Customize appearance
 
 Install a kit theme for its navigation look. Use `.variant(..)` for kit-specific
 choices and `.style(..)` for local layout. Theme authors can replace pagination
 `controls`, `sizes` and `input` recipes, or stepper `leading`, `trailing`,
 `progress`, `layout` and `track` recipes. These style the standard parts while
-keeping their keyboard and accessibility behavior.
+keeping their keyboard and accessibility behavior. See the
+[theming guide](theming.md) for details.
 
 For a custom navigation control, start with `use_navigation_menu` and its panel
 keys rather than a separate visibility signal for every trigger. Its controller
