@@ -28,3 +28,12 @@ fn project_view() -> impl IntoView {
 ```
 
 Use a stable key such as `"summary"` so selection survives a change in the visible label. Standard tabs are a better fit when the selection switches among named panels within a larger screen.
+
+Resizable panels use `kivact::ui::splitter` with an application size binding and a `ScalarRange`.
+Use `.collapsible(fraction)` and `.snaps(fractions)` for collapse and detents, `.orientation(..)`
+for stacked panes, and `.pointer_scale(..)` for reversed or proportional sizing. A reactive range
+can read a container's `NodeRef::rect()` to resolve percentages and pixel bounds. Custom grip
+content belongs in `.handle(..)`; its style controls the divider, visibility, position, and overlay.
+Use `LayoutRegion::width(..)` when a layout panel follows the same size binding. A supplied end
+resize slot controls its own reversed direction. Observe scroll boundaries with `NodeRef::scroll_state()`;
+scrollable areas use the core keyboard scroll behavior.

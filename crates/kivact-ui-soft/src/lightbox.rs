@@ -61,6 +61,7 @@ impl LightboxMedia {
     }
 }
 
+// xtask-allow(state-fields): Independent setup options for external bindings, initial index, and zoom availability.
 pub struct Lightbox {
     open: Binding<bool>,
     media: Value<Vec<LightboxMedia>>,
@@ -251,6 +252,7 @@ impl IntoView for Lightbox {
                         .name(item.alt)
                         .node_ref(photo_ref)
                         .hidden(failed)
+                        .on_image_error(|_| Handled::Yes)
                         .style(move || {
                             let Point { x, y } = transform.get().offset;
                             let scale = if zoomed() { 2.0 } else { 1.0 };
