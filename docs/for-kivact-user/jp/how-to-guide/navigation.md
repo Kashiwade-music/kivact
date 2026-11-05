@@ -43,3 +43,5 @@ Navigation の trigger は hover で開きます。click、Enter、Space、Arrow
 Stepper の項目レシピには、同じレスポンシブ配置の投影から `index`、`count`、実際の `orientation` が渡されます。外観バリアントに軸や項目数を複製する必要はありません。
 
 Breadcrumb の項目レシピは `BreadcrumbItemState { current, input }` を受け取ります。`input` は実際のリンクのパーツから渡され、非操作・現在ページのラベルにはありません。ホバー時の下線などの文字表現はこの投影を使用します。描画のみの疑似状態スタイルでは文字装飾を変更できません。
+
+Stepper は実際の装飾パーツ `leading`、`trailing`、`progress`（既定は寸法ゼロ）と、`layout`・`track` コンテナのレシピを公開します。これらには実際の軸・項目数を含む同じ `StepperItemState` が渡されます。`.collapsed_steps(CollapsedSteps::Current)` はコンパクト時に現在の項目だけを表示します（既定）。`All` は選択やレスポンシブ閾値を変更せず全項目を表示します。

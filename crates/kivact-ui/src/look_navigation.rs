@@ -142,3 +142,10 @@ pub(super) fn link_icon(
 ) -> Style {
     style().shrink(0)
 }
+
+pub(super) fn stepper_layout(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+    style().direction(Direction::Row).min_width(0)
+}
+pub(super) fn stepper_decoration(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+    style().size(0, 0)
+}

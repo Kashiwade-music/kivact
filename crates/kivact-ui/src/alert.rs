@@ -1,7 +1,7 @@
 //! Role: Present persistent alerts and dismissible feedback banners.
-use crate::component_values::AlertState;
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
+use crate::component_values::AlertState;
 use kivact_core::custom::Owner;
 use kivact_core::state::{
     Binding, Callback, IntoBinding, IntoText, IntoValue, Value, effect, signal,
