@@ -12,9 +12,9 @@ use kivact_interaction::{EditSession, ListItem, ListItemState, ListOptions, Sele
 /// What an item shows, from its data and its state.
 type ItemContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<ListItemState>)>;
 
+// xtask-allow(state-fields): Optional item/header slots and activation callback configure a list; navigation and selection belong to ListApi.
 /// A list of items the user picks from (`Role::ListBox`), created by
 /// [`list`].
-// xtask-allow(state-fields): Optional item/header slots and activation callback configure a list; navigation and selection belong to ListApi.
 pub struct List<K: kivact_core::state::ItemKey> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
