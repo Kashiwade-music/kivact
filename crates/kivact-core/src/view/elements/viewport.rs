@@ -6,6 +6,7 @@ use crate::state::{IntoValue, Value, callback, effect, memo};
 use crate::view::{
     HandlerResult, ImageFit, IntoView, Node, NodeBuilder, Role, View, node, node_ref,
 };
+use kivact_style::{Overflow, style};
 use kivact_types::ViewTransform;
 use kivact_types::cell::Sent;
 use std::cell::RefCell;
@@ -46,7 +47,7 @@ pub fn viewport(pixels: impl IntoValue<Pixels>) -> Viewport {
     Viewport {
         root: node()
             .role(Role::Canvas)
-            .style(crate::style::style().overflow(crate::style::Overflow::Hidden)),
+            .style(style().overflow(Overflow::Hidden)),
         pixels: pixels.into_value(),
         fit: ImageFit::Contain.into_value(),
         transform: None,
