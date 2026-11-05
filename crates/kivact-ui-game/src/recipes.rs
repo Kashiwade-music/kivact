@@ -55,6 +55,9 @@ pub(crate) fn recipes() -> UiRecipes {
 fn build() -> UiRecipes {
     UiRecipes::default()
         .field(crate::recipes_field::field)
+        .tree(crate::recipes_collections::tree)
+        .table(crate::recipes_collections::table)
+        .item_list(crate::recipes_collections::item_list)
         .dropzone(crate::recipes_files::dropzone)
         .toolbar(crate::recipes_groups::toolbar)
         .pagination(crate::recipes_navigation::pagination)
