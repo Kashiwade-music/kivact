@@ -42,18 +42,26 @@ use kivact::view::node_ref;
 use kivact::view::show;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Background and boundary treatment for the application shell.
 pub enum ShellVariant {
+    /// Use the body background around the shell.
     Wash,
+    /// Use the surface background.
     Surface,
+    /// Use the surface background with navigation boundary dividers.
     Section,
     #[default]
+    /// Use a body background with a surface main panel; the default.
     Elevated,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Scrolling strategy inside the viewport-height application shell.
 pub enum ShellHeight {
     #[default]
+    /// Fill the parent and scroll the main content; the default.
     Fill,
+    /// Scroll the whole shell body, keeping navigation sticky.
     Auto,
 }
 
@@ -71,6 +79,7 @@ pub(crate) fn shell_nav_mode() -> ShellNavMode {
         .unwrap_or_default()
 }
 
+/// Automatic mobile navigation configuration; defaults to a toggle and the Md breakpoint.
 pub struct MobileNavConfig {
     has_toggle: bool,
     open: Option<Binding<bool>>,
@@ -92,14 +101,17 @@ impl Default for MobileNavConfig {
 }
 
 impl MobileNavConfig {
+    /// Include the automatic mobile navigation toggle; enabled by default.
     pub fn has_toggle(mut self, has_toggle: bool) -> Self {
         self.has_toggle = has_toggle;
         self
     }
+    /// Bind drawer openness to caller state; omission creates initially closed local state.
     pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
         self.open = Some(open.into_binding());
         self
     }
+    /// Call a retained callback when an accepted drawer change changes the bound open value.
     pub fn on_open_change<R: HandlerResult>(
         mut self,
         change: impl Fn(bool) -> R + 'static,
@@ -107,19 +119,25 @@ impl MobileNavConfig {
         self.on_change = Some(callback(change));
         self
     }
+    /// Supply a reusable mobile drawer content factory instead of the default navigation content.
     pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
         self.content = Some(content.into_view_fn());
         self
     }
+    /// Choose the mobile width threshold; defaults to Md, while None disables width switching.
     pub fn breakpoint(mut self, breakpoint: impl Into<Option<Breakpoint>>) -> Self {
         self.breakpoint = breakpoint.into();
         self
     }
 }
 
+/// Mobile navigation policy; automatic navigation is the default.
 pub enum MobileNavMode {
+    /// Disable mobile navigation and viewport-driven switching.
     Disabled,
+    /// Generate mobile navigation using the supplied configuration.
     Auto(MobileNavConfig),
+    /// Render caller-supplied mobile navigation from a reusable factory.
     Custom(ViewFn),
 }
 
@@ -130,11 +148,13 @@ impl Default for MobileNavMode {
 }
 
 impl MobileNavMode {
+    /// Use a reusable custom mobile navigation factory, evaluated in the shell’s mobile context.
     pub fn custom<V: IntoView>(content: impl IntoViewFn<V>) -> Self {
         Self::Custom(content.into_view_fn())
     }
 }
 
+/// Responsive application frame with navigation, main content and a skip-to-content link.
 pub struct AppShell {
     root: Node,
     content: View,
@@ -147,6 +167,7 @@ pub struct AppShell {
     mobile: MobileNavMode,
 }
 
+/// Create an elevated, fill-height shell with zero content padding and automatic mobile navigation.
 pub fn app_shell(content: impl IntoView) -> AppShell {
     AppShell {
         root: node(),
@@ -162,30 +183,37 @@ pub fn app_shell(content: impl IntoView) -> AppShell {
 }
 
 impl AppShell {
+    /// Supply a reusable top navigation factory for the shell’s navigation contexts.
     pub fn top_nav<V: IntoView>(mut self, nav: impl IntoViewFn<V>) -> Self {
         self.top = Some(nav.into_view_fn());
         self
     }
+    /// Supply a reusable side navigation factory for desktop and automatic mobile navigation.
     pub fn side_nav<V: IntoView>(mut self, nav: impl IntoViewFn<V>) -> Self {
         self.side = Some(nav.into_view_fn());
         self
     }
+    /// Supply a reusable banner factory above the main content.
     pub fn banner<V: IntoView>(mut self, banner: impl IntoViewFn<V>) -> Self {
         self.banner = Some(banner.into_view_fn());
         self
     }
+    /// Choose content padding from a constant or reactive spacing input at view construction.
     pub fn content_padding(mut self, padding: impl IntoValue<Space>) -> Self {
         self.padding = padding.into_value();
         self
     }
+    /// Choose main-only or whole-body scrolling at view construction.
     pub fn height(mut self, height: impl IntoValue<ShellHeight>) -> Self {
         self.height = height.into_value();
         self
     }
+    /// Set constant or reactive shell background and boundary treatment.
     pub fn variant(mut self, variant: impl IntoValue<ShellVariant>) -> Self {
         self.variant = variant.into_value();
         self
     }
+    /// Choose disabled, automatic or custom mobile navigation.
     pub fn mobile_nav(mut self, mobile: MobileNavMode) -> Self {
         self.mobile = mobile;
         self
