@@ -15,33 +15,44 @@ use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::View;
 
+/// Placement of fields and their labels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FormDirection {
+    /// Stack fields vertically, the default.
     #[default]
     Vertical,
+    /// Place fields in equal-width columns.
     Horizontal,
+    /// Align labels and fields in separate columns above 480 pixels; stack below.
     HorizontalLabels,
 }
 
+/// Requiredness hint inherited by form fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Optionality {
+    /// Mark fields as optional.
     Optional,
+    /// Mark fields as required.
     Required,
 }
 
 /// Shared field placement and optionality inside a form layout.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FormLayoutCx {
+    /// Fixed arrangement of the form fields.
     pub direction: FormDirection,
+    /// Inherited optionality hint, or no shared hint.
     pub default_optionality: Option<Optionality>,
 }
 
+/// Form spacing and inherited label/optionality context.
 pub struct FormLayout {
     root: Node,
     content: View,
     context: FormLayoutCx,
 }
 
+/// Mount form content once with vertical spacing and no optionality override.
 pub fn form_layout(content: impl IntoView) -> FormLayout {
     FormLayout {
         root: node(),
@@ -51,10 +62,12 @@ pub fn form_layout(content: impl IntoView) -> FormLayout {
 }
 
 impl FormLayout {
+    /// Choose the field arrangement; vertical by default.
     pub fn direction(mut self, direction: FormDirection) -> Self {
         self.context.direction = direction;
         self
     }
+    /// Provide the optionality hint inherited by nested form fields.
     pub fn default_optionality(mut self, optionality: Optionality) -> Self {
         self.context.default_optionality = Some(optionality);
         self

@@ -7,16 +7,22 @@ use kivact::ui::{ControlSize, Look, SpinnerState};
 /// Spinner ink and track pairing.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SpinnerShade {
+    /// Accent ink over the standard track, the default.
     #[default]
     Default,
+    /// Secondary text ink over the standard track.
     Subtle,
+    /// Light ink and translucent track for dark media.
     OnMedia,
+    /// Explicit ink, or primary text ink when no override is supplied.
     Inherit,
 }
 /// Constant ink treatment of a standard spinner.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SpinnerVariant {
+    /// Ink and track palette; accent by default.
     pub shade: SpinnerShade,
+    /// Optional ink used by `SpinnerShade::Inherit`.
     pub ink: Option<Color>,
 }
 impl kivact::ui::Variant for SpinnerVariant {}

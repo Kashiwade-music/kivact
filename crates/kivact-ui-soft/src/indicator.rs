@@ -79,6 +79,7 @@ pub fn check_indicator(checked: impl IntoValue<bool>) -> Indicator {
 }
 
 impl Indicator {
+    /// Choose the indicator size; medium by default.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
@@ -90,6 +91,7 @@ impl Indicator {
         self
     }
 
+    /// Mount a custom mark once instead of the built-in check or radio glyph.
     pub fn content(mut self, content: impl IntoView) -> Self {
         self.children = Some(content.into_view());
         self

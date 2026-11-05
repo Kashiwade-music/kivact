@@ -17,20 +17,28 @@ use kivact::view::IntoView;
 use kivact::view::LiveRegion;
 use kivact::view::View;
 
+/// Meaning and color of a field validation message.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StatusKind {
+    /// Invalid-value message, announced assertively when announcements are enabled.
     Error,
+    /// Warning message, announced politely when announcements are enabled.
     Warning,
+    /// Successful-validation message, announced politely when enabled.
     Success,
 }
 
+/// Placement of the validation-message surface.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum FieldStatusVariant {
+    /// Message visually attached to its field, the default.
     #[default]
     Attached,
+    /// Standalone message surface.
     Detached,
 }
 
+/// Validation text and icon with optional live-region announcements.
 pub struct FieldStatus {
     root: Node,
     kind: StatusKind,
@@ -40,6 +48,7 @@ pub struct FieldStatus {
     announce: Value<bool>,
 }
 
+/// Create an attached validation message with announcements enabled.
 pub fn field_status(kind: StatusKind, text: impl IntoText) -> FieldStatus {
     FieldStatus {
         root: node(),
@@ -52,17 +61,20 @@ pub fn field_status(kind: StatusKind, text: impl IntoText) -> FieldStatus {
 }
 
 impl FieldStatus {
+    /// Choose attached or detached presentation; attached by default.
     pub fn variant(mut self, variant: impl IntoValue<FieldStatusVariant>) -> Self {
         self.variant = variant.into_value();
         self
     }
 
+    /// Set attached overlap in pixels, clamped to zero or greater; defaults to 16.
     pub fn overlap(mut self, overlap: impl IntoValue<f64>) -> Self {
         let overlap = overlap.into_value();
         self.overlap = (move || overlap.get().max(0.0)).into_value();
         self
     }
 
+    /// Enable live-region announcements when mounted; enabled by default.
     pub fn announce(mut self, announce: impl IntoValue<bool>) -> Self {
         self.announce = announce.into_value();
         self

@@ -9,10 +9,13 @@ const PERSON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2
 /// Shared visual frame of actual canonical group members.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AvatarGroupAppearance {
+    /// Reactive diameter shared by the group members.
     pub size: Value<AvatarSize>,
+    /// Reactive silhouette shared by the group members.
     pub shape: Value<AvatarShape>,
 }
 impl AvatarGroupAppearance {
+    /// Combine read-only size and silhouette inputs for a canonical avatar group.
     pub fn new(size: impl IntoValue<AvatarSize>, shape: impl IntoValue<AvatarShape>) -> Self {
         Self {
             size: size.into_value(),
@@ -27,6 +30,7 @@ pub struct AvatarAppearance {
     size: Value<AvatarSize>,
 }
 impl AvatarAppearance {
+    /// Use a read-only reactive diameter with a canonical avatar.
     pub fn new(size: impl IntoValue<AvatarSize>) -> Self {
         Self {
             size: size.into_value(),

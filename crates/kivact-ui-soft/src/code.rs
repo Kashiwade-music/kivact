@@ -14,9 +14,12 @@ use kivact::view::View;
 /// The ink used for an inline code fragment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CodeColor {
+    /// Primary text ink, the default.
     #[default]
     Primary,
+    /// Secondary text ink.
     Secondary,
+    /// Inherit the surrounding text ink.
     Inherit,
 }
 
