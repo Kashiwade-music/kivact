@@ -29,8 +29,8 @@ pub struct PropertyRow {
 /// A label with the control that edits its value, in one inspector row.
 ///
 /// The row is a canonical description `Role::ListItem` named like the label.
-/// Place related rows inside `kivact::ui::description_list` or a `Role::List` container. The label is right
-/// aligned in a column of [`label_width`](PropertyRow::label_width) pixels
+/// Place related rows inside `kivact::ui::description_list` or a `Role::List`
+/// container. The label is right aligned in a column of [`label_width`](PropertyRow::label_width) pixels
 /// (90 by default) on one line, and shows the full label on hover and focus
 /// in a tooltip (also when the label is not clipped). The value takes the rest
 /// of the row. Two slots hold other controls:

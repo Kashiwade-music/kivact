@@ -35,6 +35,7 @@ enum OutlinerReveal {
 
 type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 
+// xtask-allow(state-fields): Builder inputs, callbacks and row options are independent construction settings; use_tree owns navigation and OutlinerReveal owns pending reveal.
 /// A searchable hierarchy on [`Tree`](kivact::interaction::TreeApi).
 /// It retains expansion, rename, restriction flags and drag and drop,
 /// and hosts the application's cells.
