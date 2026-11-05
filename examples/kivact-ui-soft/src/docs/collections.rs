@@ -10,7 +10,7 @@ use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, item,
     layout, layout_content, layout_header, list, list_item, metadata_item, metadata_list, nav_icon,
-    overflow_list, pagination, scrollable_area, section, stack_item, tree_list,
+    overflow_list, pagination, scrollable_area, section, stack_item,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -182,18 +182,24 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "tree-list" => specimen(
             "Expandable files",
-            tree_list(
+            kivact::ui::tree(
                 "Files",
                 vec![
                     TreeNode::new("src", None, "src"),
                     TreeNode::new("main.rs", Some("src"), "main.rs"),
                     TreeNode::new("README.md", None, "README.md"),
                 ],
-                signal(vec!["src"]),
             )
-            .animated(true)
+            .expanded(signal(vec!["src"]))
+            .reveal(
+                2.0,
+                kivact::motion::Transition::tween(
+                    734.77,
+                    kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0),
+                ),
+            )
             .style(style().width(240)),
-            "tree_list(\"Files\", files, expanded).animated(true)",
+            "kivact::ui::tree(\"Files\", files).expanded(expanded).reveal(2.0, transition)",
         ),
         "nav-icon" => specimen(
             "Navigation icon",

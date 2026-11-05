@@ -10,7 +10,7 @@ use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Overflow, Style, Theme, pct, style,
 };
 use kivact_core::view::{ReadingDirection, use_direction};
-use kivact_interaction::{ListItemState, TableHeaderState, TreeItemState};
+use kivact_interaction::{ListItemState, TableHeaderState};
 
 pub(super) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
     style()
@@ -24,7 +24,7 @@ pub(super) fn list(t: &Theme, _: &PartState) -> Style {
     style().direction(Direction::Column).gap(t.space().xs)
 }
 
-pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
+pub(super) fn tree_item(t: &Theme, row: &crate::tree_values::TreeRowRecipeState) -> Style {
     let rtl = use_direction().get() == ReadingDirection::Rtl;
     let tokens = t.ext::<crate::UiTokens>();
     let tree = &tokens.tree;
@@ -216,7 +216,7 @@ pub(super) fn page(t: &Theme, _: &DataTablePageState) -> Style {
         .gap(t.space().sm)
 }
 
-pub(super) fn tree_marker(t: &Theme, _: &TreeItemState) -> Style {
+pub(super) fn tree_marker(t: &Theme, _: &crate::tree_values::TreeRowRecipeState) -> Style {
     style()
         .width(t.ext::<crate::UiTokens>().tree.marker_width.unwrap_or(16.0))
         .shrink(0)

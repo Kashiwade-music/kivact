@@ -200,7 +200,7 @@ pub use soft_table::{
     table_body, table_cell, table_footer, table_head, table_header, table_pagination, table_row,
     table_row_index, table_row_status, table_selection_toolbar,
 };
-pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
+pub use soft_tree::TreeLook;
 pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,

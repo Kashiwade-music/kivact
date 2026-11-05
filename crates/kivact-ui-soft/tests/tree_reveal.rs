@@ -17,17 +17,23 @@ fn branch_exit_keeps_its_paint_but_removes_the_child_from_navigation() {
     let screen = render_with(
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
-            kivact_ui_soft::tree_list(
+            kivact::ui::tree(
                 "Files",
                 vec![
                     TreeNode::new(1, None, "Folder"),
                     TreeNode::new(2, Some(1), "Document"),
                     TreeNode::new(3, None, "Sibling"),
                 ],
-                signal(vec![1]),
             )
-            .animated(true)
-            .row(|row, _| {
+            .expanded(signal(vec![1]))
+            .reveal(
+                2.0,
+                kivact::motion::Transition::tween(
+                    734.77,
+                    kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0),
+                ),
+            )
+            .item(|row, _| {
                 node().style(move || {
                     style().size(40, 40).background(if row.get().key == 2 {
                         rgb(0xcc0000)
