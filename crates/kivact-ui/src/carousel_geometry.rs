@@ -2,19 +2,25 @@
 use kivact_core::geometry::Point;
 use kivact_core::view::{NodeRef, ScrollBehavior};
 use kivact_interaction::Snap;
-pub(super) fn page(
-    viewport: NodeRef,
-    track: NodeRef,
-    slides: &[NodeRef],
-    vertical: bool,
-    rtl: bool,
-    next: bool,
-    looping: bool,
-    snap: Snap,
-    padding: f64,
-) -> Option<usize> {
+// xtask-allow(state-fields): Independent per-command direction, wrapping and snapping options; measured navigation retains no state.
+pub(super) struct PageRequest {
+    pub(super) vertical: bool,
+    pub(super) rtl: bool,
+    pub(super) next: bool,
+    pub(super) looping: bool,
+    pub(super) snap: Snap,
+    pub(super) padding: f64,
+}
+pub(super) fn page(viewport: NodeRef, slides: &[NodeRef], request: PageRequest) -> Option<usize> {
+    let PageRequest {
+        vertical,
+        rtl,
+        next,
+        looping,
+        snap,
+        padding,
+    } = request;
     let view = viewport.rect().get_untracked()?;
-    let _ = track;
     let current = viewport.scroll_offset().get_untracked();
     let offset = if vertical { current.y } else { current.x };
     let extent = if vertical { view.height } else { view.width };
