@@ -78,6 +78,22 @@ impl IntoView for Spinner {
                 )
             },
         );
-        self.root.child(glyph).child(self.label).into_view()
+        self.root
+            .with_node(|node| {
+                node.base_style(move || {
+                    kivact_core::style::style()
+                        .direction(kivact_core::style::Direction::Column)
+                        .align_items(kivact_core::style::Align::Center)
+                        .gap(
+                            kivact_core::style::use_tokens::<crate::UiTokens>()
+                                .indicators
+                                .gap,
+                        )
+                        .shrink(0)
+                })
+            })
+            .child(glyph)
+            .child(self.label)
+            .into_view()
     }
 }

@@ -14,6 +14,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .tag_input(crate::recipes_field::tag_input)
                 .select(crate::recipes_select::select)
                 .combobox(crate::recipes_combobox::combobox)
+                .spinner(|_| crate::spinner::spinner)
                 .button_group(crate::recipes_groups::button_group)
                 .toggle_group(crate::recipes_groups::toggle_group)
                 .menu(crate::recipes_menu::menu)

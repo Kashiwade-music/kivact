@@ -229,7 +229,7 @@ pub use soft_table::{
     table_row_index, table_row_status, table_selection_toolbar,
 };
 pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
-pub use spinner::{Spinner, SpinnerShade, SpinnerSize, spinner};
+pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
     center, hstack, stack, stack_item, vstack,
