@@ -167,7 +167,9 @@ impl IntoView for Progress {
             variants,
         } = self;
         let target = memo(move || fraction(value.get()));
-        let motion = use_theme().get().ext::<crate::UiTokens>().progress.motion;
+        let motion_override = variants.look(()).variant::<ProgressMotion>().copied();
+        let motion = motion_override
+            .unwrap_or_else(|| use_theme().get().ext::<crate::UiTokens>().progress.motion);
         let transition = Transition::tween(motion.determinate_ms as f64, motion.determinate_easing);
         let fill = move || target.get().unwrap_or(0.0);
         let shown = if motion.animate_initial {
@@ -176,7 +178,7 @@ impl IntoView for Progress {
             animated(fill, transition)
         }
         .into_value();
-        let phase = motion_clock(target.into_value(), moving);
+        let phase = motion_clock(target.into_value(), moving, motion_override);
         let state = memo(move || ProgressState {
             value: target.get(),
             size: size.get(),
@@ -227,10 +229,15 @@ impl IntoView for Progress {
 pub use crate::progress_tokens::{ProgressMotion, ProgressTokens};
 
 /// Drive indeterminate motion only while a visible surface needs it.
-fn motion_clock(target: Value<Option<f64>>, moving: Value<bool>) -> Value<f64> {
+fn motion_clock(
+    target: Value<Option<f64>>,
+    moving: Value<bool>,
+    motion_override: Option<ProgressMotion>,
+) -> Value<f64> {
     let phase = signal(0.0f64);
-    let period = memo(|| {
-        let motion = use_theme().get().ext::<crate::UiTokens>().progress.motion;
+    let period = memo(move || {
+        let motion = motion_override
+            .unwrap_or_else(|| use_theme().get().ext::<crate::UiTokens>().progress.motion);
         if is_motion_reduced().get() {
             motion.reduced_period_ms
         } else {
