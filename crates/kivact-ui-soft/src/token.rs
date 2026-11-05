@@ -75,6 +75,7 @@ impl TokenColor {
     }
 }
 
+// xtask-allow(state-fields): Passive constructor inputs for content, appearance and independent callbacks, not runtime lifecycle state.
 /// A static, pressable, or removable entity chip.
 pub struct Token {
     root: Node,
@@ -199,43 +200,7 @@ impl IntoView for Token {
             row(())
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let mut base = style()
-                            .direction(direction)
-                            .gap(4)
-                            .min_width(0)
-                            .height(height)
-                            .align_items(Align::Center)
-                            .padding_x(8)
-                            .radius(t.radius.inner);
-                        if removable {
-                            base = match direction {
-                                Direction::RowReverse => base.padding_left(0),
-                                _ => base.padding_right(0),
-                            };
-                        }
-                        if interactive && !disabled.get() {
-                            let theme = use_theme().get();
-                            let (fill, _) = color
-                                .hue(&t.colors.hue)
-                                .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
-                                    (hue.bg, hue.text)
-                                });
-                            base = base
-                                .cursor(Cursor::Pointer)
-                                .hover(style().background(overlay(
-                                    &theme,
-                                    fill,
-                                    t.colors.overlay_hover,
-                                )))
-                                .pressed(style().background(overlay(
-                                    &theme,
-                                    fill,
-                                    t.colors.overlay_pressed,
-                                )))
-                                .focus_visible(style().ring_none());
-                        }
-                        base
+                        token_main_style(direction, height, removable, interactive, disabled, color)
                     })
                 })
                 .child(self.icon.map(|icon| icon_box(icon, 12.0)))
@@ -262,65 +227,13 @@ impl IntoView for Token {
         } else if self.label_hidden.get() {
             main = main.name(label);
         }
-        let remove = self.remove.map(|remove| {
-            row(icon_box(icon("x").into_view(), 12.0))
-                .with_node(move |node| node.role(Role::Button))
-                .name(kivact::i18n::message_with(
-                    "soft.token.remove",
-                    "Remove {label}",
-                    move || [("label", label.get())],
-                ))
-                .disabled(disabled)
-                .on_press(move || remove.call(()))
-                .with_node(move |node| {
-                    node.base_style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        style()
-                            .size(24, 24)
-                            .shrink(0)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                            .radius(t.radius.full)
-                            .cursor(if disabled.get() {
-                                Cursor::Default
-                            } else {
-                                Cursor::Pointer
-                            })
-                            .focus_visible(ring(&t, t.colors.focus_ring))
-                    })
-                })
-        });
+        let remove = self
+            .remove
+            .map(|remove| token_remove_button(remove, label, disabled));
         self.root
             .with_node(move |node| {
                 node.base_style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let (fill, ink) = color
-                        .hue(&t.colors.hue)
-                        .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
-                            (hue.bg, hue.text)
-                        });
-                    let base = style()
-                        .direction(direction)
-                        .height(height)
-                        .min_width(0)
-                        .max_width(pct(100))
-                        .radius(t.radius.inner)
-                        .background(fill)
-                        .color(ink)
-                        .align_items(Align::Center)
-                        .opacity(if disabled.get() {
-                            t.sizes.disabled_opacity
-                        } else {
-                            1.0
-                        })
-                        .font_size(12)
-                        .line_height(20.0 / 12.0)
-                        .weight(t.typography.weight_medium);
-                    if interactive && !disabled.get() && focus.get() {
-                        base.merge(&ring(&t, t.colors.focus_ring))
-                    } else {
-                        base
-                    }
+                    token_style(direction, height, color, interactive, disabled, focus)
                 })
             })
             .child(main)
@@ -330,3 +243,109 @@ impl IntoView for Token {
 }
 
 kivact::state::constant_value!(TokenColor);
+
+fn token_main_style(
+    direction: Direction,
+    height: i32,
+    removable: bool,
+    interactive: bool,
+    disabled: Value<bool>,
+    color: TokenColor,
+) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let mut base = style()
+        .direction(direction)
+        .gap(4)
+        .min_width(0)
+        .height(height)
+        .align_items(Align::Center)
+        .padding_x(8)
+        .radius(t.radius.inner);
+    if removable {
+        base = match direction {
+            Direction::RowReverse => base.padding_left(0),
+            _ => base.padding_right(0),
+        };
+    }
+    if interactive && !disabled.get() {
+        let theme = use_theme().get();
+        let (fill, _) = color
+            .hue(&t.colors.hue)
+            .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
+                (hue.bg, hue.text)
+            });
+        base = base
+            .cursor(Cursor::Pointer)
+            .hover(style().background(overlay(&theme, fill, t.colors.overlay_hover)))
+            .pressed(style().background(overlay(&theme, fill, t.colors.overlay_pressed)))
+            .focus_visible(style().ring_none());
+    }
+    base
+}
+
+fn token_remove_button(remove: Callback<()>, label: Value<String>, disabled: Value<bool>) -> Node {
+    row(icon_box(icon("x").into_view(), 12.0))
+        .with_node(move |node| node.role(Role::Button))
+        .name(kivact::i18n::message_with(
+            "soft.token.remove",
+            "Remove {label}",
+            move || [("label", label.get())],
+        ))
+        .disabled(disabled)
+        .on_press(move || remove.call(()))
+        .with_node(move |node| {
+            node.base_style(move || {
+                let t = kivact::style::use_tokens::<crate::Tokens>();
+                style()
+                    .size(24, 24)
+                    .shrink(0)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .radius(t.radius.full)
+                    .cursor(if disabled.get() {
+                        Cursor::Default
+                    } else {
+                        Cursor::Pointer
+                    })
+                    .focus_visible(ring(&t, t.colors.focus_ring))
+            })
+        })
+}
+
+fn token_style(
+    direction: Direction,
+    height: i32,
+    color: TokenColor,
+    interactive: bool,
+    disabled: Value<bool>,
+    focus: Value<bool>,
+) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let (fill, ink) = color
+        .hue(&t.colors.hue)
+        .map_or((t.colors.neutral, t.colors.text_primary), |hue| {
+            (hue.bg, hue.text)
+        });
+    let base = style()
+        .direction(direction)
+        .height(height)
+        .min_width(0)
+        .max_width(pct(100))
+        .radius(t.radius.inner)
+        .background(fill)
+        .color(ink)
+        .align_items(Align::Center)
+        .opacity(if disabled.get() {
+            t.sizes.disabled_opacity
+        } else {
+            1.0
+        })
+        .font_size(12)
+        .line_height(20.0 / 12.0)
+        .weight(t.typography.weight_medium);
+    if interactive && !disabled.get() && focus.get() {
+        base.merge(&ring(&t, t.colors.focus_ring))
+    } else {
+        base
+    }
+}
