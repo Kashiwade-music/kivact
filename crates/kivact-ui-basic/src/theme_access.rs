@@ -59,14 +59,14 @@ pub(crate) fn field_fill(p: &Tokens) -> Color {
 
 /// Tailwind `shadow-md`.
 pub(crate) fn shadow_md(s: Style) -> Style {
-    let c = Color::BLACK.with_alpha(0.1);
+    let c = kivact::style::use_theme().get().colors().shadow;
     s.shadow(Shadow::new(0, 4, 6, c).spread(-1))
         .shadow(Shadow::new(0, 2, 4, c).spread(-2))
 }
 
 /// Tailwind `shadow-lg`.
 pub(crate) fn shadow_lg(s: Style) -> Style {
-    let c = Color::BLACK.with_alpha(0.1);
+    let c = kivact::style::use_theme().get().colors().shadow;
     s.shadow(Shadow::new(0, 10, 15, c).spread(-3))
         .shadow(Shadow::new(0, 4, 6, c).spread(-4))
 }

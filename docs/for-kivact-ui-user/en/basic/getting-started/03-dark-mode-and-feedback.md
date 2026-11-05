@@ -160,7 +160,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         .style(style().gap(12).align_items(Align::Center)),
         basic::separator(),
         kivact::ui::alert("Danger zone")
-            .variant(basic::AlertVariant::Destructive)
+            .variant(basic::AlertLook::Destructive)
             .icon(icon("triangle-alert"))
             .description("Deleting your account cannot be undone.")
             .action({

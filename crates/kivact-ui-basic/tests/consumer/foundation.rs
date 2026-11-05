@@ -1,6 +1,6 @@
 //! Role: Foundation tests: theme, standard recipes, icons and primitives.
 
-use crate::support::{assert_clean, distance, pixel};
+use crate::support::{distance, pixel};
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::Screen;
@@ -21,8 +21,10 @@ fn page(child: impl IntoView) -> Node {
 
 #[test]
 fn theme_switch_restyles_mounted_components_and_keeps_their_state() {
-    let (screen, (dark, checked, name)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (dark, checked, name)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
             let dark = signal(false);
             let checked = signal(true);
             let name = signal(String::from("Ada"));
@@ -45,7 +47,8 @@ fn theme_switch_restyles_mounted_components_and_keeps_their_state() {
                     },
                 ),
             )
-        });
+        },
+    );
     assert!(distance(pixel(&screen, 4.0, 4.0), 0xffffff) <= 2);
     assert!(distance(pixel_in(&screen, "save", 4.0), 0x171717) <= 2);
     assert!(
@@ -70,7 +73,8 @@ fn theme_switch_restyles_mounted_components_and_keeps_their_state() {
         screen.get_by_role(Role::TextBox, "Name").value().as_deref(),
         Some("Ada")
     );
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 /// The color 3 px in and 13 px down inside a check box's 16 px box, clear of the check mark.
@@ -85,8 +89,10 @@ fn check_box_fill(screen: &kivact::test::Screen, name: &str) -> u32 {
 
 #[test]
 fn checkbox_and_switch_toggle_with_pointer_and_keyboard() {
-    let (screen, (checked, on)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (checked, on)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
             let checked = signal(false);
             let on = signal(false);
             (
@@ -98,7 +104,8 @@ fn checkbox_and_switch_toggle_with_pointer_and_keyboard() {
                     kivact::ui::checkbox("Locked", signal(false)).disabled(true),
                 )),
             )
-        });
+        },
+    );
     assert!(distance(check_box_fill(&screen, "Accept terms"), 0xffffff) <= 2);
     let check = screen.get_by_role(Role::CheckBox, "Accept terms");
     check.click();
@@ -123,13 +130,16 @@ fn checkbox_and_switch_toggle_with_pointer_and_keyboard() {
     );
     switch.press_key(Key::Space);
     assert!(!on.get_untracked());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn text_input_edits_its_binding_and_rings_on_focus() {
-    let (screen, (name, notes)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (name, notes)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
             let name = signal(String::new());
             let notes = signal(String::new());
             (
@@ -144,7 +154,8 @@ fn text_input_edits_its_binding_and_rings_on_focus() {
                     kivact::ui::text_area("Notes", notes).test_id("notes"),
                 )),
             )
-        });
+        },
+    );
     let rect = |id: &str| screen.get_by_test_id(id).rect().expect("laid out");
     assert_eq!(rect("name").height, 32.0);
     assert_eq!(rect("code").height, 28.0);
@@ -167,7 +178,8 @@ fn text_input_edits_its_binding_and_rings_on_focus() {
     area.click();
     area.type_text("Line");
     assert_eq!(notes.get_untracked(), "Line");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 /// The color `inset` logical pixels inside the left edge of `id`, at mid height.

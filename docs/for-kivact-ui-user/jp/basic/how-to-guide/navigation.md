@@ -218,3 +218,5 @@ fn pager() -> impl IntoView {
 - [オーバーレイ](overlays.md): メニュー、ポップオーバー、ダイアログ。
 - [データの表示](data-display.md): 並べ替えとページ分けのある表。
 - rustdoc: サイドバーの部品とナビゲーションのコンポーネントは `cargo doc -p kivact-ui-basic --open`。
+
+`basic::MenuVariant::Bar` は Basic menubar が使う標準メニューの公開されたコンパクトな外観です。同じ外観を直接組み立てる場合は `.variant(..)` で渡します。

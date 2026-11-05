@@ -4,14 +4,14 @@ use kivact::style::{Align, ColorToken, Display, Position, Style, Theme, Track, a
 use kivact::ui::{AlertRecipes, AlertState, Look};
 /// Colors of a standard alert callout.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum AlertVariant {
+pub enum AlertLook {
     /// Card colors.
     #[default]
     Default,
     /// Destructive text and icon.
     Destructive,
 }
-impl kivact::ui::Variant for AlertVariant {}
+impl kivact::ui::Variant for AlertLook {}
 pub(crate) fn recipes(r: AlertRecipes) -> AlertRecipes {
     r.root(|_| root)
         .title(|_| title)
@@ -21,7 +21,7 @@ pub(crate) fn recipes(r: AlertRecipes) -> AlertRecipes {
         .content(|_| content)
 }
 fn destructive(s: &Look<AlertState>) -> bool {
-    s.variant::<AlertVariant>() == Some(&AlertVariant::Destructive)
+    s.variant::<AlertLook>() == Some(&AlertLook::Destructive)
 }
 fn root(t: &Theme, s: &Look<AlertState>) -> Style {
     let p = t.ext::<Tokens>();

@@ -1,6 +1,5 @@
 //! Role: Menu component tests: dropdown, use_context menu, menu bar and navigation menu.
 
-use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::{RenderOptions, Screen};
@@ -157,7 +156,8 @@ fn dropdown_menu_navigates_by_keyboard_and_skips_labels() {
     assert_eq!(chosen.get_untracked(), ["bars", "profile"]);
     assert!(trigger.is_focused(), "choosing returns the focus");
     assert_eq!(trigger.is_expanded(), Some(false));
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
     let _ = shift();
 }
 
@@ -219,7 +219,8 @@ fn navigation_menu_shows_one_panel_at_a_time() {
     screen.press_key(Key::Escape);
     assert!(!shown("Alpha panel") && !shown("Beta panel"));
     assert_eq!(alpha.is_expanded(), Some(false));
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 /// The box a use_context menu is attached to in the tests.
@@ -305,5 +306,6 @@ fn context_menu_opens_at_the_pointer_and_by_keyboard() {
     assert!(menu_item(&screen, "Email link").is_focused());
     screen.press_key(Key::Enter);
     assert_eq!(chosen.get_untracked(), ["email"]);
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

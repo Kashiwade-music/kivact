@@ -116,3 +116,5 @@ impl IntoView for Marker {
             .into_view()
     }
 }
+
+impl kivact::ui::Variant for MarkerVariant {}

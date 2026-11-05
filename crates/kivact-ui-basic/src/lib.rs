@@ -41,7 +41,7 @@
 //!
 //! The texts the components show themselves (Loading, Close, Copy,
 //! Copied, ...) are English and read through `kivact::i18n::message` under
-//! unprefixed keys that the README lists; an App replaces them with
+//! three-part `basic.*.*` keys that the README lists; an App replaces them with
 //! `App::messages`.
 
 mod alert;
@@ -100,7 +100,7 @@ mod tokens;
 mod trace;
 mod typography;
 
-pub use alert::AlertVariant;
+pub use alert::AlertLook;
 pub use attachment::{
     Attachment, AttachmentMediaVariant, AttachmentSize, AttachmentState, attachment,
     attachment_action, attachment_group,
@@ -113,6 +113,7 @@ pub use chat_colors::BubbleVariant;
 pub use empty::EmptyMediaVariant;
 pub use item::{ItemLook, ItemMediaVariant, ItemSize, ItemVariant};
 pub use line_tabs::TabsVariant;
+pub use recipes_menu::MenuVariant;
 pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
 pub use scroll_area::{ScrollArea, scroll_area};
