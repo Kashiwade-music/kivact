@@ -337,7 +337,25 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 .style(style().width(350)),
                 "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .initially_expanded()",
             );
-            column((controls, pinned, folders)).style(style().gap(12))
+            let static_table = specimen(
+                "Static rows with Soft appearance",
+                kivact::ui::table((
+                    kivact::ui::table_header((kivact::ui::table_row((
+                        kivact::ui::table_head(text("Project")),
+                        kivact::ui::table_head(text("Status")),
+                    )),)),
+                    kivact::ui::table_body((kivact::ui::table_row((
+                        kivact::ui::table_cell(text("Design")),
+                        kivact::ui::table_cell(kivact_ui_soft::table_row_status(
+                            "Passed",
+                            kivact_ui_soft::RowStatusTone::Success,
+                        )),
+                    ))
+                    .variant(kivact_ui_soft::TableRowAppearance::new(true, true, false)),)),
+                )),
+                "table((table_header(rows), table_body(rows)))\n    // table_row(...).variant(TableRowAppearance::new(true, true, false))",
+            );
+            column((static_table, controls, pinned, folders)).style(style().gap(12))
         }
         "resizable" | "resize-handle" => {
             let width = signal(144.0);
