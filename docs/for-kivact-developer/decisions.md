@@ -348,3 +348,9 @@
 - 問い: カスタムtermのラベル参照と、旧kit gaugeの試験をどの公開契約に揃えるか。
 - 決定: カスタムdescription termの実wrapperはGroupとして公開し、detailのlabelled_byが同じnamed termを指す。term/detailに同名Groupがあっても、detail内の操作と参照先を検証する。Game入門のgaugeも標準ProgressBarの0..1範囲を使い、4/10は0.4と検査する。
 - 理由: unroledなGenericはnativeラベル参照先にならず、見えるtermと支援技術の関係が切れる。進捗のvariant間で役割と数値契約を統一し、旧Meterの別スケールを公開APIへ戻さない。
+
+## 拡張境界の最終確認
+
+| 日付 | unit | 問い | 決定 | 理由 |
+|---|---|---|---|---|
+| 2026-11-05 | F3 | 拡張時の変更箇所 | text styleの公開語彙は所有するstyle crateの明示facade一覧で一元化し、Coreはその限定した一覧だけを転送する。virtualは既知serviceを処理し未知requestはUnsupported、capabilityは構築時の値と実GPU/native事実から投影する。 | 新しい型やserviceごとにCoreの重複一覧やvirtualの網羅matchを修正する第四のcrateを不要にし、型付きAPIと正直な未対応の契約を維持するため |

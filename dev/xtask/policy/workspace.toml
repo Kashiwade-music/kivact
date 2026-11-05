@@ -321,6 +321,12 @@ options_structs = [
     "kivact-ui-creative::WindowOptions",
 ]
 
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-core/src/style.rs"
+reason = "The facade forwards only kivact_style::facade, an explicitly curated app vocabulary owned by kivact-style. Its single definition avoids a duplicate cross-crate export list; the implementation crate root and hidden backend bridge are never glob-exported."
+
 # kivact::prelude は意図した公開 API（利用者が `use kivact::prelude::*;` で始める）。
 # 利用者の立場のコード（例・雛形・公開 API とキットの E2E）だけが prelude を glob で読む。
 # これらの path でも prelude 以外の glob は書かない。

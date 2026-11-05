@@ -212,3 +212,6 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 
 - CP6固定114d7bbb: fullstatic40crate/108graph 0、GPU6/6 0。disk不足をinactive cache回収で解消し、workspace全体→failed5target個別修正の全確認を完了。
 
+
+- G-final Windows no-default: 7f26a185固定、workspace/GPU2件/docs（104 standaloneを含む）すべてexit0。WSL all-target/all-feature Clippyもexit0。
+- F3拡張確認でtext/OS serviceの第四crate追従を検出し、限定公開語彙とvirtualの汎用Unsupported境界を修正中。
