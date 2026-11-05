@@ -122,7 +122,7 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.sidebar.toggle` | Toggle Sidebar |
 
 The standard `kivact::ui` components the kit mounts keep their own
-unprefixed keys:
+standard message keys:
 
 | Key | English default |
 |---|---|
@@ -229,3 +229,10 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 items per view and looping keep their behavior; previous and next controls remain
 square outline buttons outside the viewport. `kivact::ui::hover_card(content)`
 uses the same 256 px preview surface, alignment, placement and 600/300 ms delays.
+
+`MenuVariant::Bar` is the public compact menu appearance used by the Basic menubar.
+`AlertLook::{Default, Destructive}` controls Basic callout colors independently of
+Core's structural `AlertVariant`. `DatePickerVariant::Flush` removes popup insets
+for a calendar trigger. All are ordinary `.variant(..)` values; no private variant
+is required to reproduce the kit's appearance. The remaining visual enum values
+also implement `kivact::ui::Variant`.

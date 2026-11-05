@@ -163,7 +163,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         .style(style().gap(12).align_items(Align::Center)),
         basic::separator(),
         kivact::ui::alert("危険な操作")
-            .variant(basic::AlertVariant::Destructive)
+            .variant(basic::AlertLook::Destructive)
             .icon(icon("triangle-alert"))
             .description("アカウントを削除すると、元に戻せません。")
             .action({

@@ -1,6 +1,5 @@
 //! Role: Code block tests: copy button, highlight colors, selection, copy and long code.
 
-use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact_ui_basic as basic;
@@ -23,21 +22,25 @@ const LINE: f64 = 23.0;
 
 #[test]
 fn code_block_reports_copy_requests_and_shows_copied_for_two_seconds() {
-    let (screen, copies) = kivact::test::render_with_handle(crate::support::options(), || {
-        let copies = signal(0usize);
-        (
-            copies,
-            page(
-                kivact::ui::code_block("let a = 1;\n\nlet b = 2;".to_string())
-                    .title("main.rs")
-                    .line_numbers(true)
-                    .on_copy(move || copies.update(|n| *n += 1))
-                    .footer(text("Rust"))
-                    .test_id("code")
-                    .style(style().width(400)),
-            ),
-        )
-    });
+    let (screen, copies) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let copies = signal(0usize);
+            (
+                copies,
+                page(
+                    kivact::ui::code_block("let a = 1;\n\nlet b = 2;".to_string())
+                        .title("main.rs")
+                        .line_numbers(true)
+                        .on_copy(move || copies.update(|n| *n += 1))
+                        .footer(text("Rust"))
+                        .test_id("code")
+                        .style(style().width(400)),
+                ),
+            )
+        },
+    );
     screen.get_by_text("main.rs");
     screen.get_by_text("Rust");
     // One number per line, the blank second line as high as the others.
@@ -59,5 +62,6 @@ fn code_block_reports_copy_requests_and_shows_copied_for_two_seconds() {
         .get_by_role(Role::Button, "Copy")
         .press_key(Key::Enter);
     assert_eq!(copies.get_untracked(), 2);
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

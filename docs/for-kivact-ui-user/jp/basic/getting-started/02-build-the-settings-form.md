@@ -182,7 +182,7 @@ fn main() -> kivact::Result<()> {
 - **編集中の値は signal に留まります。** コントロール（`text_input`、`select`、`switch`、`toggle_group`）は signal を受け取り、ユーザーの入力や選択をそこへ書き込みます。`on_press` が `name` を `saved_name` にコピーするまで、保存は起きません。
 - **`changed` はクロージャです。** `show(changed, || ..)` は、クロージャが読む signal が変わるたびにそれを呼び直し、`true` の間だけバッジを表示します。リアクティブな値には、ふつうのクロージャで足ります。
 - **選択肢は `ListItem` です。** `ListItem::new(key, label)` は、自分で決めた key と表示する文字を組にします。`select` と `toggle_group` は選ばれた key を `Option<K>`（ここでは `Option<&'static str>`）として持ち、`None` は何も選ばれていない状態です。
-- **スロットはクロージャを取ります。** `card().header(..)` は組み立て済みのヘッダーを取りますが、`.content(|| ..)` と `.footer(|| ..)` は、カードがマウントするときに一度だけ呼ぶクロージャを取ります。クロージャは使う signal を所有するよう `move || ..` と書きます。signal は `Copy` なので、クローンは要りません。
+- **スロットには表示内容を渡します。** 標準 card の `.header(..)`、`.content(..)`、`.footer(..)` は view を受け取ります。開くたびに内容を作り直す slot は closure を受け取り、各 builder がその違いを説明します。
 - **`field(label, control)`** は Kivact の関数で、見えるラベルとコントロール、必要なら `.with_hint(..)` をまとめます。ラベルを押すとコントロールが働き、スクリーンリーダーはラベルをコントロールの名前として読み上げます。中のスイッチに `.hide_label(true)` を付けているのは、ラベルを field がすでに表示しているからです。
 - **`basic::field_group`** はキットの余白で field を縦に並べ、`basic::field_separator()` は field の間に区切り線を引きます。
 

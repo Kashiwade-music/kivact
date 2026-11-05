@@ -1,6 +1,5 @@
 //! Role: Display and layout component tests: gallery layout and behavior checks.
 
-use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::RenderOptions;
@@ -77,5 +76,6 @@ fn pagination_pages_follows_its_binding_and_disables_the_ends() {
     }
     assert_eq!(screen.all_by_text("…").len(), 2);
     assert!(screen.get_by_role(Role::Button, "6").is_selected());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

@@ -159,7 +159,7 @@ fn slider_thumb(t: &Theme, _: &kivact::ui::Look<AxisState>) -> Style {
         .size(THUMB, THUMB)
         .radius(0)
         .border(1, p.ring)
-        .background(Color::WHITE)
+        .background(p.switch_thumb)
         .hover(halo.clone())
         .pressed(halo.clone())
         .focus_visible(halo)

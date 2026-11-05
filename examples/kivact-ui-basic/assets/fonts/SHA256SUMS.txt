@@ -1,6 +1,0 @@
-d00e590b8eb3a59acc329b2d044fd143ae935090b7da33199ebee27cc7de8196  171948  geistmono/GeistMono[wght].ttf
-1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f  4387  geistmono/OFL.txt
-29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031  876576  inter/Inter[opsz,wght].ttf
-5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57  4377  inter/OFL.txt
-c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f  9589900  notosansjp/NotoSansJP[wght].ttf
-1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9  4388  notosansjp/OFL.txt

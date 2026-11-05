@@ -25,11 +25,10 @@ impl kivact::ui::Variant for BubbleVariant {}
 /// `oklch(from primary 0.93 ..)` and friends for the neutral primary: the grays of lightness
 /// 0.93, 0.88 (light) and 0.30, 0.35 (dark).
 fn tinted(p: &Tokens, hovered: bool) -> Color {
-    match (p.is_dark(), hovered) {
-        (false, false) => Color::from_rgba_f64(0.910, 0.910, 0.910, 1.0),
-        (false, true) => Color::from_rgba_f64(0.843, 0.843, 0.843, 1.0),
-        (true, false) => Color::from_rgba_f64(0.180, 0.180, 0.180, 1.0),
-        (true, true) => Color::from_rgba_f64(0.227, 0.227, 0.227, 1.0),
+    if hovered {
+        p.bubble_tinted_hover
+    } else {
+        p.bubble_tinted
     }
 }
 

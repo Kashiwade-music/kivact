@@ -1,8 +1,8 @@
 //! Role: The sidebar trigger button that toggles the provider's sidebar.
 
-use super::state::{current, deferred};
+use super::state::current;
 use kivact::i18n::message;
-use kivact::state::Callback;
+use kivact::state::{Callback, IntoValue};
 use kivact::ui::{ButtonVariant, ControlSize, button};
 use kivact::view::{IntoView, View};
 use kivact::view::{Node, NodeBuilder, icon};
@@ -47,17 +47,21 @@ impl NodeBuilder for SidebarTrigger {
 
 impl IntoView for SidebarTrigger {
     fn into_view(self) -> View {
-        deferred(move || {
-            let cx = current();
-            let after = self.on_press;
-            self.root.on_press(move || {
-                if let Some(cx) = cx {
-                    cx.toggle();
-                }
-                if let Some(after) = after {
-                    after.call(());
-                }
+        let after = self.on_press;
+        self.root
+            .with_node(move |root| {
+                root.part(kivact::custom::Part::new(().into_value(), move |root| {
+                    let cx = current();
+                    root.on_press(move || {
+                        if let Some(cx) = cx {
+                            cx.toggle();
+                        }
+                        if let Some(after) = after {
+                            after.call(());
+                        }
+                    })
+                }))
             })
-        })
+            .into_view()
     }
 }

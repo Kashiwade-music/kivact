@@ -1,6 +1,6 @@
 //! Role: Overlay tests: accordion, the alert, sheet and popover looks, command menus.
 
-use crate::support::{assert_clean, distance, pixel};
+use crate::support::{distance, pixel};
 use kivact::geometry::Edge;
 use kivact::interaction::{Command, DialogMode};
 use kivact::prelude::*;
@@ -63,10 +63,14 @@ fn accordion(open: Signal<Vec<&'static str>>, multiple: bool) -> Node {
 
 #[test]
 fn accordion_in_single_mode_keeps_one_section_open() {
-    let (screen, open) = kivact::test::render_with_handle(crate::support::options(), || {
-        let open = signal(vec!["one"]);
-        (open, page(accordion(open, false)))
-    });
+    let (screen, open) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let open = signal(vec!["one"]);
+            (open, page(accordion(open, false)))
+        },
+    );
     screen.get_by_text("Yes. It adheres to ARIA.");
     assert!(screen.query_by_text("Yes. It comes with Lyra.").is_none());
     let one = screen.get_by_role(Role::Button, "Is it accessible?");
@@ -97,14 +101,17 @@ fn accordion_in_single_mode_keeps_one_section_open() {
     screen.run_until_idle();
     screen.get_by_text("Yes. It adheres to ARIA.");
     screen.get_by_text("Yes. It comes with Lyra.");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
     screen.assert_layout_with(&layout_check());
 }
 
 #[test]
 fn alert_dialog_ignores_outside_presses_and_reports_its_buttons() {
-    let (screen, (open, confirmed)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (open, confirmed)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
             let open = signal(false);
             let confirmed = signal(0);
             (
@@ -130,7 +137,8 @@ fn alert_dialog_ignores_outside_presses_and_reports_its_buttons() {
                         }),
                 )),
             )
-        });
+        },
+    );
     let opener = screen.get_by_role(Role::Button, "Delete");
     opener.click();
     let dialog = screen.get_by_role(Role::AlertDialog, "Are you absolutely sure?");
@@ -172,7 +180,8 @@ fn alert_dialog_ignores_outside_presses_and_reports_its_buttons() {
     screen.press_key(Key::Escape);
     assert!(!open.get_untracked(), "Escape closes it");
     assert_eq!(confirmed.get_untracked(), 1);
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
@@ -183,8 +192,10 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
         (Edge::Top, "Top"),
         (Edge::Bottom, "Bottom"),
     ] {
-        let (screen, open) =
-            kivact::test::render_with_handle(crate::support::options(), move || {
+        let (screen, open) = kivact::test::render_with_handle(
+            kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+                .reduced_motion(),
+            move || {
                 let open = signal(false);
                 (
                     open,
@@ -197,7 +208,8 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
                             .footer(|| kivact::ui::button("Save changes")),
                     )),
                 )
-            });
+            },
+        );
         let opener = screen.get_by_role(Role::Button, "Open");
         opener.click();
         let dialog = screen.get_by_role(Role::Dialog, name);
@@ -224,7 +236,8 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
         screen.get_by_text("The body");
         screen.get_by_role(Role::Button, "Save changes");
         screen.get_by_role(Role::Button, "Close");
-        assert_clean(&screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+        screen.assert_layout_clean();
         screen.assert_layout_with(&layout_check());
         screen.press_key(Key::Escape);
         assert!(!open.get_untracked(), "{name}: Escape closes it");
@@ -234,19 +247,23 @@ fn sheet_attaches_to_each_side_and_closes_on_escape() {
 
 #[test]
 fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
-    let (screen, open) = kivact::test::render_with_handle(crate::support::options(), || {
-        let open = signal(false);
-        (
-            open,
-            page(
-                kivact::ui::dialog("Dimensions", open)
-                    .mode(DialogMode::Popover)
-                    .description("Set the dimensions for the layer.")
-                    .content(|| kivact::ui::text_input("Width", signal(String::from("100%"))))
-                    .attach(kivact::ui::button("Open popover").variant(ButtonVariant::Outline)),
-            ),
-        )
-    });
+    let (screen, open) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let open = signal(false);
+            (
+                open,
+                page(
+                    kivact::ui::dialog("Dimensions", open)
+                        .mode(DialogMode::Popover)
+                        .description("Set the dimensions for the layer.")
+                        .content(|| kivact::ui::text_input("Width", signal(String::from("100%"))))
+                        .attach(kivact::ui::button("Open popover").variant(ButtonVariant::Outline)),
+                ),
+            )
+        },
+    );
     let trigger = screen.get_by_role(Role::Button, "Open popover");
     assert_eq!(trigger.is_expanded(), Some(false));
     trigger.click();
@@ -265,7 +282,8 @@ fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
         screen.get_by_role(Role::TextBox, "Width").is_focused(),
         "the focus enters the panel"
     );
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
     screen.assert_layout_with(&layout_check());
 
     screen.press_key(Key::Escape);
@@ -293,20 +311,25 @@ fn popover_opens_from_its_trigger_and_dismisses_with_focus_restored() {
         .get_by_role(Role::Dialog, "Dimensions")
         .a11y(A11yAction::Dismiss);
     assert!(!open.get_untracked(), "assistive technology can dismiss it");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn hover_card_opens_after_its_delay_and_stays_while_hovered() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(), || {
-        (
-            (),
-            page(
-                kivact::ui::hover_card(|| text("The React Framework"))
-                    .attach(kivact::ui::button("@nextjs").variant(ButtonVariant::Link)),
-            ),
-        )
-    });
+    let (screen, ()) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            (
+                (),
+                page(
+                    kivact::ui::hover_card(|| text("The React Framework"))
+                        .attach(kivact::ui::button("@nextjs").variant(ButtonVariant::Link)),
+                ),
+            )
+        },
+    );
     let trigger = screen.get_by_role(Role::Button, "@nextjs");
     trigger.hover();
     screen.advance(Duration::from_millis(500));
@@ -319,7 +342,8 @@ fn hover_card_opens_after_its_delay_and_stays_while_hovered() {
     let card = screen.get_by_role(Role::Group, "Preview");
     let rect = card.rect().expect("laid out");
     assert_eq!(rect.width, 256.0);
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
     screen.assert_layout_with(&layout_check());
 
     // Moving onto the card keeps it open past the close delay.
@@ -342,7 +366,8 @@ fn hover_card_opens_after_its_delay_and_stays_while_hovered() {
     assert!(screen.query_by_text("The React Framework").is_none());
     screen.advance(Duration::from_millis(1000));
     assert!(screen.query_by_text("The React Framework").is_none());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 fn entries() -> Vec<Command<&'static str>> {
@@ -367,8 +392,10 @@ fn entries() -> Vec<Command<&'static str>> {
 
 #[test]
 fn command_filters_groups_and_chooses_with_the_keyboard() {
-    let (screen, (chosen, open)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (chosen, open)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
             let chosen = signal(Vec::<&'static str>::new());
             let open = signal(true);
             (
@@ -378,7 +405,8 @@ fn command_filters_groups_and_chooses_with_the_keyboard() {
                         .on_activate(move |key: &'static str| chosen.update(|keys| keys.push(key))),
                 ),
             )
-        });
+        },
+    );
     let search = screen.get_by_role(Role::TextBox, "Search commands");
     screen.get_by_role(Role::Group, "Suggestions");
     screen.get_by_role(Role::Group, "Settings");
@@ -387,7 +415,8 @@ fn command_filters_groups_and_chooses_with_the_keyboard() {
         screen.get_by_role(Role::Option, name);
     }
     assert!(screen.get_by_role(Role::Option, "Calendar").is_selected());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
     screen.assert_layout_with(&layout_check());
 
     search.click();
@@ -439,7 +468,8 @@ fn command_filters_groups_and_chooses_with_the_keyboard() {
     search.type_text("zzz");
     screen.get_by_text("No results found.");
     assert!(screen.query_by_role(Role::Option, "Search Emoji").is_none());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 /// The box of the panel inside a dialog's overlay: the overlay node itself has
