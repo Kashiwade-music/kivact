@@ -270,20 +270,12 @@ impl DateRangeInput {
         let configure = self.configure.clone();
         let presets = self.presets;
         kivact_core::view::ViewFn::from(move |()| {
-            let accepted = accept.clone();
-            let mut picker = calendar(value)
+            let selected = committing_range(value, accept.clone(), open, trigger_focus);
+            let mut picker = calendar(selected)
                 .min(min)
                 .max(max)
                 .range_span(min_span, max_span)
-                .number_of_months(2usize)
-                .on_commit(move || {
-                    if value.get_untracked().is_some_and(|next| accepted(next)) {
-                        open.set(false);
-                        if let Some(focus) = trigger_focus {
-                            focus.restore_focus();
-                        }
-                    }
-                });
+                .number_of_months(2usize);
             if let Some(day) = week_start {
                 picker = picker.week_start(day);
             }
@@ -477,4 +469,23 @@ fn order_diagnostic(
                 .color(kivact_core::style::ColorToken::Danger),
         );
     (order_ref, order_error)
+}
+
+fn committing_range(
+    value: Binding<Option<DateRange>>,
+    accept: Rc<dyn Fn(DateRange) -> bool>,
+    open: kivact_core::state::Signal<bool>,
+    focus: Option<kivact_core::view::NodeRef>,
+) -> Binding<Option<DateRange>> {
+    binding(value, move |next: Option<DateRange>| {
+        if next.is_none_or(|next| accept(next)) {
+            value.set(next);
+            if value.get_untracked() == next {
+                open.set(false);
+                if let Some(focus) = focus {
+                    focus.restore_focus();
+                }
+            }
+        }
+    })
 }

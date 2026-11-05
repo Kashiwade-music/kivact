@@ -68,12 +68,14 @@ pub(super) fn create(
                 move |_, effect| match effect {
                     machine::Effect::Commit(range) => {
                         value.set(Some(range));
-                        selection_status.set(format!(
-                            "{}: {} - {}",
-                            range_chosen.get_untracked(),
-                            range.start(),
-                            range.end()
-                        ));
+                        if value.get_untracked() == Some(range) {
+                            selection_status.set(format!(
+                                "{}: {} - {}",
+                                range_chosen.get_untracked(),
+                                range.start(),
+                                range.end()
+                            ));
+                        }
                     }
                     machine::Effect::Started(day) => {
                         selection_status.set(format!("{}: {day}", started.get_untracked()))
@@ -239,8 +241,10 @@ impl State {
         let done = match self.choice {
             Choice::Single(value) => {
                 value.set(Some(day));
-                self.selection_status
-                    .set(format!("{}: {day}", self.chosen_message.get_untracked()));
+                if value.get_untracked() == Some(day) {
+                    self.selection_status
+                        .set(format!("{}: {day}", self.chosen_message.get_untracked()));
+                }
                 true
             }
             Choice::Range { pick, .. } => {
