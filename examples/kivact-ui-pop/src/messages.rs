@@ -20,10 +20,7 @@ pub fn messages() -> Messages {
         ("calendar.previous_year", "前年"),
         ("pop.chip.add", "追加"),
         ("pop.chip.remove", "{label} を削除"),
-        (
-            "date.error.format",
-            "YYYY-MM-DD の形式で入力してください",
-        ),
+        ("date.error.format", "YYYY-MM-DD の形式で入力してください"),
         ("date.error.invalid", "存在しない日付です"),
         ("date.error.order", "終了日が開始日より前です"),
         ("date.open", "日付を選択"),

@@ -30,7 +30,19 @@ impl Variant for BadgeHue {}
 pub(crate) fn badge(t: &Theme, look: &Look<BadgeState>) -> Style {
     let p = t.ext::<Tokens>();
     let hue = look.variant::<BadgeHue>().map_or_else(
-        || look.variant::<Hue>().copied().unwrap_or_default(),
+        || {
+            look.variant::<Hue>()
+                .copied()
+                .unwrap_or_else(|| match look.tone {
+                    kivact::interaction::Tone::Neutral | kivact::interaction::Tone::Info => {
+                        Hue::Blue
+                    }
+                    kivact::interaction::Tone::Success => Hue::Mint,
+                    kivact::interaction::Tone::Warning => Hue::Yellow,
+                    kivact::interaction::Tone::Danger => Hue::Red,
+                    kivact::interaction::Tone::Accent => Hue::Pink,
+                })
+        },
         |h| h.0.get(),
     );
     let variant = look.variant::<BadgeVariant>().copied().unwrap_or_default();
