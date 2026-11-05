@@ -294,9 +294,10 @@ mod pagination_draft;
 mod stepper;
 pub use breadcrumb::{Breadcrumb, breadcrumb};
 pub use navigation_menu::{NavigationMenu, navigation_menu};
-pub use navigation_tokens::NavigationTokens;
+pub use navigation_tokens::{NavigationTokens, StepperTokens};
 pub use pagination::{PageItem, Pagination, PaginationMode, pagination};
 pub use recipes::{BreadcrumbRecipes, NavigationMenuRecipes, PaginationRecipes, StepperRecipes};
 pub use stepper::{
-    IndicatorContent, StepIndicator, StepStatus, Stepper, StepperItem, StepperItemState, stepper,
+    IndicatorContent, StepIndicator, StepStatus, Stepper, StepperItem, StepperItemState,
+    StepperState, stepper,
 };

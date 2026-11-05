@@ -20,7 +20,7 @@ pub(super) fn breadcrumb_root(t: &Theme, _: &Look<()>) -> Style {
         .font_size(t.text().size)
         .color(ColorToken::Text)
 }
-pub(super) fn stepper_root(t: &Theme, _: &Look<()>) -> Style {
+pub(super) fn stepper_root(t: &Theme, _: &Look<crate::StepperState>) -> Style {
     let p = &t.ext::<crate::UiTokens>().stepper;
     style()
         .direction(Direction::Row)
@@ -43,7 +43,11 @@ pub(super) fn stepper_item(t: &Theme, look: &Look<crate::StepperItemState>) -> S
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .min_width(p.min_step_width)
+        .min_width(if look.collapsed {
+            0.0
+        } else {
+            p.min_step_width
+        })
         .gap(p.connector_gap)
         .color(if look.index == look.current {
             t.colors().accent

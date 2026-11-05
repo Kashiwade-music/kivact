@@ -11,7 +11,7 @@ use kivact_core::style::{Theme, ThemeExtension};
 pub struct UiTokens {
     pub pagination: crate::NavigationTokens,
     pub breadcrumb: crate::NavigationTokens,
-    pub stepper: crate::NavigationTokens,
+    pub stepper: crate::StepperTokens,
     pub navigation_menu: crate::NavigationTokens,
     pub calendar: crate::CalendarTokens,
     pub date_input: crate::DateInputTokens,

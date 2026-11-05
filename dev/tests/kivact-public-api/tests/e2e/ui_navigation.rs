@@ -28,10 +28,11 @@ fn pagination_moves_pages_and_keeps_focus() {
 
 #[test]
 fn stepper_marks_the_current_step() {
-    let (screen, current) = mount(|| {
+    let (screen, (current, width)) = mount(|| {
         let current = signal(1usize);
+        let width = signal(600.0);
         (
-            current,
+            (current, width),
             stepper(
                 vec![
                     StepperItem::new("Account"),
@@ -39,7 +40,8 @@ fn stepper_marks_the_current_step() {
                     StepperItem::new("Confirm"),
                 ],
                 current,
-            ),
+            )
+            .style(move || style().width(width.get())),
         )
     });
     assert_eq!(
@@ -56,6 +58,10 @@ fn stepper_marks_the_current_step() {
         screen.get_by_role(Role::ListItem, "Confirm").current_item(),
         Some(CurrentItem::Step)
     );
+    width.set(180.0);
+    screen.run_until_idle();
+    assert!(screen.query_by_role(Role::ListItem, "Account").is_none());
+    assert!(screen.get_by_role(Role::ListItem, "Confirm").is_visible());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -97,11 +103,11 @@ fn navigation_menu_opens_on_hover_and_pins_on_click() {
     });
     let docs = screen.get_by_role(Role::Button, "Docs");
     docs.hover();
-    screen.get_by_role(Role::Button, "Read guide").is_visible();
+    assert!(screen.get_by_role(Role::Button, "Read guide").is_visible());
     docs.click();
     screen.get_by_role(Role::Button, "Outside").hover();
     screen.advance(Duration::from_millis(200));
-    screen.get_by_role(Role::Button, "Read guide").is_visible();
+    assert!(screen.get_by_role(Role::Button, "Read guide").is_visible());
     docs.press_key(Key::Escape);
     assert!(screen.query_by_role(Role::Button, "Read guide").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());

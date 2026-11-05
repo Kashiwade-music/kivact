@@ -1,10 +1,10 @@
 //! Role: Render reactive progress steps with semantic current-step metadata.
 use kivact_core::custom::Reactive;
-use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::state::{IntoText, IntoValue, Value, memo};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::{
     CurrentItem, IntoView, Node, NodeBuilder, Orientation, Role, View, column, for_index, node,
-    text,
+    node_ref, show, text,
 };
 use std::rc::Rc;
 /// Semantic status attached to a step.
@@ -119,10 +119,20 @@ pub struct StepperItemState {
     pub index: usize,
     pub current: usize,
     pub status: StepStatus,
+    // xtask-allow(state-fields): Derived width fit shared by the root and all recipe parts.
+    pub collapsed: bool,
     // xtask-allow(state-fields): Independent caller availability projected into a passive recipe snapshot.
     pub disabled: bool,
     // xtask-allow(state-fields): Independent optional-step metadata projected into a passive recipe snapshot.
     pub optional: bool,
+}
+/// Actual responsive layout projected from the mounted root and caller data.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StepperState {
+    pub current: usize,
+    pub count: usize,
+    pub orientation: Orientation,
+    pub collapsed: bool,
 }
 /// A progress list whose current step belongs to the application.
 pub struct Stepper {
@@ -131,6 +141,8 @@ pub struct Stepper {
     current: Value<usize>,
     orientation: Value<Orientation>,
     activate: Option<Rc<dyn Fn(usize)>>,
+    // xtask-allow(state-fields): Independent setup-only override of the passive minimum width token.
+    min_step_width: Option<Value<f64>>,
     variants: crate::variants::Variants,
 }
 /// Show progress through an ordered sequence of steps.
@@ -144,10 +156,16 @@ pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: impl IntoValue<
         current: current.into_value(),
         orientation: Orientation::Horizontal.into_value(),
         activate: None,
+        min_step_width: None,
         variants: crate::variants::Variants::default(),
     }
 }
 impl Stepper {
+    /// Override the minimum width used to derive the collapsed layout.
+    pub fn min_step_width(mut self, width: impl IntoValue<f64>) -> Self {
+        self.min_step_width = Some(width.into_value());
+        self
+    }
     /// Choose horizontal or vertical layout.
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
@@ -177,8 +195,73 @@ impl IntoView for Stepper {
             current,
             orientation,
             activate,
+            min_step_width,
             variants,
         } = self;
+        let reference = node_ref();
+        let rect = reference.rect();
+        let layout = memo(move || {
+            let count = items.with(Vec::len);
+            let minimum = min_step_width.map_or_else(
+                || {
+                    kivact_core::style::use_theme()
+                        .get()
+                        .ext::<crate::UiTokens>()
+                        .stepper
+                        .min_step_width
+                },
+                |width| width.get(),
+            );
+            StepperState {
+                current: current.get(),
+                count,
+                orientation: orientation.get(),
+                collapsed: orientation.get() == Orientation::Horizontal
+                    && count > 0
+                    && rect
+                        .get()
+                        .is_some_and(|rect| rect.width / (count as f64) < minimum),
+            }
+        });
+        let previous_variants = variants.clone();
+        let next_variants = variants.clone();
+        let previous = activate.clone().map(|activate| {
+            show(
+                move || layout.get().collapsed,
+                move || {
+                    let activate = activate.clone();
+                    crate::layer::with_recipe_style(
+                        crate::button(kivact_core::i18n::message(
+                            "stepper.previous",
+                            "Previous step",
+                        ))
+                        .disabled(move || current.get() == 0)
+                        .on_press(move || activate(current.get_untracked().saturating_sub(1))),
+                        |r| r.stepper_recipes().previous_recipe(),
+                        &previous_variants,
+                        move || layout.get(),
+                    )
+                },
+            )
+            .into_view()
+        });
+        let next = activate.clone().map(|activate| {
+            show(
+                move || layout.get().collapsed,
+                move || {
+                    let activate = activate.clone();
+                    crate::layer::with_recipe_style(
+                        crate::button(kivact_core::i18n::message("stepper.next", "Next step"))
+                            .disabled(move || current.get().saturating_add(1) >= layout.get().count)
+                            .on_press(move || activate(current.get_untracked().saturating_add(1))),
+                        |r| r.stepper_recipes().next_recipe(),
+                        &next_variants,
+                        move || layout.get(),
+                    )
+                },
+            )
+            .into_view()
+        });
         let child_variants = variants.clone();
         let children = for_index(items, move |index, item| {
             let state = move || {
@@ -186,6 +269,7 @@ impl IntoView for Stepper {
                     index,
                     current: current.get(),
                     status: item.status,
+                    collapsed: layout.get().collapsed,
                     disabled: item.disabled.get(),
                     optional: item.optional.get(),
                 })
@@ -261,6 +345,7 @@ impl IntoView for Stepper {
             });
             let row = node()
                 .role(Role::ListItem)
+                .hidden(move || layout.get().collapsed && index != current.get())
                 .name(move || item.with(StepperItem::label))
                 .current_item(move || (index == current.get()).then_some(CurrentItem::Step));
             let row = if let Some(activate) = &activate {
@@ -282,10 +367,10 @@ impl IntoView for Stepper {
             .child(contents)
         });
         crate::layer::with_base_recipe_style(
-            root,
+            root.node_ref(reference),
             |r| r.stepper_recipes().root_recipe(),
             &variants,
-            || (),
+            move || layout.get(),
         )
         .style(move || {
             style().direction(if orientation.get() == Orientation::Vertical {
@@ -294,7 +379,9 @@ impl IntoView for Stepper {
                 Direction::Row
             })
         })
+        .child(previous)
         .child(children)
+        .child(next)
         .into_view()
     }
 }

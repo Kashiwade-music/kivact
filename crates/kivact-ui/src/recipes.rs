@@ -764,7 +764,9 @@ recipe_table! {
 recipe_table! {
     /// Progress list and individual step recipes.
     StepperRecipes {
-        root(root_recipe): () = crate::look_navigation::stepper_root,
+        root(root_recipe): crate::StepperState = crate::look_navigation::stepper_root,
+        previous(previous_recipe): crate::StepperState = crate::look_navigation::part,
+        next(next_recipe): crate::StepperState = crate::look_navigation::part,
         item(item_recipe): crate::StepperItemState = crate::look_navigation::stepper_item,
         indicator(indicator_recipe): crate::StepperItemState = crate::look_navigation::part,
         label(label_recipe): crate::StepperItemState = crate::look_navigation::part,
