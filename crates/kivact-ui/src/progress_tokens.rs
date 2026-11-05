@@ -16,6 +16,8 @@ pub struct ProgressMotion {
     pub reduced_period_ms: Option<u64>,
 }
 
+impl crate::Variant for ProgressMotion {}
+
 impl Default for ProgressMotion {
     fn default() -> Self {
         Self {

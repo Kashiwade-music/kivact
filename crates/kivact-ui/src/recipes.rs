@@ -622,6 +622,8 @@ recipe_table! {
         heading(heading_recipe): HeadingState = look_metrics::heading,
         avatar_status(avatar_status_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
+        /// Presentation of the hidden avatar count, including its actual count.
+        avatar_group_overflow(avatar_group_overflow_recipe): usize = super::look_indicators::avatar_group_overflow,
         avatar(avatar_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         kbd_key(kbd_key_recipe): crate::kbd_values::KbdKeyState = super::look_indicators::kbd_key,
@@ -803,6 +805,8 @@ recipe_table! {
         icon(icon_recipe): AlertState = look_feedback::alert_icon,
         actions(actions_recipe): AlertState = look_feedback::alert_actions,
         content(content_recipe): AlertState = look_feedback::alert_content,
+        dismiss(dismiss_recipe): AlertState = look_feedback::alert_control,
+        toggle(toggle_recipe): AlertState = look_feedback::alert_control,
     }
 }
 recipe_table! {

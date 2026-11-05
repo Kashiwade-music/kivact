@@ -8,9 +8,9 @@ use crate::display::ToneExt;
 use crate::tokens::Tokens;
 use kivact::draw::{Layer, Path};
 use kivact::geometry::{Point, Rect};
-use kivact::interaction::DisclosureState;
 use kivact::interaction::Tone;
 use kivact::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
+use kivact::ui::DisclosureRecipeState;
 use kivact::ui::{ControlSize, DisclosureRecipes, Look, ProgressRecipes, ProgressState, Variant};
 
 /// Draw a standard progress bar with moving diagonal stripes over its fill:
@@ -22,11 +22,16 @@ pub struct Striped;
 impl Variant for Striped {}
 
 pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|_| progress_track)
+        .fill(|_| progress_fill)
+        .label(|_| crate::recipes_progress::label)
 }
 
 /// A hard-edged bar, 4 px for a small one and 8 px otherwise.
 fn progress_track(t: &Theme, look: &Look<ProgressState>) -> Style {
+    if let Some(special) = crate::recipes_progress::special(t, look) {
+        return special;
+    }
     style()
         .width(pct(100))
         .height(
@@ -42,6 +47,9 @@ fn progress_track(t: &Theme, look: &Look<ProgressState>) -> Style {
 }
 
 fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
+    if let Some(special) = crate::recipes_progress::special_fill(look) {
+        return special;
+    }
     let state = **look;
     let striped = look.variant::<Striped>().is_some();
     let tone = look.variant::<Tone>().copied().unwrap_or(Tone::Info);
@@ -87,12 +95,12 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         .content(|_| disclosure_content)
 }
 
-fn disclosure_root(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_root(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style().direction(Direction::Column)
 }
 
 /// The chevron is the trigger's last child, drawn first by the reversed row.
-fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_trigger(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::RowReverse)
         .height(30)
@@ -106,7 +114,7 @@ fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
         .border_bottom(1, ColorToken::Border)
 }
 
-fn disclosure_indicator(_: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_indicator(_: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     style()
         .size(10, 10)
         .shrink(0)
@@ -114,7 +122,7 @@ fn disclosure_indicator(_: &Theme, state: &Look<DisclosureState>) -> Style {
         .rotate(if state.open { 0 } else { -90 })
 }
 
-fn disclosure_content(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_content(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .enter_size(kivact::view::Orientation::Vertical)
         .exit_size(kivact::view::Orientation::Vertical)

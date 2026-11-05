@@ -47,12 +47,17 @@ impl IntoView for GameCellVariant {
                 initials,
                 color,
             } => row((
-                crate::avatar(initials).size(24.).color(color),
+                kivact::ui::avatar(initials.clone())
+                    .fallback_content(move || text(initials.clone()))
+                    .variant(crate::AvatarVariant {
+                        side: 24.,
+                        color: color,
+                    }),
                 text(name).style(style().font_size(12.5)),
             ))
             .style(style().gap(10).align_items(Align::Center))
             .into_view(),
-            Self::Badge { label, tone } => crate::badge(label, tone).into_view(),
+            Self::Badge { label, tone } => kivact::ui::badge(label).tone(tone).into_view(),
             Self::Progress { value, tone } => row((
                 kivact::ui::progress(Some(value / 100.0))
                     .name(message("game.table.progress", "Progress"))

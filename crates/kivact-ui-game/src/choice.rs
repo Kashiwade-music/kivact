@@ -95,7 +95,7 @@ pub fn card_label<K: Clone + 'static>(
 ///     tabs("Sections", vec![ListItem::new("inbox", "Inbox"), ListItem::new("alerts", "Alerts")], section)
 ///         .orientation(Orientation::Vertical)
 ///         .variant(g::Navigation)
-///         .item(|item, state| (g::navigation_label(item, state), g::badge("3", kivact::interaction::Tone::Info)))
+///         .item(|item, state| (g::navigation_label(item, state), kivact::ui::badge("3").tone(kivact::interaction::Tone::Info)))
 /// }
 /// ```
 pub fn navigation_label<K: Clone + 'static>(

@@ -115,7 +115,7 @@ fn menu() -> impl IntoView {
     .variant(game::Navigation)
     .item(|item, state| {
         let count = match item.with(|item| *item.key()) {
-            "inbox" => Some(game::badge("3", Tone::Info)),
+            "inbox" => Some(kivact::ui::badge("3").tone(Tone::Info)),
             _ => None,
         };
         (game::navigation_label(item, state), count)

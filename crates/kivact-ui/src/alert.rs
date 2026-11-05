@@ -13,9 +13,44 @@ use kivact_core::view::{
 use kivact_interaction::Tone;
 
 #[derive(Clone, Copy, PartialEq)]
-enum BannerState {
+enum LocalBannerState {
     Shown { restore: Option<NodeToken> },
     Dismissed,
+}
+#[derive(Clone, Copy)]
+enum BannerState {
+    Local(LocalBannerState),
+    Shared {
+        visible: Binding<bool>,
+        restore: Option<NodeToken>,
+    },
+}
+impl PartialEq for BannerState {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Local(a), Self::Local(b)) => a == b,
+            (
+                Self::Shared {
+                    visible: a,
+                    restore: ar,
+                },
+                Self::Shared {
+                    visible: b,
+                    restore: br,
+                },
+            ) => a.into_value() == b.into_value() && ar == br,
+            _ => false,
+        }
+    }
+}
+impl BannerState {
+    fn visible(self) -> bool {
+        match self {
+            Self::Local(LocalBannerState::Shown { .. }) => true,
+            Self::Local(LocalBannerState::Dismissed) => false,
+            Self::Shared { visible, .. } => visible.get(),
+        }
+    }
 }
 use crate::component_values::AlertState;
 
@@ -33,14 +68,20 @@ pub struct Alert {
     tone: Value<Tone>,
     dismissible: Value<bool>,
     dismiss_label: Value<String>,
+    dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
+    visible: Option<Binding<bool>>,
     variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
 pub fn alert(title: impl IntoText) -> Alert {
+    let title = title.into_text_value();
     Alert {
-        root: node(),
-        title: title.into_text_value(),
+        root: node()
+            .role(Role::Alert)
+            .live_region(LiveRegion::Assertive)
+            .name(title),
+        title,
         description: None,
         icon: None,
         actions: None,
@@ -50,7 +91,9 @@ pub fn alert(title: impl IntoText) -> Alert {
         tone: Tone::Neutral.into_value(),
         dismissible: false.into_value(),
         dismiss_label: "Dismiss notification".into_text_value(),
+        dismiss_content: None,
         dismiss: None,
+        visible: None,
         variants: Variants::default(),
     }
 }
@@ -100,10 +143,21 @@ impl Alert {
         self.dismiss_label = label.into_text_value();
         self
     }
+    /// Replace the visible dismiss contents, preserving the accessible dismiss label.
+    pub fn dismiss_content(mut self, content: impl IntoView) -> Self {
+        self.dismiss_content = Some(content.into_view());
+        self
+    }
     /// Show a dismiss control and report dismissal after restoring focus.
     pub fn on_dismiss(mut self, f: impl Into<Callback<()>>) -> Self {
         self.dismissible = true.into_value();
         self.dismiss = Some(f.into());
+        self
+    }
+    /// Use application-owned visibility. A refused false write keeps the alert visible;
+    /// completed dismissal and focus restoration happen only after acceptance.
+    pub fn visible(mut self, visible: impl IntoBinding<bool>) -> Self {
+        self.visible = Some(visible.into_binding());
         self
     }
     /// Set a structural or theme-defined appearance.
@@ -120,7 +174,7 @@ impl NodeBuilder for Alert {
 impl IntoView for Alert {
     fn into_view(mut self) -> View {
         let reference = node_ref();
-        let phase = banner_dismissal(reference, self.dismiss.take());
+        let phase = banner_dismissal(reference, self.dismiss.take(), self.visible);
         let tone = self.tone;
         let dismissible = self.dismissible;
         let collapsible = self.collapsible;
@@ -138,11 +192,8 @@ impl IntoView for Alert {
             &self.variants,
             state,
         )
-        .role(Role::Alert)
-        .name(self.title)
-        .live_region(LiveRegion::Assertive)
         .node_ref(reference)
-        .hidden(move || phase.state().get() == BannerState::Dismissed)
+        .hidden(move || !phase.state().get().visible())
         .child(contents)
         .into_view()
     }
@@ -166,7 +217,7 @@ impl Alert {
             )
         });
         let title = with_recipe_style(
-            text(self.title),
+            node().child(text(self.title)),
             |r| r.alert_recipes().title_recipe(),
             variants,
             state,
@@ -187,7 +238,7 @@ impl Alert {
                 state,
             )
         });
-        let toggle = expansion_toggle(self.content.is_some(), open, collapsible);
+        let toggle = expansion_toggle(self.content.is_some(), open, collapsible, variants, state);
         let content = self.content.take().map(|content| {
             let variants = self.variants.clone();
             show(
@@ -203,9 +254,17 @@ impl Alert {
             )
         });
         let dismissible = self.dismissible;
-        let dismiss = super::button(self.dismiss_label)
-            .on_press(move || phase.send(BannerEvent::Dismiss))
-            .hidden(move || !dismissible.get());
+        let dismiss_content = self.dismiss_content.take();
+        let dismiss = with_recipe_style(
+            super::button(self.dismiss_label)
+                .hide_label(dismiss_content.is_some())
+                .child(dismiss_content)
+                .on_press(move || phase.send(BannerEvent::Dismiss))
+                .hidden(move || !dismissible.get()),
+            |r| r.alert_recipes().dismiss_recipe(),
+            variants,
+            state,
+        );
         (icon, title, description, actions, toggle, content, dismiss).into_view()
     }
 }
@@ -213,9 +272,11 @@ fn expansion_toggle(
     has_details: bool,
     open: Binding<bool>,
     collapsible: Value<bool>,
+    variants: &Variants,
+    state: impl Fn() -> AlertState + Copy + 'static,
 ) -> Option<impl IntoView> {
     has_details.then(|| {
-        super::button(move || {
+        let control = super::button(move || {
             if open.get() {
                 "Collapse details"
             } else {
@@ -224,7 +285,13 @@ fn expansion_toggle(
         })
         .with_node(move |node| node.expanded(move || open.get()))
         .hidden(move || !collapsible.get())
-        .on_press(move || open.set(!open.get()))
+        .on_press(move || open.set(!open.get()));
+        with_recipe_style(
+            control,
+            |r| r.alert_recipes().toggle_recipe(),
+            variants,
+            state,
+        )
     })
 }
 
@@ -238,6 +305,10 @@ enum BannerEvent {
 enum BannerEffect {
     RestoreFocus(NodeToken),
     NotifyDismiss,
+    RequestDismiss {
+        visible: Binding<bool>,
+        restore: Option<NodeToken>,
+    },
 }
 struct BannerMachine;
 impl Machine for BannerMachine {
@@ -249,24 +320,33 @@ impl Machine for BannerMachine {
         state: &BannerState,
         event: BannerEvent,
     ) -> Step<BannerState, BannerEvent, BannerEffect> {
-        match (state, event) {
+        match (*state, event) {
             (
-                BannerState::Shown { .. },
+                state,
                 BannerEvent::ExternalFocus {
                     focused: Some(target),
                     within: false,
                 },
-            ) => Step::to(BannerState::Shown {
-                restore: Some(target),
+            ) if state.visible() => Step::to(match state {
+                BannerState::Local(_) => BannerState::Local(LocalBannerState::Shown {
+                    restore: Some(target),
+                }),
+                BannerState::Shared { visible, .. } => BannerState::Shared {
+                    visible,
+                    restore: Some(target),
+                },
             }),
-            (BannerState::Shown { restore }, BannerEvent::Dismiss) => {
-                let step = Step::to(BannerState::Dismissed);
+            (BannerState::Local(LocalBannerState::Shown { restore }), BannerEvent::Dismiss) => {
+                let step = Step::to(BannerState::Local(LocalBannerState::Dismissed));
                 let step = if let Some(target) = restore {
-                    step.with(BannerEffect::RestoreFocus(*target))
+                    step.with(BannerEffect::RestoreFocus(target))
                 } else {
                     step
                 };
                 step.with(BannerEffect::NotifyDismiss)
+            }
+            (BannerState::Shared { visible, restore }, BannerEvent::Dismiss) if visible.get() => {
+                Step::stay().with(BannerEffect::RequestDismiss { visible, restore })
             }
             _ => Step::stay(),
         }
@@ -275,12 +355,30 @@ impl Machine for BannerMachine {
 fn banner_dismissal(
     reference: NodeRef,
     callback: Option<Callback<()>>,
+    visible: Option<Binding<bool>>,
 ) -> MachineHandle<BannerMachine> {
     let phase = machine(
-        BannerState::Shown { restore: None },
+        visible.map_or(
+            BannerState::Local(LocalBannerState::Shown { restore: None }),
+            |visible| BannerState::Shared {
+                visible,
+                restore: None,
+            },
+        ),
         || BannerMachine,
         move |_, command| match command {
             BannerEffect::RestoreFocus(target) => target.restore_focus(),
+            BannerEffect::RequestDismiss { visible, restore } => {
+                visible.set(false);
+                if !visible.get_untracked() {
+                    if let Some(target) = restore {
+                        target.restore_focus();
+                    }
+                    if let Some(callback) = callback {
+                        callback.call(());
+                    }
+                }
+            }
             BannerEffect::NotifyDismiss => {
                 if let Some(callback) = callback {
                     callback.call(());
@@ -291,6 +389,9 @@ fn banner_dismissal(
     let owner = Owner::current();
     let within = reference.focus_within();
     effect(move || {
+        if let Some(visible) = visible {
+            visible.get();
+        }
         phase.send(BannerEvent::ExternalFocus {
             focused: owner.focused_node(),
             within: within.get(),

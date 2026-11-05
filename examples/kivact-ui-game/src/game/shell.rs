@@ -469,7 +469,38 @@ fn section_names() -> [(&'static str, &'static str, &'static str); 10] {
 fn section(i: usize, r: NodeRef, content: impl IntoView) -> Node {
     let (_, name, description) = section_names()[i];
     column((
-        g::section_heading(format!("{i:02}"), name.to_uppercase(), description),
+        row((
+            text(format!("{i:02}")).style(move || {
+                let t = kivact::style::use_theme().get();
+                style()
+                    .font_family(t.ext::<g::Tokens>().display_family.as_str())
+                    .font_size(34)
+                    .line_height(0.9)
+                    .weight(800)
+                    .italic(true)
+                    .color(ColorToken::Accent)
+            }),
+            kivact::ui::heading(name.to_uppercase(), 2).variant(g::HeadingVariant::Section),
+            text(description).style(style().font_size(12).color(ColorToken::TextMuted)),
+        ))
+        .style(
+            style()
+                .gap(14)
+                .align_items(Align::End)
+                .padding_bottom(10)
+                .border_bottom(2, ColorToken::Text),
+        )
+        .draw_over(|d, s| {
+            d.fill_path(
+                &kivact::draw::Path::new()
+                    .move_to(kivact::geometry::Point::new(s.width - 44., s.height - 4.))
+                    .line_to(kivact::geometry::Point::new(s.width, s.height - 4.))
+                    .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
+                    .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
+                    .close(),
+                d.theme().ext::<g::Tokens>().yellow,
+            )
+        }),
         content,
     ))
     .with_node(|node| node.node_ref(r))
