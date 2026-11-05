@@ -4,7 +4,6 @@ use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
 use kivact::view::Asset;
 use kivact::view::ImageFit;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -45,7 +44,7 @@ fn wide() -> impl IntoView {
         node()
             .style(
                 style()
-                    .direction(Direction::Column)
+                    .direction(kivact::style::Direction::Column)
                     .width(pct(100))
                     .aspect_ratio(16.0 / 9.0)
                     .overflow(kivact::style::Overflow::Hidden),
@@ -68,7 +67,7 @@ fn square() -> impl IntoView {
         node()
             .style(
                 style()
-                    .direction(Direction::Column)
+                    .direction(kivact::style::Direction::Column)
                     .width(pct(100))
                     .aspect_ratio(1.0)
                     .overflow(kivact::style::Overflow::Hidden),
@@ -90,7 +89,7 @@ fn portrait() -> impl IntoView {
         node()
             .style(
                 style()
-                    .direction(Direction::Column)
+                    .direction(kivact::style::Direction::Column)
                     .width(pct(100))
                     .aspect_ratio(3.0 / 4.0)
                     .overflow(kivact::style::Overflow::Hidden),
