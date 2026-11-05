@@ -39,3 +39,5 @@ Breadcrumbs expose a navigation landmark and list. The last item has `CurrentIte
 Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a panel; Escape dismisses it. Pinned panels also dismiss on outside press or focus departure. `.open_delay` and `.close_delay` accept `Duration`; `.placement` and `.align` position panels. Use `interaction::use_navigation_menu()` when composing a domain navigation control: `NavOpen` is its single visibility state, and `hover_after`, `leave_after`, `pin`, `toggle` and `close` send transitions to that owner.
 
 `breadcrumb(items).current(current_key)` overrides the default final current page. The source accepts `Option<K>` reactively: `Some(key)` marks that key, while explicit `None` marks no page. Omitting the method retains the final-item default.
+
+Stepper item recipes receive `index`, `count`, and actual `orientation` from the same responsive layout projection; visual variants do not need to copy the axis or item count.

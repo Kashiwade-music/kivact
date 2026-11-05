@@ -351,7 +351,6 @@ pub use navigation_menu::{NavigationMenu, navigation_menu};
 pub use navigation_tokens::{NavigationTokens, StepperTokens};
 pub use pagination::{PageItem, Pagination, PaginationMode, pagination};
 pub use recipes::{BreadcrumbRecipes, NavigationMenuRecipes, PaginationRecipes, StepperRecipes};
-pub use stepper::{
-    IndicatorContent, StepIndicator, StepStatus, Stepper, StepperItem, StepperItemState,
-    StepperState, stepper,
-};
+pub use stepper::{IndicatorContent, StepIndicator, Stepper, StepperItem, stepper};
+
+pub use navigation_values::{StepStatus, StepperItemState, StepperState};
