@@ -32,6 +32,7 @@ impl VirtualBackend {
             saved_state: input.borrow().saved_state.clone(),
             ime_purpose: Cell::new(kivact_types::InputPurpose::Text),
             responders: Vec::new(),
+            capabilities: options.capabilities,
             now: 0,
             env: RefCell::new(Environment {
                 window_size: options.size,

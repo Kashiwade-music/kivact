@@ -155,6 +155,7 @@ impl ArvaneTestHost {
             locale: options.locale.clone(),
             mirror: options.mirror,
             gpu: options.gpu,
+            ..VirtualOptions::default()
         });
         let script = backend.script();
         let probe = backend.probe();

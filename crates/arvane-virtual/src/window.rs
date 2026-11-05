@@ -40,6 +40,10 @@ pub struct VirtualOptions {
     pub locale: Option<String>,
     pub gpu: GpuMode,
     pub mirror: MirrorMode,
+    /// Advertised service capabilities; defaults match the virtual backend's built-in services.
+    /// False flags do not disable those services or scripted responders. GPU and native
+    /// accessibility are always reported from the actual backend, overriding these flags.
+    pub capabilities: Capabilities,
     /// Restoration snapshot for this launch.
     pub restored_state: std::collections::BTreeMap<String, Vec<u8>>,
 }
@@ -58,6 +62,22 @@ impl Default for VirtualOptions {
             locale: None,
             gpu: GpuMode::Off,
             mirror: MirrorMode::Auto,
+            capabilities: Capabilities {
+                state_restoration: true,
+                clipboard_text: true,
+                file_dialogs: true,
+                open_path: true,
+                reveal_path: true,
+                fullscreen: true,
+                min_size: true,
+                touch: true,
+                pen: true,
+                soft_keyboard: true,
+                safe_area: true,
+                memory_warnings: true,
+                ime_reconversion: true,
+                ..Capabilities::default()
+            },
             restored_state: Default::default(),
         }
     }
@@ -68,6 +88,8 @@ pub(crate) struct VirtualShell {
     pub(crate) ime_purpose: Cell<kivact_types::InputPurpose>,
     pub(crate) responders: Vec<crate::script::Responder>,
     pub(crate) now: u64,
+    /// Immutable advertised service configuration supplied at construction.
+    pub(crate) capabilities: Capabilities,
     /// The single snapshot of the window's environment and preferences.
     pub(crate) env: RefCell<Environment>,
     pub(crate) requested_sizes: Vec<Size>,
@@ -151,45 +173,50 @@ impl ShellWindow for VirtualShell {
                 ShellError::Failed(failure) => PlatformResult::Failed(failure),
             };
         }
-        match request {
-            PlatformRequest::SaveState { key, bytes } => {
-                self.saved_state.borrow_mut().insert(key.to_string(), bytes);
-                PlatformResult::Done
-            }
-            PlatformRequest::CopyText(text) => {
-                self.clipboard = text;
-                PlatformResult::Done
-            }
-            PlatformRequest::ReadText => PlatformResult::Text(self.clipboard.clone()),
-            PlatformRequest::PickFile(_)
-            | PlatformRequest::SaveFile(_)
-            | PlatformRequest::PickFolder(_) => PlatformResult::Path(
+        if let PlatformRequest::SaveState { key, bytes } = request {
+            self.saved_state.borrow_mut().insert(key.to_string(), bytes);
+            return PlatformResult::Done;
+        }
+        if let PlatformRequest::CopyText(text) = request {
+            self.clipboard = text;
+            return PlatformResult::Done;
+        }
+        if let PlatformRequest::ReadText = request {
+            return PlatformResult::Text(self.clipboard.clone());
+        }
+        if let PlatformRequest::PickFile(_)
+        | PlatformRequest::SaveFile(_)
+        | PlatformRequest::PickFolder(_) = request
+        {
+            return PlatformResult::Path(
                 self.dialogs
                     .pop_front()
                     .flatten()
                     .and_then(|paths| paths.into_iter().next()),
-            ),
-            PlatformRequest::PickFiles(_) => {
-                PlatformResult::Paths(self.dialogs.pop_front().flatten())
-            }
-            PlatformRequest::OpenPath(path) => {
-                self.opened.push(path);
-                PlatformResult::Done
-            }
-            PlatformRequest::RevealPath(path) => {
-                self.revealed.push(path);
-                PlatformResult::Done
-            }
-            PlatformRequest::RequestWindowSize(size) => {
-                self.requested_sizes.push(size);
-                PlatformResult::Done
-            }
-            PlatformRequest::Fullscreen(fullscreen) => {
-                self.env.borrow_mut().fullscreen = fullscreen;
-                PlatformResult::Done
-            }
+            );
         }
+        if let PlatformRequest::PickFiles(_) = request {
+            return PlatformResult::Paths(self.dialogs.pop_front().flatten());
+        }
+        if let PlatformRequest::OpenPath(path) = request {
+            self.opened.push(path);
+            return PlatformResult::Done;
+        }
+        if let PlatformRequest::RevealPath(path) = request {
+            self.revealed.push(path);
+            return PlatformResult::Done;
+        }
+        if let PlatformRequest::RequestWindowSize(size) = request {
+            self.requested_sizes.push(size);
+            return PlatformResult::Done;
+        }
+        if let PlatformRequest::Fullscreen(fullscreen) = request {
+            self.env.borrow_mut().fullscreen = fullscreen;
+            return PlatformResult::Done;
+        }
+        PlatformResult::Unsupported
     }
+
     fn cpu_format(&self) -> arvane_shell::CpuFormat {
         arvane_shell::CpuFormat::Xrgb8888
     }
@@ -229,23 +256,9 @@ impl ShellWindow for VirtualShell {
     }
     fn capabilities(&self) -> Capabilities {
         Capabilities {
-            state_restoration: true,
-            clipboard_text: true,
-            file_dialogs: true,
-            open_path: true,
-            reveal_path: true,
-            fullscreen: true,
-            min_size: true,
-            command_key: kivact_types::CommandKey::Ctrl,
-            context_menu_on: kivact_types::ContextMenuTrigger::Release,
-            touch: true,
-            pen: true,
-            soft_keyboard: true,
-            safe_area: true,
-            memory_warnings: true,
-            ime_reconversion: true,
             native_accessibility: self.real.is_some(),
             gpu: self.gpu,
+            ..self.capabilities
         }
     }
     fn surface_generation(&self) -> Option<u64> {
