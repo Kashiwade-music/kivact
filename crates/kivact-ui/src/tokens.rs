@@ -15,7 +15,7 @@ pub struct UiTokens {
     pub item_list: crate::ItemListTokens,
     pub pagination: crate::NavigationTokens,
     pub breadcrumb: crate::NavigationTokens,
-    pub stepper: crate::NavigationTokens,
+    pub stepper: crate::StepperTokens,
     pub navigation_menu: crate::NavigationTokens,
     pub calendar: crate::CalendarTokens,
     pub date_input: crate::DateInputTokens,
