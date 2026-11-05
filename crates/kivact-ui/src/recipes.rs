@@ -920,7 +920,7 @@ recipe_table! {
         media(media_recipe): crate::ChatMessageState = crate::look_chat::slot,
         icon(icon_recipe): crate::ChatMessageState = crate::look_chat::slot,
         actions(actions_recipe): crate::ChatMessageState = crate::look_chat::slot,
-        reactions(reactions_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        reactions(reactions_recipe): crate::ChatMessageState = crate::look_chat::reactions,
     }
 }
 
@@ -930,7 +930,7 @@ recipe_table! {
         root(root_recipe): crate::ChatThreadState = crate::look_chat::thread_root,
         viewport(viewport_recipe): crate::ChatThreadState = crate::look_chat::viewport,
         content(content_recipe): crate::ChatThreadState = crate::look_chat::column,
-        scroll_button(scroll_button_recipe): crate::ChatThreadState = crate::look_chat::slot,
+        scroll_button(scroll_button_recipe): crate::ChatThreadState = crate::look_chat::jump,
         composer(composer_recipe): crate::ChatThreadState = crate::look_chat::slot,
     }
 }

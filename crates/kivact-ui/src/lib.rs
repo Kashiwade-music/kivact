@@ -370,8 +370,9 @@ pub use chat_message::{ChatMessage, chat_message};
 pub use chat_thread::{ChatThread, chat_thread};
 pub use chat_tokens::{ChatTokens, CodeBlockTokens};
 pub use chat_values::{
-    ChatAlign, ChatComposerState, ChatMessageState, ChatMessageStatus, ChatMessageVariant,
-    ChatSender, ChatThreadState, ComposerStatus, ComposerStatusPosition, TypingIndicatorState,
+    ChatAlign, ChatBubbleGroup, ChatComposerState, ChatMessageState, ChatMessageStatus,
+    ChatMessageVariant, ChatReactionsSide, ChatSender, ChatThreadState, ComposerStatus,
+    ComposerStatusPosition, TypingIndicatorState,
 };
 pub use code_block::{CodeBlock, CodeBlockState, code_block};
 pub use recipes::{
