@@ -3,7 +3,7 @@ use kivact::interaction::{Delays, NavOpen, NavigationMenuApi, use_navigation_men
 use kivact::state::{
     Binding, IntoValue, Value, binding, effect_on, on_cleanup, provide, try_use_context,
 };
-use kivact::view::{Handled, IntoView, NodeBuilder, PointerEvent, PointerPhase, View};
+use kivact::view::{Handled, IntoView, NodeBuilder, PointerEvent, PointerKind, PointerPhase, View};
 use std::time::Duration;
 #[derive(Clone, Copy)]
 struct NavigationGroup(NavigationMenuApi);
@@ -75,8 +75,7 @@ impl NavPanel {
     fn pointer(self, event: PointerEvent, part: NavPart) -> Handled {
         match event.phase() {
             PointerPhase::Enter
-                if self.eligible.get_untracked()
-                    && !kivact::platform::capabilities().get_untracked().touch =>
+                if self.eligible.get_untracked() && event.kind() != PointerKind::Touch =>
             {
                 self.api.hover_after(
                     self.key,

@@ -487,7 +487,7 @@ fn rail_navigation_has_one_actual_panel_and_rearms_after_expansion() {
             column((
                 soft::side_nav((
                     soft::side_nav_item("Documents")
-                        .icon(icon("file"))
+                        .icon(icon("menu"))
                         .children(|| soft::side_nav_item("Document leaf").on_press(|| {})),
                     soft::side_nav_item("Activity")
                         .icon(icon("clock"))
