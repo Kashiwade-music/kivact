@@ -45,3 +45,5 @@ Stepper item recipes receive `index`, `count`, and actual `orientation` from the
 Breadcrumb item recipes receive `BreadcrumbItemState { current, input }`; `input` comes from the actual link part and is absent for passive/current labels. Use this snapshot for state-dependent typography such as hover underline; paint-only pseudo-state styles cannot change text decoration.
 
 Stepper exposes actual decorative `leading`, `trailing`, and `progress` recipe parts with zero-footprint defaults, plus `layout` and `track` containers. They receive the same `StepperItemState` including actual orientation/count. `.collapsed_steps(CollapsedSteps::Current)` retains the current item only (default); `All` retains every item in compact layout without changing selection or the responsive threshold.
+
+Each step recipe also receives its actual `StepIndicatorKind` and independent `interactive` configuration, without copying metadata into a visual variant. Compact previous/next commands derive the nearest enabled item from the same item vector and current source.
