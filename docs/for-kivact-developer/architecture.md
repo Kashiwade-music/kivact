@@ -104,7 +104,7 @@ Creative jobs の run/stop は独立した一つの入力であり、progress/am
 | 起動時の Environment | 復元した readonly snapshot。virtual の永続応答 map は台本 owner |
 | a11y の前回 accepted tree | 初期化・action 検証用の受理事実。focus や差分用 model の複製ではない |
 
-catalog でも同じ規則を使う。chat entry は Message(text)/Typing（SM-X901）、integrated meter は Unmeasured/Measured と実 Sample/Reset（SM-X902）、active section は単一 owner が Observed/Requested を受ける（SM-X903）。最後の観測を保持し、geometry、scroll、playing、selection の mirror を足さない。
+catalog でも同じ規則を使う。chat entry は Message(text)/Typing、integrated meter は Unmeasured/Measured と実 Sample/Reset、active section は単一 owner が Observed/Requested を受ける。最後の観測を保持し、geometry、scroll、playing、selection の mirror を足さない。
 
 ### Machine の書き方
 
@@ -159,7 +159,7 @@ state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node �
 
 ListItem、MenuEntry、Command、TreeNode、DataColumn、ToastOptions、StepperItem は passive な値として構築し、collection の reactive 性は外側に持つ。RenderOptions と AppOptions は private field と setter にまとめる。ThemeOptions と InteractionPolicy のような FRU の設定値は公開 field を持ち、構築前の通常値として渡す。variant の Default では owner を要する reactive 値を作らず、必要な reactive 値は明示 setter に渡す。
 
-`view::component(FnOnce → IntoView)` は mount 時に一度だけ実行する setup の境界。新しい child owner と透明な fragment の下で hook/cleanup を保つ。eager に factory を呼ぶことや、unit の context を provide して owner を偽造することでは代用しない。再度開く content は必要な factory を保ち、捨てた editor owner を再利用しない。
+`view::component(FnOnce → IntoView)` は mount 時に一度だけ実行する setup の境界。新しい child owner と透明な fragment の下で hook/cleanup を保つ。eager に factory を呼ぶことや、`provide(())` で空の context を置いて owner を偽造することでは代用しない。再度開く content は必要な factory を保ち、捨てた editor owner を再利用しない。
 
 API-11 の診断は blanket impl の内側の bound を rustc が先に報告する場合もある。診断属性に加えて rustdoc の冒頭とガイドにも同じ修正 hint を記し、属性の文言が常に表示されることまでは前提にしない。
 
@@ -186,7 +186,7 @@ ShapedTextSnapshot と GlyphRunSnapshot は不変描画データを安価に clo
 | KIT-9 | kit の E2E は tests/consumer.rs と topic module の一つの binary。Screen.evidence、RenderOptions.with_theme/reduced_motion、Screen.assert_layout_clean を使い、意図した clip の例外は具体的に保つ |
 | KIT-10 | 共通 font asset は一か所に置き、App.fonts で登録する。license も同じ asset と管理する |
 
-共通部品へ移すときは旧 kit 全体の option と behavior の和集合を残す。単なる wrapper や再公開で kit に二つ目の入口を残さない。固有 domain は残す。例は Creative の keyframe glyph と column-follow picker、Pop の conversation-preview row、Soft の dictation/streaming/tool-call/token。catalog は削除せず、その kit の recipe で標準部品を使う見本にする。
+共通部品へ移すときは移す元の kit の option と behavior の和集合を残す。単なる wrapper や再公開で kit に二つ目の入口を残さない。固有 domain は残す。例は Creative の keyframe glyph と column-follow picker、Pop の conversation-preview row、Soft の dictation/streaming/tool-call/token。catalog は削除せず、その kit の recipe で標準部品を使う見本にする。
 
 ### 日付・複合部品の共通 behavior
 
@@ -269,8 +269,8 @@ NodeRef::snapshotはpoll時のnodeをHostのrequest/replyへ送り、layout/pain
 | OS backend | native/port に入口、shell の共有 pipeline を利用。core に外部 backend 注入 API を増やさない。virtual が常時第二の SPI 実装 |
 | 入力の正規化 | native port で raw code を写し、shell/pipeline で key/IME/DnD を正規化。virtual も同じ道を通す |
 | 地域書式 | i18n の Locale と ICU4X。全 locale の compiled data を利用し、kit に en-US table や日付計算を作らない |
-| behavior | interaction の State/Event/Effect と Machine、Part の配線、一つの公開 E2E。APG の当該 pattern の keyboard/roles/states を同じ unit で確認 |
-| 標準部品 | interaction の behavior、ui の concrete builder/state/variant/Recipes/Tokens、旧 kit 全 option の和集合、実 recipe/getter と README、公開 E2E と英日ガイド |
+| behavior | interaction の State/Event/Effect と Machine、Part の配線、一つの公開 E2E。APG の当該 pattern の keyboard/roles/states を同じ変更で確認 |
+| 標準部品 | interaction の behavior、ui の concrete builder/state/variant/Recipes/Tokens、移す元の kit の全 option の和集合、実 recipe/getter と README、公開 E2E と英日ガイド |
 | 独自 editor | custom の文字編集、IME session、line_styles と decorations。内容と cross-line state を純粋な callback で解析し、byte range を使う。子や独自描画を失わせない |
 | アプリの描画表示 | 標準 viewport と canonical ViewTransform。domain 固有の time/value 座標は独立した意味を持つ場合だけ保持 |
 | E2E | App 全体を virtual backend と本番 presenter/driver で動かす。mirror は任意。Screen の共通 helper と既存の数値・focus・binding assertion を保つ |

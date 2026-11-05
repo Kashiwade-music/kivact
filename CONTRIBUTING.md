@@ -42,7 +42,7 @@
 | `docs/for-kivact-developer/decisions.md` | 設計の決定と理由（日本語） |
 | `docs/for-kivact-developer/strategy.md` | 製品戦略（日本語のみ） |
 
-英語と日本語は同じファイル名で対にし、同じ変更で両方を更新します。`docs/` と README の Rust のコードブロックは `dev/tests/docs`（`kivact-docs`）の doctest としてコンパイルされます。新しいページの登録は不要です。
+英語と日本語は同じファイル名で対にし、同じ変更で両方を更新します。`docs/` と README の Rust のコードブロックは `dev/tests/docs`（`kivact-docs`）の doctest としてコンパイルされます。新しいページの登録は不要です。GPU texture 共有のガイドの例は `kivact-docs` の `gpu-interop` feature（`--all-features` で有効）のときだけコンパイルされます。
 
 ## テスト
 
@@ -62,7 +62,7 @@ UI の試験は `kivact::test` による App 全体の E2E です。`arvane-virt
 
 アプリを起動する試験と実 window を開くコマンドは、`KIVACT_TEST_MIRROR=off` でも `dev/tools/window-lock.sh -- <command>` を通し、すべての worktree で同時に一つの process だけがウィンドウを開くようにします。実 window の focus 競合と backend の同時利用を避けるためです。通常の試験は Cargo の既定の並列数で実行します。`gpu-interop-producer` と `kivact-docs` の doctest は別に `--test-threads=1` で直列にします。後者は多数の例の同時 compile/link による実際のメモリ不足を避けるためです。lock は時間の上限（既定 900 秒、`--timeout` で変更）も掛け、時間切れは終了コード 124 です。
 
-native 試験が並列実行中に異常終了した場合は、失敗した binary だけ `--test-threads=1` で再検証し、実行条件を[設計判断](docs/for-kivact-developer/decisions.md)に記録します。
+native 試験が並列実行中に異常終了した場合は、失敗した binary だけ `--test-threads=1` で再検証し、実行条件と症状を issue か PR の説明に記録します（[設計判断](docs/for-kivact-developer/decisions.md)は設計の決定だけを記録します）。
 
 ## merge 前の検査
 
@@ -80,7 +80,7 @@ KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p 
 dev/tools/check-features.sh
 ```
 
-`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。`state-fields`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` も含み、`--only <検査> --crate <crate> --module <module path>` で範囲を絞れます（`--crate` は policy の `skip` より優先、`--report` は違反を一覧にして成功で終了、例外は対象の field や項目の直前の `// xtask-allow(<検査>): <理由>`）。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
+`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。`state-fields`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` も含み、`--only <検査> --crate <crate> --module <module path>` で範囲を絞れます（`--only` はコンマ区切りで複数指定可、`--report` は違反を一覧にして成功で終了、例外は対象の field や項目の直前の `// xtask-allow(<検査>): <理由>`）。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
 
 ## commit と PR
 

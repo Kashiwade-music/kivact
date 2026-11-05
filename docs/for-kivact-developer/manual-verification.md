@@ -1,12 +1,12 @@
 # 作者による手動確認
 
-この一覧は再設計で変更した native 経路について、作者が実機で行う**未確認**の項目です。
-対象は Foundation v3 の統合結果です。自動 E2E・静的検査・doctest の結果とは別に扱い、
-以下の手動確認は実施していません。自動検証の成功を実機確認済みとは数えません。
+この一覧は、自動 E2E では確かめられない native 経路を作者が実機で確かめるための、リリース前の確認項目です。
+入力・支援技術・埋込み host・描画の寿命に関わる native 経路を変えたときに、該当する行を実施します。
+自動 E2E・静的検査・doctest の成功は、実機での確認済みとは数えません。
 境界と既知の対応範囲は [アーキテクチャ](architecture.md)、理由は [設計の決定](decisions.md) を参照します。
 
 各行の確認後に、commit、OS・表示 backend、IME／reader／DAW の製品と版、GPU・driver、
-操作結果、必要なら画面・読み上げ・診断の記録を残します。利用できない環境は「未確認」とし、
+操作結果、必要なら画面・読み上げ・診断を PR の説明かリリースの記録に残します。利用できない環境は「未確認」とし、
 成功に数えません。アプリや mirror を開く操作は共通の `dev/tools/window-lock.sh` を通します。
 
 ## 文字入力と native accessibility
@@ -36,23 +36,3 @@ Windows と、利用可能な Linux Wayland／X11 の各環境を区別して記
 |---|---|---|
 | 利用可能な Windows／Wayland／X11 で、`KIVACT_TEST_MIRROR=required` の台本 E2E を観察する。frame 更新、resize、scale、focus・選択の変化を見る。 | mirror は同じ App の実際の frame と a11y tree を表示する。別の見本画面や古い frame に固定されず、仮想時計で進めた結果に追従する。 | [virtual mirror](../../crates/arvane-virtual/src/mirror.rs)、[native mirror](../../crates/arvane-native/src/mirror.rs) |
 | mirror に物理 mouse／key や reader の action を送り、その後に台本の入力を続ける。別途、通常起動した native アプリを同じ物理入力で操作する。 | mirror の OS 入力・支援技術 action は台本へ混入しない。通常の native アプリでは入力を受け、二重配送せずに同じ操作を行える。mirror の観察成功と native 入力の確認成功を別々に記録する。 | [mirror の入力契約](../../crates/arvane-native/src/mirror.rs)、[native event](../../crates/arvane-native/src/port/x11/event.rs)、[共通入力](../../crates/arvane-shell/src/pipeline/ime.rs) |
-
-記録欄：各項目は未確認。自動検証の最終結果と作者の実施結果は、実施後に別途追記します。
-
-## 自動検証の結果（2026-11-05）
-
-以下は作者の手動確認とは別の結果である。全体試験後の修正は、失敗したbinaryと変更した経路だけを再検証した。
-
-| 検証 | 結果・範囲 |
-|---|---|
-| Windows fmt / 全体Clippy | exit 0。全target・全feature、警告をerror扱い |
-| 全静的検査・依存図 | exit 0。40 package / 108構成、八つの移行skipは全て空 |
-| feature単独検査 | 20/20 exit 0 |
-| Windows no-default | b38273ed固定でworkspace / GPU2件 / docsすべてexit 0 |
-| Windows required mirror | workspaceで公開API binaryだけ並列native異常終了後に直列470件通過。残るGPU snapshot一件は原因修正後に通過。GPU producer6件とdocsはexit 0 |
-| 文書 | 583 doctest通過、12 ignored、テストハーネス1件通過。英日39+52組一致、ローカルリンク切れ0 |
-| WSL Wayland / X11 | 76b299ca固定、各workspace / GPU3件 / docsすべてexit 0。各backendでrequired mirrorを使用 |
-| snapshot修正の最終契約 | 8b100868でWindows GPU1件・snapshot4件・no-default snapshot3件、WSL全体ClippyとWayland/X11のsnapshot各4件、すべてexit 0 |
-| 公開面 | rustdocのfacade17 module、style48名、prelude144名を照合。正準path・API形の違反0 |
-
-GPU試験は利用可能なadapter/capabilityの範囲を確認する。未対応を明示する経路の通過を、すべてのhardwareでの共有対応とは扱わない。
