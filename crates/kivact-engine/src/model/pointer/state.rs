@@ -145,6 +145,9 @@ pub(crate) struct Route {
     // xtask-allow(state-fields): capture and primary press have independent lifetimes.
     pub(crate) capture: Option<Capture>,
     pub(crate) press: Option<Press>,
+    /// A listener released this gesture's capture: until its final `Up`,
+    /// the gesture's events are hit-tested, its `Up` included.
+    pub(crate) released: bool,
 }
 
 /// Capture retains both its target and the reason it survives a move.
