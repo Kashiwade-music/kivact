@@ -108,12 +108,16 @@ fn ui_tree_keeps_selection_separate_from_roving_focus() {
     });
     let alpha = screen.get_by_role(Role::TreeItem, "Alpha");
     alpha.focus();
-    alpha.press_key(Key::ArrowDown);
+    let control = Modifiers {
+        ctrl: true,
+        ..Modifiers::default()
+    };
+    alpha.press_key_with(Key::ArrowDown, control);
     assert!(screen.get_by_role(Role::TreeItem, "Beta").is_focused());
     assert_eq!(selected.get_untracked(), vec!["a"]);
     screen
         .get_by_role(Role::TreeItem, "Beta")
-        .press_key(Key::Space);
+        .press_key_with(Key::Space, control);
     assert_eq!(selected.get_untracked(), vec!["a", "b"]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

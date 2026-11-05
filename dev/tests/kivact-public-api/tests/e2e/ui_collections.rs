@@ -36,6 +36,7 @@ fn static_table_exposes_rows_and_cells() {
         Some(2)
     );
     span.set(0);
+    screen.run_until_idle();
     assert_eq!(
         table.get_by_role(Role::Cell, "Summary").column_span(),
         Some(1)
