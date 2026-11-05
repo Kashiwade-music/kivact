@@ -26,7 +26,6 @@ mod color;
 mod display;
 mod feedback;
 mod icons;
-mod layout;
 mod overlays;
 mod recipes;
 mod recipes_collections;
@@ -50,7 +49,6 @@ pub use display::{
     badge, gauge, kpi, property_list, ring, tag_badge,
 };
 pub use feedback::{Alert, Banner, EmptyState, Skeleton, alert, banner, empty_state, skeleton};
-pub use layout::{TreeEntry, tree};
 pub use overlays::{IconMenu, icon_menu};
 pub use recipes::{ButtonTone, Slant};
 pub use recipes_groups::GameInputGroupVariant;

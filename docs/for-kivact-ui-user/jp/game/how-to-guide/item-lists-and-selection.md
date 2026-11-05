@@ -116,36 +116,51 @@ fn missions() -> impl IntoView {
 
 ## 階層をツリーで見せる
 
-`game::tree(entries, selection)` はファイルツリーを描きます。`entries` は `game::TreeEntry` の一覧で、`TreeEntry::file(id, label)` と `TreeEntry::folder(id, label, children)` で作ります。`selection` は、選択された**葉**の id を持つ `Signal<Option<String>>` です。何も選ばれていないときは `None` です。
+`kivact::ui::tree(label, nodes)` は Game テーマで平坦な `TreeNode` の一覧を描画します。展開、選択、変更マーカーはアプリケーションが所有します。選択 binding でフォルダを除外すれば葉だけを選択できます。`.on_activate(..)` で Enter とダブルクリックによるフォルダの開閉を実装します。`expanded` に含めないキーは閉じた状態で始まります。行の slot にはアイコン、ラベル、変更マーカーを組み合わせられます。ツリー全体の Tab ストップは 1 つで、矢印キーと展開マーカーを使えます。ノードのラベルはリアクティブな入力に追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::interaction::TreeNode;
 use kivact_ui_game as game;
 
 fn files() -> impl IntoView {
-    let selected = signal(Some(String::from("save-1")));
-    let entries = vec![
-        game::TreeEntry::folder(
-            "saves",
-            "saves",
-            vec![
-                game::TreeEntry::file("save-1", "slot-1.sav"),
-                game::TreeEntry::file("save-2", "slot-2.sav").marker("M"),
-            ],
-        ),
-        game::TreeEntry::folder("mods", "mods", vec![]).collapsed(),
-        game::TreeEntry::file("readme", "README.txt"),
+    let selected = signal(Some("save-1".to_owned()));
+    let expanded = signal(vec!["saves".to_owned()]);
+    let nodes = vec![
+        TreeNode::new("saves".to_owned(), None, "saves"),
+        TreeNode::new("save-1".to_owned(), Some("saves".to_owned()), "slot-1.sav"),
+        TreeNode::new("save-2".to_owned(), Some("saves".to_owned()), "slot-2.sav"),
+        TreeNode::new("mods".to_owned(), None, "mods"),
+        TreeNode::new("readme".to_owned(), None, "README.txt"),
     ];
     column((
-        game::tree(entries, selected),
+        kivact::ui::tree("Files", nodes).expanded(expanded)
+            .selection(binding(selected, move |key: Option<String>| {
+                if key.as_deref().is_none_or(|id| !["saves", "mods"].contains(&id)) {
+                    selected.set(key);
+                }
+            }))
+            .on_activate(move |key| {
+                if key == "saves" {
+                    expanded.update(|keys| if keys.contains(&key) {
+                        keys.retain(|id| id != &key);
+                    } else { keys.push(key); });
+                }
+            })
+            .item(|item, _| {
+                let key = item.get_untracked().key;
+                let label = match key.as_str() {
+                    "save-1" => "slot-1.sav", "save-2" => "slot-2.sav",
+                    "readme" => "README.txt", "saves" => "saves", _ => "mods",
+                };
+                row((text(label).style(style().grow(1)), game::mono(if key == "save-2" { "M" } else { "" })))
+                    .style(style().grow(1))
+            }),
         game::mono(move || format!("OPEN {}", selected.get().unwrap_or_default())),
-    ))
-    .style(style().gap(12).width(300).margin(24))
+    )).style(style().gap(12).width(300).margin(24))
 }
 # fn main() {}
 ```
-
-ツリー全体で Tab ストップは 1 つです。上下キーで見えている行を移動し、右キーと左キーでフォルダを開閉したり、フォルダと子のあいだを移動したりします。シグナルに書き込まれるのは葉だけで、フォルダはシェブロン、Enter、ダブルクリックで開閉します。`.collapsed()` はフォルダを閉じた状態で始め、`.marker("M")` は行の末尾に小さな印を付けます。エントリはツリーが作られるときに読まれ、シグナルにも追従するので、名前を変えたエントリは新しいラベルで表示されます。
 
 ## レコードを表で見せる
 
