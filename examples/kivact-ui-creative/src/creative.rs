@@ -6,6 +6,7 @@ mod arrangement_model;
 mod audio;
 mod audio_samples;
 mod audio_values;
+mod chrome;
 mod common;
 mod controls;
 mod editor_images;
