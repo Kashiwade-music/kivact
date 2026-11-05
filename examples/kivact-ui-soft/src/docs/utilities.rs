@@ -7,7 +7,7 @@ use kivact::style::provide_theme;
 use kivact::style::{ThemeMode, rgb, style};
 use kivact::ui::{badge, card};
 use kivact::view::{Node, column, row, text};
-use kivact_ui_soft::{MediaMode, code_block, link, media_theme, syntax_theme, theme};
+use kivact_ui_soft::{MediaMode, link, media_theme, syntax_theme, theme};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {
@@ -63,7 +63,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                         .colors
                         .syntax
                 },
-                code_block("fn main() {}").language("rust"),
+                kivact::ui::code_block("fn main() {}").language("rust"),
             ),
             "syntax_theme(colors, || code_block(source).language(\"rust\"))",
         ),

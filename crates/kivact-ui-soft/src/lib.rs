@@ -10,10 +10,12 @@ mod blockquote;
 mod bottom_sheet;
 mod breadcrumbs;
 mod card;
+mod chat_appearance;
+mod chat_dictation;
 mod choice_list;
 mod citation;
 mod code;
-mod code_block;
+mod code_syntax;
 mod color;
 mod color_name;
 mod container_reveal;
@@ -53,6 +55,8 @@ mod recipes;
 mod recipes_badge;
 mod recipes_calendar;
 mod recipes_carousel;
+mod recipes_chat;
+mod recipes_code;
 mod recipes_collections;
 mod recipes_combobox;
 mod recipes_controls;
@@ -75,8 +79,6 @@ mod section;
 mod segmented_control;
 mod shadows;
 mod side_navigation;
-mod soft_chat;
-mod soft_chat_composer;
 mod soft_chat_tools;
 mod soft_list;
 mod soft_metadata;
@@ -113,13 +115,14 @@ pub use bottom_sheet::{
 };
 pub use breadcrumbs::BreadcrumbsVariant;
 pub use card::{CardAppearance, CardVariant, with_card_insets};
+pub use chat_appearance::{
+    BubbleVariant, ChatAppearance, ChatDensity, ComposerElevation, SystemMessageVariant,
+};
+pub use chat_dictation::{ChatDictationButton, DictationState, chat_dictation_button};
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};
-pub use code_block::{
-    CodeBlock, CodeBlockContainer, CodeBlockSize, CodeBlockWidth, CodeLanguage, CodeLanguageInput,
-    SyntaxTheme, TokenKind, code_block,
-};
+pub use code_syntax::{CodeLanguage, CodeLanguageInput, TokenKind, code_highlight};
 pub use color::{Colors, DataColors, HueColors, Hues, SyntaxColors};
 pub use color_name::ColorName;
 pub use container_reveal::{
@@ -167,6 +170,7 @@ pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use recipes_badge::BadgeVariant;
+pub use recipes_code::{CodeAppearance, CodeBlockContainer, CodeBlockSize, CodeBlockWidth};
 pub use recipes_dropzone::DropzoneVariant;
 pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
 pub use recipes_skeleton::SkeletonRadius;
@@ -178,17 +182,6 @@ pub use shadows::Shadows;
 pub use side_navigation::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
     SideNavSection, side_nav, side_nav_collapse_button, side_nav_item, side_nav_section,
-};
-pub use soft_chat::{
-    BubbleGroup, BubbleVariant, ChatBubble, ChatDensity, ChatLayout, ChatListAlign, ChatMessage,
-    ChatMessageList, ChatMetadata, ChatSender, ChatSystemMessage, MessageStatus,
-    SystemMessageVariant, chat_bubble, chat_layout, chat_message, chat_message_list, chat_metadata,
-    chat_scroll_button, chat_system_message,
-};
-pub use soft_chat_composer::{
-    ChatComposer, ChatComposerDrawer, ChatDictationButton, ChatSendButton, ComposerElevation,
-    ComposerStatus, ComposerStatusPosition, DictationState, chat_composer, chat_composer_drawer,
-    chat_composer_input, chat_dictation_button, chat_send_button,
 };
 pub use soft_chat_tools::{
     ChatToken, ChatTokenTone, ChatToolCalls, StreamSpeed, ToolCall, ToolStatus, chat_token,

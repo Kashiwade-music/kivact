@@ -75,7 +75,7 @@ fn chat_composer_submits_trimmed_text_and_clears_draft_on_enter() {
     let submitted = Rc::new(RefCell::new(Vec::new()));
     let received = submitted.clone();
     let screen = render_with(options(), move || {
-        soft::chat_composer(signal(String::new())).on_submit(move |message| {
+        kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
             received.borrow_mut().push(message);
         })
     });

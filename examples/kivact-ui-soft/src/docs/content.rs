@@ -110,7 +110,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "code-block" => specimen(
             "Rust example",
-            kivact_ui_soft::code_block("fn main() {\n    println!(\"Hello\");\n}")
+            kivact::ui::code_block("fn main() {\n    println!(\"Hello\");\n}")
                 .language("rust")
                 .title("Example source")
                 .language_label(false)
