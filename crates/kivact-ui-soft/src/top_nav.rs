@@ -58,13 +58,13 @@ struct TopNavCx {
     align: OverlayAlign,
 }
 
-// xtask-allow(state-fields): Independent immutable heading/start/center/end factories; these slots store no navigation lifecycle.
+// xtask-allow(state-fields): Independent immutable heading/start/center/end views; these slots store no navigation lifecycle.
 #[derive(Default)]
 struct Slots {
-    heading: Option<ViewFn>,
-    start: Option<ViewFn>,
-    center: Option<ViewFn>,
-    end: Option<ViewFn>,
+    heading: Option<View>,
+    start: Option<View>,
+    center: Option<View>,
+    end: Option<View>,
 }
 
 pub struct TopNav {
@@ -85,20 +85,20 @@ pub fn top_nav() -> TopNav {
 }
 
 impl TopNav {
-    pub fn heading<V: IntoView>(mut self, heading: impl IntoViewFn<V>) -> Self {
-        self.slots.heading = Some(heading.into_view_fn());
+    pub fn heading(mut self, heading: impl IntoView) -> Self {
+        self.slots.heading = Some(heading.into_view());
         self
     }
-    pub fn start<V: IntoView>(mut self, start: impl IntoViewFn<V>) -> Self {
-        self.slots.start = Some(start.into_view_fn());
+    pub fn start(mut self, start: impl IntoView) -> Self {
+        self.slots.start = Some(start.into_view());
         self
     }
-    pub fn center<V: IntoView>(mut self, center: impl IntoViewFn<V>) -> Self {
-        self.slots.center = Some(center.into_view_fn());
+    pub fn center(mut self, center: impl IntoView) -> Self {
+        self.slots.center = Some(center.into_view());
         self
     }
-    pub fn end<V: IntoView>(mut self, end: impl IntoViewFn<V>) -> Self {
-        self.slots.end = Some(end.into_view_fn());
+    pub fn end(mut self, end: impl IntoView) -> Self {
+        self.slots.end = Some(end.into_view());
         self
     }
 }
@@ -125,7 +125,7 @@ impl IntoView for TopNav {
         crate::navigation_session::with_navigation_group(move || {
             let anchor = node_ref();
             let mode = shell_nav_mode();
-            let slot = |slot: Option<ViewFn>, align| {
+            let slot = |slot: Option<View>, align| {
                 slot.map(|slot| {
                     provide(TopNavCx { anchor, align }, move || {
                         node()
@@ -144,11 +144,11 @@ impl IntoView for TopNav {
                                         Align::Center
                                     })
                             })
-                            .child(slot.call(()))
+                            .child(slot)
                     })
                 })
             };
-            let heading = heading.map(|heading| heading.call(()));
+            let heading = heading;
             let end = slot(end, OverlayAlign::End);
             let start = if mode == ShellNavMode::MobileBar {
                 None

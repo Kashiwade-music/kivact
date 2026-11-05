@@ -78,7 +78,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "overlay" => specimen(
             "Overlay on a preview",
-            media_overlay(|| text("Document preview")).attach(button("Cover")),
+            media_overlay(text("Document preview")).attach(button("Cover")),
             "media_overlay(|| text(\"Document preview\")).attach(button(\"Cover\"))",
         ),
         "lightbox" => {

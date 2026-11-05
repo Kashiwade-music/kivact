@@ -116,7 +116,7 @@ pub(crate) fn nav_menu_view(
     look: NavMenuLook,
     delays: Delays,
     align: OverlayAlign,
-    trigger: impl Fn(Value<bool>) -> Node + 'static,
+    trigger: impl FnOnce(Value<bool>) -> Node + 'static,
 ) -> View {
     let NavHeadingMenu {
         items,
@@ -326,8 +326,8 @@ pub struct SideNavHeading {
     heading: Value<String>,
     superheading: Option<Value<String>>,
     subheading: Option<Value<String>>,
-    icon: Option<ViewFn>,
-    end: Option<ViewFn>,
+    icon: Option<View>,
+    end: Option<View>,
     menu: Option<NavHeadingMenu>,
     heading_action: Option<Callback<()>>,
     super_action: Option<Callback<()>>,
@@ -362,15 +362,15 @@ impl SideNavHeading {
         self.subheading = Some(heading.into_text_value());
         self
     }
-    pub fn icon<V: IntoView>(mut self, icon: impl IntoViewFn<V>) -> Self {
-        self.icon = Some(icon.into_view_fn());
+    pub fn icon(mut self, icon: impl IntoView) -> Self {
+        self.icon = Some(icon.into_view());
         self
     }
-    pub fn logo<V: IntoView>(self, logo: impl IntoViewFn<V>) -> Self {
+    pub fn logo(self, logo: impl IntoView) -> Self {
         self.icon(logo)
     }
-    pub fn end_content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
-        self.end = Some(content.into_view_fn());
+    pub fn end_content(mut self, content: impl IntoView) -> Self {
+        self.end = Some(content.into_view());
         self
     }
     pub fn menu(mut self, menu: NavHeadingMenu) -> Self {
@@ -447,10 +447,10 @@ impl IntoView for SideNavHeading {
                         }))
                 });
                 row((
-                    glyph.as_ref().map(|glyph| glyph.call(())),
+                    glyph,
                     labels,
-                    end.as_ref()
-                        .map(|end| node().hidden(rail).child(end.call(()))),
+                    end
+                        .map(|end| node().hidden(rail).child(end)),
                     chevron,
                 ))
                 .style(move || {

@@ -17,7 +17,9 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "app-shell" => specimen(
             "Application frame",
             app_shell(text("Project notes"))
-                .top_nav(|| top_nav().heading(|| top_nav_heading("Workspace")))
+                .top_nav(|| {
+                    top_nav().heading(kivact::view::component(|| top_nav_heading("Workspace")))
+                })
                 .side_nav(|| side_nav(side_nav_item("Documents")))
                 .style(style().width(520).height(216)),
             "app_shell(content).top_nav(top_navigation).side_nav(side_navigation)",
@@ -85,8 +87,8 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
                 "Navigate with links and menus",
                 (
                     top_nav()
-                        .heading(|| top_nav_heading("Workspace"))
-                        .start(move || {
+                        .heading(kivact::view::component(|| top_nav_heading("Workspace")))
+                        .start(kivact::view::component(move || {
                             (
                                 top_nav_item("Documents")
                                     .with_node(|node| {
@@ -110,10 +112,10 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
                                         )
                                     }),
                             )
-                        }),
+                        })),
                     text(move || format!("Current page: {}", selected.get())),
                 ),
-                r#"top_nav().heading(|| top_nav_heading("Workspace")).start(move || (
+                r#"top_nav().heading(kivact::view::component(|| top_nav_heading("Workspace"))).start(kivact::view::component(move || (
     top_nav_item("Documents")
         .with_node(|node| node.selected(move || selected.get() == "Documents"))
         .on_press(move || selected.set("Documents")),
@@ -126,7 +128,7 @@ side_nav(side_nav_section("Workspace", (documents, activity)))
             .on_press(move || selected.set("Guides")))
         .featured(|| top_nav_featured_card("Start here")
             .description("Find onboarding material and reference docs.")),
-))"#,
+)))"#,
             )
         }
         "nav-menu" => specimen(
