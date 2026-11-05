@@ -142,3 +142,6 @@ pub use interaction_policy::{
 
 mod menu_policy;
 mod tooltip_policy;
+
+mod copy_feedback;
+pub use copy_feedback::{CopyFeedbackApi, use_copy_feedback};
