@@ -4,37 +4,14 @@ use crate::window::{GpuMode, MirrorMode, VirtualOptions};
 use crate::window::{Mirror, physical};
 use arvane_native::mirror::{MirrorStats, MirrorWindow, MirrorWindowOptions, TestDisplay};
 use arvane_shell::{Accessibility, GpuTarget, ShellError};
-use std::cell::RefCell;
 use std::sync::Arc;
 
-struct MirrorBatch {
-    width: u32,
-    height: u32,
-    pixels: Arc<[u32]>,
-}
-enum MirrorPending {
-    Idle,
-    Scheduled(MirrorBatch),
-}
 struct Adapter {
     window: MirrorWindow,
-    pending: RefCell<MirrorPending>,
-}
-impl Adapter {
-    fn flush(&self) {
-        if let MirrorPending::Scheduled(batch) = self.pending.replace(MirrorPending::Idle) {
-            self.window.present(batch.width, batch.height, batch.pixels);
-        }
-    }
 }
 impl Mirror for Adapter {
     fn present(&self, width: u32, height: u32, pixels: Arc<[u32]>) {
-        self.pending.replace(MirrorPending::Scheduled(MirrorBatch {
-            width,
-            height,
-            pixels,
-        }));
-        self.flush();
+        self.window.present(width, height, pixels);
     }
     fn accessibility(&self) -> &Accessibility {
         self.window.accessibility()
@@ -46,7 +23,6 @@ impl Mirror for Adapter {
         self.window.resize(width, height, scale);
     }
     fn sync(&self) {
-        self.flush();
         self.window.sync();
     }
     fn with_gpu_target(&self, make: Box<dyn FnOnce(GpuTarget) + Send>) -> Result<(), ShellError> {
@@ -70,10 +46,7 @@ impl VirtualOptions {
                 scale: self.scale,
             })
         }) {
-            Ok(window) => Ok(Some(Box::new(Adapter {
-                window,
-                pending: RefCell::new(MirrorPending::Idle),
-            }))),
+            Ok(window) => Ok(Some(Box::new(Adapter { window }))),
             Err(error) if self.mirror == MirrorMode::Required || self.gpu == GpuMode::Required => {
                 Err(error)
             }
