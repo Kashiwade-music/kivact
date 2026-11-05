@@ -49,7 +49,6 @@ pub struct Link {
     press: Option<Callback<()>>,
     new_tab_label: Option<Value<String>>,
     underline: Value<bool>,
-    disabled: Value<bool>,
     external: Value<bool>,
     standalone: Value<bool>,
     kind: Value<TextKind>,
@@ -77,7 +76,6 @@ pub fn link_with(content: impl IntoView) -> Link {
         press: None,
         new_tab_label: None,
         underline: (false).into_value(),
-        disabled: (false).into_value(),
         external: (false).into_value(),
         standalone: (false).into_value(),
         kind: (TextKind::Body).into_value(),
@@ -109,11 +107,6 @@ impl Link {
 
     pub fn underline(mut self, value: impl IntoValue<bool>) -> Self {
         self.underline = value.into_value();
-        self
-    }
-
-    pub fn disabled(mut self, value: impl IntoValue<bool>) -> Self {
-        self.disabled = value.into_value();
         self
     }
 
@@ -167,7 +160,6 @@ impl NodeBuilder for Link {
 
 impl IntoView for Link {
     fn into_view(self) -> View {
-        let disabled = self.disabled.get();
         let interactive = self.press.is_some();
         let attachment = part(|state| state);
         let input = attachment.state();
@@ -182,12 +174,7 @@ impl IntoView for Link {
                     })
                 })
                 .focusable(true)
-                .disabled(disabled)
-                .on_press(move || {
-                    if !disabled {
-                        press.call(());
-                    }
-                });
+                .on_press(move || press.call(()));
             if !self.as_button.get() {
                 root = root.on_key(|event| {
                     if event.key() == Key::Space {
@@ -266,10 +253,10 @@ impl IntoView for Link {
                 if let Some(weight) = weight {
                     base = base.weight(weight);
                 }
-                if underline || (interactive && !disabled && input.get().hovered) {
+                if underline || (interactive && !input.get().disabled && input.get().hovered) {
                     base = base.text_decoration(TextDecorationLine::UNDERLINE);
                 }
-                if disabled {
+                if input.get().disabled {
                     base.opacity(t.sizes.disabled_opacity)
                         .cursor(Cursor::Default)
                 } else if interactive {

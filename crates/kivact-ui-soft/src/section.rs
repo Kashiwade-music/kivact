@@ -111,7 +111,7 @@ impl IntoView for Section {
             bleed_top,
             bleed_bottom,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let parent = try_use_context::<ContainerInset>()
                 .map(|value| value.get())
                 .unwrap_or_default();

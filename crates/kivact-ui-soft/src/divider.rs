@@ -9,7 +9,6 @@ use kivact::view::node;
 use kivact::view::text;
 
 use kivact::state::IntoText;
-use kivact::state::provide;
 use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::Direction;
@@ -59,7 +58,7 @@ impl Divider {
         self
     }
     pub fn label(mut self, label: impl IntoView) -> Self {
-        self.label = Some(provide((), move || label.into_view()));
+        self.label = Some(kivact::view::component(move || label.into_view()));
         self
     }
     pub fn label_text(mut self, label: impl IntoText) -> Self {
@@ -86,7 +85,7 @@ impl IntoView for Divider {
             label,
             full_bleed,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let vertical = orientation.get() == Orientation::Vertical;
             let mut root = root.orientation(orientation.get()).with_node(move |node| {
                 node.base_style(move || {

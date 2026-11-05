@@ -2,11 +2,11 @@
 use crate::color::Colors;
 use crate::shadows::Shadows;
 use kivact::draw::Shadow;
-use kivact::style::{rgb, rgba};
 use kivact::motion::Easing;
 use kivact::style::Theme;
 use kivact::style::ThemeExtension;
 use kivact::style::ThemeMode;
+use kivact::style::{rgb, rgba};
 
 /// Astryx Neutral tokens resolved for a theme mode.
 #[derive(Clone, Debug, PartialEq)]

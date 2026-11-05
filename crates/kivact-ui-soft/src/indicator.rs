@@ -38,7 +38,6 @@ pub struct Indicator {
     checked: Value<CheckedState>,
     input: Value<PartState>,
     size: Value<ControlSize>,
-    disabled: Option<Value<bool>>,
     children: Option<View>,
 }
 
@@ -49,7 +48,6 @@ fn indicator(kind: Kind, checked: Value<CheckedState>) -> Indicator {
         checked,
         input: PartState::default.into_value(),
         size: (ControlSize::Medium).into_value(),
-        disabled: None,
         children: None,
     }
 }
@@ -92,11 +90,6 @@ impl Indicator {
         self
     }
 
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = Some(disabled.into_value());
-        self
-    }
-
     pub fn content(mut self, content: impl IntoView) -> Self {
         self.children = Some(content.into_view());
         self
@@ -111,14 +104,16 @@ impl NodeBuilder for Indicator {
 }
 
 impl IntoView for Indicator {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
         let size = self.size.get();
-        let disabled = self.disabled;
+        let attachment = kivact::custom::part(|state| state);
+        let actual = attachment.state();
+        self.root = self.root.with_node(move |node| node.part(attachment));
         let checked = self.checked;
         let input = self.input;
         let look = move || {
             let mut input = input.get();
-            input.disabled |= disabled.is_some_and(|disabled| disabled.get());
+            input.disabled |= actual.get().disabled;
             input.focus_visible &= !input.disabled;
             Look::new(CheckableState {
                 input,

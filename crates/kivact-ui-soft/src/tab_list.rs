@@ -32,7 +32,6 @@ use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::effect_on;
 use kivact::state::memo;
-use kivact::state::provide;
 use kivact::state::signal;
 use kivact::state::try_use_context;
 use kivact::style::Align;
@@ -92,7 +91,6 @@ pub struct Tab<K> {
     selected_icon: Option<View>,
     label_hidden: Value<bool>,
     end: Option<View>,
-    disabled: Value<bool>,
     panel: Option<NodeRef>,
 }
 
@@ -105,7 +103,6 @@ pub fn tab<K>(key: K, label: impl IntoText) -> Tab<K> {
         selected_icon: None,
         label_hidden: (false).into_value(),
         end: None,
-        disabled: false.into_value(),
         panel: None,
     }
 }
@@ -124,11 +121,7 @@ impl<K> Tab<K> {
         self
     }
     pub fn end_content(mut self, end: impl IntoView) -> Self {
-        self.end = Some(provide((), move || end.into_view()));
-        self
-    }
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
+        self.end = Some(kivact::view::component(move || end.into_view()));
         self
     }
     pub fn panel(mut self, panel: NodeRef) -> Self {
@@ -386,7 +379,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
             full_bleed,
             content,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             if pattern.get() == TabPattern::Tabs {
                 entries.retain(|entry| matches!(entry, TabEntry::Tab(_)));
             }
@@ -400,9 +393,15 @@ impl<K: ItemKey> IntoView for TabList<K> {
                 ContainerInset::default()
             };
             let options = entries
-                .iter()
+                .iter_mut()
                 .filter_map(|entry| match entry {
-                    TabEntry::Tab(tab) => Some((tab.key.clone(), tab.label, tab.disabled)),
+                    TabEntry::Tab(tab) => Some((
+                        tab.key.clone(),
+                        tab.label,
+                        tab.root
+                            .accessible_disabled()
+                            .unwrap_or_else(|| false.into_value()),
+                    )),
                     TabEntry::Menu(_) => None,
                 })
                 .collect::<Vec<_>>();
@@ -421,12 +420,17 @@ impl<K: ItemKey> IntoView for TabList<K> {
                 .activation(ListActivation::Manual)
             });
             let members = entries
-                .iter()
+                .iter_mut()
                 .map(|entry| {
                     let (selected, disabled) = match entry {
                         TabEntry::Tab(tab) => {
                             let key = tab.key.clone();
-                            (memo(move || binding.get() == key), tab.disabled)
+                            (
+                                memo(move || binding.get() == key),
+                                tab.root
+                                    .accessible_disabled()
+                                    .unwrap_or_else(|| false.into_value()),
+                            )
                         }
                         TabEntry::Menu(menu) => {
                             let keys = menu
@@ -475,7 +479,11 @@ impl<K: ItemKey> IntoView for TabList<K> {
                         );
                     }
                     match entry {
-                        TabEntry::Tab(tab) => {
+                        TabEntry::Tab(mut tab) => {
+                            let disabled = tab
+                                .root
+                                .accessible_disabled()
+                                .unwrap_or_else(|| false.into_value());
                             let Tab {
                                 root,
                                 key,
@@ -484,7 +492,6 @@ impl<K: ItemKey> IntoView for TabList<K> {
                                 selected_icon,
                                 label_hidden,
                                 end,
-                                disabled,
                                 panel,
                             } = tab;
                             let has_selected_icon = selected_icon.is_some();

@@ -63,7 +63,6 @@ pub struct SideNavItem {
     icon: Option<View>,
     selected_icon: Option<View>,
     selected: Value<bool>,
-    disabled: Value<bool>,
     end: Option<View>,
     actions: Option<View>,
     children: Option<ViewFn>,
@@ -80,7 +79,6 @@ pub fn side_nav_item(label: impl IntoText) -> SideNavItem {
         icon: None,
         selected_icon: None,
         selected: false.into_value(),
-        disabled: false.into_value(),
         end: None,
         actions: None,
         children: None,
@@ -106,20 +104,16 @@ impl SideNavItem {
         self.selected = selected.into_value();
         self
     }
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
-        self
-    }
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(provide((), move || content.into_view()));
+        self.end = Some(kivact::view::component(move || content.into_view()));
         self
     }
     pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(provide((), move || actions.into_view()));
+        self.actions = Some(kivact::view::component(move || actions.into_view()));
         self
     }
     pub fn children<V: IntoView>(mut self, children: impl IntoViewFn<V>) -> Self {
@@ -145,14 +139,17 @@ impl NodeBuilder for SideNavItem {
 }
 
 impl IntoView for SideNavItem {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
         let Self {
             root,
             label,
             icon: leading,
             selected_icon,
             selected,
-            disabled,
             end,
             actions,
             children,
@@ -160,7 +157,7 @@ impl IntoView for SideNavItem {
             size,
             action,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let cx = nav_cx();
             let mode = shell_nav_mode();
             let has_icon = leading.is_some() || selected_icon.is_some();
@@ -556,7 +553,7 @@ impl SideNavSection {
         self
     }
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(provide((), move || content.into_view()));
+        self.end = Some(kivact::view::component(move || content.into_view()));
         self
     }
     pub fn header_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
@@ -582,7 +579,7 @@ impl IntoView for SideNavSection {
             children,
             header_hidden,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let cx = nav_cx();
             let title = text(title).style(|| {
                 style()

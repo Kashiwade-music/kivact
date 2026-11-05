@@ -22,7 +22,6 @@ use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::Value;
 use kivact::state::callback;
-use kivact::state::provide;
 use kivact::style::Align;
 use kivact::style::Justify;
 use kivact::style::TransitionProp;
@@ -335,8 +334,6 @@ pub struct SideNavHeading {
     sub_action: Option<Callback<()>>,
 }
 
-pub type TopNavHeading = SideNavHeading;
-
 pub fn side_nav_heading(heading: impl IntoText) -> SideNavHeading {
     SideNavHeading {
         root: node(),
@@ -352,7 +349,7 @@ pub fn side_nav_heading(heading: impl IntoText) -> SideNavHeading {
     }
 }
 
-pub fn top_nav_heading(heading: impl IntoText) -> TopNavHeading {
+pub fn top_nav_heading(heading: impl IntoText) -> SideNavHeading {
     side_nav_heading(heading)
 }
 
@@ -418,7 +415,7 @@ impl IntoView for SideNavHeading {
             super_action,
             sub_action,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let rail = crate::side_navigation::context::nav_is_rail();
             let has_icon = glyph.is_some();
             let interactive = menu.is_some() || heading_action.is_some();

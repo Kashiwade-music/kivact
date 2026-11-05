@@ -24,7 +24,6 @@ use kivact::state::callback;
 use kivact::state::effect_on;
 use kivact::state::machine;
 use kivact::state::memo;
-use kivact::state::provide;
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Position;
@@ -286,7 +285,7 @@ impl IntoView for Outline {
             start,
             end,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let pending = machine(
                 OutlineScroll::Idle,
                 || ScrollMachine,

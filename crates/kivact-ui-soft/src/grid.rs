@@ -6,7 +6,6 @@ use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::grid as native_grid;
 
-use kivact::state::provide;
 use kivact::style::Align;
 use kivact::style::GridPlacement;
 use kivact::style::Track;
@@ -101,7 +100,7 @@ impl IntoView for LayoutGrid {
             column_gap,
             row_height,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let reference = node_ref();
             root.node_ref(reference).with_node(move |node| {
                 node.base_style(move || {

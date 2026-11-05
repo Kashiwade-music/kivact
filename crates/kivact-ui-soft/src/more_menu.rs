@@ -26,10 +26,7 @@ use kivact::view::icon;
 pub struct MoreMenu<K: ItemKey> {
     menu: Menu<K>,
     label: Value<String>,
-    variant: ButtonVariant,
-    size: Value<ControlSize>,
-    icon: Option<View>,
-    disabled: Value<bool>,
+    button: Button,
 }
 
 #[track_caller]
@@ -45,36 +42,32 @@ where
     MoreMenu {
         menu: menu(label, entries).on_activate(choose),
         label,
-        variant: ButtonVariant::Ghost,
-        size: ControlSize::Medium.into_value(),
-        icon: None,
-        disabled: false.into_value(),
+        button: button(label)
+            .icon(icon("ellipsis"))
+            .hide_label(true)
+            .variant(ButtonVariant::Ghost),
     }
 }
 
 impl<K: ItemKey> MoreMenu<K> {
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = label.into_text_value();
+        self.button = self.button.name(self.label);
         self
     }
 
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
-        self.variant = variant;
+        self.button = self.button.variant(variant);
         self
     }
 
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size = size.into_value();
+        self.button = self.button.size(size);
         self
     }
 
     pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
+        self.button = self.button.icon(icon);
         self
     }
 
@@ -109,15 +102,16 @@ impl IntoView for MoreTrigger {
 
 impl<K: ItemKey> IntoView for MoreMenu<K> {
     fn into_view(self) -> View {
-        let trigger = button(self.label)
-            .icon(self.icon.unwrap_or_else(|| icon("ellipsis").into_view()))
-            .hide_label(true)
-            .variant(self.variant)
-            .size(self.size)
-            .disabled(self.disabled);
+        let trigger = self.button;
         self.menu.attach(MoreTrigger {
             button: trigger,
             label: self.label,
         })
+    }
+}
+
+impl<K: ItemKey> NodeBuilder for MoreMenu<K> {
+    fn node_mut(&mut self) -> &mut Node {
+        self.button.node_mut()
     }
 }

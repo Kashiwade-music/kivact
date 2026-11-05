@@ -76,7 +76,6 @@ pub struct Token {
     remove: Option<Callback<()>>,
     description: Option<Value<String>>,
     label_hidden: Value<bool>,
-    disabled: Value<bool>,
     as_link: Value<bool>,
 }
 
@@ -93,7 +92,6 @@ pub fn token(label: impl IntoText) -> Token {
         remove: None,
         description: None,
         label_hidden: (false).into_value(),
-        disabled: (false).into_value(),
         as_link: (false).into_value(),
     }
 }
@@ -141,11 +139,6 @@ impl Token {
         self
     }
 
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
-        self
-    }
-
     pub fn as_link(mut self, link: impl IntoValue<bool>) -> Self {
         self.as_link = link.into_value();
         self
@@ -160,9 +153,12 @@ impl NodeBuilder for Token {
 }
 
 impl IntoView for Token {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
         let label = self.label;
-        let disabled = self.disabled.get();
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
         let color = self.color.get();
         let main_ref = node_ref();
         let focus = main_ref.focus_visible();
@@ -197,7 +193,7 @@ impl IntoView for Token {
                                 _ => base.padding_right(0),
                             };
                         }
-                        if interactive && !disabled {
+                        if interactive && !disabled.get() {
                             let theme = use_theme().get();
                             let (fill, _) = color
                                 .hue(&t.colors.hue)
@@ -264,7 +260,7 @@ impl IntoView for Token {
                             .align_items(Align::Center)
                             .justify_content(Justify::Center)
                             .radius(t.radius.full)
-                            .cursor(if disabled {
+                            .cursor(if disabled.get() {
                                 Cursor::Default
                             } else {
                                 Cursor::Pointer
@@ -291,7 +287,7 @@ impl IntoView for Token {
                         .background(fill)
                         .color(ink)
                         .align_items(Align::Center)
-                        .opacity(if disabled {
+                        .opacity(if disabled.get() {
                             t.sizes.disabled_opacity
                         } else {
                             1.0
@@ -299,7 +295,7 @@ impl IntoView for Token {
                         .font_size(12)
                         .line_height(20.0 / 12.0)
                         .weight(t.typography.weight_medium);
-                    if interactive && !disabled && focus.get() {
+                    if interactive && !disabled.get() && focus.get() {
                         base.merge(&ring(&t, t.colors.focus_ring))
                     } else {
                         base

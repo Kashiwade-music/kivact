@@ -657,3 +657,10 @@ fn main() -> kivact::Result<()> {
 - [テーマとコンポーネントの見た目を変える](theming.md): アプリ側から見たトークン、recipe、アイコン。
 - [画面をレイアウトする](layout.md): base style で設定できるスタイルのプロパティ。
 - `cargo doc -p kivact --open`: `kivact::view::NodeBuilder`、`kivact::view::Node`、`kivact::style::{Theme, ThemeExtension, IconSet}`。
+
+
+セットアップ中にリアクティブな状態を作る部品は `component(move || view)` を返せます。
+初期化処理は mount 時に一度だけ実行され、親の context を継承します。effect と
+cleanup はその部品に属し、取り除くと破棄されます。表示上の箱は追加しません。
+一度だけ mount する slot は `impl IntoView`、popup を開くたびに作り直す内容は
+`impl Fn() -> V` で受け取ります。

@@ -168,8 +168,8 @@ pub use mobile_nav::{
 };
 pub use more_menu::{MoreMenu, more_menu};
 pub use nav_heading::{
-    NavHeadingMenu, NavHeadingMenuItem, SideNavHeading, TopNavHeading, nav_heading_menu,
-    nav_heading_menu_item, side_nav_heading, top_nav_heading,
+    NavHeadingMenu, NavHeadingMenuItem, SideNavHeading, nav_heading_menu, nav_heading_menu_item,
+    side_nav_heading, top_nav_heading,
 };
 pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
@@ -188,7 +188,7 @@ pub use recipes_table::{TableCellAppearance, TableRowAppearance};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
-pub use segmented_control::{SegmentedIconOnly, SegmentedLayout};
+pub use segmented_control::{SegmentedLayout, SegmentedLook};
 pub use shadows::Shadows;
 pub use side_navigation::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
@@ -228,7 +228,7 @@ pub use token::{Token, TokenColor, token};
 pub use tokens::{MotionTokens, RadiusTokens, Sizes, SpaceTokens, Tokens, TypeStyle, TypeTokens};
 pub use top_nav::{
     TopNav, TopNavItem, TopNavMegaMenu, TopNavMegaMenuFeaturedCard, TopNavMegaMenuItem, TopNavMenu,
-    TopNavMenuItem, top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu,
-    top_nav_mega_menu_item, top_nav_menu, top_nav_menu_item,
+    top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu, top_nav_mega_menu_item,
+    top_nav_menu, top_nav_menu_item,
 };
 pub use visually_hidden::{VisuallyHidden, visually_hidden};
