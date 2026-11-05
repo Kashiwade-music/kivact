@@ -302,7 +302,7 @@ fn hover_card_opens_after_its_delay_and_stays_while_hovered() {
         (
             (),
             page(
-                basic::hover_card(|| text("The React Framework"))
+                kivact::ui::hover_card(|| text("The React Framework"))
                     .attach(kivact::ui::button("@nextjs").variant(ButtonVariant::Link)),
             ),
         )

@@ -59,6 +59,16 @@ fn build() -> UiRecipes {
         .progress(crate::recipes_controls::progress)
         .disclosure(crate::recipes_controls::disclosure)
         .command_palette(crate::recipes_command::command_palette)
+        .hover_card(|parts| parts.surface(|_| hover_card_surface))
+        .carousel(|parts| {
+            parts
+                .root(|_| carousel_root)
+                .track(|_| carousel_track)
+                .viewport(|_| carousel_viewport)
+                .slide(|_| carousel_slide)
+                .previous(|_| carousel_previous)
+                .next(|_| carousel_next)
+        })
 }
 
 fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
@@ -347,4 +357,68 @@ fn text_area(t: &Theme, state: &kivact::ui::Look<TextInputState>) -> Style {
         .min_height(64)
         .padding_y(8)
         .line_height(16.0 / 12.0)
+}
+
+fn hover_card_surface(t: &Theme, _: &kivact::ui::Look<kivact::ui::HoverCardSurfaceState>) -> Style {
+    crate::theme_access::shadow_md(crate::theme_access::popover_surface(&t.ext::<Tokens>()))
+        .direction(Direction::Column)
+        .line_height(1.625)
+        .width(256)
+        .max_width(pct(100))
+        .padding(10)
+}
+
+fn carousel_root(_: &Theme, _: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>) -> Style {
+    style()
+        .position(Position::Relative)
+        .direction(Direction::Column)
+        .focus(crate::theme_access::theme_ring())
+}
+fn carousel_track(_: &Theme, _: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>) -> Style {
+    style().gap(16).transition(
+        kivact::style::TransitionProp::Paint,
+        kivact::motion::Transition::tween(
+            300,
+            kivact::motion::Easing::CubicBezier(0.4, 0.0, 0.2, 1.0),
+        ),
+    )
+}
+fn carousel_viewport(_: &Theme, _: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>) -> Style {
+    style().direction(Direction::Column)
+}
+fn carousel_slide(_: &Theme, _: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>) -> Style {
+    style()
+}
+fn carousel_previous(t: &Theme, s: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>) -> Style {
+    carousel_control(t, s, true)
+}
+fn carousel_next(t: &Theme, s: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>) -> Style {
+    carousel_control(t, s, false)
+}
+fn carousel_control(
+    t: &Theme,
+    s: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>,
+    previous: bool,
+) -> Style {
+    let p = t.ext::<Tokens>();
+    let base = style()
+        .position(Position::Absolute)
+        .size(28, 28)
+        .min_width(28)
+        .padding(0)
+        .background(p.background)
+        .color(p.foreground)
+        .border(1, p.input)
+        .hover(style().background(p.muted).color(p.foreground));
+    if s.orientation == kivact::view::Orientation::Vertical {
+        if previous {
+            base.top(-48).left(pct(50) - 14)
+        } else {
+            base.bottom(-48).left(pct(50) - 14)
+        }
+    } else if previous != (s.direction == kivact::view::ReadingDirection::Rtl) {
+        base.left(-48).top(pct(50) - 14)
+    } else {
+        base.right(-48).top(pct(50) - 14)
+    }
 }

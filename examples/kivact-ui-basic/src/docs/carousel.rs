@@ -58,7 +58,7 @@ fn default() -> impl IntoView {
             .child(text(number.to_string()))
     }
     let index = signal(0usize);
-    basic::carousel((1..=5).map(slide).collect::<Vec<_>>(), index)
+    kivact::ui::carousel(index, (1..=5).map(slide).collect::<Vec<_>>())
         .style(style().width(240).margin_x(48))
 }
 // end example
@@ -80,7 +80,7 @@ fn per_view() -> impl IntoView {
             .child(text(number.to_string()))
     }
     let index = signal(0usize);
-    basic::carousel((1..=6).map(slide).collect::<Vec<_>>(), index)
+    kivact::ui::carousel(index, (1..=6).map(slide).collect::<Vec<_>>())
         .items_per_view(2.0)
         .style(style().width(360).margin_x(48))
 }
@@ -103,7 +103,7 @@ fn vertical() -> impl IntoView {
             .child(text(number.to_string()))
     }
     let index = signal(0usize);
-    basic::carousel((1..=5).map(slide).collect::<Vec<_>>(), index)
+    kivact::ui::carousel(index, (1..=5).map(slide).collect::<Vec<_>>())
         .orientation(Orientation::Vertical)
         .style(style().width(240).height(120).margin_y(48))
 }
@@ -126,7 +126,7 @@ fn looped() -> impl IntoView {
             .child(text(number.to_string()))
     }
     let index = signal(0usize);
-    basic::carousel((1..=3).map(slide).collect::<Vec<_>>(), index)
+    kivact::ui::carousel(index, (1..=3).map(slide).collect::<Vec<_>>())
         .looping()
         .style(style().width(240).margin_x(48))
 }
