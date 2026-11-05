@@ -138,7 +138,10 @@ pub(super) fn code_header(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     row(t, s).padding(t.space().sm)
 }
 pub(super) fn code_body(t: &Theme, s: &Look<CodeBlockState>) -> Style {
-    row(t, s).align_items(Align::Start).min_width(pct(100))
+    row(t, s)
+        .direction(Direction::RowReverse)
+        .align_items(Align::Start)
+        .min_width(pct(100))
 }
 pub(super) fn code_viewport(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     viewport(t, s).padding(t.space().md)

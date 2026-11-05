@@ -180,3 +180,88 @@ fn chat_composer_preserves_newlines_history_stop_and_ime() {
     assert_eq!(stops.get_untracked(), 1);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn code_block_numbers_follow_native_wrapped_rows_and_recipe_line_height() {
+    use kivact::style::LineHeight;
+    use kivact::test::{Element, RenderOptions};
+    fn gutter(root: Element<'_>) -> Element<'_> {
+        let mut pending = vec![root];
+        while let Some(element) = pending.pop() {
+            if element.text().starts_with("1\n") {
+                return element;
+            }
+            pending.extend(element.children());
+        }
+        panic!("numbered gutter is mounted");
+    }
+    let (screen, (source, width)) = crate::support::mount_with(
+        RenderOptions::from_env().theme(Theme::light().with(
+            kivact::ui::UiRecipes::default().code_block(|r| {
+                r.code(|previous| {
+                    move |theme, state| {
+                        previous(theme, state)
+                            .font_size(18)
+                            .line_height(LineHeight::px(31))
+                    }
+                })
+            }),
+        )),
+        || {
+            let source = signal(format!("{}\ntail", "abcdefghij ".repeat(8)));
+            let width = signal(220.0);
+            (
+                (source, width),
+                code_block(source)
+                    .title("Wrapped")
+                    .line_numbers(true)
+                    .wrap(true)
+                    .test_id("wrapped-code")
+                    .style(move || style().width(width.get())),
+            )
+        },
+    );
+    let numbers = gutter(screen.get_by_test_id("wrapped-code"));
+    let text = numbers.text();
+    let second = text
+        .split('\n')
+        .position(|line| line == "2")
+        .expect("second source line is numbered");
+    assert!(
+        second > 1,
+        "wrapped source leaves blank numbered rows: {text:?}"
+    );
+    let editor = screen.get_by_role(Role::TextBox, "Wrapped");
+    editor.press_key_with(
+        Key::End,
+        Modifiers {
+            ctrl: true,
+            ..Modifiers::default()
+        },
+    );
+    let caret = editor.text_caret().expect("native caret");
+    let rect = numbers.rect().expect("gutter geometry");
+    let rows = text.split('\n').count();
+    let height = rect.height / rows as f64;
+    assert!(
+        (caret.y - rect.y - second as f64 * height).abs() < 2.0,
+        "caret {caret:?}, gutter {rect:?}, rows {text:?}"
+    );
+    source.set(format!("tail\n{}", "abcdefghij ".repeat(8)));
+    screen.advance(Duration::ZERO);
+    assert_eq!(
+        gutter(screen.get_by_test_id("wrapped-code"))
+            .text()
+            .split('\n')
+            .position(|line| line == "2"),
+        Some(1)
+    );
+    width.set(760.0);
+    screen.advance(Duration::ZERO);
+    let wide = gutter(screen.get_by_test_id("wrapped-code")).text();
+    assert!(wide.split('\n').count() < rows);
+    assert_eq!(editor.value(), Some(source.get_untracked()));
+    screen.get_by_role(Role::Button, "Copy").click();
+    assert_eq!(screen.clipboard(), Some(source.get_untracked()));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

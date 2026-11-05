@@ -365,6 +365,7 @@ mod chat_tokens;
 mod chat_values;
 mod code_block;
 mod code_editing;
+mod code_gutter;
 mod composer_history;
 mod look_chat;
 mod typing_indicator;
