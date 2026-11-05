@@ -271,8 +271,45 @@ impl Alert {
             variants,
             state,
         );
-        (icon, title, description, actions, toggle, content, dismiss).into_view()
+        (
+            alert_header(
+                icon,
+                (title, description),
+                (actions, toggle, dismiss),
+                variants,
+                state,
+            ),
+            content,
+        )
+            .into_view()
     }
+}
+/// Present actual slots without adding behavior or changing their semantic targets.
+fn alert_header(
+    icon: impl IntoView,
+    message: impl IntoView,
+    controls: impl IntoView,
+    variants: &Variants,
+    state: impl Fn() -> AlertState + Copy + 'static,
+) -> Node {
+    let message = with_recipe_style(
+        node().child(message),
+        |r| r.alert_recipes().message_recipe(),
+        variants,
+        state,
+    );
+    let controls = with_recipe_style(
+        node().child(controls),
+        |r| r.alert_recipes().controls_recipe(),
+        variants,
+        state,
+    );
+    with_recipe_style(
+        node().child((icon, message, controls)),
+        |r| r.alert_recipes().header_recipe(),
+        variants,
+        state,
+    )
 }
 fn expansion_toggle(
     has_details: bool,
