@@ -2,11 +2,16 @@
 use super::AsyncState;
 use std::rc::Rc;
 
-/// Retry the operation represented by an async view.
+/// Retry a failed operation: the source of an async view (again with its
+/// most recent input), or the child of an error boundary (mounted fresh).
 #[derive(Clone)]
 pub struct Retry(pub(super) Rc<dyn Fn()>);
 impl Retry {
-    /// Run the source again with its most recent input.
+    /// A retry that runs `f`.
+    pub fn new(f: impl Fn() + 'static) -> Self {
+        Self(Rc::new(f))
+    }
+    /// Try the failed operation again.
     pub fn run(&self) {
         (self.0)();
     }

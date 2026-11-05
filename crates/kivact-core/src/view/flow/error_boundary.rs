@@ -10,7 +10,7 @@
 //! - neither handler set: it goes on to the parent's handler;
 //! - `.on_error(f)`: `f(err)` runs and the child stays;
 //! - `.fallback(f)`: the child is disposed and `f(err, reset)` is shown;
-//!   calling `reset()` remounts a fresh child;
+//!   calling `reset.run()` remounts a fresh child;
 //! - both: `on_error` runs first, then the fallback replaces the child.
 //!
 //! While the fallback is shown, errors (from the fallback, or late ones
@@ -24,6 +24,7 @@ use std::rc::Rc;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use kivact_runtime::EffectKind;
+use kivact_runtime::Retry;
 use kivact_runtime::UiError;
 
 use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_branch};
@@ -46,7 +47,7 @@ pub struct ErrorBoundary {
 /// ```ignore
 /// error_boundary(editor)
 ///     .on_error(move |e| log.push(e))
-///     .fallback(|e, reset| column((text(e.to_string()), button("Retry").on_press(move || reset()))))
+///     .fallback(|e, reset| column((text(e.to_string()), button("Retry").on_press(move || reset.run()))))
 /// ```
 #[track_caller]
 pub fn error_boundary<V: IntoView>(child: impl crate::view::IntoViewFn<V>) -> ErrorBoundary {
@@ -60,7 +61,7 @@ pub fn error_boundary<V: IntoView>(child: impl crate::view::IntoViewFn<V>) -> Er
 
 impl ErrorBoundary {
     /// On the first error, replace the child with `f(err, reset)`;
-    /// calling `reset()` mounts a fresh child again.
+    /// calling `reset.run()` mounts a fresh child again.
     pub fn fallback<V: IntoView>(mut self, f: impl Fn(UiError, Retry) -> V + 'static) -> Self {
         self.fallback = Some(crate::view::ViewFn::from(move |(e, retry)| f(e, retry)));
         self
@@ -174,20 +175,5 @@ impl IntoView for ErrorBoundary {
             });
             frag
         })
-    }
-}
-
-/// A Copy handle that retries the operation associated with a fallback.
-#[derive(Clone, Copy)]
-pub struct Retry(kivact_runtime::Callback<()>);
-impl Retry {
-    /// Store a retry action under the current owner.
-    #[track_caller]
-    pub(crate) fn new(f: impl Fn() + 'static) -> Self {
-        Self(f.into())
-    }
-    /// Try the failed operation again.
-    pub fn run(&self) {
-        self.0.call(());
     }
 }

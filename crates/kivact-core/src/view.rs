@@ -46,8 +46,8 @@ pub(crate) mod tree;
 
 #[doc(inline)]
 pub use crate::view::flow::{
-    ErrorBoundary, ListSource, Retry, RowHeight, Show, ShowSome, VirtualList, dynamic,
-    error_boundary, for_each, for_index, show, show_some, virtual_list,
+    ErrorBoundary, ListSource, RowHeight, Show, ShowSome, VirtualList, dynamic, error_boundary,
+    for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
 pub use boundary::{ReadingDirection, component, provide_direction, use_direction};
