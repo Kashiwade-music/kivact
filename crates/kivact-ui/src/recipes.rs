@@ -640,6 +640,11 @@ recipe_table! {
         text_area(text_area_recipe): TextInputState = look::text_area,
     }
     tables {
+        chat_message(chat_message_recipes): ChatMessageRecipes,
+        chat_thread(chat_thread_recipes): ChatThreadRecipes,
+        chat_composer(chat_composer_recipes): ChatComposerRecipes,
+        typing_indicator(typing_indicator_recipes): TypingIndicatorRecipes,
+        code_block(code_block_recipes): CodeBlockRecipes,
         empty_state(empty_state_recipes): EmptyStateRecipes,
         alert(alert_recipes): AlertRecipes,
         card(card_recipes): CardRecipes,
@@ -855,5 +860,81 @@ recipe_table! {
         root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::root,
         trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
         panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of ChatMessage.
+    ChatMessageRecipes {
+        root(root_recipe): crate::ChatMessageState = crate::look_chat::message_root,
+        body(body_recipe): crate::ChatMessageState = crate::look_chat::message_body,
+        author(author_recipe): crate::ChatMessageState = crate::look_chat::author,
+        time(time_recipe): crate::ChatMessageState = crate::look_chat::muted,
+        status(status_recipe): crate::ChatMessageState = crate::look_chat::muted,
+        content(content_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        avatar(avatar_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        header(header_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        footer(footer_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        metadata(metadata_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        media(media_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        icon(icon_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        actions(actions_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        reactions(reactions_recipe): crate::ChatMessageState = crate::look_chat::slot,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of ChatThread.
+    ChatThreadRecipes {
+        root(root_recipe): crate::ChatThreadState = crate::look_chat::thread_root,
+        viewport(viewport_recipe): crate::ChatThreadState = crate::look_chat::viewport,
+        content(content_recipe): crate::ChatThreadState = crate::look_chat::column,
+        scroll_button(scroll_button_recipe): crate::ChatThreadState = crate::look_chat::slot,
+        composer(composer_recipe): crate::ChatThreadState = crate::look_chat::slot,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of ChatComposer.
+    ChatComposerRecipes {
+        root(root_recipe): crate::ChatComposerState = crate::look_chat::column,
+        surface(surface_recipe): crate::ChatComposerState = crate::look_chat::composer_surface,
+        input(input_recipe): crate::ChatComposerState = crate::look_chat::input,
+        send(send_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header(header_recipe): crate::ChatComposerState = crate::look_chat::row,
+        footer(footer_recipe): crate::ChatComposerState = crate::look_chat::row,
+        status(status_recipe): crate::ChatComposerState = crate::look_chat::composer_status,
+        drawer(drawer_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header_actions(header_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header_context(header_context_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        footer_actions(footer_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        send_actions(send_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of TypingIndicator.
+    TypingIndicatorRecipes {
+        root(root_recipe): crate::TypingIndicatorState = crate::look_chat::row,
+        avatar(avatar_recipe): crate::TypingIndicatorState = crate::look_chat::slot,
+        dots(dots_recipe): crate::TypingIndicatorState = crate::look_chat::typing_dots,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of CodeBlock.
+    CodeBlockRecipes {
+        root(root_recipe): crate::CodeBlockState = crate::look_chat::code_root,
+        header(header_recipe): crate::CodeBlockState = crate::look_chat::code_header,
+        title(title_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        collapse(collapse_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        language(language_recipe): crate::CodeBlockState = crate::look_chat::muted,
+        copy(copy_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        end_content(end_content_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        body(body_recipe): crate::CodeBlockState = crate::look_chat::code_body,
+        viewport(viewport_recipe): crate::CodeBlockState = crate::look_chat::code_viewport,
+        code(code_recipe): crate::CodeBlockState = crate::look_chat::code_text,
+        gutter(gutter_recipe): crate::CodeBlockState = crate::look_chat::code_gutter,
+        footer(footer_recipe): crate::CodeBlockState = crate::look_chat::row,
     }
 }
