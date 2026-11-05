@@ -619,6 +619,8 @@ recipe_table! {
         heading(heading_recipe): HeadingState = look_metrics::heading,
         avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
+        /// Presentation of the hidden avatar count, including its actual count.
+        avatar_group_overflow(avatar_group_overflow_recipe): usize = super::look_indicators::avatar_group_overflow,
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
