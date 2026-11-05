@@ -120,3 +120,5 @@ mod viewport;
 mod viewport_gpu_interop;
 
 mod apg_date_picker;
+
+mod ui_chat_code;

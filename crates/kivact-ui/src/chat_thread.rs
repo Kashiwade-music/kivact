@@ -9,13 +9,14 @@ use kivact_core::view::{
 };
 use kivact_interaction::use_follow_end;
 /// A scrollable message log that follows new content until the reader scrolls away.
+// xtask-allow(state-fields): Independent builder inputs and slots; use_follow_end owns the complete following and anchor state.
 pub struct ChatThread {
     root: Node,
     children: View,
     viewport: Option<NodeRef>,
     history_revision: Option<Value<u64>>,
     composer: Option<View>,
-    empty: Option<View>,
+    empty: Option<(Value<bool>, View)>,
     loading_top: Value<bool>,
     streaming: Value<bool>,
     gap: Option<Value<f64>>,
@@ -57,9 +58,9 @@ impl ChatThread {
         self.composer = Some(content.into_view());
         self
     }
-    /// Supply empty-log content; its presence is controlled by the caller.
-    pub fn empty(mut self, content: impl IntoView) -> Self {
-        self.empty = Some(content.into_view());
+    /// Show empty-log content when the caller's collection is empty.
+    pub fn empty(mut self, when: impl IntoValue<bool>, content: impl IntoView) -> Self {
+        self.empty = Some((when.into_value(), content.into_view()));
         self
     }
     /// Show an earlier-history loading status above the messages.
@@ -112,9 +113,13 @@ impl IntoView for ChatThread {
         let gap = self.gap;
         let align = self.align;
         let messages = with_recipe_style(
-            node()
-                .node_ref(content)
-                .child((loading, self.empty, self.children, typing)),
+            node().node_ref(content).child((
+                loading,
+                self.empty
+                    .map(|(when, view)| node().hidden(move || !when.get()).child(view)),
+                self.children,
+                typing,
+            )),
             |r| r.chat_thread_recipes().content_recipe(),
             &self.variants,
             state,

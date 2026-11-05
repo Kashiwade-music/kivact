@@ -1,7 +1,7 @@
 //! Role: Supply token-based default chat, typing and code recipes.
 use crate::{
-    ChatComposerState, ChatMessageState, ChatMessageVariant, ChatSender, CodeBlockState,
-    ComposerStatus, Look, TypingIndicatorState,
+    ChatAlign, ChatBubbleGroup, ChatComposerState, ChatMessageState, ChatMessageVariant,
+    ChatReactionsSide, CodeBlockState, ComposerStatus, Look, TypingIndicatorState,
 };
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, LineHeight, Style, Theme, pct, style,
@@ -36,24 +36,64 @@ pub(super) fn author(t: &Theme, _: &Look<ChatMessageState>) -> Style {
 pub(super) fn message_root(t: &Theme, s: &Look<ChatMessageState>) -> Style {
     row(t, s)
         .align_items(Align::Start)
-        .justify_content(if s.sender == ChatSender::User {
+        .justify_content(if s.align == ChatAlign::End {
             Justify::End
         } else {
             Justify::Start
         })
 }
 pub(super) fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
-    let base = column(t, s).max_width(pct(85)).color(ColorToken::Text);
+    let base = column(t, s)
+        .position(kivact_core::style::Position::Relative)
+        .max_width(pct(85))
+        .color(ColorToken::Text);
+    let base = if s.has_reactions {
+        match s.reactions_side {
+            ChatReactionsSide::Top => base.margin_top(18),
+            ChatReactionsSide::Bottom => base.margin_bottom(18),
+        }
+    } else {
+        base
+    };
+    let base = if s.actionable {
+        base.cursor(kivact_core::style::Cursor::Pointer)
+            .focus_visible(style().ring(t.focus_ring(), ColorToken::Accent))
+    } else {
+        base
+    };
     if s.variant::<ChatMessageVariant>() == Some(&ChatMessageVariant::Plain) {
         base
     } else {
         base.padding(t.space().md)
-            .radius(t.radius().md)
+            .radius_corners(
+                if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {
+                    0.0
+                } else {
+                    t.radius().md
+                },
+                if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {
+                    0.0
+                } else {
+                    t.radius().md
+                },
+                if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::First) {
+                    0.0
+                } else {
+                    t.radius().md
+                },
+                if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::First) {
+                    0.0
+                } else {
+                    t.radius().md
+                },
+            )
             .background(ColorToken::Surface)
     }
 }
 pub(super) fn thread_root<S>(t: &Theme, s: &Look<S>) -> Style {
-    column(t, s).min_height(0)
+    column(t, s)
+        .min_height(0)
+        .position(kivact_core::style::Position::Relative)
 }
 pub(super) fn viewport<S>(_: &Theme, _: &Look<S>) -> Style {
     style().grow(1).min_height(0).min_width(0)
@@ -122,4 +162,25 @@ pub(super) fn code_gutter(t: &Theme, s: &Look<CodeBlockState>) -> Style {
         .text_wrap(false)
         .color(ColorToken::TextMuted)
         .text_align(kivact_core::style::TextAlign::End)
+}
+
+pub(super) fn reactions(_: &Theme, s: &Look<ChatMessageState>) -> Style {
+    let base = style()
+        .position(kivact_core::style::Position::Absolute)
+        .right(12)
+        .background(ColorToken::SurfaceAlt)
+        .radius(999)
+        .padding_x(6)
+        .padding_y(2);
+    match s.reactions_side {
+        ChatReactionsSide::Top => base.top(0).translate(0, pct(-75)),
+        ChatReactionsSide::Bottom => base.bottom(0).translate(0, pct(75)),
+    }
+}
+
+pub(super) fn jump<S>(_: &Theme, _: &Look<S>) -> Style {
+    style()
+        .position(kivact_core::style::Position::Absolute)
+        .right(12)
+        .bottom(12)
 }

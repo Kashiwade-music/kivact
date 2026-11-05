@@ -26,6 +26,7 @@ to Kivact.
 | [Validate a form before saving](forms.md) | Drafts, validation, `field` errors, every input type and submit on Enter |
 | [Show lists, selectable lists and tables](lists-and-tables.md) | `for_each`, `for_index`, `virtual_list`, `list` and `data_table`, and writing back from a row |
 | [Show a dialog, menu, tooltip or toast](overlays.md) | Modal dialogs, popovers, menus, context menus, tooltips and notifications |
+| [Show conversations and source code](chat-and-code.md) | Message logs, draft submission, typing status and selectable source code |
 | [Show images and use custom fonts](images-and-fonts.md) | PNG, JPEG and SVG images, alt text, sizing, icons and registering fonts |
 
 ## Look and language

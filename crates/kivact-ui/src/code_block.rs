@@ -9,6 +9,7 @@ use kivact_interaction::{use_copy_feedback, use_disclosure};
 use std::time::Duration;
 /// Rendered source facts supplied to code-block recipes.
 #[derive(Clone, Debug, PartialEq)]
+// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
 pub struct CodeBlockState {
     pub numbered: bool,
     pub wrapped: bool,
@@ -16,6 +17,7 @@ pub struct CodeBlockState {
     pub copied: bool,
 }
 /// A read-only multiline editor and its header, gutter and footer.
+// xtask-allow(state-fields): Independent builder inputs and slots; native editing, use_disclosure and use_copy_feedback own interaction state.
 pub struct CodeBlock {
     root: Node,
     code: Value<String>,
@@ -232,12 +234,14 @@ impl IntoView for CodeBlock {
             )
         });
         let on_copy = self.on_copy;
+        let copied_label = kivact_core::i18n::message("code_block.copied", "Copied");
+        let copy_label = kivact_core::i18n::message("code_block.copy", "Copy");
         let copy = with_recipe_style(
             crate::button(move || {
                 if copied.get() {
-                    kivact_core::i18n::message("code_block.copied", "Copied").get()
+                    copied_label.get()
                 } else {
-                    kivact_core::i18n::message("code_block.copy", "Copy").get()
+                    copy_label.get()
                 }
             })
             .hidden(move || !self.copy_button.get())

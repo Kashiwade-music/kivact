@@ -9,6 +9,7 @@ use kivact_core::view::{
     node, node_ref, text,
 };
 /// A multiline draft with independent action slots and optional submission history.
+// xtask-allow(state-fields): Independent draft binding, diagnostic inputs and slots; History owns recall and shared native editing owns the draft session.
 pub struct ChatComposer {
     root: Node,
     value: Binding<String>,
@@ -207,17 +208,15 @@ impl IntoView for ChatComposer {
             state,
         );
         let stop = self.on_stop;
-        let send_icon = self
-            .send_icon
-            .unwrap_or_else(|| kivact_core::view::icon("send").into_view());
-        let stop_icon = self
-            .stop_icon
-            .unwrap_or_else(|| kivact_core::view::icon("square").into_view());
+        let send_icon = self.send_icon.unwrap_or_else(|| node().into_view());
+        let stop_icon = self.stop_icon.unwrap_or_else(|| node().into_view());
+        let stop_label = kivact_core::i18n::message("chat_composer.stop", "Stop");
+        let send_label = kivact_core::i18n::message("chat_composer.send", "Send");
         let control = crate::button(move || {
             if stopped.get() {
-                kivact_core::i18n::message("chat_composer.stop", "Stop").get()
+                stop_label.get()
             } else {
-                kivact_core::i18n::message("chat_composer.send", "Send").get()
+                send_label.get()
             }
         })
         .disabled(move || {
