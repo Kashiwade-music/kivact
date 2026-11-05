@@ -45,6 +45,23 @@ pub(super) fn scroll_changed(
     content: Size,
 ) {
     if let Some(h) = handler(rt, node, |h| h.scroll.clone()) {
+        let content = ViewState::tree(rt).reader().with_node(node, |props| {
+            let Some(layout) = props.and_then(|props| props.layout.as_deref()) else {
+                return viewport;
+            };
+            Size::new(
+                if layout.overflow_x == kivact_types::Overflow::Scroll {
+                    content.width
+                } else {
+                    viewport.width
+                },
+                if layout.overflow_y == kivact_types::Overflow::Scroll {
+                    content.height
+                } else {
+                    viewport.height
+                },
+            )
+        });
         let s = ScrollState {
             offset,
             viewport,

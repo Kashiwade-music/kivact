@@ -40,9 +40,14 @@ pub(crate) struct HostNode {
 /// The last published geometry and text clipping observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct LayoutReport(pub(crate) Rect, pub(crate) Size, pub(crate) Clipping);
-/// The last published scroll offset, viewport and content extents.
+/// The last published scroll offset, viewport, content extents and enabled axes.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct ScrollReport(pub(crate) Point, pub(crate) Size, pub(crate) Size);
+pub(crate) struct ScrollReport(
+    pub(crate) Point,
+    pub(crate) Size,
+    pub(crate) Size,
+    pub(crate) (bool, bool),
+);
 /// Whether observed text is clipped.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Clipping {
