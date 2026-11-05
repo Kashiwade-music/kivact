@@ -22,7 +22,7 @@ fn header(dark: Signal<bool>) -> impl Component {
     row((
         image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
-            text("Tasks").role(Role::Heading).style(style().font_size(28).weight(700)),
+            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
             text("Things to do today").style(style().color(ColorToken::TextMuted)),
         ))
         .style(style().gap(2).grow(1)),
@@ -130,6 +130,16 @@ fn main() -> kivact::Result<()> {
 - `grow(1)` lets a view take the free space in a `row`, which pushes the switch to the right. `align_items(Align::Center)` and `justify_content(Justify::SpaceBetween)` align children.
 
 **Theme colors.** `ColorToken::Surface`, `Text`, `TextMuted`, `SurfaceAlt`, `Border`, `Accent` and the rest are *names* for colors, and the active theme decides what each looks like. Use tokens for most colors, and the same code works in the light and dark theme. When you need one fixed color, use `rgb(0x336699)`.
+
+**Image and font bytes.** `image(LOGO)` uses the SVG bytes embedded in this
+program. `include_bytes!("logo.svg").as_slice()` supplies a file embedded at
+build time. For bytes produced at runtime, `kivact::view::AssetBytes::new(bytes)`
+retains an owned `Vec<u8>`. Generated RGBA pixels use
+`kivact::draw::Pixels::new(width, height, rgba)`, where `rgba` can also be an
+owned vector containing four bytes per pixel. Clone an existing `AssetBytes`
+when reusing unchanged bytes. Register fonts with `App::fonts(iter)` before
+`.run(app)`; the iterator supplies font assets, such as embedded font byte
+slices. These APIs manage retained storage for you.
 
 **Button variants.** A button is the main action by default (`Primary`, filled with the accent color). `.variant(kivact::ui::ButtonVariant::Ghost)` gives Remove a quiet look with no fill until you hover it. The other variants are `Secondary`, `Outline`, `Danger` and `Link`.
 

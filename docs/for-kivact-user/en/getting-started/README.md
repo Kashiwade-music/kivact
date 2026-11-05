@@ -21,11 +21,13 @@ after that step, so you can copy it into `src/main.rs` and run it.
 | --- | --- | --- |
 | 1 | [Create a project](01-create-a-project.md) | An empty project that opens a window with some text. |
 | 2 | [Components and layout](02-components-and-layout.md) | A header and a placeholder list, split into functions. |
-| 3 | [State](03-state.md) | A counter of remaining tasks that updates when you press a button. |
+| 3 | [State](03-state.md) | A reactive task counter and a map of the state APIs. |
 | 4 | [Input](04-input.md) | A text field and an Add button that reads it. |
 | 5 | [Lists and conditions](05-lists-and-conditions.md) | A real task list with checkboxes, removal and an empty state. |
 | 6 | [Style and accessibility](06-style-and-accessibility.md) | Colors, button variants, accessible names and a dark mode switch. |
 | 7 | [Async](07-async.md) | Loading the saved tasks with a delay, with loading and error states. |
-| 8 | [Testing](08-testing.md) | Automated tests that drive the app like a user. |
+| 8 | [Testing](08-testing.md) | App E2E tests on a virtual clock, with an optional mirrored window. |
 
-Start with [Create a project](01-create-a-project.md).
+Start with [Create a project](01-create-a-project.md). If you already use React
+or Solid, keep the [concept guide](../how-to-guide/coming-from-react-or-solid.md)
+nearby as you follow the tutorial.
