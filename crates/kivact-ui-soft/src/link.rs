@@ -41,7 +41,7 @@ pub enum LinkColor {
     Secondary,
     /// Use the disabled text foreground without changing activation availability.
     Disabled,
-    /// Use the placeholder text foreground.
+    /// Use the secondary foreground for placeholder-style links.
     Placeholder,
     /// Inherit the surrounding foreground color.
     Inherit,
@@ -133,7 +133,7 @@ impl Link {
         self
     }
 
-    /// Use the standalone link spacing and focus treatment.
+    /// Use body typography when the selected text role is `TextKind::Inherit`.
     pub fn standalone(mut self, value: impl IntoValue<bool>) -> Self {
         self.standalone = value.into_value();
         self

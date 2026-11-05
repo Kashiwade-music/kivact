@@ -56,7 +56,10 @@ pub enum ItemCollapse {
     /// Keep nested entries expanded without a collapse toggle.
     AlwaysOpen,
     /// Keep collapse state locally, starting from `default_collapsed`.
-    Uncontrolled { default_collapsed: bool },
+    Uncontrolled {
+        /// Whether nested entries start collapsed.
+        default_collapsed: bool,
+    },
     /// Read and write the caller's collapse binding.
     Controlled(Binding<bool>),
 }

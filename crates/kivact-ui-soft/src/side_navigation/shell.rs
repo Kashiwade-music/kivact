@@ -48,7 +48,10 @@ use kivact::view::scroll;
 /// Ownership and initial state of a sidebar's collapsed rail.
 pub enum SideNavCollapse {
     /// Keep rail collapse state locally, starting from `default`.
-    Uncontrolled { default: bool },
+    Uncontrolled {
+        /// Whether the sidebar starts in its collapsed rail state.
+        default: bool,
+    },
     /// Read and write the application's rail collapse binding.
     Controlled(Binding<bool>),
 }
