@@ -11,6 +11,43 @@ use kivact_types::render::{
 use kivact_types::scene::{PathCmd, Pixels, RoundedRect, Shape};
 use kivact_types::{Point, Rect, Rgba, Stroke};
 
+// The commands each validation category handles, as patterns: the dispatch and every
+// category's match are exhaustive, so a new command fails to compile until one handles it.
+macro_rules! primitive_commands {
+    () => {
+        RenderCmd::Rect { .. }
+            | RenderCmd::RoundedRect { .. }
+            | RenderCmd::RoundedRectCorners { .. }
+            | RenderCmd::StrokeRect { .. }
+            | RenderCmd::StrokeRoundedRectCorners { .. }
+            | RenderCmd::Shadow { .. }
+            | RenderCmd::Line { .. }
+            | RenderCmd::Path { .. }
+    };
+}
+macro_rules! content_commands {
+    () => {
+        RenderCmd::Glyphs { .. }
+            | RenderCmd::Image { .. }
+            | RenderCmd::ImageSampled { .. }
+            | RenderCmd::External { .. }
+    };
+}
+macro_rules! group_commands {
+    () => {
+        RenderCmd::FillShape { .. }
+            | RenderCmd::StrokeShape { .. }
+            | RenderCmd::BoxShadow(_)
+            | RenderCmd::Backdrop(_)
+            | RenderCmd::PushClip(_)
+            | RenderCmd::PushTransform(_)
+            | RenderCmd::PushLayer(_)
+            | RenderCmd::PopClip
+            | RenderCmd::PopTransform
+            | RenderCmd::PopLayer
+    };
+}
+
 fn finite(values: &[f64]) -> bool {
     values.iter().all(|value| value.is_finite())
 }
@@ -269,28 +306,9 @@ pub(crate) fn scene(scene: &RenderScene, fonts: &mut Fonts) -> Result<SceneInfo,
     let mut backdrops = false;
     for command in &scene.commands {
         let valid = match command {
-            RenderCmd::Rect { .. }
-            | RenderCmd::RoundedRect { .. }
-            | RenderCmd::RoundedRectCorners { .. }
-            | RenderCmd::StrokeRect { .. }
-            | RenderCmd::StrokeRoundedRectCorners { .. }
-            | RenderCmd::Shadow { .. }
-            | RenderCmd::Line { .. }
-            | RenderCmd::Path { .. } => validate_primitive(command)?,
-            RenderCmd::Glyphs { .. }
-            | RenderCmd::Image { .. }
-            | RenderCmd::ImageSampled { .. }
-            | RenderCmd::External { .. } => validate_content(command, fonts)?,
-            RenderCmd::FillShape { .. }
-            | RenderCmd::StrokeShape { .. }
-            | RenderCmd::BoxShadow(_)
-            | RenderCmd::Backdrop(_)
-            | RenderCmd::PushClip(_)
-            | RenderCmd::PushTransform(_)
-            | RenderCmd::PushLayer(_)
-            | RenderCmd::PopClip
-            | RenderCmd::PopTransform
-            | RenderCmd::PopLayer => validate_group(command, &mut groups, &mut backdrops)?,
+            primitive_commands!() => validate_primitive(command)?,
+            content_commands!() => validate_content(command, fonts)?,
+            group_commands!() => validate_group(command, &mut groups, &mut backdrops)?,
         };
         if !valid {
             return Err(RenderError::InvalidGeometry);
@@ -363,7 +381,9 @@ fn validate_primitive(command: &RenderCmd) -> Result<bool, RenderError> {
                 && fill.is_none_or(color)
                 && line.is_none_or(|(width, paint)| stroke(width) && color(paint))
         }
-        _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+        content_commands!() | group_commands!() => {
+            unreachable!("invariant: the dispatch selects primitive commands")
+        }
     })
 }
 
@@ -436,7 +456,9 @@ fn validate_content(command: &RenderCmd, fonts: &mut Fonts) -> Result<bool, Rend
                 && opacity.is_finite()
                 && (0.0..=1.0).contains(opacity)
         }
-        _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+        primitive_commands!() | group_commands!() => {
+            unreachable!("invariant: the dispatch selects content commands")
+        }
     })
 }
 
@@ -473,6 +495,8 @@ fn validate_group(
         RenderCmd::PopClip => close(groups, Group::Clip)?,
         RenderCmd::PopTransform => close(groups, Group::Transform)?,
         RenderCmd::PopLayer => close(groups, Group::Layer)?,
-        _ => unreachable!("invariant: command category selected by exhaustive dispatch"),
+        primitive_commands!() | content_commands!() => {
+            unreachable!("invariant: the dispatch selects group commands")
+        }
     })
 }
