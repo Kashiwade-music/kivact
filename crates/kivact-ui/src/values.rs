@@ -402,3 +402,16 @@ pub struct DataTablePageState {
 }
 
 kivact_core::state::constant_value!(ControlSize);
+
+/// Standard progress appearances, read through the existing variant contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProgressVariant {
+    /// A horizontal bar (the default).
+    #[default]
+    Bar,
+    /// A circular track with visible percentage text.
+    Ring,
+    /// A segmented horizontal gauge.
+    Gauge,
+}
+impl Variant for ProgressVariant {}

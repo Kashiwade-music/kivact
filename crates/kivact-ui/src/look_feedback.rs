@@ -1,8 +1,8 @@
 //! Role: Supply token-based default feedback, card and input-group recipes.
-use super::{
+use crate::component_values::{
     AlertState, AlertVariant, CardState, EmptyStateState, InputGroupMemberState, InputGroupState,
-    Look,
 };
+use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
 use kivact_interaction::Tone;
 

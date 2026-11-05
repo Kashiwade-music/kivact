@@ -1,4 +1,5 @@
 //! Role: Render reactive progress steps with semantic current-step metadata.
+use crate::navigation_values::{StepStatus, StepperItemState, StepperState};
 use kivact_core::custom::Reactive;
 use kivact_core::state::{IntoText, IntoValue, Value, memo};
 use kivact_core::style::{Direction, style};
@@ -7,16 +8,6 @@ use kivact_core::view::{
     node_ref, show, text,
 };
 use std::rc::Rc;
-/// Semantic status attached to a step.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum StepStatus {
-    #[default]
-    Default,
-    Accent,
-    Success,
-    Warning,
-    Error,
-}
 /// A step's optional indicator.
 #[derive(Clone, Default, PartialEq)]
 pub enum StepIndicator {
@@ -112,27 +103,6 @@ impl StepperItem {
     pub fn label(&self) -> String {
         self.label.get()
     }
-}
-/// Recipe state for an individual step.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct StepperItemState {
-    pub index: usize,
-    pub current: usize,
-    pub status: StepStatus,
-    // xtask-allow(state-fields): Derived width fit shared by the root and all recipe parts.
-    pub collapsed: bool,
-    // xtask-allow(state-fields): Independent caller availability projected into a passive recipe snapshot.
-    pub disabled: bool,
-    // xtask-allow(state-fields): Independent optional-step metadata projected into a passive recipe snapshot.
-    pub optional: bool,
-}
-/// Actual responsive layout projected from the mounted root and caller data.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct StepperState {
-    pub current: usize,
-    pub count: usize,
-    pub orientation: Orientation,
-    pub collapsed: bool,
 }
 /// A progress list whose current step belongs to the application.
 pub struct Stepper {

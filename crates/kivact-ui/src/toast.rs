@@ -232,22 +232,7 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
             action
         }
     });
-    let close = node()
-        .part(kivact_interaction::use_button().control())
-        .name(kivact_core::i18n::message("toast.close", "Close"))
-        .on_press(move || toaster.dismiss(id))
-        .child(kivact_core::view::icon("x"));
-    let close = if let Some(gesture) = gesture {
-        close.on_pointer(move |event| gesture.protect_action(event))
-    } else {
-        close
-    };
-    let close = with_recipe_style(
-        close,
-        |r| r.toast_recipes().close_recipe(),
-        variants,
-        move || state.get(),
-    );
+    let close = close_button(toaster, id, gesture, state, variants);
     let card = with_recipe_style(
         node()
             .node_ref(card_ref)
@@ -270,3 +255,29 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
 }
 
 pub use crate::toast_tokens::{ToastRowMotion, ToastTokens};
+
+/// Render a toast dismiss control protected from swipe gesture activation.
+fn close_button(
+    toaster: Toaster,
+    id: ToastId,
+    gesture: Option<Swipe>,
+    state: Value<kivact_interaction::ToastState>,
+    variants: &Variants,
+) -> kivact_core::view::Node {
+    let close = node()
+        .part(kivact_interaction::use_button().control())
+        .name(kivact_core::i18n::message("toast.close", "Close"))
+        .on_press(move || toaster.dismiss(id))
+        .child(kivact_core::view::icon("x"));
+    let close = if let Some(gesture) = gesture {
+        close.on_pointer(move |event| gesture.protect_action(event))
+    } else {
+        close
+    };
+    with_recipe_style(
+        close,
+        |r| r.toast_recipes().close_recipe(),
+        variants,
+        move || state.get(),
+    )
+}

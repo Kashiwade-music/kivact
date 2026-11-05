@@ -46,67 +46,8 @@ pub(super) fn month_panel(
     month: CalendarMonth,
     first: Weekday,
 ) -> Node {
-    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
-    let (back, forward) = if rtl {
-        ("chevron-right", "chevron-left")
-    } else {
-        ("chevron-left", "chevron-right")
-    };
     let grid = shared.grid;
-    let previous = if index == 0 {
-        nav_button(back, names.previous, grid.previous_month())
-    } else {
-        spacer().into_view()
-    };
-    let next = if index + 1 == shared.count {
-        nav_button(forward, names.next, grid.next_month())
-    } else {
-        spacer().into_view()
-    };
-    let previous_year = show(shared.year_navigation, move || {
-        nav_button(
-            "chevrons-left",
-            kivact_core::i18n::message("calendar.previous_year", "Previous year"),
-            grid.previous_year(),
-        )
-    });
-    let next_year = show(shared.year_navigation, move || {
-        nav_button(
-            "chevrons-right",
-            kivact_core::i18n::message("calendar.next_year", "Next year"),
-            grid.next_year(),
-        )
-    });
-    let caption = row((
-        previous_year,
-        previous,
-        node().child(title(shared, names, index, month)).style(
-            style()
-                .grow(1)
-                .direction(Direction::Row)
-                .justify_content(Justify::Center)
-                .align_items(Align::Center),
-        ),
-        next,
-        next_year,
-    ))
-    .style(
-        style()
-            .direction(if rtl {
-                Direction::RowReverse
-            } else {
-                Direction::Row
-            })
-            .align_items(Align::Center)
-            .height(cell_size())
-            .width(pct(100)),
-    );
-    let caption = with_recipe_style(
-        caption,
-        |r| r.calendar_recipes().caption_recipe(),
-        &shared.variants,
-        PartState::default,
-    );
+    let caption = month_caption(shared, names, index, month);
     let locale = kivact_core::i18n::use_locale();
     let headers = row((0..7)
         .map(|c| {
@@ -193,20 +134,21 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let range = shared.range;
     let marked = kivact_core::state::memo(move || {
         let mut state = observed.get();
-        if let Some(range) = range.get() {
-            if day >= range.start() && day <= range.end() {
-                state.selected = true;
-                state.edge = day == range.start() || day == range.end();
-                state.span = if range.start() == range.end() {
-                    kivact_interaction::CalendarSpan::None
-                } else if day == range.start() {
-                    kivact_interaction::CalendarSpan::Start
-                } else if day == range.end() {
-                    kivact_interaction::CalendarSpan::End
-                } else {
-                    kivact_interaction::CalendarSpan::Middle
-                };
-            }
+        if let Some(range) = range.get()
+            && day >= range.start()
+            && day <= range.end()
+        {
+            state.selected = true;
+            state.edge = day == range.start() || day == range.end();
+            state.span = if range.start() == range.end() {
+                kivact_interaction::CalendarSpan::None
+            } else if day == range.start() {
+                kivact_interaction::CalendarSpan::Start
+            } else if day == range.end() {
+                kivact_interaction::CalendarSpan::End
+            } else {
+                kivact_interaction::CalendarSpan::Middle
+            };
         }
         state
     });
@@ -222,7 +164,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             .child(event_marks(shared, day, marked)),
         |r| r.calendar_recipes().day_recipe(),
         &shared.variants,
-        move || crate::CalendarDayVisual {
+        move || crate::calendar::state::CalendarDayVisual {
             date: day,
             day: marked.get(),
             today: day == today.get(),
@@ -268,7 +210,7 @@ fn event_marks(
                         node(),
                         |r| r.calendar_recipes().event_recipe(),
                         &variants,
-                        move || crate::CalendarEventVisual {
+                        move || crate::calendar_tokens::CalendarEventVisual {
                             color: event.color,
                             selected: marked.get().edge,
                         },
@@ -281,6 +223,76 @@ fn event_marks(
     with_recipe_style(
         node().child(contents),
         |r| r.calendar_recipes().events_recipe(),
+        &shared.variants,
+        PartState::default,
+    )
+}
+
+/// Render month/year paging and the theme-owned caption row.
+fn month_caption(
+    shared: &Rc<Shared>,
+    names: &Rc<Names>,
+    index: usize,
+    month: CalendarMonth,
+) -> Node {
+    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+    let (back, forward) = if rtl {
+        ("chevron-right", "chevron-left")
+    } else {
+        ("chevron-left", "chevron-right")
+    };
+    let grid = shared.grid;
+    let previous = if index == 0 {
+        nav_button(back, names.previous, grid.previous_month())
+    } else {
+        spacer().into_view()
+    };
+    let next = if index + 1 == shared.count {
+        nav_button(forward, names.next, grid.next_month())
+    } else {
+        spacer().into_view()
+    };
+    let previous_year = show(shared.year_navigation, move || {
+        nav_button(
+            "chevrons-left",
+            kivact_core::i18n::message("calendar.previous_year", "Previous year"),
+            grid.previous_year(),
+        )
+    });
+    let next_year = show(shared.year_navigation, move || {
+        nav_button(
+            "chevrons-right",
+            kivact_core::i18n::message("calendar.next_year", "Next year"),
+            grid.next_year(),
+        )
+    });
+    let caption = row((
+        previous_year,
+        previous,
+        node().child(title(shared, names, index, month)).style(
+            style()
+                .grow(1)
+                .direction(Direction::Row)
+                .justify_content(Justify::Center)
+                .align_items(Align::Center),
+        ),
+        next,
+        next_year,
+    ))
+    .style(
+        style()
+            .direction(if rtl {
+                Direction::RowReverse
+            } else {
+                Direction::Row
+            })
+            .align_items(Align::Center)
+            .height(cell_size())
+            .width(pct(100)),
+    );
+    with_recipe_style(
+        caption,
+        |r| r.calendar_recipes().caption_recipe(),
         &shared.variants,
         PartState::default,
     )

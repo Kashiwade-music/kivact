@@ -170,101 +170,31 @@ impl DateInput {
         let external_invalid = root.accessible_invalid();
         let described_by = root.accessible_described_by();
         let locale = use_locale();
-        let initial = value.get_untracked().map_or(Draft::Empty, Draft::Valid);
-        let state = machine(
-            DateInputState::Closed { draft: initial },
-            move || Snapshot {
-                locale: locale.get(),
-                min: min.get(),
-                max: max.get(),
-            },
-            move |_, next| {
-                value.set(next);
-                if let Some(valid) = valid {
-                    valid.set(true);
-                }
-            },
-        );
-        let open = binding(
-            move || state.get().is_open(),
-            move |open| {
-                if open {
-                    state.send(Event::Open(OpenedBy::Button))
-                } else {
-                    state.send(Event::Close)
-                }
-            },
-        );
-        let typed = machine(
-            value.get_untracked().map_or(
-                TypedDate::Editing {
-                    text: String::new(),
-                    validation: DateValidation::Unchecked,
-                },
-                TypedDate::Following,
-            ),
-            move || TypedSnapshot {
-                locale: locale.get(),
-                min: min.get(),
-                max: max.get(),
-            },
-            move |_, effect| match effect {
-                super::machine::TypedEffect::Commit(text) => state.send(Event::Commit(text)),
-                super::machine::TypedEffect::Validity(next) => {
-                    if let Some(valid) = valid {
-                        valid.set(next);
-                    }
-                }
-            },
-        );
+        let state = date_controller(value, valid, min, max, locale);
+        let open = picker_open(state);
+        let typed = typed_controller(value, valid, min, max, locale, state);
         kivact_core::state::effect(move || {
             let value = value.get();
             typed.send(TypedEvent::External(value));
             state.send(Event::External(value));
         });
-        let display = custom_format.clone();
-        let draft = binding(
-            move || match typed.get() {
-                TypedDate::Following(date) => display.as_ref().map_or_else(
-                    || locale.get().format_date(date, format.get()),
-                    |format| format(date),
-                ),
-                TypedDate::Editing { text, .. } => text,
-            },
-            move |text: String| typed.send(TypedEvent::Edit(text)),
-        );
+        let draft = draft_binding(typed, format, custom_format.clone(), locale);
         let error_ref = kivact_core::view::node_ref();
         let error = date_diagnostic(typed.state(), locale, error_ref);
-        let mut field = text_input(label, draft)
-            .with_node(|node| node.described_by(error_ref))
-            .placeholder(placeholder)
-            .invalid(move || {
-                external_invalid.is_some_and(|invalid| invalid.get())
-                    || checked_invalid(&typed.get())
-            })
-            .forward_keys(vec![Key::ArrowDown])
-            .on_key(move |event: KeyEvent| {
-                if event.key() == Key::ArrowDown {
-                    state.send(Event::Open(OpenedBy::Input));
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            })
-            .on_draft_commit(move |text| {
-                if let Some(date) = value.get_untracked().filter(|date| {
-                    custom_format
-                        .as_ref()
-                        .is_some_and(|format| format(*date) == text)
-                }) {
-                    state.send(Event::Pick(date));
-                } else {
-                    typed.send(TypedEvent::Commit(text));
-                }
-            });
-        for reference in described_by {
-            field = field.with_node(|node| node.described_by(reference));
-        }
+        let field = date_editor(
+            EditorInputs {
+                label,
+                placeholder,
+                value,
+                custom_format,
+                external_invalid,
+                described_by,
+            },
+            typed,
+            state,
+            draft,
+            error_ref,
+        );
         let toggle = button(message("date.open", "Choose date"))
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
@@ -274,18 +204,14 @@ impl DateInput {
                 Some(date) => state.send(Event::Pick(date)),
                 None => state.send(Event::Clear),
             });
-            let mut picker = calendar(selected).min(min).max(max).autofocus(true);
-            if let Some(day) = week_start {
-                picker = picker.week_start(day);
-            }
-            if let Some(configure) = &configure {
-                picker = configure(picker);
-            }
-            if presentation.sheet() {
-                crate::date_wheel::date_panel(selected, picker).into_view()
-            } else {
-                picker.into_view()
-            }
+            date_picker(
+                selected,
+                min,
+                max,
+                week_start,
+                presentation,
+                configure.as_ref(),
+            )
         };
         root.child(with_recipe_style(
             row((
@@ -403,4 +329,182 @@ fn iso_shaped(text: &str) -> bool {
             .iter()
             .enumerate()
             .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
+}
+
+/// Own committed date editing and picker visibility in the canonical controller.
+fn date_controller(
+    value: Binding<Option<CalendarDate>>,
+    valid: Option<Binding<bool>>,
+    min: Value<Option<CalendarDate>>,
+    max: Value<Option<CalendarDate>>,
+    locale: Value<kivact_core::i18n::Locale>,
+) -> kivact_core::state::MachineHandle<Snapshot> {
+    let initial = value.get_untracked().map_or(Draft::Empty, Draft::Valid);
+    machine(
+        DateInputState::Closed { draft: initial },
+        move || Snapshot {
+            locale: locale.get(),
+            min: min.get(),
+            max: max.get(),
+        },
+        move |_, next| {
+            value.set(next);
+            if let Some(valid) = valid {
+                valid.set(true);
+            }
+        },
+    )
+}
+/// Bind picker visibility to the controller's open/close transitions.
+fn picker_open(state: kivact_core::state::MachineHandle<Snapshot>) -> Binding<bool> {
+    binding(
+        move || state.get().is_open(),
+        move |open| {
+            if open {
+                state.send(Event::Open(OpenedBy::Button))
+            } else {
+                state.send(Event::Close)
+            }
+        },
+    )
+}
+/// Own the pending text and its checked validation through the typed-date machine.
+fn typed_controller(
+    value: Binding<Option<CalendarDate>>,
+    valid: Option<Binding<bool>>,
+    min: Value<Option<CalendarDate>>,
+    max: Value<Option<CalendarDate>>,
+    locale: Value<kivact_core::i18n::Locale>,
+    state: kivact_core::state::MachineHandle<Snapshot>,
+) -> kivact_core::state::MachineHandle<TypedSnapshot> {
+    machine(
+        value.get_untracked().map_or(
+            TypedDate::Editing {
+                text: String::new(),
+                validation: DateValidation::Unchecked,
+            },
+            TypedDate::Following,
+        ),
+        move || TypedSnapshot {
+            locale: locale.get(),
+            min: min.get(),
+            max: max.get(),
+        },
+        move |_, effect| match effect {
+            super::machine::TypedEffect::Commit(text) => state.send(Event::Commit(text)),
+            super::machine::TypedEffect::Validity(next) => {
+                if let Some(valid) = valid {
+                    valid.set(next);
+                }
+            }
+        },
+    )
+}
+/// Compose the configured calendar or date-wheel presentation.
+fn date_picker(
+    selected: Binding<Option<CalendarDate>>,
+    min: Value<Option<CalendarDate>>,
+    max: Value<Option<CalendarDate>>,
+    week_start: Option<Value<Weekday>>,
+    presentation: DatePresentation,
+    configure: Option<&Rc<dyn Fn(Calendar) -> Calendar>>,
+) -> View {
+    let mut picker = calendar(selected).min(min).max(max).autofocus(true);
+    if let Some(day) = week_start {
+        picker = picker.week_start(day);
+    }
+    if let Some(configure) = configure {
+        picker = configure(picker);
+    }
+    if presentation.sheet() {
+        crate::date_wheel::date_panel(selected, picker).into_view()
+    } else {
+        picker.into_view()
+    }
+}
+
+type DateFormat = Rc<dyn Fn(CalendarDate) -> String>;
+// xtask-allow(state-fields): Independent text-editor construction inputs and caller-owned semantic references; typed-date lifecycle belongs to its machine.
+struct EditorInputs {
+    label: Value<String>,
+    placeholder: Value<String>,
+    value: Binding<Option<CalendarDate>>,
+    custom_format: Option<DateFormat>,
+    external_invalid: Option<Value<bool>>,
+    described_by: Vec<kivact_core::view::NodeRef>,
+}
+/// Render the date editor with its canonical typed draft, diagnostics and picker commands.
+fn date_editor(
+    inputs: EditorInputs,
+    typed: kivact_core::state::MachineHandle<TypedSnapshot>,
+    state: kivact_core::state::MachineHandle<Snapshot>,
+    draft: Binding<String>,
+    error_ref: kivact_core::view::NodeRef,
+) -> crate::TextInput {
+    let EditorInputs {
+        label,
+        placeholder,
+        value,
+        custom_format,
+        external_invalid,
+        described_by,
+    } = inputs;
+    let mut field = text_input(label, draft)
+        .with_node(|node| node.described_by(error_ref))
+        .placeholder(placeholder)
+        .invalid(move || {
+            let draft = typed.get();
+            let editing = matches!(
+                draft,
+                TypedDate::Editing {
+                    validation: DateValidation::Unchecked,
+                    ..
+                }
+            );
+            (!editing && external_invalid.is_some_and(|invalid| invalid.get()))
+                || checked_invalid(&draft)
+        })
+        .forward_keys(vec![Key::ArrowDown])
+        .on_key(move |event: KeyEvent| {
+            if event.key() == Key::ArrowDown {
+                state.send(Event::Open(OpenedBy::Input));
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        })
+        .on_draft_commit(move |text| {
+            if let Some(date) = value.get_untracked().filter(|date| {
+                custom_format
+                    .as_ref()
+                    .is_some_and(|format| format(*date) == text)
+            }) {
+                state.send(Event::Pick(date));
+            } else {
+                typed.send(TypedEvent::Commit(text));
+            }
+        });
+    for reference in described_by {
+        field = field.with_node(|node| node.described_by(reference));
+    }
+    field
+}
+
+/// Display the accepted date in its configured format while preserving pending typed text.
+fn draft_binding(
+    typed: kivact_core::state::MachineHandle<TypedSnapshot>,
+    format: Value<DateStyle>,
+    display: Option<DateFormat>,
+    locale: Value<kivact_core::i18n::Locale>,
+) -> Binding<String> {
+    binding(
+        move || match typed.get() {
+            TypedDate::Following(date) => display.as_ref().map_or_else(
+                || locale.get().format_date(date, format.get()),
+                |format| format(date),
+            ),
+            TypedDate::Editing { text, .. } => text,
+        },
+        move |text: String| typed.send(TypedEvent::Edit(text)),
+    )
 }

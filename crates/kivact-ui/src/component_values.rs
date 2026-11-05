@@ -66,3 +66,12 @@ pub struct StatState {
     /// Direction supplied by the application; it does not imply a success or danger tone.
     pub trend: Trend,
 }
+
+/// The structural presentation of an alert.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AlertVariant {
+    #[default]
+    Default,
+    Banner,
+}
+impl crate::variants::Variant for AlertVariant {}

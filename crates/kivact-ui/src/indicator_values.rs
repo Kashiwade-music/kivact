@@ -18,6 +18,7 @@ pub enum AvatarShape {
     Square,
 }
 kivact_core::state::constant_value!(AvatarShape);
+// xtask-allow(state-fields): Read-only recipe projection of actual input and independent construction facts for activation and leading/trailing content.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BadgeState {
     pub tone: Tone,

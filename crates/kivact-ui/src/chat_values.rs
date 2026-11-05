@@ -99,3 +99,13 @@ pub struct ChatComposerState {
 pub struct TypingIndicatorState {
     pub phase: f64,
 }
+
+// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
+/// Rendered source facts supplied to code-block recipes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CodeBlockState {
+    pub numbered: bool,
+    pub wrapped: bool,
+    pub expanded: bool,
+    pub copied: bool,
+}

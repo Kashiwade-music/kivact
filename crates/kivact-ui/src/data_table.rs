@@ -11,7 +11,7 @@ mod chrome;
 mod column_keys;
 mod filter_value;
 mod filters;
-mod group_state;
+pub(crate) mod group_state;
 mod grouped;
 mod metadata;
 mod navigation;

@@ -156,3 +156,57 @@ fn date_fields_attach_to_existing_buttons_without_constructing_editors() {
     assert!(screen.query_by_role(Role::GridCell, "2026-10-12").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn date_range_input_keeps_invalid_order_as_a_draft() {
+    let (screen, range) = mount(|| {
+        let range = signal(Some(DateRange::new(day(10), day(20))));
+        (
+            range,
+            ui::date_range_input("Stay", range)
+                .start_label("Check-in")
+                .end_label("Check-out")
+                .presentation(DatePresentation::Desktop),
+        )
+    });
+    let start = screen.get_by_role(Role::TextBox, "Check-in");
+    let end = screen.get_by_role(Role::TextBox, "Check-out");
+    let select_all = kivact::view::Modifiers {
+        ctrl: true,
+        ..Default::default()
+    };
+    end.click();
+    end.press_key_with(Key::Char('a'), select_all);
+    end.type_text("2026-10-05");
+    end.press_key(Key::Enter);
+    let message = "The end date is before the start date";
+    screen.get_by_role(Role::Status, message);
+    assert!(start.is_invalid() && end.is_invalid());
+    for field in [&start, &end] {
+        assert!(
+            field
+                .described_by()
+                .iter()
+                .any(|description| description.name() == message)
+        );
+    }
+    assert_eq!(
+        range.get_untracked(),
+        Some(DateRange::new(day(10), day(20)))
+    );
+    assert_eq!(end.value(), Some("2026-10-05".into()));
+    end.press_key_with(Key::Char('a'), select_all);
+    end.type_text("2026-10-25");
+    end.press_key(Key::Enter);
+    assert_eq!(
+        range.get_untracked(),
+        Some(DateRange::new(day(10), day(25)))
+    );
+    assert!(screen.query_by_role(Role::Status, message).is_none());
+    assert!(!start.is_invalid() && !end.is_invalid());
+    range.set(Some(DateRange::new(day(2), day(8))));
+    screen.run_until_idle();
+    assert_eq!(start.value(), Some("2026-10-02".into()));
+    assert_eq!(end.value(), Some("2026-10-08".into()));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

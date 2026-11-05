@@ -34,7 +34,8 @@ impl RangeDraft {
     }
     pub(super) fn order_invalid(self) -> bool {
         let (start, end) = self.endpoints();
-        matches!((start,end),(Some(start),Some(end)) if start>end)
+        self.fields() == FieldValidity::Valid
+            && matches!((start,end),(Some(start),Some(end)) if start>end)
     }
     fn candidate(self) -> Option<Option<DateRange>> {
         if self.fields() != FieldValidity::Valid {
@@ -98,10 +99,8 @@ impl Machine for Policy {
             .candidate()
             .filter(|candidate| candidate.is_none_or(|range| (self.accept)(range)));
         let step = Step::to(next).with(Effect::Validity(accepted.is_some()));
-        if commit {
-            if let Some(value) = accepted {
-                return step.with(Effect::Publish(value));
-            }
+        if commit && let Some(value) = accepted {
+            return step.with(Effect::Publish(value));
         }
         step
     }

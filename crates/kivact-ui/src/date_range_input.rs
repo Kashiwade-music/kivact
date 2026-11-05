@@ -178,32 +178,62 @@ impl DateRangeInput {
         self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
     }
     fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
-        let Self {
-            root,
-            variants,
-            label,
-            start_label,
-            end_label,
-            value,
-            format,
-            custom_format,
-            placeholder,
-            valid,
-            min,
-            max,
-            week_start,
-            presentation,
-            configure,
-            presets,
-            constraints,
-            min_span,
-            max_span,
-        } = self;
-        let configured_rules = configure
+        let accept = self.range_validator();
+        let open = signal(false);
+        let trigger_focus = match &field {
+            crate::date_trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
+            crate::date_trigger::FieldPresentation::Text => None,
+        };
+        let content = self.picker_content(open, accept.clone(), trigger_focus);
+        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+            return self
+                .root
+                .child(
+                    attach.view(
+                        dialog(self.label, open)
+                            .with_variants(&self.variants)
+                            .mode(self.presentation.mode())
+                            .hide_title(true)
+                            .content(move || content.call(())),
+                    ),
+                )
+                .into_view();
+        }
+        let editors = range_editors(self.value, self.valid, accept);
+        let (order_ref, order_error) = order_diagnostic(editors.draft);
+        let (first, last) = self.endpoint_fields(&editors, order_ref);
+        let root = crate::layer::with_base_recipe_style(
+            self.root,
+            |r| r.date_range_input_recipes().root_recipe(),
+            &self.variants,
+            kivact_core::custom::PartState::default,
+        );
+        let trigger = button(message("date.range_open", "Choose date range"));
+        root.child(row((
+            first,
+            last,
+            dialog(self.label, open)
+                .with_variants(&self.variants)
+                .mode(self.presentation.mode())
+                .hide_title(true)
+                .content(move || content.call(()))
+                .attach(trigger),
+        )))
+        .child(order_error)
+        .into_view()
+    }
+}
+
+impl DateRangeInput {
+    /// Compose configured calendar, endpoint, span and caller constraints into one validator.
+    fn range_validator(&self) -> Rc<dyn Fn(DateRange) -> bool> {
+        let (min, max, min_span, max_span) = (self.min, self.max, self.min_span, self.max_span);
+        let configured_rules = self
+            .configure
             .as_ref()
-            .map(|configure| configure(calendar(value)).range_validator());
-        let constraints = Rc::new(constraints);
-        let accept: Rc<dyn Fn(DateRange) -> bool> = Rc::new(move |range| {
+            .map(|configure| configure(calendar(self.value)).range_validator());
+        let constraints = Rc::new(self.constraints.clone());
+        Rc::new(move |range| {
             let (start, end) = (range.start(), range.end());
             let span = start.to_days().abs_diff(end.to_days()) + 1;
             configured_rules.as_ref().is_none_or(|accept| accept(range))
@@ -214,14 +244,21 @@ impl DateRangeInput {
                 && constraints
                     .iter()
                     .all(|accept| accept(start) && accept(end))
-        });
-        let draft_accept = accept.clone();
-        let open = signal(false);
-        let trigger_focus = match &field {
-            crate::date_trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
-            crate::date_trigger::FieldPresentation::Text => None,
-        };
-        let content = move || {
+        })
+    }
+    /// Render preset choices and the canonical two-month range picker.
+    fn picker_content(
+        &self,
+        open: kivact_core::state::Signal<bool>,
+        accept: Rc<dyn Fn(DateRange) -> bool>,
+        trigger_focus: Option<kivact_core::view::NodeRef>,
+    ) -> kivact_core::view::ViewFn {
+        let (min, max, min_span, max_span) = (self.min, self.max, self.min_span, self.max_span);
+        let value = self.value;
+        let week_start = self.week_start;
+        let configure = self.configure.clone();
+        let presets = self.presets;
+        kivact_core::view::ViewFn::from(move |()| {
             let local = signal(value.get_untracked());
             let accepted = accept.clone();
             let mut picker = calendar(local)
@@ -269,86 +306,44 @@ impl DateRangeInput {
                 },
             );
             column((choices, picker))
-        };
-
-        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
-            return root
-                .child(
-                    attach.view(
-                        dialog(label, open)
-                            .with_variants(&variants)
-                            .mode(presentation.mode())
-                            .hide_title(true)
-                            .content(content),
-                    ),
-                )
-                .into_view();
-        }
-        let draft = kivact_core::state::machine(
-            RangeDraft::Following(value.get_untracked()),
-            move || DraftPolicy {
-                accept: draft_accept.clone(),
-            },
-            move |_, effect| match effect {
-                DraftEffect::Publish(next) => value.set(next),
-                DraftEffect::Validity(next) => {
-                    if let Some(valid) = valid {
-                        valid.set(next)
-                    }
-                }
-            },
+        })
+    }
+    /// Render independently validated endpoint editors with the shared order diagnostic.
+    fn endpoint_fields(
+        &self,
+        editors: &RangeEditors,
+        order_ref: kivact_core::view::NodeRef,
+    ) -> (crate::DateInput, crate::DateInput) {
+        let RangeEditors {
+            draft,
+            start,
+            end,
+            start_valid,
+            end_valid,
+        } = *editors;
+        let (start_label, end_label, format, min, max, presentation, placeholder, week_start) = (
+            self.start_label,
+            self.end_label,
+            self.format,
+            self.min,
+            self.max,
+            self.presentation,
+            self.placeholder,
+            self.week_start,
         );
-        kivact_core::state::effect(move || draft.send(DraftEvent::External(value.get())));
-        let start = binding(
-            move || draft.get().endpoints().0,
-            move |value| draft.send(DraftEvent::Start(value)),
-        );
-        let end = binding(
-            move || draft.get().endpoints().1,
-            move |value| draft.send(DraftEvent::End(value)),
-        );
-        let start_valid = binding(
-            move || {
-                matches!(
-                    draft.get().fields(),
-                    FieldValidity::Valid | FieldValidity::EndInvalid
-                )
-            },
-            move |valid| draft.send(DraftEvent::StartValid(valid)),
-        );
-        let end_valid = binding(
-            move || {
-                matches!(
-                    draft.get().fields(),
-                    FieldValidity::Valid | FieldValidity::StartInvalid
-                )
-            },
-            move |valid| draft.send(DraftEvent::EndValid(valid)),
-        );
-        let order_ref = kivact_core::view::node_ref();
-        let order_message = message("date.error.order", "The end date is before the start date");
-        let order_error = kivact_core::view::text(order_message)
-            .node_ref(order_ref)
-            .role(kivact_core::view::Role::Status)
-            .live_region(kivact_core::view::LiveRegion::Polite)
-            .hidden(move || !draft.get().order_invalid())
-            .style(
-                kivact_core::style::style()
-                    .font_size(12)
-                    .color(kivact_core::style::ColorToken::Danger),
-            );
+        let variants = &self.variants;
         let mut first = date_input(start_label, start)
             .format(format)
             .min(min)
             .max(max)
             .presentation(presentation)
-            .with_variants(&variants);
+            .with_variants(variants);
         let mut last = date_input(end_label, end)
             .format(format)
             .min(min)
             .max(max)
             .presentation(presentation)
-            .with_variants(&variants);
+            .with_variants(variants);
         first = first
             .valid(start_valid)
             .invalid(move || draft.get().order_invalid())
@@ -361,7 +356,7 @@ impl DateRangeInput {
             first = first.placeholder(placeholder);
             last = last.placeholder(placeholder);
         }
-        if let Some(format) = custom_format {
+        if let Some(format) = self.custom_format.clone() {
             let first_format = format.clone();
             first = first.format_with(move |date| first_format(date));
             last = last.format_with(move |date| format(date));
@@ -370,24 +365,87 @@ impl DateRangeInput {
             first = first.week_start(day);
             last = last.week_start(day);
         }
-        let root = crate::layer::with_base_recipe_style(
-            root,
-            |r| r.date_range_input_recipes().root_recipe(),
-            &variants,
-            kivact_core::custom::PartState::default,
-        );
-        let trigger = button(message("date.range_open", "Choose date range"));
-        root.child(row((
-            first,
-            last,
-            dialog(label, open)
-                .with_variants(&variants)
-                .mode(presentation.mode())
-                .hide_title(true)
-                .content(content)
-                .attach(trigger),
-        )))
-        .child(order_error)
-        .into_view()
+        (first, last)
     }
+}
+// xtask-allow(state-fields): Only projections of one authoritative RangeDraft machine into endpoint and validity bindings; no separate mutable lifecycle state.
+/// The canonical range draft and the bindings which project its endpoint fields.
+#[derive(Clone, Copy)]
+struct RangeEditors {
+    draft: kivact_core::state::MachineHandle<DraftPolicy>,
+    start: Binding<Option<CalendarDate>>,
+    end: Binding<Option<CalendarDate>>,
+    start_valid: Binding<bool>,
+    end_valid: Binding<bool>,
+}
+/// Project endpoint edits and validity into the single canonical range draft machine.
+fn range_editors(
+    value: Binding<Option<DateRange>>,
+    valid: Option<Binding<bool>>,
+    accept: Rc<dyn Fn(DateRange) -> bool>,
+) -> RangeEditors {
+    let draft = kivact_core::state::machine(
+        RangeDraft::Following(value.get_untracked()),
+        move || DraftPolicy {
+            accept: accept.clone(),
+        },
+        move |_, effect| match effect {
+            DraftEffect::Publish(next) => value.set(next),
+            DraftEffect::Validity(next) => {
+                if let Some(valid) = valid {
+                    valid.set(next)
+                }
+            }
+        },
+    );
+    kivact_core::state::effect(move || draft.send(DraftEvent::External(value.get())));
+    let start_value = kivact_core::state::memo(move || draft.get().endpoints().0);
+    let end_value = kivact_core::state::memo(move || draft.get().endpoints().1);
+    let start = binding(start_value, move |value| {
+        draft.send(DraftEvent::Start(value))
+    });
+    let end = binding(end_value, move |value| draft.send(DraftEvent::End(value)));
+    let start_valid = binding(
+        move || {
+            matches!(
+                draft.get().fields(),
+                FieldValidity::Valid | FieldValidity::EndInvalid
+            )
+        },
+        move |valid| draft.send(DraftEvent::StartValid(valid)),
+    );
+    let end_valid = binding(
+        move || {
+            matches!(
+                draft.get().fields(),
+                FieldValidity::Valid | FieldValidity::StartInvalid
+            )
+        },
+        move |valid| draft.send(DraftEvent::EndValid(valid)),
+    );
+    RangeEditors {
+        draft,
+        start,
+        end,
+        start_valid,
+        end_valid,
+    }
+}
+/// Expose invalid endpoint order from the actual range draft's validation state.
+fn order_diagnostic(
+    draft: kivact_core::state::MachineHandle<DraftPolicy>,
+) -> (kivact_core::view::NodeRef, Node) {
+    let order_ref = kivact_core::view::node_ref();
+    let order_message = message("date.error.order", "The end date is before the start date");
+    let order_error = kivact_core::view::text(order_message)
+        .node_ref(order_ref)
+        .role(kivact_core::view::Role::Status)
+        .live_region(kivact_core::view::LiveRegion::Polite)
+        .hidden(move || !draft.get().order_invalid())
+        .style(
+            kivact_core::style::style()
+                .font_size(12)
+                .color(kivact_core::style::ColorToken::Danger),
+        );
+    (order_ref, order_error)
 }

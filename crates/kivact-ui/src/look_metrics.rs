@@ -1,5 +1,7 @@
 //! Role: Supply theme-based default recipes for metrics and description pairs.
-use crate::{HeadingState, Look, ProgressState, ProgressVariant, StatState};
+use crate::component_values::{HeadingState, StatState};
+use crate::values::{ProgressState, ProgressVariant};
+use crate::variants::Look;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::style::{

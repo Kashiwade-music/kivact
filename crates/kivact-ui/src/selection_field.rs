@@ -104,27 +104,7 @@ impl IntoView for SelectionField {
             gesture.send(crate::select::machine::Event::Reset);
             Handled::No
         });
-        let popup_open = binding(
-            move || open.get() && surface.get() == Surface::Popup,
-            move |shown| {
-                if shown {
-                    let sheet = presentation.get().uses_sheet()
-                        && matches!(
-                            gesture.get(),
-                            crate::select::machine::SheetGesture::Released(
-                                crate::select::machine::Outcome::Tap
-                            )
-                        );
-                    surface.set(if sheet {
-                        Surface::Sheet
-                    } else {
-                        Surface::Popup
-                    });
-                    gesture.send(crate::select::machine::Event::Reset);
-                }
-                open.set(shown);
-            },
-        );
+        let popup_open = popup_binding(open, surface, presentation, gesture);
         let content = self.content;
         let popup_body = content.clone();
         let variants = self.variants;
@@ -193,4 +173,34 @@ fn indicator(open: Binding<bool>, variants: &Variants) -> View {
     )
     .child(icon("chevron-down"))
     .into_view()
+}
+
+/// Choose the requested surface using the canonical sheet-tap outcome.
+fn popup_binding(
+    open: Binding<bool>,
+    surface: kivact_core::state::Signal<Surface>,
+    presentation: Value<crate::SelectPresentation>,
+    gesture: kivact_core::state::MachineHandle<crate::select::machine::Machine>,
+) -> Binding<bool> {
+    binding(
+        move || open.get() && surface.get() == Surface::Popup,
+        move |shown| {
+            if shown {
+                let sheet = presentation.get().uses_sheet()
+                    && matches!(
+                        gesture.get(),
+                        crate::select::machine::SheetGesture::Released(
+                            crate::select::machine::Outcome::Tap
+                        )
+                    );
+                surface.set(if sheet {
+                    Surface::Sheet
+                } else {
+                    Surface::Popup
+                });
+                gesture.send(crate::select::machine::Event::Reset);
+            }
+            open.set(shown);
+        },
+    )
 }

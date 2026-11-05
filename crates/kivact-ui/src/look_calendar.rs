@@ -88,6 +88,6 @@ pub(super) fn events(_: &Theme, _: &PartState) -> Style {
         .bottom(2)
         .gap(2)
 }
-pub(super) fn event(_: &Theme, s: &crate::CalendarEventVisual) -> Style {
+pub(super) fn event(_: &Theme, s: &crate::calendar_tokens::CalendarEventVisual) -> Style {
     style().size(3, 3).radius(2).background(s.color)
 }
