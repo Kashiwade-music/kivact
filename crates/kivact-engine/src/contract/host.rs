@@ -65,3 +65,16 @@ pub enum HostRequest {
     /// Override reduced motion, or follow the system preference.
     ReducedMotion(Option<bool>),
 }
+
+/// The settled host's answer to a subtree CPU capture request.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SnapshotResult {
+    /// Straight-alpha RGBA pixels at logical scale 1.
+    Pixels(kivact_types::Pixels),
+    /// The target no longer has mounted layout.
+    Unmounted,
+    /// The scene contains commands without CPU rendering support.
+    Unsupported,
+    /// A rendering resource failed, with its classified diagnostic text.
+    Failed(String),
+}

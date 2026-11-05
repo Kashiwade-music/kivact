@@ -106,7 +106,7 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             platform::effect_result(rt, *request, result)
         }
         HostEvent::SnapshotResult { request, result } => {
-            crate::view::snapshots::resolve(rt, *request, result.as_ref())
+            crate::view::snapshots::resolve(rt, *request, result)
         }
         HostEvent::ImageStatusChanged { node, status } => {
             let observation = crate::view::state::ViewState::tree(rt)

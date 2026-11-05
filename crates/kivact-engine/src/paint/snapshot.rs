@@ -1,5 +1,6 @@
 //! Role: Extract and CPU rasterize a mounted subtree using the window paint pipeline.
 
+use crate::contract::SnapshotResult;
 use crate::model::Model;
 use crate::offscreen::{OffscreenError, OffscreenImage, OffscreenRenderer};
 use kivact_types::{NodeId, Rect};
@@ -8,13 +9,18 @@ impl Model {
     /// Answer queued captures only from the host's settled layout boundary.
     pub(crate) fn snapshot_requests(&mut self, engine: &mut arvane::Engine) {
         for (request, node) in std::mem::take(&mut self.snapshots) {
-            let result = self.snapshot(node, engine).map(|result| {
-                result.map(|image| kivact_types::Pixels {
+            let result = match self.snapshot(node, engine) {
+                None => SnapshotResult::Unmounted,
+                Some(Ok(image)) => SnapshotResult::Pixels(kivact_types::Pixels {
                     width: image.width,
                     height: image.height,
                     rgba: image.rgba.into(),
-                })
-            });
+                }),
+                Some(Err(OffscreenError::Dropped(_))) => SnapshotResult::Unsupported,
+                Some(Err(OffscreenError::Failed(message))) => {
+                    SnapshotResult::Failed(message.to_string())
+                }
+            };
             self.push(crate::contract::HostEvent::SnapshotResult { request, result });
         }
     }
