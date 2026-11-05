@@ -19,3 +19,5 @@ impl SelectPresentation {
         }
     }
 }
+
+kivact_core::state::constant_value!(SelectPresentation);

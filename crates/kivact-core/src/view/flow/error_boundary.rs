@@ -30,6 +30,7 @@ use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_bran
 
 type FallbackFn = crate::view::ViewFn<(UiError, Retry)>;
 
+// xtask-allow(state-fields): Fallback rendering and error notification are independently optional construction hooks.
 /// A boundary catching the errors of its child. Built by
 /// [`error_boundary`]; see the module documentation for the semantics.
 pub struct ErrorBoundary {

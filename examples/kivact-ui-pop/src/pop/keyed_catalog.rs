@@ -23,7 +23,7 @@ fn segmented<K: kivact::state::ItemKey>(
 ) -> RadioGroup<K> {
     kivact::ui::radio_group(label, options, value)
         .orientation(Orientation::Horizontal)
-        .variant(ui::Segmented)
+        .variant(kivact::ui::RadioGroupVariant::Segmented)
 }
 
 pub(super) fn selection() -> Node {

@@ -2,7 +2,7 @@
 use kivact::draw::{Shape, linear_gradient};
 use kivact::prelude::*;
 use kivact::style::{Direction, Position};
-use kivact_ui_pop::{self as ui, Hue, Tokens, badge, panel};
+use kivact_ui_pop::{self as ui, Hue, Tokens, panel};
 /// All mission content is public data; fetching, rewards and locking belong to the application.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Mission {
@@ -103,8 +103,8 @@ pub(super) fn mission_card(mission: Mission, action: impl Into<Callback<()>>) ->
             )
             .child(icon(mission.banner_icon).style(style().size(40, 40)))
             .child(
-                badge(mission.rank)
-                    .hue(mission.rank_tone)
+                kivact::ui::badge(mission.rank)
+                    .variant(ui::BadgeHue::new(mission.rank_tone))
                     .variant(ui::BadgeVariant::Slant)
                     .style(style().position(Position::Absolute).right(16).top(12)),
             ),

@@ -167,7 +167,7 @@ pub use disclosure::{Disclosure, DisclosureMotion, DisclosureTokens, disclosure}
 pub use field::{Field, field};
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
-pub use progress::{Progress, ProgressMotion, ProgressTokens, progress};
+pub use progress::{Progress, ProgressMotion, ProgressTokens, ProgressVariant, progress};
 pub use recipes::{
     CalendarRecipes, ComboboxRecipes, CommandPaletteRecipes, DataTableRecipes, DateInputRecipes,
     DateRangeInputRecipes, DateTimeInputRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
@@ -269,6 +269,8 @@ pub use recipes::HoverCardRecipes;
 
 mod combobox;
 mod drawer_swipe;
+mod selection_field;
+pub use selection_field::{SelectionField, selection_field};
 mod selector_presentation;
 pub use combobox::{Combobox, ComboboxTokens, combobox};
 pub use kivact_interaction::ComboboxMode;
@@ -340,9 +342,45 @@ mod pagination_draft;
 mod stepper;
 pub use breadcrumb::{Breadcrumb, breadcrumb};
 pub use navigation_menu::{NavigationMenu, navigation_menu};
-pub use navigation_tokens::NavigationTokens;
+pub use navigation_tokens::{NavigationTokens, StepperTokens};
 pub use pagination::{PageItem, Pagination, PaginationMode, pagination};
 pub use recipes::{BreadcrumbRecipes, NavigationMenuRecipes, PaginationRecipes, StepperRecipes};
 pub use stepper::{
-    IndicatorContent, StepIndicator, StepStatus, Stepper, StepperItem, StepperItemState, stepper,
+    IndicatorContent, StepIndicator, StepStatus, Stepper, StepperItem, StepperItemState,
+    StepperState, stepper,
 };
+
+mod description_list;
+mod heading;
+mod look_metrics;
+mod stat;
+pub use description_list::{Description, DescriptionList, description, description_list};
+pub use heading::{Heading, HeadingState, heading};
+pub use recipes::{DescriptionListRecipes, StatRecipes};
+pub use stat::{Stat, StatState, Trend, stat};
+
+mod chat_composer;
+mod chat_message;
+mod chat_thread;
+mod chat_tokens;
+mod chat_values;
+mod code_block;
+mod code_editing;
+mod composer_history;
+mod look_chat;
+mod typing_indicator;
+pub use chat_composer::{ChatComposer, chat_composer};
+pub use chat_message::{ChatMessage, chat_message};
+pub use chat_thread::{ChatThread, chat_thread};
+pub use chat_tokens::{ChatTokens, CodeBlockTokens};
+pub use chat_values::{
+    ChatAlign, ChatBubbleGroup, ChatComposerState, ChatMessageState, ChatMessageStatus,
+    ChatMessageVariant, ChatReactionsSide, ChatSender, ChatThreadState, ComposerStatus,
+    ComposerStatusPosition, TypingIndicatorState,
+};
+pub use code_block::{CodeBlock, CodeBlockState, code_block};
+pub use recipes::{
+    ChatComposerRecipes, ChatMessageRecipes, ChatThreadRecipes, CodeBlockRecipes,
+    TypingIndicatorRecipes,
+};
+pub use typing_indicator::{TypingIndicator, typing_indicator};

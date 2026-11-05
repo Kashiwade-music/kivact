@@ -12,6 +12,7 @@ use std::rc::Rc;
 pub struct Dropzone {
     root: Node,
     variants: crate::variants::Variants,
+    icon: Option<View>,
     label: Value<String>,
     hint: Value<String>,
     filters: Value<Vec<(String, Vec<String>)>>,
@@ -25,6 +26,7 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
     Dropzone {
         variants: crate::variants::Variants::default(),
         root: node(),
+        icon: None,
         label: label.into_text_value(),
         hint: String::new().into_value(),
         filters: Vec::new().into_value(),
@@ -35,6 +37,12 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
     }
 }
 impl Dropzone {
+    /// Add decorative content above the label, mounted once.
+    pub fn icon(mut self, icon: impl IntoView) -> Self {
+        self.icon = Some(icon.into_view());
+        self
+    }
+
     /// Add a setup-only visual variant for every component recipe.
     pub fn variant(self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
@@ -83,6 +91,7 @@ impl IntoView for Dropzone {
             mut root,
             variants,
             label,
+            icon,
             hint,
             filters,
             multiple,
@@ -170,11 +179,37 @@ impl IntoView for Dropzone {
             });
         })
         .child((
+            icon.map(|icon| {
+                crate::layer::with_recipe_style(
+                    node().child(icon),
+                    |r| r.dropzone_recipes().icon_recipe(),
+                    &variants,
+                    move || state.get(),
+                )
+            }),
             label_view,
             hint_view,
+            kivact_core::view::show_some(
+                move || match state.get() {
+                    DropzoneState::Failed(error) => Some(error.to_string()),
+                    _ => None,
+                },
+                {
+                    let variants = variants.clone();
+                    move |message: Value<String>| {
+                        crate::layer::with_recipe_style(
+                            text(message),
+                            |r| r.dropzone_recipes().status_recipe(),
+                            &variants,
+                            move || state.get(),
+                        )
+                        .with_node(|n| n.role(Role::Alert))
+                    }
+                },
+            ),
             crate::layer::with_recipe_style(
                 text(move || match state.get() {
-                    DropzoneState::Failed(error) => error.to_string(),
+                    DropzoneState::Failed(_) => String::new(),
                     DropzoneState::Picking => "Choosing files…".into(),
                     DropzoneState::DragOver {
                         valid: kivact_interaction::Validity::Invalid(message),

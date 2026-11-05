@@ -61,6 +61,7 @@ mod power_search;
 mod recipe_style;
 mod recipes;
 mod recipes_collections;
+mod recipes_combobox;
 mod recipes_controls;
 mod recipes_controls_choice;
 mod recipes_controls_value;
@@ -76,8 +77,6 @@ pub mod rich_text;
 mod scrollable_area;
 mod section;
 mod segmented_control;
-mod selector;
-mod selector_surface;
 mod shadows;
 mod side_navigation;
 mod soft_chat;
@@ -102,11 +101,9 @@ mod timer;
 mod timestamp;
 mod toggle_button_group;
 mod token;
-mod tokenizer;
 mod tokens;
 mod toolbar;
 mod top_nav;
-mod typeahead;
 mod visually_hidden;
 
 pub use alert_dialog::{AlertDialog, alert_dialog};
@@ -169,7 +166,7 @@ pub use form_layout::{
 };
 pub use grid::{Grid, GridColumns, GridRepeat, GridSpan, Span, grid, grid_span};
 pub use heading::{Heading, HeadingDisplay, heading};
-pub use hover_card::{FocusTrigger, HoverCard, hover_card, hover_card_text};
+pub use hover_card::hover_card_text;
 pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
 pub use indicator::{Indicator, check_indicator, checkbox_indicator, radio_indicator};
@@ -203,11 +200,6 @@ pub use section::{Edges, Section, SectionVariant, section};
 pub use segmented_control::{
     Segmented, SegmentedControl, SegmentedIconOnly, SegmentedLayout, segmented_control,
 };
-pub use selector::{
-    MultiSelector, Selector, complex_selector, complex_selector_with_presentation, multi_selector,
-    selector,
-};
-pub use selector_surface::SelectorPresentation;
 pub use shadows::Shadows;
 pub use side_navigation::{
     ItemCollapse, SideNav, SideNavCollapse, SideNavCollapseButton, SideNavItem, SideNavResize,
@@ -270,7 +262,6 @@ pub use timestamp::{
 };
 pub use toggle_button_group::{ToggleButtonGroup, toggle_button_group};
 pub use token::{Token, TokenColor, token};
-pub use tokenizer::{Tokenizer, tokenizer};
 pub use tokens::{Motion, Radius, Sizes, Spacing, TextStyle, Tokens, Typography};
 pub use toolbar::{Edge, Toolbar, toolbar, toolbar_item};
 pub use top_nav::{
@@ -278,5 +269,4 @@ pub use top_nav::{
     TopNavMenuItem, top_nav, top_nav_featured_card, top_nav_item, top_nav_mega_menu,
     top_nav_mega_menu_item, top_nav_menu, top_nav_menu_item,
 };
-pub use typeahead::{Typeahead, base_typeahead, typeahead};
 pub use visually_hidden::{VisuallyHidden, visually_hidden};

@@ -13,6 +13,7 @@ pub(crate) enum Relation {
     LabelledBy,
 }
 
+// xtask-allow(state-fields): Independent optional authored semantic properties form a passive patch value.
 /// A patch retains its declaration site and its place in the modifier sequence.
 #[derive(Clone)]
 pub(crate) struct SemanticsPatch {

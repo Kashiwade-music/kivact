@@ -26,3 +26,7 @@ Use `.query(binding)` to control the editor text and `.free_text()` to keep arbi
 Both combobox and select accept `.presentation(SelectPresentation::BottomSheet)` for touch input, or `Adaptive` to follow host touch capabilities. Keyboard and mouse retain the anchored popup. The sheet uses the same selection and returns focus to the trigger after dismissal.
 
 Themes supply `UiTokens::combobox` and `UiRecipes::combobox`. Its recipes cover `frame`, `input`, `surface`, `option`, `chip`, `remove` and `empty`. Apply `.variant(...)` for a theme-specific look.
+
+For caller-owned chooser content, use `selection_field(label, value_label).content(factory)`. It reuses select trigger and surface recipes without inventing option keys. `.presentation(...)` selects the touch surface and `.open(binding)` makes visibility caller-owned. Keep search and chosen-value bindings outside the content factory to preserve them across popup and drawer openings.
+
+Multiple-choice UI transactions announce accepted additions, removals, and clearing in a polite live region. Rejected selection writes produce no announcement. Override `combobox.token_added`, `combobox.token_removed`, and `combobox.all_removed` through the application message catalog.

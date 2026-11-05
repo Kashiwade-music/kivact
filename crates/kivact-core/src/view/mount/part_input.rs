@@ -33,6 +33,7 @@ fn wheel_list(handlers: &Handlers) -> &EventHandlers<WheelEvent> {
     &handlers.wheel
 }
 
+// xtask-allow(state-fields): This per-event routing snapshot independently identifies observers, defaults and canvas origin; it owns no lifecycle.
 /// Where one event goes: the target whose observers see it and the target
 /// whose defaults run.
 struct Selected {
@@ -179,6 +180,12 @@ pub(super) fn route(
             &event,
         )
     });
+    route_actions(&mut caller, &registry);
+    route_accessibility(&mut caller, &registry);
+    caller
+}
+
+fn route_actions(caller: &mut Handlers, registry: &Rc<Registry>) {
     let custom = caller.text.take();
     let text_root = registry.root.clone();
     if custom.is_some() || text_root.actions.text.is_some() {
@@ -221,6 +228,9 @@ pub(super) fn route(
             Ok(())
         },
     ));
+}
+
+fn route_accessibility(caller: &mut Handlers, registry: &Rc<Registry>) {
     let custom = Rc::new(std::mem::take(&mut caller.a11y));
     for action in [
         A11yAction::Focus,
@@ -271,5 +281,4 @@ pub(super) fn route(
             }),
         ));
     }
-    caller
 }

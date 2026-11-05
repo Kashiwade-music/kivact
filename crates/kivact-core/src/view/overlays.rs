@@ -499,6 +499,7 @@ impl Drop for ModalScope {
     }
 }
 
+// xtask-allow(state-fields): This per-dispatch route result contains the target, optional modal boundary and independent activation permission.
 /// Where a key goes and where its handler chain stops (see [`key_route`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct KeyRoute {

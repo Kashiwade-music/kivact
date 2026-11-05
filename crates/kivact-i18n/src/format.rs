@@ -101,6 +101,7 @@ pub enum PluralCategory {
     /// Other category, including values without a matching optional form.
     Other,
 }
+// xtask-allow(state-fields): Each plural category independently supplies an optional template with the required other fallback.
 /// Message templates for the cardinal plural categories.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PluralForms {

@@ -1,10 +1,10 @@
 //! Role: File-transfer rows accept application-owned metadata and progress.
 
 use crate::ColorName;
-use crate::spinner;
 use kivact::i18n::message;
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, Justify, style};
+use kivact::ui::spinner;
 use kivact::view::IntoView;
 use kivact::view::{NodeBuilder, column, icon, node, row, text};
 use kivact::view::{Role, dynamic};
@@ -68,7 +68,7 @@ pub fn upload_row(
                         .into_view()
                 } else {
                     spinner()
-                        .style(style().size(16, 16))
+                        .size(kivact::ui::ControlSize::ExtraSmall)
                         .with_node(|root| root.role(Role::Status))
                         .name(uploading)
                         .into_view()

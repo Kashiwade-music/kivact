@@ -7,6 +7,7 @@ use kivact_engine::contract::NodeType;
 use kivact_runtime::Notifier;
 use kivact_style::CompiledStyle;
 
+// xtask-allow(state-fields): Node kind, focusability and optional retained paint are independent mounting facts.
 /// What a node's first write decided, for the style and draw stages.
 pub(super) struct NodeFacts {
     pub(super) kind: NodeType,

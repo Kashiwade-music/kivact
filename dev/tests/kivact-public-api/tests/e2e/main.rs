@@ -65,6 +65,7 @@ mod layout_check;
 mod layout_scroll;
 mod layout_units;
 mod lifecycle;
+mod metrics_and_description;
 mod motion;
 mod node_ref;
 mod offscreen;
@@ -123,6 +124,8 @@ mod viewport;
 #[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
 mod viewport_gpu_interop;
 
-mod apg_date_picker;
 mod apg_alert;
+mod apg_date_picker;
 mod feedback;
+
+mod ui_chat_code;

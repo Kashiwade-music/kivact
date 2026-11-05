@@ -8,6 +8,7 @@ use crate::theme::value::Theme;
 use kivact_types as p;
 use kivact_types::{DrawCmd, TextMetrics};
 
+// xtask-allow(state-fields): Independent authored text formatting options do not represent a lifecycle.
 /// Text style for `Draw::text` and `Draw::measure_text`: the text
 /// vocabulary of element styles, so canvas text matches element text.
 ///

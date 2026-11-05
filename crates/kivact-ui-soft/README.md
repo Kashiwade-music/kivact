@@ -62,7 +62,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Empty State | `empty_state` |
 | Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, `input_group`, `input_group_text`, and `file_input` for the surrounding controls. |
 | Heading | `heading` |
-| Hover Card | `hover_card`. The builder owns delayed visibility. |
+| Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
 | Icon | `icon`, `ICON_NAMES` |
 | Indicator | `checkbox_indicator`, `check_indicator`, `radio_indicator` |
 | Item / Kbd | `item`, `kbd` |
@@ -80,7 +80,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Resizable | standard `splitter(...).collapsible(..).snaps(..)` |
 | Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area` |
 | Segmented Control | `segmented_control`, standard `ListItem` |
-| Selector | `selector`, `complex_selector`, `multi_selector`. The Kivact interaction layer supplies combobox state. |
+| Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
 | Skeleton / Slider / Spinner / Status Dot | `skeleton`, `spinner`, `status_dot`, standard `slider` and `range_slider` |
 | Stepper | `stepper`, `step` |
 | Switch | Standard `switch` |
@@ -88,10 +88,10 @@ The standard APIs in this table come from `kivact::ui`.
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
 | Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, `time_input`, standard `text_input` and `text_area` |
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
-| Token / Tokenizer / Toolbar | `token`, `tokenizer`, `toolbar`, `toolbar_item` |
+| Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, `toolbar`, `toolbar_item` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
 | Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
-| Typeahead | `typeahead`, `base_typeahead`, standard `ListItem`. The Kivact interaction layer supplies combobox state. |
+| Typeahead | Standard `combobox` and `ListItem`; configure `.search(..)`, `.debounce(..)`, `.placeholder(..)`, and `.empty_text(..)`. |
 | VisuallyHidden | `visually_hidden` |
 | Utilities | `theme`, `tokens`, `media_theme`, `syntax_theme`, `kivact::platform::window_size`, and `kivact::platform::copy_text`. Internationalization Provider maps to `App::locale` and `App::messages`, Layer Provider to `kivact::view::overlay`, and Link Provider to `link_with` with an application callback. Kivact handles node references and diagnostics. |
 
@@ -263,16 +263,16 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.thumbnail.open` | Open {name} |
 | `soft.thumbnail.remove` | Remove {name} |
 | `soft.time.icon` | Time |
-| `soft.tokenizer.all_removed` | All items removed |
-| `soft.tokenizer.token_added` | Added {label} |
-| `soft.tokenizer.token_removed` | Removed {label} |
+| `combobox.all_removed` | All items removed |
+| `combobox.token_added` | Added {label} |
+| `combobox.token_removed` | Removed {label} |
 | `soft.token.remove` | Remove {label} |
 | `soft.top_nav.label` | Top navigation |
 | `soft.tree_list.toggle_children` | Toggle children |
-| `soft.typeahead.empty` | No results found. |
-| `soft.typeahead.failed` | Could not load suggestions. |
-| `soft.typeahead.loading` | Loading… |
-| `soft.typeahead.placeholder` | Search |
+| `combobox.empty` | No results found. |
+| `combobox.failed` | Could not load suggestions. |
+| `combobox.loading` | Loading… |
+| `combobox.placeholder` | Search |
 
 ## Catalog and tests
 
@@ -379,8 +379,10 @@ Number, date, and time filter fields validate values entered as text.
 - `number_input`
 - `tag_input`
 - `select`
+- `combobox`
 - `menu`
 - `dialog`
+- `hover_card`
 - `tooltip`
 - `toast`
 - `command_palette`

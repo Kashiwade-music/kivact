@@ -14,7 +14,20 @@ use kivact_core::state::IntoValue;
 use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{IntoView, Role, View};
-use kivact_core::view::{Node, NodeBuilder, node};
+use kivact_core::view::{Node, NodeBuilder, node, text};
+
+/// Standard progress appearances, read through the existing variant contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProgressVariant {
+    /// A horizontal bar (the default).
+    #[default]
+    Bar,
+    /// A circular track with visible percentage text.
+    Ring,
+    /// A segmented horizontal gauge.
+    Gauge,
+}
+impl Variant for ProgressVariant {}
 
 #[derive(Clone, Copy, PartialEq)]
 enum ProgressMotionPhase {
@@ -220,13 +233,27 @@ impl IntoView for Progress {
             &variants,
             move || state.get(),
         );
+        let label = (variants.look(()).variant::<ProgressVariant>()
+            == Some(&ProgressVariant::Ring))
+        .then(|| {
+            with_recipe_style(
+                text(move || {
+                    target
+                        .get()
+                        .map_or_else(String::new, |v| format!("{:.0}%", v * 100.0))
+                }),
+                |r| r.progress_recipes().label_recipe(),
+                &variants,
+                move || state.get(),
+            )
+        });
         with_base_recipe_style(
             root,
             |recipes| recipes.progress_recipes().track_recipe(),
             &variants,
             move || state.get(),
         )
-        .child(fill)
+        .child((fill, label))
         .into_view()
     }
 }

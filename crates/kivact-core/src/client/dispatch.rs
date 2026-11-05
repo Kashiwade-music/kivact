@@ -34,22 +34,8 @@ use kivact_runtime::Runtime;
 pub(crate) use pointer::run_requested_activations;
 
 pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
-    let mut prepared;
-    let host_event = if matches!(
-        host_event,
-        HostEvent::Activate {
-            pointer: Some(_),
-            ..
-        }
-    ) {
-        prepared = host_event.clone();
-        crate::view::state::ViewState::tree(rt)
-            .engine()
-            .prepare_input(&mut prepared);
-        &prepared
-    } else {
-        host_event
-    };
+    let prepared = prepare_activation(rt, host_event);
+    let host_event = prepared.as_ref().unwrap_or(host_event);
     common::track_modality(rt, host_event);
     common::track_modifiers(rt, host_event);
     match host_event {
@@ -118,6 +104,12 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             region,
             request,
         } => a11y::a11y(rt, host_event, *node, *region, request),
+        _ => dispatch_host(rt, host_event),
+    }
+}
+
+fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
+    match host_event {
         HostEvent::EnvChanged {
             environment,
             surface_active,
@@ -168,5 +160,38 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
         HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
         HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
+        HostEvent::PresenceChanged { .. }
+        | HostEvent::Pointer(_)
+        | HostEvent::Wheel(_)
+        | HostEvent::File(_)
+        | HostEvent::Activate { .. }
+        | HostEvent::HoverChanged { .. }
+        | HostEvent::MousePosition(_)
+        | HostEvent::Key(_)
+        | HostEvent::ModifiersChanged(_)
+        | HostEvent::TextChanged { .. }
+        | HostEvent::SelectionChanged { .. }
+        | HostEvent::Ime { .. }
+        | HostEvent::FocusChanged { .. }
+        | HostEvent::ExitComplete { .. }
+        | HostEvent::FocusResult { .. }
+        | HostEvent::A11y { .. } => unreachable!("invariant: input event already dispatched"),
     }
+}
+
+fn prepare_activation(rt: &Runtime, event: &HostEvent) -> Option<HostEvent> {
+    if !matches!(
+        event,
+        HostEvent::Activate {
+            pointer: Some(_),
+            ..
+        }
+    ) {
+        return None;
+    }
+    let mut prepared = event.clone();
+    crate::view::state::ViewState::tree(rt)
+        .engine()
+        .prepare_input(&mut prepared);
+    Some(prepared)
 }

@@ -1,5 +1,5 @@
 //! Role: Retain only labels needed by selected keys across changing result sources.
-use kivact_core::state::{ItemKey, Value, effect, memo, signal};
+use kivact_core::state::{ItemKey, Signal, Value, effect, memo, signal};
 use kivact_interaction::{ListItem, Selection};
 /// Owns retained item labels without copying the caller's selection.
 struct LabelCache<K> {
@@ -18,28 +18,41 @@ impl<K: ItemKey> LabelCache<K> {
             .extend(source.iter().filter(|item| selected(item.key())).cloned());
     }
 }
-pub(super) fn labels<K: ItemKey>(
-    source: Value<Vec<ListItem<K>>>,
-    selection: Selection<K>,
-) -> Value<Vec<ListItem<K>>> {
-    let cache = signal(Vec::<ListItem<K>>::new());
-    effect(move || {
-        let source = source.get();
-        let mut retained = LabelCache {
-            retained: cache.get_untracked(),
-        };
-        retained.observe(&source, selection);
-        cache.set(retained.retained);
-    });
-    memo(move || {
-        let mut rows = source.get();
-        for item in cache.get() {
-            if !rows.iter().any(|row| row.key() == item.key()) {
-                rows.push(item);
-            }
+/// A true item-label cache, allocated before selection transaction callbacks.
+pub(super) struct KnownLabels<K: ItemKey> {
+    rows: Signal<Vec<ListItem<K>>>,
+}
+impl<K: ItemKey> Copy for KnownLabels<K> {}
+impl<K: ItemKey> Clone for KnownLabels<K> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<K: ItemKey> KnownLabels<K> {
+    pub(super) fn new(source: Value<Vec<ListItem<K>>>) -> Self {
+        Self {
+            rows: signal(source.get_untracked()),
         }
-        rows
-    })
+    }
+    pub(super) fn values(self) -> Value<Vec<ListItem<K>>> {
+        memo(move || self.rows.get())
+    }
+    pub(super) fn observe(self, source: Value<Vec<ListItem<K>>>, selection: Selection<K>) {
+        effect(move || {
+            let source = source.get();
+            let mut retained = LabelCache {
+                retained: self.rows.get_untracked(),
+            };
+            retained.observe(&source, selection);
+            let mut rows = source;
+            for item in retained.retained {
+                if !rows.iter().any(|row| row.key() == item.key()) {
+                    rows.push(item);
+                }
+            }
+            self.rows.set(rows);
+        });
+    }
 }
 pub(super) fn label<K: ItemKey>(source: Value<Vec<ListItem<K>>>, key: &K) -> String {
     source.with(|rows| {

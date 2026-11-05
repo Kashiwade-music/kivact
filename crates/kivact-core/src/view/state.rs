@@ -127,6 +127,7 @@ impl EnvState {
     }
 }
 
+// xtask-allow(state-fields): Focus identity and visible indicator are independent host observations; selector only projects identity.
 /// The reactive focus nodes of an App (created at root mount).
 #[derive(Clone, Copy)]
 pub(crate) struct FocusKeys {
@@ -178,6 +179,7 @@ impl Requests {
     }
 }
 
+// xtask-allow(state-fields): Initial render is an independent host fact; optional minimum size is construction configuration and requests own their lifecycles.
 /// Everything the view layer keeps per App. Fields drop in declaration
 /// order.
 pub(crate) struct ViewState {

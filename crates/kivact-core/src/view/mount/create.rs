@@ -12,6 +12,7 @@ use crate::view::editing_data::EditorProps;
 use crate::view::state::ViewState;
 use crate::view::tree::Handlers;
 
+// xtask-allow(state-fields): Independent resolved node properties are consumed by the initial publication stage.
 /// The node's first write.
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,

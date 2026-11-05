@@ -68,19 +68,6 @@ fn virtual_time_drives_sleep_and_frame_loops_exactly() {
 
     // Ticks of a frame loop over one virtual second, on a host whose
     // display refreshes every `period` ns.
-    let ticks = |hz: f64, period: u64| {
-        let count = Rc::new(Cell::new(0u64));
-        let slot: Rc<Cell<Option<FrameLoop>>> = Rc::new(Cell::new(None));
-        let (c, s) = (count.clone(), slot.clone());
-        let screen = render_with(small(MirrorMode::Off).frame_period_ns(period), move || {
-            s.set(Some(frame_loop(move |_: FrameInfo| c.set(c.get() + 1))));
-            text("frames")
-        });
-        slot.take().expect("the loop").start(FrameRate::Hz(hz));
-        screen.advance(Duration::from_secs(1));
-        assert_eq!(screen.frame_ticks(), count.get());
-        count.get()
-    };
     let hz60 = 16_666_667;
     assert_eq!(ticks(30.0, hz60), 30);
     assert_eq!(ticks(60.0, hz60), 60, "a loop at the display rate keeps up");
@@ -228,4 +215,18 @@ fn failures_leave_artifacts_windows_are_pooled_and_tests_run_in_parallel() {
             });
         }
     });
+}
+
+fn ticks(hz: f64, period: u64) -> u64 {
+    let count = Rc::new(Cell::new(0u64));
+    let slot: Rc<Cell<Option<FrameLoop>>> = Rc::new(Cell::new(None));
+    let (c, s) = (count.clone(), slot.clone());
+    let screen = render_with(small(MirrorMode::Off).frame_period_ns(period), move || {
+        s.set(Some(frame_loop(move |_: FrameInfo| c.set(c.get() + 1))));
+        text("frames")
+    });
+    slot.take().expect("the loop").start(FrameRate::Hz(hz));
+    screen.advance(Duration::from_secs(1));
+    assert_eq!(screen.frame_ticks(), count.get());
+    count.get()
 }

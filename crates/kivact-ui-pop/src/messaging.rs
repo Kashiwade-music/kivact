@@ -1,6 +1,6 @@
 //! Role: Conversation rows, bubbles and typing indicators with caller-owned state.
 
-use crate::{Hue, Tokens, avatar, badge};
+use crate::{Hue, Tokens};
 use kivact::i18n;
 use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::state::Value;
@@ -97,7 +97,15 @@ impl IntoView for Thread {
         } = self;
         let portrait = match portrait {
             Some(portrait) => portrait,
-            None => avatar(initials).size(32).into_view(),
+            None => ({
+                let initials = kivact::state::IntoText::into_text_value(initials);
+                let look = crate::AvatarLook::default().size(32);
+                kivact::ui::avatar(initials)
+                    .fallback_content(move || kivact::view::text(initials))
+                    .variant(look)
+                    .status_content(look.decorations())
+            })
+            .into_view(),
         };
         root.child((
             portrait,
@@ -116,8 +124,8 @@ impl IntoView for Thread {
             show(
                 move || unread.get() > 0,
                 move || {
-                    badge(move || unread.get().to_string())
-                        .hue(Hue::Pink)
+                    kivact::ui::badge(move || unread.get().to_string())
+                        .variant(crate::BadgeHue::new(Hue::Pink))
                         .variant(crate::BadgeVariant::Count)
                         .into_view()
                 },
@@ -139,7 +147,14 @@ pub fn typing_message(initials: impl IntoText) -> impl kivact::view::Component {
             .essential(),
     );
     row((
-        avatar(initials).size(24),
+        ({
+            let initials = kivact::state::IntoText::into_text_value(initials);
+            let look = crate::AvatarLook::default().size(24);
+            kivact::ui::avatar(initials)
+                .fallback_content(move || kivact::view::text(initials))
+                .variant(look)
+                .status_content(look.decorations())
+        }),
         node()
             .style(style().size(54, 30).radius_corners(4, 14, 14, 14))
             .style(style().background(crate::ColorName::SurfaceActive))
@@ -312,7 +327,18 @@ impl IntoView for MessageGroup {
                 .align_items(if mine.get() { Align::End } else { Align::Start })
         });
         self.root
-            .child((avatar(initials).size(24).hidden(mine), bubble))
+            .child((
+                ({
+                    let initials = kivact::state::IntoText::into_text_value(initials);
+                    let look = crate::AvatarLook::default().size(24);
+                    kivact::ui::avatar(initials)
+                        .fallback_content(move || kivact::view::text(initials))
+                        .variant(look)
+                        .status_content(look.decorations())
+                })
+                .hidden(mine),
+                bubble,
+            ))
             .base_style(move || {
                 if mine.get() {
                     style().align_self(Align::End).max_width(pct(78))

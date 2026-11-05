@@ -117,3 +117,26 @@ fn close(t: &Theme, s: &Look<ToastState>) -> Style {
         .pressed(style().background(media.colors.overlay_pressed))
         .focus_visible(focus(&media))
 }
+
+/// Neutral preview surface, including side-aware entrance motion.
+pub(crate) fn hover_card(r: kivact::ui::HoverCardRecipes) -> kivact::ui::HoverCardRecipes {
+    r.surface(|_| {
+        |theme: &Theme, state: &Look<kivact::ui::HoverCardSurfaceState>| {
+            let p = theme.ext::<Tokens>();
+            let base = shadows(body_text(&p), &p.shadows.med)
+                .direction(Direction::Column)
+                .background(p.colors.bg_surface)
+                .radius(p.radius.container)
+                .max_width(pct(100) - 32.0)
+                .padding(p.spacing.s3);
+            let (x, y) = match state.placement {
+                kivact::view::Placement::Above => (0.0, p.spacing.s2),
+                kivact::view::Placement::Below => (0.0, -p.spacing.s2),
+                kivact::view::Placement::Start => (p.spacing.s2, 0.0),
+                kivact::view::Placement::End => (-p.spacing.s2, 0.0),
+                _ => (0.0, 0.0),
+            };
+            anchored(base, &p, x, y)
+        }
+    })
+}

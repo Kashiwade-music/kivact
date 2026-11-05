@@ -79,6 +79,7 @@ pub(crate) struct HighlightAt {
 /// Binds the line colors of a mounted editor (the content's type erased).
 pub(crate) type BindHighlight = Box<dyn FnOnce(HighlightAt)>;
 
+// xtask-allow(state-fields): Independent optional editing observers are construction configuration.
 /// Native editing attached to an ordinary node through a [`Part`](crate::view::Part).
 ///
 /// This supplies state, shaping, caret, selection and the platform IME session.
@@ -92,6 +93,7 @@ pub struct TextEditing {
     pub(crate) on_phase: Option<kivact_runtime::Handler<crate::view::EditPhase>>,
 }
 
+// xtask-allow(state-fields): Independent authored editing options and sources are resolved once at mount.
 /// The editor settings a mounted editing node binds (`mount::editing::bind`).
 pub(crate) struct EditorProps {
     pub(crate) behavior: Option<Rc<Behavior>>,

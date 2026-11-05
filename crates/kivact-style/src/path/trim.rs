@@ -16,10 +16,14 @@ const ACCURACY: f64 = 1e-3;
 struct Contour {
     start: KPoint,
     segs: Vec<PathSeg>,
-    closed: bool,
-    /// Whether the closing edge is the last of `segs` (it is not when the
-    /// contour already ends where it starts).
-    closing_edge: bool,
+    end: ContourEnd,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ContourEnd {
+    Open,
+    Closed,
+    ClosingEdge,
 }
 
 impl Contour {
@@ -30,9 +34,9 @@ impl Contour {
     /// The whole contour, as it was written.
     fn emit_all(&self, out: &mut BezPath) {
         out.move_to(self.start);
-        let drawn = self.segs.len() - usize::from(self.closing_edge);
+        let drawn = self.segs.len() - usize::from(self.end == ContourEnd::ClosingEdge);
         out.extend(self.segs[..drawn].iter().map(PathSeg::as_path_el));
-        if self.closed {
+        if self.end != ContourEnd::Open {
             out.close_path();
         }
     }
@@ -53,8 +57,7 @@ fn contours(path: &BezPath) -> Vec<Contour> {
         let contour = open.get_or_insert_with(|| Contour {
             start: origin,
             segs: Vec::new(),
-            closed: false,
-            closing_edge: false,
+            end: ContourEnd::Open,
         });
         match *el {
             PathEl::LineTo(p) => {
@@ -76,9 +79,10 @@ fn contours(path: &BezPath) -> Vec<Contour> {
                     contour
                         .segs
                         .push(PathSeg::Line(Line::new(last, contour.start)));
-                    contour.closing_edge = true;
+                    contour.end = ContourEnd::ClosingEdge;
+                } else {
+                    contour.end = ContourEnd::Closed;
                 }
-                contour.closed = true;
                 (last, origin) = (contour.start, contour.start);
                 out.extend(open.take().filter(|c| !c.segs.is_empty()));
             }
@@ -170,7 +174,7 @@ impl Path {
             vec![(begin, stop)]
         };
         // A closed contour that is the whole path continues across its seam.
-        let seam = contours.len() == 1 && contours[0].closed;
+        let seam = contours.len() == 1 && contours[0].end != ContourEnd::Open;
         let mut out = BezPath::new();
         for (n, (low, high)) in intervals.into_iter().enumerate() {
             let mut at = 0.0;

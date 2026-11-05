@@ -8,6 +8,7 @@ use kivact_runtime::UiError;
 use crate::state::Value;
 use crate::view::NodeRef;
 
+// xtask-allow(state-fields): This hook argument carries independent read-only target availability sources.
 /// Final constraints of the node or canvas region to which a part is attached.
 ///
 /// The hook receiving this value runs under the mounted element's setup owner.
@@ -26,6 +27,7 @@ pub struct PartMount {
     pub eligible: Value<bool>,
 }
 
+// xtask-allow(state-fields): Independent authored behavior constraints are combined with caller modifiers at mount.
 /// Required behavior constraints retained separately from caller modifiers.
 #[derive(Clone, Default)]
 pub(crate) struct PartConstraints {

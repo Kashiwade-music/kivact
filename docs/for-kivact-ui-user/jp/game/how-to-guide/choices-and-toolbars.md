@@ -157,3 +157,7 @@ fn tools(zoom: Signal<f64>) -> impl IntoView {
 - [一覧とツリーでアイテムを見せる](item-lists-and-selection.md)
 - [メーターと状態を見せる](meters-and-status.md)
 - すべての見た目とコンポーネント: `cargo doc -p kivact-ui-game --open`
+
+## ファイルのドロップ先
+
+Game テーマで `kivact::ui::dropzone(label)` を使います。破線の枠、斜線、ドラッグ時の強調は recipe が描画します。アップロードアイコンには `.icon(kivact::view::icon("cloud-upload"))` を指定します。複数ファイルとネイティブ選択ダイアログを有効にするには `.multiple().pick_on_press()` を指定します。コールバックは `FileInfo` を受け取り、ネイティブパスは `file.path` から取得します。`.hint(..)`、`.filters(..)`、`.validate(..)` で案内、フィルター、アプリケーションの検証を設定します。コールバックのエラーは次の成功したドロップまたは選択までアラートとして表示されます。

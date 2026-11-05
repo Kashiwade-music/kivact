@@ -1,5 +1,5 @@
 //! Role: Pop recipes for compound standard controls and button decoration.
-use crate::choice::{Segmented, choice_list, choice_option, select_list, select_option};
+use crate::choice::{choice_list, choice_option, select_list, select_option};
 use crate::tokens::Hue;
 use crate::tokens::Tokens;
 use kivact::custom::PartState;
@@ -13,6 +13,7 @@ use kivact::style::{
     Align, Color, ColorToken, Cursor, Direction, Justify, Position, Style, Theme, pct, style,
 };
 use kivact::ui::Look;
+use kivact::ui::RadioGroupVariant;
 use kivact::ui::{
     AxisState, ButtonState, CheckableState, DialogRecipes, DialogState, MenuRecipes,
     RadioGroupRecipes, SelectRecipes, SliderRecipes, TabsRecipes, ToastRecipes,
@@ -258,7 +259,7 @@ fn menu_trigger(t: &Theme, _: &Look<PopupState>) -> Style {
         );
     })
 }
-/// The recipes of a plain radio group, and of the [`Segmented`] pill look
+/// The recipes of a plain radio group, and of the [`RadioGroupVariant::Segmented`] pill look
 /// of one (no indicator, a pill per segment in a tinted track).
 pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
     r.group(|_| radio_group_layout)
@@ -271,7 +272,7 @@ pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
         })
 }
 fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
-    if orientation.variant::<Segmented>().is_some() {
+    if orientation.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         return choice_list(t, true).direction(Direction::Row);
     }
     let s = style().gap(12);
@@ -282,7 +283,7 @@ fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
 }
 /// A radio row: the indicator beside the label.
 fn radio_item(t: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<Segmented>().is_some() {
+    if s.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         return choice_option(t, true);
     }
     crate::choice::check_style(t).weight(500)
@@ -290,7 +291,7 @@ fn radio_item(t: &Theme, s: &Look<CheckableState>) -> Style {
 /// The 16 px ring of an option, the accent around the theme's `dot` while
 /// chosen.
 fn radio_indicator(t: &Theme, s: &Look<CheckableState>) -> Style {
-    if s.variant::<Segmented>().is_some() {
+    if s.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         // A segment shows no indicator: out of the row, with no size.
         return style().position(Position::Absolute).size(0, 0).clip(true);
     }

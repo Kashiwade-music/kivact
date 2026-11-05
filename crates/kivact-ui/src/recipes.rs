@@ -55,7 +55,7 @@ use super::{
     AlertState, CardState, EmptyStateState, InputGroupMemberState, InputGroupState, look_feedback,
 };
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use crate::{look_files, look_static_collections};
+use crate::{HeadingState, StatState, look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
@@ -507,10 +507,12 @@ recipe_table! {
     /// The recipes of a [`progress`](super::progress) bar.
     ProgressRecipes {
         /// The bar itself: the track the fill moves in, which clips it.
-        track(track_recipe): ProgressState = look_extra::progress_track,
+        track(track_recipe): ProgressState = look_metrics::progress_track,
         /// The fill, the track's one child: the whole track, painted or
         /// sized to the value.
-        fill(fill_recipe): ProgressState = look_extra::progress_fill,
+        fill(fill_recipe): ProgressState = look_metrics::progress_fill,
+        /// Percentage text in a ring.
+        label(label_recipe): ProgressState = look_metrics::progress_label,
     }
 }
 
@@ -610,11 +612,14 @@ recipe_table! {
     /// # let _ = theme;
     /// ```
     UiRecipes {
+        /// Typography for a semantic heading.
+        heading(heading_recipe): HeadingState = look_metrics::heading,
         avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
         badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
+        badge_label(badge_label_recipe): crate::BadgeState = super::look_indicators::badge_label,
         spinner(spinner_recipe): crate::SpinnerState = super::look_indicators::spinner,
         skeleton(skeleton_recipe): crate::SkeletonState = super::look_indicators::skeleton,
         button(button_recipe): ButtonState = look::button,
@@ -644,6 +649,13 @@ recipe_table! {
         text_area(text_area_recipe): TextInputState = look::text_area,
     }
     tables {
+        stat(stat_recipes): StatRecipes,
+        description_list(description_list_recipes): DescriptionListRecipes,
+        chat_message(chat_message_recipes): ChatMessageRecipes,
+        chat_thread(chat_thread_recipes): ChatThreadRecipes,
+        chat_composer(chat_composer_recipes): ChatComposerRecipes,
+        typing_indicator(typing_indicator_recipes): TypingIndicatorRecipes,
+        code_block(code_block_recipes): CodeBlockRecipes,
         empty_state(empty_state_recipes): EmptyStateRecipes,
         alert(alert_recipes): AlertRecipes,
         card(card_recipes): CardRecipes,
@@ -736,6 +748,7 @@ recipe_table! {
     /// Styles for a file drop target and its feedback.
     DropzoneRecipes {
         root(root_recipe): DropzoneState = look_files::dropzone_root,
+        icon(icon_recipe): DropzoneState = look_files::dropzone_icon,
         label(label_recipe): DropzoneState = look_files::dropzone_label,
         hint(hint_recipe): DropzoneState = look_files::dropzone_hint,
         status(status_recipe): DropzoneState = look_files::dropzone_status,
@@ -851,7 +864,9 @@ recipe_table! {
 recipe_table! {
     /// Progress list and individual step recipes.
     StepperRecipes {
-        root(root_recipe): () = crate::look_navigation::stepper_root,
+        root(root_recipe): crate::StepperState = crate::look_navigation::stepper_root,
+        previous(previous_recipe): crate::StepperState = crate::look_navigation::part,
+        next(next_recipe): crate::StepperState = crate::look_navigation::part,
         item(item_recipe): crate::StepperItemState = crate::look_navigation::stepper_item,
         indicator(indicator_recipe): crate::StepperItemState = crate::look_navigation::part,
         label(label_recipe): crate::StepperItemState = crate::look_navigation::part,
@@ -866,5 +881,101 @@ recipe_table! {
         root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::navigation_root,
         trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
         panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
+    }
+}
+
+recipe_table! {
+    /// Parts of a statistic and its optional application-owned chart.
+    StatRecipes {
+        root(root_recipe): StatState = look_metrics::stat_root,
+        label(label_recipe): StatState = look_metrics::stat_label,
+        value(value_recipe): StatState = look_metrics::stat_value,
+        delta(delta_recipe): StatState = look_metrics::stat_delta,
+        icon(icon_recipe): StatState = look_metrics::stat_slot,
+        chart(chart_recipe): StatState = look_metrics::stat_slot,
+    }
+}
+recipe_table! {
+    /// The list, pair, visible term and labelled detail of a description list.
+    DescriptionListRecipes {
+        root(root_recipe): () = look_metrics::description_root,
+        item(item_recipe): () = look_metrics::description_item,
+        term(term_recipe): () = look_metrics::description_term,
+        detail(detail_recipe): () = look_metrics::description_detail,
+    }
+}
+recipe_table! {
+    /// Styles for the persistent parts of ChatMessage.
+    ChatMessageRecipes {
+        root(root_recipe): crate::ChatMessageState = crate::look_chat::message_root,
+        body(body_recipe): crate::ChatMessageState = crate::look_chat::message_body,
+        author(author_recipe): crate::ChatMessageState = crate::look_chat::author,
+        time(time_recipe): crate::ChatMessageState = crate::look_chat::muted,
+        status(status_recipe): crate::ChatMessageState = crate::look_chat::muted,
+        content(content_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        avatar(avatar_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        header(header_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        footer(footer_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        metadata(metadata_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        media(media_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        icon(icon_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        actions(actions_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        reactions(reactions_recipe): crate::ChatMessageState = crate::look_chat::reactions,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of ChatThread.
+    ChatThreadRecipes {
+        root(root_recipe): crate::ChatThreadState = crate::look_chat::thread_root,
+        viewport(viewport_recipe): crate::ChatThreadState = crate::look_chat::viewport,
+        content(content_recipe): crate::ChatThreadState = crate::look_chat::column,
+        scroll_button(scroll_button_recipe): crate::ChatThreadState = crate::look_chat::jump,
+        composer(composer_recipe): crate::ChatThreadState = crate::look_chat::slot,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of ChatComposer.
+    ChatComposerRecipes {
+        root(root_recipe): crate::ChatComposerState = crate::look_chat::column,
+        surface(surface_recipe): crate::ChatComposerState = crate::look_chat::composer_surface,
+        input(input_recipe): crate::ChatComposerState = crate::look_chat::input,
+        send(send_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header(header_recipe): crate::ChatComposerState = crate::look_chat::row,
+        footer(footer_recipe): crate::ChatComposerState = crate::look_chat::row,
+        status(status_recipe): crate::ChatComposerState = crate::look_chat::composer_status,
+        drawer(drawer_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header_actions(header_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header_context(header_context_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        footer_actions(footer_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        send_actions(send_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of TypingIndicator.
+    TypingIndicatorRecipes {
+        root(root_recipe): crate::TypingIndicatorState = crate::look_chat::row,
+        avatar(avatar_recipe): crate::TypingIndicatorState = crate::look_chat::slot,
+        dots(dots_recipe): crate::TypingIndicatorState = crate::look_chat::typing_dots,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of CodeBlock.
+    CodeBlockRecipes {
+        root(root_recipe): crate::CodeBlockState = crate::look_chat::code_root,
+        header(header_recipe): crate::CodeBlockState = crate::look_chat::code_header,
+        title(title_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        collapse(collapse_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        language(language_recipe): crate::CodeBlockState = crate::look_chat::muted,
+        copy(copy_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        end_content(end_content_recipe): crate::CodeBlockState = crate::look_chat::slot,
+        body(body_recipe): crate::CodeBlockState = crate::look_chat::code_body,
+        viewport(viewport_recipe): crate::CodeBlockState = crate::look_chat::code_viewport,
+        code(code_recipe): crate::CodeBlockState = crate::look_chat::code_text,
+        gutter(gutter_recipe): crate::CodeBlockState = crate::look_chat::code_gutter,
+        footer(footer_recipe): crate::CodeBlockState = crate::look_chat::row,
     }
 }

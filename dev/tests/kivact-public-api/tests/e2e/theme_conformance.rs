@@ -499,6 +499,7 @@ fn filled_recipe_keys(kit: &UiRecipes) -> Vec<&'static str> {
     .collect();
     keys.extend(filled_extended_recipe_keys(kit, &defaults));
     keys.extend(filled_feedback_recipe_keys(kit, &defaults));
+    keys.extend(filled_content_recipe_keys(kit, &defaults));
     keys.sort_unstable();
     keys
 }
@@ -593,6 +594,54 @@ fn filled_feedback_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'s
         (
             "navigation_menu",
             kit.navigation_menu_recipes() != defaults.navigation_menu_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect()
+}
+
+/// Scalar indicator entries and the message and content tables share default identity.
+fn filled_content_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'static str> {
+    macro_rules! changed {
+        ($getter:ident) => {
+            !std::ptr::eq(&**kit.$getter(), &**defaults.$getter())
+        };
+    }
+    [
+        ("badge", changed!(badge_recipe)),
+        ("badge_label", changed!(badge_label_recipe)),
+        ("avatar", changed!(avatar_recipe)),
+        ("avatar_status", changed!(avatar_status_recipe)),
+        ("avatar_group", changed!(avatar_group_recipe)),
+        ("skeleton", changed!(skeleton_recipe)),
+        ("spinner", changed!(spinner_recipe)),
+        ("kbd", changed!(kbd_recipe)),
+        ("heading", changed!(heading_recipe)),
+        ("stat", kit.stat_recipes() != defaults.stat_recipes()),
+        (
+            "description_list",
+            kit.description_list_recipes() != defaults.description_list_recipes(),
+        ),
+        (
+            "chat_message",
+            kit.chat_message_recipes() != defaults.chat_message_recipes(),
+        ),
+        (
+            "chat_thread",
+            kit.chat_thread_recipes() != defaults.chat_thread_recipes(),
+        ),
+        (
+            "chat_composer",
+            kit.chat_composer_recipes() != defaults.chat_composer_recipes(),
+        ),
+        (
+            "typing_indicator",
+            kit.typing_indicator_recipes() != defaults.typing_indicator_recipes(),
+        ),
+        (
+            "code_block",
+            kit.code_block_recipes() != defaults.code_block_recipes(),
         ),
     ]
     .into_iter()

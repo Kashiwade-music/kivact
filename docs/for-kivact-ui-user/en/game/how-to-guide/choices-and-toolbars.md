@@ -180,3 +180,7 @@ current position from your signals.
 - [Show items in lists and trees](item-lists-and-selection.md)
 - [Show meters and status](meters-and-status.md)
 - All looks and components: `cargo doc -p kivact-ui-game --open`
+
+## File drop targets
+
+Use `kivact::ui::dropzone(label)` under the Game theme. The recipe retains the console's dashed border, diagonal stripes and drag highlight. Add `.icon(kivact::view::icon("cloud-upload"))` for the upload glyph. Use `.multiple().pick_on_press()` to accept several files and enable the native picker. Callbacks receive `FileInfo`; use `file.path` for the native path. `.hint(..)`, `.filters(..)` and `.validate(..)` provide guidance, picker filters and application validation. Callback errors appear as alerts until the next successful drop or pick.

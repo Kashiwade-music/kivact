@@ -140,19 +140,19 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
                             .margin_bottom(16),
                     ),
                     wrap((
-                        ui::spinner(),
-                        ui::spinner().style(style().size(32, 32)),
-                        ui::dots_loader(),
+                        kivact::ui::spinner(),
+                        kivact::ui::spinner().size(kivact::ui::ControlSize::Large),
+                        kivact::ui::spinner().variant(ui::SpinnerLook::Dots),
                         crate::pop::loader::halo_loader(),
                     )),
                     row((
-                        ui::skeleton()
+                        kivact::ui::skeleton()
                             .style(style().size(44, 44))
                             .style(style().radius(999)),
                         column((
-                            ui::skeleton().style(style().size(pct(60), 12)),
-                            ui::skeleton().style(style().size(pct(90), 12)),
-                            ui::skeleton().style(style().size(pct(40), 12)),
+                            kivact::ui::skeleton().style(style().size(pct(60), 12)),
+                            kivact::ui::skeleton().style(style().size(pct(90), 12)),
+                            kivact::ui::skeleton().style(style().size(pct(40), 12)),
                         ))
                         .style(style().gap(8).grow(1)),
                     ))
