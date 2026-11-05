@@ -30,7 +30,7 @@ pub mod text;
 pub mod text_shaping;
 pub mod text_utf;
 
-pub use asset::Asset;
+pub use asset::{Asset, AssetBytes};
 pub use check::{LayoutCheck, LayoutFinding, LayoutLimit, LayoutRule};
 pub use color::Rgba;
 pub use drag_velocity::DragVelocity;
@@ -71,7 +71,9 @@ pub use paint::{
 };
 pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
 pub use presence::Presence;
-pub use render::{InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, TextLine};
+pub use render::{
+    InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, ShapedTextSnapshot, TextLine,
+};
 pub use scene::{
     BorderStyle, DrawCmd, DrawList, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin,
     PathCmd, PathData, Pixels, Region, ShapePaint, Stroke, TextRun,
@@ -81,7 +83,7 @@ pub use semantics::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, DismissReason, Finite, LiveRegion,
     Orientation, PopupKind, Role, Semantics, SortDirection, check_text,
 };
-pub use semantics_text::{SemanticsText, SemanticsTextRun, TextCaret};
+pub use semantics_text::{SemanticsText, SemanticsTextRun, SemanticsTextRuns, TextCaret};
 pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, LineHeight, SpanProps, TextAlign,
     TextData, TextDecoration, TextDecorationStyle, TextLen, TextMetrics, TextOverflow, TextShadow,

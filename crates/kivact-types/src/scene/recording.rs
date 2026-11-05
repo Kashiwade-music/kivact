@@ -54,16 +54,16 @@ pub struct Pixels {
     /// Tightly packed straight-alpha RGBA8, row-major from the top left,
     /// width times height times four bytes with no row padding.
     /// Keep the same allocation for unchanged pixels; renderers cache by Arc identity.
-    pub rgba: std::sync::Arc<[u8]>,
+    pub rgba: crate::AssetBytes,
 }
 
 impl Pixels {
     /// Construct an image without copying its shared pixel allocation.
-    pub fn new(width: u32, height: u32, rgba: std::sync::Arc<[u8]>) -> Self {
+    pub fn new(width: u32, height: u32, rgba: impl Into<crate::AssetBytes>) -> Self {
         Self {
             width,
             height,
-            rgba,
+            rgba: rgba.into(),
         }
     }
 }
@@ -72,7 +72,7 @@ impl PartialEq for Pixels {
     fn eq(&self, other: &Self) -> bool {
         self.width == other.width
             && self.height == other.height
-            && std::sync::Arc::ptr_eq(&self.rgba, &other.rgba)
+            && self.rgba.same_allocation(&other.rgba)
     }
 }
 
@@ -161,7 +161,7 @@ pub enum DrawCmd {
     /// drawn exactly as shaped: its glyph runs and decorations at `origin`
     /// in `color`, with no shaping again.
     Paragraph {
-        shaped: std::sync::Arc<crate::render::ShapedText>,
+        shaped: crate::ShapedTextSnapshot,
         origin: Point,
         color: Rgba,
     },

@@ -30,7 +30,7 @@ pub struct SemanticsText {
     /// Text runs in reading order; even empty text has one empty run. A
     /// run starts at the scalar offset where the run before it ends, the
     /// first at `start`.
-    pub runs: Arc<[Arc<SemanticsTextRun>]>,
+    pub runs: SemanticsTextRuns,
     /// The Unicode scalar offset in the complete text where the first run
     /// starts.
     pub start: u32,
@@ -46,13 +46,7 @@ impl PartialEq for SemanticsText {
         self.selection == other.selection
             && self.start == other.start
             && self.caret == other.caret
-            && (Arc::ptr_eq(&self.runs, &other.runs)
-                || (self.runs.len() == other.runs.len()
-                    && self
-                        .runs
-                        .iter()
-                        .zip(other.runs.iter())
-                        .all(|(a, b)| Arc::ptr_eq(a, b) || a == b)))
+            && self.runs == other.runs
     }
 }
 
@@ -116,5 +110,82 @@ fn hash_rect<H: Hasher>(rect: Rect, state: &mut H) {
     for value in [rect.x, rect.y, rect.width, rect.height] {
         let value = if value == 0.0 { 0.0 } else { value };
         value.to_bits().hash(state);
+    }
+}
+
+/// Retained reading-order text runs with identity-first comparison.
+/// Clones reuse the run-list allocation and unchanged backend runs remain shared.
+#[derive(Clone, Debug, Default)]
+pub struct SemanticsTextRuns(Arc<[Arc<SemanticsTextRun>]>);
+impl SemanticsTextRuns {
+    /// Retain owned runs without cloning their text or caret vectors.
+    pub fn new(runs: Vec<SemanticsTextRun>) -> Self {
+        runs.into_iter().collect()
+    }
+    /// Number of published runs.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    /// Whether no runs are published.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// Borrow the run at the given reading-order index.
+    pub fn get(&self, index: usize) -> Option<&SemanticsTextRun> {
+        self.0.get(index).map(AsRef::as_ref)
+    }
+    /// Borrow runs in reading order without exposing their storage ownership.
+    pub fn iter(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &SemanticsTextRun> + ExactSizeIterator + Clone {
+        self.0.iter().map(AsRef::as_ref)
+    }
+    /// Whether both values retain the same complete run list.
+    pub fn same_allocation(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+    /// Adopt a backend list retaining unchanged per-line run allocations.
+    // xtask-allow(internal-contract): Native editing publishers reuse complete and per-line semantic allocations without copying text or carets.
+    #[doc(hidden)]
+    pub fn from_shared(runs: Arc<[Arc<SemanticsTextRun>]>) -> Self {
+        Self(runs)
+    }
+    /// Lend the retained list to a native text adapter or publication cache.
+    // xtask-allow(internal-contract): Native editing adapters retain existing per-line semantic allocations across publication boundaries.
+    #[doc(hidden)]
+    pub fn as_shared(&self) -> &Arc<[Arc<SemanticsTextRun>]> {
+        &self.0
+    }
+}
+impl From<Vec<SemanticsTextRun>> for SemanticsTextRuns {
+    fn from(runs: Vec<SemanticsTextRun>) -> Self {
+        Self::new(runs)
+    }
+}
+impl FromIterator<SemanticsTextRun> for SemanticsTextRuns {
+    fn from_iter<I: IntoIterator<Item = SemanticsTextRun>>(runs: I) -> Self {
+        Self(runs.into_iter().map(Arc::new).collect())
+    }
+}
+impl std::ops::Index<usize> for SemanticsTextRuns {
+    type Output = SemanticsTextRun;
+    fn index(&self, index: usize) -> &SemanticsTextRun {
+        &self.0[index]
+    }
+}
+impl PartialEq for SemanticsTextRuns {
+    fn eq(&self, other: &Self) -> bool {
+        self.same_allocation(other)
+            || (self.0.len() == other.0.len()
+                && self
+                    .0
+                    .iter()
+                    .zip(other.0.iter())
+                    .all(|(a, b)| Arc::ptr_eq(a, b) || a == b))
+    }
+}
+impl Hash for SemanticsTextRuns {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }

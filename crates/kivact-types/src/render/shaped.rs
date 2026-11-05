@@ -27,7 +27,7 @@ pub struct Glyph {
 #[derive(Clone, Debug, PartialEq)]
 pub struct GlyphRun {
     /// Complete font file bytes.
-    pub font: Arc<[u8]>,
+    pub font: crate::AssetBytes,
     /// Font face index.
     pub font_index: u32,
     /// Logical font size.
@@ -67,7 +67,7 @@ pub struct InlineBoxPlacement {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ShapedInlineText {
     /// Shaped glyphs and lines, with the objects' space reserved.
-    pub text: Arc<ShapedText>,
+    pub text: ShapedTextSnapshot,
     /// Objects in visual line order.
     pub boxes: Vec<InlineBoxPlacement>,
 }
@@ -80,7 +80,7 @@ pub struct ShapedText {
     /// Logical measured extent.
     pub size: Size,
     /// Positioned glyph runs.
-    pub runs: Vec<Arc<GlyphRun>>,
+    pub runs: Vec<GlyphRunSnapshot>,
     /// Caret rectangles at Unicode scalar offsets, following shaped clusters.
     pub carets: Vec<TextCaret>,
     /// Sorted, unique shaping-cluster boundaries in Unicode scalar offsets.
@@ -155,4 +155,90 @@ pub struct TextHighlight {
     pub rect: Rect,
     /// The span's index in [`super::RichText::spans`].
     pub span: usize,
+}
+
+/// Retained immutable shapedtext data; cloning preserves the shaping allocation.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ShapedTextSnapshot(Arc<ShapedText>);
+impl ShapedTextSnapshot {
+    /// Retain an owned shaping result for reuse across snapshots and threads.
+    pub fn new(value: ShapedText) -> Self {
+        Self(Arc::new(value))
+    }
+    /// Whether both snapshots retain the same allocation.
+    pub fn same_allocation(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+    /// Adopt a backend shaping allocation without copying its data.
+    // xtask-allow(internal-contract): Text-engine/cache adapters retain an existing shaping allocation; applications use owned shaping records.
+    #[doc(hidden)]
+    pub fn from_shared(value: Arc<ShapedText>) -> Self {
+        Self(value)
+    }
+    /// Lend the retained allocation to a backend cache or renderer.
+    // xtask-allow(internal-contract): Text-engine/cache adapters preserve shared shaping allocation identity across the backend boundary.
+    #[doc(hidden)]
+    pub fn as_shared(&self) -> &Arc<ShapedText> {
+        &self.0
+    }
+    /// Mutate backend output with copy-on-write semantics before publication.
+    // xtask-allow(internal-contract): Backend shaping adjustment preserves the prior Arc::make_mut behavior and clones only when shared.
+    #[doc(hidden)]
+    pub fn make_mut(&mut self) -> &mut ShapedText {
+        Arc::make_mut(&mut self.0)
+    }
+}
+impl From<ShapedText> for ShapedTextSnapshot {
+    fn from(value: ShapedText) -> Self {
+        Self::new(value)
+    }
+}
+impl std::ops::Deref for ShapedTextSnapshot {
+    type Target = ShapedText;
+    fn deref(&self) -> &ShapedText {
+        &self.0
+    }
+}
+
+/// Retained immutable glyphrun data; cloning preserves the shaping allocation.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GlyphRunSnapshot(Arc<GlyphRun>);
+impl GlyphRunSnapshot {
+    /// Retain an owned shaping result for reuse across snapshots and threads.
+    pub fn new(value: GlyphRun) -> Self {
+        Self(Arc::new(value))
+    }
+    /// Whether both snapshots retain the same allocation.
+    pub fn same_allocation(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+    /// Adopt a backend shaping allocation without copying its data.
+    // xtask-allow(internal-contract): Text-engine/cache adapters retain an existing shaping allocation; applications use owned shaping records.
+    #[doc(hidden)]
+    pub fn from_shared(value: Arc<GlyphRun>) -> Self {
+        Self(value)
+    }
+    /// Lend the retained allocation to a backend cache or renderer.
+    // xtask-allow(internal-contract): Text-engine/cache adapters preserve shared shaping allocation identity across the backend boundary.
+    #[doc(hidden)]
+    pub fn as_shared(&self) -> &Arc<GlyphRun> {
+        &self.0
+    }
+    /// Mutate backend output with copy-on-write semantics before publication.
+    // xtask-allow(internal-contract): Backend shaping adjustment preserves the prior Arc::make_mut behavior and clones only when shared.
+    #[doc(hidden)]
+    pub fn make_mut(&mut self) -> &mut GlyphRun {
+        Arc::make_mut(&mut self.0)
+    }
+}
+impl From<GlyphRun> for GlyphRunSnapshot {
+    fn from(value: GlyphRun) -> Self {
+        Self::new(value)
+    }
+}
+impl std::ops::Deref for GlyphRunSnapshot {
+    type Target = GlyphRun;
+    fn deref(&self) -> &GlyphRun {
+        &self.0
+    }
 }
