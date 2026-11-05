@@ -143,27 +143,7 @@ impl IntoView for Dropzone {
         .node_ref(reference)
         .name(label)
         .invalid(move || matches!(state.get(), DropzoneState::Failed(_)))
-        .on_file(move |event| {
-            if event.phase == FilePhase::Leave {
-                api.leave();
-                return Handled::No;
-            }
-            if !accept_drop.get_untracked()
-                || disabled.get_untracked()
-                || matches!(state.get_untracked(), DropzoneState::Picking)
-            {
-                if event.phase == FilePhase::Drop {
-                    api.leave();
-                }
-                return Handled::No;
-            }
-            match event.phase {
-                FilePhase::Enter | FilePhase::Over => api.hover(event.files),
-                FilePhase::Leave => api.leave(),
-                FilePhase::Drop => api.accept(event.files),
-            }
-            Handled::Yes
-        })
+        .on_file(move |event| file_event(api, accept_drop, disabled, event))
         .on_press(move || {
             pick(
                 api,
@@ -300,4 +280,33 @@ fn captions(
         move || state.get(),
     );
     (label_view, hint_view)
+}
+
+/// Route native drag events through the current acceptance policy and drop authority.
+fn file_event(
+    api: kivact_interaction::DropzoneApi,
+    accept_drop: Value<bool>,
+    disabled: Value<bool>,
+    event: kivact_core::view::FileEvent,
+) -> Handled {
+    let state = api.state();
+    if event.phase == FilePhase::Leave {
+        api.leave();
+        return Handled::No;
+    }
+    if !accept_drop.get_untracked()
+        || disabled.get_untracked()
+        || matches!(state.get_untracked(), DropzoneState::Picking)
+    {
+        if event.phase == FilePhase::Drop {
+            api.leave();
+        }
+        return Handled::No;
+    }
+    match event.phase {
+        FilePhase::Enter | FilePhase::Over => api.hover(event.files),
+        FilePhase::Leave => api.leave(),
+        FilePhase::Drop => api.accept(event.files),
+    }
+    Handled::Yes
 }
