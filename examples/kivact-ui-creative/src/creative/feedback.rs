@@ -33,7 +33,7 @@ pub(super) fn menus(
         MenuEntry::item("apply", "Apply Transform").disabled(true),
     ];
     specs((
-        menus_context_menu(status, entries.clone()),
+        menus_context_menu(status, entries),
         menus_pie_menu(pie, pointer, pie_zone),
         menus_dropdown_search(status, search),
     ))

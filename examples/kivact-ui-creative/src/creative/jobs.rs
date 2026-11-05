@@ -66,7 +66,7 @@ pub(super) fn jobs(status: Signal<String>) -> impl IntoView {
     });
     specs((
         queue_view(status, running, progress, rows),
-        progress_view(running, progress, amount),
+        progress_view(running, amount),
         log_view(log, severity),
         report_view(status, log),
     ))
@@ -257,7 +257,7 @@ fn log_view(log: Signal<Vec<LogLine>>, severity: Signal<Vec<bool>>) -> Node {
     )
 }
 
-fn progress_view(running: Signal<bool>, progress: Signal<Vec<f64>>, amount: Signal<f64>) -> Node {
+fn progress_view(running: Signal<bool>, amount: Signal<f64>) -> Node {
     spec(
         "Progress",
         "進捗",
