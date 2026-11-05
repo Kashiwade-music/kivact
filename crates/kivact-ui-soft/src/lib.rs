@@ -135,7 +135,7 @@ pub use dialog_header::{
 pub use disclosure_appearance::{ChevronPosition, DisclosureDensity, DisclosureVariant};
 pub use divider::{Divider, DividerVariant, divider};
 pub use elevation::Elevation;
-pub use empty_state::{EmptyState, empty_state};
+pub use empty_state::EmptyStateVariant;
 pub use feedback::{StatusDot, StatusDotVariant, status_dot};
 pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status};
 pub use form_layout::{

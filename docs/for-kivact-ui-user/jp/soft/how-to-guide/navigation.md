@@ -46,3 +46,5 @@ segmented のヒントは `with_key_hints` の中で `.item_node(|target, _, _| 
 スクロールする carousel には標準の `carousel(index, slides).name(label).mode(CarouselMode::Scroll)` を使います。index は呼び出し側の `signal(0usize)` が管理します。スナップには `Snap::Mandatory`、自由なスクロールには `Snap::None` を指定します。`gap` と `padding` は論理ピクセル、`buttons`、`edge_fade`、`looping` は標準のオプションです。独自のナビゲーションには headless の `interaction::use_carousel(index, count)` を使います。Soft の recipe は端の丸いコントロール、影、間隔、4 ピクセルの fade を設定します。標準の操作名は Previous slide と Next slide、各グループの名前は Slide N / Count です。
 
 パンくずはキー付き `ListItem` と標準 `breadcrumb(items)` を使用します。既定では末尾が現在ページです。`.current(value)` でキーを指定し、`.current(None::<K>)` で現在ページを解除します。`.on_activate` は現在以外のキーを処理します。`.item` でアイコン、項目固有の操作、標準メニューを合成でき、スロットが操作を持つ場合は全体のコールバックを省略します。`.separator` は区切りを置換します。`soft::BreadcrumbsVariant::Supporting` は補助文字、既定は本文文字を使用し、折り返しと論理方向に従います。
+
+空の状態には標準 `empty_state(title).description(text).icon(view).actions(view)` を使用します。従来の自動変更通知には `.announce_changes()` を追加します。初回描画は読み上げず、実際のライブ領域の祖先では重複通知を抑制します。`.heading_level(level)` は1〜6に制限します。`.variant(soft::EmptyStateVariant::compact(compact))` はリアクティブな密度を受け取り、コンパクト時は操作を縦に並べます。中央揃えの文字と画像スロットも保持します。
