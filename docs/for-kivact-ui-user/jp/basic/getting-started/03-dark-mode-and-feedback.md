@@ -160,8 +160,8 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
             .size(pct(100), pct(100))
             .padding(24)
             .gap(16)
-            .background(basic::Color::Background)
-            .color(basic::Color::Foreground),
+            .background(basic::ColorName::Background)
+            .color(basic::ColorName::Foreground),
     )
 }
 

@@ -1,7 +1,7 @@
 //! Role: The Lyra item row with media, text, actions, group and separator.
 
 use crate::parts::pressable;
-use crate::theme_access::{tokens, wide_focus_ring};
+use crate::theme_access::wide_focus_ring;
 use crate::tokens::Tokens;
 use kivact::state::IntoValue;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
@@ -179,7 +179,7 @@ impl IntoView for Item {
         let (root, _) = pressable(self.root, Role::Button, self.on_press);
         let rtl = self.rtl;
         let root = root.base_style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let (fill, line) = frame(&p, variant);
             let s = style()
                 .direction(if rtl {
@@ -240,7 +240,7 @@ impl IntoView for Item {
                     style()
                         .line_height(1.625)
                         .line_clamp(2)
-                        .color(crate::Color::MutedForeground),
+                        .color(crate::ColorName::MutedForeground),
                 )
             }),
         ))
@@ -289,7 +289,7 @@ pub fn item_separator() -> impl kivact::view::Component {
                 .height(1)
                 .shrink(0)
                 .margin_y(8)
-                .background(crate::Color::Border),
+                .background(crate::ColorName::Border),
         )
 }
 

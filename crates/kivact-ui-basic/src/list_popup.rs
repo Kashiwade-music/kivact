@@ -1,8 +1,6 @@
 //! Role: The popup list look and list shared by selects, menus and comboboxes.
 
-use crate::theme_access::{
-    CHECK, list_row, lit_row, popover_surface, shadow_md, stroke_glyph, tokens,
-};
+use crate::theme_access::{CHECK, list_row, lit_row, popover_surface, shadow_md, stroke_glyph};
 use crate::tokens::Tokens;
 use kivact::geometry::Point;
 use kivact::interaction::{ListItemState, SelectApi};
@@ -68,14 +66,18 @@ pub(crate) fn select_popup<K: kivact::state::ItemKey>(
                 let state = part.state();
                 node()
                     .with_node(|root| root.part(part))
-                    .style(move || row_style(&tokens(), &state.get()))
+                    .style(move || {
+                        row_style(&kivact::style::use_tokens::<crate::Tokens>(), &state.get())
+                    })
                     .child(text(move || item.get().label()))
             },
         );
         overlay(
             anchor,
             Placement::Below,
-            scroll(column(rows)).style(move || surface_style(&tokens()).max_height(320)),
+            scroll(column(rows)).style(move || {
+                surface_style(&kivact::style::use_tokens::<crate::Tokens>()).max_height(320)
+            }),
         )
         .with_node(|root| root.part(part))
         .name(name)

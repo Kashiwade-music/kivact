@@ -1,8 +1,8 @@
 //! Role: The Lyra trace: muted activity lines with a collapsible detail.
 
-use crate::Color;
+use crate::ColorName;
 use crate::parts::sized_icon;
-use crate::theme_access::tokens;
+
 use kivact::interaction::use_disclosure;
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
@@ -71,7 +71,7 @@ impl TraceLine {
         let title = self.title;
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)
@@ -92,10 +92,11 @@ impl TraceLine {
             .child(text(title).style(style().single_line()))
             .child(self.description.map(|description| {
                 text(description).style(move || {
-                    style()
-                        .shrink(0)
-                        .tabular_nums()
-                        .color(tokens().muted_foreground.with_alpha(0.7))
+                    style().shrink(0).tabular_nums().color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .muted_foreground
+                            .with_alpha(0.7),
+                    )
                 })
             }))
     }
@@ -159,9 +160,9 @@ pub fn trace_collapsible(
                 .margin_left(6)
                 .padding_left(15)
                 .padding_right(4)
-                .border_left(1, Color::Border)
+                .border_left(1, ColorName::Border)
                 .line_height(1.625)
-                .color(Color::MutedForeground)
+                .color(ColorName::MutedForeground)
                 .font_size(12),
         );
     column((row(trigger).style(style().align_self(Align::Start)), body))

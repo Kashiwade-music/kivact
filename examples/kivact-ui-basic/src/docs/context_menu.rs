@@ -54,7 +54,7 @@ fn basic() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -84,7 +84,7 @@ fn submenu() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -127,7 +127,7 @@ fn checkboxes() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -164,7 +164,7 @@ fn target() -> impl IntoView {
                 .height(90)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .background(basic::Color::Muted)
+                .background(basic::ColorName::Muted)
                 .font_size(12),
         )
         .child(text("Right click the notes"));

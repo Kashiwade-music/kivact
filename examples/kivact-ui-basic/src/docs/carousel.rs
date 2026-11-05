@@ -51,7 +51,7 @@ fn default() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::Color::Border)
+                    .border(1, basic::ColorName::Border)
                     .font_size(30)
                     .weight(600),
             )
@@ -73,7 +73,7 @@ fn per_view() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::Color::Border)
+                    .border(1, basic::ColorName::Border)
                     .font_size(30)
                     .weight(600),
             )
@@ -96,7 +96,7 @@ fn vertical() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::Color::Border)
+                    .border(1, basic::ColorName::Border)
                     .font_size(30)
                     .weight(600),
             )
@@ -119,7 +119,7 @@ fn looped() -> impl IntoView {
                     .height(120)
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .border(1, basic::Color::Border)
+                    .border(1, basic::ColorName::Border)
                     .font_size(30)
                     .weight(600),
             )

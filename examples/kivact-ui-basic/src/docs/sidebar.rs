@@ -50,7 +50,7 @@ fn basic() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .padding(1),
         )
     }
@@ -126,7 +126,7 @@ fn icon() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .padding(1),
         )
     }
@@ -192,7 +192,7 @@ fn submenu() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .padding(1),
         )
     }
@@ -266,7 +266,7 @@ fn floating() -> impl IntoView {
             style()
                 .width(580)
                 .height(340)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .padding(1),
         )
     }

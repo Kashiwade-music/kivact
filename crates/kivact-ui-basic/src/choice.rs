@@ -1,6 +1,6 @@
 //! Role: Toggle group built on the toggle and list interactions, and the toggle look.
 
-use crate::theme_access::{tokens, wide_focus_ring};
+use crate::theme_access::wide_focus_ring;
 use crate::tokens::Tokens;
 use kivact::interaction::{ListOptions, Selection, use_list, use_toggle_button};
 use kivact::view::{Node, NodeBuilder, node, text};
@@ -247,7 +247,7 @@ impl<K: kivact::state::ItemKey> IntoView for ToggleGroup<K> {
                     .child(show(move || !icon_only.get(), move || text(label)))
                     .style(move || {
                         toggle_style(
-                            &tokens(),
+                            &kivact::style::use_tokens::<crate::Tokens>(),
                             variant,
                             size.get(),
                             pressed.get(),

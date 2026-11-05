@@ -2,7 +2,7 @@
 
 use crate::parts::{pressable, sized_icon};
 use crate::primitives::spinner;
-use crate::theme_access::tokens;
+
 use kivact::view::{Node, NodeBuilder, Scroll, ScrollAxes, column, node, row, scroll, text};
 
 use kivact::state::{Callback, Value};
@@ -176,7 +176,7 @@ fn media_side(size: AttachmentSize) -> f64 {
 
 /// The root style: the frame, its state colors and the focus ring.
 fn root_style(cfg: Cfg) -> Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let (vertical, size) = (cfg.vertical.get(), cfg.size.get());
     let current = cfg.state.get();
     let line = match current {
@@ -270,7 +270,7 @@ impl IntoView for Attachment {
             };
             node()
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let current = state.get();
                     let failed = current == AttachmentState::Error;
                     let s = style()
@@ -305,7 +305,7 @@ impl IntoView for Attachment {
             text(self.title).style(style().weight(500).single_line()),
             self.description.map(|description| {
                 text(description).style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().margin_top(2).single_line().color(
                         if state.get() == AttachmentState::Error {
                             p.destructive.with_alpha(0.8)

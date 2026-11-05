@@ -525,7 +525,7 @@ pub fn use_theme() -> Value<Theme> {
 /// [`Color`] is the identity and [`ColorToken`] reads the theme's
 /// [`Palette`](crate::theme::Palette). A component kit names its own colors
 /// with a `Color` enum that implements this trait by reading its tokens
-/// (`theme.ext::<Tokens>().border`), so `style().background(basic::Color::Border)`
+/// (`theme.ext::<Tokens>().border`), so `style().background(basic::ColorName::Border)`
 /// follows a theme switch without a closure around it.
 ///
 /// The returned [`Color`] may itself be a token or carry an alpha; it is

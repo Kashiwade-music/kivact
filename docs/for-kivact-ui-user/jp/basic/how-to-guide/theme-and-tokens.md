@@ -50,8 +50,8 @@ fn root() -> impl IntoView {
                     .size(pct(100), pct(100))
                     .padding(24)
                     .gap(12)
-                    .background(basic::Color::Background)
-                    .color(basic::Color::Foreground),
+                    .background(basic::ColorName::Background)
+                    .color(basic::ColorName::Foreground),
             )
         },
     )
@@ -118,7 +118,7 @@ fn main() -> kivact::Result<()> {
 
 ## 自分のスタイルでキットの色を使う
 
-`basic::Color` はパレットの色の名前です（`Background`、`Foreground`、`Card`、`Primary`、`Secondary`、`Muted`、`MutedForeground`、`Accent`、`Destructive`、`Border`、`Input`、`Ring`、`Chart1` から `Chart5`、`Sidebar` 系の色、`Code` の構文色）。色を受け取るスタイルのメソッドにはすべてそのまま渡せます。ノードを描くときに有効なテーマから解決されるので、テーマの切り替えに追従します。
+`basic::ColorName` はパレットの色の名前です（`Background`、`Foreground`、`Card`、`Primary`、`Secondary`、`Muted`、`MutedForeground`、`Accent`、`Destructive`、`Border`、`Input`、`Ring`、`Chart1` から `Chart5`、`Sidebar` 系の色、`Code` の構文色）。色を受け取るスタイルのメソッドにはすべてそのまま渡せます。ノードを描くときに有効なテーマから解決されるので、テーマの切り替えに追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -128,9 +128,9 @@ fn banner() -> impl IntoView {
     text("Heads up").style(
         style()
             .padding(12)
-            .background(basic::Color::Muted)
-            .color(basic::Color::MutedForeground)
-            .border(1, basic::Color::Border),
+            .background(basic::ColorName::Muted)
+            .color(basic::ColorName::MutedForeground)
+            .border(1, basic::ColorName::Border),
     )
 }
 ```

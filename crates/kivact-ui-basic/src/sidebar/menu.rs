@@ -3,7 +3,7 @@
 use super::state::{SidebarCollapsible, SidebarCx, current, deferred};
 use crate::parts::pressable;
 use crate::primitives::skeleton;
-use crate::theme_access::tokens;
+
 use kivact::interaction::use_tooltip;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
@@ -75,7 +75,7 @@ impl IntoView for SidebarGroup {
             let heading = node()
                 .hidden(hidden)
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(Direction::Row)
                         .align_items(Align::Center)
@@ -266,7 +266,7 @@ impl IntoView for SidebarMenuButton {
 
 /// The look of the button row for the sidebar's current state.
 fn button_style(cfg: ButtonCfg, rtl: bool) -> kivact::style::Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let active = cfg.active;
     let lit = active.get();
     let lit_style = style()
@@ -350,7 +350,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
         node()
             .hidden(hidden)
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .position(Position::Absolute)
                     .top(size.get().corner())
@@ -442,7 +442,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
             .with_node(|root| root.role(Role::List))
             .hidden(hidden)
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .direction(Direction::Column)
                     .gap(4)
@@ -527,7 +527,7 @@ impl IntoView for SidebarMenuSubButton {
         );
         let active = self.active;
         link.base_style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let lit = active.get();
             let lit_style = style()
                 .background(p.sidebar_accent)
@@ -572,7 +572,7 @@ pub fn sidebar_separator() -> impl kivact::view::Component {
                 .height(1)
                 .shrink(0)
                 .margin_x(8)
-                .background(crate::Color::SidebarBorder),
+                .background(crate::ColorName::SidebarBorder),
         )
 }
 
@@ -588,7 +588,7 @@ pub fn sidebar_input(
             .width(pct(100))
             .min_width(0)
             .height(32)
-            .background(crate::Color::Background),
+            .background(crate::ColorName::Background),
     )
 }
 

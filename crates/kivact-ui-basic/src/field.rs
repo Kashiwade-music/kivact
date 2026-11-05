@@ -1,6 +1,5 @@
 //! Role: Field-set, grouping and separator layouts of field.tsx.
 
-use crate::theme_access::tokens;
 use kivact::state::Value;
 use kivact::view::{Node, NodeBuilder, column, node, text};
 
@@ -106,7 +105,7 @@ impl IntoView for FieldSet {
                     .line_height(1.625)
                     .margin_top(if legend.is_some() { -6 } else { 0 })
                     .margin_bottom(16)
-                    .color(tokens().muted_foreground)
+                    .color(kivact::style::use_tokens::<crate::Tokens>().muted_foreground)
             }));
         }
         root.child(column(children).style(style().gap(16)))
@@ -174,7 +173,7 @@ impl IntoView for FieldSeparator {
                 .right(0)
                 .top(10)
                 .height(1)
-                .background(crate::Color::Border),
+                .background(crate::ColorName::Border),
         );
         let mut root = self.root.child(line);
         if let Some(label) = self.text {
@@ -183,8 +182,8 @@ impl IntoView for FieldSeparator {
                     style()
                         .font_size(12)
                         .padding_x(8)
-                        .background(crate::Color::Background)
-                        .color(crate::Color::MutedForeground)
+                        .background(crate::ColorName::Background)
+                        .color(crate::ColorName::MutedForeground)
                         .line_height(20.0 / 12.0),
                 ),
             );

@@ -36,7 +36,7 @@ pub fn scroll_area(child: impl IntoView) -> ScrollArea {
                 .min_width(0)
                 .width(pct(100))
                 .scrollbar_width(10)
-                .scrollbar_color(crate::Color::Border, Color::TRANSPARENT),
+                .scrollbar_color(crate::ColorName::Border, Color::TRANSPARENT),
         ),
     }
 }

@@ -199,3 +199,35 @@ cards, the command palette and toasts).
 | Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
 | Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
 | Individually wrapped children | `impl IntoChildren` |
+
+## Filled standard recipes
+
+The theme overrides these `UiRecipes` entries; other entries keep the standard defaults.
+
+<!-- kivact-recipes -->
+- `field`
+- `button`
+- `button_content`
+- `button_busy`
+- `button_icon`
+- `toggle`
+- `checkbox`
+- `switch`
+- `text_input`
+- `text_area`
+- `select`
+- `menu`
+- `dialog`
+- `tooltip`
+- `tabs`
+- `radio_group`
+- `slider`
+- `toast`
+- `splitter`
+- `list`
+- `data_table`
+- `split`
+- `progress`
+- `disclosure`
+- `command_palette`
+<!-- /kivact-recipes -->

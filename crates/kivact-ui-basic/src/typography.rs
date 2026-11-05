@@ -4,8 +4,8 @@
 //! Lyra preset's 12 px controls: prose uses 16 px body text. Vertical
 //! spacing between blocks is the caller's (`column(..).style(style().gap(..))`).
 
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use kivact::prelude::NodeBuilder;
 use kivact::view::{Node, column, node, row, text};
 
@@ -19,7 +19,7 @@ pub(crate) const MONO: &str = "\"Geist Mono\", monospace";
 /// A text node in the foreground color with `style` on top.
 fn styled(value: impl IntoText, look: fn(&crate::Tokens) -> Style) -> Node {
     text(value).style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         look(&p)
     })
 }
@@ -171,8 +171,8 @@ pub fn inline_code(value: impl IntoText) -> impl kivact::view::Component {
                 .padding_x(4.8)
                 .padding_y(3.2)
                 .radius(0)
-                .background(Color::Muted)
-                .color(Color::Foreground)
+                .background(ColorName::Muted)
+                .color(ColorName::Foreground)
                 .font_family(MONO)
                 .font_size(14)
                 .weight(600)
@@ -201,6 +201,6 @@ pub fn bullet_list(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Com
             .padding_left(8)
             .font_size(16)
             .line_height(28.0 / 16.0)
-            .color(Color::Foreground),
+            .color(ColorName::Foreground),
     )
 }

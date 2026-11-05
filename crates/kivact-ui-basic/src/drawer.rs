@@ -7,7 +7,7 @@
 //! which a dialog recipe cannot express.
 
 use crate::layers::{description_style, scrim, title_style};
-use crate::theme_access::tokens;
+
 use kivact::interaction::{DragCoordinates, DragPhase, use_dialog, use_drag};
 use kivact::motion::{Easing, Transition};
 use kivact::prelude::NodeBuilder;
@@ -242,7 +242,7 @@ impl IntoView for Drawer {
 
 /// `bg-popover text-xs/relaxed` attached to the edge, bordered on its inner side.
 fn drawer_panel(direction: Edge) -> Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let base = style()
         .background(p.popover)
         .color(p.popover_foreground)
@@ -281,7 +281,7 @@ fn drawer_panel(direction: Edge) -> Style {
 
 /// The 12 px strip with the 48 x 4 `bg-muted` bar, grabbed to swipe.
 fn handle_style(direction: Edge, active: bool) -> Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let horizontal = matches!(direction, Edge::Left | Edge::Right);
     let (bar_w, bar_h) = if horizontal { (4.0, 48.0) } else { (48.0, 4.0) };
     let s = style()

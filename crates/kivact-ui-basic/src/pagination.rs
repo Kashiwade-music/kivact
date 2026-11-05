@@ -2,7 +2,7 @@
 
 use crate::button::{Look, button_style};
 use crate::parts::pressable;
-use crate::theme_access::tokens;
+
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 
@@ -165,7 +165,7 @@ impl IntoView for PaginationLink {
         );
         let active = self.active;
         let root = root.base_style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let look = if active.get() {
                 Look::Outline
             } else {

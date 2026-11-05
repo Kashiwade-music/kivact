@@ -1,8 +1,8 @@
 //! Role: The Lyra breadcrumb trail with links, current page, separators and ellipsis.
 
-use crate::Color;
+use crate::ColorName;
 use crate::parts::{pressable, sized_icon};
-use crate::theme_access::tokens;
+
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 
@@ -54,7 +54,7 @@ pub fn breadcrumb_content(children: impl IntoView) -> impl kivact::view::Compone
                 .align_items(Align::Center)
                 .gap(6)
                 .font_size(12)
-                .color(tokens().muted_foreground)
+                .color(kivact::style::use_tokens::<crate::Tokens>().muted_foreground)
         })
 }
 
@@ -96,7 +96,7 @@ impl IntoView for BreadcrumbLink {
         let actionable = self.on_press.is_some();
         let (root, _) = pressable(self.root, Role::Link, self.on_press);
         root.base_style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             // A pressable link is a focus stop: the theme's ring shows while
             // the focus is visible.
             let s = style()
@@ -122,7 +122,7 @@ pub fn breadcrumb_page(text_value: impl IntoText) -> impl kivact::view::Componen
         .with_node(|root| root.role(Role::Link))
         .name(label)
         .disabled(true)
-        .style(style().color(Color::Foreground).text_wrap(false))
+        .style(style().color(ColorName::Foreground).text_wrap(false))
         .child(text(label))
 }
 

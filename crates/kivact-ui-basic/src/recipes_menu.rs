@@ -6,7 +6,7 @@
 //! the `context_surface` recipe (`min-w-36`), and [`menubar`](crate::menubar)
 //! gives its menus [`MenuVariant::Bar`].
 
-use crate::Color;
+use crate::ColorName;
 use crate::theme_access::{list_row, popover_surface, shadow_lg, shadow_md};
 use crate::tokens::Tokens;
 use kivact::custom::PartState;
@@ -88,7 +88,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
     .label(|_| label)
     .shortcut(|_| shortcut)
     .description(|_| {
-        |_: &Theme, _: &kivact::ui::Look<MenuItemState>| style().color(Color::MutedForeground)
+        |_: &Theme, _: &kivact::ui::Look<MenuItemState>| style().color(ColorName::MutedForeground)
     })
     .check(|_| |t: &Theme, s: &kivact::ui::Look<MenuItemState>| check(t, s, kind(s)))
     .submenu(|_| submenu)

@@ -30,7 +30,7 @@ pub(crate) fn select(r: SelectRecipes) -> SelectRecipes {
         .indicator(|_| select_indicator)
         .description(|_| {
             |_: &Theme, _: &kivact::ui::Look<ListItemState>| {
-                style().color(crate::Color::MutedForeground)
+                style().color(crate::ColorName::MutedForeground)
             }
         })
 }

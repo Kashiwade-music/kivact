@@ -149,7 +149,7 @@ pub use choice::{ToggleGroup, ToggleVariant, toggle_group};
 pub use code_block::{
     CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
 };
-pub use color::Color;
+pub use color::ColorName;
 pub use combobox::{Combobox, combobox};
 pub use date_picker::{DatePicker, DateRangePicker, date_picker, date_range_picker};
 pub use disclosure::{Collapsible, collapsible};

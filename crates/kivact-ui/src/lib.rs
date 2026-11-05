@@ -95,7 +95,7 @@
 //! the theme), installed with `Theme::with` and read only with
 //! `theme.ext::<Tokens>()`, its colors are also named by a field-less `Color`
 //! enum implementing [`ThemeColor`](kivact_core::style::ThemeColor) (a style
-//! takes `basic::Color::Border` and reads the theme it is painted in), and its
+//! takes `basic::ColorName::Border` and reads the theme it is painted in), and its
 //! icons are added with `Theme::with_icon`. The
 //! token type and the theme constructor that assembles the recipes are kept
 //! apart, so a recipe reading tokens never depends back on the constructor.

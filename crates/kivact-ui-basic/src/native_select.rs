@@ -1,8 +1,8 @@
 //! Role: Native-select look on the select interaction: bordered trigger and chevron.
 
-use crate::Color;
+use crate::ColorName;
 use crate::list_popup::select_popup;
-use crate::theme_access::{field_fill, tokens};
+use crate::theme_access::field_fill;
 use kivact::interaction::use_select;
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, node, text};
@@ -122,9 +122,9 @@ impl<K: kivact::state::ItemKey> IntoView for NativeSelect<K> {
             .node_ref(anchor)
             .child(text(label).style(move || {
                 style().grow(1).single_line().color(if has_value.get() {
-                    tokens().foreground
+                    kivact::style::use_tokens::<crate::Tokens>().foreground
                 } else {
-                    tokens().muted_foreground
+                    kivact::style::use_tokens::<crate::Tokens>().muted_foreground
                 })
             }))
             .child(
@@ -134,7 +134,7 @@ impl<K: kivact::state::ItemKey> IntoView for NativeSelect<K> {
                         .right(10)
                         .top(pct(50) - 8)
                         .size(16, 16)
-                        .color(Color::MutedForeground),
+                        .color(ColorName::MutedForeground),
                 ),
             );
         (
@@ -154,7 +154,7 @@ struct Cfg {
 
 /// native-select.tsx: `h-8 border-input pl-2.5 pr-8 text-xs`, `h-7` when small.
 fn trigger_style(cfg: Cfg) -> Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let dark = p.is_dark();
     let height = match cfg.size.get() {
         NativeSelectSize::Default => 32,

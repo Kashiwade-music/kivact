@@ -2,7 +2,7 @@
 
 use super::state::CalendarCaption;
 use super::state::Shared;
-use crate::Color;
+use crate::ColorName;
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
 use kivact::interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
 use kivact::state::IntoBinding;
@@ -49,8 +49,8 @@ fn new(selection: CalendarSelection) -> Calendar {
                 .gap(16)
                 .padding(8)
                 .shrink(0)
-                .background(Color::Background)
-                .color(Color::Foreground)
+                .background(ColorName::Background)
+                .color(ColorName::Foreground)
                 .font_size(12)
                 .align_self(kivact::style::Align::Start),
         ),

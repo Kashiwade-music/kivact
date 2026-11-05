@@ -1,7 +1,7 @@
 //! Role: The Lyra avatar, its status badge, group and overflow count.
 
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use kivact::state::IntoValue;
 use kivact::view::Asset;
 use kivact::view::{ImageFit, Node, NodeBuilder, image, node, row, text};
@@ -111,7 +111,7 @@ impl IntoView for Avatar {
         let side = move || size.get().side();
         let fallback = node()
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .position(Position::Absolute)
                     .left(0)
@@ -156,7 +156,7 @@ impl IntoView for Avatar {
                 .top(0)
                 .size(side(), side())
                 .radius(999)
-                .border(1, Color::Border)
+                .border(1, ColorName::Border)
         });
         let badge = self.badge.map(|content| {
             let dot = move || size.get().badge();
@@ -171,9 +171,9 @@ impl IntoView for Avatar {
                         .align_items(Align::Center)
                         .justify_content(Justify::Center)
                         .radius(999)
-                        .background(Color::Primary)
-                        .color(Color::PrimaryForeground)
-                        .ring(2, Color::Background)
+                        .background(ColorName::Primary)
+                        .color(ColorName::PrimaryForeground)
+                        .ring(2, ColorName::Background)
                         .z_index(10)
                 })
                 .child(content)
@@ -208,7 +208,10 @@ pub fn avatar_group(children: impl IntoChildren) -> impl kivact::view::Component
         .map(|(index, child)| {
             node()
                 .style(move || {
-                    let s = style().radius(999).ring(2, tokens().background).shrink(0);
+                    let s = style()
+                        .radius(999)
+                        .ring(2, kivact::style::use_tokens::<crate::Tokens>().background)
+                        .shrink(0);
                     if index == 0 { s } else { s.margin_left(-8) }
                 })
                 .child(child)
@@ -229,8 +232,8 @@ pub fn avatar_group_count(count_text: impl IntoText) -> impl kivact::view::Compo
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
                 .radius(999)
-                .background(Color::Muted)
-                .color(Color::MutedForeground)
+                .background(ColorName::Muted)
+                .color(ColorName::MutedForeground)
                 .font_size(12)
         })
         .child(text(count_text))

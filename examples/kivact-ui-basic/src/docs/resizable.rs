@@ -54,7 +54,7 @@ fn horizontal() -> impl IntoView {
         style()
             .width(420)
             .height(160)
-            .border(1, basic::Color::Border)
+            .border(1, basic::ColorName::Border)
             .padding(1),
     )
 }
@@ -80,7 +80,7 @@ fn vertical() -> impl IntoView {
             style()
                 .width(420)
                 .height(220)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .padding(1),
         )
 }
@@ -111,7 +111,7 @@ fn handle() -> impl IntoView {
             style()
                 .width(480)
                 .height(160)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .padding(1),
         ),
         basic::muted(move || {

@@ -3,7 +3,7 @@
 use crate::button::{Look, button_style};
 use crate::calendar::{Calendar, Names, calendar, calendar_range};
 use crate::parts::pressable;
-use crate::theme_access::tokens;
+
 use kivact::i18n::{CalendarDate, DateRange, interpolate, message};
 use kivact::state::{Binding, Value, memo, signal};
 use kivact::state::{IntoText, IntoValue};
@@ -35,7 +35,7 @@ impl Picker {
         // The width is the content's: give the trigger a `.style(..)` width to
         // fix it (the shadcn demo uses 280 px).
         let root = root.style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             button_style(&p, Look::Outline, ControlSize::Medium, &state.get())
                 .justify_content(Justify::Start)
                 .weight(400)
@@ -86,7 +86,7 @@ impl Picker {
         let trigger_ref = node_ref();
         let trigger = root.node_ref(trigger_ref).child(icon("calendar")).child(
             text(move || text_value.get().unwrap_or_else(|| placeholder.get())).style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style().color(if text_value.get().is_some() {
                     p.foreground
                 } else {

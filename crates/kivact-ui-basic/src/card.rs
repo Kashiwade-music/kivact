@@ -1,7 +1,7 @@
 //! Role: The Lyra card with header, image, content and footer slots.
 
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use kivact::state::Value;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
@@ -74,7 +74,8 @@ impl CardHeader {
         let titles = column((
             text(self.title).style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
             self.description.map(|description| {
-                text(description).style(style().line_height(1.625).color(Color::MutedForeground))
+                text(description)
+                    .style(style().line_height(1.625).color(ColorName::MutedForeground))
             }),
         ))
         .style(style().gap(4).grow(1).min_width(0));
@@ -92,7 +93,7 @@ impl CardHeader {
                     .padding_x(spacing.get());
                 if bordered.get() {
                     s.padding_bottom(spacing.get())
-                        .border_bottom(1, tokens().border)
+                        .border_bottom(1, kivact::style::use_tokens::<crate::Tokens>().border)
                 } else {
                     s
                 }
@@ -194,12 +195,12 @@ impl IntoView for Card {
                 style()
                     .align_items(Align::Center)
                     .padding(spacing.get())
-                    .border_top(1, Color::Border)
+                    .border_top(1, ColorName::Border)
             })
         });
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(Direction::Column)
                     .gap(spacing.get())

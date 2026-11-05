@@ -1,6 +1,6 @@
 //! Role: Input group: a bordered row of addons around one borderless control.
 
-use crate::theme_access::{field_fill, tokens};
+use crate::theme_access::field_fill;
 use kivact::state::memo;
 use kivact::state::{IntoValue, Value};
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
@@ -166,7 +166,7 @@ fn inline_addon(addon: Addon, padding_start: bool, input: NodeRef) -> Node {
                 .shrink(0)
                 .font_size(12)
                 .weight(500)
-                .color(tokens().muted_foreground);
+                .color(kivact::style::use_tokens::<crate::Tokens>().muted_foreground);
             // `pl-2 has-[>button]:ml-[-0.3rem]`, mirrored at the end.
             match (padding_start, button) {
                 (true, false) => s.padding_left(8),
@@ -192,7 +192,7 @@ fn block_addon(view: View, top: bool, input: NodeRef) -> Node {
                 .padding_x(10)
                 .font_size(12)
                 .weight(500)
-                .color(tokens().muted_foreground);
+                .color(kivact::style::use_tokens::<crate::Tokens>().muted_foreground);
             // `py-1.5`, with `pt-2` before the control and `pb-2` after it.
             if top {
                 s.padding_top(8).padding_bottom(6)
@@ -221,7 +221,7 @@ impl IntoView for InputGroup {
         let bad = memo(move || invalid.as_ref().is_some_and(|read| read.get()));
         let off = memo(move || disabled.as_ref().is_some_and(|read| read.get()));
         root = root.base_style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let dark = p.is_dark();
             let mut s = style()
                 .direction(Direction::Column)
@@ -297,7 +297,7 @@ pub fn input_group_text(label: impl IntoText) -> impl kivact::view::Component {
             .align_items(Align::Center)
             .gap(8)
             .font_size(12)
-            .color(crate::Color::MutedForeground),
+            .color(crate::ColorName::MutedForeground),
     )
 }
 

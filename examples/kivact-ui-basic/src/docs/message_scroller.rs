@@ -40,7 +40,7 @@ fn default() -> impl IntoView {
                     .width(360)
                     .height(200)
                     .padding(12)
-                    .border(1, basic::Color::Border),
+                    .border(1, basic::ColorName::Border),
             )
             .child(content)
     }
@@ -61,7 +61,7 @@ fn follow() -> impl IntoView {
                     .width(360)
                     .height(200)
                     .padding(12)
-                    .border(1, basic::Color::Border),
+                    .border(1, basic::ColorName::Border),
             )
             .child(content)
     }

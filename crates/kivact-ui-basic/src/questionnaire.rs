@@ -1,6 +1,5 @@
 //! Role: Step-by-step questionnaire with choices or text input and progress.
 
-use crate::theme_access::tokens;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::ListItem;
 use kivact::interaction::{ListItemState, ListOptions, Selection, use_list};
@@ -274,14 +273,14 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItem
                     style()
                         .font_size(12)
                         .line_height(1.375)
-                        .color(crate::Color::MutedForeground),
+                        .color(crate::ColorName::MutedForeground),
                 )
                 .into_view(),
         );
     }
     let indicator = node()
         .child(node().style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .position(Position::Absolute)
                 .left(3)
@@ -295,7 +294,7 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItem
                 })
         }))
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let selected = state.get().selected;
             style()
                 .position(Position::Relative)
@@ -316,7 +315,7 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItem
         .child(indicator)
         .child(column(body).style(style().gap(2).grow(1).min_width(0)))
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let st = state.get();
             let s = style()
                 .direction(Direction::Row)
@@ -366,7 +365,7 @@ fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> N
                     style()
                         .font_size(12)
                         .line_height(1.625)
-                        .color(crate::Color::MutedForeground),
+                        .color(crate::ColorName::MutedForeground),
                 )
                 .into_view(),
         );
@@ -550,7 +549,7 @@ impl IntoView for Questionnaire {
                     .weight(500)
                     .min_width(100)
                     .tabular_nums()
-                    .color(crate::Color::MutedForeground),
+                    .color(crate::ColorName::MutedForeground),
             ),
         )
         .child(step_view)

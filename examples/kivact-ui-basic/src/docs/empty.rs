@@ -47,7 +47,7 @@ fn outline() -> impl IntoView {
         .media(icon("search"))
         .media_variant(basic::EmptyMediaVariant::Icon)
         .description("Try adjusting your search terms.")
-        .style(style().border(1, basic::Color::Border))
+        .style(style().border(1, basic::ColorName::Border))
         .style(style().width(420))
 }
 // end example

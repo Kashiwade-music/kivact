@@ -1,7 +1,7 @@
 //! Role: The Lyra badge: a small status label that can act as a link.
 
 use crate::parts::{pressable, sized_icon};
-use crate::theme_access::{tokens, wide_focus_ring};
+use crate::theme_access::wide_focus_ring;
 use crate::tokens::Tokens;
 use kivact::view::{Node, NodeBuilder, node, text};
 
@@ -206,10 +206,18 @@ impl IntoView for Badge {
                 8.0
             },
         );
-        root.base_style(move || badge_style(&tokens(), variant, actionable, &state.get(), padding))
-            .child(self.icon.map(|icon| sized_icon(icon, 12.0)))
-            .child(text(self.label))
-            .child(self.trailing_icon.map(|icon| sized_icon(icon, 12.0)))
-            .into_view()
+        root.base_style(move || {
+            badge_style(
+                &kivact::style::use_tokens::<crate::Tokens>(),
+                variant,
+                actionable,
+                &state.get(),
+                padding,
+            )
+        })
+        .child(self.icon.map(|icon| sized_icon(icon, 12.0)))
+        .child(text(self.label))
+        .child(self.trailing_icon.map(|icon| sized_icon(icon, 12.0)))
+        .into_view()
     }
 }

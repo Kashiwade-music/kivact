@@ -1,8 +1,8 @@
 //! Role: The Lyra marker: a muted inline note with optional rules and icon.
 
-use crate::Color;
+use crate::ColorName;
 use crate::parts::sized_icon;
-use crate::theme_access::tokens;
+
 use kivact::view::{Node, NodeBuilder, node, row};
 
 use kivact::style::{Align, Direction, pct, style};
@@ -78,7 +78,7 @@ fn rule(margin_right: f64, margin_left: f64) -> Node {
             .height(1)
             .margin_right(margin_right)
             .margin_left(margin_left)
-            .background(Color::Border),
+            .background(ColorName::Border),
     )
 }
 
@@ -94,7 +94,7 @@ impl IntoView for Marker {
         );
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)

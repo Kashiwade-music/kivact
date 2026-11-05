@@ -1,11 +1,11 @@
 //! Role: Searchable select and multi-select with chips on the combobox interaction.
 
-use crate::Color;
+use crate::ColorName;
 use crate::input_group::{
     InputGroupButtonSize, borderless, input_group, input_group_button, input_group_input,
 };
 use crate::list_popup::{row_style, surface_style};
-use crate::theme_access::{field_fill, tokens};
+use crate::theme_access::field_fill;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::ListItem;
 use kivact::interaction::{
@@ -161,7 +161,7 @@ fn side_button(
         .disabled(off)
         .on_press(on_press)
         .with_node(|root| root.focus_on_press(input))
-        .style(style().color(Color::MutedForeground))
+        .style(style().color(ColorName::MutedForeground))
         .into_view()
 }
 
@@ -195,7 +195,7 @@ fn popup<K: kivact::state::ItemKey>(
                             selected: is_chosen(&key),
                             ..state.get()
                         };
-                        row_style(&tokens(), &st)
+                        row_style(&kivact::style::use_tokens::<crate::Tokens>(), &st)
                     })
                     .child(text(label))
             },
@@ -212,11 +212,13 @@ fn popup<K: kivact::state::ItemKey>(
                         .padding_y(8)
                         .font_size(12)
                         .text_align(kivact::style::TextAlign::Center)
-                        .color(Color::MutedForeground),
+                        .color(ColorName::MutedForeground),
                 )
             }),
         ))
-        .style(move || surface_style(&tokens()).max_height(288));
+        .style(move || {
+            surface_style(&kivact::style::use_tokens::<crate::Tokens>()).max_height(288)
+        });
         overlay(anchor, Placement::Below, content)
             .offset(6.0)
             .at_least_anchor_width()
@@ -271,8 +273,8 @@ fn chips_field<K: kivact::state::ItemKey>(
                     .padding_left(6)
                     .padding_right(2)
                     .radius(0)
-                    .background(Color::Muted)
-                    .color(Color::Foreground)
+                    .background(ColorName::Muted)
+                    .color(ColorName::Foreground)
                     .font_size(12)
                     .weight(500)
                     .text_wrap(false),
@@ -286,7 +288,7 @@ fn chips_field<K: kivact::state::ItemKey>(
     .node_ref(anchor)
     .with_node(|root| root.focus_on_press(input_ref))
     .style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         let s = style()
             .direction(Direction::Row)
             .wrap(true)

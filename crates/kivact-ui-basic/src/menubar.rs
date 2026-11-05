@@ -1,6 +1,5 @@
 //! Role: The Lyra menu bar: triggers of standard menus that move an open menu.
 
-use crate::theme_access::tokens;
 use kivact::interaction::MenuEntry;
 use kivact::interaction::{MenuApi, use_menubar};
 use kivact::prelude::NodeBuilder;
@@ -120,7 +119,7 @@ impl<K: kivact::state::ItemKey> kivact::view::IntoView for Menubar<K> {
                 .with_node(|root| root.role(Role::MenuItem))
                 .name(title)
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let active = style().background(p.muted);
                     style()
                         .direction(Direction::Row)
@@ -164,9 +163,9 @@ impl<K: kivact::state::ItemKey> kivact::view::IntoView for Menubar<K> {
                     .height(32)
                     .padding(5)
                     .radius(0)
-                    .border(1, tokens().border)
+                    .border(1, kivact::style::use_tokens::<crate::Tokens>().border)
                     .font_size(12)
-                    .color(tokens().foreground)
+                    .color(kivact::style::use_tokens::<crate::Tokens>().foreground)
             })
             .into_view()
     }
@@ -227,8 +226,9 @@ fn menu_surface<K: kivact::state::ItemKey>(
                                     move || data.get().description(),
                                     |description| {
                                         description.map(|description| {
-                                            text(description)
-                                                .style(style().color(crate::Color::MutedForeground))
+                                            text(description).style(
+                                                style().color(crate::ColorName::MutedForeground),
+                                            )
                                         })
                                     },
                                 ),
@@ -294,7 +294,7 @@ fn menu_surface<K: kivact::state::ItemKey>(
                             style()
                                 .padding(8)
                                 .font_size(12)
-                                .color(crate::Color::MutedForeground),
+                                .color(crate::ColorName::MutedForeground),
                         )
                         .into_view(),
                     MenuRow::Separator(_) => node()
@@ -303,7 +303,7 @@ fn menu_surface<K: kivact::state::ItemKey>(
                             style()
                                 .height(1)
                                 .margin_y(4)
-                                .background(crate::Color::Border),
+                                .background(crate::ColorName::Border),
                         )
                         .into_view(),
                 }

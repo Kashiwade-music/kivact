@@ -214,7 +214,7 @@ fn context_menu() -> impl IntoView {
         .role(Role::Group)
         .name("Notes")
         .focusable(true)
-        .style(style().width(240).height(96).border(1, basic::Color::Border))
+        .style(style().width(240).height(96).border(1, basic::ColorName::Border))
         .child(text("Right click here"));
     menu("Notes menu", vec![MenuEntry::item("copy", "Copy"), MenuEntry::item("paste", "Paste")]).on_activate(|_key: &'static str| {})
     .attach_context(area)

@@ -55,8 +55,8 @@ pub fn catalog_with_mode(mode: ThemeMode) -> impl IntoView {
         .style(
             style()
                 .size(pct(100), pct(100))
-                .background(basic::Color::Background)
-                .color(basic::Color::Foreground),
+                .background(basic::ColorName::Background)
+                .color(basic::ColorName::Foreground),
         )
     })
 }
@@ -74,7 +74,11 @@ fn top_bar(dark: Signal<bool>) -> Node {
         .on_press(move || dark.update(|dark| *dark = !*dark));
     row((
         text("Kivact UI").style(style().font_size(14).weight(600)),
-        text("Basic").style(style().font_size(14).color(basic::Color::MutedForeground)),
+        text("Basic").style(
+            style()
+                .font_size(14)
+                .color(basic::ColorName::MutedForeground),
+        ),
         spacer(),
         toggle,
     ))
@@ -85,7 +89,7 @@ fn top_bar(dark: Signal<bool>) -> Node {
             .padding_x(16)
             .gap(8)
             .align_items(Align::Center)
-            .border_bottom(1, basic::Color::Border),
+            .border_bottom(1, basic::ColorName::Border),
     )
 }
 
@@ -170,6 +174,6 @@ fn component_list(selected: Signal<Option<usize>>) -> Node {
             .width(LIST_WIDTH)
             .shrink(0)
             .height(pct(100))
-            .border_right(1, basic::Color::Border),
+            .border_right(1, basic::ColorName::Border),
     )
 }

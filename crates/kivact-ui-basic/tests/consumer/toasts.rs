@@ -11,8 +11,8 @@ use std::time::Duration;
 fn page(child: impl IntoView) -> Node {
     column(child).style(
         style()
-            .background(basic::Color::Background)
-            .color(basic::Color::Foreground)
+            .background(basic::ColorName::Background)
+            .color(basic::ColorName::Foreground)
             .padding(16)
             .gap(12)
             .grow(1)

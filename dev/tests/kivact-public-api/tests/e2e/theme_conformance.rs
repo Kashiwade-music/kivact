@@ -423,3 +423,198 @@ fn all_kit_themes_preserve_standard_component_contracts() {
         }
     }
 }
+
+/// README coverage follows the public recipe getters, including unchanged defaults.
+fn filled_recipe_keys(kit: &UiRecipes) -> Vec<&'static str> {
+    let defaults = UiRecipes::default();
+    let mut keys: Vec<_> = [
+        (
+            "button",
+            !std::ptr::eq(&**kit.button_recipe(), &**defaults.button_recipe()),
+        ),
+        (
+            "button_content",
+            !std::ptr::eq(
+                &**kit.button_content_recipe(),
+                &**defaults.button_content_recipe(),
+            ),
+        ),
+        (
+            "button_busy",
+            !std::ptr::eq(
+                &**kit.button_busy_recipe(),
+                &**defaults.button_busy_recipe(),
+            ),
+        ),
+        (
+            "button_icon",
+            !std::ptr::eq(
+                &**kit.button_icon_recipe(),
+                &**defaults.button_icon_recipe(),
+            ),
+        ),
+        (
+            "checkbox",
+            !std::ptr::eq(&**kit.checkbox_recipe(), &**defaults.checkbox_recipe()),
+        ),
+        (
+            "checkbox_indicator",
+            !std::ptr::eq(
+                &**kit.checkbox_indicator_recipe(),
+                &**defaults.checkbox_indicator_recipe(),
+            ),
+        ),
+        (
+            "checkbox_check",
+            !std::ptr::eq(
+                &**kit.checkbox_check_recipe(),
+                &**defaults.checkbox_check_recipe(),
+            ),
+        ),
+        (
+            "checkbox_mixed",
+            !std::ptr::eq(
+                &**kit.checkbox_mixed_recipe(),
+                &**defaults.checkbox_mixed_recipe(),
+            ),
+        ),
+        (
+            "switch",
+            !std::ptr::eq(&**kit.switch_recipe(), &**defaults.switch_recipe()),
+        ),
+        (
+            "switch_track",
+            !std::ptr::eq(
+                &**kit.switch_track_recipe(),
+                &**defaults.switch_track_recipe(),
+            ),
+        ),
+        (
+            "switch_thumb",
+            !std::ptr::eq(
+                &**kit.switch_thumb_recipe(),
+                &**defaults.switch_thumb_recipe(),
+            ),
+        ),
+        (
+            "toggle",
+            !std::ptr::eq(&**kit.toggle_recipe(), &**defaults.toggle_recipe()),
+        ),
+        (
+            "text_input",
+            !std::ptr::eq(&**kit.text_input_recipe(), &**defaults.text_input_recipe()),
+        ),
+        (
+            "text_area",
+            !std::ptr::eq(&**kit.text_area_recipe(), &**defaults.text_area_recipe()),
+        ),
+        ("select", kit.select_recipes() != defaults.select_recipes()),
+        ("menu", kit.menu_recipes() != defaults.menu_recipes()),
+        ("dialog", kit.dialog_recipes() != defaults.dialog_recipes()),
+        (
+            "tooltip",
+            kit.tooltip_recipes() != defaults.tooltip_recipes(),
+        ),
+        ("tabs", kit.tabs_recipes() != defaults.tabs_recipes()),
+        (
+            "radio_group",
+            kit.radio_group_recipes() != defaults.radio_group_recipes(),
+        ),
+        ("slider", kit.slider_recipes() != defaults.slider_recipes()),
+        ("toast", kit.toast_recipes() != defaults.toast_recipes()),
+        ("field", kit.field_recipes() != defaults.field_recipes()),
+        (
+            "splitter",
+            kit.splitter_recipes() != defaults.splitter_recipes(),
+        ),
+        ("list", kit.list_recipes() != defaults.list_recipes()),
+        ("tree", kit.tree_recipes() != defaults.tree_recipes()),
+        (
+            "data_table",
+            kit.data_table_recipes() != defaults.data_table_recipes(),
+        ),
+        ("split", kit.split_recipes() != defaults.split_recipes()),
+        (
+            "progress",
+            kit.progress_recipes() != defaults.progress_recipes(),
+        ),
+        (
+            "disclosure",
+            kit.disclosure_recipes() != defaults.disclosure_recipes(),
+        ),
+        (
+            "command_palette",
+            kit.command_palette_recipes() != defaults.command_palette_recipes(),
+        ),
+        (
+            "tag_input",
+            kit.tag_input_recipes() != defaults.tag_input_recipes(),
+        ),
+        (
+            "number_input",
+            kit.number_input_recipes() != defaults.number_input_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect();
+    keys.sort_unstable();
+    keys
+}
+
+#[test]
+fn kit_readme_lists_the_filled_recipes() {
+    let kits: [(&str, fn(ThemeMode) -> Theme, &str); 5] = [
+        (
+            "basic",
+            kivact_ui_basic::theme,
+            include_str!("../../../../../crates/kivact-ui-basic/README.md"),
+        ),
+        (
+            "game",
+            kivact_ui_game::theme,
+            include_str!("../../../../../crates/kivact-ui-game/README.md"),
+        ),
+        (
+            "pop",
+            kivact_ui_pop::theme,
+            include_str!("../../../../../crates/kivact-ui-pop/README.md"),
+        ),
+        (
+            "creative",
+            kivact_ui_creative::theme,
+            include_str!("../../../../../crates/kivact-ui-creative/README.md"),
+        ),
+        (
+            "soft",
+            kivact_ui_soft::theme,
+            include_str!("../../../../../crates/kivact-ui-soft/README.md"),
+        ),
+    ];
+    for (name, theme, readme) in kits {
+        let section = readme
+            .split_once("<!-- kivact-recipes -->")
+            .expect("kit README starts its recipe list")
+            .1
+            .split_once("<!-- /kivact-recipes -->")
+            .expect("kit README ends its recipe list")
+            .0;
+        let mut listed: Vec<_> = section
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| {
+                line.strip_prefix("- `")
+                    .and_then(|key| key.strip_suffix('`'))
+                    .expect("recipe entries use a bullet and a backticked key")
+            })
+            .collect();
+        listed.sort_unstable();
+        for mode in [ThemeMode::Light, ThemeMode::Dark] {
+            assert_eq!(
+                listed,
+                filled_recipe_keys(&theme(mode).ext::<UiRecipes>()),
+                "{name} {mode:?} README recipe coverage"
+            );
+        }
+    }
+}

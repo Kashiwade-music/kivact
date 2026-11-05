@@ -1,9 +1,9 @@
 //! Role: Calendar texts and the month title: a label or month and year selects.
 
 use super::state::{CalendarCaption, Shared};
-use crate::Color;
+use crate::ColorName;
 use crate::list_popup::select_popup;
-use crate::theme_access::{focus_ring, tokens};
+use crate::theme_access::focus_ring;
 use kivact::i18n::{CalendarMonth, Weekday, message, message_with};
 use kivact::interaction::ListItem;
 use kivact::interaction::use_select;
@@ -110,10 +110,10 @@ fn dropdown<K: kivact::state::ItemKey>(
             .child(
                 node()
                     .child(icon("chevron-down"))
-                    .style(style().size(14, 14).color(Color::MutedForeground)),
+                    .style(style().size(14, 14).color(ColorName::MutedForeground)),
             )
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)

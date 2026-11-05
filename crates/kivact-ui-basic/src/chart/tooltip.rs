@@ -1,8 +1,8 @@
 //! Role: The hover tooltip card and the legend of a chart.
 
 use super::model::{ChartConfig, Hit, series_color};
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use crate::typography::MONO;
 use kivact::geometry::{Point, Size};
 use kivact::prelude::NodeBuilder;
@@ -36,18 +36,22 @@ pub(super) fn tooltip(
                     .size(10, 10)
                     .shrink(0)
                     .radius(2)
-                    .background(series_color(&config, series, &tokens()))
+                    .background(series_color(
+                        &config,
+                        series,
+                        &kivact::style::use_tokens::<crate::Tokens>(),
+                    ))
             }),
             row((
                 text(hit_row.label.clone())
-                    .style(style().color(Color::MutedForeground).line_height(1.0)),
+                    .style(style().color(ColorName::MutedForeground).line_height(1.0)),
                 text(format(hit_row.value)).style(
                     style()
                         .font_family(MONO)
                         .weight(500)
                         .tabular_nums()
                         .line_height(1.0)
-                        .color(Color::Foreground),
+                        .color(ColorName::Foreground),
                 ),
             ))
             .style(
@@ -75,7 +79,7 @@ pub(super) fn tooltip(
     // The pointer passes through the card to the plot (`pointer-events-none`).
     .hit_testable(false)
     .style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         let at = at.get();
         let top = (at.y + OFFSET).min(size.height - height).max(0.0);
         // Laid out at the plot's top left corner (flipped: ending there),
@@ -117,9 +121,13 @@ pub(super) fn legend(config: &Rc<ChartConfig>) -> Node {
                         .size(8, 8)
                         .shrink(0)
                         .radius(2)
-                        .background(series_color(&colors, index, &tokens()))
+                        .background(series_color(
+                            &colors,
+                            index,
+                            &kivact::style::use_tokens::<crate::Tokens>(),
+                        ))
                 }),
-                text(series.label.clone()).style(style().color(Color::Foreground)),
+                text(series.label.clone()).style(style().color(ColorName::Foreground)),
             ))
             .style(style().gap(6).align_items(Align::Center))
             .into_view()

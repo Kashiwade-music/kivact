@@ -1,7 +1,7 @@
 //! Role: The Lyra table: equal-width cells, rules, header, body and footer.
 
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use kivact::state::Value;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
@@ -61,7 +61,7 @@ pub fn table_caption(text_value: impl IntoText) -> impl kivact::view::Component 
     text(text_value).style(
         style()
             .margin_top(16)
-            .color(Color::MutedForeground)
+            .color(ColorName::MutedForeground)
             .text_align(kivact::style::TextAlign::Center),
     )
 }
@@ -88,7 +88,7 @@ pub fn table_footer(children: impl IntoView) -> impl kivact::view::Component {
     column(children)
         .with_node(|root| root.role(Role::RowGroup))
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .margin_bottom(-1)
                 .border_top(1, p.border)
@@ -112,7 +112,7 @@ pub fn table_row(children: impl IntoView) -> TableRow {
         root: row(children)
             .with_node(|root| root.role(Role::Row))
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .align_items(Align::Center)
                     .width(pct(100))
@@ -205,7 +205,7 @@ impl IntoView for TableCell {
         let (header, width, align) = (self.header, self.width, self.align);
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)

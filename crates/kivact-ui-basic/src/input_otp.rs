@@ -1,6 +1,6 @@
 //! Role: One-time-code input: slots drawn over one hidden native text edit.
 
-use crate::theme_access::{field_fill, tokens};
+use crate::theme_access::field_fill;
 use kivact::interaction::use_text_edit;
 use kivact::view::icon;
 use kivact::view::{Node, NodeBuilder, node, row, text};
@@ -176,7 +176,7 @@ impl IntoView for InputOtp {
                                 .direction(Direction::Row)
                                 .align_items(Align::Center)
                                 .padding_x(2)
-                                .color(crate::Color::Foreground),
+                                .color(crate::ColorName::Foreground),
                         )
                         .into_view(),
                 );
@@ -222,7 +222,7 @@ fn slot(
     node()
         .child(text(move || glyph.get().unwrap_or_default()))
         .child(node().style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             // The caret of the active empty slot.
             let show = is_active.get() && glyph.get().is_none();
             style()
@@ -238,7 +238,7 @@ fn slot(
                 })
         }))
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let s = style()
                 .position(Position::Relative)
                 .direction(Direction::Row)

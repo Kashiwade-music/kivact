@@ -2,7 +2,7 @@
 
 use super::caption::{Names, title};
 use super::state::Shared;
-use crate::theme_access::{tokens, wide_focus_ring};
+use crate::theme_access::wide_focus_ring;
 use kivact::custom::{Part, PartState};
 use kivact::i18n::{CalendarDate, CalendarMonth, Weekday};
 use kivact::interaction::{CalendarDayState, CalendarSpan};
@@ -90,7 +90,7 @@ pub(super) fn month_panel(
                         .height(20)
                         .font_size(12.8)
                         .text_align(TextAlign::Center)
-                        .color(crate::Color::MutedForeground),
+                        .color(crate::ColorName::MutedForeground),
                 )
                 .into_view()
         })
@@ -139,7 +139,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
         .child(text(day.day().to_string()))
         .style(move || day_style(marked.get(), today, in_month));
     let band = node().style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         let s = style().position(Position::Absolute).top(0).height(CELL);
         match marked.get().span {
             CalendarSpan::Start => s.left(CELL / 2.0).width(CELL / 2.0).background(p.muted),
@@ -157,7 +157,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
 }
 
 fn day_style(state: CalendarDayState, today: bool, in_month: bool) -> Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let dark = p.is_dark();
     let disabled = state.disabled;
     let (fill, color) = if state.edge {

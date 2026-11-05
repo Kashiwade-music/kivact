@@ -1,7 +1,7 @@
 //! Role: Chat surfaces: the Lyra bubble, bubble group and message row.
 
 use crate::parts::pressable;
-use crate::theme_access::tokens;
+
 use crate::tokens::Tokens;
 use kivact::state::{Callback, IntoValue};
 use kivact::view::{Node, NodeBuilder, column, node, row};
@@ -221,7 +221,7 @@ impl IntoView for Bubble {
         let (body, _) = pressable(node(), Role::Button, self.on_press);
         let body = body
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let (fill, fg, line) = colors(&p, variant, false);
                 let s = style()
                     .direction(Direction::Column)
@@ -255,7 +255,7 @@ impl IntoView for Bubble {
         let hanging = move || has_reactions.then(|| side.get());
         let reactions = self.reactions.map(|reactions| {
             row(reactions).style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .position(Position::Absolute)
                     .align_items(Align::Center)
@@ -395,7 +395,7 @@ impl IntoView for Message {
                     .padding_x(10)
                     .font_size(12)
                     .weight(500)
-                    .color(tokens().muted_foreground)
+                    .color(kivact::style::use_tokens::<crate::Tokens>().muted_foreground)
             })
         };
         let body =
@@ -415,7 +415,7 @@ impl IntoView for Message {
                     .align_items(Align::Center)
                     .radius(999)
                     .overflow(Overflow::Hidden)
-                    .background(tokens().muted);
+                    .background(kivact::style::use_tokens::<crate::Tokens>().muted);
                 if has_footer { s.translate(0, -32) } else { s }
             })
         });

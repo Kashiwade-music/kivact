@@ -1,6 +1,6 @@
 //! Role: Lyra recipes for the standard command palette (command.tsx).
 
-use crate::Color;
+use crate::ColorName;
 use crate::layers::scrim_style;
 use crate::theme_access::{list_row, menu_shortcut, popover_surface};
 use crate::tokens::Tokens;
@@ -50,7 +50,7 @@ fn search(t: &Theme, _: &Look<PartState>) -> Style {
         .shrink(0)
         .height(32)
         .padding_left(8)
-        .border_bottom(1, Color::Border)
+        .border_bottom(1, ColorName::Border)
         .background(t.ext::<Tokens>().input.with_alpha(0.3))
 }
 
@@ -59,7 +59,7 @@ fn search_icon(_: &Theme, _: &Look<PartState>) -> Style {
         .size(16, 16)
         .shrink(0)
         .opacity(0.5)
-        .color(Color::Foreground)
+        .color(ColorName::Foreground)
 }
 
 fn field(t: &Theme, _: &Look<PartState>) -> Style {
@@ -89,7 +89,7 @@ fn group(_: &Theme, _: &Look<PartState>) -> Style {
         .padding_x(8)
         .padding_y(6)
         .font_size(12)
-        .color(Color::MutedForeground)
+        .color(ColorName::MutedForeground)
 }
 
 /// A row: `px-2 py-2 text-xs gap-2`, `bg-muted` while active.
@@ -123,13 +123,13 @@ fn empty(_: &Theme, _: &Look<PartState>) -> Style {
         .align_self(Align::Stretch)
         .text_align(TextAlign::Center)
         .font_size(12)
-        .color(Color::PopoverForeground)
+        .color(ColorName::PopoverForeground)
 }
 
 fn footer(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .padding(8)
         .font_size(12)
-        .color(Color::MutedForeground)
-        .border_top(1, Color::Border)
+        .color(ColorName::MutedForeground)
+        .border_top(1, ColorName::Border)
 }

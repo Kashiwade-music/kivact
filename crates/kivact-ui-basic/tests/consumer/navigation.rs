@@ -12,8 +12,8 @@ use kivact_ui_basic as basic;
 pub(super) fn page(child: impl IntoView) -> Node {
     column(child).style(
         style()
-            .background(basic::Color::Background)
-            .color(basic::Color::Foreground)
+            .background(basic::ColorName::Background)
+            .color(basic::ColorName::Foreground)
             .padding(16)
             .gap(16)
             .grow(1)
@@ -232,7 +232,7 @@ pub(super) fn right_click_area() -> Node {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(kivact::style::Justify::Center)
-                .border(1, basic::Color::Border),
+                .border(1, basic::ColorName::Border),
         )
 }
 

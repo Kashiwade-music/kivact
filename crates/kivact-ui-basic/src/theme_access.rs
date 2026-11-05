@@ -5,11 +5,6 @@ use kivact::draw::{Draw, LineCap, LineJoin, Path, Shadow, Stroke};
 use kivact::geometry::Point;
 use kivact::style::{Align, Color, ColorToken, Direction, Style, style, use_theme};
 
-/// The tokens of the theme in effect; call it inside a style closure.
-pub(crate) fn tokens() -> kivact::style::ThemeRef<Tokens> {
-    use_theme().get().ext::<Tokens>()
-}
-
 /// The theme's focus ring (`Theme::focus_ring`, 1 px, in `ColorToken::Focus`,
 /// `--ring` at half opacity): what every focus stop draws by default while
 /// the focus is visible. A style with a `focus` look of its own turns that

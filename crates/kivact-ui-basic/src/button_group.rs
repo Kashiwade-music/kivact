@@ -1,6 +1,5 @@
 //! Role: The Lyra button group: joined controls, a group separator and a text cell.
 
-use crate::theme_access::tokens;
 use kivact::view::IntoChildren;
 use kivact::view::{Node, NodeBuilder, node, row, text};
 
@@ -157,7 +156,7 @@ pub fn button_group_separator() -> impl kivact::view::Component {
             let s = style()
                 .shrink(0)
                 .align_self(Align::Stretch)
-                .background(tokens().input);
+                .background(kivact::style::use_tokens::<crate::Tokens>().input);
             if across() {
                 s.height(1).margin_x(1)
             } else {
@@ -177,10 +176,10 @@ pub fn button_group_text(text_value: impl IntoText) -> impl kivact::view::Compon
             .align_items(Align::Center)
             .gap(8)
             .padding_x(10)
-            .border(1, crate::Color::Border)
+            .border(1, crate::ColorName::Border)
             .radius(0)
-            .background(crate::Color::Muted)
-            .color(crate::Color::Foreground)
+            .background(crate::ColorName::Muted)
+            .color(crate::ColorName::Foreground)
             .font_size(12)
             .weight(500)
             .text_wrap(false),

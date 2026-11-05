@@ -6,7 +6,7 @@ use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
 ///
 /// [`theme`](crate::theme) installs them in the [`Theme`]; components read them
 /// with `theme.ext::<Tokens>()` inside their recipes and style closures, or
-/// name a color with [`Color`](crate::Color), so a live theme switch restyles
+/// name a color with [`ColorName`](crate::ColorName), so a live theme switch restyles
 /// mounted components. A theme without them reads the values of its
 /// [`ThemeMode`].
 #[derive(Clone, Debug, PartialEq)]

@@ -2,7 +2,7 @@
 
 use super::state::{SidebarCollapsible, SidebarCx, SidebarSide, SidebarVariant, WIDTH, WIDTH_ICON};
 use crate::parts::pressable;
-use crate::theme_access::tokens;
+
 use kivact::draw::Shadow;
 use kivact::geometry::Rect;
 use kivact::i18n::message;
@@ -141,7 +141,7 @@ impl Sidebar {
         let inner = node()
             .hidden(offcanvas_closed)
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .direction(Direction::Column)
                     .width(pct(100))
@@ -180,7 +180,7 @@ impl Sidebar {
                 .z_index(10)
                 .height(pct(100))
                 .min_height(0)
-                .color(tokens().sidebar_foreground)
+                .color(kivact::style::use_tokens::<crate::Tokens>().sidebar_foreground)
                 .width(width_of(cx));
             if framed { s.padding(8) } else { s }
         });
@@ -195,7 +195,7 @@ fn build_rail(cx: SidebarCx) -> Node {
     rail.name(message("basic.sidebar.toggle", "Toggle Sidebar"))
         .focusable(false)
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let closed = !cx.shown.get();
             // The 2 px line is local paint, which a state style cannot
             // draw, so it follows the rail's hover.
@@ -234,7 +234,7 @@ fn build_rail(cx: SidebarCx) -> Node {
 fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
     node()
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let s = style()
                 .position(Position::Relative)
                 .direction(Direction::Column)
@@ -335,7 +335,7 @@ pub fn sidebar_provider(
                 .min_height(0)
                 .align_items(Align::Stretch);
             if cx.variant == SidebarVariant::Inset {
-                s.background(tokens().sidebar)
+                s.background(kivact::style::use_tokens::<crate::Tokens>().sidebar)
             } else {
                 s
             }

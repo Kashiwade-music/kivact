@@ -1,7 +1,7 @@
 //! Role: Small Lyra primitives: label, separator, kbd, spinner, skeleton and more.
 
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use kivact::motion::{Animated, Easing, Repeat, Transition};
 use kivact::state::Value;
 use kivact::view::icon;
@@ -46,7 +46,7 @@ pub fn label(text_value: impl IntoText) -> Label {
                 .gap(8)
                 .font_size(12)
                 .line_height(1.0)
-                .color(Color::Foreground)
+                .color(ColorName::Foreground)
                 .disabled(crate::theme_access::disabled()),
         )
         .child(text(text_value));
@@ -127,7 +127,7 @@ impl IntoView for Separator {
         let orientation = self.orientation;
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style().shrink(0).background(p.border);
                 if orientation.is_some_and(|o| o.get() == Orientation::Vertical) {
                     s.width(1).align_self(Align::Stretch)
@@ -153,8 +153,8 @@ pub fn kbd(text_value: impl IntoText) -> impl kivact::view::Component {
                 .min_width(20)
                 .padding_x(4)
                 .radius(0)
-                .background(Color::Muted)
-                .color(Color::MutedForeground)
+                .background(ColorName::Muted)
+                .color(ColorName::MutedForeground)
                 .font_size(12)
                 .weight(500)
                 .text_wrap(false),
@@ -240,7 +240,7 @@ impl IntoView for Skeleton {
                             .min_height(16)
                             .width(pct(100))
                             .radius(0)
-                            .background(crate::theme_access::tokens().muted)
+                            .background(kivact::style::use_tokens::<crate::Tokens>().muted)
                             .opacity(if kivact::platform::is_motion_reduced().get() {
                                 1.
                             } else {

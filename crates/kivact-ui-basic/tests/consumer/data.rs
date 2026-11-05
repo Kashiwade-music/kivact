@@ -12,8 +12,8 @@ use kivact_ui_basic as basic;
 fn page(child: impl IntoView) -> Node {
     column(child).style(
         style()
-            .background(basic::Color::Background)
-            .color(basic::Color::Foreground)
+            .background(basic::ColorName::Background)
+            .color(basic::ColorName::Foreground)
             .padding(16)
             .gap(16)
             .grow(1)

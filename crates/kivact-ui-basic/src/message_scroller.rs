@@ -75,7 +75,7 @@ impl IntoView for MessageScroller {
                 .min_width(0)
                 .width(pct(100))
                 .scrollbar_width(10)
-                .scrollbar_color(crate::Color::Border, Color::TRANSPARENT),
+                .scrollbar_color(crate::ColorName::Border, Color::TRANSPARENT),
         );
         let button = button(message("basic.message_scroller.end", "Scroll to end"))
             .variant(ButtonVariant::Outline)

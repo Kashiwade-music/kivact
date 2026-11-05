@@ -40,7 +40,7 @@ fn default() -> impl IntoView {
                 .padding_x(16)
                 .padding_y(8)
                 .font_size(12)
-                .border(1, basic::Color::Border),
+                .border(1, basic::ColorName::Border),
         )
     };
     basic::collapsible(open)

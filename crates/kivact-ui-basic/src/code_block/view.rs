@@ -1,7 +1,7 @@
 //! Role: The CodeBlock builder and its highlighted lines, gutter and copy button.
 
 use super::lines::{CodeLine, CodeTone};
-use crate::theme_access::tokens;
+
 use crate::tokens::CodeColors;
 use crate::typography::MONO;
 use kivact::custom::{EditContext, EditOutcome, EditRequest, EditState, TextEditing, part};
@@ -92,7 +92,7 @@ pub struct CodeBlock {
 pub fn code_block(lines: impl IntoValue<Vec<CodeLine>>) -> CodeBlock {
     CodeBlock {
         root: column(()).style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .direction(Direction::Column)
                 .min_width(0)
@@ -267,7 +267,15 @@ fn code_view(lines: Value<Vec<CodeLine>>, name: Value<String>, size: Value<CodeB
         .multiline()
         .read_only(true)
         .behavior(code_keys)
-        .line_styles(move || (lines.get(), tokens().code.clone()), line_colors);
+        .line_styles(
+            move || {
+                (
+                    lines.get(),
+                    kivact::style::use_tokens::<crate::Tokens>().code.clone(),
+                )
+            },
+            line_colors,
+        );
     let control = kivact::custom::Part::new(part(|state| state).state(), move |node| {
         node.role(Role::TextBox)
             .focusable(true)
@@ -297,7 +305,7 @@ fn gutter(lines: Value<Vec<CodeLine>>) -> Node {
             .min_width(24)
             .shrink(0)
             .text_align(kivact::style::TextAlign::End)
-            .color(crate::Color::MutedForeground),
+            .color(crate::ColorName::MutedForeground),
     )
 }
 
@@ -367,7 +375,7 @@ impl IntoView for CodeBlock {
                     .gap(8)
                     .padding_x(pad())
                     .padding_top(pad())
-                    .color(crate::Color::MutedForeground)
+                    .color(crate::ColorName::MutedForeground)
             })
         });
         let lines = self.lines;
@@ -404,7 +412,7 @@ impl IntoView for CodeBlock {
                     .gap(8)
                     .padding_x(pad())
                     .padding_bottom(pad())
-                    .color(crate::Color::MutedForeground)
+                    .color(crate::ColorName::MutedForeground)
             })
         });
         self.root

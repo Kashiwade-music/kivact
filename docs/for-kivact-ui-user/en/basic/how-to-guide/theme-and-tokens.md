@@ -50,8 +50,8 @@ fn root() -> impl IntoView {
                     .size(pct(100), pct(100))
                     .padding(24)
                     .gap(12)
-                    .background(basic::Color::Background)
-                    .color(basic::Color::Foreground),
+                    .background(basic::ColorName::Background)
+                    .color(basic::ColorName::Foreground),
             )
         },
     )
@@ -118,7 +118,7 @@ fn main() -> kivact::Result<()> {
 
 ## Use the kit's colors in your own styles
 
-`basic::Color` names a color of the palette (`Background`, `Foreground`, `Card`, `Primary`, `Secondary`, `Muted`, `MutedForeground`, `Accent`, `Destructive`, `Border`, `Input`, `Ring`, `Chart1` to `Chart5`, the `Sidebar` colors and the `Code` syntax colors). Every style method that takes a color accepts it, and it is resolved from the theme in effect when the node is drawn, so it follows a theme switch:
+`basic::ColorName` names a color of the palette (`Background`, `Foreground`, `Card`, `Primary`, `Secondary`, `Muted`, `MutedForeground`, `Accent`, `Destructive`, `Border`, `Input`, `Ring`, `Chart1` to `Chart5`, the `Sidebar` colors and the `Code` syntax colors). Every style method that takes a color accepts it, and it is resolved from the theme in effect when the node is drawn, so it follows a theme switch:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -128,9 +128,9 @@ fn banner() -> impl IntoView {
     text("Heads up").style(
         style()
             .padding(12)
-            .background(basic::Color::Muted)
-            .color(basic::Color::MutedForeground)
-            .border(1, basic::Color::Border),
+            .background(basic::ColorName::Muted)
+            .color(basic::ColorName::MutedForeground)
+            .border(1, basic::ColorName::Border),
     )
 }
 ```

@@ -55,7 +55,7 @@ fn example_title(title: &'static str) -> Node {
             .font_size(20)
             .line_height(1.4)
             .weight(600)
-            .color(basic::Color::Foreground),
+            .color(basic::ColorName::Foreground),
     )
 }
 
@@ -65,7 +65,7 @@ fn prose(content: &'static str) -> Node {
         style()
             .font_size(14)
             .line_height(24.0 / 14.0)
-            .color(basic::Color::Foreground),
+            .color(basic::ColorName::Foreground),
     )
 }
 
@@ -85,7 +85,7 @@ fn example_section(page: &'static Page, example: &'static Example) -> Node {
                 .padding(40)
                 .align_items(Align::Center)
                 .justify_content(along)
-                .border(1, basic::Color::Border),
+                .border(1, basic::ColorName::Border),
         );
     let code = code_block(page.snippet(example.id), format!("{prefix}-code"))
         .style(style().margin_top(-1));

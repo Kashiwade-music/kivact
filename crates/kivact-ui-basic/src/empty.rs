@@ -1,7 +1,7 @@
 //! Role: The Lyra empty state: media, title, description and actions, centered.
 
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use kivact::state::IntoText;
 use kivact::state::Value;
 use kivact::style::{Align, Direction, Justify, TextAlign, pct, style};
@@ -56,7 +56,7 @@ pub fn empty_state(title: impl IntoText) -> EmptyState {
                 .min_width(0)
                 .padding(24)
                 .radius(0)
-                .color(Color::Foreground)
+                .color(ColorName::Foreground)
                 .font_size(12)
                 .text_align(TextAlign::Center),
         ),
@@ -116,7 +116,7 @@ impl IntoView for EmptyState {
                     match variant {
                         EmptyMediaVariant::Default => s,
                         EmptyMediaVariant::Icon => {
-                            let p = tokens();
+                            let p = kivact::style::use_tokens::<crate::Tokens>();
                             s.size(32, 32).background(p.muted).color(p.foreground)
                         }
                     }
@@ -127,7 +127,8 @@ impl IntoView for EmptyState {
             media,
             text(self.title).style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
             self.description.map(|description| {
-                text(description).style(style().line_height(1.625).color(Color::MutedForeground))
+                text(description)
+                    .style(style().line_height(1.625).color(ColorName::MutedForeground))
             }),
         ))
         .style(

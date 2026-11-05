@@ -6,7 +6,7 @@
 //! focus is on its trigger or on itself, and it is a `Role::Group` that
 //! takes no focus.
 
-use crate::theme_access::{popover_surface, shadow_md, tokens};
+use crate::theme_access::{popover_surface, shadow_md};
 use kivact::interaction::{Delays, use_delayed};
 use kivact::state::{IntoValue, Value, memo};
 use kivact::view::{NodeBuilder, column};
@@ -129,10 +129,12 @@ impl HoverCard {
 
 /// `w-64 bg-popover p-2.5 text-xs shadow-md ring-1 ring-foreground/10`, as a column.
 fn panel_style() -> Style {
-    shadow_md(popover_surface(&tokens()))
-        .direction(Direction::Column)
-        .line_height(1.625)
-        .width(256)
-        .max_width(kivact::style::pct(100))
-        .padding(10)
+    shadow_md(popover_surface(
+        &kivact::style::use_tokens::<crate::Tokens>(),
+    ))
+    .direction(Direction::Column)
+    .line_height(1.625)
+    .width(256)
+    .max_width(kivact::style::pct(100))
+    .padding(10)
 }

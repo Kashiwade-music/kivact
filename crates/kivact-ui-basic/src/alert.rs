@@ -1,6 +1,5 @@
 //! Role: The Lyra alert: a bordered callout with icon, title, text and action.
 
-use crate::theme_access::tokens;
 use kivact::state::IntoValue;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
@@ -107,7 +106,7 @@ impl IntoView for Alert {
             text(self.title).style(style().weight(500)),
             self.description.map(|description| {
                 text(description).style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().line_height(1.625).color(match variant {
                         AlertVariant::Default => p.muted_foreground,
                         AlertVariant::Destructive => p.destructive.with_alpha(0.9),
@@ -128,7 +127,7 @@ impl IntoView for Alert {
         });
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(kivact::style::Direction::Row)
                     .align_items(Align::Start)

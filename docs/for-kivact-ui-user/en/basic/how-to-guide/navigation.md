@@ -55,8 +55,8 @@ fn shell() -> impl IntoView {
     column(basic::sidebar_provider(open, sidebar, content)).style(
         style()
             .size(pct(100), pct(100))
-            .background(basic::Color::Background)
-            .color(basic::Color::Foreground),
+            .background(basic::ColorName::Background)
+            .color(basic::ColorName::Foreground),
     )
 }
 ```

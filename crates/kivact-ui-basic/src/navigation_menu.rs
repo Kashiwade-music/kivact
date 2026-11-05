@@ -1,7 +1,7 @@
 //! Role: The Lyra navigation menu: links and triggers that open content panels.
 
 use crate::parts::{pressable, sized_icon};
-use crate::theme_access::tokens;
+
 use crate::tokens::Tokens;
 use kivact::i18n::message;
 use kivact::interaction::{ListActivation, ListItem};
@@ -193,7 +193,9 @@ pub fn navigation_menu(items: impl IntoValue<Vec<NavItem>>) -> impl kivact::view
                         .selected(false)
                         .focusable(true)
                         .name(label)
-                        .style(move || trigger_style(&tokens(), false))
+                        .style(move || {
+                            trigger_style(&kivact::style::use_tokens::<crate::Tokens>(), false)
+                        })
                         .child(text(label))
                         .into_view(),
                 );
@@ -291,7 +293,7 @@ fn menu_item(
         .selected(false)
         .focusable(true)
         .name(label)
-        .style(move || trigger_style(&tokens(), shown.get()))
+        .style(move || trigger_style(&kivact::style::use_tokens::<crate::Tokens>(), shown.get()))
         .on_pointer(move |event| {
             if event.phase() == PointerPhase::Enter {
                 open.update(|state| {
@@ -325,7 +327,7 @@ fn menu_item(
         });
         let card = node()
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 crate::theme_access::shadow_md(crate::theme_access::popover_surface(&p))
                     .direction(Direction::Column)
                     .padding(4)
@@ -416,7 +418,7 @@ impl IntoView for NavLink {
         let (link, _) = pressable(self.root, Role::Link, Some(press));
         let has_description = self.description.is_some();
         let link = link.base_style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let hot = style().background(p.muted);
             style()
                 .direction(Direction::Row)
@@ -442,7 +444,7 @@ impl IntoView for NavLink {
                     style()
                         .line_height(1.375)
                         .line_clamp(2)
-                        .color(crate::Color::MutedForeground),
+                        .color(crate::ColorName::MutedForeground),
                 )
             }),
         ))
