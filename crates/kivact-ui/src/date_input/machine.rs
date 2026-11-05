@@ -123,6 +123,11 @@ pub(super) enum TypedEvent {
     External(Option<CalendarDate>),
 }
 // xtask-allow(state-fields): Event snapshot contains independent inclusive bounds and locale.
+pub(super) enum TypedEffect {
+    Commit(String),
+    Validity(bool),
+}
+// xtask-allow(state-fields): Event snapshot bounds are independent immutable inputs.
 pub(super) struct TypedSnapshot {
     pub(super) locale: Locale,
     pub(super) min: Option<CalendarDate>,
@@ -131,18 +136,33 @@ pub(super) struct TypedSnapshot {
 impl Machine for TypedSnapshot {
     type State = TypedDate;
     type Event = TypedEvent;
-    type Effect = String;
-    fn transition(&self, _: &TypedDate, event: TypedEvent) -> Step<TypedDate, TypedEvent, String> {
+    type Effect = TypedEffect;
+    fn transition(
+        &self,
+        _: &TypedDate,
+        event: TypedEvent,
+    ) -> Step<TypedDate, TypedEvent, TypedEffect> {
         match event {
-            TypedEvent::Edit(text) => Step::to(TypedDate::Editing {
-                text,
-                validation: DateValidation::Unchecked,
-            }),
-            TypedEvent::External(Some(date)) => Step::to(TypedDate::Following(date)),
+            TypedEvent::Edit(text) => {
+                let valid = text.trim().is_empty()
+                    || self.locale.parse_date(&text).is_some_and(|date| {
+                        self.min.is_none_or(|min| date >= min)
+                            && self.max.is_none_or(|max| date <= max)
+                    });
+                Step::to(TypedDate::Editing {
+                    text,
+                    validation: DateValidation::Unchecked,
+                })
+                .with(TypedEffect::Validity(valid))
+            }
+            TypedEvent::External(Some(date)) => {
+                Step::to(TypedDate::Following(date)).with(TypedEffect::Validity(true))
+            }
             TypedEvent::External(None) => Step::to(TypedDate::Editing {
                 text: String::new(),
                 validation: DateValidation::Unchecked,
-            }),
+            })
+            .with(TypedEffect::Validity(true)),
             TypedEvent::Commit(text) => {
                 let next = match self.locale.parse_date(&text).filter(|date| {
                     self.min.is_none_or(|min| *date >= min)
@@ -154,7 +174,10 @@ impl Machine for TypedSnapshot {
                         validation: DateValidation::Checked,
                     },
                 };
-                Step::to(next).with(text)
+                let valid = text.trim().is_empty() || matches!(next, TypedDate::Following(_));
+                Step::to(next)
+                    .with(TypedEffect::Commit(text))
+                    .with(TypedEffect::Validity(valid))
             }
         }
     }

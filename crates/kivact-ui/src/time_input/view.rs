@@ -107,28 +107,26 @@ impl IntoView for TimeInput {
             .placeholder("HH:MM")
             .invalid(move || matches!(state.get().draft(), TimeDraft::Invalid(_)))
             .on_draft_commit(move |text| state.send(Event::Commit(text)));
-        let trigger = with_recipe_style(
-            row((
-                field,
-                button(message("time.open", "Choose time"))
-                    .on_press(move || state.send(Event::Open)),
-            )),
-            |r| r.time_input_recipes().root_recipe(),
-            &Variants::default(),
-            PartState::default,
-        );
+        let toggle =
+            button(message("time.open", "Choose time")).on_press(move || state.send(Event::Open));
         let open = binding(
             move || state.get().is_open(),
             move |open| state.send(if open { Event::Open } else { Event::Close }),
         );
         let picked = binding(value, move |next| state.send(Event::Pick(next)));
-        root.child(
-            dialog(label, open)
-                .mode(presentation.mode())
-                .hide_title(true)
-                .content(move || crate::date_wheel::time_panel(picked, seconds))
-                .attach(trigger),
-        )
+        root.child(with_recipe_style(
+            row((
+                field,
+                dialog(label, open)
+                    .mode(presentation.mode())
+                    .hide_title(true)
+                    .content(move || crate::date_wheel::time_panel(picked, seconds))
+                    .attach(toggle),
+            )),
+            |r| r.time_input_recipes().root_recipe(),
+            &Variants::default(),
+            PartState::default,
+        ))
         .into_view()
     }
 }

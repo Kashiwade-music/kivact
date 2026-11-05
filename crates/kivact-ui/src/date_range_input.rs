@@ -31,6 +31,9 @@ pub struct DateRangeInput {
     label: Value<String>,
     value: Binding<Option<DateRange>>,
     format: Value<DateStyle>,
+    custom_format: Option<Rc<dyn Fn(CalendarDate) -> String>>,
+    placeholder: Option<Value<String>>,
+    valid: Option<Binding<bool>>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
     week_start: Option<Value<Weekday>>,
@@ -51,6 +54,9 @@ pub fn date_range_input(
         label: label.into_text_value(),
         value: range.into_binding(),
         format: DateStyle::Iso.into_value(),
+        custom_format: None,
+        placeholder: None,
+        valid: None,
         min: None.into_value(),
         max: None.into_value(),
         week_start: None,
@@ -66,6 +72,22 @@ impl DateRangeInput {
     /// Format both endpoints.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
+        self.custom_format = None;
+        self
+    }
+    /// Custom application date presentation for both endpoints.
+    pub fn format_with(mut self, format: impl Fn(CalendarDate) -> String + 'static) -> Self {
+        self.custom_format = Some(Rc::new(format));
+        self
+    }
+    /// Empty endpoint text.
+    pub fn placeholder(mut self, text: impl IntoText) -> Self {
+        self.placeholder = Some(text.into_text_value());
+        self
+    }
+    /// Publish whether both endpoint drafts are valid.
+    pub fn valid(mut self, valid: impl IntoBinding<bool>) -> Self {
+        self.valid = Some(valid.into_binding());
         self
     }
     /// Earliest accepted endpoint.
@@ -127,6 +149,9 @@ impl IntoView for DateRangeInput {
             label,
             value,
             format,
+            custom_format,
+            placeholder,
+            valid,
             min,
             max,
             week_start,
@@ -137,11 +162,15 @@ impl IntoView for DateRangeInput {
             min_span,
             max_span,
         } = self;
+        let configured_rules = configure
+            .as_ref()
+            .map(|configure| configure(calendar(value)).range_validator());
         let constraints = Rc::new(constraints);
         let accept: Rc<dyn Fn(DateRange) -> bool> = Rc::new(move |range| {
             let (start, end) = (range.start(), range.end());
             let span = start.to_days().abs_diff(end.to_days()) + 1;
-            min.get().is_none_or(|min| start >= min)
+            configured_rules.as_ref().is_none_or(|accept| accept(range))
+                && min.get().is_none_or(|min| start >= min)
                 && max.get().is_none_or(|max| end <= max)
                 && span >= u64::from(min_span.get().max(1))
                 && max_span.get().is_none_or(|max| span <= u64::from(max))
@@ -171,6 +200,33 @@ impl IntoView for DateRangeInput {
                 }))
             },
         );
+        let validation = kivact_core::state::machine(
+            RangeValidation::Valid,
+            || RangeValidator,
+            move |_, next| {
+                if let Some(valid) = valid {
+                    valid.set(next);
+                }
+            },
+        );
+        let start_valid = binding(
+            move || {
+                matches!(
+                    validation.get(),
+                    RangeValidation::Valid | RangeValidation::EndInvalid
+                )
+            },
+            move |valid| validation.send(ValidationEvent::Start(valid)),
+        );
+        let end_valid = binding(
+            move || {
+                matches!(
+                    validation.get(),
+                    RangeValidation::Valid | RangeValidation::StartInvalid
+                )
+            },
+            move |valid| validation.send(ValidationEvent::End(valid)),
+        );
         let mut first = date_input(message("date.start", "Start date"), start)
             .format(format)
             .min(min)
@@ -181,17 +237,23 @@ impl IntoView for DateRangeInput {
             .min(min)
             .max(max)
             .presentation(presentation);
+        first = first.valid(start_valid);
+        last = last.valid(end_valid);
+        if let Some(placeholder) = placeholder {
+            first = first.placeholder(placeholder);
+            last = last.placeholder(placeholder);
+        }
+        if let Some(format) = custom_format {
+            let first_format = format.clone();
+            first = first.format_with(move |date| first_format(date));
+            last = last.format_with(move |date| format(date));
+        }
         if let Some(day) = week_start {
             first = first.week_start(day);
             last = last.week_start(day);
         }
         let open = signal(false);
-        let trigger = row((
-            first,
-            last,
-            button(message("date.range_open", "Choose date range"))
-                .on_press(move || open.set(true)),
-        ));
+        let trigger = button(message("date.range_open", "Choose date range"));
         let content = move || {
             let local = signal(value.get_untracked());
             let accepted = accept.clone();
@@ -241,13 +303,50 @@ impl IntoView for DateRangeInput {
             &crate::variants::Variants::default(),
             kivact_core::custom::PartState::default,
         );
-        root.child(
+        root.child(row((
+            first,
+            last,
             dialog(label, open)
                 .mode(presentation.mode())
                 .hide_title(true)
                 .content(content)
                 .attach(trigger),
-        )
+        )))
         .into_view()
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum RangeValidation {
+    Valid,
+    StartInvalid,
+    EndInvalid,
+    BothInvalid,
+}
+enum ValidationEvent {
+    Start(bool),
+    End(bool),
+}
+struct RangeValidator;
+impl kivact_core::state::Machine for RangeValidator {
+    type State = RangeValidation;
+    type Event = ValidationEvent;
+    type Effect = bool;
+    fn transition(
+        &self,
+        state: &RangeValidation,
+        event: ValidationEvent,
+    ) -> kivact_core::state::Step<RangeValidation, ValidationEvent, bool> {
+        use RangeValidation::{BothInvalid, EndInvalid, StartInvalid, Valid};
+        let next = match (state, event) {
+            (Valid | StartInvalid, ValidationEvent::Start(true))
+            | (Valid | EndInvalid, ValidationEvent::End(true)) => Valid,
+            (EndInvalid | BothInvalid, ValidationEvent::Start(true)) => EndInvalid,
+            (StartInvalid | BothInvalid, ValidationEvent::End(true)) => StartInvalid,
+            (Valid | StartInvalid, ValidationEvent::Start(false)) => StartInvalid,
+            (Valid | EndInvalid, ValidationEvent::End(false)) => EndInvalid,
+            (_, ValidationEvent::Start(false) | ValidationEvent::End(false)) => BothInvalid,
+        };
+        kivact_core::state::Step::to(next).with(next == Valid)
     }
 }

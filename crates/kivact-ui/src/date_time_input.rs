@@ -186,11 +186,7 @@ impl IntoView for DateTimeInput {
                 })
             },
         );
-        let trigger = column((
-            row((date_field, time_field)),
-            button(message("date_time.open", "Choose date and time"))
-                .on_press(move || state.send(Event::Open(Panel::Date))),
-        ));
+        let trigger = button(message("date_time.open", "Choose date and time"));
         let content = move || {
             let tabs = row((
                 button(message("date_time.date", "Date"))
@@ -234,12 +230,13 @@ impl IntoView for DateTimeInput {
             kivact_core::custom::PartState::default,
         );
         root.name(label)
-            .child(
+            .child(column((
+                row((date_field, time_field)),
                 dialog(label, open)
                     .mode(presentation.mode())
                     .content(content)
                     .attach(trigger),
-            )
+            )))
             .into_view()
     }
 }
