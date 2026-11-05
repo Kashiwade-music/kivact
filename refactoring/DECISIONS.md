@@ -173,3 +173,4 @@
 | 2026-11-05 | K-4 | Tree/List/Table和集合 | Treeのancestry/marker、ItemRowの実slotとText行制限、列挙済datasetからのreadonly位置を標準部品へ追加。tableのselection toolbar/statusは付録指定の固有合成として保持する。 |
 | 2026-11-05 | K-9a | CodeBlockの開閉と履歴選択 | 同じDisclosure ownerのcontent/controlsとshow/presenceを用い、再表示時はsource/highlighter factoryから実editorを構築。履歴は実editorで全選択し、別のhistory/visibility ownerを置かない。 |
 | 2026-11-05 | K-7e | unit contextとpure visual defaults | `view::component`を一度だけのmount/setup境界として公開し、偽の`provide(())`を除去。VariantのDefaultはValueを作らず、明示的なsetup setterだけがreactive入力を構築する。metadata全ページ試験で確認した失敗を根本修正。 |
+| 2026-11-05 | H-G5 | Soft FocusTrack の分類 | 唯一の可変事実は roving cursor。focused_within は実 NodeRef、selected/disabled は既存 owner の読み取り専用投影であるため、独立した複数状態ではない。型ごとの理由付き目印で分類し、第二の Tabs 状態機械を作らない。 |

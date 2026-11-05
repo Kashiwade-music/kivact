@@ -335,8 +335,12 @@ Number, date, and time filter fields validate values entered as text.
 - `split`
 - `list`
 - `tree`
-- `tree_marker`
 - `data_table`
+- `table`
+- `chat_thread`
+- `chat_message`
+- `chat_composer`
+- `code_block`
 - `breadcrumb`
 - `empty_state`
 - `input_group`
