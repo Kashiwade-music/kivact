@@ -2,7 +2,6 @@
 
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::test::RenderOptions;
 use kivact_ui_basic as basic;
 
 /// A page painted with the `background` token of the theme in effect.
@@ -18,17 +17,13 @@ fn page(child: impl IntoView) -> Node {
     )
 }
 
-fn options(mode: kivact::style::ThemeMode) -> RenderOptions {
-    RenderOptions::from_env()
-        .window_size(900.0, 3200.0)
-        .theme(basic::theme(mode))
-        .reduced_motion()
-}
-
 #[test]
 fn pagination_pages_follows_its_binding_and_disables_the_ends() {
-    let (screen, page_index) =
-        kivact::test::render_with_handle(options(kivact::style::ThemeMode::Light), || {
+    let (screen, page_index) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(900.0, 3200.0)
+            .reduced_motion(),
+        || {
             let index = signal(0usize);
             (
                 (index),
@@ -41,7 +36,8 @@ fn pagination_pages_follows_its_binding_and_disables_the_ends() {
                     }),
                 ),
             )
-        });
+        },
+    );
     let previous = || screen.get_by_role(Role::Button, "Previous page");
     let next = || screen.get_by_role(Role::Button, "Next page");
     assert!(previous().is_disabled());
