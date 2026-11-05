@@ -166,13 +166,6 @@ cards, the command palette and toasts).
 | Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
 | Individually wrapped children | `impl IntoChildren` |
 
-| `basic.pagination.label` | Pagination |
-| `basic.pagination.more` | More pages |
-| `basic.pagination.next` | Next |
-| `basic.pagination.next_page` | Go to next page |
-| `basic.pagination.previous` | Previous |
-| `basic.pagination.previous_page` | Go to previous page |
-
 ## Filled standard recipes
 
 The theme overrides these `UiRecipes` entries; other entries keep the standard defaults.
@@ -227,6 +220,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `input_group`
 - `navigation_menu`
 - `breadcrumb`
+- `pagination`
 - `code_block`
 <!-- /kivact-recipes -->
 

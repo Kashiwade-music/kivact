@@ -117,10 +117,6 @@ pub use line_tabs::TabsVariant;
 pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
 pub use message_scroller::{MessageScroller, message_scroller};
-pub use pagination::{
-    PaginationLink, PaginationPages, pagination, pagination_content, pagination_ellipsis,
-    pagination_link, pagination_next, pagination_previous,
-};
 pub use scroll_area::{ScrollArea, scroll_area};
 pub use sidebar::{
     Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenuButton, SidebarMenuButtonSize,

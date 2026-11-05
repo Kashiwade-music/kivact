@@ -112,7 +112,7 @@ fn main() -> kivact::Result<()> {
     App::new("Basic")
         .theme(basic::theme(kivact::style::ThemeMode::Light))
         .messages(messages)
-        .run(|| basic::pagination(signal(0usize), 5usize))
+        .run(|| kivact::ui::pagination(5usize, signal(0usize)))
 }
 ```
 

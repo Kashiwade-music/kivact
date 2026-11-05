@@ -192,7 +192,7 @@ fn top_nav() -> impl IntoView {
 
 ## 長い一覧をページに分ける
 
-`basic::pagination(page, count)` は、前へ・次へのボタンとページ番号を表示し、ページが多いときは省略記号を使います。`page` は 0 から数える signal、`count` はページ数です。
+`kivact::ui::pagination(count, page)` は、前へ・次へのボタンとページ番号を表示し、ページが多いときは省略記号を使います。`page` は 0 から数える signal、`count` はページ数です。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -201,7 +201,7 @@ use kivact_ui_basic as basic;
 fn pager() -> impl IntoView {
     let page = signal(0usize);
     column((
-        basic::pagination(page, 12usize),
+        kivact::ui::pagination(12usize, page),
         basic::muted(move || format!("Page {} of 12", page.get() + 1)),
     ))
     .style(style().gap(12).align_items(Align::Center))
@@ -209,7 +209,7 @@ fn pager() -> impl IntoView {
 ```
 
 - `.label_format(|number| format!("p.{number}"))` は、ページ番号の表記を変えます。
-- 細かく決めたいときは、`basic::pagination_content((basic::pagination_previous(), basic::pagination_link("1"), basic::pagination_link("2").active(true), basic::pagination_ellipsis(), basic::pagination_next()))` を自分で組み立てます。
+- `.item(|cell| ..)` でセルの表示内容を変更します。選択と移動は同じページ束縛が管理します。
 - 「Previous」「Next」の語と accessible label は `basic.pagination.*` のメッセージから来ます。置き換え方は[テーマとトークン](theme-and-tokens.md)を参照してください。
 - 表の行をページに分けるなら、`data_table(..).page(page, size)` にページ分けが組み込まれています。[データの表示](data-display.md)を参照してください。
 

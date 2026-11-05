@@ -81,6 +81,7 @@ fn build() -> UiRecipes {
         .input_group(crate::input_group::recipes)
         .navigation_menu(crate::navigation_menu::recipes)
         .breadcrumb(crate::breadcrumb::recipes)
+        .pagination(crate::pagination::recipes)
         .code_block(crate::code_block::recipes)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {

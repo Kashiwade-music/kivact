@@ -192,7 +192,7 @@ fn top_nav() -> impl IntoView {
 
 ## Page through a long list
 
-`basic::pagination(page, count)` shows previous and next buttons and the page numbers, with ellipses when there are many. `page` is a zero-based signal and `count` the number of pages:
+`kivact::ui::pagination(count, page)` shows previous and next buttons and the page numbers, with ellipses when there are many. `page` is a zero-based signal and `count` the number of pages:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -201,7 +201,7 @@ use kivact_ui_basic as basic;
 fn pager() -> impl IntoView {
     let page = signal(0usize);
     column((
-        basic::pagination(page, 12usize),
+        kivact::ui::pagination(12usize, page),
         basic::muted(move || format!("Page {} of 12", page.get() + 1)),
     ))
     .style(style().gap(12).align_items(Align::Center))
@@ -209,7 +209,7 @@ fn pager() -> impl IntoView {
 ```
 
 - `.label_format(|number| format!("p.{number}"))` changes how a page number reads.
-- For full control, compose `basic::pagination_content((basic::pagination_previous(), basic::pagination_link("1"), basic::pagination_link("2").active(true), basic::pagination_ellipsis(), basic::pagination_next()))` yourself.
+- Use `.item(|cell| ..)` to customize visible cell contents; the page binding still owns selection and navigation.
 - The words "Previous", "Next" and the accessible labels come from messages under `basic.pagination.*` that you can replace; see [Theme and tokens](theme-and-tokens.md#choose-the-fonts).
 - To page through table rows, `data_table(..).page(page, size)` has pagination built in; see [Data display](data-display.md).
 
