@@ -47,3 +47,5 @@ kit から移すときは empty state の `media` を `icon`、`content` を `ac
 Card レシピには実際のボタンまたはチェックボックスのパーツから `input: Option<PartState>` が渡されます。通常のカードは `None` です。`overlay` レシピは内容の上の非操作装飾ノードを描画します。範囲は配置済みのカードルートに従い、クリッピングと角の形状はテーマが定義します。
 
 Alert の `header`、`message`、`controls` レシピは、既存のアイコン、見出し・説明、操作・開閉・閉じるスロットを囲む実際の枠を描画します。既定は `Display::Contents` です。同じ `AlertState` を受け取り、操作の所有者は追加しません。
+
+`AlertState.has_content` は開閉の有無と独立して実際の詳細スロットの存在を表します。標準の開閉操作は実際の対象に標準 tooltip を付け、`alert.expand` と `alert.collapse` で名前とヒントを翻訳できます。
