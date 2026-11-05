@@ -86,3 +86,14 @@ pub(super) fn tone_of(hue: ui::Hue) -> kivact::interaction::Tone {
         ui::Hue::Gray => Tone::Neutral,
     }
 }
+
+/// Compose the catalog's custom initials and optional avatar decorations.
+pub(super) fn decorated_avatar(
+    initials: kivact::state::Value<String>,
+    look: kivact_ui_pop::AvatarLook,
+) -> kivact::ui::Avatar {
+    kivact::ui::avatar(initials)
+        .fallback_content(move || kivact::view::text(initials))
+        .variant(look)
+        .status_content(look.decorations())
+}

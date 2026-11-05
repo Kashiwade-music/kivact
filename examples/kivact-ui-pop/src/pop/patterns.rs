@@ -22,198 +22,8 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
         "Feedback",
         "アラート・トースト・ローディング・空状態",
         cards_grid((
-            half(card(
-                "アラート",
-                column((
-                    show(
-                        move || !dismissed_info.get(),
-                        move || {
-                            let tone = kivact::state::IntoValue::into_value(
-                                kivact::interaction::Tone::Info,
-                            );
-                            kivact::ui::alert("メンテナンスのお知らせ")
-                                .tone(tone)
-                                .icon(kivact::view::icon(move || {
-                                    kivact::style::Icon::named(match tone.get() {
-                                        kivact::interaction::Tone::Danger => "alert-circle",
-                                        kivact::interaction::Tone::Warning => "alert-triangle",
-                                        kivact::interaction::Tone::Success => "circle-check",
-                                        _ => "info-circle",
-                                    })
-                                }))
-                                .description("10/08 02:00〜06:00 の間、一部機能が利用できません。")
-                                .actions({
-                                    kivact::ui::button("お知らせを閉じる")
-                                        .variant(kivact::ui::ButtonVariant::Ghost)
-                                        .hide_label(true)
-                                        .icon(kivact::view::icon("x"))
-                                        .style(style().size(28, 28).margin_top(-4).margin_right(-8))
-                                        .on_press(move || dismissed_info.set(true))
-                                })
-                        },
-                    ),
-                    show(
-                        move || !dismissed_success.get(),
-                        move || {
-                            let tone = kivact::state::IntoValue::into_value(
-                                kivact::interaction::Tone::Success,
-                            );
-                            kivact::ui::alert("作戦成功！")
-                                .tone(tone)
-                                .icon(kivact::view::icon(move || {
-                                    kivact::style::Icon::named(match tone.get() {
-                                        kivact::interaction::Tone::Danger => "alert-circle",
-                                        kivact::interaction::Tone::Warning => "alert-triangle",
-                                        kivact::interaction::Tone::Success => "circle-check",
-                                        _ => "info-circle",
-                                    })
-                                }))
-                                .description("報酬が受取ボックスに送られました。")
-                                .actions({
-                                    kivact::ui::button("成功通知を閉じる")
-                                        .variant(kivact::ui::ButtonVariant::Ghost)
-                                        .hide_label(true)
-                                        .icon(kivact::view::icon("x"))
-                                        .style(style().size(28, 28).margin_top(-4).margin_right(-8))
-                                        .on_press(move || dismissed_success.set(true))
-                                })
-                        },
-                    ),
-                    {
-                        let tone = kivact::state::IntoValue::into_value(
-                            kivact::interaction::Tone::Warning,
-                        );
-                        kivact::ui::alert("活動ポイントが残りわずかです")
-                            .tone(tone)
-                            .icon(kivact::view::icon(move || {
-                                kivact::style::Icon::named(match tone.get() {
-                                    kivact::interaction::Tone::Danger => "alert-circle",
-                                    kivact::interaction::Tone::Warning => "alert-triangle",
-                                    kivact::interaction::Tone::Success => "circle-check",
-                                    _ => "info-circle",
-                                })
-                            }))
-                            .description("あと 12 で上限に達します。今すぐ使う")
-                    },
-                    {
-                        let tone =
-                            kivact::state::IntoValue::into_value(kivact::interaction::Tone::Danger);
-                        kivact::ui::alert("同期に失敗しました")
-                            .tone(tone)
-                            .icon(kivact::view::icon(move || {
-                                kivact::style::Icon::named(match tone.get() {
-                                    kivact::interaction::Tone::Danger => "alert-circle",
-                                    kivact::interaction::Tone::Warning => "alert-triangle",
-                                    kivact::interaction::Tone::Success => "circle-check",
-                                    _ => "info-circle",
-                                })
-                            }))
-                            .description("通信状態を確認してから再試行してください。")
-                            .actions({
-                                kivact::ui::button("再試行")
-                                    .size(kivact::ui::ControlSize::Small)
-                                    .variant(kivact::ui::ButtonVariant::Secondary)
-                                    .on_press(move || {
-                                        notify.call((
-                                            ui::Hue::Blue,
-                                            "同期しています".into(),
-                                            "再試行を開始しました。".into(),
-                                        ))
-                                    })
-                            })
-                    },
-                ))
-                .style(style().gap(16)),
-            )),
-            half(card(
-                "トースト通知",
-                column((
-                    muted("ボタンを押すと画面右下に表示されます。")
-                        .style(style().font_size(12).line_height(1.5)),
-                    wrap(
-                        [
-                            (ui::Hue::Mint, "成功"),
-                            (ui::Hue::Blue, "情報"),
-                            (ui::Hue::Yellow, "警告"),
-                            (ui::Hue::Red, "エラー"),
-                            (ui::Hue::Yellow, "報酬"),
-                        ]
-                        .into_iter()
-                        .map(|(hue, s)| {
-                            kivact::ui::button(s)
-                                .variant(if s == "報酬" {
-                                    kivact_ui_pop::ButtonTone::Accent
-                                } else {
-                                    kivact_ui_pop::ButtonTone::Soft
-                                })
-                                .icon(kivact::view::icon(match s {
-                                    "成功" => "circle-check",
-                                    "情報" => "info-circle",
-                                    "警告" => "alert-triangle",
-                                    "エラー" => "alert-circle",
-                                    _ => "gift",
-                                }))
-                                .on_press(move || {
-                                    notify.call((
-                                        hue,
-                                        match s {
-                                            "成功" => "保存しました",
-                                            "情報" => "新しいお知らせ",
-                                            "警告" => "期限が近づいています",
-                                            "エラー" => "送信に失敗しました",
-                                            _ => "報酬を獲得！",
-                                        }
-                                        .into(),
-                                        match s {
-                                            "成功" => "依頼の変更が反映されました。",
-                                            "情報" => "総力戦の新シーズンが始まりました。",
-                                            "警告" => "REQ-1003 の期限まで残り 6 時間です。",
-                                            "エラー" => "ネットワーク接続を確認してください。",
-                                            _ => "クレジット ×12,000 / 活動報告書 ×2",
-                                        }
-                                        .into(),
-                                    ))
-                                })
-                        })
-                        .collect::<Vec<_>>(),
-                    ),
-                    text("ローディング").style(
-                        style()
-                            .font_size(15)
-                            .weight(600)
-                            .line_height(1.2)
-                            .min_height(20)
-                            .margin_top(20)
-                            .margin_bottom(16),
-                    ),
-                    wrap((
-                        kivact::ui::spinner(),
-                        kivact::ui::spinner().size(kivact::ui::ControlSize::Large),
-                        kivact::ui::spinner().variant(ui::SpinnerLook::Dots),
-                        crate::pop::loader::halo_loader(),
-                    )),
-                    row((
-                        kivact::ui::skeleton()
-                            .style(style().size(44, 44))
-                            .style(style().radius(999)),
-                        column((
-                            kivact::ui::skeleton().style(style().size(pct(60), 12)),
-                            kivact::ui::skeleton().style(style().size(pct(90), 12)),
-                            kivact::ui::skeleton().style(style().size(pct(40), 12)),
-                        ))
-                        .style(style().gap(8).grow(1)),
-                    ))
-                    .style(
-                        style()
-                            .margin_top(20)
-                            .padding(16)
-                            .gap(14)
-                            .border(1, ColorToken::Border)
-                            .radius(10),
-                    ),
-                ))
-                .style(style().gap(0)),
-            )),
+            half(alert_examples(notify, dismissed_info, dismissed_success)),
+            half(toast_examples(notify)),
             kivact::ui::card(
                 kivact::ui::empty_state("まだ依頼がありません")
                     .icon(ui::empty_illustration())
@@ -450,106 +260,7 @@ pub(super) fn schedule() -> Node {
         "11",
         "Schedule",
         "カレンダー・予定リスト",
-        cards_grid((
-            kivact::ui::card(
-                {
-                    let selected: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                        kivact::state::IntoBinding::into_binding(date);
-                    let selected = kivact::state::binding(
-                        move || Some(selected.get()),
-                        move |day| {
-                            if let Some(day) = day {
-                                selected.set(day);
-                            }
-                        },
-                    );
-                    kivact::ui::calendar(selected)
-                        .today(CalendarDate::new(2026, 10, 3))
-                        .month_title(|date| format!("{}.{:02}", date.year(), date.month()))
-                }
-                .variant(ui::WeekendHue::new(|day| match day {
-                    kivact::i18n::Weekday::Sunday => Some(ui::Hue::Red),
-                    kivact::i18n::Weekday::Saturday => Some(ui::Hue::Blue),
-                    _ => None,
-                }))
-                .events(
-                    SCHEDULE_EVENTS
-                        .into_iter()
-                        .map(|(day, _, _, _, color, _)| kivact::ui::CalendarEvent {
-                            date: CalendarDate::new(2026, 10, day),
-                            color: rgb(color),
-                        })
-                        .collect::<Vec<_>>(),
-                )
-                .test_id("pop-calendar"),
-            )
-            .style(style().grid_column(GridPlacement::span(5))),
-            kivact::ui::card(
-                column((
-                    row((
-                        text(move || {
-                            let d = date.get();
-                            format!(
-                                "{}月{}日（{}）の予定",
-                                d.month(),
-                                d.day(),
-                                ["月", "火", "水", "木", "金", "土", "日"]
-                                    [d.weekday().days_since(Weekday::Monday)]
-                            )
-                        })
-                        .style(style().font_size(15).weight(600).grow(1)),
-                        kivact::ui::button("予定を追加")
-                            .icon(kivact::view::icon("plus"))
-                            .size(kivact::ui::ControlSize::Small)
-                            .variant(kivact_ui_pop::ButtonTone::Soft),
-                    ))
-                    .style(style().align_items(Align::Center)),
-                    dynamic(date, move |selected_date| {
-                        let items = SCHEDULE_EVENTS
-                            .into_iter()
-                            .filter(|(day, _, _, _, _, _)| {
-                                selected_date.year() == 2026
-                                    && selected_date.month() == 10
-                                    && selected_date.day() == *day
-                            })
-                            .map(|(_, time, title, subtitle, color, hue)| {
-                                ui::agenda_item(time, title)
-                                    .description(subtitle)
-                                    .tone(hue)
-                                    .period(if time < "12:00" { "AM" } else { "PM" })
-                                    .on_details(move || {
-                                        kivact::interaction::toaster().push(
-                                            kivact::interaction::Toast::new(title)
-                                                .tone(super::common::tone_of(hue))
-                                                .body(subtitle),
-                                        );
-                                    })
-                                    .style(style().border_left(3, rgb(color)))
-                            })
-                            .collect::<Vec<_>>();
-                        if !items.is_empty() {
-                            column(items).style(style().gap(8))
-                        } else {
-                            row((
-                                kivact::view::icon("calendar"),
-                                muted("予定はありません。ゆっくり休みましょう。"),
-                            ))
-                            .style(
-                                style()
-                                    .padding(22)
-                                    .gap(8)
-                                    .align_items(Align::Center)
-                                    .justify_content(Justify::Center)
-                                    .radius(8)
-                                    .border(1, ColorToken::Border),
-                            )
-                        }
-                    }),
-                ))
-                .style(style().gap(16)),
-            )
-            .style(style().grid_column(GridPlacement::span(7))),
-        )),
+        cards_grid((calendar_panel(date), agenda_panel(date))),
     )
 }
 
@@ -628,5 +339,316 @@ pub(super) fn cards(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 })
                 .collect::<Vec<_>>(),
         ),
+    )
+}
+
+fn maintenance_notice(dismissed_info: Signal<bool>) -> impl IntoView {
+    show(
+        move || !dismissed_info.get(),
+        move || {
+            let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Info);
+            kivact::ui::alert("メンテナンスのお知らせ")
+                .tone(tone)
+                .icon(kivact::view::icon(move || {
+                    kivact::style::Icon::named(match tone.get() {
+                        kivact::interaction::Tone::Danger => "alert-circle",
+                        kivact::interaction::Tone::Warning => "alert-triangle",
+                        kivact::interaction::Tone::Success => "circle-check",
+                        _ => "info-circle",
+                    })
+                }))
+                .description("10/08 02:00〜06:00 の間、一部機能が利用できません。")
+                .actions({
+                    kivact::ui::button("お知らせを閉じる")
+                        .variant(kivact::ui::ButtonVariant::Ghost)
+                        .hide_label(true)
+                        .icon(kivact::view::icon("x"))
+                        .style(style().size(28, 28).margin_top(-4).margin_right(-8))
+                        .on_press(move || dismissed_info.set(true))
+                })
+        },
+    )
+}
+
+fn success_notice(dismissed_success: Signal<bool>) -> impl IntoView {
+    show(
+        move || !dismissed_success.get(),
+        move || {
+            let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Success);
+            kivact::ui::alert("作戦成功！")
+                .tone(tone)
+                .icon(kivact::view::icon(move || {
+                    kivact::style::Icon::named(match tone.get() {
+                        kivact::interaction::Tone::Danger => "alert-circle",
+                        kivact::interaction::Tone::Warning => "alert-triangle",
+                        kivact::interaction::Tone::Success => "circle-check",
+                        _ => "info-circle",
+                    })
+                }))
+                .description("報酬が受取ボックスに送られました。")
+                .actions({
+                    kivact::ui::button("成功通知を閉じる")
+                        .variant(kivact::ui::ButtonVariant::Ghost)
+                        .hide_label(true)
+                        .icon(kivact::view::icon("x"))
+                        .style(style().size(28, 28).margin_top(-4).margin_right(-8))
+                        .on_press(move || dismissed_success.set(true))
+                })
+        },
+    )
+}
+
+fn alert_examples(
+    notify: Callback<(ui::Hue, String, String)>,
+    dismissed_info: Signal<bool>,
+    dismissed_success: Signal<bool>,
+) -> kivact::ui::Card {
+    card(
+        "アラート",
+        column((
+            maintenance_notice(dismissed_info),
+            success_notice(dismissed_success),
+            {
+                let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Warning);
+                kivact::ui::alert("活動ポイントが残りわずかです")
+                    .tone(tone)
+                    .icon(kivact::view::icon(move || {
+                        kivact::style::Icon::named(match tone.get() {
+                            kivact::interaction::Tone::Danger => "alert-circle",
+                            kivact::interaction::Tone::Warning => "alert-triangle",
+                            kivact::interaction::Tone::Success => "circle-check",
+                            _ => "info-circle",
+                        })
+                    }))
+                    .description("あと 12 で上限に達します。今すぐ使う")
+            },
+            {
+                let tone = kivact::state::IntoValue::into_value(kivact::interaction::Tone::Danger);
+                kivact::ui::alert("同期に失敗しました")
+                    .tone(tone)
+                    .icon(kivact::view::icon(move || {
+                        kivact::style::Icon::named(match tone.get() {
+                            kivact::interaction::Tone::Danger => "alert-circle",
+                            kivact::interaction::Tone::Warning => "alert-triangle",
+                            kivact::interaction::Tone::Success => "circle-check",
+                            _ => "info-circle",
+                        })
+                    }))
+                    .description("通信状態を確認してから再試行してください。")
+                    .actions({
+                        kivact::ui::button("再試行")
+                            .size(kivact::ui::ControlSize::Small)
+                            .variant(kivact::ui::ButtonVariant::Secondary)
+                            .on_press(move || {
+                                notify.call((
+                                    ui::Hue::Blue,
+                                    "同期しています".into(),
+                                    "再試行を開始しました。".into(),
+                                ))
+                            })
+                    })
+            },
+        ))
+        .style(style().gap(16)),
+    )
+}
+
+fn toast_examples(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Card {
+    card(
+        "トースト通知",
+        column((
+            muted("ボタンを押すと画面右下に表示されます。")
+                .style(style().font_size(12).line_height(1.5)),
+            toast_action_buttons(notify),
+            text("ローディング").style(
+                style()
+                    .font_size(15)
+                    .weight(600)
+                    .line_height(1.2)
+                    .min_height(20)
+                    .margin_top(20)
+                    .margin_bottom(16),
+            ),
+            wrap((
+                kivact::ui::spinner(),
+                kivact::ui::spinner().size(kivact::ui::ControlSize::Large),
+                kivact::ui::spinner().variant(ui::SpinnerLook::Dots),
+                crate::pop::loader::halo_loader(),
+            )),
+            row((
+                kivact::ui::skeleton()
+                    .style(style().size(44, 44))
+                    .style(style().radius(999)),
+                column((
+                    kivact::ui::skeleton().style(style().size(pct(60), 12)),
+                    kivact::ui::skeleton().style(style().size(pct(90), 12)),
+                    kivact::ui::skeleton().style(style().size(pct(40), 12)),
+                ))
+                .style(style().gap(8).grow(1)),
+            ))
+            .style(
+                style()
+                    .margin_top(20)
+                    .padding(16)
+                    .gap(14)
+                    .border(1, ColorToken::Border)
+                    .radius(10),
+            ),
+        ))
+        .style(style().gap(0)),
+    )
+}
+
+fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
+    kivact::ui::card(
+        column((
+            row((
+                text(move || {
+                    let d = date.get();
+                    format!(
+                        "{}月{}日（{}）の予定",
+                        d.month(),
+                        d.day(),
+                        ["月", "火", "水", "木", "金", "土", "日"]
+                            [d.weekday().days_since(Weekday::Monday)]
+                    )
+                })
+                .style(style().font_size(15).weight(600).grow(1)),
+                kivact::ui::button("予定を追加")
+                    .icon(kivact::view::icon("plus"))
+                    .size(kivact::ui::ControlSize::Small)
+                    .variant(kivact_ui_pop::ButtonTone::Soft),
+            ))
+            .style(style().align_items(Align::Center)),
+            dynamic(date, move |selected_date| {
+                let items = SCHEDULE_EVENTS
+                    .into_iter()
+                    .filter(|(day, _, _, _, _, _)| {
+                        selected_date.year() == 2026
+                            && selected_date.month() == 10
+                            && selected_date.day() == *day
+                    })
+                    .map(|(_, time, title, subtitle, color, hue)| {
+                        ui::agenda_item(time, title)
+                            .description(subtitle)
+                            .tone(hue)
+                            .period(if time < "12:00" { "AM" } else { "PM" })
+                            .on_details(move || {
+                                kivact::interaction::toaster().push(
+                                    kivact::interaction::Toast::new(title)
+                                        .tone(super::common::tone_of(hue))
+                                        .body(subtitle),
+                                );
+                            })
+                            .style(style().border_left(3, rgb(color)))
+                    })
+                    .collect::<Vec<_>>();
+                if !items.is_empty() {
+                    column(items).style(style().gap(8))
+                } else {
+                    row((
+                        kivact::view::icon("calendar"),
+                        muted("予定はありません。ゆっくり休みましょう。"),
+                    ))
+                    .style(
+                        style()
+                            .padding(22)
+                            .gap(8)
+                            .align_items(Align::Center)
+                            .justify_content(Justify::Center)
+                            .radius(8)
+                            .border(1, ColorToken::Border),
+                    )
+                }
+            }),
+        ))
+        .style(style().gap(16)),
+    )
+    .style(style().grid_column(GridPlacement::span(7)))
+}
+
+fn calendar_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
+    kivact::ui::card(
+        {
+            let selected: kivact::state::Binding<kivact::i18n::CalendarDate> =
+                kivact::state::IntoBinding::into_binding(date);
+            let selected = kivact::state::binding(
+                move || Some(selected.get()),
+                move |day| {
+                    if let Some(day) = day {
+                        selected.set(day);
+                    }
+                },
+            );
+            kivact::ui::calendar(selected)
+                .today(CalendarDate::new(2026, 10, 3))
+                .month_title(|date| format!("{}.{:02}", date.year(), date.month()))
+        }
+        .variant(ui::WeekendHue::new(|day| match day {
+            kivact::i18n::Weekday::Sunday => Some(ui::Hue::Red),
+            kivact::i18n::Weekday::Saturday => Some(ui::Hue::Blue),
+            _ => None,
+        }))
+        .events(
+            SCHEDULE_EVENTS
+                .into_iter()
+                .map(|(day, _, _, _, color, _)| kivact::ui::CalendarEvent {
+                    date: CalendarDate::new(2026, 10, day),
+                    color: rgb(color),
+                })
+                .collect::<Vec<_>>(),
+        )
+        .test_id("pop-calendar"),
+    )
+    .style(style().grid_column(GridPlacement::span(5)))
+}
+
+fn toast_action_buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
+    wrap(
+        [
+            (ui::Hue::Mint, "成功"),
+            (ui::Hue::Blue, "情報"),
+            (ui::Hue::Yellow, "警告"),
+            (ui::Hue::Red, "エラー"),
+            (ui::Hue::Yellow, "報酬"),
+        ]
+        .into_iter()
+        .map(|(hue, s)| {
+            kivact::ui::button(s)
+                .variant(if s == "報酬" {
+                    kivact_ui_pop::ButtonTone::Accent
+                } else {
+                    kivact_ui_pop::ButtonTone::Soft
+                })
+                .icon(kivact::view::icon(match s {
+                    "成功" => "circle-check",
+                    "情報" => "info-circle",
+                    "警告" => "alert-triangle",
+                    "エラー" => "alert-circle",
+                    _ => "gift",
+                }))
+                .on_press(move || {
+                    notify.call((
+                        hue,
+                        match s {
+                            "成功" => "保存しました",
+                            "情報" => "新しいお知らせ",
+                            "警告" => "期限が近づいています",
+                            "エラー" => "送信に失敗しました",
+                            _ => "報酬を獲得！",
+                        }
+                        .into(),
+                        match s {
+                            "成功" => "依頼の変更が反映されました。",
+                            "情報" => "総力戦の新シーズンが始まりました。",
+                            "警告" => "REQ-1003 の期限まで残り 6 時間です。",
+                            "エラー" => "ネットワーク接続を確認してください。",
+                            _ => "クレジット ×12,000 / 活動報告書 ×2",
+                        }
+                        .into(),
+                    ))
+                })
+        })
+        .collect::<Vec<_>>(),
     )
 }
