@@ -101,38 +101,7 @@ fn pie_menu_view<R: HandlerResult>(
         controller.send(machine::Event::Choose(index));
     };
     let layer = kivact::view::show(popup.is_open(), move || {
-        let key_entries = entries;
-        let buttons = kivact::view::for_index(entries, move |index, entry| {
-            let angle = move || entry.with(|entry| entry.angle.to_radians());
-            let button = button(move || entry.get().label)
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .icon(kivact::view::icon(move || entry.get().icon))
-                .with_node(move |node| node.selected(move || current.get().hot() == Some(index)));
-            button
-                .with_node(move |node| {
-                    node.style(move || {
-                        style()
-                            .position(Position::Absolute)
-                            .left(160.0 + angle().cos() * 104.0 - 48.0)
-                            .top(160.0 + angle().sin() * 104.0 - 18.0)
-                            .size(96, 36)
-                    })
-                })
-                .with_node(move |node| {
-                    node.on_pointer_default(move |event| {
-                        if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
-                            controller.send(machine::Event::Pointer(event.window_pos()));
-                        }
-                        if matches!(event.phase(), PointerPhase::Down(_)) {
-                            Handled::Yes
-                        } else {
-                            Handled::No
-                        }
-                    })
-                })
-                .on_press(move || choose(index))
-                .into_view()
-        });
+        let buttons = pie_buttons(entries, controller);
         overlay_at(
             move || current.get().center(),
             Placement::Center,
@@ -179,37 +148,80 @@ fn pie_menu_view<R: HandlerResult>(
         .with_node(move |node| node.name(message("creative.pie.name", "Shading pie")))
         .with_node(move |node| node.focusable(true))
         .with_node(move |node| {
-            node.on_key_default(move |event| {
-                let next = current.get();
-                match event.key() {
-                    Key::Char(key) if ('1'..='9').contains(&key) => {
-                        let index = (key as u8 - b'1') as usize;
-                        if index < key_entries.with(Vec::len) {
-                            choose(index);
-                        }
-                    }
-                    Key::ArrowRight | Key::ArrowDown | Key::ArrowLeft | Key::ArrowUp => {
-                        if key_entries.with(Vec::is_empty) {
-                            return Handled::No;
-                        }
-                        controller.send(machine::Event::Navigate(matches!(
-                            event.key(),
-                            Key::ArrowRight | Key::ArrowDown
-                        )));
-                    }
-                    Key::Enter => {
-                        if let Some(index) = next
-                            .hot()
-                            .filter(|index| *index < key_entries.with(Vec::len))
-                        {
-                            choose(index);
-                        }
-                    }
-                    _ => return Handled::No,
-                }
-                Handled::Yes
-            })
+            node.on_key_default(move |event| pie_key(controller, entries, event))
         })
     });
     root.child(layer)
+}
+
+/// Render radial command targets tied to the canonical pie controller.
+fn pie_buttons(
+    entries: kivact::state::Value<Vec<PieEntry>>,
+    controller: kivact::state::MachineHandle<machine::Machine>,
+) -> kivact::view::View {
+    let current = controller.state();
+    kivact::view::for_index(entries, move |index, entry| {
+        let angle = move || entry.with(|entry| entry.angle.to_radians());
+        let button = button(move || entry.get().label)
+            .variant(kivact::ui::ButtonVariant::Secondary)
+            .icon(kivact::view::icon(move || entry.get().icon))
+            .with_node(move |node| node.selected(move || current.get().hot() == Some(index)));
+        button
+            .with_node(move |node| {
+                node.style(move || {
+                    style()
+                        .position(Position::Absolute)
+                        .left(160.0 + angle().cos() * 104.0 - 48.0)
+                        .top(160.0 + angle().sin() * 104.0 - 18.0)
+                        .size(96, 36)
+                })
+            })
+            .with_node(move |node| {
+                node.on_pointer_default(move |event| {
+                    if matches!(event.phase(), PointerPhase::Move | PointerPhase::Enter) {
+                        controller.send(machine::Event::Pointer(event.window_pos()));
+                    }
+                    if matches!(event.phase(), PointerPhase::Down(_)) {
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
+            })
+            .on_press(move || controller.send(machine::Event::Choose(index)))
+            .into_view()
+    })
+}
+/// Resolve keyboard command selection through the existing pie transition machine.
+fn pie_key(
+    controller: kivact::state::MachineHandle<machine::Machine>,
+    entries: kivact::state::Value<Vec<PieEntry>>,
+    event: kivact::view::KeyEvent,
+) -> Handled {
+    let current = controller.state();
+    let next = current.get();
+    match event.key() {
+        Key::Char(key) if ('1'..='9').contains(&key) => {
+            let index = (key as u8 - b'1') as usize;
+            if index < entries.with(Vec::len) {
+                controller.send(machine::Event::Choose(index));
+            }
+        }
+        Key::ArrowRight | Key::ArrowDown | Key::ArrowLeft | Key::ArrowUp => {
+            if entries.with(Vec::is_empty) {
+                return Handled::No;
+            }
+            controller.send(machine::Event::Navigate(matches!(
+                event.key(),
+                Key::ArrowRight | Key::ArrowDown
+            )));
+        }
+        Key::Enter => {
+            if let Some(index) = next.hot().filter(|index| *index < entries.with(Vec::len)) {
+                controller.send(machine::Event::Choose(index));
+            }
+        }
+        _ => return Handled::No,
+    }
+    Handled::Yes
 }
