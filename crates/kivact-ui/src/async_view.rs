@@ -1,11 +1,7 @@
 //! Role: Display the loading, success and retry states of async operations.
 use kivact_core::UiError;
-use kivact_core::draw::{LineCap, Path, Stroke};
-use kivact_core::geometry::Point;
-use kivact_core::motion::{Animated, Easing, Repeat, Transition};
-use kivact_core::style::{ColorToken, style};
 use kivact_core::task::{AsyncSnapshot, AsyncSource, AsyncState, Retry};
-use kivact_core::view::{IntoView, NodeBuilder, Role, View, column, dynamic, node, text};
+use kivact_core::view::{IntoView, NodeBuilder, Role, View, column, dynamic, text};
 use std::rc::Rc;
 
 /// A view of a resource or action, with optional loading and error content.
@@ -55,35 +51,7 @@ impl<T: Clone + 'static> IntoView for AsyncView<T> {
     }
 }
 fn default_loading() -> View {
-    let turn = Animated::from(
-        0.0,
-        360.0,
-        Transition::tween(1000, Easing::Linear)
-            .repeat(Repeat::Forever)
-            .essential(),
-    );
-    let indicator = node().role(Role::Status).name("Loading").style(move || {
-        style()
-            .size(16, 16)
-            .shrink(0)
-            .rotate(turn.get())
-            .paint(|draw, size| {
-                let center = Point::new(size.width / 2.0, size.height / 2.0);
-                let arc = Path::new().arc(
-                    center,
-                    size.width.min(size.height) / 2.0 - 1.5,
-                    0.0,
-                    270.0,
-                    false,
-                );
-                draw.stroke_path(
-                    &arc,
-                    &Stroke::new(2.0).cap(LineCap::Round),
-                    ColorToken::Text,
-                );
-            })
-    });
-    column((indicator, text("Loading…"))).into_view()
+    super::spinner().into_view()
 }
 fn default_fallback(error: UiError, retry: Retry) -> View {
     super::alert(format!("Error: {error}"))

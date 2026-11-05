@@ -296,3 +296,23 @@ pub use card::{Card, CardState, card};
 pub use empty_state::{EmptyState, EmptyStateState, empty_state};
 pub use input_group::{InputGroup, InputGroupState, input_addon, input_group, input_group_with};
 pub use recipes::{AlertRecipes, CardRecipes, EmptyStateRecipes, InputGroupRecipes};
+mod badge;
+mod indicator_values;
+mod look_indicators;
+mod skeleton;
+mod spinner;
+pub use badge::{Badge, badge};
+pub use indicator_values::{
+    AvatarShape, AvatarState, BadgeState, IndicatorTokens, SkeletonShape, SkeletonState,
+    SpinnerState,
+};
+pub use skeleton::{Skeleton, skeleton};
+pub use spinner::{Spinner, spinner};
+
+mod avatar;
+mod avatar_group;
+pub use avatar::{Avatar, avatar};
+pub use avatar_group::{AvatarGroup, avatar_group};
+
+mod kbd;
+pub use kbd::{Kbd, KbdCombo, kbd, kbd_combo};
