@@ -217,7 +217,7 @@ impl IntoView for SideNav {
             };
             let animated_width = if resize.is_none() && collapsed.is_some() {
                 Some(animated(
-                    target.clone(),
+                    target,
                     Transition::spring(Spring {
                         stiffness: 157.91,
                         damping: 25.13,

@@ -355,7 +355,8 @@ mod navigation_menu;
 mod navigation_values;
 pub use navigation_link::{NavigationMenuLink, navigation_menu_link};
 pub use navigation_values::{
-    NavigationLinkState, NavigationTriggerState, PageItem, PaginationItemState,
+    NavigationLinkState, NavigationTriggerState, PageItem, PaginationItemState, PaginationMode,
+    PaginationSummary,
 };
 mod navigation_tokens;
 mod pagination;
@@ -364,7 +365,7 @@ mod stepper;
 pub use breadcrumb::{Breadcrumb, breadcrumb};
 pub use navigation_menu::{NavigationMenu, navigation_menu};
 pub use navigation_tokens::{NavigationTokens, StepperTokens};
-pub use pagination::{Pagination, PaginationMode, pagination};
+pub use pagination::{Pagination, pagination};
 pub use recipes::{BreadcrumbRecipes, NavigationMenuRecipes, PaginationRecipes, StepperRecipes};
 pub use stepper::{IndicatorContent, StepIndicator, Stepper, StepperItem, stepper};
 
