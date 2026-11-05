@@ -47,6 +47,7 @@ pub struct Description {
     root: Node,
     term: Value<String>,
     detail: View,
+    term_content: Option<View>,
     variants: Variants,
 }
 /// Pair a reactive term with a detail. The detail group is labelled by the term.
@@ -56,10 +57,16 @@ pub fn description(term: impl IntoText, detail: impl IntoView) -> Description {
         root: node().role(Role::ListItem),
         term: term.into_text_value(),
         detail: detail.into_view(),
+        term_content: None,
         variants: Variants::default(),
     }
 }
 impl Description {
+    /// Replace the visible term while retaining its canonical accessible name.
+    pub fn term_content(mut self, value: impl IntoView) -> Self {
+        self.term_content = Some(value.into_view());
+        self
+    }
     /// Add an appearance read by every recipe of this pair.
     pub fn variant(self, value: impl Variant) -> Self {
         self.variants.add(value);
@@ -74,8 +81,12 @@ impl NodeBuilder for Description {
 impl IntoView for Description {
     fn into_view(self) -> View {
         let label = node_ref();
+        let term_content = match self.term_content {
+            Some(view) => node().name(self.term).child(view),
+            None => text(self.term).name(self.term),
+        };
         let term = with_base_recipe_style(
-            text(self.term).node_ref(label),
+            term_content.node_ref(label),
             |r| r.description_list_recipes().term_recipe(),
             &self.variants,
             || (),
@@ -83,6 +94,7 @@ impl IntoView for Description {
         let detail = with_base_recipe_style(
             node()
                 .role(Role::Group)
+                .name(self.term)
                 .labelled_by(label)
                 .child(self.detail),
             |r| r.description_list_recipes().detail_recipe(),
