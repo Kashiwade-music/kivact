@@ -133,43 +133,7 @@ impl IntoView for DateTimeInput {
             presentation,
             seconds,
         } = self;
-        let accepted = binding(value, move |next: Option<DateTime>| {
-            if next.is_none_or(|next| {
-                min.get().is_none_or(|min| key(next) >= key(min))
-                    && max.get().is_none_or(|max| key(next) <= key(max))
-            }) {
-                value.set(next);
-            }
-        });
-        let date = binding(
-            move || value.get().map(|value| value.date),
-            move |next| {
-                accepted.set(next.map(|date| DateTime {
-                    date,
-                    time: value.get_untracked().map_or(
-                        TimeOfDay {
-                            hour: 0,
-                            minute: 0,
-                            second: 0,
-                        },
-                        |value| value.time,
-                    ),
-                }))
-            },
-        );
-        let time = binding(
-            move || value.get().map(|value| value.time),
-            move |next| {
-                accepted.set(next.map(|time| {
-                    DateTime {
-                        time,
-                        date: value
-                            .get_untracked()
-                            .map_or_else(CalendarDate::today, |value| value.date),
-                    }
-                }))
-            },
-        );
+        let DateTimeFields { date, time } = field_bindings(value, min, max);
         let mut date_field = date_input(message("date_time.date", "Date"), date)
             .format(format)
             .min(move || min.get().map(|value| value.date))
@@ -185,25 +149,10 @@ impl IntoView for DateTimeInput {
             })
             .presentation(presentation)
             .with_variants(&variants);
-        let state = machine(DateTimeInputState::Closed, || Controller, |_, ()| {});
-        let open = binding(
-            move || matches!(state.get(), DateTimeInputState::Open { .. }),
-            move |open| {
-                state.send(if open {
-                    Event::Open(Panel::Date)
-                } else {
-                    Event::Close
-                })
-            },
-        );
+        let (state, open) = picker_controller();
         let trigger = button(message("date_time.open", "Choose date and time"));
         let content = move || {
-            let tabs = row((
-                button(message("date_time.date", "Date"))
-                    .on_press(move || state.send(Event::Open(Panel::Date))),
-                button(message("date_time.time", "Time"))
-                    .on_press(move || state.send(Event::Open(Panel::Time))),
-            ));
+            let tabs = picker_tabs(state);
             let body = kivact_core::view::dynamic(
                 move || state.get(),
                 move |phase| match phase {
@@ -250,4 +199,81 @@ impl IntoView for DateTimeInput {
             )))
             .into_view()
     }
+}
+
+// xtask-allow(state-fields): Complementary endpoint bindings project and write the single caller-owned accepted DateTime binding.
+/// Endpoint bindings project the caller-owned accepted date/time value.
+struct DateTimeFields {
+    date: Binding<Option<CalendarDate>>,
+    time: Binding<Option<TimeOfDay>>,
+}
+/// Preserve the complementary endpoint while validating each accepted write.
+fn field_bindings(
+    value: Binding<Option<DateTime>>,
+    min: Value<Option<DateTime>>,
+    max: Value<Option<DateTime>>,
+) -> DateTimeFields {
+    let accepted = binding(value, move |next: Option<DateTime>| {
+        if next.is_none_or(|next| {
+            min.get().is_none_or(|min| key(next) >= key(min))
+                && max.get().is_none_or(|max| key(next) <= key(max))
+        }) {
+            value.set(next);
+        }
+    });
+    let date = binding(
+        move || value.get().map(|value| value.date),
+        move |next| {
+            accepted.set(next.map(|date| DateTime {
+                date,
+                time: value.get_untracked().map_or(
+                    TimeOfDay {
+                        hour: 0,
+                        minute: 0,
+                        second: 0,
+                    },
+                    |value| value.time,
+                ),
+            }))
+        },
+    );
+    let time = binding(
+        move || value.get().map(|value| value.time),
+        move |next| {
+            accepted.set(next.map(|time| {
+                DateTime {
+                    time,
+                    date: value
+                        .get_untracked()
+                        .map_or_else(CalendarDate::today, |value| value.date),
+                }
+            }))
+        },
+    );
+    DateTimeFields { date, time }
+}
+/// Bind picker visibility to its one canonical active-panel state.
+fn picker_controller() -> (kivact_core::state::MachineHandle<Controller>, Binding<bool>) {
+    let state = machine(DateTimeInputState::Closed, || Controller, |_, ()| {});
+    let open = binding(
+        move || matches!(state.get(), DateTimeInputState::Open { .. }),
+        move |open| {
+            state.send(if open {
+                Event::Open(Panel::Date)
+            } else {
+                Event::Close
+            })
+        },
+    );
+    (state, open)
+}
+
+/// Switch the canonical date/time picker panel from its visible tab actions.
+fn picker_tabs(state: kivact_core::state::MachineHandle<Controller>) -> Node {
+    row((
+        button(message("date_time.date", "Date"))
+            .on_press(move || state.send(Event::Open(Panel::Date))),
+        button(message("date_time.time", "Time"))
+            .on_press(move || state.send(Event::Open(Panel::Time))),
+    ))
 }

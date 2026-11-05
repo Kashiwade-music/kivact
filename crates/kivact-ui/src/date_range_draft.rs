@@ -99,10 +99,8 @@ impl Machine for Policy {
             .candidate()
             .filter(|candidate| candidate.is_none_or(|range| (self.accept)(range)));
         let step = Step::to(next).with(Effect::Validity(accepted.is_some()));
-        if commit {
-            if let Some(value) = accepted {
-                return step.with(Effect::Publish(value));
-            }
+        if commit && let Some(value) = accepted {
+            return step.with(Effect::Publish(value));
         }
         step
     }
