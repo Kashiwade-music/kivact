@@ -22,11 +22,16 @@ pub struct Striped;
 impl Variant for Striped {}
 
 pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|_| progress_track)
+        .fill(|_| progress_fill)
+        .label(|_| crate::recipes_progress::label)
 }
 
 /// A hard-edged bar, 4 px for a small one and 8 px otherwise.
 fn progress_track(t: &Theme, look: &Look<ProgressState>) -> Style {
+    if let Some(special) = crate::recipes_progress::special(t, look) {
+        return special;
+    }
     style()
         .width(pct(100))
         .height(
@@ -42,6 +47,9 @@ fn progress_track(t: &Theme, look: &Look<ProgressState>) -> Style {
 }
 
 fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
+    if let Some(special) = crate::recipes_progress::special_fill(look) {
+        return special;
+    }
     let state = **look;
     let striped = look.variant::<Striped>().is_some();
     let tone = look.variant::<Tone>().copied().unwrap_or(Tone::Info);

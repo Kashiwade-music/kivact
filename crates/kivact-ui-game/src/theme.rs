@@ -101,6 +101,8 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
         ..base.text().clone()
     };
     let mut ui = kivact::ui::UiTokens::default();
+    ui.progress.motion.determinate_ms = 900;
+    ui.progress.motion.determinate_easing = kivact::motion::Easing::CubicBezier(0.2, 0.7, 0.2, 1.);
     ui.indicators.avatar_overlap = 6.;
     ui.indicators.gap = 14.;
     ui.indicators.period_ms = 1400;

@@ -55,6 +55,9 @@ pub(crate) fn recipes() -> UiRecipes {
 fn build() -> UiRecipes {
     UiRecipes::default()
         .field(crate::recipes_field::field)
+        .heading(|_| crate::recipes_metrics::heading)
+        .stat(crate::recipes_metrics::stat)
+        .description_list(crate::recipes_metrics::description_list)
         .skeleton(|_| crate::recipes_feedback::skeleton)
         .empty_state(crate::recipes_feedback::empty_state)
         .alert(crate::recipes_feedback::alert)

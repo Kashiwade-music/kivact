@@ -12,6 +12,7 @@ Replace `src/main.rs` with the complete program, tests included:
 
 ```rust,test_harness
 use kivact::prelude::*;
+use kivact::style::Align;
 use kivact::style::ThemeMode;
 use kivact::interaction::Tone;
 use kivact_ui_game::{self as game, Density, ThemeOptions};
@@ -85,7 +86,14 @@ fn loadout() -> impl IntoView {
 
     game::hud(
         column((
-            game::section_heading("01", "LOADOUT", "Squad 04"),
+            row((
+    text("01").style(move || { let t=kivact::style::use_theme().get(); style().font_family(t.ext::<game::Tokens>().display_family.as_str()).font_size(34).line_height(0.9).weight(800).italic(true).color(ColorToken::Accent) }),
+    kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
+    text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
+)).style(style().gap(14).align_items(Align::End).padding_bottom(10).border_bottom(2, ColorToken::Text))
+.draw_over(|d,s| d.fill_path(&kivact::draw::Path::new().move_to(kivact::geometry::Point::new(s.width-44.,s.height-4.))
+    .line_to(kivact::geometry::Point::new(s.width,s.height-4.)).line_to(kivact::geometry::Point::new(s.width-2.,s.height+6.))
+    .line_to(kivact::geometry::Point::new(s.width-46.,s.height+6.)).close(), d.theme().ext::<game::Tokens>().yellow)),
             kivact::ui::badge("READY").tone(Tone::Success),
             tabs(
                 "Slot",
@@ -97,7 +105,7 @@ fn loadout() -> impl IntoView {
             )
             .variant(game::Boxed)
             .content(panel),
-            game::property_list(vec![
+            kivact::ui::description_list((vec![
                 (
                     "NAME".to_owned(),
                     game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.name.to_owned())).into_view(),
@@ -106,14 +114,18 @@ fn loadout() -> impl IntoView {
                     "POWER".to_owned(),
                     game::mono(move || chosen.get().map_or("-".to_owned(), |i| i.power.to_string())).into_view(),
                 ),
-            ]),
+            ]).into_iter().map(|(term, detail): (String, _)| kivact::ui::description(term, detail)).collect::<Vec<_>>()),
             row((
                 button("Equip")
                     .variant(game::Slant)
                     .disabled(move || chosen.get().is_none())
                     .on_press(equip),
                 game::mono(move || format!("TOTAL POWER {}", total.get())),
-                game::gauge("Total power", bars).total(10).tone(Tone::Info),
+                { let total: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(10);
+    let value: kivact::state::Value<usize> = kivact::state::IntoValue::into_value(bars);
+    kivact::ui::progress(move || Some(if total.get()==0 {0.0} else {value.get() as f64/total.get() as f64}))
+        .name("Total power").variant(kivact::ui::ProgressVariant::Gauge)
+        .variant(game::GaugeSegments(total)).variant(Tone::Info) },
             ))
             .style(style().gap(16).align_items(Align::Center)),
         ))
@@ -204,7 +216,7 @@ panel for the open tab each time the tab changes.
 points. `bars` is a `memo` derived from `total`, so the gauge follows
 whatever you equip.
 
-**`game::property_list(entries)`** shows label and value rows. Each value is a
+**`kivact::ui::description_list` + `description(term, detail)`** shows label and value rows. Each value is a
 view; to make one follow a signal, read the signal inside the view, as the two
 `game::mono(move || ..)` calls do.
 

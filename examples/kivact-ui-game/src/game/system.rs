@@ -455,16 +455,21 @@ pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
 }
 pub(super) fn drawer_body() -> Node {
     list((
-        g::property_list(vec![
-            (
-                "Status".into(),
-                kivact::ui::badge("RUNNING")
-                    .tone(kivact::interaction::Tone::Info)
-                    .into_view(),
-            ),
-            ("Owner".into(), text("整備部 / 真柴").into_view()),
-            ("Due".into(), g::mono("2026-10-10").into_view()),
-        ]),
+        kivact::ui::description_list(
+            (vec![
+                (
+                    "Status".into(),
+                    kivact::ui::badge("RUNNING")
+                        .tone(kivact::interaction::Tone::Info)
+                        .into_view(),
+                ),
+                ("Owner".into(), text("整備部 / 真柴").into_view()),
+                ("Due".into(), g::mono("2026-10-10").into_view()),
+            ])
+            .into_iter()
+            .map(|(term, detail): (String, _)| kivact::ui::description(term, detail))
+            .collect::<Vec<_>>(),
+        ),
         row((
             text("進捗").style(style().width(46).font_size(12)),
             kivact::ui::progress(Some(0.68))
@@ -632,10 +637,12 @@ pub(super) fn layout() -> impl kivact::view::Component {
             .style(style().padding(10).gap(8))
         }),
         kivact::ui::disclosure("詳細", signal(false)).content(|| {
-            g::property_list(vec![
-                ("TYPE".into(), "Markdown"),
-                ("STATUS".into(), "Saved"),
-            ])
+            kivact::ui::description_list(
+                (vec![("TYPE".into(), "Markdown"), ("STATUS".into(), "Saved")])
+                    .into_iter()
+                    .map(|(term, detail): (String, _)| kivact::ui::description(term, detail))
+                    .collect::<Vec<_>>(),
+            )
         }),
     ));
     g::hud(column((
