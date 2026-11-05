@@ -13,6 +13,7 @@ use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
 use kivact::view::{Handled, IntoView, Key, Role, show};
 
+// xtask-allow(state-fields): Independent construction-time placement, framing, collapse behavior, view slots and rail visibility; the provider binding owns opening.
 /// The panel of a sidebar (sidebar.tsx). Created by [`sidebar`].
 ///
 /// The root is the box that takes the sidebar's width in the layout, so
@@ -101,7 +102,7 @@ impl NodeBuilder for Sidebar {
 /// The room a sidebar takes in the layout for the actual state.
 fn width_of(cx: SidebarCx) -> f64 {
     let framed = matches!(cx.variant, SidebarVariant::Floating | SidebarVariant::Inset);
-    if cx.collapsible == SidebarCollapsible::None || cx.shown.get() {
+    if cx.collapsible == SidebarCollapsible::None || cx.open.get() {
         return WIDTH;
     }
     match cx.collapsible {
@@ -124,7 +125,7 @@ impl Sidebar {
             rail,
         } = self;
         let offcanvas_closed =
-            move || collapsible == SidebarCollapsible::Offcanvas && !cx.shown.get();
+            move || collapsible == SidebarCollapsible::Offcanvas && !cx.open.get();
         let section = |view: Option<kivact::view::View>| {
             view.map(|view| column(view).style(style().shrink(0).gap(8).padding(8)))
         };
@@ -196,7 +197,7 @@ fn build_rail(cx: SidebarCx) -> Node {
         .focusable(false)
         .style(move || {
             let p = kivact::style::use_tokens::<crate::Tokens>();
-            let closed = !cx.shown.get();
+            let closed = !cx.open.get();
             // The 2 px line is local paint, which a state style cannot
             // draw, so it follows the rail's hover.
             let line = if state.get().hovered {
@@ -248,7 +249,7 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
             if cx.variant == SidebarVariant::Inset {
                 // `m-2` without the margin on the sidebar's side, which returns
                 // while the sidebar is closed.
-                let apart = if cx.shown.get() { 0.0 } else { 8.0 };
+                let apart = if cx.open.get() { 0.0 } else { 8.0 };
                 let s = s.radius(0).margin_y(8).shadow(Shadow::new(
                     0,
                     1,
@@ -312,7 +313,6 @@ pub fn sidebar_provider(
     let open = open.into_binding();
     let cx = SidebarCx {
         open,
-        shown: open.into_value(),
         side: sidebar.side,
         variant: sidebar.variant,
         collapsible: sidebar.collapsible,

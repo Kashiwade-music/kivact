@@ -38,6 +38,7 @@ fn kind_name(kind: Value<ChartKind>) -> Value<String> {
     })
 }
 
+// xtask-allow(state-fields): Independent chart data, presentation options and slots supplied during construction; this builder owns no pointer or lifecycle state.
 /// A chart (chart.tsx). Created by [`chart`].
 ///
 /// The plot is drawn on one canvas in the theme's chart colors, with a hover
@@ -207,16 +208,7 @@ impl IntoView for Chart {
         let at = signal(Point::new(0.0, 0.0));
         let plot = Rc::new(Cell::new(Size::new(0.0, 0.0)));
         let total_label = message("basic.chart.total", "Total");
-        let kind = kind_name(options.kind);
-        let series_names = config
-            .series
-            .iter()
-            .map(|series| series.label.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let name = message_with("basic.chart.summary", "{kind}: {series}", move || {
-            [("kind", kind.get()), ("series", series_names.clone())]
-        });
+        let name = chart_name(options.kind, &config);
         let details = {
             let (config, format) = (config.clone(), format.clone());
             memo(move || data.with(|rows| describe(&config, rows, &*format)))
@@ -280,4 +272,17 @@ impl IntoView for Chart {
             .child(card);
         root.child(plot_box).child(legend).into_view()
     }
+}
+
+fn chart_name(kind: Value<ChartKind>, config: &ChartConfig) -> Value<String> {
+    let kind = kind_name(kind);
+    let series_names = config
+        .series
+        .iter()
+        .map(|series| series.label.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    message_with("basic.chart.summary", "{kind}: {series}", move || {
+        [("kind", kind.get()), ("series", series_names.clone())]
+    })
 }
