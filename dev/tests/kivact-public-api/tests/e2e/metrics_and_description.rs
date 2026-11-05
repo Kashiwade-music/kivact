@@ -152,8 +152,8 @@ fn description_list_pairs_terms_and_details() {
     assert_eq!(labels[0].text(), "Owner");
     list.get_by_role(Role::ListItem, "Action")
         .get_by_role(Role::Button, "Open profile");
-    let actions = list
-        .get_by_role(Role::ListItem, "Action")
+    let action_pair = screen.within(list.get_by_role(Role::ListItem, "Action"));
+    let actions = action_pair
         .all_by_role(Role::Group, "Action")
         .into_iter()
         .find(|group| group.query_by_role(Role::Button, "Open profile").is_some())
