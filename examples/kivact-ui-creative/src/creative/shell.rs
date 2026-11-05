@@ -147,13 +147,17 @@ pub fn catalog() -> impl IntoView {
     let main_offset = main_scroll.scroll_offset();
     kivact::style::provide_theme(
         move || {
-            let theme = ui::theme(kivact::style::ThemeMode::Dark)
-                .accent(accent.get())
-                .density(if compact.get() {
-                    ui::Density::Compact
-                } else {
-                    ui::Density::Comfortable
-                });
+            let theme = ui::theme_with(
+                kivact::style::ThemeMode::Dark,
+                ui::ThemeOptions {
+                    accent: accent.get(),
+                    density: if compact.get() {
+                        ui::Density::Compact
+                    } else {
+                        ui::Density::Comfortable
+                    },
+                },
+            );
             let mut palette = (*theme.ext::<ui::Tokens>()).clone();
             palette.body_font = "Geist".into();
             palette.mono_font = "Geist Mono".into();
