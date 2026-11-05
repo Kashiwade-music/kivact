@@ -24,9 +24,10 @@
 //! resource publishes only its latest request (by generation); an action's
 //! runs follow its [`ActionMode`] (`action`).
 //!
-//! The clock is the host's: the client (`HostLink`) owns it and lends it to
-//! the runtime as its driver, and timers, frame loops and animations all
-//! read `Runtime::now_ns()`. The `kivact::test` host runs a virtual clock.
+//! The clock is the host's: each turn the host advances the runtime's clock
+//! to its time (`Runtime::advance_clock`), and timers, frame loops and
+//! animations all read `Runtime::now_ns()`. The `kivact::test` host runs a
+//! virtual clock.
 
 mod action;
 mod async_state;

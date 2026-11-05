@@ -83,7 +83,7 @@ type Colorize = dyn Fn(&str, &LineState) -> (Vec<LineStyle>, LineState);
 pub struct LineColors(Rc<Colorize>);
 
 impl LineColors {
-    /// Color each line with `f`: `(range, color)` in the line and the
+    /// Color each line with `f`: the line's [`LineStyle`] ranges and the
     /// state the line leaves, from the state the line before left.
     pub fn new(f: impl Fn(&str, &LineState) -> (Vec<LineStyle>, LineState) + 'static) -> Self {
         Self(Rc::new(f))
@@ -130,9 +130,13 @@ pub struct RangeDecoration {
     pub color: Rgba,
 }
 
+/// How a [`RangeDecoration`] paints its range.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RangeDecorationKind {
+    /// A one-pixel line of this style along the bottom of each line box.
     Underline(kivact_types::TextDecorationStyle),
+    /// A one-pixel border around each line box of the range.
     Outline,
+    /// A fill behind the range's text.
     Background,
 }

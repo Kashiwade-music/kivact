@@ -1,9 +1,11 @@
-//! Role: Values only the engine and Arvane exchange; the facade re-exports none.
+//! Role: Values the engine and Arvane exchange; the facade re-exports only the inline boxes.
 //!
 //! The host-to-Arvane protocol: drawing, shaping and semantics snapshots a
 //! host hands Arvane, and what a window reports back. It uses the
-//! vocabulary at the crate root and never the reverse, so a value a user
-//! of the `kivact` facade can name is never defined here.
+//! vocabulary at the crate root and never the reverse. The one exception a
+//! user of the `kivact` facade can name is the pair of inline box types
+//! (`InlineBox`, `InlineBoxPlacement`) that `kivact::draw` re-exports for
+//! inline paragraphs.
 
 mod color;
 mod effect;
