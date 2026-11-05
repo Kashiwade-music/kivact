@@ -95,16 +95,17 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                     .map_or_else(|| text(label).into_view(), |slot| slot(entry.clone()));
                 let current = at == last;
                 let entry_node = if current || activate.is_none() {
-                    node()
-                        .role(Role::Text)
-                        .name(label)
-                        .current_item(if current {
-                            Some(CurrentItem::Page)
-                        } else {
-                            None
-                        })
-                        .child(body)
-                        .into_view()
+                    let current = current.then_some(CurrentItem::Page);
+                    if item.is_none() {
+                        text(label).current_item(current).into_view()
+                    } else {
+                        node()
+                            .role(Role::Generic)
+                            .name(label)
+                            .current_item(current)
+                            .child(body)
+                            .into_view()
+                    }
                 } else {
                     let f = activate.clone();
                     let key = entry.key().clone();
