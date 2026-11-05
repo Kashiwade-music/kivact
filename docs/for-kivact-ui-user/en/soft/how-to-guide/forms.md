@@ -15,7 +15,7 @@ fn event_form(save: impl Fn(String, CalendarDate) + 'static) -> impl IntoView {
 
     column((
         text_input("Event name", name),
-        soft::date_input("Event date", date),
+        kivact::ui::date_input("Event date", date),
         button("Save event")
             .variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || name.get().trim().is_empty() || date.get().is_none())
@@ -31,10 +31,12 @@ fn event_form(save: impl Fn(String, CalendarDate) + 'static) -> impl IntoView {
 
 For fields with validation errors, keep the error visible next to the field and explain how to correct it. Validate the submitted values again at the persistence boundary.
 
-Use `soft::input_group_with` to create related controls at the group's default size. A control's own `.size(..)` takes precedence. Use `soft::DateRangePreset` with `soft::date_range_input(..).presets(..)` to offer named ranges alongside calendar selection.
+Use `soft::input_group_with` to create related controls at the group's default size. A control's own `.size(..)` takes precedence. Use `kivact::ui::DateRangePreset` with `kivact::ui::date_range_input(..).presets(..)` to offer named ranges alongside calendar selection.
 
 Bind `soft::rich_text_editor` to a Markdown string. In Write mode, the toolbar applies bold, italic, strikethrough, or inline code to the selection and returns focus to the editor. Switch to Preview to read the formatted result while keeping the same source binding.
 
 Keyed choices use the standard APIs: `select(label, options, selected).open_on_arrow(true)` keeps the previous arrow-opening behavior; `combobox(label, options, selected)` adds search. For multiple choices use a `Vec<K>` binding and `.chips()`, adding `.exclude_selected()` for a tokenizer. Async `.search(..)`, `.debounce(..)`, `.filter(..)`, `.placeholder(..)`, and `.empty_text(..)` remain standard builder options. Use `.presentation(SelectPresentation::BottomSheet)` for touch drawers, or `Adaptive` to follow host touch support. A caller-owned chooser is `selection_field(label, value_label).content(factory)`; keep its search binding outside the factory. Soft supplies select and combobox recipes and tokens.
 
 Use `kivact::ui::button_group(label, children)` for joined actions and `toggle_group(label, options, selection)` for keyed toggles. Both support orientation, inherited control size, and standard `.disabled(..)`. Use `ButtonGroupMember::from(button).solid(true).keep_size(true)` for member divider and size overrides. `.variant(soft::ButtonGroupVariant(soft::Elevation::Low))` adds group elevation. Set `ListItem::with_pressed_icon(..)` on each option for its selected icon; `.icon_only(..)` hides visible labels. Multiple selection uses `Vec<K>` and single selection uses `Option<K>`.
+
+Use standard `calendar(selection)` with either `Option<CalendarDate>` or `Option<DateRange>`; the same calendar supports default month, disabled dates, bounds, inclusive range spans, variable rows, month count, outside days, week start, autofocus, and commit callbacks. `date_input`, `date_range_input`, `date_time_input`, and `time_input` come from `kivact::ui`; date/time values come from `kivact::i18n`. Keep `.calendar(|calendar| ...)` configuration and range presets. Canonical field bounds use `Some(date)` and precision uses `TimeStyle { seconds: true }` with `.format(...)` or `.time_format(...)`. Soft installs calendar/date/time recipes and wheel measurements. Locale owns date parsing and calendar names; component messages use the standard calendar/date/time catalog keys.

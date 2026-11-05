@@ -45,7 +45,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
 | Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
 | Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
-| Calendar | `calendar`, `calendar_range` |
+| Calendar | Standard `calendar` over single-date or ordered-range bindings |
 | Card | `card`, `clickable_card`, `selectable_card` |
 | Carousel | `carousel`, `use_carousel` |
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
@@ -54,7 +54,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selection)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
 | Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
 | Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
-| Date Input | `date_input`, `date_range_input`, `date_time_input` |
+| Date Input | Standard `date_input`, `date_range_input`, `date_time_input` |
 | Dialog | Standard `dialog`, `dialog_header`, `alert_dialog`. Signals own imperative open state. |
 | Divider | `divider` |
 | Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
@@ -86,7 +86,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Switch | Standard `switch` |
 | Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
-| Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, `time_input`, standard `text_input` and `text_area` |
+| Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, standard `time_input`, `text_input` and `text_area` |
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
 | Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, standard `toolbar`, Soft `with_key_hints` and `keyboard_hint` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
@@ -122,33 +122,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.banner.dismiss_titled` | {dismiss} {title} |
 | `soft.banner.expand` | Expand |
 | `soft.breadcrumbs.label` | Breadcrumb |
-| `soft.calendar.caption` | {month} {year} |
-| `soft.calendar.chosen` | Date selected |
-| `soft.calendar.fri` | Fr |
-| `soft.calendar.mon` | Mo |
-| `soft.calendar.month_1` | January |
-| `soft.calendar.month_10` | October |
-| `soft.calendar.month_11` | November |
-| `soft.calendar.month_12` | December |
-| `soft.calendar.month_2` | February |
-| `soft.calendar.month_3` | March |
-| `soft.calendar.month_4` | April |
-| `soft.calendar.month_5` | May |
-| `soft.calendar.month_6` | June |
-| `soft.calendar.month_7` | July |
-| `soft.calendar.month_8` | August |
-| `soft.calendar.month_9` | September |
-| `soft.calendar.next` | Next month |
-| `soft.calendar.previous` | Previous month |
-| `soft.calendar.range_cancelled` | Range selection cancelled |
-| `soft.calendar.range_chosen` | Date range selected |
-| `soft.calendar.range_started` | Start date selected |
-| `soft.calendar.sat` | Sa |
-| `soft.calendar.sun` | Su |
-| `soft.calendar.thu` | Th |
-| `soft.calendar.today` | Today |
-| `soft.calendar.tue` | Tu |
-| `soft.calendar.wed` | We |
 | `soft.carousel.scroll_left` | Scroll left |
 | `soft.carousel.scroll_right` | Scroll right |
 | `soft.carousel.slide` | Slide {current} of {total} |
@@ -173,7 +146,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.code_block.copy_code` | Copy code |
 | `soft.date.open` | Choose date |
 | `soft.date_range.placeholder` | Select date range |
-| `soft.date_range_input.presets` | Preset date ranges |
 | `soft.date_time.date` | Date |
 | `soft.date_time.time` | Time |
 | `soft.dialog.close` | Close |
@@ -380,6 +352,11 @@ Number, date, and time filter fields validate values entered as text.
 - `spinner`
 - `kbd`
 - `kbd_key`
+- `calendar`
+- `date_input`
+- `date_range_input`
+- `date_time_input`
+- `time_input`
 - `text_input`
 - `text_area`
 - `field`

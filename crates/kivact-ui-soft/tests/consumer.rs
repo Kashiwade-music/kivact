@@ -157,14 +157,14 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let date = signal(None::<CalendarDate>);
-            let time = signal(None::<kivact_ui_soft::TimeOfDay>);
+            let time = signal(None::<kivact::i18n::TimeOfDay>);
             (
                 (date, time),
                 column((
-                    kivact_ui_soft::date_input("Due date", date)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
-                    kivact_ui_soft::time_input("Reminder", time)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
+                    kivact::ui::date_input("Due date", date)
+                        .presentation(kivact::ui::DatePresentation::Desktop),
+                    kivact::ui::time_input("Reminder", time)
+                        .presentation(kivact::ui::DatePresentation::Desktop),
                 )),
             )
         },
@@ -178,7 +178,11 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
     field.press_key(Key::Enter);
     assert_eq!(
         time.get_untracked(),
-        kivact_ui_soft::TimeOfDay::new(14, 35, 0)
+        Some(kivact::i18n::TimeOfDay {
+            hour: 14,
+            minute: 35,
+            second: 0
+        })
     );
 }
 

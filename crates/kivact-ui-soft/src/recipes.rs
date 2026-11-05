@@ -9,6 +9,17 @@ pub(super) fn recipes() -> UiRecipes {
             crate::recipes_controls::register(UiRecipes::default())
                 .text_input(|_| crate::recipes_field::text_input)
                 .text_area(|_| crate::recipes_field::text_area)
+                .calendar(crate::recipes_calendar::calendar)
+                .date_input(|r| {
+                    r.root(|_| crate::recipes_calendar::field)
+                        .wheel(|_| crate::recipes_calendar::wheel)
+                })
+                .date_range_input(|r| r.root(|_| crate::recipes_calendar::field))
+                .time_input(|r| {
+                    r.root(|_| crate::recipes_calendar::field)
+                        .wheel(|_| crate::recipes_calendar::wheel)
+                })
+                .date_time_input(|r| r.root(|_| crate::recipes_calendar::field))
                 .field(crate::recipes_field::field)
                 .number_input(crate::recipes_field::number_input)
                 .tag_input(crate::recipes_field::tag_input)

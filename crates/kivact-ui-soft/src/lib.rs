@@ -11,7 +11,6 @@ mod banner;
 mod blockquote;
 mod bottom_sheet;
 mod breadcrumbs;
-mod calendar;
 mod card;
 mod carousel;
 mod choice_list;
@@ -21,10 +20,6 @@ mod code_block;
 mod color;
 mod color_name;
 mod container_reveal;
-mod date_input;
-mod date_range_input;
-mod date_time_input;
-mod date_touch;
 mod dialog_header;
 mod disclosure_appearance;
 mod divider;
@@ -51,7 +46,6 @@ mod markdown_parser;
 mod media_overlay;
 mod media_query;
 mod mobile_nav;
-mod month_swipe;
 mod more_menu;
 mod nav_heading;
 mod nav_icon;
@@ -61,6 +55,7 @@ mod power_search;
 mod recipe_style;
 mod recipes;
 mod recipes_badge;
+mod recipes_calendar;
 mod recipes_collections;
 mod recipes_combobox;
 mod recipes_controls;
@@ -98,8 +93,6 @@ mod text;
 mod theme;
 mod theme_scope;
 mod thumbnail;
-mod time_input;
-mod time_of_day;
 mod timer;
 mod timestamp;
 mod token;
@@ -125,7 +118,6 @@ pub use bottom_sheet::{
 pub use breadcrumbs::{
     BreadcrumbItem, Breadcrumbs, BreadcrumbsVariant, breadcrumb_item, breadcrumbs,
 };
-pub use calendar::{Calendar, calendar, calendar_range};
 pub use card::{Card, CardVariant, card, clickable_card, selectable_card};
 pub use carousel::{Carousel, CarouselHandle, carousel, use_carousel};
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
@@ -140,10 +132,6 @@ pub use color_name::ColorName;
 pub use container_reveal::{
     RevealContent, RevealForce, RevealVisibility, reveal_container, reveal_content,
 };
-pub use date_input::{DateInput, date_input};
-pub use date_range_input::{DateRangeInput, DateRangePreset, date_range_input};
-pub use date_time_input::{DateTime, DateTimeInput, date_time_input};
-pub use date_touch::DatePresentation;
 pub use dialog_header::{
     DialogHeader, DrawerHeader, EdgeCompensation, dialog_header, drawer_header,
 };
@@ -248,8 +236,6 @@ pub use text::{
 pub use theme::theme;
 pub use theme_scope::{MediaMode, media_theme, syntax_theme};
 pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
-pub use time_input::{TimeInput, time_input};
-pub use time_of_day::TimeOfDay;
 pub use timer::{Timer, TimerFormat, timer};
 pub use timestamp::{
     Instant, InstantFormat, TimeZone, Timestamp, TimestampEntry, TimestampFormat, timestamp,
