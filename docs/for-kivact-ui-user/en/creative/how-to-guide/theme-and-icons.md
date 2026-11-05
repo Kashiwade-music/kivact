@@ -42,7 +42,7 @@ fn compact_lime() -> Theme {
 }
 ```
 
-`Accent` has `Iris`, `Lime`, `Aqua`, `Coral` and `Amber`. The accent colors the selection, the focus ring and active controls. `Density::Compact` reduces the control height from 24 to 20 pixels and tightens gaps. Each call keeps everything else the theme already had.
+`Accent` has `Iris`, `Lime`, `Aqua`, `Coral` and `Amber`. The accent colors the selection, the focus ring and active controls. `Density::Compact` reduces the control height from 24 to 20 pixels and tightens gaps. Apply other theme settings to the resulting theme.
 
 ## Switch theme while the app runs
 
