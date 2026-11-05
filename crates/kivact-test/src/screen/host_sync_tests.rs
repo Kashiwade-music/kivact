@@ -339,7 +339,7 @@ fn a_host_edit_that_overrides_the_only_pending_prop_sends_nothing() {
 // normal engine Writer boundary, while mounting/highlighting through public APIs.
 #[test]
 fn replacing_editing_drops_line_state_after_releasing_the_model() {
-    use editing_drop_probe::{Probe, State};
+    use super::editing_drop_probe::{Probe, State};
     use kivact_core::custom::{TextEditing, part};
     use std::cell::RefCell;
     use std::rc::Weak;
@@ -438,44 +438,5 @@ fn gesture_sample(
             tilt: None,
             is_primary,
         },
-    }
-}
-
-mod editing_drop_probe {
-    //! Role: Observe editor line-state destruction through the engine reader boundary.
-    use kivact_engine::api::Reader;
-    use kivact_types::NodeId;
-    use std::cell::{Cell, RefCell};
-    use std::rc::Rc;
-    // xtask-allow(state-fields): Test destruction diagnostics independently track arming, counts and a reader used to verify borrow release.
-    pub(super) struct Probe {
-        pub(super) armed: Cell<bool>,
-        pub(super) drops: Rc<Cell<usize>>,
-        pub(super) reentered: Rc<Cell<usize>>,
-        pub(super) reader: Rc<RefCell<Option<(Reader, NodeId)>>>,
-    }
-    impl Drop for Probe {
-        fn drop(&mut self) {
-            if !self.armed.get() {
-                return;
-            }
-            self.drops.set(self.drops.get() + 1);
-            let (reader, independent) = self.reader.borrow().as_ref().unwrap().clone();
-            // This is a different still-live node: replacing the editor must
-            // not invalidate the reference or hold the shared Model borrow.
-            reader.with_node(independent, |node| assert!(node.is_some()));
-            self.reentered.set(self.reentered.get() + 1);
-        }
-    }
-    #[derive(Default)]
-    pub(super) struct State(pub(super) Option<Rc<Probe>>);
-    impl PartialEq for State {
-        fn eq(&self, other: &Self) -> bool {
-            match (&self.0, &other.0) {
-                (None, None) => true,
-                (Some(a), Some(b)) => Rc::ptr_eq(a, b),
-                _ => false,
-            }
-        }
     }
 }
