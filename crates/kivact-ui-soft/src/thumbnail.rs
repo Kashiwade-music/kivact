@@ -58,7 +58,6 @@ pub struct Thumbnail {
     press: Option<Box<dyn Fn()>>,
     remove: Option<Box<dyn Fn()>>,
     loading: Value<bool>,
-    disabled: Value<bool>,
     reveal: Value<RemoveReveal>,
 }
 
@@ -72,7 +71,6 @@ pub fn thumbnail() -> Thumbnail {
         press: None,
         remove: None,
         loading: false.into_value(),
-        disabled: false.into_value(),
         reveal: (RemoveReveal::default()).into_value(),
     }
 }
@@ -111,10 +109,6 @@ impl Thumbnail {
         self
     }
     /// Make the preview and its controls unavailable.
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
-        self
-    }
     /// Set when the remove control is shown.
     pub fn show_remove_on(mut self, reveal: impl IntoValue<RemoveReveal>) -> Self {
         self.reveal = reveal.into_value();
@@ -130,7 +124,11 @@ impl NodeBuilder for Thumbnail {
 }
 
 impl IntoView for Thumbnail {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
         let Self {
             root,
             source,
@@ -139,7 +137,6 @@ impl IntoView for Thumbnail {
             press,
             remove,
             loading,
-            disabled,
             reveal,
         } = self;
         let fallback = message("soft.thumbnail.fallback_name", "Thumbnail");

@@ -214,7 +214,6 @@ pub struct TopNavItem {
     icon: Option<View>,
     icon_only: Value<bool>,
     selected: Value<bool>,
-    disabled: Value<bool>,
     action: Option<Callback<()>>,
     size: Value<ControlSize>,
 }
@@ -227,7 +226,6 @@ pub fn top_nav_item(label: impl IntoText) -> TopNavItem {
         icon: None,
         icon_only: (false).into_value(),
         selected: false.into_value(),
-        disabled: false.into_value(),
         action: None,
         size: (ControlSize::Medium).into_value(),
     }
@@ -250,10 +248,6 @@ impl TopNavItem {
         self.selected = selected.into_value();
         self
     }
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
-        self
-    }
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
@@ -273,7 +267,11 @@ impl NodeBuilder for TopNavItem {
 }
 
 impl IntoView for TopNavItem {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
         let Self {
             root,
             label,
@@ -281,7 +279,6 @@ impl IntoView for TopNavItem {
             icon,
             icon_only,
             selected,
-            disabled,
             action,
             size,
         } = self;
@@ -374,22 +371,20 @@ fn top_item_style(
     }
 }
 
-pub type TopNavMenuItem = NavHeadingMenuItem;
-
-pub fn top_nav_menu_item(title: impl IntoText) -> TopNavMenuItem {
+pub fn top_nav_menu_item(title: impl IntoText) -> NavHeadingMenuItem {
     nav_heading_menu_item(title)
 }
 
 pub struct TopNavMenu {
     root: Node,
     label: Value<String>,
-    items: Rc<[TopNavMenuItem]>,
+    items: Rc<[NavHeadingMenuItem]>,
     delays: Delays,
 }
 
 pub fn top_nav_menu(
     label: impl IntoText,
-    items: impl IntoIterator<Item = TopNavMenuItem>,
+    items: impl IntoIterator<Item = NavHeadingMenuItem>,
 ) -> TopNavMenu {
     TopNavMenu {
         root: node(),
@@ -465,7 +460,7 @@ fn menu_trigger(label: Value<String>, open: Value<bool>) -> Node {
     .style(move || top_item_style(false, false, false, open.get()))
 }
 
-fn drawer_menu_item(item: &TopNavMenuItem) -> SideNavItem {
+fn drawer_menu_item(item: &NavHeadingMenuItem) -> SideNavItem {
     let mut row = side_nav_item(item.label).disabled(item.disabled);
     if let Some(icon) = &item.icon {
         row = row.icon(icon.call(()));

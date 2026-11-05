@@ -63,7 +63,6 @@ pub struct SideNavItem {
     icon: Option<View>,
     selected_icon: Option<View>,
     selected: Value<bool>,
-    disabled: Value<bool>,
     end: Option<View>,
     actions: Option<View>,
     children: Option<ViewFn>,
@@ -80,7 +79,6 @@ pub fn side_nav_item(label: impl IntoText) -> SideNavItem {
         icon: None,
         selected_icon: None,
         selected: false.into_value(),
-        disabled: false.into_value(),
         end: None,
         actions: None,
         children: None,
@@ -104,10 +102,6 @@ impl SideNavItem {
     }
     pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
         self.selected = selected.into_value();
-        self
-    }
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
         self
     }
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
@@ -145,14 +139,17 @@ impl NodeBuilder for SideNavItem {
 }
 
 impl IntoView for SideNavItem {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
         let Self {
             root,
             label,
             icon: leading,
             selected_icon,
             selected,
-            disabled,
             end,
             actions,
             children,

@@ -335,8 +335,6 @@ pub struct SideNavHeading {
     sub_action: Option<Callback<()>>,
 }
 
-pub type TopNavHeading = SideNavHeading;
-
 pub fn side_nav_heading(heading: impl IntoText) -> SideNavHeading {
     SideNavHeading {
         root: node(),
@@ -352,7 +350,7 @@ pub fn side_nav_heading(heading: impl IntoText) -> SideNavHeading {
     }
 }
 
-pub fn top_nav_heading(heading: impl IntoText) -> TopNavHeading {
+pub fn top_nav_heading(heading: impl IntoText) -> SideNavHeading {
     side_nav_heading(heading)
 }
 
