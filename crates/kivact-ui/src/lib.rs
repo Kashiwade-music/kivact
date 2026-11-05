@@ -276,16 +276,20 @@ pub use combobox::{Combobox, ComboboxTokens, combobox};
 pub use kivact_interaction::ComboboxMode;
 pub use selector_presentation::SelectPresentation;
 mod button_group;
+mod group_look;
+mod group_types;
 mod toggle_group;
 mod toolbar;
 pub use button_group::{
-    ButtonGroup, ButtonGroupCell, ButtonGroupMember, ButtonGroupMemberState, ButtonGroupState,
-    ButtonGroupTokens, button_group, button_group_separator, button_group_text,
+    ButtonGroup, ButtonGroupCell, ButtonGroupMember, button_group, button_group_separator,
+    button_group_text,
+};
+pub use group_types::{
+    ButtonGroupMemberState, ButtonGroupState, ButtonGroupTokens, ToggleGroupItemState,
+    ToggleGroupState, ToggleGroupTokens,
 };
 pub use recipes::{ButtonGroupRecipes, ToggleGroupRecipes, ToolbarRecipes};
-pub use toggle_group::{
-    ToggleGroup, ToggleGroupItemState, ToggleGroupState, ToggleGroupTokens, toggle_group,
-};
+pub use toggle_group::{ToggleGroup, toggle_group};
 pub use toolbar::{Toolbar, ToolbarEdge, ToolbarState, ToolbarTokens, toolbar};
 
 mod alert;

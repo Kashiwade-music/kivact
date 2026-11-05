@@ -1,55 +1,16 @@
 //! Role: Compose keyed toggle buttons over the caller's canonical selection.
+use crate::group_types::{ToggleGroupItemState, ToggleGroupState};
 use crate::layer::with_base_recipe_style;
+use crate::values::{ControlSize, ToggleButtonState};
 use crate::variants::{Variant, Variants};
-use crate::{ControlSize, ToggleButtonState};
 use kivact_core::state::{
     Binding, Callback, IntoText, IntoValue, ItemKey, Value, binding, callback,
 };
-use kivact_core::style::{Align, Direction, style};
 use kivact_core::view::{
     EditPhase, HandlerResult, IntoView, Node, NodeBuilder, Orientation, ReadingDirection, Role,
     View, ViewFn, for_each, node, use_direction,
 };
 use kivact_interaction::{IntoSelection, ListItem, Selection};
-
-/// Passive spacing for toggle groups.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ToggleGroupTokens {
-    pub gap: f64,
-}
-impl Default for ToggleGroupTokens {
-    fn default() -> Self {
-        Self { gap: 4.0 }
-    }
-}
-
-/// Layout supplied to the group recipe.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ToggleGroupState {
-    pub orientation: Orientation,
-    pub size: ControlSize,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub spacing: Option<f64>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub rtl: bool,
-}
-
-/// A toggle's actual state together with its derived position and layout.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ToggleGroupItemState {
-    pub toggle: ToggleButtonState,
-    pub layout: ToggleGroupState,
-    // xtask-allow(state-fields): Derived position within the current options, not owned selection state.
-    pub first: bool,
-    // xtask-allow(state-fields): Derived position within the current options, not owned selection state.
-    pub last: bool,
-}
-impl std::ops::Deref for ToggleGroupItemState {
-    type Target = ToggleButtonState;
-    fn deref(&self) -> &Self::Target {
-        &self.toggle
-    }
-}
 
 /// Single or multiple toggles with native roving focus, created by [`toggle_group`].
 pub struct ToggleGroup<K: ItemKey> {
@@ -266,30 +227,4 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         .child(rows)
         .into_view()
     }
-}
-pub(crate) fn root_style(
-    theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToggleGroupState>,
-) -> kivact_core::style::Style {
-    style()
-        .direction(if look.orientation == Orientation::Vertical {
-            Direction::Column
-        } else if look.rtl {
-            Direction::RowReverse
-        } else {
-            Direction::Row
-        })
-        .align_items(Align::Stretch)
-        .gap(
-            look.spacing
-                .map_or(theme.ext::<crate::UiTokens>().toggle_group.gap, |spacing| {
-                    spacing * 4.0
-                }),
-        )
-}
-pub(crate) fn item_style(
-    theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToggleGroupItemState>,
-) -> kivact_core::style::Style {
-    crate::look::toggle_button(theme, &crate::Look::new(look.toggle.clone()))
 }

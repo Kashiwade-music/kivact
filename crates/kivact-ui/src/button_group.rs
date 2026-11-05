@@ -1,58 +1,14 @@
 //! Role: Group arbitrary action controls into one native roving focus scope.
-use crate::ControlSize;
+use crate::group_types::{ButtonGroupMemberState, ButtonGroupState};
 use crate::layer::with_base_recipe_style;
+use crate::values::ControlSize;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, provide, try_use_context};
-use kivact_core::style::{Align, Color, Direction, style};
+use kivact_core::style::style;
 use kivact_core::view::{
     IntoChildren, IntoView, Node, NodeBuilder, Orientation, ReadingDirection, Role, View, node,
     row, text, use_direction,
 };
-
-/// Passive button group metrics and colors.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ButtonGroupTokens {
-    pub gap: f64,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub joined: bool,
-    pub radius: f64,
-    pub divider: Color,
-    pub solid_divider: Color,
-    pub text_background: Color,
-    pub text_color: Color,
-}
-impl Default for ButtonGroupTokens {
-    fn default() -> Self {
-        Self {
-            gap: 0.0,
-            joined: true,
-            radius: 0.0,
-            divider: Color::TRANSPARENT,
-            solid_divider: Color::TRANSPARENT,
-            text_background: Color::TRANSPARENT,
-            text_color: Color::BLACK,
-        }
-    }
-}
-
-/// Layout supplied to group and auxiliary cell recipes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ButtonGroupState {
-    pub orientation: Orientation,
-    pub size: ControlSize,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub rtl: bool,
-}
-
-/// Position of a child within a joined group, derived from the child list.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ButtonGroupMemberState {
-    pub layout: ButtonGroupState,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub first: bool,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
-    pub last: bool,
-}
 
 #[derive(Clone, Copy)]
 struct GroupAxis(Value<Orientation>);
@@ -217,54 +173,6 @@ pub fn button_group_text(label: impl IntoText) -> ButtonGroupCell {
         separator: false,
     }
 }
-pub(crate) fn root_style(
-    theme: &kivact_core::style::Theme,
-    look: &crate::Look<ButtonGroupState>,
-) -> kivact_core::style::Style {
-    let t = &theme.ext::<crate::UiTokens>().button_group;
-    style()
-        .direction(if look.orientation == Orientation::Vertical {
-            Direction::Column
-        } else if look.rtl {
-            Direction::RowReverse
-        } else {
-            Direction::Row
-        })
-        .align_items(Align::Stretch)
-        .gap(t.gap)
-        .radius(t.radius)
-}
-pub(crate) fn separator_style(
-    theme: &kivact_core::style::Theme,
-    look: &crate::Look<ButtonGroupState>,
-) -> kivact_core::style::Style {
-    let base = style()
-        .shrink(0)
-        .align_self(Align::Stretch)
-        .background(theme.ext::<crate::UiTokens>().button_group.divider);
-    if look.orientation == Orientation::Vertical {
-        base.height(1).margin_x(1)
-    } else {
-        base.width(1).margin_y(1)
-    }
-}
-pub(crate) fn text_style(
-    theme: &kivact_core::style::Theme,
-    _: &crate::Look<ButtonGroupState>,
-) -> kivact_core::style::Style {
-    let t = &theme.ext::<crate::UiTokens>().button_group;
-    style()
-        .align_items(Align::Center)
-        .gap(8)
-        .padding_x(10)
-        .border(1, t.divider)
-        .background(t.text_background)
-        .color(t.text_color)
-        .font_size(12)
-        .weight(500)
-        .text_wrap(false)
-}
-
 /// An action button with explicit joined-group presentation options.
 /// Ordinary buttons can also be supplied directly to [`button_group`].
 pub struct ButtonGroupMember {
@@ -345,25 +253,4 @@ impl IntoView for ButtonGroupMember {
             })
             .into_view()
     }
-}
-
-pub(crate) fn member_style(
-    theme: &kivact_core::style::Theme,
-    look: &crate::Look<ButtonGroupMemberState>,
-) -> kivact_core::style::Style {
-    let tokens = theme.ext::<crate::UiTokens>();
-    let t = &tokens.button_group;
-    if !t.joined {
-        return style();
-    }
-    let first = if look.first { t.radius } else { 0.0 };
-    let last = if look.last { t.radius } else { 0.0 };
-    let (tl, tr, br, bl) = if look.layout.orientation == Orientation::Vertical {
-        (first, first, last, last)
-    } else if look.layout.rtl {
-        (last, first, first, last)
-    } else {
-        (first, last, last, first)
-    };
-    style().radius_corners(tl, tr, br, bl).clip(true)
 }
