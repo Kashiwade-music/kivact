@@ -205,3 +205,9 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 - `755d4867` のpure metadata default修正後、Root整合catalog全ページ1/1通過。旧native異常終了は解消。
 
 - CP6固定114d7bbb: fullstatic40crate/108graph 0、GPU6/6 0。workspace試験はcompile中のdisk不足で未実行、古いinactive cache回収後に再開。
+
+| fix-CP6-native | doing | | native wheel SPI timeoutと後続Poisonのnamed2を再検証 |
+| fix-CP6-async | doing | | example/Tokio pendingをcanonical spinner Statusで確認 |
+| fix-CP6-ui | doing | | Contents semantic階層とdescription term/detail関係 |
+| fix-CP6-pop | doing | | Desktop date/Alert picker error/実icon |
+| fix-CP6-xtask | doing | | official kitのfixture identityへ9例を追従 |

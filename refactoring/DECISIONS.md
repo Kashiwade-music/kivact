@@ -180,3 +180,5 @@
 | 2026-11-05 | H-G6 | Draw text measurer の境界 | 実使用はmountとOffscreenの2つの自動install経路だけ。ユーザーにInstall-before-drawを要求するAPIを残さず、doc(hidden)+理由付きinternal-contractのcross-crate bridgeへ分類する。通常の描画・段落測定は自動install済みhostを使う。 |
 
 | 2026-11-05 | CP6/F1 | docsの試験スケジュール | 並列doctestの同時compile/linkでlink.exe1180とrustc ICEが実際に発生した。0.6節の失敗crate例外としてkivact-docsだけ--test-threads=1で別実行する。workspace集約はdocsとGPUproducerを除いて既定並列、GPU6件も従来通り別の逐次実行。Cargoのjob数は制限しない。 |
+
+| 2026-11-05 | fix-CP6 | 変更後の契約に合わせる試験 | AsyncView既定pendingはStatus Loading、pickerエラーはAlert、Display::Contentsはlayoutが透明でもa11y Groupと論理階層を保つ。Desktop専用date fixtureは明示Desktop、汎用adaptiveはtouchのSaveを保つ。iconは実インストール済みglyphで検査する。未知のnative timeoutとdescriptionの関係欠落は期待を弱めず原因を切り分ける。 |
