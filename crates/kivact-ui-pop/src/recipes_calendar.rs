@@ -1,4 +1,4 @@
-//! Role: Restyle standard calendars and date fields with Pop values and full-hue weekends.
+//! Role: Style standard calendars and date fields with Pop colors.
 use crate::{Hue, Tokens};
 use kivact::custom::PartState;
 use kivact::i18n::Weekday;
