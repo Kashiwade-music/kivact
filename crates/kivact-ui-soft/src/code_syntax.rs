@@ -5,18 +5,31 @@ use std::ops::Range;
 /// A syntax coloring category.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenKind {
+    /// Reserved language word.
     Keyword,
+    /// Type name.
     Type,
+    /// String literal.
     String,
+    /// Source comment.
     Comment,
+    /// Operator symbol.
     Operator,
+    /// Structural punctuation.
     Punctuation,
+    /// Numeric literal.
     Number,
+    /// Named constant.
     Constant,
+    /// Function name.
     Function,
+    /// Variable name.
     Variable,
+    /// Markup tag name.
     Tag,
+    /// Markup attribute name.
     Attribute,
+    /// Object property name.
     Property,
 }
 
@@ -48,7 +61,9 @@ impl CodeLanguage {
 /// The built-in identifier or custom language used for highlighting.
 #[derive(Clone)]
 pub enum CodeLanguageInput {
+    /// Built-in language identifier.
     Named(String),
+    /// Caller-supplied tokenizer and language identifiers.
     Custom(CodeLanguage),
 }
 

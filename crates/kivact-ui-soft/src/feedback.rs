@@ -26,10 +26,15 @@ pub(crate) fn icon_box(icon: View, size: f64) -> Node {
 /// Status represented by a dot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatusDotVariant {
+    /// Success-colored dot.
     Success,
+    /// Warning-colored dot.
     Warning,
+    /// Error-colored dot.
     Error,
+    /// Accent-colored dot.
     Accent,
+    /// Neutral-colored dot.
     Neutral,
 }
 
@@ -41,6 +46,7 @@ pub struct StatusDot {
     pulsing: Value<bool>,
 }
 
+/// Create a noninteractive status graphic with an accessible label.
 #[track_caller]
 pub fn status_dot(variant: StatusDotVariant, label: impl IntoText) -> StatusDot {
     StatusDot {
@@ -54,11 +60,13 @@ pub fn status_dot(variant: StatusDotVariant, label: impl IntoText) -> StatusDot 
 }
 
 impl StatusDot {
+    /// Mount a custom glyph once inside the status dot.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
 
+    /// Enable the repeating opacity pulse when mounted; disabled by default.
     pub fn pulsing(mut self, pulsing: impl IntoValue<bool>) -> Self {
         self.pulsing = pulsing.into_value();
         self

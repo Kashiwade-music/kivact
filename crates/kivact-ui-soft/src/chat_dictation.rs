@@ -12,15 +12,21 @@ fn control_side(size: ControlSize) -> i32 {
         ControlSize::Large => 44,
     }
 }
+/// Read-only microphone capability and audio samples supplied by the application.
 // xtask-allow(state-fields): Read-only application-owned microphone capability and sampled audio facts; the control owns no recording transitions.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DictationState {
+    /// Whether the application can offer dictation.
     pub supported: bool,
+    /// Whether the application is currently listening.
     pub listening: bool,
+    /// Current normalized input amplitude used when band samples are absent.
     pub volume: f64,
+    /// Normalized frequency-band amplitudes used to draw the listening waveform.
     pub bands: Vec<f64>,
 }
 
+/// Dictation toggle displaying application-owned recording state.
 pub struct ChatDictationButton {
     root: Node,
     state: Value<DictationState>,
@@ -30,6 +36,7 @@ pub struct ChatDictationButton {
     label: Value<String>,
 }
 
+/// Create a medium dictation control, hidden when unsupported by default.
 pub fn chat_dictation_button(state: impl IntoValue<DictationState>) -> ChatDictationButton {
     ChatDictationButton {
         root: node(),
@@ -49,19 +56,23 @@ impl NodeBuilder for ChatDictationButton {
 }
 
 impl ChatDictationButton {
+    /// Request that the application toggle dictation; recording remains application-owned.
     pub fn on_toggle(mut self, toggle: impl Into<Callback<()>>) -> Self {
         let toggle: Callback<()> = toggle.into();
         self.on_toggle = Some(callback(move |_| toggle.call(())));
         self
     }
+    /// Choose the visual control size; medium by default.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
+    /// Hide the control when dictation is unsupported; enabled by default.
     pub fn hide_when_unsupported(mut self, hide: impl IntoValue<bool>) -> Self {
         self.hide_when_unsupported = hide.into_value();
         self
     }
+    /// Set the accessible label; defaults to the localized “Dictation” message.
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = label.into_text_value();
         self

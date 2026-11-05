@@ -18,12 +18,18 @@ use kivact::view::View;
 /// The meaning and appearance of a presence indicator.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum AvatarStatus {
+    /// Success-colored presence marker, the default.
     #[default]
     Success,
+    /// Neutral presence marker.
     Neutral,
+    /// Error-colored presence marker.
     Error,
+    /// Explicit background and glyph colors.
     Custom {
+        /// Background color of the marker.
         fill: Color,
+        /// Foreground color of its glyph.
         ink: Color,
     },
 }

@@ -7,18 +7,23 @@ use kivact::ui::{AlertRecipes, AlertState, Look};
 /// The visual container treatment of a standard alert.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BannerContainer {
+    /// Rounded card surface, the default.
     #[default]
     Card,
+    /// Section surface without the card radius.
     Section,
 }
 impl kivact::ui::Variant for BannerContainer {}
 /// Independent reactive surface and elevation choices.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BannerAppearance {
+    /// Read-only reactive container treatment.
     pub container: Value<BannerContainer>,
+    /// Read-only reactive surface elevation.
     pub elevation: Value<Elevation>,
 }
 impl BannerAppearance {
+    /// Combine independent container and elevation inputs for a canonical alert.
     pub fn new(
         container: impl IntoValue<BannerContainer>,
         elevation: impl IntoValue<Elevation>,

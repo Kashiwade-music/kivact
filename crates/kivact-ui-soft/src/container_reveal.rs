@@ -11,27 +11,40 @@ use kivact::style::style;
 use kivact::view::NodeRef;
 use std::time::Duration;
 
+/// Override the container hover input used by a reveal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevealForce {
+    /// Treat the container as hovered.
     Active,
+    /// Treat the container as not hovered.
     Inactive,
 }
 
+/// Override visibility while preserving focus in the revealed content.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevealVisibility {
+    /// Keep content visible.
     Shown,
+    /// Hide content unless it contains keyboard focus.
     Hidden,
 }
 
+/// Fixed reveal behavior sampled when the reveal is bound.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct RevealContent {
+    /// Reveal away from hover instead of on hover; focus and touch still reveal.
     pub inverted: bool,
+    /// Keep hidden content in normal layout instead of removing its space.
     pub preserve_layout: bool,
+    /// Optional visibility override; focused content remains visible.
     pub force: Option<RevealVisibility>,
+    /// Optional override of the container hover input.
     pub container_force: Option<RevealForce>,
+    /// Delay before hover reveals content, in milliseconds; defaults to zero.
     pub hover_delay_ms: f64,
 }
 
+/// Mark a base style as a reveal group.
 pub fn reveal_container(base: Style) -> Style {
     base.group()
 }

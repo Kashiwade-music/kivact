@@ -8,21 +8,35 @@ use kivact::state::{IntoValue, Value, provide};
 use kivact::style::{Color, Direction, Position, Style, Theme, TransitionProp, style};
 use kivact::ui::{CardRecipes, CardState, Look};
 use kivact::view::IntoView;
+/// Background palette for a canonical card.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CardVariant {
+    /// Default card surface.
     #[default]
     Default,
+    /// Transparent surface.
     Transparent,
+    /// Muted neutral surface.
     Muted,
+    /// Blue palette.
     Blue,
+    /// Cyan palette.
     Cyan,
+    /// Gray palette.
     Gray,
+    /// Green palette.
     Green,
+    /// Orange palette.
     Orange,
+    /// Pink palette.
     Pink,
+    /// Purple palette.
     Purple,
+    /// Red palette.
     Red,
+    /// Teal palette.
     Teal,
+    /// Yellow palette.
     Yellow,
 }
 
@@ -30,11 +44,15 @@ impl kivact::ui::Variant for CardVariant {}
 /// Independent reactive visual choices applied to the standard card recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardAppearance {
+    /// Read-only reactive surface palette.
     pub variant: Value<CardVariant>,
+    /// Read-only reactive shadow elevation.
     pub elevation: Value<Elevation>,
+    /// Optional spacing scale override; `None` uses the theme card inset.
     pub padding: Option<Space>,
 }
 impl CardAppearance {
+    /// Combine palette, elevation and optional inset without owning card interaction state.
     pub fn new(
         variant: impl IntoValue<CardVariant>,
         elevation: impl IntoValue<Elevation>,

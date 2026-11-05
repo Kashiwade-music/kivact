@@ -3,12 +3,18 @@
 /// The diameter of an avatar.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AvatarSize {
+    /// 20-pixel diameter.
     Xsm,
+    /// 24-pixel diameter.
     Sm,
+    /// 36-pixel diameter, the default.
     #[default]
     Md,
+    /// 48-pixel diameter.
     Lg,
+    /// 128-pixel diameter.
     Xl,
+    /// Requested diameter in pixels, snapped to the nearest supported size.
     Px(u16),
 }
 
