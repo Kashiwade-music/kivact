@@ -52,15 +52,21 @@ pub enum RemoveReveal {
 }
 
 /// A preview of an image attachment.
-// xtask-allow(state-fields): Independent media asset, text overrides, actions and read-only loading/reveal inputs; interaction state remains on the mounted node.
 pub struct Thumbnail {
     root: Node,
+    // xtask-allow(state-fields): Optional immutable image asset, independent of upload status.
     source: Option<Asset>,
+    // xtask-allow(state-fields): Optional read-only image alternative text.
     alt: Option<Value<String>>,
+    // xtask-allow(state-fields): Optional read-only attachment label.
     label: Option<Value<String>>,
+    // xtask-allow(state-fields): Optional application open action, not an interaction phase.
     press: Option<Box<dyn Fn()>>,
+    // xtask-allow(state-fields): Optional application removal action, independent of loading.
     remove: Option<Box<dyn Fn()>>,
+    // xtask-allow(state-fields): Read-only application upload status.
     loading: Value<bool>,
+    // xtask-allow(state-fields): Read-only remove-button visibility preference.
     reveal: Value<RemoveReveal>,
 }
 
@@ -168,15 +174,7 @@ impl IntoView for Thumbnail {
             focus_within,
             rtl,
         );
-        let loading_message = message("spinner.loading", "Loading");
-        let announce = visually_hidden(move || {
-            if has_source && loading.get() {
-                loading_message.get()
-            } else {
-                String::new()
-            }
-        })
-        .live(LiveRegion::Polite);
+        let announce = upload_announcement(has_source, loading);
         let frame = node()
             .node_ref(reference)
             .style(|| {
@@ -226,8 +224,11 @@ fn fill() -> kivact::style::Style {
 }
 
 fn thumbnail_media(
+    // xtask-allow(state-fields): Optional immutable image asset, independent of upload status.
     source: Option<Asset>,
+    // xtask-allow(state-fields): Optional read-only image alternative text.
     alt: Option<Value<String>>,
+    // xtask-allow(state-fields): Read-only application upload status.
     loading: Value<bool>,
 ) -> Node {
     let mut media = node()
@@ -333,8 +334,10 @@ kivact::state::constant_value!(RemoveReveal);
 
 fn thumbnail_open(
     media: Node,
+    // xtask-allow(state-fields): Optional application open action, not an interaction phase.
     press: Option<Box<dyn Fn()>>,
     accessible: impl Fn() -> String + Copy + 'static,
+    // xtask-allow(state-fields): Read-only application upload status.
     loading: Value<bool>,
     disabled: Value<bool>,
 ) -> Node {
@@ -382,9 +385,11 @@ fn thumbnail_open(
 }
 
 fn thumbnail_remove(
+    // xtask-allow(state-fields): Optional application removal action, independent of loading.
     remove: Option<Box<dyn Fn()>>,
     accessible: impl Fn() -> String + Copy + 'static,
     disabled: Value<bool>,
+    // xtask-allow(state-fields): Read-only remove-button visibility preference.
     reveal: Value<RemoveReveal>,
     hovered: Value<bool>,
     focus_within: Value<bool>,
@@ -441,4 +446,16 @@ fn thumbnail_remove(
                     }),
             )
     })
+}
+
+fn upload_announcement(has_source: bool, loading: Value<bool>) -> impl IntoView {
+    let loading_message = message("spinner.loading", "Loading");
+    visually_hidden(move || {
+        if has_source && loading.get() {
+            loading_message.get()
+        } else {
+            String::new()
+        }
+    })
+    .live(LiveRegion::Polite)
 }

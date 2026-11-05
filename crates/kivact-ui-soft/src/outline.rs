@@ -85,18 +85,23 @@ pub enum OutlineDensity {
 }
 
 /// Heading navigation with optional scroll tracking and controlled active state.
-// xtask-allow(state-fields): Read-only dataset and presentation inputs, optional external bindings, node references and callbacks configure navigation without duplicating the scroll machine.
 pub struct Outline {
     root: Node,
     items: Value<Vec<OutlineItem>>,
+    // xtask-allow(state-fields): Optional caller-owned active-heading binding.
     active: Option<Binding<Option<String>>>,
     density: Value<OutlineDensity>,
     offset: Value<f64>,
+    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
+    // xtask-allow(state-fields): Optional mounted content reference used for geometry observation.
     content: Option<NodeRef>,
     scroll_on_press: Value<bool>,
+    // xtask-allow(state-fields): Optional application notification callback.
     change: Option<Callback<String>>,
+    // xtask-allow(state-fields): Optional navigation-start callback.
     start: Option<Callback<String>>,
+    // xtask-allow(state-fields): Optional navigation-completion callback.
     end: Option<Callback<String>>,
 }
 
@@ -234,14 +239,18 @@ impl Machine for FocusMachine {
 }
 
 #[derive(Clone, Copy)]
-// xtask-allow(state-fields): Immutable navigation contract containing mounted node and machine handles, setup flags and application callbacks; pending lifecycle remains in ScrollMachine.
 struct Navigation {
+    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
     offset: f64,
+    // xtask-allow(state-fields): Immutable setup snapshot controlling whether navigation requests scrolling.
     scroll_on_press: bool,
+    // xtask-allow(state-fields): Optional caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
     controlled: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
+    // xtask-allow(state-fields): Optional navigation-start callback.
     start: Option<Callback<String>>,
+    // xtask-allow(state-fields): Optional navigation-completion callback.
     end: Option<Callback<String>>,
 }
 
@@ -395,18 +404,7 @@ fn outline_list(
                 .focusable(focusable)
                 .with_node(move |node| node.selected(selected))
                 .on_press(move || navigation.navigate(&item))
-                .on_key(move |event: KeyEvent| {
-                    let next = match event.key() {
-                        Key::ArrowUp => index.saturating_sub(1),
-                        Key::ArrowDown => (index + 1).min(items.len() - 1),
-                        Key::Home => 0,
-                        Key::End => items.len() - 1,
-                        _ => return Handled::No,
-                    };
-                    roving.send(items[next].id.clone());
-                    refs[next].focus();
-                    Handled::Yes
-                })
+                .on_key(move |event| outline_key(event, index, &items, &refs, roving))
                 .style(move || outline_row(level, density, selected.get()))
                 .child(text(label).style(style().single_line()));
             node()
@@ -488,10 +486,13 @@ fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::styl
 kivact::state::constant_value!(OutlineDensity);
 
 fn active_heading(
+    // xtask-allow(state-fields): Optional caller-owned active-heading binding.
     active: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     items: Value<Vec<OutlineItem>>,
+    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
+    // xtask-allow(state-fields): Optional mounted content reference used for geometry observation.
     content: Option<NodeRef>,
     offset: Value<f64>,
 ) -> Value<Option<String>> {
@@ -556,4 +557,23 @@ fn outline_track(indicator_rect: Value<Option<(f64, f64)>>) -> Node {
                 .background(t.colors.icon_primary)
                 .transition(TransitionProp::Paint, transition.clone())
         }))
+}
+
+fn outline_key(
+    event: KeyEvent,
+    index: usize,
+    items: &[OutlineItem],
+    refs: &[NodeRef],
+    roving: MachineHandle<FocusMachine>,
+) -> Handled {
+    let next = match event.key() {
+        Key::ArrowUp => index.saturating_sub(1),
+        Key::ArrowDown => (index + 1).min(items.len() - 1),
+        Key::Home => 0,
+        Key::End => items.len() - 1,
+        _ => return Handled::No,
+    };
+    roving.send(items[next].id.clone());
+    refs[next].focus();
+    Handled::Yes
 }

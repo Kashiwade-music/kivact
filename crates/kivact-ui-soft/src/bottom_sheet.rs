@@ -114,16 +114,18 @@ pub enum DialogPurpose {
 }
 
 /// Bottom-aligned sheet rebuilt on each opening from the caller's open binding.
-// xtask-allow(state-fields): Independent setup options for sheet purpose, sizing, scrim, focus target, and content.
 pub struct BottomSheet {
     label: kivact::state::Value<String>,
     open: Binding<bool>,
     purpose: DialogPurpose,
     height: SheetHeight,
     snap_points: Vec<SnapPoint>,
+    // xtask-allow(state-fields): Read-only scrim input sampled when mounted; it is independent of the sheet open binding.
     scrim: kivact::state::Value<bool>,
     padding: kivact::state::Value<f64>,
+    // xtask-allow(state-fields): Optional caller-selected focus destination, not a pending focus phase.
     final_focus: Option<NodeRef>,
+    // xtask-allow(state-fields): Optional per-opening body factory, independent of dismissal and dragging.
     content: Option<ViewFn>,
 }
 
@@ -239,96 +241,14 @@ impl IntoView for BottomSheet {
             let body_rect = body_ref.rect();
             let height = self.height;
             let points = self.snap_points.clone();
-            let detents = Rc::new(move || {
+            let detents: SheetDetents = Rc::new(move || {
                 let viewport = kivact::platform::window_size().get().height;
                 let full =
                     sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
                 (full, offsets(full, viewport, &points))
             });
-            let update_detents = detents.clone();
-            let scrim_detents = detents.clone();
-            let end_detents = detents.clone();
-            let drag = use_drag::<()>(DragCoordinates::Window)
-                .track_velocity()
-                .on_start(move |_| {
-                    let (_, detents) = detents();
-                    let from = sheet.get().snap().min(detents.len() - 1);
-                    sheet.set(Sheet::Dragging {
-                        from,
-                        offset: detents[from],
-                    });
-                })
-                .on_update(move |update: DragUpdate<()>| {
-                    let (full, detents) = update_detents();
-                    let start = detents[sheet.get().snap().min(detents.len() - 1)];
-                    let raw = start + SHEET_AXIS.component(update.delta);
-                    let shortest = detents[detents.len() - 1];
-                    let dismiss_line = shortest + (full - shortest) * DISMISS_FRACTION;
-                    let offset = if raw < 0.0 {
-                        resist_overshoot(raw, OVERSHOOT_RESISTANCE, OVERSHOOT_LIMIT)
-                    } else if raw < dismiss_line {
-                        pull_to_snap(raw, &detents, SNAP_PULL_RADIUS)
-                    } else {
-                        raw
-                    };
-                    sheet.set(Sheet::Dragging {
-                        from: sheet.get().snap(),
-                        offset,
-                    });
-                })
-                .on_end(move |update: DragUpdate<()>| {
-                    if update.phase == DragPhase::End {
-                        let (full, detents) = end_detents();
-                        let current = sheet.get().snap().min(detents.len() - 1);
-                        let start = detents[current];
-                        let travel = SHEET_AXIS.component(update.delta);
-                        let position = start + travel;
-                        let projected = if SHEET_AXIS
-                            .past_slop(update.delta, PROJECTION_MIN_TRAVEL)
-                            .is_some()
-                        {
-                            let speed = SHEET_AXIS.component(update.velocity);
-                            project_release(position, speed, PROJECTION_DECAY)
-                        } else {
-                            position
-                        };
-                        let shortest = detents[detents.len() - 1];
-                        let line = shortest + (full - shortest) * DISMISS_FRACTION;
-                        if purpose == DialogPurpose::Info && travel > 0.0 && projected > line {
-                            open.set(false);
-                        } else {
-                            let (first, candidates) = if travel > 0.0 {
-                                (current, &detents[current..])
-                            } else {
-                                (0, &detents[..=current])
-                            };
-                            if let Some(index) = nearest_snap(projected, candidates) {
-                                sheet.set(Sheet::Settling { to: first + index });
-                            }
-                        }
-                    }
-                    if update.phase == DragPhase::Cancel {
-                        sheet.set(Sheet::Resting {
-                            snap: sheet.get().snap(),
-                        });
-                    }
-                });
-            let handle = node()
-                .with_node(move |node| node.part(drag.source(())))
-                .child(node().style(|| {
-                    let p = kivact::style::use_tokens::<crate::Tokens>();
-                    style().size(36, 4).radius(2).background(p.colors.border)
-                }))
-                .style(
-                    style()
-                        .position(Position::Absolute)
-                        .top(0)
-                        .left(0)
-                        .right(0)
-                        .height(24)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center),
-                );
+            let drag = sheet_drag(sheet, detents.clone(), purpose, open);
+            let handle = sheet_handle(drag);
             let body = column(self.content.as_ref().map(|content| content.call(())))
                 .node_ref(body_ref)
                 .style(move || style().padding(self.padding.get()));
@@ -336,71 +256,9 @@ impl IntoView for BottomSheet {
                 .name(self.label)
                 .style(style().grow(1).min_height(0));
             let position_points = self.snap_points.clone();
-            let panel = column((body, handle)).style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
-                let viewport = kivact::platform::window_size().get().height;
-                let full =
-                    sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
-                let detents = offsets(full, viewport, &position_points);
-                let offset = sheet.get().offset(&detents);
-                let base = shadows(body_text(&p), &p.shadows.high)
-                    .width(pct(100))
-                    .max_width(640)
-                    .max_height(pct(92))
-                    .radius_top_left(12)
-                    .radius_top_right(12)
-                    .background(p.colors.bg_surface)
-                    .border_top(1, p.colors.border)
-                    .border_left(1, p.colors.border)
-                    .border_right(1, p.colors.border)
-                    .overflow(Overflow::Hidden)
-                    .translate_y(offset);
-                let base = if height == SheetHeight::Hug {
-                    base
-                } else {
-                    base.height(full)
-                };
-                if matches!(sheet.get(), Sheet::Dragging { .. }) {
-                    base
-                } else {
-                    motion(base, &p, 300).enter(style().translate_y(pct(100)))
-                }
-            });
-            let scrim = modal.then(|| {
-                node()
-                    .with_node(move |node| node.role(Role::Generic))
-                    .style(move || {
-                        let p = kivact::style::use_tokens::<crate::Tokens>();
-                        let (full, detents) = scrim_detents();
-                        let offset = sheet.get().offset(&detents);
-                        let shortest = detents[detents.len() - 1];
-                        let visible = full - shortest;
-                        let opacity = if detents.len() > 1 && visible <= full * 0.25 {
-                            let previous = detents[detents.len() - 2];
-                            1.0 - 0.7
-                                * ((offset - previous) / (shortest - previous)).clamp(0.0, 1.0)
-                        } else if visible > 0.0 {
-                            1.0 - ((offset - shortest) / (visible * 0.4)).clamp(0.0, 1.0)
-                        } else {
-                            1.0
-                        };
-                        let base = style()
-                            .position(Position::Absolute)
-                            .inset(0)
-                            .background(p.colors.overlay_scrim)
-                            .opacity(opacity);
-                        if matches!(sheet.get(), Sheet::Dragging { .. }) {
-                            base
-                        } else {
-                            motion(base, &p, 300).enter(style().opacity(0.0))
-                        }
-                    })
-                    .on_press(move || {
-                        if dismiss.outside {
-                            open.set(false);
-                        }
-                    })
-            });
+            let panel = column((body, handle))
+                .style(move || sheet_panel_style(height, body_rect, &position_points, sheet));
+            let scrim = sheet_scrim(modal, detents.clone(), sheet, dismiss, open);
             let frame = column((scrim, panel)).style(|| {
                 let viewport = kivact::platform::window_size().get();
                 style()
@@ -462,4 +320,185 @@ fn offsets(full: f64, viewport: f64, points: &[SnapPoint]) -> Vec<f64> {
     offsets.sort_by(f64::total_cmp);
     offsets.dedup_by(|later, earlier| *later - *earlier < 48.0);
     offsets
+}
+
+type SheetDetents = Rc<dyn Fn() -> (f64, Vec<f64>)>;
+fn sheet_drag(
+    sheet: kivact::state::Signal<Sheet>,
+    detents: SheetDetents,
+    purpose: DialogPurpose,
+    open: Binding<bool>,
+) -> kivact::interaction::DragApi<()> {
+    let update_detents = detents.clone();
+    let end_detents = detents.clone();
+    use_drag::<()>(DragCoordinates::Window)
+        .track_velocity()
+        .on_start(move |_| {
+            let (_, detents) = detents();
+            let from = sheet.get().snap().min(detents.len() - 1);
+            sheet.set(Sheet::Dragging {
+                from,
+                offset: detents[from],
+            });
+        })
+        .on_update(move |update: DragUpdate<()>| {
+            let (full, detents) = update_detents();
+            let start = detents[sheet.get().snap().min(detents.len() - 1)];
+            let raw = start + SHEET_AXIS.component(update.delta);
+            let shortest = detents[detents.len() - 1];
+            let dismiss_line = shortest + (full - shortest) * DISMISS_FRACTION;
+            let offset = if raw < 0.0 {
+                resist_overshoot(raw, OVERSHOOT_RESISTANCE, OVERSHOOT_LIMIT)
+            } else if raw < dismiss_line {
+                pull_to_snap(raw, &detents, SNAP_PULL_RADIUS)
+            } else {
+                raw
+            };
+            sheet.set(Sheet::Dragging {
+                from: sheet.get().snap(),
+                offset,
+            });
+        })
+        .on_end(move |update| sheet_release(update, sheet, &end_detents, purpose, open))
+}
+
+fn sheet_release(
+    update: DragUpdate<()>,
+    sheet: kivact::state::Signal<Sheet>,
+    end_detents: &SheetDetents,
+    purpose: DialogPurpose,
+    open: Binding<bool>,
+) {
+    if update.phase == DragPhase::End {
+        let (full, detents) = end_detents();
+        let current = sheet.get().snap().min(detents.len() - 1);
+        let start = detents[current];
+        let travel = SHEET_AXIS.component(update.delta);
+        let position = start + travel;
+        let projected = if SHEET_AXIS
+            .past_slop(update.delta, PROJECTION_MIN_TRAVEL)
+            .is_some()
+        {
+            let speed = SHEET_AXIS.component(update.velocity);
+            project_release(position, speed, PROJECTION_DECAY)
+        } else {
+            position
+        };
+        let shortest = detents[detents.len() - 1];
+        let line = shortest + (full - shortest) * DISMISS_FRACTION;
+        if purpose == DialogPurpose::Info && travel > 0.0 && projected > line {
+            open.set(false);
+        } else {
+            let (first, candidates) = if travel > 0.0 {
+                (current, &detents[current..])
+            } else {
+                (0, &detents[..=current])
+            };
+            if let Some(index) = nearest_snap(projected, candidates) {
+                sheet.set(Sheet::Settling { to: first + index });
+            }
+        }
+    }
+    if update.phase == DragPhase::Cancel {
+        sheet.set(Sheet::Resting {
+            snap: sheet.get().snap(),
+        });
+    }
+}
+
+fn sheet_panel_style(
+    height: SheetHeight,
+    body_rect: kivact::state::Value<Option<kivact::geometry::Rect>>,
+    position_points: &[SnapPoint],
+    sheet: kivact::state::Signal<Sheet>,
+) -> kivact::style::Style {
+    let p = kivact::style::use_tokens::<crate::Tokens>();
+    let viewport = kivact::platform::window_size().get().height;
+    let full = sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
+    let detents = offsets(full, viewport, position_points);
+    let offset = sheet.get().offset(&detents);
+    let base = shadows(body_text(&p), &p.shadows.high)
+        .width(pct(100))
+        .max_width(640)
+        .max_height(pct(92))
+        .radius_top_left(12)
+        .radius_top_right(12)
+        .background(p.colors.bg_surface)
+        .border_top(1, p.colors.border)
+        .border_left(1, p.colors.border)
+        .border_right(1, p.colors.border)
+        .overflow(Overflow::Hidden)
+        .translate_y(offset);
+    let base = if height == SheetHeight::Hug {
+        base
+    } else {
+        base.height(full)
+    };
+    if matches!(sheet.get(), Sheet::Dragging { .. }) {
+        base
+    } else {
+        motion(base, &p, 300).enter(style().translate_y(pct(100)))
+    }
+}
+
+fn sheet_scrim(
+    modal: bool,
+    scrim_detents: SheetDetents,
+    sheet: kivact::state::Signal<Sheet>,
+    dismiss: DismissOn,
+    open: Binding<bool>,
+) -> Option<kivact::view::Node> {
+    modal.then(|| {
+        node()
+            .with_node(move |node| node.role(Role::Generic))
+            .style(move || {
+                let p = kivact::style::use_tokens::<crate::Tokens>();
+                let (full, detents) = scrim_detents();
+                let offset = sheet.get().offset(&detents);
+                let shortest = detents[detents.len() - 1];
+                let visible = full - shortest;
+                let opacity = if detents.len() > 1 && visible <= full * 0.25 {
+                    let previous = detents[detents.len() - 2];
+                    1.0 - 0.7 * ((offset - previous) / (shortest - previous)).clamp(0.0, 1.0)
+                } else if visible > 0.0 {
+                    1.0 - ((offset - shortest) / (visible * 0.4)).clamp(0.0, 1.0)
+                } else {
+                    1.0
+                };
+                let base = style()
+                    .position(Position::Absolute)
+                    .inset(0)
+                    .background(p.colors.overlay_scrim)
+                    .opacity(opacity);
+                if matches!(sheet.get(), Sheet::Dragging { .. }) {
+                    base
+                } else {
+                    motion(base, &p, 300).enter(style().opacity(0.0))
+                }
+            })
+            .on_press(move || {
+                if dismiss.outside {
+                    open.set(false);
+                }
+            })
+    })
+}
+
+fn sheet_handle(drag: kivact::interaction::DragApi<()>) -> kivact::view::Node {
+    node()
+        .with_node(move |node| node.part(drag.source(())))
+        .child(node().style(|| {
+            let p = kivact::style::use_tokens::<crate::Tokens>();
+            style().size(36, 4).radius(2).background(p.colors.border)
+        }))
+        .style(
+            style()
+                .position(Position::Absolute)
+                .top(0)
+                .left(0)
+                .right(0)
+                .height(24)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center),
+        )
 }

@@ -5,6 +5,7 @@ use kivact::interaction::use_dialog;
 use kivact::motion::Easing;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
+use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::icon;
@@ -66,12 +67,14 @@ impl LightboxMedia {
 }
 
 /// Modal image gallery controlled by open and optional index bindings.
-// xtask-allow(state-fields): Independent setup options for external bindings, initial index, and zoom availability.
 pub struct Lightbox {
     open: Binding<bool>,
     media: Value<Vec<LightboxMedia>>,
+    // xtask-allow(state-fields): Optional external active-index binding; gallery lifecycle remains in LightboxState.
     index: Option<Binding<usize>>,
+    // xtask-allow(state-fields): Fixed zoom capability chosen during setup.
     zoom: bool,
+    // xtask-allow(state-fields): Optional external zoom-view binding supplied by the shared gallery handle.
     view: Option<Binding<LightboxView>>,
 }
 
@@ -219,27 +222,7 @@ impl IntoView for Lightbox {
                 .view
                 .unwrap_or_else(|| signal(LightboxView::Fit).into_binding());
             let zoomed = move || matches!(view.get(), LightboxView::Zoomed { .. });
-            let transform = binding(
-                move || match view.get() {
-                    LightboxView::Fit => ViewTransform {
-                        scale: 1.0,
-                        offset: Point::new(0.0, 0.0),
-                    },
-                    LightboxView::Zoomed { pan } => ViewTransform {
-                        scale: 2.0,
-                        offset: pan,
-                    },
-                },
-                move |transform: ViewTransform| {
-                    view.set(if transform.scale <= 1.0 {
-                        LightboxView::Fit
-                    } else {
-                        LightboxView::Zoomed {
-                            pan: transform.offset,
-                        }
-                    })
-                },
-            );
+            let transform = gallery_transform(view);
             let zoom_behavior = use_zoom_pan(transform).scale_range(1.0, 2.0);
             let zoom = self.zoom;
             let step = move |delta: isize| {
@@ -260,75 +243,7 @@ impl IntoView for Lightbox {
             };
             let content = kivact::view::dynamic(selected, move |item| {
                 item.map(|item| {
-                    let photo_ref = node_ref();
-                    let status = photo_ref.image_status();
-                    let failed = move || status.get() == kivact::view::ImageStatus::Failed;
-                    let photo = image(item.image)
-                        .name(item.alt)
-                        .node_ref(photo_ref)
-                        .hidden(failed)
-                        .on_image_error(|_| Handled::Yes)
-                        .style(move || {
-                            let Point { x, y } = transform.get().offset;
-                            let scale = if zoomed() { 2.0 } else { 1.0 };
-                            style()
-                                .width(pct(100))
-                                .min_height(0)
-                                .grow(1)
-                                .shrink(1)
-                                .translate(x, y)
-                                .scale_xy(scale, scale)
-                                .transition(
-                                    TransitionProp::Paint,
-                                    Transition::tween(200, Easing::EaseOut),
-                                )
-                        });
-                    let photo = if zoom {
-                        photo
-                            .with_node(move |node| node.part(zoom_behavior.viewport()))
-                            .on_pointer(move |event| {
-                                if let kivact::view::PointerPhase::Up(press) = event.phase()
-                                    && press.clicks == 2
-                                    && press.button == kivact::view::MouseButton::Primary
-                                {
-                                    set_zoom(!zoomed());
-                                }
-                                Handled::No
-                            })
-                    } else {
-                        photo
-                    };
-                    let caption = text(item.caption.unwrap_or_default()).style(
-                        style()
-                            .font_size(17)
-                            .line_height(24.0 / 17.0)
-                            .text_align(kivact::style::TextAlign::Center)
-                            .padding_top(8)
-                            .padding_x(12)
-                            .max_width(600)
-                            .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark),
-                    );
-                    let error = kivact::i18n::message(
-                        "soft.lightbox.image_unavailable",
-                        "Image unavailable",
-                    );
-                    let fallback = text(move || if failed() { error.get() } else { String::new() })
-                        .with_node(move |node| node.role(Role::Status))
-                        .live_region(LiveRegion::Polite)
-                        .style(move || {
-                            body_text(&kivact::style::use_tokens::<crate::Tokens>())
-                                .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
-                                .position(Position::Absolute)
-                        });
-                    column((photo, fallback, caption)).style(
-                        style()
-                            .width(pct(100))
-                            .height(pct(100))
-                            .padding(48)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                            .overflow(Overflow::Hidden),
-                    )
+                    gallery_image(item, transform, zoomed, set_zoom, zoom, zoom_behavior)
                 })
             });
             let close = icon_button("x", "soft.lightbox.close", "Close")
@@ -341,29 +256,7 @@ impl IntoView for Lightbox {
                     .on_press(move || set_zoom(!zoomed()))
                     .style(control_position().top(12).right(52))
             });
-            let controls = show(
-                move || media.get().len() > 1,
-                move || {
-                    let previous =
-                        icon_button("chevron-left", "soft.lightbox.previous", "Previous")
-                            .disabled(move || active() == 0)
-                            .on_press(move || step(-1))
-                            .style(control_position().top(pct(50)).left(12).margin_top(-16));
-                    let next = icon_button("chevron-right", "soft.lightbox.next", "Next")
-                        .disabled(move || active() + 1 >= media.get().len())
-                        .on_press(move || step(1))
-                        .style(control_position().top(pct(50)).right(12).margin_top(-16));
-                    let counter = text(move || format!("{} / {}", active() + 1, media.get().len()))
-                        .style(|| {
-                            body_text(&kivact::style::use_tokens::<crate::Tokens>())
-                                .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
-                                .position(Position::Absolute)
-                                .top(12)
-                                .left(12)
-                        });
-                    (previous, next, counter)
-                },
-            );
+            let controls = gallery_paging(media, active, step);
             let backdrop = node()
                 .with_node(move |node| node.role(Role::Generic))
                 .style(|| {
@@ -376,35 +269,7 @@ impl IntoView for Lightbox {
                     let viewport = kivact::platform::window_size().get();
                     style().size(viewport.width, viewport.height)
                 })
-                .on_key(move |event| {
-                    let (dx, dy) = match event.key() {
-                        Key::Char('+' | '=') if zoom => {
-                            set_zoom(true);
-                            return Handled::Yes;
-                        }
-                        Key::Char('-') if zoom => {
-                            set_zoom(false);
-                            return Handled::Yes;
-                        }
-                        Key::ArrowLeft => (-1, 0),
-                        Key::ArrowRight => (1, 0),
-                        Key::ArrowUp => (0, -1),
-                        Key::ArrowDown => (0, 1),
-                        _ => return Handled::No,
-                    };
-                    if zoomed() {
-                        if let LightboxView::Zoomed { mut pan } = view.get() {
-                            pan.x -= dx as f64 * 50.0;
-                            pan.y -= dy as f64 * 50.0;
-                            view.set(LightboxView::Zoomed { pan });
-                        }
-                    } else if dx != 0 {
-                        step(if rtl { -dx } else { dx });
-                    } else {
-                        return Handled::No;
-                    }
-                    Handled::Yes
-                });
+                .on_key(move |event| gallery_key(event, zoom, zoomed, set_zoom, view, step, rtl));
             (overlay(node_ref(), Placement::Center, frame)
                 .viewport_margin(0.0)
                 .with_node(move |node| node.part(behavior.content()))
@@ -431,4 +296,173 @@ fn control_position() -> Style {
         .size(32, 32)
         .padding(0)
         .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
+}
+
+fn gallery_transform(view: Binding<LightboxView>) -> Binding<ViewTransform> {
+    binding(
+        move || match view.get() {
+            LightboxView::Fit => ViewTransform {
+                scale: 1.0,
+                offset: Point::new(0.0, 0.0),
+            },
+            LightboxView::Zoomed { pan } => ViewTransform {
+                scale: 2.0,
+                offset: pan,
+            },
+        },
+        move |transform: ViewTransform| {
+            view.set(if transform.scale <= 1.0 {
+                LightboxView::Fit
+            } else {
+                LightboxView::Zoomed {
+                    pan: transform.offset,
+                }
+            })
+        },
+    )
+}
+
+fn gallery_image(
+    item: LightboxMedia,
+    transform: Binding<ViewTransform>,
+    zoomed: impl Fn() -> bool + Copy + 'static,
+    set_zoom: impl Fn(bool) + Copy + 'static,
+    // xtask-allow(state-fields): Fixed zoom capability chosen during setup.
+    zoom: bool,
+    zoom_behavior: kivact::interaction::ZoomPanApi,
+) -> Node {
+    let photo_ref = node_ref();
+    let status = photo_ref.image_status();
+    let failed = move || status.get() == kivact::view::ImageStatus::Failed;
+    let photo = image(item.image)
+        .name(item.alt)
+        .node_ref(photo_ref)
+        .hidden(failed)
+        .on_image_error(|_| Handled::Yes)
+        .style(move || {
+            let Point { x, y } = transform.get().offset;
+            let scale = if zoomed() { 2.0 } else { 1.0 };
+            style()
+                .width(pct(100))
+                .min_height(0)
+                .grow(1)
+                .shrink(1)
+                .translate(x, y)
+                .scale_xy(scale, scale)
+                .transition(
+                    TransitionProp::Paint,
+                    Transition::tween(200, Easing::EaseOut),
+                )
+        });
+    let photo = if zoom {
+        photo
+            .with_node(move |node| node.part(zoom_behavior.viewport()))
+            .on_pointer(move |event| {
+                if let kivact::view::PointerPhase::Up(press) = event.phase()
+                    && press.clicks == 2
+                    && press.button == kivact::view::MouseButton::Primary
+                {
+                    set_zoom(!zoomed());
+                }
+                Handled::No
+            })
+    } else {
+        photo
+    };
+    let caption = text(item.caption.unwrap_or_default()).style(
+        style()
+            .font_size(17)
+            .line_height(24.0 / 17.0)
+            .text_align(kivact::style::TextAlign::Center)
+            .padding_top(8)
+            .padding_x(12)
+            .max_width(600)
+            .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark),
+    );
+    let error = kivact::i18n::message("soft.lightbox.image_unavailable", "Image unavailable");
+    let fallback = text(move || if failed() { error.get() } else { String::new() })
+        .with_node(move |node| node.role(Role::Status))
+        .live_region(LiveRegion::Polite)
+        .style(move || {
+            body_text(&kivact::style::use_tokens::<crate::Tokens>())
+                .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
+                .position(Position::Absolute)
+        });
+    column((photo, fallback, caption)).style(
+        style()
+            .width(pct(100))
+            .height(pct(100))
+            .padding(48)
+            .align_items(Align::Center)
+            .justify_content(Justify::Center)
+            .overflow(Overflow::Hidden),
+    )
+}
+
+fn gallery_key(
+    event: kivact::view::KeyEvent,
+    // xtask-allow(state-fields): Fixed zoom capability chosen during setup.
+    zoom: bool,
+    zoomed: impl Fn() -> bool,
+    set_zoom: impl Fn(bool),
+    view: Binding<LightboxView>,
+    step: impl Fn(isize),
+    rtl: bool,
+) -> Handled {
+    let (dx, dy) = match event.key() {
+        Key::Char('+' | '=') if zoom => {
+            set_zoom(true);
+            return Handled::Yes;
+        }
+        Key::Char('-') if zoom => {
+            set_zoom(false);
+            return Handled::Yes;
+        }
+        Key::ArrowLeft => (-1, 0),
+        Key::ArrowRight => (1, 0),
+        Key::ArrowUp => (0, -1),
+        Key::ArrowDown => (0, 1),
+        _ => return Handled::No,
+    };
+    if zoomed() {
+        if let LightboxView::Zoomed { mut pan } = view.get() {
+            pan.x -= dx as f64 * 50.0;
+            pan.y -= dy as f64 * 50.0;
+            view.set(LightboxView::Zoomed { pan });
+        }
+    } else if dx != 0 {
+        step(if rtl { -dx } else { dx });
+    } else {
+        return Handled::No;
+    }
+    Handled::Yes
+}
+
+fn gallery_paging(
+    media: Value<Vec<LightboxMedia>>,
+    active: impl Fn() -> usize + Copy + 'static,
+    step: impl Fn(isize) + Copy + 'static,
+) -> impl IntoView {
+    show(
+        move || media.get().len() > 1,
+        move || {
+            let previous = icon_button("chevron-left", "soft.lightbox.previous", "Previous")
+                .disabled(move || active() == 0)
+                .on_press(move || step(-1))
+                .style(control_position().top(pct(50)).left(12).margin_top(-16));
+            let next = icon_button("chevron-right", "soft.lightbox.next", "Next")
+                .disabled(move || active() + 1 >= media.get().len())
+                .on_press(move || step(1))
+                .style(control_position().top(pct(50)).right(12).margin_top(-16));
+            let counter =
+                text(move || format!("{} / {}", active() + 1, media.get().len())).style(|| {
+                    body_text(&kivact::style::use_tokens::<crate::Tokens>())
+                        .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
+                        .position(Position::Absolute)
+                        .top(12)
+                        .left(12)
+                });
+            (previous, next, counter)
+        },
+    )
 }
