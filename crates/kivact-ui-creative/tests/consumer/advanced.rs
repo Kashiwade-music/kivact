@@ -1,7 +1,6 @@
 //! Role: Tests for the advanced Creative controls through the public API.
 
 use crate::arrangement_model::arrangement as app_arrangement;
-use crate::support::clean;
 use crate::table_rows::{line, lines};
 use kivact::geometry::Point;
 use kivact::prelude::*;
@@ -80,7 +79,7 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
     screen.run_until_idle();
     screen.get_by_role(Role::Button, "Clip (2)").click();
     assert_eq!(clips.get_untracked().len(), 1);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -146,7 +145,7 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
             .query_by_role(Role::Dialog, "Render Settings")
             .is_none()
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -238,7 +237,7 @@ fn table_rows_are_one_tab_stop_and_follow_the_list_keys() {
     screen.press_tab(false);
     screen.press_tab(false);
     assert!(row("Cherry").is_focused(), "the row that took its place");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -292,7 +291,7 @@ fn color_popup_escape_rolls_back_while_outside_and_accessibility_dismissal_commi
         next,
         "Expand snapshots the current color transaction"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -373,7 +372,7 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
         ),
         "shared dismissal cancels the held transaction"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 #[test]
 fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_content() {
@@ -447,7 +446,7 @@ fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_conten
             .get_by_role(Role::SpinButton, "Retained")
             .is_visible()
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -501,5 +500,5 @@ fn panel_group_ctrl_opens_only_the_chosen_panel_and_a_plain_expand_closes_nothin
     );
     let open: Vec<bool> = panels.get_untracked().iter().map(|p| p.expanded).collect();
     assert_eq!(open, vec![false, true], "Ctrl keeps only the chosen panel");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

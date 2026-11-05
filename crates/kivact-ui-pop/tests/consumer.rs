@@ -12,5 +12,3 @@ mod forms;
 mod interactions;
 #[path = "consumer/overlays.rs"]
 mod overlays;
-#[path = "consumer/support.rs"]
-mod support;

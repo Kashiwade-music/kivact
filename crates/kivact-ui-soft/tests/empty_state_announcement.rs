@@ -6,10 +6,10 @@ use kivact::style::ThemeMode;
 use kivact::test::MirrorMode;
 use kivact::test::RenderOptions;
 use kivact::test::render_with_handle;
+use kivact::ui::empty_state;
 use kivact::view::LiveRegion;
 use kivact::view::Role;
 use kivact::view::show;
-use kivact_ui_soft::empty_state;
 
 fn options() -> RenderOptions {
     RenderOptions::default()
@@ -25,8 +25,14 @@ fn initial_empty_state_is_silent_but_late_mount_and_text_changes_announce() {
         (
             (initial, late),
             column((
-                empty_state(move || initial.get()).description("Initial help"),
-                show(late, || empty_state("No results").description("Try again")),
+                empty_state(move || initial.get())
+                    .announce_changes()
+                    .description("Initial help"),
+                show(late, || {
+                    empty_state("No results")
+                        .announce_changes()
+                        .description("Try again")
+                }),
             )),
         )
     });
@@ -61,9 +67,24 @@ fn hidden_empty_state_rearms_and_live_ancestors_handle_their_own_text() {
         (
             (hidden, live, title),
             column((
-                column(empty_state(move || title.get()).description("Try again")).hidden(hidden),
-                column(empty_state("Embedded").description("Own region")).live_region(live),
-                column(empty_state("Status").description("Own role")).role(Role::Status),
+                column(
+                    empty_state(move || title.get())
+                        .announce_changes()
+                        .description("Try again"),
+                )
+                .hidden(hidden),
+                column(
+                    empty_state("Embedded")
+                        .announce_changes()
+                        .description("Own region"),
+                )
+                .live_region(live),
+                column(
+                    empty_state("Status")
+                        .announce_changes()
+                        .description("Own role"),
+                )
+                .role(Role::Status),
             )),
         )
     });

@@ -37,3 +37,11 @@ Stepper の現在位置も 0 始まりです。説明、status、省略可能か
 Breadcrumb は navigation landmark と list を公開します。末尾は `CurrentItem::Page` を持ち、操作の対象にはなりません。それ以前の項目は Enter、Space、pointer の操作で key を通知します。`.item` は項目の内容、`.separator` は装飾の区切りを差し替えます。
 
 Navigation の trigger は hover で開きます。click、Enter、Space、ArrowDown で固定し、Escape で閉じます。固定した panel は外側の press または focus の移動でも閉じます。`.open_delay` と `.close_delay` は `Duration` を受け、`.placement` と `.align` で位置を決めます。独自のナビゲーションは `interaction::use_navigation_menu()` の上に作れます。`NavOpen` が開閉の唯一の状態で、`hover_after`、`leave_after`、`pin`、`toggle`、`close` がその owner へ遷移を送ります。
+
+`breadcrumb(items).current(current_key)` は既定の末尾の現在ページを上書きします。リアクティブな `Option<K>` を受け取り、`Some(key)` はそのキー、明示的な `None` は現在ページなしを表します。メソッドを省略すると末尾が現在ページになります。
+
+Stepper の項目レシピには、同じレスポンシブ配置の投影から `index`、`count`、実際の `orientation` が渡されます。外観バリアントに軸や項目数を複製する必要はありません。
+
+Breadcrumb の項目レシピは `BreadcrumbItemState { current, input }` を受け取ります。`input` は実際のリンクのパーツから渡され、非操作・現在ページのラベルにはありません。ホバー時の下線などの文字表現はこの投影を使用します。描画のみの疑似状態スタイルでは文字装飾を変更できません。
+
+Stepper は実際の装飾パーツ `leading`、`trailing`、`progress`（既定は寸法ゼロ）と、`layout`・`track` コンテナのレシピを公開します。これらには実際の軸・項目数を含む同じ `StepperItemState` が渡されます。`.collapsed_steps(CollapsedSteps::Current)` はコンパクト時に現在の項目だけを表示します（既定）。`All` は選択やレスポンシブ閾値を変更せず全項目を表示します。

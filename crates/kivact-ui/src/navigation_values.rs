@@ -14,6 +14,8 @@ pub enum StepStatus {
 /// Recipe state for an individual step.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StepperItemState {
+    pub count: usize,
+    pub orientation: Orientation,
     pub index: usize,
     pub current: usize,
     pub status: StepStatus,
@@ -61,4 +63,20 @@ pub enum PageItem {
 pub struct PaginationItemState {
     pub current: bool,
     pub item: PageItem,
+}
+
+// xtask-allow(state-fields): Read-only independent current-page semantics and the actual entry part input; no stored interaction or reconciliation flags.
+/// Actual entry semantics and input from its single activation part.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BreadcrumbItemState {
+    pub current: bool,
+    pub input: Option<kivact_core::custom::PartState>,
+}
+
+/// Which steps remain mounted visibly when the responsive layout is compact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CollapsedSteps {
+    #[default]
+    Current,
+    All,
 }

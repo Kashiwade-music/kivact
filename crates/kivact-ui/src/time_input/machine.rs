@@ -1,7 +1,7 @@
 //! Role: Validate time text and store exactly one draft phase.
 use kivact_core::i18n::TimeOfDay;
 use kivact_core::state::{Machine, Step};
-fn parse_time(input: &str, seconds: bool) -> Option<TimeOfDay> {
+pub(crate) fn parse_time(input: &str, seconds: bool) -> Option<TimeOfDay> {
     let lower = input.trim().to_ascii_lowercase();
     let (input, meridiem) = if let Some(time) = lower
         .strip_suffix("am")
@@ -57,23 +57,25 @@ pub(super) enum TimeDraft {
 #[derive(Clone, PartialEq)]
 pub(super) enum TimeInputState {
     Closed(TimeDraft),
-    Open(TimeDraft),
+    Open {
+        draft: TimeDraft,
+        invoker: kivact_core::view::NodeRef,
+    },
 }
 impl TimeInputState {
     pub(super) fn draft(&self) -> &TimeDraft {
         match self {
-            Self::Closed(draft) | Self::Open(draft) => draft,
+            Self::Closed(draft) | Self::Open { draft, .. } => draft,
         }
     }
     pub(super) fn is_open(&self) -> bool {
-        matches!(self, Self::Open(_))
+        matches!(self, Self::Open { .. })
     }
 }
 pub(super) enum Event {
     Text(String),
     Commit(String),
-    Pick(Option<TimeOfDay>),
-    Open,
+    Open(kivact_core::view::NodeRef),
     Close,
     External(Option<TimeOfDay>),
 }
@@ -95,10 +97,6 @@ impl Machine for Snapshot {
         state: &TimeInputState,
         event: Event,
     ) -> Step<TimeInputState, Event, Option<TimeOfDay>> {
-        let valid = |time: TimeOfDay| {
-            self.min.is_none_or(|min| key(time) >= key(min))
-                && self.max.is_none_or(|max| key(time) <= key(max))
-        };
         match event {
             Event::External(value) => {
                 let draft = value.map_or(TimeDraft::Empty, |value| TimeDraft::Valid {
@@ -106,22 +104,22 @@ impl Machine for Snapshot {
                     value,
                 });
                 Step::to(if state.is_open() {
-                    TimeInputState::Open(draft)
+                    TimeInputState::Open {
+                        draft,
+                        invoker: match state {
+                            TimeInputState::Open { invoker, .. } => *invoker,
+                            _ => unreachable!("invariant: only open drafts preserve invokers"),
+                        },
+                    }
                 } else {
                     TimeInputState::Closed(draft)
                 })
             }
-            Event::Open => Step::to(TimeInputState::Open(state.draft().clone())),
+            Event::Open(invoker) => Step::to(TimeInputState::Open {
+                draft: state.draft().clone(),
+                invoker,
+            }),
             Event::Close => Step::to(TimeInputState::Closed(state.draft().clone())),
-            Event::Pick(None) => Step::to(TimeInputState::Closed(TimeDraft::Empty)).with(None),
-            Event::Pick(Some(value)) if valid(value) => {
-                Step::to(TimeInputState::Closed(TimeDraft::Valid {
-                    text: String::new(),
-                    value,
-                }))
-                .with(Some(value))
-            }
-            Event::Pick(_) => Step::stay(),
             Event::Text(text) => self.edit(state, text, false),
             Event::Commit(text) => self.edit(state, text, true),
         }
@@ -152,7 +150,13 @@ impl Snapshot {
             )
         };
         let next = Step::to(if state.is_open() && !commit {
-            TimeInputState::Open(draft)
+            TimeInputState::Open {
+                draft,
+                invoker: match state {
+                    TimeInputState::Open { invoker, .. } => *invoker,
+                    _ => unreachable!("invariant: only open drafts preserve invokers"),
+                },
+            }
         } else {
             TimeInputState::Closed(draft)
         });

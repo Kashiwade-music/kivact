@@ -6,14 +6,15 @@ use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::test::render_with_handle;
 use kivact::ui::ControlSize;
+use kivact::ui::badge;
 use kivact::ui::button;
+use kivact::ui::input_group_with;
 use kivact::view::Key;
 use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact_ui_soft::{
-    BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, code_block, heading,
-    icon, input_group_with, status_dot,
+    BannerStatus, IconSize, StatusDotVariant, banner, code_block, heading, icon, status_dot,
 };
 use std::cell::Cell;
 use std::rc::Rc;
@@ -138,7 +139,7 @@ fn content_components_publish_their_names_and_roles() {
             column((
                 heading(2, "Workspace"),
                 icon("search").size(IconSize::Lg).label("Search icon"),
-                badge("Review").variant(BadgeVariant::Warning),
+                badge("Review").tone(kivact::interaction::Tone::Warning),
                 status_dot(StatusDotVariant::Success, "Online"),
             ))
         },
@@ -156,14 +157,14 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
             let date = signal(None::<CalendarDate>);
-            let time = signal(None::<kivact_ui_soft::TimeOfDay>);
+            let time = signal(None::<kivact::i18n::TimeOfDay>);
             (
                 (date, time),
                 column((
-                    kivact_ui_soft::date_input("Due date", date)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
-                    kivact_ui_soft::time_input("Reminder", time)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
+                    kivact::ui::date_input("Due date", date)
+                        .presentation(kivact::ui::DatePresentation::Desktop),
+                    kivact::ui::time_input("Reminder", time)
+                        .presentation(kivact::ui::DatePresentation::Desktop),
                 )),
             )
         },
@@ -177,7 +178,11 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
     field.press_key(Key::Enter);
     assert_eq!(
         time.get_untracked(),
-        kivact_ui_soft::TimeOfDay::new(14, 35, 0)
+        Some(kivact::i18n::TimeOfDay {
+            hour: 14,
+            minute: 35,
+            second: 0
+        })
     );
 }
 
@@ -226,5 +231,114 @@ fn rich_text_source_toolbar_wraps_and_unwraps_native_unicode_selection() {
             .as_deref(),
         Some("café 東京")
     );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn drop_policy_ends_the_actual_hover_visit_and_keeps_native_picking() {
+    use kivact::geometry::Point;
+    use kivact::interaction::DropzoneState;
+    use kivact::style::style;
+    use kivact::test::render_with_handle;
+    use kivact::ui::UiRecipes;
+    use kivact::view::FilePhase;
+    use std::sync::{Arc, Mutex};
+    let observed = Arc::new(Mutex::new(Vec::<DropzoneState>::new()));
+    let recorded = observed.clone();
+    let theme = kivact_ui_soft::theme(ThemeMode::Light);
+    let recipes = (*theme.ext::<UiRecipes>())
+        .clone()
+        .dropzone(move |recipes| {
+            recipes.root(move |previous| {
+                move |theme, state| {
+                    recorded
+                        .lock()
+                        .expect("invariant: observation lock is healthy")
+                        .push((**state).clone());
+                    previous(theme, state)
+                }
+            })
+        });
+    let (screen, (accepts, files)) =
+        render_with_handle(RenderOptions::from_env().theme(theme.with(recipes)), || {
+            let accepts = signal(true);
+            let files = signal(Vec::<std::path::PathBuf>::new());
+            (
+                (accepts, files),
+                kivact::ui::dropzone("Upload")
+                    .pick_on_press()
+                    .accept_drop(accepts)
+                    .on_files(move |items| {
+                        files.set(items.into_iter().map(|item| item.path).collect())
+                    })
+                    .style(style().width(240).height(96)),
+            )
+        });
+    let target = screen.get_by_role(Role::Button, "Upload");
+    let bounds = target.rect().expect("invariant: drop target has layout");
+    let point = Point::new(
+        bounds.x + bounds.width / 2.0,
+        bounds.y + bounds.height / 2.0,
+    );
+    screen.file_drag(FilePhase::Enter, vec!["hover.txt".into()], point);
+    assert!(matches!(
+        observed
+            .lock()
+            .expect("invariant: observation lock is healthy")
+            .last(),
+        Some(DropzoneState::DragOver { .. })
+    ));
+    accepts.set(false);
+    screen.run_until_idle();
+    assert!(matches!(
+        observed
+            .lock()
+            .expect("invariant: observation lock is healthy")
+            .last(),
+        Some(DropzoneState::Idle)
+    ));
+    screen.file_drag(FilePhase::Drop, vec!["ignored.txt".into()], point);
+    assert!(files.get_untracked().is_empty());
+    screen.respond_files_dialog(Some(vec!["picked.txt".into()]));
+    target.press_key(Key::Enter);
+    assert_eq!(
+        files.get_untracked(),
+        vec![std::path::PathBuf::from("picked.txt")]
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn canonical_avatar_overflow_tracks_real_omissions_and_keeps_its_action() {
+    let (screen, (total, opened)) = render_with_handle(
+        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let total = signal(6usize);
+            let opened = signal(0usize);
+            (
+                (total, opened),
+                kivact::ui::avatar_group((
+                    kivact::ui::avatar("Avery Middle Morgan"),
+                    kivact::ui::avatar("Taylor Chen"),
+                ))
+                .total(total)
+                .overlap(9.0)
+                .overflow_content(move |count| {
+                    button(move || format!("Show {} more", count.get()))
+                        .on_press(move || opened.set(count.get_untracked()))
+                }),
+            )
+        },
+    );
+    assert!(screen.get_by_role(Role::Text, "AM").exists());
+    screen.get_by_role(Role::Button, "Show 4 more").click();
+    assert_eq!(opened.get_untracked(), 4);
+    total.set(8);
+    screen.run_until_idle();
+    screen.get_by_role(Role::Button, "Show 6 more").click();
+    assert_eq!(opened.get_untracked(), 6);
+    total.set(2);
+    screen.run_until_idle();
+    assert!(screen.query_by_role(Role::Button, "Show 6 more").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

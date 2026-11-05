@@ -612,11 +612,22 @@ fn filled_content_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'st
         ("badge", changed!(badge_recipe)),
         ("badge_label", changed!(badge_label_recipe)),
         ("avatar", changed!(avatar_recipe)),
+        ("avatar_image", changed!(avatar_image_recipe)),
         ("avatar_status", changed!(avatar_status_recipe)),
+        (
+            "avatar_status_content",
+            changed!(avatar_status_content_recipe),
+        ),
         ("avatar_group", changed!(avatar_group_recipe)),
+        ("avatar_group_member", changed!(avatar_group_member_recipe)),
+        (
+            "avatar_group_overflow",
+            changed!(avatar_group_overflow_recipe),
+        ),
         ("skeleton", changed!(skeleton_recipe)),
         ("spinner", changed!(spinner_recipe)),
         ("kbd", changed!(kbd_recipe)),
+        ("kbd_key", changed!(kbd_key_recipe)),
         ("heading", changed!(heading_recipe)),
         ("stat", kit.stat_recipes() != defaults.stat_recipes()),
         (

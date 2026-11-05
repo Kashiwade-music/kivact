@@ -67,14 +67,9 @@ impl AvatarLook {
                     .radius(pct(50))
                     .border(
                         (size.get() * 0.045).max(2.0),
-                        kivact::style::hsl(hue.get(), 0.95, 0.62),
+                        crate::tokens::avatar_halo(hue.get()),
                     )
-                    .shadow(Shadow::new(
-                        0,
-                        0,
-                        8,
-                        kivact::style::hsl(hue.get(), 1.0, 0.65),
-                    ))
+                    .shadow(Shadow::new(0, 0, 8, crate::tokens::avatar_glow(hue.get())))
                     .translate(0, offset.get())
             })
         });
@@ -119,8 +114,8 @@ pub(crate) fn avatar(_: &Theme, look: &Look<AvatarState>) -> Style {
         .justify_content(Justify::Center)
         .color(Color::WHITE)
         .background(linear_gradient(140).colors([
-            kivact::style::hsl(hue, 0.85, 0.7),
-            kivact::style::hsl(hue + 18.0, 0.75, 0.52),
+            crate::tokens::avatar_gradient_start(hue),
+            crate::tokens::avatar_gradient_end(hue),
         ]))
         .font_family("Barlow, sans-serif")
         .italic(true)

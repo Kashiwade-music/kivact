@@ -102,14 +102,14 @@ fn badge_style(t: &Theme, hue: Hue, variant: BadgeVariant) -> Style {
             .background(linear_gradient(90).colors([
                 p.accent(hue),
                 match hue {
-                    Hue::Yellow => kivact::style::rgb(0xffe98a),
-                    Hue::Red => kivact::style::rgb(0xff9c6e),
-                    Hue::Pink => kivact::style::rgb(0xff7cb0),
+                    Hue::Yellow => crate::tokens::yellow_gradient_end(),
+                    Hue::Red => crate::tokens::red_gradient_end(),
+                    Hue::Pink => crate::tokens::pink_gradient_end(),
                     _ => p.cyan,
                 },
             ]))
             .color(if hue == Hue::Yellow {
-                kivact::style::rgb(0x3b2f00)
+                crate::tokens::accent_text()
             } else {
                 Color::WHITE
             })

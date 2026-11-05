@@ -1,4 +1,5 @@
 //! Role: Render keyed breadcrumb navigation with one current page.
+use crate::BreadcrumbItemState;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::view::{
     CurrentItem, IntoView, Node, NodeBuilder, Role, View, dynamic, node, text,
@@ -6,11 +7,18 @@ use kivact_core::view::{
 use kivact_interaction::ListItem;
 use std::rc::Rc;
 
+/// Immutable choice of the source used to project the current page.
+enum CurrentPage<K: 'static> {
+    Last,
+    Explicit(Value<Option<K>>),
+}
+
 type ItemSlot<K> = Rc<dyn Fn(ListItem<K>) -> View>;
 /// A keyed navigation trail. The final item is the current page.
 pub struct Breadcrumb<K: 'static> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
+    current: CurrentPage<K>,
     // xtask-allow(state-fields): Optional construction-time activation callback, independent of the presentation slot.
     activate: Option<Rc<dyn Fn(K)>>,
     // xtask-allow(state-fields): Optional presentation slot selected during construction; breadcrumbs store no interaction state.
@@ -28,6 +36,7 @@ pub fn breadcrumb<K: Clone + PartialEq + 'static>(
             .role(Role::Navigation)
             .name(kivact_core::i18n::message("breadcrumb.label", "Breadcrumb")),
         items: items.into_value(),
+        current: CurrentPage::Last,
         activate: None,
         item: None,
         separator: Rc::new(|| text("/").into_view()),
@@ -35,6 +44,12 @@ pub fn breadcrumb<K: Clone + PartialEq + 'static>(
     }
 }
 impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
+    /// Override the current page by key. `None` marks no item as current.
+    /// Without this override, the final item is current.
+    pub fn current(mut self, current: impl IntoValue<Option<K>>) -> Self {
+        self.current = CurrentPage::Explicit(current.into_value());
+        self
+    }
     /// Activate a non-current item by key.
     pub fn on_activate(mut self, f: impl Fn(K) + 'static) -> Self {
         self.activate = Some(Rc::new(f));
@@ -66,14 +81,22 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
         let Self {
             root,
             items,
+            current,
             activate,
             item,
             separator,
             variants,
         } = self;
         let child_variants = variants.clone();
-        let contents = dynamic(items, move |items| {
-            let last = items.len().saturating_sub(1);
+        let source = kivact_core::state::memo(move || {
+            let items = items.get();
+            let current = match &current {
+                CurrentPage::Last => items.last().map(|item| item.key().clone()),
+                CurrentPage::Explicit(value) => value.get(),
+            };
+            (items, current)
+        });
+        let contents = dynamic(source, move |(items, current)| {
             let mut children = Vec::new();
             for (at, entry) in items.into_iter().enumerate() {
                 if at > 0 {
@@ -88,7 +111,7 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                         .into_view(),
                     );
                 }
-                let current = at == last;
+                let current = current.as_ref() == Some(entry.key());
                 let entry_node =
                     breadcrumb_entry(entry, current, &activate, item.as_ref(), &child_variants);
                 children.push(node().role(Role::ListItem).child(entry_node).into_view());
@@ -132,7 +155,10 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                 text(label).current_item(current),
                 |r| r.breadcrumb_recipes().item_recipe(),
                 variants,
-                move || current.is_some(),
+                move || BreadcrumbItemState {
+                    current: current.is_some(),
+                    input: None,
+                },
             )
             .into_view()
         } else {
@@ -144,18 +170,25 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                     .child(body),
                 |r| r.breadcrumb_recipes().item_recipe(),
                 variants,
-                move || current.is_some(),
+                move || BreadcrumbItemState {
+                    current: current.is_some(),
+                    input: None,
+                },
             )
             .into_view()
         }
     } else {
         let f = activate.clone();
         let key = entry.key().clone();
+        let part = kivact_interaction::use_button()
+            .disabled(entry.is_disabled())
+            .control();
+        let input = part.state();
         crate::layer::with_recipe_style(
-            crate::button("")
+            node()
+                .part(part)
                 .name(label)
-                .with_node(|n| n.role(Role::Link))
-                .disabled(entry.is_disabled())
+                .role(Role::Link)
                 .on_press(move || {
                     if let Some(f) = &f {
                         f(key.clone());
@@ -164,7 +197,10 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                 .child(body),
             |r| r.breadcrumb_recipes().item_recipe(),
             variants,
-            move || current,
+            move || BreadcrumbItemState {
+                current,
+                input: Some(input.get()),
+            },
         )
         .into_view()
     }

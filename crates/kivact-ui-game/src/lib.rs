@@ -1,3 +1,5 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
+
 //! Role: Hard-edged, information-dense operation-console components.
 //!
 //! The complete public API is built from the public `kivact` facade.

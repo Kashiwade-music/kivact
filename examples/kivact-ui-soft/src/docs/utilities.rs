@@ -5,8 +5,9 @@ use kivact::i18n::provide_messages;
 use kivact::state::signal;
 use kivact::style::provide_theme;
 use kivact::style::{ThemeMode, rgb, style};
+use kivact::ui::{badge, card};
 use kivact::view::{Node, column, row, text};
-use kivact_ui_soft::{MediaMode, badge, card, code_block, link, media_theme, syntax_theme, theme};
+use kivact_ui_soft::{MediaMode, code_block, link, media_theme, syntax_theme, theme};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
     Some(match slug {

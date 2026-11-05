@@ -620,6 +620,7 @@ recipe_table! {
     UiRecipes {
         /// Typography for a semantic heading.
         heading(heading_recipe): HeadingState = look_metrics::heading,
+        avatar_status_content(avatar_status_content_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status_content,
         avatar_status(avatar_status_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         avatar_group_member(avatar_group_member_recipe): usize = super::look_indicators::avatar_group_member,
@@ -819,6 +820,7 @@ recipe_table! {
         media(media_recipe): CardState = look_feedback::card_media,
         content(content_recipe): CardState = look_feedback::card_region,
         footer(footer_recipe): CardState = look_feedback::card_region,
+        overlay(overlay_recipe): CardState = look_feedback::card_overlay,
     }
 }
 recipe_table! {
@@ -873,7 +875,7 @@ recipe_table! {
     BreadcrumbRecipes {
         root(root_recipe): () = crate::look_navigation::breadcrumb_root,
         list(list_recipe): () = crate::look_navigation::breadcrumb_list,
-        item(item_recipe): bool = crate::look_navigation::breadcrumb_item,
+        item(item_recipe): crate::BreadcrumbItemState = crate::look_navigation::breadcrumb_item,
         separator(separator_recipe): () = crate::look_navigation::part,
     }
 }
@@ -885,6 +887,10 @@ recipe_table! {
         next(next_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
         item(item_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_item,
         layout(layout_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_layout,
+        track(track_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_layout,
+        leading(leading_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
+        trailing(trailing_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
+        progress(progress_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
         body(body_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_body,
         indicator(indicator_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
         label(label_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,

@@ -8,7 +8,6 @@ use kivact::ui::{
     ToggleButtonState, UiRecipes,
 };
 use kivact::view::CheckedState;
-use std::sync::OnceLock;
 
 /// A Game look of a standard button beyond its [`ButtonVariant`]:
 /// `kivact::ui::button(..).variant(ButtonTone::Dark)`. Another theme
@@ -37,45 +36,55 @@ fn skew(slant: bool) -> f64 {
 /// compare their recipes by identity and installing an unchanged theme
 /// never restyles.
 pub(crate) fn recipes() -> UiRecipes {
-    static TABLE: OnceLock<UiRecipes> = OnceLock::new();
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Immutable static recipe identity is shared by all Game themes."
+    )]
+    static TABLE: std::sync::OnceLock<UiRecipes> = std::sync::OnceLock::new();
     TABLE.get_or_init(build).clone()
 }
 
 fn build() -> UiRecipes {
-    UiRecipes::default()
-        .field(crate::recipes_field::field)
-        .heading(|_| crate::recipes_metrics::heading)
-        .stat(crate::recipes_metrics::stat)
-        .description_list(crate::recipes_metrics::description_list)
-        .skeleton(|_| crate::recipes_indicators::skeleton)
-        .empty_state(crate::recipes_feedback::empty_state)
-        .alert(crate::recipes_feedback::alert)
-        .badge(|_| crate::recipes_badge::badge)
-        .badge_label(|_| crate::recipes_badge::badge_label)
-        .avatar(|_| crate::recipes_avatar::avatar)
-        .avatar_status(|_| crate::recipes_avatar::avatar_status)
-        .avatar_group(|base| move |t, s| base(t, s).align_items(Align::Center))
-        .avatar_group_overflow(|_| crate::recipes_avatar::avatar_overflow)
-        .tree(crate::recipes_items::tree)
-        .table(crate::recipes_items::table)
-        .item_list(crate::recipes_items::item_list)
-        .dropzone(crate::recipes_files::dropzone)
-        .toolbar(crate::recipes_groups::toolbar)
-        .pagination(crate::recipes_navigation::pagination)
-        .breadcrumb(crate::recipes_navigation::breadcrumb)
-        .stepper(crate::recipes_navigation::stepper)
-        .navigation_menu(crate::recipes_navigation::navigation_menu)
-        .button_group(crate::recipes_groups::button_group)
-        .toggle_group(crate::recipes_groups::toggle_group)
-        .input_group(crate::recipes_groups::input_group)
-        .button(|_| button)
-        .button_content(|_| button_content)
-        .button_busy(|_| button_busy)
-        .toggle(|_| toggle)
-        .checkbox(|_| checkbox)
-        .switch(|_| switch)
-        .text_input(|_| text_input)
-        .text_area(|_| text_area)
+    install_controls(
+        UiRecipes::default()
+            .field(crate::recipes_field::field)
+            .heading(|_| crate::recipes_metrics::heading)
+            .stat(crate::recipes_metrics::stat)
+            .description_list(crate::recipes_metrics::description_list)
+            .skeleton(|_| crate::recipes_indicators::skeleton)
+            .empty_state(crate::recipes_feedback::empty_state)
+            .alert(crate::recipes_feedback::alert)
+            .badge(|_| crate::recipes_badge::badge)
+            .badge_label(|_| crate::recipes_badge::badge_label)
+            .avatar(|_| crate::recipes_avatar::avatar)
+            .avatar_status(|_| crate::recipes_avatar::avatar_status)
+            .avatar_group(|base| move |t, s| base(t, s).align_items(Align::Center))
+            .avatar_group_overflow(|_| crate::recipes_avatar::avatar_overflow)
+            .tree(crate::recipes_items::tree)
+            .table(crate::recipes_items::table)
+            .item_list(crate::recipes_items::item_list)
+            .dropzone(crate::recipes_files::dropzone)
+            .toolbar(crate::recipes_groups::toolbar)
+            .pagination(crate::recipes_navigation::pagination)
+            .breadcrumb(crate::recipes_navigation::breadcrumb)
+            .stepper(crate::recipes_navigation::stepper)
+            .navigation_menu(crate::recipes_navigation::navigation_menu)
+            .button_group(crate::recipes_groups::button_group)
+            .toggle_group(crate::recipes_groups::toggle_group)
+            .input_group(crate::recipes_groups::input_group)
+            .button(|_| button)
+            .button_content(|_| button_content)
+            .button_busy(|_| button_busy)
+            .toggle(|_| toggle)
+            .checkbox(|_| checkbox)
+            .switch(|_| switch)
+            .text_input(|_| text_input)
+            .text_area(|_| text_area),
+    )
+}
+
+fn install_controls(recipes: UiRecipes) -> UiRecipes {
+    recipes
         .select(|select| {
             select
                 .trigger(|_| crate::recipes_extra::select_trigger)

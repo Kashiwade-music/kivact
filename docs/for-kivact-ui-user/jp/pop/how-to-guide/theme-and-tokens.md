@@ -184,3 +184,5 @@ fn upload() -> impl IntoView {
         })
 }
 ```
+
+Pop のレシピは Core の行レイアウトによる RTL の自動反転を使います。アプリの方向は Core で設定し、Pop 専用の方向プロバイダーは不要です。

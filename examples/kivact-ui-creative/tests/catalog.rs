@@ -13,7 +13,7 @@ use std::time::Duration;
 #[test]
 fn creative_source_editors_scroll_in_the_original_shell() {
     let screen = mount();
-    evidence(&screen, "creative-initial");
+    screen.evidence("creative-initial");
     chapters(
         &screen,
         "creative",
@@ -128,29 +128,7 @@ fn chapters(screen: &Screen, prefix: &str, chapters: &[&str]) {
             screen.errors()
         );
         screen.assert_layout_with(&layout_check());
-        evidence(screen, &format!("{prefix}-{chapter}"));
-    }
-}
-
-/// Opt-in leaves ordinary successful tests free of filesystem IO.
-fn evidence(screen: &Screen, name: &str) {
-    if let Some(directory) = std::env::var_os("KIVACT_CATALOG_EVIDENCE") {
-        let directory = std::path::PathBuf::from(directory);
-        std::fs::create_dir_all(&directory).expect("create evidence directory");
-        screen
-            .screenshot()
-            .save_png(directory.join(format!("{name}.png")))
-            .expect("save evidence screenshot");
-        std::fs::write(
-            directory.join(format!("{name}-a11y.txt")),
-            screen.accessibility_tree(),
-        )
-        .expect("save published accessibility tree");
-        std::fs::write(
-            directory.join(format!("{name}-retained.txt")),
-            screen.debug(),
-        )
-        .expect("save retained semantic tree");
+        screen.evidence(&format!("{prefix}-{chapter}"));
     }
 }
 
@@ -168,10 +146,6 @@ fn chapter(screen: &Screen, name: &str) {
     screen.advance(Duration::from_millis(400));
     assert!(nav.is_selected());
     screen.assert_layout_with(&layout_check());
-}
-
-fn clean(screen: &Screen) {
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn local(screen: &Screen, canvas: &str, region: Element<'_>) -> Point {
@@ -225,7 +199,7 @@ fn creative_picker_hsv_and_alpha_edit_the_same_color() {
             .abs()
             < 0.01
     );
-    evidence(&screen, "creative-hsv-alpha");
+    screen.evidence("creative-hsv-alpha");
     chapter(&screen, "properties");
     let location_x = screen
         .get_by_test_id("creative-property-location-x")
@@ -270,7 +244,7 @@ fn creative_picker_hsv_and_alpha_edit_the_same_color() {
     );
     opener.click();
     assert_eq!(red().value_range().2, Some(0.5));
-    evidence(&screen, "creative-properties-color-commit");
+    screen.evidence("creative-properties-color-commit");
     screen.press_key(Key::Escape);
     let swatch = opener.screenshot();
     let pixel = swatch
@@ -278,8 +252,8 @@ fn creative_picker_hsv_and_alpha_edit_the_same_color() {
         .expect("committed swatch pixel");
     assert!((120..=135).contains(&((pixel >> 16) & 255)));
     assert_eq!(pixel & 0x0000ffff, 0x0000ffff);
-    evidence(&screen, "creative-properties-density");
-    clean(&screen);
+    screen.evidence("creative-properties-density");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -306,7 +280,7 @@ fn creative_timeline_trim_and_dock_split_are_pointer_operations() {
             .abs()
             < 0.1
     );
-    evidence(&screen, "creative-timeline-trim");
+    screen.evidence("creative-timeline-trim");
     chapter(&screen, "docking");
     let workspace = screen.get_by_test_id("creative-dock-workspace");
     let splitter = workspace.get_by_role(Role::Splitter, "Info and Text Editor");
@@ -335,6 +309,6 @@ fn creative_timeline_trim_and_dock_split_are_pointer_operations() {
         .get_by_role(Role::Tab, "Text Editor")
         .press_key(Key::Escape);
     assert!(splitter.is_visible());
-    evidence(&screen, "creative-dock-restored");
-    clean(&screen);
+    screen.evidence("creative-dock-restored");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

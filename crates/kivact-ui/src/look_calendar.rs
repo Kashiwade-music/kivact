@@ -17,7 +17,7 @@ pub(super) fn month(_: &Theme, _: &PartState) -> Style {
     style()
 }
 pub(super) fn day(t: &Theme, s: &CalendarDayVisual) -> Style {
-    let size = t.ext::<UiTokens>().calendar.cell_size;
+    let size = s.cell_size;
     let base = style()
         .position(Position::Absolute)
         .left(0)

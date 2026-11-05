@@ -152,8 +152,10 @@ pub(super) fn properties() -> impl IntoView {
                 }),
                 kivact::ui::alert("Property Editing")
                     .tone(kivact::interaction::Tone::Info)
-                    .role(kivact::view::Role::Status)
-                    .live_region(kivact::view::LiveRegion::Polite)
+                    .with_node(|node| {
+                        node.role(kivact::view::Role::Status)
+                            .live_region(kivact::view::LiveRegion::Polite)
+                    })
                     .description("ドラッグ・ホイール・直接入力・キー操作で編集。")
                     .variant(ui::NoticeVariant)
                     .dismiss_content(kivact::view::icon("x"))

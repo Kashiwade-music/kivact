@@ -4,15 +4,15 @@ use kivact::interaction::FilterValue;
 use kivact::interaction::TreeNode;
 use kivact::state::signal;
 use kivact::style::style;
-use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, data_table};
+use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_table};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     ChatSender, DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus,
-    aspect_ratio, breadcrumb_item, breadcrumbs, card, carousel, center, chat_bubble, chat_composer,
-    chat_dictation_button, chat_layout, chat_message, chat_system_message, chat_tool_calls,
-    clickable_card, divider, form_layout, form_row, grid, hstack, item, layout, layout_content,
-    layout_header, list, list_item, metadata_item, metadata_list, nav_icon, overflow_list,
-    pagination, scrollable_area, section, selectable_card, stack_item, tree_list,
+    aspect_ratio, center, chat_bubble, chat_composer, chat_dictation_button, chat_layout,
+    chat_message, chat_system_message, chat_tool_calls, divider, form_layout, form_row, grid,
+    hstack, item, layout, layout_content, layout_header, list, list_item, metadata_item,
+    metadata_list, nav_icon, overflow_list, pagination, scrollable_area, section, stack_item,
+    tree_list,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -56,24 +56,32 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "clickable-card" => specimen(
             "Open project",
-            clickable_card("Open project", text("Project notes")).on_press(|| {}),
-            "clickable_card(\"Open project\", content, open_project)",
+            card(text("Project notes"))
+                .name("Open project")
+                .on_press(|| {}),
+            "card(content).name(\"Open project\").on_press(open_project)",
         ),
         "selectable-card" => specimen(
             "Select project",
-            selectable_card("Select project", signal(false), text("Project notes")),
-            "selectable_card(\"Select project\", selected, content)",
+            card(text("Project notes"))
+                .name("Select project")
+                .selected(signal(false)),
+            "card(content).name(\"Select project\").selected(selected)",
         ),
         "carousel" => specimen(
             "Browse slides",
-            carousel(
-                "Project highlights",
+            kivact::ui::carousel(
+                signal(0usize),
                 ["Design", "Documentation", "Research", "Release"]
-                    .map(|title| card(text(title)).style(style().size(148, 72))),
+                    .into_iter()
+                    .map(|title| card(text(title)).style(style().size(148, 72)))
+                    .collect::<Vec<_>>(),
             )
-            .snap(true)
+            .name("Project highlights")
+            .mode(kivact::ui::CarouselMode::Scroll)
+            .snap(kivact::interaction::Snap::Mandatory)
             .style(style().width(320)),
-            "let slides = [\"Design\", \"Documentation\", \"Research\", \"Release\"]\n    .map(|title| card(text(title)).style(style().size(148, 72)));\ncarousel(\"Project highlights\", slides).snap(true).style(style().width(320))",
+            "let slides = [\"Design\", \"Documentation\", \"Research\", \"Release\"]\n    .into_iter().map(|title| card(text(title)).style(style().size(148, 72))).collect::<Vec<_>>();\nkivact::ui::carousel(signal(0usize), slides).name(\"Project highlights\").mode(CarouselMode::Scroll).snap(Snap::Mandatory).style(style().width(320))",
         ),
         "section" => specimen(
             "Section content",
@@ -154,11 +162,12 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "breadcrumbs" | "breadcrumb-item" => specimen(
             "Project location",
-            breadcrumbs([
-                breadcrumb_item("Workspace").on_press(|| {}),
-                breadcrumb_item("Design notes"),
-            ]),
-            "breadcrumbs([breadcrumb_item(\"Workspace\"), breadcrumb_item(\"Design notes\")])",
+            kivact::ui::breadcrumb(vec![
+                kivact::interaction::ListItem::new(0, "Workspace"),
+                kivact::interaction::ListItem::new(1, "Design notes"),
+            ])
+            .on_activate(|_| {}),
+            "breadcrumb(vec![ListItem::new(0, \"Workspace\"), ListItem::new(1, \"Design notes\")])",
         ),
         "pagination" => specimen(
             "Navigate result pages",
@@ -345,8 +354,8 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                         kivact::interaction::ScalarRange::new(88.0, 216.0)
                             .expect("invariant: ordered panel bounds"),
                     )
-                    .collapsible(44.0)
-                    .snaps(vec![88.0, 144.0, 216.0])
+                    .collapsible(0.2)
+                    .snaps(vec![0.0, 0.4375, 1.0])
                     .start(text("Navigation"))
                     .end(text("Content"))
                     .style(style().width(360).height(92)),
@@ -355,7 +364,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
                 r#"let width = signal(144.0);
 kivact::ui::splitter("Navigation width", width,
     ScalarRange::new(88.0, 216.0).expect("ordered bounds"))
-    .collapsible(44.0).snaps(vec![88.0, 144.0, 216.0])
+    .collapsible(0.2).snaps(vec![0.0, 0.4375, 1.0])
     .start(text("Navigation")).end(text("Content"))"#,
             )
         }

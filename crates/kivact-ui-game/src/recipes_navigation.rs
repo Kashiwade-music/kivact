@@ -39,8 +39,8 @@ pub(crate) fn breadcrumb(r: BreadcrumbRecipes) -> BreadcrumbRecipes {
             move |_, s| {
                 style()
                     .font_size(12)
-                    .weight(if **s { 700 } else { 400 })
-                    .color(if **s {
+                    .weight(if s.current { 700 } else { 400 })
+                    .color(if s.current {
                         ColorToken::Text
                     } else {
                         ColorToken::TextMuted

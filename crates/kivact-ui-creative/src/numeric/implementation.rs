@@ -601,7 +601,7 @@ impl IntoView for Numeric {
                     PropertyState::Plain => accent.map_or(p.accent, |value| value.get()),
                     PropertyState::Keyed => p.key,
                     PropertyState::Animated => p.y,
-                    PropertyState::Driven => kivact::style::rgb(0xc084fc),
+                    PropertyState::Driven => crate::color::driven_property_color(),
                 };
                 let n = normalized(value.get());
                 match kind {

@@ -6,9 +6,7 @@ use kivact::test::RenderOptions;
 use kivact::test::render_with_handle;
 use kivact::view::Key;
 use kivact::view::Role;
-use kivact_ui_soft::{
-    DatePresentation, DateTime, TimeOfDay, date_input, date_time_input, theme, time_input,
-};
+use kivact_ui_soft::theme;
 use std::time::Duration;
 
 fn options() -> RenderOptions {
@@ -22,17 +20,18 @@ fn date_sheet_uses_calendar_and_month_wheels_without_staging_the_date() {
         let selected = signal(Some(start));
         (
             selected,
-            date_input("Due", selected).presentation(DatePresentation::BottomSheet),
+            kivact::ui::date_input("Due", selected)
+                .presentation(kivact::ui::DatePresentation::BottomSheet),
         )
     });
-    let trigger = screen.get_by_role(Role::ComboBox, "Due");
+    let trigger = screen.get_by_role(Role::TextBox, "Due");
     trigger.press_key(Key::ArrowDown);
     screen.advance(Duration::from_millis(600));
     screen.get_by_role(Role::Dialog, "Choose date");
     screen.get_by_role(Role::Button, "October 2026").click();
     screen
         .get_by_role(Role::SpinButton, "Month")
-        .press_key(Key::ArrowDown);
+        .press_key(Key::ArrowUp);
     assert_eq!(selected.get_untracked(), Some(start));
     screen.get_by_role(Role::Button, "Done").click();
     screen.get_by_role(Role::GridCell, "2026-11-15").click();
@@ -51,25 +50,43 @@ fn date_sheet_uses_calendar_and_month_wheels_without_staging_the_date() {
 #[test]
 fn time_sheet_wheels_commit_each_step_before_save() {
     let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(TimeOfDay::new(12, 59, 58));
+        let selected = signal(Some(kivact::i18n::TimeOfDay {
+            hour: 12,
+            minute: 59,
+            second: 58,
+        }));
         (
             selected,
-            time_input("Reminder", selected)
-                .show_seconds(true)
-                .presentation(DatePresentation::BottomSheet),
+            kivact::ui::time_input("Reminder", selected)
+                .format(kivact::i18n::TimeStyle { seconds: true })
+                .presentation(kivact::ui::DatePresentation::BottomSheet),
         )
     });
-    let trigger = screen.get_by_role(Role::ComboBox, "Reminder");
+    let trigger = screen.get_by_role(Role::TextBox, "Reminder");
     trigger.press_key(Key::ArrowDown);
     screen.advance(Duration::from_millis(600));
     screen
         .get_by_role(Role::SpinButton, "Minute")
-        .press_key(Key::ArrowDown);
-    assert_eq!(selected.get_untracked(), TimeOfDay::new(12, 0, 58));
+        .press_key(Key::ArrowUp);
+    assert_eq!(
+        selected.get_untracked(),
+        Some(kivact::i18n::TimeOfDay {
+            hour: 12,
+            minute: 0,
+            second: 58
+        })
+    );
     screen
         .get_by_role(Role::SpinButton, "Second")
-        .press_key(Key::ArrowDown);
-    assert_eq!(selected.get_untracked(), TimeOfDay::new(12, 0, 59));
+        .press_key(Key::ArrowUp);
+    assert_eq!(
+        selected.get_untracked(),
+        Some(kivact::i18n::TimeOfDay {
+            hour: 12,
+            minute: 0,
+            second: 59
+        })
+    );
     screen.get_by_role(Role::Button, "Save").click();
     screen.advance(Duration::from_millis(600));
     assert_eq!(trigger.is_expanded(), Some(false));
@@ -81,16 +98,21 @@ fn time_sheet_wheels_commit_each_step_before_save() {
 fn combined_sheet_advances_from_date_to_time_and_keeps_the_committed_date() {
     let start = CalendarDate::new(2026, 10, 14);
     let (screen, selected) = render_with_handle(options(), move || {
-        let selected = signal(Some(DateTime {
+        let selected = signal(Some(kivact::i18n::DateTime {
             date: start,
-            time: TimeOfDay::new(12, 15, 0).unwrap(),
+            time: kivact::i18n::TimeOfDay {
+                hour: 12,
+                minute: 15,
+                second: 0,
+            },
         }));
         (
             selected,
-            date_time_input("Starts at", selected).presentation(DatePresentation::BottomSheet),
+            kivact::ui::date_time_input("Starts at", selected)
+                .presentation(kivact::ui::DatePresentation::BottomSheet),
         )
     });
-    let trigger = screen.get_by_role(Role::ComboBox, "Date");
+    let trigger = screen.get_by_role(Role::TextBox, "Date");
     trigger.press_key(Key::ArrowDown);
     screen.advance(Duration::from_millis(600));
     screen.get_by_role(Role::GridCell, "2026-10-15").click();
@@ -102,10 +124,14 @@ fn combined_sheet_advances_from_date_to_time_and_keeps_the_committed_date() {
     screen.advance(Duration::from_millis(400));
     screen
         .get_by_role(Role::SpinButton, "Hour")
-        .press_key(Key::ArrowDown);
+        .press_key(Key::ArrowUp);
     assert_eq!(
         selected.get_untracked().unwrap().time,
-        TimeOfDay::new(13, 15, 0).unwrap()
+        kivact::i18n::TimeOfDay {
+            hour: 13,
+            minute: 15,
+            second: 0
+        }
     );
     screen.get_by_role(Role::Button, "Save").click();
     screen.advance(Duration::from_millis(600));
@@ -127,15 +153,16 @@ fn date_sheet_swipe_pages_without_selecting_the_contact_day() {
             (
                 selected,
                 provide_direction(direction, move || {
-                    date_input("Due", selected)
-                        .presentation(DatePresentation::BottomSheet)
+                    kivact::ui::date_input("Due", selected)
+                        .presentation(kivact::ui::DatePresentation::BottomSheet)
                         .calendar(move |calendar| calendar.bounds(Some(start), Some(bound)))
                 }),
             )
         });
         screen
-            .get_by_role(Role::ComboBox, "Due")
+            .get_by_role(Role::TextBox, "Due")
             .press_key(Key::ArrowDown);
+        screen.advance(Duration::from_millis(600));
         let day = screen.get_by_role(Role::GridCell, "2026-10-20");
         let bounds = day.accessibility_bounds().unwrap();
         assert!((bounds.width - 44.0).abs() < 1.0);
@@ -167,14 +194,19 @@ fn time_wheel_flick_projects_to_a_detent_and_exposes_increment_actions() {
     use kivact::view::A11yAction;
     use kivact::view::PointerKind;
     let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(TimeOfDay::new(12, 20, 0));
+        let selected = signal(Some(kivact::i18n::TimeOfDay {
+            hour: 12,
+            minute: 20,
+            second: 0,
+        }));
         (
             selected,
-            time_input("Reminder", selected).presentation(DatePresentation::BottomSheet),
+            kivact::ui::time_input("Reminder", selected)
+                .presentation(kivact::ui::DatePresentation::BottomSheet),
         )
     });
     screen
-        .get_by_role(Role::ComboBox, "Reminder")
+        .get_by_role(Role::TextBox, "Reminder")
         .press_key(Key::ArrowDown);
     screen.advance(Duration::from_millis(600));
     let minute = screen.get_by_role(Role::SpinButton, "Minute");
@@ -185,19 +217,26 @@ fn time_wheel_flick_projects_to_a_detent_and_exposes_increment_actions() {
     let contact = screen.contact_down(PointerKind::Touch, x, y);
     screen.advance(Duration::from_millis(16));
     screen.contact_move(contact, x, y - 35.0);
-    assert_eq!(selected.get_untracked(), TimeOfDay::new(12, 21, 0));
+    assert_eq!(
+        selected.get_untracked(),
+        Some(kivact::i18n::TimeOfDay {
+            hour: 12,
+            minute: 21,
+            second: 0
+        })
+    );
     screen.advance(Duration::from_millis(16));
     screen.contact_up(contact);
-    let snapped = selected.get_untracked().unwrap().minute();
+    let snapped = selected.get_untracked().unwrap().minute;
     assert!(
         snapped > 21,
         "release should advance beyond the crossed detent"
     );
     screen.advance(Duration::from_secs(1));
-    assert_eq!(selected.get_untracked().unwrap().minute(), snapped);
+    assert_eq!(selected.get_untracked().unwrap().minute, snapped);
     minute.a11y(A11yAction::Increment);
-    assert_eq!(selected.get_untracked().unwrap().minute(), snapped + 1);
-    minute.press_key(Key::PageUp);
-    assert_eq!(selected.get_untracked().unwrap().minute(), snapped - 9);
+    assert_eq!(selected.get_untracked().unwrap().minute, snapped + 1);
+    minute.press_key(Key::PageDown);
+    assert_eq!(selected.get_untracked().unwrap().minute, snapped - 9);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

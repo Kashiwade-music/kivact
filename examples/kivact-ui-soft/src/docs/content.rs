@@ -1,11 +1,11 @@
 //! Role: Demonstrate Neutral typography and icon sizes and colors.
 use super::specimen::specimen;
 use kivact::style::style;
-use kivact::ui::kbd;
+use kivact::ui::{avatar, avatar_group, kbd};
 use kivact::view::{Node, column, row};
 use kivact_ui_soft::{
-    HeadingDisplay, IconColor, IconSize, TextColor, TextKind, avatar, avatar_group,
-    avatar_group_overflow, empty_state, heading, icon, link, text, thumbnail, visually_hidden,
+    HeadingDisplay, IconColor, IconSize, TextColor, TextKind, heading, icon, link, text, thumbnail,
+    visually_hidden,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -57,7 +57,7 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "empty-state" => specimen(
             "Empty project",
-            empty_state("No documents")
+            kivact::ui::empty_state("No documents").announce_changes()
                 .description("Create a document to get started.")
                 .icon( icon("search"))
                 .actions( kivact::ui::button("New document")),
@@ -66,15 +66,14 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "avatar" | "avatar-group" | "avatar-group-overflow" | "avatar-status-dot" => specimen(
             "Initials and grouped members",
             row((
-                avatar().name("Avery Morgan"),
+                avatar("Avery Morgan"),
                 avatar_group((
-                    avatar().name("Sam Rivera"),
-                    avatar().name("Taylor Chen"),
-                    avatar_group_overflow(3),
-                )),
+                    avatar("Sam Rivera"),
+                    avatar("Taylor Chen"),
+                )).total(5usize),
             ))
             .style(style().gap(16)),
-            "avatar().name(\"Avery Morgan\")",
+            "avatar(\"Avery Morgan\")",
         ),
         "visually-hidden" => specimen(
             "Screen reader text",

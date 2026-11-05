@@ -457,3 +457,5 @@ non-focusable cells. `.orientation(Orientation::Vertical)` changes both the
 layout and arrow navigation of any of these groups. `.disabled(source)` is
 the standard `NodeBuilder` modifier. Themes customize the corresponding
 `UiTokens` groups and `UiRecipes` tables; caller styles still override recipes.
+
+`radio_group(...).item_node(|target, item, state| target.with_node(...))` exposes the complete canonical target for advanced attachments, such as a kit keyboard hint. Return that target with modifiers; do not create another native focus or selection owner. `.item(...)` continues to replace only inner content, and the two slots compose.

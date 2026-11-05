@@ -50,7 +50,7 @@ fn capture_catalog() {
             capture_overlay_states(&screen, &output, page.slug, name);
             capture_disclosure_states(&screen, &output, page.slug, name);
             if page.slug == "carousel" {
-                screen.get_by_role(Role::Button, "Scroll right").click();
+                screen.get_by_role(Role::Button, "Next slide").click();
                 screen.advance(Duration::from_millis(800));
                 screen
                     .screenshot()
