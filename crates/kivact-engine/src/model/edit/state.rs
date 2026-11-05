@@ -2,6 +2,7 @@
 
 use kivact_editing::TextSession;
 use kivact_types::{NodeId, Rect};
+use std::collections::BTreeSet;
 
 // xtask-allow(state-fields): Cache key records the complete IME input snapshot.
 /// What a text input's IME text is made from (`Model::ime_changed`): the input,
@@ -52,6 +53,8 @@ pub(super) enum ImeGiven {
 /// The text inputs with an editing state, and what the IME was last given.
 #[derive(Default)]
 pub(crate) struct Edits {
+    /// The live nodes with an editing state, in id order (`Model::set_edit`).
+    pub(super) inputs: BTreeSet<NodeId>,
     pub(super) given: ImeGiven,
     pub(crate) target: ImeTarget,
 }
