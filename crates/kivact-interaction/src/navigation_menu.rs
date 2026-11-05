@@ -99,9 +99,8 @@ impl NavigationMenuApi {
     /// Allocate one genuine panel identity during setup, including mounted dynamic factories.
     /// This is identity allocation only; `NavOpen` remains the sole open-state authority.
     pub fn panel_key(self) -> usize {
-        let mut key = 0;
+        let key = self.next_panel.get();
         self.next_panel.update(|next| {
-            key = *next;
             *next = next
                 .checked_add(1)
                 .expect("navigation panel identity exhausted");

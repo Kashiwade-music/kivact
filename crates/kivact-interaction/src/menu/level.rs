@@ -5,7 +5,7 @@ use kivact_core::state::IntoBinding;
 
 use super::order::{Rows, edge_item, rows};
 use super::session::Session;
-use super::state::{Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Target, Want};
+use super::state::{Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Opened, Target, Want};
 use crate::{
     ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_hover_corridor, use_list,
 };
@@ -197,7 +197,9 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             session.popup.set_opening_policy(session.focus_return());
             // The top level takes the focus on its first focusable item
             // unless the opener asked for another one.
-            if session.want.with_untracked(Option::is_none) {
+            if !matches!(session.opened.get_untracked(), Some(Opened::External))
+                && session.want.with_untracked(Option::is_none)
+            {
                 session.request(0, Edge::First);
             }
         }

@@ -231,7 +231,7 @@ fn update_level_event<K: kivact_core::state::ItemKey>(
 /// Interpret an accepted external open as a menu opening without a focus request.
 fn accepted_opening<K>(state: &State<K>, event: Event<K>) -> Event<K> {
     if matches!(event, Event::Popup(true)) && matches!(state, State::Closed) {
-        Event::Open(Opened::Button)
+        Event::Open(Opened::External)
     } else {
         event
     }
