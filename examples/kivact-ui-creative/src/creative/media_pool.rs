@@ -157,7 +157,7 @@ fn media_tiles(
             scroll(grid(tiles).style(move || {
                 style()
                     .grid_template_columns(Track::repeat_auto_fill(Track::minmax(
-                        tile_size.get() as f64,
+                        tile_size.get(),
                         Track::fr(1.0),
                     )))
                     .gap(10)

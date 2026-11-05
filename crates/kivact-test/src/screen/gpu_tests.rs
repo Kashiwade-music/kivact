@@ -370,11 +370,7 @@ fn canvas_vocabulary() -> impl IntoView {
                     },
                 );
                 d.pixels(
-                    &Pixels::new(
-                        2,
-                        1,
-                        std::sync::Arc::from([255u8, 0, 0, 255, 0, 0, 255, 255]),
-                    ),
+                    &Pixels::new(2, 1, vec![255u8, 0, 0, 255, 0, 0, 255, 255]),
                     Rect::new(0., 30., 60., 30.),
                     ImageOptions {
                         source: Some(Rect::new(1., 0., 1., 1.)),

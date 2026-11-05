@@ -7,7 +7,6 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::support::mount;
 use kivact::ErrorKind;
