@@ -55,7 +55,7 @@ use super::{
     AlertState, CardState, EmptyStateState, InputGroupMemberState, InputGroupState, look_feedback,
 };
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use crate::{look_files, look_static_collections};
+use crate::{HeadingState, StatState, look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
@@ -507,10 +507,12 @@ recipe_table! {
     /// The recipes of a [`progress`](super::progress) bar.
     ProgressRecipes {
         /// The bar itself: the track the fill moves in, which clips it.
-        track(track_recipe): ProgressState = look_extra::progress_track,
+        track(track_recipe): ProgressState = look_metrics::progress_track,
         /// The fill, the track's one child: the whole track, painted or
         /// sized to the value.
-        fill(fill_recipe): ProgressState = look_extra::progress_fill,
+        fill(fill_recipe): ProgressState = look_metrics::progress_fill,
+        /// Percentage text in a ring.
+        label(label_recipe): ProgressState = look_metrics::progress_label,
     }
 }
 
@@ -610,6 +612,8 @@ recipe_table! {
     /// # let _ = theme;
     /// ```
     UiRecipes {
+        /// Typography for a semantic heading.
+        heading(heading_recipe): HeadingState = look_metrics::heading,
         avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
         avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
@@ -644,6 +648,8 @@ recipe_table! {
         text_area(text_area_recipe): TextInputState = look::text_area,
     }
     tables {
+        stat(stat_recipes): StatRecipes,
+        description_list(description_list_recipes): DescriptionListRecipes,
         empty_state(empty_state_recipes): EmptyStateRecipes,
         alert(alert_recipes): AlertRecipes,
         card(card_recipes): CardRecipes,
@@ -861,5 +867,26 @@ recipe_table! {
         root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::root,
         trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
         panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
+    }
+}
+
+recipe_table! {
+    /// Parts of a statistic and its optional application-owned chart.
+    StatRecipes {
+        root(root_recipe): StatState = look_metrics::stat_root,
+        label(label_recipe): StatState = look_metrics::stat_label,
+        value(value_recipe): StatState = look_metrics::stat_value,
+        delta(delta_recipe): StatState = look_metrics::stat_delta,
+        icon(icon_recipe): StatState = look_metrics::stat_slot,
+        chart(chart_recipe): StatState = look_metrics::stat_slot,
+    }
+}
+recipe_table! {
+    /// The list, pair, visible term and labelled detail of a description list.
+    DescriptionListRecipes {
+        root(root_recipe): () = look_metrics::description_root,
+        item(item_recipe): () = look_metrics::description_item,
+        term(term_recipe): () = look_metrics::description_term,
+        detail(detail_recipe): () = look_metrics::description_detail,
     }
 }

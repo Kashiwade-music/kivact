@@ -167,7 +167,7 @@ pub use disclosure::{Disclosure, DisclosureMotion, DisclosureTokens, disclosure}
 pub use field::{Field, field};
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
-pub use progress::{Progress, ProgressMotion, ProgressTokens, progress};
+pub use progress::{Progress, ProgressMotion, ProgressTokens, ProgressVariant, progress};
 pub use recipes::{
     CalendarRecipes, ComboboxRecipes, CommandPaletteRecipes, DataTableRecipes, DateInputRecipes,
     DateRangeInputRecipes, DateTimeInputRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
@@ -340,3 +340,12 @@ pub use navigation_tokens::NavigationTokens;
 pub use pagination::{PageItem, Pagination, PaginationMode, pagination};
 pub use recipes::{BreadcrumbRecipes, NavigationMenuRecipes, PaginationRecipes, StepperRecipes};
 pub use stepper::{StepIndicator, StepStatus, Stepper, StepperItem, StepperItemState, stepper};
+
+mod description_list;
+mod heading;
+mod look_metrics;
+mod stat;
+pub use description_list::{Description, DescriptionList, description, description_list};
+pub use heading::{Heading, HeadingState, heading};
+pub use recipes::{DescriptionListRecipes, StatRecipes};
+pub use stat::{Stat, StatState, Trend, stat};
