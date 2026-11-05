@@ -246,16 +246,14 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
             |_| (),
             move |key, row, part| {
                 let state = part.state();
-                let recipe_key = key.clone();
-                let custom_marker = marker_content.is_some();
-                let recipe_state = kivact_core::state::memo(move || TreeRowRecipeState {
-                    item: state.get(),
-                    ancestor_last: ancestors
-                        .with(|rows| rows.get(&recipe_key).cloned().unwrap_or_default()),
-                    is_last: row.with(TreeRow::is_last),
-                    has_branches: has_branches.get(),
-                    custom_marker,
-                });
+                let recipe_state = row_recipe(
+                    key.clone(),
+                    row,
+                    state,
+                    ancestors,
+                    has_branches.into_value(),
+                    marker_content.is_some(),
+                );
                 let label = behavior.label(key.clone());
                 let marker = row_marker(
                     behavior,
@@ -316,7 +314,7 @@ fn row_marker<K: kivact_core::state::ItemKey>(
         move || recipe_state.get(),
     );
     let marker = marker.hidden(move || !recipe_state.get().has_branches);
-    let marker = if parent {
+    if parent {
         marker
             .role(Role::Button)
             .name(kivact_core::i18n::message(
@@ -341,6 +339,23 @@ fn row_marker<K: kivact_core::state::ItemKey>(
             })
     } else {
         marker
-    };
-    marker
+    }
+}
+
+fn row_recipe<K: kivact_core::state::ItemKey>(
+    recipe_key: K,
+    row: Value<TreeRow<K>>,
+    state: Value<TreeItemState>,
+    ancestors: Value<std::collections::HashMap<K, Vec<bool>>>,
+    has_branches: Value<bool>,
+    custom_marker: bool,
+) -> Value<TreeRowRecipeState> {
+    kivact_core::state::memo(move || TreeRowRecipeState {
+        item: state.get(),
+        ancestor_last: ancestors.with(|rows| rows.get(&recipe_key).cloned().unwrap_or_default()),
+        is_last: row.with(TreeRow::is_last),
+        has_branches: has_branches.get(),
+        custom_marker,
+    })
+    .into_value()
 }
