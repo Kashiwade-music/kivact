@@ -184,3 +184,14 @@ pub(super) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style 
 pub(super) fn alert_control(_: &Theme, _: &Look<AlertState>) -> Style {
     style()
 }
+pub(super) fn group_block(_: &Theme, _: &Look<InputGroupState>) -> Style {
+    style()
+}
+
+pub(super) fn card_overlay(_: &Theme, _: &Look<CardState>) -> Style {
+    style()
+}
+
+pub(super) fn alert_wrapper(_: &Theme, _: &Look<AlertState>) -> Style {
+    style().display(kivact_core::style::Display::Contents)
+}

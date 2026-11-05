@@ -42,14 +42,14 @@ fn shell() -> impl IntoView {
             basic::separator()
                 .orientation(Orientation::Vertical)
                 .style(style().height(16)),
-            basic::breadcrumb_content((
-                basic::breadcrumb_link("Acme"),
-                basic::breadcrumb_separator(),
-                basic::breadcrumb_page(move || page.get().to_string()),
-            )),
+            kivact::ui::breadcrumb(move || vec![
+                kivact::interaction::ListItem::new("root", "Acme"),
+                kivact::interaction::ListItem::new("current", page.get().to_string()),
+            ])
+            .separator(|| icon("chevron-right").style(style().size(14, 14))),
         ))
         .style(style().height(48).padding_x(12).gap(8).align_items(Align::Center)),
-        basic::h4(move || page.get().to_string()).style(style().padding(12)),
+        kivact::ui::heading(move || page.get().to_string(), 4).style(style().padding(12)),
     ))
     .style(style().grow(1));
     column(basic::sidebar_provider(open, sidebar, content)).style(
@@ -91,7 +91,7 @@ fn account() -> impl IntoView {
                 "account" => ("Account", "Make changes to your account here."),
                 _ => ("Password", "Change your password here."),
             };
-            column((basic::h4(title), basic::muted(body))).style(style().gap(8).padding_top(16))
+            column((kivact::ui::heading(title, 4), basic::muted(body))).style(style().gap(8).padding_top(16))
         })
 }
 ```
@@ -102,7 +102,7 @@ fn account() -> impl IntoView {
 
 ## Show where the user is
 
-A breadcrumb is `basic::breadcrumb_content((..))` of links, separators and the current page. Links take `.on_press(..)`; the current page is not a link:
+Pass keyed `ListItem`s to `kivact::ui::breadcrumb(items)`. The last item is the current page; `.on_activate(..)` receives the key of an earlier item:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -110,17 +110,17 @@ use kivact_ui_basic as basic;
 
 fn trail() -> impl IntoView {
     let at = signal(String::from("Components"));
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("Home").on_press(move || at.set("Home".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_link("Components").on_press(move || at.set("Components".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page(at),
-    ))
+    kivact::ui::breadcrumb(move || vec![
+        kivact::interaction::ListItem::new("home", "Home"),
+        kivact::interaction::ListItem::new("components", "Components"),
+        kivact::interaction::ListItem::new("current", at.get()),
+    ])
+    .on_activate(move |key| at.set(if key == "home" { "Home" } else { "Components" }.into()))
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
 }
 ```
 
-Put `basic::breadcrumb_ellipsis()` between separators to stand for hidden levels. If a plain list of names is enough, `basic::breadcrumb(vec!["Home".to_string(), "Docs".to_string()])` builds the whole trail from text.
+Use `.item(..)` to draw an ellipsis for a disabled entry representing hidden levels. `.separator(..)` supplies decorative chevrons; choose `chevron-left` inside a right-to-left boundary.
 
 ## Add a menu bar
 
@@ -161,7 +161,7 @@ The entries are the same `MenuEntry` values as for any menu (items, check and ra
 
 ## Link to sections from the top of a page
 
-`basic::navigation_menu(items)` is a row of `NavItem`s. A `NavItem::link(label, action)` runs `action` when pressed. A `NavItem::menu(label, content)` opens a panel under the item, and `content` builds that panel's view each time. Use `basic::navigation_menu_link(title)` for the rows inside a panel:
+`kivact::ui::navigation_menu(label)` is a row of navigation entries. A `navigation_menu(...).action(key, label, action)` runs `action` when pressed. A `navigation_menu(...).link(key, label, content)` opens a panel under the item, and `content` builds that panel's view each time. Use `kivact::ui::navigation_menu_link(title)` for the rows inside a panel:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -171,19 +171,19 @@ fn top_nav() -> impl IntoView {
     let clicks = signal(0usize);
     let getting_started = move || {
         column((
-            basic::navigation_menu_link("Introduction")
+            kivact::ui::navigation_menu_link("Introduction")
                 .description("How the pieces fit together."),
-            basic::navigation_menu_link("Installation")
+            kivact::ui::navigation_menu_link("Installation")
                 .description("Add the crates to your project.")
                 .icon(icon("download")),
         ))
         .style(style().width(320))
     };
     column((
-        basic::navigation_menu(vec![
-            basic::NavItem::menu("Getting started", getting_started),
-            basic::NavItem::link("Docs", move || clicks.update(|n| *n += 1)),
-        ]),
+        kivact::ui::navigation_menu("Navigation")
+            .link("getting-started", "Getting started", getting_started)
+            .action("docs", "Docs", move || clicks.update(|n| *n += 1))
+            .close_delay(std::time::Duration::ZERO),
         basic::muted(move || format!("Docs pressed: {}", clicks.get())),
     ))
     .style(style().gap(12))
@@ -192,7 +192,7 @@ fn top_nav() -> impl IntoView {
 
 ## Page through a long list
 
-`basic::pagination(page, count)` shows previous and next buttons and the page numbers, with ellipses when there are many. `page` is a zero-based signal and `count` the number of pages:
+`kivact::ui::pagination(count, page)` shows previous and next buttons and the page numbers, with ellipses when there are many. `page` is a zero-based signal and `count` the number of pages:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -201,7 +201,7 @@ use kivact_ui_basic as basic;
 fn pager() -> impl IntoView {
     let page = signal(0usize);
     column((
-        basic::pagination(page, 12usize),
+        kivact::ui::pagination(12usize, page),
         basic::muted(move || format!("Page {} of 12", page.get() + 1)),
     ))
     .style(style().gap(12).align_items(Align::Center))
@@ -209,7 +209,7 @@ fn pager() -> impl IntoView {
 ```
 
 - `.label_format(|number| format!("p.{number}"))` changes how a page number reads.
-- For full control, compose `basic::pagination_content((basic::pagination_previous(), basic::pagination_link("1"), basic::pagination_link("2").active(true), basic::pagination_ellipsis(), basic::pagination_next()))` yourself.
+- Use `.item(|cell| ..)` to customize visible cell contents; the page binding still owns selection and navigation.
 - The words "Previous", "Next" and the accessible labels come from messages under `basic.pagination.*` that you can replace; see [Theme and tokens](theme-and-tokens.md#choose-the-fonts).
 - To page through table rows, `data_table(..).page(page, size)` has pagination built in; see [Data display](data-display.md).
 
@@ -218,3 +218,5 @@ fn pager() -> impl IntoView {
 - [Overlays](overlays.md): menus, popovers and dialogs.
 - [Data display](data-display.md): tables with sorting and paging.
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the sidebar parts and the navigation components.
+
+`basic::MenuVariant::Bar` is the public compact appearance of the standard menu used by the Basic menubar. Pass it through `.variant(..)` when composing the same appearance directly.

@@ -161,7 +161,7 @@ in other kits.
 Fonts belong to the application. Register the files you ship with `App::font`
 and name the family in the theme's typography. The kit's catalog uses Inter
 for text and Noto Sans JP for Japanese; three Pop components (the
-`BadgeVariant::Slant` badge, avatars and the numbered `section_heading`) ask for the family
+`BadgeVariant::Slant` badge, avatars and the numbered `SectionNumber`) ask for the family
 `Barlow` and fall back to `sans-serif` when it is not registered.
 
 ```rust,no_run
@@ -221,3 +221,5 @@ fn upload() -> impl IntoView {
         })
 }
 ```
+
+Pop recipes use Core row layout for automatic RTL reversal. Set the application direction through Core; no Pop-specific direction provider is required.

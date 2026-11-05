@@ -49,7 +49,13 @@ fn sign_up() -> impl IntoView {
         button("Create account")
             .disabled(move || !ready.get())
             .on_press(move || created.set(true)),
-        basic::muted(move || if created.get() { "Account created." } else { "" }),
+        basic::muted(move || {
+            if created.get() {
+                "Account created."
+            } else {
+                ""
+            }
+        }),
     ))
     .style(style().width(320))
 }
@@ -84,21 +90,24 @@ use kivact::style::Direction;
 
 fn marketing() -> impl IntoView {
     let on = signal(true);
-    field("Marketing emails", switch("Marketing emails", on).hide_label(true))
-        .hint("Receive news and offers.")
-        .style(
-            style()
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .gap(12)
-                .width(420),
-        )
+    field(
+        "Marketing emails",
+        switch("Marketing emails", on).hide_label(true),
+    )
+    .hint("Receive news and offers.")
+    .style(
+        style()
+            .direction(Direction::Row)
+            .align_items(Align::Center)
+            .gap(12)
+            .width(420),
+    )
 }
 ```
 
 ## Put icons, text and buttons inside an input
 
-`basic::input_group(input)` wraps an input in a shared border and lets you add addons before and after it. `.start(..)` and `.end(..)` take a view; pressing an addon focuses the input. Use `basic::input_group_text(..)` for plain text and `basic::input_group_button(..)` for a button:
+`kivact::ui::input_group("Input group", (input,))` wraps an input in a shared border and lets you add addons before and after it. `.start(..)` and `.end(..)` take a view; pressing an addon focuses the input. Use `kivact::ui::input_addon(..)` for plain text and `kivact::ui::button(..).variant(kivact::ui::ButtonVariant::Ghost).variant(basic::InputGroupButtonSize::Xs).style(style().margin_right(-4.8))` for a button:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -108,23 +117,34 @@ fn search_and_copy() -> impl IntoView {
     let query = signal(String::new());
     let url = signal(String::from("https://example.com"));
     column((
-        basic::input_group(basic::input_group_input("Search", query).placeholder("Search..."))
-            .start(icon("search"))
-            .end(basic::input_group_text("12 results"))
-            .style(style().width(320)),
-        basic::input_group(basic::input_group_input("Link", url))
-            .end(
-                basic::input_group_button("Copy")
-                    .icon(icon("copy"))
-                    .on_press(|| {}),
-            )
-            .style(style().width(320)),
+        kivact::ui::input_group(
+            "Search",
+            (kivact::ui::text_input("Search", query)
+                .variant(basic::InputGroupControl)
+                .placeholder("Search..."),),
+        )
+        .start(icon("search"))
+        .end(kivact::ui::input_addon("12 results"))
+        .style(style().width(320)),
+        kivact::ui::input_group(
+            "Link",
+            (kivact::ui::text_input("Link", url).variant(basic::InputGroupControl),),
+        )
+        .end(
+            kivact::ui::button("Copy")
+                .variant(kivact::ui::ButtonVariant::Ghost)
+                .variant(basic::InputGroupButtonSize::Xs)
+                .style(style().margin_right(-4.8))
+                .icon(icon("copy"))
+                .on_press(|| {}),
+        )
+        .style(style().width(320)),
     ))
     .style(style().gap(12))
 }
 ```
 
-- `basic::input_group_textarea(label, signal)` takes the place of the input for multi-line text, and `.block_start(..)` / `.block_end(..)` put an addon above or below it (a character counter, say).
+- `kivact::ui::text_area(label, signal).variant(basic::InputGroupControl)` takes the place of the input for multi-line text, and `.block_start(..)` / `.block_end(..)` put an addon above or below it (a character counter, say).
 - `.invalid(true)` marks the whole group invalid.
 
 ## Pick one or several options from a long list
@@ -149,7 +169,8 @@ fn frameworks() -> impl IntoView {
             .name("Framework")
             .show_clear(true)
             .style(style().width(260)),
-        kivact::ui::combobox("Frameworks", items, many).chips()
+        kivact::ui::combobox("Frameworks", items, many)
+            .chips()
             .placeholder("Add framework")
             .name("Frameworks")
             .style(style().width(360)),
@@ -164,7 +185,7 @@ fn frameworks() -> impl IntoView {
 
 ## Pick a date or a date range
 
-`basic::date_picker(label, date)` is a button that opens a calendar. `date` is a signal of `Option<CalendarDate>`. `basic::date_range_picker` edits a `DateRange` the same way:
+`kivact::ui::date_input(label, date).attach(button)` opens a calendar from your own button. The attached button owns its text, placeholder and format. `date_range_input` edits a range through the same pattern:
 
 ```rust,no_run
 use kivact::i18n::{CalendarDate, DateRange};
@@ -175,19 +196,38 @@ fn dates() -> impl IntoView {
     let due = signal(Some(CalendarDate::new(2026, 10, 3)));
     let stay = signal(None::<DateRange>);
     column((
-        basic::date_picker("Due date", due)
-            .placeholder("Pick a due date")
-            .format(|d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()))
-            .style(style().width(280)),
-        basic::date_range_picker("Stay", stay)
-            .calendar(|calendar| calendar.number_of_months(2))
-            .style(style().width(300)),
+        kivact::ui::date_input("Due date", due)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.variable_rows(true))
+            .attach(
+                button(move || {
+                    due.get().map_or_else(
+                        || "Pick a due date".to_owned(),
+                        |d| format!("{:04}/{:02}/{:02}", d.year(), d.month(), d.day()),
+                    )
+                })
+                .name("Due date")
+                .icon(icon("calendar"))
+                .variant(kivact::ui::ButtonVariant::Outline)
+                .style(style().width(280)),
+            ),
+        kivact::ui::date_range_input("Stay", stay)
+            .presentation(kivact::ui::DatePresentation::Desktop)
+            .variant(basic::DatePickerVariant::Flush)
+            .calendar(|c| c.number_of_months(2).variable_rows(true))
+            .attach(
+                button("Choose stay")
+                    .name("Stay")
+                    .variant(kivact::ui::ButtonVariant::Outline)
+                    .style(style().width(300)),
+            ),
     ))
     .style(style().gap(12))
 }
 ```
 
-`.calendar(|c| ..)` configures the calendar in the popup. For a calendar that is always visible, use `basic::calendar(signal)` or `basic::calendar_range(signal)`. Both accept the same options:
+`.calendar(|c| ..)` configures the calendar in the popup. For a calendar that is always visible, use `kivact::ui::calendar(signal).variable_rows(true)` for either single-date or range signals. Both accept the same options:
 
 ```rust,no_run
 use kivact::i18n::{CalendarMonth, Weekday};
@@ -195,15 +235,16 @@ use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn weekdays_only() -> impl IntoView {
-    basic::calendar(signal(None))
+    kivact::ui::calendar(signal(None::<kivact::i18n::CalendarDate>))
+        .variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
         .week_start(Weekday::Monday)
         .disabled_dates(|d| matches!(d.weekday(), Weekday::Saturday | Weekday::Sunday))
-        .caption(basic::CalendarCaption::Dropdown)
+        .caption(kivact::ui::CalendarCaption::Dropdown)
 }
 ```
 
-Month and weekday names, and the date format, come from the messages under `basic.calendar.*` and `basic.date_picker.*`. Replace them with `App::messages` for another language; see [Theme and tokens](theme-and-tokens.md#choose-the-fonts).
+Month and weekday names and date formatting come from the active `Locale`. Calendar control labels use `calendar.*` messages. The trigger content can use `Locale::format_date` or an application formatter.
 
 ## Ask for a one-time code
 
@@ -234,3 +275,5 @@ fn verify() -> impl IntoView {
 - [Overlays](overlays.md): put a form into a dialog or a sheet.
 - [Navigation](navigation.md): tabs and wizards between pages of fields.
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the input group and pickers and `input_otp`; `cargo doc -p kivact-ui --open` for `combobox`, `field`, `select` and `text_input`.
+
+The borderless controls use `.variant(basic::InputGroupControl)` and observe their actual group for focus, invalid state and block spacing. Group buttons are ordinary `button` builders with a visual `InputGroupButtonSize` variant; use `.hide_label(true)` for `IconXs`/`IconSm`. For reactive button measurements use `InputGroupButtonLook::default().size(size)`; the caller controls label visibility with the standard `.hide_label(..)` option.

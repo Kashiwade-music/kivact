@@ -10,7 +10,11 @@ fn date(year: i32, month: u8, day: u8) -> CalendarDate {
 #[test]
 fn the_date_range_writes_only_a_complete_range() {
     let (screen, (start, end)) = kivact::test::render_with_handle(
-        crate::support::options().messages(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion()
+        .messages(
             kivact::i18n::Messages::new()
                 .with("date.open", "Choose endpoint date")
                 .with("date.range_open", "Choose a date"),
@@ -75,8 +79,11 @@ fn the_date_range_writes_only_a_complete_range() {
 #[test]
 fn the_date_picker_writes_the_binding_and_closes() {
     let (screen, date_value) = kivact::test::render_with_handle(
-        crate::support::options()
-            .messages(kivact::i18n::Messages::new().with("date.open", "Choose a date")),
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion()
+        .messages(kivact::i18n::Messages::new().with("date.open", "Choose a date")),
         || {
             let value = signal(date(2026, 10, 3));
             (value, {

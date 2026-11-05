@@ -11,8 +11,6 @@ use kivact_core::view::{IntoView, Role, View, show};
 use kivact_core::view::{Node, NodeBuilder, column, node, row, text};
 use std::rc::Rc;
 
-/// The day size of `--cell-size`.
-
 /// A ghost icon button of the caption row, 28 px square, behind a paging part.
 fn nav_button(
     glyph: &'static str,
@@ -160,7 +158,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             .child(event_marks(shared, day, marked)),
         |r| r.calendar_recipes().day_recipe(),
         &shared.variants,
-        move || crate::calendar::state::CalendarDayVisual {
+        move || crate::calendar_values::CalendarDayVisual {
             date: day,
             cell_size,
             day: marked.get(),

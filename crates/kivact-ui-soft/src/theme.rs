@@ -140,6 +140,15 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            dropzone: kivact::ui::DropzoneTokens {
+                padding: Some(tokens.spacing.s3),
+                min_height: Some(96.0),
+            },
+            carousel: kivact::ui::CarouselTokens {
+                gap: Some(tokens.spacing.s1),
+                padding: Some(0.0),
+                edge_fade_width: Some(tokens.spacing.s1),
+            },
             calendar: kivact::ui::CalendarTokens {
                 cell_size: 32.0,
                 month_gap: tokens.spacing.s4,
@@ -153,7 +162,14 @@ pub fn theme(mode: ThemeMode) -> Theme {
                 wheel_row_height: 28.0,
                 wheel_width: 80.0,
             },
+            stepper: kivact::ui::StepperTokens {
+                gap: 4.0,
+                padding: 0.0,
+                min_step_width: 112.0,
+                connector_gap: 0.0,
+            },
             indicators: kivact::ui::IndicatorTokens {
+                avatar_overlap: 9.0,
                 period_ms: tokens.motion.slow_min,
                 reduced_period_ms: Some(3000),
                 skeleton_transition: Some(Transition::tween(

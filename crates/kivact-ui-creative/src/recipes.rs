@@ -8,7 +8,7 @@ use kivact::draw::{LineCap, LineJoin, Path, Shadow, Stroke};
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::DialogMode;
 use kivact::interaction::{ListItemState, MenuItemState, PopupState, TabListState, TabState};
-use kivact::style::{Align, Direction, Justify, Position, Style, Theme, pct, rgba, style};
+use kivact::style::{Align, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact::ui::Look;
 use kivact::ui::{
     ButtonState, ButtonVariant, CheckableState, ControlSize, DialogState, SelectTriggerState,
@@ -22,12 +22,16 @@ use crate::tokens::Tokens;
 /// compare their recipes by identity and installing the kit's theme again
 /// never restyles.
 pub(crate) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Process-wide immutable recipe table, initialized once so theme equality retains recipe identity."
+    )]
     static RECIPES: std::sync::OnceLock<UiRecipes> = std::sync::OnceLock::new();
     RECIPES.get_or_init(build).clone()
 }
 
 fn build() -> UiRecipes {
-    UiRecipes::default()
+    let recipes = UiRecipes::default()
         .button(|_| button)
         .button_content(|_| {
             |_: &Theme, _: &Look<ButtonState>| {
@@ -91,7 +95,9 @@ fn build() -> UiRecipes {
             dialog
                 .surface(|_| dialog_surface)
                 .scrim(|_| {
-                    |_: &Theme, _: &Look<DialogState>| style().background(rgba(0x050608, 0.35))
+                    |_: &Theme, _: &Look<DialogState>| {
+                        style().background(crate::color::modal_backdrop())
+                    }
                 })
                 // The title over the description, clear of the close button.
                 .header(|_| |_: &Theme, _: &Look<DialogState>| style().gap(4).padding_right(28))
@@ -110,10 +116,10 @@ fn build() -> UiRecipes {
                         .max_width(320)
                         .radius(8)
                         .color(ColorName::Text)
-                        .background(rgba(0x1e1f26, 0.94))
+                        .background(crate::color::overlay_surface())
                         .backdrop_blur(22)
                         .border(1, ColorName::HairStrong)
-                        .shadow(Shadow::new(0., 10., 24., rgba(0, 0.5)))
+                        .shadow(Shadow::new(0., 10., 24., crate::color::dialog_shadow()))
                 }
             })
         })
@@ -122,14 +128,28 @@ fn build() -> UiRecipes {
                 .tab(|_| |t: &Theme, _: &Look<TabState>| crate::layout::tab_option_style(t, false))
                 .panel(|_| |_: &Theme, _: &Look<TabState>| style())
         })
+        .toggle_group(|group| {
+            group.item(|_| {
+                |t: &Theme, s: &Look<kivact::ui::ToggleGroupItemState>| {
+                    toggle_button(t, &Look::new(s.toggle))
+                }
+            })
+        })
         .radio_group(crate::recipes_controls::radio_group)
         .slider(crate::recipes_controls::slider)
         .toast(crate::recipes_controls::toast)
         .splitter(crate::recipes_controls::splitter)
+        .alert(crate::recipes_feedback::alert)
+        .empty_state(crate::recipes_feedback::empty_state)
+        .card(crate::recipes_feedback::card)
+        .input_group(crate::recipes_feedback::input_group)
+        .table(crate::recipes_collections::table)
+        .item_list(crate::recipes_collections::item_list)
         .list(crate::recipes_collections::list)
         .data_table(crate::recipes_collections::data_table)
         .progress(crate::recipes_controls::progress)
-        .disclosure(crate::recipes_controls::disclosure)
+        .disclosure(crate::recipes_controls::disclosure);
+    crate::recipes_metrics::install(crate::recipes_indicators::install(recipes))
 }
 fn select_trigger(t: &Theme, s: &Look<SelectTriggerState>) -> Style {
     // The heights of the buttons of the same size.
@@ -191,10 +211,14 @@ fn button(t: &Theme, s: &Look<ButtonState>) -> Style {
             .hover(style().background(p.accent_high).color(p.accent_ink)),
         ButtonVariant::Danger => base.hover(style().background(p.x.with_alpha(0.16)).color(p.x)),
         ButtonVariant::Ghost | ButtonVariant::Link => base
-            .background(rgba(0, 0.))
+            .background(crate::color::transparent_ink())
             .border(0, p.hair)
             .color(p.muted)
-            .hover(style().background(rgba(0xffffff, 0.07)).color(p.text_high)),
+            .hover(
+                style()
+                    .background(crate::color::menu_hover())
+                    .color(p.text_high),
+            ),
         _ => base,
     };
     let base = match s.size {
@@ -280,11 +304,11 @@ fn dropdown_surface(t: &Theme) -> Style {
         .padding(5)
         .min_width(160)
         .radius(12)
-        .background(rgba(0x1e1f26, 0.94))
+        .background(crate::color::overlay_surface())
         .backdrop_blur(22)
-        .border(1, rgba(0xffffff, 0.1))
+        .border(1, crate::color::overlay_border())
         .color(t.ext::<Tokens>().text)
-        .shadow(Shadow::new(0., 10., 24., rgba(0, 0.6)))
+        .shadow(Shadow::new(0., 10., 24., crate::color::menu_shadow()))
 }
 fn dropdown_option(t: &Theme) -> Style {
     let p = t.ext::<Tokens>();

@@ -1,4 +1,4 @@
-//! Role: Present caller-owned chooser content through the standard popup and touch drawer.
+//! Role: Present caller-owned chooser content in a popup or touch drawer.
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::Variants;
 use kivact_core::state::{

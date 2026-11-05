@@ -16,7 +16,7 @@ fn inspector() -> impl IntoView {
         kivact::ui::switch("Use Nodes", enabled),
         kivact::ui::button("Render").variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || !enabled.get()),
-    )))
+    )).role(kivact::view::Role::List))
 }
 ```
 
@@ -38,7 +38,7 @@ kit's look from the recipes. Every component of the kit, like `kivact::ui`,
 takes the values it edits as constructor arguments and keeps no hidden copy.
 A segmented control is the standard radio group in the kit's look:
 `radio_group(label, options, value).orientation(Orientation::Horizontal)
-.variant(Segmented)`. Domain controls such as
+.variant(kivact::ui::RadioGroupVariant::Segmented)`. Domain controls such as
 `document_tabs`, the numeric fields, dock and editor surfaces remain in this
 kit; tool toggles, progress bars, inspector sections and split panes are the
 standard `kivact::ui::toggle`, `progress`, `disclosure` and `split` in its look.
@@ -104,7 +104,7 @@ Timeline and DopeSheet accept read-only item values. Their
 `on_edit(|event: EditorEvent<TimeRequest>| ..)` reports `Begin`, absolute `Retime`
 or `Delete` requests, and `Commit` or `Cancel`. Applications apply requests to
 their own items and restore them on cancellation; ignored requests leave items
-unchanged. Playhead, selection, zoom and pan are the bindings of `TimeState`. Each drag proposal
+unchanged. Playhead and selection are bindings of `TimeState`; its `transform: Binding<ViewTransform>` owns both the horizontal scale and pixel scroll offset. Each drag proposal
 uses the items at `Begin`, so applying only the latest request is sufficient.
 In every domain editor a drag reports `Begin` at its first change, not at the
 press: a press that does not move selects or, as a stationary double click,
@@ -209,7 +209,7 @@ restore its opener focus; outside dismissal preserves the newly focused
 control. `WindowOptions` sets a separate title, width, center or top-right
 placement, modal containment and chrome spacing (`WindowOptions::default()` is
 a 520-pixel nonmodal centered window). Its content factory receives a
-`ToolWindow` whose `close()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
+`ToolWindowApi` whose `close()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
 the factory again. Modal backdrop presses keep the confirmation open,
 while Escape closes it. Optional backdrop blur uses ordinary public styles.
 
@@ -221,14 +221,14 @@ fn tool_window() -> impl IntoView {
     ui::window_button("Settings…",
         ui::WindowOptions::default().title("Settings").width(340.0)
             .position(ui::WindowPosition::TopRight { right: 40.0, top: 120.0 }),
-        |window: ui::ToolWindow| kivact::ui::button("Apply").on_press(move || window.close()))
+        |window: ui::ToolWindowApi| kivact::ui::button("Apply").on_press(move || window.close()))
 }
 ```
 
 `window(anchor, open, options).content(content)` is the same window that the
 application opens and closes through a `Binding<bool>`; `window_button` is
 a button and a state of its own on top of it. Every way to close it (the close
-button, Escape, Dismiss, `ToolWindow::close`, an outside press on a
+button, Escape, Dismiss, `ToolWindowApi::close`, an outside press on a
 nonmodal window, unmounting) writes `false`. A nonmodal window gives the focus
 back with `anchor.restore_focus()`, which does nothing if the anchor has gone;
 a modal window gives it back to the element that had it when it opened. Each
@@ -315,4 +315,25 @@ The theme fills these `UiRecipes` entries:
 - `data_table`
 - `progress`
 - `disclosure`
+- `toggle_group`
+- `table`
+- `item_list`
+- `badge`
+- `badge_label`
+- `avatar`
+- `avatar_status`
+- `avatar_group`
+- `skeleton`
+- `spinner`
+- `kbd`
+- `kbd_key`
+- `alert`
+- `empty_state`
+- `card`
+- `input_group`
+- `heading`
+- `stat`
+- `description_list`
 <!-- /kivact-recipes -->
+
+Rows follow the core layout direction automatically, including right-to-left layouts.

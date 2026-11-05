@@ -58,7 +58,7 @@ fn layout_components_mount_and_interact() {
         let target = node_ref();
         let resize = signal(250.0);
         column((
-            soft::card(
+            kivact::ui::card(soft::with_card_insets(Default::default(), move || {
                 soft::layout()
                     .height(soft::LayoutHeight::Auto)
                     .header(soft::layout_header(text("Header")).divider(true))
@@ -79,9 +79,11 @@ fn layout_components_mount_and_interact() {
                             soft::form_layout(soft::form_row(text("Label"), text("Value"))),
                         ))))
                         .scrollable(false)
-                    }),
-            ),
-            soft::selectable_card("Select option", selected, text("Selectable")),
+                    })
+            })),
+            kivact::ui::card(text("Selectable"))
+                .name("Select option")
+                .selected(selected),
             kivact::ui::disclosure("Disclosure", open).content(|| text("Disclosure body")),
             soft::pagination(page).total_pages(20),
             soft::tab_list("Test tabs", tab)
@@ -90,15 +92,26 @@ fn layout_components_mount_and_interact() {
                     "More",
                     vec![soft::TabMenuOption::new("three", "Three")],
                 )),
-            soft::stepper(1, [soft::step(0, "One"), soft::step(1, "Two")]),
-            soft::carousel(
-                "Pictures",
-                (0..3).map(|i| {
-                    node()
-                        .style(style().size(100, 32))
-                        .child(text(i.to_string()))
-                }),
+            kivact::ui::stepper(
+                vec![
+                    kivact::ui::StepperItem::new("One"),
+                    kivact::ui::StepperItem::new("Two"),
+                ],
+                1usize,
+            ),
+            kivact::ui::carousel(
+                signal(0usize),
+                (0..3)
+                    .map(|i| {
+                        node()
+                            .style(style().size(100, 32))
+                            .child(text(i.to_string()))
+                    })
+                    .collect::<Vec<_>>(),
             )
+            .name("Pictures")
+            .mode(kivact::ui::CarouselMode::Scroll)
+            .snap(kivact::interaction::Snap::None)
             .style(style().width(160)),
             row((
                 soft::outline(vec![soft::OutlineItem::new("a", "Outline link", 2, target)])
@@ -244,4 +257,44 @@ fn segmented_hint_attaches_to_the_canonical_radio_target() {
     screen.advance(std::time::Duration::from_millis(200));
     assert!(screen.query_by_text("to navigate").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn compact_steps_skip_disabled_items_and_all_keeps_its_structure() {
+    let (screen, current) = kivact::test::render_with_handle(options(400.0), || {
+        let current = signal(0usize);
+        (
+            current,
+            kivact::ui::stepper(
+                vec![
+                    kivact::ui::StepperItem::new("First"),
+                    kivact::ui::StepperItem::new("Skipped").disabled(true),
+                    kivact::ui::StepperItem::new("Last"),
+                ],
+                current,
+            )
+            .on_step_press(move |at| current.set(at))
+            .style(style().width(170)),
+        )
+    });
+    screen.get_by_role(Role::Button, "Next step").click();
+    assert_eq!(current.get_untracked(), 2);
+    screen.get_by_role(Role::Button, "Previous step").click();
+    assert_eq!(current.get_untracked(), 0);
+    assert!(screen.query_by_role(Role::ListItem, "Skipped").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    let all = kivact::test::render_with(options(400.0), || {
+        kivact::ui::stepper(
+            vec![
+                kivact::ui::StepperItem::new("First"),
+                kivact::ui::StepperItem::new("Last"),
+            ],
+            0usize,
+        )
+        .collapsed_steps(kivact::ui::CollapsedSteps::All)
+        .style(style().width(100))
+    });
+    assert!(all.get_by_role(Role::ListItem, "First").is_visible());
+    assert!(all.get_by_role(Role::ListItem, "Last").is_visible());
+    assert!(all.errors().is_empty(), "{:?}", all.errors());
 }

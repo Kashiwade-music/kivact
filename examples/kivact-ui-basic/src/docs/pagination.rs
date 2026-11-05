@@ -2,7 +2,6 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -21,8 +20,8 @@ pub(crate) fn page() -> Page {
             ),
             Example::new(
                 "manual",
-                "Manual",
-                "pagination_link、pagination_previous、pagination_next、pagination_ellipsis を自分で並べることもできます。",
+                "Custom cell contents",
+                "item スロットでセルの見た目を変更しても、移動と選択は同じページ束縛を使います。",
                 manual,
             ),
             Example::new(
@@ -45,7 +44,12 @@ pub(crate) fn page() -> Page {
 fn pages() -> impl IntoView {
     let page = signal(0usize);
     column((
-        basic::pagination(page, 5usize),
+        kivact::ui::pagination(5usize, page).item(|item| match item {
+            PageItem::Previous => row((icon("chevron-left"), text("Previous"))).into_view(),
+            PageItem::Next => row((text("Next"), icon("chevron-right"))).into_view(),
+            PageItem::Page(n) => text((n + 1).to_string()).into_view(),
+            _ => icon("ellipsis").into_view(),
+        }),
         text(move || format!("Page {} of 5", page.get() + 1)).style(style().font_size(12)),
     ))
     .style(style().gap(12).align_items(Align::Center))
@@ -54,27 +58,33 @@ fn pages() -> impl IntoView {
 
 // example: manual
 fn manual() -> impl IntoView {
-    basic::pagination_content((
-        basic::pagination_previous(),
-        basic::pagination_link("1"),
-        basic::pagination_link("2").active(true),
-        basic::pagination_link("3"),
-        basic::pagination_ellipsis(),
-        basic::pagination_next(),
-    ))
+    let page = signal(1usize);
+    kivact::ui::pagination(10usize, page)
+        .siblings(0usize)
+        .item(|item| match item {
+            PageItem::Previous => row((icon("chevron-left"), text("Previous"))).into_view(),
+            PageItem::Next => row((text("Next"), icon("chevron-right"))).into_view(),
+            PageItem::Page(n) => text((n + 1).to_string()).into_view(),
+            _ => icon("ellipsis").into_view(),
+        })
 }
 // end example
 
 // example: labels
 fn labels() -> impl IntoView {
     let page = signal(1usize);
-    basic::pagination(page, 5usize).label_format(|number| format!("p.{number}"))
+    kivact::ui::pagination(5usize, page).label_format(|number| format!("p.{number}"))
 }
 // end example
 
 // example: long
 fn long() -> impl IntoView {
     let page = signal(41usize);
-    basic::pagination(page, 100usize)
+    kivact::ui::pagination(100usize, page).item(|item| match item {
+        PageItem::Previous => row((icon("chevron-left"), text("Previous"))).into_view(),
+        PageItem::Next => row((text("Next"), icon("chevron-right"))).into_view(),
+        PageItem::Page(n) => text((n + 1).to_string()).into_view(),
+        _ => icon("ellipsis").into_view(),
+    })
 }
 // end example

@@ -50,8 +50,14 @@ fn default() -> impl IntoView {
 // example: group
 fn group() -> impl IntoView {
     column((
-        row((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("B"))).style(style().align_items(Align::Center).gap(4)),
-        row((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("Shift"), kivact::ui::kbd("P"))).style(style().align_items(Align::Center).gap(4)),
+        row((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("B")))
+            .style(style().align_items(Align::Center).gap(4)),
+        row((
+            kivact::ui::kbd("Ctrl"),
+            kivact::ui::kbd("Shift"),
+            kivact::ui::kbd("P"),
+        ))
+        .style(style().align_items(Align::Center).gap(4)),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }

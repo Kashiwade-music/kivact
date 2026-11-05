@@ -39,7 +39,7 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
-    basic::alert("Heads up!")
+    kivact::ui::alert("Heads up!")
         .icon(icon("info"))
         .description("You can add components to your app using the CLI.")
         .style(style().width(420))
@@ -48,8 +48,8 @@ fn default() -> impl IntoView {
 
 // example: destructive
 fn destructive() -> impl IntoView {
-    basic::alert("Unable to process your payment.")
-        .variant(basic::AlertVariant::Destructive)
+    kivact::ui::alert("Unable to process your payment.")
+        .variant(basic::AlertLook::Destructive)
         .icon(icon("circle-alert"))
         .description("Please verify your billing information and try again.")
         .style(style().width(420))
@@ -58,10 +58,10 @@ fn destructive() -> impl IntoView {
 
 // example: action
 fn with_action() -> impl IntoView {
-    basic::alert("Update available")
+    kivact::ui::alert("Update available")
         .icon(icon("download"))
         .description("A new version is ready to install.")
-        .action({
+        .actions({
             button("Undo")
                 .variant(ButtonVariant::Outline)
                 .size(ControlSize::Small)

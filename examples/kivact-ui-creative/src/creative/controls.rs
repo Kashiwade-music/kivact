@@ -15,6 +15,42 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
     let curve = signal(ui::CubicBezier::default());
     specs((
         spec(
+            "Static collections",
+            "一覧と表の意味を標準部品で公開",
+            col((
+                kivact::ui::table((
+                    kivact::ui::table_header((kivact::ui::table_row((
+                        kivact::ui::table_head("Asset"),
+                        kivact::ui::table_head("State"),
+                    )),)),
+                    kivact::ui::table_body((kivact::ui::table_row((
+                        kivact::ui::table_cell("Camera"),
+                        kivact::ui::table_cell("Ready"),
+                    )),)),
+                )),
+                kivact::ui::item_list((
+                    kivact::ui::item_row("Render queue").description("All frames are ready"),
+                )),
+            )),
+        ),
+        spec(
+            "Standard indicators",
+            "状態・読み込み・ショートカット",
+            col((
+                line((
+                    kivact::ui::badge("Ready").tone(kivact::interaction::Tone::Success),
+                    kivact::ui::avatar("Ada Lovelace")
+                        .size(kivact::ui::ControlSize::Small)
+                        .status(Some(kivact::interaction::Tone::Success)),
+                    kivact::ui::spinner().size(kivact::ui::ControlSize::Small),
+                    kivact::ui::kbd("mod+shift+p"),
+                )),
+                kivact::ui::skeleton()
+                    .lines(2)
+                    .shape(kivact::ui::SkeletonShape::Text),
+            )),
+        ),
+        spec(
             "Cubic easing",
             "同じ曲線を編集・プレビュー",
             col((
@@ -119,7 +155,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                     signal(Some("object".to_owned())),
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented),
+                .variant(kivact::ui::RadioGroupVariant::Segmented),
                 kivact::ui::radio_group(
                     "Pivot",
                     keyed_options([
@@ -133,7 +169,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                     signal(Some("median".to_owned())),
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented),
+                .variant(kivact::ui::RadioGroupVariant::Segmented),
                 kivact::ui::radio_group(
                     "Interpolation",
                     keyed_options([
@@ -144,7 +180,7 @@ pub(super) fn buttons(status: Signal<String>) -> impl IntoView {
                     interpolation,
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented),
+                .variant(kivact::ui::RadioGroupVariant::Segmented),
             )),
         ),
         spec(
@@ -367,7 +403,7 @@ pub(super) fn selection() -> impl IntoView {
                 ui::property_row("Blend Mode", kivact::ui::select("Blend Mode", keyed_options([("normal", "Normal"), ("dissolve", "Dissolve"), ("darken", "Darken"), ("multiply", "Multiply"), ("color-burn", "Color Burn"), ("linear-burn", "Linear Burn"), ("lighten", "Lighten"), ("screen", "Screen"), ("color-dodge", "Color Dodge"), ("add", "Add"), ("overlay", "Overlay"), ("soft-light", "Soft Light"), ("hard-light", "Hard Light"), ("hue", "Hue"), ("saturation", "Saturation"), ("color", "Color"), ("luminosity", "Luminosity")]), signal(Some("screen".to_owned()))).placeholder("").name("Blend Mode").style(style().width(pct(100)))),
                 ui::property_row("Sample Rate", kivact::ui::select("Sample Rate", keyed_options([("hz44100", "44.1 kHz"), ("hz48000", "48 kHz"), ("hz88200", "88.2 kHz"), ("hz96000", "96 kHz"), ("hz192000", "192 kHz")]), signal(Some("hz48000".to_owned()))).placeholder("").name("Sample Rate").style(style().width(pct(100)))),
                 ui::property_row("Disabled",kivact::ui::select("Selection", keyed_options([("none", "None")]), signal(Some("none".to_owned()))).placeholder("").disabled(true).style(style().width(pct(100)))),
-            )).style(style().gap(3)),
+            )).role(kivact::view::Role::List).style(style().gap(3)),
         ),
         spec(
             "Text Field",

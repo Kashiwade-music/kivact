@@ -13,10 +13,10 @@ use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
 use kivact::state::{Binding, Value, signal};
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::use_theme;
-use kivact::style::{Align, Color, Icon, Position, rgba, style};
+use kivact::style::{Align, Color, Icon, Position, style};
 use kivact::view::{
-    A11yAction, ButtonPress, Handled, HandlerResult, IntoView, LiveRegion, MouseButton, NodeRef,
-    Placement, PointerPhase, Role, View, node_ref, overlay, show,
+    A11yAction, ButtonPress, Handled, HandlerResult, IntoView, MouseButton, NodeRef, Placement,
+    PointerPhase, Role, View, node_ref, overlay, show,
 };
 
 /// The colors a Creative theme gives a semantic [`Tone`].
@@ -37,92 +37,10 @@ impl ToneExt for Tone {
     }
 }
 
-/// A dismissible inline banner.
-pub struct Notice {
-    root: Node,
-    dismissible: Value<bool>,
-}
-/// Feedback banner with a visible title and body, exposed as a live region.
-#[track_caller]
-pub fn notice(tone: impl IntoValue<Tone>, title: impl IntoText, message: impl IntoText) -> Notice {
-    let title = title.into_text_value();
-    let tone = tone.into_value();
-    Notice {
-        root: row((
-            icon(move || {
-                kivact::style::Icon::named(if tone.get().is_urgent() {
-                    "warning"
-                } else {
-                    "info"
-                })
-            }),
-            column((
-                text(title).style(style().weight(600)),
-                text(message).style(style().font_size(11.5)),
-            ))
-            .style(style().gap(3).grow(1)),
-        ))
-        .role({
-            if tone.get() == Tone::Danger {
-                Role::Alert
-            } else {
-                Role::Status
-            }
-        })
-        .name(title)
-        .live_region(move || {
-            if tone.get() == Tone::Danger {
-                LiveRegion::Assertive
-            } else {
-                LiveRegion::Polite
-            }
-        })
-        .style(move || {
-            let t = &use_theme().get();
-            let p = t.ext::<crate::tokens::Tokens>();
-            let color = tone.get().color(&p);
-            style()
-                .padding(12)
-                .gap(10)
-                .radius(9)
-                .align_items(Align::Start)
-                .color(p.text)
-                .background(color.with_alpha(0.08))
-                .border(1, color.with_alpha(0.22))
-        }),
-        dismissible: false.into_value(),
-    }
-}
-impl Notice {
-    /// Show a close button while true (constant or reactive) and preserve
-    /// dismissal until the notice is remounted.
-    #[track_caller]
-    pub fn dismissible(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.dismissible = enabled.into_value();
-        self
-    }
-}
-impl NodeBuilder for Notice {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Notice {
-    fn into_view(self) -> View {
-        let hidden = signal(false);
-        self.root
-            .hidden(hidden)
-            .child(show(self.dismissible, move || {
-                kivact::ui::button(message("creative.notice.dismiss", "Dismiss notification"))
-                    .variant(ButtonVariant::Secondary)
-                    .hide_label(true)
-                    .icon(kivact::view::icon("x"))
-                    .on_press(move || hidden.set(true))
-            }))
-            .into_view()
-    }
-}
+/// The Creative inline notice appearance of a standard `kivact::ui::alert`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NoticeVariant;
+impl kivact::ui::Variant for NoticeVariant {}
 
 pub(crate) fn glass_style(t: &kivact::style::Theme) -> kivact::style::Style {
     style()
@@ -131,10 +49,10 @@ pub(crate) fn glass_style(t: &kivact::style::Theme) -> kivact::style::Style {
         .min_width(220)
         .radius(12)
         .color(t.ext::<crate::tokens::Tokens>().text)
-        .background(rgba(0x1e1f26, 0.94))
+        .background(crate::color::overlay_surface())
         .backdrop_blur(22)
-        .border(1, rgba(0xffffff, 0.1))
-        .shadow(Shadow::new(0.0, 18.0, 45.0, rgba(0x000000, 0.65)))
+        .border(1, crate::color::overlay_border())
+        .shadow(Shadow::new(0.0, 18.0, 45.0, crate::color::window_shadow()))
 }
 
 /// A button that opens a nonmodal popover below it, and the popover.
@@ -152,7 +70,7 @@ pub fn popup_button<V: IntoView>(
 ) -> View {
     let label = label.into_text_value();
     let open = signal(false);
-    let close = message("creative.dialog.close", "Close");
+    let close = message("dialog.close", "Close");
     kivact::ui::dialog(label, open)
         .closable(false)
         .mode(DialogMode::Popover)
@@ -374,14 +292,14 @@ impl WindowOptions {
     }
 }
 
-/// What a tool window gives its content: [`close`](ToolWindow::close) closes
+/// What a tool window gives its content: [`close`](ToolWindowApi::close) closes
 /// the window, as its close button does.
 #[derive(Clone, Copy)]
-pub struct ToolWindow {
+pub struct ToolWindowApi {
     open: Binding<bool>,
 }
 
-impl ToolWindow {
+impl ToolWindowApi {
     /// Close the window: its `open` value becomes `false`.
     pub fn close(self) {
         self.open.set(false);
@@ -389,7 +307,7 @@ impl ToolWindow {
 }
 
 /// A button labelled `label` that opens a tool window with `options`, whose
-/// `content` gets the [`ToolWindow`] to close it.
+/// `content` gets the [`ToolWindowApi`] to close it.
 ///
 /// This is [`window`] with the button as its anchor and an open state the
 /// button keeps itself. The window's title is [`WindowOptions::title`], or
@@ -399,7 +317,7 @@ impl ToolWindow {
 pub fn window_button<V: IntoView>(
     label: impl IntoText,
     options: WindowOptions,
-    content: impl Fn(ToolWindow) -> V + 'static,
+    content: impl Fn(ToolWindowApi) -> V + 'static,
 ) -> impl kivact::view::Component {
     let label = label.into_text_value();
     let title = options.title.clone().map_or(label, IntoValue::into_value);
@@ -420,12 +338,12 @@ pub fn window_button<V: IntoView>(
 /// A tool window that the application opens and closes through `open`.
 ///
 /// The window has a title bar to drag and, unless it is modal, to collapse,
-/// a close button, and `content`, which gets the [`ToolWindow`] to close the
+/// a close button, and `content`, which gets the [`ToolWindowApi`] to close the
 /// window. `anchor` is the node the window belongs to, usually the control
 /// that opens it. `open` is the only state: the window mounts when it
 /// becomes `true`, and it is written `false` by the close button, Escape,
 /// Dismiss from assistive technology, an outside press on a nonmodal window,
-/// [`ToolWindow::close`] and the unmounting of the window's part itself. A
+/// [`ToolWindowApi::close`] and the unmounting of the window's part itself. A
 /// modal window keeps input and focus inside it and ignores an outside press.
 /// The title is [`WindowOptions::title`], or the message `window.untitled`
 /// ("Window").
@@ -433,7 +351,7 @@ pub fn window_button<V: IntoView>(
 /// Each time the window opens it starts expanded at its initial position,
 /// whatever the earlier use left.
 ///
-/// After Escape, the close button, [`ToolWindow::close`] or Dismiss, a
+/// After Escape, the close button, [`ToolWindowApi::close`] or Dismiss, a
 /// nonmodal window uses the shared dialog to restore its anchor when focus
 /// was inside it. An unavailable anchor is harmless. A modal window gives it
 /// back to the element that had it when the window opened. An outside press
@@ -452,19 +370,15 @@ pub fn window_button<V: IntoView>(
 ///             anchor,
 ///             open,
 ///             ui::WindowOptions::default().title("Tool"),
-///         ).content(|window: ui::ToolWindow| {
+///         ).content(|window: ui::ToolWindowApi| {
 ///                 kivact::ui::button("Done").on_press(move || window.close())
 ///             }),
 ///     ))
 /// }
 /// ```
 #[track_caller]
-pub fn window(
-    anchor: NodeRef,
-    open: impl IntoBinding<bool>,
-    options: WindowOptions,
-) -> ToolWindowBuilder {
-    ToolWindowBuilder {
+pub fn window(anchor: NodeRef, open: impl IntoBinding<bool>, options: WindowOptions) -> ToolWindow {
+    ToolWindow {
         root: column(()),
         anchor,
         open: open.into_binding(),
@@ -473,27 +387,27 @@ pub fn window(
     }
 }
 /// Tool-window description; content is rebuilt on every opening.
-pub struct ToolWindowBuilder {
+pub struct ToolWindow {
     root: Node,
     anchor: NodeRef,
     open: Binding<bool>,
     options: WindowOptions,
-    content: kivact::view::ViewFn<ToolWindow>,
+    content: kivact::view::ViewFn<ToolWindowApi>,
 }
-impl ToolWindowBuilder {
+impl ToolWindow {
     /// Content built on opening; empty by default.
-    pub fn content<V: IntoView>(mut self, content: impl Fn(ToolWindow) -> V + 'static) -> Self {
+    pub fn content<V: IntoView>(mut self, content: impl Fn(ToolWindowApi) -> V + 'static) -> Self {
         self.content = kivact::view::ViewFn::from(content);
         self
     }
 }
-impl NodeBuilder for ToolWindowBuilder {
+impl NodeBuilder for ToolWindow {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
-impl IntoView for ToolWindowBuilder {
+impl IntoView for ToolWindow {
     fn into_view(self) -> View {
         let title = self.options.title.clone().map_or_else(
             || message("creative.window.untitled", "Window"),
@@ -518,7 +432,7 @@ fn window_layer<V: IntoView>(
     open: Binding<bool>,
     options: WindowOptions,
     title: Value<String>,
-    content: impl Fn(ToolWindow) -> V + 'static,
+    content: impl Fn(ToolWindowApi) -> V + 'static,
 ) -> Node {
     let value = open.into_value();
     kivact::state::on_cleanup(move || {
@@ -540,7 +454,7 @@ fn window_layer<V: IntoView>(
             outside: false,
         });
     }
-    let close = ToolWindow { open };
+    let close = ToolWindowApi { open };
     let layer = show(dialog.is_open(), move || {
         // Made again at each opening, so a window starts expanded and in place.
         let collapsed = signal(false);
@@ -708,7 +622,7 @@ fn window_layer<V: IntoView>(
                         .bottom(0)
                         .left(0)
                         .z_index(100)
-                        .background(rgba(0x050608, 0.0))
+                        .background(crate::color::transparent_backdrop())
                         .backdrop_blur(options.backdrop_blur),
                 )
             }),

@@ -50,10 +50,10 @@ pub(crate) fn page() -> Page {
 // example: headings
 fn headings() -> impl IntoView {
     column((
-        basic::h1("Taxing Laughter"),
-        basic::h2("The People of the Kingdom"),
-        basic::h3("The Joke Tax"),
-        basic::h4("People stopped telling jokes"),
+        kivact::ui::heading("Taxing Laughter", 1),
+        kivact::ui::heading("The People of the Kingdom", 2),
+        kivact::ui::heading("The Joke Tax", 3),
+        kivact::ui::heading("People stopped telling jokes", 4),
     ))
     .style(style().gap(16).width(pct(100)))
 }

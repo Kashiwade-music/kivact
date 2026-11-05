@@ -16,13 +16,6 @@ use kivact::style::{
 };
 use kivact::ui::{DialogRecipes, DialogState, Look};
 
-/// A popover drawn without its padding (`p-0`), for a panel whose content
-/// draws its own, such as the date picker's calendar.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Flush;
-
-impl kivact::ui::Variant for Flush {}
-
 /// The width class of an alert dialog; `Default` when it has none.
 fn alert_size(s: &Look<DialogState>) -> AlertDialogSize {
     s.variant::<AlertDialogSize>().copied().unwrap_or_default()
@@ -98,21 +91,21 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
     match s.kind {
         // popover.tsx: `w-72 p-2.5 gap-2.5 shadow-md`; `p-0` for a flush one.
         DialogMode::Popover => {
-            let pad = if s.variant::<Flush>().is_some() {
+            let pad = if s.variant::<crate::DatePickerVariant>().is_some() {
                 0
             } else {
                 10
             };
-            shadow_md(base)
-                .width(288)
-                .max_width(pct(100))
-                .padding(pad)
-                .gap(pad)
+            let base = if s.variant::<crate::DatePickerVariant>().is_some() {
+                base.width(auto())
+            } else {
+                base.width(288)
+            };
+            shadow_md(base).max_width(pct(100)).padding(pad).gap(pad)
         }
         // sheet.tsx: `shadow-lg` and the border of the inner edge, no ring.
         DialogMode::Drawer(side) => {
-            let base = if s.variant::<crate::DrawerVariant>() == Some(&crate::DrawerVariant::Drawer)
-            {
+            if s.variant::<crate::DrawerVariant>() == Some(&crate::DrawerVariant::Drawer) {
                 let base = sheet(base.ring_none(), side, &p).position(Position::Relative);
                 match side {
                     Edge::Top => base.padding_bottom(12).max_height(pct(100) - 96),
@@ -122,8 +115,7 @@ fn surface(t: &Theme, s: &Look<DialogState>) -> Style {
                 }
             } else {
                 sheet(shadow_lg(base.ring_none()), side, &p)
-            };
-            base
+            }
         }
         // alert-dialog.tsx: `max-w-sm` or `max-w-xs`.
         DialogMode::AlertModal => base

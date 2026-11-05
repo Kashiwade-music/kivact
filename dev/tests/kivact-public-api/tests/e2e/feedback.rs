@@ -161,13 +161,20 @@ fn controlled_alert_keeps_refused_visibility_and_notifies_after_acceptance() {
         let visible = signal(true);
         let accept = signal(false);
         let dismissed = signal(0);
-        ((visible, accept, dismissed), column((
-            ui::button("Outside"),
-            ui::alert("Controlled alert")
-                .visible(binding(visible, move |next| if accept.get_untracked() { visible.set(next); }))
-                .dismiss_label("Dismiss controlled alert")
-                .on_dismiss(move || dismissed.update(|count| *count += 1)),
-        )))
+        (
+            (visible, accept, dismissed),
+            column((
+                ui::button("Outside"),
+                ui::alert("Controlled alert")
+                    .visible(binding(visible, move |next| {
+                        if accept.get_untracked() {
+                            visible.set(next);
+                        }
+                    }))
+                    .dismiss_label("Dismiss controlled alert")
+                    .on_dismiss(move || dismissed.update(|count| *count += 1)),
+            )),
+        )
     });
     let outside = screen.get_by_role(Role::Button, "Outside");
     outside.focus();
@@ -176,18 +183,56 @@ fn controlled_alert_keeps_refused_visibility_and_notifies_after_acceptance() {
     assert!(visible.get_untracked());
     assert!(screen.get_by_role(Role::Alert, "Controlled alert").exists());
     assert_eq!(dismissed.get_untracked(), 0);
-    assert!(dismiss.is_focused(), "a refused request does not restore focus");
+    assert!(
+        dismiss.is_focused(),
+        "a refused request does not restore focus"
+    );
     accept.set(true);
     dismiss.click();
     assert!(!visible.get_untracked());
     assert_eq!(dismissed.get_untracked(), 1);
     assert!(outside.is_focused());
-    assert!(screen.query_by_role(Role::Alert, "Controlled alert").is_none());
+    assert!(
+        screen
+            .query_by_role(Role::Alert, "Controlled alert")
+            .is_none()
+    );
     visible.set(true);
     screen.run_until_idle();
     assert!(screen.get_by_role(Role::Alert, "Controlled alert").exists());
-    screen.get_by_role(Role::Button, "Dismiss controlled alert").click();
+    screen
+        .get_by_role(Role::Button, "Dismiss controlled alert")
+        .click();
     assert_eq!(dismissed.get_untracked(), 2);
     assert!(outside.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn input_group_addons_focus_controls_without_stealing_nested_button_focus() {
+    let (screen, presses) = render_with_handle(options(), || {
+        let presses = signal(0usize);
+        (
+            presses,
+            ui::input_group(
+                "Search group",
+                (
+                    ui::input_addon("Prefix"),
+                    ui::text_input("Search", signal(String::new())),
+                ),
+            )
+            .start(text("Search icon").test_id("search-addon"))
+            .end(ui::button("Copy").on_press(move || presses.update(|n| *n += 1)))
+            .block_end(text("Hint").test_id("search-hint")),
+        )
+    });
+    let input = screen.get_by_role(Role::TextBox, "Search");
+    screen.get_by_test_id("search-addon").click();
+    assert!(input.is_focused());
+    screen.get_by_role(Role::Button, "Copy").click();
+    assert_eq!(presses.get_untracked(), 1);
+    assert!(screen.get_by_role(Role::Button, "Copy").is_focused());
+    screen.get_by_test_id("search-hint").click();
+    assert!(input.is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

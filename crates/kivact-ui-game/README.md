@@ -40,14 +40,17 @@ fn main() -> kivact::Result<()> {
   `.variant(ChoiceCard)`, `tabs(..).variant(Boxed)` and
   `tabs(..).variant(Navigation)` give the kit's other looks.
 - **State.** Components take their values as signals or bindings owned by the
-  application. Collection components report requests (`on_add`, `on_remove`,
-  `on_dismiss`); the application applies or rejects them.
+  application. Core builders expose their controlled bindings and action callbacks;
+  Game recipes supply their visual treatment.
 - **Texts.** Default texts are English; replace them with `App::messages`.
+
+- **Reading direction.** Standard components inherit the Core reading direction and
+  automatically reverse their rows where appropriate; the Game theme supplies visual recipes.
 
 ## Documentation
 
 - Tutorial and how-to guides: [English](../../docs/for-kivact-ui-user/en/game/getting-started/README.md),
-  [譌･譛ｬ隱枉(../../docs/for-kivact-ui-user/jp/game/getting-started/README.md)
+  [日本語](../../docs/for-kivact-ui-user/jp/game/getting-started/README.md)
 - API reference: `cargo doc -p kivact-ui-game --open`
 - Catalog: `cargo run -p kivact-ui-game-catalog` from the repository root
 
@@ -62,6 +65,13 @@ MIT OR Apache-2.0. The bundled Tabler icons are MIT
 | Recreated when opened: dialogs, drawers, collapsibles and hover cards | `impl IntoViewFn<V>`, stored as `ViewFn` |
 | Per-item content | `impl Fn(A) -> V`, stored as `ViewFn<A>` |
 | Individually wrapped children | `impl IntoChildren` |
+
+The recipe files follow the same categories as Pop: base controls in `recipes.rs`,
+selection and overlay geometry in `recipes_extra.rs`, and dedicated avatar, badge,
+collection, feedback, field, file, group, indicator, input, item and palette leaves.
+Game-specific metric, navigation and segmented progress geometry have their own leaves.
+The catalog reads byte-identical Noto Sans JP and its OFL notice from
+[`examples/shared-assets/fonts`](../../examples/shared-assets/fonts/SOURCE.md).
 
 ## Filled recipes
 

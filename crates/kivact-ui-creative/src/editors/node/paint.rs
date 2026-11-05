@@ -91,22 +91,7 @@ fn item(
             draw.region(id, r);
         }
     }
-    if let Some(image) = &node.preview {
-        let preview = Rect::new(r.x + 10.0, r.y + r.height - 65.0, r.width - 20.0, 55.0);
-        let scale = (preview.width / image.width as f64).min(preview.height / image.height as f64);
-        let width = image.width as f64 * scale;
-        let height = image.height as f64 * scale;
-        draw.pixels(
-            image,
-            Rect::new(
-                preview.x + (preview.width - width) / 2.0,
-                preview.y + (preview.height - height) / 2.0,
-                width,
-                height,
-            ),
-            kivact::draw::ImageOptions::default(),
-        );
-    }
+    preview(draw, node, r);
     if node.muted {
         draw.line(
             kivact::geometry::Point::new(r.x, r.y + r.height),
@@ -194,4 +179,23 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
             draw.stroke_rect(Rect::from_points(from, to), 1.0, p.accent);
         }
     });
+}
+
+fn preview(draw: &mut Draw, node: &NodeData, r: Rect) {
+    if let Some(image) = &node.preview {
+        let preview = Rect::new(r.x + 10.0, r.y + r.height - 65.0, r.width - 20.0, 55.0);
+        let scale = (preview.width / image.width as f64).min(preview.height / image.height as f64);
+        let width = image.width as f64 * scale;
+        let height = image.height as f64 * scale;
+        draw.pixels(
+            image,
+            Rect::new(
+                preview.x + (preview.width - width) / 2.0,
+                preview.y + (preview.height - height) / 2.0,
+                width,
+                height,
+            ),
+            kivact::draw::ImageOptions::default(),
+        );
+    }
 }

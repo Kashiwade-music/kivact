@@ -1,4 +1,4 @@
-//! Role: Show one timed keyboard-navigation hint for a caller-owned group of actual targets.
+//! Role: Show one timed navigation hint on actual keyboard targets.
 use kivact::motion::{Easing, Transition};
 use kivact::state::{
     IntoValue, Machine, MachineHandle, Step, effect, machine, on_cleanup, provide, try_use_context,

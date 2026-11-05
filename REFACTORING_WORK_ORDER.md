@@ -2220,7 +2220,7 @@ wave W6。付録 C の作業。
 
 ### K-1a calendar と日付の入力
 
-- **実装時の契約補完**: `calendar(impl Into<CalendarSelection>)`。CalendarSelection は Single/Range の binding descriptor で、Signal/Binding<Option<CalendarDate/DateRange>> の4つの From と恒等変換を受ける。集合用 IntoSelection は変えない。RangePick::Picking は anchor/preview と取消用 before: Option<DateRange> を持つ。time_input.format は TimeStyle、date_time_input は time_format(TimeStyle) を持つ。日付 field は placeholder/format_with/valid を保持し、valid は遷移から出力する。
+- **実装時の契約補完**: picker_labelと実invokerのreturn_focus、spinbuttonはUp/Incrementで増加、Down/Decrementで減少。`calendar(impl Into<CalendarSelection>)`。CalendarSelection は Single/Range の binding descriptor で、Signal/Binding<Option<CalendarDate/DateRange>> の4つの From と恒等変換を受ける。集合用 IntoSelection は変えない。RangePick::Picking は anchor/preview の未確定候補だけを持つ。2点目だけで binding に確定し、Cancel は未変更 binding を保つ。time_input.format は TimeStyle、date_time_input は time_format(TimeStyle) を持つ。日付 field は placeholder/format_with/valid を保持し、valid は遷移から出力する。
 
 - **目的**: 付録 C.2 の calendar と date inputs。付録 A の SM-K18、SM-K19、SM-K20、SM-K28（month swipe）、SM-K29、SM-K911、SM-K912、SM-K913。
 - **決定済みの形**:

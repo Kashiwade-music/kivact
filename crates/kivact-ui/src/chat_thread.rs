@@ -103,7 +103,10 @@ impl IntoView for ChatThread {
     fn into_view(self) -> View {
         let viewport = self.viewport.unwrap_or_else(node_ref);
         let content = node_ref();
-        let follow = use_follow_end(viewport, content, 24.0, self.history_revision);
+        let slack = kivact_core::style::use_tokens::<crate::UiTokens>()
+            .chat
+            .follow_slack;
+        let follow = use_follow_end(viewport, content, slack, self.history_revision);
         let distance = follow.distance();
         let state = move || ChatThreadState {
             distance: distance.get(),
@@ -153,7 +156,10 @@ impl IntoView for ChatThread {
                 "chat_thread.jump",
                 "Jump to latest",
             ))
-            .hidden(move || !shown.get() || distance.get() <= 24.0)
+            .variant(crate::ButtonVariant::Outline)
+            .icon(kivact_core::view::icon("arrow-down"))
+            .hide_label(true)
+            .hidden(move || !shown.get() || distance.get() <= slack)
             .on_press(move || follow.jump_to_end()),
             |r| r.chat_thread_recipes().scroll_button_recipe(),
             &self.variants,

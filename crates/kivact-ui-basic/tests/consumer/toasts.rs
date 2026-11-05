@@ -1,6 +1,5 @@
 //! Role: Toast tests: variants, actions, timing and the stack that opens on hover.
 
-use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::Screen;
@@ -22,17 +21,22 @@ fn page(child: impl IntoView) -> Node {
 
 /// Mount a page with a toaster and a button that pushes `make()`.
 fn toast_page(make: fn() -> kivact::interaction::Toast) -> (Screen, ()) {
-    kivact::test::render_with_handle(crate::support::options(), move || {
-        (
-            (),
-            page((
-                kivact::ui::button("Show").on_press(move || {
-                    kivact::interaction::toaster().push(make());
-                }),
-                kivact::ui::toast_region(kivact::interaction::toaster()).hold_all_on_hover(true),
-            )),
-        )
-    })
+    kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        move || {
+            (
+                (),
+                page((
+                    kivact::ui::button("Show").on_press(move || {
+                        kivact::interaction::toaster().push(make());
+                    }),
+                    kivact::ui::toast_region(kivact::interaction::toaster())
+                        .hold_all_on_hover(true),
+                )),
+            )
+        },
+    )
 }
 
 #[test]
@@ -52,7 +56,8 @@ fn toast_shows_title_description_and_leaves_after_five_seconds() {
         "right-aligned with a 16 px margin"
     );
     assert_eq!(rect.y + rect.height, 600.0 - 16.0, "16 px above the bottom");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
     screen.assert_layout();
     screen.advance(Duration::from_millis(4900));
     screen.get_by_role(Role::Status, "Event has been created");
@@ -63,5 +68,6 @@ fn toast_shows_title_description_and_leaves_after_five_seconds() {
             .is_none(),
         "gone after the default 5 seconds"
     );
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

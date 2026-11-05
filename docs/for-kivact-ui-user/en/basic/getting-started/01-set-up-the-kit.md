@@ -51,7 +51,7 @@ fn fonts() -> Vec<&'static [u8]> {
 
 fn settings() -> impl IntoView {
     column((
-        basic::h3("Settings"),
+        kivact::ui::heading("Settings", 3),
         basic::muted("Manage your profile and notifications."),
     ))
     .style(
@@ -78,7 +78,7 @@ Run it with `cargo run`. You should see a white window with the heading "Setting
 ## What the code does
 
 - `basic::theme(mode)` returns a Kivact `Theme`. It carries the kit's colors, spacing, 12 px text and the drawing rules (recipes) for every standard control: buttons, switches, inputs, selects, dialogs and more. You pass it to `App::theme`, and every standard component under the app looks like the Lyra preset without any further code.
-- `basic::h3` and `basic::muted` are the kit's typography helpers. They return a `Node`, the plain building block of a view, so you can place them anywhere.
+- `kivact::ui::heading(value, 3)` and `basic::muted` are the kit's typography helpers. They return a `Node`, the plain building block of a view, so you can place them anywhere.
 - `basic::ColorName` names a color of the kit's palette, such as `Background` or `Foreground`. A style that uses it reads the color from the theme that is active when it is drawn. That is why it follows the theme when you switch it in step 3. The root view is painted with the page colors so that the whole window follows the theme, the way a page sets its colors on `body` in CSS.
 - `fonts()` is where the app's font files go. The kit does not ship fonts; the `Typography` change in `theme` asks for the family `Inter`, with `sans-serif` as the fallback. Until you register Inter, the system font is used, and everything in this tutorial still works.
 

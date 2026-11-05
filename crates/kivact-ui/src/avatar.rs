@@ -1,8 +1,9 @@
 //! Role: Display reactive person images with initials and semantic status fallback.
+use crate::avatar_initials::initials;
 use crate::variants::Variants;
 use crate::{AvatarShape, AvatarState, ControlSize, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
-use kivact_core::style::{Position, pct, style};
+use kivact_core::style::{Align, Justify, Position, pct, style};
 use kivact_core::view::{
     Asset, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, NodeBuilder, Role, View, ViewFn,
     dynamic, node, node_ref, text,
@@ -116,7 +117,12 @@ fn picture(
                 .size(pct(100), pct(100)),
         );
     node()
-        .style(style().size(pct(100), pct(100)))
+        .style(
+            style()
+                .size(pct(100), pct(100))
+                .align_items(Align::Center)
+                .justify_content(Justify::Center),
+        )
         .child(photo)
         .child(kivact_core::view::show(
             move || status.get() != ImageStatus::Ready,
@@ -133,13 +139,6 @@ fn fallback_view(name: Value<String>, content: Option<&ViewFn>) -> View {
         None => text(move || initials(&name.get())).into_view(),
     }
 }
-fn initials(name: &str) -> String {
-    name.split_whitespace()
-        .filter_map(|s| s.chars().next())
-        .take(2)
-        .flat_map(char::to_uppercase)
-        .collect()
-}
 impl IntoView for Avatar {
     fn into_view(mut self) -> View {
         let name = self.name;
@@ -150,23 +149,7 @@ impl IntoView for Avatar {
         let src = self.src;
         let fallback = self.fallback;
         let fallback_content = self.fallback_content;
-        let status_label = status_label(status);
-        let source = move || {
-            if status_label.get().is_some() {
-                AvatarStatusSource::Mounted {
-                    label: status_label,
-                }
-            } else {
-                AvatarStatusSource::None
-            }
-        };
-        let label = move || match source() {
-            AvatarStatusSource::None => accessible_name.get(),
-            AvatarStatusSource::Mounted { label } => label.get().map_or_else(
-                || accessible_name.get(),
-                |label| format!("{}, {label}", accessible_name.get()),
-            ),
-        };
+        let label = accessible_label(accessible_name, status);
         let content = dynamic(
             move || (src.get(), fallback.get()),
             move |(asset, fallback)| match (asset, fallback) {
@@ -175,40 +158,41 @@ impl IntoView for Avatar {
                 (None, None) => fallback_view(name, fallback_content.as_ref()),
             },
         );
+        let state = move || AvatarState {
+            size: size.get(),
+            shape: shape.get(),
+            status: status.get(),
+        };
+        let image = crate::layer::with_recipe_style(
+            node().child(content),
+            |r| r.avatar_image_recipe(),
+            &self.variants,
+            state,
+        );
+        let status_badge = status_badge(size, shape, status, &self.variants);
+        let status_content = self.status_content.map(|content| {
+            crate::layer::with_recipe_style(
+                node().child(content),
+                |r| r.avatar_status_content_recipe(),
+                &self.variants,
+                state,
+            )
+        });
         crate::layer::with_base_recipe_style(
             self.root.name(label),
             |r| r.avatar_recipe(),
             &self.variants,
-            move || AvatarState {
-                size: size.get(),
-                shape: shape.get(),
-                status: status.get(),
-            },
+            state,
         )
         .base_style(style().position(Position::Relative))
-        .child(content)
-        .child(self.status_content)
-        .child(kivact_core::view::show(
-            move || status.get().is_some(),
-            move || {
-                crate::layer::with_base_recipe_style(
-                    node(),
-                    |r| r.avatar_status_recipe(),
-                    &crate::variants::Variants::default(),
-                    move || AvatarState {
-                        size: size.get(),
-                        shape: shape.get(),
-                        status: status.get(),
-                    },
-                )
-            },
-        ))
+        .child(image)
+        .child(status_content)
+        .child(status_badge)
         .into_view()
     }
 }
 
-/// Localize the application's semantic presence tone for the accessible name.
-fn status_label(status: Value<Option<Tone>>) -> Value<Option<String>> {
+fn accessible_label(accessible_name: Value<String>, status: Value<Option<Tone>>) -> Value<String> {
     let labels = [
         kivact_core::i18n::message("avatar.status.neutral", "Neutral"),
         kivact_core::i18n::message("avatar.status.info", "Information"),
@@ -217,7 +201,7 @@ fn status_label(status: Value<Option<Tone>>) -> Value<Option<String>> {
         kivact_core::i18n::message("avatar.status.danger", "Busy"),
         kivact_core::i18n::message("avatar.status.accent", "Active"),
     ];
-    (move || {
+    let status_label = (move || {
         status.get().map(|tone| {
             labels[match tone {
                 Tone::Neutral => 0,
@@ -230,5 +214,47 @@ fn status_label(status: Value<Option<Tone>>) -> Value<Option<String>> {
             .get()
         })
     })
+    .into_value();
+    let source = move || {
+        if status_label.get().is_some() {
+            AvatarStatusSource::Mounted {
+                label: status_label,
+            }
+        } else {
+            AvatarStatusSource::None
+        }
+    };
+    (move || match source() {
+        AvatarStatusSource::None => accessible_name.get(),
+        AvatarStatusSource::Mounted { label } => label.get().map_or_else(
+            || accessible_name.get(),
+            |label| format!("{}, {label}", accessible_name.get()),
+        ),
+    })
     .into_value()
+}
+
+fn status_badge(
+    size: Value<ControlSize>,
+    shape: Value<AvatarShape>,
+    status: Value<Option<Tone>>,
+    variants: &Variants,
+) -> View {
+    let variants = variants.clone();
+    kivact_core::view::show(
+        move || status.get().is_some(),
+        move || {
+            crate::layer::with_base_recipe_style(
+                node(),
+                |r| r.avatar_status_recipe(),
+                &variants,
+                move || AvatarState {
+                    size: size.get(),
+                    shape: shape.get(),
+                    status: status.get(),
+                },
+            )
+        },
+    )
+    .into_view()
 }

@@ -39,10 +39,10 @@
 //!
 //! # Texts
 //!
-//! The texts the components show themselves (Loading, Close, Copy,
-//! Copied, ...) are English and read through `kivact::i18n::message` under
-//! unprefixed keys that the README lists; an App replaces them with
-//! `App::messages`.
+//! Kit-owned texts, such as questionnaire actions and the sidebar toggle,
+//! use three-part `basic.*.*` keys through `kivact::i18n::message`. Standard
+//! Core components keep their standard keys. The README lists both; an App
+//! replaces messages with `App::messages`.
 
 mod alert;
 mod alert_dialog;
@@ -51,10 +51,10 @@ mod avatar;
 mod badge;
 mod breadcrumb;
 mod button;
-mod calendar;
 mod card;
 mod chart;
 mod chat;
+mod chat_colors;
 mod choice;
 mod code_block;
 mod color;
@@ -80,6 +80,7 @@ mod parts;
 mod primitives;
 mod questionnaire;
 mod recipes;
+mod recipes_calendar;
 mod recipes_collections;
 mod recipes_combobox;
 mod recipes_command;
@@ -88,6 +89,7 @@ mod recipes_dialog;
 mod recipes_field;
 mod recipes_groups;
 mod recipes_menu;
+mod recipes_metrics;
 mod recipes_popup;
 mod scroll_area;
 mod sidebar;
@@ -98,34 +100,22 @@ mod tokens;
 mod trace;
 mod typography;
 
-pub use alert::{Alert, AlertVariant, alert};
+pub use alert::AlertLook;
 pub use attachment::{
     Attachment, AttachmentMediaVariant, AttachmentSize, AttachmentState, attachment,
     attachment_action, attachment_group,
 };
-pub use avatar::{Avatar, AvatarSize, avatar, avatar_group, avatar_group_count};
 pub use badge::BadgeVariant;
-pub use breadcrumb::{
-    BreadcrumbLink, breadcrumb, breadcrumb_content, breadcrumb_ellipsis, breadcrumb_link,
-    breadcrumb_page, breadcrumb_separator,
-};
-pub use card::{Card, CardHeader, CardSize, card, card_header};
+pub use card::{CardLook, CardSize};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
-pub use chat::{
-    Bubble, BubbleAlign, BubbleReactionsSide, BubbleVariant, Message, MessageAlign, bubble,
-    bubble_group, message, message_group,
-};
-pub use empty::{EmptyMediaVariant, EmptyState, empty_state};
-pub use item::{Item, ItemMediaVariant, ItemSize, ItemVariant, item, item_group, item_separator};
+pub use chat::ChatLayout;
+pub use chat_colors::BubbleVariant;
+pub use empty::EmptyMediaVariant;
+pub use item::{ItemLook, ItemMediaVariant, ItemSize, ItemVariant};
 pub use line_tabs::TabsVariant;
 pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
-pub use message_scroller::{MessageScroller, message_scroller};
-pub use navigation_menu::{NavItem, NavLink, navigation_menu, navigation_menu_link};
-pub use pagination::{
-    PaginationLink, PaginationPages, pagination, pagination_content, pagination_ellipsis,
-    pagination_link, pagination_next, pagination_previous,
-};
+pub use recipes_menu::MenuVariant;
 pub use scroll_area::{ScrollArea, scroll_area};
 pub use sidebar::{
     Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenuButton, SidebarMenuButtonSize,
@@ -133,20 +123,14 @@ pub use sidebar::{
     sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton,
     sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger,
 };
-pub use table::{
-    TableAlign, TableCell, TableRow, table, table_body, table_caption, table_cell, table_footer,
-    table_head, table_header, table_row,
-};
-pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 
 pub use alert_dialog::AlertDialogSize;
-pub use calendar::{Calendar, CalendarCaption, calendar, calendar_range};
 pub use choice::ToggleVariant;
 pub use code_block::{
-    CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
+    CodeBlockLook, CodeBlockSize, CodeLine, CodeSpan, CodeTone, rust_lines, rust_source,
 };
 pub use color::ColorName;
-pub use date_picker::{DatePicker, DateRangePicker, date_picker, date_range_picker};
+pub use date_picker::DatePickerVariant;
 pub use disclosure::DisclosureVariant;
 pub use drawer::DrawerVariant;
 pub use field::{
@@ -154,20 +138,13 @@ pub use field::{
     field_set,
 };
 pub use icons::ICON_NAMES;
-pub use input_group::{
-    InputGroup, InputGroupButton, InputGroupButtonSize, input_group, input_group_button,
-    input_group_input, input_group_text, input_group_textarea,
-};
+pub use input_group::{InputGroupButtonLook, InputGroupButtonSize, InputGroupControl};
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
-pub use primitives::{
-    Label, Separator, aspect_ratio, label, separator,
-};
+pub use primitives::{Label, Separator, label, separator};
 pub use questionnaire::{
     Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,
 };
 pub use theme::theme;
 pub use tokens::{CodeColors, Tokens};
-pub use typography::{
-    blockquote, bullet_list, h1, h2, h3, h4, inline_code, large, lead, muted, paragraph, small,
-};
+pub use typography::{blockquote, bullet_list, inline_code, large, lead, muted, paragraph, small};

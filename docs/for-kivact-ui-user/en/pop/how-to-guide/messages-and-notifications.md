@@ -177,3 +177,26 @@ is a core topic, covered in the core guide on asynchronous work.
 - Toast and toaster API: `kivact::ui::Toast`, `Toaster` and `toast_region` in
   `cargo doc -p kivact --open`; all Pop components: `cargo doc -p kivact-ui-pop
   --open`
+
+Use standard `chat_thread`, `chat_message(author)`, `chat_composer` and `typing_indicator` for message logs. `PopBubble` selects compact conversation bubbles; `.sender(..)` is independent of the author, `.content(..)` accepts views and `.time(..)` preserves application-formatted timestamps. For grouped paragraphs, render individual messages with `ChatBubbleGroup::First`, `Middle` and `Last`, an avatar on the first and time on the last. The shared log owns scroll following; the application owns message history, streaming and revisions. `pop::thread` remains a conversation-preview row, with selection, unread count and a preview. Standard `code_block` provides line numbering, highlighting, wrapping and copy feedback.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn conversation() -> impl IntoView {
+    let draft=signal(String::new());
+    let sent=signal(Vec::<String>::new());
+    kivact::ui::chat_thread((
+        kivact::ui::chat_message("Haruka").content(text("The report is ready."))
+            .time("09:12").variant(pop::PopBubble),
+        for_index(sent,|_,message|kivact::ui::chat_message("You")
+            .sender(kivact::ui::ChatSender::User)
+            .content(text(message)).variant(pop::PopBubble)),
+    )).composer(kivact::ui::chat_composer(draft)
+        .on_submit(move|message|sent.update(|sent|sent.push(message))))
+}
+fn source() -> impl IntoView {
+    kivact::ui::code_block("let answer = 42;".to_owned())
+        .title("Example").language("Rust").line_numbers(true).wrap(true)
+}
+```

@@ -169,6 +169,7 @@ mod tests {
             },
         );
         start.type_text("2026-10-01");
+        start.press_key(Key::Enter);
         screen.get_by_text("Choose today or a later date");
     }
 }
@@ -194,8 +195,8 @@ read `attempted`, so they stay quiet until the user presses the button once.
 
 **`kivact::ui::date_input(label, optional_value)`** is an editable date with a
 calendar popup. The text follows `YYYY-MM-DD`, and the signal (`birth`) only
-changes when the text is a whole, real date, so half-typed input never reaches
-your state. Configure `.calendar(|calendar| calendar.today(today))` yourself, which keeps the component predictable
+changes when a complete, real date is committed with Enter or by leaving
+the field. Half-typed input stays in the editor. Configure `.calendar(|calendar| calendar.today(today))` yourself, which keeps the component predictable
 and testable: the program passes `CalendarDate::today()` and the test passes a
 fixed date.
 

@@ -302,7 +302,7 @@ fn desktop_editors(
         .min(move || min.get().map(|value| value.date))
         .max(move || max.get().map(|value| value.date))
         .presentation(presentation)
-        .with_variants(&variants);
+        .with_variants(variants);
     if let Some(day) = week_start {
         date_field = date_field.week_start(day);
     }
@@ -311,7 +311,7 @@ fn desktop_editors(
             seconds: seconds.get(),
         })
         .presentation(presentation)
-        .with_variants(&variants);
+        .with_variants(variants);
     row((date_field, time_field))
 }
 

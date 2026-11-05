@@ -29,8 +29,33 @@ impl Variant for BadgeHue {}
 
 pub(crate) fn badge(t: &Theme, look: &Look<BadgeState>) -> Style {
     let p = t.ext::<Tokens>();
+    if look.variant::<crate::SectionNumber>().is_some() {
+        let yellow = p.yellow;
+        return style()
+            .size(44, 30)
+            .direction(Direction::Row)
+            .align_items(Align::Center)
+            .justify_content(Justify::Center)
+            .radius(6)
+            .transform(Transform::new().skew_x(-14))
+            .color(Color::WHITE)
+            .background(linear_gradient(90).colors([p.blue, p.cyan]))
+            .paint(move |d, _| d.rounded_rect(Rect::new(48.0, 4.0, 5.0, 22.0), 2.0, yellow));
+    }
     let hue = look.variant::<BadgeHue>().map_or_else(
-        || look.variant::<Hue>().copied().unwrap_or_default(),
+        || {
+            look.variant::<Hue>()
+                .copied()
+                .unwrap_or_else(|| match look.tone {
+                    kivact::interaction::Tone::Neutral | kivact::interaction::Tone::Info => {
+                        Hue::Blue
+                    }
+                    kivact::interaction::Tone::Success => Hue::Mint,
+                    kivact::interaction::Tone::Warning => Hue::Yellow,
+                    kivact::interaction::Tone::Danger => Hue::Red,
+                    kivact::interaction::Tone::Accent => Hue::Pink,
+                })
+        },
         |h| h.0.get(),
     );
     let variant = look.variant::<BadgeVariant>().copied().unwrap_or_default();
@@ -77,14 +102,14 @@ fn badge_style(t: &Theme, hue: Hue, variant: BadgeVariant) -> Style {
             .background(linear_gradient(90).colors([
                 p.accent(hue),
                 match hue {
-                    Hue::Yellow => kivact::style::rgb(0xffe98a),
-                    Hue::Red => kivact::style::rgb(0xff9c6e),
-                    Hue::Pink => kivact::style::rgb(0xff7cb0),
+                    Hue::Yellow => crate::tokens::yellow_gradient_end(),
+                    Hue::Red => crate::tokens::red_gradient_end(),
+                    Hue::Pink => crate::tokens::pink_gradient_end(),
                     _ => p.cyan,
                 },
             ]))
             .color(if hue == Hue::Yellow {
-                kivact::style::rgb(0x3b2f00)
+                crate::tokens::accent_text()
             } else {
                 Color::WHITE
             })
@@ -105,6 +130,15 @@ fn badge_style(t: &Theme, hue: Hue, variant: BadgeVariant) -> Style {
     }
 }
 pub(crate) fn label(_: &Theme, look: &Look<BadgeState>) -> Style {
+    if look.variant::<crate::SectionNumber>().is_some() {
+        return style()
+            .font_family("Barlow, sans-serif")
+            .italic(true)
+            .weight(800)
+            .font_size(16)
+            .color(Color::WHITE)
+            .transform(Transform::new().skew_x(14));
+    }
     if look.variant::<BadgeVariant>() == Some(&BadgeVariant::Slant) {
         style().transform(Transform::new().skew_x(16))
     } else {

@@ -1,6 +1,6 @@
 //! Role: Public Pop tokens; no renderer or engine values appear in this API.
 
-use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, rgb, rgba};
+use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, hsl, rgb, rgba};
 
 /// Semantic colors shared by badges, alerts, avatars and patterns.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -147,3 +147,62 @@ impl ThemeExtension for Tokens {
 }
 
 kivact::state::constant_value!(Hue);
+
+// Palette details used by Pop recipes and decorative drawing primitives.
+pub(crate) fn accent_gradient_end() -> Color {
+    rgb(0xffe36a)
+}
+pub(crate) fn accent_text() -> Color {
+    rgb(0x3b2f00)
+}
+pub(crate) fn pink_gradient_end() -> Color {
+    rgb(0xff7cb0)
+}
+pub(crate) fn danger_gradient_end() -> Color {
+    rgb(0xf45d6f)
+}
+pub(crate) fn control_shadow() -> Color {
+    rgba(0x0f172a, 0.12)
+}
+pub(crate) fn subtle_shadow() -> Color {
+    rgba(0x0f172a, 0.05)
+}
+pub(crate) fn glass_surface() -> Color {
+    rgba(0xffffff, 0.14)
+}
+pub(crate) fn glass_border() -> Color {
+    rgba(0xffffff, 0.4)
+}
+pub(crate) fn glass_hover() -> Color {
+    rgba(0xffffff, 0.24)
+}
+pub(crate) fn selected_track() -> Color {
+    rgb(0x273449)
+}
+pub(crate) fn sparkline_fill() -> Color {
+    rgba(0x2b8bd8, 0.32)
+}
+pub(crate) fn avatar_halo(hue: f64) -> Color {
+    hsl(hue, 0.95, 0.62)
+}
+pub(crate) fn avatar_glow(hue: f64) -> Color {
+    hsl(hue, 1.0, 0.65)
+}
+pub(crate) fn avatar_gradient_start(hue: f64) -> Color {
+    hsl(hue, 0.85, 0.7)
+}
+pub(crate) fn avatar_gradient_end(hue: f64) -> Color {
+    hsl(hue + 18.0, 0.75, 0.52)
+}
+pub(crate) fn yellow_gradient_end() -> Color {
+    rgb(0xffe98a)
+}
+pub(crate) fn red_gradient_end() -> Color {
+    rgb(0xff9c6e)
+}
+pub(crate) fn overlay_scrim() -> Color {
+    rgba(0x0f172a, 0.45)
+}
+pub(crate) fn progress_stripe() -> Color {
+    rgba(0xffffff, 0.3)
+}

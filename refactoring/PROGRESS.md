@@ -159,18 +159,18 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-6a | doing | | 実装中 |
 | K-6b | doing | | 実装中 |
 | K-8 | merged | 6eac920f | viewport/GPU対象6中5+修正1passed、workspacecheck0 |
-| K-9a | todo | | |
-| K-9b | todo | | |
-| K-7a | todo | | |
-| K-7b | todo | | |
-| K-7c | todo | | |
-| K-7d | todo | | |
+| K-9a | doing | 0b4a7754 | Basic/Pop/Game移行済、Soft残 |
+| K-9b | doing | dcbf67aa | Basic/Pop/Game/Creative移行済、Soft残 |
+| K-7a | merged | 9bb8ca2f | consumer32個別0、catalog/docs確認中 |
+| K-7b | merged | fc664dc6 | consumer15/16、date Escape共通修正後再確認、catalog3/docs46 0 |
+| K-7c | merged | 2a34e21b | Game consumer12/catalog3/rustdoc3/scoped contracts0 |
+| K-7d | merged | f9fab8a5 | check/static0、consumer40/41 focus共通修正後再確認 |
 | K-7e | todo | | |
 | H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
-| H-G3 | doing | | 実装中 |
-| H-G4 | todo | | |
-| H-G5 | todo | | |
+| H-G3 | doing | ce4294 | 中核の状態整理を統合、全体静的のdispatch葉分離を修正中 |
+| H-G4 | doing | 28617746 | UI+interaction統合check/scoped静的0、全体gate待ち |
+| H-G5 | doing | 97c7b47e | Game Clippy/static/consumer12/rustdoc3 0、他kitはK7後 |
 | H-G6 | todo | | |
 | F-1 | todo | | |
 | F-2 | todo | | |

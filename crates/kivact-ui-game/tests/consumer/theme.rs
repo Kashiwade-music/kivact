@@ -7,8 +7,12 @@ use kivact_ui_game::ThemeOptions;
 
 #[test]
 fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
-    let (screen, (mode, density)) =
-        kivact::test::render_with_handle(crate::support::options(true), || {
+    let (screen, (mode, density)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let mode = signal(kivact::style::ThemeMode::Light);
             let density = signal(g::Density::Comfortable);
             (
@@ -39,7 +43,8 @@ fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
                     },
                 ),
             )
-        });
+        },
+    );
     let light = screen.screenshot();
     assert_eq!(light.pixel(790, 590), Some(0xffffff));
     assert_eq!(

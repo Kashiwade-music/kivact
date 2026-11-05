@@ -107,6 +107,30 @@ pub(crate) fn semantic(
             ));
         }
     }
+    result.extend(link_info(&nodes, links, selected_link, scene, texts));
+    result
+}
+
+fn link_info(
+    nodes: &[NodeData],
+    links: Vec<NodeLink>,
+    selected_link: Option<NodeLink>,
+    scene: &Scene<Target>,
+    texts: crate::editors::shared::texts::Texts,
+) -> Vec<Info> {
+    let mut result = Vec::new();
+    let info = |target, name, value, role, checked, selected, range| {
+        scene.id(&target).map(|id| Info {
+            id,
+            target,
+            name,
+            value,
+            role,
+            checked,
+            selected,
+            range,
+        })
+    };
     for link in links {
         let Some(from) = nodes.iter().find(|n| n.id == link.from) else {
             continue;

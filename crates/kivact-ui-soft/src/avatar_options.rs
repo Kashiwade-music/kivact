@@ -30,24 +30,5 @@ impl AvatarSize {
     }
 }
 
-/// The silhouette of an avatar.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum AvatarShape {
-    #[default]
-    Circle,
-    Rounded,
-    Square,
-}
-
-impl AvatarShape {
-    pub(crate) fn radius(self) -> f64 {
-        let r = &kivact::style::use_tokens::<crate::Tokens>().radius;
-        match self {
-            Self::Circle => r.full,
-            Self::Rounded => r.element,
-            Self::Square => r.none,
-        }
-    }
-}
-
-kivact::state::constant_value!(AvatarShape, AvatarSize);
+impl kivact::ui::Variant for AvatarSize {}
+kivact::state::constant_value!(AvatarSize);

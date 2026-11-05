@@ -20,7 +20,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-The theme carries the Neutral palette, 12 px text, square corners, 32 px controls and the drawing rules (recipes) for every standard component in `kivact::ui`: `button`, `toggle`, `checkbox`, `switch`, `text_input`, `text_area`, `select`, `menu`, `dialog`, `tooltip`, `tabs`, `radio_group`, `slider`, `range_slider`, `toast_region`, `splitter`, `split`, `progress`, `disclosure`, `data_table` and more. The kit has no copies of these components. That is why a `kivact::ui::button` and a `basic::card` sit together without any glue, and why changing the theme restyles both.
+The theme carries the Neutral palette, 12 px text, square corners, 32 px controls and the drawing rules (recipes) for every standard component in `kivact::ui`: `button`, `toggle`, `checkbox`, `switch`, `text_input`, `text_area`, `select`, `menu`, `dialog`, `tooltip`, `tabs`, `radio_group`, `slider`, `range_slider`, `toast_region`, `splitter`, `split`, `progress`, `disclosure`, `data_table` and more. The kit has no copies of these components. That is why a `kivact::ui::button` and a `kivact::ui::card` sit together without any glue, and why changing the theme restyles both.
 
 To limit the look to one part of the window, wrap that part in `kivact::style::provide_theme(theme, || ..)`. Siblings outside it keep the theme from above.
 
@@ -112,7 +112,7 @@ fn main() -> kivact::Result<()> {
     App::new("Basic")
         .theme(basic::theme(kivact::style::ThemeMode::Light))
         .messages(messages)
-        .run(|| basic::pagination(signal(0usize), 5usize))
+        .run(|| kivact::ui::pagination(5usize, signal(0usize)))
 }
 ```
 

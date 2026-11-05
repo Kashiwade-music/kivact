@@ -37,6 +37,8 @@ mod context_tests;
 #[cfg(test)]
 mod disposal_tests;
 #[cfg(test)]
+mod editing_drop_probe;
+#[cfg(test)]
 mod gpu_tests;
 #[cfg(test)]
 mod host_sync_tests;

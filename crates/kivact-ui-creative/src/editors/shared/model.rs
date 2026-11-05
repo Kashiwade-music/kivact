@@ -1,5 +1,5 @@
 //! Role: Passive models shared by creative editor domains.
-use kivact::style::{Color, rgb};
+use kivact::style::Color;
 /// A visible time-editor row, identified independently of its display order.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Lane {
@@ -44,7 +44,7 @@ impl Clip {
             start,
             duration,
             label: label.into(),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             muted: false,
         }
     }

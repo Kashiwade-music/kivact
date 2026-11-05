@@ -10,17 +10,12 @@
 use crate::Tokens;
 use crate::button::{ButtonTone, Slant, button_style};
 use crate::choice::check_style;
-use crate::choice::{draw_check_indicator, draw_switch_indicator};
 use crate::form::input_style;
-use kivact::draw::Draw;
-use kivact::draw::{Layer, Transform};
-use kivact::geometry::Size;
 use kivact::style::{Style, Theme, style};
 use kivact::ui::Look;
 use kivact::ui::{
     ButtonState, ButtonVariant, CheckableState, ControlSize, TextInputState, UiRecipes,
 };
-use kivact::view::CheckedState;
 
 /// The size of a check box's box and the room a switch's track takes.
 const CHECK: (f64, f64) = (16.0, 16.0);
@@ -34,12 +29,28 @@ const GAP: f64 = 12.0;
 /// their recipes by identity and installing the kit's theme again never
 /// restyles.
 pub(crate) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Process-wide immutable recipe identity cache, not deferred instance state"
+    )]
     static RECIPES: std::sync::OnceLock<UiRecipes> = std::sync::OnceLock::new();
     RECIPES.get_or_init(build).clone()
 }
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .chat_message(crate::recipes_chat::message)
+        .chat_thread(crate::recipes_chat::thread)
+        .chat_composer(crate::recipes_chat::composer)
+        .typing_indicator(crate::recipes_chat::typing)
+        .code_block(crate::recipes_chat::code)
+        .stat(crate::recipes_metrics::stat)
+        .heading(|_| crate::recipes_metrics::heading)
+        .description_list(crate::recipes_metrics::description_list)
+        .breadcrumb(crate::recipes_navigation::breadcrumb)
+        .pagination(crate::recipes_navigation::pagination)
+        .stepper(crate::recipes_navigation::stepper)
+        .navigation_menu(crate::recipes_navigation::navigation_menu)
         .item_list(crate::recipes_items::item_list)
         .table(crate::recipes_items::table)
         .tree(crate::recipes_items::tree)
@@ -62,11 +73,19 @@ fn build() -> UiRecipes {
         .dropzone(crate::recipes_files::dropzone)
         .field(crate::recipes_field::field)
         .button(|_| button)
+        .button_icon(|_| button_icon)
         .button_content(|_| crate::recipes_extra::button_content)
         .button_busy(|_| crate::recipes_extra::button_busy)
         .toggle(|_| crate::recipes_small::toggle)
         .checkbox(|_| checkbox)
+        .checkbox_indicator(|_| crate::recipes_controls::checkbox_indicator)
+        .checkbox_check(|_| crate::recipes_controls::checkbox_check)
+        .checkbox_mixed(|_| crate::recipes_controls::checkbox_mixed)
         .switch(|_| switch)
+        .switch_track(|_| crate::recipes_controls::switch_track)
+        .switch_thumb(|_| crate::recipes_controls::switch_thumb)
+        .splitter(|r| r.handle(|_| crate::recipes_controls::splitter_handle))
+        .split(|r| r.grip(|_| crate::recipes_controls::split_grip))
         .text_input(|_| text_input)
         .text_area(|_| text_area)
         .select(crate::recipes_extra::select)
@@ -125,47 +144,20 @@ fn row(theme: &Theme, drawn: (f64, f64)) -> Style {
     check_style(theme).weight(500).padding_left(drawn.0 + GAP)
 }
 
-fn checkbox(theme: &Theme, state: &Look<CheckableState>) -> Style {
-    let (theme, state) = (theme.clone(), **state);
-    row(&theme, CHECK).paint(move |d, size| draw_checkbox(&theme, &state, d, size))
+fn checkbox(theme: &Theme, _: &Look<CheckableState>) -> Style {
+    row(theme, CHECK)
 }
 
-fn switch(theme: &Theme, state: &Look<CheckableState>) -> Style {
-    let (theme, state) = (theme.clone(), **state);
-    row(&theme, SWITCH).paint(move |d, size| draw_switch(&theme, &state, d, size))
+fn switch(theme: &Theme, _: &Look<CheckableState>) -> Style {
+    row(theme, SWITCH)
 }
 
-/// Draw `part` centered vertically at the left edge.
-fn drawn(d: &mut Draw, size: Size, part: (f64, f64), paint: impl FnOnce(&mut Draw, Size)) {
-    d.layer(
-        Layer::new()
-            .transform(Transform::new().translate(0, ((size.height - part.1) / 2.0).round())),
-        |d| {
-            paint(d, Size::new(part.0, part.1));
-        },
-    );
-}
-
-fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
-    let p = theme.ext::<Tokens>();
-    drawn(d, size, CHECK, |d, s| {
-        draw_check_indicator(
-            d,
-            s,
-            look.checked.is_checked(),
-            look.checked == CheckedState::Indeterminate,
-            p.blue,
-            p.surface,
-            p.line_strong,
-        );
-    });
-}
-
-fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
-    let p = theme.ext::<Tokens>();
-    drawn(d, size, SWITCH, |d, s| {
-        draw_switch_indicator(d, s, look.checked.is_checked(), p.blue, p.line_strong);
-    });
+fn button_icon(_: &Theme, _: &Look<ButtonState>) -> Style {
+    style()
+        .direction(kivact::style::Direction::Row)
+        .align_items(kivact::style::Align::Center)
+        .justify_content(kivact::style::Justify::Center)
+        .shrink(0)
 }
 
 fn text_input(theme: &Theme, state: &Look<TextInputState>) -> Style {

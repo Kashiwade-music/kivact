@@ -137,6 +137,14 @@ impl Variants {
         *ext = std::mem::take(&mut *ext).with(value);
     }
 
+    /// Inherit missing presentation types while retaining explicit caller values.
+    pub(super) fn with_defaults(&self, defaults: &Self) -> Self {
+        let merged = Self::default();
+        merged.merge(defaults);
+        merged.merge(self);
+        merged
+    }
+
     /// Merge presentation values, replacing only values of the same type.
     pub(super) fn merge(&self, other: &Self) {
         let incoming = other.0.borrow().clone();

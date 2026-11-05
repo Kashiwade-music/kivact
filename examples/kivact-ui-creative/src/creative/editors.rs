@@ -90,7 +90,10 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
     let (keys, selected) = super::animation_model::bindings(graph, graph_selected);
     let initial_keys = signal(None);
     let channels = [signal(true), signal(true), signal(true)];
-    let zoom = signal(6.8);
+    let transform = signal(kivact::interaction::ViewTransform {
+        scale: 6.8,
+        offset: Point::new(12.0, 0.0),
+    });
     let graph_view = signal(ui::GraphView {
         time: (-20.0, 200.0),
         value: (-2.0, 3.0),
@@ -131,10 +134,9 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
         ui::dope_sheet(
             keys,
             ui::TimeState {
-                pan: (signal(Point::new(12.0, 0.0))).into_binding(),
                 selection: selected,
                 playhead: playhead(state),
-                zoom: zoom.into_binding(),
+                transform: transform.into_binding(),
             },
         )
         .on_edit(move |event| match event {
@@ -218,7 +220,7 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
                 ),
             )
             .orientation(kivact::view::Orientation::Horizontal)
-            .variant(ui::Segmented)
+            .variant(kivact::ui::RadioGroupVariant::Segmented)
             .style(style().width(166)),
             kivact::ui::toggle_button("X", channels[0]),
             kivact::ui::toggle_button("Y", channels[1]),
@@ -600,7 +602,7 @@ pub(super) fn picker() -> impl IntoView {
                     mode,
                 )
                 .orientation(kivact::view::Orientation::Horizontal)
-                .variant(ui::Segmented)
+                .variant(kivact::ui::RadioGroupVariant::Segmented)
                 .style(style().width(248)),
                 dynamic(mode, move |mode| {
                     if mode.as_deref() == Some("rgb") {
@@ -656,6 +658,7 @@ pub(super) fn picker() -> impl IntoView {
                 .collect::<Vec<_>>())
                 .style(style().width(248).wrap(true).gap(5)),
             ))
+            .role(kivact::view::Role::List)
             .style(style().width(248)),
         )
         .style(style().min_height(516)),
@@ -671,7 +674,8 @@ pub(super) fn picker() -> impl IntoView {
                 ),
                 ui::property_row("Track Color", color_swatch(signal(rgb(0x3fbf8f)))),
                 note("ドラッグ中はリアルタイム反映、Escape で元の色に戻します。"),
-            )),
+            ))
+            .role(kivact::view::Role::List),
         )
         .style(style().min_height(516)),
     ))
@@ -762,7 +766,7 @@ pub(super) fn viewport(
                 ),
             )
             .orientation(kivact::view::Orientation::Horizontal)
-            .variant(ui::Segmented)
+            .variant(kivact::ui::RadioGroupVariant::Segmented)
             .style(style().width(218)),
             kivact::ui::button("Frame All")
                 .variant(kivact::ui::ButtonVariant::Secondary)

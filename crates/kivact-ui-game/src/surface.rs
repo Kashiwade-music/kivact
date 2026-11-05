@@ -81,9 +81,6 @@ pub fn halo() -> impl kivact::view::Component {
             clock.start(FrameRate::Hz(30.));
         } else {
             clock.stop();
-            if platform::is_motion_reduced().get() {
-                time.set(0.);
-            }
         }
     });
     node()
@@ -91,6 +88,12 @@ pub fn halo() -> impl kivact::view::Component {
         .style(style().size(180, 180))
         .draw(move |d, s| {
             let p = d.theme().ext::<Tokens>();
+            // Reduced motion paints statically immediately; active frames use the absolute clock.
+            let time = if platform::is_motion_reduced().get() {
+                0.
+            } else {
+                time.get()
+            };
             d.layer(
                 Layer::new().transform(Transform::new().scale_xy(s.width / 180., s.height / 180.)),
                 |d| {
@@ -98,9 +101,9 @@ pub fn halo() -> impl kivact::view::Component {
                     for (radius, width, count) in [(82., 1.4, 64), (68., 5., 12), (50., 2., 1)] {
                         for i in 0..count {
                             let rotation = if count == 64 {
-                                time.get() * 360. / if s.width < 80. { 24. } else { 40. }
+                                time * 360. / if s.width < 80. { 24. } else { 40. }
                             } else if count == 12 {
-                                -time.get() * 360. / 26.
+                                -time * 360. / 26.
                             } else {
                                 0.
                             };
@@ -122,30 +125,7 @@ pub fn halo() -> impl kivact::view::Component {
                             );
                         }
                     }
-                    d.line(
-                        Point::new(c.x, 4.),
-                        Point::new(c.x, 29.),
-                        1.,
-                        ColorToken::Accent,
-                    );
-                    d.line(
-                        Point::new(c.x, 151.),
-                        Point::new(c.x, 176.),
-                        1.,
-                        ColorToken::Accent,
-                    );
-                    d.line(
-                        Point::new(4., c.y),
-                        Point::new(29., c.y),
-                        1.,
-                        ColorToken::Accent,
-                    );
-                    d.line(
-                        Point::new(151., c.y),
-                        Point::new(176., c.y),
-                        1.,
-                        ColorToken::Accent,
-                    );
+                    draw_halo_brackets(d, c);
                     d.fill_path(
                         &Path::new()
                             .move_to(Point::new(c.x, c.y - 25.))
@@ -159,4 +139,15 @@ pub fn halo() -> impl kivact::view::Component {
                 },
             );
         })
+}
+
+fn draw_halo_brackets(d: &mut kivact::draw::Draw, c: Point) {
+    for (start, end) in [
+        (Point::new(c.x, 4.), Point::new(c.x, 29.)),
+        (Point::new(c.x, 151.), Point::new(c.x, 176.)),
+        (Point::new(4., c.y), Point::new(29., c.y)),
+        (Point::new(151., c.y), Point::new(176., c.y)),
+    ] {
+        d.line(start, end, 1., ColorToken::Accent);
+    }
 }

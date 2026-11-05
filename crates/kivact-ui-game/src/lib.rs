@@ -1,3 +1,5 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
+
 //! Role: Hard-edged, information-dense operation-console components.
 //!
 //! The complete public API is built from the public `kivact` facade.
@@ -27,13 +29,18 @@ mod display;
 mod icons;
 mod overlays;
 mod recipes;
+mod recipes_avatar;
+mod recipes_badge;
 mod recipes_collections;
+mod recipes_controls;
+mod recipes_extra;
 mod recipes_feedback;
 mod recipes_field;
 mod recipes_files;
 mod recipes_groups;
 mod recipes_indicators;
 mod recipes_input;
+mod recipes_items;
 mod recipes_metrics;
 mod recipes_navigation;
 mod recipes_palette;
@@ -50,10 +57,11 @@ pub use choice::{Boxed, ChoiceCard, Navigation, card_label, navigation_label};
 pub use color::ColorName;
 pub use display::{ActivityEntry, activity};
 pub use overlays::{IconMenu, icon_menu};
-pub use recipes::{ButtonTone, Slant};
-pub use recipes_feedback::SkeletonVariant;
+pub use recipes_avatar::AvatarVariant;
+pub use recipes_badge::BadgeVariant;
+pub use recipes_controls::{ButtonTone, Slant};
 pub use recipes_groups::GameInputGroupVariant;
-pub use recipes_indicators::{AvatarVariant, BadgeVariant};
+pub use recipes_indicators::SkeletonVariant;
 pub use recipes_metrics::{HeadingVariant, StatVariant};
 pub use recipes_progress::GaugeSegments;
 pub use recipes_small::Striped;

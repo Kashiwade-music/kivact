@@ -1,4 +1,4 @@
-//! Role: Style the standard segmented radio-group presentation with Neutral layout options.
+//! Role: Style standard segmented radios with Neutral geometry.
 use crate::Tokens;
 use crate::recipe_style::{fast, ring};
 use kivact::style::{Align, Color, Cursor, Direction, Justify, Style, Theme, pct, style};

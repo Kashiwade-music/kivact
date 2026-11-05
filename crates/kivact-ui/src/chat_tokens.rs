@@ -3,11 +3,14 @@
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatTokens {
     pub typing_period_ms: u64,
+    /// Distance from the end accepted by the existing follow behavior and jump action.
+    pub follow_slack: f64,
 }
 impl Default for ChatTokens {
     fn default() -> Self {
         Self {
             typing_period_ms: 1000,
+            follow_slack: 24.0,
         }
     }
 }

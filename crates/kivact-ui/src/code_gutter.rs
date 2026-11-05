@@ -32,7 +32,7 @@ pub(super) fn gutter(
     editor: NodeRef,
     code: kivact_core::state::Value<String>,
     variants: &crate::variants::Variants,
-    state: kivact_core::state::Value<crate::chat_values::CodeBlockState>,
+    state: kivact_core::state::Value<crate::code_values::CodeBlockState>,
 ) -> kivact_core::view::Node {
     use kivact_core::view::text;
     let geometry = editor.rect();

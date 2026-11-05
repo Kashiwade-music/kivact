@@ -1,6 +1,5 @@
 //! Role: Tests for the interactions of Creative controls through the public API.
 
-use crate::support::clean;
 use kivact::geometry::Point;
 use kivact::interaction::{MenuEntry, toaster};
 use kivact::prelude::*;
@@ -27,7 +26,7 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
                         .with_node(move |node| {
                             node.orientation(kivact::view::Orientation::Horizontal)
                         })
-                        .variant(ui::Segmented),
+                        .variant(kivact::ui::RadioGroupVariant::Segmented),
                         ui::value_slider("Opacity", signal(0.5)).range(
                             kivact::interaction::ScalarRange::new(0.0, 1.0)
                                 .expect("invariant: finite ordered control range"),
@@ -57,7 +56,7 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
         Some("first"),
         "segments are a standard radio group, which wraps"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -110,7 +109,7 @@ fn reordered_document_tabs_keep_identity_and_navigate_in_visible_order() {
         screen.focused().map(|item| item.name()),
         Some("Second".into())
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -170,7 +169,7 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
     screen.run_until_idle();
     screen.get_by_role(Role::Button, "Close").click();
     assert!(screen.query_by_text("Clipping").is_none());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -225,7 +224,7 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
     assert_eq!(transform.is_expanded(), Some(true));
     transform.a11y(A11yAction::Collapse);
     assert!(!open.get_untracked());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -248,12 +247,9 @@ fn modal_contains_input_and_restores_opener_focus() {
                                     .into_view()
                             })
                             .footer(move || {
-                                kivact::ui::button(kivact::i18n::message(
-                                    "creative.dialog.close",
-                                    "Close",
-                                ))
-                                .variant(kivact::ui::ButtonVariant::Secondary)
-                                .on_press(move || open.set(false))
+                                kivact::ui::button(kivact::i18n::message("dialog.close", "Close"))
+                                    .variant(kivact::ui::ButtonVariant::Secondary)
+                                    .on_press(move || open.set(false))
                             }),
                     )
                 },
@@ -267,7 +263,7 @@ fn modal_contains_input_and_restores_opener_focus() {
     screen.get_by_role(Role::TextBox, "File name").focus();
     screen.press_key(Key::Escape);
     assert_eq!(screen.focused().map(|e| e.name()), Some("Export...".into()));
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -333,7 +329,7 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
     assert!(screen.get_by_role(Role::Tooltip, "Camera View").exists());
     screen.get_by_role(Role::Button, "Help").click();
     assert!(screen.query_by_role(Role::Tooltip, "Camera View").is_none());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn choice_options(

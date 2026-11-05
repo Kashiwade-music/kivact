@@ -1,7 +1,7 @@
 //! Role: Build semantic static lists and configurable item rows.
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
-use kivact_core::custom::{PartState, part};
+use kivact_core::custom::part;
 use kivact_core::state::{Callback, IntoText, Value, callback};
 use kivact_core::view::{
     HandlerResult, IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref, text,
@@ -143,12 +143,22 @@ impl IntoView for ItemRow {
             press,
             variants,
         } = self;
+        let actionable = press.is_some();
+        let has_description = description.is_some() || description_content.is_some();
         if let Some(press) = press {
             root = root.focusable(true).on_press(move || press.call(()));
         }
-        let part = part(|s| s);
+        let part = part(move |input| crate::collection_values::ItemRowState {
+            input,
+            has_description,
+            actionable,
+        });
         let state = part.state();
-        let wrap = |view: View, pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<PartState>| {
+        let wrap = |view: View,
+                    pick: fn(
+            &crate::recipes::UiRecipes,
+        )
+            -> &crate::recipes::Recipe<crate::collection_values::ItemRowState>| {
             with_base_recipe_style(node().child(view), pick, &variants, move || state.get())
         };
         let title = wrap(

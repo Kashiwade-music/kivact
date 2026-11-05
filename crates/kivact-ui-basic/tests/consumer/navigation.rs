@@ -1,9 +1,8 @@
 //! Role: Menu component tests: dropdown, use_context menu, menu bar and navigation menu.
 
-use crate::support::assert_clean;
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::test::{RenderOptions, Screen};
+use kivact::test::Screen;
 use kivact::ui::{ButtonVariant, button};
 use kivact::view::{Modifiers, MouseButton};
 use kivact_ui_basic as basic;
@@ -19,17 +18,6 @@ pub(super) fn page(child: impl IntoView) -> Node {
             .grow(1)
             .align_items(Align::Start),
     )
-}
-
-pub(super) fn options(mode: kivact::style::ThemeMode) -> RenderOptions {
-    RenderOptions::from_env()
-        .window_size(900.0, 700.0)
-        .theme(basic::theme(mode))
-        .reduced_motion()
-}
-
-pub(super) fn light() -> RenderOptions {
-    options(kivact::style::ThemeMode::Light)
 }
 
 pub(super) fn open_button(name: &'static str) -> impl Component {
@@ -74,7 +62,11 @@ fn mount_dropdown() -> (Screen, Rig) {
         },
         ..Default::default()
     };
-    let options = light().theme(basic::theme(kivact::style::ThemeMode::Light).with(policy));
+    let options =
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(900.0, 700.0)
+            .reduced_motion()
+            .theme(basic::theme(kivact::style::ThemeMode::Light).with(policy));
     kivact::test::render_with_handle(options, || {
         let chosen = signal(Vec::new());
         let check = signal(true);
@@ -157,21 +149,29 @@ fn dropdown_menu_navigates_by_keyboard_and_skips_labels() {
     assert_eq!(chosen.get_untracked(), ["bars", "profile"]);
     assert!(trigger.is_focused(), "choosing returns the focus");
     assert_eq!(trigger.is_expanded(), Some(false));
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
     let _ = shift();
 }
 
 #[test]
 fn navigation_menu_shows_one_panel_at_a_time() {
-    let screen = kivact::test::render_with_handle(light(), || {
-        (
-            (),
-            page(basic::navigation_menu(vec![
-                basic::NavItem::menu("Alpha", || text("Alpha panel")),
-                basic::NavItem::menu("Beta", || text("Beta panel")),
-            ])),
-        )
-    })
+    let screen = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        || {
+            (
+                (),
+                page(
+                    kivact::ui::navigation_menu("Navigation")
+                        .link("alpha", "Alpha", || text("Alpha panel"))
+                        .link("beta", "Beta", || text("Beta panel"))
+                        .close_delay(std::time::Duration::ZERO),
+                ),
+            )
+        },
+    )
     .0;
     let alpha = screen.get_by_role(Role::Button, "Alpha");
     let beta = screen.get_by_role(Role::Button, "Beta");
@@ -217,7 +217,8 @@ fn navigation_menu_shows_one_panel_at_a_time() {
     screen.press_key(Key::Escape);
     assert!(!shown("Alpha panel") && !shown("Beta panel"));
     assert_eq!(alpha.is_expanded(), Some(false));
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 /// The box a use_context menu is attached to in the tests.
@@ -252,17 +253,24 @@ pub(super) fn edit_items() -> Vec<MenuEntry<&'static str>> {
 
 #[test]
 fn context_menu_opens_at_the_pointer_and_by_keyboard() {
-    let (screen, chosen) = kivact::test::render_with_handle(light(), || {
-        let chosen = signal(Vec::new());
-        (
-            chosen,
-            page(
-                menu("Edit", edit_items())
-                    .on_activate(move |key: &'static str| chosen.update(|chosen| chosen.push(key)))
-                    .attach_context(right_click_area().test_id("area")),
-            ),
-        )
-    });
+    let (screen, chosen) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(900.0, 700.0)
+            .reduced_motion(),
+        || {
+            let chosen = signal(Vec::new());
+            (
+                chosen,
+                page(
+                    menu("Edit", edit_items())
+                        .on_activate(move |key: &'static str| {
+                            chosen.update(|chosen| chosen.push(key))
+                        })
+                        .attach_context(right_click_area().test_id("area")),
+                ),
+            )
+        },
+    );
     let area = screen.get_by_test_id("area");
     assert!(
         screen
@@ -303,5 +311,6 @@ fn context_menu_opens_at_the_pointer_and_by_keyboard() {
     assert!(menu_item(&screen, "Email link").is_focused());
     screen.press_key(Key::Enter);
     assert_eq!(chosen.get_untracked(), ["email"]);
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

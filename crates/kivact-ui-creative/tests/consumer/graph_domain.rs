@@ -1,6 +1,6 @@
 //! Role: Public graph domain editing, view geometry and selective rollback contracts.
 use crate::graph_support::{app_graph, graph_edits};
-use crate::support::{clean, near};
+use crate::support::near;
 use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
@@ -132,7 +132,7 @@ fn real_values_axes_selection_keyboard_and_accessibility() {
     );
     let canvas = screen.get_by_role(Role::Canvas, "Graph");
     canvas.press_key(Key::Char('a'));
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn space_held_while_focus_leaves_does_not_pan_later() {
         !m.selection.get_untracked().is_empty(),
         "the primary drag selected with a marquee"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -210,5 +210,5 @@ fn graph_tangents_are_draggable_and_keyboard_editable() {
         ),
         (100.0, 198.0)
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

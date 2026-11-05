@@ -156,9 +156,7 @@ pub(crate) fn dialog(r: DialogRecipes) -> DialogRecipes {
         .body(|_| |_: &Theme, _: &Look<DialogState>| style().gap(8))
         .footer(|_| dialog_footer)
         .scrim(|_| {
-            |_: &Theme, _: &Look<DialogState>| {
-                style().background(kivact::style::rgba(0x0f172a, 0.45))
-            }
+            |_: &Theme, _: &Look<DialogState>| style().background(crate::tokens::overlay_scrim())
         })
         .close(|_| dialog_close)
 }

@@ -10,15 +10,21 @@ pub struct AlertState {
     pub tone: Tone,
     pub expanded: Option<bool>,
     pub dismissible: bool,
+    pub has_icon: bool,
+    pub has_actions: bool,
+    pub has_description: bool,
 }
 
 // xtask-allow(state-fields): Read-only recipe projection of the caller binding and actual interaction configuration.
 /// Card semantics supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardState {
+    pub input: Option<kivact_core::custom::PartState>,
     pub selected: Option<bool>,
     pub disabled: bool,
     pub interactive: bool,
+    pub has_media: bool,
+    pub has_footer: bool,
 }
 
 /// The semantic state passed to every empty-state recipe.
@@ -27,9 +33,17 @@ pub struct EmptyStateState {
     pub heading_level: u8,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of actual input and independent validation, focus-within and construction-slot facts; no mutable lifecycle authority.
 /// Input group size and reading direction passed to its recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {
+    pub input: kivact_core::custom::PartState,
+    pub focused: bool,
+    pub invalid: bool,
+    pub has_start: bool,
+    pub has_end: bool,
+    pub has_block_start: bool,
+    pub has_block_end: bool,
     pub size: ControlSize,
     pub direction: ReadingDirection,
 }
@@ -37,6 +51,7 @@ pub struct InputGroupState {
 /// A member's position, inherited size, and actual focus-within observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupMemberState {
+    pub kind: InputGroupMemberKind,
     pub group: InputGroupState,
     pub first: bool,
     pub last: bool,
@@ -75,3 +90,25 @@ pub enum AlertVariant {
     Banner,
 }
 impl crate::variants::Variant for AlertVariant {}
+/// The source slot of one actual inline input-group member.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputGroupMemberKind {
+    Start,
+    Control,
+    End,
+}
+impl Default for InputGroupState {
+    fn default() -> Self {
+        Self {
+            input: Default::default(),
+            focused: false,
+            invalid: false,
+            has_start: false,
+            has_end: false,
+            has_block_start: false,
+            has_block_end: false,
+            size: ControlSize::Medium,
+            direction: ReadingDirection::Ltr,
+        }
+    }
+}

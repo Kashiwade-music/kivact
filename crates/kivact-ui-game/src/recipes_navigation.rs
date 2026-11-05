@@ -13,12 +13,12 @@ pub(crate) fn pagination(r: PaginationRecipes) -> PaginationRecipes {
                     .align_items(Align::Center)
                     .justify_content(kivact::style::Justify::Center)
                     .border(1, ColorToken::Border)
-                    .color(if **s {
+                    .color(if s.current {
                         ColorToken::AccentText
                     } else {
                         ColorToken::TextMuted
                     })
-                    .background(if **s {
+                    .background(if s.current {
                         t.colors().accent
                     } else {
                         kivact::style::Color::TRANSPARENT
@@ -39,8 +39,8 @@ pub(crate) fn breadcrumb(r: BreadcrumbRecipes) -> BreadcrumbRecipes {
             move |_, s| {
                 style()
                     .font_size(12)
-                    .weight(if **s { 700 } else { 400 })
-                    .color(if **s {
+                    .weight(if s.current { 700 } else { 400 })
+                    .color(if s.current {
                         ColorToken::Text
                     } else {
                         ColorToken::TextMuted

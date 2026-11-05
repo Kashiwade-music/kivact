@@ -4,9 +4,8 @@ A Kivact UI kit for compact desktop business applications: calm slate
 surfaces, narrow blue gradients and yellow accents.
 
 The kit depends only on the public `kivact` crate. Its theme restyles the
-standard components of `kivact::ui`, and it adds business components such as
-stat cards, timelines and
-conversation threads.
+standard components of `kivact::ui`, and adds timelines, scheduling rows,
+conversation-preview rows and standalone chart primitives.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -46,11 +45,25 @@ fn main() -> kivact::Result<()> {
 - **Texts.** Default texts are English message keys prefixed with `pop.`;
   replace them with `App::messages`.
 
+Pop uses Core row layout for automatic RTL reversal; recipes do not duplicate direction branches.
+
 ## Filled recipes
 
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `chat_message`
+- `chat_thread`
+- `chat_composer`
+- `typing_indicator`
+- `code_block`
+- `stat`
+- `heading`
+- `description_list`
+- `breadcrumb`
+- `pagination`
+- `stepper`
+- `navigation_menu`
 - `item_list`
 - `table`
 - `tree`
@@ -73,11 +86,19 @@ The theme fills these entries in `UiRecipes`:
 - `dropzone`
 - `field`
 - `button`
+- `button_icon`
 - `button_content`
 - `button_busy`
 - `toggle`
 - `checkbox`
+- `checkbox_indicator`
+- `checkbox_check`
+- `checkbox_mixed`
 - `switch`
+- `switch_track`
+- `switch_thumb`
+- `splitter`
+- `split`
 - `text_input`
 - `text_area`
 - `select`

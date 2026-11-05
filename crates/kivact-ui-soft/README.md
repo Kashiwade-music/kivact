@@ -40,14 +40,14 @@ The standard APIs in this table come from `kivact::ui`.
 | --- | --- |
 | App Shell | `app_shell`, `use_app_shell_mobile` |
 | Aspect Ratio | `aspect_ratio` |
-| Avatar | `avatar`, `avatar_group`, `avatar_group_overflow`, `avatar_status_dot` |
+| Avatar | Standard `avatar`, `avatar_group(...).total(...).overflow_content(...)`; Soft `AvatarAppearance`, `AvatarGroupAppearance`, `avatar_status_dot`, `avatar_silhouette` |
 | Badge / Banner / Blockquote | Standard `badge` with semantic `tone` or Soft categorical `BadgeVariant`; `banner`, `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
-| Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
+| Breadcrumbs | Standard `breadcrumb` and `ListItem`; Soft `BreadcrumbsVariant` typography |
 | Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
 | Calendar | Standard `calendar` over single-date or ordered-range bindings |
-| Card | `card`, `clickable_card`, `selectable_card` |
-| Carousel | `carousel`, `use_carousel` |
+| Card | standard `card`, `.on_press(...)`, `.selected(...)` |
+| Carousel | Standard `carousel(index, slides)` and headless `interaction::use_carousel(index, count)` |
 | Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
 | Citation / Code / Code Block | `citation`, `code`, `code_block` |
@@ -59,8 +59,8 @@ The standard APIs in this table come from `kivact::ui`.
 | Divider | `divider` |
 | Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
 | Dropdown Menu | Standard `menu`. Use `MenuEntry::item`, `checkbox`, `separator`, `group`, `radio`, and `submenu`. A radio group is a group of radio entries. |
-| Empty State | `empty_state` |
-| Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, `input_group`, `input_group_text`, and `file_input` for the surrounding controls. |
+| Empty State | Standard `empty_state`; `.announce_changes()` retains change announcements and `EmptyStateVariant::compact(value)` controls density |
+| Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, standard `input_group`, `input_addon`, and standard `dropzone` for the surrounding controls. |
 | Heading | `heading` |
 | Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
 | Icon | `icon`, `ICON_NAMES` |
@@ -82,7 +82,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Segmented Control | Standard `radio_group(...).variant(RadioGroupVariant::Segmented)` and `ListItem`; Soft `SegmentedLayout` and `SegmentedIconOnly` style options |
 | Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
 | Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
-| Stepper | `stepper`, `step` |
+| Stepper | Standard `stepper`, `StepperItem`, `StepIndicator`, `StepStatus`; Soft `StepperAppearance` |
 | Switch | Standard `switch` |
 | Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
@@ -113,18 +113,10 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.alert_dialog.cancel` | Cancel |
 | `soft.app_shell.main` | Main content |
 | `soft.app_shell.skip_to_content` | Skip to content |
-| `soft.avatar.name_with_status` | {name}, {status} |
-| `soft.avatar_group.keyboard_hint` | Use arrow keys to move between avatars |
-| `soft.avatar_group.label` | Avatars |
-| `soft.avatar_group.overflow` | {count} more |
 | `soft.banner.collapse` | Collapse |
 | `soft.banner.dismiss` | Dismiss |
 | `soft.banner.dismiss_titled` | {dismiss} {title} |
 | `soft.banner.expand` | Expand |
-| `soft.breadcrumbs.label` | Breadcrumb |
-| `soft.carousel.scroll_left` | Scroll left |
-| `soft.carousel.scroll_right` | Scroll right |
-| `soft.carousel.slide` | Slide {current} of {total} |
 | `soft.chat.tool_calls.complete` | Complete |
 | `soft.chat.tool_calls.detail` | Details for {name} |
 | `soft.chat.tool_calls.details` | Details |
@@ -149,10 +141,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.date_time.date` | Date |
 | `soft.date_time.time` | Time |
 | `soft.dialog.close` | Close |
-| `soft.file_input.choose_one` | Choose one file. |
-| `soft.file_input.clear` | Clear files |
-| `soft.file_input.invalid_file` | One or more files are not allowed. |
-| `soft.file_input.too_large` | One or more files exceed the size limit or could not be read. |
 | `kbd.key.alt` | Alt |
 | `kbd.key.backspace` | Backspace |
 | `kbd.key.command` | Command |
@@ -227,9 +215,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.side_nav.resize` | Resize sidebar |
 | `soft.spinner.loading` | Loading |
 | `soft.stepper.label` | Progress |
-| `soft.stepper.next` | Next step |
-| `soft.stepper.optional` | • Optional |
-| `soft.stepper.previous` | Previous step |
 | `soft.table.label` | Table |
 | `soft.thumbnail.fallback_name` | Thumbnail |
 | `soft.thumbnail.open` | Open {name} |
@@ -280,7 +265,7 @@ respect the caret inside a text field. `with_key_hints(axis, || view)` owns one 
 Date and time wheels currently use numeric labels. Truncation hints show
 the full label on hover when native layout cuts the text. Citation and
 timestamp underlines are solid.
-Carousel scrolls to slides in response to its controls. Enable `.snap(true)`
+`carousel(index, slides).mode(CarouselMode::Scroll)` scrolls to slides in response to its controls. Enable `.snap(Snap::Mandatory)`
 to settle to a slide after scrolling. `text(..).capsize(true)` trims to the
 first visible line's measured cap height and the last visible baseline.
 
@@ -352,6 +337,8 @@ Number, date, and time filter fields validate values entered as text.
 - `spinner`
 - `kbd`
 - `kbd_key`
+- `dropzone`
+- `carousel`
 - `calendar`
 - `date_input`
 - `date_range_input`
@@ -378,3 +365,15 @@ Number, date, and time filter fields validate values entered as text.
 - `tree`
 - `data_table`
 <!-- /kivact-recipes -->
+
+Filled recipe table: `breadcrumb` (root, list, actual item, separator).
+
+Filled recipe table: `empty_state` (root, title, description, icon, actions).
+
+Filled recipe table: `input_group` (root, label, members, member, addon).
+
+Filled recipe table: `card` (root, header, media, content, footer, overlay).
+
+Filled scalar recipes: `avatar`, `avatar_image`, `avatar_status`, `avatar_status_content`, `avatar_group`, `avatar_group_member`, `avatar_group_overflow`.
+
+Filled recipe table: `stepper` (root, item, layout, body, track, leading, trailing, progress, indicator, label, description, content, end_content, previous, next).

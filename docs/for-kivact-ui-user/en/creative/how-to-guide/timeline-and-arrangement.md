@@ -131,7 +131,7 @@ fn start_clock(playing: Signal<bool>, playhead: Signal<f64>) {
 }
 ```
 
-Call `start_clock` once from a component's setup. The task ends with the component that started it. `TimeState` also holds `selection`, `zoom` and `pan`; replace any field with your own signal to share it with other parts of the app (`TimeState { selection: picked.into(), ..ui::TimeState::new() }`). The time unit is yours: a frame number, a tick or a second. `time_format` only controls how the ruler and the playhead print it.
+Call `start_clock` once from a component's setup. The task ends with the component that started it. `TimeState` also holds `selection` and `transform`; replace any field with your own signal to share it with other parts of the app (`TimeState { selection: picked.into(), ..ui::TimeState::new() }`). The time unit is yours: a frame number, a tick or a second. `time_format` only controls how the ruler and the playhead print it.
 
 ### Other builder options
 
@@ -341,3 +341,5 @@ fn mixer_panel() -> impl IntoView {
 - [Connect nodes in a node graph](node-graph.md)
 - Full API: `cargo doc -p kivact-ui-creative --open`
 - The catalog's timeline, animation and mixer chapters: `cargo run -p kivact-ui-creative-catalog`
+
+Time and arrangement editors use a single `transform: Binding<kivact::interaction::ViewTransform>`. Its `scale` is horizontal pixels per logical time unit (pixels per beat for arrangement), and its `offset` is pixel scrolling. Lane heights remain unscaled. A setup-time `transform.project(|pose| &pose.scale, |pose| &mut pose.scale)` binding can connect a zoom slider to the same pose. Domain wheel mappings and sidebar anchors remain part of the time editor.
