@@ -190,3 +190,5 @@ fn translated(app: App) -> App {
 インライン通知は、標準の `kivact::ui::alert(title).description(body).tone(tone).variant(ui::NoticeVariant)` を使います。`.icon(icon("warning"))`、`.dismissible(true)`、`.dismiss_content(icon("x"))` を付けると、従来のアイコンと四角い閉じるボタンになります。閉じる状態と focus の復元は Core が所有します。標準の empty state、card、input group も Creative の recipe を使い、[フィードバックの全 option](../../../../for-kivact-user/jp/how-to-guide/feedback.md)を保持します。
 
 表示専用の概要には `kivact::ui::progress(value).variant(ProgressVariant::Ring)` または `Gauge`、`stat(label, value)`、`heading(text, level)`、`description_list((description(term, detail), ...))` を使います。Creative は高さ 8 px のバー表示を保ち、密な指標用の文字スタイルを設定します。未確定の動き、百分率の意味、独自内容の slot は Core が持ちます。編集用の `ui::property_row` は domain 部品として残ります。[指標と説明リスト](../../../../for-kivact-user/jp/how-to-guide/metrics-and-description.md)を参照してください。
+
+編集用の `ui::property_row` は標準の description 表示を組み立てます。行は `Role::ListItem` を公開するため、関連する行を `kivact::ui::description_list` または `Role::List` のレイアウトコンテナに置きます。ラベル幅、行の高さ、前後の操作、編集用の binding は変わりません。

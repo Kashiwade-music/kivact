@@ -75,7 +75,7 @@ fn inspector() -> impl IntoView {
                 text(move || format!("{} undo step(s)", history.get().len())),
             ))
             .style(style().gap(8)),
-        ))
+        )).role(kivact::view::Role::List)
         .style(style().gap(6).padding(10)),
     )
     .style(style().width(300))

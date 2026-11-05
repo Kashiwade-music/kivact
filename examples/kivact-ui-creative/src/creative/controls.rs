@@ -384,7 +384,7 @@ pub(super) fn selection() -> impl IntoView {
                 ui::property_row("Blend Mode", kivact::ui::select("Blend Mode", keyed_options([("normal", "Normal"), ("dissolve", "Dissolve"), ("darken", "Darken"), ("multiply", "Multiply"), ("color-burn", "Color Burn"), ("linear-burn", "Linear Burn"), ("lighten", "Lighten"), ("screen", "Screen"), ("color-dodge", "Color Dodge"), ("add", "Add"), ("overlay", "Overlay"), ("soft-light", "Soft Light"), ("hard-light", "Hard Light"), ("hue", "Hue"), ("saturation", "Saturation"), ("color", "Color"), ("luminosity", "Luminosity")]), signal(Some("screen".to_owned()))).placeholder("").name("Blend Mode").style(style().width(pct(100)))),
                 ui::property_row("Sample Rate", kivact::ui::select("Sample Rate", keyed_options([("hz44100", "44.1 kHz"), ("hz48000", "48 kHz"), ("hz88200", "88.2 kHz"), ("hz96000", "96 kHz"), ("hz192000", "192 kHz")]), signal(Some("hz48000".to_owned()))).placeholder("").name("Sample Rate").style(style().width(pct(100)))),
                 ui::property_row("Disabled",kivact::ui::select("Selection", keyed_options([("none", "None")]), signal(Some("none".to_owned()))).placeholder("").disabled(true).style(style().width(pct(100)))),
-            )).style(style().gap(3)),
+            )).role(kivact::view::Role::List).style(style().gap(3)),
         ),
         spec(
             "Text Field",

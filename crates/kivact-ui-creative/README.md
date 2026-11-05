@@ -16,7 +16,7 @@ fn inspector() -> impl IntoView {
         kivact::ui::switch("Use Nodes", enabled),
         kivact::ui::button("Render").variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || !enabled.get()),
-    )))
+    )).role(kivact::view::Role::List))
 }
 ```
 

@@ -100,7 +100,7 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ),
         ui::property_row("Fill", ui::color_popup("Fill", fill)),
         ui::bezier_curve(easing),
-    ))
+    )).role(kivact::view::Role::List)
     .style(style().gap(6).padding(10))
 }
 

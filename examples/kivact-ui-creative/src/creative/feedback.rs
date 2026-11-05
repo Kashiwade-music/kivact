@@ -171,7 +171,7 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
                     kivact::ui::checkbox("Relationship Lines", signal(true)),
                     ui::property_row("Opacity", slide("", 1.0)),
                     ui::property_row("Scale", num("", 1.0, 0.1, 10.0, 2, "")),
-                ))
+                )).role(kivact::view::Role::List)
             }),
         ),
         spec(
@@ -305,6 +305,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                                 .style(style().width(pct(100))),
                             ),
                         ))
+                        .role(kivact::view::Role::List)
                         .style(style().padding(14).gap(3))
                     } else {
                         column((
@@ -345,6 +346,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                                 kivact::ui::checkbox("Embed 48 kHz PCM", signal(true)),
                             ),
                         ))
+                        .role(kivact::view::Role::List)
                         .style(style().padding(14).gap(3))
                     }
                 }),

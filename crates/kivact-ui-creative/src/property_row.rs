@@ -28,7 +28,8 @@ pub struct PropertyRow {
 
 /// A label with the control that edits its value, in one inspector row.
 ///
-/// The row is a `Role::Group` named like the label. The label is right
+/// The row is a canonical description `Role::ListItem` named like the label.
+/// Place related rows inside `kivact::ui::description_list` or a `Role::List` container. The label is right
 /// aligned in a column of [`label_width`](PropertyRow::label_width) pixels
 /// (90 by default) on one line, and shows the full label on hover and focus
 /// in a tooltip (also when the label is not clipped). The value takes the rest
@@ -130,20 +131,29 @@ impl IntoView for PropertyRow {
                             .style(style().color(ColorName::Muted)),
                     ),
             );
-        self.root
-            .role(Role::Group)
-            .name(label)
-            .style(move || {
-                style()
-                    .min_width(0)
-                    .min_height(row_height.get())
-                    .gap(4)
-                    .align_items(Align::Center)
+        let detail = row((
+            self.leading,
+            node().style(style().grow(1).min_width(0)).child(self.value),
+            self.trailing,
+        ))
+        .style(
+            style()
+                .width(kivact::style::pct(100))
+                .min_width(0)
+                .gap(4)
+                .align_items(Align::Center),
+        );
+        kivact::ui::description(label, detail)
+            .term_content(name)
+            .with_node(move |_| {
+                self.root.role(Role::ListItem).style(move || {
+                    style()
+                        .min_width(0)
+                        .min_height(row_height.get())
+                        .gap(4)
+                        .align_items(Align::Center)
+                })
             })
-            .child(name)
-            .child(self.leading)
-            .child(node().style(style().grow(1).min_width(0)).child(self.value))
-            .child(self.trailing)
             .into_view()
     }
 }

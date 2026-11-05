@@ -658,6 +658,7 @@ pub(super) fn picker() -> impl IntoView {
                 .collect::<Vec<_>>())
                 .style(style().width(248).wrap(true).gap(5)),
             ))
+            .role(kivact::view::Role::List)
             .style(style().width(248)),
         )
         .style(style().min_height(516)),
@@ -673,7 +674,8 @@ pub(super) fn picker() -> impl IntoView {
                 ),
                 ui::property_row("Track Color", color_swatch(signal(rgb(0x3fbf8f)))),
                 note("ドラッグ中はリアルタイム反映、Escape で元の色に戻します。"),
-            )),
+            ))
+            .role(kivact::view::Role::List),
         )
         .style(style().min_height(516)),
     ))

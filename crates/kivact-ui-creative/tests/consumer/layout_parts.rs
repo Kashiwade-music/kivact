@@ -15,7 +15,7 @@ fn width(element: &Element<'_>) -> f64 {
 
 fn row_of(screen: &Screen, label: &str) -> Rect {
     screen
-        .get_by_role(Role::Group, label)
+        .get_by_role(Role::ListItem, label)
         .rect()
         .expect("row is laid out")
 }
@@ -25,7 +25,7 @@ fn a_property_row_lays_out_label_leading_value_and_trailing_in_order() {
     let (screen, ()) = kivact::test::render_with_handle(crate::support::options(), || {
         (
             (),
-            column((
+            kivact::ui::description_list((
                 ui::property_row(
                     "Opacity",
                     kivact::ui::button("Value")

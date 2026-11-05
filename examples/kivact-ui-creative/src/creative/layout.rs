@@ -81,6 +81,7 @@ pub(super) fn properties() -> impl IntoView {
                         ui::property_row("Z", num("Z", 1.0, 0.0, 10.0, 3, ""))
                             .test_id("axis-label-z"),
                     ))
+                    .role(kivact::view::Role::List)
                     .style(style().gap(3)),
                     2 => col((
                         num("X", 0.0, -100.0, 100.0, 3, " m"),
@@ -103,6 +104,7 @@ pub(super) fn properties() -> impl IntoView {
                         ),
                         ui::property_row("Pass Index", num("", 0.0, 0.0, 999.0, 0, "")),
                     ))
+                    .role(kivact::view::Role::List)
                     .style(style().gap(3)),
                     4 => col((
                         kivact::ui::checkbox("Show in Viewport", signal(true)),
@@ -146,6 +148,7 @@ pub(super) fn properties() -> impl IntoView {
                         ui::property_row("Color", ui::color_popup("Viewport color", display_color))
                             .test_id("creative-property-display-color"),
                     ))
+                    .role(kivact::view::Role::List)
                 }),
                 kivact::ui::alert("Property Editing")
                     .tone(kivact::interaction::Tone::Info)
@@ -262,6 +265,7 @@ pub(super) fn docking() -> impl IntoView {
                     .placeholder(""),
                 ),
             ))
+            .role(kivact::view::Role::List)
             .style(style().padding(12)),
         )
         .into_view(),
@@ -429,6 +433,7 @@ fn effects_panel() -> Node {
                 ),
                 ui::property_row("Size", num("Font size", 12.0, 1.0, 300.0, 0, " pt")),
             ))
+            .role(kivact::view::Role::List)
         } else {
             line((
                 kivact::ui::button("Left").variant(kivact::ui::ButtonVariant::Secondary),
