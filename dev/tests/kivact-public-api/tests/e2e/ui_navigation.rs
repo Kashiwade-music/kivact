@@ -130,6 +130,6 @@ fn pagination_input_commits_and_clamps_the_one_based_draft() {
     field.type_text("99");
     field.press_key(Key::Enter);
     assert_eq!(page.get_untracked(), 3);
-    assert_eq!(field.text(), "4");
+    assert_eq!(field.value().as_deref(), Some("4"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
