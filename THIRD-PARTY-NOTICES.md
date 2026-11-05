@@ -29,4 +29,4 @@ Its original [SIL Open Font License](examples/shared-assets/fonts/notosansjp/OFL
 The other catalogs retain their existing copies until their K-7 migrations.
 Game's Barlow Condensed and JetBrains Mono remain in its own assets directory.
 
-Geist and Geist Mono catalog font bytes and OFL notices are shared in xamples/shared-assets/fonts/ with the original SHA-256 records.
+Geist and Geist Mono catalog font bytes and OFL notices are shared in examples/shared-assets/fonts/ with the original SHA-256 records.
