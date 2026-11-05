@@ -3,7 +3,7 @@
 use super::drop_plan::{Placement, Plan, plan_drop};
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
-use crate::{Color, LabelTone};
+use crate::{ColorName, LabelTone};
 use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::{
@@ -460,7 +460,7 @@ impl IntoView for Outliner {
                         .top(0)
                         .bottom(0)
                         .width(2)
-                        .background(Color::Accent),
+                        .background(ColorName::Accent),
                 );
                 let body = row((
                     chevron,

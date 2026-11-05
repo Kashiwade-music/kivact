@@ -28,16 +28,17 @@ fn main() -> kivact::Result<()> {
 
 ## Choose an accent and a density
 
-Import the `ThemeOptions` trait (as `_`, because you only need its methods) and chain:
+Pass a `ThemeOptions` struct to `theme_with`, using `..Default::default()` for omitted fields:
 
 ```rust,no_run
 use kivact::style::{Theme, ThemeMode};
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact_ui_creative as ui;
 
 fn compact_lime() -> Theme {
-    ui::theme(ThemeMode::Dark)
-        .accent(ui::Accent::Lime)
-        .density(ui::Density::Compact)
+    ui::theme_with(ThemeMode::Dark, ui::ThemeOptions {
+        accent: ui::Accent::Lime,
+        density: ui::Density::Compact,
+    })
 }
 ```
 
@@ -51,7 +52,7 @@ fn compact_lime() -> Theme {
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::style::provide_theme;
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact_ui_creative as ui;
 
 fn themed() -> impl IntoView {
     let dark = signal(true);
@@ -60,7 +61,7 @@ fn themed() -> impl IntoView {
     provide_theme(
         move || {
             let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
-            ui::theme(mode).accent(accent.get())
+            ui::theme_with(mode, ui::ThemeOptions { accent: accent.get(), ..Default::default() })
         },
         move || {
             column((
@@ -77,15 +78,15 @@ fn themed() -> impl IntoView {
                 style()
                     .gap(10)
                     .padding(16)
-                    .background(ui::Color::Canvas)
-                    .color(ui::Color::Text),
+                    .background(ui::ColorName::Canvas)
+                    .color(ui::ColorName::Text),
             )
         },
     )
 }
 ```
 
-`ui::Color` is the kit's own palette as a style value (`Canvas`, `Island`, `Header`, `Field`, `Hair`, `Text`, `Muted`, `Accent` and more). Anywhere a style takes a color it follows theme switches by itself, with no closure that reads the theme.
+`ui::ColorName` is the kit's own palette as a style value (`Canvas`, `Island`, `Header`, `Field`, `Hair`, `Text`, `Muted`, `Accent` and more). Anywhere a style takes a color it follows theme switches by itself, with no closure that reads the theme.
 
 ## Use your own fonts
 

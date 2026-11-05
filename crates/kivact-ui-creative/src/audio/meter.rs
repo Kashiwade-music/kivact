@@ -54,7 +54,7 @@ pub fn meter(label: impl IntoText, level: impl IntoValue<f64>) -> Meter {
             .style(
                 style()
                     .size(30, 180)
-                    .background(crate::Color::Canvas)
+                    .background(crate::ColorName::Canvas)
                     .radius(5),
             ),
         level: level.into_value(),

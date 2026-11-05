@@ -418,8 +418,8 @@ pub(super) fn grading() -> impl IntoView {
                 .style(style().width(pct(25)).padding(12))
                 .style(
                     style()
-                        .border_top(1, ui::Color::Hair)
-                        .border_right(1, ui::Color::Hair),
+                        .border_top(1, ui::ColorName::Hair)
+                        .border_right(1, ui::ColorName::Hair),
                 )
             })
             .collect::<Vec<_>>()),

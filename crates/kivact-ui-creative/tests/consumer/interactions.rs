@@ -6,7 +6,6 @@ use kivact::interaction::{MenuEntry, toaster};
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_creative as ui;
-use kivact_ui_creative::ThemeOptions;
 
 use std::time::Duration;
 
@@ -41,11 +40,13 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
         .get_by_role(Role::RadioButton, "First")
         .press_key(Key::ArrowRight);
     let before = screen.snapshot();
-    theme.set(
-        ui::theme(kivact::style::ThemeMode::Dark)
-            .accent(ui::Accent::Aqua)
-            .density(ui::Density::Compact),
-    );
+    theme.set(ui::theme_with(
+        kivact::style::ThemeMode::Dark,
+        ui::ThemeOptions {
+            accent: ui::Accent::Aqua,
+            density: ui::Density::Compact,
+        },
+    ));
     screen.run_until_idle();
     assert_eq!(screen.snapshot(), before);
     screen

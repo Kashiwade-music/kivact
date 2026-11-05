@@ -68,7 +68,7 @@ pub use crate::outliner::view_state::OutlinerState;
 pub use audio::{Meter, MixerStrip, Transport, TransportState, meter, mixer_strip, transport};
 pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
 pub use choice::Segmented;
-pub use color::Color;
+pub use color::ColorName;
 pub use color_popup::color_popup;
 pub use color_wheel::{ColorModel, ColorWheel, color_from_hsv, color_to_hsv, color_wheel};
 pub use curve_preview::{CurvePreview, curve_preview};
@@ -102,7 +102,7 @@ pub use pie::{PieEntry, PieMenu, PieMode, PieState, pie_menu};
 pub use property_row::{PropertyRow, PropertyStateButton, property_row, property_state_button};
 pub use range::{Range, range};
 pub use tabs::{DocumentTabs, document_tabs};
-pub use theme::{ThemeOptions, theme};
+pub use theme::{ThemeOptions, theme, theme_with};
 pub use timeline::{Timeline, timeline};
 pub use tokens::{Accent, Density, LabelTone, Tokens};
 pub use viewport_surface::{

@@ -1,5 +1,5 @@
 //! Role: Inspector property rows pairing a label with its value control.
-use crate::Color;
+use crate::ColorName;
 
 use kivact::ui::{Button, ButtonVariant, button, tooltip};
 
@@ -127,7 +127,7 @@ impl IntoView for PropertyRow {
                                     .text_align(TextAlign::End)
                                     .single_line(),
                             )
-                            .style(style().color(Color::Muted)),
+                            .style(style().color(ColorName::Muted)),
                     ),
             );
         self.root

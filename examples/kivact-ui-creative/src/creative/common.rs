@@ -125,7 +125,7 @@ pub(super) fn separator() -> Node {
     node()
         .role(Role::Separator)
         .style(style().size(1, 20).margin_x(2))
-        .style(style().background(ui::Color::HairStrong))
+        .style(style().background(ui::ColorName::HairStrong))
 }
 
 pub(super) fn specs(content: impl IntoView) -> Node {
@@ -142,7 +142,7 @@ pub(super) fn spec(title: &str, subtitle: &str, content: impl IntoView) -> Node 
             text(title.to_string()).style(style().weight(600).font_size(11.5)),
             text(subtitle.to_string())
                 .style(style().font_size(11))
-                .style(style().color(ui::Color::Dim)),
+                .style(style().color(ui::ColorName::Dim)),
         ))
         .style(style().gap(8).min_height(16)),
         content,
@@ -157,8 +157,8 @@ pub(super) fn spec(title: &str, subtitle: &str, content: impl IntoView) -> Node 
     )
     .style(
         style()
-            .border_right(1, ui::Color::Hair)
-            .border_bottom(1, ui::Color::Hair),
+            .border_right(1, ui::ColorName::Hair)
+            .border_bottom(1, ui::ColorName::Hair),
     )
 }
 
@@ -173,7 +173,7 @@ pub(super) fn col(content: impl IntoView) -> Node {
 pub(super) fn note(message: impl IntoText) -> kivact::view::Node {
     text(message)
         .style(style().font_size(11.5).line_height(1.7))
-        .style(style().color(ui::Color::Dim))
+        .style(style().color(ui::ColorName::Dim))
 }
 
 pub(super) fn bind<T: kivact::state::PropValue>(

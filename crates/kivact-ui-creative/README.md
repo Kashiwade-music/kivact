@@ -22,10 +22,10 @@ fn inspector() -> impl IntoView {
 
 Install `ui::theme(ThemeMode::Dark)` on an App or with
 `kivact::view::provide_theme`: it is a plain `Theme` in the Iris accent and
-the comfortable density. `ui::ThemeOptions` chooses others
-(`ui::theme(ThemeMode::Dark).accent(Accent::Lime).density(Density::Compact)`,
-with `use kivact_ui_creative::ThemeOptions as _;`); each method changes the kit's
-tokens and the core colors and metrics that follow them and keeps the rest. `Tokens` exposes the prototype's semantic color,
+the comfortable density. Choose others with
+`ui::theme_with(ThemeMode::Dark, ui::ThemeOptions { accent: ui::Accent::Lime,
+density: ui::Density::Compact })`. Use `..Default::default()` to keep omitted
+options at their defaults. `Tokens` exposes the prototype's semantic color,
 density and font tokens. Defaults use `sans-serif` and `monospace`; no font asset
 registration is required. The catalog registers Geist, Geist Mono and Noto Sans JP
 and sets `Tokens.body_font`/`mono_font` to reproduce the source typography.
@@ -289,3 +289,28 @@ was pressed, selected or moved last. Context menus are
 `kivact::ui::menu(label, entries, choose).attach_context(target)`.
 
 `arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, entries).on_select(choose)` keeps the primary action required. `window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
+
+The theme fills these `UiRecipes` entries:
+
+<!-- kivact-recipes -->
+- `button`
+- `button_content`
+- `toggle`
+- `checkbox`
+- `switch`
+- `text_input`
+- `text_area`
+- `select`
+- `menu`
+- `dialog`
+- `tooltip`
+- `tabs`
+- `radio_group`
+- `slider`
+- `toast`
+- `splitter`
+- `list`
+- `data_table`
+- `progress`
+- `disclosure`
+<!-- /kivact-recipes -->

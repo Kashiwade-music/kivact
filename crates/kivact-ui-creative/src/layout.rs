@@ -1,5 +1,5 @@
 //! Role: Panels, media tiles and tree rows of the Creative kit.
-use crate::Color;
+use crate::ColorName;
 
 use kivact::state::IntoText;
 use kivact::style::use_theme;
@@ -20,7 +20,7 @@ pub fn media_tile(
             .style(style().font_size(11.5).weight(500).single_line())
             .into_view(),
         text(metadata)
-            .style(style().font_size(9.5).color(Color::Dim))
+            .style(style().font_size(9.5).color(ColorName::Dim))
             .into_view(),
     ))
     .role(Role::ListItem)
@@ -33,7 +33,7 @@ pub fn media_tile(
             .radius(10)
             .min_width(0)
             .hover(style().background(ColorToken::Hover))
-            .selected(style().background(Color::Selection)),
+            .selected(style().background(ColorName::Selection)),
     )
 }
 
@@ -55,10 +55,10 @@ pub fn panel(title: impl IntoText, content: impl IntoView) -> Panel {
     Panel {
         root: column(()).role(Role::Group).name(title).style(
             style()
-                .background(Color::Island)
-                .color(Color::Text)
+                .background(ColorName::Island)
+                .color(ColorName::Text)
                 .radius(12)
-                .border(1, Color::Hair)
+                .border(1, ColorName::Hair)
                 .min_width(0)
                 .min_height(0)
                 .overflow(Overflow::Hidden),
@@ -75,7 +75,7 @@ pub fn panel(title: impl IntoText, content: impl IntoView) -> Panel {
                     .padding_x(12)
                     .gap(6)
                     .align_items(Align::Center)
-                    .border_bottom(1, Color::Hair),
+                    .border_bottom(1, ColorName::Hair),
             )
             .into_view()
         },

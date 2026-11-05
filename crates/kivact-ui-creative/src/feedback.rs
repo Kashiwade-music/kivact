@@ -574,7 +574,7 @@ fn window_layer<V: IntoView>(
         let mut header = row((
             options.icon.is_some().then(move || {
                 icon(window_icon.clone().unwrap_or(Icon::named("settings")))
-                    .style(style().color(crate::Color::Accent))
+                    .style(style().color(crate::ColorName::Accent))
             }),
             text(title).style(style().weight(600).grow(1)),
             (!options.modal).then(move || {

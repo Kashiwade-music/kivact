@@ -28,20 +28,21 @@ fn main() -> kivact::Result<()> {
 
 ## アクセントと密度を選ぶ
 
-`ThemeOptions` トレイトをインポートして（メソッドだけを使うので `_` を付けます）、メソッドをつなぎます。
+`ThemeOptions` 構造体を `theme_with` に渡します。省略するフィールドには `..Default::default()` を使います。
 
 ```rust,no_run
 use kivact::style::{Theme, ThemeMode};
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact_ui_creative as ui;
 
 fn compact_lime() -> Theme {
-    ui::theme(ThemeMode::Dark)
-        .accent(ui::Accent::Lime)
-        .density(ui::Density::Compact)
+    ui::theme_with(ThemeMode::Dark, ui::ThemeOptions {
+        accent: ui::Accent::Lime,
+        density: ui::Density::Compact,
+    })
 }
 ```
 
-`Accent` には `Iris`・`Lime`・`Aqua`・`Coral`・`Amber` があります。アクセントは、選択、フォーカスリング、操作中の部品の色になります。`Density::Compact` は、コントロールの高さを 24 から 20 ピクセルにし、間隔を詰めます。どちらのメソッドも、テーマがすでに持っているほかの設定は変えません。
+`Accent` には `Iris`・`Lime`・`Aqua`・`Coral`・`Amber` があります。アクセントは、選択、フォーカスリング、操作中の部品の色になります。`Density::Compact` は、コントロールの高さを 24 から 20 ピクセルにし、間隔を詰めます。ほかのテーマ設定は、返されたテーマに適用します。
 
 ## 実行中にテーマを切り替える
 
@@ -51,7 +52,7 @@ fn compact_lime() -> Theme {
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::style::provide_theme;
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact_ui_creative as ui;
 
 fn themed() -> impl IntoView {
     let dark = signal(true);
@@ -60,7 +61,7 @@ fn themed() -> impl IntoView {
     provide_theme(
         move || {
             let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
-            ui::theme(mode).accent(accent.get())
+            ui::theme_with(mode, ui::ThemeOptions { accent: accent.get(), ..Default::default() })
         },
         move || {
             column((
@@ -77,15 +78,15 @@ fn themed() -> impl IntoView {
                 style()
                     .gap(10)
                     .padding(16)
-                    .background(ui::Color::Canvas)
-                    .color(ui::Color::Text),
+                    .background(ui::ColorName::Canvas)
+                    .color(ui::ColorName::Text),
             )
         },
     )
 }
 ```
 
-`ui::Color` は、キット独自のパレットをスタイルの値にしたものです（`Canvas`・`Island`・`Header`・`Field`・`Hair`・`Text`・`Muted`・`Accent` など）。スタイルが色を受け取る場所ならどこでも使え、テーマを切り替えると自動で追従します。テーマを読むクロージャは要りません。
+`ui::ColorName` は、キット独自のパレットをスタイルの値にしたものです（`Canvas`・`Island`・`Header`・`Field`・`Hair`・`Text`・`Muted`・`Accent` など）。スタイルが色を受け取る場所ならどこでも使え、テーマを切り替えると自動で追従します。テーマを読むクロージャは要りません。
 
 ## 自分のフォントを使う
 

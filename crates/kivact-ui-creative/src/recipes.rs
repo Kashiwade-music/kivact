@@ -2,7 +2,7 @@
 //!
 //! `radio_group`, `slider`, `toast_region` and `splitter` of `kivact::ui`
 //! take the kit's look from `recipes_controls`.
-use crate::Color;
+use crate::ColorName;
 use kivact::custom::PartState;
 use kivact::draw::{LineCap, LineJoin, Path, Shadow, Stroke};
 use kivact::geometry::{Point, Rect};
@@ -81,7 +81,7 @@ fn build() -> UiRecipes {
                 })
                 .separator(|_| {
                     |_: &Theme, _: &Look<PartState>| {
-                        style().height(1).background(Color::Hair).margin_y(4)
+                        style().height(1).background(ColorName::Hair).margin_y(4)
                     }
                 })
                 .check(|_| |_: &Theme, _: &Look<MenuItemState>| mark())
@@ -96,7 +96,7 @@ fn build() -> UiRecipes {
                 // The title over the description, clear of the close button.
                 .header(|_| |_: &Theme, _: &Look<DialogState>| style().gap(4).padding_right(28))
                 .title(|_| |_: &Theme, _: &Look<DialogState>| style().weight(600))
-                .description(|_| |_: &Theme, _: &Look<DialogState>| style().color(Color::Muted))
+                .description(|_| |_: &Theme, _: &Look<DialogState>| style().color(ColorName::Muted))
                 .body(|_| |_: &Theme, _: &Look<DialogState>| style().gap(8))
                 .footer(|_| {
                     |_: &Theme, _: &Look<DialogState>| style().gap(8).justify_content(Justify::End)
@@ -109,10 +109,10 @@ fn build() -> UiRecipes {
                         .padding(10)
                         .max_width(320)
                         .radius(8)
-                        .color(Color::Text)
+                        .color(ColorName::Text)
                         .background(rgba(0x1e1f26, 0.94))
                         .backdrop_blur(22)
-                        .border(1, Color::HairStrong)
+                        .border(1, ColorName::HairStrong)
                         .shadow(Shadow::new(0., 10., 24., rgba(0, 0.5)))
                 }
             })

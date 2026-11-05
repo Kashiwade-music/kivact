@@ -1,5 +1,5 @@
 //! Role: Container chrome of a dock: the tab strip, inline rename and the container menu.
-use crate::Color;
+use crate::ColorName;
 use kivact::interaction::{ListItem, MenuEntry};
 use kivact::ui::ButtonVariant;
 use kivact::view::IntoView;
@@ -121,8 +121,8 @@ pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<It
                 .padding_x(4)
                 .gap(4)
                 .align_items(Align::Center)
-                .background(Color::Header)
-                .border_bottom(1, Color::Hair),
+                .background(ColorName::Header)
+                .border_bottom(1, ColorName::Hair),
         ),
         node().style(style().grow(1)),
     ))

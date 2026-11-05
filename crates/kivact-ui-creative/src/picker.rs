@@ -1,6 +1,6 @@
 //! Role: A searchable, sectioned list of keyed items in a popup.
 
-use crate::Color;
+use crate::ColorName;
 use kivact::state::IntoBinding;
 
 use kivact::style::use_theme;
@@ -853,7 +853,7 @@ fn search_field<K: kivact::state::ItemKey>(
     row((
         icon("search")
             .style(style().shrink(0))
-            .style(style().color(Color::Dim)),
+            .style(style().color(ColorName::Dim)),
         search,
     ))
     .style(style().gap(6).align_items(Align::Center).padding_left(6))
@@ -890,7 +890,7 @@ fn run_view<K: kivact::state::ItemKey>(
                 .padding_x(7)
                 .padding_top(6)
                 .padding_bottom(2)
-                .color(Color::Dim),
+                .color(ColorName::Dim),
         ),
         rows,
     ))
@@ -921,7 +921,7 @@ fn item_row<K: kivact::state::ItemKey>(
             description.map(|description| {
                 text(description)
                     .style(style().min_width(0).single_line())
-                    .style(style().font_size(11).color(Color::Muted))
+                    .style(style().font_size(11).color(ColorName::Muted))
             })
         }),
         dynamic(shortcut, |shortcut| {

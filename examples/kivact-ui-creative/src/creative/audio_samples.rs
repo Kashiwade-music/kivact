@@ -28,8 +28,8 @@ pub(super) fn transport_section(state: Signal<TransportState>) -> impl IntoView 
                 kivact::ui::button("Stop").hide_label(true).icon(kivact::view::icon("stop")).variant(kivact::ui::ButtonVariant::Ghost).on_press(move||state.update(|s|s.playing=false)),
                 kivact::ui::button("Play").hide_label(true).icon(kivact::view::icon("play")).variant(kivact::ui::ButtonVariant::Ghost).with_node(|node| node.selected(move||state.get().playing)).on_press(move||state.update(|s|s.playing = !s.playing)),
                 kivact::ui::button("Record").hide_label(true).icon(kivact::view::icon("record")).variant(kivact::ui::ButtonVariant::Ghost).style(style().color(rgb(0xff5c6c))).with_node(|node| node.selected(move||state.get().recording)).on_press(move||state.update(|s|s.recording = !s.recording)),
-            )).style(style().height(34).gap(2).padding(3).radius(10)).style( style().background(ui::Color::Canvas)),
-            line((kivact::ui::toggle_button("♬", signal(false)).name("Metronome"),kivact::ui::toggle_button("⇥", signal(false)).name("Pre-roll"),kivact::ui::toggle_button("↦", signal(false)).name("Punch In"),kivact::ui::toggle_button("↔", signal(false)).name("Follow"))).style(style().height(30).width(pct(100)).radius(9)).style( style().background(ui::Color::Canvas)),
+            )).style(style().height(34).gap(2).padding(3).radius(10)).style( style().background(ui::ColorName::Canvas)),
+            line((kivact::ui::toggle_button("♬", signal(false)).name("Metronome"),kivact::ui::toggle_button("⇥", signal(false)).name("Pre-roll"),kivact::ui::toggle_button("↦", signal(false)).name("Punch In"),kivact::ui::toggle_button("↔", signal(false)).name("Follow"))).style(style().height(30).width(pct(100)).radius(9)).style( style().background(ui::ColorName::Canvas)),
             note("Space 再生／停止、Home 先頭、, . で1フレーム移動。全エディタの再生ヘッドが同期します。"),
         ))).style(style().min_height(245)),
         spec("LCD Time Display","タイム表示",col((
@@ -37,12 +37,12 @@ pub(super) fn transport_section(state: Signal<TransportState>) -> impl IntoView 
                 row((lcd_note("PRIMARY"),spacer(),lcd_note(move||["SMPTE 24","BARS+BEATS","SECONDS","FRAMES"][format.get()].to_owned()))),
                 text(move||match format.get(){0=>smpte(state.get().frame),1=>format!("{}.{:.0}.1.0",(state.get().frame/48.0).floor()+1.0,(state.get().frame/12.0).floor()%4.0+1.0),2=>format!("{:.3} s",state.get().frame/24.0),_=>format!("{:06}",state.get().frame as u64)}).style(style().font_family("Geist Mono").font_size(30).weight(600)),
                 row((lcd_note(move||format!("BARS {:.0}.{:.0}.1.0",(state.get().frame/48.0).floor()+1.0,(state.get().frame/12.0).floor()%4.0+1.0)),spacer(),lcd_note(move||format!("SEC {:.3}",state.get().frame/24.0)))),
-            )).style(style().gap(3))).style(style().height(88).padding(12).radius(12)).style( style().background(ui::Color::Canvas).border(1,ui::Color::Hair)).on_press(move||format.update(|v|*v=(*v+1)%4)),
+            )).style(style().gap(3))).style(style().height(88).padding(12).radius(12)).style( style().background(ui::ColorName::Canvas).border(1,ui::ColorName::Hair)).on_press(move||format.update(|v|*v=(*v+1)%4)),
             col((
                 row((lcd_note("TEMPO"),spacer(),lcd_note("SIGNATURE"))),
                 row((text("120.000").style(style().font_family("Geist Mono").font_size(22).weight(600)),spacer(),text("4/4").style(style().font_family("Geist Mono").font_size(22).weight(600)))),
                 row((lcd_note("TRACK TEMPO"),spacer(),lcd_note("SYNC INT"))),
-            )).style(style().height(82).padding(12).gap(3).radius(12)).style( style().background(ui::Color::Canvas).border(1,ui::Color::Hair)),
+            )).style(style().height(82).padding(12).gap(3).radius(12)).style( style().background(ui::ColorName::Canvas).border(1,ui::ColorName::Hair)),
         )).style(style().gap(10))),
         spec("Locators","ロケーター",col((
             locator("L","Start",bind(move||state.get().loop_start,move|v|state.update(|s|s.loop_start=v))),
@@ -261,7 +261,7 @@ pub(super) fn meters(state: Signal<TransportState>) -> impl IntoView {
                 lcd_note("PHASE CORRELATION").style(style().margin_top(6)),
                 node()
                     .style(style().height(9).radius(4))
-                    .style(style().background(ui::Color::Field))
+                    .style(style().background(ui::ColorName::Field))
                     .draw(|d, s| {
                         d.rounded_rect(
                             Rect::new(s.width * 0.74, 0.5, 7.0, 7.0),
@@ -309,8 +309,8 @@ pub(super) fn meters(state: Signal<TransportState>) -> impl IntoView {
                     .style(style().height(64).radius(10))
                     .style(
                         style()
-                            .background(ui::Color::Canvas)
-                            .border(1, ui::Color::Hair),
+                            .background(ui::ColorName::Canvas)
+                            .border(1, ui::ColorName::Hair),
                     )
                     .draw(|d, s| {
                         for i in 1..4 {
@@ -358,6 +358,6 @@ fn loudness(name: &str, value: impl IntoText, unit: &str, color: Option<Color>) 
     .style(
         style()
             .background(ColorToken::Raised)
-            .border(1, ui::Color::Hair),
+            .border(1, ui::ColorName::Hair),
     )
 }

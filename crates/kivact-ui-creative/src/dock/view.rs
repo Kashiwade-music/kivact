@@ -6,7 +6,7 @@ use super::geometry::{Divider, MIN_EXTENT, STRIP};
 use super::items::Item;
 use super::items::{ItemKey, build_items};
 use super::model::{DockAxis, DockLayout, DockPlacement, DockTabs};
-use crate::Color;
+use crate::ColorName;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_splitter;
 use kivact::state::IntoBinding;
@@ -180,7 +180,7 @@ impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
                     .position(Position::Absolute)
                     .left(pct(50) - 30)
                     .top(pct(50) - 8)
-                    .color(Color::Dim),
+                    .color(ColorName::Dim),
             );
         let preview = memo(move || {
             cx.drag.with(|drag| {
