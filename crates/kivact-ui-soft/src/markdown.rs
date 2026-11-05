@@ -802,6 +802,7 @@ fn inline_spans(source: &str, strong: bool) -> Node {
 }
 
 #[derive(Clone, Copy, Default)]
+// xtask-allow(state-fields): Passive inline syntax paint flags combined recursively while parsing one source string; not reactive UI state or a lifecycle.
 struct Marks {
     strong: bool,
     italic: bool,

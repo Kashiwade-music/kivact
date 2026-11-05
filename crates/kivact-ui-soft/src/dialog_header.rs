@@ -31,6 +31,7 @@ pub enum EdgeCompensation {
 }
 
 /// Dialog heading with optional subtitle, side content and close action.
+// xtask-allow(state-fields): Independent once-mounted title/subtitle/start/end slots and optional close callback plus construction compensation/divider input; no dialog visibility or close phase is stored.
 pub struct DialogHeader {
     title: View,
     subtitle: Option<View>,

@@ -23,6 +23,7 @@ use kivact::view::show;
 use std::rc::Rc;
 
 /// Confirmation dialog with a cancel button and an optional application action.
+// xtask-allow(state-fields): Immutable canonical Dialog plus its same caller-owned open binding, action/cancel configuration and independent application loading input; no local dialog lifecycle is stored.
 pub struct AlertDialog {
     dialog: kivact::ui::Dialog,
     open: Binding<bool>,

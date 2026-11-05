@@ -30,6 +30,7 @@ pub enum DividerVariant {
 }
 
 /// Semantic separator with optional content between two rule segments.
+// xtask-allow(state-fields): Independent separator orientation, visual variant, optional label and bleed inputs; no runtime interaction phase or duplicated model is stored.
 pub struct Divider {
     root: Node,
     orientation: Value<Orientation>,

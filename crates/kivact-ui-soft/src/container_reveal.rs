@@ -31,6 +31,7 @@ pub enum RevealVisibility {
 
 /// Fixed reveal behavior sampled when the reveal is bound.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+// xtask-allow(state-fields): Immutable reveal construction policy: independent inversion, layout retention, caller overrides and delay; these fields describe no current hover or visibility phase.
 pub struct RevealContent {
     /// Reveal away from hover instead of on hover; focus and touch still reveal.
     pub inverted: bool,
