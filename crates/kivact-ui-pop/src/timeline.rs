@@ -1,6 +1,6 @@
 //! Role: Timeline entries with plain or application-provided rich titles.
 
-use crate::Color;
+use crate::ColorName;
 use crate::{Hue, Tokens};
 use kivact::state::Value;
 use kivact::state::{IntoText, IntoValue};
@@ -150,7 +150,7 @@ impl IntoView for TimelineItem {
                 ),
                 text(timestamp)
                     .style(style().font_size(12).line_height(1.5))
-                    .style(style().color(Color::TextFaint)),
+                    .style(style().color(ColorName::TextFaint)),
             ))
             .style(
                 style()

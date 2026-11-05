@@ -142,7 +142,7 @@ pub fn typing_message(initials: impl IntoText) -> impl kivact::view::Component {
         avatar(initials).size(24),
         node()
             .style(style().size(54, 30).radius_corners(4, 14, 14, 14))
-            .style(style().background(crate::Color::SurfaceActive))
+            .style(style().background(crate::ColorName::SurfaceActive))
             .draw(move |draw, _| {
                 let color = draw.theme().ext::<Tokens>().text_faint;
                 for index in 0..3 {

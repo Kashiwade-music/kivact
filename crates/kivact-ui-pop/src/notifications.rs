@@ -1,5 +1,5 @@
 //! Role: Notification history with application-owned read state.
-use crate::Color;
+use crate::ColorName;
 
 use kivact::ui::{ButtonVariant, button};
 
@@ -167,7 +167,7 @@ impl<V: IntoView + NodeBuilder> IntoView for NotificationMenu<V> {
                                             ),
                                             text(move || item.get().timestamp)
                                                 .style(style().font_size(12))
-                                                .style(style().color(Color::TextFaint)),
+                                                .style(style().color(ColorName::TextFaint)),
                                         ))
                                         .style(style().grow(1).gap(0)),
                                         show(
@@ -209,8 +209,8 @@ impl<V: IntoView + NodeBuilder> IntoView for NotificationMenu<V> {
                         )
                         .style(
                             style()
-                                .background(Color::Surface)
-                                .border(1, Color::Line)
+                                .background(ColorName::Surface)
+                                .border(1, ColorName::Line)
                                 .shadow(Shadow::new(0, 10, 15, ColorToken::Shadow)),
                         ),
                     )

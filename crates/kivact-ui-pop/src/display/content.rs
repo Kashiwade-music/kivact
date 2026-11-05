@@ -382,7 +382,7 @@ pub fn section_heading(
                             .size(5, 22)
                             .radius(2),
                     )
-                    .style(style().background(crate::Color::Yellow)),
+                    .style(style().background(crate::ColorName::Yellow)),
             ),
         column((
             text(title)

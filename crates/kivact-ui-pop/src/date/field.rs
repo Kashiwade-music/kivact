@@ -129,7 +129,7 @@ pub(super) fn calendar_popup(
             .child(content)
             .style(
                 style()
-                    .background(crate::Color::Surface)
+                    .background(crate::ColorName::Surface)
                     .border(1, ColorToken::Border)
                     .radius(10)
                     .shadow(Shadow::new(0, 10, 15, ColorToken::Shadow)),

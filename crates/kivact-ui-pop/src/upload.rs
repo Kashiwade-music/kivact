@@ -1,6 +1,6 @@
 //! Role: File-transfer rows accept application-owned metadata and progress.
 
-use crate::Color;
+use crate::ColorName;
 use crate::spinner;
 use kivact::i18n::message;
 use kivact::state::{IntoText, IntoValue};
@@ -64,7 +64,7 @@ pub fn upload_row(
                     icon("circle-check")
                         .with_node(|root| root.role(Role::Status))
                         .name(done)
-                        .style(style().color(Color::Mint))
+                        .style(style().color(ColorName::Mint))
                         .into_view()
                 } else {
                     spinner()

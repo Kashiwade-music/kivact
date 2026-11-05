@@ -4,7 +4,7 @@
 //! scroll sideways, muted on hover and selection, drawn by
 //! `kivact::ui::list` and `kivact::ui::data_table`.
 
-use crate::Color;
+use crate::ColorName;
 use kivact::style::{Theme, style};
 use kivact::ui::{DataTableRecipes, ListRecipes};
 
@@ -16,24 +16,29 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
                 .min_height(40)
                 .radius(10)
                 .weight(500)
-                .hover(style().background(Color::SurfaceMuted))
-                .selected(style().background(Color::SurfaceActive))
+                .hover(style().background(ColorName::SurfaceMuted))
+                .selected(style().background(ColorName::SurfaceActive))
         }
     })
-    .description(|_| |_: &Theme, _: &_| style().font_size(13).color(Color::TextMuted))
+    .description(|_| |_: &Theme, _: &_| style().font_size(13).color(ColorName::TextMuted))
 }
 
 pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     r.frame(|prev| {
         move |t: &Theme, s: &_| {
             prev(t, s)
-                .background(Color::Surface)
-                .border_color(Color::Line)
+                .background(ColorName::Surface)
+                .border_color(ColorName::Line)
                 .radius(14)
         }
     })
     .toolbar(|prev| {
-        move |t: &Theme, s: &_| prev(t, s).padding(16).gap(8).border_bottom(1, Color::Line)
+        move |t: &Theme, s: &_| {
+            prev(t, s)
+                .padding(16)
+                .gap(8)
+                .border_bottom(1, ColorName::Line)
+        }
     })
     .footer(|prev| move |t: &Theme, s: &_| prev(t, s).padding_x(16).padding_y(12).gap(4))
     .header(|prev| {
@@ -45,17 +50,17 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
                 .padding_x(12)
                 .font_size(13)
                 .weight(500)
-                .color(Color::TextMuted)
-                .border_color(Color::Line)
+                .color(ColorName::TextMuted)
+                .border_color(ColorName::Line)
         }
     })
     .row(|prev| {
         move |t: &Theme, s: &_| {
             prev(t, s)
                 .min_height(s.height.unwrap_or(52.0))
-                .border_color(Color::Line)
-                .hover(style().background(Color::SurfaceMuted))
-                .selected(style().background(Color::SurfaceMuted))
+                .border_color(ColorName::Line)
+                .hover(style().background(ColorName::SurfaceMuted))
+                .selected(style().background(ColorName::SurfaceMuted))
         }
     })
     .cell(|prev| move |t: &Theme, s: &_| prev(t, s).width(160).min_width(160).padding_x(12))
