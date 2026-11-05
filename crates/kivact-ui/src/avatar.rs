@@ -150,28 +150,7 @@ impl IntoView for Avatar {
         let src = self.src;
         let fallback = self.fallback;
         let fallback_content = self.fallback_content;
-        let labels = [
-            kivact_core::i18n::message("avatar.status.neutral", "Neutral"),
-            kivact_core::i18n::message("avatar.status.info", "Information"),
-            kivact_core::i18n::message("avatar.status.success", "Available"),
-            kivact_core::i18n::message("avatar.status.warning", "Away"),
-            kivact_core::i18n::message("avatar.status.danger", "Busy"),
-            kivact_core::i18n::message("avatar.status.accent", "Active"),
-        ];
-        let status_label = (move || {
-            status.get().map(|tone| {
-                labels[match tone {
-                    Tone::Neutral => 0,
-                    Tone::Info => 1,
-                    Tone::Success => 2,
-                    Tone::Warning => 3,
-                    Tone::Danger => 4,
-                    Tone::Accent => 5,
-                }]
-                .get()
-            })
-        })
-        .into_value();
+        let status_label = status_label(status);
         let source = move || {
             if status_label.get().is_some() {
                 AvatarStatusSource::Mounted {
@@ -226,4 +205,30 @@ impl IntoView for Avatar {
         ))
         .into_view()
     }
+}
+
+/// Localize the application's semantic presence tone for the accessible name.
+fn status_label(status: Value<Option<Tone>>) -> Value<Option<String>> {
+    let labels = [
+        kivact_core::i18n::message("avatar.status.neutral", "Neutral"),
+        kivact_core::i18n::message("avatar.status.info", "Information"),
+        kivact_core::i18n::message("avatar.status.success", "Available"),
+        kivact_core::i18n::message("avatar.status.warning", "Away"),
+        kivact_core::i18n::message("avatar.status.danger", "Busy"),
+        kivact_core::i18n::message("avatar.status.accent", "Active"),
+    ];
+    (move || {
+        status.get().map(|tone| {
+            labels[match tone {
+                Tone::Neutral => 0,
+                Tone::Info => 1,
+                Tone::Success => 2,
+                Tone::Warning => 3,
+                Tone::Danger => 4,
+                Tone::Accent => 5,
+            }]
+            .get()
+        })
+    })
+    .into_value()
 }
