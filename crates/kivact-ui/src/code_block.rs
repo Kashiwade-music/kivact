@@ -260,6 +260,11 @@ impl CodeBlock {
                 copy_label.get()
             }
         })
+        .variant(crate::ButtonVariant::Ghost)
+        .icon(kivact_core::view::icon(move || {
+            kivact_core::style::Icon::named(if copied.get() { "check" } else { "copy" })
+        }))
+        .hide_label(true)
         .hidden(move || !shown.get())
         .on_press(move || {
             feedback.copy(code.get_untracked());
@@ -304,6 +309,19 @@ impl CodeBlock {
             )
         });
         let copy = self.copy_control(presentation);
+        let copied = presentation.feedback.is_copied();
+        let copied_label = kivact_core::i18n::message("code_block.copied", "Copied");
+        let status = node()
+            .role(Role::Status)
+            .live_region(kivact_core::view::LiveRegion::Polite)
+            .name(move || {
+                if copied.get() {
+                    copied_label.get()
+                } else {
+                    String::new()
+                }
+            })
+            .style(style().size(0, 0));
         let end = self.end_content.take().map(|v| {
             with_recipe_style(
                 node().child(v),
@@ -314,7 +332,7 @@ impl CodeBlock {
         });
         with_recipe_style(
             node()
-                .child((label, trigger, language, end, copy))
+                .child((label, trigger, language, end, copy, status))
                 .hidden(move || !state.get().has_header),
             |r| r.code_block_recipes().header_recipe(),
             &self.variants,
