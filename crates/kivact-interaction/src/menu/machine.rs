@@ -85,6 +85,11 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
         if let Event::Popup(false) = event {
             return Step::to(State::Closed).with(Effect::Closed);
         }
+        let event = if matches!(event, Event::Popup(true)) && matches!(state, State::Closed) {
+            Event::Open(Opened::Button)
+        } else {
+            event
+        };
         if let Event::Open(opened_by) = event {
             match &mut next {
                 State::Closed => {
@@ -126,7 +131,7 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
             .find_map(|(depth, level)| level.highlight.clone().map(|key| (depth, key)));
         let kept = kept_levels(&self.entries, &path, focus.as_ref());
         if kept == 0 {
-            return Step::to(State::Closed).with(Effect::Close);
+            return Step::to(next).with(Effect::Close);
         }
         if kept < levels.len() {
             let parent = path

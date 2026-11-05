@@ -5,7 +5,7 @@ use kivact_core::view::{
 };
 use std::rc::Rc;
 
-use crate::{PageItem, PaginationMode, PaginationSummary};
+use crate::{PageItem, PaginationMode, PaginationSummary, PaginationWindow};
 /// Page controls backed by the application's zero-based page binding.
 pub struct Pagination {
     root: Node,
@@ -22,6 +22,7 @@ pub struct Pagination {
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,
     mode: PaginationMode,
+    window: PaginationWindow,
     // xtask-allow(state-fields): Optional caller-provided presentation slot selected only during construction.
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
@@ -50,6 +51,7 @@ pub fn pagination(count: impl IntoValue<usize>, page: impl IntoBinding<usize>) -
         size_options: Vec::<u32>::new().into_value(),
         page_label: kivact_core::i18n::message("pagination.page", "Page"),
         mode: PaginationMode::Pages,
+        window: PaginationWindow::Adjacent,
         item: None,
         format: Rc::new(|n| n.to_string()),
         summary: None,
@@ -102,6 +104,11 @@ impl Pagination {
         self.mode = mode;
         self
     }
+    /// Choose page-window enumeration without adding a second paging authority.
+    pub fn window(mut self, window: PaginationWindow) -> Self {
+        self.window = window;
+        self
+    }
     /// Replace the visible contents of every cell; behavior stays on the cell.
     pub fn item<V: IntoView>(mut self, f: impl Fn(PageItem) -> V + 'static) -> Self {
         self.item = Some(Rc::new(move |item| f(item).into_view()));
@@ -131,27 +138,22 @@ impl NodeBuilder for Pagination {
         &mut self.root
     }
 }
-fn cells(page: usize, count: usize, siblings: usize, ends: bool) -> Vec<(usize, PageItem)> {
+fn cells(
+    page: usize,
+    count: usize,
+    siblings: usize,
+    ends: bool,
+    window: PaginationWindow,
+) -> Vec<(usize, PageItem)> {
     let mut out = Vec::new();
     if ends {
         out.push(PageItem::First);
     }
     out.push(PageItem::Previous);
-    let mut shown = vec![0, count.saturating_sub(1)];
-    shown.extend(
-        page.saturating_sub(siblings)..=page.saturating_add(siblings).min(count.saturating_sub(1)),
-    );
-    shown.retain(|n| *n < count);
-    shown.sort_unstable();
-    shown.dedup();
-    let mut last = None;
-    for n in shown {
-        if last.is_some_and(|before| n > before + 1) {
-            out.push(PageItem::Ellipsis);
-        }
-        out.push(PageItem::Page(n));
-        last = Some(n);
-    }
+    out.extend(match window {
+        PaginationWindow::Adjacent => adjacent_pages(page, count, siblings),
+        PaginationWindow::Buffered => buffered_pages(page, count, siblings),
+    });
     out.push(PageItem::Next);
     if ends {
         out.push(PageItem::Last);
@@ -175,6 +177,7 @@ impl IntoView for Pagination {
             size_options,
             page_label,
             mode,
+            window,
             item,
             format,
             summary,
@@ -201,6 +204,7 @@ impl IntoView for Pagination {
             item,
             format,
             mode,
+            window,
             siblings,
             first_last,
             variants: variants.clone(),
@@ -235,6 +239,7 @@ struct PageOptions {
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
     mode: PaginationMode,
+    window: PaginationWindow,
     siblings: Value<usize>,
     first_last: Value<bool>,
     variants: crate::variants::Variants,
@@ -326,9 +331,16 @@ fn visible_cells(
     siblings: Value<usize>,
     first_last: Value<bool>,
     mode: PaginationMode,
+    window: PaginationWindow,
 ) -> Value<Vec<(usize, PageItem)>> {
     memo(move || {
-        let mut cells = cells(current.get(), count.get(), siblings.get(), first_last.get());
+        let mut cells = cells(
+            current.get(),
+            count.get(),
+            siblings.get(),
+            first_last.get(),
+            window,
+        );
         if mode != PaginationMode::Pages && mode != PaginationMode::Dots {
             cells.retain(|(_, c)| !matches!(c, PageItem::Page(_) | PageItem::Ellipsis));
         }
@@ -513,6 +525,7 @@ fn render_controls(
         options.siblings,
         options.first_last,
         options.mode,
+        options.window,
     );
     (
         for_each(
@@ -760,4 +773,53 @@ fn presentation_part(
     recipe: fn(&crate::UiRecipes) -> &crate::Recipe<PaginationSummary>,
 ) -> Node {
     crate::layer::with_recipe_style(node().child(content), recipe, variants, move || facts.get())
+}
+
+fn adjacent_pages(page: usize, count: usize, siblings: usize) -> Vec<PageItem> {
+    let mut out = Vec::new();
+    let mut shown = vec![0, count.saturating_sub(1)];
+    shown.extend(
+        page.saturating_sub(siblings)..=page.saturating_add(siblings).min(count.saturating_sub(1)),
+    );
+    shown.retain(|n| *n < count);
+    shown.sort_unstable();
+    shown.dedup();
+    let mut last = None;
+    for n in shown {
+        if last.is_some_and(|before| n > before + 1) {
+            out.push(PageItem::Ellipsis);
+        }
+        out.push(PageItem::Page(n));
+        last = Some(n);
+    }
+    out
+}
+fn buffered_pages(page: usize, count: usize, siblings: usize) -> Vec<PageItem> {
+    let adjacent = siblings.saturating_mul(2);
+    if count <= 5usize.saturating_add(adjacent) {
+        return (0..count).map(PageItem::Page).collect();
+    }
+    let current = page.min(count - 1);
+    let left = current.saturating_sub(siblings);
+    let right = current.saturating_add(siblings).min(count - 1);
+    let gap_left = left > 1;
+    let gap_right = right < count - 2;
+    let mut cells = Vec::new();
+    if gap_left {
+        cells.extend([PageItem::Page(0), PageItem::Ellipsis]);
+    }
+    let (start, end) = match (gap_left, gap_right) {
+        (false, true) => (0, 2usize.saturating_add(adjacent)),
+        (true, false) => (
+            count.saturating_sub(3usize.saturating_add(adjacent)),
+            count - 1,
+        ),
+        (true, true) => (left, right),
+        (false, false) => (0, count - 1),
+    };
+    cells.extend((start..=end).map(PageItem::Page));
+    if gap_right {
+        cells.extend([PageItem::Ellipsis, PageItem::Page(count - 1)]);
+    }
+    cells
 }
