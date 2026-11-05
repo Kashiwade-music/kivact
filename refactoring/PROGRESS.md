@@ -169,8 +169,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-7e | merged | e1eab850 | 全source移行、consumer96/96、catalog全ページ、公開rustdoc missing_docs 0。H-G5で規約検査を全面有効化 |
 | H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
-| H-G3 | doing | ce4294 | 中核の状態整理を統合、全体静的のdispatch葉分離を修正中 |
-| H-G4 | doing | 28617746 | UI+interaction統合check/scoped静的0、全体gate待ち |
+| H-G3 | merged | 114d7bbb | 親fullstatic40crate/108graph 0、全workspace厳格Clippy0 |
+| H-G4 | merged | 114d7bbb | 親fullstatic40crate/108graph 0、全workspace厳格Clippy0 |
 | H-G5 | merged | 98adadd0 | 全5kit完了。Soft Clippy/8規約0、lib3/consumer96全通過、実測cache単一owner |
 | H-G6 | merged | e71dfb18 | 全skip空、outer/test分割、親全workspace厳格Clippy0、fullstatic既知7件修正済み再検証 |
 | F-1 | doing | | 六分割の恒久文書へ |
@@ -203,3 +203,5 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 - W6中間: `19e889d3` で workspace Clippy全target/feature `-D warnings` 0、fmt 0。残るK3b/K4/Soft K7/H-G5/H-G6とCP6は継続中。
 - W6保持契約: Root `0a94b560` の整合ビルドから metrics4/code1/scroll2/keyboard4/date5/touch5 の21件がMIRRORoff共有lockで全通過。
 - `755d4867` のpure metadata default修正後、Root整合catalog全ページ1/1通過。旧native異常終了は解消。
+
+- CP6固定114d7bbb: fullstatic40crate/108graph 0、GPU6/6 0。workspace試験はcompile中のdisk不足で未実行、古いinactive cache回収後に再開。

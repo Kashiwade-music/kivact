@@ -178,3 +178,5 @@
 | 2026-11-05 | H-G6 | 検査の適用先 | KIT規則の対象は公式5kitの正確なpackage名とし、同prefixのcatalogアプリを誤認しない。Generation/Rgba/Insetsは状態機械/色/幾何の値操作で構造optionではない。Transition::alternateは構築時の再生方向として明示登録する。全skipは空にする。 |
 | 2026-11-05 | H-G6 | Creative jobs の running | 単独のrun/stop要求は18.14の独立bool事実。progress/amountは数値測定であり、effectは実FrameLoopのstart/stopのみを行う。別Signalの補正をしないため、bool置換だけのMachineは追加せず既存のapp所有値を保持する。 |
 | 2026-11-05 | H-G6 | Draw text measurer の境界 | 実使用はmountとOffscreenの2つの自動install経路だけ。ユーザーにInstall-before-drawを要求するAPIを残さず、doc(hidden)+理由付きinternal-contractのcross-crate bridgeへ分類する。通常の描画・段落測定は自動install済みhostを使う。 |
+
+| 2026-11-05 | CP6/F1 | docsの試験スケジュール | 並列doctestの同時compile/linkでlink.exe1180とrustc ICEが実際に発生した。0.6節の失敗crate例外としてkivact-docsだけ--test-threads=1で別実行する。workspace集約はdocsとGPUproducerを除いて既定並列、GPU6件も従来通り別の逐次実行。Cargoのjob数は制限しない。 |
