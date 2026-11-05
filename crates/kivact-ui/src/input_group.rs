@@ -122,8 +122,11 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
             primary: node_ref(),
         };
         let inline = render.clone();
-        let members =
-            move |controls: C| inline.members(self.start, controls.into_views(), self.end);
+        let members = move |controls: C| {
+            crate::input_group_context::provide_state(state, move || {
+                inline.members(self.start, controls.into_views(), self.end)
+            })
+        };
         let members = match self.controls {
             Controls::Built(controls) => members(controls),
             Controls::Scoped(init) => provide_control_size(size.get(), move || members(init())),

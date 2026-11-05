@@ -301,6 +301,8 @@ mod alert;
 mod card;
 mod empty_state;
 mod input_group;
+mod input_group_context;
+pub use input_group_context::use_input_group_state;
 mod look_feedback;
 pub use alert::{Alert, AlertVariant, alert};
 pub use card::{Card, card};
