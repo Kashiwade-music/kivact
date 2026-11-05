@@ -28,6 +28,7 @@ mod node_draw;
 mod node_modifiers;
 pub(crate) mod node_ref;
 mod node_status;
+pub(crate) mod node_status_data;
 pub(crate) mod overlays;
 pub(crate) mod owner;
 pub(crate) mod part;
@@ -68,6 +69,7 @@ pub use modifier_keys::modifiers;
 
 #[doc(inline)]
 pub use exit_layout::ExitLayout;
+pub use kivact_types::ImageStatus;
 #[doc(inline)]
 pub use kivact_types::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
@@ -75,7 +77,7 @@ pub use kivact_types::{
 };
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
-pub use node_status::{ImageStatus, ScrollState};
+pub use node_status_data::ScrollState;
 #[doc(inline)]
 pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
 

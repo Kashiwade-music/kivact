@@ -30,6 +30,29 @@ pub(crate) struct ScrollState {
     pub content: kivact_types::Size,
 }
 
+fn classify_scroll(report: ScrollState) -> super::node_status_data::ScrollState {
+    let extent = [
+        (
+            report.offset.x,
+            (report.content.width - report.viewport.width).max(0.0),
+        ),
+        (
+            report.offset.y,
+            (report.content.height - report.viewport.height).max(0.0),
+        ),
+    ];
+    let axes: Vec<_> = extent.into_iter().filter(|(_, max)| *max > 0.0).collect();
+    if axes.is_empty() {
+        super::node_status_data::ScrollState::NotScrollable
+    } else if axes.iter().all(|(offset, _)| *offset <= 0.0) {
+        super::node_status_data::ScrollState::AtStart
+    } else if axes.iter().all(|(offset, max)| *offset >= *max) {
+        super::node_status_data::ScrollState::AtEnd
+    } else {
+        super::node_status_data::ScrollState::Middle
+    }
+}
+
 type SecondaryContextHandler = Handler<PointerEvent>;
 
 // xtask-allow(state-fields): independent optional handlers, one per event kind; absence means no subscription.
@@ -232,7 +255,7 @@ pub(crate) struct NodeObservation {
     pub(crate) rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) text_truncated: Signal<bool>,
     pub(crate) scroll: Signal<crate::geometry::Point>,
-    pub(crate) scroll_state: Signal<super::node_status::ScrollState>,
+    pub(crate) scroll_state: Signal<super::node_status_data::ScrollState>,
     pub(crate) image_status: Signal<kivact_types::ImageStatus>,
     pub(crate) scene_revision: Notifier,
     pub(crate) editing_revision: Notifier,
@@ -420,7 +443,7 @@ impl ViewNodes {
             scroll: node.owner.signal(crate::geometry::Point::default(), at),
             scroll_state: node
                 .owner
-                .signal(super::node_status::ScrollState::NotScrollable, at),
+                .signal(super::node_status_data::ScrollState::NotScrollable, at),
             image_status: node.owner.signal(image_status, at),
             scene_revision: node.owner.notifier(at),
             editing_revision: node.owner.notifier(at),
@@ -439,7 +462,7 @@ impl ViewNodes {
         let scroll_state = observation.scroll_state;
         handlers.observe_scroll(move |state| {
             scroll.set(state.offset);
-            scroll_state.set(super::node_status::classify_scroll(state));
+            scroll_state.set(classify_scroll(state));
         });
         node.observation = Some(observation);
         Some(observation)
