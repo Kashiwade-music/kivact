@@ -143,6 +143,12 @@ pub fn theme(mode: ThemeMode) -> Theme {
             indicators: kivact::ui::IndicatorTokens {
                 period_ms: tokens.motion.slow_min,
                 reduced_period_ms: Some(3000),
+                skeleton_transition: Some(Transition::tween(
+                    400,
+                    kivact::motion::Easing::steps_end(10),
+                )),
+                delay_ms: 1000.0,
+                stagger_ms: 100.0,
                 gap: tokens.spacing.s2,
                 ..Default::default()
             },

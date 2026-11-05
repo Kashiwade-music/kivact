@@ -73,6 +73,7 @@ mod recipes_menu;
 mod recipes_popup;
 mod recipes_popup_command;
 mod recipes_select;
+mod recipes_skeleton;
 mod rich_block_doc;
 mod rich_blocks;
 pub mod rich_text;
@@ -150,7 +151,7 @@ pub use disclosure_appearance::{ChevronPosition, DisclosureDensity, DisclosureVa
 pub use divider::{Divider, DividerVariant, divider};
 pub use elevation::Elevation;
 pub use empty_state::{EmptyState, empty_state};
-pub use feedback::{Skeleton, SkeletonRadius, StatusDot, StatusDotVariant, skeleton, status_dot};
+pub use feedback::{StatusDot, StatusDotVariant, status_dot};
 pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status};
 pub use file_input::{FileInput, file_input};
 pub use form_layout::{
@@ -188,6 +189,7 @@ pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use recipes_badge::BadgeVariant;
 pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
+pub use recipes_skeleton::SkeletonRadius;
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};

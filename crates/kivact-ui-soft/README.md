@@ -81,7 +81,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area` |
 | Segmented Control | Standard `radio_group(...).variant(RadioGroupVariant::Segmented)` and `ListItem`; Soft `SegmentedLayout` and `SegmentedIconOnly` style options |
 | Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
-| Skeleton / Slider / Spinner / Status Dot | `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
+| Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
 | Stepper | `stepper`, `step` |
 | Switch | Standard `switch` |
 | Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
@@ -375,6 +375,7 @@ Number, date, and time filter fields validate values entered as text.
 - `radio_group`
 - `slider`
 - `progress`
+- `skeleton`
 - `badge`
 - `spinner`
 - `kbd`
