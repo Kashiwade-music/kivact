@@ -227,3 +227,5 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 - P1再点検: 定義ID214件のうち212件は解消・owner分類、保持2件（SM-R17、SM-E15）。全体Clippyは関数長/禁止型含め0。preludeはB.2本表とK/19.46の追加名に一致し、旧名やResult/option enumを含まない。
 
 - F3静的最終: 76b299caの全static40package/108graph 0、architecture再生成。Clippy0、facade rustdoc0、prelude144名一致、ローカル文書リンク切れ0、全skip空。WSL Clippy73deab7aも0。
+
+- G-final runtime: Windows required mirrorのdocs583/12ignoredとGPU6件は0。公開APIは並列native異常終了後に直列470pass/1snapshot失敗で修正中。WSL Wayland workspace全体0、GPU3件0、docs実行中。

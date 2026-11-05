@@ -248,7 +248,7 @@ reactive の frame kind（Handler/Setup/Computation）と pure/tracking/owner/wr
 
 一つの関数は80 code行、fileは1000 code行を上限とする。長い処理は意味のある helper に分け、line packing、無意味な型/module、新しいstate、抑制属性で件数だけを減らさない。依存、状態、effect書込み、公開署名、正準path、名前衝突、kit色、OS分岐、構造optionを全workspaceで検査する。検査の例外は実際の境界と理由に限る。
 
-behavior の保存は既存 E2E の契約で確認する。trace は失敗診断用で、golden やf64の丸め一致を作らない。windowを開く試験は全worktreeで同じlockを使う。通常は既定並列、実際に同時doctest compile/linkでlink.exe1180とrustc ICEが起きたためkivact-docsだけ別実行でtest-threads=1とする。GPU試験は別の逐次実行。Cargo job数は制限しない。これはCPU buildの並列性とwindow/focus/実際のlink障害を混同しないための区別である。
+behavior の保存は既存 E2E の契約で確認する。trace は失敗診断用で、golden やf64の丸め一致を作らない。windowを開く試験は全worktreeで同じlockを使う。通常は既定並列、実際に同時doctest compile/linkでlink.exe1180とrustc ICEが起きたためkivact-docsだけ別実行でtest-threads=1とする。GPU試験は別の逐次実行。required mirrorのpublic API e2e binaryも、並列native実行で実際に異常終了したため、そのbinaryを逐次で再実行する。Cargo job数は制限しない。これはCPU buildの並列性とwindow/focus/実際のlink障害を混同しないための区別である。
 
 変更後の意味情報も実 node から検証する。AsyncViewの既定pendingはStatus Loading、pickerエラーはAlert、Contentsはlayoutの透明性とa11y Group/論理階層を両立する。Desktop操作を検証するdate fixtureは明示Desktop、一般のAdaptive fixtureはtouchのSaveを保つ。iconは実install済みglyphで確かめ、timeoutやdescription relation欠落を期待値の緩和で隠さない。
 
