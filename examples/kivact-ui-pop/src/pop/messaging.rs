@@ -18,9 +18,14 @@ use std::time::Duration;
 #[derive(Clone, PartialEq)]
 struct ChatEntry {
     id: u64,
-    text: String,
     mine: bool,
-    typing: bool,
+    content: ChatContent,
+}
+
+#[derive(Clone, PartialEq)]
+enum ChatContent {
+    Message(String),
+    Typing,
 }
 
 pub(super) fn messaging() -> Node {
@@ -40,9 +45,8 @@ pub(super) fn messaging() -> Node {
             messages.update(|entries| {
                 entries.push(ChatEntry {
                     id,
-                    text: s,
                     mine: true,
-                    typing: false,
+                    content: ChatContent::Message(s),
                 })
             });
             draft.set(String::new());
@@ -51,9 +55,8 @@ pub(super) fn messaging() -> Node {
                 messages.update(|entries| {
                     entries.push(ChatEntry {
                         id: id + 1,
-                        text: String::new(),
                         mine: false,
-                        typing: true,
+                        content: ChatContent::Typing,
                     })
                 });
                 kivact::task::sleep(Duration::from_millis(1300)).await;
@@ -67,9 +70,10 @@ pub(super) fn messaging() -> Node {
                     entries.retain(|entry| entry.id != id + 1);
                     entries.push(ChatEntry {
                         id: id + 2,
-                        text: replies[(id / 3) as usize % replies.len()].into(),
                         mine: false,
-                        typing: false,
+                        content: ChatContent::Message(
+                            replies[(id / 3) as usize % replies.len()].into(),
+                        ),
                     });
                 });
             });
@@ -295,45 +299,42 @@ pub(super) fn messaging() -> Node {
                 messages,
                 |entry| entry.id,
                 move |entry| {
-                    node().child(dynamic(entry, |entry| {
-                        if entry.typing {
-                            {
-                                let initials = kivact::state::IntoText::into_text_value("M");
-                                kivact::ui::typing_indicator()
-                                    .avatar({
-                                        let look = ui::AvatarLook::default().size(24);
-                                        kivact::ui::avatar(initials)
-                                            .fallback_content(move || kivact::view::text(initials))
-                                            .variant(look)
-                                            .status_content(look.decorations())
-                                    })
-                                    .into_view()
-                            }
-                        } else {
-                            {
-                                let mine: kivact::state::Value<bool> =
-                                    kivact::state::IntoValue::into_value(entry.mine);
-                                let initials = kivact::state::IntoText::into_text_value("M");
-                                kivact::ui::chat_message(initials)
-                                    .sender(move || {
-                                        if mine.get() {
-                                            kivact::ui::ChatSender::User
-                                        } else {
-                                            kivact::ui::ChatSender::Assistant
-                                        }
-                                    })
-                                    .content(kivact::view::text(entry.text))
-                                    .time(if entry.mine { "既読 09:16" } else { "09:16" })
-                                    .variant(ui::PopBubble)
-                                    .avatar({
-                                        let look = ui::AvatarLook::default().size(24);
-                                        kivact::ui::avatar(initials)
-                                            .fallback_content(move || kivact::view::text(initials))
-                                            .variant(look)
-                                            .status_content(look.decorations())
-                                    })
-                                    .into_view()
-                            }
+                    node().child(dynamic(entry, |entry| match entry.content {
+                        ChatContent::Typing => {
+                            let initials = kivact::state::IntoText::into_text_value("M");
+                            kivact::ui::typing_indicator()
+                                .avatar({
+                                    let look = ui::AvatarLook::default().size(24);
+                                    kivact::ui::avatar(initials)
+                                        .fallback_content(move || kivact::view::text(initials))
+                                        .variant(look)
+                                        .status_content(look.decorations())
+                                })
+                                .into_view()
+                        }
+                        ChatContent::Message(content) => {
+                            let mine: kivact::state::Value<bool> =
+                                kivact::state::IntoValue::into_value(entry.mine);
+                            let initials = kivact::state::IntoText::into_text_value("M");
+                            kivact::ui::chat_message(initials)
+                                .sender(move || {
+                                    if mine.get() {
+                                        kivact::ui::ChatSender::User
+                                    } else {
+                                        kivact::ui::ChatSender::Assistant
+                                    }
+                                })
+                                .content(kivact::view::text(content))
+                                .time(if entry.mine { "既読 09:16" } else { "09:16" })
+                                .variant(ui::PopBubble)
+                                .avatar({
+                                    let look = ui::AvatarLook::default().size(24);
+                                    kivact::ui::avatar(initials)
+                                        .fallback_content(move || kivact::view::text(initials))
+                                        .variant(look)
+                                        .status_content(look.decorations())
+                                })
+                                .into_view()
                         }
                     }))
                 },
