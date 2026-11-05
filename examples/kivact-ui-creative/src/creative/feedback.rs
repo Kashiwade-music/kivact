@@ -6,7 +6,7 @@ use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    IntoView, Key, NodeBuilder, NodeRef, Role, Signal, Theme, column, for_each, memo, node,
+    IntoView, Key, Node, NodeBuilder, NodeRef, Role, Signal, Theme, column, for_each, memo, node,
     on_mount, row, scroll, show, signal, text,
 };
 use kivact::state::callback;
