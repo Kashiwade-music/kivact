@@ -142,3 +142,9 @@ pub use interaction_policy::{
 
 mod menu_policy;
 mod tooltip_policy;
+
+mod carousel;
+pub use carousel::{CarouselApi, CarouselState, Snap, use_carousel};
+
+mod dropzone;
+pub use dropzone::{DropzoneApi, DropzoneState, FileInfo, Validity, use_dropzone};

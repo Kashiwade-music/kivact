@@ -1,0 +1,193 @@
+//! Role: Render a native file drop target with validation and optional picking.
+use kivact_core::platform::{FileDialog, pick_file, pick_files};
+use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::task::spawn;
+use kivact_core::view::{
+    FilePhase, Handled, HandlerResult, IntoView, Node, NodeBuilder, Role, View, node, text,
+};
+use kivact_interaction::{DropzoneState, FileInfo, use_dropzone};
+use std::rc::Rc;
+// xtask-allow(state-fields): Independent setup-only NodeBuilder options; drag and picker lifecycle live in DropzoneState.
+/// A validated file drop target. Native file metadata stays application-owned.
+pub struct Dropzone {
+    root: Node,
+    variants: crate::variants::Variants,
+    label: Value<String>,
+    hint: Value<String>,
+    filters: Value<Vec<(String, Vec<String>)>>,
+    multiple: bool,
+    pick_on_press: bool,
+    validate: Rc<dyn Fn(&FileInfo) -> Option<String>>,
+    on_files: Rc<dyn Fn(Vec<FileInfo>) -> kivact_core::Result<()>>,
+}
+/// Create a file drop target labelled by `label`.
+pub fn dropzone(label: impl IntoText) -> Dropzone {
+    Dropzone {
+        variants: crate::variants::Variants::default(),
+        root: node(),
+        label: label.into_text_value(),
+        hint: String::new().into_value(),
+        filters: Vec::new().into_value(),
+        multiple: false,
+        pick_on_press: false,
+        validate: Rc::new(|_| None),
+        on_files: Rc::new(|_| Ok(())),
+    }
+}
+impl Dropzone {
+    /// Add a setup-only visual variant for every component recipe.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+
+    /// Receive valid files. Callback errors appear in the drop target.
+    pub fn on_files<R: HandlerResult>(mut self, f: impl Fn(Vec<FileInfo>) -> R + 'static) -> Self {
+        self.on_files = Rc::new(move |files| f(files).into_outcome().map(|_| ()));
+        self
+    }
+    /// Reject a file with a user-facing error message.
+    pub fn validate(mut self, f: impl Fn(&FileInfo) -> Option<String> + 'static) -> Self {
+        self.validate = Rc::new(f);
+        self
+    }
+    /// Accept multiple files in one operation.
+    pub fn multiple(mut self) -> Self {
+        self.multiple = true;
+        self
+    }
+    /// Open a native picker on pointer, keyboard or assistive activation.
+    pub fn pick_on_press(mut self) -> Self {
+        self.pick_on_press = true;
+        self
+    }
+    /// Show application-provided guidance.
+    pub fn hint(mut self, hint: impl IntoText) -> Self {
+        self.hint = hint.into_text_value();
+        self
+    }
+    /// Pass filters to the native picker.
+    pub fn filters(mut self, filters: impl IntoValue<Vec<(String, Vec<String>)>>) -> Self {
+        self.filters = filters.into_value();
+        self
+    }
+}
+impl NodeBuilder for Dropzone {
+    fn node_mut(&mut self) -> &mut Node {
+        &mut self.root
+    }
+}
+impl IntoView for Dropzone {
+    fn into_view(self) -> View {
+        let Self {
+            mut root,
+            variants,
+            label,
+            hint,
+            filters,
+            multiple,
+            pick_on_press,
+            validate,
+            on_files,
+        } = self;
+        let disabled = root.accessible_disabled();
+        let disabled = kivact_core::state::memo(move || disabled.is_some_and(|d| d.get()));
+        let mut api = use_dropzone()
+            .validate(move |file| validate(file))
+            .on_files(move |files| on_files(files));
+        if multiple {
+            api = api.multiple();
+        }
+        let state = api.state();
+        let reference = kivact_core::view::node_ref();
+        let status_ref = kivact_core::view::node_ref();
+        let root = if pick_on_press {
+            root.part(kivact_interaction::use_button().control())
+        } else {
+            root.with_node(|n| n.role(Role::Group))
+        };
+        let label_view = crate::layer::with_recipe_style(
+            text(label),
+            |r| r.dropzone_recipes().label_recipe(),
+            &variants,
+            move || state.get(),
+        );
+        let hint_view = crate::layer::with_recipe_style(
+            text(hint),
+            |r| r.dropzone_recipes().hint_recipe(),
+            &variants,
+            move || state.get(),
+        );
+        crate::layer::with_base_recipe_style(
+            root,
+            |r| r.dropzone_recipes().root_recipe(),
+            &variants,
+            move || state.get(),
+        )
+        .node_ref(reference)
+        .name(label)
+        .invalid(move || matches!(state.get(), DropzoneState::Failed(_)))
+        .on_file(move |event| {
+            if disabled.get_untracked() || matches!(state.get_untracked(), DropzoneState::Picking) {
+                return Handled::No;
+            }
+            match event.phase {
+                FilePhase::Enter | FilePhase::Over => api.hover(event.files),
+                FilePhase::Leave => api.leave(),
+                FilePhase::Drop => api.accept(event.files),
+            }
+            Handled::Yes
+        })
+        .on_press(move || {
+            if !pick_on_press || disabled.get_untracked() || !api.begin_pick() {
+                return;
+            }
+            let request = FileDialog {
+                title: label.get_untracked(),
+                filters: filters.get_untracked(),
+                ..FileDialog::default()
+            };
+            spawn(async move {
+                let result = if multiple {
+                    pick_files(request).await
+                } else {
+                    pick_file(request)
+                        .await
+                        .map(|file| file.map(|file| vec![file]))
+                };
+                match result {
+                    Ok(Some(files)) => {
+                        if disabled.get_untracked() {
+                            api.cancel_pick()
+                        } else {
+                            api.accept(files)
+                        }
+                    }
+                    Ok(None) => api.cancel_pick(),
+                    Err(error) => api.fail(error.into()),
+                }
+                reference.restore_focus();
+            });
+        })
+        .child((
+            label_view,
+            hint_view,
+            crate::layer::with_recipe_style(
+                text(move || match state.get() {
+                    DropzoneState::Failed(error) => error.to_string(),
+                    DropzoneState::Picking => "Choosing files…".into(),
+                    DropzoneState::DragOver {
+                        valid: kivact_interaction::Validity::Invalid(message),
+                    } => message,
+                    _ => String::new(),
+                }),
+                |r| r.dropzone_recipes().status_recipe(),
+                &variants,
+                move || state.get(),
+            )
+            .node_ref(status_ref)
+            .with_node(|n| n.role(Role::Status)),
+        ))
+        .into_view()
+    }
+}
