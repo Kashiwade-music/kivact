@@ -6,12 +6,14 @@
 
 use crate::choice::check_style;
 use crate::tokens::{Hue, Tokens};
-use kivact::draw::{Path, linear_gradient};
+use kivact::draw::{LineCap, Path, Stroke, linear_gradient};
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::DisclosureState;
+use kivact::state::Value;
 use kivact::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{
-    DisclosureRecipes, Look, ProgressRecipes, ProgressState, ToggleButtonState, Variant,
+    DisclosureRecipes, Look, ProgressRecipes, ProgressState, ProgressVariant, ToggleButtonState,
+    Variant,
 };
 
 /// Draw a standard progress bar with diagonal stripes on its fill:
@@ -31,6 +33,10 @@ pub struct Segments(pub u16);
 impl Variant for Segments {}
 
 impl Variant for Hue {}
+/// Reactive Pop progress hue, including ring and gauge appearances.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProgressHue(pub Value<Hue>);
+impl Variant for ProgressHue {}
 
 /// A toggle: the outline row, filled in the variant's hue while pressed
 /// (default [`Hue::Blue`]).
@@ -55,10 +61,27 @@ pub(crate) fn toggle(t: &Theme, look: &Look<ToggleButtonState>) -> Style {
 }
 
 pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|_| progress_track)
+        .fill(|_| progress_fill)
+        .label(|_| |_: &Theme, _: &Look<ProgressState>| style().font_size(16).weight(600))
 }
 
-fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
+fn progress_track(t: &Theme, look: &Look<ProgressState>) -> Style {
+    if look.variant::<ProgressVariant>() == Some(&ProgressVariant::Ring) {
+        let color = t.ext::<Tokens>().surface_active;
+        return style()
+            .size(72, 72)
+            .position(kivact::style::Position::Relative)
+            .align_items(Align::Center)
+            .justify_content(Justify::Center)
+            .paint(move |d, size| {
+                d.stroke_path(
+                    &Path::new().arc(size.to_rect().center(), 27.0, -90.0, 269.99, false),
+                    &Stroke::new(6.0).cap(LineCap::Round),
+                    color,
+                )
+            });
+    }
     style()
         .width(pct(100))
         .height(8)
@@ -71,9 +94,22 @@ fn progress_track(t: &Theme, _: &Look<ProgressState>) -> Style {
 /// The fill: a gradient from the hue's accent, with stripes and segment
 /// gaps over it; an indeterminate bar's segment moves.
 fn progress_fill(t: &Theme, look: &Look<ProgressState>) -> Style {
-    let hue = look.variant::<Hue>().copied().unwrap_or_default();
+    let hue = look.variant::<ProgressHue>().map_or_else(
+        || look.variant::<Hue>().copied().unwrap_or_default(),
+        |hue| hue.0.get(),
+    );
+    if look.variant::<ProgressVariant>() == Some(&ProgressVariant::Ring) {
+        return ring_fill(t, look, hue);
+    }
     let striped = look.variant::<Striped>().is_some();
-    let segments = look.variant::<Segments>().map_or(0, |s| s.0);
+    let segments = look.variant::<Segments>().map_or(
+        if look.variant::<ProgressVariant>() == Some(&ProgressVariant::Gauge) {
+            20
+        } else {
+            0
+        },
+        |s| s.0,
+    );
     let state = **look;
     let p = t.ext::<Tokens>();
     let accent = p.accent(hue);
@@ -152,4 +188,34 @@ fn disclosure_content(_: &Theme, _: &Look<DisclosureState>) -> Style {
         .direction(Direction::Column)
         .padding_bottom(14)
         .color(ColorToken::TextMuted)
+}
+
+fn ring_fill(t: &Theme, look: &Look<ProgressState>, hue: Hue) -> Style {
+    let state = **look;
+    let color = t.ext::<Tokens>().accent(hue);
+    style()
+        .position(kivact::style::Position::Absolute)
+        .left(0)
+        .top(0)
+        .size(pct(100), pct(100))
+        .paint(move |d, size| {
+            let (start, length) = if state.value.is_some() {
+                (0.0, state.shown.get().clamp(0.0, 1.0))
+            } else {
+                state.sweep()
+            };
+            if length > 0.0 {
+                d.stroke_path(
+                    &Path::new().arc(
+                        size.to_rect().center(),
+                        27.0,
+                        -90.0 + start * 360.0,
+                        -90.0 + (start + length.min(0.9999)) * 360.0,
+                        false,
+                    ),
+                    &Stroke::new(6.0).cap(LineCap::Round),
+                    color,
+                );
+            }
+        })
 }

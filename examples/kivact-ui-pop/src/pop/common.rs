@@ -51,7 +51,23 @@ pub(super) fn wrap(v: impl IntoView) -> Node {
 
 pub(super) fn section(number: &str, title: &str, subtitle: &str, content: impl IntoView) -> Node {
     column((
-        ui::section_heading(number, title.to_string(), subtitle.to_string()),
+        kivact::view::row((
+            kivact::ui::badge(number).variant(ui::SectionNumber),
+            kivact::view::column((
+                kivact::ui::heading(title.to_string(), 2),
+                kivact::view::text(subtitle.to_string()).style(
+                    kivact::style::style()
+                        .font_size(13)
+                        .color(kivact::style::ColorToken::TextMuted),
+                ),
+            )),
+        ))
+        .style(
+            kivact::style::style()
+                .gap(16)
+                .align_items(kivact::style::Align::Center)
+                .margin_bottom(16),
+        ),
         content,
     ))
 }

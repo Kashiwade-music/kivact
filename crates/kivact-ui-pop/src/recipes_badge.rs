@@ -29,6 +29,19 @@ impl Variant for BadgeHue {}
 
 pub(crate) fn badge(t: &Theme, look: &Look<BadgeState>) -> Style {
     let p = t.ext::<Tokens>();
+    if look.variant::<crate::SectionNumber>().is_some() {
+        let yellow = p.yellow;
+        return style()
+            .size(44, 30)
+            .direction(Direction::Row)
+            .align_items(Align::Center)
+            .justify_content(Justify::Center)
+            .radius(6)
+            .transform(Transform::new().skew_x(-14))
+            .color(Color::WHITE)
+            .background(linear_gradient(90).colors([p.blue, p.cyan]))
+            .paint(move |d, _| d.rounded_rect(Rect::new(48.0, 4.0, 5.0, 22.0), 2.0, yellow));
+    }
     let hue = look.variant::<BadgeHue>().map_or_else(
         || {
             look.variant::<Hue>()
@@ -117,6 +130,15 @@ fn badge_style(t: &Theme, hue: Hue, variant: BadgeVariant) -> Style {
     }
 }
 pub(crate) fn label(_: &Theme, look: &Look<BadgeState>) -> Style {
+    if look.variant::<crate::SectionNumber>().is_some() {
+        return style()
+            .font_family("Barlow, sans-serif")
+            .italic(true)
+            .weight(800)
+            .font_size(16)
+            .color(Color::WHITE)
+            .transform(Transform::new().skew_x(14));
+    }
     if look.variant::<BadgeVariant>() == Some(&BadgeVariant::Slant) {
         style().transform(Transform::new().skew_x(16))
     } else {

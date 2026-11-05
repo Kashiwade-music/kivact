@@ -51,6 +51,9 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `stat`
+- `heading`
+- `description_list`
 - `breadcrumb`
 - `pagination`
 - `stepper`

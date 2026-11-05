@@ -26,7 +26,7 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 
 ## キットとは何か
 
-キットは**テーマ**です。標準コンポーネント（`text_input`、`button`、`radio_group`、`tabs` など）は `kivact` クレートが提供し、テーマが描き方を決めるまでは素朴な見た目です。`kivact-ui-pop` はそのテーマと、カード `panel`、日付入力、バッジ、アラートといった固有のコンポーネントを提供します。コアのチュートリアルと同じ `button(..)` や `text_input(..)` を書き、キットが見た目だけを変えます。
+キットは**テーマ**です。標準コンポーネント（`text_input`、`button`、`radio_group`、`tabs` など）は `kivact` クレートが提供し、テーマが描き方を決めるまでは素朴な見た目です。`kivact-ui-pop` は、標準のカード、日付入力、バッジ、アラートなどのテーマと、予定や業務データの表示に使う独自の部品を提供します。コアのチュートリアルと同じ `button(..)` や `text_input(..)` を書き、キットが見た目だけを変えます。
 
 ## テーマを入れる
 
@@ -65,7 +65,7 @@ cargo run
 新しく出てきたものは 3 つです。
 
 - `pop::theme(ThemeMode::Light)` が Pop テーマを作り、`App::theme(..)` がウィンドウ全体に適用します。結果は普通の Kivact の `Theme` です。ダークの配色が欲しいときは `ThemeMode::Dark` を使います。
-- `kivact::ui::card(..)` は Pop のコンポーネントで、枠線と角丸を持つカードです。子要素を縦に並べます。
+- `kivact::ui::card(..)` は Pop の見た目を持つ標準コンポーネントで、枠線と角丸を持つカードです。子要素を縦に並べます。
 - `use kivact_ui_pop as pop;` は短い別名にすぎません。キットのコンポーネントは `pop::名前`、標準コンポーネントは修飾なしで書きます。
 
 状態はこれまでどおり `signal` に持ちます。キットがデータを持つことはありません。`name` はあなたのもので、`text_input` はそれを読み書きするだけです。

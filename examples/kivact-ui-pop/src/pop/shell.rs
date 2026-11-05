@@ -751,13 +751,13 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                                 .border(1, ColorToken::Border)
                                 .background(ColorToken::SurfaceAlt),
                         ),
-                        ui::key_value("レベル", text("Lv.86")),
-                        ui::key_value("絆ランク", text("Rank 20")),
-                        ui::key_value(
+                        kivact::ui::description("レベル", text("Lv.86")),
+                        kivact::ui::description("絆ランク", text("Rank 20")),
+                        kivact::ui::description(
                             "攻撃タイプ",
                             kivact::ui::badge("爆発").variant(ui::BadgeHue::new(ui::Hue::Red)),
                         ),
-                        ui::key_value(
+                        kivact::ui::description(
                             "防御タイプ",
                             kivact::ui::badge("重装甲").variant(ui::BadgeHue::new(ui::Hue::Yellow)),
                         ),
@@ -879,5 +879,5 @@ fn overview(action: impl Into<kivact::state::Callback<()>>, command: Signal<bool
             .weight(700)
             .line_height(1.3),
     );
-    column((hero(heading, "今日も生徒たちが待っています。やわらかく、明るく、迷わない——\nブルーアーカイブ風のネイティブSaaS UIコンポーネント集です。", (kivact::ui::button("作戦を開始").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Accent).variant(kivact_ui_pop::Slant).icon(kivact::view::icon("player-play")).on_press(action), kivact::ui::button("コマンドパレット").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Glass).icon(kivact::view::icon("command")).on_press(move || command.set(true))), stats), columns((ui::stat_card("アクティブ生徒", "1,284").trend("↗ 8.2%").icon("users").points(vec![2., 4., 3., 5., 4., 7., 6., 9., 8., 11.]).tone(ui::Hue::Mint), ui::stat_card("依頼完了率", "96.4%").trend("↗ 3.1%").icon("circle-check").points(vec![3., 4., 3., 6., 5., 7., 6., 9., 8., 11.]).tone(ui::Hue::Mint), ui::stat_card("週間支出", "¥2.4M").trend("↘ 1.4%").icon("coin").points(vec![10., 8., 9., 5., 7., 4., 5., 3., 4., 2.]).tone(ui::Hue::Red), ui::stat_card("平均絆ランク", "18.6").trend("↗ 12%").icon("heart").points(vec![2., 3., 5., 4., 7., 9., 8., 12., 14., 17.]).tone(ui::Hue::Mint)), 4))).style(style().gap(16))
+    column((hero(heading, "今日も生徒たちが待っています。やわらかく、明るく、迷わない——\nブルーアーカイブ風のネイティブSaaS UIコンポーネント集です。", (kivact::ui::button("作戦を開始").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Accent).variant(kivact_ui_pop::Slant).icon(kivact::view::icon("player-play")).on_press(action), kivact::ui::button("コマンドパレット").size(kivact::ui::ControlSize::Large).variant(kivact_ui_pop::ButtonTone::Glass).icon(kivact::view::icon("command")).on_press(move || command.set(true))), stats), columns((kivact::ui::stat("アクティブ生徒", "1,284").delta("↗ 8.2%").icon(kivact::view::icon("users")).chart(ui::sparkline(vec![2., 4., 3., 5., 4., 7., 6., 9., 8., 11.])).variant(ui::StatHue::new(ui::Hue::Mint)), kivact::ui::stat("依頼完了率", "96.4%").delta("↗ 3.1%").icon(kivact::view::icon("circle-check")).chart(ui::sparkline(vec![3., 4., 3., 6., 5., 7., 6., 9., 8., 11.])).variant(ui::StatHue::new(ui::Hue::Mint)), kivact::ui::stat("週間支出", "¥2.4M").delta("↘ 1.4%").icon(kivact::view::icon("coin")).chart(ui::sparkline(vec![10., 8., 9., 5., 7., 4., 5., 3., 4., 2.])).variant(ui::StatHue::new(ui::Hue::Red)), kivact::ui::stat("平均絆ランク", "18.6").delta("↗ 12%").icon(kivact::view::icon("heart")).chart(ui::sparkline(vec![2., 3., 5., 4., 7., 9., 8., 12., 14., 17.])).variant(ui::StatHue::new(ui::Hue::Mint))), 4))).style(style().gap(16))
 }

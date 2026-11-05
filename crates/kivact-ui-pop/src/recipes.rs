@@ -40,6 +40,9 @@ pub(crate) fn recipes() -> UiRecipes {
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .stat(crate::recipes_metrics::stat)
+        .heading(|_| crate::recipes_metrics::heading)
+        .description_list(crate::recipes_metrics::description_list)
         .breadcrumb(crate::recipes_navigation::breadcrumb)
         .pagination(crate::recipes_navigation::pagination)
         .stepper(crate::recipes_navigation::stepper)
