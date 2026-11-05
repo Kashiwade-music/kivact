@@ -103,16 +103,7 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
     let body = catalog_body(sidebar, topbar, content, scroll_ref);
     let commands = palette_commands();
     let run_command = callback(move |command| match command {
-        PaletteCommand::Section(i) => {
-            if let Some(r) = refs[i].rect().get() {
-                let offset = scroll_ref.scroll_offset().get();
-                scroll_ref.scroll_to(
-                    Point::new(0.0, (offset.y + r.y - 76.0).max(0.0)),
-                    ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
-                );
-            }
-            selected.set(i);
-        }
+        PaletteCommand::Section(i) => select_section(i, refs[i], scroll_ref, selected),
         PaletteCommand::Theme => dark.update(|value| *value = !*value),
         PaletteCommand::Create => form_dialog.set(true),
         PaletteCommand::Start => confirm.set(true),
@@ -976,4 +967,15 @@ fn request_fields(
         ),
     ))
     .style(style().gap(16))
+}
+
+fn select_section(i: usize, target: NodeRef, scroll_ref: NodeRef, selected: Signal<usize>) {
+    if let Some(r) = target.rect().get() {
+        let offset = scroll_ref.scroll_offset().get();
+        scroll_ref.scroll_to(
+            Point::new(0.0, (offset.y + r.y - 76.0).max(0.0)),
+            ScrollBehavior::Smooth(kivact::motion::Easing::EaseOut),
+        );
+    }
+    selected.set(i);
 }
