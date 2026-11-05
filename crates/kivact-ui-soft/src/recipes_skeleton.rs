@@ -5,13 +5,20 @@ use kivact::ui::{Look, SkeletonShape, SkeletonState};
 /// Corner profile supplied to the standard skeleton's variant hook.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SkeletonRadius {
+    /// Use square corners.
     None,
+    /// Use the zero-radius profile.
     R0,
+    /// Use the theme inner radius.
     R1,
+    /// Use the theme element radius.
     R2,
     #[default]
+    /// Use the theme container radius.
     R3,
+    /// Use the theme container radius for the larger profile.
     R4,
+    /// Use the theme fully rounded radius.
     Rounded,
 }
 impl kivact::ui::Variant for SkeletonRadius {}

@@ -7,8 +7,10 @@ use kivact::ui::{DropzoneRecipes, Look};
 /// Visual chrome of a standard drop target, independent of file validation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DropzoneVariant {
+    /// Use the compact field treatment for the drop target.
     Field,
     #[default]
+    /// Use the larger drop-area treatment.
     Area,
 }
 impl kivact::ui::Variant for DropzoneVariant {}

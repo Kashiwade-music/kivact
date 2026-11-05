@@ -28,9 +28,13 @@ use kivact::view::use_direction;
 /// Source metadata used to label and open a citation.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CitationSource {
+    /// Optional title used as the citation label.
     pub title: Option<String>,
+    /// Destination opened when the citation is activated.
     pub url: Option<String>,
+    /// Optional image shown beside the citation label.
     pub image: Option<Asset>,
+    /// Optional glyph shown when no source image is available.
     pub icon: Option<Icon>,
 }
 
@@ -38,7 +42,9 @@ pub struct CitationSource {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CitationVariant {
     #[default]
+    /// Show the source title or URL, falling back to a labelled source number.
     Label,
+    /// Show the citation number as the trigger label.
     Number,
 }
 

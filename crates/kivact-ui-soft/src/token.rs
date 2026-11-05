@@ -33,16 +33,27 @@ use kivact::view::use_direction;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TokenColor {
     #[default]
+    /// Use the default neutral token palette.
     Default,
+    /// Use the red categorical token palette.
     Red,
+    /// Use the orange categorical token palette.
     Orange,
+    /// Use the yellow categorical token palette.
     Yellow,
+    /// Use the green categorical token palette.
     Green,
+    /// Use the teal categorical token palette.
     Teal,
+    /// Use the cyan categorical token palette.
     Cyan,
+    /// Use the blue categorical token palette.
     Blue,
+    /// Use the purple categorical token palette.
     Purple,
+    /// Use the pink categorical token palette.
     Pink,
+    /// Use the gray categorical token palette.
     Gray,
 }
 
@@ -80,6 +91,7 @@ pub struct Token {
 }
 
 #[track_caller]
+/// Build a compact labelled token with optional main and remove actions.
 pub fn token(label: impl IntoText) -> Token {
     Token {
         root: row(()),
@@ -97,48 +109,57 @@ pub fn token(label: impl IntoText) -> Token {
 }
 
 impl Token {
+    /// Set the token control size.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
 
+    /// Set the reactive categorical token palette.
     pub fn color(mut self, color: impl IntoValue<TokenColor>) -> Self {
         self.color = color.into_value();
         self
     }
 
+    /// Place a leading icon before the label.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
 
+    /// Place additional content after the label.
     pub fn end(mut self, end: impl IntoView) -> Self {
         self.end = Some(end.into_view());
         self
     }
 
+    /// Run a callback when the main token action is activated.
     pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
         let press: Callback<()> = press.into();
         self.press = Some(callback(move |_| press.call(())));
         self
     }
 
+    /// Add a remove action and run the callback when it is activated.
     pub fn on_remove(mut self, remove: impl Into<Callback<()>>) -> Self {
         let remove: Callback<()> = remove.into();
         self.remove = Some(callback(move |_| remove.call(())));
         self
     }
 
+    /// Set the accessible description of the main token action.
     pub fn description(mut self, description: impl IntoText) -> Self {
         self.description = Some(description.into_text_value());
         self
     }
 
+    /// Hide the visible label while keeping its accessible name.
     pub fn label_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
         self.label_hidden = hidden.into_value();
         self
     }
 
+    /// Expose the token main action as a link when enabled.
     pub fn as_link(mut self, link: impl IntoValue<bool>) -> Self {
         self.as_link = link.into_value();
         self

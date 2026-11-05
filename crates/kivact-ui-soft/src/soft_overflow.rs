@@ -36,15 +36,20 @@ enum OverflowFit {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Logical edge from which items move into the overflow indicator.
 pub enum CollapseFrom {
+    /// Hide items from the logical start first.
     Start,
     #[default]
+    /// Hide items from the logical end first.
     End,
 }
 
 #[derive(Clone, Default, PartialEq)]
+/// Element whose width determines the available overflow space.
 pub enum OverflowMeasure {
     #[default]
+    /// Use the overflow list own measured width.
     OwnWidth,
     /// Measure against the caller's reference to the containing element.
     ParentWidth(NodeRef),
@@ -54,6 +59,7 @@ type ItemRenderer<T> = kivact::view::ViewFn<Value<T>>;
 type ItemWidth<T> = Box<dyn Fn(&T) -> f64>;
 type OverflowRenderer<T> = kivact::view::ViewFn<Value<Vec<T>>>;
 
+/// A keyed list that fits visible items and exposes the remaining items through an indicator.
 pub struct OverflowList<T: PropValue, K: ItemKey> {
     root: Node,
     items: Value<Vec<T>>,
@@ -71,6 +77,7 @@ pub struct OverflowList<T: PropValue, K: ItemKey> {
     collapse_from: Value<CollapseFrom>,
 }
 
+/// Build an overflow-aware list with stable keys and a reactive renderer for each item.
 pub fn overflow_list<T, K, V>(
     items: impl IntoValue<Vec<T>>,
     key: impl Fn(&T) -> K + 'static,
@@ -130,43 +137,51 @@ impl<T: PropValue, K: ItemKey> OverflowList<T, K> {
         self
     }
 
+    /// Render the overflow indicator from the reactive collection of hidden items.
     pub fn overflow<V: IntoView>(mut self, render: impl Fn(Value<Vec<T>>) -> V + 'static) -> Self {
         self.indicator = render.into();
         self
     }
 
+    /// Set spacing between visible items and the overflow indicator.
     pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
         let gap = gap.into_value();
         self.gap = (move || gap.get().max(0.0)).into_value();
         self
     }
 
+    /// Keep at least this many items visible when calculating overflow.
     pub fn min_visible(mut self, count: impl IntoValue<usize>) -> Self {
         self.min_visible = count.into_value();
         self
     }
 
+    /// Limit the number of visible items independently of available width.
     pub fn max_visible(mut self, count: impl IntoValue<usize>) -> Self {
         self.max_visible = count.into_value();
         self
     }
 
+    /// Limit the rows of items allowed before overflow is applied.
     pub fn max_rows(mut self, rows: impl IntoValue<usize>) -> Self {
         let rows = rows.into_value();
         self.max_rows = (move || rows.get().max(1)).into_value();
         self
     }
 
+    /// Choose the logical edge from which items collapse.
     pub fn collapse_from(mut self, edge: impl IntoValue<CollapseFrom>) -> Self {
         self.collapse_from = edge.into_value();
         self
     }
 
+    /// Choose the element used to measure available width.
     pub fn measure(mut self, measure: impl IntoValue<OverflowMeasure>) -> Self {
         self.measure = measure.into_value();
         self
     }
 
+    /// Report the hidden item keys when the overflow result changes.
     pub fn on_overflow_change<R: HandlerResult>(
         mut self,
         callback_fn: impl Fn(Vec<K>) -> R + 'static,

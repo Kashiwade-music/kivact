@@ -36,16 +36,19 @@ pub struct RichDoc {
 }
 
 impl RichDoc {
+    /// Store Markdown source as an application-owned rich document.
     pub fn from_markdown(markdown: impl Into<String>) -> Self {
         Self {
             markdown: markdown.into(),
         }
     }
 
+    /// Borrow the document Markdown source.
     pub fn markdown(&self) -> &str {
         &self.markdown
     }
 
+    /// Consume the document and return its Markdown source.
     pub fn into_markdown(self) -> String {
         self.markdown
     }
@@ -196,6 +199,7 @@ fn format_selection(editor: NodeRef, marker: &'static str) {
     editor.focus();
 }
 
+/// A bound Markdown editor with formatting controls and an optional block-editing surface.
 pub struct RichTextEditor {
     root: Node,
     label: Value<String>,
@@ -204,6 +208,7 @@ pub struct RichTextEditor {
     block_editing: Value<bool>,
 }
 
+/// Build a labelled editor that writes Markdown through the supplied binding.
 pub fn rich_text_editor(label: impl IntoText, source: impl IntoBinding<String>) -> RichTextEditor {
     RichTextEditor {
         root: node(),
@@ -222,6 +227,7 @@ impl RichTextEditor {
         self
     }
 
+    /// Prevent edits while retaining the document display and native selection.
     pub fn read_only(mut self, value: impl IntoValue<bool>) -> Self {
         self.read_only = value.into_value();
         self

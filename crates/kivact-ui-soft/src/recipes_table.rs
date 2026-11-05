@@ -9,11 +9,15 @@ use kivact::ui::{Look, TableRecipes};
 /// Independent visual choices for a static table row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TableRowAppearance {
+    /// Whether row separators are painted.
     pub dividers: Value<bool>,
+    /// Whether hovered rows receive hover paint.
     pub hover: Value<bool>,
+    /// Whether alternating rows receive stripe paint.
     pub striped: Value<bool>,
 }
 impl TableRowAppearance {
+    /// Create reactive row separator, hover and stripe choices.
     pub fn new(
         dividers: impl IntoValue<bool>,
         hover: impl IntoValue<bool>,
@@ -31,11 +35,15 @@ impl kivact::ui::Variant for TableRowAppearance {}
 /// Independent visual choices for a static header or data cell.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TableCellAppearance {
+    /// Reactive cell padding density.
     pub density: Value<ItemDensity>,
+    /// Reactive vertical alignment within the cell.
     pub vertical_align: Value<Align>,
+    /// Whether the cell paints a separator.
     pub divider: Value<bool>,
 }
 impl TableCellAppearance {
+    /// Create reactive cell padding, vertical alignment and separator choices.
     pub fn new(
         density: impl IntoValue<ItemDensity>,
         vertical_align: impl IntoValue<Align>,

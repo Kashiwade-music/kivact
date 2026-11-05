@@ -1,10 +1,14 @@
 //! Role: Soft collection appearance values independent of row interaction.
 use kivact::state::{IntoValue, Value};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Vertical spacing of item content in Soft collection recipes.
 pub enum ItemDensity {
+    /// Use the smallest row padding.
     Compact,
     #[default]
+    /// Use the standard row padding.
     Balanced,
+    /// Use the largest row padding.
     Spacious,
 }
 
@@ -19,26 +23,38 @@ impl ItemDensity {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Vertical alignment of a row icon and its text content.
 pub enum ItemAlign {
     #[default]
+    /// Center the icon against the full content block.
     Center,
+    /// Align the icon to the top of the content block.
     Start,
+    /// Align the icon with the first text line.
     FirstLine,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Arrangement of an item label and description.
 pub enum ItemLayout {
     #[default]
+    /// Place the description below the label.
     Stacked,
+    /// Place the label and description on one row.
     Inline,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Logical edge treatment of a Soft list.
 pub enum ListEdge {
     #[default]
+    /// Keep the list and its rows inset from the surrounding edge.
     Padded,
+    /// Remove the outer list inset.
     Flush,
+    /// Use the outset profile with the standard padded row geometry.
     Outset,
+    /// Use padded rows without rounded outer corners.
     Bleed,
 }
 
@@ -68,18 +84,22 @@ impl Default for ItemLook {
 }
 impl kivact::ui::Variant for ItemLook {}
 impl ItemLook {
+    /// Set reactive row padding.
     pub fn density(mut self, value: impl IntoValue<ItemDensity>) -> Self {
         self.density = Some(value.into_value());
         self
     }
+    /// Set reactive alignment of leading content against the text block.
     pub fn align(mut self, value: impl IntoValue<ItemAlign>) -> Self {
         self.align = Some(value.into_value());
         self
     }
+    /// Arrange the label and description vertically or inline.
     pub fn layout(mut self, value: impl IntoValue<ItemLayout>) -> Self {
         self.layout = Some(value.into_value());
         self
     }
+    /// Paint the row with the highlighted background when enabled.
     pub fn highlighted(mut self, value: impl IntoValue<bool>) -> Self {
         self.highlighted = value.into_value();
         self
@@ -103,14 +123,17 @@ impl Default for ListLook {
 }
 impl kivact::ui::Variant for ListLook {}
 impl ListLook {
+    /// Set the padding used by list rows.
     pub fn density(mut self, value: impl IntoValue<ItemDensity>) -> Self {
         self.density = value.into_value();
         self
     }
+    /// Show separators between list rows when enabled.
     pub fn dividers(mut self, value: impl IntoValue<bool>) -> Self {
         self.dividers = value.into_value();
         self
     }
+    /// Set the logical inset or extension at the list edges.
     pub fn edge(mut self, value: impl IntoValue<ListEdge>) -> Self {
         self.edge = value.into_value();
         self

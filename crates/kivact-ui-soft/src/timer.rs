@@ -21,7 +21,9 @@ use std::time::{Duration, SystemTime};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TimerFormat {
     #[default]
+    /// Show elapsed units such as seconds, minutes and hours.
     Elapsed,
+    /// Show elapsed time as minutes:seconds or hours:minutes:seconds.
     Clock,
 }
 

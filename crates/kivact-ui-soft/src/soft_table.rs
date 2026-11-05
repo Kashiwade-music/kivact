@@ -5,6 +5,7 @@ use kivact::view::{IntoView, Node, NodeBuilder, View, text};
 
 type SelectionLabel = kivact::view::ViewFn<Value<usize>>;
 
+/// Bulk table actions shown while the external selection contains keys.
 pub struct TableSelectionToolbar<K: PropValue> {
     root: kivact::ui::Toolbar,
     selection: Binding<Vec<K>>,
@@ -13,6 +14,7 @@ pub struct TableSelectionToolbar<K: PropValue> {
     actions: Option<View>,
 }
 
+/// Build a toolbar whose clear action empties the supplied selection binding.
 pub fn table_selection_toolbar<K: PropValue>(
     selection: impl IntoBinding<Vec<K>>,
 ) -> TableSelectionToolbar<K> {
@@ -33,14 +35,17 @@ impl<K: PropValue> NodeBuilder for TableSelectionToolbar<K> {
 }
 
 impl<K: PropValue> TableSelectionToolbar<K> {
+    /// Set the accessible and visible label of the clear-selection action.
     pub fn clear_label(mut self, label: impl IntoText) -> Self {
         self.clear_label = label.into_text_value();
         self
     }
+    /// Place application bulk actions at the end of the toolbar.
     pub fn actions(mut self, actions: impl IntoView) -> Self {
         self.actions = Some(actions.into_view());
         self
     }
+    /// Render a custom selection summary from the reactive selected-key count.
     pub fn selection_label<V: IntoView>(
         mut self,
         label: impl Fn(Value<usize>) -> V + 'static,
@@ -94,9 +99,13 @@ impl<K: PropValue> IntoView for TableSelectionToolbar<K> {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RowStatusTone {
     #[default]
+    /// Use neutral status ink.
     Neutral,
+    /// Use successful status ink.
     Success,
+    /// Use warning status ink.
     Warning,
+    /// Use error status ink.
     Error,
 }
 kivact::state::constant_value!(RowStatusTone);

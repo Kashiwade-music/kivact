@@ -139,40 +139,64 @@ pub struct TimeZone {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum InstantFormat {
     #[default]
+    /// Show a long date and clock including seconds.
     Full,
+    /// Show the date with an abbreviated month name.
     Date,
+    /// Show the date and a twelve-hour clock.
     DateTime,
+    /// Show a twelve-hour clock.
     Time,
+    /// Show the numeric date as year-month-day.
     SystemDate,
+    /// Show the numeric date and a twenty-four-hour clock including seconds.
     SystemDateTime,
+    /// Show a twenty-four-hour clock including seconds.
     SystemTime,
+    /// Show the Unix timestamp in whole seconds.
     UnixSeconds,
 }
 
 /// A row in the timestamp details.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TimestampEntry {
+    /// Optional time zone overriding the main timestamp zone for this entry.
     pub zone: Option<TimeZone>,
+    /// Date and time format for this detail row.
     pub format: InstantFormat,
+    /// Optional label preceding the detail value.
     pub label: Option<String>,
+    /// Whether the detail value offers a copy action.
     pub copyable: bool,
 }
 
 /// The format of the main timestamp.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TimestampFormat {
+    /// Show a relative age in words.
     Relative,
+    /// Show a compact relative age.
     RelativeShort,
     #[default]
+    /// Use a relative age near the current time and a date-time beyond the threshold.
     Auto,
+    /// Show the date with an abbreviated month name.
     Date,
+    /// Show the date with the full month name.
     DateLong,
+    /// Show the weekday and date.
     DateWeekday,
+    /// Show the date and a twelve-hour clock.
     DateTime,
+    /// Show a twelve-hour clock.
     Time,
+    /// Show the numeric date as year-month-day.
     SystemDate,
+    /// Show the numeric date and a twenty-four-hour clock including seconds.
     SystemDateTime,
+    /// Show a twenty-four-hour clock including seconds.
     SystemTime,
+    /// Show the Unix timestamp in whole seconds.
     UnixSeconds,
 }
 
