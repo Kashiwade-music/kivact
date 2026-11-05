@@ -1,5 +1,6 @@
 //! Role: Creative example application entry point.
 #![warn(redundant_imports)]
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 
 use kivact::prelude::*;
 use kivact_ui_creative_catalog::{catalog, fonts};

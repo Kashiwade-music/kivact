@@ -27,65 +27,7 @@ fn playhead(state: Signal<TransportState>) -> Binding<f64> {
 }
 
 pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
-    let curve_specs: [&[(f64, f64)]; 3] = [
-        &[(0.0, 0.0), (60.0, 2.2), (120.0, -1.4), (180.0, 0.0)],
-        &[(0.0, 0.0), (90.0, 1.6), (180.0, 0.0)],
-        &[
-            (0.0, 0.0),
-            (40.0, 1.2),
-            (80.0, 0.0),
-            (120.0, 0.8),
-            (160.0, 0.0),
-        ],
-    ];
-    let mut curves = curve_specs
-        .into_iter()
-        .enumerate()
-        .map(|(channel, points)| {
-            let keys = points
-                .iter()
-                .enumerate()
-                .map(|(i, &(frame, value))| {
-                    let prev = i.checked_sub(1).and_then(|i| points.get(i));
-                    let next = points.get(i + 1);
-                    let dl = prev.map_or(10.0, |p| (frame - p.0) / 3.0);
-                    let dr = next.map_or(10.0, |n| (n.0 - frame) / 3.0);
-                    let slope = match (prev, next) {
-                        (Some(p), Some(n))
-                            if !((value >= p.1 && value >= n.1)
-                                || (value <= p.1 && value <= n.1)) =>
-                        {
-                            (n.1 - p.1) / (n.0 - p.0)
-                        }
-                        _ => 0.0,
-                    };
-                    let mut key = ui::CurveKey::new((channel * 8 + i) as u64 + 1, frame, value);
-                    key.in_tangent = ui::CurveTangent::new(-dl, -(slope * dl));
-                    key.out_tangent = ui::CurveTangent::new(dr, slope * dr);
-                    key
-                })
-                .collect();
-            ui::Curve::new(
-                channel as u64,
-                ["X Location", "Y Location", "Z Location"][channel],
-                keys,
-            )
-            .color([rgb(0xff5c6c), rgb(0x8fd94a), rgb(0x4d9bff)][channel])
-        })
-        .collect::<Vec<_>>();
-    curves.push(
-        ui::Curve::new(
-            3,
-            "Focal Length",
-            [0.0, 120.0, 196.0]
-                .into_iter()
-                .enumerate()
-                .map(|(i, time)| ui::CurveKey::new(4096 + i as u64, time, 0.0))
-                .collect(),
-        )
-        .color(rgb(0xc6c8d0)),
-    );
-    let graph = signal(curves);
+    let graph = signal(animation_curves());
     let graph_selected = signal(vec![18_u64]);
     let (keys, selected) = super::animation_model::bindings(graph, graph_selected);
     let initial_keys = signal(None);
@@ -99,165 +41,10 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
         value: (-2.0, 3.0),
     });
     col((
-        line((
-            text("Dope Sheet").style(style().weight(600)),
-            kivact::ui::select(
-                "Selection",
-                keyed_options([
-                    ("dope-sheet", "Dope Sheet"),
-                    ("action-editor", "Action Editor"),
-                    ("shape-key-editor", "Shape Key Editor"),
-                ]),
-                signal(Some("dope-sheet".to_owned())),
-            )
-            .placeholder("")
-            .style(style().width(110)),
-            spacer(),
-            note("Click / Shift / Drag · Box select · G move · Del"),
-            kivact::ui::button("Insert Key")
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .icon(kivact::view::icon("diamond"))
-                .on_press(move || {
-                    let mut next = keys.get();
-                    {
-                        let keys = &mut next;
-                        let id = keys.iter().map(|x| x.id).max().unwrap_or(0) + 1;
-                        keys.push(
-                            ui::Keyframe::new(id, 3, state.get().frame, "Inserted key")
-                                .color(rgb(0x8b7cff)),
-                        );
-                    }
-                    keys.set(next);
-                }),
-        ))
-        .style(style().height(38).padding_x(10)),
-        ui::dope_sheet(
-            keys,
-            ui::TimeState {
-                selection: selected,
-                playhead: playhead(state),
-                transform: transform.into_binding(),
-            },
-        )
-        .on_edit(move |event| match event {
-            ui::EditorEvent::Begin => initial_keys.set(Some(keys.get())),
-            ui::EditorEvent::Request(request) => {
-                let mut next = keys.get();
-                apply_time(&mut next, &request);
-                keys.set(next);
-            }
-            ui::EditorEvent::Commit => initial_keys.set(None),
-            ui::EditorEvent::Cancel => {
-                if let Some(initial) = initial_keys.get() {
-                    keys.set(initial);
-                }
-                initial_keys.set(None);
-            }
-        })
-        .zoom_range(0.25..=10.0)
-        .lanes(
-            [
-                "Summary",
-                "□ Cube",
-                "  Object Transforms",
-                "   ● X Location",
-                "   ● Y Location",
-                "   ● Z Location",
-                "▣ Camera",
-                "   ● Focal Length",
-            ]
-            .into_iter()
-            .enumerate()
-            .map(|(id, label)| ui::Lane::new(id as u64, label))
-            .collect::<Vec<_>>(),
-        )
-        .style(style().height(252))
-        .test_id("creative-dopesheet"),
-        line((
-            text("Graph Editor").style(style().weight(600)),
-            kivact::ui::radio_group(
-                "Interpolation",
-                keyed_options([
-                    ("constant", "Constant"),
-                    ("linear", "Linear"),
-                    ("bezier", "Bezier"),
-                ]),
-                bind(
-                    move || {
-                        graph.with(|g| {
-                            Some(
-                                g.first()
-                                    .and_then(|curve| curve.keys.first())
-                                    .map_or("bezier", |p| match p.interpolation {
-                                        ui::Interpolation::Constant => "constant",
-                                        ui::Interpolation::Linear => "linear",
-                                        ui::Interpolation::Bezier => "bezier",
-                                    })
-                                    .to_owned(),
-                            )
-                        })
-                    },
-                    move |key: Option<String>| {
-                        graph.update(|curves| {
-                            let ids = curves
-                                .iter()
-                                .flat_map(|curve| &curve.keys)
-                                .map(|key| key.id)
-                                .collect();
-                            super::animation_model::apply_graph(
-                                curves,
-                                &ui::GraphRequest::Interpolate(
-                                    ids,
-                                    match key.as_deref() {
-                                        Some("constant") => ui::Interpolation::Constant,
-                                        Some("linear") => ui::Interpolation::Linear,
-                                        _ => ui::Interpolation::Bezier,
-                                    },
-                                ),
-                            );
-                        })
-                    },
-                ),
-            )
-            .orientation(kivact::view::Orientation::Horizontal)
-            .variant(kivact::ui::RadioGroupVariant::Segmented)
-            .style(style().width(166)),
-            kivact::ui::toggle_button("X", channels[0]),
-            kivact::ui::toggle_button("Y", channels[1]),
-            kivact::ui::toggle_button("Z", channels[2]),
-            kivact::ui::button("Frame All  Home")
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .on_press(move || {
-                    graph_view.set(ui::GraphView {
-                        time: (-20.0, 200.0),
-                        value: (-2.0, 3.0),
-                    })
-                }),
-            spacer(),
-            note("Z Location · f 40 · 1.200 · bezier"),
-        ))
-        .style(style().height(38).padding_x(10)),
-        ui::graph_editor(
-            graph,
-            ui::GraphState {
-                view: graph_view.into_binding(),
-                selection: graph_selected.into_binding(),
-                playhead: playhead(state),
-            },
-        )
-        .on_edit(super::animation_model::graph_edits(graph))
-        .lanes(move || {
-            channels
-                .iter()
-                .enumerate()
-                .filter(|(_, visible)| visible.get())
-                .map(|(id, _)| {
-                    ui::Lane::new(id as u64, ["X Location", "Y Location", "Z Location"][id])
-                })
-                .collect::<Vec<_>>()
-        })
-        .style(style().height(320))
-        .test_id("creative-graph"),
+        animation_dope_toolbar(state, keys),
+        animation_dope_sheet(state, keys, selected, initial_keys, transform),
+        animation_graph_toolbar(graph, channels, graph_view),
+        animation_graph_editor(state, graph, graph_selected, channels, graph_view),
     ))
     .style(style().gap(0))
 }
@@ -337,68 +124,8 @@ pub(super) fn grading() -> impl IntoView {
     });
     col((
         row((
-            col((
-                line((
-                    text("Viewer · 01:00:12:08")
-                        .style(style().font_family("Geist Mono").font_size(10)),
-                    spacer(),
-                    kivact::ui::toggle_button("Bypass", bypass),
-                    kivact::ui::toggle_button("Wipe", wipe),
-                )),
-                node()
-                    .child(
-                        kivact::view::viewport(move || {
-                            worker_image.get().unwrap_or_else(empty_pixels)
-                        })
-                        .name("Worker rendered gradient")
-                        .style(style().size(720, 405).max_width(pct(100))),
-                    )
-                    .style(
-                        style()
-                            .grow(1)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                            .padding(16),
-                    ),
-            ))
-            .style(style().width(pct(56)).padding(10)),
-            col((
-                kivact::ui::select(
-                    "Selection",
-                    keyed_options([
-                        ("parade", "Parade"),
-                        ("waveform", "Waveform"),
-                        ("histogram", "Histogram"),
-                    ]),
-                    upper,
-                )
-                .placeholder("")
-                .style(style().width(110)),
-                kivact::view::viewport(move || {
-                    images::histogram(
-                        &samples.get(),
-                        upper.get().as_deref().unwrap_or("histogram"),
-                    )
-                })
-                .name("Application histogram")
-                .style(style().height(340)),
-                kivact::ui::select(
-                    "Selection",
-                    keyed_options([("vectorscope", "Vectorscope"), ("histogram", "Histogram")]),
-                    lower,
-                )
-                .placeholder("")
-                .style(style().width(110)),
-                kivact::view::viewport(move || {
-                    images::histogram(
-                        &samples.get(),
-                        lower.get().as_deref().unwrap_or("histogram"),
-                    )
-                })
-                .name("Application channel histogram")
-                .style(style().height(340)),
-            ))
-            .style(style().grow(1).gap(6).padding(8)),
+            grading_viewer(worker_image, bypass, wipe),
+            grading_scopes(samples, upper, lower),
         ))
         .style(style().gap(1).height(772)),
         row(["Lift", "Gamma", "Gain", "Offset"]
@@ -447,18 +174,7 @@ pub(super) fn scene() -> Node {
             let w = size.width;
             let h = size.height;
             let horizon = h * 0.66;
-            for y in 0..64 {
-                let t = y as f64 / 63.0;
-                let sky = if t < 0.7 {
-                    mix(rgb(0x153565), rgb(0xf89973), t / 0.7)
-                } else {
-                    mix(rgb(0xf89973), rgb(0xffd481), (t - 0.7) / 0.3)
-                };
-                d.fill_rect(
-                    Rect::new(0.0, y as f64 * horizon / 64.0, w, horizon / 64.0 + 1.0),
-                    sky,
-                );
-            }
+            scene_sky(d, w, horizon);
             for i in 0..3 {
                 let mut path = Path::new().move_to(Point::new(0.0, horizon));
                 for x in 0..26 {
@@ -561,125 +277,9 @@ pub(super) fn picker() -> impl IntoView {
             }
         },
     );
-    let hsv = move |index: usize, label: &str| {
-        ui::value_slider(
-            ["H", "S", "V"][index],
-            bind(
-                move || {
-                    let (h, s, v) = ui::color_to_hsv(color.get());
-                    [h / 360.0, s, v][index]
-                },
-                move |value| {
-                    let (h, s, v) = ui::color_to_hsv(color.get_untracked());
-                    let mut c = [h, s, v];
-                    c[index] = if index == 0 { value * 360.0 } else { value };
-                    color.set(ui::color_from_hsv(
-                        c[0],
-                        c[1],
-                        c[2],
-                        color.get_untracked().components()[3],
-                    ));
-                },
-            ),
-        )
-        .name(label.to_owned())
-        .range(0.0..=1.0)
-        .step(0.001)
-        .precision(3)
-    };
-    specs((
-        spec(
-            "Inline Picker",
-            "インライン",
-            col((
-                ui::color_wheel(color, signal(ui::ColorModel::Rgb))
-                    .wheel_size(200.0)
-                    .style(style().width(248))
-                    .test_id("creative-color-picker"),
-                kivact::ui::radio_group(
-                    "Color model",
-                    keyed_options([("rgb", "RGB"), ("hsv", "HSV")]),
-                    mode,
-                )
-                .orientation(kivact::view::Orientation::Horizontal)
-                .variant(kivact::ui::RadioGroupVariant::Segmented)
-                .style(style().width(248)),
-                dynamic(mode, move |mode| {
-                    if mode.as_deref() == Some("rgb") {
-                        col((
-                            picker_channel(color, 0, "R", "Picker R"),
-                            picker_channel(color, 1, "G", "Picker G"),
-                            picker_channel(color, 2, "B", "Picker B"),
-                            picker_channel(color, 3, "A", "Picker Alpha"),
-                        ))
-                    } else {
-                        col((
-                            hsv(0, "Picker Hue"),
-                            hsv(1, "Picker Saturation"),
-                            hsv(2, "Picker Value"),
-                            picker_channel(color, 3, "A", "Picker Alpha"),
-                        ))
-                    }
-                }),
-                ui::property_row(
-                    "Hex",
-                    kivact::ui::text_input("HEX Color", hex)
-                        .style(style().font_family("Geist Mono")),
-                ),
-                row((
-                    node().style(move || {
-                        style().height(24).grow(1).radius(5).background(color.get())
-                    }),
-                    kivact::ui::button("Eyedropper preview")
-                        .variant(kivact::ui::ButtonVariant::Secondary)
-                        .hide_label(true)
-                        .icon(kivact::view::icon("color-picker"))
-                        .style(style().size(24, 24).padding(0)),
-                )),
-                row([
-                    0x8b7cff, 0xa3e635, 0x3ad3e0, 0xff5c6c, 0xffb32c, 0x5aa9ff, 0xee8ac4, 0x3fc87d,
-                    0xffffff, 0x000000, 0x8a879b, 0x2c7cb0, 0xb05c42, 0xa6b076, 0x463e78, 0x9eb6a4,
-                    0x3f474a, 0xe0e0e0, 0x808080, 0x242528,
-                ]
-                .into_iter()
-                .map(|c| {
-                    kivact::ui::button("")
-                        .variant(kivact::ui::ButtonVariant::Secondary)
-                        .name(format!("Swatch #{c:06X}"))
-                        .style(
-                            style()
-                                .size(20, 20)
-                                .radius(10)
-                                .padding(0)
-                                .background(rgb(c)),
-                        )
-                        .on_press(move || color.set(rgb(c)))
-                })
-                .collect::<Vec<_>>())
-                .style(style().width(248).wrap(true).gap(5)),
-            ))
-            .role(kivact::view::Role::List)
-            .style(style().width(248)),
-        )
-        .style(style().min_height(516)),
-        spec(
-            "Swatch Field",
-            "クリックでポップオーバー",
-            col((
-                ui::property_row("Diffuse", color_swatch(signal(rgb(0xd24b3a)))),
-                ui::property_row("Specular Tint", color_swatch(signal(rgb(0xf2e6c8)))),
-                ui::property_row(
-                    "Fog (RGBA)",
-                    color_swatch(signal(rgb(0x5a8ccf).with_alpha(0.6))),
-                ),
-                ui::property_row("Track Color", color_swatch(signal(rgb(0x3fbf8f)))),
-                note("ドラッグ中はリアルタイム反映、Escape で元の色に戻します。"),
-            ))
-            .role(kivact::view::Role::List),
-        )
-        .style(style().min_height(516)),
-    ))
-    .style(style().align_items(Align::Start))
+
+    specs((picker_inline(color, mode, hex), picker_popover()))
+        .style(style().align_items(Align::Start))
 }
 fn picker_channel(color: Signal<Color>, index: usize, label: &str, name: &str) -> ui::Numeric {
     ui::value_slider(
@@ -731,55 +331,8 @@ pub(super) fn viewport(
     let zoom = kivact::interaction::use_zoom_pan(transform);
     let frame = memo(move || images::gradient(640, 360, shading.get(), grid.get()));
     col((
-        line((
-            text("Application image"),
-            spacer(),
-            kivact::ui::toggle_button("Grid", grid),
-            kivact::ui::radio_group(
-                "Shading",
-                keyed_options([
-                    ("wire", "Wire"),
-                    ("solid", "Solid"),
-                    ("material", "Material"),
-                    ("rendered", "Rendered"),
-                ]),
-                bind(
-                    move || {
-                        Some(
-                            match shading.get() {
-                                0 => "wire",
-                                1 => "solid",
-                                2 => "material",
-                                _ => "rendered",
-                            }
-                            .to_owned(),
-                        )
-                    },
-                    move |key: Option<String>| {
-                        shading.set(match key.as_deref() {
-                            Some("wire") => 0,
-                            Some("solid") => 1,
-                            Some("material") => 2,
-                            _ => 3,
-                        })
-                    },
-                ),
-            )
-            .orientation(kivact::view::Orientation::Horizontal)
-            .variant(kivact::ui::RadioGroupVariant::Segmented)
-            .style(style().width(218)),
-            kivact::ui::button("Frame All")
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .on_press(move || {
-                    if let Some(r) = reference.rect().get() {
-                        transform.set(kivact::interaction::ViewTransform::fit(
-                            Size::new(640.0, 360.0),
-                            Size::new(r.width, r.height),
-                        ));
-                    }
-                }),
-        ))
-        .style(style().height(38).padding_x(10)),
+        viewport_toolbar(shading, grid, reference, transform)
+            .style(style().height(38).padding_x(10)),
         row((
             tool_palette(true).style(style().width(42).padding(6)),
             kivact::view::viewport(frame)
@@ -832,5 +385,518 @@ fn apply_time(keys: &mut Vec<ui::Keyframe>, request: &ui::TimeRequest) {
 }
 
 fn empty_pixels() -> kivact::draw::Pixels {
-    kivact::draw::Pixels::new(1, 1, vec![0; 4].into())
+    kivact::draw::Pixels::new(1, 1, vec![0; 4])
+}
+
+fn animation_curves() -> Vec<ui::Curve> {
+    let curve_specs: [&[(f64, f64)]; 3] = [
+        &[(0.0, 0.0), (60.0, 2.2), (120.0, -1.4), (180.0, 0.0)],
+        &[(0.0, 0.0), (90.0, 1.6), (180.0, 0.0)],
+        &[
+            (0.0, 0.0),
+            (40.0, 1.2),
+            (80.0, 0.0),
+            (120.0, 0.8),
+            (160.0, 0.0),
+        ],
+    ];
+    let mut curves = curve_specs
+        .into_iter()
+        .enumerate()
+        .map(|(channel, points)| {
+            let keys = points
+                .iter()
+                .enumerate()
+                .map(|(i, &(frame, value))| {
+                    let prev = i.checked_sub(1).and_then(|i| points.get(i));
+                    let next = points.get(i + 1);
+                    let dl = prev.map_or(10.0, |p| (frame - p.0) / 3.0);
+                    let dr = next.map_or(10.0, |n| (n.0 - frame) / 3.0);
+                    let slope = match (prev, next) {
+                        (Some(p), Some(n))
+                            if !((value >= p.1 && value >= n.1)
+                                || (value <= p.1 && value <= n.1)) =>
+                        {
+                            (n.1 - p.1) / (n.0 - p.0)
+                        }
+                        _ => 0.0,
+                    };
+                    let mut key = ui::CurveKey::new((channel * 8 + i) as u64 + 1, frame, value);
+                    key.in_tangent = ui::CurveTangent::new(-dl, -(slope * dl));
+                    key.out_tangent = ui::CurveTangent::new(dr, slope * dr);
+                    key
+                })
+                .collect();
+            ui::Curve::new(
+                channel as u64,
+                ["X Location", "Y Location", "Z Location"][channel],
+                keys,
+            )
+            .color([rgb(0xff5c6c), rgb(0x8fd94a), rgb(0x4d9bff)][channel])
+        })
+        .collect::<Vec<_>>();
+    curves.push(
+        ui::Curve::new(
+            3,
+            "Focal Length",
+            [0.0, 120.0, 196.0]
+                .into_iter()
+                .enumerate()
+                .map(|(i, time)| ui::CurveKey::new(4096 + i as u64, time, 0.0))
+                .collect(),
+        )
+        .color(rgb(0xc6c8d0)),
+    );
+    curves
+}
+
+fn animation_graph_editor(
+    state: Signal<TransportState>,
+    graph: Signal<Vec<ui::Curve>>,
+    graph_selected: Signal<Vec<u64>>,
+    channels: [Signal<bool>; 3],
+    graph_view: Signal<ui::GraphView>,
+) -> Node {
+    ui::graph_editor(
+        graph,
+        ui::GraphState {
+            view: graph_view.into_binding(),
+            selection: graph_selected.into_binding(),
+            playhead: playhead(state),
+        },
+    )
+    .on_edit(super::animation_model::graph_edits(graph))
+    .lanes(move || {
+        channels
+            .iter()
+            .enumerate()
+            .filter(|(_, visible)| visible.get())
+            .map(|(id, _)| ui::Lane::new(id as u64, ["X Location", "Y Location", "Z Location"][id]))
+            .collect::<Vec<_>>()
+    })
+    .style(style().height(320))
+    .test_id("creative-graph")
+    .into_view()
+}
+
+fn animation_graph_toolbar(
+    graph: Signal<Vec<ui::Curve>>,
+    channels: [Signal<bool>; 3],
+    graph_view: Signal<ui::GraphView>,
+) -> Node {
+    line((
+        text("Graph Editor").style(style().weight(600)),
+        kivact::ui::radio_group(
+            "Interpolation",
+            keyed_options([
+                ("constant", "Constant"),
+                ("linear", "Linear"),
+                ("bezier", "Bezier"),
+            ]),
+            bind(
+                move || {
+                    graph.with(|g| {
+                        Some(
+                            g.first()
+                                .and_then(|curve| curve.keys.first())
+                                .map_or("bezier", |p| match p.interpolation {
+                                    ui::Interpolation::Constant => "constant",
+                                    ui::Interpolation::Linear => "linear",
+                                    ui::Interpolation::Bezier => "bezier",
+                                })
+                                .to_owned(),
+                        )
+                    })
+                },
+                move |key: Option<String>| {
+                    graph.update(|curves| {
+                        let ids = curves
+                            .iter()
+                            .flat_map(|curve| &curve.keys)
+                            .map(|key| key.id)
+                            .collect();
+                        super::animation_model::apply_graph(
+                            curves,
+                            &ui::GraphRequest::Interpolate(
+                                ids,
+                                match key.as_deref() {
+                                    Some("constant") => ui::Interpolation::Constant,
+                                    Some("linear") => ui::Interpolation::Linear,
+                                    _ => ui::Interpolation::Bezier,
+                                },
+                            ),
+                        );
+                    })
+                },
+            ),
+        )
+        .orientation(kivact::view::Orientation::Horizontal)
+        .variant(kivact::ui::RadioGroupVariant::Segmented)
+        .style(style().width(166)),
+        kivact::ui::toggle_button("X", channels[0]),
+        kivact::ui::toggle_button("Y", channels[1]),
+        kivact::ui::toggle_button("Z", channels[2]),
+        kivact::ui::button("Frame All  Home")
+            .variant(kivact::ui::ButtonVariant::Secondary)
+            .on_press(move || {
+                graph_view.set(ui::GraphView {
+                    time: (-20.0, 200.0),
+                    value: (-2.0, 3.0),
+                })
+            }),
+        spacer(),
+        note("Z Location · f 40 · 1.200 · bezier"),
+    ))
+    .style(style().height(38).padding_x(10))
+}
+
+fn animation_dope_sheet(
+    state: Signal<TransportState>,
+    keys: Binding<Vec<ui::Keyframe>>,
+    selected: Binding<Vec<u64>>,
+    initial_keys: Signal<Option<Vec<ui::Keyframe>>>,
+    transform: Signal<kivact::interaction::ViewTransform>,
+) -> Node {
+    ui::dope_sheet(
+        keys,
+        ui::TimeState {
+            selection: selected,
+            playhead: playhead(state),
+            transform: transform.into_binding(),
+        },
+    )
+    .on_edit(move |event| match event {
+        ui::EditorEvent::Begin => initial_keys.set(Some(keys.get())),
+        ui::EditorEvent::Request(request) => {
+            let mut next = keys.get();
+            apply_time(&mut next, &request);
+            keys.set(next);
+        }
+        ui::EditorEvent::Commit => initial_keys.set(None),
+        ui::EditorEvent::Cancel => {
+            if let Some(initial) = initial_keys.get() {
+                keys.set(initial);
+            }
+            initial_keys.set(None);
+        }
+    })
+    .zoom_range(0.25..=10.0)
+    .lanes(
+        [
+            "Summary",
+            "□ Cube",
+            "  Object Transforms",
+            "   ● X Location",
+            "   ● Y Location",
+            "   ● Z Location",
+            "▣ Camera",
+            "   ● Focal Length",
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(id, label)| ui::Lane::new(id as u64, label))
+        .collect::<Vec<_>>(),
+    )
+    .style(style().height(252))
+    .test_id("creative-dopesheet")
+    .into_view()
+}
+
+fn animation_dope_toolbar(state: Signal<TransportState>, keys: Binding<Vec<ui::Keyframe>>) -> Node {
+    line((
+        text("Dope Sheet").style(style().weight(600)),
+        kivact::ui::select(
+            "Selection",
+            keyed_options([
+                ("dope-sheet", "Dope Sheet"),
+                ("action-editor", "Action Editor"),
+                ("shape-key-editor", "Shape Key Editor"),
+            ]),
+            signal(Some("dope-sheet".to_owned())),
+        )
+        .placeholder("")
+        .style(style().width(110)),
+        spacer(),
+        note("Click / Shift / Drag · Box select · G move · Del"),
+        kivact::ui::button("Insert Key")
+            .variant(kivact::ui::ButtonVariant::Secondary)
+            .icon(kivact::view::icon("diamond"))
+            .on_press(move || {
+                let mut next = keys.get();
+                {
+                    let keys = &mut next;
+                    let id = keys.iter().map(|x| x.id).max().unwrap_or(0) + 1;
+                    keys.push(
+                        ui::Keyframe::new(id, 3, state.get().frame, "Inserted key")
+                            .color(rgb(0x8b7cff)),
+                    );
+                }
+                keys.set(next);
+            }),
+    ))
+    .style(style().height(38).padding_x(10))
+}
+
+fn picker_hsv(color: Signal<Color>, index: usize, label: &str) -> ui::Numeric {
+    ui::value_slider(
+        ["H", "S", "V"][index],
+        bind(
+            move || {
+                let (h, s, v) = ui::color_to_hsv(color.get());
+                [h / 360.0, s, v][index]
+            },
+            move |value| {
+                let (h, s, v) = ui::color_to_hsv(color.get_untracked());
+                let mut c = [h, s, v];
+                c[index] = if index == 0 { value * 360.0 } else { value };
+                color.set(ui::color_from_hsv(
+                    c[0],
+                    c[1],
+                    c[2],
+                    color.get_untracked().components()[3],
+                ));
+            },
+        ),
+    )
+    .name(label.to_owned())
+    .range(0.0..=1.0)
+    .step(0.001)
+    .precision(3)
+}
+
+fn picker_popover() -> Node {
+    spec(
+        "Swatch Field",
+        "クリックでポップオーバー",
+        col((
+            ui::property_row("Diffuse", color_swatch(signal(rgb(0xd24b3a)))),
+            ui::property_row("Specular Tint", color_swatch(signal(rgb(0xf2e6c8)))),
+            ui::property_row(
+                "Fog (RGBA)",
+                color_swatch(signal(rgb(0x5a8ccf).with_alpha(0.6))),
+            ),
+            ui::property_row("Track Color", color_swatch(signal(rgb(0x3fbf8f)))),
+            note("ドラッグ中はリアルタイム反映、Escape で元の色に戻します。"),
+        ))
+        .role(kivact::view::Role::List),
+    )
+    .style(style().min_height(516))
+}
+
+fn picker_inline(color: Signal<Color>, mode: Signal<Option<String>>, hex: Binding<String>) -> Node {
+    spec(
+        "Inline Picker",
+        "インライン",
+        col((
+            ui::color_wheel(color, signal(ui::ColorModel::Rgb))
+                .wheel_size(200.0)
+                .style(style().width(248))
+                .test_id("creative-color-picker"),
+            kivact::ui::radio_group(
+                "Color model",
+                keyed_options([("rgb", "RGB"), ("hsv", "HSV")]),
+                mode,
+            )
+            .orientation(kivact::view::Orientation::Horizontal)
+            .variant(kivact::ui::RadioGroupVariant::Segmented)
+            .style(style().width(248)),
+            dynamic(mode, move |mode| {
+                if mode.as_deref() == Some("rgb") {
+                    col((
+                        picker_channel(color, 0, "R", "Picker R"),
+                        picker_channel(color, 1, "G", "Picker G"),
+                        picker_channel(color, 2, "B", "Picker B"),
+                        picker_channel(color, 3, "A", "Picker Alpha"),
+                    ))
+                } else {
+                    col((
+                        picker_hsv(color, 0, "Picker Hue"),
+                        picker_hsv(color, 1, "Picker Saturation"),
+                        picker_hsv(color, 2, "Picker Value"),
+                        picker_channel(color, 3, "A", "Picker Alpha"),
+                    ))
+                }
+            }),
+            ui::property_row(
+                "Hex",
+                kivact::ui::text_input("HEX Color", hex).style(style().font_family("Geist Mono")),
+            ),
+            row((
+                node().style(move || style().height(24).grow(1).radius(5).background(color.get())),
+                kivact::ui::button("Eyedropper preview")
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .hide_label(true)
+                    .icon(kivact::view::icon("color-picker"))
+                    .style(style().size(24, 24).padding(0)),
+            )),
+            row([
+                0x8b7cff, 0xa3e635, 0x3ad3e0, 0xff5c6c, 0xffb32c, 0x5aa9ff, 0xee8ac4, 0x3fc87d,
+                0xffffff, 0x000000, 0x8a879b, 0x2c7cb0, 0xb05c42, 0xa6b076, 0x463e78, 0x9eb6a4,
+                0x3f474a, 0xe0e0e0, 0x808080, 0x242528,
+            ]
+            .into_iter()
+            .map(|c| {
+                kivact::ui::button("")
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .name(format!("Swatch #{c:06X}"))
+                    .style(
+                        style()
+                            .size(20, 20)
+                            .radius(10)
+                            .padding(0)
+                            .background(rgb(c)),
+                    )
+                    .on_press(move || color.set(rgb(c)))
+            })
+            .collect::<Vec<_>>())
+            .style(style().width(248).wrap(true).gap(5)),
+        ))
+        .role(kivact::view::Role::List)
+        .style(style().width(248)),
+    )
+    .style(style().min_height(516))
+}
+
+fn viewport_toolbar(
+    shading: Signal<usize>,
+    grid: Signal<bool>,
+    reference: NodeRef,
+    transform: Signal<kivact::interaction::ViewTransform>,
+) -> Node {
+    line((
+        text("Application image"),
+        spacer(),
+        kivact::ui::toggle_button("Grid", grid),
+        kivact::ui::radio_group(
+            "Shading",
+            keyed_options([
+                ("wire", "Wire"),
+                ("solid", "Solid"),
+                ("material", "Material"),
+                ("rendered", "Rendered"),
+            ]),
+            bind(
+                move || {
+                    Some(
+                        match shading.get() {
+                            0 => "wire",
+                            1 => "solid",
+                            2 => "material",
+                            _ => "rendered",
+                        }
+                        .to_owned(),
+                    )
+                },
+                move |key: Option<String>| {
+                    shading.set(match key.as_deref() {
+                        Some("wire") => 0,
+                        Some("solid") => 1,
+                        Some("material") => 2,
+                        _ => 3,
+                    })
+                },
+            ),
+        )
+        .orientation(kivact::view::Orientation::Horizontal)
+        .variant(kivact::ui::RadioGroupVariant::Segmented)
+        .style(style().width(218)),
+        kivact::ui::button("Frame All")
+            .variant(kivact::ui::ButtonVariant::Secondary)
+            .on_press(move || {
+                if let Some(r) = reference.rect().get() {
+                    transform.set(kivact::interaction::ViewTransform::fit(
+                        Size::new(640.0, 360.0),
+                        Size::new(r.width, r.height),
+                    ));
+                }
+            }),
+    ))
+}
+
+fn grading_scopes(
+    samples: kivact::state::Value<Vec<Color>>,
+    upper: Signal<Option<String>>,
+    lower: Signal<Option<String>>,
+) -> Node {
+    col((
+        kivact::ui::select(
+            "Selection",
+            keyed_options([
+                ("parade", "Parade"),
+                ("waveform", "Waveform"),
+                ("histogram", "Histogram"),
+            ]),
+            upper,
+        )
+        .placeholder("")
+        .style(style().width(110)),
+        kivact::view::viewport(move || {
+            images::histogram(
+                &samples.get(),
+                upper.get().as_deref().unwrap_or("histogram"),
+            )
+        })
+        .name("Application histogram")
+        .style(style().height(340)),
+        kivact::ui::select(
+            "Selection",
+            keyed_options([("vectorscope", "Vectorscope"), ("histogram", "Histogram")]),
+            lower,
+        )
+        .placeholder("")
+        .style(style().width(110)),
+        kivact::view::viewport(move || {
+            images::histogram(
+                &samples.get(),
+                lower.get().as_deref().unwrap_or("histogram"),
+            )
+        })
+        .name("Application channel histogram")
+        .style(style().height(340)),
+    ))
+    .style(style().grow(1).gap(6).padding(8))
+}
+
+fn grading_viewer(
+    worker_image: Signal<Option<kivact::draw::Pixels>>,
+    bypass: Signal<bool>,
+    wipe: Signal<bool>,
+) -> Node {
+    col((
+        line((
+            text("Viewer · 01:00:12:08").style(style().font_family("Geist Mono").font_size(10)),
+            spacer(),
+            kivact::ui::toggle_button("Bypass", bypass),
+            kivact::ui::toggle_button("Wipe", wipe),
+        )),
+        node()
+            .child(
+                kivact::view::viewport(move || worker_image.get().unwrap_or_else(empty_pixels))
+                    .name("Worker rendered gradient")
+                    .style(style().size(720, 405).max_width(pct(100))),
+            )
+            .style(
+                style()
+                    .grow(1)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .padding(16),
+            ),
+    ))
+    .style(style().width(pct(56)).padding(10))
+}
+
+fn scene_sky(d: &mut kivact::draw::Draw, w: f64, horizon: f64) {
+    for y in 0..64 {
+        let t = y as f64 / 63.0;
+        let sky = if t < 0.7 {
+            mix(rgb(0x153565), rgb(0xf89973), t / 0.7)
+        } else {
+            mix(rgb(0xf89973), rgb(0xffd481), (t - 0.7) / 0.3)
+        };
+        d.fill_rect(
+            Rect::new(0.0, y as f64 * horizon / 64.0, w, horizon / 64.0 + 1.0),
+            sky,
+        );
+    }
 }
