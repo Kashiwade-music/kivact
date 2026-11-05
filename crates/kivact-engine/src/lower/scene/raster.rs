@@ -75,29 +75,40 @@ impl Context<'_> {
                 self.paint_image_part(cmd, state);
                 true
             }
-            DrawCmd::Image { source, rect: r } => {
-                let r = rect(*r);
-                let device = arvane::asset::PixelSize::of(
-                    Size {
-                        width: r.width,
-                        height: r.height,
-                    },
-                    self.raster.get(),
-                );
-                if !sanitize::drawable(&D::PushClip(r)) {
-                    self.drop_command();
-                } else if let Some((image, _)) = self.pixels(source, device) {
-                    state.out.push(D::Image {
-                        image,
-                        rect: r,
-                        opacity: tint.alpha,
-                        color_matrix: tint.matrix,
-                    });
-                }
+            DrawCmd::Image { .. } => {
+                self.paint_image(cmd, state);
                 true
             }
 
             _ => false,
+        }
+    }
+    fn paint_image(&self, cmd: &DrawCmd, state: &mut State<'_>) {
+        let DrawCmd::Image { source, rect: r } = cmd else {
+            unreachable!("invariant: matching image command");
+        };
+        let r = Rect {
+            x: state.origin.x + r.x,
+            y: state.origin.y + r.y,
+            ..*r
+        };
+        let tint = &state.current_tint;
+        let device = arvane::asset::PixelSize::of(
+            Size {
+                width: r.width,
+                height: r.height,
+            },
+            self.raster.get(),
+        );
+        if !sanitize::drawable(&D::PushClip(r)) {
+            self.drop_command();
+        } else if let Some((image, _)) = self.pixels(source, device) {
+            state.out.push(D::Image {
+                image,
+                rect: r,
+                opacity: tint.alpha,
+                color_matrix: tint.matrix,
+            });
         }
     }
     fn paint_image_part(&self, cmd: &DrawCmd, state: &mut State<'_>) {

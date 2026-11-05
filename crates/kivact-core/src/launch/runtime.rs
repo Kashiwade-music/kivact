@@ -249,43 +249,7 @@ impl Launch {
         let done = kivact_types::Revision(tree.stats().revision);
         turn.check_draining();
         turn.settle_async();
-        let mut writes = 0;
-        let mut round = 0;
-        loop {
-            if crate::client::dispatch::run_requested_activations(&rt) {
-                turn.stabilize();
-                turn.settle_async();
-            }
-            writes += commit(&turn, &rt, &tree);
-            let mounts = rt.mounts_due(done);
-            if !mounts && !rt.pending().user {
-                break;
-            }
-            round += 1;
-            if round > USER_EFFECT_ROUNDS {
-                let abandoned = turn.abandon_user_effects();
-                let path: Vec<_> = abandoned
-                    .iter()
-                    .filter_map(|k| rt.node_info(*k).map(|n| n.at))
-                    .collect();
-                rt.report(
-                    None,
-                    UiError::new(
-                        ErrorKind::Cycle { path: path.clone() },
-                        "user effects did not settle within 100 rounds",
-                        path.first().copied(),
-                    ),
-                );
-                break;
-            }
-            if mounts {
-                turn.run_mounts(done);
-                rt.stabilize();
-            }
-            turn.run_user_effects();
-            rt.stabilize();
-            turn.settle_async();
-        }
+        let writes = settle_user_effects(&turn, &rt, &tree, done);
 
         let output = output(turn.finish(writes, requests::has_activations(&rt)));
         #[cfg(debug_assertions)]
@@ -296,6 +260,52 @@ impl Launch {
         output
     }
 }
+fn settle_user_effects(
+    turn: &TurnGuard<'_>,
+    rt: &Runtime,
+    tree: &Writer,
+    done: kivact_types::Revision,
+) -> usize {
+    let mut writes = 0;
+    let mut round = 0;
+    loop {
+        if crate::client::dispatch::run_requested_activations(rt) {
+            turn.stabilize();
+            turn.settle_async();
+        }
+        writes += commit(turn, rt, tree);
+        let mounts = rt.mounts_due(done);
+        if !mounts && !rt.pending().user {
+            break;
+        }
+        round += 1;
+        if round > USER_EFFECT_ROUNDS {
+            let abandoned = turn.abandon_user_effects();
+            let path: Vec<_> = abandoned
+                .iter()
+                .filter_map(|k| rt.node_info(*k).map(|n| n.at))
+                .collect();
+            rt.report(
+                None,
+                UiError::new(
+                    ErrorKind::Cycle { path: path.clone() },
+                    "user effects did not settle within 100 rounds",
+                    path.first().copied(),
+                ),
+            );
+            break;
+        }
+        if mounts {
+            turn.run_mounts(done);
+            rt.stabilize();
+        }
+        turn.run_user_effects();
+        rt.stabilize();
+        turn.settle_async();
+    }
+    writes
+}
+
 fn output(report: TurnReport) -> TurnOutput {
     TurnOutput {
         next_wake_ns: report.next_deadline,

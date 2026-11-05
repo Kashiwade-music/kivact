@@ -494,6 +494,7 @@ pub(crate) type LayoutDrawFn = Rc<dyn Fn(&mut Draw, &kivact_editing::TextLayout)
 
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
+// xtask-allow(state-fields): Independent authored node modifiers are construction data resolved by mounting.
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
@@ -732,6 +733,7 @@ pub(super) enum CaptureTarget {
     },
 }
 
+// xtask-allow(state-fields): These independent read-only availability projections are mount results; their sources own the underlying facts.
 /// Final values are shared by publication, input gating, and every bind hook.
 #[derive(Clone, Copy)]
 pub(super) struct Constraints {

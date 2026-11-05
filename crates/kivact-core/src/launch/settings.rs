@@ -13,6 +13,7 @@ pub struct AppOptions {
     pub(super) settings: AppSettings,
 }
 
+// xtask-allow(state-fields): Independent application construction options do not encode runtime lifecycle.
 /// Canonical application settings that can cross the embedded UI thread boundary.
 #[derive(Clone)]
 pub(crate) struct AppSettings {

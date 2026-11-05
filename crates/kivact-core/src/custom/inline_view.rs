@@ -62,15 +62,7 @@ pub fn inline_view(
         .enumerate()
         .map(|(index, ((_, child), reference))| {
             node().node_ref(reference).child(child).style(move || {
-                let point = layout.get().and_then(|snapshot| {
-                    snapshot
-                        .0
-                        .boxes()
-                        .iter()
-                        .find(|item| item.id == index as u64)
-                        .map(|item| (item.rect.x, item.rect.y))
-                });
-                let (x, y) = point.unwrap_or_default();
+                let (x, y) = inline_position(layout.get(), index);
                 style()
                     .position(Position::Absolute)
                     .width(Length::MaxContent)
@@ -108,4 +100,17 @@ impl PartialEq for Snapshot {
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.0, &other.0)
     }
+}
+
+fn inline_position(snapshot: Option<Snapshot>, index: usize) -> (f64, f64) {
+    snapshot
+        .and_then(|snapshot| {
+            snapshot
+                .0
+                .boxes()
+                .iter()
+                .find(|item| item.id == index as u64)
+                .map(|item| (item.rect.x, item.rect.y))
+        })
+        .unwrap_or_default()
 }

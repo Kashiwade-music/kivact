@@ -37,6 +37,7 @@ pub(crate) enum RadialSize {
     Radii(Length, Length),
 }
 
+// xtask-allow(state-fields): Repetition and optional geometry are independent authored gradient options.
 /// A CSS gradient, made by [`linear_gradient`], [`radial_gradient`] or
 /// [`conic_gradient`]. Colors may be theme tokens (resolved again when the
 /// theme changes). Use it as a [`Paint`] (`style().background(gradient)`)

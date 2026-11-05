@@ -45,6 +45,7 @@ pub enum AdapterMatch {
     },
 }
 
+// xtask-allow(state-fields): Backend and adapter are independently optional construction preferences, not lifecycle states.
 /// What an application wishes of the GPU device Arvane makes. A wish, not
 /// a requirement: Arvane takes the adapter asked for when it has one, else
 /// the one the power preference picks, and reports what it took
@@ -64,6 +65,7 @@ pub struct GpuPreference {
     pub adapter: Option<AdapterMatch>,
 }
 
+// xtask-allow(state-fields): LUID and Vulkan UUIDs are independent optional device identity facts supplied by the backend.
 /// The adapter a window's GPU device is on, when the device can import
 /// shared textures. Direct3D 12 reports the LUID; Vulkan reports the device
 /// and driver UUIDs, and on Windows the LUID as well.

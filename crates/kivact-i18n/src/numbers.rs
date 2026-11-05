@@ -145,6 +145,7 @@ impl NumberSymbols {
     }
 }
 
+// xtask-allow(state-fields): ICU symbol and digit provider requests independently populate two captured payloads during formatter construction.
 /// Observe ICU's resolved data requests, preserving locale and numbering-system fallback.
 #[derive(Default)]
 struct SymbolCapture {

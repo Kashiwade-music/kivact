@@ -257,6 +257,7 @@ pub enum GridAutoFlow {
     ColumnDense,
 }
 
+// xtask-allow(state-fields): Independent authored grid properties use None for unspecified cascading values.
 /// The grid props a style sets (boxed in `Style`: most styles set none).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct GridStyle {

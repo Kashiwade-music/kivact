@@ -52,6 +52,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
+// xtask-allow(state-fields): Sequence, write and stabilization epochs are independent scheduler counters; turn and exit lifecycles have their own enums.
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -187,6 +188,7 @@ pub(crate) struct SourceCell<T> {
     pub(crate) value: RefCell<T>,
 }
 
+// xtask-allow(state-fields): The optional cached value is independent of the optional equality strategy; the computation lifecycle lives in Computation.state.
 pub(crate) struct MemoCell<T> {
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,

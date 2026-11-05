@@ -115,6 +115,7 @@ pub(super) fn bind_late(
     bind(cx, id, patches, at);
 }
 
+// xtask-allow(state-fields): Independent optional image properties and focus destination are mount configuration.
 /// Non-semantic host properties share the semantic mounting stage.
 pub(super) struct SemanticProps {
     pub(super) patches: Vec<SemanticsPatch>,
