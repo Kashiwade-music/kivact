@@ -92,6 +92,7 @@ pub enum TabOverflow {
     Visible,
 }
 
+// xtask-allow(state-fields): Independent immutable key, label, icon, panel reference and trailing-content inputs; shared Tabs owns selection and interaction.
 /// A keyed tab with retained icon and trailing-content slots.
 pub struct Tab<K> {
     root: Node,
@@ -154,6 +155,7 @@ impl<K> NodeBuilder for Tab<K> {
 }
 
 #[derive(Clone)]
+// xtask-allow(state-fields): Immutable menu key, label, icon factory and availability input; shared Menu owns the interaction lifecycle.
 /// A keyed option inside a tab-strip menu.
 pub struct TabMenuOption<K> {
     key: K,
@@ -234,6 +236,7 @@ struct Look {
     divider: bool,
 }
 
+// xtask-allow(state-fields): Independent caller selection binding, immutable entries and visual options; shared Tabs and the single focus cursor own interaction.
 /// A keyed tab or navigation strip with optional selected-panel content.
 pub struct TabList<K: ItemKey> {
     root: Node,
@@ -326,12 +329,14 @@ impl<K: ItemKey> NodeBuilder for TabList<K> {
     }
 }
 
+// xtask-allow(state-fields): Mounted NodeRef plus actual read-only selected and disabled projections, without an independent interaction lifecycle.
 struct FocusMember {
     reference: NodeRef,
     selected: Value<bool>,
     disabled: Value<bool>,
 }
 
+// xtask-allow(state-fields): One roving cursor fact plus actual read-only focus, selection and disabled projections; there is no second mutable lifecycle field.
 #[derive(Clone)]
 struct FocusTrack {
     members: Rc<[FocusMember]>,

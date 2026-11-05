@@ -175,82 +175,7 @@ pub(crate) fn nav_menu_view(
             move |entry| {
                 let key = *entry.get().1.key().expect("action item");
                 let part = behavior.item(key);
-                let state = part.state();
-                let item = &items[key];
-                let leading = item.icon.as_ref().map(|slot| {
-                    node()
-                        .style(move || {
-                            let t = kivact::style::use_tokens::<crate::Tokens>();
-                            let base = style()
-                                .shrink(0)
-                                .align_items(Align::Center)
-                                .justify_content(Justify::Center)
-                                .color(t.colors.icon_secondary);
-                            if heading {
-                                base.size(t.sizes.icon_sm, t.sizes.icon_sm)
-                            } else {
-                                base.size(t.spacing.s10, t.spacing.s10)
-                                    .radius(t.radius.element)
-                                    .background(t.colors.neutral)
-                            }
-                        })
-                        .child(slot.call(()))
-                });
-                let label = text(item.label).style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let base = style().single_line().color(t.colors.text_primary);
-                    if heading {
-                        base
-                    } else {
-                        base.weight(t.typography.weight_semibold)
-                    }
-                });
-                let description = item
-                    .description
-                    .map(|description| text(description).style(supporting));
-                row((
-                    leading,
-                    column((label, description)).style(move || {
-                        style().grow(1).min_width(0).gap(if heading {
-                            0.0
-                        } else {
-                            kivact::style::use_tokens::<crate::Tokens>().spacing.s1
-                        })
-                    }),
-                ))
-                .with_node(move |node| node.part(part))
-                .style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let input = state.get().input;
-                    let (x, y) = if !heading {
-                        (t.spacing.s3, t.spacing.s3)
-                    } else {
-                        match size {
-                            ControlSize::Small => (t.spacing.s2, t.spacing.s1),
-                            ControlSize::Large => (t.spacing.s3, t.spacing.s3),
-                            _ => (t.spacing.s2, t.spacing.s2),
-                        }
-                    };
-                    style()
-                        .direction(logical_row())
-                        .align_items(Align::Center)
-                        .gap(if heading { t.spacing.s2 } else { t.spacing.s3 })
-                        .padding_x(x)
-                        .padding_y(y)
-                        .font_size(t.typography.body.size_px)
-                        .line_height(t.typography.body.line_height_px / t.typography.body.size_px)
-                        .radius(t.radius.element)
-                        .background(if !input.disabled && (input.focused || input.hovered) {
-                            t.colors.overlay_hover
-                        } else {
-                            kivact::style::Color::TRANSPARENT
-                        })
-                        .disabled(style().opacity(t.sizes.disabled_opacity))
-                        .transition(
-                            TransitionProp::Paint,
-                            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
-                        )
-                })
+                nav_entry(&items[key], part, heading, size)
             },
         );
         let popup_header = heading.then(|| {
@@ -474,33 +399,7 @@ impl IntoView for SideNavHeading {
                     end.map(|end| node().hidden(rail).child(end)),
                     chevron,
                 ))
-                .style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let mut base = style()
-                        .direction(logical_row())
-                        .gap(t.spacing.s2)
-                        .align_items(Align::Center)
-                        .min_height(t.sizes.control_md)
-                        .min_width(0)
-                        .color(t.colors.text_primary);
-                    if !rail.get() {
-                        base = base.padding_x(t.spacing.s2);
-                        if has_icon {
-                            base = if rtl() {
-                                base.padding_right(0)
-                            } else {
-                                base.padding_left(0)
-                            };
-                        }
-                    }
-                    if interactive {
-                        base = base
-                            .radius(t.radius.element)
-                            .hover(style().background(t.colors.overlay_hover))
-                            .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                    }
-                    base
-                })
+                .style(move || heading_trigger_style(rail, has_icon, interactive))
             };
             let content = if let Some(menu) = menu {
                 let name = message_with(
@@ -555,4 +454,124 @@ fn heading_text(label: Value<String>, action: Option<Callback<()>>, primary: boo
     } else {
         label_view
     }
+}
+
+fn nav_entry(
+    item: &NavHeadingMenuItem,
+    part: kivact::custom::Part<kivact::interaction::MenuItemState>,
+    heading: bool,
+    size: ControlSize,
+) -> Node {
+    let state = part.state();
+    let leading = item.icon.as_ref().map(|slot| {
+        node()
+            .style(move || {
+                let t = kivact::style::use_tokens::<crate::Tokens>();
+                let base = style()
+                    .shrink(0)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .color(t.colors.icon_secondary);
+                if heading {
+                    base.size(t.sizes.icon_sm, t.sizes.icon_sm)
+                } else {
+                    base.size(t.spacing.s10, t.spacing.s10)
+                        .radius(t.radius.element)
+                        .background(t.colors.neutral)
+                }
+            })
+            .child(slot.call(()))
+    });
+    let label = text(item.label).style(move || {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        let base = style().single_line().color(t.colors.text_primary);
+        if heading {
+            base
+        } else {
+            base.weight(t.typography.weight_semibold)
+        }
+    });
+    let description = item
+        .description
+        .map(|description| text(description).style(supporting));
+    row((
+        leading,
+        column((label, description)).style(move || {
+            style().grow(1).min_width(0).gap(if heading {
+                0.0
+            } else {
+                kivact::style::use_tokens::<crate::Tokens>().spacing.s1
+            })
+        }),
+    ))
+    .with_node(move |node| node.part(part))
+    .style(move || nav_entry_style(state.get().input, heading, size))
+}
+
+fn nav_entry_style(
+    input: kivact::custom::PartState,
+    heading: bool,
+    size: ControlSize,
+) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let (x, y) = if !heading {
+        (t.spacing.s3, t.spacing.s3)
+    } else {
+        match size {
+            ControlSize::Small => (t.spacing.s2, t.spacing.s1),
+            ControlSize::Large => (t.spacing.s3, t.spacing.s3),
+            _ => (t.spacing.s2, t.spacing.s2),
+        }
+    };
+    style()
+        .direction(logical_row())
+        .align_items(Align::Center)
+        .gap(if heading { t.spacing.s2 } else { t.spacing.s3 })
+        .padding_x(x)
+        .padding_y(y)
+        .font_size(t.typography.body.size_px)
+        .line_height(t.typography.body.line_height_px / t.typography.body.size_px)
+        .radius(t.radius.element)
+        .background(if !input.disabled && (input.focused || input.hovered) {
+            t.colors.overlay_hover
+        } else {
+            kivact::style::Color::TRANSPARENT
+        })
+        .disabled(style().opacity(t.sizes.disabled_opacity))
+        .transition(
+            TransitionProp::Paint,
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+        )
+}
+
+fn heading_trigger_style(
+    rail: Value<bool>,
+    has_icon: bool,
+    interactive: bool,
+) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let mut base = style()
+        .direction(logical_row())
+        .gap(t.spacing.s2)
+        .align_items(Align::Center)
+        .min_height(t.sizes.control_md)
+        .min_width(0)
+        .color(t.colors.text_primary);
+    if !rail.get() {
+        base = base.padding_x(t.spacing.s2);
+        if has_icon {
+            base = if rtl() {
+                base.padding_right(0)
+            } else {
+                base.padding_left(0)
+            };
+        }
+    }
+    if interactive {
+        base = base
+            .radius(t.radius.element)
+            .hover(style().background(t.colors.overlay_hover))
+            .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+    }
+    base
 }
