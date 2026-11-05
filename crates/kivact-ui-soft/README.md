@@ -90,7 +90,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
 | Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, standard `toolbar`, Soft `with_key_hints` and `keyboard_hint` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
-| Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
+| Tree List | `kivact::ui::tree` with `TreeLook` density and ancestor guides |
 | Typeahead | Standard `combobox` and `ListItem`; configure `.search(..)`, `.debounce(..)`, `.placeholder(..)`, and `.empty_text(..)`. |
 | VisuallyHidden | `visually_hidden` |
 | Utilities | `theme`, `tokens`, `media_theme`, `syntax_theme`, `kivact::platform::window_size`, and `kivact::platform::copy_text`. Internationalization Provider maps to `App::locale` and `App::messages`, Layer Provider to `kivact::view::overlay`, and Link Provider to `link_with` with an application callback. Kivact handles node references and diagnostics. |
@@ -210,7 +210,7 @@ Controls also use the standard Kivact messages where applicable.
 | `combobox.token_removed` | Removed {label} |
 | `soft.token.remove` | Remove {label} |
 | `soft.top_nav.label` | Top navigation |
-| `soft.tree_list.toggle_children` | Toggle children |
+| `tree.toggle_children` | Toggle children |
 | `combobox.empty` | No results found. |
 | `combobox.failed` | Could not load suggestions. |
 | `combobox.loading` | Loading… |
@@ -286,7 +286,7 @@ Number, date, and time filter fields validate values entered as text.
 
 | Work-order item | Current behavior |
 | --- | --- |
-| C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `TreeList::animated(true)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
+| C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `kivact::ui::tree(..).reveal(2.0, transition)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
 | C-08, C-10 | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
 | C-09, C-37 | Bottom Sheet uses shared drag velocity, axis, slop, release projection, snap, and overshoot calculations. It supplies its own detents and dismissal rules. Carousel snaps after native scrolling settles. Slider uses relative touch tracking and release coast. Native scrolling can take over a same-axis Slider drag inside a scroll view. Toast pauses its timer during touch or pen swipes. Switch uses touch lift and drag with one paint transition per phase. |
 | C-11, C-17, C-18, C-39 | Disabled Soft buttons and menu rows can receive keyboard focus. Use `MenuEntry::disabled_reason(..)` to supply a tooltip for a disabled menu row. Menus support press and drag selection. Edge autoscroll remains pending. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. |
@@ -351,6 +351,7 @@ Number, date, and time filter fields validate values entered as text.
 - `split`
 - `list`
 - `tree`
+- `tree_marker`
 - `data_table`
 - `breadcrumb`
 - `empty_state`

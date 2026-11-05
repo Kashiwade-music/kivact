@@ -2,6 +2,7 @@
 
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
+use crate::tree_values::TreeRowRecipeState;
 use kivact_core::custom::Part;
 use kivact_core::motion::Transition;
 use kivact_core::state::{Binding, Value, signal};
@@ -24,6 +25,8 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
     expanded: Binding<Vec<K>>,
     // xtask-allow(state-fields): Optional custom row content chosen during construction.
     item: Option<RowContent<K>>,
+    // xtask-allow(state-fields): Optional construction slot, independent of tree navigation.
+    marker_content: Option<kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
     variants: Variants,
     // xtask-allow(state-fields): Optional construction callback; navigation transitions belong to use_tree.
     activate: Option<kivact_core::state::Callback<K>>,
@@ -45,6 +48,7 @@ pub fn tree<K: kivact_core::state::ItemKey>(
         selection: kivact_interaction::IntoSelection::into_selection(signal(None)),
         expanded: kivact_core::state::IntoBinding::into_binding(signal(Vec::new())),
         item: None,
+        marker_content: None,
         variants: Variants::default(),
         activate: None,
         header: None,
@@ -87,6 +91,15 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
         self.item = Some(kivact_core::view::ViewFn::from(move |(row, state)| {
             item(row, state)
         }));
+        self
+    }
+
+    /// Replace the branch marker body, retaining shared expansion behavior.
+    pub fn marker_content<V: IntoView>(
+        mut self,
+        marker: impl Fn(Value<TreeRowRecipeState>) -> V + 'static,
+    ) -> Self {
+        self.marker_content = Some(marker.into());
         self
     }
 
@@ -203,12 +216,13 @@ fn revealed_rows<K: kivact_core::state::ItemKey>(
 impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
     fn into_view(self) -> View {
         let Self {
-            root,
+            mut root,
             nodes,
             selection,
             expanded,
             activate,
             item,
+            marker_content,
             variants,
             header,
             reveal,
@@ -217,40 +231,41 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
         if let Some(activate) = activate {
             behavior = behavior.on_activate(move |key| activate.call(key));
         }
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
         let list = behavior.list();
         let state = list.state();
         let row_variants = variants.clone();
+        let ancestors = behavior.ancestor_last();
+        let has_branches = kivact_core::state::memo(move || {
+            behavior
+                .rows()
+                .with(|rows| rows.iter().any(|row| row.branch.has_children()))
+        });
+
         let rows = tree_rows(
             behavior,
             |_| (),
             move |key, row, part| {
                 let state = part.state();
-                let parent = row.with_untracked(|row| row.branch.has_children());
+                let recipe_key = key.clone();
+                let custom_marker = marker_content.is_some();
+                let recipe_state = kivact_core::state::memo(move || TreeRowRecipeState {
+                    item: state.get(),
+                    ancestor_last: ancestors
+                        .with(|rows| rows.get(&recipe_key).cloned().unwrap_or_default()),
+                    is_last: row.with(TreeRow::is_last),
+                    has_branches: has_branches.get(),
+                    custom_marker,
+                });
                 let label = behavior.label(key.clone());
-                let marker = with_recipe_style(
-                    node(),
-                    |r| r.tree_recipes().marker_recipe(),
+                let marker = row_marker(
+                    behavior,
+                    key,
+                    row,
+                    state,
+                    recipe_state.into_value(),
                     &row_variants,
-                    move || state.get(),
+                    marker_content.as_ref(),
                 );
-                let marker = if parent {
-                    marker
-                        .role(Role::Generic)
-                        .disabled(move || state.get().input.disabled)
-                        .on_press(move || behavior.toggle(key.clone()))
-                        .child(text(move || {
-                            if state.get().branch.is_expanded() {
-                                "⌄"
-                            } else if rtl {
-                                "‹"
-                            } else {
-                                "›"
-                            }
-                        }))
-                } else {
-                    marker
-                };
                 let content = item
                     .as_ref()
                     .map_or_else(|| text(label).into_view(), |item| item.call((row, state)));
@@ -258,7 +273,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
                     node().part(part),
                     |r| r.tree_recipes().item_recipe(),
                     &row_variants,
-                    move || state.get(),
+                    move || recipe_state.get(),
                 )
                 .child((marker, content))
             },
@@ -267,6 +282,11 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
             Some((gap, transition)) => rows.reveal(gap, transition),
             None => rows,
         };
+        let header_ref = kivact_core::view::node_ref();
+        if header.is_some() {
+            root = root.labelled_by(header_ref);
+        }
+        let header = header.map(|content| node().node_ref(header_ref).child(content));
         with_base_recipe_style(
             root.part(list),
             |r| r.tree_recipes().root_recipe(),
@@ -276,4 +296,51 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
         .child((header, rows))
         .into_view()
     }
+}
+
+fn row_marker<K: kivact_core::state::ItemKey>(
+    behavior: TreeApi<K>,
+    key: K,
+    row: Value<TreeRow<K>>,
+    state: Value<TreeItemState>,
+    recipe_state: Value<TreeRowRecipeState>,
+    row_variants: &Variants,
+    marker_content: Option<&kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
+) -> Node {
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let parent = row.with_untracked(|row| row.branch.has_children());
+    let marker = with_recipe_style(
+        node(),
+        |r| r.tree_recipes().marker_recipe(),
+        row_variants,
+        move || recipe_state.get(),
+    );
+    let marker = marker.hidden(move || !recipe_state.get().has_branches);
+    let marker = if parent {
+        marker
+            .role(Role::Button)
+            .name(kivact_core::i18n::message(
+                "tree.toggle_children",
+                "Toggle children",
+            ))
+            .expanded(move || state.get().branch.is_expanded())
+            .disabled(move || state.get().input.disabled)
+            .on_press(move || behavior.toggle(key.clone()))
+            .child(match marker_content {
+                Some(content) => content.call(recipe_state.into_value()),
+                None => text(move || {
+                    if state.get().branch.is_expanded() {
+                        "⌄"
+                    } else if rtl {
+                        "‹"
+                    } else {
+                        "›"
+                    }
+                })
+                .into_view(),
+            })
+    } else {
+        marker
+    };
+    marker
 }

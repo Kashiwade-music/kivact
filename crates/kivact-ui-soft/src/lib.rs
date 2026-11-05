@@ -196,7 +196,7 @@ pub use soft_list::{
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{RowStatusTone, RowStatusDot, TableSelectionToolbar, table_row_status, table_selection_toolbar};
 pub use recipes_table::{TableCellAppearance, TableRowAppearance};
-pub use soft_tree::{TreeDensity, TreeList, TreeVariant, tree_list};
+pub use soft_tree::TreeLook;
 pub use spinner::{SpinnerShade, SpinnerVariant};
 pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
