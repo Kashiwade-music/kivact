@@ -758,7 +758,7 @@ pub(super) fn forms() -> Node {
                     kivact::ui::dropzone("ここにファイルをドロップ")
                         .multiple()
                         .pick_on_press()
-                        .icon(icon("cloud-upload").style(style().size(24, 24)))
+                        .icon(kivact::view::icon("cloud-upload").style(style().size(24, 24)))
                         .hint(kivact::i18n::message(
                             "pop.dropzone.hint",
                             "or click to choose · PNG, PDF up to 10 MB",

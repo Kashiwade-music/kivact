@@ -202,8 +202,8 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                 (i == 6)
                     .then(|| text("24").style(style().font_size(12).color(ColorToken::TextMuted))),
                 (i == 10).then(|| {
-                    ui::badge("3")
-                        .hue(ui::Hue::Pink)
+                    kivact::ui::badge("3")
+                        .variant(ui::BadgeHue::new(ui::Hue::Pink))
                         .variant(ui::BadgeVariant::Count)
                 }),
             );
@@ -668,8 +668,9 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                                 text("アズール学園 · 調査部").style(style().weight(600)),
                                 text("★★★").style(style().color(rgb(0xf2bf0a))),
                                 wrap((
-                                    ui::badge("ストライカー"),
-                                    ui::badge("後衛").hue(ui::Hue::Gray),
+                                    kivact::ui::badge("ストライカー"),
+                                    kivact::ui::badge("後衛")
+                                        .variant(ui::BadgeHue::new(ui::Hue::Gray)),
                                 )),
                             ))
                             .style(style().gap(6)),
@@ -686,8 +687,14 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
                         ),
                         ui::key_value("レベル", text("Lv.86")),
                         ui::key_value("絆ランク", text("Rank 20")),
-                        ui::key_value("攻撃タイプ", ui::badge("爆発").hue(ui::Hue::Red)),
-                        ui::key_value("防御タイプ", ui::badge("重装甲").hue(ui::Hue::Yellow)),
+                        ui::key_value(
+                            "攻撃タイプ",
+                            kivact::ui::badge("爆発").variant(ui::BadgeHue::new(ui::Hue::Red)),
+                        ),
+                        ui::key_value(
+                            "防御タイプ",
+                            kivact::ui::badge("重装甲").variant(ui::BadgeHue::new(ui::Hue::Yellow)),
+                        ),
                         text("個別設定").style(style().font_size(15).weight(600).margin_top(8)),
                         row((
                             text("メイン編成に固定").style(style().grow(1)),

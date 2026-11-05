@@ -27,7 +27,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
     .into_iter()
     .zip(["進行中", "完了", "保留", "期限切れ", "NEW", "下書き"])
     .map(|(hue, s)| {
-        let badge = ui::badge(s).hue(hue);
+        let badge = kivact::ui::badge(s).variant(ui::BadgeHue::new(hue));
         // Full-width labels retain their 12 px em width, 8 px side padding
         // and 1 px borders when the source's inline row wraps.
         if s.is_ascii() {
@@ -62,17 +62,17 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 column((
                     wrap(badges),
                     wrap((
-                        ui::badge("オンライン")
-                            .hue(ui::Hue::Mint)
+                        kivact::ui::badge("オンライン")
+                            .variant(ui::BadgeHue::new(ui::Hue::Mint))
                             .variant(ui::BadgeVariant::Dot),
-                        ui::badge("離席中")
-                            .hue(ui::Hue::Yellow)
+                        kivact::ui::badge("離席中")
+                            .variant(ui::BadgeHue::new(ui::Hue::Yellow))
                             .variant(ui::BadgeVariant::Dot),
-                        ui::badge("オフライン")
-                            .hue(ui::Hue::Gray)
+                        kivact::ui::badge("オフライン")
+                            .variant(ui::BadgeHue::new(ui::Hue::Gray))
                             .variant(ui::BadgeVariant::Dot),
-                        ui::badge("Lv.90").variant(ui::BadgeVariant::Solid),
-                        ui::badge("EX").variant(ui::BadgeVariant::Slant),
+                        kivact::ui::badge("Lv.90").variant(ui::BadgeVariant::Solid),
+                        kivact::ui::badge("EX").variant(ui::BadgeVariant::Slant),
                     )),
                     ui::chip_list(chip_tags)
                         .on_add(move || {
@@ -228,7 +228,8 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .tone(ui::Hue::Blue)
                                 .trailing({
                                     row((
-                                        ui::badge("承認済").hue(ui::Hue::Mint.into_value()),
+                                        kivact::ui::badge("承認済")
+                                            .variant(ui::BadgeHue::new(ui::Hue::Mint.into_value())),
                                         kivact::ui::button("報告書メニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
@@ -242,7 +243,9 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .tone(ui::Hue::Gray)
                                 .trailing({
                                     row((
-                                        ui::badge("レビュー待ち").hue(ui::Hue::Yellow.into_value()),
+                                        kivact::ui::badge("レビュー待ち").variant(
+                                            ui::BadgeHue::new(ui::Hue::Yellow.into_value()),
+                                        ),
                                         kivact::ui::button("申請メニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
@@ -256,7 +259,8 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                 .tone(ui::Hue::Gray)
                                 .trailing({
                                     row((
-                                        ui::badge("下書き").hue(ui::Hue::Gray),
+                                        kivact::ui::badge("下書き")
+                                            .variant(ui::BadgeHue::new(ui::Hue::Gray)),
                                         kivact::ui::button("シフトメニュー")
                                             .variant(kivact::ui::ButtonVariant::Ghost)
                                             .hide_label(true)
@@ -297,7 +301,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                             ),
                             ui::key_value(
                                 "ステータス",
-                                ui::badge("進行中").variant(ui::BadgeVariant::Dot),
+                                kivact::ui::badge("進行中").variant(ui::BadgeVariant::Dot),
                             ),
                             ui::key_value("期限", text("2026/10/10 (土) 18:00")),
                             ui::key_value(
@@ -637,11 +641,13 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                 kivact::ui::DataColumn::new("役割", |s: &Student| s.role.to_owned())
                     .width(220.0)
                     .cell(|s| {
-                        ui::badge(s.role).hue(if s.role == "ストライカー" {
-                            ui::Hue::Red
-                        } else {
-                            ui::Hue::Blue
-                        })
+                        kivact::ui::badge(s.role).variant(ui::BadgeHue::new(
+                            if s.role == "ストライカー" {
+                                ui::Hue::Red
+                            } else {
+                                ui::Hue::Blue
+                            },
+                        ))
                     }),
                 kivact::ui::DataColumn::new("Lv.", |s: &Student| s.level.to_string())
                     .width(70.0)
@@ -664,12 +670,12 @@ pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
                 kivact::ui::DataColumn::new("状態", |s: &Student| s.status.to_owned())
                     .width(142.0)
                     .cell(|s| {
-                        ui::badge(s.status)
-                            .hue(match s.status {
+                        kivact::ui::badge(s.status)
+                            .variant(ui::BadgeHue::new(match s.status {
                                 "出撃中" => ui::Hue::Blue,
                                 "待機" => ui::Hue::Mint,
                                 _ => ui::Hue::Gray,
-                            })
+                            }))
                             .variant(ui::BadgeVariant::Dot)
                     }),
             ],

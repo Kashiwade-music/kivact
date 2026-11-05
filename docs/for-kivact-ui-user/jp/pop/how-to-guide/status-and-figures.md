@@ -45,7 +45,7 @@ fn figures() -> impl IntoView {
 
 ## 状態付きのレコードを並べる
 
-`pop::list_item(title)` は、レコード 1 件の行です。丸いアイコン（任意）、タイトルとサブタイトル、末尾に置くビューを持ちます。`pop::badge(label)` は状態のチップです。
+`pop::list_item(title)` は、レコード 1 件の行です。丸いアイコン（任意）、タイトルとサブタイトル、末尾に置くビューを持ちます。`kivact::ui::badge(label)` は状態のチップです。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -73,9 +73,9 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
                     .tone(pop::Hue::Blue)
                     .trailing({
                         if customer.active {
-                            pop::badge("Active").hue(pop::Hue::Mint)
+                            kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))
                         } else {
-                            pop::badge("Paused").hue(pop::Hue::Gray)
+                            kivact::ui::badge("Paused").variant(pop::BadgeHue::new(pop::Hue::Gray))
                         }
                     })
             },
@@ -102,7 +102,7 @@ fn details() -> impl IntoView {
     pop::panel((
         pop::key_value("Name", text("Haruka Sato")),
         pop::key_value("Plan", text("Team")),
-        pop::key_value("Status", pop::badge("Active").hue(pop::Hue::Mint)),
+        pop::key_value("Status", kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))),
         pop::key_value(
             "Storage",
             pop::progress_ring(72.0, "Used", pop::Hue::Blue.into_value()),
