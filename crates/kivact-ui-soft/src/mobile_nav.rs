@@ -202,11 +202,15 @@ pub enum DrawerSide {
 /// A modal navigation drawer whose content is rebuilt on each opening.
 pub struct MobileNav {
     root: Node,
+    // xtask-allow(state-fields): Optional binding to the existing dialog open owner, not mirrored state.
     open: Option<Binding<bool>>,
     width: Value<f64>,
     side: Value<DrawerSide>,
+    // xtask-allow(state-fields): Optional accessible navigation-label input.
     label: Option<Value<String>>,
+    // xtask-allow(state-fields): Optional plain-text heading input.
     header: Option<Value<String>>,
+    // xtask-allow(state-fields): Optional reusable custom heading factory.
     header_view: Option<ViewFn>,
     content: ViewFn,
 }
@@ -300,115 +304,10 @@ impl IntoView for MobileNav {
                             >= kivact::platform::window_size().get().width / 2.0
                     }),
                 };
-                let scrim = node().style(|| {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let hidden = style().opacity(0.0);
-                    style()
-                        .position(Position::Fixed)
-                        .top(0)
-                        .bottom(0)
-                        .left(0)
-                        .right(0)
-                        .background(t.colors.overlay_scrim)
-                        .backdrop_blur(2)
-                        .enter(hidden.clone())
-                        .exit(hidden)
-                        .transition(
-                            TransitionProp::Paint,
-                            Transition::tween(t.motion.medium as f64, t.motion.ease_standard),
-                        )
-                });
-                let title = if let Some(header_view) = &header_view {
-                    Some(header_view.call(()))
-                } else {
-                    header.map(|label| {
-                        text(label)
-                            .with_node(move |node| node.part(behavior.title()))
-                            .style(|| {
-                                let t = kivact::style::use_tokens::<crate::Tokens>();
-                                let text = t.typography.heading2;
-                                style()
-                                    .font_size(text.size_px)
-                                    .line_height(text.line_height_px / text.size_px)
-                                    .weight(text.weight)
-                                    .color(t.colors.text_primary)
-                            })
-                            .into_view()
-                    })
-                };
-                let has_title = title.is_some();
-                let close = button(kivact::i18n::message(
-                    "soft.mobile_nav.close",
-                    "Close navigation",
-                ))
-                .variant(ButtonVariant::Ghost)
-                .size(ControlSize::Medium)
-                .icon(icon("x"))
-                .hide_label(true)
-                .on_press(move || open.set(false));
-                let header = row((title, close)).style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    style()
-                        .direction(if rtl() {
-                            Direction::RowReverse
-                        } else {
-                            Direction::Row
-                        })
-                        .min_height(t.spacing.s12)
-                        .padding_x(t.spacing.s2)
-                        .align_items(Align::Center)
-                        .shrink(0)
-                        .justify_content(if has_title {
-                            Justify::SpaceBetween
-                        } else {
-                            Justify::End
-                        })
-                        .border_bottom(t.sizes.border_width, t.colors.border)
-                });
-                let content = content.clone();
-                let contents = provide(ContainerInset::default(), move || {
-                    provide(LayoutInset::default(), move || content.call(()))
-                });
-                let body = scroll(
-                    node()
-                        .style(|| {
-                            style()
-                                .direction(Direction::Column)
-                                .padding(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
-                        })
-                        .child(contents),
-                )
-                .style(style().grow(1).min_height(0));
-                let panel = node()
-                    .node_ref(drawer)
-                    .style(move || {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let offset = if right { pct(100) } else { pct(-100) };
-                        let hidden = style().translate_x(offset);
-                        let base = style()
-                            .position(Position::Fixed)
-                            .top(0)
-                            .bottom(0)
-                            .width(width.get())
-                            .max_width(pct(85))
-                            .clip(true)
-                            .direction(Direction::Column)
-                            .background(t.colors.bg_surface)
-                            .enter(hidden.clone())
-                            .exit(hidden)
-                            .transition(
-                                TransitionProp::Paint,
-                                Transition::tween(t.motion.medium as f64, t.motion.ease_standard),
-                            );
-                        if right {
-                            base.right(0)
-                                .border_left(t.sizes.border_width, t.colors.border)
-                        } else {
-                            base.left(0)
-                                .border_right(t.sizes.border_width, t.colors.border)
-                        }
-                    })
-                    .child((header, body));
+                let scrim = drawer_scrim();
+                let header = drawer_header(&header_view, header, behavior, open);
+                let body = drawer_body(content.clone());
+                let panel = drawer_panel(drawer, width, right, header, body);
                 (
                     scrim,
                     overlay(anchor, Placement::Center, panel)
@@ -423,7 +322,9 @@ impl IntoView for MobileNav {
 /// An app-shell drawer toggle with an optional custom icon.
 pub struct MobileNavToggle {
     root: Node,
+    // xtask-allow(state-fields): Optional accessible-label override.
     label: Option<Value<String>>,
+    // xtask-allow(state-fields): Optional caller-supplied icon view.
     icon: Option<View>,
 }
 
@@ -494,3 +395,131 @@ impl IntoView for MobileNavToggle {
 }
 
 kivact::state::constant_value!(DrawerSide);
+
+fn drawer_scrim() -> Node {
+    node().style(|| {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        let hidden = style().opacity(0.0);
+        style()
+            .position(Position::Fixed)
+            .top(0)
+            .bottom(0)
+            .left(0)
+            .right(0)
+            .background(t.colors.overlay_scrim)
+            .backdrop_blur(2)
+            .enter(hidden.clone())
+            .exit(hidden)
+            .transition(
+                TransitionProp::Paint,
+                Transition::tween(t.motion.medium as f64, t.motion.ease_standard),
+            )
+    })
+}
+fn drawer_header(
+    header_view: &Option<ViewFn>,
+    header: Option<Value<String>>,
+    behavior: kivact::interaction::DialogApi,
+    open: Binding<bool>,
+) -> impl IntoView {
+    let title = if let Some(header_view) = header_view {
+        Some(header_view.call(()))
+    } else {
+        header.map(|label| {
+            text(label)
+                .with_node(move |node| node.part(behavior.title()))
+                .style(|| {
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
+                    let text = t.typography.heading2;
+                    style()
+                        .font_size(text.size_px)
+                        .line_height(text.line_height_px / text.size_px)
+                        .weight(text.weight)
+                        .color(t.colors.text_primary)
+                })
+                .into_view()
+        })
+    };
+    let has_title = title.is_some();
+    let close = button(kivact::i18n::message(
+        "soft.mobile_nav.close",
+        "Close navigation",
+    ))
+    .variant(ButtonVariant::Ghost)
+    .size(ControlSize::Medium)
+    .icon(icon("x"))
+    .hide_label(true)
+    .on_press(move || open.set(false));
+    row((title, close)).style(move || {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        style()
+            .direction(if rtl() {
+                Direction::RowReverse
+            } else {
+                Direction::Row
+            })
+            .min_height(t.spacing.s12)
+            .padding_x(t.spacing.s2)
+            .align_items(Align::Center)
+            .shrink(0)
+            .justify_content(if has_title {
+                Justify::SpaceBetween
+            } else {
+                Justify::End
+            })
+            .border_bottom(t.sizes.border_width, t.colors.border)
+    })
+}
+fn drawer_body(content: ViewFn) -> impl IntoView {
+    let contents = provide(ContainerInset::default(), move || {
+        provide(LayoutInset::default(), move || content.call(()))
+    });
+    scroll(
+        node()
+            .style(|| {
+                style()
+                    .direction(Direction::Column)
+                    .padding(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+            })
+            .child(contents),
+    )
+    .style(style().grow(1).min_height(0))
+}
+fn drawer_panel(
+    drawer: NodeRef,
+    width: Value<f64>,
+    right: bool,
+    header: impl IntoView,
+    body: impl IntoView,
+) -> Node {
+    node()
+        .node_ref(drawer)
+        .style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let offset = if right { pct(100) } else { pct(-100) };
+            let hidden = style().translate_x(offset);
+            let base = style()
+                .position(Position::Fixed)
+                .top(0)
+                .bottom(0)
+                .width(width.get())
+                .max_width(pct(85))
+                .clip(true)
+                .direction(Direction::Column)
+                .background(t.colors.bg_surface)
+                .enter(hidden.clone())
+                .exit(hidden)
+                .transition(
+                    TransitionProp::Paint,
+                    Transition::tween(t.motion.medium as f64, t.motion.ease_standard),
+                );
+            if right {
+                base.right(0)
+                    .border_left(t.sizes.border_width, t.colors.border)
+            } else {
+                base.left(0)
+                    .border_right(t.sizes.border_width, t.colors.border)
+            }
+        })
+        .child((header, body))
+}

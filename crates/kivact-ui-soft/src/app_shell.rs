@@ -81,10 +81,15 @@ pub(crate) fn shell_nav_mode() -> ShellNavMode {
 
 /// Automatic mobile navigation configuration; defaults to a toggle and the Md breakpoint.
 pub struct MobileNavConfig {
+    // xtask-allow(state-fields): Independent toggle-visibility construction option.
     has_toggle: bool,
+    // xtask-allow(state-fields): Optional caller binding to the existing drawer owner, not mirrored openness.
     open: Option<Binding<bool>>,
+    // xtask-allow(state-fields): Optional caller callback for accepted open changes.
     on_change: Option<Callback<bool>>,
+    // xtask-allow(state-fields): Optional reusable drawer content factory.
     content: Option<ViewFn>,
+    // xtask-allow(state-fields): Optional viewport threshold construction configuration.
     breakpoint: Option<Breakpoint>,
 }
 
@@ -158,8 +163,11 @@ impl MobileNavMode {
 pub struct AppShell {
     root: Node,
     content: View,
+    // xtask-allow(state-fields): Optional reusable top-navigation slot.
     top: Option<ViewFn>,
+    // xtask-allow(state-fields): Optional reusable side-navigation slot.
     side: Option<ViewFn>,
+    // xtask-allow(state-fields): Optional reusable banner slot.
     banner: Option<ViewFn>,
     padding: Value<Space>,
     height: Value<ShellHeight>,
@@ -256,9 +264,8 @@ impl IntoView for AppShell {
             let shell = provide(mobile, move || {
                 let (skip, main_ref, skip_requested) = skip_link();
                 let header_ref = node_ref();
-                let header_height = header_ref.rect();
                 let header = presentation.header(top.clone(), side.clone(), banner, header_ref);
-                let sidebar = presentation.sidebar(side.clone(), header_height);
+                let sidebar = presentation.sidebar(side.clone(), header_ref);
                 let main = presentation.main(content, padding, main_ref, skip_requested);
                 let middle = row((sidebar, main)).style(|| {
                     style()
@@ -327,10 +334,15 @@ struct ShellPresentation {
     mobile: AppShellMobile,
     height: Value<ShellHeight>,
     variant: Value<ShellVariant>,
+    // xtask-allow(state-fields): Readonly fact derived from the configured mobile navigation policy.
     auto_toggle: bool,
+    // xtask-allow(state-fields): Readonly construction fact indicating configured navigation content.
     enabled: bool,
+    // xtask-allow(state-fields): Readonly presence of the actual top-navigation slot.
     has_top: bool,
+    // xtask-allow(state-fields): Readonly presence of the actual side-navigation slot.
     has_side: bool,
+    // xtask-allow(state-fields): Readonly presence of the actual banner slot.
     has_banner: bool,
 }
 fn configure_mobile(
@@ -474,7 +486,7 @@ impl ShellPresentation {
         let desktop_top = top.clone();
         let mobile_top = top.clone();
         let bar_side = side.clone();
-        let header = column((
+        column((
             banner.map(|banner| banner.call(())),
             show(
                 move || !mobile.is_mobile(),
@@ -506,14 +518,9 @@ impl ShellPresentation {
                 base = base.position(Position::Sticky).top(0).z_index(1);
             }
             base
-        });
-        header
+        })
     }
-    fn sidebar(
-        self,
-        side: Option<ViewFn>,
-        header_height: Value<Option<kivact::view::Rect>>,
-    ) -> impl IntoView {
+    fn sidebar(self, side: Option<ViewFn>, header_ref: kivact::view::NodeRef) -> impl IntoView {
         let Self {
             mobile,
             height,
@@ -521,8 +528,9 @@ impl ShellPresentation {
             has_side,
             ..
         } = self;
+        let header_height = header_ref.rect();
         let desktop_side = side.clone();
-        let sidebar = show(
+        show(
             move || has_side && !mobile.is_mobile(),
             move || {
                 let nav = desktop_side.as_ref().map(|slot| slot.call(()));
@@ -551,8 +559,7 @@ impl ShellPresentation {
                     })
                     .child(nav)
             },
-        );
-        sidebar
+        )
     }
     fn main_style(self) -> kivact::style::Style {
         let Self {
@@ -607,7 +614,7 @@ impl ShellPresentation {
             }
             base
         });
-        let main = if height.get() == ShellHeight::Fill {
+        if height.get() == ShellHeight::Fill {
             scrollable_area(main_name, contents)
                 .with_node(move |node| node.role(Role::Main))
                 .node_ref(main_ref)
@@ -623,8 +630,7 @@ impl ShellPresentation {
                 .style(move || presentation.main_style())
                 .child(contents)
                 .into_view()
-        };
-        main
+        }
     }
     fn drawer(
         self,
@@ -636,7 +642,7 @@ impl ShellPresentation {
         let Self {
             mobile, enabled, ..
         } = self;
-        let drawer = show(
+        show(
             move || enabled && mobile.is_mobile(),
             move || {
                 if let Some(custom) = &custom {
@@ -663,8 +669,7 @@ impl ShellPresentation {
                 })
                 .into_view()
             },
-        );
-        drawer
+        )
     }
 }
 fn shell_style(variant: ShellVariant) -> kivact::style::Style {

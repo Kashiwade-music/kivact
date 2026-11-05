@@ -6,16 +6,22 @@ use kivact::state::Value;
 /// Insets inherited by Layout regions from a parent surface.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInset {
+    // xtask-allow(state-fields): Independent optional inherited outer inline padding in logical pixels, not lifecycle state.
     /// Inherited inline outer padding in logical pixels; None uses the region fallback.
     pub outer_x: Option<f64>,
+    // xtask-allow(state-fields): Independent optional inherited outer block padding in logical pixels, not lifecycle state.
     /// Inherited block outer padding in logical pixels; None uses the region fallback.
     pub outer_y: Option<f64>,
+    // xtask-allow(state-fields): Independent optional inherited inner inline padding in logical pixels, not lifecycle state.
     /// Padding between inline regions in logical pixels; None uses the region fallback.
     pub inner_x: Option<f64>,
+    // xtask-allow(state-fields): Independent optional inherited inner block padding in logical pixels, not lifecycle state.
     /// Padding between block regions in logical pixels; None uses the region fallback.
     pub inner_y: Option<f64>,
+    // xtask-allow(state-fields): Independent optional local outer inline padding in logical pixels, not lifecycle state.
     /// This layout’s inline outer padding override in logical pixels.
     pub own_outer_x: Option<f64>,
+    // xtask-allow(state-fields): Independent optional local outer block padding in logical pixels, not lifecycle state.
     /// This layout’s block outer padding override in logical pixels.
     pub own_outer_y: Option<f64>,
 }
@@ -66,16 +72,26 @@ pub enum LayoutHeight {
 /// Page regions arranged around a central content area.
 pub struct Layout {
     root: Node,
+    // xtask-allow(state-fields): Optional header content slot.
     header: Option<LayoutRegion>,
+    // xtask-allow(state-fields): Optional footer content slot.
     footer: Option<LayoutRegion>,
+    // xtask-allow(state-fields): Optional logical leading panel slot.
     start: Option<LayoutRegion>,
+    // xtask-allow(state-fields): Optional logical trailing panel slot.
     end: Option<LayoutRegion>,
+    // xtask-allow(state-fields): Optional central content slot.
     content: Option<LayoutRegion>,
+    // xtask-allow(state-fields): Optional caller-owned leading resize handle view.
     start_resize: Option<View>,
+    // xtask-allow(state-fields): Optional caller-owned trailing resize handle view.
     end_resize: Option<View>,
     height: Value<LayoutHeight>,
+    // xtask-allow(state-fields): Optional theme spacing construction override.
     padding: Option<Space>,
+    // xtask-allow(state-fields): Optional readonly content-width input.
     content_width: Option<Value<Length>>,
+    // xtask-allow(state-fields): Independent default divider construction input.
     default_dividers: Value<bool>,
 }
 
@@ -164,11 +180,17 @@ impl NodeBuilder for Layout {
 
 #[derive(Clone, Copy, Default)]
 struct LayoutSlots {
+    // xtask-allow(state-fields): Optional observer reference to the actual layout root.
     root_ref: Option<NodeRef>,
+    // xtask-allow(state-fields): Readonly resolved header divider configuration.
     header_divider: Option<bool>,
+    // xtask-allow(state-fields): Readonly resolved footer divider configuration.
     footer_divider: Option<bool>,
+    // xtask-allow(state-fields): Readonly presence of the actual leading panel slot.
     has_start: bool,
+    // xtask-allow(state-fields): Readonly presence of the actual trailing panel slot.
     has_end: bool,
+    // xtask-allow(state-fields): Optional readonly width input shared with actual regions.
     content_width: Option<Value<Length>>,
 }
 
@@ -238,46 +260,7 @@ impl IntoView for Layout {
                                 header,
                                 node()
                                     .with_node(move |node| {
-                                        node.base_style(move || {
-                                            let direction = if rtl() {
-                                                Direction::RowReverse
-                                            } else {
-                                                Direction::Row
-                                            };
-                                            let mut base = style()
-                                                .direction(direction)
-                                                .grow(1)
-                                                .min_height(0)
-                                                .min_width(0);
-                                            match content_width.map(|value| value.get()) {
-                                                Some(Length::Px(width))
-                                                    if !(slots.has_start && slots.has_end) =>
-                                                {
-                                                    let gutter = center_gutter(root_ref, width);
-                                                    if slots.has_start {
-                                                        base = if rtl() {
-                                                            base.padding_right(gutter)
-                                                        } else {
-                                                            base.padding_left(gutter)
-                                                        };
-                                                    } else if slots.has_end {
-                                                        base = if rtl() {
-                                                            base.padding_left(gutter)
-                                                        } else {
-                                                            base.padding_right(gutter)
-                                                        };
-                                                    }
-                                                }
-                                                Some(width) => {
-                                                    base = base
-                                                        .width(pct(100))
-                                                        .max_width(width)
-                                                        .margin_x(kivact::style::auto());
-                                                }
-                                                None => {}
-                                            }
-                                            base
-                                        })
+                                        node.base_style(move || layout_row_style(slots, root_ref))
                                     })
                                     .child((start, start_resize, content, end_resize, end)),
                                 footer,
@@ -303,10 +286,15 @@ pub struct LayoutRegion {
     root: Node,
     children: View,
     kind: Region,
+    // xtask-allow(state-fields): Optional independent divider configuration.
     divider: Option<bool>,
+    // xtask-allow(state-fields): Optional uniform theme spacing override.
     padding: Option<Space>,
+    // xtask-allow(state-fields): Optional bottom spacing override.
     padding_bottom: Option<Space>,
+    // xtask-allow(state-fields): Independent scroll-viewport construction input.
     scrollable: Value<bool>,
+    // xtask-allow(state-fields): Optional readonly panel-width input.
     width: Option<Value<Length>>,
 }
 
@@ -404,118 +392,12 @@ impl IntoView for LayoutRegion {
             let inset = try_use_context::<LayoutInset>()
                 .map(|value| value.get())
                 .unwrap_or_default();
-            let fallback = kivact::style::use_tokens::<crate::Tokens>().spacing.s4;
-            let (outer_x, outer_y) = (
-                inset.own_outer_x.or(inset.outer_x).unwrap_or(fallback),
-                inset.own_outer_y.or(inset.outer_y).unwrap_or(fallback),
-            );
-            let (inner_x, inner_y) = (
-                inset.inner_x.unwrap_or(fallback),
-                inset.inner_y.unwrap_or(fallback),
-            );
-            let between = |divider| match divider {
-                None => outer_y,
-                Some(true) => inner_y,
-                Some(false) if kind == Region::Content => 0.0,
-                Some(false) => inner_y,
-            };
-            let (start, end, top, bottom) = match kind {
-                Region::Header => (outer_x, outer_x, outer_y, inner_y),
-                Region::Footer => (outer_x, outer_x, inner_y, outer_y),
-                Region::Content => (
-                    if slots.has_start { inner_x } else { outer_x },
-                    if slots.has_end { inner_x } else { outer_x },
-                    between(slots.header_divider),
-                    between(slots.footer_divider),
-                ),
-                Region::Start => (
-                    outer_x,
-                    inner_x,
-                    between(slots.header_divider),
-                    between(slots.footer_divider),
-                ),
-                Region::End => (
-                    inner_x,
-                    outer_x,
-                    between(slots.header_divider),
-                    between(slots.footer_divider),
-                ),
-            };
-            let mut inset = padding.map_or(
-                ContainerInset {
-                    start,
-                    end,
-                    top,
-                    bottom,
-                },
-                |space| ContainerInset::uniform(space.px()),
-            );
-            if let Some(bottom) = padding_bottom {
-                inset.bottom = bottom.px();
-            }
+            let (inset, inner_x) = region_insets(kind, slots, inset, padding, padding_bottom);
             let content = column(provide(inset, move || children)).with_node(move |node| {
-                node.base_style(move || {
-                    let mut base = inset.apply(style().min_width(0));
-                    if kind == Region::Content
-                        && !slots.has_start
-                        && !slots.has_end
-                        && let (Some(root), Some(Length::Px(width))) =
-                            (slots.root_ref, slots.content_width.map(|value| value.get()))
-                    {
-                        let gutter = center_gutter(root, width);
-                        let (left, right) = inset.sides();
-                        base = base
-                            .padding_left(left + gutter)
-                            .padding_right(right + gutter);
-                    }
-                    if matches!(kind, Region::Header | Region::Footer)
-                        && let Some(width) = slots.content_width
-                    {
-                        base = base
-                            .width(pct(100))
-                            .max_width(width.get())
-                            .margin_x(kivact::style::auto());
-                    }
-                    base
-                })
+                node.base_style(move || region_content_style(kind, slots, inset))
             });
             let root = root.with_node(move |node| {
-                node.base_style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let mut base = style().direction(Direction::Column).shrink(0).min_width(0);
-                    if kind == Region::Content {
-                        base = base.grow(1).shrink(1).min_height(0).clip(true);
-                    }
-                    if matches!(kind, Region::Start | Region::End) {
-                        base = base.clip(true);
-                        if let Some(width) = width {
-                            base = base.width(width.get());
-                        }
-                    }
-                    let divider = divider.unwrap_or_default();
-                    let right = (kind == Region::Start) != rtl();
-                    match kind {
-                        Region::Header if divider => {
-                            base.border_bottom(t.sizes.border_width, t.colors.border)
-                        }
-                        Region::Footer if divider => {
-                            base.border_top(t.sizes.border_width, t.colors.border)
-                        }
-                        Region::Start | Region::End if divider && right => {
-                            base.border_right(t.sizes.border_width, t.colors.border)
-                        }
-                        Region::Start | Region::End if divider => {
-                            base.border_left(t.sizes.border_width, t.colors.border)
-                        }
-                        Region::Start | Region::End if padding.is_none() && right => {
-                            base.margin_right(-inner_x)
-                        }
-                        Region::Start | Region::End if padding.is_none() => {
-                            base.margin_left(-inner_x)
-                        }
-                        _ => base,
-                    }
-                })
+                node.base_style(move || region_root_style(kind, divider, padding, width, inner_x))
             });
             if scrollable.get() {
                 root.child(scroll(content).style(style().grow(1).min_height(0).min_width(0)))
@@ -533,3 +415,162 @@ fn center_gutter(root: NodeRef, width: f64) -> f64 {
 }
 
 kivact::state::constant_value!(LayoutHeight);
+
+fn layout_row_style(slots: LayoutSlots, root_ref: NodeRef) -> kivact::style::Style {
+    let direction = if rtl() {
+        Direction::RowReverse
+    } else {
+        Direction::Row
+    };
+    let mut base = style()
+        .direction(direction)
+        .grow(1)
+        .min_height(0)
+        .min_width(0);
+    match slots.content_width.map(|value| value.get()) {
+        Some(Length::Px(width)) if !(slots.has_start && slots.has_end) => {
+            let gutter = center_gutter(root_ref, width);
+            if slots.has_start {
+                base = if rtl() {
+                    base.padding_right(gutter)
+                } else {
+                    base.padding_left(gutter)
+                };
+            } else if slots.has_end {
+                base = if rtl() {
+                    base.padding_left(gutter)
+                } else {
+                    base.padding_right(gutter)
+                };
+            }
+        }
+        Some(width) => {
+            base = base
+                .width(pct(100))
+                .max_width(width)
+                .margin_x(kivact::style::auto());
+        }
+        None => {}
+    }
+    base
+}
+fn region_insets(
+    kind: Region,
+    slots: LayoutSlots,
+    inset: LayoutInset,
+    padding: Option<Space>,
+    padding_bottom: Option<Space>,
+) -> (ContainerInset, f64) {
+    let fallback = kivact::style::use_tokens::<crate::Tokens>().spacing.s4;
+    let (outer_x, outer_y) = (
+        inset.own_outer_x.or(inset.outer_x).unwrap_or(fallback),
+        inset.own_outer_y.or(inset.outer_y).unwrap_or(fallback),
+    );
+    let (inner_x, inner_y) = (
+        inset.inner_x.unwrap_or(fallback),
+        inset.inner_y.unwrap_or(fallback),
+    );
+    let between = |divider| match divider {
+        None => outer_y,
+        Some(true) => inner_y,
+        Some(false) if kind == Region::Content => 0.0,
+        Some(false) => inner_y,
+    };
+    let (start, end, top, bottom) = match kind {
+        Region::Header => (outer_x, outer_x, outer_y, inner_y),
+        Region::Footer => (outer_x, outer_x, inner_y, outer_y),
+        Region::Content => (
+            if slots.has_start { inner_x } else { outer_x },
+            if slots.has_end { inner_x } else { outer_x },
+            between(slots.header_divider),
+            between(slots.footer_divider),
+        ),
+        Region::Start => (
+            outer_x,
+            inner_x,
+            between(slots.header_divider),
+            between(slots.footer_divider),
+        ),
+        Region::End => (
+            inner_x,
+            outer_x,
+            between(slots.header_divider),
+            between(slots.footer_divider),
+        ),
+    };
+    let mut inset = padding.map_or(
+        ContainerInset {
+            start,
+            end,
+            top,
+            bottom,
+        },
+        |space| ContainerInset::uniform(space.px()),
+    );
+    if let Some(bottom) = padding_bottom {
+        inset.bottom = bottom.px();
+    }
+    (inset, inner_x)
+}
+fn region_content_style(
+    kind: Region,
+    slots: LayoutSlots,
+    inset: ContainerInset,
+) -> kivact::style::Style {
+    let mut base = inset.apply(style().min_width(0));
+    if kind == Region::Content
+        && !slots.has_start
+        && !slots.has_end
+        && let (Some(root), Some(Length::Px(width))) =
+            (slots.root_ref, slots.content_width.map(|value| value.get()))
+    {
+        let gutter = center_gutter(root, width);
+        let (left, right) = inset.sides();
+        base = base
+            .padding_left(left + gutter)
+            .padding_right(right + gutter);
+    }
+    if matches!(kind, Region::Header | Region::Footer)
+        && let Some(width) = slots.content_width
+    {
+        base = base
+            .width(pct(100))
+            .max_width(width.get())
+            .margin_x(kivact::style::auto());
+    }
+    base
+}
+fn region_root_style(
+    kind: Region,
+    divider: Option<bool>,
+    padding: Option<Space>,
+    width: Option<Value<Length>>,
+    inner_x: f64,
+) -> kivact::style::Style {
+    let t = kivact::style::use_tokens::<crate::Tokens>();
+    let mut base = style().direction(Direction::Column).shrink(0).min_width(0);
+    if kind == Region::Content {
+        base = base.grow(1).shrink(1).min_height(0).clip(true);
+    }
+    if matches!(kind, Region::Start | Region::End) {
+        base = base.clip(true);
+        if let Some(width) = width {
+            base = base.width(width.get());
+        }
+    }
+    let divider = divider.unwrap_or_default();
+    let right = (kind == Region::Start) != rtl();
+    match kind {
+        Region::Header if divider => base.border_bottom(t.sizes.border_width, t.colors.border),
+        Region::Footer if divider => base.border_top(t.sizes.border_width, t.colors.border),
+        Region::Start | Region::End if divider && right => {
+            base.border_right(t.sizes.border_width, t.colors.border)
+        }
+        Region::Start | Region::End if divider => {
+            base.border_left(t.sizes.border_width, t.colors.border)
+        }
+        Region::Start | Region::End if padding.is_none() && right => base.margin_right(-inner_x),
+        Region::Start | Region::End if padding.is_none() => base.margin_left(-inner_x),
+        _ => base,
+    }
+}
