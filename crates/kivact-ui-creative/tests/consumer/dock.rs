@@ -345,7 +345,17 @@ fn assert_splitter_pointer_changes(screen: &Screen, probe: &Probe, splitter: &El
     screen.mouse_move(start.x, start.y);
     screen.mouse_down(MouseButton::Primary);
     screen.mouse_move(start.x + 50.0, start.y);
-    assert!((splitter.rect().unwrap().center().x - start.x - 50.0).abs() < 1.5);
+    assert!(
+        (splitter
+            .rect()
+            .expect("splitter stays laid out during drag")
+            .center()
+            .x
+            - start.x
+            - 50.0)
+            .abs()
+            < 1.5
+    );
     screen.mouse_up(MouseButton::Primary);
     let moved = probe.layout.get_untracked();
     assert!(top_row(&moved)[0] > top_row(&moved)[1]);
