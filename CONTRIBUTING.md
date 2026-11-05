@@ -69,8 +69,10 @@ cargo fmt --all -- --check
 cargo xtask check
 git diff --quiet -- architecture
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --all-features
-dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --no-default-features
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --all-features
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --all-features -- --test-threads=1
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --no-default-features
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --no-default-features -- --test-threads=1
 dev/tools/check-features.sh
 ```
 

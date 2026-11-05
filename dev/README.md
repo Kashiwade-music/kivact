@@ -51,7 +51,7 @@ cargo test -p kivact-docs --doc
 
 `kivact::test` の E2E は `arvane-virtual` の上で App 全体を動かします。
 `KIVACT_TEST_MIRROR=auto`（既定）は可能なら実 window に写し、`required` は実 window を必須にします。
-GPU の表示や native host 固有の試験は実環境が必要です。`cargo test -p kivact-docs --doc -- readme` は
+GPU の表示や native host 固有の試験は実環境が必要です。`cargo test -p kivact-docs --doc -- guides::readme` は
 二つの root README にある例だけを検査します。実行する Rust の例が App を起動する場合は、
 doctest も `dev/tools/window-lock.sh` を通します。
 
