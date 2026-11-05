@@ -541,6 +541,8 @@ impl Model {
             editor.flush_damage();
         }
         self.repaint_text(id);
+        // A controlled value held during the composition may be adopted.
+        self.remeasure(id);
         self.push(event);
     }
 
