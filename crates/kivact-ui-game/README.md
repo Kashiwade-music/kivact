@@ -84,6 +84,8 @@ MIT OR Apache-2.0. The bundled Tabler icons are MIT
 - `avatar_status`
 - `avatar_group`
 - `avatar_group_overflow`
+- `skeleton`
+- `empty_state`
 - `field`
 - `button`
 - `button_content`

@@ -131,7 +131,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
                 "FBK-04",
                 "スケルトン",
                 list((
-                    g::skeleton().rows(2),
+                    kivact::ui::skeleton().variant(g::SkeletonVariant::Rows).lines(2).with_node(|node| node.role(Role::Status)).name(kivact::i18n::message("game.skeleton.label", "Loading")),
                     node().style(
                         style()
                             .height(64)
@@ -143,7 +143,7 @@ pub(super) fn feedback(scene: Demo) -> Node {
             specimen(
                 "FBK-05",
                 "空状態",
-                g::empty_state("NO RECORDS").description("条件に一致する案件はありません。フィルタを解除するか、新しい案件を登録してください。").content( line((
+                kivact::ui::empty_state("NO RECORDS").icon(()).description("条件に一致する案件はありません。フィルタを解除するか、新しい案件を登録してください。").actions( line((
                         kivact::ui::button("フィルタ解除")
                             .variant(kivact_ui_game::Slant)
                             .size(kivact::ui::ControlSize::Small)

@@ -128,8 +128,8 @@ fn statuses() -> impl IntoView {
 - `game::banner(title, tone, action)` is a full-width tape for system
   messages; `.content(|| view)` is its message and `action` is whatever you
   want at its end.
-- `game::empty_state(title)` is a dashed panel with `.description(..)` and
-  `.content(|| view)` for an action; `game::skeleton().rows(n)` is a loading
+- `kivact::ui::empty_state(title)` is a dashed panel with `.description(..)` and
+  `.actions(view)` for an action; `kivact::ui::skeleton().variant(game::SkeletonVariant::Rows).lines(n)` is a loading
   placeholder.
 - Short-lived messages are toasts: mount `kivact::ui::toast_region(toaster())`
   once and push `Toast::new("Saved").tone(Tone::Success)` into the toaster.

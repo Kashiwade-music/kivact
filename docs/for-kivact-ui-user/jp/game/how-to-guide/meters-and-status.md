@@ -105,7 +105,7 @@ fn statuses() -> impl IntoView {
 
 - `game::alert(title)` は、`.description(..)`、`.tone(..)`、`.actions(|| view)` を持つインラインの枠です。閉じるボタンは `.on_dismiss(..)` を渡したときだけ出ます。ハンドラーは要求を伝えるだけなので、アラートを消すには自分のシグナルを空にします（下の例を参照）。
 - `game::banner(title, tone, action)` は、システムメッセージ向けの全幅の帯です。`.content(|| view)` がメッセージで、`action` は末尾に置きたいものです。
-- `game::empty_state(title)` は、`.description(..)` と、操作用の `.content(|| view)` を持つ破線のパネルです。`game::skeleton().rows(n)` は読み込み中のプレースホルダーです。
+- `kivact::ui::empty_state(title)` は、`.description(..)` と、操作用の `.actions(view)` を持つ破線のパネルです。`kivact::ui::skeleton().variant(game::SkeletonVariant::Rows).lines(n)` は読み込み中のプレースホルダーです。
 - 短時間だけ出すメッセージはトーストです。`kivact::ui::toast_region(toaster())` を一度だけ配置し、toaster に `Toast::new("Saved").tone(Tone::Success)` を push します。
 
 ```rust,no_run

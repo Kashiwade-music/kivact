@@ -1,16 +1,14 @@
 //! Role: Banners, alerts, toast cards, skeletons and empty states.
 use crate::ColorName;
 use kivact::draw::{Layer, Path};
-use kivact::geometry::{Point, Rect};
-use kivact::motion::{FrameRate, frame_loop};
-use kivact::platform;
+use kivact::geometry::Point;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
+use kivact::state::Value;
 use kivact::state::{IntoText, IntoValue};
-use kivact::state::{Value, signal};
 use kivact::style::use_theme;
-use kivact::style::{Align, BorderStyle, ColorToken, Justify, pct, style};
-use kivact::view::{IntoView, Role, View, node_ref};
+use kivact::style::{Align, ColorToken, Justify, pct, style};
+use kivact::view::{IntoView, Role, View};
 
 use crate::Tokens;
 use crate::display::ToneExt;
@@ -245,187 +243,6 @@ impl IntoView for Alert {
             } else {
                 kivact::view::LiveRegion::Polite
             })
-            .into_view()
-    }
-}
-
-/// Skeleton rows with a decorative shimmer that honors reduced motion.
-#[track_caller]
-pub fn skeleton() -> Skeleton {
-    Skeleton {
-        root: column(())
-            .with_node(|root| root.role(Role::Status))
-            .name(kivact::i18n::message("game.skeleton.label", "Loading")),
-        rows: 1usize.into_value(),
-    }
-}
-/// Presentation builder returned by [`skeleton`].
-pub struct Skeleton {
-    root: Node,
-    rows: Value<usize>,
-}
-impl Skeleton {
-    /// Reactive row count; one by default.
-    pub fn rows(mut self, rows: impl IntoValue<usize>) -> Self {
-        self.rows = rows.into_value();
-        self
-    }
-}
-impl NodeBuilder for Skeleton {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Skeleton {
-    fn into_view(self) -> View {
-        let rows = self.rows;
-
-        let phase = signal(0_f64);
-        let node_ref = node_ref();
-        let clock = frame_loop(move |f| phase.set((f.now.as_secs_f64() / 1.4).fract()));
-        kivact::state::effect(move || {
-            let visible = node_ref.rect().get().is_some_and(|rect| {
-                rect.y < platform::window_size().get().height && rect.y + rect.height > 0.
-            });
-            if visible
-                && !platform::is_motion_reduced().get()
-                && platform::is_surface_active().get()
-            {
-                clock.start(FrameRate::Hz(30.));
-            } else {
-                clock.stop();
-            }
-        });
-        let block = move |w, h| {
-            node().style(style().size(w, h)).draw(move |d, s| {
-                d.layer(Layer::new().clip_rect(s.to_rect()), |d| {
-                    let p = d.theme().ext::<Tokens>();
-                    d.fill_rect(s.to_rect(), p.surface_3);
-                    let x = s.width * (phase.get() * 3. - 1.);
-                    d.fill_rect(
-                        Rect::new(x, 0., s.width * 0.3, s.height),
-                        kivact::draw::linear_gradient(100).colors([
-                            p.surface_3,
-                            d.theme().colors().surface_alt,
-                            p.surface_3,
-                        ]),
-                    );
-                });
-            })
-        };
-        self.root
-            .child(kivact::view::for_index(
-                move || (0..rows.get()).collect::<Vec<_>>(),
-                move |_, _| {
-                    row((
-                        block(36, 36).style(style().clip_path(crate::cut_corner(8.))),
-                        column((block(160, 10), block(230, 10))).style(style().gap(8)),
-                    ))
-                    .style(style().gap(12).align_items(Align::Center))
-                },
-            ))
-            .node_ref(node_ref)
-            .base_style(style().gap(14).width(pct(100)))
-            .into_view()
-    }
-}
-
-/// Dashed empty-state panel with an application-owned action.
-#[track_caller]
-pub fn empty_state(title: impl IntoText) -> EmptyState {
-    EmptyState {
-        root: column(()).with_node(|root| root.role(Role::Group)),
-        title: title.into_text_value(),
-        description: String::new().into_text_value(),
-        action: None,
-    }
-}
-/// Presentation builder returned by [`empty_state`].
-pub struct EmptyState {
-    root: Node,
-    title: Value<String>,
-    description: Value<String>,
-    action: Option<kivact::view::View>,
-}
-impl EmptyState {
-    /// Supporting text; empty by default.
-    pub fn description(mut self, value: impl IntoText) -> Self {
-        self.description = value.into_text_value();
-        self
-    }
-    /// Optional content built once when the state mounts.
-    pub fn content(mut self, value: impl IntoView) -> Self {
-        self.action = Some(value.into_view());
-        self
-    }
-}
-impl NodeBuilder for EmptyState {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for EmptyState {
-    fn into_view(self) -> View {
-        let title = self.title;
-        let description = self.description;
-        let action = self.action;
-
-        self.root
-            .child((
-                node().base_style(style().size(64, 64)).draw(|d, _| {
-                    let color = d.theme().ext::<Tokens>().text_3;
-                    d.stroke_path(
-                        &kivact::draw::Path::new().arc(Point::new(32., 32.), 28., 0., 359.9, false),
-                        &kivact::draw::Stroke::new(2.).dash([10., 4., 3., 4.]),
-                        color,
-                    );
-                    d.stroke_rect(Rect::new(22., 26., 20., 16.), 2., color);
-                    d.polyline(
-                        [
-                            Point::new(22., 26.),
-                            Point::new(26., 21.),
-                            Point::new(38., 21.),
-                            Point::new(42., 26.),
-                        ],
-                        &kivact::draw::Stroke::new(2.),
-                        color,
-                    );
-                    d.line(
-                        Point::new(28., 33.),
-                        Point::new(36., 33.),
-                        2.5,
-                        ColorToken::Accent,
-                    );
-                }),
-                text(title).base_style(move || {
-                    let t = &use_theme().get();
-                    style()
-                        .font_family(t.ext::<Tokens>().display_family.as_str())
-                        .font_size(20)
-                        .weight(700)
-                        .italic(true)
-                }),
-                text(description).base_style(
-                    style()
-                        .font_size(12.5)
-                        .max_width(300)
-                        .color(ColorToken::TextMuted),
-                ),
-                action,
-            ))
-            .base_style(
-                style()
-                    .width(pct(100))
-                    .padding_y(28)
-                    .padding_x(16)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .gap(8)
-                    .border(1.5, ColorToken::Border)
-                    .border_style(BorderStyle::Dashed),
-            )
             .into_view()
     }
 }

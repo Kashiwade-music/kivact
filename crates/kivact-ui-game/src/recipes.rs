@@ -55,6 +55,8 @@ pub(crate) fn recipes() -> UiRecipes {
 fn build() -> UiRecipes {
     UiRecipes::default()
         .field(crate::recipes_field::field)
+        .skeleton(|_| crate::recipes_feedback::skeleton)
+        .empty_state(crate::recipes_feedback::empty_state)
         .badge(|_| crate::recipes_indicators::badge)
         .badge_label(|_| crate::recipes_indicators::badge_label)
         .avatar(|_| crate::recipes_indicators::avatar)
