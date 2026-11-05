@@ -44,7 +44,7 @@ fn sign_up() -> impl IntoView {
                 plan,
             )
             .orientation(Orientation::Horizontal)
-            .variant(pop::Segmented),
+            .variant(kivact::ui::RadioGroupVariant::Segmented),
         )
         .hint("You can change the plan later."),
         checkbox("I accept the terms", terms),
@@ -82,7 +82,7 @@ group can have nothing chosen; the signal holds an `Option` of the option's
 key. The key can be any type that is `Clone + Eq + Hash`, such as a string
 slice here or your own `enum` later.
 
-**`radio_group(..).variant(pop::Segmented)`** draws a radio group as a
+**`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)`** draws a radio group as a
 segmented control. A segmented control picks exactly one option, so it is a
 radio group, not tabs. `.orientation(Orientation::Horizontal)` lays the
 options out in a row. `.variant(..)` is how a kit adds a look to a standard

@@ -202,3 +202,22 @@ an example.
 - [Pick dates and ranges](dates-and-calendars.md)
 - [Show rows in a table](tables.md)
 - Full list of tokens and components: `cargo doc -p kivact-ui-pop --open`
+
+Use the standard drop target with the Pop theme. Enable picking and multiple files explicitly; the decorative icon is a mounted slot.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn upload() -> impl IntoView {
+    kivact::ui::dropzone("Upload")
+        .multiple()
+        .pick_on_press()
+        .icon(icon("cloud-upload").style(style().size(24, 24)))
+        .hint("PNG, PDF")
+        .on_files(|files| {
+            for file in files {
+                println!("{}", file.path.display());
+            }
+        })
+}
+```

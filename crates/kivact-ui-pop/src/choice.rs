@@ -16,20 +16,6 @@ pub(crate) fn check_style(_: &Theme) -> Style {
         .color(ColorToken::Text)
 }
 
-/// The pill look of a standard radio group, a segmented control:
-/// `kivact::ui::radio_group(..).orientation(Orientation::Horizontal)
-/// .variant(Segmented)`. Another theme draws the
-/// plain radio group.
-///
-/// A radio group chooses exactly one segment: the arrow keys move and choose
-/// (wrapping at the ends), a disabled segment is skipped and the chosen key
-/// survives missing rows. Tabs that show content under them are
-/// [`kivact::ui::tabs()`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Segmented;
-
-impl kivact::ui::Variant for Segmented {}
-
 const SELECT_OPTION_HEIGHT: f64 = 32.0;
 
 pub(crate) fn select_option(t: &Theme) -> Style {

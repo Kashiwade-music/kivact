@@ -165,3 +165,22 @@ fn application(inter: &'static [u8], noto: &'static [u8]) -> App {
 - [日付と期間を選ばせる](dates-and-calendars.md)
 - [テーブルで行を表示する](tables.md)
 - すべてのトークンとコンポーネント: `cargo doc -p kivact-ui-pop --open`
+
+Pop テーマでは標準のドロップ先を使います。ファイル選択と複数ファイルを明示的に有効にし、装飾アイコンを一度だけ構築するスロットに渡します。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn upload() -> impl IntoView {
+    kivact::ui::dropzone("Upload")
+        .multiple()
+        .pick_on_press()
+        .icon(icon("cloud-upload").style(style().size(24, 24)))
+        .hint("PNG, PDF")
+        .on_files(|files| {
+            for file in files {
+                println!("{}", file.path.display());
+            }
+        })
+}
+```

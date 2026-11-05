@@ -4,8 +4,8 @@ use crate::{AvatarShape, AvatarState, ControlSize, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::style::{Position, pct, style};
 use kivact_core::view::{
-    Asset, ImageFit, ImageStatus, IntoView, Node, NodeBuilder, Role, View, dynamic, node, node_ref,
-    text,
+    Asset, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, NodeBuilder, Role, View, ViewFn,
+    dynamic, node, node_ref, text,
 };
 use kivact_interaction::Tone;
 /// The source of the mounted presence label, without an effect-copied string.
@@ -20,6 +20,7 @@ pub struct Avatar {
     name: Value<String>,
     src: Value<Option<Asset>>,
     fallback: Value<Option<Asset>>,
+    fallback_content: Option<ViewFn>,
     size: Value<ControlSize>,
     shape: Value<AvatarShape>,
     status: Value<Option<Tone>>,
@@ -33,6 +34,7 @@ pub fn avatar(name: impl IntoText) -> Avatar {
         name,
         src: None::<Asset>.into_value(),
         fallback: None::<Asset>.into_value(),
+        fallback_content: None,
         size: crate::values::default_control_size().into_value(),
         shape: AvatarShape::Circle.into_value(),
         status: None::<Tone>.into_value(),
@@ -41,6 +43,12 @@ pub fn avatar(name: impl IntoText) -> Avatar {
     }
 }
 impl Avatar {
+    /// Recreate custom fallback content when no image is available.
+    pub fn fallback_content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
+        self.fallback_content = Some(content.into_view_fn());
+        self
+    }
+
     pub fn src(mut self, src: impl IntoValue<Option<Asset>>) -> Self {
         self.src = src.into_value();
         self
@@ -88,7 +96,12 @@ impl NodeBuilder for Avatar {
         &mut self.root
     }
 }
-fn picture(asset: Asset, fallback: Option<Asset>, name: Value<String>) -> View {
+fn picture(
+    asset: Asset,
+    fallback: Option<Asset>,
+    name: Value<String>,
+    content: Option<ViewFn>,
+) -> View {
     let reference = node_ref();
     let status = reference.image_status();
     let photo = kivact_core::view::image(asset)
@@ -108,11 +121,17 @@ fn picture(asset: Asset, fallback: Option<Asset>, name: Value<String>) -> View {
         .child(kivact_core::view::show(
             move || status.get() != ImageStatus::Ready,
             move || match fallback.clone() {
-                Some(asset) => picture(asset, None, name),
-                None => text(move || initials(&name.get())).into_view(),
+                Some(asset) => picture(asset, None, name, content.clone()),
+                None => fallback_view(name, content.as_ref()),
             },
         ))
         .into_view()
+}
+fn fallback_view(name: Value<String>, content: Option<&ViewFn>) -> View {
+    match content {
+        Some(content) => content.call(()),
+        None => text(move || initials(&name.get())).into_view(),
+    }
 }
 fn initials(name: &str) -> String {
     name.split_whitespace()
@@ -130,6 +149,7 @@ impl IntoView for Avatar {
         let shape = self.shape;
         let src = self.src;
         let fallback = self.fallback;
+        let fallback_content = self.fallback_content;
         let labels = [
             kivact_core::i18n::message("avatar.status.neutral", "Neutral"),
             kivact_core::i18n::message("avatar.status.info", "Information"),
@@ -170,9 +190,10 @@ impl IntoView for Avatar {
         };
         let content = dynamic(
             move || (src.get(), fallback.get()),
-            move |(asset, fallback)| match asset.or_else(|| fallback.clone()) {
-                Some(asset) => picture(asset, fallback, name),
-                None => text(move || initials(&name.get())).into_view(),
+            move |(asset, fallback)| match (asset, fallback) {
+                (Some(asset), fallback) => picture(asset, fallback, name, fallback_content.clone()),
+                (None, Some(asset)) => picture(asset, None, name, fallback_content.clone()),
+                (None, None) => fallback_view(name, fallback_content.as_ref()),
             },
         );
         crate::layer::with_base_recipe_style(
