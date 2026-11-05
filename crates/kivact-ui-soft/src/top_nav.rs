@@ -12,7 +12,6 @@ use crate::stack::{Space, rtl};
 
 use kivact::interaction::Delays;
 use kivact::interaction::use_dialog;
-use kivact::interaction::use_hover_surface;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
@@ -30,11 +29,9 @@ use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
-use kivact::state::binding;
 use kivact::state::callback;
 use kivact::state::effect_on;
 use kivact::state::provide;
-use kivact::state::signal;
 use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::Direction;
@@ -61,6 +58,7 @@ struct TopNavCx {
     align: OverlayAlign,
 }
 
+// xtask-allow(state-fields): Independent immutable heading/start/center/end factories; these slots store no navigation lifecycle.
 #[derive(Default)]
 struct Slots {
     heading: Option<ViewFn>,
@@ -124,7 +122,7 @@ impl IntoView for TopNav {
                     end,
                 },
         } = self;
-        provide((), move || {
+        crate::navigation_session::with_navigation_group(move || {
             let anchor = node_ref();
             let mode = shell_nav_mode();
             let slot = |slot: Option<ViewFn>, align| {
@@ -208,6 +206,7 @@ impl IntoView for TopNav {
     }
 }
 
+// xtask-allow(state-fields): Independent caller selection, availability and label/icon presentation inputs; active panel state belongs only to the navigation controller.
 pub struct TopNavItem {
     root: Node,
     label: Value<String>,
@@ -480,6 +479,7 @@ fn drawer_menu_item(item: &TopNavMenuItem) -> SideNavItem {
     row
 }
 
+// xtask-allow(state-fields): Independent immutable item/featured factories, timing inputs and external change callback; no open or pinned copy is stored.
 pub struct TopNavMegaMenu {
     root: Node,
     label: Value<String>,
@@ -561,35 +561,23 @@ impl IntoView for TopNavMegaMenu {
             }
             let trigger_ref = node_ref();
             let surface_ref = node_ref();
-            let delayed = use_hover_surface(
-                trigger_ref,
-                surface_ref,
-                || !kivact::platform::capabilities().get().touch,
-                delays,
-            );
-            let pinned = signal(false);
-            let open = binding(
-                move || pinned.get() || delayed.is_open().get(),
-                move |open| {
-                    pinned.set(open);
-                    if !open {
-                        delayed.dismiss();
-                    }
-                },
-            );
+            let nav_panel = crate::navigation_session::NavPanel::new(true, delays);
+            let open = nav_panel.open();
             if let Some(change) = on_change {
                 effect_on(open, move |open| {
                     change.call(*open);
                 });
             }
             let behavior = use_dialog(open, DialogMode::Popover).anchor(trigger_ref);
-            let trigger = menu_trigger(label, open.into_value())
-                .node_ref(trigger_ref)
-                .with_node(move |node| node.role(Role::Button))
-                .focusable(true)
-                .with_node(move |node| node.with_node(move |node| node.expanded(open)))
-                .with_node(move |node| node.controls(surface_ref))
-                .on_press(move || open.set(!open.get()));
+            let trigger = nav_panel.trigger(
+                menu_trigger(label, open.into_value())
+                    .node_ref(trigger_ref)
+                    .with_node(move |node| node.role(Role::Button))
+                    .focusable(true)
+                    .with_node(move |node| node.with_node(move |node| node.expanded(open)))
+                    .with_node(move |node| node.controls(surface_ref))
+                    .on_press(move || nav_panel.toggle()),
+            );
             let cx = try_use_context::<TopNavCx>().map(|value| value.get());
             let align = cx.map_or(OverlayAlign::Start, |cx| cx.align);
             let anchor = cx.map_or(trigger_ref, |cx| cx.anchor);
@@ -619,13 +607,16 @@ impl IntoView for TopNavMegaMenu {
                             (kivact::platform::window_size().get().width - t.spacing.s4).max(0.0),
                         )
                 });
-                let panel = scroll(body).node_ref(surface_ref).style(|| {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    popup_surface()
-                        .max_height(pct(100) - t.spacing.s3)
-                        .clip(true)
-                        .border_top(t.sizes.border_width, t.colors.border)
-                });
+                let panel = nav_panel
+                    .surface(scroll(body))
+                    .node_ref(surface_ref)
+                    .style(|| {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        popup_surface()
+                            .max_height(pct(100) - t.spacing.s3)
+                            .clip(true)
+                            .border_top(t.sizes.border_width, t.colors.border)
+                    });
                 overlay(anchor, Placement::Below, panel)
                     .offset(4)
                     .align(align)
@@ -637,6 +628,7 @@ impl IntoView for TopNavMegaMenu {
     }
 }
 
+// xtask-allow(state-fields): Independent immutable title, description, icon and activation slot; this metadata has no panel lifecycle.
 pub struct TopNavMegaMenuItem {
     root: Node,
     title: Value<String>,
@@ -777,6 +769,7 @@ fn title_style() -> kivact::style::Style {
         .color(t.colors.text_primary)
 }
 
+// xtask-allow(state-fields): Independent immutable illustration, supporting content and optional link slots; no panel or focus state is stored.
 pub struct TopNavMegaMenuFeaturedCard {
     root: Node,
     title: Value<String>,

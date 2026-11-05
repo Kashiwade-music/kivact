@@ -408,3 +408,270 @@ fn buffered_page_windows_preserve_all_four_original_edge_and_gap_cases() {
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
+
+#[test]
+fn domain_navigation_shares_hover_pinned_and_menu_focus_authority() {
+    let (screen, chosen) = kivact::test::render_with_handle(options(900.0), || {
+        let chosen = signal(false);
+        (
+            chosen,
+            column((
+                kivact::ui::button("Outside"),
+                soft::top_nav().start(move || {
+                    (
+                        soft::top_nav_menu(
+                            "Activity",
+                            [soft::top_nav_menu_item("Recent updates")
+                                .on_press(move || chosen.set(true))],
+                        ),
+                        soft::top_nav_mega_menu("Resources")
+                            .items(|| soft::top_nav_mega_menu_item("Guide").on_press(|| {})),
+                    )
+                }),
+            )),
+        )
+    });
+    let outside = screen.get_by_role(Role::Button, "Outside");
+    outside.focus();
+    let activity = screen.get_by_role(Role::Button, "Activity");
+    activity.hover();
+    screen.advance(std::time::Duration::from_millis(160));
+    assert!(
+        screen
+            .get_by_role(Role::MenuItem, "Recent updates")
+            .is_visible()
+    );
+    assert!(outside.is_focused());
+    activity.click();
+    outside.hover();
+    screen.advance(std::time::Duration::from_millis(300));
+    assert!(
+        screen
+            .get_by_role(Role::MenuItem, "Recent updates")
+            .is_visible()
+    );
+    screen.get_by_role(Role::MenuItem, "Recent updates").click();
+    assert!(chosen.get_untracked());
+    assert!(activity.is_focused());
+    let resources = screen.get_by_role(Role::Button, "Resources");
+    resources.hover();
+    screen.advance(std::time::Duration::from_millis(160));
+    assert!(screen.get_by_role(Role::Link, "Guide").is_visible());
+    resources.click();
+    activity.hover();
+    screen.advance(std::time::Duration::from_millis(160));
+    assert!(screen.query_by_role(Role::Link, "Guide").is_none());
+    assert!(
+        screen
+            .get_by_role(Role::MenuItem, "Recent updates")
+            .is_visible()
+    );
+    activity.press_key(Key::ArrowDown);
+    assert!(
+        screen
+            .get_by_role(Role::MenuItem, "Recent updates")
+            .is_focused()
+    );
+    screen.press_key(Key::Escape);
+    assert!(activity.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn rail_navigation_has_one_actual_panel_and_rearms_after_expansion() {
+    use kivact::state::IntoBinding;
+    let (screen, collapsed) = kivact::test::render_with_handle(options(900.0), || {
+        let collapsed = signal(true);
+        (
+            collapsed,
+            column((
+                soft::side_nav((
+                    soft::side_nav_item("Documents")
+                        .icon(icon("file"))
+                        .children(|| soft::side_nav_item("Document leaf").on_press(|| {})),
+                    soft::side_nav_item("Activity")
+                        .icon(icon("clock"))
+                        .children(|| soft::side_nav_item("Activity leaf").on_press(|| {})),
+                ))
+                .collapsible(soft::SideNavCollapse::Controlled(collapsed.into_binding()))
+                .style(style().height(220)),
+                kivact::ui::button("Outside"),
+            )),
+        )
+    });
+    let documents = screen.get_by_role(Role::Button, "Documents");
+    documents.hover();
+    screen.advance(std::time::Duration::from_millis(160));
+    assert!(screen.get_by_role(Role::Link, "Document leaf").is_visible());
+    documents.click();
+    screen.get_by_role(Role::Button, "Outside").hover();
+    screen.advance(std::time::Duration::from_millis(240));
+    assert!(screen.get_by_role(Role::Link, "Document leaf").is_visible());
+    screen.get_by_role(Role::Button, "Activity").hover();
+    screen.advance(std::time::Duration::from_millis(160));
+    assert!(screen.query_by_role(Role::Link, "Document leaf").is_none());
+    assert!(screen.get_by_role(Role::Link, "Activity leaf").is_visible());
+    collapsed.set(false);
+    screen.run_until_idle();
+    collapsed.set(true);
+    screen.run_until_idle();
+    assert!(screen.query_by_role(Role::Link, "Activity leaf").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn controlled_menu_uses_only_accepted_opening_and_dismissal() {
+    use kivact::interaction::{MenuEntry, use_menu_with_open};
+    use kivact::state::binding;
+    use kivact::view::{Placement, overlay};
+    let (screen, (accepted, allow)) = kivact::test::render_with_handle(options(500.0), || {
+        let accepted = signal(false);
+        let allow = signal(false);
+        let anchor = node_ref();
+        let menu = use_menu_with_open(
+            vec![MenuEntry::item(0, "Choice")],
+            binding(
+                move || accepted.get(),
+                move |next| {
+                    if allow.get() {
+                        accepted.set(next);
+                    }
+                },
+            ),
+        );
+        (
+            (accepted, allow),
+            column((
+                node()
+                    .node_ref(anchor)
+                    .part(menu.trigger())
+                    .name("Controlled")
+                    .child(text("Controlled")),
+                menu.show(move || {
+                    overlay(
+                        anchor,
+                        Placement::Below,
+                        node().child(
+                            node()
+                                .part(menu.item(0))
+                                .name("Choice")
+                                .child(text("Choice")),
+                        ),
+                    )
+                    .with_node(move |node| node.part(menu.content()))
+                    .name("Controlled menu")
+                }),
+            )),
+        )
+    });
+    let trigger = screen.get_by_role(Role::Button, "Controlled");
+    trigger.focus();
+    trigger.press_key(Key::ArrowDown);
+    assert!(!accepted.get_untracked());
+    assert!(trigger.is_focused());
+    assert!(screen.query_by_role(Role::MenuItem, "Choice").is_none());
+    allow.set(true);
+    trigger.press_key(Key::ArrowDown);
+    assert!(accepted.get_untracked());
+    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_focused());
+    allow.set(false);
+    screen.press_key(Key::Escape);
+    assert!(accepted.get_untracked());
+    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_focused());
+    allow.set(true);
+    screen.press_key(Key::Escape);
+    assert!(!accepted.get_untracked());
+    assert!(trigger.is_focused());
+    accepted.set(true);
+    screen.run_until_idle();
+    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_visible());
+    assert!(trigger.is_focused());
+    trigger.press_key(Key::ArrowDown);
+    assert!(screen.get_by_role(Role::MenuItem, "Choice").is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn panel_disposal_cancels_only_its_actual_pending_command() {
+    use kivact::interaction::{NavOpen, use_navigation_menu};
+    use kivact::state::on_cleanup;
+    use kivact::view::{Handled, PointerPhase, show};
+    use std::time::Duration;
+    for pinned in [false, true] {
+        let (screen, (state, present, b)) = kivact::test::render_with_handle(
+            options(500.0),
+            || {
+                let api = use_navigation_menu();
+                let a = api.panel_key();
+                let b = api.panel_key();
+                let state = api.state();
+                let present = signal(true);
+                (
+                    (state, present, b),
+                    column((
+                        show(present, move || {
+                            on_cleanup(move || api.panel_removed(a));
+                            (
+                                kivact::ui::button("Panel A")
+                                    .on_press(move || api.toggle(a))
+                                    .on_pointer(move |event| {
+                                        match event.phase() {
+                                            PointerPhase::Enter => {
+                                                api.hover_after(a, Duration::from_millis(150))
+                                            }
+                                            PointerPhase::Leave => {
+                                                api.leave_after(a, Duration::from_millis(200))
+                                            }
+                                            _ => (),
+                                        };
+                                        Handled::No
+                                    }),
+                                show(
+                                    move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==a),
+                                    || text("A surface"),
+                                ),
+                            )
+                        }),
+                        kivact::ui::button("Panel B")
+                            .on_press(move || api.toggle(b))
+                            .on_pointer(move |event| {
+                                match event.phase() {
+                                    PointerPhase::Enter => {
+                                        api.hover_after(b, Duration::from_millis(150))
+                                    }
+                                    PointerPhase::Leave => {
+                                        api.leave_after(b, Duration::from_millis(200))
+                                    }
+                                    _ => (),
+                                };
+                                Handled::No
+                            }),
+                        show(
+                            move || matches!(state.get(),NavOpen::Hover(key)|NavOpen::Pinned(key) if key==b),
+                            || text("B surface"),
+                        ),
+                    )),
+                )
+            },
+        );
+        if pinned {
+            screen.get_by_role(Role::Button, "Panel A").click();
+            assert!(screen.get_by_text("A surface").is_visible());
+            screen.get_by_role(Role::Button, "Panel B").hover();
+        } else {
+            screen.get_by_role(Role::Button, "Panel A").hover();
+        }
+        present.set(false);
+        screen.run_until_idle();
+        screen.advance(Duration::from_millis(180));
+        assert!(screen.query_by_text("A surface").is_none());
+        if pinned {
+            assert_eq!(state.get_untracked(), NavOpen::Hover(b));
+            assert!(screen.get_by_text("B surface").is_visible());
+        } else {
+            assert_eq!(state.get_untracked(), NavOpen::Closed);
+            assert!(screen.query_by_text("B surface").is_none());
+        }
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    }
+}

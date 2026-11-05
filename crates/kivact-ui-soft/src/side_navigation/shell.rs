@@ -52,6 +52,7 @@ pub enum SideNavCollapse {
     Controlled(Binding<bool>),
 }
 
+// xtask-allow(state-fields): Construction metrics and optional caller collapse binding; the default is used only without that binding and is not a runtime lifecycle flag.
 pub struct SideNavResize {
     pub default_width: f64,
     pub min: f64,
@@ -151,7 +152,7 @@ impl IntoView for SideNav {
             resize,
             collapse_button,
         } = self;
-        provide((), move || {
+        crate::navigation_session::with_navigation_group(move || {
             let mode = shell_nav_mode();
             let root = root.with_node(move |node| {
                 node.base_style(move || {

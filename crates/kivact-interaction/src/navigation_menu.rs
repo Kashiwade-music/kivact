@@ -13,6 +13,19 @@ pub enum NavOpen {
     Pinned(usize),
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum NavTimer {
+    #[default]
+    Idle,
+    Opening(usize),
+    Leaving(usize),
+}
+/// One owner records the visible panel and the actual scheduled command identity.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct NavMachineState {
+    open: NavOpen,
+    pending: NavTimer,
+}
 enum Event {
     Hover(usize),
     Leave(usize),
@@ -21,50 +34,158 @@ enum Event {
     Close,
     HoverAfter(usize, Duration),
     LeaveAfter(usize, Duration),
+    HoverDue(usize),
+    LeaveDue(usize),
+    PanelRemoved(usize),
 }
 enum Effect {
     Changed(bool),
 }
 struct Machine;
 impl MachineTrait for Machine {
-    type State = NavOpen;
+    type State = NavMachineState;
     type Event = Event;
     type Effect = Effect;
-    fn transition(&self, state: &NavOpen, event: Event) -> Step<NavOpen, Event, Effect> {
-        let next = match event {
-            Event::HoverAfter(at, delay) => {
-                return if delay.is_zero() {
-                    self.transition(state, Event::Hover(at))
+    fn transition(
+        &self,
+        state: &NavMachineState,
+        event: Event,
+    ) -> Step<NavMachineState, Event, Effect> {
+        match event {
+            Event::HoverAfter(key, delay) => schedule_open(*state, key, delay),
+            Event::LeaveAfter(key, delay) => schedule_leave(*state, key, delay),
+            Event::HoverDue(key) if state.pending == NavTimer::Opening(key) => enter(*state, key),
+            Event::LeaveDue(key) if state.pending == NavTimer::Leaving(key) => leave(*state, key),
+            Event::Hover(key) => enter(*state, key),
+            Event::Leave(key) => leave(*state, key),
+            Event::Toggle(key) => activate(
+                *state,
+                if state.open == NavOpen::Pinned(key) {
+                    NavOpen::Closed
                 } else {
-                    Step::stay()
-                        .cancel(Event::Leave(at))
-                        .after(delay, Event::Hover(at))
-                };
-            }
-            Event::LeaveAfter(at, delay) => {
-                return if delay.is_zero() {
-                    self.transition(state, Event::Leave(at))
-                } else {
-                    Step::stay()
-                        .cancel(Event::Hover(at))
-                        .after(delay, Event::Leave(at))
-                };
-            }
-            Event::Hover(at) if *state != NavOpen::Pinned(at) => NavOpen::Hover(at),
-            Event::Leave(at) if *state == NavOpen::Hover(at) => NavOpen::Closed,
-            Event::Toggle(at) if *state == NavOpen::Pinned(at) => NavOpen::Closed,
-            Event::Toggle(at) | Event::Pin(at) => NavOpen::Pinned(at),
-            Event::Close => NavOpen::Closed,
-            Event::Hover(_) | Event::Leave(_) => *state,
-        };
-        let step = Step::to(next)
-            .cancel(Event::Hover(0))
-            .cancel(Event::Leave(0));
-        if matches!(state, NavOpen::Closed) != matches!(next, NavOpen::Closed) {
-            step.with(Effect::Changed(!matches!(next, NavOpen::Closed)))
-        } else {
-            step
+                    NavOpen::Pinned(key)
+                },
+            ),
+            Event::Pin(key) => activate(*state, NavOpen::Pinned(key)),
+            Event::Close => activate(*state, NavOpen::Closed),
+            Event::PanelRemoved(key) => remove_panel(*state, key),
+            _ => Step::stay(),
         }
+    }
+}
+fn publish(old: NavMachineState, next: NavMachineState) -> Step<NavMachineState, Event, Effect> {
+    let step = Step::to(next);
+    if matches!(old.open, NavOpen::Closed) != matches!(next.open, NavOpen::Closed) {
+        step.with(Effect::Changed(!matches!(next.open, NavOpen::Closed)))
+    } else {
+        step
+    }
+}
+fn cancel_timers(
+    step: Step<NavMachineState, Event, Effect>,
+) -> Step<NavMachineState, Event, Effect> {
+    step.cancel(Event::HoverDue(0)).cancel(Event::LeaveDue(0))
+}
+fn activate(state: NavMachineState, open: NavOpen) -> Step<NavMachineState, Event, Effect> {
+    cancel_timers(publish(
+        state,
+        NavMachineState {
+            open,
+            pending: NavTimer::Idle,
+        },
+    ))
+}
+fn enter(state: NavMachineState, key: usize) -> Step<NavMachineState, Event, Effect> {
+    activate(
+        state,
+        if state.open == NavOpen::Pinned(key) {
+            state.open
+        } else {
+            NavOpen::Hover(key)
+        },
+    )
+}
+fn leave(state: NavMachineState, key: usize) -> Step<NavMachineState, Event, Effect> {
+    let open = if state.open == NavOpen::Hover(key) {
+        NavOpen::Closed
+    } else {
+        state.open
+    };
+    let mut next = state;
+    next.open = open;
+    match state.pending {
+        NavTimer::Opening(at) if at == key => {
+            next.pending = NavTimer::Idle;
+            if matches!(next.open, NavOpen::Hover(_)) {
+                next.open = NavOpen::Closed;
+            }
+            publish(state, next).cancel(Event::HoverDue(0))
+        }
+        NavTimer::Leaving(at) if at == key => {
+            next.pending = NavTimer::Idle;
+            publish(state, next).cancel(Event::LeaveDue(0))
+        }
+        _ => publish(state, next),
+    }
+}
+fn schedule_open(
+    state: NavMachineState,
+    key: usize,
+    delay: Duration,
+) -> Step<NavMachineState, Event, Effect> {
+    if delay.is_zero() || matches!(state.open,NavOpen::Hover(at)|NavOpen::Pinned(at) if at==key) {
+        return enter(state, key);
+    }
+    if state.pending == NavTimer::Opening(key) {
+        return Step::stay();
+    }
+    cancel_timers(publish(
+        state,
+        NavMachineState {
+            open: state.open,
+            pending: NavTimer::Opening(key),
+        },
+    ))
+    .after(delay, Event::HoverDue(key))
+}
+fn schedule_leave(
+    state: NavMachineState,
+    key: usize,
+    delay: Duration,
+) -> Step<NavMachineState, Event, Effect> {
+    if delay.is_zero() || state.pending == NavTimer::Opening(key) {
+        return leave(state, key);
+    }
+    if state.open != NavOpen::Hover(key) || state.pending == NavTimer::Leaving(key) {
+        return Step::stay();
+    }
+    if matches!(state.pending, NavTimer::Opening(_)) {
+        return leave(state, key);
+    }
+    cancel_timers(publish(
+        state,
+        NavMachineState {
+            open: state.open,
+            pending: NavTimer::Leaving(key),
+        },
+    ))
+    .after(delay, Event::LeaveDue(key))
+}
+fn remove_panel(state: NavMachineState, key: usize) -> Step<NavMachineState, Event, Effect> {
+    let mut next = state;
+    if matches!(state.open,NavOpen::Hover(at)|NavOpen::Pinned(at) if at==key) {
+        next.open = NavOpen::Closed;
+    }
+    match state.pending {
+        NavTimer::Opening(at) if at == key => {
+            next.pending = NavTimer::Idle;
+            publish(state, next).cancel(Event::HoverDue(0))
+        }
+        NavTimer::Leaving(at) if at == key => {
+            next.pending = NavTimer::Idle;
+            publish(state, next).cancel(Event::LeaveDue(0))
+        }
+        _ => publish(state, next),
     }
 }
 
@@ -83,7 +204,7 @@ pub fn use_navigation_menu() -> NavigationMenuApi {
     let changed = OptionsCell::new(None::<Callback<bool>>);
     NavigationMenuApi {
         machine: machine(
-            NavOpen::Closed,
+            NavMachineState::default(),
             || Machine,
             move |_, Effect::Changed(open)| {
                 if let Some(changed) = changed.get() {
@@ -114,7 +235,11 @@ impl NavigationMenuApi {
     }
     /// The current panel and its opening mode.
     pub fn state(self) -> Value<NavOpen> {
-        memo(move || self.machine.get())
+        memo(move || self.machine.get().open)
+    }
+    /// Dispose this actual panel or its current eligibility without affecting another panel's command.
+    pub fn panel_removed(self, key: usize) {
+        self.machine.send(Event::PanelRemoved(key));
     }
     /// Schedule pointer opening; later input supersedes the pending timer.
     pub fn hover_after(self, index: usize, delay: Duration) {

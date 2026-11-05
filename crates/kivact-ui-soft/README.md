@@ -358,6 +358,7 @@ Number, date, and time filter fields validate values entered as text.
 - `stepper`
 - `alert`
 - `pagination`
+- `navigation_menu`
 <!-- /kivact-recipes -->
 
 Pagination presentation helpers: `PaginationAppearance`, `pagination_count`, `pagination_page_summary`, and `pagination_status` use actual canonical summary facts.

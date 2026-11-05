@@ -4,8 +4,7 @@ use crate::stack::rtl;
 
 use kivact::i18n::{message, message_with};
 use kivact::interaction::Delays;
-use kivact::interaction::use_hover_surface;
-use kivact::interaction::use_menu;
+use kivact::interaction::use_menu_with_open;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
 use kivact::view::IntoViewFn;
@@ -23,7 +22,6 @@ use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::Value;
 use kivact::state::callback;
-use kivact::state::effect_on;
 use kivact::state::provide;
 use kivact::style::Align;
 use kivact::style::Justify;
@@ -41,6 +39,7 @@ use kivact::view::overlay;
 use std::rc::Rc;
 use std::time::Duration;
 
+// xtask-allow(state-fields): Independent immutable label, icon, description, caller availability and action metadata; Menu owns interaction state.
 #[derive(Clone)]
 pub struct NavHeadingMenuItem {
     pub(crate) label: Value<String>,
@@ -131,31 +130,23 @@ pub(crate) fn nav_menu_view(
         .map(|(index, item)| MenuEntry::item(index, item.label).disabled(item.disabled))
         .collect::<Vec<_>>();
     let actions = items.clone();
-    let behavior = use_menu(options).on_activate(move |index| {
-        if let Some(action) = actions[index].action {
-            action.call(());
-        }
-    });
-    let part = behavior.trigger();
     let anchor = node_ref();
     let panel_ref = node_ref();
-    let delayed = use_hover_surface(
-        anchor,
-        panel_ref,
-        || !kivact::platform::capabilities().get().touch,
-        delays,
-    );
-    effect_on(delayed.is_open(), move |open| {
-        if *open {
-            behavior.open();
-        } else {
-            behavior.close();
-        }
-    });
+    let nav_panel = crate::navigation_session::NavPanel::new(true, delays);
+    let behavior = use_menu_with_open(options, nav_panel.open())
+        .trigger_action(move || nav_panel.toggle())
+        .on_activate(move |index| {
+            if let Some(action) = actions[index].action {
+                action.call(());
+            }
+        });
+    let part = behavior.trigger();
     let opened = behavior.is_open();
-    let trigger = trigger(opened)
-        .node_ref(anchor)
-        .with_node(move |node| node.part(part));
+    let trigger = nav_panel.trigger(
+        trigger(opened)
+            .node_ref(anchor)
+            .with_node(move |node| node.part(part)),
+    );
     let heading = matches!(look, NavMenuLook::Heading);
     let default_min_width = if heading {
         match size {
@@ -267,7 +258,8 @@ pub(crate) fn nav_menu_view(
                     .justify_content(Justify::SpaceBetween)
             })
         });
-        let surface = column((popup_header, rows))
+        let surface = nav_panel
+            .surface(column((popup_header, rows)))
             .node_ref(panel_ref)
             .style(move || {
                 let t = kivact::style::use_tokens::<crate::Tokens>();
