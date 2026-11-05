@@ -119,60 +119,7 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
             move || editor.get().draft().value,
             move |value| editor.send(SearchEvent::Value(value)),
         );
-        let entries = kivact::state::memo(move || {
-            filters.with(|filters| (0..filters.len()).collect::<Vec<_>>())
-        });
-        let tokens_view = for_each(
-            entries,
-            |index| *index,
-            move |entry| {
-                let index = entry.get_untracked();
-                let name = kivact::state::memo(move || {
-                    filters.with(|entries| {
-                        entries
-                            .get(index)
-                            .map(|entry| {
-                                let name = fields
-                                    .with(|fields| {
-                                        fields
-                                            .iter()
-                                            .find(|item| item.key() == &entry.field)
-                                            .map(|item| item.label())
-                                    })
-                                    .unwrap_or_default();
-                                format!("{} {}", name, entry.value)
-                            })
-                            .unwrap_or_default()
-                    })
-                });
-                let edit = button(name)
-                    .variant(ButtonVariant::Ghost)
-                    .on_press(move || {
-                        if let Some(filter) = filters.with(|entries| entries.get(index).cloned()) {
-                            editor.send(SearchEvent::Edit(index, filter));
-                        }
-                    });
-                let remove = button(move || format!("Remove {}", name.get()))
-                    .variant(ButtonVariant::Ghost)
-                    .hide_label(true)
-                    .icon(icon("x"))
-                    .on_press(move || {
-                        let mut entries = filters.get_untracked();
-                        if index < entries.len() {
-                            entries.remove(index);
-                            filters.set(entries);
-                        }
-                    });
-                row((edit, remove)).style(move || {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    style()
-                        .height(28)
-                        .align_items(Align::Center)
-                        .radius(t.radius.element)
-                        .background(t.colors.accent_muted)
-                })
-            },
-        );
+        let tokens_view = filter_tokens(fields, filters, editor);
         let add = button(message("soft.power_search.add", "Add filter"))
             .variant(ButtonVariant::Ghost)
             .icon(icon("plus"))
@@ -351,4 +298,64 @@ impl<K: Clone + Eq + 'static> Machine for SearchMachine<K> {
         }
         Step::to(next)
     }
+}
+
+fn filter_tokens<K: ItemKey>(
+    fields: Value<Vec<ListItem<K>>>,
+    filters: Binding<Vec<SearchFilter<K>>>,
+    editor: kivact::state::MachineHandle<SearchMachine<K>>,
+) -> impl IntoView {
+    let entries =
+        kivact::state::memo(move || filters.with(|filters| (0..filters.len()).collect::<Vec<_>>()));
+    for_each(
+        entries,
+        |index| *index,
+        move |entry| {
+            let index = entry.get_untracked();
+            let name = kivact::state::memo(move || {
+                filters.with(|entries| {
+                    entries
+                        .get(index)
+                        .map(|entry| {
+                            let name = fields
+                                .with(|fields| {
+                                    fields
+                                        .iter()
+                                        .find(|item| item.key() == &entry.field)
+                                        .map(|item| item.label())
+                                })
+                                .unwrap_or_default();
+                            format!("{} {}", name, entry.value)
+                        })
+                        .unwrap_or_default()
+                })
+            });
+            let edit = button(name)
+                .variant(ButtonVariant::Ghost)
+                .on_press(move || {
+                    if let Some(filter) = filters.with(|entries| entries.get(index).cloned()) {
+                        editor.send(SearchEvent::Edit(index, filter));
+                    }
+                });
+            let remove = button(move || format!("Remove {}", name.get()))
+                .variant(ButtonVariant::Ghost)
+                .hide_label(true)
+                .icon(icon("x"))
+                .on_press(move || {
+                    let mut entries = filters.get_untracked();
+                    if index < entries.len() {
+                        entries.remove(index);
+                        filters.set(entries);
+                    }
+                });
+            row((edit, remove)).style(move || {
+                let t = kivact::style::use_tokens::<crate::Tokens>();
+                style()
+                    .height(28)
+                    .align_items(Align::Center)
+                    .radius(t.radius.element)
+                    .background(t.colors.accent_muted)
+            })
+        },
+    )
 }

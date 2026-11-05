@@ -59,6 +59,7 @@ pub enum ToolStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+// xtask-allow(state-fields): Passive application-owned execution records; identity, result and diagnostic metadata are not a local lifecycle model.
 /// Application-owned identity, execution result and optional diagnostics for one tool call.
 pub struct ToolCall {
     /// Stable identity used when reconciling tool-call rows.
@@ -184,6 +185,33 @@ fn disclosure_style() -> kivact::style::Style {
 }
 
 fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<String>) {
+    let (pending, running, result, status_label) = tool_status(call, visible);
+    let (label, target, duration) = tool_labels(call);
+    let (additions, deletions) = tool_diff(call);
+    (
+        row((
+            pending, running, result, label, target, additions, deletions, duration,
+        ))
+        .style(move || {
+            style()
+                .gap(6)
+                .min_height(24)
+                .min_width(0)
+                .align_items(Align::Center)
+                .color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_secondary,
+                )
+        }),
+        status_label,
+    )
+}
+
+fn tool_status(
+    call: Value<ToolCall>,
+    visible: Value<bool>,
+) -> (impl IntoView, impl IntoView, Node, Value<String>) {
     let pending = message("soft.chat.tool_calls.pending", "Pending");
     let running = message("soft.chat.tool_calls.running", "Running");
     let complete = message("soft.chat.tool_calls.complete", "Complete");
@@ -232,6 +260,10 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
                 p.colors.text_success
             })
     });
+    (pending, running, result, status_label)
+}
+
+fn tool_labels(call: Value<ToolCall>) -> (Node, Node, Node) {
     let label = text(move || call.with(|call| call.name.clone())).style(move || {
         style()
             .font_family(
@@ -257,6 +289,10 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
         call.with(|call| call.status != ToolStatus::Complete || call.duration.is_none())
     })
     .style(style().single_line().shrink(0));
+    (label, target, duration)
+}
+
+fn tool_diff(call: Value<ToolCall>) -> (Node, Node) {
     let additions = text(move || call.with(|call| format!("+{}", call.additions)))
         .hidden(move || call.with(|call| call.additions == 0))
         .style(move || {
@@ -281,24 +317,7 @@ fn tool_summary(call: Value<ToolCall>, visible: Value<bool>) -> (Node, Value<Str
                 .single_line()
                 .shrink(0)
         });
-    (
-        row((
-            pending, running, result, label, target, additions, deletions, duration,
-        ))
-        .style(move || {
-            style()
-                .gap(6)
-                .min_height(24)
-                .min_width(0)
-                .align_items(Align::Center)
-                .color(
-                    kivact::style::use_tokens::<crate::Tokens>()
-                        .colors
-                        .text_secondary,
-                )
-        }),
-        status_label,
-    )
+    (additions, deletions)
 }
 
 fn tool_chevron(open: impl IntoValue<bool>) -> Node {
@@ -333,7 +352,6 @@ impl IntoView for ChatToolCalls {
             move |shown| open.set(shown),
         );
         let disclosure = use_disclosure(rows_open);
-        let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
         let title = label.unwrap_or_else(|| {
             message_with(
                 "soft.chat.tool_calls.group_label",
@@ -341,130 +359,9 @@ impl IntoView for ChatToolCalls {
                 move || [("count", calls.with(Vec::len).to_string())],
             )
         });
-        let latest = memo(move || {
-            if multiple.get() && !open.get() {
-                calls.with(|calls| calls.last().cloned())
-            } else {
-                None
-            }
-        });
-        let preview = show_some(latest, move |call| {
-            let (summary, _) = tool_summary(call, true.into_value());
-            row((
-                summary.style(style().grow(1).min_width(0)),
-                icon("wrench").style(style().size(12, 12).shrink(0)),
-                text(move || calls.with(|calls| calls.len().to_string())).style(style().shrink(0)),
-            ))
-            .style(
-                style()
-                    .gap(4)
-                    .align_items(Align::Center)
-                    .grow(1)
-                    .min_width(0),
-            )
-        });
-        let heading = show(
-            move || open.get() && multiple.get(),
-            move || {
-                row((icon("wrench").style(style().size(16, 16)), text(title))).style(
-                    style()
-                        .gap(6)
-                        .align_items(Align::Center)
-                        .grow(1)
-                        .min_width(0),
-                )
-            },
-        );
-        let trigger = node()
-            .with_node(move |node| node.part(disclosure.trigger()))
-            .name(title)
-            .hidden(move || !multiple.get())
-            .with_node(move |node| node.base_style(disclosure_style))
-            .child((preview, heading, tool_chevron(open)));
+        let trigger = tool_group_trigger(calls, open, multiple, disclosure, title);
         let rows_visible = rows_open.into_value();
-        let items = show(disclosure.is_open(), move || {
-            let detail = detail.clone();
-            let items = for_each(
-                calls,
-                |call| call.key.clone(),
-                move |call| {
-                    let (summary, status) = tool_summary(call, rows_visible);
-                    let error = text(message_with(
-                        "soft.chat.tool_calls.error",
-                        "Error: {message}",
-                        move || {
-                            [(
-                                "message",
-                                call.with(|call| call.error.clone().unwrap_or_default()),
-                            )]
-                        },
-                    ))
-                    .hidden(move || call.with(|call| call.error.is_none()))
-                    .style(move || {
-                        style().padding_left(22).color(
-                            kivact::style::use_tokens::<crate::Tokens>()
-                                .colors
-                                .text_error,
-                        )
-                    });
-                    let summary = if let Some(detail) = &detail {
-                        let expanded = signal(false);
-                        let disclosure =
-                            use_disclosure(expanded).disabled(move || !rows_visible.get());
-                        let detail_label = message_with(
-                            "soft.chat.tool_calls.detail",
-                            "Details for {name}",
-                            move || [("name", call.with(|call| call.name.clone()))],
-                        );
-                        let trigger_ref = node_ref();
-                        let trigger = node()
-                            .with_node(move |node| node.part(disclosure.trigger()))
-                            .name(detail_label)
-                            .description(status)
-                            .node_ref(trigger_ref)
-                            .with_node(move |node| node.base_style(disclosure_style))
-                            .child((summary.style(style().grow(1)), tool_chevron(expanded)));
-                        let content = node()
-                            .with_node(move |node| node.role(Role::Group))
-                            .name(detail_label)
-                            .with_node(move |node| node.part(disclosure.content()))
-                            .hidden(move || !rows_visible.get() || !expanded.get())
-                            .on_key(move |event: KeyEvent| {
-                                if event.key() == Key::Escape {
-                                    expanded.set(false);
-                                    trigger_ref.restore_focus();
-                                    Handled::Yes
-                                } else {
-                                    Handled::No
-                                }
-                            })
-                            .style(style().padding_left(22).padding_bottom(8))
-                            .child(detail.call(call));
-                        column((trigger, error, content))
-                    } else {
-                        column((summary, error)).style(style().padding_x(6))
-                    };
-                    summary.with_node(move |node| node.role(Role::ListItem))
-                },
-            );
-            column(
-                column(items)
-                    .with_node(move |node| node.role(Role::List))
-                    .name(title)
-                    .style(style().gap(2).shrink(0)),
-            )
-            .with_node(move |node| node.role(Role::Group))
-            .with_node(move |node| node.part(disclosure.content()))
-            .style(
-                style()
-                    .enter_size(kivact::view::Orientation::Vertical)
-                    .exit_size(kivact::view::Orientation::Vertical)
-                    .transition(
-                        TransitionProp::Size,
-                        Transition::tween(motion.medium as f64, motion.ease_standard),
-                    ),
-            )
-        });
+        let items = tool_group_items(calls, rows_visible, disclosure, title, detail);
         root.hidden(move || calls.with(Vec::is_empty))
             .with_node(move |node| {
                 node.base_style(
@@ -732,4 +629,147 @@ impl Machine for StreamInput {
             StreamEvent::Tick,
         )
     }
+}
+
+fn tool_group_trigger(
+    calls: Value<Vec<ToolCall>>,
+    open: Binding<bool>,
+    multiple: Value<bool>,
+    disclosure: kivact::interaction::DisclosureApi,
+    title: Value<String>,
+) -> Node {
+    let latest = memo(move || {
+        if multiple.get() && !open.get() {
+            calls.with(|calls| calls.last().cloned())
+        } else {
+            None
+        }
+    });
+    let preview = show_some(latest, move |call| {
+        let (summary, _) = tool_summary(call, true.into_value());
+        row((
+            summary.style(style().grow(1).min_width(0)),
+            icon("wrench").style(style().size(12, 12).shrink(0)),
+            text(move || calls.with(|calls| calls.len().to_string())).style(style().shrink(0)),
+        ))
+        .style(
+            style()
+                .gap(4)
+                .align_items(Align::Center)
+                .grow(1)
+                .min_width(0),
+        )
+    });
+    let heading = show(
+        move || open.get() && multiple.get(),
+        move || {
+            row((icon("wrench").style(style().size(16, 16)), text(title))).style(
+                style()
+                    .gap(6)
+                    .align_items(Align::Center)
+                    .grow(1)
+                    .min_width(0),
+            )
+        },
+    );
+    node()
+        .with_node(move |node| node.part(disclosure.trigger()))
+        .name(title)
+        .hidden(move || !multiple.get())
+        .with_node(move |node| node.base_style(disclosure_style))
+        .child((preview, heading, tool_chevron(open)))
+}
+
+fn tool_group_items(
+    calls: Value<Vec<ToolCall>>,
+    rows_visible: Value<bool>,
+    disclosure: kivact::interaction::DisclosureApi,
+    title: Value<String>,
+    detail: Option<ToolDetails>,
+) -> impl IntoView {
+    let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
+    show(disclosure.is_open(), move || {
+        let detail = detail.clone();
+        let items = for_each(
+            calls,
+            |call| call.key.clone(),
+            move |call| tool_row(call, rows_visible, detail.clone()),
+        );
+        column(
+            column(items)
+                .with_node(move |node| node.role(Role::List))
+                .name(title)
+                .style(style().gap(2).shrink(0)),
+        )
+        .with_node(move |node| node.role(Role::Group))
+        .with_node(move |node| node.part(disclosure.content()))
+        .style(
+            style()
+                .enter_size(kivact::view::Orientation::Vertical)
+                .exit_size(kivact::view::Orientation::Vertical)
+                .transition(
+                    TransitionProp::Size,
+                    Transition::tween(motion.medium as f64, motion.ease_standard),
+                ),
+        )
+    })
+}
+
+fn tool_row(call: Value<ToolCall>, rows_visible: Value<bool>, detail: Option<ToolDetails>) -> Node {
+    let (summary, status) = tool_summary(call, rows_visible);
+    let error = text(message_with(
+        "soft.chat.tool_calls.error",
+        "Error: {message}",
+        move || {
+            [(
+                "message",
+                call.with(|call| call.error.clone().unwrap_or_default()),
+            )]
+        },
+    ))
+    .hidden(move || call.with(|call| call.error.is_none()))
+    .style(move || {
+        style().padding_left(22).color(
+            kivact::style::use_tokens::<crate::Tokens>()
+                .colors
+                .text_error,
+        )
+    });
+    let summary = if let Some(detail) = &detail {
+        let expanded = signal(false);
+        let disclosure = use_disclosure(expanded).disabled(move || !rows_visible.get());
+        let detail_label = message_with(
+            "soft.chat.tool_calls.detail",
+            "Details for {name}",
+            move || [("name", call.with(|call| call.name.clone()))],
+        );
+        let trigger_ref = node_ref();
+        let trigger = node()
+            .with_node(move |node| node.part(disclosure.trigger()))
+            .name(detail_label)
+            .description(status)
+            .node_ref(trigger_ref)
+            .with_node(move |node| node.base_style(disclosure_style))
+            .child((summary.style(style().grow(1)), tool_chevron(expanded)));
+        let content = node()
+            .with_node(move |node| node.role(Role::Group))
+            .name(detail_label)
+            .with_node(move |node| node.part(disclosure.content()))
+            .hidden(move || !rows_visible.get() || !expanded.get())
+            .on_key(move |event: KeyEvent| {
+                if event.key() == Key::Escape {
+                    expanded.set(false);
+                    trigger_ref.restore_focus();
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
+            .style(style().padding_left(22).padding_bottom(8))
+            .child(detail.call(call));
+        column((trigger, error, content))
+    } else {
+        column((summary, error)).style(style().padding_x(6))
+    };
+    summary.with_node(move |node| node.role(Role::ListItem))
 }
