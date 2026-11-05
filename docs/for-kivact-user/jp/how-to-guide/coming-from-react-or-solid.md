@@ -2,13 +2,13 @@
 
 [English](../../en/how-to-guide/coming-from-react-or-solid.md)
 
-React や SolidJS を知っているなら、Kivact の概念のほとんどに対応するものがあります。このガイドでは、それらを 1 対 1 で対応づけ、大きな違いがただ 1 つであること(コンポーネントは、状態が変わるたびに実行される React のものではなく、Solid のように一度だけ実行されます)を説明し、Rust を書いたことがない開発者がつまずきやすい 5 つの細部を扱います。
+React や SolidJS を知っているなら、Kivact の概念のほとんどに対応するものがあります。このガイドでは、それらを 1 対 1 で対応づけ、大きな違いがただ 1 つであること(コンポーネントは、状態が変わるたびに実行される React のものではなく、Solid のように一度だけ実行されます)を説明し、Rust を書いたことがない開発者がつまずきやすい 7 つの細部を扱います。
 
 [チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
 
 ## 唯一の考え方: セットアップは一度だけ実行される
 
-Kivact のコンポーネントはただの関数です。親が画面を組み立てるときに**一度だけ**実行されます。状態を作り、部品をつなぎ、view を返します。その後は関数が再び実行されることはありません。シグナルが変わると、それを読んでいる画面の部分だけが更新されます。
+Kivact のコンポーネントはただの関数です。親が画面を組み立てるときに**一度だけ**実行されます。状態を作り、部品をつなぎ、view を返します。同じ mount の間、シグナルが変わっても関数全体は再実行されません。`show` の分岐などを取り外して作り直すと、その新しい mount では setup も実行されます。シグナルが変わると、それを読んでいる画面の部分だけが更新されます。
 
 ```tsx
 // React: クリックのたびに関数全体が再実行される。
@@ -57,10 +57,10 @@ mod tests {
 
 | 概念 | React | SolidJS | Kivact |
 | --- | --- | --- | --- |
-| コンポーネント | JSX を返す関数 | JSX を返す関数 | `impl IntoView` を返す関数 |
+| コンポーネント | JSX を返す関数 | JSX を返す関数 | 一つのルートは `impl Component`、複数のルートは `impl IntoView` を返す関数 |
 | props | props オブジェクト | props オブジェクト | 関数の引数。文字には `impl IntoText`、変化しうる値には `impl IntoValue<T>` |
 | 子 | `children` | `props.children` | `V: IntoView` 型の引数 |
-| コールバックの prop | `onSave` prop | `onSave` prop | `impl Fn() + 'static`(引数があれば `Fn(T)`)の引数。`callback(..)` で `Copy` なものを作る |
+| コールバックの prop | `onSave` prop | `onSave` prop | 引数なしは `impl Into<Callback<()>>`。payload 付きは `Fn(T) -> R` と `HandlerResult`。`callback(..)` は共有できる `Copy` ハンドルを返す |
 | 状態 | `useState` | `createSignal` | `signal(value)`。1 つの `Signal<T>` が `get`、`with`、`set`、`update` を持つ |
 | 派生値 | render 内の計算、`useMemo` | `createMemo` | 1 か所の利用ならクロージャ、共有やキャッシュなら `memo(..)` |
 | effect | `useEffect` | `createEffect` | `effect(..)`。最初の実行を飛ばすなら `effect_on(source, f)` |
@@ -71,14 +71,15 @@ mod tests {
 | context | `createContext`、`useContext` | `createContext`、`useContext` | `provide(value, \|\| child)` と `use_context::<T>()` |
 | 条件 | `cond && <A/>` | `<Show when>` | `show(cond, \|\| a)`、`show_some(option, \|v\| a)` |
 | 複数の分岐 | 三項演算子や `switch` | `<Switch>` | `dynamic(source, \|v\| match v { .. })` |
-| 一覧 | `key` 付きの `items.map(..)` | `<For>` | `for_each(items, \|i\| key, \|item\| row)` |
+| 一覧 | `key` 付きの `items.map(..)` | `<For>` | `for_each(items, \|item\| item.id, \|key, item\| view)` |
 | 位置による一覧 | `key={index}` | `<Index>` | `for_index(items, \|i, item\| row)` |
 | key | `key` prop | `For` の同一性 | `for_each` に渡す key の関数 |
 | 制御された入力 | `value` と `onChange` | `value` と `onInput` | 入力に渡す `Signal<String>`(または `Binding<T>`) |
 | エラー境界 | `ErrorBoundary` | `ErrorBoundary` | `error_boundary(..)` |
 | データの取得 | ライブラリーや `useEffect` | `createResource` | `resource(source, fetch)`、ユーザー操作には `action(..)` |
+| 状態機械 | `useReducer` と effect、timer | reducer と effect、timer | `Machine` の `transition` が `Step` を返し、runner が副作用を実行する |
 
-上の名前の多くは `use kivact::prelude::*;` で使えます。`callback`、`error_boundary`、`try_context` は `kivact::view` から、`effect_on` は `kivact` から import します。
+上の表の名前は `use kivact::prelude::*;` で使えます。`callback` と `effect_on` は状態の操作、`error_boundary` と `component` は view の組み立てに使いますが、利用のたびに個別の import を足す必要はありません。任意の context を調べる `try_use_context` は `kivact::state` から、builder の option に使う enum はそれぞれの module から import します。
 
 
 `Machine` は `useReducer` に effect と timer を足したものです。状態とイベントを明示し、
@@ -151,16 +152,18 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    // 画面が組み上がってから実行され、`query` が変わるたびに再実行される。
-    effect(move || {
-        println!("検索語: {}", query.get());
-    });
-    // このコンポーネントの node ができた後に一度だけ実行される。
-    on_mount(|| println!("マウントしました"));
-    // このコンポーネントが取り除かれたとき(分岐が閉じる、行が消える)に実行される。
-    on_cleanup(|| println!("なくなりました"));
+    component(move || {
+        // mount 後に実行され、`query` が変わるたびに再実行される。
+        effect(move || {
+            println!("検索語: {}", query.get());
+        });
+        // このコンポーネントの node ができた後に一度だけ実行される。
+        on_mount(|| println!("マウントしました"));
+        // このコンポーネントが取り除かれたとき(分岐が閉じる、行が消える)に実行される。
+        on_cleanup(|| println!("なくなりました"));
 
-    text(move || format!("検索語: {}", query.get()))
+        text(move || format!("検索語: {}", query.get()))
+    })
 }
 
 fn main() -> kivact::Result<()> {
@@ -170,7 +173,7 @@ fn main() -> kivact::Result<()> {
 
 - `effect` は、ログ、保存、UI の外にあるものとのやり取りといった副作用に使います。派生値を表示するために、あるシグナルを別のシグナルへ写すのには使わず、元の値をクロージャか `memo` の中で読みます。
 - effect の中で呼んだ `on_cleanup` は、effect が再実行される前と、取り除かれるときに実行されます。React の effect が返す関数と同じです。
-- 状態は、最も近い*構造的な境界*に属します。ルート、`show` の分岐、`for_each` の行、`provide`、`error_boundary` です。中で作ったシグナルは、その境界がなくなると解放されます。普通の関数呼び出しは境界を作りません。
+- 状態は、最も近い*構造的な境界*に属します。ルート、`show` の分岐、`for_each` の行、`provide`、`error_boundary`、`component` です。中で作ったシグナルは、その境界がなくなると解放されます。普通の関数呼び出しは境界を作りません。
 
 ## 条件、分岐、一覧
 
@@ -333,7 +336,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-## Rust の 5 つのポイント
+## Rust の 7 つのポイント
 
 ### 1. クロージャには `move` が必要
 
@@ -395,6 +398,36 @@ fn main() -> kivact::Result<()> {
 ```
 
 クロージャは、シグナルの中を指す `&str` を返せません。借用が `with` で終わるからです。所有する `String`(`n.clone()`、`format!(..)`)を返します。
+
+### 6. 数値を返すクロージャーは戻り値の型を合わせる
+
+`impl IntoValue<f64>` の入力には `f64` を返すクロージャーを渡します。Rust は、クロージャーが返す整数を自動で小数へ変換しません。`Signal<i32>` を使うなら、読み取ったところで `as f64` と書きます。エラーの trait 名だけを見るより、まずクロージャーの戻り値を確認すると原因を絞れます。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn width_sample(width: impl IntoValue<f64>) -> impl Component {
+    let width = width.into_value();
+    node().style(move || style().width(width.get()))
+}
+
+fn example() -> impl IntoView {
+    let columns = signal(3_i32);
+    width_sample(move || columns.get() as f64 * 40.0)
+}
+```
+
+### 7. prelude の名前を変数で隠さない
+
+`text`、`row`、`list`、`field` は関数名です。同じ scope で `let text = ...` と書くと、その後の `text(...)` は変数を関数として呼ぼうとし、E0618（expected function）になることがあります。行の callback の引数も `row` ではなく `item`、`todo` など、データの意味で名付けます。型の `Action` も、同名の独自型や import を置くと prelude の型が隠れます。混在させるときは `kivact::task::Action` と完全な path を書けます。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn heading_row(label: String) -> impl Component {
+    row((text(label), button("Open")))
+}
+```
 
 ### クロージャの引数に型が必要なとき
 

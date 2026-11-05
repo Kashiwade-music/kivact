@@ -117,6 +117,29 @@ mod tests {
 2. **描画の状態はコントローラーから読む。** `api.control_state()` は実際の対象に追従します。参照が必要なら `node_ref()` と `.node_ref(anchor)` で明示的に付けます。Part は振る舞いを付けます。
 3. **コントローラーがやることを繰り返さない。** 自前の `on_key` で Space を処理すると、コントロールが二重に反転します。自分の `on_press`、`on_key`、`on_pointer` は Part の既定動作より**先に**動きます。自分の処理だけ実行して既定動作を止めたいときは `Handled::PreventDefault`、すべてを止めたいときは `Handled::Yes` を返します。
 
+## Part を合成しても状態の持ち主を増やさない
+
+既存の Part に名前や構造を足したい場合は、`Part::new(state, apply)` で包めます。`state` には元の Part の読み取り用ハンドルをそのまま渡し、`apply` の中で実際のノードへ元の Part を取り付けます。表示のために別の `Signal<bool>` を作って状態をコピーする必要はありません。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::custom::Part;
+use kivact::interaction::use_button;
+
+fn action_tile(label: impl IntoText, action: impl Into<Callback<()>>) -> impl Component {
+    let label = label.into_text_value();
+    let control = use_button().control();
+    let state = control.state();
+    let named = Part::new(state, move |host| host.part(control).name(label));
+    node().part(named).on_press(action).child(text(label))
+        .style(move || style().padding(12).opacity(if state.get().pressed { 0.8 } else { 1.0 }))
+}
+```
+
+`Node` 固有の `part`、`role`、`checked`、`expanded`、`selected`、`value_text` は、実際に入力や意味を持つノードに設定します。独自ビルダーの外から変更する場合は `NodeBuilder::with_node` を使います。`Part::new` は入力を配送し直す仕組みではなく、同じノードへ設定を適用するための合成です。クリックとキーの既定動作は元のコントローラーに任せます。
+
+部品専用の owner が必要なら、コントローラーの作成を `component(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時には controller の cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
+
 ## キーボード操作つきでリストから選ぶ
 
 セグメントコントロールは、1 つが選ばれている選択肢の行です。`use_list` は選択、矢印キー、Home と End、ローミングタブストップ、読み上げソフト向けのリストのセマンティクスを提供します。キー、順序、見た目は呼び出し側が用意します。
@@ -325,7 +348,7 @@ mod tests {
 
 ドラッグは既定で押した瞬間に始まります。`.slop(10)` を足すと移動が 10 logical pixel を越えるまで待ち、`.axis_lock()` を足すと閾値を越えた最初の移動の軸に delta を固定します。`.track_velocity()` を足すと `DragUpdate.velocity` から直近 100 ms の速度を logical pixel/ms で読めます。指定しない場合、速度は 0 です。閾値を越える前に離した場合、開始・更新・終了・編集の callback は呼びません。既存の drag handle の setup 時に指定します。
 
-押した時点のアプリの値を payload に記録する場合は `.source_with(move || value.get_untracked())` を使います。受け付けた press ごとに factory を一度だけ呼びます。slop の判定待ちに入る場合も、その press の時点で記録し、同じ gesture の全 update で保持します。次に受け付けた press では取り直します。`.source(payload)` は setup 時に与えた固定の値を使います。
+押した時点のアプリの値を payload に記録する場合は `.source_with(move || value.get_untracked())` を使います。受け付けた press ごとに factory を一度だけ呼びます。slop の判定待ちに入る場合も、その press の時点で記録し、同じ gesture の全 update で保持します。次に受け付けた press では取り直します。`.source(payload)` は setup 時に与えた固定の値を使います。次の例も `source_with` で押下時点の値を記録し、更新ごとにその値へ delta を足します。別のシグナルでドラッグ開始値を保持しません。
 
 `drag.active_payload()` は、待機中・ドラッグ中の同じ press 時点の snapshot を、読み取り専用の `Value<Option<T>>` で返します。離した後は `None` です。このメソッドだけが `T: PartialEq` を必要とし、factory を呼び直したり payload の別の保存先を作ったりしません。部品の作成者は `kivact::custom::Generation` で識別子を割り当て、数値の id を求める API には `.next().as_u64()` を渡せます。
 
@@ -342,16 +365,14 @@ use kivact::prelude::*;
 pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Component {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
-    let origin = signal(0.0);
-    let drag = use_drag::<()>(DragCoordinates::Window)
+    let drag = use_drag::<f64>(DragCoordinates::Window)
         .edit(edit, move || value.get_untracked())
-        .on_start(move |_| origin.set(value.get_untracked()))
-        .on_update(move |update: DragUpdate<()>| {
-            value.set(origin.get_untracked() + update.delta.x);
+        .on_update(move |update: DragUpdate<f64>| {
+            value.set(update.payload + update.delta.x);
         })
 ;
     let state = drag.source_state();
-    let source = drag.source(());
+    let source = drag.source_with(move || value.get_untracked());
     node()
         .part(source)
         .name(label)
@@ -564,7 +585,7 @@ binding は確定した値を受け取ります。IME の変換中は、エデ�
 
 ## 状態機械で振る舞いを書く
 
-`Machine` で状態とイベントを明示します。純粋な `transition` は、次の状態、実行する effect、
+`Machine` は React の `useReducer` に effect と timer を合わせたような仕組みです。複数の bool と timer callback を同期させる代わりに、状態とイベントを明示します。純粋な `transition` は、次の状態、実行する effect、
 遅延イベントを `Step` にまとめて返します。reactive な入力は `machine` の factory で読み、
 副作用は effect runner で実行します。ハンドルの `get()` で状態を読み、`send()` でイベントを送ります。
 タイマーは owner に属し、破棄時にキャンセルされます。
