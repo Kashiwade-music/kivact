@@ -65,7 +65,12 @@ impl IntoView for Badge {
             move || BadgeState { tone: tone.get() },
         )
         .child(self.icon)
-        .child(text(self.label))
+        .child(crate::layer::with_recipe_style(
+            text(self.label),
+            |r| r.badge_label_recipe(),
+            &self.variants,
+            move || BadgeState { tone: tone.get() },
+        ))
         .child(self.trailing)
         .into_view()
     }

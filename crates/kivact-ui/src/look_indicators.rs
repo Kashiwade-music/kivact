@@ -108,3 +108,7 @@ fn tone(tone: kivact_interaction::Tone) -> ColorToken {
         kivact_interaction::Tone::Danger => ColorToken::Danger,
     }
 }
+
+pub(super) fn badge_label(_: &Theme, _: &BadgeState) -> Style {
+    style()
+}
