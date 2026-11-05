@@ -22,6 +22,8 @@ pub struct CardState {
     pub selected: Option<bool>,
     pub disabled: bool,
     pub interactive: bool,
+    pub has_media: bool,
+    pub has_footer: bool,
 }
 
 /// The semantic state passed to every empty-state recipe.

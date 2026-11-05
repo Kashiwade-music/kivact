@@ -92,10 +92,14 @@ impl IntoView for Card {
             _ => None,
         };
         let interactive = !matches!(self.action, CardAction::Plain);
+        let has_media = self.media.is_some();
+        let has_footer = self.footer.is_some();
         let state = move || CardState {
             selected: selected.map(|selected| selected.get()),
             disabled: disabled.get(),
             interactive,
+            has_media,
+            has_footer,
         };
         let root = match self.action {
             CardAction::Plain => self.root,
@@ -153,7 +157,7 @@ impl IntoView for Card {
             )
         });
         with_base_recipe_style(root, |r| r.card_recipes().root_recipe(), variants, state)
-            .child((header, media, content, footer))
+            .child((media, header, content, footer))
             .into_view()
     }
 }

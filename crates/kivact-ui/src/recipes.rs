@@ -842,15 +842,15 @@ recipe_table! {
     /// Static list and item-row part recipes.
     ItemListRecipes {
         root(root_recipe): PartState = look_static_collections::list,
-        item(item_recipe): PartState = look_static_collections::item,
-        body(body_recipe): PartState = look_static_collections::item_body,
-        content(content_recipe): PartState = look_static_collections::content,
-        title(title_recipe): PartState = look_static_collections::title,
-        description(description_recipe): PartState = look_static_collections::description,
-        media(media_recipe): PartState = look_static_collections::media,
-        actions(actions_recipe): PartState = look_static_collections::actions,
-        header(header_recipe): PartState = look_static_collections::band,
-        footer(footer_recipe): PartState = look_static_collections::band,
+        item(item_recipe): crate::collection_values::ItemRowState = look_static_collections::item,
+        body(body_recipe): crate::collection_values::ItemRowState = look_static_collections::item_body,
+        content(content_recipe): crate::collection_values::ItemRowState = look_static_collections::content,
+        title(title_recipe): crate::collection_values::ItemRowState = look_static_collections::title,
+        description(description_recipe): crate::collection_values::ItemRowState = look_static_collections::description,
+        media(media_recipe): crate::collection_values::ItemRowState = look_static_collections::media,
+        actions(actions_recipe): crate::collection_values::ItemRowState = look_static_collections::actions,
+        header(header_recipe): crate::collection_values::ItemRowState = look_static_collections::band,
+        footer(footer_recipe): crate::collection_values::ItemRowState = look_static_collections::band,
     }
 }
 recipe_table! {

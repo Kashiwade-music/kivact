@@ -59,7 +59,7 @@ pub(super) fn list(t: &Theme, _: &PartState) -> Style {
         .width(pct(100))
         .gap(t.ext::<UiTokens>().item_list.gap.unwrap_or(t.space().xs))
 }
-pub(super) fn item(t: &Theme, _: &PartState) -> Style {
+pub(super) fn item(t: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style()
         .direction(Direction::Column)
         .padding(
@@ -77,13 +77,13 @@ pub(super) fn item(t: &Theme, _: &PartState) -> Style {
         .selected(style().background(ColorToken::Selection))
         .focus_visible(style().ring(t.focus_ring(), ColorToken::Focus))
 }
-pub(super) fn content(_: &Theme, _: &PartState) -> Style {
+pub(super) fn content(_: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style().direction(Direction::Column).grow(1).min_width(0)
 }
-pub(super) fn title(_: &Theme, _: &PartState) -> Style {
+pub(super) fn title(_: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style().weight(500)
 }
-pub(super) fn description(t: &Theme, _: &PartState) -> Style {
+pub(super) fn description(t: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style()
         .font_size(
             t.ext::<UiTokens>()
@@ -93,20 +93,20 @@ pub(super) fn description(t: &Theme, _: &PartState) -> Style {
         )
         .color(ColorToken::TextMuted)
 }
-pub(super) fn media(_: &Theme, _: &PartState) -> Style {
+pub(super) fn media(_: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style().shrink(0).align_self(Align::Center)
 }
-pub(super) fn actions(_: &Theme, _: &PartState) -> Style {
+pub(super) fn actions(_: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style()
         .direction(Direction::Row)
         .shrink(0)
         .align_items(Align::Center)
 }
-pub(super) fn band(_: &Theme, _: &PartState) -> Style {
+pub(super) fn band(_: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style().direction(Direction::Row).width(pct(100))
 }
 
-pub(super) fn item_body(t: &Theme, _: &PartState) -> Style {
+pub(super) fn item_body(t: &Theme, _: &crate::collection_values::ItemRowState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)

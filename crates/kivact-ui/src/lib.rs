@@ -241,8 +241,8 @@ mod date_wheel;
 mod time_input;
 pub use time_input::{TimeInput, time_input};
 
-mod date_range_input;
 mod date_range_draft;
+mod date_range_input;
 pub use date_range_input::{DateRangeInput, DateRangePreset, date_range_input};
 
 mod date_time_input;
@@ -393,7 +393,7 @@ mod collection_values;
 mod component_values;
 mod hover_card_values;
 pub use collection_values::{
-    ItemListTokens, TableTokens, ToolbarEdge, ToolbarState, ToolbarTokens, TreeTokens,
+    ItemListTokens, ItemRowState, TableTokens, ToolbarEdge, ToolbarState, ToolbarTokens, TreeTokens,
 };
 pub use component_values::{
     AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
