@@ -214,31 +214,12 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let today = shared.today;
     let marks = shared.marks.clone();
     let weekend = shared.weekend.clone();
-    let events = shared.events;
     let button = with_recipe_style(
         node()
             .with_node(|root| root.part(cell))
             .selected(move || marked.get().selected)
             .child(text(day.day().to_string()))
-            .child(kivact_core::view::dynamic(
-                move || {
-                    events
-                        .get()
-                        .into_iter()
-                        .filter(|event| event.date == day)
-                        .take(3)
-                        .collect::<Vec<_>>()
-                },
-                move |events| {
-                    row(events
-                        .into_iter()
-                        .map(|event| {
-                            node().style(style().size(3, 3).radius(2).background(event.color))
-                        })
-                        .collect::<Vec<_>>())
-                    .style(style().position(Position::Absolute).bottom(2).gap(2))
-                },
-            )),
+            .child(event_marks(shared, day, marked)),
         |r| r.calendar_recipes().day_recipe(),
         &shared.variants,
         move || crate::CalendarDayVisual {
@@ -260,5 +241,47 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             .position(Position::Relative)
             .size(cell_size(), cell_size())
             .shrink(0),
+    )
+}
+
+fn event_marks(
+    shared: &Shared,
+    day: CalendarDate,
+    marked: kivact_core::state::Value<kivact_interaction::CalendarDayState>,
+) -> Node {
+    let events = shared.events;
+    let variants = shared.variants.clone();
+    let contents = kivact_core::view::dynamic(
+        move || {
+            events
+                .get()
+                .into_iter()
+                .filter(|event| event.date == day)
+                .take(3)
+                .collect::<Vec<_>>()
+        },
+        move |events| {
+            events
+                .into_iter()
+                .map(|event| {
+                    with_recipe_style(
+                        node(),
+                        |r| r.calendar_recipes().event_recipe(),
+                        &variants,
+                        move || crate::CalendarEventVisual {
+                            color: event.color,
+                            selected: marked.get().edge,
+                        },
+                    )
+                    .into_view()
+                })
+                .collect::<Vec<_>>()
+        },
+    );
+    with_recipe_style(
+        node().child(contents),
+        |r| r.calendar_recipes().events_recipe(),
+        &shared.variants,
+        PartState::default,
     )
 }

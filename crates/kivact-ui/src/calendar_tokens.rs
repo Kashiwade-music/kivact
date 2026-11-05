@@ -15,3 +15,10 @@ impl Default for CalendarTokens {
         }
     }
 }
+
+/// Passive drawing projection for one calendar event mark.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CalendarEventVisual {
+    pub color: kivact_core::style::Color,
+    pub selected: bool,
+}
