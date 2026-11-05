@@ -11,7 +11,7 @@ use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
 use kivact_core::view::{Node, NodeBuilder, node};
-use kivact_interaction::{ScalarRange, use_splitter};
+use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
 
 // xtask-allow(state-fields): Setup-only NodeBuilder options; optional panes and observer are independent construction inputs.
 /// Two panes and a handle between them, created by [`splitter`].
@@ -25,6 +25,11 @@ pub struct Splitter {
     end: Option<View>,
     on_edit: Option<Callback<EditPhase>>,
     variants: Variants,
+    collapse: Option<f64>,
+    snaps: Option<Value<Vec<f64>>>,
+    pointer_scale: Value<f64>,
+    key_step: Option<f64>,
+    handle: Option<View>,
 }
 
 /// Two panes side by side with a themed handle between them, named `name`,
@@ -68,6 +73,11 @@ pub fn splitter(
         end: None,
         on_edit: None,
         variants: Variants::default(),
+        collapse: None,
+        snaps: None,
+        pointer_scale: 1.0.into_value(),
+        key_step: None,
+        handle: None,
     }
 }
 
@@ -89,6 +99,40 @@ impl Splitter {
 }
 
 impl Splitter {
+    /// Collapse on release below this fraction of the current range.
+    pub fn collapsible(mut self, threshold: impl Into<f64>) -> Self {
+        self.collapse = Some(threshold.into());
+        self
+    }
+
+    /// Snap on release to the nearest fraction of the current range.
+    pub fn snaps(mut self, stops: impl IntoValue<Vec<f64>>) -> Self {
+        self.snaps = Some(stops.into_value());
+        self
+    }
+
+    /// Scale pointer travel into the caller's size units.
+    pub fn pointer_scale(mut self, scale: impl IntoValue<f64>) -> Self {
+        self.pointer_scale = scale.into_value();
+        self
+    }
+
+    /// Set a positive finite keyboard step in the caller's size units.
+    pub fn key_step(mut self, step: impl Into<f64>) -> Result<Self, ScalarRangeError> {
+        let step = step.into();
+        if !step.is_finite() || step <= 0.0 {
+            return Err(ScalarRangeError::InvalidStep);
+        }
+        self.key_step = Some(step);
+        Ok(self)
+    }
+
+    /// Supply the handle's visual content; its canonical input part stays attached.
+    pub fn handle(mut self, content: impl IntoView) -> Self {
+        self.handle = Some(content.into_view());
+        self
+    }
+
     /// The direction the panes are laid out in (default
     /// [`Orientation::Horizontal`]: side by side, `size` is the leading pane's
     /// width). [`Orientation::Vertical`] stacks them top to bottom and `size`
@@ -138,6 +182,11 @@ impl IntoView for Splitter {
             end,
             on_edit,
             variants,
+            collapse,
+            snaps,
+            pointer_scale,
+            key_step,
+            handle,
         } = self;
         let vertical = orientation == Orientation::Vertical;
         let axis = if vertical {
@@ -150,6 +199,18 @@ impl IntoView for Splitter {
                 on_edit.call(phase);
             }
         });
+        behavior = behavior.pointer_scale(pointer_scale);
+        if let Some(threshold) = collapse {
+            behavior = behavior.collapsible(threshold);
+        }
+        if let Some(stops) = snaps {
+            behavior = behavior.snaps(stops);
+        }
+        if let Some(step) = key_step {
+            behavior = behavior
+                .key_step(step)
+                .expect("invariant: setup validated the keyboard step");
+        }
         // `.disabled(..)` on the splitter ignores input and assistive
         // technology and cancels a drag in progress.
         if let Some(disabled) = root.accessible_disabled() {
@@ -164,7 +225,7 @@ impl IntoView for Splitter {
         };
         let primary = node_ref();
         let handle = with_recipe_style(
-            node().part(part).name(name).controls(primary),
+            node().part(part).name(name).controls(primary).child(handle),
             |r| r.splitter_recipes().handle_recipe(),
             &variants,
             move || AxisState {

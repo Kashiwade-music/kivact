@@ -70,7 +70,6 @@ mod recipes_menu;
 mod recipes_popup;
 mod recipes_popup_command;
 mod recipes_select;
-mod resizable;
 mod rich_block_doc;
 mod rich_blocks;
 pub mod rich_text;
@@ -198,15 +197,8 @@ pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
-pub use resizable::{
-    PillPlacement, ResizableConfig, ResizableState, ResizeHandle, ResizeSize, resize_handle,
-    use_resizable,
-};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
-pub use scrollable_area::{
-    AxisScroll, OverflowOptions, ScrollAxis, ScrollOverflow, ScrollState, ScrollableArea,
-    scrollable_area, use_overflow, use_scroll_overflow, use_scroll_state,
-};
+pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
 pub use segmented_control::{
     Segmented, SegmentedControl, SegmentedIconOnly, SegmentedLayout, segmented_control,

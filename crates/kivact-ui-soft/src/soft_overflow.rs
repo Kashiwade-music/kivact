@@ -29,6 +29,12 @@ use kivact::view::for_each;
 use kivact::view::node_ref;
 use kivact::view::show;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OverflowFit {
+    Measuring,
+    Fitted { visible: usize },
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CollapseFrom {
     Start,
@@ -225,7 +231,7 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
                 let floor = min_visible.get().min(items.len());
                 let ceiling = max_visible.get().max(floor).min(items.len());
                 let Some(rect) = rect.get() else {
-                    return ceiling;
+                    return OverflowFit::Measuring;
                 };
                 let widths: Vec<_> = match &item_width {
                     Some(width) => items.iter().map(width).collect(),
@@ -254,15 +260,20 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
                         ),
                     };
                     if fit {
-                        return count;
+                        return OverflowFit::Fitted { visible: count };
                     }
                 }
-                floor
+                OverflowFit::Fitted { visible: floor }
             })
         });
         let visible = memo(move || {
             items.with(|items| {
-                let count = split.get().min(items.len());
+                let count = match split.get() {
+                    OverflowFit::Measuring => {
+                        max_visible.get().max(min_visible.get()).min(items.len())
+                    }
+                    OverflowFit::Fitted { visible } => visible.min(items.len()),
+                };
                 match collapse_from.get() {
                     CollapseFrom::Start => items[items.len() - count..].to_vec(),
                     CollapseFrom::End => items[..count].to_vec(),
@@ -271,7 +282,12 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
         });
         let hidden = memo(move || {
             items.with(|items| {
-                let count = split.get().min(items.len());
+                let count = match split.get() {
+                    OverflowFit::Measuring => {
+                        max_visible.get().max(min_visible.get()).min(items.len())
+                    }
+                    OverflowFit::Fitted { visible } => visible.min(items.len()),
+                };
                 match collapse_from.get() {
                     CollapseFrom::Start => items[..items.len() - count].to_vec(),
                     CollapseFrom::End => items[count..].to_vec(),
