@@ -282,6 +282,7 @@ impl DateInput {
             ..
         } = self;
         let open = kivact_core::state::signal(false);
+        let focus = attach.focus;
         let content = move || {
             let selected = binding(value, move |next| {
                 value.set(next);
@@ -289,6 +290,7 @@ impl DateInput {
                     valid.set(true);
                 }
                 open.set(false);
+                focus.restore_focus();
             });
             let mut picker = calendar(selected).min(min).max(max).autofocus(true);
             if let Some(day) = week_start {
@@ -303,12 +305,14 @@ impl DateInput {
                 picker.into_view()
             }
         };
-        root.child(attach(
-            dialog(label, open)
-                .mode(presentation.mode())
-                .hide_title(true)
-                .content(content),
-        ))
+        root.child(
+            attach.view(
+                dialog(label, open)
+                    .mode(presentation.mode())
+                    .hide_title(true)
+                    .content(content),
+            ),
+        )
         .into_view()
     }
 }

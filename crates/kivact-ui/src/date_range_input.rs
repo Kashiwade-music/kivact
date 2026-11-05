@@ -194,6 +194,10 @@ impl DateRangeInput {
             }
         });
         let open = signal(false);
+        let trigger_focus = match &field {
+            crate::date_trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
+            crate::date_trigger::FieldPresentation::Text => None,
+        };
         let content = move || {
             let local = signal(value.get_untracked());
             let accepted = accept.clone();
@@ -206,6 +210,9 @@ impl DateRangeInput {
                     if let Some(next) = local.get_untracked().filter(|next| accepted(*next)) {
                         value.set(Some(next));
                         open.set(false);
+                        if let Some(focus) = trigger_focus {
+                            focus.restore_focus();
+                        }
                     }
                 });
             if let Some(day) = week_start {
@@ -228,6 +235,9 @@ impl DateRangeInput {
                                     if accepted(range) {
                                         value.set(Some(range));
                                         open.set(false);
+                                        if let Some(focus) = trigger_focus {
+                                            focus.restore_focus();
+                                        }
                                     }
                                 })
                             })
@@ -240,12 +250,14 @@ impl DateRangeInput {
 
         if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
             return root
-                .child(attach(
-                    dialog(label, open)
-                        .mode(presentation.mode())
-                        .hide_title(true)
-                        .content(content),
-                ))
+                .child(
+                    attach.view(
+                        dialog(label, open)
+                            .mode(presentation.mode())
+                            .hide_title(true)
+                            .content(content),
+                    ),
+                )
                 .into_view();
         }
         let start = binding(
