@@ -10,9 +10,9 @@
 //! `kivact::ui::dialog` of the kinds `Modal`, `AlertModal` (its width class
 //! is [`AlertDialogSize`]), `Drawer(side)` and `Popover`, and a dropdown or
 //! context menu is the standard `kivact::ui::menu` (`.attach(trigger)` or
-//! `.attach_context(target)`), all in this look. The kit's own overlays
-//! ([`hover_card`], [`drawer`]) draw nothing at the place they are used; a
-//! hover card is attached to the caller's own trigger with
+//! `.attach_context(target)`), all in this look. Standard dialogs draw
+//! their overlay away from the place they are used; a
+//! standard `kivact::ui::hover_card` is attached to the caller's own trigger with
 //! `.attach(trigger)`, which returns the trigger and the overlay.
 //!
 //! A slot method that places content in a component (`content`, `header`,
@@ -51,22 +51,18 @@ mod avatar;
 mod badge;
 mod breadcrumb;
 mod button;
-mod button_group;
 mod calendar;
 mod card;
-mod carousel;
 mod chart;
 mod chat;
 mod choice;
 mod code_block;
 mod color;
-mod combobox;
 mod date_picker;
 mod disclosure;
 mod drawer;
 mod empty;
 mod field;
-mod hover_card;
 mod icons;
 mod input_group;
 mod input_otp;
@@ -85,10 +81,12 @@ mod primitives;
 mod questionnaire;
 mod recipes;
 mod recipes_collections;
+mod recipes_combobox;
 mod recipes_command;
 mod recipes_controls;
 mod recipes_dialog;
 mod recipes_field;
+mod recipes_groups;
 mod recipes_menu;
 mod recipes_popup;
 mod scroll_area;
@@ -106,14 +104,12 @@ pub use attachment::{
     attachment_action, attachment_group,
 };
 pub use avatar::{Avatar, AvatarSize, avatar, avatar_group, avatar_group_count};
-pub use badge::{Badge, BadgeVariant, badge};
+pub use badge::BadgeVariant;
 pub use breadcrumb::{
     BreadcrumbLink, breadcrumb, breadcrumb_content, breadcrumb_ellipsis, breadcrumb_link,
     breadcrumb_page, breadcrumb_separator,
 };
-pub use button_group::{ButtonGroup, button_group, button_group_separator, button_group_text};
 pub use card::{Card, CardHeader, CardSize, card, card_header};
-pub use carousel::{Carousel, carousel};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
 pub use chat::{
     Bubble, BubbleAlign, BubbleReactionsSide, BubbleVariant, Message, MessageAlign, bubble,
@@ -145,20 +141,18 @@ pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
 
 pub use alert_dialog::AlertDialogSize;
 pub use calendar::{Calendar, CalendarCaption, calendar, calendar_range};
-pub use choice::{ToggleGroup, ToggleVariant, toggle_group};
+pub use choice::ToggleVariant;
 pub use code_block::{
     CodeBlock, CodeBlockSize, CodeLine, CodeSpan, CodeTone, code_block, code_lines, rust_lines,
 };
 pub use color::ColorName;
-pub use combobox::{Combobox, combobox};
 pub use date_picker::{DatePicker, DateRangePicker, date_picker, date_range_picker};
-pub use disclosure::{Collapsible, collapsible};
-pub use drawer::{Drawer, drawer};
+pub use disclosure::DisclosureVariant;
+pub use drawer::DrawerVariant;
 pub use field::{
     FieldLegendVariant, FieldSeparator, FieldSet, field_content, field_group, field_separator,
     field_set,
 };
-pub use hover_card::{HoverCard, hover_card};
 pub use icons::ICON_NAMES;
 pub use input_group::{
     InputGroup, InputGroupButton, InputGroupButtonSize, input_group, input_group_button,
@@ -167,7 +161,7 @@ pub use input_group::{
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
 pub use primitives::{
-    Label, Separator, Skeleton, aspect_ratio, kbd, kbd_group, label, separator, skeleton, spinner,
+    Label, Separator, aspect_ratio, label, separator,
 };
 pub use questionnaire::{
     Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,

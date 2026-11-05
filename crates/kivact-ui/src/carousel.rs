@@ -7,6 +7,20 @@ use kivact_core::view::{
     ScrollBehavior, View, node, node_ref, use_direction,
 };
 pub use kivact_interaction::Snap;
+/// Passive navigation and layout facts supplied to carousel recipes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CarouselSurfaceState {
+    pub state: kivact_interaction::CarouselState,
+    pub orientation: Orientation,
+    pub direction: ReadingDirection,
+}
+impl std::ops::Deref for CarouselSurfaceState {
+    type Target = kivact_interaction::CarouselState;
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
 use kivact_interaction::use_carousel;
 /// The structural layout used by a carousel.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -292,7 +306,11 @@ impl IntoView for Carousel {
                     node(),
                     |r| r.carousel_recipes().slide_recipe(),
                     &variants,
-                    move || state.get(),
+                    move || CarouselSurfaceState {
+                        state: state.get(),
+                        orientation: orientation.get(),
+                        direction: rtl.get(),
+                    },
                 )
                 .node_ref(refs[at])
                 .with_node(|n| n.role(Role::Group))
@@ -317,7 +335,11 @@ impl IntoView for Carousel {
             node(),
             |r| r.carousel_recipes().track_recipe(),
             &variants,
-            move || state.get(),
+            move || CarouselSurfaceState {
+                state: state.get(),
+                orientation: orientation.get(),
+                direction: rtl.get(),
+            },
         )
         .node_ref(track)
         .style(move || {
@@ -354,7 +376,11 @@ impl IntoView for Carousel {
             node(),
             |r| r.carousel_recipes().viewport_recipe(),
             &variants,
-            move || state.get(),
+            move || CarouselSurfaceState {
+                state: state.get(),
+                orientation: orientation.get(),
+                direction: rtl.get(),
+            },
         )
         .node_ref(viewport)
         .style(move || {
@@ -429,6 +455,16 @@ impl IntoView for Carousel {
         let previous_go = go.clone();
         let next_go = go.clone();
         let previous = crate::button("Previous slide")
+            .hide_label(true)
+            .icon(kivact_core::view::icon(move || {
+                kivact_core::style::Icon::named(if vertical.get() {
+                    "chevron-up"
+                } else if rtl.get() == ReadingDirection::Rtl {
+                    "chevron-right"
+                } else {
+                    "chevron-left"
+                })
+            }))
             .hidden(move || !buttons.get())
             .disabled(move || {
                 disabled.get()
@@ -447,6 +483,16 @@ impl IntoView for Carousel {
             })
             .on_press(move || previous_go(-1));
         let next = crate::button("Next slide")
+            .hide_label(true)
+            .icon(kivact_core::view::icon(move || {
+                kivact_core::style::Icon::named(if vertical.get() {
+                    "chevron-down"
+                } else if rtl.get() == ReadingDirection::Rtl {
+                    "chevron-left"
+                } else {
+                    "chevron-right"
+                })
+            }))
             .hidden(move || !buttons.get())
             .disabled(move || {
                 disabled.get()
@@ -468,19 +514,31 @@ impl IntoView for Carousel {
             previous,
             |r| r.carousel_recipes().previous_recipe(),
             &variants,
-            move || state.get(),
+            move || CarouselSurfaceState {
+                state: state.get(),
+                orientation: orientation.get(),
+                direction: rtl.get(),
+            },
         );
         let next = crate::layer::with_recipe_style(
             next,
             |r| r.carousel_recipes().next_recipe(),
             &variants,
-            move || state.get(),
+            move || CarouselSurfaceState {
+                state: state.get(),
+                orientation: orientation.get(),
+                direction: rtl.get(),
+            },
         );
         crate::layer::with_base_recipe_style(
             root,
             |r| r.carousel_recipes().root_recipe(),
             &variants,
-            move || state.get(),
+            move || CarouselSurfaceState {
+                state: state.get(),
+                orientation: orientation.get(),
+                direction: rtl.get(),
+            },
         )
         .with_node(|n| n.role(Role::Group))
         .focusable(move || !disabled.get())

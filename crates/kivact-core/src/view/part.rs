@@ -118,6 +118,27 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             availability.set(None);
         });
     });
+    let mut common = input_observers(input, focused, enabled);
+    let binding = PartBinding {
+        node,
+        hooks: vec![Rc::new(move |mount| {
+            mounted(mount);
+            Ok(())
+        })],
+    };
+    Part::new(state, move |mut target| {
+        common.node_ref.insert(0, node);
+        common.part_bindings.insert(0, binding);
+        target.common.attach_part(common);
+        target
+    })
+}
+
+fn input_observers(
+    input: crate::state::Signal<PartInput>,
+    focused: Value<bool>,
+    enabled: impl Fn() -> bool + Copy + 'static,
+) -> Common {
     let mut common = Common::default();
     common.handlers.key.observer(move |event| {
         if matches!(event.key(), Key::Space | Key::Enter) && focused.get_untracked() && enabled() {
@@ -158,19 +179,7 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             }),
             _ => {}
         });
-    let binding = PartBinding {
-        node,
-        hooks: vec![Rc::new(move |mount| {
-            mounted(mount);
-            Ok(())
-        })],
-    };
-    Part::new(state, move |mut target| {
-        common.node_ref.insert(0, node);
-        common.part_bindings.insert(0, binding);
-        target.common.attach_part(common);
-        target
-    })
+    common
 }
 
 impl<S: kivact_runtime::PropValue> Part<S> {

@@ -27,6 +27,7 @@ pub enum EditOutcome {
     Paste,
 }
 
+// xtask-allow(state-fields): These independent native editing constraints and optional geometry are a borrowed request snapshot.
 /// What an editing behavior is given beside the state and the request:
 /// the editor's native constraints and its laid-out lines.
 ///

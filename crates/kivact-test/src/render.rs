@@ -82,8 +82,10 @@ pub fn render_with_handle<H: 'static, V: IntoView>(
 
 /// Why a native embedded test cannot run on this platform.
 pub fn native_unavailable() -> Option<&'static str> {
+    // xtask-allow(os-branch): Native test environment detection requires an X11 display on Linux.
     if cfg!(target_os = "linux") && std::env::var_os("DISPLAY").is_none() {
         Some("native embedded tests require an X11 display")
+    // xtask-allow(os-branch): Native test parent support is limited to Windows and Linux.
     } else if cfg!(any(windows, target_os = "linux")) {
         None
     } else {

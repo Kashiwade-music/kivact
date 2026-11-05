@@ -229,10 +229,10 @@ impl CalendarGridApi {
                 attachment
                     .on_press(move || pointers.pick(day))
                     .on_pointer(move |event| {
-                        if let Choice::Range { pick, .. } = preview.choice {
-                            if event.phase() == kivact_core::view::PointerPhase::Move {
-                                pick.send(super::machine::Event::Preview(Some(day)));
-                            }
+                        if let Choice::Range { pick, .. } = preview.choice
+                            && event.phase() == kivact_core::view::PointerPhase::Move
+                        {
+                            pick.send(super::machine::Event::Preview(Some(day)));
                         }
                         Handled::No
                     });

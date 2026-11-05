@@ -129,6 +129,19 @@ impl NodeBuilder for DateInput {
 }
 impl IntoView for DateInput {
     fn into_view(self) -> View {
+        self.render(crate::date_trigger::FieldPresentation::Text)
+    }
+}
+impl DateInput {
+    /// Open the configured picker from a caller-owned button, without a text editor.
+    /// The trigger keeps its handlers, focus identity and accessible name.
+    pub fn attach<T: NodeBuilder + IntoView + 'static>(self, trigger: T) -> View {
+        self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
+    }
+    fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
+        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+            return self.render_trigger(attach);
+        }
         let Self {
             root,
             label,
@@ -250,6 +263,56 @@ impl IntoView for DateInput {
             &Variants::default(),
             PartState::default,
         ))
+        .into_view()
+    }
+}
+
+impl DateInput {
+    fn render_trigger(self, attach: crate::date_trigger::AttachTrigger) -> View {
+        let Self {
+            root,
+            label,
+            value,
+            valid,
+            min,
+            max,
+            week_start,
+            presentation,
+            configure,
+            ..
+        } = self;
+        let open = kivact_core::state::signal(false);
+        let focus = attach.focus;
+        let content = move || {
+            let selected = binding(value, move |next| {
+                value.set(next);
+                if let Some(valid) = valid {
+                    valid.set(true);
+                }
+                open.set(false);
+                focus.restore_focus();
+            });
+            let mut picker = calendar(selected).min(min).max(max).autofocus(true);
+            if let Some(day) = week_start {
+                picker = picker.week_start(day);
+            }
+            if let Some(configure) = &configure {
+                picker = configure(picker);
+            }
+            if presentation.sheet() {
+                crate::date_wheel::date_panel(selected, picker).into_view()
+            } else {
+                picker.into_view()
+            }
+        };
+        root.child(
+            attach.view(
+                dialog(label, open)
+                    .mode(presentation.mode())
+                    .hide_title(true)
+                    .content(content),
+            ),
+        )
         .into_view()
     }
 }

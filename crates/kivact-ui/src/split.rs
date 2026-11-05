@@ -286,16 +286,7 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
         next[at + 1] = pair - first;
         sizes.set(next);
     });
-    let range = memo(move || {
-        let s = shares_now.get();
-        let low: f64 = s[..at].iter().sum::<f64>() * 100.0;
-        let high: f64 = s[..at + 2].iter().sum::<f64>() * 100.0;
-        let least = min_size * 100.0;
-        ScalarRange::new(low + least, high - least)
-            .or_else(|_| ScalarRange::new(low, high))
-            .or_else(|_| ScalarRange::new(0.0, 100.0))
-            .expect("invariant: the whole 0 to 100 range is valid")
-    });
+    let range = memo(move || boundary_range(&shares_now.get(), at, min_size));
     let mut behavior = use_splitter(
         binding(position, move |value| write.try_call(value)),
         range,
@@ -346,4 +337,15 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
         state,
     )
     .child(show(grip, mark))
+}
+
+/// Constrain one boundary while preserving both panes' minimum shares.
+fn boundary_range(shares: &[f64], at: usize, min_size: f64) -> ScalarRange {
+    let low: f64 = shares[..at].iter().sum::<f64>() * 100.0;
+    let high: f64 = shares[..at + 2].iter().sum::<f64>() * 100.0;
+    let least = min_size * 100.0;
+    ScalarRange::new(low + least, high - least)
+        .or_else(|_| ScalarRange::new(low, high))
+        .or_else(|_| ScalarRange::new(0.0, 100.0))
+        .expect("invariant: the whole 0 to 100 range is valid")
 }

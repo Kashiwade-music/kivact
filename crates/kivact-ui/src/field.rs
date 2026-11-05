@@ -15,6 +15,7 @@ use kivact_core::state::{Value, memo};
 use kivact_core::view::{IntoView, Role, View, node_ref, show_some};
 use kivact_core::view::{Node, NodeBuilder, node, text};
 
+// xtask-allow(state-fields): Optional label hints and validation inputs configure a field; caller-owned values determine validity.
 /// A control with its visible label, hint and error, created by [`field`].
 ///
 /// The root is a column of the label, the control, the hint and the error

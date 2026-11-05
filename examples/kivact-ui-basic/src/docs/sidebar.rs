@@ -56,7 +56,7 @@ fn basic() -> impl IntoView {
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || basic::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
         column((
             row((
                 basic::sidebar_trigger(),
@@ -78,7 +78,7 @@ fn basic() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                basic::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
             ))
             .style(style().grow(1).padding(12).padding_top(0).gap(12)),
         ))
@@ -132,7 +132,7 @@ fn icon() -> impl IntoView {
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || basic::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
         column((
             row((
                 basic::sidebar_trigger(),
@@ -154,7 +154,7 @@ fn icon() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                basic::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
             ))
             .style(style().grow(1).padding(12).padding_top(0).gap(12)),
         ))
@@ -198,7 +198,7 @@ fn submenu() -> impl IntoView {
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || basic::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
         column((
             row((
                 basic::sidebar_trigger(),
@@ -220,7 +220,7 @@ fn submenu() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                basic::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
             ))
             .style(style().grow(1).padding(12).padding_top(0).gap(12)),
         ))
@@ -272,7 +272,7 @@ fn floating() -> impl IntoView {
     }
     /// The page beside the sidebar: a header row and a dashboard sketch.
     fn page_area(title: &'static str) -> impl IntoView {
-        let tile = || basic::skeleton().style(style().grow(1).height(56));
+        let tile = || kivact::ui::skeleton().style(style().grow(1).height(56));
         column((
             row((
                 basic::sidebar_trigger(),
@@ -294,7 +294,7 @@ fn floating() -> impl IntoView {
             ),
             column((
                 row((tile(), tile(), tile())).style(style().gap(12)),
-                basic::skeleton().style(style().grow(1).min_height(80)),
+                kivact::ui::skeleton().style(style().grow(1).min_height(80)),
             ))
             .style(style().grow(1).padding(12).padding_top(0).gap(12)),
         ))

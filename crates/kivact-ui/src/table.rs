@@ -5,13 +5,6 @@ use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{Justify, Length, TextAlign, style};
 use kivact_core::view::{IntoChildren, IntoView, Node, NodeBuilder, Role, View, node};
 
-/// Theme overrides for static tables.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct TableTokens {
-    pub cell_padding: Option<f64>,
-    pub header_height: Option<f64>,
-    pub font_size: Option<f64>,
-}
 /// A structural part of a static table.
 pub struct Table {
     root: Node,
@@ -71,14 +64,15 @@ impl NodeBuilder for Table {
 }
 impl IntoView for Table {
     fn into_view(self) -> View {
-        let pick: fn(&crate::UiRecipes) -> &crate::Recipe<kivact_core::custom::PartState> =
-            match self.part {
-                TablePart::Root => |r| r.table_recipes().root_recipe(),
-                TablePart::Header => |r| r.table_recipes().header_recipe(),
-                TablePart::Body => |r| r.table_recipes().body_recipe(),
-                TablePart::Footer => |r| r.table_recipes().footer_recipe(),
-                TablePart::Row => |r| r.table_recipes().row_recipe(),
-            };
+        let pick: fn(
+            &crate::recipes::UiRecipes,
+        ) -> &crate::recipes::Recipe<kivact_core::custom::PartState> = match self.part {
+            TablePart::Root => |r| r.table_recipes().root_recipe(),
+            TablePart::Header => |r| r.table_recipes().header_recipe(),
+            TablePart::Body => |r| r.table_recipes().body_recipe(),
+            TablePart::Footer => |r| r.table_recipes().footer_recipe(),
+            TablePart::Row => |r| r.table_recipes().row_recipe(),
+        };
         let part = kivact_core::custom::part(|state| state);
         let state = part.state();
         with_base_recipe_style(self.root.part(part), pick, &self.variants, move || {

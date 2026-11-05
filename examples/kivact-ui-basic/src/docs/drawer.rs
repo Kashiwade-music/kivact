@@ -39,7 +39,12 @@ fn default() -> impl IntoView {
         button("Open Drawer")
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
-        basic::drawer(open, "Move Goal")
+        kivact::ui::dialog("Move Goal", open)
+            .mode(kivact::interaction::DialogMode::Drawer(
+                kivact::geometry::Edge::Bottom,
+            ))
+            .variant(basic::DrawerVariant::Drawer)
+            .closable(false)
             .description("Set your daily activity goal.")
             .content(move || {
                 row((
@@ -94,8 +99,10 @@ fn side() -> impl IntoView {
             button(label)
                 .variant(ButtonVariant::Outline)
                 .on_press(move || open.set(true)),
-            basic::drawer(open, format!("{label} drawer"))
-                .side(side)
+            kivact::ui::dialog(format!("{label} drawer"), open)
+                .mode(kivact::interaction::DialogMode::Drawer(side))
+                .variant(basic::DrawerVariant::Drawer)
+                .closable(false)
                 .description("Swipe the handle toward the edge to dismiss it.")
                 .content(|| basic::muted("Anything can go here.")),
         ))

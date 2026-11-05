@@ -8,30 +8,7 @@ use kivact_core::view::{
 use kivact_interaction::{HoverCardTiming, InteractionPolicy, use_hover_card};
 use std::time::Duration;
 
-/// The current input and requested placement exposed to preview recipes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct HoverCardSurfaceState {
-    pub input: kivact_core::custom::PartState,
-    pub open: bool,
-    pub placement: Placement,
-}
-
-/// Per-theme geometry used by the preview overlay.
-#[derive(Clone, Debug, PartialEq)]
-pub struct HoverCardTokens {
-    /// Logical pixel gap from the trigger.
-    pub offset: f64,
-    /// Logical pixel inset from the viewport edges.
-    pub viewport_margin: f64,
-}
-impl Default for HoverCardTokens {
-    fn default() -> Self {
-        Self {
-            offset: 4.0,
-            viewport_margin: 8.0,
-        }
-    }
-}
+use crate::hover_card_values::HoverCardSurfaceState;
 
 /// Whether the trigger participates in focus opening.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -194,7 +171,9 @@ impl HoverCard {
                 });
             match self.label {
                 Some(label) => layer.with_node(|node| node.role(Role::Dialog)).name(label),
-                None => layer.with_node(|node| node.role(Role::Group)),
+                None => layer
+                    .with_node(|node| node.role(Role::Group))
+                    .name(kivact_core::i18n::message("hover_card.label", "Preview")),
             }
         });
         (trigger, layer).into_view()

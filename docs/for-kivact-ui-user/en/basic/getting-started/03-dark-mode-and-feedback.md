@@ -46,7 +46,7 @@ fn profile_card(
                 .description("Choose how others see you.")
                 .action({
                     show(changed, || {
-                        basic::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
+                        kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
                     })
                 }),
         )
@@ -85,7 +85,7 @@ fn notifications_card(
                 basic::field_separator(),
                 field(
                     "Reminders",
-                    basic::toggle_group(reminders, reminder).variant(basic::ToggleVariant::Outline),
+                    kivact::ui::toggle_group("Options", reminders, reminder).variant(basic::ToggleVariant::Outline),
                 ),
             ))
         })

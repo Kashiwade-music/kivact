@@ -87,6 +87,7 @@ pub enum ErrorKind {
     Asset,
 }
 
+// xtask-allow(state-fields): Caller location and underlying Rust error are independent optional diagnostic facts.
 struct Inner {
     kind: ErrorKind,
     message: String,

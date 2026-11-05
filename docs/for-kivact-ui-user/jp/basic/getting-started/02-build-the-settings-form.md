@@ -46,7 +46,7 @@ fn profile_card(
                 .description("ほかの人にどう見えるかを決めます。")
                 .action({
                     show(changed, || {
-                        basic::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
+                        kivact::ui::badge("未保存の変更").variant(basic::BadgeVariant::Secondary)
                     })
                 }),
         )
@@ -83,7 +83,7 @@ fn notifications_card(
                 basic::field_separator(),
                 field(
                     "リマインダー",
-                    basic::toggle_group(reminders, reminder).variant(basic::ToggleVariant::Outline),
+                    kivact::ui::toggle_group("Options", reminders, reminder).variant(basic::ToggleVariant::Outline),
                 ),
             ))
         })

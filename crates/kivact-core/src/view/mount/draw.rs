@@ -96,13 +96,29 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 ViewState::tree_mut(&rt).set_scene(id, layer, scene);
                 for message in region_errors {
                     if region_reported.note(message.clone()) {
-                        rt.report(Some(owner), UiError::new(
-                            kivact_runtime::ErrorKind::Message, message, Some(at)));
+                        rt.report(
+                            Some(owner),
+                            UiError::new(kivact_runtime::ErrorKind::Message, message, Some(at)),
+                        );
                     }
                 }
-                if issues > 0 && reported.note() {
-                    rt.note(format!("node {}: {issues} draw commands unsupported (invalid pixels or box-only shadow values)", id.0));
-                    rt.report(
+                report_unsupported(&rt, owner, id, issues, &reported, at);
+            }
+        });
+    }
+}
+
+fn report_unsupported(
+    rt: &kivact_runtime::Runtime,
+    owner: kivact_runtime::Owner,
+    id: NodeId,
+    issues: u32,
+    reported: &kivact_types::cell::ReportOnce,
+    at: &'static Location<'static>,
+) {
+    if issues > 0 && reported.note() {
+        rt.note(format!("node {}: {issues} draw commands unsupported (invalid pixels or box-only shadow values)", id.0));
+        rt.report(
                         Some(owner),
                         UiError::new(
                             kivact_runtime::ErrorKind::Unsupported,
@@ -110,8 +126,5 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                             Some(at),
                         ),
                     );
-                }
-            }
-        });
     }
 }

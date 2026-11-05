@@ -4,7 +4,7 @@ use kivact::draw::Filter;
 use kivact::state::IntoText;
 use kivact::style::{Align, ColorToken, Justify, pct, style, use_theme};
 use kivact::ui::{Button, ButtonVariant, button};
-use kivact::view::{IntoView, Role};
+
 use kivact::view::{NodeBuilder, row, text};
 /// Square toolbar action, composed from the standard button.
 pub fn tool_button(label: impl IntoText) -> Button {
@@ -29,29 +29,6 @@ pub fn tool_button(label: impl IntoText) -> Button {
             ),
     )
 }
-/// Closely spaced group of action buttons.
-#[track_caller]
-pub fn button_group(children: impl IntoView) -> impl kivact::view::Component {
-    row(children)
-        .with_node(|root| root.role(Role::Group))
-        .style(style().gap(2).align_items(Align::Center))
-}
-
-/// Dense bordered toolbar.
-#[track_caller]
-pub fn toolbar(children: impl IntoView) -> impl kivact::view::Component {
-    row(children)
-        .with_node(|root| root.role(Role::Toolbar))
-        .style(
-            style()
-                .align_items(Align::Center)
-                .gap(2)
-                .padding(3)
-                .background(ColorToken::Surface)
-                .border(1, ColorToken::Border),
-        )
-}
-
 /// Large chevron action with a small machine caption.
 #[track_caller]
 pub fn chevron(label: impl IntoText, caption: impl IntoText) -> Button {

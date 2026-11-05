@@ -29,3 +29,5 @@ image and its fit or zoomed view; `.view().zoom(true)` enables zoom controls. Im
 comes from the image node and displays the localized fallback. Bottom sheets keep their height,
 scrim, purpose, focus, padding, and snap-point options; release velocity and snap selection use
 the shared drag behavior.
+
+Use `kivact::ui::hover_card(factory).attach(trigger)` for previews. Soft supplies the surface recipe, 300 ms pointer opening and 200 ms closing delays, and viewport geometry. Configure placement, alignment, focus opening, controlled visibility, and change callbacks on the standard builder. `soft::hover_card_text(label)` remains a styled, keyboard-reachable trigger.

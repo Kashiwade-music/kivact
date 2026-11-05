@@ -1,5 +1,6 @@
 //! Role: Host wake contracts and passive turn status values.
 
+// xtask-allow(state-fields): This is a derived snapshot of independent work queues and the wake request, not stored control state.
 /// What a runtime has queued, as one snapshot ([`Runtime::pending`](crate::reactive::Runtime::pending)).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pending {

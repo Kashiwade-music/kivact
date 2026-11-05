@@ -2,7 +2,7 @@
 
 use super::state::{SidebarCollapsible, SidebarCx, current, deferred};
 use crate::parts::pressable;
-use crate::primitives::skeleton;
+use kivact::ui::skeleton;
 
 use kivact::interaction::use_tooltip;
 use kivact::view::{Node, NodeBuilder, column, node, row, text};

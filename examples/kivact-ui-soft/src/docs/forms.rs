@@ -7,9 +7,8 @@ use kivact::style::style;
 use kivact::ui::{ControlSize, field, number_input, text_area, text_input};
 use kivact::view::{Node, NodeBuilder, column};
 use kivact_ui_soft::{
-    FieldStatusVariant, StatusKind, checkbox_list, complex_selector, field_status, file_input,
-    input_group_text, input_group_with, multi_selector, power_search, rich_text_editor, selector,
-    tokenizer, typeahead,
+    FieldStatusVariant, StatusKind, checkbox_list, field_status, file_input, input_group_text,
+    input_group_with, power_search, rich_text_editor,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -121,39 +120,39 @@ field("Email", text_input("Email", signal("invalid".to_owned())))
         "selector" => column((
             specimen(
                 "Placeholder and disabled option",
-                selector("Team", teams(), signal(None))
+                kivact::ui::select("Team", teams(), signal(None)).open_on_arrow(true)
                     .placeholder("Choose a team")
                     .style(style().width(220)),
-                r#"selector("Team", teams(), signal(None)).placeholder("Choose a team")"#,
+                r#"kivact::ui::select("Team", teams(), signal(None)).open_on_arrow(true).placeholder("Choose a team")"#,
             ),
             specimen(
                 "Selected and disabled",
                 column((
-                    selector("Assigned team", teams(), signal(Some("design"))),
-                    selector("Locked team", teams(), signal(Some("engineering"))).disabled(true),
+                    kivact::ui::select("Assigned team", teams(), signal(Some("design"))).open_on_arrow(true),
+                    kivact::ui::select("Locked team", teams(), signal(Some("engineering"))).open_on_arrow(true).disabled(true),
                 ))
                 .style(style().gap(8).width(220)),
-                r#"selector("Assigned team", teams(), signal(Some("design")))
-selector("Locked team", teams(), signal(Some("engineering"))).disabled(true)"#,
+                r#"kivact::ui::select("Assigned team", teams(), signal(Some("design"))).open_on_arrow(true)
+kivact::ui::select("Locked team", teams(), signal(Some("engineering"))).open_on_arrow(true).disabled(true)"#,
             ),
         ))
         .style(style().gap(12)),
         "complex-selector" => specimen(
             "Custom selector content",
-            complex_selector("Workspace", "Design", || {
+            kivact::ui::selection_field("Workspace", "Design").content(|| {
                 kivact::view::text("Workspace details")
             }),
-            "complex_selector(\"Workspace\", \"Design\", content)",
+            "selection_field(\"Workspace\", \"Design\").content(content)",
         ),
         "multi-selector" => specimen(
             "Multiple selections",
-            multi_selector("Teams", teams(), signal(vec!["design"])).style(style().width(280)),
-            "multi_selector(\"Teams\", options, selected)",
+            kivact::ui::combobox("Teams", teams(), signal(vec!["design"])).chips().style(style().width(280)),
+            "kivact::ui::combobox(\"Teams\", options, selected).chips()",
         ),
         "typeahead" | "base-typeahead" => specimen(
             "Search suggestions",
-            typeahead("Team", teams(), signal(None)).style(style().width(280)),
-            "typeahead(\"Team\", options, selected)",
+            kivact::ui::combobox("Team", teams(), signal(None)).style(style().width(280)),
+            "kivact::ui::combobox(\"Team\", options, selected)",
         ),
         "power-search" => specimen(
             "Editable filters",
@@ -223,8 +222,8 @@ selector("Locked team", teams(), signal(Some("engineering"))).disabled(true)"#,
         ),
         "tokenizer" => specimen(
             "Add and remove tags",
-            tokenizer("Teams", teams(), signal(vec!["design"])).style(style().width(320)),
-            "tokenizer(\"Teams\", options, selected)",
+            kivact::ui::combobox("Teams", teams(), signal(vec!["design"])).chips().exclude_selected().style(style().width(320)),
+            "kivact::ui::combobox(\"Teams\", options, selected).chips().exclude_selected()",
         ),
         _ => return None,
     })

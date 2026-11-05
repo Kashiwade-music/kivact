@@ -18,6 +18,7 @@ use std::rc::Rc;
 /// What an option shows, from its item and its state.
 type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<CheckableState>)>;
 
+// xtask-allow(state-fields): Optional item content and label placement configure a radio group; checked state belongs to the caller binding and shared selection authority.
 /// A set of mutually exclusive choices (`Role::RadioGroup`), created by
 /// [`radio_group`].
 pub struct RadioGroup<K: kivact_core::state::ItemKey> {
@@ -208,80 +209,90 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
         let rows = for_each(
             options,
             |item| item.key().clone(),
-            move |item| {
-                let key = item.with_untracked(|item| item.key().clone());
-                let member = group.item(key);
-                let state = member.state();
-                let check = kivact_core::state::memo(move || {
-                    let state = state.get();
-                    CheckableState {
-                        input: state.input,
-                        checked: CheckedState::from_bool(state.selected),
-                        size: size.get(),
-                        invalid: false,
-                        text: None,
-                        switch_drag: None,
-                    }
-                });
-                let lines = looks.clone();
-                let mark_looks = looks.clone();
-                let indicator = with_recipe_style(
-                    node(),
-                    |r| r.radio_group_recipes().indicator_recipe(),
-                    &looks,
-                    move || check.get(),
-                )
-                .child(show(
-                    move || {
-                        recipes(&use_theme().get())
-                            .radio_group_recipes()
-                            .has_custom_mark()
-                            || check.get().checked.is_checked()
-                    },
-                    move || {
-                        with_recipe_style(
-                            icon("dot"),
-                            |r| r.radio_group_recipes().mark_recipe(),
-                            &mark_looks,
-                            move || check.get(),
-                        )
-                    },
-                ));
-                let content = match &slot {
-                    Some(slot) => slot.call((item, check)),
-                    None => (
-                        super::helpers::item_icon(move || item.get().icon().cloned()),
-                        super::helpers::label_and_description(
-                            move || item.get().label(),
-                            move || item.get().description(),
-                            move |line| {
-                                with_recipe_style(
-                                    line,
-                                    |r| r.radio_group_recipes().description_recipe(),
-                                    &lines,
-                                    move || check.get(),
-                                )
-                            },
-                        ),
-                    )
-                        .into_view(),
-                };
-                with_recipe_style(
-                    node()
-                        .part(member)
-                        .role(Role::RadioButton)
-                        .checked(move || state.get().selected),
-                    |r| r.radio_group_recipes().item_recipe(),
-                    &looks,
-                    move || check.get(),
-                )
-                .child(indicator)
-                .child(content)
-            },
+            move |item| radio_option(group, item, size, &looks, slot.as_ref()),
         );
         let reversed = orientation == Orientation::Horizontal
             && use_direction().get() == ReadingDirection::Rtl;
         layout.set((orientation, reversed));
         root.orientation(orientation).child(rows).into_view()
     }
+}
+
+/// Render one radio option from its shared navigation and selection part.
+fn radio_option<K: kivact_core::state::ItemKey>(
+    group: kivact_interaction::ListApi<K>,
+    item: Value<ListItem<K>>,
+    size: Value<ControlSize>,
+    looks: &Variants,
+    slot: Option<&OptionContent<K>>,
+) -> View {
+    let key = item.with_untracked(|item| item.key().clone());
+    let member = group.item(key);
+    let state = member.state();
+    let check = kivact_core::state::memo(move || {
+        let state = state.get();
+        CheckableState {
+            input: state.input,
+            checked: CheckedState::from_bool(state.selected),
+            size: size.get(),
+            invalid: false,
+            text: None,
+            switch_drag: None,
+        }
+    });
+    let lines = looks.clone();
+    let mark_looks = looks.clone();
+    let indicator = with_recipe_style(
+        node(),
+        |r| r.radio_group_recipes().indicator_recipe(),
+        looks,
+        move || check.get(),
+    )
+    .child(show(
+        move || {
+            recipes(&use_theme().get())
+                .radio_group_recipes()
+                .has_custom_mark()
+                || check.get().checked.is_checked()
+        },
+        move || {
+            with_recipe_style(
+                icon("dot"),
+                |r| r.radio_group_recipes().mark_recipe(),
+                &mark_looks,
+                move || check.get(),
+            )
+        },
+    ));
+    let content = match slot {
+        Some(slot) => slot.call((item, check)),
+        None => (
+            super::helpers::item_icon(move || item.get().icon().cloned()),
+            super::helpers::label_and_description(
+                move || item.get().label(),
+                move || item.get().description(),
+                move |line| {
+                    with_recipe_style(
+                        line,
+                        |r| r.radio_group_recipes().description_recipe(),
+                        &lines,
+                        move || check.get(),
+                    )
+                },
+            ),
+        )
+            .into_view(),
+    };
+    with_recipe_style(
+        node()
+            .part(member)
+            .role(Role::RadioButton)
+            .checked(move || state.get().selected),
+        |r| r.radio_group_recipes().item_recipe(),
+        looks,
+        move || check.get(),
+    )
+    .child(indicator)
+    .child(content)
+    .into_view()
 }
