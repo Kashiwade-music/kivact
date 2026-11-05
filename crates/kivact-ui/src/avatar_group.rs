@@ -67,8 +67,10 @@ impl IntoView for AvatarGroup {
                     move || index,
                 )
                 .base_style(move || {
-                    let overlap=kivact_core::style::use_tokens::<crate::UiTokens>().indicators.avatar_overlap;
-                    style().margin_left(if index==0 {0.0} else {-overlap})
+                    let overlap = kivact_core::style::use_tokens::<crate::UiTokens>()
+                        .indicators
+                        .avatar_overlap;
+                    style().margin_left(if index == 0 { 0.0 } else { -overlap })
                 })
                 .hidden(move || index >= max.get())
                 .child(child)

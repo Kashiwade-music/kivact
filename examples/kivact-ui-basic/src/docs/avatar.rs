@@ -34,7 +34,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "group",
                 "Group",
-                "avatar_group は 8 px ずつ重ねます。子を 1 つずつ包むため、view の tuple（種類が違ってもよい）か Vec で渡します。avatar_group_count で残りの人数を示します。",
+                "avatar_group は 8 px ずつ重ねます。子を 1 つずつ包むため、view の tuple（種類が違ってもよい）か Vec で渡します。max と total から残りの人数を表示します。",
                 group,
             ),
         ],
@@ -114,7 +114,8 @@ fn group() -> impl IntoView {
             .src(Some(kivact::view::Asset::from(photo))),
         kivact::ui::avatar("LR").fallback_content(|| text("LR")),
         kivact::ui::avatar("ER").fallback_content(|| text("ER")),
-        kivact::ui::avatar("+3").fallback_content(|| text("+3")),
     ))
+    .max(3usize)
+    .total(6usize)
 }
 // end example

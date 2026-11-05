@@ -78,3 +78,19 @@ pub(crate) fn status(t: &Theme, s: &Look<AvatarState>) -> Style {
         .ring(2, p.background)
         .z_index(10)
 }
+
+pub(crate) fn overflow(t: &Theme, _: &Look<usize>) -> Style {
+    let p = t.ext::<Tokens>();
+    style()
+        .size(32, 32)
+        .shrink(0)
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .radius(999)
+        .background(p.muted)
+        .color(p.muted_foreground)
+        .font_size(12)
+        .ring(2, p.background)
+        .margin_left(-t.ext::<kivact::ui::UiTokens>().indicators.avatar_overlap)
+}

@@ -73,6 +73,7 @@ fn build() -> UiRecipes {
         .avatar_image(|_| crate::avatar::image)
         .avatar_group(|_| crate::avatar::group)
         .avatar_group_member(|_| crate::avatar::member)
+        .avatar_group_overflow(|_| crate::avatar::overflow)
         .avatar_status(|_| crate::avatar::status)
         .table(crate::table::recipes)
         .item_list(crate::item::recipes)

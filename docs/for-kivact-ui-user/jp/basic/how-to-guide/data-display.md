@@ -185,8 +185,7 @@ fn people() -> impl IntoView {
             kivact::ui::avatar("AT")
                 .fallback_content(|| text("AT"))
                 .size(kivact::ui::ControlSize::Large),
-            kivact::ui::avatar("+3").fallback_content(|| text("+3")),
-        )),
+        )).max(3usize).total(6usize),
     ))
     .style(style().gap(12))
 }
@@ -194,7 +193,7 @@ fn people() -> impl IntoView {
 
 - バッジのバリアントは `Default`、`Secondary`、`Destructive`、`Outline`、`Ghost`、`Link` です。`.on_press(..)` を付けると、バッジはボタンになります。
 - `kivact::ui::avatar(name).src(Some(asset))` は画像をリアクティブに読みます。代わりの文字をそのまま示すには `.fallback_content(|| text("CN"))` を使います。省略時は名前から頭文字を作ります。サイズは `ControlSize::Small`、`Medium`、`Large` です。`.status(Some(Tone::Success))` は状態の点、`.status_content(view)` は独自の印を置きます。
-- `kivact::ui::avatar_group(children)` はアバターを重ねます。最後に文字を指定したアバターを置くか、`.max(limit)` で残りの人数をリアクティブに表示します。
+- `kivact::ui::avatar_group(children)` はアバターを重ねます。`.max(limit)` は表示する子の数を制限し、`.total(count)` で未読み込みの参加者を含めた総人数を渡します。残りの人数は標準の overflow 部分が表示します。
 
 ## コピーボタンつきでコードを見せる
 

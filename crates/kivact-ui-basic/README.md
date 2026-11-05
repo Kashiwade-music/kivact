@@ -210,6 +210,7 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `avatar_image`
 - `avatar_group`
 - `avatar_group_member`
+- `avatar_group_overflow`
 - `avatar_status`
 - `table`
 - `item_list`
