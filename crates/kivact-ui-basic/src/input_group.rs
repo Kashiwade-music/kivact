@@ -118,9 +118,10 @@ fn root(t: &Theme, s: &Look<InputGroupState>) -> Style {
 fn label(_: &Theme, _: &Look<InputGroupState>) -> Style {
     style()
         .position(Position::Absolute)
-        .size(0, 0)
-        .font_size(0)
-        .line_height(0)
+        .size(1, 1)
+        .font_size(1)
+        .line_height(kivact::style::LineHeight::px(1))
+        .single_line()
         .clip(true)
         .opacity(0)
 }

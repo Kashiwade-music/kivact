@@ -45,6 +45,8 @@ fn main() -> kivact::Result<()> {
 - **Texts.** Default texts are English message keys prefixed with `pop.`;
   replace them with `App::messages`.
 
+Pop uses Core row layout for automatic RTL reversal; recipes do not duplicate direction branches.
+
 ## Filled recipes
 
 The theme fills these entries in `UiRecipes`:
@@ -84,11 +86,19 @@ The theme fills these entries in `UiRecipes`:
 - `dropzone`
 - `field`
 - `button`
+- `button_icon`
 - `button_content`
 - `button_busy`
 - `toggle`
 - `checkbox`
+- `checkbox_indicator`
+- `checkbox_check`
+- `checkbox_mixed`
 - `switch`
+- `switch_track`
+- `switch_thumb`
+- `splitter`
+- `split`
 - `text_input`
 - `text_area`
 - `select`

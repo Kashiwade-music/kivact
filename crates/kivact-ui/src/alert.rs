@@ -190,6 +190,7 @@ impl IntoView for Alert {
             has_icon,
             has_actions,
             has_description,
+            has_content: has_details,
         };
         let contents = self.render_contents(state, collapsible, open, phase);
         with_base_recipe_style(
@@ -271,8 +272,45 @@ impl Alert {
             variants,
             state,
         );
-        (icon, title, description, actions, toggle, content, dismiss).into_view()
+        (
+            alert_header(
+                icon,
+                (title, description),
+                (actions, toggle, dismiss),
+                variants,
+                state,
+            ),
+            content,
+        )
+            .into_view()
     }
+}
+/// Present actual slots without adding behavior or changing their semantic targets.
+fn alert_header(
+    icon: impl IntoView,
+    message: impl IntoView,
+    controls: impl IntoView,
+    variants: &Variants,
+    state: impl Fn() -> AlertState + Copy + 'static,
+) -> Node {
+    let message = with_recipe_style(
+        node().child(message),
+        |r| r.alert_recipes().message_recipe(),
+        variants,
+        state,
+    );
+    let controls = with_recipe_style(
+        node().child(controls),
+        |r| r.alert_recipes().controls_recipe(),
+        variants,
+        state,
+    );
+    with_recipe_style(
+        node().child((icon, message, controls)),
+        |r| r.alert_recipes().header_recipe(),
+        variants,
+        state,
+    )
 }
 fn expansion_toggle(
     has_details: bool,
@@ -282,22 +320,25 @@ fn expansion_toggle(
     state: impl Fn() -> AlertState + Copy + 'static,
 ) -> Option<impl IntoView> {
     has_details.then(|| {
-        let control = super::button(move || {
+        let expand = kivact_core::i18n::message("alert.expand", "Expand details");
+        let collapse = kivact_core::i18n::message("alert.collapse", "Collapse details");
+        let label = kivact_core::state::memo(move || {
             if open.get() {
-                "Collapse details"
+                collapse.get()
             } else {
-                "Expand details"
+                expand.get()
             }
-        })
-        .with_node(move |node| node.expanded(move || open.get()))
-        .hidden(move || !collapsible.get())
-        .on_press(move || open.set(!open.get()));
-        with_recipe_style(
+        });
+        let control = super::button(label)
+            .with_node(move |node| node.expanded(move || open.get()))
+            .hidden(move || !collapsible.get())
+            .on_press(move || open.set(!open.get()));
+        crate::tooltip(label).attach(with_recipe_style(
             control,
             |r| r.alert_recipes().toggle_recipe(),
             variants,
             state,
-        )
+        ))
     })
 }
 

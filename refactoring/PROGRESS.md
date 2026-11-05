@@ -148,23 +148,23 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | G-4c | merged | 814ca08 | 固定統合environment/scroll17 passed、workspacecheck/fmt0 |
 | G-5 | merged | a3d8db9 | async6/doc538+1 passed、scopedcheck/state-fields0 |
 | K-0 | merged | 7385fe7 | core3/conformance20/5kit tests/docs0、workspacecheck0 |
-| K-1a | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
-| K-1b | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
-| K-2a | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
-| K-2b | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
-| K-3a | doing | 03ed588a | Core統合/workspacecheck0、kit移行残 |
+| K-1a | merged | cd649e2c | Soft保持10/Corecalendar7/Popconsumer16 0、APG外部target配置再確認 |
+| K-1b | merged | 37b6ef01 | 5kit移行、file/dropconsumer/catalog0 |
+| K-2a | merged | 5ad0bcf2 | hover/copy/attachへ5kit移行、対象consumer0 |
+| K-2b | merged | d636e815 | select/combobox/selection_fieldへ5kit移行、対象consumer0 |
+| K-3a | merged | 64f696f9 | 5kit標準groups/toolbar/segmentedへ移行、対象consumer0 |
 | K-3b | doing | | 実装中 |
 | K-4 | doing | | 実装中 |
 | K-5 | merged | 159d169d | navigation3/overlay8/state-fields0、catalog追従check0 |
-| K-6a | doing | | 実装中 |
-| K-6b | doing | | 実装中 |
+| K-6a | merged | 9290fc1f | 5kit移行、実avatar/status/overflowとkeyboard各partを使用 |
+| K-6b | merged | 3efe0ee9 | 5kit empty/card/input_group/alert移行、Softdismiss-focus1 0 |
 | K-8 | merged | 6eac920f | viewport/GPU対象6中5+修正1passed、workspacecheck0 |
 | K-9a | doing | 0b4a7754 | Basic/Pop/Game移行済、Soft残 |
 | K-9b | doing | dcbf67aa | Basic/Pop/Game/Creative移行済、Soft残 |
-| K-7a | todo | | |
-| K-7b | todo | | |
+| K-7a | merged | 1c64e91b | consumer32/catalog3/EN42+JP42/runnable2/rustdoc13 0 |
+| K-7b | merged | a7e2f0f8 | consumer16/catalog3/docs44+2/scoped規約0 |
 | K-7c | merged | 2a34e21b | Game consumer12/catalog3/rustdoc3/scoped contracts0 |
-| K-7d | todo | | |
+| K-7d | merged | f9fab8a5 | check/static0、consumer40/41 focus共通修正後再確認 |
 | K-7e | todo | | |
 | H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |

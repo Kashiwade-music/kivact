@@ -5,8 +5,8 @@ use kivact::ui::badge;
 use kivact::ui::{ControlSize, skeleton, spinner};
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
-    BadgeVariant, BannerStatus, SkeletonRadius, SpinnerShade, SpinnerVariant, StatusDotVariant,
-    TokenColor, banner, status_dot, token,
+    BadgeVariant, SkeletonRadius, SpinnerShade, SpinnerVariant, StatusDotVariant, TokenColor,
+    status_dot, token,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -89,11 +89,17 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "banner" => specimen(
             "Status messages",
             column((
-                banner(BannerStatus::Info, "Workspace updated"),
-                banner(BannerStatus::Warning, "Review required"),
+                kivact::ui::alert("Workspace updated")
+                    .tone(kivact::interaction::Tone::Info)
+                    .icon(kivact_ui_soft::banner_icon(kivact::interaction::Tone::Info)),
+                kivact::ui::alert("Review required")
+                    .tone(kivact::interaction::Tone::Warning)
+                    .icon(kivact_ui_soft::banner_icon(
+                        kivact::interaction::Tone::Warning,
+                    )),
             ))
             .style(style().gap(8)),
-            "banner(BannerStatus::Warning, \"Review required\")",
+            "alert(\"Review required\").tone(Tone::Warning).icon(banner_icon(Tone::Warning))",
         ),
         _ => return None,
     })

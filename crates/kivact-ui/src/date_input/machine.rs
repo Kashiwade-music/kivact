@@ -45,6 +45,7 @@ pub(super) enum Event {
     Close,
     Commit(String),
     Pick(CalendarDate),
+    SheetPick(CalendarDate),
     Clear,
     External(Option<CalendarDate>),
 }
@@ -88,6 +89,15 @@ impl Machine for Snapshot {
                 draft: Draft::Empty,
             })
             .with(None),
+            Event::SheetPick(date) if accept(date) => Step::to(DateInputState::Open {
+                opened_by: match state {
+                    DateInputState::Open { opened_by, .. } => *opened_by,
+                    _ => OpenedBy::Button,
+                },
+                draft: Draft::Valid(date),
+            })
+            .with(Some(date)),
+            Event::SheetPick(_) => Step::stay(),
             Event::Pick(date) if accept(date) => Step::to(DateInputState::Closed {
                 draft: Draft::Valid(date),
             })

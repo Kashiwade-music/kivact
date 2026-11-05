@@ -8,6 +8,8 @@ const MONTH_SWIPE_SLOP: f64 = 6.0;
 #[derive(Clone, PartialEq)]
 pub(super) enum Swipe {
     Idle,
+    /// A completed touch drag suppresses its trailing native activation.
+    Released,
     Pending {
         id: PointerId,
         start: Point,
@@ -20,6 +22,7 @@ pub(super) enum Swipe {
 }
 pub(super) enum Event {
     Pointer(PointerEvent),
+    IndependentActivation,
 }
 pub(super) struct SwipeSnapshot {
     pub(super) rtl: bool,
@@ -28,8 +31,18 @@ impl Machine for SwipeSnapshot {
     type State = Swipe;
     type Event = Event;
     type Effect = i32;
-    fn transition(&self, state: &Swipe, Event::Pointer(event): Event) -> Step<Swipe, Event, i32> {
-        if event.kind() != PointerKind::Touch || !event.is_primary() {
+    fn transition(&self, state: &Swipe, event: Event) -> Step<Swipe, Event, i32> {
+        let Event::Pointer(event) = event else {
+            return Step::to(Swipe::Idle);
+        };
+        if event.kind() != PointerKind::Touch {
+            return if matches!(event.phase(), PointerPhase::Down(_)) {
+                Step::to(Swipe::Idle)
+            } else {
+                Step::stay()
+            };
+        }
+        if !event.is_primary() {
             return Step::stay();
         }
         match (state, event.phase()) {
@@ -62,7 +75,7 @@ impl Machine for SwipeSnapshot {
                 })
             }
             (Swipe::Dragging { id, delta, .. }, PointerPhase::Up(_)) if *id == event.id() => {
-                Step::to(Swipe::Idle).with(if (*delta < 0.0) != self.rtl { 1 } else { -1 })
+                Step::to(Swipe::Released).with(if (*delta < 0.0) != self.rtl { 1 } else { -1 })
             }
             (_, PointerPhase::Up(_) | PointerPhase::Cancel) => Step::to(Swipe::Idle),
             _ => Step::stay(),

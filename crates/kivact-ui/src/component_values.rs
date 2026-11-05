@@ -13,6 +13,7 @@ pub struct AlertState {
     pub has_icon: bool,
     pub has_actions: bool,
     pub has_description: bool,
+    pub has_content: bool,
 }
 
 // xtask-allow(state-fields): Read-only recipe projection of the caller binding and actual interaction configuration.

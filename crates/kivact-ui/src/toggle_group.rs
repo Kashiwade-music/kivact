@@ -174,7 +174,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                             }
                         });
                 let state = part.state();
-                let content = item_content(&slot, item, state, pressed, icon_only);
+                let content = item_content(slot.as_ref(), item, state, pressed, icon_only);
                 with_base_recipe_style(
                     node().name(move || item.get().label()),
                     |r| r.toggle_group_recipes().item_recipe(),
@@ -215,7 +215,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
 }
 
 fn item_content<K: ItemKey>(
-    slot: &Option<ToggleItemSlot<K>>,
+    slot: Option<&ToggleItemSlot<K>>,
     item: Value<ListItem<K>>,
     state: Value<ToggleButtonState>,
     pressed: Binding<bool>,

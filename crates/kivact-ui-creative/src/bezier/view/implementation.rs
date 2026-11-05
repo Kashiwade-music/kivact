@@ -136,36 +136,17 @@ impl IntoView for BezierCurve {
                 }
             });
         // A key or an action is an edit of its own; a drag owns the value.
-        let change = move |index: usize, next: (f64, f64)| {
-            if gesture.is_active() {
-                return;
-            }
-            let raw = value.get_untracked();
-            edit.send(machine::Event::Begin(raw));
-            binding.set(raw.clean().with_point(index, next));
-            edit.send(machine::Event::Commit);
+        let controls = Controls {
+            binding,
+            value,
+            gesture,
+            edit,
+            rect,
         };
-        let mut root = self.root.node_ref(reference).draw(move |draw, size| {
-            let value = value.get().clean();
-            let area = plane(value, size);
-            let p = use_theme().get().ext::<crate::tokens::Tokens>();
-            let from = area.point(0.0, 0.0);
-            let to = area.point(1.0, 1.0);
-            let first = area.point(value.x1, value.y1);
-            let second = area.point(value.x2, value.y2);
-            draw.line(area.point(0.0, 0.0), area.point(1.0, 0.0), 1.0, p.hair);
-            draw.line(area.point(0.0, 1.0), area.point(1.0, 1.0), 1.0, p.hair);
-            draw.line(from, first, 1.0, p.dim);
-            draw.line(to, second, 1.0, p.dim);
-            let path = Path::new().move_to(from).cubic_to(first, second, to);
-            draw.stroke_path(&path, &Stroke::new(2), p.accent);
-            draw.circle(from, 3.0, p.text);
-            draw.circle(to, 3.0, p.text);
-            for (id, point) in [(RegionId(1), first), (RegionId(2), second)] {
-                draw.circle(point, 5.0, p.accent);
-                draw.region(id, area.hit(point));
-            }
-        });
+        let mut root = self
+            .root
+            .node_ref(reference)
+            .draw(move |draw, size| paint_curve(draw, size, value));
         for (index, id, key, fallback) in [
             (
                 0,
@@ -180,91 +161,153 @@ impl IntoView for BezierCurve {
                 "Control point 2",
             ),
         ] {
-            let attachment = {
-                let input_part = part(|input| input);
-                let label = message(key, fallback);
-                kivact::custom::Part::new(input_part.state(), move |node| {
-                    node.part(input_part)
-                        .role(Role::Slider)
-                        .name(label)
-                        .focusable(true)
-                        .value_text(move || {
-                            let (x, y) = value.get().clean().point(index);
-                            format!("{x},{y}")
-                        })
-                        .value_min(0.0)
-                        .value_max(1.0)
-                        .value_now(move || value.get().clean().point(index).0)
-                })
-            };
-            let state = attachment.state();
-            let target = kivact::view::node_ref();
-            let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
-                node.part(attachment).node_ref(target)
-            });
-            edit.feed(
-                memo(move || {
-                    let input = state.get();
-                    input.disabled || input.hidden
-                }),
-                machine::Event::InputChanged,
-            );
-            let action = move |event: A11yEvent| {
-                if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
-                    target.focus();
-                    return;
-                }
-                if gesture.is_active() {
-                    return;
-                }
-                let (x, y) = value.get_untracked().clean().point(index);
-                let next = match &event.request {
-                    A11yRequest::SetValue(text) => pair(text),
-                    A11yRequest::Increment => Some((x + 0.01, y)),
-                    A11yRequest::Decrement => Some((x - 0.01, y)),
-                    _ => None,
-                };
-                if let Some(next) = next {
-                    change(index, next);
-                }
-            };
-            let drag_source = gesture.source_with(move || {
-                let raw = value.get_untracked();
-                let size = rect
-                    .get_untracked()
-                    .map_or(Size::default(), |r| Size::new(r.width, r.height));
-                (index, raw, plane(raw.clean(), size))
-            });
-            let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
-                node.part(attachment)
-                    .part(drag_source)
-                    .on_key(move |event: KeyEvent| {
-                        let step = if event.modifiers().ctrl {
-                            0.001
-                        } else if event.modifiers().shift {
-                            0.1
-                        } else {
-                            0.01
-                        };
-                        let (x, y) = value.get().clean().point(index);
-                        let next = match event.key() {
-                            Key::ArrowLeft => (x - step, y),
-                            Key::ArrowRight => (x + step, y),
-                            Key::ArrowUp => (x, y + step),
-                            Key::ArrowDown => (x, y - step),
-                            _ => return Handled::No,
-                        };
-                        change(index, next);
-                        Handled::Yes
-                    })
-                    .a11y_action(A11yAction::Select, action)
-                    .a11y_action(A11yAction::Activate, action)
-                    .a11y_action(A11yAction::SetValue, action)
-                    .a11y_action(A11yAction::Increment, action)
-                    .a11y_action(A11yAction::Decrement, action)
-            });
+            let attachment = control_point(controls, index, key, fallback);
             root = root.region(id, attachment);
         }
         root.into_view()
     }
+}
+
+/// Existing binding, gesture and edit authority shared by the two control regions.
+#[derive(Clone, Copy)]
+struct Controls {
+    binding: Binding<CubicBezier>,
+    value: kivact::state::Value<CubicBezier>,
+    gesture: kivact::interaction::DragApi<(usize, CubicBezier, Plane)>,
+    edit: kivact::state::MachineHandle<machine::Machine>,
+    rect: kivact::state::Value<Option<kivact::geometry::Rect>>,
+}
+impl Controls {
+    /// Apply one keyboard or assistive edit only while a drag does not own the value.
+    fn change(self, index: usize, next: (f64, f64)) {
+        if self.gesture.is_active() {
+            return;
+        }
+        let raw = self.value.get_untracked();
+        self.edit.send(machine::Event::Begin(raw));
+        self.binding.set(raw.clean().with_point(index, next));
+        self.edit.send(machine::Event::Commit);
+    }
+}
+/// Paint the fixed endpoints, curve and measured control regions.
+fn paint_curve(
+    draw: &mut kivact::draw::Draw,
+    size: Size,
+    value: kivact::state::Value<CubicBezier>,
+) {
+    let value = value.get().clean();
+    let area = plane(value, size);
+    let p = use_theme().get().ext::<crate::tokens::Tokens>();
+    let from = area.point(0.0, 0.0);
+    let to = area.point(1.0, 1.0);
+    let first = area.point(value.x1, value.y1);
+    let second = area.point(value.x2, value.y2);
+    draw.line(area.point(0.0, 0.0), area.point(1.0, 0.0), 1.0, p.hair);
+    draw.line(area.point(0.0, 1.0), area.point(1.0, 1.0), 1.0, p.hair);
+    draw.line(from, first, 1.0, p.dim);
+    draw.line(to, second, 1.0, p.dim);
+    let path = Path::new().move_to(from).cubic_to(first, second, to);
+    draw.stroke_path(&path, &Stroke::new(2), p.accent);
+    draw.circle(from, 3.0, p.text);
+    draw.circle(to, 3.0, p.text);
+    for (id, point) in [(RegionId(1), first), (RegionId(2), second)] {
+        draw.circle(point, 5.0, p.accent);
+        draw.region(id, area.hit(point));
+    }
+}
+/// Attach one control point's canonical input and drag part.
+fn control_point(
+    c: Controls,
+    index: usize,
+    key: &'static str,
+    fallback: &'static str,
+) -> kivact::custom::Part<kivact::custom::PartState> {
+    let attachment = {
+        let input_part = part(|input| input);
+        let label = message(key, fallback);
+        kivact::custom::Part::new(input_part.state(), move |node| {
+            node.part(input_part)
+                .role(Role::Slider)
+                .name(label)
+                .focusable(true)
+                .value_text(move || {
+                    let (x, y) = c.value.get().clean().point(index);
+                    format!("{x},{y}")
+                })
+                .value_min(0.0)
+                .value_max(1.0)
+                .value_now(move || c.value.get().clean().point(index).0)
+        })
+    };
+    let state = attachment.state();
+    let target = kivact::view::node_ref();
+    let attachment = kivact::custom::Part::new(attachment.state(), move |node| {
+        node.part(attachment).node_ref(target)
+    });
+    c.edit.feed(
+        memo(move || {
+            let input = state.get();
+            input.disabled || input.hidden
+        }),
+        machine::Event::InputChanged,
+    );
+    let action = move |event| point_action(c, index, target, event);
+    let drag_source = c.gesture.source_with(move || {
+        let raw = c.value.get_untracked();
+        let size = c
+            .rect
+            .get_untracked()
+            .map_or(Size::default(), |r| Size::new(r.width, r.height));
+        (index, raw, plane(raw.clean(), size))
+    });
+    kivact::custom::Part::new(attachment.state(), move |node| {
+        node.part(attachment)
+            .part(drag_source)
+            .on_key(move |event| point_key(c, index, event))
+            .a11y_action(A11yAction::Select, action)
+            .a11y_action(A11yAction::Activate, action)
+            .a11y_action(A11yAction::SetValue, action)
+            .a11y_action(A11yAction::Increment, action)
+            .a11y_action(A11yAction::Decrement, action)
+    })
+}
+/// Apply coordinate actions through the same single-edit transaction boundary.
+fn point_action(c: Controls, index: usize, target: kivact::view::NodeRef, event: A11yEvent) {
+    if matches!(event.request, A11yRequest::Select | A11yRequest::Activate) {
+        target.focus();
+        return;
+    }
+    if c.gesture.is_active() {
+        return;
+    }
+    let (x, y) = c.value.get_untracked().clean().point(index);
+    let next = match &event.request {
+        A11yRequest::SetValue(text) => pair(text),
+        A11yRequest::Increment => Some((x + 0.01, y)),
+        A11yRequest::Decrement => Some((x - 0.01, y)),
+        _ => None,
+    };
+    if let Some(next) = next {
+        c.change(index, next);
+    }
+}
+/// Resolve modified arrow steps without changing drag ownership.
+fn point_key(c: Controls, index: usize, event: KeyEvent) -> Handled {
+    let step = if event.modifiers().ctrl {
+        0.001
+    } else if event.modifiers().shift {
+        0.1
+    } else {
+        0.01
+    };
+    let (x, y) = c.value.get().clean().point(index);
+    let next = match event.key() {
+        Key::ArrowLeft => (x - step, y),
+        Key::ArrowRight => (x + step, y),
+        Key::ArrowUp => (x, y + step),
+        Key::ArrowDown => (x, y - step),
+        _ => return Handled::No,
+    };
+    c.change(index, next);
+    Handled::Yes
 }

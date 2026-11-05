@@ -817,3 +817,6 @@ pub enum ScrollBehavior {
     /// Animate for 240 ms; user input cancels it.
     Smooth(kivact_types::Easing),
 }
+
+// Node references are immutable identity props as well as reactive targets.
+kivact_runtime::constant_value!(NodeRef);

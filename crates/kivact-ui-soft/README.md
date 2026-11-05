@@ -61,7 +61,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Dropdown Menu | Standard `menu`. Use `MenuEntry::item`, `checkbox`, `separator`, `group`, `radio`, and `submenu`. A radio group is a group of radio entries. |
 | Empty State | Standard `empty_state`; `.announce_changes()` retains change announcements and `EmptyStateVariant::compact(value)` controls density |
 | Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, standard `input_group`, `input_addon`, and standard `dropzone` for the surrounding controls. |
-| Heading | `heading` |
+| Heading | Standard `kivact::ui::heading(value, level)`; `HeadingDisplay` is a visual variant. |
 | Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
 | Icon | `icon`, `ICON_NAMES` |
 | Indicator | `checkbox_indicator`, `check_indicator`, `radio_indicator` |
@@ -82,7 +82,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Segmented Control | Standard `radio_group(...).variant(RadioGroupVariant::Segmented)` and `ListItem`; Soft `SegmentedLayout` and `SegmentedIconOnly` style options |
 | Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
 | Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
-| Stepper | `stepper`, `step` |
+| Stepper | Standard `stepper`, `StepperItem`, `StepIndicator`, `StepStatus`; Soft `StepperAppearance` |
 | Switch | Standard `switch` |
 | Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
@@ -113,10 +113,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.alert_dialog.cancel` | Cancel |
 | `soft.app_shell.main` | Main content |
 | `soft.app_shell.skip_to_content` | Skip to content |
-| `soft.banner.collapse` | Collapse |
-| `soft.banner.dismiss` | Dismiss |
-| `soft.banner.dismiss_titled` | {dismiss} {title} |
-| `soft.banner.expand` | Expand |
 | `soft.chat.tool_calls.complete` | Complete |
 | `soft.chat.tool_calls.detail` | Details for {name} |
 | `soft.chat.tool_calls.details` | Details |
@@ -215,9 +211,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.side_nav.resize` | Resize sidebar |
 | `soft.spinner.loading` | Loading |
 | `soft.stepper.label` | Progress |
-| `soft.stepper.next` | Next step |
-| `soft.stepper.optional` | • Optional |
-| `soft.stepper.previous` | Previous step |
 | `soft.table.label` | Table |
 | `soft.thumbnail.fallback_name` | Thumbnail |
 | `soft.thumbnail.open` | Open {name} |
@@ -317,6 +310,7 @@ Number, date, and time filter fields validate values entered as text.
 ## Filled standard recipes
 
 <!-- kivact-recipes -->
+- `heading`
 - `button`
 - `button_content`
 - `button_icon`
@@ -367,14 +361,17 @@ Number, date, and time filter fields validate values entered as text.
 - `list`
 - `tree`
 - `data_table`
+- `breadcrumb`
+- `empty_state`
+- `input_group`
+- `card`
+- `avatar`
+- `avatar_image`
+- `avatar_status`
+- `avatar_status_content`
+- `avatar_group`
+- `avatar_group_member`
+- `avatar_group_overflow`
+- `stepper`
+- `alert`
 <!-- /kivact-recipes -->
-
-Filled recipe table: `breadcrumb` (root, list, actual item, separator).
-
-Filled recipe table: `empty_state` (root, title, description, icon, actions).
-
-Filled recipe table: `input_group` (root, label, members, member, addon).
-
-Filled recipe table: `card` (root, header, media, content, footer, overlay).
-
-Filled scalar recipes: `avatar`, `avatar_image`, `avatar_status`, `avatar_status_content`, `avatar_group`, `avatar_group_member`, `avatar_group_overflow`.

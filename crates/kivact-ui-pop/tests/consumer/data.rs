@@ -10,49 +10,55 @@ fn table_search_sort_selection_paging_are_external_consumer_behavior() {
         name: &'static str,
         level: u32,
     }
-    let (screen, selected) = kivact::test::render_with_handle(crate::support::options(), || {
-        let selected = signal(Vec::<u64>::new());
-        let sort = signal(None);
-        let page = signal(0_usize);
-        (
-            selected,
-            kivact::ui::data_table(
-                vec![
-                    Member {
-                        id: 1,
-                        name: "Beta",
-                        level: 2,
-                    },
-                    Member {
-                        id: 2,
-                        name: "Alpha",
-                        level: 10,
-                    },
-                    Member {
-                        id: 3,
-                        name: "Gamma",
-                        level: 4,
-                    },
-                ],
-                |m: &Member| m.id,
-                vec![
-                    kivact::ui::DataColumn::new("Name", |m: &Member| m.name.to_owned())
-                        .width(150.0)
-                        .compare(|a, b| a.name.cmp(b.name))
-                        .filter(|m, query| m.name.contains(query))
-                        .cell(|m| text(m.name)),
-                    kivact::ui::DataColumn::new("Level", |m: &Member| m.level.to_string())
-                        .width(80.0)
-                        .compare(|a, b| a.level.cmp(&b.level))
-                        .numeric(true),
-                ],
+    let (screen, selected) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let selected = signal(Vec::<u64>::new());
+            let sort = signal(None);
+            let page = signal(0_usize);
+            (
+                selected,
+                kivact::ui::data_table(
+                    vec![
+                        Member {
+                            id: 1,
+                            name: "Beta",
+                            level: 2,
+                        },
+                        Member {
+                            id: 2,
+                            name: "Alpha",
+                            level: 10,
+                        },
+                        Member {
+                            id: 3,
+                            name: "Gamma",
+                            level: 4,
+                        },
+                    ],
+                    |m: &Member| m.id,
+                    vec![
+                        kivact::ui::DataColumn::new("Name", |m: &Member| m.name.to_owned())
+                            .width(150.0)
+                            .compare(|a, b| a.name.cmp(b.name))
+                            .filter(|m, query| m.name.contains(query))
+                            .cell(|m| text(m.name)),
+                        kivact::ui::DataColumn::new("Level", |m: &Member| m.level.to_string())
+                            .width(80.0)
+                            .compare(|a, b| a.level.cmp(&b.level))
+                            .numeric(true),
+                    ],
+                )
+                .selection(selected)
+                .sort(sort)
+                .filter(signal(String::new()))
+                .page(page, 2),
             )
-            .selection(selected)
-            .sort(sort)
-            .filter(signal(String::new()))
-            .page(page, 2),
-        )
-    });
+        },
+    );
     screen.get_by_role(Role::ColumnHeader, "Name").click();
     screen.get_by_text("Alpha");
     screen.get_by_role(Role::CheckBox, "Select Alpha").click();

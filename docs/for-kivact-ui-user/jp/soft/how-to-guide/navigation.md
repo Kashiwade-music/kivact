@@ -19,8 +19,8 @@ fn project_view() -> impl IntoView {
             view,
         ).variant(kivact::ui::RadioGroupVariant::Segmented),
         dynamic(view, |view| match view {
-            Some("activity") => soft::heading(2, "Activity"),
-            _ => soft::heading(2, "Summary"),
+            Some("activity") => kivact::ui::heading("Activity", 2),
+            _ => kivact::ui::heading("Summary", 2),
         }),
     ))
     .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s4))
@@ -52,3 +52,7 @@ segmented のヒントは `with_key_hints` の中で `.item_node(|target, _, _| 
 カードは標準 `card(content)` を使用し、ボタンには `.name(label).on_press(action)`、チェックボックスには `.name(label).selected(binding)` を指定します。`soft::CardVariant` は Default/Transparent/Muted と全カテゴリ色を保持します。`soft::CardAppearance::new(color, elevation, padding)` はリアクティブな色・高さ表現と論理 `Space` 余白を受け取ります。インセットを利用する Soft 配置の子には `card(soft::with_card_insets(appearance, || content)).variant(appearance)` を合成します。幅と高さは標準 `.style(...)`、固定高さ内のスクロールは内容を標準 `scroll(...).axes(ScrollAxes::Vertical)` で囲みます。header/media/footer は標準スロットで、実際のポインター状態は装飾 overlay レシピに渡されます。
 
 Avatar は標準 `avatar(name)` を使用し、リアクティブな `.src(Some(asset))`、`.fallback_src(Some(asset))`、標準 `AvatarShape`、`.on_press`/`.on_open`、`.status(Tone)` または `.status_content(view)` を指定します。`soft::AvatarSize` は Xsm20/Sm24/Md36/Lg48/Xl128 と段階に合わせる `Px` を保持し、`.variant(size)` または `.variant(soft::AvatarAppearance::new(size))` を使用します。名前のヒントは標準 `tooltip(name).attach(avatar(...))`、従来の Text は独自の文字、Off は省略で表します。`.name(alt)` で代替文字を上書きします。独自の状態ラベルはリアクティブな `.name(...)` に合成でき、状態の内容には実際のラベルを付けます。ラベルのレジストリは不要です。`avatar_status_dot(...).avatar_size(size)` は独自の色・アイコンと直径に応じた寸法を保持します。匿名の場合は `.fallback_content(soft::avatar_silhouette)` を指定します。グループは標準 `avatar_group(children).name(label).total(total)` を使用します。各子にサイズと形状を指定し、共有枠は `.variant(soft::AvatarGroupAppearance::new(size, shape))`、サイズ変更時の重なりは `.overlap(move || side * 0.25)` で指定します。`.overflow_content(|count| button(...))` は実際の省略数から独自の文字と操作を構成します。キーボード移動は標準グループが所有します。
+
+工程には標準 `stepper(vec![StepperItem::new(label)], current)` を使用します。項目の description/status/disabled/optional/indicator/content/end_content と、グループの orientation/on_step_press/min_step_width は標準 API です。リアクティブな状態は項目ベクトルを派生させて表します。`StepIndicator::custom(factory)` は独自のグリフを保持します。`soft::StepperAppearance` はリアクティブな密度、インジケーター位置、コンパクト表示、接続線の間隔、インデックスごとの密度を含みます。実際の leading/trailing/progress パーツを標準の index/count/orientation で描画し、最初・最後の線と到達済み区間を区別します。疎な従来のインデックスはベクトル位置に対応させ、独自の数字インジケーターと操作時の検索で保持します。WithLabelAndControls/WithLabel/HiddenLabel は従来の表示を保持します。標準 `CollapsedSteps::{Current,All}` は構築時に指定する別の構造方針です。コンパクト表示の前後移動では無効な工程を飛ばします。
+
+Banner は標準 `alert(title).tone(Tone::Info).icon(soft::banner_icon(Tone::Info))` を使用します。Warning/Success はそのまま、Error は `Tone::Danger` に対応します。末尾の内容は `.actions(...)`、詳細は `.content(factory).collapsible(true).open(binding)` に置換します。従来の Banner の既定を保持するには collapsible を明示します。標準 `.dismissible(...)`、`.dismiss_label(...)`、`.on_dismiss(...)` は閉じる操作と外部フォーカス復帰を保持します。見出しを含む閉じる名前は `i18n::message_with` で翻訳して渡せます。`soft::BannerContainer::{Card,Section}` とリアクティブな `BannerAppearance::new(container,elevation)` は外観を保持します。テーマは実際の header/message/controls/body の枠を描画し、開閉対象には標準 tooltip が付きます。

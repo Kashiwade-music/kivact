@@ -1,6 +1,6 @@
 //! Role: The sidebar's groups, menu buttons, sub-menus, input, separator and skeleton.
 
-use super::state::{SidebarCollapsible, SidebarCx, current, deferred};
+use super::state::{SidebarCollapsible, SidebarCx, current};
 use crate::parts::pressable;
 use kivact::ui::skeleton;
 
@@ -69,7 +69,8 @@ impl NodeBuilder for SidebarGroup {
 
 impl IntoView for SidebarGroup {
     fn into_view(self) -> View {
-        deferred(move || {
+        let root = self.root;
+        root.part(kivact::custom::Part::new(().into_value(), move |root| {
             let hidden = icon_only(current());
             let label = self.label;
             let heading = node()
@@ -112,8 +113,9 @@ impl IntoView for SidebarGroup {
                     )
                     .child(content)
             });
-            self.root.child(heading).child(action).child(content)
-        })
+            root.child(heading).child(action).child(content)
+        }))
+        .into_view()
     }
 }
 
@@ -260,7 +262,11 @@ impl NodeBuilder for SidebarMenuButton {
 
 impl IntoView for SidebarMenuButton {
     fn into_view(self) -> View {
-        deferred(move || build_button(self))
+        node()
+            .part(kivact::custom::Part::new(().into_value(), move |root| {
+                build_button(self, root)
+            }))
+            .into_view()
     }
 }
 
@@ -320,7 +326,7 @@ fn button_style(cfg: ButtonCfg, rtl: bool) -> kivact::style::Style {
     }
 }
 
-fn build_button(this: SidebarMenuButton) -> impl IntoView {
+fn build_button(this: SidebarMenuButton, wrapper: Node) -> Node {
     let cx = current();
     let hidden = icon_only(cx);
     let rtl = use_direction().get() == ReadingDirection::Rtl;
@@ -458,7 +464,7 @@ fn build_button(this: SidebarMenuButton) -> impl IntoView {
             })
             .child(sub)
     });
-    node()
+    wrapper
         .with_node(|root| root.role(Role::ListItem))
         .style(
             style()
@@ -608,3 +614,5 @@ pub fn sidebar_menu_skeleton() -> impl kivact::view::Component {
 }
 
 kivact::state::constant_value!(SidebarMenuButtonSize);
+
+impl kivact::ui::Variant for SidebarMenuButtonSize {}

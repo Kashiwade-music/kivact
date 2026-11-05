@@ -56,7 +56,7 @@ use crate::component_values::{
     AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
     StatState,
 };
-use crate::data_table::group_state::DataTableGroupState;
+use crate::table_values::DataTableGroupState;
 use crate::{look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
@@ -211,8 +211,8 @@ recipe_table! {
         month(month_recipe): PartState = super::look_calendar::month,
         caption(caption_recipe): PartState = super::look_calendar::month,
         events(events_recipe): PartState = super::look_calendar::events,
-        event(event_recipe): super::CalendarEventVisual = super::look_calendar::event,
-        day(day_recipe): super::CalendarDayVisual = super::look_calendar::day,
+        event(event_recipe): crate::calendar_tokens::CalendarEventVisual = super::look_calendar::event,
+        day(day_recipe): crate::calendar_values::CalendarDayVisual = super::look_calendar::day,
         range(range_recipe): kivact_interaction::CalendarDayState = super::look_calendar::range,
     }
 }
@@ -803,6 +803,9 @@ recipe_table! {
     /// Recipes for a persistent alert and optional details.
     AlertRecipes {
         root(root_recipe): AlertState = look_feedback::alert_root,
+        header(header_recipe): AlertState = look_feedback::alert_wrapper,
+        message(message_recipe): AlertState = look_feedback::alert_wrapper,
+        controls(controls_recipe): AlertState = look_feedback::alert_wrapper,
         title(title_recipe): AlertState = look_feedback::alert_title,
         description(description_recipe): AlertState = look_feedback::alert_description,
         icon(icon_recipe): AlertState = look_feedback::alert_icon,
@@ -887,6 +890,10 @@ recipe_table! {
         next(next_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
         item(item_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_item,
         layout(layout_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_layout,
+        track(track_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_layout,
+        leading(leading_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
+        trailing(trailing_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
+        progress(progress_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
         body(body_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_body,
         indicator(indicator_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
         label(label_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,

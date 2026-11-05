@@ -21,6 +21,8 @@ pub(super) enum Choice {
 }
 
 pub(super) struct State {
+    pub(super) chosen_message: Value<String>,
+    pub(super) selection_status: Signal<String>,
     // xtask-allow(state-fields): Optional mounted-part drawing observation, independent of behavior phase.
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) cell_states:
@@ -51,18 +53,9 @@ pub(super) fn create(
     let roving = Roving::<CalendarDate>::new();
     let requested = roving.requested;
     let registry = roving.clone();
-    let choice = match selection {
-        CalendarSelection::Single(value) => Choice::Single(value),
-        CalendarSelection::Range(value) => {
-            let pick = machine(
-                RangePick::Idle,
-                || machine::Machine,
-                move |_, next| value.set(next),
-            );
-            effect(move || pick.send(machine::Event::ExternalValueChanged(value.get())));
-            Choice::Range { value, pick }
-        }
-    };
+    let selection_status = signal(String::new());
+    let chosen = kivact_core::i18n::message("calendar.chosen", "Date selected");
+    let choice = selection_choice(selection, selection_status);
     let count = policy.months;
     let disabled = policy.disabled.clone();
     let initial = policy.initial_focus;
@@ -99,6 +92,8 @@ pub(super) fn create(
             .or_else(|| days.iter().copied().find(|day| available(day)))
     });
     let state = Rc::new(State {
+        chosen_message: chosen,
+        selection_status,
         grid_state: signal(None),
         cell_states: signal(std::collections::HashMap::new()),
         owner,
@@ -138,15 +133,16 @@ impl State {
     pub(super) fn disabled(&self, day: CalendarDate) -> bool {
         (self.policy.disabled)(day)
             || match self.choice {
-                Choice::Range { value, pick } => match pick.get().current(value.get()) {
+                Choice::Range { pick, .. } => match pick.get() {
                     RangePick::Picking { anchor, .. } => {
                         let span = anchor.to_days().abs_diff(day.to_days()) + 1;
-                        span < u64::from(self.policy.min_span.get().max(1))
-                            || self
-                                .policy
-                                .max_span
-                                .get()
-                                .is_some_and(|max| span > u64::from(max))
+                        day != anchor
+                            && (span < u64::from(self.policy.min_span.get().max(1))
+                                || self
+                                    .policy
+                                    .max_span
+                                    .get()
+                                    .is_some_and(|max| span > u64::from(max)))
                     }
                     RangePick::Idle => false,
                 },
@@ -201,25 +197,34 @@ impl State {
 
     /// Choose `day` as a press or Enter on it does.
     pub(super) fn pick(&self, day: CalendarDate) {
-        if self.disabled(day) {
+        if self.disabled(day) || !(self.policy.activation_guard)(day) {
             return;
+        }
+        self.roving.requested.set(Some(day));
+        if matches!(self.choice,Choice::Range {pick,..} if matches!(pick.get(),RangePick::Idle)) {
+            self.roving.focus(&day, |day| !self.disabled(*day));
         }
         let done = match self.choice {
             Choice::Single(value) => {
                 value.set(Some(day));
+                if value.get_untracked() == Some(day) {
+                    self.selection_status
+                        .set(format!("{}: {day}", self.chosen_message.get_untracked()));
+                }
                 true
             }
-            Choice::Range { value, pick } => {
-                let current = value.get_untracked();
-                let done = matches!(
-                    pick.state().get_untracked().current(current),
-                    RangePick::Picking { .. }
-                );
-                pick.send(machine::Event::Choose { day, current });
+            Choice::Range { pick, .. } => {
+                if matches!(pick.get(),RangePick::Picking{anchor,..} if anchor==day)
+                    && self.policy.min_span.get() > 1
+                {
+                    pick.send(machine::Event::Cancel);
+                    return;
+                }
+                let done = matches!(pick.get(), RangePick::Picking { .. });
+                pick.send(machine::Event::Choose { day });
                 done
             }
         };
-        self.roving.requested.set(Some(day));
         if !self.shows(day.month_of()) {
             self.month.set(day.month_of());
         }
@@ -235,12 +240,12 @@ impl State {
             return Handled::No;
         }
         if event.key() == Key::Escape
-            && let Choice::Range { value, pick } = self.choice
-            && let RangePick::Picking { .. } =
-                pick.state().get_untracked().current(value.get_untracked())
+            && let Choice::Range { pick, .. } = self.choice
+            && let RangePick::Picking { .. } = pick.get()
         {
-            pick.send(machine::Event::Cancel(value.get_untracked()));
-            return Handled::Yes;
+            pick.send(machine::Event::Cancel);
+            // Cancel the stage while allowing an enclosing picker to dismiss.
+            return Handled::No;
         }
         let column = day.weekday().days_since(self.first_day.get_untracked()) as i32;
         let months = if modifiers.shift { 12 } else { 1 };
@@ -264,5 +269,44 @@ impl State {
             }
         }
         Handled::Yes
+    }
+}
+
+/// Keep staged range transitions and accepted-selection announcements in one owner.
+fn selection_choice(selection: CalendarSelection, selection_status: Signal<String>) -> Choice {
+    let range_chosen = kivact_core::i18n::message("calendar.range_chosen", "Date range selected");
+    let started = kivact_core::i18n::message("calendar.range_started", "Start date selected");
+    let cancelled =
+        kivact_core::i18n::message("calendar.range_cancelled", "Range selection cancelled");
+    match selection {
+        CalendarSelection::Single(value) => Choice::Single(value),
+        CalendarSelection::Range(value) => {
+            let pick = machine(
+                RangePick::Idle,
+                || machine::Machine,
+                move |_, effect| match effect {
+                    machine::Effect::Commit(range) => {
+                        value.set(Some(range));
+                        if value.get_untracked() == Some(range) {
+                            selection_status.set(format!(
+                                "{}: {} - {}",
+                                range_chosen.get_untracked(),
+                                range.start(),
+                                range.end()
+                            ));
+                        }
+                    }
+                    machine::Effect::Started(day) => {
+                        selection_status.set(format!("{}: {day}", started.get_untracked()))
+                    }
+                    machine::Effect::Cancelled => selection_status.set(cancelled.get_untracked()),
+                },
+            );
+            effect(move || {
+                value.get();
+                pick.send(machine::Event::ExternalValueChanged)
+            });
+            Choice::Range { value, pick }
+        }
     }
 }

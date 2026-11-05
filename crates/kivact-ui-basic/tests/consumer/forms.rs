@@ -1,6 +1,5 @@
 //! Role: Forms tests: fields, selects, choices, sliders, dates and questionnaire.
 
-use crate::support::assert_clean;
 use kivact::i18n::{CalendarDate, CalendarMonth};
 use kivact::interaction::ListItem;
 use kivact::prelude::*;
@@ -22,8 +21,10 @@ fn page(child: impl IntoView) -> Node {
 
 #[test]
 fn questionnaire_submits_once_and_records_skips() {
-    let (screen, (answers, submitted)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (answers, submitted)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
             let step = signal(0usize);
             let answers = signal(Vec::<basic::QuestionnaireAnswer>::new());
             let submitted = signal(0usize);
@@ -43,7 +44,8 @@ fn questionnaire_submits_once_and_records_skips() {
                     move |_: Vec<basic::QuestionnaireAnswer>| submitted.update(|count| *count += 1),
                 )),
             )
-        });
+        },
+    );
     screen.get_by_role(Role::Button, "Skip").click();
     assert_eq!(
         answers.get_untracked(),
@@ -62,23 +64,28 @@ fn questionnaire_submits_once_and_records_skips() {
     assert!(!submit.is_disabled(), "a changed answer asks again");
     submit.click();
     assert_eq!(submitted.get_untracked(), 2);
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn field_shows_label_description_and_error() {
-    let (screen, error) = kivact::test::render_with_handle(crate::support::options(), || {
-        let name = signal(String::new());
-        let error = signal(None::<String>);
-        (
-            error,
-            page(
-                kivact::ui::field("Username", kivact::ui::text_input("Username", name))
-                    .hint("Choose a unique username.")
-                    .error(error),
-            ),
-        )
-    });
+    let (screen, error) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let name = signal(String::new());
+            let error = signal(None::<String>);
+            (
+                error,
+                page(
+                    kivact::ui::field("Username", kivact::ui::text_input("Username", name))
+                        .hint("Choose a unique username.")
+                        .error(error),
+                ),
+            )
+        },
+    );
     let group = screen.get_by_role(Role::TextBox, "Username");
     assert!(group.exists());
     screen.get_by_text("Username");
@@ -88,13 +95,16 @@ fn field_shows_label_description_and_error() {
     screen.run_until_idle();
     screen.get_by_role(Role::Alert, "Required");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn input_otp_fills_slots_completes_and_backspaces() {
-    let (screen, (code, done)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (code, done)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
             let code = signal(String::new());
             let done = signal(None::<String>);
             (
@@ -105,7 +115,8 @@ fn input_otp_fills_slots_completes_and_backspaces() {
                         .on_complete(move |c: String| done.set(Some(c))),
                 ),
             )
-        });
+        },
+    );
     screen.get_by_role(Role::TextBox, "Code").click();
     screen.type_text("12a3");
     screen.run_until_idle();
@@ -121,7 +132,8 @@ fn input_otp_fills_slots_completes_and_backspaces() {
     screen.run_until_idle();
     assert_eq!(code.get_untracked(), "12345");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 fn fruits() -> Vec<ListItem<&'static str>> {
@@ -135,17 +147,21 @@ fn fruits() -> Vec<ListItem<&'static str>> {
 
 #[test]
 fn native_select_chooses_by_keyboard_and_list() {
-    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
-        let value = signal(None::<&'static str>);
-        (
-            value,
-            page(
-                basic::native_select(fruits(), value)
-                    .placeholder("Select fruit")
-                    .name("Fruit"),
-            ),
-        )
-    });
+    let (screen, value) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let value = signal(None::<&'static str>);
+            (
+                value,
+                page(
+                    basic::native_select(fruits(), value)
+                        .placeholder("Select fruit")
+                        .name("Fruit"),
+                ),
+            )
+        },
+    );
     screen.get_by_text("Select fruit");
     let trigger = screen.get_by_role(Role::ComboBox, "Fruit");
     trigger.focus();
@@ -167,17 +183,22 @@ fn native_select_chooses_by_keyboard_and_list() {
     screen.run_until_idle();
     assert_eq!(value.get_untracked(), Some("banana"));
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn radio_group_arrows_move_and_select() {
-    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
-        let value = signal(Some("apple"));
-        let mut options = fruits();
-        options[0] = ListItem::new("apple", "Apple").with_description("Crunchy");
-        (value, page(radio_group("Fruit", options, value)))
-    });
+    let (screen, value) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let value = signal(Some("apple"));
+            let mut options = fruits();
+            options[0] = ListItem::new("apple", "Apple").with_description("Crunchy");
+            (value, page(radio_group("Fruit", options, value)))
+        },
+    );
     screen.get_by_role(Role::RadioGroup, "Fruit");
     screen.get_by_text("Crunchy");
     let apple = screen.get_by_role(Role::RadioButton, "Apple");
@@ -197,27 +218,32 @@ fn radio_group_arrows_move_and_select() {
     screen.run_until_idle();
     assert_eq!(value.get_untracked(), Some("apple"));
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn slider_keys_and_drag_change_the_binding() {
-    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
-        let value = signal(20.0);
-        (
-            value,
-            page(
-                slider("Volume", value)
-                    .range(
-                        kivact::interaction::ScalarRange::new(0.0, 100.0)
-                            .and_then(|range| range.with_step(5.0))
-                            .expect("a valid range"),
-                    )
-                    .test_id("slider")
-                    .style(style().width(200)),
-            ),
-        )
-    });
+    let (screen, value) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let value = signal(20.0);
+            (
+                value,
+                page(
+                    slider("Volume", value)
+                        .range(
+                            kivact::interaction::ScalarRange::new(0.0, 100.0)
+                                .and_then(|range| range.with_step(5.0))
+                                .expect("a valid range"),
+                        )
+                        .test_id("slider")
+                        .style(style().width(200)),
+                ),
+            )
+        },
+    );
     let slider = screen.get_by_role(Role::Slider, "Volume");
     assert_eq!(slider.value_range().2, Some(20.0));
     slider.focus();
@@ -238,24 +264,29 @@ fn slider_keys_and_drag_change_the_binding() {
     let now = value.get_untracked();
     assert!((45.0..=55.0).contains(&now), "dragged to the middle: {now}");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn combobox_filters_chooses_and_clears() {
-    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
-        let value = signal(None::<&'static str>);
-        (
-            value,
-            page(
-                kivact::ui::combobox("Fruit", fruits(), value)
-                    .placeholder("Select fruit")
-                    .show_clear(true)
-                    .name("Fruit")
-                    .style(style().width(240)),
-            ),
-        )
-    });
+    let (screen, value) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let value = signal(None::<&'static str>);
+            (
+                value,
+                page(
+                    kivact::ui::combobox("Fruit", fruits(), value)
+                        .placeholder("Select fruit")
+                        .show_clear(true)
+                        .name("Fruit")
+                        .style(style().width(240)),
+                ),
+            )
+        },
+    );
     let input = screen.get_by_role(Role::ComboBox, "Fruit");
     input.click();
     screen.type_text("an");
@@ -295,7 +326,8 @@ fn combobox_filters_chooses_and_clears() {
     screen.run_until_idle();
     screen.get_by_text("No results found.");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 fn day(y: i32, m: u8, d: u8) -> CalendarDate {
@@ -304,19 +336,23 @@ fn day(y: i32, m: u8, d: u8) -> CalendarDate {
 
 #[test]
 fn calendar_moves_with_keys_changes_month_and_skips_disabled_dates() {
-    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
-        let value = signal(Some(day(2026, 10, 14)));
-        (
-            value,
-            page(
-                kivact::ui::calendar(value)
-                    .variable_rows(true)
-                    .default_month(CalendarMonth::new(2026, 10))
-                    .week_start(kivact::i18n::Weekday::Sunday)
-                    .disabled_dates(|d| d.day() == 16),
-            ),
-        )
-    });
+    let (screen, value) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let value = signal(Some(day(2026, 10, 14)));
+            (
+                value,
+                page(
+                    kivact::ui::calendar(value)
+                        .variable_rows(true)
+                        .default_month(CalendarMonth::new(2026, 10))
+                        .week_start(kivact::i18n::Weekday::Sunday)
+                        .disabled_dates(|d| d.day() == 16),
+                ),
+            )
+        },
+    );
     screen.get_by_text("October 2026");
     screen.get_by_text("Sun");
     let cell = |d: u8| screen.get_by_role(Role::GridCell, &format!("2026-10-{d:02}"));
@@ -351,43 +387,48 @@ fn calendar_moves_with_keys_changes_month_and_skips_disabled_dates() {
     screen.run_until_idle();
     screen.get_by_text("December 2026");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
 fn date_picker_opens_a_popover_picks_a_day_and_closes() {
-    let (screen, value) = kivact::test::render_with_handle(crate::support::options(), || {
-        let value = signal(None::<CalendarDate>);
-        (
-            value,
-            page(
-                kivact::ui::date_input("Date of birth", value)
-                    .presentation(kivact::ui::DatePresentation::Desktop)
-                    .variant(basic::DatePickerVariant::Flush)
-                    .calendar(|c| {
-                        c.default_month(CalendarMonth::new(2026, 10))
-                            .variable_rows(true)
-                            .disabled_dates(|d| d.day() == 1)
-                    })
-                    .attach({
-                        let locale = kivact::i18n::use_locale();
-                        kivact::ui::button(move || {
-                            value.get().map_or_else(
-                                || "Pick a date".to_owned(),
-                                |date| {
-                                    locale
-                                        .get()
-                                        .format_date(date, kivact::i18n::DateStyle::Long)
-                                },
-                            )
+    let (screen, value) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .reduced_motion(),
+        || {
+            let value = signal(None::<CalendarDate>);
+            (
+                value,
+                page(
+                    kivact::ui::date_input("Date of birth", value)
+                        .presentation(kivact::ui::DatePresentation::Desktop)
+                        .variant(basic::DatePickerVariant::Flush)
+                        .calendar(|c| {
+                            c.default_month(CalendarMonth::new(2026, 10))
+                                .variable_rows(true)
+                                .disabled_dates(|d| d.day() == 1)
                         })
-                        .name("Date of birth")
-                        .icon(icon("calendar"))
-                        .variant(kivact::ui::ButtonVariant::Outline)
-                    }),
-            ),
-        )
-    });
+                        .attach({
+                            let locale = kivact::i18n::use_locale();
+                            kivact::ui::button(move || {
+                                value.get().map_or_else(
+                                    || "Pick a date".to_owned(),
+                                    |date| {
+                                        locale
+                                            .get()
+                                            .format_date(date, kivact::i18n::DateStyle::Long)
+                                    },
+                                )
+                            })
+                            .name("Date of birth")
+                            .icon(icon("calendar"))
+                            .variant(kivact::ui::ButtonVariant::Outline)
+                        }),
+                ),
+            )
+        },
+    );
     screen.get_by_text("Pick a date");
     let trigger = screen.get_by_role(Role::Button, "Date of birth");
     trigger.click();
@@ -413,5 +454,6 @@ fn date_picker_opens_a_popover_picks_a_day_and_closes() {
     screen.get_by_text("October 14, 2026");
     assert!(trigger.is_focused(), "the focus returns to the button");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

@@ -75,7 +75,13 @@ pub(super) enum Effect {
     Return(NodeToken),
     Unmounted,
 }
-pub(super) struct Machine;
+/// Per-event host observation, never retained as popup lifecycle state.
+pub(super) struct Machine {
+    // xtask-allow(state-fields): Current host focus is an immutable event input, not retained popup state.
+    pub(super) focused: Option<NodeToken>,
+    // xtask-allow(state-fields): Current membership in the mounted content is a derived host observation.
+    pub(super) focus_inside: bool,
+}
 impl Machine {
     fn closing(
         &self,
@@ -87,6 +93,9 @@ impl Machine {
             return Step::to(State::ReturningFocus { opener }).with(Effect::Return(opener));
         }
         Step::to(State::Closing { reason, opener })
+    }
+    fn may_restore(&self, target: Option<NodeToken>) -> bool {
+        self.focused.is_none() || self.focus_inside || target == self.focused
     }
     fn close_effect(&self, state: &State, reason: PopupCloseReason) -> Effect {
         let opening = match state {
@@ -115,6 +124,10 @@ impl MachineTrait for Machine {
                 focus: *focus,
             }),
             (_, Event::Close(reason)) => Step::stay().with(self.close_effect(state, reason)),
+            // A pointer can activate a non-tabstop choice while leaving focus
+            // absent. An accepted programmatic close must then restore its
+            // snapshotted invoker without waiting for an inside-focus cleanup.
+            // A concrete outside destination keeps the ordinary close policy.
             (State::Open { .. }, Event::Accepted { reason, target }) => self.closing(
                 target,
                 reason,
@@ -123,7 +136,7 @@ impl MachineTrait for Machine {
                     PopupCloseReason::Escape
                         | PopupCloseReason::Selection
                         | PopupCloseReason::Accessibility
-                ),
+                ) || (reason == PopupCloseReason::Programmatic && self.may_restore(target)),
             ),
             (
                 State::Open {
@@ -151,26 +164,23 @@ impl MachineTrait for Machine {
                     step
                 }
             }
-            (
-                State::Open { .. },
-                Event::Unmount {
-                    was_inside: true,
-                    target,
-                },
-            ) => self
-                .closing(target, PopupCloseReason::Unmount, true)
-                .with(Effect::Unmounted),
+            (State::Open { .. }, Event::Unmount { was_inside, target })
+                if was_inside || (target.is_some() && self.may_restore(target)) =>
+            {
+                self.closing(target, PopupCloseReason::Unmount, true)
+                    .with(Effect::Unmounted)
+            }
             (
                 State::Closing {
                     opener: Some(opener),
                     ..
                 },
-                Event::Unmount {
-                    was_inside: true, ..
-                },
-            ) => Step::to(State::ReturningFocus { opener: *opener })
-                .with(Effect::Return(*opener))
-                .with(Effect::Unmounted),
+                Event::Unmount { was_inside, .. },
+            ) if was_inside || self.may_restore(Some(*opener)) => {
+                Step::to(State::ReturningFocus { opener: *opener })
+                    .with(Effect::Return(*opener))
+                    .with(Effect::Unmounted)
+            }
             (_, Event::Unmount { .. }) => Step::to(State::Closed),
             _ => Step::stay(),
         }

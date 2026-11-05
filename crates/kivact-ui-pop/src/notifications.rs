@@ -133,71 +133,7 @@ impl<V: IntoView + NodeBuilder> IntoView for NotificationMenu<V> {
                                     .align_items(Align::Center)
                                     .border_bottom(1, ColorToken::Border),
                             ),
-                            for_each(
-                                items,
-                                |item| item.id,
-                                |item| {
-                                    let initial = item.get_untracked();
-                                    row((
-                                        node()
-                                            .child(icon(initial.icon))
-                                            .style(move || {
-                                                let theme = &use_theme().get();
-                                                let p = theme.ext::<Tokens>();
-                                                let (background, color) = p.hue(item.get().hue);
-                                                style().background(background).color(color)
-                                            })
-                                            .style(
-                                                style()
-                                                    .size(32, 32)
-                                                    .radius(6)
-                                                    .align_items(Align::Center)
-                                                    .justify_content(Justify::Center)
-                                                    .shrink(0),
-                                            ),
-                                        column((
-                                            text(move || item.get().title).style(
-                                                style()
-                                                    .font_size(13.5)
-                                                    .weight(500)
-                                                    .padding_right(16),
-                                            ),
-                                            text(move || item.get().body).style(
-                                                style().font_size(13).color(ColorToken::TextMuted),
-                                            ),
-                                            text(move || item.get().timestamp)
-                                                .style(style().font_size(12))
-                                                .style(style().color(ColorName::TextFaint)),
-                                        ))
-                                        .style(style().grow(1).gap(0)),
-                                        show(
-                                            move || item.get().unread,
-                                            || {
-                                                node().style(
-                                                    style()
-                                                        .position(Position::Absolute)
-                                                        .right(10)
-                                                        .top(14)
-                                                        .size(6, 6)
-                                                        .radius(3)
-                                                        .background(ColorToken::Accent),
-                                                )
-                                            },
-                                        ),
-                                    ))
-                                    .with_node(|root| root.role(Role::Group))
-                                    .name(move || item.get().title)
-                                    .selected(move || item.get().unread)
-                                    .style(
-                                        style()
-                                            .padding(8)
-                                            .gap(10)
-                                            .align_items(Align::Start)
-                                            .radius(6)
-                                            .hover(style().background(ColorToken::SurfaceAlt)),
-                                    )
-                                },
-                            ),
+                            for_each(items, |item| item.id, notification_row),
                         ))
                         .style(
                             style()
@@ -223,4 +159,60 @@ impl<V: IntoView + NodeBuilder> IntoView for NotificationMenu<V> {
             .style(style().align_items(Align::Start))
             .into_view()
     }
+}
+
+fn notification_row(item: kivact::state::Value<NotificationItem>) -> Node {
+    let initial = item.get_untracked();
+    row((
+        node()
+            .child(icon(initial.icon))
+            .style(move || {
+                let theme = &use_theme().get();
+                let p = theme.ext::<Tokens>();
+                let (background, color) = p.hue(item.get().hue);
+                style().background(background).color(color)
+            })
+            .style(
+                style()
+                    .size(32, 32)
+                    .radius(6)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .shrink(0),
+            ),
+        column((
+            text(move || item.get().title)
+                .style(style().font_size(13.5).weight(500).padding_right(16)),
+            text(move || item.get().body).style(style().font_size(13).color(ColorToken::TextMuted)),
+            text(move || item.get().timestamp)
+                .style(style().font_size(12))
+                .style(style().color(ColorName::TextFaint)),
+        ))
+        .style(style().grow(1).gap(0)),
+        show(
+            move || item.get().unread,
+            || {
+                node().style(
+                    style()
+                        .position(Position::Absolute)
+                        .right(10)
+                        .top(14)
+                        .size(6, 6)
+                        .radius(3)
+                        .background(ColorToken::Accent),
+                )
+            },
+        ),
+    ))
+    .with_node(|root| root.role(Role::Group))
+    .name(move || item.get().title)
+    .selected(move || item.get().unread)
+    .style(
+        style()
+            .padding(8)
+            .gap(10)
+            .align_items(Align::Start)
+            .radius(6)
+            .hover(style().background(ColorToken::SurfaceAlt)),
+    )
 }

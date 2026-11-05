@@ -82,10 +82,14 @@ fn date_input_bottom_sheet_picks_with_the_wheel() {
         )
     });
     screen.get_by_role(Role::Button, "Choose date").click();
-    let wheel = screen.get_by_role(Role::SpinButton, "Day");
-    wheel.click();
+    screen.advance(std::time::Duration::from_millis(600));
+    screen.get_by_role(Role::Button, "October 2026").click();
+    let wheel = screen.get_by_role(Role::SpinButton, "Month");
     wheel.press_key(Key::ArrowUp);
-    screen.get_by_role(Role::Button, "Apply date").click();
+    wheel.press_key(Key::ArrowDown);
+    screen.get_by_role(Role::Button, "Done").click();
+    screen.get_by_role(Role::GridCell, "2026-10-15").click();
+    screen.get_by_role(Role::Button, "Save").click();
     assert_eq!(value.get_untracked(), Some(day(15)));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

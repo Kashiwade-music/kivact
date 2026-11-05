@@ -90,7 +90,7 @@ pub(super) fn tooltip(
         } else {
             placed.left(0).translate(at.x + OFFSET, top)
         };
-        let c = kivact::style::Color::BLACK.with_alpha(0.1);
+        let c = kivact::style::use_theme().get().colors().shadow;
         placed
             .z_index(10)
             .min_width(128)

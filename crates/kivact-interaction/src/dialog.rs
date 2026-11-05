@@ -82,6 +82,7 @@ impl Default for DismissOn {
 #[derive(Clone, Copy, Default)]
 struct DialogOptions {
     dismiss: Option<DismissOn>,
+    return_focus: Option<Value<NodeRef>>,
 }
 
 #[derive(Clone, Copy)]
@@ -159,6 +160,14 @@ pub fn use_dialog(open: impl kivact_core::state::IntoBinding<bool>, kind: Dialog
     let popup = use_popup(open)
         .modal(kind != DialogMode::Popover)
         .focus_first();
+    if kind == DialogMode::Popover {
+        popup.focus_return(FocusReturn {
+            target: FocusReturnTarget::Anchor(popup.anchor_ref()),
+            on: ReasonSet::DISMISS
+                .union(ReasonSet::PROGRAMMATIC)
+                .union(ReasonSet::UNMOUNT),
+        });
+    }
     DialogApi {
         popup,
         content_state: kivact_core::state::signal(None),
@@ -206,6 +215,17 @@ impl DialogApi {
     pub fn dismiss(self, dismiss: DismissOn) -> Self {
         self.settings
             .update(|settings| settings.dismiss = Some(dismiss));
+        self
+    }
+
+    /// Snapshot this target once per opening for keyboard, selection and
+    /// programmatic focus restoration. Outside presses retain outside focus.
+    /// Setup only; the supplied value is read by the opening's focus owner.
+    pub fn return_focus(self, target: impl kivact_core::state::IntoValue<NodeRef>) -> Self {
+        let target = target.into_value();
+        self.popup.return_focus_target(target);
+        self.settings
+            .update(|settings| settings.return_focus = Some(target));
         self
     }
 
@@ -318,20 +338,6 @@ impl DialogApi {
                         "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
                     );
                 }
-            });
-        }
-        if self.popover() {
-            // Whatever closes a popover while the focus is inside it, the
-            // focus goes back to the anchor. A modal gets this from the
-            // overlay's own cleanup.
-            self.popup.set_opening_policy(FocusReturn {
-                target: FocusReturnTarget::Anchor(match self.mode {
-                    DialogOptionsMode::Popover { anchor } => anchor.get_untracked(),
-                    _ => unreachable!("invariant: only popovers install anchor restoration"),
-                }),
-                on: ReasonSet::DISMISS
-                    .union(ReasonSet::PROGRAMMATIC)
-                    .union(ReasonSet::UNMOUNT),
             });
         }
     }

@@ -229,11 +229,6 @@ impl Text {
             .name(self.value);
         self
     }
-
-    pub(crate) fn heading_appearance(mut self, level: u32) -> Self {
-        self.heading = Some(level);
-        self
-    }
 }
 
 impl NodeBuilder for Text {
@@ -318,7 +313,7 @@ impl IntoView for Text {
     }
 }
 
-fn type_style(
+pub(crate) fn type_style(
     tokens: &Tokens,
     kind: TextKind,
     heading: Option<u32>,

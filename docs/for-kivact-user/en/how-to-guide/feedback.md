@@ -45,3 +45,7 @@ When migrating kit components, move empty-state `media` to `icon` and `content` 
 `empty_state(title).announce_changes()` opts into normalized change announcements. It skips the initial render, announces a late mount or a changed visible message, rearms after hiding, and suppresses duplicates under an actual live ancestor. `.announce()` remains the separate once-after-mount policy. The change observer uses one machine and an explicit sent-message phase; it does not repair a copied previous-message signal.
 
 Card recipes receive `input: Option<PartState>` from the actual button or checkbox part (`None` for plain cards). The `overlay` recipe styles a noninteractive decorative leaf above card content; its bounds follow the positioned card root and the theme retains responsibility for clipping and corner geometry.
+
+Alert `header`, `message`, and `controls` recipes style actual wrapper nodes around the existing icon, title/description, and action/toggle/dismiss slots. Their defaults use `Display::Contents`; all wrappers receive the same `AlertState` and add no interaction authority.
+
+`AlertState.has_content` records actual details-slot presence independently of whether details are collapsible. The standard expansion toggle keeps a canonical tooltip on its actual target; `alert.expand` and `alert.collapse` localize its name and hint.

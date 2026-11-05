@@ -662,15 +662,15 @@ pub(super) fn forms() -> Node {
                                             }
                                         },
                                     );
-                                    kivact::ui::date_input("実施日", value).calendar(
-                                        move |calendar| {
+                                    kivact::ui::date_input("実施日", value)
+                                        .presentation(kivact::ui::DatePresentation::Desktop)
+                                        .calendar(move |calendar| {
                                             calendar
                                                 .today(CalendarDate::new(2026, 10, 3))
                                                 .month_title(|date| {
                                                     format!("{}.{:02}", date.year(), date.month())
                                                 })
-                                        },
-                                    )
+                                        })
                                 }
                                 .test_id("pop-date-input"),
                             ),

@@ -13,9 +13,7 @@ use kivact::view::Key;
 use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
-use kivact_ui_soft::{
-    BannerStatus, IconSize, StatusDotVariant, banner, code_block, heading, icon, status_dot,
-};
+use kivact_ui_soft::{IconSize, StatusDotVariant, code_block, icon, status_dot};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -102,7 +100,11 @@ fn dismissing_a_banner_restores_the_previous_external_focus() {
         || {
             column((
                 button("Continue"),
-                banner(BannerStatus::Info, "Workspace updated").dismissable(true),
+                kivact::ui::alert("Workspace updated")
+                    .tone(kivact::interaction::Tone::Info)
+                    .icon(kivact_ui_soft::banner_icon(kivact::interaction::Tone::Info))
+                    .dismissible(true)
+                    .dismiss_label("DismissOn Workspace updated"),
                 button("Other"),
             ))
         },
@@ -137,7 +139,7 @@ fn content_components_publish_their_names_and_roles() {
         RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Dark)),
         || {
             column((
-                heading(2, "Workspace"),
+                kivact::ui::heading("Workspace", 2),
                 icon("search").size(IconSize::Lg).label("Search icon"),
                 badge("Review").tone(kivact::interaction::Tone::Warning),
                 status_dot(StatusDotVariant::Success, "Online"),

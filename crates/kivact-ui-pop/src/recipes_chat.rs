@@ -14,55 +14,63 @@ pub struct PopBubble;
 impl Variant for PopBubble {}
 
 pub(crate) fn message(r: ChatMessageRecipes) -> ChatMessageRecipes {
-    r.root(|prev| {
-        move |t: &Theme, s: &Look<ChatMessageState>| {
-            let base = prev(t, s).gap(10).align_items(Align::Start).min_width(0);
-            if s.variant::<PopBubble>().is_some() {
-                base.max_width(pct(78))
-                    .align_self(if s.align == ChatAlign::End {
-                        Align::End
-                    } else {
-                        Align::Start
-                    })
-                    .padding_left(
-                        if s.align == ChatAlign::Start
-                            && matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last)
-                        {
-                            34
+    let r = r
+        .root(|prev| {
+            move |t: &Theme, s: &Look<ChatMessageState>| {
+                let base = prev(t, s).gap(10).align_items(Align::Start).min_width(0);
+                if s.variant::<PopBubble>().is_some() {
+                    base.max_width(pct(78))
+                        .align_self(if s.align == ChatAlign::End {
+                            Align::End
                         } else {
-                            0
-                        },
-                    )
-            } else {
-                base
-            }
-        }
-    })
-    .body(|prev| {
-        move |t: &Theme, s: &Look<ChatMessageState>| {
-            let base = prev(t, s).radius(14).gap(4);
-            if s.variant::<PopBubble>().is_some() {
-                base.padding(0)
-                    .background(Color::TRANSPARENT)
-                    .max_width(pct(100))
-            } else if s.variant::<ChatMessageVariant>() == Some(&ChatMessageVariant::Plain) {
-                base
-            } else {
-                let p = t.ext::<Tokens>();
-                base.background(if s.align == ChatAlign::End {
-                    p.blue
+                            Align::Start
+                        })
+                        .padding_left(
+                            if s.align == ChatAlign::Start
+                                && matches!(
+                                    s.group,
+                                    ChatBubbleGroup::Middle | ChatBubbleGroup::Last
+                                )
+                            {
+                                34
+                            } else {
+                                0
+                            },
+                        )
                 } else {
-                    p.surface_active
-                })
-                .color(if s.align == ChatAlign::End {
-                    Color::WHITE
-                } else {
-                    p.text
-                })
+                    base
+                }
             }
-        }
-    })
-    .author(|prev| {
+        })
+        .body(|prev| {
+            move |t: &Theme, s: &Look<ChatMessageState>| {
+                let base = prev(t, s).radius(14).gap(4);
+                if s.variant::<PopBubble>().is_some() {
+                    base.padding(0)
+                        .background(Color::TRANSPARENT)
+                        .max_width(pct(100))
+                } else if s.variant::<ChatMessageVariant>() == Some(&ChatMessageVariant::Plain) {
+                    base
+                } else {
+                    let p = t.ext::<Tokens>();
+                    base.background(if s.align == ChatAlign::End {
+                        p.blue
+                    } else {
+                        p.surface_active
+                    })
+                    .color(if s.align == ChatAlign::End {
+                        Color::WHITE
+                    } else {
+                        p.text
+                    })
+                }
+            }
+        });
+    message_details(r)
+}
+
+fn message_details(r: ChatMessageRecipes) -> ChatMessageRecipes {
+    r.author(|prev| {
         move |t: &Theme, s: &Look<ChatMessageState>| {
             let base = prev(t, s);
             if s.variant::<PopBubble>().is_some() {

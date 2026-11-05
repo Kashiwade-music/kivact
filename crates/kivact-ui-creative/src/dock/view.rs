@@ -183,39 +183,7 @@ impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
                     .top(pct(50) - 8)
                     .color(ColorName::Dim),
             );
-        let preview = memo(move || {
-            cx.drag.with(|drag| {
-                drag.as_ref()
-                    .and_then(|drag| drag.target.as_ref())
-                    .map(|target| {
-                        let edge = matches!(target.placement, DockPlacement::Edge(_));
-                        (target.preview, target.bar, edge)
-                    })
-            })
-        });
-        let overlay = node()
-            .hidden(move || preview.get().is_none())
-            .style(move || {
-                let t = &use_theme().get();
-                let p = t.ext::<crate::tokens::Tokens>();
-                let Some((rect, bar, edge)) = preview.get() else {
-                    return style();
-                };
-                let tint = if edge { p.success } else { p.accent };
-                let base = style()
-                    .position(Position::Absolute)
-                    .left(rect.x)
-                    .top(rect.y)
-                    .width(rect.width)
-                    .height(rect.height)
-                    .z_index(10)
-                    .radius(4);
-                if bar {
-                    base.background(tint)
-                } else {
-                    base.background(tint.with_alpha(0.2)).border(2, tint)
-                }
-            });
+        let overlay = drop_preview(cx);
         root.node_ref(reference)
             .on_key_default(move |event| {
                 let maximized = current.with(|layout| layout.maximized.is_some());
@@ -311,21 +279,7 @@ fn divider<K: kivact::state::ItemKey>(
             first / (first + second).max(f64::EPSILON) * 100.0
         })
     });
-    let set_percent = {
-        let path = path.clone();
-        move |value: f64| {
-            let (Some((first, second)), Some(mut weights)) = (
-                pair(),
-                state.with_untracked(|divider| divider.as_ref().map(|d| d.weights.clone())),
-            ) else {
-                return;
-            };
-            let total = first + second;
-            weights[index] = value / 100.0 * total;
-            weights[index + 1] = total - weights[index];
-            cx.edit(|layout| layout.set_weights(&path, &weights));
-        }
-    };
+    let set_percent = weight_writer(cx, path.clone(), state, index, pair);
     // Each neighbor keeps MIN_EXTENT pixels, as a percentage of the pair.
     let range = move || {
         let low = (MIN_EXTENT / pair_extent() * 100.0).min(50.0);
@@ -367,4 +321,63 @@ fn divider<K: kivact::state::ItemKey>(
         .style(style().cursor(cursor))
         .style(move || crate::dock_style::splitter_look(&use_theme().get()))
         .into_view()
+}
+
+/// Project the dock's current drop target into a noninteractive preview overlay.
+fn drop_preview<K: kivact::state::ItemKey>(cx: DockCx<K>) -> Node {
+    let preview = memo(move || {
+        cx.drag.with(|drag| {
+            drag.as_ref()
+                .and_then(|drag| drag.target.as_ref())
+                .map(|target| {
+                    let edge = matches!(target.placement, DockPlacement::Edge(_));
+                    (target.preview, target.bar, edge)
+                })
+        })
+    });
+    node()
+        .hidden(move || preview.get().is_none())
+        .style(move || {
+            let t = &use_theme().get();
+            let p = t.ext::<crate::tokens::Tokens>();
+            let Some((rect, bar, edge)) = preview.get() else {
+                return style();
+            };
+            let tint = if edge { p.success } else { p.accent };
+            let base = style()
+                .position(Position::Absolute)
+                .left(rect.x)
+                .top(rect.y)
+                .width(rect.width)
+                .height(rect.height)
+                .z_index(10)
+                .radius(4);
+            if bar {
+                base.background(tint)
+            } else {
+                base.background(tint.with_alpha(0.2)).border(2, tint)
+            }
+        })
+}
+
+/// Preserve the pair's total weight while writing one resized boundary.
+fn weight_writer<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    path: Rc<Vec<usize>>,
+    state: Value<Option<Divider>>,
+    index: usize,
+    pair: impl Fn() -> Option<(f64, f64)> + Copy + 'static,
+) -> impl Fn(f64) {
+    move |value: f64| {
+        let (Some((first, second)), Some(mut weights)) = (
+            pair(),
+            state.with_untracked(|divider| divider.as_ref().map(|d| d.weights.clone())),
+        ) else {
+            return;
+        };
+        let total = first + second;
+        weights[index] = value / 100.0 * total;
+        weights[index + 1] = total - weights[index];
+        cx.edit(|layout| layout.set_weights(&path, &weights));
+    }
 }

@@ -26,7 +26,6 @@ mod feedback;
 mod field_status;
 mod form_layout;
 mod grid;
-mod heading;
 mod hover_card;
 mod icon;
 mod icons;
@@ -63,6 +62,7 @@ mod recipes_dropzone;
 mod recipes_field;
 mod recipes_groups;
 mod recipes_menu;
+mod recipes_metrics;
 mod recipes_popup;
 mod recipes_popup_command;
 mod recipes_select;
@@ -106,7 +106,7 @@ pub use aspect_ratio::aspect_ratio;
 pub use avatar::{AvatarAppearance, AvatarGroupAppearance, avatar_silhouette};
 pub use avatar_options::AvatarSize;
 pub use avatar_status_dot::{AvatarStatus, AvatarStatusDot, avatar_status_dot};
-pub use banner::{Banner, BannerContainer, BannerStatus, banner};
+pub use banner::{BannerAppearance, BannerContainer, banner_icon};
 pub use blockquote::{Blockquote, blockquote, blockquote_text};
 pub use bottom_sheet::{
     BottomSheet, DialogPurpose, SheetHeight, SnapPoint, bottom_sheet, bottom_sheet_flow,
@@ -138,7 +138,6 @@ pub use form_layout::{
     FormDirection, FormLayout, FormLayoutCx, Optionality, form_layout, form_row,
 };
 pub use grid::{Grid, GridColumns, GridRepeat, GridSpan, Span, grid, grid_span};
-pub use heading::{Heading, HeadingDisplay, heading};
 pub use hover_card::hover_card_text;
 pub use icon::{Icon, IconColor, IconSize, icon, icon_style};
 pub use icons::ICON_NAMES;
@@ -169,6 +168,7 @@ pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use recipes_badge::BadgeVariant;
 pub use recipes_dropzone::DropzoneVariant;
 pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
+pub use recipes_metrics::HeadingDisplay;
 pub use recipes_skeleton::SkeletonRadius;
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
@@ -213,10 +213,7 @@ pub use stack::{
     CenterAxis, ContainerInset, Space, Stack, StackAlign, StackItem, StackItemSize, StackWrap,
     center, hstack, stack, stack_item, vstack,
 };
-pub use stepper::{
-    Step, StepCollapsedVariant, StepDensity, StepIndicator, StepIndicatorPosition, StepStatus,
-    Stepper, step, stepper,
-};
+pub use stepper::{StepCollapsedVariant, StepDensity, StepIndicatorPosition, StepperAppearance};
 pub use tab_list::{
     Tab, TabEntry, TabLayout, TabList, TabMenu, TabMenuOption, TabOverflow, TabPattern, tab,
     tab_list, tab_menu,

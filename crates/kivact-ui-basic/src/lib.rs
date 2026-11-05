@@ -39,10 +39,10 @@
 //!
 //! # Texts
 //!
-//! The texts the components show themselves (Loading, Close, Copy,
-//! Copied, ...) are English and read through `kivact::i18n::message` under
-//! unprefixed keys that the README lists; an App replaces them with
-//! `App::messages`.
+//! Kit-owned texts, such as questionnaire actions and the sidebar toggle,
+//! use three-part `basic.*.*` keys through `kivact::i18n::message`. Standard
+//! Core components keep their standard keys. The README lists both; an App
+//! replaces messages with `App::messages`.
 
 mod alert;
 mod alert_dialog;
@@ -100,7 +100,7 @@ mod tokens;
 mod trace;
 mod typography;
 
-pub use alert::AlertVariant;
+pub use alert::AlertLook;
 pub use attachment::{
     Attachment, AttachmentMediaVariant, AttachmentSize, AttachmentState, attachment,
     attachment_action, attachment_group,
@@ -115,6 +115,7 @@ pub use item::{ItemLook, ItemMediaVariant, ItemSize, ItemVariant};
 pub use line_tabs::TabsVariant;
 pub use marker::{Marker, MarkerVariant, marker};
 pub use menubar::{Menubar, menubar};
+pub use recipes_menu::MenuVariant;
 pub use scroll_area::{ScrollArea, scroll_area};
 pub use sidebar::{
     Sidebar, SidebarCollapsible, SidebarGroup, SidebarMenuButton, SidebarMenuButtonSize,

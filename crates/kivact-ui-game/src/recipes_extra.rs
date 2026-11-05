@@ -1,6 +1,6 @@
 //! Role: Draw Game selection, navigation and overlay control geometry.
 use crate::choice::{Boxed, ChoiceCard, Navigation};
-use crate::recipes::{button_style, diamond};
+use crate::recipes_controls::{button_style, diamond};
 use crate::{Tokens, choice_style};
 use kivact::custom::PartState;
 use kivact::draw::{LineCap, LineJoin, Path, Shadow, Stroke};

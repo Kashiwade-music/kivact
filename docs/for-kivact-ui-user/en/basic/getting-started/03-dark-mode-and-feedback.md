@@ -160,10 +160,10 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         .style(style().gap(12).align_items(Align::Center)),
         basic::separator(),
         kivact::ui::alert("Danger zone")
-            .variant(basic::AlertVariant::Destructive)
+            .variant(basic::AlertLook::Destructive)
             .icon(icon("triangle-alert"))
             .description("Deleting your account cannot be undone.")
-            .action({
+            .actions({
                 button("Delete account")
                     .variant(kivact::ui::ButtonVariant::Danger)
                     .on_press(move || confirm_delete.set(true))
@@ -226,9 +226,8 @@ mod tests {
     use kivact::test::{RenderOptions, render_with};
 
     fn options() -> RenderOptions {
-        RenderOptions::default()
+        RenderOptions::with_theme(theme(ThemeMode::Light))
             .window_size(1000.0, 800.0)
-            .theme(theme(ThemeMode::Light))
     }
 
     #[test]
