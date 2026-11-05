@@ -638,11 +638,9 @@ impl<T: Clone + 'static> DragApi<T> {
         });
         let part_state = input.state();
         self.observed.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             host.part(input)
-                .node_ref(target)
                 .on_pointer(move |event: PointerEvent| -> kivact_core::Result<Handled> {
                     match self.observe(
                         id,

@@ -58,13 +58,8 @@ pub(super) fn row<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey
             });
         }
     });
-    let target = kivact_core::view::node_ref();
     Part::new(part_state, move |host| {
-        let row = host
-            .part(input)
-            .node_ref(target)
-            .role(Role::Row)
-            .name(row_name(&state, key));
+        let row = host.part(input).role(Role::Row).name(row_name(&state, key));
         if state.focus == TableFocus::None {
             row
         } else {
@@ -95,10 +90,7 @@ pub(super) fn cell<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKe
         });
         let part_state = input.state();
         observe_cell(&state, id, part_state);
-        let target = kivact_core::view::node_ref();
-        return Part::new(part_state, move |host| {
-            host.part(input).node_ref(target).role(role)
-        });
+        return Part::new(part_state, move |host| host.part(input).role(role));
     }
     let active = state.active;
     let is_active = memo(move || id.with(|id| active.with(|active| active.as_ref() == Some(id))));

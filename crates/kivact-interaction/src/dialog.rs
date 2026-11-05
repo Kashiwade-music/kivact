@@ -344,10 +344,8 @@ impl DialogApi {
     pub fn title(self) -> Part<PopupState> {
         let input = part(self.state());
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .node_ref(self.title)
                 .role(Role::Heading)
                 .level(2_u32)
@@ -359,9 +357,8 @@ impl DialogApi {
     pub fn description(self) -> Part<PopupState> {
         let input = part(self.state());
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
-            host.part(input).node_ref(target).node_ref(self.description)
+            host.part(input).node_ref(self.description)
         })
     }
 
@@ -373,10 +370,8 @@ impl DialogApi {
     pub fn close_trigger(self) -> Part<PopupState> {
         let input = part(self.state());
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .role(Role::Button)
                 .focusable(true)
                 .on_press(move || self.close(PopupCloseReason::Selection))

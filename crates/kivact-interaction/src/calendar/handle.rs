@@ -121,12 +121,8 @@ impl CalendarGridApi {
         let input = part(|input| input);
         let part_state = input.state();
         self.state().grid_state.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
-            host.part(input)
-                .node_ref(target)
-                .role(Role::Grid)
-                .multiselectable(multiple)
+            host.part(input).role(Role::Grid).multiselectable(multiple)
         })
     }
 
@@ -135,10 +131,7 @@ impl CalendarGridApi {
     pub fn row(self) -> Part<PartState> {
         let input = part(|input| input);
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
-        Part::new(part_state, move |host| {
-            host.part(input).node_ref(target).role(Role::Row)
-        })
+        Part::new(part_state, move |host| host.part(input).role(Role::Row))
     }
 
     /// A button that moves the shown months back by one month.
@@ -169,10 +162,8 @@ impl CalendarGridApi {
         let month = self.state().month;
         let input = part(|input| input);
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .role(Role::Button)
                 .focusable(true)
                 .on_press(move || month.set(month.get_untracked().add_months(months)))
@@ -219,11 +210,9 @@ impl CalendarGridApi {
                 });
             }
         });
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let attachment = host
                 .part(input)
-                .node_ref(target)
                 .role(Role::GridCell)
                 .name(day.to_string())
                 .selected(memo(move || marks.get().0))

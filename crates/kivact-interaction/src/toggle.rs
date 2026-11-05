@@ -78,12 +78,10 @@ impl ButtonApi {
         let input = part(|input| input);
         let part_state = input.state();
         self.observed.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
 
             host.part(input)
-                .node_ref(target)
                 .role(Role::Button)
                 .focusable(true)
                 .disabled(move || {
@@ -380,14 +378,12 @@ impl Core {
         });
         let part_state = input.state();
         self.observed.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             self.host_disabled.set(caller_disabled);
 
             let mut control = host
                 .part(input)
-                .node_ref(target)
                 .role(match self.kind {
                     Kind::Checkbox => Role::CheckBox,
                     Kind::Switch => Role::Switch,

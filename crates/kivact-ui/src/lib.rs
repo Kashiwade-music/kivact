@@ -1,9 +1,9 @@
 //! Role: Standard UI components with theme support.
 //!
 //! Standard components: the few controls a first screen needs without an
-//! official UI kit. The construction functions and the types their required
-//! arguments need are in the prelude; the builder types, recipes and state
-//! types are here.
+//! official UI kit. The everyday construction functions and the types their
+//! required arguments need are in the prelude; every construction function,
+//! the builder types, recipes and state types are here.
 //!
 //! | Component | First argument | Behavior and semantics from |
 //! |---|---|---|
@@ -33,9 +33,12 @@
 //! A first argument that is "not drawn" names the control for assistive
 //! technology only; draw a visible label next to it yourself.
 //!
-//! Every component that writes a value reports each edit to `on_edit`
-//! ([`EditPhase`]) and writes the value from
-//! before a canceled drag back.
+//! A component with an `on_edit` method (the toggles, choosers, sliders,
+//! splitters, lists, tabs and text and number fields) reports each edit to
+//! it ([`EditPhase`]) and writes the value from before a canceled drag back.
+//! The calendar, the date and time inputs, pagination, the carousel, the
+//! disclosures and the data table write their values without reporting
+//! edits.
 //!
 //! # Looks
 //!

@@ -478,20 +478,16 @@ impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
         let groups = self.groups;
         let input = part(|input| input);
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
-            host.part(input)
-                .node_ref(target)
-                .role(Role::Group)
-                .name(move || {
-                    groups.with(|groups| {
-                        groups
-                            .get(index)
-                            .and_then(|group| group.heading.as_ref())
-                            .map(|heading| heading.get())
-                            .unwrap_or_default()
-                    })
+            host.part(input).role(Role::Group).name(move || {
+                groups.with(|groups| {
+                    groups
+                        .get(index)
+                        .and_then(|group| group.heading.as_ref())
+                        .map(|heading| heading.get())
+                        .unwrap_or_default()
                 })
+            })
         })
     }
 

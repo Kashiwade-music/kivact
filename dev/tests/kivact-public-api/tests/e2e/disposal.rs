@@ -1,7 +1,8 @@
 //! Role: Tests for registrations made while an owner is disposed (G-01).
-//! A cleanup that writes signals or registers a cleanup on the owner being
-//! disposed leaves nothing behind and reports nothing: the runtime runs a
-//! late cleanup at once. (Registering signals, effects and tasks on a
+//!
+//! G-01: nothing outlives a disposed component. A cleanup that writes
+//! signals or registers a cleanup on the owner being disposed leaves nothing
+//! behind and reports nothing: the runtime runs a late cleanup at once. (Registering signals, effects and tasks on a
 //! disposing owner needs the reactive owner and is tested in
 //! `kivact-core`'s `disposal_tests`.) A component whose handlers hold values
 //! whose `Drop` uses Kivact goes away with a branch switch.

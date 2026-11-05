@@ -284,10 +284,8 @@ impl TooltipApi {
         });
         let part_state = input.state();
         self.trigger_state.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .node_ref(self.anchor)
                 .described_by(self.surface)
                 .on_pointer(move |event: PointerEvent| {
@@ -327,10 +325,8 @@ impl TooltipApi {
         });
         let part_state = input.state();
         self.content_state.set(Some(part_state));
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .node_ref(self.surface)
                 .role(Role::Tooltip)
                 .a11y_action(A11yAction::Dismiss, move |_| self.dismiss())

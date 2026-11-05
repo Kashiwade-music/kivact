@@ -23,12 +23,13 @@
 //! focus nor a choice.
 //!
 //! With [`CalendarSelection::Single`] a choice writes `Some(day)`. With
-//! [`CalendarSelection::Range`] the first choice writes the range of that one
-//! day and the second completes it, in either order. Escape while the second
-//! choice is awaited puts back the range from before the first choice; a write
-//! to the range binding from elsewhere starts the next choice over. The
-//! policy's `on_commit` runs when a choice is complete: each choice of a single
-//! day, the second choice of a range.
+//! [`CalendarSelection::Range`] the first choice marks that day as the start
+//! (drawn selected, nothing written) and the second writes the range, in
+//! either order. Escape while the second choice is awaited drops the start and
+//! leaves the range binding as it was; a write to the range binding from
+//! elsewhere starts the next choice over. The policy's
+//! [`on_activate`](CalendarOptions::on_activate) runs when a choice is
+//! complete: each choice of a single day, the second choice of a range.
 //!
 //! ```no_run
 //! # mod kivact {

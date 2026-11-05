@@ -503,7 +503,7 @@ fn observe_rect<K: kivact_core::state::PropValue>(
     on_cleanup(move || rects.update(|rects| rects.retain(|(key, _)| key != &cleanup)));
     effect(move || {
         let rect = rect.get();
-        // xtask-allow(effect-writes): S-9 geometry cache mirrors mounted surface rectangles; this function owns replacement and cleanup.
+        // xtask-allow(effect-writes): S-9 (a pure cache stays apart from authoritative state): the geometry cache mirrors mounted surface rectangles; this function owns replacement and cleanup.
         rects.update(|rects| {
             rects.retain(|(candidate, _)| candidate != &key);
             if let Some(rect) = rect {

@@ -295,10 +295,8 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
             orientation: orientation.get(),
         });
         let part_state = input.state();
-        let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)
-                .node_ref(target)
                 .role(Role::TabPanel)
                 .hidden(move || !shown.get())
                 .focusable(shown)

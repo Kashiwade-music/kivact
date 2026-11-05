@@ -2,4 +2,4 @@
 mod handle;
 mod machine;
 pub use handle::EditSession;
-pub(crate) use machine::{EditOrigin, EditSessionState};
+pub(crate) use machine::EditSessionState;
