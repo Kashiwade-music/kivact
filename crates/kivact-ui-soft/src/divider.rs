@@ -20,12 +20,16 @@ use kivact::view::View;
 use kivact::view::node_ref;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Theme border color used by a separator.
 pub enum DividerVariant {
     #[default]
+    /// Use the normal border color; the default.
     Subtle,
+    /// Use the emphasized border color.
     Strong,
 }
 
+/// Semantic separator with optional content between two rule segments.
 pub struct Divider {
     root: Node,
     orientation: Value<Orientation>,
@@ -34,6 +38,7 @@ pub struct Divider {
     full_bleed: Value<bool>,
 }
 
+/// Create an unlabeled, horizontal, subtle separator without full bleed.
 pub fn divider() -> Divider {
     Divider {
         root: node().with_node(move |node| node.role(Role::Separator)),
@@ -45,22 +50,27 @@ pub fn divider() -> Divider {
 }
 
 impl Divider {
+    /// Choose the separator axis at construction from a constant or reactive input.
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
         self
     }
+    /// Set a constant or reactive subtle or emphasized border color.
     pub fn variant(mut self, variant: impl IntoValue<DividerVariant>) -> Self {
         self.variant = variant.into_value();
         self
     }
+    /// Reactively extend across inherited insets along the axis; off by default.
     pub fn full_bleed(mut self, full_bleed: impl IntoValue<bool>) -> Self {
         self.full_bleed = full_bleed.into_value();
         self
     }
+    /// Insert custom content between rule segments; `label_text` also supplies a text name.
     pub fn label(mut self, label: impl IntoView) -> Self {
         self.label = Some(kivact::view::component(move || label.into_view()));
         self
     }
+    /// Insert constant or reactive text and use it as the accessible name.
     pub fn label_text(mut self, label: impl IntoText) -> Self {
         let label = label.into_text_value();
         self.root = self.root.name(label);

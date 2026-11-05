@@ -18,10 +18,14 @@ use kivact::view::IntoView;
 use kivact::view::View;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Background treatment of a full-bleed section.
 pub enum SectionVariant {
     #[default]
+    /// Use the surface background; the default.
     Section,
+    /// Leave the section background transparent.
     Transparent,
+    /// Use the muted background.
     Muted,
 }
 
@@ -30,12 +34,18 @@ pub enum SectionVariant {
 pub struct Edges(u8);
 
 impl Edges {
+    /// Top edge.
     pub const TOP: Self = Self(1);
+    /// Bottom edge.
     pub const BOTTOM: Self = Self(2);
+    /// Logical leading edge, following reading direction.
     pub const START: Self = Self(4);
+    /// Logical trailing edge, following reading direction.
     pub const END: Self = Self(8);
+    /// All four edges.
     pub const ALL: Self = Self(15);
 
+    /// Return whether every edge in the supplied mask is present.
     pub fn contains(self, edge: Self) -> bool {
         self.0 & edge.0 == edge.0
     }
@@ -51,6 +61,7 @@ impl std::ops::BitOr for Edges {
 #[derive(Clone, Copy)]
 struct SectionPadding(f64);
 
+/// Full-width surface that cancels inherited inline insets and pads its content.
 pub struct Section {
     root: Node,
     content: View,
@@ -61,6 +72,7 @@ pub struct Section {
     bleed_bottom: Value<bool>,
 }
 
+/// Create a surface-colored section with inherited section padding and no dividers.
 pub fn section(content: impl IntoView) -> Section {
     Section {
         root: node(),
@@ -75,18 +87,22 @@ pub fn section(content: impl IntoView) -> Section {
 
 impl Section {
     padding_options!();
+    /// Set a constant or reactive section background treatment.
     pub fn variant(mut self, variant: impl IntoValue<SectionVariant>) -> Self {
         self.variant = variant.into_value();
         self
     }
+    /// Set constant or reactive border edges; combine edges with `|`.
     pub fn dividers(mut self, dividers: impl IntoValue<Edges>) -> Self {
         self.dividers = dividers.into_value();
         self
     }
+    /// Reactively extend into the parent’s top inset; disabled by default.
     pub fn bleed_top(mut self, bleed: impl IntoValue<bool>) -> Self {
         self.bleed_top = bleed.into_value();
         self
     }
+    /// Reactively extend into the parent’s bottom inset; disabled by default.
     pub fn bleed_bottom(mut self, bleed: impl IntoValue<bool>) -> Self {
         self.bleed_bottom = bleed.into_value();
         self
