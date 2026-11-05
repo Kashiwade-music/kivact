@@ -83,7 +83,35 @@ fn thumb(theme: &Theme, _: &Look<AxisState>) -> Style {
 }
 
 pub(super) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| {
+            if s.variant::<kivact::ui::ProgressVariant>()
+                .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
+            {
+                prev(t, s)
+            } else {
+                progress_track(t, s)
+            }
+        }
+    })
+    .fill(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| {
+            if s.variant::<kivact::ui::ProgressVariant>()
+                .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
+            {
+                prev(t, s)
+            } else {
+                progress_fill(t, s)
+            }
+        }
+    })
+    .label(|_| {
+        |t: &Theme, _: &Look<ProgressState>| {
+            style()
+                .font_size(t.ext::<Tokens>().typography.body.size_px)
+                .color(t.ext::<Tokens>().colors.text_primary)
+        }
+    })
 }
 
 fn progress_track(theme: &Theme, _: &Look<ProgressState>) -> Style {

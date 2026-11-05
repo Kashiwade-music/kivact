@@ -46,6 +46,7 @@ fn date_picker_keyboard_invoker_is_restored_and_outside_click_keeps_focus() {
             value,
             column((
                 ui::date_input("Date", value).presentation(DatePresentation::Desktop),
+                spacer().style(style().height(400.0)),
                 ui::button("Outside"),
             )),
         )

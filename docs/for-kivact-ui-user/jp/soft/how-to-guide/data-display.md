@@ -10,7 +10,7 @@ use kivact_ui_soft as soft;
 
 fn build_details() -> impl IntoView {
     column((
-        soft::heading(2, "Build details"),
+        kivact::ui::heading("Build details", 2),
         soft::metadata_list(vec![
             soft::metadata_item("Status", soft::text("Passed")),
             soft::metadata_item("Revision", soft::code("ae72f04")),
@@ -35,3 +35,5 @@ Soft theme では `kivact::ui::{chat_thread, chat_message, chat_composer, typing
 Soft の `ChatDensity`、`BubbleVariant`、`SystemMessageVariant`、`ComposerElevation` は標準の `.variant(...)` に渡します。`ChatAppearance` はそれらの reactive value を保持します。source の `CodeBlockSize`、`CodeBlockWidth`、`CodeBlockContainer` も `.variant(...)` に渡し、reactive value は `CodeAppearance` にまとめます。copy feedback、行番号、強調行、diff、折り返し、高さ、controlled expansion、開閉の閾値、末尾 content は `ui::code_block` の入力として残ります。
 
 言語 tokenizer は Soft に残ります。組み込みの `CodeLanguageInput::Named` または独自の `CodeLanguage` を `code_highlight` に渡し、標準 `highlight` の行 callback から呼びます。callback の content source に現在の `Tokens.colors.syntax` または明示的な `SyntaxColors` を渡すと、palette の reactive な上書きを保てます。`syntax_theme` は引き続き子の palette を供給します。streaming text、tool call、token、アプリが所有する dictation は Soft の domain です。
+
+見出しには `kivact::ui::heading(value, level)` を使います。`HeadingDisplay::D1`、`D2`、`D3` を `.variant(..)` に渡すと、意味上のレベルを維持したまま表示用の文字組みを変えられます。色、太さ、行数制限、折り返し、整列、capsize、取り消し線はノードのスタイルで指定します。省略時のツールチップは `ui::tooltip(value).enabled(anchor.text_truncated()).attach(heading.node_ref(anchor))` で合成し、呼び出し側がアンカーを持ちます。進捗は従来の Bar の動きとトーンに加え、`ProgressVariant::Ring` と `Gauge` にも対応します。

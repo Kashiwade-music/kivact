@@ -459,3 +459,23 @@ the standard `NodeBuilder` modifier. Themes customize the corresponding
 `UiTokens` groups and `UiRecipes` tables; caller styles still override recipes.
 
 `radio_group(...).item_node(|target, item, state| target.with_node(...))` exposes the complete canonical target for advanced attachments, such as a kit keyboard hint. Return that target with modifiers; do not create another native focus or selection owner. `.item(...)` continues to replace only inner content, and the two slots compose.
+
+### Picker interaction and touch sheets
+
+Date and time fields keep a text editor and a separate picker button. Use
+`picker_label(..)` to name that button independently. Arrow Down or Alt+Arrow
+Down opens the picker and moves focus into it. Selection or dismissal returns
+focus to the actual invoker; clicking outside keeps the new outside focus.
+
+A calendar range stages its first endpoint without publishing a partial range.
+The second endpoint publishes the ordered range; Escape discards the stage.
+In a bottom sheet, day choices and time-wheel steps publish immediately while
+Save closes the sheet. A date-and-time sheet uses Save date to advance to Time,
+then Save to close. The month heading opens Month/Year wheels; Done returns to
+the calendar. Spinbutton Up/Increment increases, Down/Decrement decreases, and
+Page Up/Down uses a larger step. A month swipe never chooses its contact date.
+
+Custom interaction code can use `CalendarOptions::activation_guard` to refuse
+an activation before either range-picking or single-selection transitions,
+without marking the date disabled. `DialogApi::return_focus` accepts a constant
+or reactive node reference and snapshots the return target for each opening.

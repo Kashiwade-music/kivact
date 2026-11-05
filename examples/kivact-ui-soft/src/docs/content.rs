@@ -4,7 +4,7 @@ use kivact::style::style;
 use kivact::ui::{avatar, avatar_group, kbd};
 use kivact::view::{Node, column, row};
 use kivact_ui_soft::{
-    HeadingDisplay, IconColor, IconSize, TextColor, TextKind, heading, icon, link, text, thumbnail,
+    HeadingDisplay, IconColor, IconSize, TextColor, TextKind, icon, link, text, thumbnail,
     visually_hidden,
 };
 
@@ -26,16 +26,16 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         "heading" => specimen(
             "Heading scale",
             column((
-                heading(1, "Display").display(HeadingDisplay::D1),
-                heading(1, "Heading one"),
-                heading(2, "Heading two"),
-                heading(3, "Heading three"),
-                heading(4, "Heading four"),
-                heading(5, "Heading five"),
-                heading(6, "Heading six"),
+                kivact::ui::heading("Display", 1).variant(HeadingDisplay::D1),
+                kivact::ui::heading("Heading one", 1),
+                kivact::ui::heading("Heading two", 2),
+                kivact::ui::heading("Heading three", 3),
+                kivact::ui::heading("Heading four", 4),
+                kivact::ui::heading("Heading five", 5),
+                kivact::ui::heading("Heading six", 6),
             ))
             .style(style().gap(8)),
-            "heading(1, \"Display\").display(HeadingDisplay::D1)",
+            "kivact::ui::heading(\"Display\", 1).variant(HeadingDisplay::D1)",
         ),
         "icon" => specimen(
             "Sizes and semantic colors",

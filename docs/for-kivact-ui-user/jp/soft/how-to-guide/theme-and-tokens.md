@@ -10,7 +10,7 @@ use kivact_ui_soft as soft;
 
 fn project_summary() -> impl IntoView {
     column((
-        soft::heading(2, "Project summary"),
+        kivact::ui::heading("Project summary", 2),
         soft::text("Three milestones remain.").color(soft::TextColor::Secondary),
     ))
     .style(|| {
