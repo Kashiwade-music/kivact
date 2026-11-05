@@ -385,47 +385,6 @@ launch's `RenderOptions::restored_state`.
 use kivact::prelude::*;
 use kivact::i18n::{CalendarDate, DateRange, DateStyle, TimeOfDay, DateTime, TimeStyle};
 use kivact::ui::{self, DatePresentation};
-
-fn dates() -> impl IntoView {
-    let day = signal(None::<CalendarDate>);
-    let range = signal(None::<DateRange>);
-    let time = signal(None::<TimeOfDay>);
-    let appointment = signal(None::<DateTime>);
-    column((
-        ui::calendar(day),
-        ui::date_input("Date", day).format(DateStyle::Short),
-        ui::date_range_input("Period", range),
-        ui::time_input("Time", time).format(TimeStyle { seconds: false }),
-        ui::date_time_input("Appointment", appointment)
-            .time_format(TimeStyle { seconds: true })
-            .presentation(DatePresentation::Adaptive),
-    ))
-}
-```
-
-`calendar` takes a single-date or range signal/binding. Its `month` binding owns
-paging; `today`, `min`, `max` and `week_start` can be reactive. `disabled_dates`
-rejects dates, while `marks` only decorates them. Range endpoints are ordered.
-Use `caption(CalendarCaption::Dropdown)` for month/year menus and
-`year_navigation(true)` for year paging. `range_span` limits the inclusive day count.
-
-Date fields parse ISO and locale date text through `Locale::parse_date`. Enter
-commits text; Arrow Down opens the date calendar. Calendar arrows, Home/End and
-Page Up/Down navigate without selecting; Enter or Space selects. The first day
-of the week and month/weekday names follow the locale. `DatePresentation::Adaptive`
-uses `Capabilities.touch` to choose a bottom sheet; `Desktop` and `BottomSheet`
-choose explicitly. Sheet wheels support spinbutton keys and assistive value actions.
-
-The theme owns `UiTokens.calendar`, `UiTokens.date_input`, `UiTokens.time_input`
-and the `calendar`, `date_input`, `date_range_input`, `time_input`, `date_time_input`
-recipe tables of `UiRecipes`.
-
-## Calendar and date/time fields
-
-```rust,no_run
-use kivact::prelude::*;
-use kivact::i18n::{CalendarDate, DateRange, DateStyle, TimeOfDay, DateTime, TimeStyle};
-use kivact::ui::{self, DatePresentation};
 fn dates() -> impl IntoView {
     let day = signal(None::<CalendarDate>);
     let range = signal(None::<DateRange>);
@@ -458,3 +417,43 @@ keys and assistive value actions.
 Style them through `UiTokens.calendar`, `UiTokens.date_input`, `UiTokens.time_input`
 and the `calendar`, `date_input`, `date_range_input`, `time_input`, `date_time_input`
 recipe tables of `UiRecipes`.
+## Group actions and toggles
+
+Use `toolbar` for three or more related controls. Its start, center and end
+regions share one Tab stop. Arrow keys move focus along its orientation;
+Home and End reach the first and last available controls. Give the toolbar
+an accessible name even when no visible heading is needed.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui::{button_group, toggle_group, toolbar};
+
+fn editor_actions() -> impl IntoView {
+    let formatting = signal(Vec::<&'static str>::new());
+    column((
+        toolbar("Document actions")
+            .start((button("Undo"), button("Redo")))
+            .end((button("Save"),)),
+        toggle_group("Formatting", vec![
+            ListItem::new("bold", "Bold").with_icon("bold"),
+            ListItem::new("italic", "Italic").with_icon("italic"),
+        ], formatting),
+        button_group("Clipboard", (button("Copy"), button("Paste"))),
+    ))
+}
+```
+
+A toggle group edits `Signal<Option<K>>` for at most one pressed choice, or
+`Signal<Vec<K>>` for independent choices; bindings and canonical `Selection`
+work too. Arrows move focus without changing the selection. Space, Enter,
+click and accessibility activation toggle an item. `ListItem::with_pressed_icon`
+replaces its icon while pressed. `icon_only(true)` retains accessible labels.
+For exclusive choices that always choose when navigating, use
+`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)`.
+
+`button_group` accepts arbitrary controls, separators and text cells through
+`IntoChildren`. `button_group_separator()` and `button_group_text(..)` are
+non-focusable cells. `.orientation(Orientation::Vertical)` changes both the
+layout and arrow navigation of any of these groups. `.disabled(source)` is
+the standard `NodeBuilder` modifier. Themes customize the corresponding
+`UiTokens` groups and `UiRecipes` tables; caller styles still override recipes.

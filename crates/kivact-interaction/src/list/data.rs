@@ -40,6 +40,7 @@ pub struct ListItem<K> {
     pub(crate) label: Reactive<String>,
     pub(crate) disabled: bool,
     pub(crate) icon: Option<Icon>,
+    pub(crate) pressed_icon: Option<Icon>,
     pub(crate) description: Option<Reactive<String>>,
 }
 
@@ -52,6 +53,7 @@ impl<K> ListItem<K> {
             label: Reactive::new(label.into_text()),
             disabled: false,
             icon: None,
+            pressed_icon: None,
             description: None,
         }
     }
@@ -69,6 +71,17 @@ impl<K> ListItem<K> {
     pub fn with_icon(mut self, icon: impl Into<Icon>) -> Self {
         self.icon = Some(icon.into());
         self
+    }
+
+    /// Show this icon instead of the ordinary icon while a toggle is pressed.
+    pub fn with_pressed_icon(mut self, icon: impl Into<Icon>) -> Self {
+        self.pressed_icon = Some(icon.into());
+        self
+    }
+
+    /// The optional icon used while this choice is pressed.
+    pub fn pressed_icon(&self) -> Option<&Icon> {
+        self.pressed_icon.as_ref()
     }
 
     /// A secondary line of text under the label, such as a shortcut hint or

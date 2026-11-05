@@ -638,6 +638,9 @@ recipe_table! {
         time_input(time_input_recipes): TimeInputRecipes,
         date_time_input(date_time_input_recipes): DateTimeInputRecipes,
         combobox(combobox_recipes): ComboboxRecipes,
+        toolbar(toolbar_recipes): ToolbarRecipes,
+        toggle_group(toggle_group_recipes): ToggleGroupRecipes,
+        button_group(button_group_recipes): ButtonGroupRecipes,
         select(select_recipes): SelectRecipes,
         menu(menu_recipes): MenuRecipes,
         dialog(dialog_recipes): DialogRecipes,
@@ -714,5 +717,27 @@ recipe_table! {
         label(label_recipe): DropzoneState = look_files::dropzone_label,
         hint(hint_recipe): DropzoneState = look_files::dropzone_hint,
         status(status_recipe): DropzoneState = look_files::dropzone_status,
+    }
+}
+recipe_table! {
+    /// Toolbar surface recipes.
+    ToolbarRecipes {
+        root(root_recipe): crate::ToolbarState = crate::toolbar::root_style,
+    }
+}
+recipe_table! {
+    /// Toggle group surface and item recipes.
+    ToggleGroupRecipes {
+        root(root_recipe): crate::ToggleGroupState = crate::toggle_group::root_style,
+        item(item_recipe): crate::ToggleGroupItemState = crate::toggle_group::item_style,
+    }
+}
+recipe_table! {
+    /// Joined action group surface and auxiliary cell recipes.
+    ButtonGroupRecipes {
+        root(root_recipe): crate::ButtonGroupState = crate::button_group::root_style,
+        member(member_recipe): crate::ButtonGroupMemberState = crate::button_group::member_style,
+        separator(separator_recipe): crate::ButtonGroupState = crate::button_group::separator_style,
+        text(text_recipe): crate::ButtonGroupState = crate::button_group::text_style,
     }
 }
