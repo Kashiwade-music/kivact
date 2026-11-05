@@ -245,21 +245,29 @@ impl Model {
         self.report_images(&images);
     }
 
-    /// Report the failed images of the `Image` nodes among `nodes`, once
-    /// per node and asset, in the order of `nodes`.
+    /// Report the loading status of the `Image` nodes among `nodes` when it
+    /// changed, and their failed images once per node and asset, in the
+    /// order of `nodes`.
     fn report_images(&mut self, nodes: &[NodeId]) {
         let assets = self.assets.get_mut();
         let mut reports = Vec::new();
         let mut statuses = Vec::new();
         for id in nodes {
-            let Some(n) = self.tree.get(*id).filter(|n| n.kind() == NodeType::Image) else {
+            let Some(n) = self
+                .tree
+                .get_mut(*id)
+                .filter(|n| n.kind() == NodeType::Image)
+            else {
                 continue;
             };
             let Some(asset) = n.image() else {
                 continue;
             };
-            statuses.push((*id, assets.image_status(asset)));
+            let status = assets.image_status(asset);
             reports.extend(assets.check_image(*id, asset));
+            if n.sent_image.update(status).is_some() {
+                statuses.push((*id, status));
+            }
         }
         for (node, status) in statuses {
             self.push(HostEvent::ImageStatusChanged { node, status });
