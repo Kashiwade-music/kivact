@@ -84,3 +84,53 @@ impl ThemeColor for ColorName {
         }
     }
 }
+
+// Fixed paint colors shared by Creative surfaces and initial domain values.
+pub(crate) fn transparent_ink() -> kivact::style::Color {
+    kivact::style::rgba(0, 0.0)
+}
+pub(crate) fn button_surface() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.065)
+}
+pub(crate) fn control_border() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.04)
+}
+pub(crate) fn overlay_border() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.1)
+}
+pub(crate) fn button_pressed() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.05)
+}
+pub(crate) fn menu_hover() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.07)
+}
+pub(crate) fn control_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0x000000, 0.28)
+}
+pub(crate) fn overlay_surface() -> kivact::style::Color {
+    kivact::style::rgba(0x1e1f26, 0.94)
+}
+pub(crate) fn window_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0x000000, 0.65)
+}
+pub(crate) fn transparent_backdrop() -> kivact::style::Color {
+    kivact::style::rgba(0x050608, 0.0)
+}
+pub(crate) fn modal_backdrop() -> kivact::style::Color {
+    kivact::style::rgba(0x050608, 0.35)
+}
+pub(crate) fn dialog_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0, 0.5)
+}
+pub(crate) fn menu_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0, 0.6)
+}
+pub(crate) fn default_item_color() -> kivact::style::Color {
+    kivact::style::rgb(0x8b7cff)
+}
+pub(crate) fn driven_property_color() -> kivact::style::Color {
+    kivact::style::rgb(0xc084fc)
+}
+pub(crate) fn checker_color(light: bool) -> kivact::style::Color {
+    kivact::style::rgb(if light { 0x57585d } else { 0x272830 })
+}

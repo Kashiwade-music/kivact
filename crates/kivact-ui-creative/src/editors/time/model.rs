@@ -1,7 +1,7 @@
 //! Role: Time item models and application edit requests.
 use crate::KeyGlyph;
 use crate::editors::shared::model::{Clip, ItemTime, drawable};
-use kivact::style::{Color, rgb};
+use kivact::style::Color;
 /// A key at a logical time; a positive duration draws an editable bar.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Keyframe {
@@ -22,7 +22,7 @@ impl Keyframe {
             time,
             duration: 0.0,
             label: label.into(),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             glyph: KeyGlyph::Diamond,
             muted: false,
         }

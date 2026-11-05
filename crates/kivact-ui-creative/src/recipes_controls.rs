@@ -6,7 +6,7 @@ use kivact::custom::PartState;
 use kivact::draw::Shadow;
 use kivact::geometry::{Rect, Size};
 use kivact::interaction::ToastState;
-use kivact::style::{Align, Cursor, Direction, Justify, Position, Style, Theme, pct, rgba, style};
+use kivact::style::{Align, Cursor, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact::ui::DisclosureRecipeState;
 use kivact::ui::{AxisState, CheckableState, RadioGroupRecipes, SliderRecipes};
 use kivact::ui::{
@@ -137,10 +137,10 @@ fn toast_card(t: &Theme, s: &Look<ToastState>) -> Style {
         .radius(9)
         .align_items(Align::Start)
         .color(p.text)
-        .background(rgba(0x1e1f26, 0.94))
+        .background(crate::color::overlay_surface())
         .backdrop_blur(22)
         .border(1, color.with_alpha(0.22))
-        .shadow(Shadow::new(0.0, 12.0, 30.0, rgba(0x000000, 0.6)))
+        .shadow(Shadow::new(0.0, 12.0, 30.0, crate::color::menu_shadow()))
 }
 /// The square close button around the theme's `x`, like a toolbar action.
 fn toast_close(t: &Theme, _: &Look<ToastState>) -> Style {

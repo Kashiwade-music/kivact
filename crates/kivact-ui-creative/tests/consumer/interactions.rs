@@ -247,12 +247,9 @@ fn modal_contains_input_and_restores_opener_focus() {
                                     .into_view()
                             })
                             .footer(move || {
-                                kivact::ui::button(kivact::i18n::message(
-                                    "creative.dialog.close",
-                                    "Close",
-                                ))
-                                .variant(kivact::ui::ButtonVariant::Secondary)
-                                .on_press(move || open.set(false))
+                                kivact::ui::button(kivact::i18n::message("dialog.close", "Close"))
+                                    .variant(kivact::ui::ButtonVariant::Secondary)
+                                    .on_press(move || open.set(false))
                             }),
                     )
                 },
