@@ -100,6 +100,18 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
         line_height: LineHeight::Scale(1.55),
         ..base.text().clone()
     };
+    let mut ui = kivact::ui::UiTokens::default();
+    ui.toolbar.padding = 3.;
+    ui.toolbar.gap = 2.;
+    ui.toolbar.min_height = 0.;
+    ui.toolbar.background = colors.surface;
+    ui.toolbar.border = colors.border;
+    ui.button_group.gap = 2.;
+    ui.button_group.joined = false;
+    ui.button_group.divider = tokens.line_strong;
+    ui.button_group.solid_divider = colors.accent_text;
+    ui.button_group.text_background = tokens.surface_3;
+    ui.button_group.text_color = colors.text;
     base.with_mode(mode)
         .with_colors(colors)
         .with_control_height(tokens.control_height)
@@ -110,5 +122,6 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
         .with_disabled_opacity(0.42)
         .with_icons(crate::icons::set())
         .with(tokens)
+        .with(ui)
         .with(crate::recipes::recipes())
 }

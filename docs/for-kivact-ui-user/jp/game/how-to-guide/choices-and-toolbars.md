@@ -33,7 +33,7 @@ fn difficulty() -> impl IntoView {
             level,
         )
         .orientation(Orientation::Horizontal)
-        .variant(game::Segmented),
+        .variant(kivact::ui::RadioGroupVariant::Segmented),
         game::mono(move || format!("{:?}", level.get())),
     ))
     .style(style().gap(12).margin(24))
@@ -117,15 +117,15 @@ fn menu() -> impl IntoView {
 
 ## ツールバーにクイック操作を置く
 
-`game::toolbar(children)` は枠線付きの密な行、`game::button_group(children)` は関連するボタンを寄せ集め、`game::tool_button(label)` はアイコン用の正方形のゴーストボタンです。ツールボタンにはアイコンを付けてラベルを隠します。ラベルはアクセシブルな名前として残ります。
+`kivact::ui::toolbar(label).start(children)` は枠線付きの密な行、`kivact::ui::button_group(label, children)` は関連するボタンを寄せ集め、`game::tool_button(label)` はアイコン用の正方形のゴーストボタンです。ツールボタンにはアイコンを付けてラベルを隠します。ラベルはアクセシブルな名前として残ります。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn tools(zoom: Signal<f64>) -> impl IntoView {
-    game::toolbar((
-        game::button_group((
+    kivact::ui::toolbar("View tools").start((
+        kivact::ui::button_group("Zoom", (
             game::tool_button("Zoom out")
                 .icon(icon("chevron-down"))
                 .hide_label(true)

@@ -1,5 +1,5 @@
 //! Role: Game appearance recipes for standard UI controls.
-use crate::choice::{Boxed, ChoiceCard, Navigation, Segmented};
+use crate::choice::{Boxed, ChoiceCard, Navigation};
 use crate::choice_style;
 use crate::tokens::Tokens;
 use kivact::custom::PartState;
@@ -56,6 +56,10 @@ fn build() -> UiRecipes {
     UiRecipes::default()
         .field(crate::recipes_field::field)
         .dropzone(crate::recipes_files::dropzone)
+        .toolbar(crate::recipes_groups::toolbar)
+        .button_group(crate::recipes_groups::button_group)
+        .toggle_group(crate::recipes_groups::toggle_group)
+        .input_group(crate::recipes_groups::input_group)
         .button(|_| button)
         .button_content(|_| button_content)
         .button_busy(|_| button_busy)
@@ -664,7 +668,9 @@ fn diamond(x: f64, y: f64, side: f64, inset: f64) -> Path {
 }
 
 fn radio_group(_: &Theme, orientation: &Look<Orientation>) -> Style {
-    if orientation.variant::<Segmented>().is_some() {
+    if orientation.variant::<kivact::ui::RadioGroupVariant>()
+        == Some(&kivact::ui::RadioGroupVariant::Segmented)
+    {
         return choice_style::segment_group();
     }
     if orientation.variant::<ChoiceCard>().is_some() {
@@ -677,7 +683,9 @@ fn radio_group(_: &Theme, orientation: &Look<Orientation>) -> Style {
     }
 }
 fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
-    if state.variant::<Segmented>().is_some() {
+    if state.variant::<kivact::ui::RadioGroupVariant>()
+        == Some(&kivact::ui::RadioGroupVariant::Segmented)
+    {
         // A small slanted secondary button, filled while chosen.
         return button_style(
             t,
@@ -708,7 +716,10 @@ fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
 }
 /// The diamond around the theme's `dot`, which is a diamond too.
 fn radio_indicator(_: &Theme, state: &Look<CheckableState>) -> Style {
-    if state.variant::<Segmented>().is_some() || state.variant::<ChoiceCard>().is_some() {
+    if state.variant::<kivact::ui::RadioGroupVariant>()
+        == Some(&kivact::ui::RadioGroupVariant::Segmented)
+        || state.variant::<ChoiceCard>().is_some()
+    {
         return choice_style::hidden_indicator();
     }
     let checked = state.checked.is_checked();

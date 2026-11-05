@@ -263,36 +263,41 @@ pub fn catalog() -> impl IntoView {
                     .border(1, ColorToken::Border)
                     .color(ColorToken::TextMuted),
             ),
-        g::button_group((
-            kivact::ui::button("標準")
-                .variant(kivact_ui_game::Slant)
-                .test_id("game-density-comfortable")
-                .size(kivact::ui::ControlSize::Small)
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .with_node(|node| node.selected(move || density.get() == g::Density::Comfortable))
-                .style(
-                    style().selected(
-                        style()
-                            .background(ColorToken::Accent)
-                            .color(ColorToken::AccentText),
-                    ),
-                )
-                .on_press(move || density.set(g::Density::Comfortable)),
-            kivact::ui::button("高密度")
-                .variant(kivact_ui_game::Slant)
-                .test_id("game-density-compact")
-                .size(kivact::ui::ControlSize::Small)
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .with_node(|node| node.selected(move || density.get() == g::Density::Compact))
-                .style(
-                    style().selected(
-                        style()
-                            .background(ColorToken::Accent)
-                            .color(ColorToken::AccentText),
-                    ),
-                )
-                .on_press(move || density.set(g::Density::Compact)),
-        )),
+        kivact::ui::button_group(
+            "Console actions",
+            (
+                kivact::ui::button("標準")
+                    .variant(kivact_ui_game::Slant)
+                    .test_id("game-density-comfortable")
+                    .size(kivact::ui::ControlSize::Small)
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .with_node(|node| {
+                        node.selected(move || density.get() == g::Density::Comfortable)
+                    })
+                    .style(
+                        style().selected(
+                            style()
+                                .background(ColorToken::Accent)
+                                .color(ColorToken::AccentText),
+                        ),
+                    )
+                    .on_press(move || density.set(g::Density::Comfortable)),
+                kivact::ui::button("高密度")
+                    .variant(kivact_ui_game::Slant)
+                    .test_id("game-density-compact")
+                    .size(kivact::ui::ControlSize::Small)
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .with_node(|node| node.selected(move || density.get() == g::Density::Compact))
+                    .style(
+                        style().selected(
+                            style()
+                                .background(ColorToken::Accent)
+                                .color(ColorToken::AccentText),
+                        ),
+                    )
+                    .on_press(move || density.set(g::Density::Compact)),
+            ),
+        ),
         kivact::ui::tooltip("通知 (3件)")
             .placement(kivact::view::Placement::Below)
             .align(kivact::view::OverlayAlign::Center)

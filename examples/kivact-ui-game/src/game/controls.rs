@@ -13,7 +13,7 @@ use kivact::prelude::{
 use kivact::state::IntoValue;
 use kivact::state::binding;
 use kivact::style::use_theme;
-use kivact::style::{Align, auto, style};
+use kivact::style::{Align, auto, pct, style};
 use kivact::task::spawn;
 use kivact_ui_game as g;
 use std::time::Duration;
@@ -181,7 +181,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                 "BTN-05",
                 "ツールバー",
                 line((
-                    g::toolbar((
+                    kivact::ui::toolbar("Console tools").start((
                         kivact::ui::tooltip("元に戻す Ctrl+Z")
                             .placement(kivact::view::Placement::Below)
                             .align(kivact::view::OverlayAlign::Center)
@@ -323,34 +323,51 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                 list((
                     kivact::ui::field(
                         "検索",
-                        g::input_adorned(
-                            kivact::view::icon("search"),
-                            kivact::ui::text_input("検索", kivact::state::signal(String::new()))
+                        kivact::ui::input_group(
+                            "",
+                            (
+                                kivact::ui::text_input(
+                                    "検索",
+                                    kivact::state::signal(String::new()),
+                                )
                                 .with_node(|node| node.node_ref(search))
                                 .test_id("game-search-input")
-                                .placeholder("ID・件名・担当者"),
-                            g::mono("/"),
-                        ),
+                                .placeholder("ID・件名・担当者")
+                                .style(style().width(pct(100)).padding_left(34).padding_right(52)),
+                            ),
+                        )
+                        .variant(g::GameInputGroupVariant::Adorned)
+                        .start(kivact::view::icon("search"))
+                        .end(g::mono("/")),
                     ),
                     kivact::ui::field(
                         "Webhook URL",
-                        g::input_group(
-                            "https://",
-                            kivact::ui::text_input(
+                        kivact::ui::input_group(
+                            "",
+                            (kivact::ui::text_input(
                                 "Webhook URL",
                                 kivact::state::signal(String::new()),
                             )
-                            .placeholder("hooks.example.com/ops"),
-                            "POST",
-                        ),
+                            .placeholder("hooks.example.com/ops"),),
+                        )
+                        .variant(g::GameInputGroupVariant::Inline)
+                        .start(g::mono("https://"))
+                        .end(g::mono("POST")),
                     ),
                     kivact::ui::field(
                         "月次予算",
-                        g::input_adorned(
-                            kivact::view::icon("database"),
-                            kivact::ui::text_input("月次予算", signal("1,200,000".to_owned())),
-                            g::mono("JPY"),
-                        ),
+                        kivact::ui::input_group(
+                            "",
+                            (
+                                kivact::ui::text_input("月次予算", signal("1,200,000".to_owned()))
+                                    .style(
+                                        style().width(pct(100)).padding_left(34).padding_right(52),
+                                    ),
+                            ),
+                        )
+                        .variant(g::GameInputGroupVariant::Adorned)
+                        .start(kivact::view::icon("database"))
+                        .end(g::mono("JPY")),
                     ),
                     kivact::ui::field(
                         "API キー ID",

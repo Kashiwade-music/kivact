@@ -37,7 +37,7 @@ fn difficulty() -> impl IntoView {
             level,
         )
         .orientation(Orientation::Horizontal)
-        .variant(game::Segmented),
+        .variant(kivact::ui::RadioGroupVariant::Segmented),
         game::mono(move || format!("{:?}", level.get())),
     ))
     .style(style().gap(12).margin(24))
@@ -134,7 +134,7 @@ built once and hidden while its tab is not selected.
 
 ## Add quick actions to a toolbar
 
-`game::toolbar(children)` is a dense bordered row, `game::button_group(children)`
+`kivact::ui::toolbar(label).start(children)` is a dense bordered row, `kivact::ui::button_group(label, children)`
 packs related buttons together, and `game::tool_button(label)` is a square
 ghost button for an icon. Give a tool button its icon and hide its label; the
 label stays as the accessible name.
@@ -144,8 +144,8 @@ use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn tools(zoom: Signal<f64>) -> impl IntoView {
-    game::toolbar((
-        game::button_group((
+    kivact::ui::toolbar("View tools").start((
+        kivact::ui::button_group("Zoom", (
             game::tool_button("Zoom out")
                 .icon(icon("chevron-down"))
                 .hide_label(true)
