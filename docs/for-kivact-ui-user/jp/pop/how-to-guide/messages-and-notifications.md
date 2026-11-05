@@ -110,13 +110,13 @@ use kivact_ui_pop as pop;
 
 fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
     column((
-        show(loading, || pop::skeleton().rows(3)),
+        show(loading, || kivact::ui::skeleton().lines(3)),
         show(move || !loading.get() && count.get() == 0, || {
             pop::empty_state("No orders yet")
                 .description("Orders appear here as soon as customers check out.")
                 .content(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
-        show(loading, || row((pop::spinner(), text("Loading orders")))
+        show(loading, || row((kivact::ui::spinner(), text("Loading orders")))
             .style(style().gap(8))),
     ))
     .style(style().gap(16).padding(24))
@@ -124,8 +124,8 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 # fn main() {}
 ```
 
-- `pop::skeleton().rows(n)` は、文字が入る場所に仮のバーを描きます。
-- `pop::spinner()` と `pop::dots_loader()` は小さなアニメーション付きのローダーで、スクリーンリーダー向けに "Loading" という名前が付きます（メッセージ `pop.loader.label`）。
+- `kivact::ui::skeleton().lines(n)` は、文字が入る場所に仮のバーを描きます。
+- `kivact::ui::spinner()` と `kivact::ui::spinner().variant(pop::SpinnerLook::Dots)` は小さなアニメーション付きのローダーで、スクリーンリーダー向けに "Loading" という名前が付きます（メッセージ `spinner.loading`）。
 - `pop::empty_state(title)` は、イラスト、説明、任意の操作を描きます。
 
 読み込みの開始と完了（データが届いたら `loading` を更新するタスク）はコアの話題で、非同期処理のコアのガイドで扱います。

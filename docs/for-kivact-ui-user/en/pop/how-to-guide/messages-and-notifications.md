@@ -139,13 +139,13 @@ use kivact_ui_pop as pop;
 
 fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
     column((
-        show(loading, || pop::skeleton().rows(3)),
+        show(loading, || kivact::ui::skeleton().lines(3)),
         show(move || !loading.get() && count.get() == 0, || {
             pop::empty_state("No orders yet")
                 .description("Orders appear here as soon as customers check out.")
                 .content(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
-        show(loading, || row((pop::spinner(), text("Loading orders")))
+        show(loading, || row((kivact::ui::spinner(), text("Loading orders")))
             .style(style().gap(8))),
     ))
     .style(style().gap(16).padding(24))
@@ -153,9 +153,9 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 # fn main() {}
 ```
 
-- `pop::skeleton().rows(n)` draws placeholder bars where text will appear.
-- `pop::spinner()` and `pop::dots_loader()` are small animated loaders; they
-  are named "Loading" for screen readers (message `pop.loader.label`).
+- `kivact::ui::skeleton().lines(n)` draws placeholder bars where text will appear.
+- `kivact::ui::spinner()` and `kivact::ui::spinner().variant(pop::SpinnerLook::Dots)` are small animated loaders; they
+  are named "Loading" for screen readers (message `spinner.loading`).
 - `pop::empty_state(title)` draws an illustration, a description and an
   optional action.
 
