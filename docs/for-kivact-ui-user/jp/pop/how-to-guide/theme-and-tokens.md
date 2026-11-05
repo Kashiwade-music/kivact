@@ -158,7 +158,7 @@ fn application(inter: &'static [u8], noto: &'static [u8]) -> App {
 
 ## キットの文言を差し替える
 
-コンポーネントが自分で描く文言（カレンダーの月ボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。キーは `pop.` で始まり、たとえば `pop.date.open` や `pop.date.error.format` です。例は [日付と期間を選ばせる](dates-and-calendars.md) にあります。
+コンポーネントが自分で描く文言（カレンダーの月ボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。標準コンポーネントは中核のキーを使い、たとえば `date.open` や `date.error.format` です。例は [日付と期間を選ばせる](dates-and-calendars.md) にあります。
 
 ## 関連
 

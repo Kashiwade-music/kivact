@@ -48,6 +48,12 @@ pub fn theme(mode: ThemeMode) -> Theme {
         line_height: LineHeight::Scale(1.5),
         ..base.text().clone()
     };
+    let mut ui = kivact::ui::UiTokens::default();
+    ui.calendar = kivact::ui::CalendarTokens {
+        cell_size: 40.0,
+        month_gap: 12.0,
+        week_gap: 2.0,
+    };
     base.with_mode(mode)
         .with_colors(colors)
         .with_space(space)
@@ -56,6 +62,7 @@ pub fn theme(mode: ThemeMode) -> Theme {
         .with_focus_ring(3.0)
         .with_control_height(36.0)
         .with_icons(crate::icons::set())
+        .with(ui)
         .with(p)
         .with(crate::recipes::recipes())
 }
