@@ -154,3 +154,27 @@ fn standard_examples_keep_their_controls_when_the_appearance_changes() {
             .is_some_and(|checked| checked.is_checked())
     );
 }
+
+#[test]
+fn file_example_uses_picker_storage_and_clear_without_accepting_field_drops() {
+    use kivact::geometry::Point;
+    use kivact::view::FilePhase;
+    let screen = render_with(RenderOptions::from_env(), || {
+        catalog_at(ThemeMode::Light, "file-input")
+    });
+    let field = screen.get_by_role(Role::Button, "Attachment");
+    let bounds = field.rect().expect("invariant: file field has layout");
+    let point = Point::new(
+        bounds.x + bounds.width / 2.0,
+        bounds.y + bounds.height / 2.0,
+    );
+    screen.file_drag(FilePhase::Drop, vec!["ignored.txt".into()], point);
+    assert!(screen.query_by_text("ignored.txt").is_none());
+    screen.respond_files_dialog(Some(vec!["selected.txt".into()]));
+    field.press_key(Key::Enter);
+    screen.get_by_text("selected.txt");
+    screen.get_by_role(Role::Button, "Clear files").click();
+    assert!(screen.query_by_text("selected.txt").is_none());
+    assert!(field.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

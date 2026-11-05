@@ -233,3 +233,77 @@ fn rich_text_source_toolbar_wraps_and_unwraps_native_unicode_selection() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn drop_policy_ends_the_actual_hover_visit_and_keeps_native_picking() {
+    use kivact::geometry::Point;
+    use kivact::interaction::DropzoneState;
+    use kivact::style::style;
+    use kivact::test::render_with_handle;
+    use kivact::ui::UiRecipes;
+    use kivact::view::FilePhase;
+    use std::sync::{Arc, Mutex};
+    let observed = Arc::new(Mutex::new(Vec::<DropzoneState>::new()));
+    let recorded = observed.clone();
+    let theme = kivact_ui_soft::theme(ThemeMode::Light);
+    let recipes = (*theme.ext::<UiRecipes>())
+        .clone()
+        .dropzone(move |recipes| {
+            recipes.root(move |previous| {
+                move |theme, state| {
+                    recorded
+                        .lock()
+                        .expect("invariant: observation lock is healthy")
+                        .push((**state).clone());
+                    previous(theme, state)
+                }
+            })
+        });
+    let (screen, (accepts, files)) =
+        render_with_handle(RenderOptions::from_env().theme(theme.with(recipes)), || {
+            let accepts = signal(true);
+            let files = signal(Vec::<std::path::PathBuf>::new());
+            (
+                (accepts, files),
+                kivact::ui::dropzone("Upload")
+                    .pick_on_press()
+                    .accept_drop(accepts)
+                    .on_files(move |items| {
+                        files.set(items.into_iter().map(|item| item.path).collect())
+                    })
+                    .style(style().width(240).height(96)),
+            )
+        });
+    let target = screen.get_by_role(Role::Button, "Upload");
+    let bounds = target.rect().expect("invariant: drop target has layout");
+    let point = Point::new(
+        bounds.x + bounds.width / 2.0,
+        bounds.y + bounds.height / 2.0,
+    );
+    screen.file_drag(FilePhase::Enter, vec!["hover.txt".into()], point);
+    assert!(matches!(
+        observed
+            .lock()
+            .expect("invariant: observation lock is healthy")
+            .last(),
+        Some(DropzoneState::DragOver { .. })
+    ));
+    accepts.set(false);
+    screen.run_until_idle();
+    assert!(matches!(
+        observed
+            .lock()
+            .expect("invariant: observation lock is healthy")
+            .last(),
+        Some(DropzoneState::Idle)
+    ));
+    screen.file_drag(FilePhase::Drop, vec!["ignored.txt".into()], point);
+    assert!(files.get_untracked().is_empty());
+    screen.respond_files_dialog(Some(vec!["picked.txt".into()]));
+    target.press_key(Key::Enter);
+    assert_eq!(
+        files.get_untracked(),
+        vec![std::path::PathBuf::from("picked.txt")]
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

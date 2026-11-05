@@ -140,6 +140,10 @@ pub fn theme(mode: ThemeMode) -> Theme {
             ..Default::default()
         })
         .with(UiTokens {
+            dropzone: kivact::ui::DropzoneTokens {
+                padding: Some(tokens.spacing.s3),
+                min_height: Some(96.0),
+            },
             carousel: kivact::ui::CarouselTokens {
                 gap: Some(tokens.spacing.s1),
                 padding: Some(0.0),

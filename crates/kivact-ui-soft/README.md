@@ -60,7 +60,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
 | Dropdown Menu | Standard `menu`. Use `MenuEntry::item`, `checkbox`, `separator`, `group`, `radio`, and `submenu`. A radio group is a group of radio entries. |
 | Empty State | `empty_state` |
-| Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, `input_group`, `input_group_text`, and `file_input` for the surrounding controls. |
+| Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, `input_group`, `input_group_text`, and standard `dropzone` for the surrounding controls. |
 | Heading | `heading` |
 | Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
 | Icon | `icon`, `ICON_NAMES` |
@@ -146,10 +146,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.date_time.date` | Date |
 | `soft.date_time.time` | Time |
 | `soft.dialog.close` | Close |
-| `soft.file_input.choose_one` | Choose one file. |
-| `soft.file_input.clear` | Clear files |
-| `soft.file_input.invalid_file` | One or more files are not allowed. |
-| `soft.file_input.too_large` | One or more files exceed the size limit or could not be read. |
 | `kbd.key.alt` | Alt |
 | `kbd.key.backspace` | Backspace |
 | `kbd.key.command` | Command |
@@ -349,6 +345,7 @@ Number, date, and time filter fields validate values entered as text.
 - `spinner`
 - `kbd`
 - `kbd_key`
+- `dropzone`
 - `carousel`
 - `calendar`
 - `date_input`

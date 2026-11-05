@@ -7,7 +7,7 @@ use kivact::style::style;
 use kivact::ui::{ControlSize, field, number_input, text_area, text_input};
 use kivact::view::{Node, NodeBuilder, column};
 use kivact_ui_soft::{
-    FieldStatusVariant, StatusKind, checkbox_list, field_status, file_input, input_group_text,
+    FieldStatusVariant, StatusKind, checkbox_list, field_status, input_group_text,
     input_group_with, power_search, rich_text_editor,
 };
 
@@ -176,27 +176,9 @@ kivact::ui::select("Locked team", teams(), signal(Some("engineering"))).open_on_
             "input_group_with(\"Website\", || (input_group_text(\"https://\"), domain()))",
         ),
         "file-input" => column((
-            specimen(
-                "Choose a file",
-                file_input("Attachment", signal(Vec::new())).style(style().width(280)),
-                r#"file_input("Attachment", signal(Vec::new()))"#,
-            ),
-            specimen(
-                "Choose or drop images",
-                file_input("Images", signal(Vec::new()))
-                    .dropzone(true)
-                    .multiple(true)
-                    .extensions(["png", "jpg"])
-                    .max_bytes(5 * 1024 * 1024)
-                    .style(style().width(280)),
-                r#"file_input("Images", signal(Vec::new()))
-    .dropzone(true)
-    .multiple(true)
-    .extensions(["png", "jpg"])
-    .max_bytes(5 * 1024 * 1024)"#,
-            ),
-        ))
-        .style(style().gap(12)),
+            specimen("Choose a file", file_target("Attachment", false), "dropzone(label).pick_on_press().on_files(store_files)"),
+            specimen("Choose or drop images", file_target("Images", true), "dropzone(label).multiple().pick_on_press().filters(filters).validate(validate_image).on_files(store_files)"),
+        )).style(style().gap(12)),
         "rich-text-editor" => specimen(
             "Edit blocks, switch to Markdown source, or preview",
             rich_text_editor(
@@ -235,4 +217,74 @@ fn teams() -> Vec<ListItem<&'static str>> {
         ListItem::new("engineering", "Engineering"),
         ListItem::new("archive", "Archive").disabled(true),
     ]
+}
+
+fn file_target(label: &'static str, accepts_drop: bool) -> Node {
+    use kivact::interaction::FileInfo;
+    use kivact::ui::{ButtonVariant, button, dropzone};
+    use kivact::view::{node_ref, show};
+    let files = signal(Vec::<FileInfo>::new());
+    let target = node_ref();
+    let field = dropzone(label)
+        .icon(kivact::view::icon("upload"))
+        .pick_on_press()
+        .node_ref(target)
+        .hint(move || {
+            files.with(|items| {
+                items
+                    .iter()
+                    .map(FileInfo::name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+        })
+        .on_files(move |accepted| files.set(accepted))
+        .style(style().width(280));
+    let field = if accepts_drop {
+        field
+            .multiple()
+            .filters(vec![(
+                "Images".to_owned(),
+                vec!["png".to_owned(), "jpg".to_owned()],
+            )])
+            .validate(|file| {
+                if !file
+                    .path
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|ext| {
+                        ext.eq_ignore_ascii_case("png") || ext.eq_ignore_ascii_case("jpg")
+                    })
+                {
+                    Some("One or more files are not allowed.".to_owned())
+                } else if std::fs::metadata(&file.path).map_or(true, |metadata| {
+                    !metadata.is_file() || metadata.len() > 5 * 1024 * 1024
+                }) {
+                    Some("One or more files exceed the size limit or could not be read.".to_owned())
+                } else {
+                    None
+                }
+            })
+    } else {
+        field
+            .variant(kivact_ui_soft::DropzoneVariant::Field)
+            .accept_drop(false)
+    };
+    column((
+        field,
+        show(
+            move || files.with(|files| !files.is_empty()),
+            move || {
+                button("Clear files")
+                    .variant(ButtonVariant::Ghost)
+                    .hide_label(true)
+                    .icon(kivact::view::icon("x"))
+                    .on_press(move || {
+                        files.set(Vec::new());
+                        target.focus();
+                    })
+            },
+        ),
+    ))
+    .style(style().gap(4))
 }
