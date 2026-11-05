@@ -8,9 +8,8 @@ use kivact::view::{Node, NodeBuilder, column, icon, row, text};
 use kivact_ui_soft::{
     OutlineItem, SideNavCollapse, TabMenuOption, TabPattern, app_shell, mobile_nav,
     nav_heading_menu, nav_heading_menu_item, outline, scrollable_area, side_nav, side_nav_item,
-    side_nav_section, step, stepper, tab, tab_list, tab_menu, top_nav, top_nav_featured_card,
-    top_nav_heading, top_nav_item, top_nav_mega_menu, top_nav_mega_menu_item, top_nav_menu,
-    top_nav_menu_item,
+    side_nav_section, tab, tab_list, tab_menu, top_nav, top_nav_featured_card, top_nav_heading,
+    top_nav_item, top_nav_mega_menu, top_nav_mega_menu_item, top_nav_menu, top_nav_menu_item,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {
@@ -189,8 +188,15 @@ row((
         }
         "stepper" | "step" => specimen(
             "Review steps",
-            stepper(1, [step(0, "Draft"), step(1, "Review"), step(2, "Publish")]),
-            "stepper(1, [step(0, \"Draft\"), step(1, \"Review\"), step(2, \"Publish\")])",
+            kivact::ui::stepper(
+                vec![
+                    kivact::ui::StepperItem::new("Draft"),
+                    kivact::ui::StepperItem::new("Review"),
+                    kivact::ui::StepperItem::new("Publish"),
+                ],
+                1usize,
+            ),
+            "stepper(vec![StepperItem::new(\"Draft\"), StepperItem::new(\"Review\"), StepperItem::new(\"Publish\")], 1usize)",
         ),
         "tab-list" | "tab" => specimen(
             "Manual keyboard activation",

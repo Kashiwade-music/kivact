@@ -15,6 +15,7 @@ pub(super) fn recipes() -> UiRecipes {
                 .empty_state(crate::empty_state::empty_state)
                 .input_group(crate::input_group::input_group)
                 .card(crate::card::card)
+                .stepper(crate::stepper::stepper)
                 .avatar(|_| crate::avatar::root)
                 .avatar_image(|_| crate::avatar::picture)
                 .avatar_status(|_| crate::avatar::status)
