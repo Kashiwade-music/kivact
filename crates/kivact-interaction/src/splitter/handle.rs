@@ -329,6 +329,43 @@ impl SplitterApi {
     /// key and pointer handlers run after the caller's own, so a caller handler
     /// can stop them. Semantic modifiers written after the attachment override
     /// the part's. Setup only.
+    fn handle_once(self, write: &dyn Fn(ScalarOps, f64) -> bool) -> bool {
+        let mut accepted = false;
+        self.edit.once(self.ops.binding.get_untracked(), || {
+            accepted = write(self.ops, self.current_key_step());
+        });
+        accepted
+    }
+
+    fn handle_key(self, event: &KeyEvent, shrink_key: Key, grow_key: Key) -> Handled {
+        let range = self.ops.range;
+        let machine = self.machine;
+        if self.is_disabled() {
+            return Handled::No;
+        }
+        let factor = if event.modifiers().shift {
+            self.settings.get().shift_step_factor.unwrap_or(1.0)
+        } else {
+            1.0
+        };
+        let accepted = match event.key() {
+            key if key == shrink_key => {
+                self.handle_once(&|ops, step| ops.step_by(-1.0, step * factor))
+            }
+            key if key == grow_key => {
+                self.handle_once(&|ops, step| ops.step_by(1.0, step * factor))
+            }
+            Key::Home => self.handle_once(&|ops, _| ops.set(range.get_untracked().min())),
+            Key::End => self.handle_once(&|ops, _| ops.set(range.get_untracked().max())),
+            Key::Enter => self.handle_once(&|_, _| {
+                machine.send(machine::Event::Toggle);
+                true
+            }),
+            _ => false,
+        };
+        if accepted { Handled::Yes } else { Handled::No }
+    }
+
     #[track_caller]
     pub fn handle(self) -> Part<SplitterState> {
         let value = self.ops.binding.into_value();
@@ -337,14 +374,6 @@ impl SplitterApi {
             && kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
         follow_range(self.ops.binding, range);
         let edit = self.edit;
-        // One key press or assistive technology action is a whole edit.
-        let once = move |write: &dyn Fn(ScalarOps, f64) -> bool| -> bool {
-            let mut accepted = false;
-            edit.once(value.get_untracked(), || {
-                accepted = write(self.ops, self.current_key_step());
-            });
-            accepted
-        };
         // Only an action that will write is an edit: a value that is not a
         // number reports nothing.
         let act = move |event: A11yEvent| {
@@ -353,7 +382,7 @@ impl SplitterApi {
                 _ => true,
             };
             if writes && !self.is_disabled() {
-                once(&|ops, step| ops.a11y(&event, step));
+                self.handle_once(&|ops, step| ops.a11y(&event, step));
             }
         };
         let reset = move || -> bool {
@@ -361,7 +390,7 @@ impl SplitterApi {
                 .get()
                 .reset
                 .and_then(|reset| reset.get_untracked())
-                .is_some_and(|reset| once(&|ops, _| ops.set(reset)))
+                .is_some_and(|reset| self.handle_once(&|ops, _| ops.set(reset)))
         };
         let settings = self.settings;
         let machine = self.machine;
@@ -415,32 +444,7 @@ impl SplitterApi {
                 .value_min(move || range.get().min())
                 .value_max(move || range.get().max())
                 .value_now(value)
-                .on_key(move |event: KeyEvent| {
-                    if self.is_disabled() {
-                        return Handled::No;
-                    }
-                    let factor = if event.modifiers().shift {
-                        self.settings.get().shift_step_factor.unwrap_or(1.0)
-                    } else {
-                        1.0
-                    };
-                    let accepted = match event.key() {
-                        key if key == shrink_key => {
-                            once(&|ops, step| ops.step_by(-1.0, step * factor))
-                        }
-                        key if key == grow_key => {
-                            once(&|ops, step| ops.step_by(1.0, step * factor))
-                        }
-                        Key::Home => once(&|ops, _| ops.set(range.get_untracked().min())),
-                        Key::End => once(&|ops, _| ops.set(range.get_untracked().max())),
-                        Key::Enter => once(&|_, _| {
-                            machine.send(machine::Event::Toggle);
-                            true
-                        }),
-                        _ => false,
-                    };
-                    if accepted { Handled::Yes } else { Handled::No }
-                })
+                .on_key(move |event: KeyEvent| self.handle_key(&event, shrink_key, grow_key))
                 // A double click resets before the drag source sees the press.
                 .on_pointer(move |event: PointerEvent| {
                     if is_double_press(&event)

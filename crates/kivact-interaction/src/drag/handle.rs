@@ -704,6 +704,83 @@ impl<T: Clone + 'static> DragApi<T> {
         }
     }
 
+    fn begin_pointer(
+        self,
+        id: Generation,
+        payload: &dyn Fn() -> T,
+        event: PointerEvent,
+        button: MouseButton,
+        pos: Point,
+        source_disabled: bool,
+    ) -> Option<Step<T>> {
+        let buttons = self.settings.get().buttons;
+        if buttons & bit(button) == 0
+            || !pos.x.is_finite()
+            || !pos.y.is_finite()
+            || self.is_disabled()
+            || source_disabled
+            || !self
+                .session
+                .state()
+                .with_untracked(|state| matches!(state, DragSession::Idle))
+        {
+            return None;
+        }
+        let start = DragStart {
+            pointer: event.id(),
+            button,
+            pos,
+            payload: payload(),
+        };
+        self.session.send(machine::Event::Begin(
+            Active {
+                start: Rc::new(start),
+                source: id,
+                last: pos,
+                edit: EditOwnership::Borrowed,
+                axis: super::data::AxisLock::Free,
+                velocity: super::data::Velocity::Disabled,
+            },
+            clock_now(),
+        ));
+        self.session.state().with_untracked(|state| match state {
+            DragSession::Active(active) => active
+                .update(pos, event.modifiers(), DragPhase::Start)
+                .map(Step::Update),
+            DragSession::Pending { .. } => Some(Step::Pending),
+            _ => None,
+        })
+    }
+
+    fn move_pointer(self, event: PointerEvent, pos: Point, valid: bool) -> Option<Step<T>> {
+        let phase = DragPhase::Move;
+        if !valid {
+            // An invalid move must not corrupt the drag's positions.
+            return None;
+        }
+        let pending = self
+            .session
+            .state()
+            .with_untracked(|state| matches!(state, DragSession::Pending { .. }));
+        self.session
+            .send(machine::Event::Position(pos, clock_now()));
+        self.session.state().with_untracked(|state| match state {
+            DragSession::Active(active) => {
+                let moved = active.update(pos, event.modifiers(), phase)?;
+                if pending {
+                    Some(Step::Started {
+                        start: active.update(pos, event.modifiers(), DragPhase::Start)?,
+                        moved,
+                    })
+                } else {
+                    Some(Step::Update(moved))
+                }
+            }
+            DragSession::Pending { .. } => Some(Step::Pending),
+            _ => None,
+        })
+    }
+
     /// Advance the session by one pointer event of source `id`.
     fn observe(
         self,
@@ -718,43 +795,7 @@ impl<T: Clone + 'static> DragApi<T> {
         };
         let valid = pos.x.is_finite() && pos.y.is_finite();
         if let PointerPhase::Down(press) = event.phase() {
-            let button = press.button;
-            let buttons = self.settings.get().buttons;
-            if buttons & bit(button) == 0
-                || !valid
-                || self.is_disabled()
-                || source_disabled
-                || !self
-                    .session
-                    .state()
-                    .with_untracked(|state| matches!(state, DragSession::Idle))
-            {
-                return None;
-            }
-            let start = DragStart {
-                pointer: event.id(),
-                button,
-                pos,
-                payload: payload(),
-            };
-            self.session.send(machine::Event::Begin(
-                Active {
-                    start: Rc::new(start),
-                    source: id,
-                    last: pos,
-                    edit: EditOwnership::Borrowed,
-                    axis: super::data::AxisLock::Free,
-                    velocity: super::data::Velocity::Disabled,
-                },
-                clock_now(),
-            ));
-            return self.session.state().with_untracked(|state| match state {
-                DragSession::Active(active) => active
-                    .update(pos, event.modifiers(), DragPhase::Start)
-                    .map(Step::Update),
-                DragSession::Pending { .. } => Some(Step::Pending),
-                _ => None,
-            });
+            return self.begin_pointer(id, payload, event, press.button, pos, source_disabled);
         }
         if !matches!(
             event.phase(),
@@ -796,31 +837,7 @@ impl<T: Clone + 'static> DragApi<T> {
             _ => return None,
         };
         if phase == DragPhase::Move {
-            if !valid {
-                // An invalid move must not corrupt the drag's positions.
-                return None;
-            }
-            let pending = self
-                .session
-                .state()
-                .with_untracked(|state| matches!(state, DragSession::Pending { .. }));
-            self.session
-                .send(machine::Event::Position(pos, clock_now()));
-            return self.session.state().with_untracked(|state| match state {
-                DragSession::Active(active) => {
-                    let moved = active.update(pos, event.modifiers(), phase)?;
-                    if pending {
-                        Some(Step::Started {
-                            start: active.update(pos, event.modifiers(), DragPhase::Start)?,
-                            moved,
-                        })
-                    } else {
-                        Some(Step::Update(moved))
-                    }
-                }
-                DragSession::Pending { .. } => Some(Step::Pending),
-                _ => None,
-            });
+            return self.move_pointer(event, pos, valid);
         }
         if self.clear_pending() {
             return Some(Step::Pending);

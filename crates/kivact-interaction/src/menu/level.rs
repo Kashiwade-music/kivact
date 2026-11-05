@@ -102,33 +102,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             .ext::<crate::InteractionPolicy>()
             .menu
             .submenu;
-        let aiming = if timing.close.is_zero() {
-            false.into_value()
-        } else {
-            let anchor = memo(move || {
-                session.path.with(|path| {
-                    let key = path.get(depth)?;
-                    anchors.with(|anchors| {
-                        anchors
-                            .iter()
-                            .find(|(candidate, _)| candidate == key)
-                            .map(|(_, rect)| *rect)
-                    })
-                })
-            });
-            let surface = memo(move || {
-                session.path.with(|path| {
-                    let prefix = path.get(..=depth)?;
-                    session.surface_rects.with(|rects| {
-                        rects
-                            .iter()
-                            .find(|(candidate, _)| candidate == prefix)
-                            .map(|(_, rect)| *rect)
-                    })
-                })
-            });
-            use_hover_corridor(anchor, surface, shown, timing.close).is_holding()
-        };
+        let aiming = corridor(session, anchors, depth, shown, timing);
         Self {
             content_state: signal(None),
             item_states: signal(std::collections::HashMap::new()),
@@ -202,123 +176,88 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 }
             })
             .on_attach(move |_| {
-                if let Some(press) = session.press {
-                    press.surface(surface);
-                }
-                if depth == 0 {
-                    // Where the focus returns for this opening.
-                    session.popup.set_opening_policy(session.focus_return());
-                    // The top level takes the focus on its first focusable item
-                    // unless the opener asked for another one.
-                    if session.want.with_untracked(Option::is_none) {
-                        session.request(0, Edge::First);
-                    }
-                }
-                // Focus requests addressed to this level wait for its nodes
-                // to be live.
-                let ready = signal(false);
-                on_mount(move || ready.set(true));
-                effect(move || {
-                    if !ready.get() {
-                        return;
-                    }
-                    let Some(want) = session.want.get() else {
-                        return;
-                    };
-                    if want.depth() != depth {
-                        return;
-                    }
-                    let target = match want {
-                        Want::Command { target, .. } => target,
-                        Want::Hover { key, .. } => Target::Key(key),
-                    };
-                    match target {
-                        Target::Edge(edge) => {
-                            let target = rows.with_untracked(|rows| {
-                                edge_item(rows, edge, retain_disabled_focus)
-                            });
-                            if let Some(key) = target {
-                                group.focus(key);
-                            }
-                        }
-                        Target::Key(key) => {
-                            if !group.focus(key) {
-                                let target = rows.with_untracked(|rows| {
-                                    edge_item(rows, Edge::First, retain_disabled_focus)
-                                });
-                                if let Some(key) = target {
-                                    group.focus(key);
-                                }
-                            }
-                        }
-                    }
-                    session.machine.send(super::machine::Event::Request(None));
-                });
+                self.mount_content(surface);
             })
     }
 
-    /// The part of the item `key`. Setup only, in the item's row.
-    #[track_caller]
-    pub(super) fn item(self, key: K) -> Part<MenuItemState> {
-        let Level {
+    fn mount_content(self, surface: kivact_core::view::NodeRef) {
+        let Self {
+            session,
+            depth,
+            rows,
+            group,
+            retain_disabled_focus,
+            ..
+        } = self;
+        if let Some(press) = session.press {
+            press.surface(surface);
+        }
+        if depth == 0 {
+            // Where the focus returns for this opening.
+            session.popup.set_opening_policy(session.focus_return());
+            // The top level takes the focus on its first focusable item
+            // unless the opener asked for another one.
+            if session.want.with_untracked(Option::is_none) {
+                session.request(0, Edge::First);
+            }
+        }
+        // Focus requests addressed to this level wait for its nodes
+        // to be live.
+        let ready = signal(false);
+        on_mount(move || ready.set(true));
+        effect(move || {
+            if !ready.get() {
+                return;
+            }
+            let Some(want) = session.want.get() else {
+                return;
+            };
+            if want.depth() != depth {
+                return;
+            }
+            let target = match want {
+                Want::Command { target, .. } => target,
+                Want::Hover { key, .. } => Target::Key(key),
+            };
+            match target {
+                Target::Edge(edge) => {
+                    let target =
+                        rows.with_untracked(|rows| edge_item(rows, edge, retain_disabled_focus));
+                    if let Some(key) = target {
+                        group.focus(key);
+                    }
+                }
+                Target::Key(key) => {
+                    if !group.focus(key) {
+                        let target = rows.with_untracked(|rows| {
+                            edge_item(rows, Edge::First, retain_disabled_focus)
+                        });
+                        if let Some(key) = target {
+                            group.focus(key);
+                        }
+                    }
+                }
+            }
+            session.machine.send(super::machine::Event::Request(None));
+        });
+    }
+
+    fn watch_item(
+        self,
+        key: K,
+        submenu: bool,
+        item_ref: kivact_core::view::NodeRef,
+        disabled: Value<bool>,
+        hovered: Signal<bool>,
+        pressed_over: Value<Option<bool>>,
+    ) {
+        let Self {
             session,
             depth,
             shown,
-            rows,
-            group,
             ..
         } = self;
-        let entry = {
-            let key = key.clone();
-            memo(move || {
-                rows.with(|rows| {
-                    rows.iter()
-                        .find(|(_, entry)| entry.key() == Some(&key))
-                        .map(|(_, entry)| entry.clone())
-                })
-            })
-        };
-        // The kind of an item is part of its row's identity.
-        let kind = entry.with_untracked(|entry| entry.as_ref().and_then(MenuEntry::item_kind));
-        let submenu = kind == Some(MenuItemKind::Submenu);
-        let retain_disabled_focus = self.retain_disabled_focus;
-        let disabled = memo(move || entry.with(|e| e.as_ref().is_none_or(MenuEntry::is_disabled)));
-        let shortcut = memo(move || {
-            entry.with(|e| {
-                e.as_ref()
-                    .map(|e| e.shortcut().to_string())
-                    .unwrap_or_default()
-            })
-        });
-        let description = memo(move || {
-            if retain_disabled_focus
-                && disabled.get()
-                && let Some(reason) =
-                    entry.with(|entry| entry.as_ref().and_then(MenuEntry::disabled_reason))
-            {
-                return reason;
-            }
-            shortcut.get()
-        });
-        let check = memo(move || entry.with(|e| e.as_ref().and_then(MenuEntry::check)));
-        let destructive =
-            memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::is_destructive)));
-        let keep_open = memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::keeps_open)));
-        let expanded = {
-            let key = key.clone();
-            memo(move || submenu && session.path.with(|path| path.get(depth) == Some(&key)))
-        };
-
-        let member = group.base_item(key.clone(), self.retain_disabled_focus);
-        let item_ref = kivact_core::view::node_ref();
-        if let Some(press) = session.press {
-            press.row(item_ref, disabled);
-        }
-        let pressed_over =
-            memo(move || session.press.and_then(|press| press.highlighted(item_ref)));
-
         // The pointer focuses the item it rests on; a submenu opens after a rest.
-        let hovered = signal(false);
         let timing = self.timing;
         let aiming = self.aiming;
         if submenu {
@@ -358,16 +297,9 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 session.hover(depth, hover_key.clone());
             }
         });
-        let observed_key = key.clone();
-        let invoke_key = key;
-        let member = member.map_state(move |state| MenuItemState {
-            pressed_over: pressed_over.get(),
-            input: state.input,
-            check: check.get(),
-            expanded: expanded.get(),
-            destructive: destructive.get(),
-        });
-        let part_state = member.state();
+    }
+
+    fn observe_item(self, observed_key: K, part_state: Value<MenuItemState>) {
         let observed = self.item_states;
         observed.update(|states| {
             states.insert(observed_key.clone(), part_state);
@@ -381,6 +313,87 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 });
             }
         });
+    }
+
+    fn item_pointer(self, hovered: Signal<bool>, event: PointerEvent) -> Handled {
+        let session = self.session;
+        if let Some(press) = session.press {
+            let handled = press.event(session, super::press_machine::Source::Menu, event);
+            if handled == Handled::Yes {
+                return handled;
+            }
+        }
+        match event.phase() {
+            PointerPhase::Enter => hovered.set(true),
+            PointerPhase::Leave => hovered.set(false),
+            _ => {}
+        }
+        Handled::No
+    }
+
+    /// The part of the item `key`. Setup only, in the item's row.
+    #[track_caller]
+    pub(super) fn item(self, key: K) -> Part<MenuItemState> {
+        let Level {
+            session,
+            depth,
+            rows,
+            group,
+            ..
+        } = self;
+        let entry = {
+            let key = key.clone();
+            memo(move || {
+                rows.with(|rows| {
+                    rows.iter()
+                        .find(|(_, entry)| entry.key() == Some(&key))
+                        .map(|(_, entry)| entry.clone())
+                })
+            })
+        };
+        // The kind of an item is part of its row's identity.
+        let kind = entry.with_untracked(|entry| entry.as_ref().and_then(MenuEntry::item_kind));
+        let submenu = kind == Some(MenuItemKind::Submenu);
+        let retain_disabled_focus = self.retain_disabled_focus;
+        let disabled = memo(move || entry.with(|e| e.as_ref().is_none_or(MenuEntry::is_disabled)));
+        let description = item_description(entry, disabled, retain_disabled_focus);
+        let check = memo(move || entry.with(|e| e.as_ref().and_then(MenuEntry::check)));
+        let destructive =
+            memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::is_destructive)));
+        let keep_open = memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::keeps_open)));
+        let expanded = {
+            let key = key.clone();
+            memo(move || submenu && session.path.with(|path| path.get(depth) == Some(&key)))
+        };
+
+        let member = group.base_item(key.clone(), self.retain_disabled_focus);
+        let item_ref = kivact_core::view::node_ref();
+        if let Some(press) = session.press {
+            press.row(item_ref, disabled);
+        }
+        let pressed_over =
+            memo(move || session.press.and_then(|press| press.highlighted(item_ref)));
+
+        let hovered = signal(false);
+        self.watch_item(
+            key.clone(),
+            submenu,
+            item_ref,
+            disabled,
+            hovered,
+            pressed_over,
+        );
+        let observed_key = key.clone();
+        let invoke_key = key;
+        let member = member.map_state(move |state| MenuItemState {
+            pressed_over: pressed_over.get(),
+            input: state.input,
+            check: check.get(),
+            expanded: expanded.get(),
+            destructive: destructive.get(),
+        });
+        let part_state = member.state();
+        self.observe_item(observed_key, part_state);
         Part::new(part_state, move |host| {
             let member = host
                 .part(member)
@@ -392,21 +405,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 })
                 .disabled(disabled)
                 .description(description)
-                .on_pointer(move |event: PointerEvent| {
-                    if let Some(press) = session.press {
-                        let handled =
-                            press.event(session, super::press_machine::Source::Menu, event);
-                        if handled == Handled::Yes {
-                            return handled;
-                        }
-                    }
-                    match event.phase() {
-                        PointerPhase::Enter => hovered.set(true),
-                        PointerPhase::Leave => hovered.set(false),
-                        _ => {}
-                    }
-                    Handled::No
-                })
+                .on_pointer(move |event: PointerEvent| self.item_pointer(hovered, event))
                 .on_press(move || {
                     if disabled.get() {
                         return Ok(());
@@ -500,6 +499,7 @@ fn observe_rect<K: kivact_core::state::PropValue>(
     on_cleanup(move || rects.update(|rects| rects.retain(|(key, _)| key != &cleanup)));
     effect(move || {
         let rect = rect.get();
+        // xtask-allow(effect-writes): S-9 geometry cache mirrors mounted surface rectangles; this function owns replacement and cleanup.
         rects.update(|rects| {
             rects.retain(|(candidate, _)| candidate != &key);
             if let Some(rect) = rect {
@@ -507,4 +507,64 @@ fn observe_rect<K: kivact_core::state::PropValue>(
             }
         });
     });
+}
+
+fn corridor<K: kivact_core::state::ItemKey>(
+    session: Session<K>,
+    anchors: Signal<Vec<(K, Rect)>>,
+    depth: usize,
+    shown: Value<bool>,
+    timing: SubmenuTiming,
+) -> Value<bool> {
+    if timing.close.is_zero() {
+        false.into_value()
+    } else {
+        let anchor = memo(move || {
+            session.path.with(|path| {
+                let key = path.get(depth)?;
+                anchors.with(|anchors| {
+                    anchors
+                        .iter()
+                        .find(|(candidate, _)| candidate == key)
+                        .map(|(_, rect)| *rect)
+                })
+            })
+        });
+        let surface = memo(move || {
+            session.path.with(|path| {
+                let prefix = path.get(..=depth)?;
+                session.surface_rects.with(|rects| {
+                    rects
+                        .iter()
+                        .find(|(candidate, _)| candidate == prefix)
+                        .map(|(_, rect)| *rect)
+                })
+            })
+        });
+        use_hover_corridor(anchor, surface, shown, timing.close).is_holding()
+    }
+}
+
+fn item_description<K: kivact_core::state::ItemKey>(
+    entry: Value<Option<MenuEntry<K>>>,
+    disabled: Value<bool>,
+    retain_disabled_focus: bool,
+) -> Value<String> {
+    let shortcut = memo(move || {
+        entry.with(|e| {
+            e.as_ref()
+                .map(|e| e.shortcut().to_string())
+                .unwrap_or_default()
+        })
+    });
+    memo(move || {
+        if retain_disabled_focus
+            && disabled.get()
+            && let Some(reason) =
+                entry.with(|entry| entry.as_ref().and_then(MenuEntry::disabled_reason))
+        {
+            return reason;
+        }
+        shortcut.get()
+    })
 }

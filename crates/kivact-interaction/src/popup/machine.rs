@@ -137,28 +137,7 @@ impl MachineTrait for Machine {
                     outside,
                 },
             ) => {
-                let seen = matches!(
-                    focus,
-                    FocusRange::AnchorSeen
-                        | FocusRange::Entered {
-                            anchor: AnchorHistory::Seen
-                        }
-                );
-                let next = if seen && !anchor_present {
-                    FocusRange::AnchorRemoved
-                } else if entered || matches!(focus, FocusRange::Entered { .. }) {
-                    FocusRange::Entered {
-                        anchor: if seen || anchor_present {
-                            AnchorHistory::Seen
-                        } else {
-                            AnchorHistory::Unseen
-                        },
-                    }
-                } else if anchor_present {
-                    FocusRange::AnchorSeen
-                } else {
-                    *focus
-                };
+                let next = focus_range(*focus, anchor_present, entered);
                 let step = Step::to(State::Open {
                     opener: *opener,
                     policy: *policy,
@@ -195,5 +174,30 @@ impl MachineTrait for Machine {
             (_, Event::Unmount { .. }) => Step::to(State::Closed),
             _ => Step::stay(),
         }
+    }
+}
+
+fn focus_range(focus: FocusRange, anchor_present: bool, entered: bool) -> FocusRange {
+    let seen = matches!(
+        focus,
+        FocusRange::AnchorSeen
+            | FocusRange::Entered {
+                anchor: AnchorHistory::Seen
+            }
+    );
+    if seen && !anchor_present {
+        FocusRange::AnchorRemoved
+    } else if entered || matches!(focus, FocusRange::Entered { .. }) {
+        FocusRange::Entered {
+            anchor: if seen || anchor_present {
+                AnchorHistory::Seen
+            } else {
+                AnchorHistory::Unseen
+            },
+        }
+    } else if anchor_present {
+        FocusRange::AnchorSeen
+    } else {
+        focus
     }
 }
