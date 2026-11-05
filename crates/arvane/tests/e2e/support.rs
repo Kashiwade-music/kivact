@@ -242,7 +242,7 @@ pub(crate) fn text_runs(text: &str, size: f64, origin: kivact_types::Point) -> V
         .runs
         .iter()
         .map(|run| RenderCmd::Glyphs {
-            run: std::sync::Arc::clone(run),
+            run: run.clone(),
             origin,
             color: None,
         })

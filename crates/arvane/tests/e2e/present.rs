@@ -4,6 +4,7 @@
 //! frame plan of a window beyond the frame budget, invalid scenes, and the
 //! GPU's frame against the CPU's.
 
+use kivact_types::AssetBytes;
 use std::sync::Arc;
 
 use crate::support::Harness;
@@ -70,7 +71,7 @@ fn draw_text(window: &mut Harness, text: &str, origin: Point) -> (Size, f64) {
                 baseline = glyph.y + origin.y;
             }
             RenderCmd::Glyphs {
-                run: std::sync::Arc::clone(run),
+                run: run.clone(),
                 origin,
                 color: None,
             }
@@ -154,11 +155,11 @@ fn representative() -> Vec<RenderCmd> {
             image: Pixels {
                 width: 2,
                 height: 2,
-                rgba: Arc::from(
+                rgba: AssetBytes::from_shared(Arc::from(
                     &[
                         255u8, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 255, 255, 255, 255, 64,
                     ][..],
-                ),
+                )),
             },
             rect: rect(20.0, 100.0, 80.0, 40.0),
             opacity: 0.8,
@@ -166,7 +167,7 @@ fn representative() -> Vec<RenderCmd> {
         },
     ];
     commands.extend(shaped.runs.iter().map(|run| RenderCmd::Glyphs {
-        run: std::sync::Arc::clone(run),
+        run: run.clone(),
         origin: Point { x: 120.0, y: 110.0 },
         color: None,
     }));

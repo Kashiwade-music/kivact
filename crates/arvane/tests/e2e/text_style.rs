@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use arvane::Engine;
-use kivact_types::render::{RichText, ShapedText, SpanStyle, TextSpan};
+use kivact_types::render::{RichText, ShapedTextSnapshot, SpanStyle, TextSpan};
 use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rgba};
 
@@ -47,7 +47,7 @@ fn shaped<'t>(
     text: impl Into<RichText<'t>>,
     style: &ComputedTextStyle,
     width: Option<f64>,
-) -> Arc<ShapedText> {
+) -> ShapedTextSnapshot {
     let text = text.into();
     let measured = engine.measure_text(text, style, width).expect("measure");
     let glyphs = engine.shape_glyphs(text, style, width).expect("shape");

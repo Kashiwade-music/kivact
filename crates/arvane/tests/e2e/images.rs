@@ -4,6 +4,7 @@
 //! frame (on the CPU and the GPU); and the GPU's frames of the whole
 //! drawing vocabulary against the CPU's.
 
+use kivact_types::AssetBytes;
 use std::sync::Arc;
 
 use kivact_types::render::{
@@ -40,11 +41,11 @@ fn vocabulary() -> Vec<RenderCmd> {
     let checker = Pixels {
         width: 2,
         height: 2,
-        rgba: Arc::from(
+        rgba: AssetBytes::from_shared(Arc::from(
             &[
                 255u8, 0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255, 255, 0, 0, 255,
             ][..],
-        ),
+        )),
     };
     commands.extend(transformed_scene());
     commands.extend(layer_scene(black));

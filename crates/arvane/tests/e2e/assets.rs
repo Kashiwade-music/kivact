@@ -5,13 +5,12 @@
 //! reported once, assets compared by identity; the pixels drawn as they
 //! are.
 
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
 use arvane::asset::{Asset, AssetImage, AssetStore, ImageState, PixelSize};
 
-use kivact_types::Size;
+use kivact_types::{AssetBytes, Size};
 
 /// 2 × 2: opaque red, half green / opaque blue, quarter white.
 static PNG: &[u8] = include_bytes!("../fixtures/rgba.png");
@@ -98,7 +97,7 @@ fn the_worker_decodes_png_jpeg_and_svg_by_their_content() {
         "straight alpha, as stored"
     );
     // The JPEG shows rotated: 8 × 16, red on top, blue below.
-    let jpeg = Asset::Shared(Arc::from(JPEG));
+    let jpeg = Asset::Shared(AssetBytes::copy_from_slice(JPEG));
     assert_eq!(
         state(&mut store, &woken, &jpeg),
         ImageState::Ready {
