@@ -4,7 +4,6 @@ use super::machine::{
     TypedSnapshot,
 };
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
 use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Edge;
@@ -42,6 +41,7 @@ impl DatePresentation {
 /// An editable locale-sensitive date, created by [`date_input`].
 pub struct DateInput {
     root: Node,
+    variants: crate::variants::Variants,
     label: Value<String>,
     value: Binding<Option<CalendarDate>>,
     format: Value<DateStyle>,
@@ -61,6 +61,7 @@ pub fn date_input(
 ) -> DateInput {
     DateInput {
         root: node(),
+        variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         value: value.into_binding(),
         format: DateStyle::Iso.into_value(),
@@ -75,6 +76,15 @@ pub fn date_input(
     }
 }
 impl DateInput {
+    /// Add a visual variant shared by the field and its picker surface.
+    pub fn variant(self, variant: impl crate::Variant) -> Self {
+        self.variants.add(variant);
+        self
+    }
+    pub(crate) fn with_variants(self, variants: &crate::variants::Variants) -> Self {
+        self.variants.merge(variants);
+        self
+    }
     /// Date text format, read reactively.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -144,6 +154,7 @@ impl DateInput {
         }
         let Self {
             root,
+            variants,
             label,
             value,
             format,
@@ -254,13 +265,14 @@ impl DateInput {
             row((
                 field,
                 dialog(label, open)
+                    .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
                     .content(content)
                     .attach(toggle),
             )),
             |r| r.date_input_recipes().root_recipe(),
-            &Variants::default(),
+            &variants,
             PartState::default,
         ))
         .into_view()
@@ -271,6 +283,7 @@ impl DateInput {
     fn render_trigger(self, attach: crate::date_trigger::AttachTrigger) -> View {
         let Self {
             root,
+            variants,
             label,
             value,
             valid,
@@ -308,6 +321,7 @@ impl DateInput {
         root.child(
             attach.view(
                 dialog(label, open)
+                    .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
                     .content(content),
