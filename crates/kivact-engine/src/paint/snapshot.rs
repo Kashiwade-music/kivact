@@ -5,6 +5,20 @@ use crate::offscreen::{OffscreenError, OffscreenImage, OffscreenRenderer};
 use kivact_types::{NodeId, Rect};
 
 impl Model {
+    /// Answer queued captures only from the host's settled layout boundary.
+    pub(crate) fn snapshot_requests(&mut self, engine: &mut arvane::Engine) {
+        for (request, node) in std::mem::take(&mut self.snapshots) {
+            let result = self.snapshot(node, engine).map(|result| {
+                result.map(|image| kivact_types::Pixels {
+                    width: image.width,
+                    height: image.height,
+                    rgba: image.rgba.into(),
+                })
+            });
+            self.push(crate::contract::HostEvent::SnapshotResult { request, result });
+        }
+    }
+
     pub(crate) fn snapshot(
         &mut self,
         id: NodeId,

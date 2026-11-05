@@ -314,6 +314,9 @@ impl Host {
                 let mut model = self.model.borrow_mut();
                 model.poll_assets();
                 model.settle(&mut self.engine.borrow_mut());
+                if !model.has_events() {
+                    model.snapshot_requests(&mut self.engine.borrow_mut());
+                }
                 if self.phase == HostPhase::Exiting || !model.has_events() {
                     None
                 } else if turns == TURN_LIMIT {

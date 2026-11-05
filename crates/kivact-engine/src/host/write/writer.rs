@@ -291,6 +291,7 @@ impl Writer {
         let m = &mut *guard;
         m.writes.command(None);
         match effect {
+            HostRequest::Snapshot(node) => m.snapshots.push((request, node)),
             HostRequest::RegisterFont(font) => {
                 let result = m
                     .assets

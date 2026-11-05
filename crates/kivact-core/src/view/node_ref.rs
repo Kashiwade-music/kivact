@@ -218,7 +218,8 @@ impl NodeRef {
     ///
     /// Coordinates are logical pixels at scale 1, cropped to the node's layout
     /// size. Rendering uses the CPU, including when the window uses a GPU.
-    /// Shared GPU frames without CPU pixels return `ErrorKind::Unsupported`.
+    /// Capture waits for pending draw and layout work to settle. Shared GPU
+    /// frames without CPU pixels return `ErrorKind::Unsupported`.
     /// The binding is resolved when the future is polled; unbound or removed
     /// nodes return a located error, and a rebound reference follows its node.
     #[track_caller]
@@ -258,19 +259,7 @@ impl NodeRef {
                         "snapshot reference is not bound to a mounted node",
                     )
                 })?;
-            let image = ViewState::tree(&rt).reader().snapshot(id)
-                .ok_or_else(|| fail(ErrorKind::Message, "snapshot node has no layout"))?
-                .map_err(|error| match error {
-                    kivact_engine::api::OffscreenError::Dropped(_) => fail(ErrorKind::Unsupported,
-                        "snapshot contains an unsupported command or a GPU frame without CPU pixels"),
-                    kivact_engine::api::OffscreenError::Failed(message) =>
-                        UiError::new(ErrorKind::Asset, message.to_string(), Some(at)),
-                })?;
-            Ok(kivact_types::Pixels {
-                width: image.width,
-                height: image.height,
-                rgba: image.rgba.into(),
-            })
+            super::snapshots::request(&rt, id, state.owner, at).await
         }
     }
 
