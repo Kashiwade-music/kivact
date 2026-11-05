@@ -45,38 +45,37 @@ impl IntoView for Spinner {
         let metrics = kivact_core::style::use_tokens::<crate::UiTokens>()
             .indicators
             .clone();
-        let turn = match metrics.reduced_period_ms {
-            Some(reduced_period) => {
-                let elapsed = kivact_core::state::signal(0.0f64);
-                kivact_core::motion::frame_loop(move |frame| {
-                    elapsed.set(frame.now.as_secs_f64() * 1000.0);
-                })
-                .start(kivact_core::motion::FrameRate::Display);
-                kivact_core::state::memo(move || {
-                    let period = if kivact_core::platform::is_motion_reduced().get() {
-                        reduced_period
-                    } else {
-                        metrics.period_ms
-                    }
-                    .max(1) as f64;
-                    elapsed.get().rem_euclid(period) * 360.0 / period
-                })
-            }
-            None => Animated::from(
-                0.0,
-                360.0,
-                Transition::tween(metrics.period_ms as f64, Easing::Linear).repeat(Repeat::Forever),
-            )
-            .value(),
-        };
         let size = self.size;
-        let glyph = crate::layer::with_base_recipe_style(
-            node(),
-            |r| r.spinner_recipe(),
-            &self.variants,
-            move || SpinnerState {
-                size: size.get(),
-                turn: turn.get(),
+        let variants = self.variants;
+        let glyph = kivact_core::view::dynamic(
+            move || {
+                let reduced = kivact_core::platform::is_motion_reduced().get();
+                let essential = reduced && metrics.reduced_period_ms.is_some();
+                let period = if reduced {
+                    metrics.reduced_period_ms.unwrap_or(metrics.period_ms)
+                } else {
+                    metrics.period_ms
+                };
+                (period, essential)
+            },
+            move |(period, essential)| {
+                let transition =
+                    Transition::tween(period as f64, Easing::Linear).repeat(Repeat::Forever);
+                let transition = if essential {
+                    transition.essential()
+                } else {
+                    transition
+                };
+                let turn = Animated::from(0.0, 360.0, transition);
+                crate::layer::with_base_recipe_style(
+                    node(),
+                    |r| r.spinner_recipe(),
+                    &variants,
+                    move || SpinnerState {
+                        size: size.get(),
+                        turn: turn.get(),
+                    },
+                )
             },
         );
         self.root.child(glyph).child(self.label).into_view()

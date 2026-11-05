@@ -50,4 +50,4 @@ Configure `UiTokens::indicators` for timing and placeholder metrics. `UiRecipes`
 
 Creative's `KeyGlyph` paints editor keyframe markers and remains a domain type; it is unrelated to keyboard shortcuts.
 
-`UiTokens::indicators.reduced_period_ms` optionally keeps the spinner moving at a slower essential cycle under reduced motion. `None` retains decorative pausing. A supplied cycle responds to live preference changes and uses one scoped clock.
+`UiTokens::indicators.reduced_period_ms` optionally keeps the spinner moving at a slower essential cycle under reduced motion. `None` retains decorative pausing. A supplied cycle responds to live preference changes by replacing the glyph animation owner, keeping the status node and label stable.
