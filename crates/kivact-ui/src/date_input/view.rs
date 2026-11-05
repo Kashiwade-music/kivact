@@ -239,8 +239,16 @@ impl DateInput {
             .with_node(|node| node.described_by(error_ref))
             .placeholder(placeholder)
             .invalid(move || {
-                external_invalid.is_some_and(|invalid| invalid.get())
-                    || checked_invalid(&typed.get())
+                let draft = typed.get();
+                let editing = matches!(
+                    draft,
+                    TypedDate::Editing {
+                        validation: DateValidation::Unchecked,
+                        ..
+                    }
+                );
+                (!editing && external_invalid.is_some_and(|invalid| invalid.get()))
+                    || checked_invalid(&draft)
             })
             .forward_keys(vec![Key::ArrowDown])
             .on_key(move |event: KeyEvent| {
