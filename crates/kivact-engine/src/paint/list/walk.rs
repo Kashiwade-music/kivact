@@ -18,6 +18,17 @@ const MARGIN: f64 = 2.0;
 /// Containers with at least this many children keep a [`ChildIndex`].
 const INDEXED: usize = 32;
 
+/// Whether the listed `step` of node `n` needs a `Close` after its
+/// descendants: it pops a clip, a layer or a transform it pushed, or draws
+/// its `DrawOver` scene.
+fn closes(step: &Step, n: &HostNode) -> bool {
+    step.clips
+        || step.presence_clip.is_some()
+        || step.layers > 0
+        || step.transform.is_some()
+        || (step.own && n.scenes()[1].is_some())
+}
+
 struct Walk<'a> {
     host: &'a Model,
     margin: f64,
@@ -122,13 +133,7 @@ impl Walk<'_> {
             y: o.y - scroll.y,
         };
         self.children(id, n, base, alpha, own_matrix, child_clip);
-        if listed
-            && (clips
-                || presence_clip.is_some()
-                || layers > 0
-                || transform.is_some()
-                || (visible && n.scenes()[1].is_some()))
-        {
+        if listed && closes(&step, n) {
             self.out.push(Entry::Close(step));
         }
     }
