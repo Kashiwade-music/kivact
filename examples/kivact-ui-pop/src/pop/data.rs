@@ -285,12 +285,12 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 .style(style().align_items(Align::Center).margin_bottom(16)),
                 columns(
                     (
-                        column((
-                            ui::list_item("第3章 作戦報告書")
-                                .subtitle("更新：10/02 22:14 · ミナト")
-                                .icon("file-text")
-                                .tone(ui::Hue::Blue)
-                                .trailing({
+                        kivact::ui::item_list((
+                            kivact::ui::item_row("第3章 作戦報告書")
+                                .description("更新：10/02 22:14 · ミナト")
+                                .media(kivact::view::icon("file-text"))
+                                .variant(ui::ItemHue::new(ui::Hue::Blue))
+                                .actions({
                                     row((
                                         kivact::ui::badge("承認済")
                                             .variant(ui::BadgeHue::new(ui::Hue::Mint.into_value())),
@@ -301,11 +301,11 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                     ))
                                     .style(style().gap(8))
                                 }),
-                            ui::list_item("弾薬補給 予算申請")
-                                .subtitle("更新：10/02 18:40 · ユズ")
-                                .icon("coin")
-                                .tone(ui::Hue::Gray)
-                                .trailing({
+                            kivact::ui::item_row("弾薬補給 予算申請")
+                                .description("更新：10/02 18:40 · ユズ")
+                                .media(kivact::view::icon("coin"))
+                                .variant(ui::ItemHue::new(ui::Hue::Gray))
+                                .actions({
                                     row((
                                         kivact::ui::badge("レビュー待ち").variant(
                                             ui::BadgeHue::new(ui::Hue::Yellow.into_value()),
@@ -317,11 +317,11 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
                                     ))
                                     .style(style().gap(8))
                                 }),
-                            ui::list_item("救護所 シフト表")
-                                .subtitle("更新：10/01 09:03 · ハルカ")
-                                .icon("heart")
-                                .tone(ui::Hue::Gray)
-                                .trailing({
+                            kivact::ui::item_row("救護所 シフト表")
+                                .description("更新：10/01 09:03 · ハルカ")
+                                .media(kivact::view::icon("heart"))
+                                .variant(ui::ItemHue::new(ui::Hue::Gray))
+                                .actions({
                                     row((
                                         kivact::ui::badge("下書き")
                                             .variant(ui::BadgeHue::new(ui::Hue::Gray)),

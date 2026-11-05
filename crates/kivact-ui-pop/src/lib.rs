@@ -22,7 +22,6 @@ mod button;
 mod chips;
 mod choice;
 mod color;
-mod date;
 mod display;
 mod form;
 mod icons;
@@ -32,6 +31,7 @@ mod patterns;
 mod recipes;
 mod recipes_avatar;
 mod recipes_badge;
+mod recipes_calendar;
 mod recipes_collections;
 mod recipes_extra;
 mod recipes_feedback;
@@ -40,6 +40,7 @@ mod recipes_files;
 mod recipes_groups;
 mod recipes_indicators;
 mod recipes_input;
+mod recipes_items;
 mod recipes_palette;
 mod recipes_small;
 mod resize;
@@ -52,12 +53,9 @@ mod upload;
 pub use button::{ButtonTone, Slant};
 pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
 pub use color::ColorName;
-pub use date::{
-    Calendar, CalendarEvent, DateInput, DateRangeInput, calendar, date_input, date_range_input,
-};
+
 pub use display::{
-    ListItem, StatCard, empty_illustration, key_value, list_item, progress_ring, section_heading,
-    sparkline, stat_card,
+    StatCard, empty_illustration, key_value, progress_ring, section_heading, sparkline, stat_card,
 };
 pub use messaging::{
     Message, MessageGroup, Thread, message, message_group, thread, typing_message,
@@ -66,7 +64,9 @@ pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
 pub use patterns::{AgendaItem, Stepper, agenda_item, breadcrumb, stepper};
 pub use recipes_avatar::AvatarLook;
 pub use recipes_badge::{BadgeHue, BadgeVariant};
+pub use recipes_calendar::WeekendHue;
 pub use recipes_indicators::SpinnerLook;
+pub use recipes_items::ItemHue;
 pub use recipes_small::{Segments, Striped};
 pub use resize::resizable_text_area;
 pub use tabs::tab_label;

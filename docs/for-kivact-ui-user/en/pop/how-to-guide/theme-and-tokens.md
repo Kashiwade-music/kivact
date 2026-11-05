@@ -193,8 +193,8 @@ The family is the name written inside the font file, not the file name.
 
 Texts that components draw themselves (the calendar's month buttons, the date
 format error, a dropzone's picker button) are English. Replace them with
-`App::messages`; the keys start with `pop.`, for example `pop.date.open` and
-`pop.date.error.format`. [Pick dates and ranges](dates-and-calendars.md) shows
+`App::messages`; standard components use canonical keys, for example `date.open` and
+`date.error.format`. [Pick dates and ranges](dates-and-calendars.md) shows
 an example.
 
 ## See also

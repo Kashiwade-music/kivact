@@ -1,4 +1,7 @@
 //! Role: Ordered date-range editing, presets and shared range calendar.
+use crate::date_range_draft::{
+    Effect as DraftEffect, Event as DraftEvent, FieldValidity, Policy as DraftPolicy, RangeDraft,
+};
 use crate::{Calendar, DatePresentation, button, calendar, date_input, dialog};
 use kivact_core::i18n::{CalendarDate, DateRange, DateStyle, Weekday, message};
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, signal};
@@ -75,7 +78,6 @@ pub fn date_range_input(
     }
 }
 impl DateRangeInput {
-<<<<<<< C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\2
     /// Set the accessible label of the start-date editor.
     pub fn start_label(mut self, label: impl IntoText) -> Self {
         self.start_label = label.into_text_value();
@@ -87,13 +89,11 @@ impl DateRangeInput {
         self
     }
 
-=======
     /// Add a visual variant shared by the field and its picker surface.
     pub fn variant(self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }
->>>>>>> C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\3
     /// Format both endpoints.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
@@ -215,12 +215,7 @@ impl DateRangeInput {
                     .iter()
                     .all(|accept| accept(start) && accept(end))
         });
-        let accepted = accept.clone();
-        let ranged = binding(value, move |next: Option<DateRange>| {
-            if next.is_none_or(|range| accepted(range)) {
-                value.set(next);
-            }
-        });
+        let draft_accept = accept.clone();
         let open = signal(false);
         let trigger_focus = match &field {
             crate::date_trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
@@ -289,68 +284,79 @@ impl DateRangeInput {
                 )
                 .into_view();
         }
-        let start = binding(
-            move || value.get().map(DateRange::start),
-            move |next| {
-                ranged.set(next.map(|start| {
-                    DateRange::new(start, value.get_untracked().map_or(start, DateRange::end))
-                }))
+        let draft = kivact_core::state::machine(
+            RangeDraft::Following(value.get_untracked()),
+            move || DraftPolicy {
+                accept: draft_accept.clone(),
             },
-        );
-        let end = binding(
-            move || value.get().map(DateRange::end),
-            move |next| {
-                ranged.set(next.map(|end| {
-                    DateRange::new(value.get_untracked().map_or(end, DateRange::start), end)
-                }))
-            },
-        );
-        let validation = kivact_core::state::machine(
-            RangeValidation::Valid,
-            || RangeValidator,
-            move |_, next| {
-                if let Some(valid) = valid {
-                    valid.set(next);
+            move |_, effect| match effect {
+                DraftEffect::Publish(next) => value.set(next),
+                DraftEffect::Validity(next) => {
+                    if let Some(valid) = valid {
+                        valid.set(next)
+                    }
                 }
             },
+        );
+        kivact_core::state::effect(move || draft.send(DraftEvent::External(value.get())));
+        let start = binding(
+            move || draft.get().endpoints().0,
+            move |value| draft.send(DraftEvent::Start(value)),
+        );
+        let end = binding(
+            move || draft.get().endpoints().1,
+            move |value| draft.send(DraftEvent::End(value)),
         );
         let start_valid = binding(
             move || {
                 matches!(
-                    validation.get(),
-                    RangeValidation::Valid | RangeValidation::EndInvalid
+                    draft.get().fields(),
+                    FieldValidity::Valid | FieldValidity::EndInvalid
                 )
             },
-            move |valid| validation.send(ValidationEvent::Start(valid)),
+            move |valid| draft.send(DraftEvent::StartValid(valid)),
         );
         let end_valid = binding(
             move || {
                 matches!(
-                    validation.get(),
-                    RangeValidation::Valid | RangeValidation::StartInvalid
+                    draft.get().fields(),
+                    FieldValidity::Valid | FieldValidity::StartInvalid
                 )
             },
-            move |valid| validation.send(ValidationEvent::End(valid)),
+            move |valid| draft.send(DraftEvent::EndValid(valid)),
         );
+        let order_ref = kivact_core::view::node_ref();
+        let order_message = message("date.error.order", "The end date is before the start date");
+        let order_error = kivact_core::view::text(order_message)
+            .node_ref(order_ref)
+            .role(kivact_core::view::Role::Status)
+            .live_region(kivact_core::view::LiveRegion::Polite)
+            .hidden(move || !draft.get().order_invalid())
+            .style(
+                kivact_core::style::style()
+                    .font_size(12)
+                    .color(kivact_core::style::ColorToken::Danger),
+            );
         let mut first = date_input(start_label, start)
             .format(format)
             .min(min)
             .max(max)
-<<<<<<< C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\2
-            .presentation(presentation);
-        let mut last = date_input(end_label, end)
-=======
             .presentation(presentation)
             .with_variants(&variants);
-        let mut last = date_input(message("date.end", "End date"), end)
->>>>>>> C:\Users\030009~1\AppData\Local\Temp\tmphuuqhey8\3
+        let mut last = date_input(end_label, end)
             .format(format)
             .min(min)
             .max(max)
             .presentation(presentation)
             .with_variants(&variants);
-        first = first.valid(start_valid);
-        last = last.valid(end_valid);
+        first = first
+            .valid(start_valid)
+            .invalid(move || draft.get().order_invalid())
+            .with_node(|node| node.described_by(order_ref));
+        last = last
+            .valid(end_valid)
+            .invalid(move || draft.get().order_invalid())
+            .with_node(|node| node.described_by(order_ref));
         if let Some(placeholder) = placeholder {
             first = first.placeholder(placeholder);
             last = last.placeholder(placeholder);
@@ -381,41 +387,7 @@ impl DateRangeInput {
                 .content(content)
                 .attach(trigger),
         )))
+        .child(order_error)
         .into_view()
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum RangeValidation {
-    Valid,
-    StartInvalid,
-    EndInvalid,
-    BothInvalid,
-}
-enum ValidationEvent {
-    Start(bool),
-    End(bool),
-}
-struct RangeValidator;
-impl kivact_core::state::Machine for RangeValidator {
-    type State = RangeValidation;
-    type Event = ValidationEvent;
-    type Effect = bool;
-    fn transition(
-        &self,
-        state: &RangeValidation,
-        event: ValidationEvent,
-    ) -> kivact_core::state::Step<RangeValidation, ValidationEvent, bool> {
-        use RangeValidation::{BothInvalid, EndInvalid, StartInvalid, Valid};
-        let next = match (state, event) {
-            (Valid | StartInvalid, ValidationEvent::Start(true))
-            | (Valid | EndInvalid, ValidationEvent::End(true)) => Valid,
-            (EndInvalid | BothInvalid, ValidationEvent::Start(true)) => EndInvalid,
-            (StartInvalid | BothInvalid, ValidationEvent::End(true)) => StartInvalid,
-            (Valid | StartInvalid, ValidationEvent::Start(false)) => StartInvalid,
-            (Valid | EndInvalid, ValidationEvent::End(false)) => EndInvalid,
-            (_, ValidationEvent::Start(false) | ValidationEvent::End(false)) => BothInvalid,
-        };
-        kivact_core::state::Step::to(next).with(next == Valid)
     }
 }
