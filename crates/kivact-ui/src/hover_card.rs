@@ -194,7 +194,9 @@ impl HoverCard {
                 });
             match self.label {
                 Some(label) => layer.with_node(|node| node.role(Role::Dialog)).name(label),
-                None => layer.with_node(|node| node.role(Role::Group)),
+                None => layer
+                    .with_node(|node| node.role(Role::Group))
+                    .name(kivact_core::i18n::message("hover_card.label", "Preview")),
             }
         });
         (trigger, layer).into_view()
