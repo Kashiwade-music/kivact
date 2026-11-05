@@ -4,7 +4,6 @@ use super::machine;
 use kivact::draw::Draw;
 use kivact::draw::linear_gradient;
 use kivact::geometry::{Point, Rect, Size};
-use kivact::i18n::message;
 use kivact::interaction::{
     DragCoordinates, DragPhase, DragUpdate, FocusReturn, use_drag, use_popup, use_scalar,
 };
