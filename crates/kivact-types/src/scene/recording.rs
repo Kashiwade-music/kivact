@@ -117,6 +117,7 @@ pub enum DrawCmd {
     /// window it was imported into; nothing elsewhere (Arvane's `RenderCmd::External`).
     External {
         frame: crate::ExternalFrame,
+        cpu_pixels: Option<Pixels>,
         rect: Rect,
         source: Option<Rect>,
         opacity: f64,

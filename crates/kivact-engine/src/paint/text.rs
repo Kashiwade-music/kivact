@@ -53,13 +53,15 @@ impl Model {
         tint: &Tint,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
+        cpu_pixels: bool,
     ) {
         let inherited = scene
             .cmds
             .iter()
             .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if crate::lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
-        let context = self.painting();
+        let mut context = self.painting();
+        context.cpu_pixels = cpu_pixels;
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
         let dropped = context.finish().dropped;
         if dropped == 0 {

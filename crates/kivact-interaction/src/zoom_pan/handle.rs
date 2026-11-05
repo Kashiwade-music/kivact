@@ -77,7 +77,28 @@ pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransfor
     }
 }
 
+impl kivact_core::view::ViewportTransform for ZoomPanApi {
+    fn view_transform(&self) -> Value<ViewTransform> {
+        self.transform.into_value()
+    }
+    fn attach(
+        self,
+        node: kivact_core::view::Node,
+        content: Value<Rect>,
+    ) -> kivact_core::view::Node {
+        node.part(self.content(content).viewport())
+    }
+}
 impl ZoomPanApi {
+    /// Map a view-local point through the current shared pose into content.
+    pub fn to_content(self, point: Point) -> Point {
+        self.transform.get().to_content(point)
+    }
+    /// Map a content point through the current shared pose into the view.
+    pub fn to_view(self, point: Point) -> Point {
+        self.transform.get().to_view(point)
+    }
+
     /// Drawing state of the actual attached input target.
     pub fn viewport_state(self) -> Value<PartState> {
         kivact_core::state::memo(move || {

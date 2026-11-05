@@ -38,11 +38,25 @@ impl Context<'_> {
             }
             DrawCmd::External {
                 frame,
+                cpu_pixels,
                 rect: r,
                 source,
                 opacity,
                 pixelated,
             } => {
+                if self.cpu_pixels
+                    && let Some(image) = cpu_pixels
+                {
+                    state.out.push(D::ImageSampled {
+                        image: image.clone(),
+                        rect: rect(*r),
+                        source: *source,
+                        opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
+                        color_matrix: tint.matrix,
+                        pixelated: *pixelated,
+                    });
+                    return true;
+                }
                 let command = D::External {
                     frame: *frame,
                     rect: rect(*r),

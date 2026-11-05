@@ -90,3 +90,6 @@ pub use text_shaping::TextShaper;
 
 pub mod animatable;
 pub use animatable::Animatable;
+
+pub mod view_transform;
+pub use view_transform::ViewTransform;

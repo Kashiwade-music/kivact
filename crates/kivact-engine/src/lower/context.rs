@@ -45,6 +45,7 @@ use std::sync::Arc;
 /// Callers must not hold an overlapping resource borrow while invoking it.
 /// It records failures and drops; publishing them remains the caller's policy.
 pub(crate) struct Context<'a> {
+    pub(crate) cpu_pixels: bool,
     pub(crate) assets: &'a RefCell<ArvaneAssets>,
     /// Device pixels per logical pixel of what is painted now.
     pub(crate) raster: &'a Cell<f64>,
@@ -81,6 +82,7 @@ impl<'a> Context<'a> {
             .borrow_mut()
             .revision(assets.borrow().revision());
         Self {
+            cpu_pixels: false,
             assets,
             raster,
             scene_cache,
