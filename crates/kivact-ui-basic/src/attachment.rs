@@ -1,7 +1,7 @@
 //! Role: The Lyra attachment: a file chip with media, text, state and actions.
 
 use crate::parts::{pressable, sized_icon};
-use crate::primitives::spinner;
+use kivact::ui::spinner;
 
 use kivact::view::{Node, NodeBuilder, Scroll, ScrollAxes, column, node, row, scroll, text};
 

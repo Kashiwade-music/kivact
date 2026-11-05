@@ -62,6 +62,9 @@ fn build() -> UiRecipes {
         .combobox(crate::recipes_combobox::combobox)
         .toggle_group(crate::recipes_groups::toggle_group)
         .button_group(crate::recipes_groups::button_group)
+        .skeleton(|_| skeleton)
+        .spinner(|_| spinner)
+        .kbd(|_| kbd)
         .hover_card(|parts| parts.surface(|_| hover_card_surface))
         .carousel(|parts| {
             parts
@@ -424,4 +427,47 @@ fn carousel_control(
     } else {
         base.right(-48).top(pct(50) - 14)
     }
+}
+
+fn skeleton(t: &Theme, s: &kivact::ui::Look<kivact::ui::SkeletonState>) -> Style {
+    let base = style()
+        .grow(1)
+        .min_height(16)
+        .width(pct(100))
+        .background(t.ext::<Tokens>().muted)
+        .opacity(s.pulse);
+    match s.shape {
+        kivact::ui::SkeletonShape::Circle => base.size(36, 36).radius(999),
+        _ => base.radius(0),
+    }
+}
+fn spinner(t: &Theme, s: &kivact::ui::Look<kivact::ui::SpinnerState>) -> Style {
+    let side = match s.size {
+        ControlSize::ExtraSmall => 12.0,
+        ControlSize::Small => 14.0,
+        ControlSize::Medium => 16.0,
+        ControlSize::Large => 20.0,
+    };
+    let turn = s.turn / 360.0;
+    let color = t.ext::<Tokens>().foreground;
+    style().size(side, side).shrink(0).paint(move |d, _| {
+        crate::theme_access::stroke_loader(d, Point::new(0.0, 0.0), side, turn, color)
+    })
+}
+fn kbd(t: &Theme, _: &kivact::ui::Look<()>) -> Style {
+    let p = t.ext::<Tokens>();
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .gap(4)
+        .height(20)
+        .min_width(20)
+        .padding_x(4)
+        .radius(0)
+        .background(p.muted)
+        .color(p.muted_foreground)
+        .font_size(12)
+        .weight(500)
+        .text_wrap(false)
 }

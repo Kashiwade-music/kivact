@@ -32,10 +32,10 @@ pub(crate) fn page() -> Page {
 // example: avatar
 fn avatar() -> impl IntoView {
     row((
-        basic::skeleton().style(style().size(40, 40).radius(20)),
+        kivact::ui::skeleton().style(style().size(40, 40).radius(20)),
         column((
-            basic::skeleton().style(style().size(250, 16)),
-            basic::skeleton().style(style().size(200, 16)),
+            kivact::ui::skeleton().style(style().size(250, 16)),
+            kivact::ui::skeleton().style(style().size(200, 16)),
         ))
         .style(style().gap(8)),
     ))
@@ -46,10 +46,10 @@ fn avatar() -> impl IntoView {
 // example: card
 fn card() -> impl IntoView {
     column((
-        basic::skeleton().style(style().size(250, 125)),
+        kivact::ui::skeleton().style(style().size(250, 125)),
         column((
-            basic::skeleton().style(style().size(250, 16)),
-            basic::skeleton().style(style().size(200, 16)),
+            kivact::ui::skeleton().style(style().size(250, 16)),
+            kivact::ui::skeleton().style(style().size(200, 16)),
         ))
         .style(style().gap(8)),
     ))

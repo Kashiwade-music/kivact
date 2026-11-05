@@ -145,7 +145,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.questionnaire.skip` | Skip |
 | `basic.questionnaire.submit` | Submit |
 | `basic.sidebar.toggle` | Toggle Sidebar |
-| `basic.spinner.busy` | Loading |
 
 The standard `kivact::ui` components the kit mounts keep their own
 unprefixed keys:
@@ -225,6 +224,9 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `combobox`
 - `toggle_group`
 - `button_group`
+- `skeleton`
+- `spinner`
+- `kbd`
 <!-- /kivact-recipes -->
 
 `kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,
