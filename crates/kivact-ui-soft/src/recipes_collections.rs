@@ -68,7 +68,12 @@ fn tree_item(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
         .align_items(Align::Center)
         .min_width(0)
         .gap(8)
-        .padding_y(appearance.density.get().padding())
+        .padding_y(
+            appearance
+                .density
+                .map_or(crate::ItemDensity::Balanced, |density| density.get())
+                .padding(),
+        )
         .padding_left(if rtl { 8 } else { indent })
         .padding_right(if rtl { indent } else { 8 })
         .radius(p.radius.element)
@@ -78,7 +83,7 @@ fn tree_item(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
         .hover(style().background(p.colors.overlay_hover))
         .selected(style().background(p.colors.accent_muted))
         .focus_visible(focus(&p));
-    if appearance.guides.get() && !row.ancestor_last.is_empty() {
+    if appearance.guides.is_none_or(|guides| guides.get()) && !row.ancestor_last.is_empty() {
         let mut lines: Vec<_> = row
             .ancestor_last
             .iter()
