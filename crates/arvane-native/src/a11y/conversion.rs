@@ -95,7 +95,7 @@ pub(super) fn update<'a>(
         .flat_map(|source| {
             let mut nodes = vec![(accesskit::NodeId(source.id.0), node(source, root))];
             if let Some(text) = source.semantics.text.as_ref().filter(|_| runs) {
-                nodes.extend(text.runs.iter().map(|run| text_run(run)));
+                nodes.extend(text.runs.iter().map(text_run));
             }
             nodes
         })
