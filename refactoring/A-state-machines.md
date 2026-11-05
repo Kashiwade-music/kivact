@@ -958,7 +958,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 
 ### SM-K13 soft の top nav と side nav
 - **場所**: `kivact-ui-soft/src/top_nav.rs:516-531`、`side_nav.rs:562-581`（`pinned: Signal<bool>` と `use_hover_surface().shown()` の組合せ。同じ code が二か所）
-- **解消後**: SM-K12 と同じ `use_navigation_menu`
+- **解消後**: SM-K12 と同じ `use_navigation_menu`。同じownerの `NavMachineState { open: NavOpen, pending: NavTimer }` が実際の `Idle/Opening(key)/Leaving(key)` command identity を持つ。実panel廃棄は一致するactive/pendingだけを解消し、別panelの予定は保持する。panel_keyはsetup時の実identity割当て。
 - **unit**: K-3b
 
 ### SM-K14 soft の hover card
@@ -1288,7 +1288,7 @@ kit の状態機械の多くは、中核へ上がる部品（付録 C.2）の中
 - **場所**: `kivact-ui-soft/src/nav_heading.rs:119-132`
 - **現在**: use_hover_surface の shown と use_menu の shown を別々に持ち、effect が menu の open/close を呼ぶ。
 - **不正**: hover surface が開いて menu が閉じた組合せを effect で直す（S-4/S-5）。SM-K13 の top/side nav とは別の heading の adapter。
-- **解消後**: `use_navigation_menu` の一つの開閉 machine を使い、hover の timing と menu の session を同じ遷移で決める。表示の shown はその snapshot からの memo。
+- **解消後**: `use_navigation_menu` の一つの開閉 machine を使い、hover の timing と menu の session を同じ遷移で決める。`use_menu_with_open` はPopup/Menuで同じaccepted bindingを共有し、Menuの `Opened::External` はfocus要求を発生させない。実pressは既存Button opening/focusを用い、拒否されたsetterではphase/focusを進めない。表示のshownはsnapshotからのprojection。
 - **unit**: K-3b
 
 ### SM-R901 generational arena の slot

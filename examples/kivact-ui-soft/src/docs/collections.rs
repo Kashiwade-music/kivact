@@ -8,9 +8,8 @@ use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_t
 use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
-    chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack,
-    layout, layout_content, layout_header, nav_icon, overflow_list,
-    scrollable_area, section, stack_item,
+    chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, layout,
+    layout_content, layout_header, nav_icon, overflow_list, scrollable_area, section, stack_item,
 };
 
 pub(super) fn examples(slug: &str) -> Option<Node> {

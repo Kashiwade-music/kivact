@@ -4,6 +4,7 @@ use kivact::state::Binding;
 use kivact::state::Value;
 use kivact::state::try_use_context;
 
+// xtask-allow(state-fields): Immutable layout context holds independent caller collapse and actual parent-popup bindings plus nesting depth, never their copied phases.
 #[derive(Clone, Copy, Default)]
 pub(super) struct SideNavCx {
     pub(super) collapsed: Option<Binding<bool>>,

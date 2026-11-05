@@ -325,6 +325,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 .on_press(move || {
                     if let Some(action) = session.options.get().trigger_action {
                         action.call(());
+                        session.accepted_trigger_press();
                     } else if session.is_open().get() {
                         session.close(PopupCloseReason::Programmatic);
                     } else {

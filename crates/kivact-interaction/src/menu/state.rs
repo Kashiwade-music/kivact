@@ -611,6 +611,7 @@ impl<K> Want<K> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum Opened {
     Button,
+    External,
     Context(MenuOrigin),
 }
 

@@ -160,7 +160,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-6b | merged | 3efe0ee9 | 5kit empty/card/input_group/alert移行、Softdismiss-focus1 0 |
 | K-8 | merged | 6eac920f | viewport/GPU対象6中5+修正1passed、workspacecheck0 |
 | K-9a | merged | 4425bce9 | 5kit移行、Softkeyboard4/scroll2/composer1/code1/catalog1/docs18 0 |
-| K-9b | merged | b9ca0188 | 5kit移行、Softmetrics4/progress2 0、native階層は親aggregate確認 |
+| K-9b | merged | b9ca0188 | 5kit移行、Softmetrics4/progress2 0、親coherentnative階層/境界4 0 |
 | K-7a | merged | 1c64e91b | consumer32/catalog3/EN42+JP42/runnable2/rustdoc13 0 |
 | K-7b | merged | a7e2f0f8 | consumer16/catalog3/docs44+2/scoped規約0 |
 | K-7c | merged | 2a34e21b | Game consumer12/catalog3/rustdoc3/scoped contracts0 |
@@ -200,3 +200,4 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | fix-G5-13 | merged | ee2ea2d | 初期展開は自然高、既存consumer2件0 |
 
 - W6中間: `19e889d3` で workspace Clippy全target/feature `-D warnings` 0、fmt 0。残るK3b/K4/Soft K7/H-G5/H-G6とCP6は継続中。
+- W6保持契約: Root `0a94b560` の整合ビルドから metrics4/code1/scroll2/keyboard4/date5/touch5 の21件がMIRRORoff共有lockで全通過。

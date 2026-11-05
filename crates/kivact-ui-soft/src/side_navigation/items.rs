@@ -11,7 +11,6 @@ use kivact::interaction::Delays;
 use kivact::interaction::DialogMode;
 use kivact::interaction::use_dialog;
 use kivact::interaction::use_disclosure;
-use kivact::interaction::use_hover_surface;
 use kivact::motion::Transition;
 use kivact::state::Binding;
 use kivact::state::Callback;
@@ -185,29 +184,18 @@ impl IntoView for SideNavItem {
             let independent = disclosure.is_some() && action.is_some();
             let anchor = node_ref();
             let popup_ref = node_ref();
-            let popup = if children.is_some() && cx.collapsed.is_some() {
-                let delayed = use_hover_surface(
-                    anchor,
-                    popup_ref,
+            let popup_panel = if children.is_some() && cx.collapsed.is_some() {
+                Some(crate::navigation_session::NavPanel::new(
                     move || cx.rail() && !disabled.get(),
                     Delays {
                         open: Duration::from_millis(150),
                         close: Duration::from_millis(200),
                     },
-                );
-                let pinned = signal(false);
-                Some(binding(
-                    move || cx.rail() && (pinned.get() || delayed.is_open().get()),
-                    move |open| {
-                        pinned.set(open);
-                        if !open {
-                            delayed.dismiss();
-                        }
-                    },
                 ))
             } else {
                 None
             };
+            let popup = popup_panel.map(|panel| panel.open());
             let leading = leading.map(|icon| {
                 icon_box(
                     icon,
@@ -318,8 +306,8 @@ impl IntoView for SideNavItem {
                 if disabled.get() {
                     return;
                 }
-                if let Some(popup) = popup.filter(|_| cx.rail()) {
-                    popup.set(!popup.get());
+                if let Some(panel) = popup_panel.filter(|_| cx.rail()) {
+                    panel.toggle();
                 } else if let Some(action) = action {
                     action.call(());
                     if let Some(popup) = cx.popup {
@@ -334,6 +322,11 @@ impl IntoView for SideNavItem {
                     open.set(!open.get());
                 }
             });
+            let primary = if let Some(panel) = popup_panel {
+                panel.trigger(primary)
+            } else {
+                primary
+            };
             let primary = if children.is_none() && cx.collapsed.is_some() {
                 tooltip(label).placement(Placement::End).attach(primary)
             } else {
@@ -393,7 +386,8 @@ impl IntoView for SideNavItem {
                     })
                 },
             );
-            let flyout = popup.zip(children).map(|(open, children)| {
+            let flyout = popup_panel.zip(children).map(|(nav_panel, children)| {
+                let open = nav_panel.open();
                 let behavior = use_dialog(open, DialogMode::Popover).anchor(anchor);
                 let title =
                     message_with("soft.side_nav.item_submenu", "{label} submenu", move || {
@@ -405,32 +399,33 @@ impl IntoView for SideNavItem {
                         popup: Some(open),
                         ..SideNavCx::default()
                     };
-                    let surface = column((
-                        text(label).style(|| {
+                    let surface = nav_panel
+                        .surface(column((
+                            text(label).style(|| {
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
+                                style()
+                                    .padding_y(t.spacing.s1)
+                                    .padding_x(t.spacing.s2)
+                                    .font_size(t.typography.supporting.size_px)
+                                    .weight(t.typography.weight_semibold)
+                                    .color(t.colors.text_secondary)
+                            }),
+                            provide(cx, move || children.call(())),
+                        )))
+                        .node_ref(popup_ref)
+                        .style(|| {
                             let t = kivact::style::use_tokens::<crate::Tokens>();
-                            style()
-                                .padding_y(t.spacing.s1)
-                                .padding_x(t.spacing.s2)
-                                .font_size(t.typography.supporting.size_px)
-                                .weight(t.typography.weight_semibold)
-                                .color(t.colors.text_secondary)
-                        }),
-                        provide(cx, move || children.call(())),
-                    ))
-                    .node_ref(popup_ref)
-                    .style(|| {
-                        let t = kivact::style::use_tokens::<crate::Tokens>();
-                        let mut base = style()
-                            .background(t.colors.bg_popover)
-                            .min_width(180)
-                            .padding(t.spacing.s1)
-                            .radius(t.radius.container)
-                            .gap(t.spacing.s0_5);
-                        for shadow in &t.shadows.low {
-                            base = base.shadow(*shadow);
-                        }
-                        base
-                    });
+                            let mut base = style()
+                                .background(t.colors.bg_popover)
+                                .min_width(180)
+                                .padding(t.spacing.s1)
+                                .radius(t.radius.container)
+                                .gap(t.spacing.s0_5);
+                            for shadow in &t.shadows.low {
+                                base = base.shadow(*shadow);
+                            }
+                            base
+                        });
                     overlay(anchor, Placement::End, surface)
                         .offset(4)
                         .with_node(move |node| node.part(behavior.content()))

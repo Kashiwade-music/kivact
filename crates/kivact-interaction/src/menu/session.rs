@@ -101,7 +101,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         });
         let origin = memo(move || {
             opened.get().map(|opened| match opened {
-                Opened::Button => MenuOrigin::Anchor,
+                Opened::Button | Opened::External => MenuOrigin::Anchor,
                 Opened::Context(origin) => origin,
             })
         });
@@ -158,7 +158,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
     pub(super) fn focus_return(&self) -> FocusReturn {
         match self.opened.get_untracked() {
             Some(Opened::Context(_)) => FocusReturn::opener(ReasonSet::DISMISS),
-            Some(Opened::Button) | None => FocusReturn::anchor(self.anchor),
+            Some(Opened::Button | Opened::External) | None => FocusReturn::anchor(self.anchor),
         }
     }
 
@@ -167,6 +167,14 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         self.popup.open_binding().set(true);
         if self.is_open().get_untracked() {
             self.machine.send(Event::Open(Opened::Button));
+        }
+    }
+
+    /// A real trigger press may focus items only after the external action accepts opening.
+    pub(super) fn accepted_trigger_press(&self) {
+        if self.is_open().get_untracked() {
+            self.machine.send(Event::Open(Opened::Button));
+            self.request(0, Edge::First);
         }
     }
 
