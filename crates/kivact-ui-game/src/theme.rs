@@ -101,6 +101,19 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
         ..base.text().clone()
     };
     let mut ui = kivact::ui::UiTokens::default();
+    ui.tree.marker_width = Some(10.);
+    ui.tree.indent = Some(16.);
+    ui.tree.padding = Some(10.);
+    ui.tree.gap = Some(6.);
+    ui.tree.row_height = Some(26.);
+    ui.tree.radius = Some(0.);
+    ui.table.cell_padding = Some(12.);
+    ui.table.header_height = Some(34.);
+    ui.table.font_size = Some(11.5);
+    ui.item_list.gap = Some(0.);
+    ui.item_list.padding = Some(10.);
+    ui.item_list.row_gap = Some(6.);
+    ui.item_list.description_size = Some(11.5);
     ui.toolbar.padding = 3.;
     ui.toolbar.gap = 2.;
     ui.toolbar.min_height = 0.;

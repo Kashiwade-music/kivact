@@ -487,29 +487,79 @@ pub(super) fn layout() -> impl kivact::view::Component {
             }
         },
     );
-    let entries = vec![
-        g::TreeEntry::folder(
-            "operations",
-            "operations",
-            vec![
-                g::TreeEntry::file("OPS-2041.md", "OPS-2041.md").marker("M"),
-                g::TreeEntry::file("OPS-2042.md", "OPS-2042.md"),
-                g::TreeEntry::file("OPS-2043.md", "OPS-2043.md").marker("A"),
-            ],
+    let nodes = vec![
+        kivact::interaction::TreeNode::new("operations".to_owned(), None, "operations"),
+        kivact::interaction::TreeNode::new(
+            "OPS-2041.md".to_owned(),
+            Some("operations".to_owned()),
+            "OPS-2041.md",
         ),
-        g::TreeEntry::folder(
-            "inventory",
-            "inventory",
-            vec![g::TreeEntry::file("stock.db", "stock.db")],
-        )
-        .collapsed(),
-        g::TreeEntry::folder(
-            "archive",
-            "archive",
-            vec![g::TreeEntry::file("2025_summary.md", "2025_summary.md")],
-        )
-        .collapsed(),
+        kivact::interaction::TreeNode::new(
+            "OPS-2042.md".to_owned(),
+            Some("operations".to_owned()),
+            "OPS-2042.md",
+        ),
+        kivact::interaction::TreeNode::new(
+            "OPS-2043.md".to_owned(),
+            Some("operations".to_owned()),
+            "OPS-2043.md",
+        ),
+        kivact::interaction::TreeNode::new("inventory".to_owned(), None, "inventory"),
+        kivact::interaction::TreeNode::new(
+            "stock.db".to_owned(),
+            Some("inventory".to_owned()),
+            "stock.db",
+        ),
+        kivact::interaction::TreeNode::new("archive".to_owned(), None, "archive"),
+        kivact::interaction::TreeNode::new(
+            "2025_summary.md".to_owned(),
+            Some("archive".to_owned()),
+            "2025_summary.md",
+        ),
     ];
+    let expanded = signal(vec!["operations".to_owned()]);
+    let files = kivact::ui::tree("Workspace files", nodes)
+        .expanded(expanded)
+        .selection(binding(selection, move |key: Option<String>| {
+            if key
+                .as_deref()
+                .is_none_or(|id| !["operations", "inventory", "archive"].contains(&id))
+            {
+                selection.set(key);
+            }
+        }))
+        .on_activate(move |key| {
+            if ["operations", "inventory", "archive"].contains(&key.as_str()) {
+                expanded.update(|keys| {
+                    if keys.contains(&key) {
+                        keys.retain(|k| k != &key);
+                    } else {
+                        keys.push(key);
+                    }
+                });
+            }
+        })
+        .item(|item, _| {
+            let key = item.get_untracked().key;
+            let folder = ["operations", "inventory", "archive"].contains(&key.as_str());
+            let marker = match key.as_str() {
+                "OPS-2041.md" => "M",
+                "OPS-2043.md" => "A",
+                _ => "",
+            };
+            row((
+                kivact::view::icon(if folder { "folder" } else { "file-text" }).style(
+                    style().size(14, 14).color(if folder {
+                        ColorToken::Warning
+                    } else {
+                        ColorToken::TextMuted
+                    }),
+                ),
+                text(key).style(style().grow(1).font_size(12.5)),
+                g::mono(marker),
+            ))
+            .style(style().grow(1).gap(6).align_items(Align::Center))
+        });
     let title = signal("第 3 区画 定期点検".to_owned());
     let priority = signal(Some("medium".to_owned()));
     let notify = signal(true);
@@ -593,13 +643,7 @@ pub(super) fn layout() -> impl kivact::view::Component {
                 .background(ColorToken::SurfaceAlt)
                 .border_bottom(1, ColorToken::Border),
         ),
-        super::window::frame(
-            document,
-            document_title,
-            g::tree(entries, selection),
-            document_body,
-            inspector,
-        ),
+        super::window::frame(document, document_title, files, document_body, inspector),
     )))
     .test_id("LAY-01")
 }
