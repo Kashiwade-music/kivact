@@ -81,6 +81,9 @@ pub struct ChatMessageState {
     pub reactions_side: ChatReactionsSide,
     pub has_reactions: bool,
     pub actionable: bool,
+    pub has_header: bool,
+    pub has_footer: bool,
+    pub has_avatar: bool,
 }
 /// Scroll-follow facts supplied by the shared follow behavior.
 #[derive(Clone, Debug, PartialEq)]
