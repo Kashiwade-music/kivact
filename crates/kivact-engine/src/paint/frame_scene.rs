@@ -181,19 +181,7 @@ impl Model {
         if let Some(clip) = step.presence_clip {
             out.push(D::PushClip(clip));
         }
-        if step.clips {
-            // Closed as the list says (a rect clip or a rounded layer).
-            let padding =
-                BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
-            if step.rounded {
-                out.push(D::PushLayer(kivact_types::render::Layer {
-                    clip: Some(padding.shape()),
-                    ..kivact_types::render::Layer::default()
-                }));
-            } else {
-                out.push(D::PushClip(padding.rect()));
-            }
-        }
+        paint_content_clip(step, bounds, &p, out);
         if !step.own {
             return;
         }
@@ -369,6 +357,22 @@ impl Model {
         });
         if placed.clip {
             out.push(D::PopClip);
+        }
+    }
+}
+
+fn paint_content_clip(step: &Step, bounds: Rect, p: &PaintProps, out: &mut crate::lower::SceneOut) {
+    if step.clips {
+        // Closed as the list says (a rect clip or a rounded layer).
+        let padding =
+            BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
+        if step.rounded {
+            out.push(D::PushLayer(kivact_types::render::Layer {
+                clip: Some(padding.shape()),
+                ..kivact_types::render::Layer::default()
+            }));
+        } else {
+            out.push(D::PushClip(padding.rect()));
         }
     }
 }

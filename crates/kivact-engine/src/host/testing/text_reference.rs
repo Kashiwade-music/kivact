@@ -29,118 +29,22 @@ pub(super) fn compare(
     );
     let text = retained.shown(snapshot.source.value, snapshot.source.placeholder);
     let mut errors = Vec::new();
-    equal(
-        &mut errors,
-        "revision/value/lines/height",
-        (
-            retained.revision(),
-            retained.shows_value(),
-            retained.len(),
-            retained.height(),
-        ),
-        (
-            rebuilt.revision(),
-            rebuilt.shows_value(),
-            rebuilt.len(),
-            rebuilt.height(),
-        ),
-    );
-    for i in 0..retained.len().max(rebuilt.len()) {
-        equal(
-            &mut errors,
-            &format!("line {i} content/range/CRLF/scalar prefix"),
-            (
-                retained.content(i),
-                retained.range(i),
-                retained.crlf(i),
-                retained.char_of_line(i),
-            ),
-            (
-                rebuilt.content(i),
-                rebuilt.range(i),
-                rebuilt.crlf(i),
-                rebuilt.char_of_line(i),
-            ),
-        );
-        let range = rebuilt.range(i);
-        let end = rebuilt.content(i).map_or(range.end, |r| r.end);
-        for at in [range.start, end, range.end] {
-            equal(
-                &mut errors,
-                &format!("byte {at} line/scalar/UTF16"),
-                (
-                    retained.line_of(at),
-                    retained.char_of_byte(text, at),
-                    retained.utf16_of_byte(text, at),
-                ),
-                (
-                    rebuilt.line_of(at),
-                    rebuilt.char_of_byte(text, at),
-                    rebuilt.utf16_of_byte(text, at),
-                ),
-            );
-        }
-    }
-    equal(
-        &mut errors,
-        "terminal scalar/UTF16",
-        (
-            retained.char_of_line(retained.len()),
-            retained.utf16_of_byte(text, text.len()),
-        ),
-        (
-            rebuilt.char_of_line(rebuilt.len()),
-            rebuilt.utf16_of_byte(text, text.len()),
-        ),
-    );
-    equal(
-        &mut errors,
-        "bounded natural width",
-        retained.measured_width(text, engine),
-        rebuilt.measured_width(text, engine),
-    );
+    compare_structure(&mut retained, &mut rebuilt, text, engine, &mut errors);
     let width = 239.5;
     let caret = caret.min(snapshot.source.value.len());
     let line = rebuilt.line_of(caret);
     let samples: std::collections::BTreeSet<_> = [0, line, rebuilt.len().saturating_sub(1)]
         .into_iter()
         .collect();
-    for i in samples {
-        equal(
-            &mut errors,
-            &format!("line {i} baseline/alignment"),
-            (
-                retained.baseline(text, i, engine),
-                retained.offset(text, i, width, engine),
-            ),
-            (
-                rebuilt.baseline(text, i, engine),
-                rebuilt.offset(text, i, width, engine),
-            ),
-        );
-        let a = retained.shaped(text, i, engine);
-        let b = rebuilt.shaped(text, i, engine);
-        if a != b {
-            errors.push(format!(
-                "line {i} neutral shaping differs: retained {:?}, rebuilt {:?}",
-                a.as_ref().map(|s| (s.size, s.baseline)),
-                b.as_ref().map(|s| (s.size, s.baseline))
-            ));
-        }
-        let range = rebuilt.content(i).unwrap_or(0..0);
-        equal(
-            &mut errors,
-            &format!("line {i} selection spans"),
-            retained.spans(text, i, (range.start, range.end), width, engine),
-            rebuilt.spans(text, i, (range.start, range.end), width, engine),
-        );
-        equal(
-            &mut errors,
-            &format!("line {i} grapheme hit"),
-            retained.nearest(text, i, width / 2.0, width, engine),
-            rebuilt.nearest(text, i, width / 2.0, width, engine),
-        );
-    }
+    compare_samples(
+        &mut retained,
+        &mut rebuilt,
+        text,
+        samples,
+        width,
+        engine,
+        &mut errors,
+    );
     equal(
         &mut errors,
         "caret",
@@ -168,6 +72,153 @@ pub(super) fn compare(
     );
     retained.drawn(band.clone());
     rebuilt.drawn(band);
+    compare_publication(
+        &mut retained,
+        &mut rebuilt,
+        text,
+        caret,
+        width,
+        engine,
+        &mut errors,
+    );
+    errors
+}
+
+fn compare_structure(
+    retained: &mut EditLines,
+    rebuilt: &mut EditLines,
+    text: &str,
+    engine: &mut arvane::Engine,
+    errors: &mut Vec<String>,
+) {
+    equal(
+        errors,
+        "revision/value/lines/height",
+        (
+            retained.revision(),
+            retained.shows_value(),
+            retained.len(),
+            retained.height(),
+        ),
+        (
+            rebuilt.revision(),
+            rebuilt.shows_value(),
+            rebuilt.len(),
+            rebuilt.height(),
+        ),
+    );
+    for i in 0..retained.len().max(rebuilt.len()) {
+        equal(
+            errors,
+            &format!("line {i} content/range/CRLF/scalar prefix"),
+            (
+                retained.content(i),
+                retained.range(i),
+                retained.crlf(i),
+                retained.char_of_line(i),
+            ),
+            (
+                rebuilt.content(i),
+                rebuilt.range(i),
+                rebuilt.crlf(i),
+                rebuilt.char_of_line(i),
+            ),
+        );
+        let range = rebuilt.range(i);
+        let end = rebuilt.content(i).map_or(range.end, |r| r.end);
+        for at in [range.start, end, range.end] {
+            equal(
+                errors,
+                &format!("byte {at} line/scalar/UTF16"),
+                (
+                    retained.line_of(at),
+                    retained.char_of_byte(text, at),
+                    retained.utf16_of_byte(text, at),
+                ),
+                (
+                    rebuilt.line_of(at),
+                    rebuilt.char_of_byte(text, at),
+                    rebuilt.utf16_of_byte(text, at),
+                ),
+            );
+        }
+    }
+    equal(
+        errors,
+        "terminal scalar/UTF16",
+        (
+            retained.char_of_line(retained.len()),
+            retained.utf16_of_byte(text, text.len()),
+        ),
+        (
+            rebuilt.char_of_line(rebuilt.len()),
+            rebuilt.utf16_of_byte(text, text.len()),
+        ),
+    );
+    equal(
+        errors,
+        "bounded natural width",
+        retained.measured_width(text, engine),
+        rebuilt.measured_width(text, engine),
+    );
+}
+
+fn compare_samples(
+    retained: &mut EditLines,
+    rebuilt: &mut EditLines,
+    text: &str,
+    samples: std::collections::BTreeSet<usize>,
+    width: f64,
+    engine: &mut arvane::Engine,
+    errors: &mut Vec<String>,
+) {
+    for i in samples {
+        equal(
+            errors,
+            &format!("line {i} baseline/alignment"),
+            (
+                retained.baseline(text, i, engine),
+                retained.offset(text, i, width, engine),
+            ),
+            (
+                rebuilt.baseline(text, i, engine),
+                rebuilt.offset(text, i, width, engine),
+            ),
+        );
+        let a = retained.shaped(text, i, engine);
+        let b = rebuilt.shaped(text, i, engine);
+        if a != b {
+            errors.push(format!(
+                "line {i} neutral shaping differs: retained {:?}, rebuilt {:?}",
+                a.as_ref().map(|s| (s.size, s.baseline)),
+                b.as_ref().map(|s| (s.size, s.baseline))
+            ));
+        }
+        let range = rebuilt.content(i).unwrap_or(0..0);
+        equal(
+            errors,
+            &format!("line {i} selection spans"),
+            retained.spans(text, i, (range.start, range.end), width, engine),
+            rebuilt.spans(text, i, (range.start, range.end), width, engine),
+        );
+        equal(
+            errors,
+            &format!("line {i} grapheme hit"),
+            retained.nearest(text, i, width / 2.0, width, engine),
+            rebuilt.nearest(text, i, width / 2.0, width, engine),
+        );
+    }
+}
+
+fn compare_publication(
+    retained: &mut EditLines,
+    rebuilt: &mut EditLines,
+    text: &str,
+    caret: usize,
+    width: f64,
+    engine: &mut arvane::Engine,
+    errors: &mut Vec<String>,
+) {
     // Never re-evaluate user LineColors merely to create a reference. Neutral
     // shapes/publication do not invoke it; colored glyph comparisons are omitted.
     let mut before_id = 1;
@@ -195,7 +246,7 @@ pub(super) fn compare(
         engine,
     );
     equal(
-        &mut errors,
+        errors,
         "publication scalar coverage",
         (a.start, a.end),
         (b.start, b.end),
@@ -223,5 +274,4 @@ pub(super) fn compare(
             "publication values differ (text redacted, IDs excluded): run counts {}/{}, first {first:?}, retained {:?}, rebuilt {:?}",
             before.len(), after.len(), describe(&a.runs), describe(&b.runs)));
     }
-    errors
 }

@@ -15,6 +15,7 @@ pub(crate) enum Shown {
     Placeholder(String),
 }
 
+// xtask-allow(state-fields): Immutable shaping cache key stores independent text presentation parameters (S-9).
 /// What the lines were shaped for: the style (start aligned), what they
 /// show and whether they break at line feeds.
 #[derive(Clone, Debug, PartialEq)]
@@ -62,6 +63,7 @@ pub(crate) struct Colored {
     pub(crate) output: LineState,
 }
 
+// xtask-allow(state-fields): Colors, painted glyphs and semantic runs are independently invalidated derived caches (S-9).
 /// What a line keeps of its colors and of assistive technology.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Kept {

@@ -581,78 +581,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render:
                 extend,
             )
         }
-        GradientKind::Radial {
-            circle,
-            extent,
-            center,
-        } => {
-            let cx = rect.x + center[0].of(rect.width);
-            let cy = rect.y + center[1].of(rect.height);
-            let (dl, dr) = ((cx - rect.x).abs(), (rect.right() - cx).abs());
-            let (dt, db) = ((cy - rect.y).abs(), (rect.bottom() - cy).abs());
-            let corner = |x: f64, y: f64| x.hypot(y);
-            let (rx, ry) = match extent {
-                RadialExtent::ClosestSide if circle => {
-                    let r = dl.min(dr).min(dt).min(db);
-                    (r, r)
-                }
-                RadialExtent::ClosestSide => (dl.min(dr), dt.min(db)),
-                RadialExtent::FarthestSide if circle => {
-                    let r = dl.max(dr).max(dt).max(db);
-                    (r, r)
-                }
-                RadialExtent::FarthestSide => (dl.max(dr), dt.max(db)),
-                RadialExtent::ClosestCorner if circle => {
-                    let r = corner(dl.min(dr), dt.min(db));
-                    (r, r)
-                }
-                RadialExtent::ClosestCorner => (
-                    dl.min(dr) * std::f64::consts::SQRT_2,
-                    dt.min(db) * std::f64::consts::SQRT_2,
-                ),
-                RadialExtent::FarthestCorner if circle => {
-                    let r = corner(dl.max(dr), dt.max(db));
-                    (r, r)
-                }
-                RadialExtent::FarthestCorner => (
-                    dl.max(dr) * std::f64::consts::SQRT_2,
-                    dt.max(db) * std::f64::consts::SQRT_2,
-                ),
-                RadialExtent::Radii(x, _) if circle => {
-                    let r = x.of(rect.width);
-                    (r, r)
-                }
-                RadialExtent::Radii(x, y) => (x.of(rect.width), y.of(rect.height)),
-            };
-            if !(rx.is_finite() && ry.is_finite() && rx > 0.0 && ry > 0.0) {
-                return solid(&stops(g, 0.0));
-            }
-            let s: Vec<_> = stops(g, rx)
-                .into_iter()
-                .map(|(t, c)| (t.max(0.0), c))
-                .collect();
-            let (first, last) = (s[0].0, s[s.len() - 1].0);
-            let (scale, stops, extend) = if g.repeating {
-                let period = last - first;
-                if period <= 0.0 {
-                    return solid(&s);
-                }
-                let one = normalized(&s, first, last);
-                (period, rotated(&one, first / period), Extend::Repeat)
-            } else {
-                let hi = last.max(1.0);
-                (hi, normalized(&s, 0.0, hi), Extend::Pad)
-            };
-            (
-                GradientShape::Radial {
-                    center: Point { x: cx, y: cy },
-                    radius_x: rx * scale,
-                    radius_y: ry * scale,
-                },
-                stops,
-                extend,
-            )
-        }
+        GradientKind::Radial { .. } => return radial_gradient(g, rect),
         GradientKind::Conic { from_deg, center } => {
             let cx = rect.x + center[0].of(rect.width);
             let cy = rect.y + center[1].of(rect.height);
@@ -745,4 +674,98 @@ pub(crate) fn coordinate(
         extend,
     });
     super::sanitize::fill(&paint).then_some(paint)
+}
+
+fn radial_gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Paint> {
+    let GradientKind::Radial {
+        circle,
+        extent,
+        center,
+    } = g.kind
+    else {
+        unreachable!("invariant: radial gradient");
+    };
+    let solid = |stops: &[(f64, Rgba)]| {
+        Some(kivact_types::render::Paint::Solid(
+            stops.last().map(|s| s.1).unwrap_or_default(),
+        ))
+    };
+
+    let cx = rect.x + center[0].of(rect.width);
+    let cy = rect.y + center[1].of(rect.height);
+    let (rx, ry) = radial_radii(rect, cx, cy, circle, extent);
+    if !(rx.is_finite() && ry.is_finite() && rx > 0.0 && ry > 0.0) {
+        return solid(&stops(g, 0.0));
+    }
+    let s: Vec<_> = stops(g, rx)
+        .into_iter()
+        .map(|(t, c)| (t.max(0.0), c))
+        .collect();
+    let (first, last) = (s[0].0, s[s.len() - 1].0);
+    let (scale, stops, extend) = if g.repeating {
+        let period = last - first;
+        if period <= 0.0 {
+            return solid(&s);
+        }
+        let one = normalized(&s, first, last);
+        (period, rotated(&one, first / period), Extend::Repeat)
+    } else {
+        let hi = last.max(1.0);
+        (hi, normalized(&s, 0.0, hi), Extend::Pad)
+    };
+    let (shape, stops, extend) = (
+        GradientShape::Radial {
+            center: Point { x: cx, y: cy },
+            radius_x: rx * scale,
+            radius_y: ry * scale,
+        },
+        stops,
+        extend,
+    );
+    Some(kivact_types::render::Paint::Gradient(
+        kivact_types::render::Gradient {
+            shape,
+            stops,
+            extend,
+        },
+    ))
+}
+
+fn radial_radii(rect: Rect, cx: f64, cy: f64, circle: bool, extent: RadialExtent) -> (f64, f64) {
+    let (dl, dr) = ((cx - rect.x).abs(), (rect.right() - cx).abs());
+    let (dt, db) = ((cy - rect.y).abs(), (rect.bottom() - cy).abs());
+    let corner = |x: f64, y: f64| x.hypot(y);
+    match extent {
+        RadialExtent::ClosestSide if circle => {
+            let r = dl.min(dr).min(dt).min(db);
+            (r, r)
+        }
+        RadialExtent::ClosestSide => (dl.min(dr), dt.min(db)),
+        RadialExtent::FarthestSide if circle => {
+            let r = dl.max(dr).max(dt).max(db);
+            (r, r)
+        }
+        RadialExtent::FarthestSide => (dl.max(dr), dt.max(db)),
+        RadialExtent::ClosestCorner if circle => {
+            let r = corner(dl.min(dr), dt.min(db));
+            (r, r)
+        }
+        RadialExtent::ClosestCorner => (
+            dl.min(dr) * std::f64::consts::SQRT_2,
+            dt.min(db) * std::f64::consts::SQRT_2,
+        ),
+        RadialExtent::FarthestCorner if circle => {
+            let r = corner(dl.max(dr), dt.max(db));
+            (r, r)
+        }
+        RadialExtent::FarthestCorner => (
+            dl.max(dr) * std::f64::consts::SQRT_2,
+            dt.max(db) * std::f64::consts::SQRT_2,
+        ),
+        RadialExtent::Radii(x, _) if circle => {
+            let r = x.of(rect.width);
+            (r, r)
+        }
+        RadialExtent::Radii(x, y) => (x.of(rect.width), y.of(rect.height)),
+    }
 }

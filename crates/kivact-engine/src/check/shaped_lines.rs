@@ -90,28 +90,7 @@ pub(super) fn shape(
         }
         _ => return None,
     };
-    let mut inks: Vec<Option<Rect>> = vec![None; shaped.lines.len()];
-    if ink {
-        for run in &shaped.runs {
-            let (Some(b), Some(g)) = (arvane::glyph_ink_bounds(run), run.glyphs.first()) else {
-                continue;
-            };
-            // The line whose baseline this run sits on.
-            let nearest = (0..shaped.lines.len()).min_by(|a, b| {
-                let d = |i: usize| (shaped.lines[i].baseline - g.y).abs();
-                d(*a).total_cmp(&d(*b))
-            });
-            if let Some(i) = nearest {
-                let b = Rect {
-                    x: origin.x + b.x,
-                    y: origin.y + b.y,
-                    width: b.width,
-                    height: b.height,
-                };
-                inks[i] = Some(inks[i].map_or(b, |a| a.union(b)));
-            }
-        }
-    }
+    let inks = line_inks(&shaped, origin, ink);
     let lines = shaped
         .lines
         .iter()
@@ -150,4 +129,34 @@ pub(super) fn shape(
         lines,
         font_size: props.font_size,
     })
+}
+
+fn line_inks(
+    shaped: &kivact_types::render::ShapedText,
+    origin: Point,
+    ink: bool,
+) -> Vec<Option<Rect>> {
+    let mut inks: Vec<Option<Rect>> = vec![None; shaped.lines.len()];
+    if ink {
+        for run in &shaped.runs {
+            let (Some(b), Some(g)) = (arvane::glyph_ink_bounds(run), run.glyphs.first()) else {
+                continue;
+            };
+            // The line whose baseline this run sits on.
+            let nearest = (0..shaped.lines.len()).min_by(|a, b| {
+                let d = |i: usize| (shaped.lines[i].baseline - g.y).abs();
+                d(*a).total_cmp(&d(*b))
+            });
+            if let Some(i) = nearest {
+                let b = Rect {
+                    x: origin.x + b.x,
+                    y: origin.y + b.y,
+                    width: b.width,
+                    height: b.height,
+                };
+                inks[i] = Some(inks[i].map_or(b, |a| a.union(b)));
+            }
+        }
+    }
+    inks
 }

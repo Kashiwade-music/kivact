@@ -100,6 +100,7 @@ pub(crate) enum Notify {
     OnComplete,
 }
 
+// xtask-allow(state-fields): Derived placement cache records independent transform, z-order and positioning facts (S-9); stacking has its own enum.
 /// What a node's paint and layout say about where it is: read from its
 /// `Paint`, `States` and `Layout` props when they are stored, so the walks
 /// over the tree (hit testing, the paint list, the geometry reports) skip

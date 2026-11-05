@@ -57,49 +57,8 @@ impl Context<'_> {
                 }
                 true
             }
-            DrawCmd::ImagePart {
-                source,
-                rect: r,
-                crop,
-                opacity,
-                pixelated,
-            } => {
-                let natural = self.natural(source);
-                // The source portion needs the destination's device resolution.
-                let drawn = match (crop, natural) {
-                    (Some(crop), Some(n)) if crop.width > 0.0 && crop.height > 0.0 => Size {
-                        width: r.width * n.width / crop.width,
-                        height: r.height * n.height / crop.height,
-                    },
-                    _ => Size {
-                        width: r.width,
-                        height: r.height,
-                    },
-                };
-                let size = arvane::asset::PixelSize::of(drawn, self.raster.get());
-                let pixels = self.pixels(source, size);
-                if let Some((image, _)) = pixels {
-                    let source = crop.map(|crop| {
-                        let n = natural.unwrap_or(Size {
-                            width: image.width as f64,
-                            height: image.height as f64,
-                        });
-                        Rect {
-                            x: crop.x / n.width * image.width as f64,
-                            y: crop.y / n.height * image.height as f64,
-                            width: crop.width / n.width * image.width as f64,
-                            height: crop.height / n.height * image.height as f64,
-                        }
-                    });
-                    state.out.push(D::ImageSampled {
-                        image,
-                        rect: rect(*r),
-                        source,
-                        opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                        color_matrix: tint.matrix,
-                        pixelated: *pixelated,
-                    });
-                }
+            DrawCmd::ImagePart { .. } => {
+                self.paint_image_part(cmd, state);
                 true
             }
             DrawCmd::Image { source, rect: r } => {
@@ -125,6 +84,63 @@ impl Context<'_> {
             }
 
             _ => false,
+        }
+    }
+    fn paint_image_part(&self, cmd: &DrawCmd, state: &mut State<'_>) {
+        let DrawCmd::ImagePart {
+            source,
+            rect: r,
+            crop,
+            opacity,
+            pixelated,
+        } = cmd
+        else {
+            unreachable!("invariant: matching command family");
+        };
+        let origin = state.origin;
+        let rect = |r: Rect| Rect {
+            x: origin.x + r.x,
+            y: origin.y + r.y,
+            width: r.width,
+            height: r.height,
+        };
+        let tint = &state.current_tint;
+
+        let natural = self.natural(source);
+        // The source portion needs the destination's device resolution.
+        let drawn = match (crop, natural) {
+            (Some(crop), Some(n)) if crop.width > 0.0 && crop.height > 0.0 => Size {
+                width: r.width * n.width / crop.width,
+                height: r.height * n.height / crop.height,
+            },
+            _ => Size {
+                width: r.width,
+                height: r.height,
+            },
+        };
+        let size = arvane::asset::PixelSize::of(drawn, self.raster.get());
+        let pixels = self.pixels(source, size);
+        if let Some((image, _)) = pixels {
+            let source = crop.map(|crop| {
+                let n = natural.unwrap_or(Size {
+                    width: image.width as f64,
+                    height: image.height as f64,
+                });
+                Rect {
+                    x: crop.x / n.width * image.width as f64,
+                    y: crop.y / n.height * image.height as f64,
+                    width: crop.width / n.width * image.width as f64,
+                    height: crop.height / n.height * image.height as f64,
+                }
+            });
+            state.out.push(D::ImageSampled {
+                image,
+                rect: rect(*r),
+                source,
+                opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
+                color_matrix: tint.matrix,
+                pixelated: *pixelated,
+            });
         }
     }
 }

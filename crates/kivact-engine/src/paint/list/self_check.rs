@@ -32,27 +32,7 @@ impl Model {
         self.paint_list();
         let rebuilt = std::mem::take(&mut self.paint.list);
         let mut errors = Vec::new();
-        for index in 0..retained.entries.len().max(rebuilt.entries.len()) {
-            let before = retained.entries.get(index);
-            let after = rebuilt.entries.get(index);
-            if before != after {
-                errors.push(format!(
-                    "paint entry {index}: retained {before:?}, rebuilt {after:?}"
-                ));
-            }
-        }
-        if retained.matrices != rebuilt.matrices {
-            errors.push(format!(
-                "paint color matrices: retained {:?}, rebuilt {:?}",
-                retained.matrices, rebuilt.matrices
-            ));
-        }
-        if retained.transforms != rebuilt.transforms {
-            errors.push(format!(
-                "paint transforms: retained {:?}, rebuilt {:?}",
-                retained.transforms, rebuilt.transforms
-            ));
-        }
+        compare_entries(&retained, &rebuilt, &mut errors);
         for (id, before) in &retained_inks {
             let Some(node) = self.tree.get(*id) else {
                 continue;
@@ -146,4 +126,28 @@ fn same_index(before: &ChildIndex, after: &ChildIndex) -> bool {
                     after.extent,
                 )
             })
+}
+
+fn compare_entries(retained: &PaintList, rebuilt: &PaintList, errors: &mut Vec<String>) {
+    for index in 0..retained.entries.len().max(rebuilt.entries.len()) {
+        let before = retained.entries.get(index);
+        let after = rebuilt.entries.get(index);
+        if before != after {
+            errors.push(format!(
+                "paint entry {index}: retained {before:?}, rebuilt {after:?}"
+            ));
+        }
+    }
+    if retained.matrices != rebuilt.matrices {
+        errors.push(format!(
+            "paint color matrices: retained {:?}, rebuilt {:?}",
+            retained.matrices, rebuilt.matrices
+        ));
+    }
+    if retained.transforms != rebuilt.transforms {
+        errors.push(format!(
+            "paint transforms: retained {:?}, rebuilt {:?}",
+            retained.transforms, rebuilt.transforms
+        ));
+    }
 }

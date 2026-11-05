@@ -1,3 +1,4 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Borrowed-tree layout computation and derived geometry.
 //!
 //! Taffy computes flex and grid layout from an integration's borrowed

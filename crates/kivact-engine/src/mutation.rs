@@ -90,6 +90,7 @@ impl Writes {
     }
 }
 
+// xtask-allow(state-fields): Independent property-impact facts describe a write; every combination is meaningful and no transition state is stored.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Mutation {
     /// The layout style is built again (and a layout pass runs).

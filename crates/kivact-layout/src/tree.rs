@@ -50,6 +50,7 @@ use taffy::{
     ResolveOrZero, RoundTree, RunMode, TraversePartialTree, TraverseTree,
 };
 
+// xtask-allow(state-fields): One computation borrows independent geometry and measurement caches; no application lifecycle is stored (S-9).
 struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     tree: &'a Tree,
     traversal: Traversal<'a, Tree>,
@@ -662,51 +663,14 @@ impl NodeLayoutColumns {
             .iter()
             .any(Option::is_some)
             .then(|| styles.clone());
-        for (index, (style, scale)) in item_styles
-            .iter_mut()
-            .flat_map(|styles| styles.iter_mut())
-            .zip(presence_scale.iter())
-            .enumerate()
-        {
-            let Some((axis, scale)) = *scale else {
-                continue;
-            };
-            if axis == Orientation::Unspecified {
-                continue;
-            }
-            let mut alloc = CalcAlloc {
-                calcs: pass_calcs.to_mut(),
-                owned: Vec::new(),
-            };
-            let (size, min, max) = match axis {
-                Orientation::Horizontal => (
-                    &mut style.size.width,
-                    &mut style.min_size.width,
-                    &mut style.max_size.width,
-                ),
-                Orientation::Vertical => (
-                    &mut style.size.height,
-                    &mut style.min_size.height,
-                    &mut style.max_size.height,
-                ),
-                Orientation::Unspecified => continue,
-            };
-            *size = scaled_dimension(*size, scale, calcs, &mut alloc);
-            *min = scaled_length(*min, scale, calcs, &mut alloc);
-            *max = scaled_length(*max, scale, calcs, &mut alloc);
-            if axis == Orientation::Horizontal {
-                style.min_width_floor *= scale as f32;
-            }
-            if let Some(parent) = index.checked_sub(1).and_then(|slot| tree.parent(slot)) {
-                let row = matches!(
-                    styles[parent + 1].flex_direction,
-                    taffy::FlexDirection::Row | taffy::FlexDirection::RowReverse
-                );
-                if row == (axis == Orientation::Horizontal) {
-                    style.flex_basis = scaled_dimension(style.flex_basis, scale, calcs, &mut alloc);
-                }
-            }
-        }
+        scale_item_styles(
+            tree,
+            styles,
+            presence_scale,
+            calcs,
+            &mut pass_calcs,
+            &mut item_styles,
+        );
         let mut pass = LayoutPass {
             tree,
             traversal: Traversal {
@@ -848,5 +812,60 @@ impl NodeLayoutColumns {
             taffy::compute_root_layout(pass, root, space);
             taffy::round_layout(pass, root);
         });
+    }
+}
+
+fn scale_item_styles<Tree: LayoutTree + ?Sized>(
+    tree: &Tree,
+    styles: &[NodeStyle],
+    presence_scale: &[Option<(Orientation, f64)>],
+    calcs: &Calcs,
+    pass_calcs: &mut std::borrow::Cow<'_, Calcs>,
+    item_styles: &mut Option<Vec<NodeStyle>>,
+) {
+    for (index, (style, scale)) in item_styles
+        .iter_mut()
+        .flat_map(|styles| styles.iter_mut())
+        .zip(presence_scale.iter())
+        .enumerate()
+    {
+        let Some((axis, scale)) = *scale else {
+            continue;
+        };
+        if axis == Orientation::Unspecified {
+            continue;
+        }
+        let mut alloc = CalcAlloc {
+            calcs: pass_calcs.to_mut(),
+            owned: Vec::new(),
+        };
+        let (size, min, max) = match axis {
+            Orientation::Horizontal => (
+                &mut style.size.width,
+                &mut style.min_size.width,
+                &mut style.max_size.width,
+            ),
+            Orientation::Vertical => (
+                &mut style.size.height,
+                &mut style.min_size.height,
+                &mut style.max_size.height,
+            ),
+            Orientation::Unspecified => continue,
+        };
+        *size = scaled_dimension(*size, scale, calcs, &mut alloc);
+        *min = scaled_length(*min, scale, calcs, &mut alloc);
+        *max = scaled_length(*max, scale, calcs, &mut alloc);
+        if axis == Orientation::Horizontal {
+            style.min_width_floor *= scale as f32;
+        }
+        if let Some(parent) = index.checked_sub(1).and_then(|slot| tree.parent(slot)) {
+            let row = matches!(
+                styles[parent + 1].flex_direction,
+                taffy::FlexDirection::Row | taffy::FlexDirection::RowReverse
+            );
+            if row == (axis == Orientation::Horizontal) {
+                style.flex_basis = scaled_dimension(style.flex_basis, scale, calcs, &mut alloc);
+            }
+        }
     }
 }

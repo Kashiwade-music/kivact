@@ -73,71 +73,12 @@ impl Walk<'_> {
                 return;
             }
         }
-        // A translation moves its origin; another transform is pushed, and
-        // its subtree is culled in its own space.
-        let (transform, clip, o) = match local {
-            Some(t) if t.a == 1.0 && t.b == 0.0 && t.c == 0.0 && t.d == 1.0 => {
-                let o = Point {
-                    x: origin.x + t.e,
-                    y: origin.y + t.f,
-                };
-                (None, clip, o)
-            }
-            Some(t) => {
-                let t = crate::model::transform::placed(t, origin);
-                let Some(back) = t.invert() else {
-                    // Flattened: nothing of it shows.
-                    return;
-                };
-                self.transforms.push(t);
-                let index = (self.transforms.len() - 1) as u32;
-                (Some(index), map_rect(Some(&back), clip), origin)
-            }
-            None => (None, clip, origin),
+        let Some((transform, clip, o)) = self.place_transform(local, clip, origin) else {
+            return;
         };
         let clips = n.clips();
-        let presence_clip = host.presence.sizes.get(&id).map(|m| {
-            let mut rect = clip;
-            match m.axis {
-                kivact_types::Orientation::Horizontal => {
-                    rect.x = o.x;
-                    rect.width = layout.size.width;
-                }
-                kivact_types::Orientation::Vertical => {
-                    rect.y = o.y;
-                    rect.height = layout.size.height;
-                }
-                kivact_types::Orientation::Unspecified => {}
-            }
-            rect
-        });
-        // Group opacity over more than one thing it draws.
-        let content = match n.kind() {
-            _ if host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some() =>
-            {
-                2
-            }
-            NodeType::Text | NodeType::Image => 1,
-            _ => 0,
-        };
-        let more = host.tree().flat_children(id).len() != 0
-            || n.scenes().iter().any(Option::is_some)
-            || look.items + content > 1
-            || look.layers > 0;
-        let group = look.opacity < 1.0 && more;
-        let layers = if group {
-            look.layers.max(1)
-        } else {
-            look.layers
-        };
-        let alpha = if group {
-            parent_alpha
-        } else {
-            parent_alpha * look.opacity
-        };
+        let presence_clip = presence_clip(host, id, clip, o, layout.size);
+        let (group, layers, alpha) = opacity(host, id, n, &look, parent_alpha);
         let own_matrix = match look.recolor {
             Some(own) => Some(self.matrix(own, matrix)),
             None => matrix,
@@ -186,6 +127,36 @@ impl Walk<'_> {
         {
             self.out.push(Entry::Close(step));
         }
+    }
+
+    fn place_transform(
+        &mut self,
+        local: Option<kivact_types::Transform>,
+        clip: Rect,
+        origin: Point,
+    ) -> Option<(Option<u32>, Rect, Point)> {
+        // A translation moves its origin; another transform is pushed, and
+        // its subtree is culled in its own space.
+        Some(match local {
+            Some(t) if t.a == 1.0 && t.b == 0.0 && t.c == 0.0 && t.d == 1.0 => {
+                let o = Point {
+                    x: origin.x + t.e,
+                    y: origin.y + t.f,
+                };
+                (None, clip, o)
+            }
+            Some(t) => {
+                let t = crate::model::transform::placed(t, origin);
+                let Some(back) = t.invert() else {
+                    // Flattened: nothing of it shows.
+                    return None;
+                };
+                self.transforms.push(t);
+                let index = (self.transforms.len() - 1) as u32;
+                (Some(index), map_rect(Some(&back), clip), origin)
+            }
+            None => (None, clip, origin),
+        })
     }
 
     /// The index of the color matrix of a node with the color filters
@@ -371,4 +342,64 @@ impl Model {
             ..Default::default()
         }
     }
+}
+
+fn presence_clip(
+    host: &Model,
+    id: NodeId,
+    clip: Rect,
+    o: Point,
+    size: kivact_types::Size,
+) -> Option<Rect> {
+    host.presence.sizes.get(&id).map(|m| {
+        let mut rect = clip;
+        match m.axis {
+            kivact_types::Orientation::Horizontal => {
+                rect.x = o.x;
+                rect.width = size.width;
+            }
+            kivact_types::Orientation::Vertical => {
+                rect.y = o.y;
+                rect.height = size.height;
+            }
+            kivact_types::Orientation::Unspecified => {}
+        }
+        rect
+    })
+}
+fn opacity(
+    host: &Model,
+    id: NodeId,
+    n: &HostNode,
+    look: &Look,
+    parent_alpha: f64,
+) -> (bool, u8, f64) {
+    // Group opacity over more than one thing it draws.
+    let content = match n.kind() {
+        _ if host.editors[n.index.0]
+            .as_deref()
+            .map(|editor| editor.editor.state())
+            .is_some() =>
+        {
+            2
+        }
+        NodeType::Text | NodeType::Image => 1,
+        _ => 0,
+    };
+    let more = host.tree().flat_children(id).len() != 0
+        || n.scenes().iter().any(Option::is_some)
+        || look.items + content > 1
+        || look.layers > 0;
+    let group = look.opacity < 1.0 && more;
+    let layers = if group {
+        look.layers.max(1)
+    } else {
+        look.layers
+    };
+    let alpha = if group {
+        parent_alpha
+    } else {
+        parent_alpha * look.opacity
+    };
+    (group, layers, alpha)
 }

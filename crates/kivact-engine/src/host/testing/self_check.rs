@@ -66,56 +66,64 @@ impl ArvaneTestHost {
                 .lines
                 .get_mut() = original;
         }
-        if published != rebuilt {
-            match (&published, &rebuilt) {
-                (Some(published), Some(rebuilt)) => {
-                    if published.root != rebuilt.root || published.focus != rebuilt.focus {
-                        errors.push(format!(
-                            "accessibility root/focus: published {:?}/{:?}, rebuilt {:?}/{:?}",
-                            published.root, published.focus, rebuilt.root, rebuilt.focus
-                        ));
-                    }
-                    // Compare reading order via child links: the builder emits a
-                    // region leaf before primary children, while the shell canonicalizes.
-                    let index: std::collections::BTreeMap<_, _> =
-                        rebuilt.nodes.iter().map(|n| (n.id, n)).collect();
-                    let mut order = Vec::new();
-                    let mut stack = vec![rebuilt.root];
-                    while let Some(id) = stack.pop() {
-                        order.push(id);
-                        if let Some(node) = index.get(&id) {
-                            stack.extend(node.children.iter().rev().copied());
-                        }
-                    }
-                    if order != published.nodes.iter().map(|n| n.id).collect::<Vec<_>>() {
-                        errors.push("accessibility canonical reading order differs".to_string());
-                    }
-                    let before: std::collections::BTreeMap<_, _> = published
-                        .nodes
-                        .iter()
-                        .map(|node| (node.id.0, node))
-                        .collect();
-                    let after: std::collections::BTreeMap<_, _> =
-                        rebuilt.nodes.iter().map(|node| (node.id.0, node)).collect();
-                    let ids: std::collections::BTreeSet<_> =
-                        before.keys().chain(after.keys()).copied().collect();
-                    for id in ids {
-                        let before = before.get(&id);
-                        let after = after.get(&id);
-                        if before != after {
-                            errors.push(format!(
-                                "accessibility node {id}: published {before:?}, rebuilt {after:?}"
-                            ));
-                        }
+        compare_accessibility(&published, &rebuilt, &mut errors);
+        errors
+    }
+}
+
+fn compare_accessibility(
+    published: &Option<kivact_types::render::SemanticsTree>,
+    rebuilt: &Option<kivact_types::render::SemanticsTree>,
+    errors: &mut Vec<String>,
+) {
+    if published != rebuilt {
+        match (published, rebuilt) {
+            (Some(published), Some(rebuilt)) => {
+                if published.root != rebuilt.root || published.focus != rebuilt.focus {
+                    errors.push(format!(
+                        "accessibility root/focus: published {:?}/{:?}, rebuilt {:?}/{:?}",
+                        published.root, published.focus, rebuilt.root, rebuilt.focus
+                    ));
+                }
+                // Compare reading order via child links: the builder emits a
+                // region leaf before primary children, while the shell canonicalizes.
+                let index: std::collections::BTreeMap<_, _> =
+                    rebuilt.nodes.iter().map(|n| (n.id, n)).collect();
+                let mut order = Vec::new();
+                let mut stack = vec![rebuilt.root];
+                while let Some(id) = stack.pop() {
+                    order.push(id);
+                    if let Some(node) = index.get(&id) {
+                        stack.extend(node.children.iter().rev().copied());
                     }
                 }
-                _ => errors.push(format!(
-                    "accessibility tree presence: published {}, rebuilt {}",
-                    published.is_some(),
-                    rebuilt.is_some()
-                )),
+                if order != published.nodes.iter().map(|n| n.id).collect::<Vec<_>>() {
+                    errors.push("accessibility canonical reading order differs".to_string());
+                }
+                let before: std::collections::BTreeMap<_, _> = published
+                    .nodes
+                    .iter()
+                    .map(|node| (node.id.0, node))
+                    .collect();
+                let after: std::collections::BTreeMap<_, _> =
+                    rebuilt.nodes.iter().map(|node| (node.id.0, node)).collect();
+                let ids: std::collections::BTreeSet<_> =
+                    before.keys().chain(after.keys()).copied().collect();
+                for id in ids {
+                    let before = before.get(&id);
+                    let after = after.get(&id);
+                    if before != after {
+                        errors.push(format!(
+                            "accessibility node {id}: published {before:?}, rebuilt {after:?}"
+                        ));
+                    }
+                }
             }
+            _ => errors.push(format!(
+                "accessibility tree presence: published {}, rebuilt {}",
+                published.is_some(),
+                rebuilt.is_some()
+            )),
         }
-        errors
     }
 }

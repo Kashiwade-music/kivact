@@ -33,6 +33,7 @@ pub(super) enum ListState {
     },
 }
 
+// xtask-allow(state-fields): Ink, look, scene and dropped-draw collections are independent derived caches and report deduplication (S-9); redraw has its own enum.
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -89,6 +90,7 @@ impl PaintState {
     }
 }
 
+// xtask-allow(state-fields): Normalized paint cache stores independent optional color and geometric drawing facts (S-9).
 /// What a node's paint says about where it draws, sanitized like
 /// `paint::sanitize_paint` (read in place: most nodes have no state
 /// styles, and their paint is not copied).
@@ -127,6 +129,7 @@ pub(crate) struct Ink {
     pub(super) generation: Generation,
 }
 
+// xtask-allow(state-fields): Immutable paint-list record stores independent drawing and clipping facts, not a lifecycle.
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Step {

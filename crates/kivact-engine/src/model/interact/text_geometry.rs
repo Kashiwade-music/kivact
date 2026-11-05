@@ -352,17 +352,7 @@ pub(crate) fn layout_snapshot(
     let transform = host.transform_between(id, None);
     let scroll = input_scroll(host, id);
     let canvas = visual::padding_box(host.rect(id)?, &visual::paint(host, id));
-    let mapped = |rect: Rect| {
-        if canvas_coordinates {
-            Rect {
-                x: rect.x - canvas.x,
-                y: rect.y - canvas.y,
-                ..rect
-            }
-        } else {
-            map_rect(transform.as_ref(), rect)
-        }
-    };
+    let mapped = |rect| map_snapshot_rect(rect, canvas_coordinates, canvas, transform.as_ref());
     let caret = mapped(caret_rect(host, id, engine));
     let (mut lines, _) = host.edit_lines(id, engine)?;
     let mut out = TextLayout {
@@ -430,26 +420,52 @@ pub(crate) fn layout_snapshot(
             .y,
         });
         if let Some(shaped) = shaped {
-            let mut end = None;
-            for c in &shaped.carets {
-                let rect = shift(c.rect);
-                end = Some(rect);
-                out.carets.push(EditCaret {
-                    offset: offset + c.offset,
-                    rect,
-                });
-            }
-            let content = shaped.carets.len().saturating_sub(1) as u32;
-            if lines.crlf(i)
-                && let Some(rect) = end
-            {
-                out.carets.push(EditCaret {
-                    offset: offset + content + 1,
-                    rect,
-                });
-            }
+            append_snapshot_carets(&mut out, &shaped, shift, offset, lines.crlf(i));
         }
         offset += chars;
     }
     Some(out)
+}
+
+fn append_snapshot_carets(
+    out: &mut kivact_editing::TextLayout,
+    shaped: &kivact_types::render::ShapedText,
+    shift: impl Fn(Rect) -> Rect,
+    offset: u32,
+    crlf: bool,
+) {
+    use kivact_editing::EditCaret;
+    let mut end = None;
+    for c in &shaped.carets {
+        let rect = shift(c.rect);
+        end = Some(rect);
+        out.carets.push(EditCaret {
+            offset: offset + c.offset,
+            rect,
+        });
+    }
+    let content = shaped.carets.len().saturating_sub(1) as u32;
+    if crlf && let Some(rect) = end {
+        out.carets.push(EditCaret {
+            offset: offset + content + 1,
+            rect,
+        });
+    }
+}
+
+fn map_snapshot_rect(
+    rect: Rect,
+    canvas_coordinates: bool,
+    canvas: Rect,
+    transform: Option<&kivact_types::Transform>,
+) -> Rect {
+    if canvas_coordinates {
+        Rect {
+            x: rect.x - canvas.x,
+            y: rect.y - canvas.y,
+            ..rect
+        }
+    } else {
+        map_rect(transform, rect)
+    }
 }

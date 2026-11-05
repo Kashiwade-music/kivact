@@ -18,6 +18,7 @@ impl Epoch {
     }
 }
 
+// xtask-allow(state-fields): Topology generation and fixed traversal cursor are independent derived cache metadata (S-9); changed is a separate invalidation fact.
 /// Pending work and traversal generations for one columns/tree allocation domain.
 /// Keep it paired with the same NodeLayoutColumns and authoritative slot mapping.
 /// Cloning all three produces independent derived state; mixing a state from an

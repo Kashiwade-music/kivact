@@ -13,60 +13,9 @@ impl Context<'_> {
             width: r.width,
             height: r.height,
         };
-        let origin_point = Point {
-            x: origin.x,
-            y: origin.y,
-        };
-        let tint = &state.current_tint;
         match cmd {
-            DrawCmd::PushLayer(layer) => {
-                let area = rect(layer.area);
-                let outer = kivact_types::render::Layer {
-                    clip: layer.clip.as_ref().map(|shape| {
-                        crate::lower::path::shifted(
-                            crate::lower::scene_shape::shape(shape),
-                            Point {
-                                x: origin.x,
-                                y: origin.y,
-                            },
-                        )
-                    }),
-                    mask: layer
-                        .mask
-                        .as_ref()
-                        .and_then(|mask| self.layer_paint(mask, area, origin_point))
-                        .filter(|paint| {
-                            let valid = sanitize::fill(paint);
-                            if !valid {
-                                self.drop_command();
-                            }
-                            valid
-                        })
-                        .map(|paint| kivact_types::render::Mask { rect: area, paint }),
-                    ..kivact_types::render::Layer::default()
-                };
-                let props = PaintProps {
-                    effects: Some(Box::new(Effects {
-                        filter: layer.filter.clone(),
-                        blend: layer.blend,
-                        ..Effects::default()
-                    })),
-                    ..PaintProps::default()
-                };
-                let layers = crate::lower::effects::layers(
-                    &props,
-                    outer,
-                    layer.opacity.clamp(0.0, 1.0),
-                    tint.matrix.as_ref(),
-                );
-                state.frames.push(Frame::Layer {
-                    pushed: layers.len(),
-                    tint: state.current_tint,
-                });
-                state.current_tint.matrix = state
-                    .current_tint
-                    .then_own(crate::lower::effects::color_matrix(&layer.filter));
-                state.out.extend(layers.into_iter().map(D::PushLayer));
+            DrawCmd::PushLayer(_) => {
+                self.push_layer(cmd, state);
                 true
             }
             DrawCmd::PopLayer => {
@@ -127,5 +76,70 @@ impl Context<'_> {
             }
             _ => false,
         }
+    }
+    fn push_layer(&self, cmd: &DrawCmd, state: &mut State<'_>) {
+        let DrawCmd::PushLayer(layer) = cmd else {
+            unreachable!("invariant: matching command family");
+        };
+        let origin = state.origin;
+        let rect = |r: Rect| Rect {
+            x: origin.x + r.x,
+            y: origin.y + r.y,
+            width: r.width,
+            height: r.height,
+        };
+        let origin_point = Point {
+            x: origin.x,
+            y: origin.y,
+        };
+        let tint = &state.current_tint;
+
+        let area = rect(layer.area);
+        let outer = kivact_types::render::Layer {
+            clip: layer.clip.as_ref().map(|shape| {
+                crate::lower::path::shifted(
+                    crate::lower::scene_shape::shape(shape),
+                    Point {
+                        x: origin.x,
+                        y: origin.y,
+                    },
+                )
+            }),
+            mask: layer
+                .mask
+                .as_ref()
+                .and_then(|mask| self.layer_paint(mask, area, origin_point))
+                .filter(|paint| {
+                    let valid = sanitize::fill(paint);
+                    if !valid {
+                        self.drop_command();
+                    }
+                    valid
+                })
+                .map(|paint| kivact_types::render::Mask { rect: area, paint }),
+            ..kivact_types::render::Layer::default()
+        };
+        let props = PaintProps {
+            effects: Some(Box::new(Effects {
+                filter: layer.filter.clone(),
+                blend: layer.blend,
+                ..Effects::default()
+            })),
+            ..PaintProps::default()
+        };
+        let layers = crate::lower::effects::layers(
+            &props,
+            outer,
+            layer.opacity.clamp(0.0, 1.0),
+            tint.matrix.as_ref(),
+        );
+        state.frames.push(Frame::Layer {
+            pushed: layers.len(),
+            tint: state.current_tint,
+        });
+        state.current_tint.matrix = state
+            .current_tint
+            .then_own(crate::lower::effects::color_matrix(&layer.filter));
+        state.out.extend(layers.into_iter().map(D::PushLayer));
     }
 }

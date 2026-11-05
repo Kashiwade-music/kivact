@@ -322,43 +322,11 @@ impl Model {
         // Outside presses dismiss overlays before the press is delivered.
         self.dismiss_outside(hit);
         let primary = button == MouseButton::Primary;
-        let native_focus = hit.and_then(|h| {
-            let region = primary
-                .then(|| {
-                    let pos = space.local(self, h);
-                    let region = space.region(self, h, pos)?;
-                    let target = kivact_types::FocusTarget {
-                        node: h,
-                        region: Some(region),
-                    };
-                    self.is_focus_target(target).then_some(target)
-                })
-                .flatten();
-            region.or_else(|| {
-                self.ancestor_where(h, |n| n.focusable(self.editors[n.index.0].is_some()))
-                    .map(|node| kivact_types::FocusTarget { node, region: None })
-            })
-        });
+        let native_focus = self.press_native_focus(hit, primary, space);
         let focus = hit
             .and_then(|h| self.pointer_focus_destination(h, space))
             .or(native_focus);
-        let press = hit.and_then(|h| {
-            if let Some(region) = space.region(self, h, space.local(self, h)) {
-                let node = self.node(h)?;
-                let declared = node.region(region)?;
-                if declared.semantics.disabled {
-                    return None;
-                }
-                if self.region_activatable(h, region) {
-                    return Some(FocusTarget {
-                        node: h,
-                        region: Some(region),
-                    });
-                }
-            }
-            self.ancestor_where(h, |n| n.activatable())
-                .map(|node| FocusTarget { node, region: None })
-        });
+        let press = self.press_activation_target(hit, space);
         // A press of any button focuses; a primary press on nothing
         // focusable blurs. A later button of a captured gesture keeps the
         // focus its first press gave.
@@ -425,6 +393,55 @@ impl Model {
                 route: std::mem::take(route),
             };
         }
+    }
+
+    fn press_activation_target(
+        &self,
+        hit: Option<NodeId>,
+        space: &PointerSpace<'_>,
+    ) -> Option<FocusTarget> {
+        hit.and_then(|h| {
+            if let Some(region) = space.region(self, h, space.local(self, h)) {
+                let node = self.node(h)?;
+                let declared = node.region(region)?;
+                if declared.semantics.disabled {
+                    return None;
+                }
+                if self.region_activatable(h, region) {
+                    return Some(FocusTarget {
+                        node: h,
+                        region: Some(region),
+                    });
+                }
+            }
+            self.ancestor_where(h, |n| n.activatable())
+                .map(|node| FocusTarget { node, region: None })
+        })
+    }
+
+    fn press_native_focus(
+        &self,
+        hit: Option<NodeId>,
+        primary: bool,
+        space: &PointerSpace<'_>,
+    ) -> Option<FocusTarget> {
+        hit.and_then(|h| {
+            let region = primary
+                .then(|| {
+                    let pos = space.local(self, h);
+                    let region = space.region(self, h, pos)?;
+                    let target = kivact_types::FocusTarget {
+                        node: h,
+                        region: Some(region),
+                    };
+                    self.is_focus_target(target).then_some(target)
+                })
+                .flatten();
+            region.or_else(|| {
+                self.ancestor_where(h, |n| n.focusable(self.editors[n.index.0].is_some()))
+                    .map(|node| kivact_types::FocusTarget { node, region: None })
+            })
+        })
     }
 
     /// A button of `pointer` released over `hit` (`None`: nothing, or

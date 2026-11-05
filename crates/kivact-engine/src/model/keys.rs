@@ -334,52 +334,7 @@ impl Model {
         if editor.is_some_and(EditState::is_composing) {
             return KeyResult::Consumed;
         }
-        let roving_boundary = matches!(
-            key,
-            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
-        ) && input.zip(editor).is_some_and(|(input, editor)| {
-            let selection = editor.selection();
-            if !selection.is_empty() {
-                return false;
-            }
-            let Some(group) = self.roving_focus_for(input) else {
-                return false;
-            };
-            match (group.orientation, &key) {
-                (kivact_types::Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => {
-                    let end = (key == Key::ArrowRight) != group.rtl;
-                    selection.start == if end { editor.value().len() } else { 0 }
-                }
-                (kivact_types::Orientation::Vertical, Key::ArrowUp | Key::ArrowDown) => {
-                    self.tree.get(input).is_some_and(|node| !node.multiline())
-                }
-                _ => false,
-            }
-        });
-        let forward = !modifiers.ctrl
-            && !modifiers.alt
-            && !modifiers.meta
-            && (!modifiers.shift || key == Key::Tab)
-            && (roving_boundary
-                || (matches!(
-                    key,
-                    Key::Tab
-                        | Key::ArrowLeft
-                        | Key::ArrowRight
-                        | Key::ArrowUp
-                        | Key::ArrowDown
-                        | Key::Home
-                        | Key::End
-                        | Key::PageUp
-                        | Key::PageDown
-                        | Key::Escape
-                        | Key::Enter
-                        | Key::Backspace
-                ) && input
-                    .and_then(|id| self.tree.get(id))
-                    .and_then(|node| node.input_data())
-                    .and_then(|data| data.forward_keys.as_ref())
-                    .is_some_and(|keys| keys.contains(&key))));
+        let forward = self.forward_edit_key(input, editor, &key, modifiers);
         let focus_key = !forward && key == Key::Tab && !modifiers.ctrl && !modifiers.alt;
         if let Some(i) = input.filter(|_| !forward) {
             let node = self.tree.get(i).expect("invariant: focused input exists");
@@ -435,6 +390,19 @@ impl Model {
             Key::Char(_) | Key::Space => text.map(str::to_string),
             _ => None,
         };
+        self.report_key_down(key, code, repeat, text, modifiers, pointer);
+        KeyResult::Reported
+    }
+
+    fn report_key_down(
+        &mut self,
+        key: Key,
+        code: KeyCode,
+        repeat: bool,
+        text: Option<String>,
+        modifiers: Modifiers,
+        pointer: Option<kivact_types::Point>,
+    ) {
         if code != KeyCode::Unidentified
             && let Some(target) = self.focused()
         {
@@ -457,7 +425,62 @@ impl Model {
                 pointer,
             },
         }));
-        KeyResult::Reported
+    }
+
+    fn forward_edit_key(
+        &self,
+        input: Option<NodeId>,
+        editor: Option<&EditState>,
+        key: &Key,
+        modifiers: Modifiers,
+    ) -> bool {
+        let key = *key;
+        let roving_boundary = matches!(
+            key,
+            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
+        ) && input.zip(editor).is_some_and(|(input, editor)| {
+            let selection = editor.selection();
+            if !selection.is_empty() {
+                return false;
+            }
+            let Some(group) = self.roving_focus_for(input) else {
+                return false;
+            };
+            match (group.orientation, &key) {
+                (kivact_types::Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => {
+                    let end = (key == Key::ArrowRight) != group.rtl;
+                    selection.start == if end { editor.value().len() } else { 0 }
+                }
+                (kivact_types::Orientation::Vertical, Key::ArrowUp | Key::ArrowDown) => {
+                    self.tree.get(input).is_some_and(|node| !node.multiline())
+                }
+                _ => false,
+            }
+        });
+        !modifiers.ctrl
+            && !modifiers.alt
+            && !modifiers.meta
+            && (!modifiers.shift || key == Key::Tab)
+            && (roving_boundary
+                || (matches!(
+                    key,
+                    Key::Tab
+                        | Key::ArrowLeft
+                        | Key::ArrowRight
+                        | Key::ArrowUp
+                        | Key::ArrowDown
+                        | Key::Home
+                        | Key::End
+                        | Key::PageUp
+                        | Key::PageDown
+                        | Key::Escape
+                        | Key::Enter
+                        | Key::Backspace
+                ) && input
+                    .and_then(|id| self.tree.get(id))
+                    .and_then(|node| node.input_data())
+                    .and_then(|data| data.forward_keys.as_ref())
+                    .is_some_and(|keys| keys.contains(&key))))
     }
 
     /// Text committed into the focused text input (typing, or an IME
