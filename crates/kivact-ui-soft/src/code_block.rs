@@ -440,22 +440,29 @@ impl IntoView for CodeBlock {
                     None => style(),
                 })
         };
+        let host = kivact::view::node_ref();
+        let presence = host.presence();
         let body = show(disclosure.is_open(), move || {
             let content = content.clone();
+            // Initially expanded code has its natural height on the first frame.
+            // Later openings reveal through the mounted host's engine presence.
+            let look = style()
+                .shrink(0)
+                .exit_size(kivact::view::Orientation::Vertical)
+                .transition(
+                    TransitionProp::Size,
+                    Transition::tween(motion.medium as f64, motion.ease_standard),
+                );
+            let look = if presence.get_untracked() == kivact::view::Presence::Present {
+                look.enter_size(kivact::view::Orientation::Vertical)
+            } else {
+                look
+            };
             column(dynamic(wrap, move |_| content()))
                 .with_node(move |node| node.role(Role::Group))
                 .name(viewport_label)
                 .with_node(move |node| node.part(disclosure.content()))
-                .style(
-                    style()
-                        .shrink(0)
-                        .enter_size(kivact::view::Orientation::Vertical)
-                        .exit_size(kivact::view::Orientation::Vertical)
-                        .transition(
-                            TransitionProp::Size,
-                            Transition::tween(motion.medium as f64, motion.ease_standard),
-                        ),
-                )
+                .style(look)
         });
         let inside = if has_header {
             column((
@@ -488,6 +495,7 @@ impl IntoView for CodeBlock {
                 }),
             ))
         };
+        let root = root.node_ref(host);
         root.with_node(move |node| {
             node.base_style(move || {
                 let p = tokens();
