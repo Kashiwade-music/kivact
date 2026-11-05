@@ -153,8 +153,8 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-2a | merged | 5ad0bcf2 | hover/copy/attachへ5kit移行、対象consumer0 |
 | K-2b | merged | d636e815 | select/combobox/selection_fieldへ5kit移行、対象consumer0 |
 | K-3a | merged | 64f696f9 | 5kit標準groups/toolbar/segmentedへ移行、対象consumer0 |
-| K-3b | doing | | 実装中 |
-| K-4 | doing | | 実装中 |
+| K-3b | merged | 4cf76b75 | 5kit移行、Softnavigation12/Buffered/Dots/summary/compact 0 |
+| K-4 | merged | e5eb153c | Tree2/Table9/ItemCore2/SoftList1/catalog4mount/docs10 0 |
 | K-5 | merged | 159d169d | navigation3/overlay8/state-fields0、catalog追従check0 |
 | K-6a | merged | 9290fc1f | 5kit移行、実avatar/status/overflowとkeyboard各partを使用 |
 | K-6b | merged | 3efe0ee9 | 5kit empty/card/input_group/alert移行、Softdismiss-focus1 0 |
@@ -165,7 +165,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 | K-7b | merged | a7e2f0f8 | consumer16/catalog3/docs44+2/scoped規約0 |
 | K-7c | merged | 2a34e21b | Game consumer12/catalog3/rustdoc3/scoped contracts0 |
 | K-7d | merged | f9fab8a5 | check/static0、consumer40/41 focus共通修正後再確認 |
-| K-7e | todo | | |
+| K-7e | doing | e7baffb0 | C4/API/palette移行、C6単一consumer96/96 0、source規約/Rustdoc残 |
 | H-G1 | merged | b7ff6ff | groupclippy/static/tests0、親fullstatic0/WSL0 |
 | H-G2 | merged | 7385fe7 | groupclippy/static/tests0、GPU6、親fullstatic0/WSL48.97s |
 | H-G3 | doing | ce4294 | 中核の状態整理を統合、全体静的のdispatch葉分離を修正中 |
@@ -201,3 +201,4 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 
 - W6中間: `19e889d3` で workspace Clippy全target/feature `-D warnings` 0、fmt 0。残るK3b/K4/Soft K7/H-G5/H-G6とCP6は継続中。
 - W6保持契約: Root `0a94b560` の整合ビルドから metrics4/code1/scroll2/keyboard4/date5/touch5 の21件がMIRRORoff共有lockで全通過。
+- `755d4867` のpure metadata default修正後、Root整合catalog全ページ1/1通過。旧native異常終了は解消。

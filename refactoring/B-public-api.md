@@ -867,3 +867,4 @@ kit の既存 `input_group_with(label, init: impl FnOnce() -> C)`（`C: IntoChil
 | collection recipes | TreeRowRecipeStateとmarker_content、ItemRow実marker/delegate/行制限、ItemListのheader/marker/start/readonly positionでkit独自controllerを除去 |
 | pagination | summary(Value<PaginationSummary>)、実controls/sizes/input/dots parts。Buffered/Adjacentは構築policy、Dotsは全page・selectedのみTabstop・RTL対応wrap選択 |
 | navigation ownership | NavigationMenuApi.panel_keyはgenuine identity、use_menu_with_openはaccepted外部binding、trigger_actionは既定pressの明示的置換 |
+| once-mounted setup | `view::component(impl FnOnce()->V)->View`とprelude。新child ownerでmount時に一度だけ構築し、context値を登録せずscope/cleanupを保つ |

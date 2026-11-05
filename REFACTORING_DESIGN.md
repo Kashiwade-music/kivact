@@ -2789,3 +2789,10 @@ pub enum DecorationKind { Underline(TextDecorationStyle), Outline, Background }
 - Drag の press-time source_with factory と readonly active_payload、custom の Generation/as_u64、Select の trigger_with_sheet/open_sheet/is_sheet_open は、単一所有の state を公式 kit から使うための明示的な境界。互換 alias や同期用 state を作らない。
 - editor の既存 threshold 0 を保つ。Drag の pointer/origin/payload と、domain Machine の click-selection/connection 意図を分け、数値 snapshot は payload にだけ置く。
 - T-1 の style::TextDecoration は user input（Color/TextLength）で、wire の Rgba/TextLen record は公開しない。Draw は既存名を使い Canvas alias を作らない。
+
+### 19.46 一度だけmountするcomponent setup境界
+
+- `view::component(build: impl FnOnce() -> V + 'static) -> View`（`V: IntoView`）を正準の公開境界にする。preludeにも置く。
+- mount時に既存のchild owner/setup/transparent fragmentを使い、contextの値を登録せず一度だけbuildする。子のhooksとcleanupはそのownerに所属する。再生成するcontentの`IntoViewFn`とは用途が異なる。
+- kitの`provide((), ..)`はこの境界へ置換する。scope/lifetimeを変えるeager評価や意味のないcontext登録で代用しない。
+- visual Variantの`Default`は通常の設定値だけを作る。reactive Valueはcomponent setupでの明示的なsetterが作り、recipe評価中に作らない。

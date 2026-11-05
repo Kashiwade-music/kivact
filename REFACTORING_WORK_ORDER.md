@@ -2475,7 +2475,7 @@ wave W6。付録 C の作業。
 
 - **目的**: 付録 C.1 の表のその kit の列の残り全部、C.4 の改名、C.6。
 - **手順**（その kit の列にある行だけ）:
-  1. slot（KIT-5）、children の trait、variant（KIT-6）、固有の `disabled`、option の束、型の alias、message の key（KIT-8）、literal の色（KIT-2）、RTL（soft は `use_direction()`）、breakpoint、`provide((), ..)` の回避策、soft の残る公開 item の rustdoc を直す。
+  1. slot（KIT-5）、children の trait、variant（KIT-6）、固有の `disabled`、option の束、型の alias、message の key（KIT-8）、literal の色（KIT-2）、RTL（soft は `use_direction()`）、breakpoint、`provide((), ..)` の回避策（19.46節の`view::component`で一度だけのmount/setup境界を保つ）、soft の残る公開 item の rustdoc を直す。
   2. C.4 の改名を行う。
   3. C.6 を行う: kit の試験を一つの binary に（soft の test file を `tests/consumer.rs` と `tests/consumer/<topic>.rs` に）、試験の helper を中核の API に（`Screen::evidence`、`RenderOptions::with_theme(..).reduced_motion()`、`Screen::assert_layout_clean()`）、catalog の font を `examples/shared-assets/fonts/` に一つずつ（`THIRD-PARTY-NOTICES.md` を直す）。
   4. pop と game の recipe の file の構成を揃える（file 名と並び。中身の token 化はしない）。
