@@ -11,7 +11,7 @@ Game の見た目を導入し、ライトとダーク、コンパクトな密度
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn app() -> impl IntoView {
     column((text("Console"), button("Run").variant(game::Slant)))
@@ -20,7 +20,7 @@ fn app() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Console")
-        .theme(game::theme(ThemeMode::Dark).density(Density::Compact))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact }))
         .run(app)
 }
 ```
@@ -29,7 +29,7 @@ fn main() -> kivact::Result<()> {
 
 ## 密度を選ぶ
 
-`.density(..)` はキット唯一のオプションです。トレイト `ThemeOptions` のメソッドなので、スコープに入れておく必要があります（`use` 行の `ThemeOptions as _`）。変わるのはコンソールの寸法だけです。
+`ThemeOptions { density, ..Default::default() }` を `game::theme_with(mode, options)` に渡して密度を選びます。変わるのはコンソールの寸法だけです。
 
 | | `Density::Comfortable`（既定） | `Density::Compact` |
 | --- | --- | --- |
@@ -37,7 +37,7 @@ fn main() -> kivact::Result<()> {
 | テーブルの行の高さ | 42 px | 32 px |
 | パネルの余白 | 20 px | 14 px |
 
-色、フォントファミリー、そのほかのトークンはそのままなので、トークンを変えたあとに `.density(..)` を適用してもかまいません。情報密度の高いツールには `Compact`、プレイヤーが離れて読むメニューには `Comfortable` を使います。
+色、フォントファミリー、そのほかのトークンは変わりません。情報密度の高いツールには `Compact`、プレイヤーが離れて読むメニューには `Comfortable` を使います。
 
 ## 実行中にモードと密度を切り替える
 
@@ -47,7 +47,7 @@ fn main() -> kivact::Result<()> {
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::style::provide_theme;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn app() -> impl IntoView {
     let dark = signal(true);
@@ -55,7 +55,7 @@ fn app() -> impl IntoView {
     let theme = move || {
         let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
         let density = if compact.get() { Density::Compact } else { Density::Comfortable };
-        game::theme(mode).density(density)
+        game::theme_with(mode, ThemeOptions { density })
     };
     provide_theme(theme, move || {
         column((
@@ -68,7 +68,7 @@ fn app() -> impl IntoView {
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(game::Color::Canvas)
+                .background(game::ColorName::Canvas)
                 .color(ColorToken::Text),
         )
     })
@@ -79,7 +79,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`provide_theme` はノードを作らず、何も塗りません。そのため、サブツリーの最上位ノードにページの色を指定します。`game::Color::Canvas` はキットのページ背景で、テーマの切り替えに追従します。
+`provide_theme` はノードを作らず、何も塗りません。そのため、サブツリーの最上位ノードにページの色を指定します。`game::ColorName::Canvas` はキットのページ背景で、テーマの切り替えに追従します。
 
 ## 色とフォントを変える
 
@@ -89,10 +89,10 @@ fn main() -> kivact::Result<()> {
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::style::theme::Typography;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn console_theme() -> Theme {
-    let theme = game::theme(ThemeMode::Dark).density(Density::Compact);
+    let theme = game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact });
 
     // The kit's own tokens: display and monospaced families, an accent color.
     let mut tokens = (*theme.ext::<game::Tokens>()).clone();
@@ -122,7 +122,7 @@ fn application(display: &'static [u8], mono: &'static [u8], text: &'static [u8])
 
 - `display_family` はボタン、タブ、見出し、大きな数字に使われ、`mono_family` は `game::mono`、表のキャプションなど機械的なテキストに使われます。既定はそれぞれ `sans-serif` と `monospace` です。
 - フォントはアプリが持ちます。ファイルを `App::font` で登録し、ファミリー名には、ファイル名ではなく、フォントの内部に書かれた名前を使います。
-- 密度をトークンの編集より優先させたいなら、編集のあとで `.density(..)` を呼びます。密度は寸法のフィールド（`control_height`、`row_height`、`padding`）を置き換えるためです。
+- `theme_with` で密度を選んでから、テーマのトークンを編集します。
 
 標準部品が使うキットの色（アクセント、成功、警告、危険、枠線）は、トークンではなくテーマのパレット（`theme.colors()` と `.with_colors(..)`）にあります。標準コンポーネントがパレットを読むためです。トークンには、キットが上乗せする値が入っています。アクセントをあらゆる場所で変えたいときは、気になるトークンに加えて `colors.accent` も変更します。
 
@@ -142,7 +142,7 @@ fn orange_theme() -> Theme {
 
 ## 自分のコンポーネントでキットの色を使う
 
-色を受け取るスタイルの引数に `game::Color::..` を渡せます。値はノードが描かれるテーマから引かれるので、クロージャを書かなくてもテーマの切り替えに追従します。
+色を受け取るスタイルの引数に `game::ColorName::..` を渡せます。値はノードが描かれるテーマから引かれるので、クロージャを書かなくてもテーマの切り替えに追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -153,9 +153,9 @@ fn warning_strip(message: &'static str) -> Node {
         style()
             .gap(10)
             .padding(8)
-            .background(game::Color::Navy)
-            .color(game::Color::Yellow)
-            .border_left(3, game::Color::Cyan),
+            .background(game::ColorName::Navy)
+            .color(game::ColorName::Yellow)
+            .border_left(3, game::ColorName::Cyan),
     )
 }
 # fn main() {}

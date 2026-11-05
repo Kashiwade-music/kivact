@@ -14,7 +14,7 @@ use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::interaction::{Tone};
 use kivact::ui::{progress};
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 /// A monospaced caption over a meter.
 fn labeled(label: &'static str, meter: impl IntoView) -> Node {
@@ -66,7 +66,7 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme(ThemeMode::Dark).density(Density::Comfortable))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }))
         .run(loadout)
 }
 ```

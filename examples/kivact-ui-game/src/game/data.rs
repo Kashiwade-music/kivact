@@ -24,7 +24,7 @@ fn kpi_heading(icon: &'static str, label: &str) -> Node {
         style()
             .gap(6)
             .align_items(Align::Center)
-            .color(g::Color::Text3),
+            .color(g::ColorName::Text3),
     )
 }
 
@@ -465,7 +465,7 @@ pub(super) fn table(scene: Demo) -> impl kivact::view::Component {
             text("案件テーブル").style(style().weight(700)),
             spacer(),
             g::mono(move || format!("{} selected", scene.selected.with(Vec::len)))
-                .style(style().font_size(10.5).color(g::Color::Text3)),
+                .style(style().font_size(10.5).color(g::ColorName::Text3)),
         ))
         .style(
             style()
@@ -563,7 +563,7 @@ pub(super) fn table(scene: Demo) -> impl kivact::view::Component {
                         },
                     )),
                     row((
-                        text("表示件数").style(style().font_size(11.5).color(g::Color::Text3)),
+                        text("表示件数").style(style().font_size(11.5).color(g::ColorName::Text3)),
                         kivact::ui::select(
                             "Select",
                             vec![
@@ -609,7 +609,7 @@ pub(super) fn table(scene: Demo) -> impl kivact::view::Component {
                         "{count} selected",
                         move || [("count", selected.with(Vec::len).to_string())],
                     ))
-                    .style(style().grow(1).font_size(18).color(g::Color::Cyan)),
+                    .style(style().grow(1).font_size(18).color(g::ColorName::Cyan)),
                     row((
                         kivact::ui::button("一括承認")
                             .variant(kivact_ui_game::Slant)

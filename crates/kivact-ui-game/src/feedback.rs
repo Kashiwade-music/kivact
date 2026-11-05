@@ -1,5 +1,5 @@
 //! Role: Banners, alerts, toast cards, skeletons and empty states.
-use crate::Color;
+use crate::ColorName;
 use kivact::draw::{Layer, Path};
 use kivact::geometry::{Point, Rect};
 use kivact::motion::{FrameRate, frame_loop};
@@ -41,7 +41,7 @@ pub fn banner(
                 .padding_right(14)
                 .gap(14)
                 .align_items(Align::Center)
-                .background(Color::Navy)
+                .background(ColorName::Navy)
                 .color(kivact::style::rgb(0xffffff)),
         ),
         title: title.into_text_value(),
@@ -82,7 +82,7 @@ impl IntoView for Banner {
                     .height(pct(100))
                     .align_items(Align::Center)
                     .justify_content(Justify::Center)
-                    .color(Color::Navy),
+                    .color(ColorName::Navy),
             )
             .draw(move |d, s| {
                 d.layer(Layer::new().clip_rect(s.to_rect()), |d| {

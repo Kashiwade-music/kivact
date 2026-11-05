@@ -42,7 +42,7 @@ Replace `src/main.rs`:
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn loadout() -> impl IntoView {
     game::hud(
@@ -58,7 +58,7 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme(ThemeMode::Dark).density(Density::Comfortable))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }))
         .run(loadout)
 }
 ```
@@ -80,12 +80,7 @@ Four things are new:
 - `game::theme(ThemeMode::Dark)` builds the Game theme, and `App::theme(..)`
   installs it for the whole window. The result is an ordinary Kivact `Theme`.
   `ThemeMode::Light` gives the light console palette.
-- `.density(Density::Comfortable)` is the kit's one option. It sets the
-  metrics: `Comfortable` (the default) has 34 px controls and 20 px panel
-  padding, `Compact` has 28 px controls and 14 px padding. Try `Density::Compact`
-  and run again; the button and panel shrink. The method comes from the
-  trait `ThemeOptions`, which must be in scope: that is the `ThemeOptions as _`
-  in the `use` line.
+- `ThemeOptions { density: Density::Comfortable, ..Default::default() }` sets the metrics. Comfortable uses 34 px controls and 20 px panel padding; Compact uses 28 px controls and 14 px padding. Pass the options to `game::theme_with`.
 - `game::hud(..)` is a Game component: a bordered surface with accent brackets
   on two opposite corners. `game::mono(..)` is a small monospaced caption for
   ids, shortcuts and machine-like values.

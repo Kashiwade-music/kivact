@@ -7,11 +7,11 @@ use kivact::style::{Theme, ThemeColor};
 ///
 /// Every color input of a style, a gradient or a draw call takes it, so
 /// the color follows a theme switch without a closure that reads the tokens:
-/// `style().background(Color::PrimaryHover)`. A theme without the kit's tokens
+/// `style().background(ColorName::PrimaryHover)`. A theme without the kit's tokens
 /// reads the values the tokens fall back to. Take a [`Tokens`] field by hand only to
 /// compute a new color from it (`with_alpha`, `mix_in`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Color {
+pub enum ColorName {
     /// [`Tokens::primary_hover`].
     PrimaryHover,
     /// [`Tokens::primary_strong`].
@@ -44,25 +44,25 @@ pub enum Color {
     SidebarDim,
 }
 
-impl ThemeColor for Color {
+impl ThemeColor for ColorName {
     fn resolve(self, theme: &Theme) -> kivact::style::Color {
         let p = theme.ext::<Tokens>();
         match self {
-            Color::PrimaryHover => p.primary_hover,
-            Color::PrimaryStrong => p.primary_strong,
-            Color::PrimaryWeak => p.primary_weak,
-            Color::Cyan => p.cyan,
-            Color::Yellow => p.yellow,
-            Color::Navy => p.navy,
-            Color::Canvas => p.canvas,
-            Color::Surface3 => p.surface_3,
-            Color::LineStrong => p.line_strong,
-            Color::Text2 => p.text_2,
-            Color::Text3 => p.text_3,
-            Color::Sidebar => p.sidebar,
-            Color::SidebarAlt => p.sidebar_alt,
-            Color::SidebarText => p.sidebar_text,
-            Color::SidebarDim => p.sidebar_dim,
+            ColorName::PrimaryHover => p.primary_hover,
+            ColorName::PrimaryStrong => p.primary_strong,
+            ColorName::PrimaryWeak => p.primary_weak,
+            ColorName::Cyan => p.cyan,
+            ColorName::Yellow => p.yellow,
+            ColorName::Navy => p.navy,
+            ColorName::Canvas => p.canvas,
+            ColorName::Surface3 => p.surface_3,
+            ColorName::LineStrong => p.line_strong,
+            ColorName::Text2 => p.text_2,
+            ColorName::Text3 => p.text_3,
+            ColorName::Sidebar => p.sidebar,
+            ColorName::SidebarAlt => p.sidebar_alt,
+            ColorName::SidebarText => p.sidebar_text,
+            ColorName::SidebarDim => p.sidebar_dim,
         }
     }
 }

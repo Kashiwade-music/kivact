@@ -14,7 +14,7 @@ Replace `src/main.rs` with the complete program, tests included:
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::interaction::Tone;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Slot {
@@ -124,7 +124,7 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme(ThemeMode::Dark).density(Density::Comfortable))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }))
         .run(loadout)
 }
 
@@ -134,7 +134,7 @@ mod tests {
     use kivact::test::{RenderOptions, Screen, render_with};
 
     fn mount() -> Screen {
-        let options = RenderOptions::default().window_size(800., 800.0).theme(game::theme(ThemeMode::Dark).density(Density::Comfortable));
+        let options = RenderOptions::default().window_size(800., 800.0).theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }));
         render_with(options, loadout)
     }
 

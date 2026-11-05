@@ -14,7 +14,7 @@ components.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn app() -> impl IntoView {
     column((text("Console"), button("Run").variant(game::Slant)))
@@ -23,7 +23,7 @@ fn app() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Console")
-        .theme(game::theme(ThemeMode::Dark).density(Density::Compact))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact }))
         .run(app)
 }
 ```
@@ -36,9 +36,7 @@ icons, so `icon("shield-check")` draws one. You choose `ThemeMode::Light` or
 
 ## Choose the density
 
-`.density(..)` is the one option of the kit. It belongs to the trait
-`ThemeOptions`, which has to be in scope (`ThemeOptions as _` in the `use`
-line). It changes the metrics of the console and nothing else:
+`ThemeOptions { density, ..Default::default() }` is the kit's option, passed to `game::theme_with(mode, options)`. It changes only the console metrics:
 
 | | `Density::Comfortable` (default) | `Density::Compact` |
 | --- | --- | --- |
@@ -46,8 +44,7 @@ line). It changes the metrics of the console and nothing else:
 | Table row height | 42 px | 32 px |
 | Panel padding | 20 px | 14 px |
 
-The colors, the font families and the rest of the tokens stay as they are, so
-you can apply `.density(..)` after changing tokens. Use `Compact` for dense
+The colors, the font families and the rest of the tokens stay the same. Use `Compact` for dense
 tools and `Comfortable` for menus a player reads at a distance.
 
 ## Switch mode and density at run time
@@ -60,7 +57,7 @@ typed text, scroll position and focus stay.
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::style::provide_theme;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn app() -> impl IntoView {
     let dark = signal(true);
@@ -68,7 +65,7 @@ fn app() -> impl IntoView {
     let theme = move || {
         let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
         let density = if compact.get() { Density::Compact } else { Density::Comfortable };
-        game::theme(mode).density(density)
+        game::theme_with(mode, ThemeOptions { density })
     };
     provide_theme(theme, move || {
         column((
@@ -81,7 +78,7 @@ fn app() -> impl IntoView {
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(game::Color::Canvas)
+                .background(game::ColorName::Canvas)
                 .color(ColorToken::Text),
         )
     })
@@ -93,7 +90,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 `provide_theme` creates no node and paints nothing, so give the top node of the
-subtree the page colors. `game::Color::Canvas` is the kit's page background,
+subtree the page colors. `game::ColorName::Canvas` is the kit's page background,
 and it follows the theme as it switches.
 
 ## Change colors and fonts
@@ -108,10 +105,10 @@ the font families `display_family` and `mono_family`, the colors `yellow`,
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact::style::theme::Typography;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn console_theme() -> Theme {
-    let theme = game::theme(ThemeMode::Dark).density(Density::Compact);
+    let theme = game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Compact });
 
     // The kit's own tokens: display and monospaced families, an accent color.
     let mut tokens = (*theme.ext::<game::Tokens>()).clone();
@@ -144,8 +141,7 @@ fn application(display: &'static [u8], mono: &'static [u8], text: &'static [u8])
   Both default to `sans-serif` and `monospace`.
 - Fonts belong to the application: register each file with `App::font` and use
   the family name written inside the font, not the file name.
-- Call `.density(..)` after editing tokens if you want the density to win, as
-  it replaces the metrics fields (`control_height`, `row_height`, `padding`).
+- Choose the density with `theme_with` before customizing the theme tokens.
 
 The kit's brand colors for the standard parts (accent, success, warning,
 danger, border) live in the theme's palette (`theme.colors()` and
@@ -169,7 +165,7 @@ fn orange_theme() -> Theme {
 
 ## Use the kit's colors in your own components
 
-Pass `game::Color::..` anywhere a style takes a color: the value is looked up
+Pass `game::ColorName::..` anywhere a style takes a color: the value is looked up
 in the theme the node is painted in, so it follows theme switches without a
 closure.
 
@@ -182,9 +178,9 @@ fn warning_strip(message: &'static str) -> Node {
         style()
             .gap(10)
             .padding(8)
-            .background(game::Color::Navy)
-            .color(game::Color::Yellow)
-            .border_left(3, game::Color::Cyan),
+            .background(game::ColorName::Navy)
+            .color(game::ColorName::Yellow)
+            .border_left(3, game::ColorName::Cyan),
     )
 }
 # fn main() {}

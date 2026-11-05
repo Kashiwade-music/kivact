@@ -3,7 +3,7 @@
 use kivact::prelude::*;
 use kivact::style::pct;
 use kivact_ui_game as g;
-use kivact_ui_game::ThemeOptions as _;
+use kivact_ui_game::ThemeOptions;
 
 #[test]
 fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
@@ -14,7 +14,14 @@ fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
             (
                 (mode, density),
                 kivact::style::provide_theme(
-                    move || g::theme(mode.get()).density(density.get()),
+                    move || {
+                        g::theme_with(
+                            mode.get(),
+                            ThemeOptions {
+                                density: density.get(),
+                            },
+                        )
+                    },
                     || {
                         column((
                             kivact::ui::button("Action")

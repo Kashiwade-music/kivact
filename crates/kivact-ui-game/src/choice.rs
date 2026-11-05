@@ -1,6 +1,6 @@
 //! Role: Game looks of the radio group and tabs, and the slots that fill them.
 
-use crate::Color;
+use crate::ColorName;
 use kivact::interaction::ListItem;
 use kivact::interaction::TabState;
 use kivact::state::{Value, memo};
@@ -134,7 +134,7 @@ fn description_view(description: Value<Option<String>>) -> View {
         move || description.with(|text| text.as_ref().is_some_and(|text| !text.is_empty())),
         move || {
             text(move || description.get().unwrap_or_default())
-                .style(style().font_size(11.5).color(Color::Text3))
+                .style(style().font_size(11.5).color(ColorName::Text3))
         },
     )
     .into_view()
