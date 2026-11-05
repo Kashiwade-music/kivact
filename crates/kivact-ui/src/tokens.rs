@@ -14,6 +14,7 @@ pub struct UiTokens {
     pub time_input: crate::DateInputTokens,
     pub carousel: crate::CarouselTokens,
     pub dropzone: crate::DropzoneTokens,
+    pub combobox: crate::ComboboxTokens,
     pub button: ButtonTokens,
     pub progress: ProgressTokens,
     pub toast: ToastTokens,

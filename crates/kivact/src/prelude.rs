@@ -42,8 +42,8 @@ pub use crate::interaction::{IntoSelection, Selection};
 pub use crate::interaction::{ListItem, MenuEntry, Toast, Tone, toaster};
 
 pub use crate::ui::{
-    DataColumn, button, checkbox, data_table, dialog, field, list, menu, radio_group, select,
-    slider, switch, tabs, text_area, text_input, toast_region, tooltip,
+    DataColumn, button, checkbox, combobox, data_table, dialog, field, list, menu, radio_group,
+    select, slider, switch, tabs, text_area, text_input, toast_region, tooltip,
 };
 
 pub use crate::ui::async_view;

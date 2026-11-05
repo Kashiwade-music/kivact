@@ -174,6 +174,7 @@ pub use recipes::{
     ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes, Recipe,
     SelectRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, TabsRecipes, TagInputRecipes,
     TimeInputRecipes, ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
+    ComboboxRecipes,
 };
 pub use split::{Split, split};
 pub use tag_input::{TagInput, tag_input};
@@ -268,3 +269,8 @@ pub use hover_card::{FocusTrigger, HoverCard, HoverCardSurfaceState, HoverCardTo
 pub use recipes::HoverCardRecipes;
 
 mod drawer_swipe;
+mod combobox;
+mod selector_presentation;
+pub use combobox::{Combobox, ComboboxTokens, combobox};
+pub use kivact_interaction::ComboboxMode;
+pub use selector_presentation::SelectPresentation;
