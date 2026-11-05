@@ -7,16 +7,7 @@
 //! re-exported by the public facade.
 
 #[doc(inline)]
-pub use kivact_style::Align;
-#[doc(inline)]
-pub use kivact_style::{
-    Background, BorderStyle, Color, ColorToken, Cursor, Direction, Display, FontFeature,
-    FontKerning, GridAutoFlow, GridPlacement, Icon, IconSet, Justify, Length, LineHeight, Overflow,
-    Position, ScrollSnap, ScrollbarWidth, Style, StyledRange, TextAlign, TextDecoration,
-    TextDecorationLine, TextDecorationStyle, TextLength, TextOverflow, TextTransform, Theme,
-    ThemeColor, ThemeExtension, ThemeMode, ThemeRef, Track, TransitionProp, Visibility, auto, em,
-    hsl, pct, rgb, rgba, style, use_theme, use_tokens,
-};
+pub use kivact_style::facade::*;
 
 pub mod theme;
 
