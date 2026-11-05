@@ -224,11 +224,15 @@ impl GroupRender {
 fn adornment(view: View, primary: kivact_core::view::NodeRef) -> Node {
     let reference = node_ref();
     let focused = reference.focus_within();
-    node().node_ref(reference).child(view).on_press(move || {
-        if !focused.get_untracked() {
-            primary.activate();
-        }
-    })
+    node()
+        .role(Role::Generic)
+        .node_ref(reference)
+        .child(view)
+        .on_press(move || {
+            if !focused.get_untracked() {
+                primary.activate();
+            }
+        })
 }
 /// Add noninteractive text adjacent to a grouped input.
 pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Component {

@@ -1,4 +1,4 @@
-//! Role: Basic source code size variants and recipes for the canonical native code surface.
+//! Role: Basic code-size variants and recipes for the Core source editor.
 use crate::Tokens;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Direction, LineHeight, Style, TextAlign, Theme, pct, style};

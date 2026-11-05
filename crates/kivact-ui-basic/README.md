@@ -128,7 +128,7 @@ standard message keys:
 |---|---|
 | `data_table.actions` | Actions |
 | `data_table.empty` | No results found. |
-| `data_table.filter` | Filter窶ｦ |
+| `data_table.filter` | Filter… |
 | `data_table.label` | Data table |
 | `data_table.next` | Next |
 | `data_table.page` | Page {page} of {pages} |
