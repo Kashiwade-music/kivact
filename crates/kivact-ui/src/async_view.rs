@@ -86,10 +86,8 @@ fn default_loading() -> View {
     column((indicator, text("Loading…"))).into_view()
 }
 fn default_fallback(error: UiError, retry: Retry) -> View {
-    column((
-        text(format!("Error: {error}")),
-        super::button("Retry").on_press(move || retry.run()),
-    ))
-    .role(Role::Alert)
-    .into_view()
+    super::alert(format!("Error: {error}"))
+        .tone(kivact_interaction::Tone::Danger)
+        .actions(super::button("Retry").on_press(move || retry.run()))
+        .into_view()
 }
