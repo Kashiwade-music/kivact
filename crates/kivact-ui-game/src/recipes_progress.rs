@@ -1,5 +1,6 @@
 //! Role: Draw segmented gauges and rings from the standard progress owner's values.
-use crate::{Tokens, display::ToneExt};
+use crate::Tokens;
+use crate::display::ToneExt;
 use kivact::draw::{Path, Stroke};
 use kivact::geometry::Point;
 use kivact::state::Value;

@@ -1,5 +1,6 @@
 //! Role: Style semantic statistics, headings and description rows as console displays.
-use crate::{Tokens, display::ToneExt};
+use crate::Tokens;
+use crate::display::ToneExt;
 use kivact::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
 use kivact::ui::{DescriptionListRecipes, HeadingState, Look, StatRecipes};
 
