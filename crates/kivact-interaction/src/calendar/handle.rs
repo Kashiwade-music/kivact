@@ -8,7 +8,7 @@ use crate::roving::Member;
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owned, Owner, Part, PartState, part, raise, require_setup};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
-use kivact_core::state::{Value, memo};
+use kivact_core::state::{IntoValue, Value, memo};
 use kivact_core::view::{Handled, KeyEvent, Role};
 use std::rc::Rc;
 
@@ -46,6 +46,11 @@ pub fn use_calendar_grid(
 }
 
 impl CalendarGridApi {
+    /// Polite feedback emitted by accepted selection transitions.
+    pub fn selection_status(self) -> Value<String> {
+        self.state().selection_status.into_value()
+    }
+
     /// Whether the range owner is waiting for its second endpoint.
     pub fn is_picking_range(self) -> Value<bool> {
         let choice = self.state().choice;

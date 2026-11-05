@@ -21,6 +21,8 @@ pub(super) enum Choice {
 }
 
 pub(super) struct State {
+    pub(super) chosen_message: Value<String>,
+    pub(super) selection_status: Signal<String>,
     // xtask-allow(state-fields): Optional mounted-part drawing observation, independent of behavior phase.
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) cell_states:
@@ -51,13 +53,32 @@ pub(super) fn create(
     let roving = Roving::<CalendarDate>::new();
     let requested = roving.requested;
     let registry = roving.clone();
+    let selection_status = signal(String::new());
+    let chosen = kivact_core::i18n::message("calendar.chosen", "Date selected");
+    let started = kivact_core::i18n::message("calendar.range_started", "Start date selected");
+    let cancelled =
+        kivact_core::i18n::message("calendar.range_cancelled", "Range selection cancelled");
     let choice = match selection {
         CalendarSelection::Single(value) => Choice::Single(value),
         CalendarSelection::Range(value) => {
             let pick = machine(
                 RangePick::Idle,
                 || machine::Machine,
-                move |_, next| value.set(next),
+                move |_, effect| match effect {
+                    machine::Effect::Commit(range) => {
+                        value.set(Some(range));
+                        selection_status.set(format!(
+                            "{}: {} - {}",
+                            chosen.get_untracked(),
+                            range.start(),
+                            range.end()
+                        ));
+                    }
+                    machine::Effect::Started(day) => {
+                        selection_status.set(format!("{}: {day}", started.get_untracked()))
+                    }
+                    machine::Effect::Cancelled => selection_status.set(cancelled.get_untracked()),
+                },
             );
             effect(move || pick.send(machine::Event::ExternalValueChanged(value.get())));
             Choice::Range { value, pick }
@@ -99,6 +120,8 @@ pub(super) fn create(
             .or_else(|| days.iter().copied().find(|day| available(day)))
     });
     let state = Rc::new(State {
+        chosen_message: chosen,
+        selection_status,
         grid_state: signal(None),
         cell_states: signal(std::collections::HashMap::new()),
         owner,
@@ -138,7 +161,7 @@ impl State {
     pub(super) fn disabled(&self, day: CalendarDate) -> bool {
         (self.policy.disabled)(day)
             || match self.choice {
-                Choice::Range { value, pick } => match pick.get().current(value.get()) {
+                Choice::Range { pick, .. } => match pick.get() {
                     RangePick::Picking { anchor, .. } => {
                         let span = anchor.to_days().abs_diff(day.to_days()) + 1;
                         span < u64::from(self.policy.min_span.get().max(1))
@@ -207,14 +230,13 @@ impl State {
         let done = match self.choice {
             Choice::Single(value) => {
                 value.set(Some(day));
+                self.selection_status
+                    .set(format!("{}: {day}", self.chosen_message.get_untracked()));
                 true
             }
             Choice::Range { value, pick } => {
                 let current = value.get_untracked();
-                let done = matches!(
-                    pick.state().get_untracked().current(current),
-                    RangePick::Picking { .. }
-                );
+                let done = matches!(pick.get(), RangePick::Picking { .. });
                 pick.send(machine::Event::Choose { day, current });
                 done
             }
@@ -236,8 +258,7 @@ impl State {
         }
         if event.key() == Key::Escape
             && let Choice::Range { value, pick } = self.choice
-            && let RangePick::Picking { .. } =
-                pick.state().get_untracked().current(value.get_untracked())
+            && let RangePick::Picking { .. } = pick.get()
         {
             pick.send(machine::Event::Cancel(value.get_untracked()));
             return Handled::Yes;

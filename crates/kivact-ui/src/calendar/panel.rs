@@ -12,13 +12,6 @@ use kivact_core::view::{Node, NodeBuilder, column, node, row, text};
 use std::rc::Rc;
 
 /// The day size of `--cell-size`.
-fn cell_size() -> f64 {
-    kivact_core::style::use_theme()
-        .get()
-        .ext::<crate::UiTokens>()
-        .calendar
-        .cell_size
-}
 
 /// A ghost icon button of the caption row, 28 px square, behind a paging part.
 fn nav_button(
@@ -35,8 +28,8 @@ fn nav_button(
         .into_view()
 }
 
-fn spacer() -> Node {
-    node().style(style().size(cell_size(), cell_size()).shrink(0))
+fn spacer(size: f64) -> Node {
+    node().style(style().size(size, size).shrink(0))
 }
 
 pub(super) fn month_panel(
@@ -61,7 +54,7 @@ pub(super) fn month_panel(
                 })
                 .style(
                     style()
-                        .width(cell_size())
+                        .width(shared.cell_size)
                         .height(20)
                         .font_size(12.8)
                         .text_align(TextAlign::Center)
@@ -108,7 +101,7 @@ pub(super) fn month_panel(
                         .calendar
                         .month_gap,
                 )
-                .width(cell_size() * 7.0)
+                .width(shared.cell_size * 7.0)
                 .shrink(0),
         ),
         |r| r.calendar_recipes().month_recipe(),
@@ -122,9 +115,10 @@ fn day_cell(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Vie
     if day.month_of() == month {
         return day_node(shared, month, day).into_view();
     }
+    let cell_size = shared.cell_size;
     let shared = shared.clone();
     show(shared.outside, move || day_node(&shared, month, day))
-        .fallback(spacer)
+        .fallback(move || spacer(cell_size))
         .into_view()
 }
 
@@ -152,6 +146,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
         }
         state
     });
+    let cell_size = shared.cell_size;
     let in_month = day.month_of() == month;
     let today = shared.today;
     let marks = shared.marks.clone();
@@ -166,6 +161,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
         &shared.variants,
         move || crate::calendar::state::CalendarDayVisual {
             date: day,
+            cell_size,
             day: marked.get(),
             today: day == today.get(),
             in_month,
@@ -181,7 +177,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     node().child(band).child(button).style(
         style()
             .position(Position::Relative)
-            .size(cell_size(), cell_size())
+            .size(shared.cell_size, shared.cell_size)
             .shrink(0),
     )
 }
@@ -245,12 +241,12 @@ fn month_caption(
     let previous = if index == 0 {
         nav_button(back, names.previous, grid.previous_month())
     } else {
-        spacer().into_view()
+        spacer(shared.cell_size).into_view()
     };
     let next = if index + 1 == shared.count {
         nav_button(forward, names.next, grid.next_month())
     } else {
-        spacer().into_view()
+        spacer(shared.cell_size).into_view()
     };
     let previous_year = show(shared.year_navigation, move || {
         nav_button(
@@ -287,7 +283,7 @@ fn month_caption(
                 Direction::Row
             })
             .align_items(Align::Center)
-            .height(cell_size())
+            .height(shared.cell_size)
             .width(pct(100)),
     );
     with_recipe_style(

@@ -201,22 +201,35 @@ impl DateInput {
             .icon(icon("calendar"));
         let content = move || {
             let selected = binding(value, move |next| match next {
-                Some(date) => state.send(Event::Pick(date)),
+                Some(date) => state.send(if presentation.sheet() {
+                    Event::SheetPick(date)
+                } else {
+                    Event::Pick(date)
+                }),
                 None => state.send(Event::Clear),
             });
-            date_picker(
+            let picker = date_picker(
                 selected,
                 min,
                 max,
                 week_start,
                 presentation,
                 configure.as_ref(),
-            )
+            );
+            if presentation.sheet() {
+                kivact_core::view::column((
+                    picker,
+                    button(message("date.save", "Save")).on_press(move || state.send(Event::Close)),
+                ))
+                .into_view()
+            } else {
+                picker
+            }
         };
         root.child(with_recipe_style(
             row((
                 field,
-                dialog(label, open)
+                dialog(message("date.open", "Choose date"), open)
                     .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)

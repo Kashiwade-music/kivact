@@ -117,14 +117,22 @@ impl IntoView for TimeInput {
         let field = text_input(label, draft)
             .placeholder("HH:MM")
             .invalid(move || matches!(state.get().draft(), TimeDraft::Invalid(_)))
+            .forward_keys(vec![kivact_core::view::Key::ArrowDown])
+            .on_key(move |event: kivact_core::view::KeyEvent| {
+                if event.key() == kivact_core::view::Key::ArrowDown {
+                    state.send(Event::Open);
+                    kivact_core::view::Handled::Yes
+                } else {
+                    kivact_core::view::Handled::No
+                }
+            })
             .on_draft_commit(move |text| state.send(Event::Commit(text)));
-        let toggle =
-            button(message("time.open", "Choose time")).on_press(move || state.send(Event::Open));
+        let toggle = button(message("time.open", "Choose time"));
         let open = binding(
             move || state.get().is_open(),
             move |open| state.send(if open { Event::Open } else { Event::Close }),
         );
-        let picked = binding(value, move |next| state.send(Event::Pick(next)));
+        let picked = binding(value, move |next| value.set(next));
         root.child(with_recipe_style(
             row((
                 field,
@@ -132,7 +140,13 @@ impl IntoView for TimeInput {
                     .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
-                    .content(move || crate::date_wheel::time_panel(picked, seconds))
+                    .content(move || {
+                        kivact_core::view::column((
+                            crate::date_wheel::time_panel(picked, seconds),
+                            button(message("time.save", "Save"))
+                                .on_press(move || state.send(Event::Close)),
+                        ))
+                    })
                     .attach(toggle),
             )),
             |r| r.time_input_recipes().root_recipe(),

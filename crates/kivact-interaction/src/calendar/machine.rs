@@ -8,18 +8,7 @@ pub(super) enum RangePick {
     Picking {
         anchor: CalendarDate,
         preview: Option<CalendarDate>,
-        before: Option<DateRange>,
     },
-}
-impl RangePick {
-    pub(super) fn current(self, value: Option<DateRange>) -> Self {
-        match self {
-            Self::Picking { anchor, .. } if value != Some(DateRange::new(anchor, anchor)) => {
-                Self::Idle
-            }
-            phase => phase,
-        }
-    }
 }
 pub(super) enum Event {
     ExternalValueChanged(Option<DateRange>),
@@ -30,11 +19,16 @@ pub(super) enum Event {
     Cancel(Option<DateRange>),
     Preview(Option<CalendarDate>),
 }
+pub(super) enum Effect {
+    Commit(DateRange),
+    Started(CalendarDate),
+    Cancelled,
+}
 pub(super) struct Machine;
 impl MachineTrait for Machine {
     type State = RangePick;
     type Event = Event;
-    type Effect = Option<DateRange>;
+    type Effect = Effect;
     fn transition(
         &self,
         state: &Self::State,
@@ -43,28 +37,22 @@ impl MachineTrait for Machine {
         match event {
             Event::Preview(preview) => match *state {
                 RangePick::Idle => Step::stay(),
-                RangePick::Picking { anchor, before, .. } => Step::to(RangePick::Picking {
-                    anchor,
-                    before,
-                    preview,
-                }),
+                RangePick::Picking { anchor, .. } => {
+                    Step::to(RangePick::Picking { anchor, preview })
+                }
             },
-            Event::ExternalValueChanged(current) => Step::to(state.current(current)),
-            Event::Choose { day, current } => match state.current(current) {
+            Event::ExternalValueChanged(_) => Step::to(RangePick::Idle),
+            Event::Choose { day, .. } => match *state {
                 RangePick::Idle => Step::to(RangePick::Picking {
                     anchor: day,
                     preview: None,
-                    before: current,
                 })
-                .with(Some(DateRange::new(day, day))),
+                .with(Effect::Started(day)),
                 RangePick::Picking { anchor, .. } => {
-                    Step::to(RangePick::Idle).with(Some(DateRange::new(anchor, day)))
+                    Step::to(RangePick::Idle).with(Effect::Commit(DateRange::new(anchor, day)))
                 }
             },
-            Event::Cancel(current) => match state.current(current) {
-                RangePick::Idle => Step::to(RangePick::Idle),
-                RangePick::Picking { before, .. } => Step::to(RangePick::Idle).with(before),
-            },
+            Event::Cancel(_) => Step::to(RangePick::Idle).with(Effect::Cancelled),
         }
     }
 }

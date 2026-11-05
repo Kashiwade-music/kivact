@@ -64,6 +64,18 @@ pub(crate) fn wheel(
         .part(drag.source_with(move || value.get_untracked()))
         .name(label)
         .focusable(true)
+        .on_key(move |event: kivact_core::view::KeyEvent| {
+            use kivact_core::view::Key;
+            let steps = match event.key() {
+                Key::ArrowDown => 1.0,
+                Key::ArrowUp => -1.0,
+                Key::PageDown => 10.0,
+                Key::PageUp => -10.0,
+                _ => return Handled::No,
+            };
+            scalar.once(|| scalar.set(normalize(value.get_untracked() + steps)));
+            Handled::Yes
+        })
         .child(wheel_rows(scalar, min, max, time, settle_offset, release))
         .on_wheel(move |event: WheelEvent| {
             let delta = event.delta().y;
@@ -87,53 +99,19 @@ pub(crate) fn wheel(
     )
 }
 pub(crate) fn date_panel(value: Binding<Option<CalendarDate>>, picker: crate::Calendar) -> Node {
-    let date = signal(value.get_untracked().unwrap_or_else(CalendarDate::today));
-    let year = binding(
-        move || f64::from(date.get().year()),
-        move |year| {
-            let current = date.get_untracked();
-            date.set(current.add_months((year as i32 - current.year()) * 12));
-        },
-    );
-    let month = binding(
-        move || f64::from(date.get().month()),
-        move |month| {
-            let current = date.get_untracked();
-            date.set(current.add_months(month as i32 - i32::from(current.month())));
-        },
-    );
-    let day = binding(
-        move || f64::from(date.get().day()),
-        move |day| {
-            let current = date.get_untracked();
-            if let Some(next) = CalendarDate::checked(current.year(), current.month(), day as u8) {
-                date.set(next);
-            }
-        },
-    );
-    column((
-        row((
-            wheel(message("date.year", "Year"), year, 1.0, 9999.0, false),
-            wheel(message("date.month", "Month"), month, 1.0, 12.0, false),
-            wheel(
-                message("date.day", "Day"),
-                day,
-                1.0,
-                move || f64::from(date.get().month_of().days()),
-                false,
-            ),
-        )),
-        picker,
-        crate::button(message("date.apply", "Apply date"))
-            .on_press(move || value.set(Some(date.get_untracked()))),
-    ))
+    crate::date_sheet::panel(value, picker)
 }
 pub(crate) fn time_panel(value: Binding<Option<TimeOfDay>>, seconds: Value<bool>) -> Node {
-    let time = signal(value.get_untracked().unwrap_or(TimeOfDay {
-        hour: 0,
-        minute: 0,
-        second: 0,
-    }));
+    let time = binding(
+        move || {
+            value.get().unwrap_or(TimeOfDay {
+                hour: 0,
+                minute: 0,
+                second: 0,
+            })
+        },
+        move |time| value.set(Some(time)),
+    );
     let hour = binding(
         move || f64::from(time.get().hour),
         move |hour| {
@@ -177,11 +155,7 @@ pub(crate) fn time_panel(value: Binding<Option<TimeOfDay>>, seconds: Value<bool>
             row(wheels)
         },
     );
-    column((
-        wheels,
-        crate::button(message("time.apply", "Apply time"))
-            .on_press(move || value.set(Some(time.get_untracked()))),
-    ))
+    column((wheels,))
 }
 
 /// Render the five visible wheel rows from the authoritative scalar and settle offset.
