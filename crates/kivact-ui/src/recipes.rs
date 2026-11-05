@@ -51,6 +51,7 @@ use super::values::{
     SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState,
 };
 use super::variants::Look;
+use super::{AlertState, CardState, EmptyStateState, InputGroupState, look_feedback};
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
 use crate::look_files;
 use kivact_core::custom::PartState;
@@ -632,6 +633,10 @@ recipe_table! {
         text_area(text_area_recipe): TextInputState = look::text_area,
     }
     tables {
+        empty_state(empty_state_recipes): EmptyStateRecipes,
+        alert(alert_recipes): AlertRecipes,
+        card(card_recipes): CardRecipes,
+        input_group(input_group_recipes): InputGroupRecipes,
         calendar(calendar_recipes): CalendarRecipes,
         date_input(date_input_recipes): DateInputRecipes,
         date_range_input(date_range_input_recipes): DateRangeInputRecipes,
@@ -739,5 +744,46 @@ recipe_table! {
         member(member_recipe): crate::ButtonGroupMemberState = crate::button_group::member_style,
         separator(separator_recipe): crate::ButtonGroupState = crate::button_group::separator_style,
         text(text_recipe): crate::ButtonGroupState = crate::button_group::text_style,
+    }
+}
+
+recipe_table! {
+    /// Recipes for an empty region's message and actions.
+    EmptyStateRecipes {
+        root(root_recipe): EmptyStateState = look_feedback::empty_root,
+        title(title_recipe): EmptyStateState = look_feedback::empty_title,
+        description(description_recipe): EmptyStateState = look_feedback::empty_description,
+        icon(icon_recipe): EmptyStateState = look_feedback::empty_icon,
+        actions(actions_recipe): EmptyStateState = look_feedback::empty_actions,
+    }
+}
+recipe_table! {
+    /// Recipes for a persistent alert and optional details.
+    AlertRecipes {
+        root(root_recipe): AlertState = look_feedback::alert_root,
+        title(title_recipe): AlertState = look_feedback::alert_title,
+        description(description_recipe): AlertState = look_feedback::alert_description,
+        icon(icon_recipe): AlertState = look_feedback::alert_icon,
+        actions(actions_recipe): AlertState = look_feedback::alert_actions,
+        content(content_recipe): AlertState = look_feedback::alert_content,
+    }
+}
+recipe_table! {
+    /// Recipes for each region of a card.
+    CardRecipes {
+        root(root_recipe): CardState = look_feedback::card_root,
+        header(header_recipe): CardState = look_feedback::card_region,
+        media(media_recipe): CardState = look_feedback::card_media,
+        content(content_recipe): CardState = look_feedback::card_region,
+        footer(footer_recipe): CardState = look_feedback::card_region,
+    }
+}
+recipe_table! {
+    /// Recipes for a labelled group of controls and its text adornments.
+    InputGroupRecipes {
+        root(root_recipe): InputGroupState = look_feedback::group_root,
+        label(label_recipe): InputGroupState = look_feedback::group_label,
+        members(members_recipe): InputGroupState = look_feedback::group_members,
+        addon(addon_recipe): InputGroupState = look_feedback::group_addon,
     }
 }
