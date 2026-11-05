@@ -189,9 +189,27 @@ impl IntoView for Dropzone {
             }),
             label_view,
             hint_view,
+            kivact_core::view::show_some(
+                move || match state.get() {
+                    DropzoneState::Failed(error) => Some(error.to_string()),
+                    _ => None,
+                },
+                {
+                    let variants = variants.clone();
+                    move |message: Value<String>| {
+                        crate::layer::with_recipe_style(
+                            text(message),
+                            |r| r.dropzone_recipes().status_recipe(),
+                            &variants,
+                            move || state.get(),
+                        )
+                        .with_node(|n| n.role(Role::Alert))
+                    }
+                },
+            ),
             crate::layer::with_recipe_style(
                 text(move || match state.get() {
-                    DropzoneState::Failed(error) => error.to_string(),
+                    DropzoneState::Failed(_) => String::new(),
                     DropzoneState::Picking => "Choosing files…".into(),
                     DropzoneState::DragOver {
                         valid: kivact_interaction::Validity::Invalid(message),
