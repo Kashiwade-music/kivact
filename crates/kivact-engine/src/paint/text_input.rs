@@ -1,20 +1,12 @@
-//! Role: Paint a native text input: its text, selection, caret and preedit.
+//! Role: Render prepared native editor text, selection, caret and decoration facts.
 
 use crate::lower::effects::Tint;
+use crate::lower::input_paint::{InputPaintColor, InputPaintOp};
 use crate::model::Model;
-use crate::model::interact::{text_geometry, visual};
 use kivact_types::render::RenderCmd as D;
-use kivact_types::{NodeId, Point, Rect, Rgba};
+use kivact_types::{NodeId, Rect, Rgba};
 
 impl Model {
-    /// A text input: the lines of its value (the placeholder in its color,
-    /// else at half opacity, while empty) that reach `clip` within its
-    /// content box, scrolled to its caret, and while focused its selection,
-    /// caret and composition underline on them. Its lines are shaped one at
-    /// a time and shared with the caret, the pointer and the IME
-    /// (`text_input`); its line colors only change the color of its glyph
-    /// runs (a password and a placeholder have none), and are taken only
-    /// as far as the lines drawn.
     pub(super) fn paint_input(
         &self,
         id: NodeId,
@@ -24,65 +16,63 @@ impl Model {
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
     ) {
-        let host = &self;
-        let Some(n) = host.node(id) else {
+        let Some(prepared) = self.prepare_input_paint(id, bounds, clip, engine) else {
             return;
         };
-        let props = host.text_style(id);
-        let layout = host.computed_layout(id).unwrap_or_default();
-        let area = visual::content_at(bounds, layout.content_box);
-        let line = text_geometry::line_box(host, id, engine, area);
-        let left = area.x - text_geometry::input_scroll(host, id);
-        let Some((mut lines, shown)) = host.edit_lines(id, engine) else {
-            return;
-        };
-        let view = clip.intersect(&area);
-        let rows = lines.rows(view.y - line.y, view.bottom() - line.y);
-        lines.drawn(rows.clone());
-        out.push(D::PushClip(area));
-        let frame = InputPaint {
-            host,
-            id,
-            n,
-            props: &props,
-            area,
-            line,
-            left,
-            tint,
-        };
-        frame.selection(&mut lines, rows.clone(), engine, out);
-        frame.glyphs(&mut lines, shown, rows, engine, out);
+        out.push(D::PushClip(prepared.area));
+        for op in prepared.ops {
+            paint_op(op, tint, out);
+        }
         out.push(D::PopClip);
     }
 }
 
-/// Glyph runs of `shaped` at `(x, y)`, colored `color` of their shaped
-/// color.
-fn push_runs(
-    out: &mut crate::lower::SceneOut,
-    shaped: Option<&kivact_types::render::ShapedText>,
-    x: f64,
-    y: f64,
-    color: impl Fn(kivact_types::Rgba) -> kivact_types::Rgba,
-) {
-    for run in shaped.iter().flat_map(|shaped| &shaped.runs) {
-        out.push(D::Glyphs {
-            run: std::sync::Arc::clone(run),
-            origin: Point { x, y },
-            color: Some(color(run.color)),
-        });
-    }
-}
-
-fn clamp_range(text: &str, range: &std::ops::Range<usize>) -> std::ops::Range<usize> {
-    let floor = |offset: usize| {
-        let mut offset = offset.min(text.len());
-        while !text.is_char_boundary(offset) {
-            offset -= 1;
+fn paint_op(op: InputPaintOp, tint: &Tint, out: &mut crate::lower::SceneOut) {
+    match op {
+        InputPaintOp::Rect { rect, color } => out.push(D::Rect {
+            rect,
+            fill: kivact_types::render::Paint::Solid(match color {
+                InputPaintColor::Source(color) => tint.color(color),
+                InputPaintColor::Render(color) => tint.arvane(color),
+            }),
+        }),
+        InputPaintOp::Line {
+            from,
+            to,
+            width,
+            color,
+        } => out.push(D::Line {
+            from,
+            to,
+            width,
+            color: tint.color(color),
+        }),
+        InputPaintOp::RangeDecoration { rect, kind, color } => {
+            paint_decoration(out, rect, kind, tint.color(color))
         }
-        offset
-    };
-    floor(range.start)..floor(range.end)
+        InputPaintOp::Decoration { rect, color, style } => crate::lower::glyphs::decoration(
+            out,
+            rect,
+            kivact_types::render::Paint::Solid(tint.color(color)),
+            style,
+        ),
+        InputPaintOp::Glyphs {
+            shaped,
+            origin,
+            color,
+        } => {
+            for run in &shaped.runs {
+                out.push(D::Glyphs {
+                    run: run.clone(),
+                    origin,
+                    color: Some(match color {
+                        Some(color) => tint.color(color),
+                        None => tint.arvane(run.color),
+                    }),
+                });
+            }
+        }
+    }
 }
 
 fn paint_decoration(
@@ -128,248 +118,6 @@ fn paint_decoration(
                     rect: band,
                     fill: fill.clone(),
                 });
-            }
-        }
-    }
-}
-
-struct InputPaint<'a> {
-    host: &'a Model,
-    id: NodeId,
-    n: &'a crate::tree::node::HostNode,
-    props: &'a kivact_types::ComputedTextStyle,
-    area: Rect,
-    line: Rect,
-    left: f64,
-    tint: &'a Tint,
-}
-impl InputPaint<'_> {
-    fn selection(
-        &self,
-        lines: &mut crate::text_input::EditLines,
-        rows: std::ops::Range<usize>,
-        engine: &mut arvane::Engine,
-        out: &mut crate::lower::SceneOut,
-    ) {
-        let Self {
-            host,
-            id,
-            n,
-            props,
-            area,
-            line,
-            left,
-            tint,
-        } = *self;
-        let color = props.color;
-        let place = |r: Rect| Rect {
-            x: left + r.x,
-            y: line.y + r.y,
-            ..r
-        };
-        if host.focused()
-            == Some(kivact_types::FocusTarget {
-                node: id,
-                region: None,
-            })
-            && let Some(edit) = host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-        {
-            let value = edit.value();
-            // The shared selection bands of `range` on the drawn lines.
-            let mut spans = |range: std::ops::Range<usize>, engine: &mut arvane::Engine| {
-                let mut out = Vec::new();
-                for i in rows.clone() {
-                    let reached = lines
-                        .content(i)
-                        .is_some_and(|l| range.start <= l.end && range.end >= l.start);
-                    if reached {
-                        let bands =
-                            lines.spans(value, i, (range.start, range.end), area.width, engine);
-                        out.extend(bands.into_iter().map(place));
-                    }
-                }
-                out
-            };
-            let fill = kivact_types::render::Paint::Solid(match props.selection_color {
-                Some(own) => tint.color(own),
-                None => tint.arvane(Rgba {
-                    r: 0.2,
-                    g: 0.45,
-                    b: 0.85,
-                    a: 0.3,
-                }),
-            });
-            for rect in spans(edit.selection(), engine) {
-                out.push(D::Rect {
-                    rect,
-                    fill: fill.clone(),
-                });
-            }
-            let marked = edit.marked().map(|m| spans(m, engine));
-            out.push(D::Rect {
-                rect: place(lines.caret(value, edit.caret(), area.width, engine)),
-                fill: kivact_types::render::Paint::Solid(
-                    tint.color(props.caret_color.unwrap_or(color)),
-                ),
-            });
-            if let Some(marked) = marked {
-                for band in marked {
-                    out.push(D::Line {
-                        from: Point {
-                            x: band.x,
-                            y: band.bottom(),
-                        },
-                        to: Point {
-                            x: band.right(),
-                            y: band.bottom(),
-                        },
-                        width: 1.0,
-                        color: tint.color(color),
-                    });
-                }
-            }
-        }
-    }
-    fn glyphs(
-        &self,
-        lines: &mut crate::text_input::EditLines,
-        shown: &str,
-        rows: std::ops::Range<usize>,
-        engine: &mut arvane::Engine,
-        out: &mut crate::lower::SceneOut,
-    ) {
-        let Self {
-            n,
-            props,
-            area,
-            line,
-            left,
-            tint,
-            ..
-        } = *self;
-        let color = props.color;
-        // Placeholders are drawn in their color, else at half opacity.
-        let color = if lines.shows_value() {
-            color
-        } else {
-            props
-                .placeholder_color
-                .unwrap_or_else(|| color.with_alpha_mul(0.5))
-        };
-        let colors = n
-            .input_data()
-            .and_then(|data| data.colors.clone())
-            .filter(|_| lines.shows_value() && !n.password());
-        match &colors {
-            Some(colors) => lines.color(shown, colors, rows.end),
-            None => lines.uncolor(),
-        }
-        let base = kivact_types::Rgba::sanitize(color);
-        for i in rows {
-            self.line_decorations(lines, shown, i, engine, out);
-            let (x, y) = (
-                left + lines.offset(shown, i, area.width, engine),
-                line.y + i as f64 * lines.height(),
-            );
-            match colors
-                .as_ref()
-                .and_then(|_| lines.painted(shown, i, base, engine))
-            {
-                // Each run keeps its span's color, drawn through the tint.
-                Some(painted) => {
-                    push_runs(out, Some(&painted), x, y, |run| tint.arvane(run));
-                    // Decoration geometry comes from the same shaped ranges as the glyphs.
-                    for decoration in &painted.decorations {
-                        let rect = Rect {
-                            x: x + decoration.rect.x,
-                            y: y + decoration.rect.y,
-                            ..decoration.rect
-                        };
-                        crate::lower::glyphs::decoration(
-                            out,
-                            rect,
-                            kivact_types::render::Paint::Solid(tint.color(decoration.color)),
-                            decoration.style,
-                        );
-                    }
-                }
-                None => {
-                    let color = tint.color(color);
-                    let shaped = lines.shaped(shown, i, engine);
-                    push_runs(out, shaped.as_deref(), x, y, |_| color);
-                }
-            }
-        }
-    }
-    fn line_decorations(
-        &self,
-        lines: &mut crate::text_input::EditLines,
-        shown: &str,
-        i: usize,
-        engine: &mut arvane::Engine,
-        out: &mut crate::lower::SceneOut,
-    ) {
-        let Self {
-            n,
-            area,
-            line,
-            left,
-            tint,
-            ..
-        } = *self;
-        let place = |r: Rect| Rect {
-            x: left + r.x,
-            y: line.y + r.y,
-            ..r
-        };
-        let content = lines.content(i).unwrap_or(0..0);
-        let decorations = n
-            .input_data()
-            .and_then(|data| data.decorations.as_deref())
-            .unwrap_or(&[]);
-        let backgrounds = lines
-            .line(i)
-            .and_then(|(line, _)| line.colors())
-            .map(|colors| colors.spans.clone())
-            .unwrap_or_default();
-        for style in backgrounds {
-            if let Some(color) = style.background {
-                for rect in lines.spans(
-                    shown,
-                    i,
-                    (
-                        content.start + style.range.start,
-                        content.start + style.range.end,
-                    ),
-                    area.width,
-                    engine,
-                ) {
-                    out.push(D::Rect {
-                        rect: place(rect),
-                        fill: kivact_types::render::Paint::Solid(tint.color(color)),
-                    });
-                }
-            }
-        }
-        if lines.shows_value() && !n.password() {
-            for decoration in decorations {
-                let range = clamp_range(shown, &decoration.range);
-                if range.start >= range.end
-                    || range.start > content.end
-                    || range.end < content.start
-                {
-                    continue;
-                }
-                for rect in lines.spans(shown, i, (range.start, range.end), area.width, engine) {
-                    paint_decoration(
-                        out,
-                        place(rect),
-                        decoration.kind,
-                        tint.color(decoration.color),
-                    );
-                }
             }
         }
     }

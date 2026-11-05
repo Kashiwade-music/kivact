@@ -34,3 +34,5 @@ pub(crate) mod shape;
 
 mod asset_event;
 pub(crate) use asset_event::AssetEvent;
+
+pub(crate) mod input_paint;

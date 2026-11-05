@@ -7,3 +7,5 @@ mod sticky;
 pub(crate) mod text_geometry;
 
 mod caret;
+
+mod input_paint;
