@@ -49,3 +49,5 @@ skeleton は装飾です。reduced motion では時計を一時停止して静�
 | Basic kbd group、Soft の解析する shortcut | `kbd` の row または型付き `kbd_combo` |
 
 Creative の `KeyGlyph` は editor の keyframe marker を描く domain 型で、キーボードショートカットとは別のものとして残ります。
+
+`UiTokens::indicators.reduced_period_ms` は、動きを減らす設定でも spinner を必要な表示として遅い周期で回すオプションです。`None` は装飾的な動きを止めます。周期を指定した場合は一つのスコープ付き時計を使い、設定の変更にも追従します。
