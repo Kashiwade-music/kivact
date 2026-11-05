@@ -133,6 +133,8 @@ fn build() -> UiRecipes {
         .slider(crate::recipes_controls::slider)
         .toast(crate::recipes_controls::toast)
         .splitter(crate::recipes_controls::splitter)
+        .table(crate::recipes_collections::table)
+        .item_list(crate::recipes_collections::item_list)
         .list(crate::recipes_collections::list)
         .data_table(crate::recipes_collections::data_table)
         .progress(crate::recipes_controls::progress)
