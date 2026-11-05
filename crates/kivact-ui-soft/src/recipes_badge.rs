@@ -7,16 +7,27 @@ use kivact::ui::{BadgeState, Look};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BadgeVariant {
     #[default]
+    /// Use the neutral badge palette.
     Neutral,
+    /// Use the blue categorical badge palette.
     Blue,
+    /// Use the cyan categorical badge palette.
     Cyan,
+    /// Use the green categorical badge palette.
     Green,
+    /// Use the orange categorical badge palette.
     Orange,
+    /// Use the pink categorical badge palette.
     Pink,
+    /// Use the purple categorical badge palette.
     Purple,
+    /// Use the red categorical badge palette.
     Red,
+    /// Use the teal categorical badge palette.
     Teal,
+    /// Use the yellow categorical badge palette.
     Yellow,
+    /// Use the gray categorical badge palette.
     Gray,
 }
 impl kivact::ui::Variant for BadgeVariant {}

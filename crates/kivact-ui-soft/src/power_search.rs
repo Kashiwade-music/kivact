@@ -34,18 +34,26 @@ use std::hash::Hash;
 /// A filter over a named field. Values are stored as text for caller-defined search backends.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SearchFilter<K> {
+    /// Key of the field to which this filter applies.
     pub field: K,
+    /// Comparison performed against the field value.
     pub operator: SearchOperator,
+    /// Text operand interpreted by the caller search backend.
     pub value: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// Comparison choices offered by the structured search editor.
 pub enum SearchOperator {
+    /// Match an equal field value.
     Is,
+    /// Exclude an equal field value.
     IsNot,
+    /// Match a field value containing the operand.
     Contains,
 }
 
+/// A structured search editor bound to a collection of field filters.
 pub struct PowerSearch<K: ItemKey> {
     root: Node,
     label: Value<String>,
@@ -53,6 +61,7 @@ pub struct PowerSearch<K: ItemKey> {
     filters: Binding<Vec<SearchFilter<K>>>,
 }
 
+/// Build an editor for adding, changing and removing filters over the supplied keyed fields.
 pub fn power_search<K: ItemKey>(
     label: impl IntoText,
     fields: impl IntoValue<Vec<ListItem<K>>>,

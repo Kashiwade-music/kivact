@@ -40,20 +40,26 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MarkdownDensity {
     #[default]
+    /// Use standard spacing between Markdown blocks.
     Default,
+    /// Reduce spacing between Markdown blocks.
     Compact,
 }
 /// How the bounded content aligns within its available width.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ContentAlign {
     #[default]
+    /// Keep width-constrained content at the logical start.
     Start,
+    /// Center width-constrained content in its container.
     Center,
 }
 /// Enable copying permalinks from headings.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HeadingLinks {
+    /// Prefix added to generated heading fragment identifiers.
     pub id_prefix: String,
+    /// URL prefix prepended to generated heading fragment links.
     pub base_url: String,
 }
 

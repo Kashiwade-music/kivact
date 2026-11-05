@@ -6,8 +6,11 @@ use kivact::ui::{HeadingState, Look, Variant};
 /// Display typography independent of the heading's semantic level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HeadingDisplay {
+    /// Use the largest display heading typography.
     D1,
+    /// Use the medium display heading typography.
     D2,
+    /// Use the smallest display heading typography.
     D3,
 }
 impl Variant for HeadingDisplay {}
@@ -33,14 +36,19 @@ pub(super) fn heading(t: &Theme, look: &Look<HeadingState>) -> Style {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MetadataColumns {
     #[default]
+    /// Arrange description pairs in one column.
     Single,
+    /// Arrange description pairs in the standard multi-column grid.
     Multi,
+    /// Arrange description pairs in the specified number of columns.
     Count(u8),
 }
 /// Place terms beside or above their details.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LabelPosition {
+    /// Place terms at the logical start beside their details.
     Start,
+    /// Place terms above their details.
     Top,
 }
 

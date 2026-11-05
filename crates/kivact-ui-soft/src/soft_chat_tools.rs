@@ -45,27 +45,42 @@ use kivact::view::span;
 use kivact::view::text;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Execution status supplied by the application for a tool call.
 pub enum ToolStatus {
+    /// The tool has not started executing.
     Pending,
+    /// The tool is executing.
     Running,
     #[default]
+    /// The tool completed successfully.
     Complete,
+    /// The tool failed.
     Error,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Application-owned identity, execution result and optional diagnostics for one tool call.
 pub struct ToolCall {
+    /// Stable identity used when reconciling tool-call rows.
     pub key: String,
+    /// Tool name shown in the row.
     pub name: String,
+    /// Current execution status.
     pub status: ToolStatus,
+    /// Optional target description shown beside the tool name.
     pub target: Option<String>,
+    /// Optional execution duration.
     pub duration: Option<Duration>,
+    /// Number of additions shown in the change summary.
     pub additions: u32,
+    /// Number of deletions shown in the change summary.
     pub deletions: u32,
+    /// Optional failure details.
     pub error: Option<String>,
 }
 
 impl ToolCall {
+    /// Create a completed tool-call record with no target, duration or changes.
     pub fn new(key: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
             key: key.into(),
@@ -78,23 +93,28 @@ impl ToolCall {
             error: None,
         }
     }
+    /// Set the execution status displayed for this record.
     pub fn status(mut self, status: ToolStatus) -> Self {
         self.status = status;
         self
     }
+    /// Set the target description displayed for this record.
     pub fn target(mut self, target: impl Into<String>) -> Self {
         self.target = Some(target.into());
         self
     }
+    /// Set the displayed execution duration.
     pub fn duration(mut self, duration: Duration) -> Self {
         self.duration = Some(duration);
         self
     }
+    /// Set the addition and deletion counts in the change summary.
     pub fn diff(mut self, additions: u32, deletions: u32) -> Self {
         self.additions = additions;
         self.deletions = deletions;
         self
     }
+    /// Attach failure details and mark the call as an error.
     pub fn error(mut self, error: impl Into<String>) -> Self {
         self.status = ToolStatus::Error;
         self.error = Some(error.into());
@@ -104,6 +124,7 @@ impl ToolCall {
 
 type ToolDetails = kivact::view::ViewFn<Value<ToolCall>>;
 
+/// A labelled collection of tool calls with keyboard-operable group and detail disclosures.
 pub struct ChatToolCalls {
     root: Node,
     calls: Value<Vec<ToolCall>>,
@@ -112,6 +133,7 @@ pub struct ChatToolCalls {
     detail: Option<ToolDetails>,
 }
 
+/// Render reactive tool-call records with stable row identities.
 pub fn chat_tool_calls(calls: impl IntoValue<Vec<ToolCall>>) -> ChatToolCalls {
     ChatToolCalls {
         root: node(),
@@ -130,14 +152,17 @@ impl NodeBuilder for ChatToolCalls {
 }
 
 impl ChatToolCalls {
+    /// Set the accessible label of the tool-call group.
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self
     }
+    /// Bind the group disclosure to application-owned expansion state.
     pub fn expanded(mut self, expanded: impl IntoBinding<bool>) -> Self {
         self.expanded = Some(expanded.into_binding());
         self
     }
+    /// Render additional content for an expanded tool-call row.
     pub fn detail<V: IntoView>(mut self, detail: impl Fn(Value<ToolCall>) -> V + 'static) -> Self {
         self.detail = Some(detail.into());
         self
@@ -455,23 +480,34 @@ impl IntoView for ChatToolCalls {
     }
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Semantic color treatment of a substituted chat token.
 pub enum ChatTokenTone {
     #[default]
+    /// Use neutral token colors.
     Neutral,
+    /// Use informational token colors.
     Info,
+    /// Use successful token colors.
     Success,
+    /// Use warning token colors.
     Warning,
+    /// Use error token colors.
     Error,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// A source substring and its styled replacement label.
 pub struct ChatToken {
+    /// Nonempty source substring to replace when tokenizing text.
     pub value: String,
+    /// Visible replacement label.
     pub label: String,
+    /// Semantic color treatment of the replacement.
     pub tone: ChatTokenTone,
 }
 
 impl ChatToken {
+    /// Create a neutral token replacing the supplied source substring with a label.
     pub fn badge(value: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
             value: value.into(),
@@ -479,6 +515,7 @@ impl ChatToken {
             tone: ChatTokenTone::Neutral,
         }
     }
+    /// Set the semantic color treatment of this token.
     pub fn tone(mut self, tone: ChatTokenTone) -> Self {
         self.tone = tone;
         self
@@ -496,6 +533,7 @@ fn token_colors(tone: ChatTokenTone) -> (kivact::style::Color, kivact::style::Co
     }
 }
 
+/// Render a standalone styled chat token label.
 pub fn chat_token(token: ChatToken) -> impl kivact::view::Component {
     let tone = token.tone;
     text(token.label).with_node(move |node| {
@@ -544,6 +582,7 @@ fn tokenize(source: &str, tokens: &[ChatToken]) -> Vec<Span> {
     spans
 }
 
+/// Render text with matching source substrings replaced by styled token labels.
 pub fn chat_tokenized_text(
     source: impl IntoText,
     tokens: impl IntoValue<Vec<ChatToken>>,
@@ -554,17 +593,23 @@ pub fn chat_tokenized_text(
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Reveal pacing used while streamed text is arriving.
 pub enum StreamSpeed {
     #[default]
+    /// Reveal text in the standard paced batches.
     Natural,
+    /// Use shorter ticks and smaller reveal batches.
     Fast,
+    /// Show the complete target immediately.
     Instant,
 }
 
+/// Reveal a reactive target at the natural pace while streaming is active.
 pub fn use_streaming_text(target: impl IntoText, streaming: impl IntoValue<bool>) -> Value<String> {
     streaming_text(target, streaming, StreamSpeed::Natural)
 }
 
+/// Reveal a reactive target at the selected pace, respecting reduced motion.
 pub fn streaming_text(
     target: impl IntoText,
     streaming: impl IntoValue<bool>,

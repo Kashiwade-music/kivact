@@ -6,30 +6,40 @@ use kivact::ui::{CodeBlockRecipes, CodeBlockState, Look};
 /// Source text size.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CodeBlockSize {
+    /// Use small source typography.
     Sm,
     #[default]
+    /// Use standard source typography.
     Md,
 }
 /// Outer width policy.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum CodeBlockWidth {
     #[default]
+    /// Fit the source block within the available width.
     Fit,
+    /// Fill the available width.
     Fill,
+    /// Use the specified outer width in pixels.
     Px(f64),
 }
 /// Source block framing.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CodeBlockContainer {
     #[default]
+    /// Paint a bordered, rounded source card.
     Card,
+    /// Render source without the outer card frame.
     Section,
 }
 /// Read-only reactive appearance of a standard code block.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CodeAppearance {
+    /// Reactive source typography size.
     pub size: Value<CodeBlockSize>,
+    /// Reactive outer width policy.
     pub width: Value<CodeBlockWidth>,
+    /// Reactive card or frameless treatment.
     pub container: Value<CodeBlockContainer>,
 }
 impl Default for CodeAppearance {

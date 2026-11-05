@@ -12,6 +12,7 @@ pub struct PaginationAppearance {
     size: Value<ControlSize>,
 }
 impl PaginationAppearance {
+    /// Create a pagination appearance with a reactive standard control size.
     pub fn new(size: impl IntoValue<ControlSize>) -> Self {
         Self {
             size: size.into_value(),

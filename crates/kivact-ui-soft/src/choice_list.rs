@@ -28,12 +28,14 @@ use kivact::view::for_each;
 use kivact::view::node_ref;
 use kivact::view::show_some;
 
+/// A labelled group of checkboxes bound to the selected item keys.
 pub struct CheckboxList<K: ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
     value: Binding<Vec<K>>,
 }
 
+/// Build checkbox rows from keyed options and a writable collection of selected keys.
 pub fn checkbox_list<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
@@ -48,6 +50,7 @@ pub fn checkbox_list<K: ItemKey>(
     }
 }
 
+/// Build mutually exclusive option rows with the canonical radio-group behavior.
 pub fn radio_list<K: ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,

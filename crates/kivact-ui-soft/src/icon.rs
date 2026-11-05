@@ -16,40 +16,64 @@ use std::rc::Rc;
 /// The icon size option.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum IconSize {
+    /// Use the extra-small icon dimensions from the theme.
     Xs,
+    /// Use the small icon dimensions from the theme.
     Sm,
     #[default]
+    /// Use the standard icon dimensions from the theme.
     Md,
+    /// Use the large icon dimensions from the theme.
     Lg,
 }
 
 /// The icon color option.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum IconColor {
+    /// Use primary icon ink.
     Primary,
+    /// Use secondary icon ink.
     Secondary,
+    /// Use the secondary ink for a tertiary treatment.
     Tertiary,
+    /// Use disabled icon ink.
     Disabled,
+    /// Use accent icon ink.
     Accent,
+    /// Use informational text ink.
     Info,
+    /// Use successful text ink.
     Success,
+    /// Use error text ink.
     Error,
+    /// Use warning text ink.
     Warning,
     #[default]
+    /// Inherit foreground ink from the surrounding content.
     Inherit,
+    /// Use the blue categorical icon ink.
     Blue,
+    /// Use the red categorical icon ink.
     Red,
+    /// Use the green categorical icon ink.
     Green,
+    /// Use the gray categorical icon ink.
     Gray,
+    /// Use the cyan categorical icon ink.
     Cyan,
+    /// Use the teal categorical icon ink.
     Teal,
+    /// Use the yellow categorical icon ink.
     Yellow,
+    /// Use the orange categorical icon ink.
     Orange,
+    /// Use the pink categorical icon ink.
     Pink,
+    /// Use the purple categorical icon ink.
     Purple,
 }
 
-/// A theme icon created with [`icon`].
+/// A theme icon created with [`icon_view`].
 pub struct IconView {
     root: Node,
     options: Rc<Cell<(IconSize, IconColor)>>,
