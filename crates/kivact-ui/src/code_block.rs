@@ -1,4 +1,5 @@
 //! Role: Display selectable source code with themed syntax, numbering and clipboard feedback.
+use crate::chat_values::CodeBlockState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
@@ -11,15 +12,6 @@ use kivact_core::view::{
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
-// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
-/// Rendered source facts supplied to code-block recipes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct CodeBlockState {
-    pub numbered: bool,
-    pub wrapped: bool,
-    pub expanded: bool,
-    pub copied: bool,
-}
 // xtask-allow(state-fields): Independent builder inputs and slots; native editing, use_disclosure and use_copy_feedback own interaction state.
 /// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {

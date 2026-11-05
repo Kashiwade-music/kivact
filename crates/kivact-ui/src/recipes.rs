@@ -44,7 +44,6 @@
 //! `chevron-right` for a submenu, `chevron-down` and the selected option's
 //! `check` for a select, and `x` for the close of a dialog and a toast. A
 //! look without a mark makes the recipe's box zero-sized.
-use super::DataTableGroupState;
 use super::look_feedback;
 use super::values::{
     AxisState, ButtonState, CheckableState, DataTableCellState, DataTableCheckState,
@@ -57,6 +56,7 @@ use crate::component_values::{
     AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
     StatState,
 };
+use crate::data_table::group_state::DataTableGroupState;
 use crate::{look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
@@ -524,17 +524,17 @@ recipe_table! {
 
 recipe_table! {
     /// The recipes of a [`disclosure`](super::disclosure); all of them get
-    /// the trigger's or the content's [`crate::DisclosureRecipeState`].
+    /// the trigger's or the content's [`crate::disclosure_values::DisclosureRecipeState`].
     DisclosureRecipes {
         /// The column of the trigger over the content.
-        root(root_recipe): crate::DisclosureRecipeState = look_extra::disclosure_root,
+        root(root_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_root,
         /// The trigger: the title and the indicator in a row.
-        trigger(trigger_recipe): crate::DisclosureRecipeState = look_extra::disclosure_trigger,
+        trigger(trigger_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_trigger,
         /// The box of the trigger's `chevron-down` icon, which a look turns
         /// while the content is open.
-        indicator(indicator_recipe): crate::DisclosureRecipeState = look_extra::disclosure_indicator,
+        indicator(indicator_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_indicator,
         /// The content under the trigger.
-        content(content_recipe): crate::DisclosureRecipeState = look_extra::disclosure_content,
+        content(content_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_content,
     }
 }
 
@@ -620,14 +620,14 @@ recipe_table! {
     UiRecipes {
         /// Typography for a semantic heading.
         heading(heading_recipe): HeadingState = look_metrics::heading,
-        avatar_status(avatar_status_recipe): crate::AvatarState = super::look_indicators::avatar_status,
+        avatar_status(avatar_status_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status,
         avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
-        avatar(avatar_recipe): crate::AvatarState = super::look_indicators::avatar,
+        avatar(avatar_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar,
         kbd(kbd_recipe): () = super::look_indicators::kbd,
-        badge(badge_recipe): crate::BadgeState = super::look_indicators::badge,
-        badge_label(badge_label_recipe): crate::BadgeState = super::look_indicators::badge_label,
-        spinner(spinner_recipe): crate::SpinnerState = super::look_indicators::spinner,
-        skeleton(skeleton_recipe): crate::SkeletonState = super::look_indicators::skeleton,
+        badge(badge_recipe): crate::indicator_values::BadgeState = super::look_indicators::badge,
+        badge_label(badge_label_recipe): crate::indicator_values::BadgeState = super::look_indicators::badge_label,
+        spinner(spinner_recipe): crate::indicator_values::SpinnerState = super::look_indicators::spinner,
+        skeleton(skeleton_recipe): crate::indicator_values::SkeletonState = super::look_indicators::skeleton,
         button(button_recipe): ButtonState = look::button,
         /// The row of a button's icons, label and children.
         button_content(button_content_recipe): ButtonState = look::button_content,
@@ -742,12 +742,12 @@ impl TabsRecipes {
 recipe_table! {
     /// Styles for a carousel's persistent parts.
     CarouselRecipes {
-        root(root_recipe): crate::CarouselSurfaceState = look_files::carousel_root,
-        viewport(viewport_recipe): crate::CarouselSurfaceState = look_files::carousel_viewport,
-        track(track_recipe): crate::CarouselSurfaceState = look_files::carousel_track,
-        slide(slide_recipe): crate::CarouselSurfaceState = look_files::carousel_slide,
-        previous(previous_recipe): crate::CarouselSurfaceState = look_files::carousel_control,
-        next(next_recipe): crate::CarouselSurfaceState = look_files::carousel_control,
+        root(root_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_root,
+        viewport(viewport_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_viewport,
+        track(track_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_track,
+        slide(slide_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_slide,
+        previous(previous_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_control,
+        next(next_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_control,
     }
 }
 recipe_table! {
@@ -763,7 +763,7 @@ recipe_table! {
 recipe_table! {
     /// Toolbar surface recipes.
     ToolbarRecipes {
-        root(root_recipe): crate::collection_values::ToolbarState = crate::toolbar::root_style,
+        root(root_recipe): crate::collection_values::ToolbarState = crate::toolbar_look::root_style,
     }
 }
 recipe_table! {
@@ -870,15 +870,15 @@ recipe_table! {
 recipe_table! {
     /// Progress list and individual step recipes.
     StepperRecipes {
-        root(root_recipe): crate::StepperState = crate::look_navigation::stepper_root,
-        previous(previous_recipe): crate::StepperState = crate::look_navigation::part,
-        next(next_recipe): crate::StepperState = crate::look_navigation::part,
-        item(item_recipe): crate::StepperItemState = crate::look_navigation::stepper_item,
-        indicator(indicator_recipe): crate::StepperItemState = crate::look_navigation::part,
-        label(label_recipe): crate::StepperItemState = crate::look_navigation::part,
-        description(description_recipe): crate::StepperItemState = crate::look_navigation::part,
-        content(content_recipe): crate::StepperItemState = crate::look_navigation::part,
-        end_content(end_content_recipe): crate::StepperItemState = crate::look_navigation::part,
+        root(root_recipe): crate::navigation_values::StepperState = crate::look_navigation::stepper_root,
+        previous(previous_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
+        next(next_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
+        item(item_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_item,
+        indicator(indicator_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        label(label_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        description(description_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        content(content_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        end_content(end_content_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
     }
 }
 recipe_table! {
@@ -971,17 +971,17 @@ recipe_table! {
 recipe_table! {
     /// Styles for the persistent parts of CodeBlock.
     CodeBlockRecipes {
-        root(root_recipe): crate::CodeBlockState = crate::look_chat::code_root,
-        header(header_recipe): crate::CodeBlockState = crate::look_chat::code_header,
-        title(title_recipe): crate::CodeBlockState = crate::look_chat::slot,
-        collapse(collapse_recipe): crate::CodeBlockState = crate::look_chat::slot,
-        language(language_recipe): crate::CodeBlockState = crate::look_chat::muted,
-        copy(copy_recipe): crate::CodeBlockState = crate::look_chat::slot,
-        end_content(end_content_recipe): crate::CodeBlockState = crate::look_chat::slot,
-        body(body_recipe): crate::CodeBlockState = crate::look_chat::code_body,
-        viewport(viewport_recipe): crate::CodeBlockState = crate::look_chat::code_viewport,
-        code(code_recipe): crate::CodeBlockState = crate::look_chat::code_text,
-        gutter(gutter_recipe): crate::CodeBlockState = crate::look_chat::code_gutter,
-        footer(footer_recipe): crate::CodeBlockState = crate::look_chat::row,
+        root(root_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_root,
+        header(header_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_header,
+        title(title_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
+        collapse(collapse_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
+        language(language_recipe): crate::chat_values::CodeBlockState = crate::look_chat::muted,
+        copy(copy_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
+        end_content(end_content_recipe): crate::chat_values::CodeBlockState = crate::look_chat::slot,
+        body(body_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_body,
+        viewport(viewport_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_viewport,
+        code(code_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_text,
+        gutter(gutter_recipe): crate::chat_values::CodeBlockState = crate::look_chat::code_gutter,
+        footer(footer_recipe): crate::chat_values::CodeBlockState = crate::look_chat::row,
     }
 }

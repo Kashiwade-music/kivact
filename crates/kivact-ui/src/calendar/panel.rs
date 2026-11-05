@@ -164,7 +164,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             .child(event_marks(shared, day, marked)),
         |r| r.calendar_recipes().day_recipe(),
         &shared.variants,
-        move || crate::CalendarDayVisual {
+        move || crate::calendar::state::CalendarDayVisual {
             date: day,
             day: marked.get(),
             today: day == today.get(),
@@ -210,7 +210,7 @@ fn event_marks(
                         node(),
                         |r| r.calendar_recipes().event_recipe(),
                         &variants,
-                        move || crate::CalendarEventVisual {
+                        move || crate::calendar_tokens::CalendarEventVisual {
                             color: event.color,
                             selected: marked.get().edge,
                         },

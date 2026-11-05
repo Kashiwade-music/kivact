@@ -12,14 +12,6 @@ use kivact_core::view::{
 };
 use kivact_interaction::Tone;
 
-/// The structural presentation of an alert.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum AlertVariant {
-    #[default]
-    Default,
-    Banner,
-}
-impl Variant for AlertVariant {}
 #[derive(Clone, Copy, PartialEq)]
 enum BannerState {
     Shown { restore: Option<NodeToken> },

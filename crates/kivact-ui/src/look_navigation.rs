@@ -20,7 +20,7 @@ pub(super) fn breadcrumb_root(t: &Theme, _: &Look<()>) -> Style {
         .font_size(t.text().size)
         .color(ColorToken::Text)
 }
-pub(super) fn stepper_root(t: &Theme, _: &Look<crate::StepperState>) -> Style {
+pub(super) fn stepper_root(t: &Theme, _: &Look<crate::navigation_values::StepperState>) -> Style {
     let p = &t.ext::<crate::UiTokens>().stepper;
     style()
         .direction(Direction::Row)
@@ -38,7 +38,10 @@ pub(super) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) 
         .font_size(t.text().size)
         .color(ColorToken::Text)
 }
-pub(super) fn stepper_item(t: &Theme, look: &Look<crate::StepperItemState>) -> Style {
+pub(super) fn stepper_item(
+    t: &Theme,
+    look: &Look<crate::navigation_values::StepperItemState>,
+) -> Style {
     let p = &t.ext::<crate::UiTokens>().stepper;
     style()
         .direction(Direction::Row)

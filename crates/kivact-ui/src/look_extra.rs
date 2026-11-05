@@ -248,11 +248,17 @@ pub(super) fn field_error(t: &Theme, _: &FieldState) -> Style {
 }
 
 /// A disclosure: the trigger over the content.
-pub(super) fn disclosure_root(_: &Theme, _: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_root(
+    _: &Theme,
+    _: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style().direction(Direction::Column)
 }
 /// A disclosure's trigger: the title at the start and the indicator at the end.
-pub(super) fn disclosure_trigger(t: &Theme, _: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_trigger(
+    t: &Theme,
+    _: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -267,7 +273,10 @@ pub(super) fn disclosure_trigger(t: &Theme, _: &crate::DisclosureRecipeState) ->
         .pressed(style().background(ColorToken::Pressed))
 }
 /// The box of a disclosure's `chevron-down` icon, turned up while it is open.
-pub(super) fn disclosure_indicator(_: &Theme, state: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_indicator(
+    _: &Theme,
+    state: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
@@ -275,7 +284,10 @@ pub(super) fn disclosure_indicator(_: &Theme, state: &crate::DisclosureRecipeSta
         .rotate(if state.open { 180 } else { 0 })
 }
 /// A disclosure's content under the trigger.
-pub(super) fn disclosure_content(t: &Theme, _: &crate::DisclosureRecipeState) -> Style {
+pub(super) fn disclosure_content(
+    t: &Theme,
+    _: &crate::disclosure_values::DisclosureRecipeState,
+) -> Style {
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)

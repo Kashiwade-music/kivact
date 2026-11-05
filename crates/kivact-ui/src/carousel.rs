@@ -1,4 +1,5 @@
 //! Role: Render binding-driven translated or native scrolling carousels.
+use crate::carousel_values::{CarouselMode, CarouselSurfaceState};
 use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, memo};
 use kivact_core::style::{Direction, Overflow, pct, style};
@@ -7,28 +8,8 @@ use kivact_core::view::{
     ScrollBehavior, View, node, node_ref, use_direction,
 };
 pub use kivact_interaction::Snap;
-/// Passive navigation and layout facts supplied to carousel recipes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct CarouselSurfaceState {
-    pub state: kivact_interaction::CarouselState,
-    pub orientation: Orientation,
-    pub direction: ReadingDirection,
-}
-impl std::ops::Deref for CarouselSurfaceState {
-    type Target = kivact_interaction::CarouselState;
-    fn deref(&self) -> &Self::Target {
-        &self.state
-    }
-}
 
 use kivact_interaction::use_carousel;
-/// The structural layout used by a carousel.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum CarouselMode {
-    #[default]
-    Translate,
-    Scroll,
-}
 // xtask-allow(state-fields): Independent setup-only NodeBuilder options; navigation and settling live in CarouselState.
 /// A slide viewport and previous/next controls.
 pub struct Carousel {

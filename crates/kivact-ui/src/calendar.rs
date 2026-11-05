@@ -2,7 +2,7 @@
 mod caption;
 mod navigation;
 mod panel;
-mod state;
+pub(crate) mod state;
 mod view;
 pub use state::{CalendarCaption, CalendarDayVisual, CalendarEvent};
 pub use view::{Calendar, calendar};

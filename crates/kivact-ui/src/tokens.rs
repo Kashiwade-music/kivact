@@ -11,7 +11,7 @@ use kivact_core::style::{Theme, ThemeExtension};
 pub struct UiTokens {
     pub chat: crate::ChatTokens,
     pub code_block: crate::CodeBlockTokens,
-    pub indicators: crate::IndicatorTokens,
+    pub indicators: crate::indicator_values::IndicatorTokens,
     pub tree: crate::collection_values::TreeTokens,
     pub table: crate::collection_values::TableTokens,
     pub item_list: crate::collection_values::ItemListTokens,
