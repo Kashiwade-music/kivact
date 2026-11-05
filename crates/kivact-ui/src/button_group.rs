@@ -55,19 +55,19 @@ pub struct ButtonGroupMemberState {
 }
 
 #[derive(Clone, Copy)]
-struct GroupAxis(Orientation);
+struct GroupAxis(Value<Orientation>);
 
 #[derive(Clone, Copy)]
 struct GroupSize(ControlSize);
 
 #[derive(Clone, Copy)]
-struct GroupPosition(ButtonGroupMemberState);
+struct GroupPosition(Value<ButtonGroupMemberState>);
 
 /// A named set of action controls with one keyboard Tab stop.
 pub struct ButtonGroup<C> {
     root: Node,
     children: C,
-    orientation: Orientation,
+    orientation: Value<Orientation>,
     size: Value<ControlSize>,
     variants: Variants,
 }
@@ -79,15 +79,15 @@ pub fn button_group<C: IntoChildren>(label: impl IntoText, children: C) -> Butto
     ButtonGroup {
         root: node().role(Role::Group).name(label),
         children,
-        orientation: Orientation::Horizontal,
+        orientation: Orientation::Horizontal.into_value(),
         size: crate::values::default_control_size().into_value(),
         variants: Variants::default(),
     }
 }
 impl<C> ButtonGroup<C> {
-    /// The layout and keyboard axis, fixed for this group.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
+    /// The constant or reactive layout and keyboard axis.
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        self.orientation = orientation.into_value();
         self
     }
     /// Inherited size for children without an explicit size.
@@ -110,7 +110,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
     fn into_view(self) -> View {
         let orientation = self.orientation;
         let size = self.size;
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let direction = use_direction();
         let members = self.variants.clone();
         let children = provide(GroupAxis(orientation), move || {
             provide(GroupSize(size.get()), move || {
@@ -121,20 +121,20 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
                         .into_iter()
                         .enumerate()
                         .map(move |(index, child)| {
-                            let state = ButtonGroupMemberState {
+                            let state = kivact_core::state::memo(move || ButtonGroupMemberState {
                                 layout: ButtonGroupState {
-                                    orientation,
+                                    orientation: orientation.get(),
                                     size: size.get(),
-                                    rtl,
+                                    rtl: direction.get() == ReadingDirection::Rtl,
                                 },
                                 first: index == 0,
                                 last: index + 1 == count,
-                            };
+                            });
                             with_base_recipe_style(
                                 node(),
                                 |r| r.button_group_recipes().member_recipe(),
                                 &members,
-                                move || state,
+                                move || state.get(),
                             )
                             .child(provide(GroupPosition(state), move || child))
                         })
@@ -147,9 +147,9 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
             |r| r.button_group_recipes().root_recipe(),
             &self.variants,
             move || ButtonGroupState {
-                orientation,
+                orientation: orientation.get(),
                 size: size.get(),
-                rtl,
+                rtl: direction.get() == ReadingDirection::Rtl,
             },
         )
         .child(children)
@@ -170,20 +170,21 @@ impl NodeBuilder for ButtonGroupCell {
 }
 impl IntoView for ButtonGroupCell {
     fn into_view(self) -> View {
-        let orientation =
-            try_use_context::<GroupAxis>().map_or(Orientation::Horizontal, |axis| axis.get().0);
-        let state = ButtonGroupState {
-            orientation,
+        let orientation = try_use_context::<GroupAxis>()
+            .map_or_else(|| Orientation::Horizontal.into_value(), |axis| axis.get().0);
+        let state = kivact_core::state::memo(move || ButtonGroupState {
+            orientation: orientation.get(),
             size: crate::values::default_control_size(),
             rtl: use_direction().get() == ReadingDirection::Rtl,
-        };
+        });
         let root = if self.separator {
-            self.root
-                .orientation(if orientation == Orientation::Vertical {
+            self.root.orientation(move || {
+                if orientation.get() == Orientation::Vertical {
                     Orientation::Horizontal
                 } else {
                     Orientation::Vertical
-                })
+                }
+            })
         } else {
             self.root
         };
@@ -195,7 +196,7 @@ impl IntoView for ButtonGroupCell {
                 |r| r.button_group_recipes().text_recipe()
             },
             &Variants::default(),
-            move || state,
+            move || state.get(),
         )
         .into_view()
     }
@@ -316,7 +317,7 @@ impl IntoView for ButtonGroupMember {
                 };
                 let base = style().pressed(style().scale(1));
                 let Some(position) =
-                    try_use_context::<GroupPosition>().map(|position| position.get().0)
+                    try_use_context::<GroupPosition>().map(|position| position.get().0.get())
                 else {
                     return base;
                 };
