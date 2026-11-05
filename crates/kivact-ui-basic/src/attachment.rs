@@ -49,6 +49,7 @@ pub enum AttachmentMediaVariant {
     Image,
 }
 
+// xtask-allow(state-fields): Independent setup inputs and slots; transfer status is a caller-owned read-only Value, and shared button input owns activation.
 /// A file chip (attachment.tsx). Created by [`attachment`].
 pub struct Attachment {
     root: Node,
@@ -65,6 +66,7 @@ pub struct Attachment {
 
 kivact::state::constant_value!(AttachmentState);
 
+// xtask-allow(state-fields): Read-only style arguments from independent size, orientation, transfer status and actual slot availability; this record has no state owner.
 /// What the root style of an [`Attachment`] reads once it is turned into a view.
 #[derive(Clone, Copy)]
 struct Cfg {
@@ -243,7 +245,6 @@ impl IntoView for Attachment {
         let has_media = self.media.is_some();
         let media_variant = self.media_variant;
         let actionable = self.on_press.is_some();
-        let uploading = move || state.get() == AttachmentState::Uploading;
         let (root, _) = pressable(self.root, Role::Button, self.on_press);
         let cfg = Cfg {
             size,
@@ -253,54 +254,9 @@ impl IntoView for Attachment {
             state,
         };
         let root = root.base_style(move || root_style(cfg));
-        let side = move || media_side(size.get());
-        let glyph = kivact::state::memo(move || {
-            if vertical.get() {
-                24.0
-            } else if size.get() == AttachmentSize::Xs {
-                14.0
-            } else {
-                16.0
-            }
-        });
-        let media = self.media.map(|media| {
-            let picture = match media_variant {
-                AttachmentMediaVariant::Icon => sized_icon(media, glyph),
-                AttachmentMediaVariant::Image => node().child(media),
-            };
-            node()
-                .style(move || {
-                    let p = kivact::style::use_tokens::<crate::Tokens>();
-                    let current = state.get();
-                    let failed = current == AttachmentState::Error;
-                    let s = style()
-                        .direction(Direction::Row)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center)
-                        .shrink(0)
-                        .overflow(Overflow::Hidden)
-                        .background(if failed {
-                            p.destructive.with_alpha(0.1)
-                        } else {
-                            p.muted
-                        })
-                        .color(if failed { p.destructive } else { p.foreground });
-                    let s = if vertical.get() {
-                        s.width(pct(100)).aspect_ratio(1.0)
-                    } else {
-                        s.size(side(), side())
-                    };
-                    if media_variant == AttachmentMediaVariant::Image
-                        && matches!(current, AttachmentState::Uploading | AttachmentState::Error)
-                    {
-                        s.opacity(0.6)
-                    } else {
-                        s
-                    }
-                })
-                .child(show(uploading, move || sized_icon(spinner(), glyph)))
-                .child(picture.hidden(uploading))
-        });
+        let media = self
+            .media
+            .map(|media| render_media(media, media_variant, cfg));
         let content = column((
             text(self.title).style(style().weight(500).single_line()),
             self.description.map(|description| {
@@ -366,3 +322,60 @@ kivact::state::constant_value!(AttachmentSize);
 
 impl kivact::ui::Variant for AttachmentSize {}
 impl kivact::ui::Variant for AttachmentMediaVariant {}
+
+fn render_media(media: View, media_variant: AttachmentMediaVariant, cfg: Cfg) -> Node {
+    let Cfg {
+        size,
+        vertical,
+        state,
+        ..
+    } = cfg;
+    let uploading = move || state.get() == AttachmentState::Uploading;
+    let side = move || media_side(size.get());
+    let glyph = kivact::state::memo(move || {
+        if vertical.get() {
+            24.0
+        } else if size.get() == AttachmentSize::Xs {
+            14.0
+        } else {
+            16.0
+        }
+    });
+
+    let picture = match media_variant {
+        AttachmentMediaVariant::Icon => sized_icon(media, glyph),
+        AttachmentMediaVariant::Image => node().child(media),
+    };
+    node()
+        .style(move || {
+            let p = kivact::style::use_tokens::<crate::Tokens>();
+            let current = state.get();
+            let failed = current == AttachmentState::Error;
+            let s = style()
+                .direction(Direction::Row)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center)
+                .shrink(0)
+                .overflow(Overflow::Hidden)
+                .background(if failed {
+                    p.destructive.with_alpha(0.1)
+                } else {
+                    p.muted
+                })
+                .color(if failed { p.destructive } else { p.foreground });
+            let s = if vertical.get() {
+                s.width(pct(100)).aspect_ratio(1.0)
+            } else {
+                s.size(side(), side())
+            };
+            if media_variant == AttachmentMediaVariant::Image
+                && matches!(current, AttachmentState::Uploading | AttachmentState::Error)
+            {
+                s.opacity(0.6)
+            } else {
+                s
+            }
+        })
+        .child(show(uploading, move || sized_icon(spinner(), glyph)))
+        .child(picture.hidden(uploading))
+}

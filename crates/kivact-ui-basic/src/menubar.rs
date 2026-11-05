@@ -118,27 +118,7 @@ impl<K: kivact::state::ItemKey> kivact::view::IntoView for Menubar<K> {
                 // `Menu::attach` keeps the role the trigger has.
                 .with_node(|root| root.role(Role::MenuItem))
                 .name(title)
-                .style(move || {
-                    let p = kivact::style::use_tokens::<crate::Tokens>();
-                    let active = style().background(p.muted);
-                    style()
-                        .direction(Direction::Row)
-                        .align_items(Align::Center)
-                        .padding_x(6)
-                        .padding_y(3.2)
-                        .radius(0)
-                        .font_size(12)
-                        .weight(500)
-                        .text_wrap(false)
-                        .color(p.foreground)
-                        .background(if shown.get() {
-                            p.muted
-                        } else {
-                            Color::TRANSPARENT
-                        })
-                        .hover(active.clone())
-                        .focus_visible(active)
-                })
+                .style(move || bar_trigger_style(shown.get()))
                 .child(text(title));
             let anchor = kivact::view::node_ref();
             let trigger = trigger
@@ -171,7 +151,25 @@ impl<K: kivact::state::ItemKey> kivact::view::IntoView for Menubar<K> {
     }
 }
 
-/// Render menu levels; MenuApi owns every interaction and keyboard transition.
+fn bar_trigger_style(open: bool) -> kivact::style::Style {
+    let p = kivact::style::use_tokens::<crate::Tokens>();
+    let active = style().background(p.muted);
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .padding_x(6)
+        .padding_y(3.2)
+        .radius(0)
+        .font_size(12)
+        .weight(500)
+        .text_wrap(false)
+        .color(p.foreground)
+        .background(if open { p.muted } else { Color::TRANSPARENT })
+        .hover(active.clone())
+        .focus_visible(active)
+}
+
+/// Render a level under the existing menu authority.
 fn menu_surface<K: kivact::state::ItemKey>(
     menu: MenuApi<K>,
     anchor: kivact::view::NodeRef,
@@ -182,132 +180,7 @@ fn menu_surface<K: kivact::state::ItemKey>(
         let rows = kivact::view::for_each(
             menu.entries(),
             |(row, _)| row.clone(),
-            move |entry| {
-                let key = entry.get().0;
-                use kivact::interaction::{MenuCheck, MenuItemKind, MenuRow};
-                match key {
-                    MenuRow::Item { key, kind } => {
-                        let part = menu.item(key.clone());
-                        let state = part.state();
-                        let anchor = kivact::view::node_ref();
-                        let data = memo(move || entry.get().1);
-                        let mark = node()
-                            .style(move || {
-                                crate::recipes_menu::bar_check(
-                                    &kivact::style::use_theme().get(),
-                                    state.get(),
-                                )
-                            })
-                            .child(kivact::view::dynamic(
-                                move || data.get().check(),
-                                |check| match check {
-                                    Some(MenuCheck::Radio(true)) => {
-                                        Some(kivact::view::icon("menu-radio"))
-                                    }
-                                    Some(MenuCheck::Checkbox(true)) => {
-                                        Some(kivact::view::icon("check"))
-                                    }
-                                    _ => None,
-                                },
-                            ));
-                        let item = row((
-                            mark,
-                            kivact::view::show(
-                                move || data.get().is_inset(),
-                                || node().style(style().width(16).shrink(0)),
-                            ),
-                            kivact::view::dynamic(
-                                move || data.get().icon().cloned(),
-                                |glyph| glyph.map(kivact::view::icon),
-                            ),
-                            kivact::view::column((
-                                text(move || data.get().label()),
-                                kivact::view::dynamic(
-                                    move || data.get().description(),
-                                    |description| {
-                                        description.map(|description| {
-                                            text(description).style(
-                                                style().color(crate::ColorName::MutedForeground),
-                                            )
-                                        })
-                                    },
-                                ),
-                            ))
-                            .style(style().grow(1)),
-                            text(move || data.get().shortcut().to_owned()).style(move || {
-                                crate::recipes_menu::bar_shortcut(
-                                    &kivact::style::use_theme().get(),
-                                    state.get(),
-                                )
-                            }),
-                            (kind == MenuItemKind::Submenu).then(|| {
-                                kivact::view::icon("chevron-right").style(style().size(16, 16))
-                            }),
-                        ))
-                        .with_node(|root| root.part(part))
-                        .node_ref(anchor)
-                        .style(move || {
-                            crate::recipes_menu::bar_item(
-                                &kivact::style::use_theme().get(),
-                                state.get(),
-                            )
-                        });
-                        let reason = memo(move || {
-                            data.with(|entry| {
-                                if entry.is_disabled() {
-                                    entry.disabled_reason()
-                                } else {
-                                    None
-                                }
-                            })
-                        });
-                        let retain_disabled = kivact::style::use_theme()
-                            .get()
-                            .ext::<kivact::interaction::InteractionPolicy>()
-                            .menu
-                            .disabled_focus
-                            == kivact::interaction::DisabledMenuFocus::Retain;
-                        let item = if retain_disabled {
-                            kivact::ui::tooltip(move || reason.get().unwrap_or_default())
-                                .enabled(move || {
-                                    reason.with(|reason| {
-                                        reason.as_ref().is_some_and(|reason| !reason.is_empty())
-                                    })
-                                })
-                                .placement(Placement::End)
-                                .attach(item)
-                        } else {
-                            item.into_view()
-                        };
-                        let child = (kind == MenuItemKind::Submenu).then(|| {
-                            menu_surface(
-                                menu.submenu(key),
-                                anchor,
-                                memo(move || data.get().label()),
-                                true,
-                            )
-                        });
-                        (item, child).into_view()
-                    }
-                    MenuRow::Label(_) => text(move || entry.get().1.label())
-                        .style(
-                            style()
-                                .padding(8)
-                                .font_size(12)
-                                .color(crate::ColorName::MutedForeground),
-                        )
-                        .into_view(),
-                    MenuRow::Separator(_) => node()
-                        .with_node(|root| root.role(Role::Separator))
-                        .style(
-                            style()
-                                .height(1)
-                                .margin_y(4)
-                                .background(crate::ColorName::Border),
-                        )
-                        .into_view(),
-                }
-            },
+            move |entry| menu_row(menu, entry),
         );
         kivact::view::overlay(
             anchor,
@@ -324,4 +197,136 @@ fn menu_surface<K: kivact::state::ItemKey>(
         .offset(if sub { 0.0 } else { 8.0 })
         .with_node(|node| node.part(menu.content()).name(label))
     })
+}
+
+fn menu_row<K: kivact::state::ItemKey>(
+    menu: MenuApi<K>,
+    entry: kivact::state::Value<(kivact::interaction::MenuRow<K>, MenuEntry<K>)>,
+) -> View {
+    use kivact::interaction::MenuRow;
+    match entry.get().0 {
+        MenuRow::Item { key, kind } => menu_item(menu, key, kind, memo(move || entry.get().1)),
+        MenuRow::Label(_) => text(move || entry.get().1.label())
+            .style(
+                style()
+                    .padding(8)
+                    .font_size(12)
+                    .color(crate::ColorName::MutedForeground),
+            )
+            .into_view(),
+        MenuRow::Separator(_) => node()
+            .role(Role::Separator)
+            .style(
+                style()
+                    .height(1)
+                    .margin_y(4)
+                    .background(crate::ColorName::Border),
+            )
+            .into_view(),
+    }
+}
+
+fn menu_item<K: kivact::state::ItemKey>(
+    menu: MenuApi<K>,
+    key: K,
+    kind: kivact::interaction::MenuItemKind,
+    data: kivact::state::Value<MenuEntry<K>>,
+) -> View {
+    let anchor = kivact::view::node_ref();
+    let item = menu_button(menu.item(key.clone()), data, kind, anchor);
+    let reason = memo(move || {
+        data.with(|entry| {
+            if entry.is_disabled() {
+                entry.disabled_reason()
+            } else {
+                None
+            }
+        })
+    });
+    let retain_disabled = kivact::style::use_theme()
+        .get()
+        .ext::<kivact::interaction::InteractionPolicy>()
+        .menu
+        .disabled_focus
+        == kivact::interaction::DisabledMenuFocus::Retain;
+    let item = if retain_disabled {
+        kivact::ui::tooltip(move || reason.get().unwrap_or_default())
+            .enabled(move || {
+                reason.with(|reason| reason.as_ref().is_some_and(|reason| !reason.is_empty()))
+            })
+            .placement(Placement::End)
+            .attach(item)
+    } else {
+        item.into_view()
+    };
+    let child = (kind == kivact::interaction::MenuItemKind::Submenu).then(|| {
+        menu_surface(
+            menu.submenu(key),
+            anchor,
+            memo(move || data.get().label()),
+            true,
+        )
+    });
+    (item, child).into_view()
+}
+
+fn menu_button<K: kivact::state::ItemKey>(
+    part: kivact::custom::Part<kivact::interaction::MenuItemState>,
+    data: kivact::state::Value<MenuEntry<K>>,
+    kind: kivact::interaction::MenuItemKind,
+    anchor: kivact::view::NodeRef,
+) -> Node {
+    let state = part.state();
+    row((
+        menu_mark(data, state),
+        kivact::view::show(
+            move || data.get().is_inset(),
+            || node().style(style().width(16).shrink(0)),
+        ),
+        kivact::view::dynamic(
+            move || data.get().icon().cloned(),
+            |glyph| glyph.map(kivact::view::icon),
+        ),
+        kivact::view::column((
+            text(move || data.get().label()),
+            kivact::view::dynamic(
+                move || data.get().description(),
+                |description| {
+                    description.map(|description| {
+                        text(description).style(style().color(crate::ColorName::MutedForeground))
+                    })
+                },
+            ),
+        ))
+        .style(style().grow(1)),
+        text(move || data.get().shortcut().to_owned()).style(move || {
+            crate::recipes_menu::bar_shortcut(&kivact::style::use_theme().get(), state.get())
+        }),
+        (kind == kivact::interaction::MenuItemKind::Submenu)
+            .then(|| kivact::view::icon("chevron-right").style(style().size(16, 16))),
+    ))
+    .part(part)
+    .node_ref(anchor)
+    .style(move || crate::recipes_menu::bar_item(&kivact::style::use_theme().get(), state.get()))
+}
+
+fn menu_mark<K: kivact::state::ItemKey>(
+    data: kivact::state::Value<MenuEntry<K>>,
+    state: kivact::state::Value<kivact::interaction::MenuItemState>,
+) -> Node {
+    node()
+        .style(move || {
+            crate::recipes_menu::bar_check(&kivact::style::use_theme().get(), state.get())
+        })
+        .child(kivact::view::dynamic(
+            move || data.get().check(),
+            |check| {
+                use kivact::interaction::MenuCheck;
+                match check {
+                    Some(MenuCheck::Radio(true)) => Some(kivact::view::icon("menu-radio")),
+                    Some(MenuCheck::Checkbox(true)) => Some(kivact::view::icon("check")),
+                    _ => None,
+                }
+            },
+        ))
 }

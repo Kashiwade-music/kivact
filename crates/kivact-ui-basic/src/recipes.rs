@@ -24,6 +24,10 @@ use kivact::view::CheckedState;
 /// their recipes by identity and installing the kit's theme again never
 /// restyles.
 pub(crate) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Immutable process-wide recipe data preserves shared identity between themes; this is not a component field initialized after construction."
+    )]
     static RECIPES: std::sync::OnceLock<UiRecipes> = std::sync::OnceLock::new();
     RECIPES.get_or_init(build).clone()
 }

@@ -96,6 +96,7 @@ pub enum ChartKind {
     Radial,
 }
 
+// xtask-allow(state-fields): Borrowed arguments for one paint or hit test; grid, axis and orientation are independent presentation options, not stored chart state.
 /// The data and options of one paint or hit test.
 pub(super) struct Frame<'a> {
     pub(super) config: &'a ChartConfig,

@@ -4,8 +4,8 @@
 //! after the provider has established its normal context boundary. A part used
 //! outside a provider behaves as an expanded sidebar and its trigger does nothing.
 
+use kivact::state::Binding;
 use kivact::state::try_use_context;
-use kivact::state::{Binding, Value};
 
 /// The side of the window a sidebar sits on.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -51,7 +51,6 @@ pub(crate) const WIDTH_ICON: f64 = 48.0;
 #[derive(Clone, Copy)]
 pub(crate) struct SidebarCx {
     pub(crate) open: Binding<bool>,
-    pub(crate) shown: Value<bool>,
     pub(crate) side: SidebarSide,
     pub(crate) variant: SidebarVariant,
     pub(crate) collapsible: SidebarCollapsible,
@@ -61,13 +60,13 @@ impl SidebarCx {
     /// Open or close the sidebar, unless it cannot close.
     pub(crate) fn toggle(self) {
         if self.collapsible != SidebarCollapsible::None {
-            self.open.set(!self.shown.get());
+            self.open.set(!self.open.get());
         }
     }
 
     /// Whether the sidebar is currently an icon column.
     pub(crate) fn icon_only(self) -> bool {
-        self.collapsible == SidebarCollapsible::Icon && !self.shown.get()
+        self.collapsible == SidebarCollapsible::Icon && !self.open.get()
     }
 }
 
