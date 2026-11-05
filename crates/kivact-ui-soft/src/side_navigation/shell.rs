@@ -9,7 +9,7 @@ use crate::resizable::{
     PillPlacement, ResizableConfig, ResizableState, ResizeSize, resize_handle, use_resizable,
 };
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::i18n::message;
 use kivact::motion::Spring;
 use kivact::motion::Transition;
@@ -226,7 +226,7 @@ impl IntoView for SideNav {
             let resize_style = resize.clone();
             let target = move || {
                 if cx.rail() {
-                    tokens().spacing.s12
+                    kivact::style::use_tokens::<crate::Tokens>().spacing.s12
                 } else {
                     resize_style.as_ref().map_or(260.0, ResizableState::size)
                 }
@@ -252,7 +252,7 @@ impl IntoView for SideNav {
                     top.map(|slot| slot.call(())),
                 ))
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let mut base = style().gap(t.spacing.s2).shrink(0);
                     if has_top && mode == ShellNavMode::Desktop {
                         base = base.padding(t.spacing.s2);
@@ -263,7 +263,7 @@ impl IntoView for SideNav {
                     base
                 });
                 let items = column(children).style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let mut base = style().gap(t.spacing.s0_5);
                     if mode == ShellNavMode::Desktop {
                         base = base
@@ -301,14 +301,14 @@ impl IntoView for SideNav {
                                 logical_row()
                             })
                             .align_items(Align::Center)
-                            .gap(tokens().spacing.s1)
+                            .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
                     });
                     column((
                         footer.map(|slot| node().hidden(move || cx.rail()).child(slot.call(()))),
                         controls,
                     ))
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let mut base = style().margin_top(auto()).gap(t.spacing.s2).shrink(0);
                         if mode == ShellNavMode::Desktop {
                             base = base

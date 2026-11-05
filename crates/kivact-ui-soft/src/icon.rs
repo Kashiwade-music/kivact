@@ -1,5 +1,5 @@
 //! Role: Render themed icons with Neutral sizing and optional color.
-use crate::tokens;
+
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::style::Icon as IconSource;
@@ -102,7 +102,7 @@ impl IntoView for Icon {
 
 /// Resolve the Neutral icon size and color against the current theme.
 pub fn icon_style(size: IconSize, color: IconColor) -> Style {
-    let tokens = tokens();
+    let tokens = kivact::style::use_tokens::<crate::Tokens>();
     let s = &tokens.sizes;
     let size = match size {
         IconSize::Xs => s.icon_xsm,

@@ -1,7 +1,7 @@
 //! Role: Render navigation headings and their shared keyboard-operated menus.
 use crate::side_navigation::items::logical_row;
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::i18n::{message, message_with};
 use kivact::interaction::Delays;
 use kivact::interaction::use_hover_surface;
@@ -180,7 +180,7 @@ pub(crate) fn nav_menu_view(
                 let leading = item.icon.as_ref().map(|slot| {
                     node()
                         .style(move || {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             let base = style()
                                 .shrink(0)
                                 .align_items(Align::Center)
@@ -197,7 +197,7 @@ pub(crate) fn nav_menu_view(
                         .child(slot.call(()))
                 });
                 let label = text(item.label).style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let base = style().single_line().color(t.colors.text_primary);
                     if heading {
                         base
@@ -214,13 +214,13 @@ pub(crate) fn nav_menu_view(
                         style().grow(1).min_width(0).gap(if heading {
                             0.0
                         } else {
-                            tokens().spacing.s1
+                            kivact::style::use_tokens::<crate::Tokens>().spacing.s1
                         })
                     }),
                 ))
                 .with_node(move |node| node.part(part))
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let input = state.get().input;
                     let (x, y) = if !heading {
                         (t.spacing.s3, t.spacing.s3)
@@ -261,8 +261,8 @@ pub(crate) fn nav_menu_view(
             .style(|| {
                 style()
                     .direction(logical_row())
-                    .padding(tokens().spacing.s2)
-                    .gap(tokens().spacing.s2)
+                    .padding(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
                     .align_items(Align::Center)
                     .justify_content(Justify::SpaceBetween)
             })
@@ -270,7 +270,7 @@ pub(crate) fn nav_menu_view(
         let surface = column((popup_header, rows))
             .node_ref(panel_ref)
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let anchor_width = anchor.rect().get().map_or(0.0, |rect| rect.width);
                 popup_surface()
                     .min_width(if heading {
@@ -286,7 +286,8 @@ pub(crate) fn nav_menu_view(
                     })
             });
         let offset = if heading {
-            -anchor.rect().get().map_or(0.0, |rect| rect.height) - tokens().spacing.s2
+            -anchor.rect().get().map_or(0.0, |rect| rect.height)
+                - kivact::style::use_tokens::<crate::Tokens>().spacing.s2
         } else {
             4.0
         };
@@ -300,7 +301,7 @@ pub(crate) fn nav_menu_view(
 }
 
 pub(crate) fn supporting() -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.supporting;
     style()
         .font_size(role.size_px)
@@ -310,7 +311,7 @@ pub(crate) fn supporting() -> kivact::style::Style {
 }
 
 pub(crate) fn popup_surface() -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let hidden = style()
         .opacity(0.0)
         .translate_y(-t.spacing.s2)
@@ -442,7 +443,7 @@ impl IntoView for SideNavHeading {
                     node()
                         .hidden(rail)
                         .style(|| {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             style()
                                 .size(t.sizes.control_sm, t.sizes.control_sm)
                                 .align_items(Align::Center)
@@ -450,7 +451,7 @@ impl IntoView for SideNavHeading {
                                 .color(t.colors.icon_secondary)
                         })
                         .child(icon("chevron-down").style(move || {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             style()
                                 .size(t.sizes.icon_sm, t.sizes.icon_sm)
                                 .rotate(if open.get() { 180 } else { 0 })
@@ -464,7 +465,7 @@ impl IntoView for SideNavHeading {
                     chevron,
                 ))
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let mut base = style()
                         .direction(logical_row())
                         .gap(t.spacing.s2)
@@ -522,7 +523,7 @@ fn heading_text(label: Value<String>, action: Option<Callback<()>>, primary: boo
         if !primary {
             return supporting();
         }
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         let role = t.typography.large;
         style()
             .font_size(role.size_px)
@@ -537,7 +538,7 @@ fn heading_text(label: Value<String>, action: Option<Callback<()>>, primary: boo
             .focusable(true)
             .on_press(move || action.call(()))
             .style(|| {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style().focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
             })
             .child(label_view)

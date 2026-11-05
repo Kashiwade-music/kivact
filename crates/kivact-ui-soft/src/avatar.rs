@@ -2,7 +2,7 @@
 use crate::avatar_group::AvatarGroupContext;
 use crate::avatar_options::{AvatarShape, AvatarSize};
 use crate::avatar_status_dot::{AvatarStatusContext, status_metrics};
-use crate::tokens;
+
 use kivact::i18n::message_with;
 use kivact::state::Callback;
 use kivact::state::IntoValue;
@@ -275,8 +275,17 @@ impl IntoView for Avatar {
 
 pub(crate) fn group_frame(look: Style, side: f64, rtl: bool) -> Style {
     let look = look
-        .border(2, tokens().colors.bg_surface)
-        .background(tokens().colors.bg_surface);
+        .border(
+            2,
+            kivact::style::use_tokens::<crate::Tokens>()
+                .colors
+                .bg_surface,
+        )
+        .background(
+            kivact::style::use_tokens::<crate::Tokens>()
+                .colors
+                .bg_surface,
+        );
     let overlap = -(side * 0.25).round();
     if rtl {
         look.margin_right(overlap)
@@ -286,7 +295,7 @@ pub(crate) fn group_frame(look: Style, side: f64, rtl: bool) -> Style {
 }
 
 pub(crate) fn avatar_focus(look: Style) -> Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     look.focus_visible(style().ring_with_offset(
         p.sizes.focus_ring_width,
         p.sizes.focus_ring_offset,
@@ -313,7 +322,7 @@ fn avatar_content(
     };
     node()
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .size(side, side)
                 .radius(shape.radius())
@@ -329,7 +338,7 @@ fn avatar_content(
             move || {
                 text(move || meaningful(name).map_or_else(String::new, |name| initials(&name)))
                     .style(move || {
-                        let p = tokens();
+                        let p = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .font_size(side * 0.4)
                             .line_height(1.0)

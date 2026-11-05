@@ -27,7 +27,7 @@ fn settings_feedback() -> impl IntoView {
                         .on_dismiss(move || saved.set(false))
                 }),
             ))
-            .style(|| style().gap(soft::tokens().spacing.s3))
+            .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
         },
     )
 }

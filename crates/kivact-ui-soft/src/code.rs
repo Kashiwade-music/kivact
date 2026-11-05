@@ -1,5 +1,5 @@
 //! Role: Display an inline code fragment in the Neutral monospace treatment.
-use crate::tokens;
+
 use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::view::Node;
@@ -65,7 +65,7 @@ impl IntoView for Code {
         } = self;
         root.with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let mut look = style()
                     .font_family(p.typography.family_code)
                     .background(p.colors.bg_muted)

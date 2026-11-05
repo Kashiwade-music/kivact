@@ -1,6 +1,6 @@
 //! Role: Select or drop native paths and validate them before publishing.
 use crate::recipes_field::frame;
-use crate::theme_access::tokens;
+
 use kivact::custom::PartState;
 use kivact::i18n::message;
 use kivact::platform::FileDialog;
@@ -250,7 +250,7 @@ impl IntoView for FileInput {
         let control = row((trigger, clear))
             .node_ref(anchor)
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let s = frame(
                     &t,
                     &PartState {
@@ -284,7 +284,13 @@ impl IntoView for FileInput {
                 text(move || status.get().unwrap_or_default())
                     .node_ref(alert_ref)
                     .with_node(move |node| node.role(Role::Alert))
-                    .style(move || style().font_size(12).color(tokens().colors.text_error))
+                    .style(move || {
+                        style().font_size(12).color(
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .colors
+                                .text_error,
+                        )
+                    })
             },
         );
         root.child(column((control, alert)).style(style().gap(4)))

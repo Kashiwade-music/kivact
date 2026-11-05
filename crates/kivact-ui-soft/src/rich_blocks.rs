@@ -1,6 +1,6 @@
 //! Role: Edit source-preserving Markdown blocks using native wrapped text fields.
+use crate::markdown;
 use crate::rich_block_doc::{Block, Document, Kind};
-use crate::{markdown, tokens};
 use kivact::custom::EditContext;
 use kivact::custom::EditLineLayout;
 use kivact::custom::EditOutcome;
@@ -207,7 +207,11 @@ impl Editor {
                 }
             })
             .line_styles(
-                move || tokens().colors.text_secondary,
+                move || {
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_secondary
+                },
                 move |color, line, &()| {
                     let marks = if prose {
                         line.char_indices()
@@ -309,7 +313,7 @@ impl Editor {
                     style()
                         .padding(8)
                         .radius(6)
-                        .background(tokens().colors.bg_muted)
+                        .background(kivact::style::use_tokens::<crate::Tokens>().colors.bg_muted)
                 })
                 .into_view()
             }
@@ -446,14 +450,18 @@ fn move_to(reference: NodeRef, forward: bool, x: f64) {
 
 fn selection_style(whole: bool) -> Style {
     if whole {
-        style().background(tokens().colors.accent_muted)
+        style().background(
+            kivact::style::use_tokens::<crate::Tokens>()
+                .colors
+                .accent_muted,
+        )
     } else {
         style()
     }
 }
 
 fn editor_style(kind: &Kind, whole: bool) -> Style {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let base = selection_style(whole)
         .grow(1)
         .min_width(0)

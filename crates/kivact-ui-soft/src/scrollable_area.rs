@@ -1,6 +1,6 @@
 //! Role: Add a named, keyboard-accessible Neutral scroll viewport.
 use crate::stack::{ContainerInset, Padding, Space, padding_options, rtl};
-use crate::tokens;
+
 use kivact::state::IntoValue;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
@@ -139,7 +139,7 @@ impl IntoView for ScrollableArea {
             let focused = viewport.focused();
             let root = root.with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let mut base = style()
                         .min_height(0)
                         .min_width(0)

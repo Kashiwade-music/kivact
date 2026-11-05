@@ -4,7 +4,7 @@ use crate::media_query::{Breakpoint, viewport_below};
 use crate::mobile_nav::{AppShellMobile, mobile_nav, mobile_nav_toggle};
 use crate::scrollable_area::scrollable_area;
 use crate::stack::{ContainerInset, Space, rtl};
-use crate::tokens;
+
 use kivact::state::IntoBinding;
 use kivact::state::Value;
 use kivact::view::IntoViewFn;
@@ -270,7 +270,7 @@ impl IntoView for AppShell {
                     .node_ref(skip_ref)
                     .on_press(move || skip.send(SkipEvent::Activate))
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         if skip_focused.get() {
                             let base = style()
                                 .position(Position::Fixed)
@@ -327,7 +327,7 @@ impl IntoView for AppShell {
                                 auto_toggle.then(mobile_nav_toggle),
                             ))
                             .style(|| {
-                                let t = tokens();
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
                                 style()
                                     .direction(if rtl() {
                                         Direction::RowReverse
@@ -344,7 +344,7 @@ impl IntoView for AppShell {
                 ))
                 .node_ref(header_ref)
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let visible =
                         has_banner || has_top || (mobile.is_mobile() && auto_toggle && enabled);
                     let mut base = style()
@@ -372,7 +372,7 @@ impl IntoView for AppShell {
                         let nav = desktop_side.as_ref().map(|slot| slot.call(()));
                         node()
                             .style(move || {
-                                let t = tokens();
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
                                 let mut base =
                                     style().direction(Direction::Column).shrink(0).min_height(0);
                                 if variant.get() == ShellVariant::Section {
@@ -399,7 +399,7 @@ impl IntoView for AppShell {
                     },
                 );
                 let main_style = move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let mut base = style()
                         .direction(Direction::Column)
                         .grow(1)
@@ -523,7 +523,7 @@ impl IntoView for AppShell {
 }
 
 fn shell_background(variant: ShellVariant) -> kivact::style::Color {
-    let colors = tokens().colors;
+    let colors = kivact::style::use_tokens::<crate::Tokens>().colors;
     match variant {
         ShellVariant::Wash | ShellVariant::Elevated => colors.bg_body,
         ShellVariant::Surface | ShellVariant::Section => colors.bg_surface,

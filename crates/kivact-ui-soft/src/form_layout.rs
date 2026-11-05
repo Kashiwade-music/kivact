@@ -1,6 +1,6 @@
 //! Role: Arrange fields with Neutral form spacing.
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::node;
@@ -77,7 +77,7 @@ impl IntoView for FormLayout {
         } = self;
         root.with_node(move |node| {
             node.base_style(move || {
-                let spacing = tokens().spacing;
+                let spacing = kivact::style::use_tokens::<crate::Tokens>().spacing;
                 let base = style().gap(spacing.s4);
                 match context.direction {
                     FormDirection::Horizontal => base
@@ -112,7 +112,7 @@ pub fn form_row(label: impl IntoView, field: impl IntoView) -> impl IntoView {
                     let cx = kivact::state::try_use_context::<FormLayoutCx>()
                         .map(|value| value.get())
                         .unwrap_or_default();
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let base = style();
                     if cx.direction == FormDirection::HorizontalLabels
                         && kivact::platform::window_size().get().width > 480.0

@@ -4,7 +4,7 @@ use kivact::interaction::IntoSelection;
 use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
 
-use crate::{ItemDensity, tokens};
+use crate::ItemDensity;
 use kivact::i18n::message;
 use kivact::interaction::Selection;
 use kivact::interaction::TreeItemState;
@@ -190,7 +190,7 @@ impl<K: ItemKey> IntoView for TreeList<K> {
                     )
                     .child(
                         icon(if rtl { "chevron-left" } else { "chevron-right" }).style(move || {
-                            let p = tokens();
+                            let p = kivact::style::use_tokens::<crate::Tokens>();
                             let angle = if state.get().branch.is_expanded() {
                                 if rtl { -90.0 } else { 90.0 }
                             } else {
@@ -221,7 +221,7 @@ impl<K: ItemKey> IntoView for TreeList<K> {
                 .with_node(move |node| node.part(attachment))
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let p = tokens();
+                        let p = kivact::style::use_tokens::<crate::Tokens>();
                         let state = state.get();
                         let level = state.level.saturating_sub(1);
                         let mut style = style()

@@ -1,6 +1,6 @@
 //! Role: Display images in a modal gallery with captions and zoom.
 use crate::recipes_dialog::{body_text, scrim};
-use crate::theme_access::tokens;
+
 use kivact::interaction::use_dialog;
 use kivact::motion::Easing;
 use kivact::motion::Transition;
@@ -236,7 +236,7 @@ impl IntoView for Lightbox {
                     .with_node(move |node| node.role(Role::Status))
                     .live_region(LiveRegion::Polite)
                     .style(move || {
-                        body_text(&tokens())
+                        body_text(&kivact::style::use_tokens::<crate::Tokens>())
                             .color(rgb(0xffffff))
                             .position(Position::Absolute)
                     });
@@ -275,7 +275,7 @@ impl IntoView for Lightbox {
                         .style(control_position().top(pct(50)).right(12).margin_top(-16));
                     let counter = text(move || format!("{} / {}", active() + 1, media.get().len()))
                         .style(|| {
-                            body_text(&tokens())
+                            body_text(&kivact::style::use_tokens::<crate::Tokens>())
                                 .color(rgb(0xffffff))
                                 .position(Position::Absolute)
                                 .top(12)
@@ -286,7 +286,10 @@ impl IntoView for Lightbox {
             );
             let backdrop = node()
                 .with_node(move |node| node.role(Role::Generic))
-                .style(|| scrim(&tokens()).position(Position::Absolute))
+                .style(|| {
+                    scrim(&kivact::style::use_tokens::<crate::Tokens>())
+                        .position(Position::Absolute)
+                })
                 .on_press(move || open.set(false));
             let frame = column((backdrop, content, close, zoom_control, controls))
                 .style(|| {

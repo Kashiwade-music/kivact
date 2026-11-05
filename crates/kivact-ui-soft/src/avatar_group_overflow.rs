@@ -2,7 +2,7 @@
 use crate::avatar::{avatar_focus, group_frame};
 use crate::avatar_group::AvatarGroupContext;
 use crate::avatar_options::{AvatarShape, AvatarSize};
-use crate::tokens;
+
 use kivact::i18n::message_with;
 use kivact::state::Callback;
 use kivact::state::IntoText;
@@ -102,7 +102,7 @@ impl IntoView for AvatarGroupOverflow {
         });
         let surface = node()
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .height(pct(100))
                     .min_width(side)
@@ -120,7 +120,7 @@ impl IntoView for AvatarGroupOverflow {
             .child(label);
         root.with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let look = style()
                     .height(side + 4.0)
                     .min_width(side + 4.0)

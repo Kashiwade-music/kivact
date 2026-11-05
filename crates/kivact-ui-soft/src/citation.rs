@@ -1,5 +1,5 @@
 //! Role: Present a document source as an inline label or numbered citation.
-use crate::{IconSize, icon, tokens};
+use crate::{IconSize, icon};
 use kivact::i18n::message_with;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
@@ -113,7 +113,7 @@ impl IntoView for Citation {
                 image(asset)
                     .fit(ImageFit::Cover)
                     .style(|| {
-                        let size = tokens().sizes.icon_xsm;
+                        let size = kivact::style::use_tokens::<crate::Tokens>().sizes.icon_xsm;
                         style().size(size, size)
                     })
                     .into_view(),
@@ -134,7 +134,7 @@ impl IntoView for Citation {
         root.name(move || title.clone().unwrap_or_else(|| name.get()))
             .with_node(move |node| {
                 node.base_style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let look = style()
                         .direction(if rtl {
                             Direction::RowReverse
@@ -199,7 +199,7 @@ impl IntoView for Citation {
             .child(media.map(|media| {
                 node()
                     .style(|| {
-                        let p = tokens();
+                        let p = kivact::style::use_tokens::<crate::Tokens>();
                         let side = p.sizes.icon_sm;
                         style()
                             .size(side, side)

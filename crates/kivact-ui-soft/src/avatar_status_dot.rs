@@ -1,5 +1,5 @@
 //! Role: Draw presence indicators and report their labels to the containing avatar.
-use crate::tokens;
+
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::node;
@@ -155,21 +155,26 @@ impl IntoView for AvatarStatusDot {
                 AvatarStatus::Neutral => Some(node().style(move || {
                     style()
                         .size(field, field)
-                        .radius(tokens().radius.full)
-                        .border(stroke, tokens().colors.text_secondary)
+                        .radius(kivact::style::use_tokens::<crate::Tokens>().radius.full)
+                        .border(
+                            stroke,
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .colors
+                                .text_secondary,
+                        )
                 })),
                 AvatarStatus::Error => Some(node().style(move || {
                     style()
                         .size(field * 0.75, stroke)
-                        .radius(tokens().radius.full)
-                        .background(tokens().colors.on_error)
+                        .radius(kivact::style::use_tokens::<crate::Tokens>().radius.full)
+                        .background(kivact::style::use_tokens::<crate::Tokens>().colors.on_error)
                 })),
                 _ => None,
             }
         };
         root.with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let (fill, ink) = match status {
                     AvatarStatus::Success => (p.colors.success, p.colors.on_success),
                     AvatarStatus::Neutral => (p.colors.bg_surface, p.colors.text_secondary),

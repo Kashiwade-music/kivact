@@ -1,7 +1,7 @@
 //! Role: Searchable keyed suggestions with a native editor and an anchored list.
 use crate::recipes_field::{frame, text as text_style};
 use crate::selector_surface::{SelectorPresentation, sheet, touch_tap};
-use crate::theme_access::tokens;
+
 use kivact::Result;
 use kivact::custom::PartState;
 use kivact::i18n::{message, message_with};
@@ -378,7 +378,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                         })
                         .style(style().size(16, 16).padding(0));
                     row((text(shown), remove)).style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         style()
                             .height(24)
                             .padding_left(8)
@@ -397,7 +397,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
             .node_ref(anchor)
             .with_node(move |node| node.focus_on_press(input_ref))
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let s = frame(
                     &t,
                     &PartState {
@@ -435,7 +435,7 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                         .with_node(move |node| node.part(item))
                         .child(text(text_value))
                         .style(move || {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             let s = text_style(
                                 style()
                                     .min_height(32)
@@ -467,12 +467,17 @@ impl<K: ItemKey> IntoView for Typeahead<K> {
                     .name(label)
                     .style(style().max_height(292)),
                 show(no_results, move || {
-                    text(status)
-                        .style(move || style().padding(8).color(tokens().colors.text_secondary))
+                    text(status).style(move || {
+                        style().padding(8).color(
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .colors
+                                .text_secondary,
+                        )
+                    })
                 }),
             ))
             .style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let base = style().width(pct(100)).max_height(300).padding(4);
                 if in_sheet {
                     return base;

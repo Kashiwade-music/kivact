@@ -1,6 +1,6 @@
 //! Role: Attach a delayed nonmodal preview to a trigger.
 use crate::recipes_dialog::{anchored, body_text, shadows};
-use crate::theme_access::tokens;
+
 use kivact::interaction::Delays;
 use kivact::interaction::use_delayed;
 use kivact::state::IntoBinding;
@@ -180,7 +180,7 @@ impl HoverCard {
         }
         let panel = show(open, move || {
             let panel = column(self.content.call(())).style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let base = shadows(body_text(&p), &p.shadows.med)
                     .direction(Direction::Column)
                     .background(p.colors.bg_surface)
@@ -234,7 +234,11 @@ pub fn hover_card_text(label: impl kivact::state::IntoText) -> kivact::view::Nod
     kivact::view::text(label).focusable(true).style(|| {
         kivact::style::style()
             .text_decoration(kivact::style::TextDecorationLine::UNDERLINE)
-            .text_decoration_color(tokens().colors.border_emphasized)
+            .text_decoration_color(
+                kivact::style::use_tokens::<crate::Tokens>()
+                    .colors
+                    .border_emphasized,
+            )
             .text_underline_offset(2)
     })
 }

@@ -1,9 +1,9 @@
 //! Role: Neutral text links with explicit native activation.
 use kivact::state::IntoValue;
 
+use crate::TextKind;
 use crate::feedback::icon_box;
 use crate::recipe_style::ring;
-use crate::{TextKind, tokens};
 use kivact::custom::part;
 use kivact::state::Callback;
 use kivact::state::IntoText;
@@ -223,7 +223,7 @@ impl IntoView for Link {
         let lines = self.max_lines;
         root.with_node(move |node| {
             node.base_style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let typography = &t.typography;
                 let metrics = match kind {
                     TextKind::Body => Some(typography.body),

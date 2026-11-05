@@ -2,7 +2,6 @@
 use kivact::state::IntoValue;
 use kivact::view::NodeBuilder;
 
-use crate::tokens;
 use kivact::i18n::{message, message_with};
 use kivact::state::Value;
 use kivact::state::memo;
@@ -71,7 +70,7 @@ pub fn kbd(shortcut: &str) -> impl kivact::view::Component {
         .into_iter()
         .map(|glyph| {
             row(text(glyph)).style(|| {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .height(20)
                     .min_width(20)

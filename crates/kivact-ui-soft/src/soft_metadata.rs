@@ -1,7 +1,6 @@
 //! Role: Key-value metadata arranged in a neutral grid.
 use kivact::view::IntoChildren;
 
-use crate::tokens;
 use kivact::i18n::message;
 use kivact::interaction::use_disclosure;
 use kivact::state::Binding;
@@ -115,7 +114,11 @@ impl MetadataItem {
                     .font_size(14)
                     .line_height(20.0 / 14.0)
                     .weight(500)
-                    .color(tokens().colors.text_secondary)
+                    .color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
             }),
         ))
         .node_ref(label_ref)
@@ -124,10 +127,11 @@ impl MetadataItem {
             .with_node(move |node| node.role(Role::Group))
             .with_node(move |node| node.labelled_by(label_ref))
             .style(move || {
-                style()
-                    .min_width(0)
-                    .grow(1)
-                    .color(tokens().colors.text_primary)
+                style().min_width(0).grow(1).color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_primary,
+                )
             })
             .child(self.value);
         (self.root, label, value)
@@ -344,7 +348,7 @@ impl<C: IntoChildren> IntoView for MetadataList<C> {
                         .name(label)
                         .with_node(move |node| {
                             node.base_style(move || {
-                                let p = tokens();
+                                let p = kivact::style::use_tokens::<crate::Tokens>();
                                 style()
                                     .align_self(Align::Start)
                                     .padding_x(8)

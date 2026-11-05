@@ -2,7 +2,7 @@
 use crate::markdown_parser::{Alignment, Block, ListEntry, parse, reference};
 use crate::{
     CitationSource, CitationVariant, CodeLanguage, CodeLanguageInput, blockquote, citation,
-    code_block, heading, tokens,
+    code_block, heading,
 };
 use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
@@ -238,7 +238,7 @@ impl IntoView for Markdown {
                 source.get(),
                 sources.get(),
                 streaming.get(),
-                tokens().to_owned(),
+                kivact::style::use_tokens::<crate::Tokens>().to_owned(),
                 (
                     inline.get(),
                     render_props.0.get(),
@@ -255,7 +255,7 @@ impl IntoView for Markdown {
                 if inline.get() {
                     return look;
                 }
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let body = p.typography.body;
                 look.width(pct(100))
                     .font_family(body.family)
@@ -339,7 +339,7 @@ impl Renderer<'_> {
     }
 
     fn spacing(&self, block: &Block<'_>) -> (f64, f64) {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         let s = p.spacing;
         let compact = self.options.density.get() == MarkdownDensity::Compact;
         match block {
@@ -424,7 +424,7 @@ impl Renderer<'_> {
             }
             Block::Rule => node()
                 .style(|| {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().border_top(p.sizes.border_width, p.colors.border)
                 })
                 .into_view(),
@@ -477,7 +477,7 @@ impl Renderer<'_> {
                 style()
                     .group()
                     .align_items(Align::Center)
-                    .gap(tokens().spacing.s1_5)
+                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1_5)
             })
             .into_view()
     }
@@ -502,7 +502,7 @@ impl Renderer<'_> {
                 }
                 .style(|| {
                     style()
-                        .min_width(tokens().spacing.s4)
+                        .min_width(kivact::style::use_tokens::<crate::Tokens>().spacing.s4)
                         .text_align(TextAlign::End)
                 });
                 row((
@@ -514,14 +514,14 @@ impl Renderer<'_> {
                 .style(|| {
                     style()
                         .align_items(Align::Start)
-                        .gap(tokens().spacing.s2)
-                        .padding_y(tokens().spacing.s1)
+                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+                        .padding_y(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
                 })
             })
             .collect::<Vec<_>>();
         let list = column(items)
             .with_node(move |node| node.role(Role::List))
-            .style(|| style().gap(tokens().spacing.s0_5));
+            .style(|| style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5));
         if all_tasks {
             list.name(message("soft.markdown.task_list", "Task list"))
         } else {
@@ -559,7 +559,7 @@ impl Renderer<'_> {
                         };
                         node()
                             .style(move || {
-                                let p = tokens();
+                                let p = kivact::style::use_tokens::<crate::Tokens>();
                                 style()
                                     .width(width * p.typography.body.size_px * 0.64 + p.spacing.s4)
                                     .direction(Direction::Row)
@@ -575,7 +575,7 @@ impl Renderer<'_> {
             })
             .collect::<Vec<_>>();
         scroll(column(rows).style(|| {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .border_left(p.sizes.border_width, p.colors.border)
                 .border_top(p.sizes.border_width, p.colors.border)
@@ -624,7 +624,7 @@ impl Renderer<'_> {
                     .is_ok_and(|text| text.contains(['*', '_', '~', '`', '\\', '&']))
             })
         {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let mut text = String::new();
             let mut objects = Vec::new();
             for part in parts {
@@ -756,7 +756,11 @@ impl Renderer<'_> {
         }
         let mut link = inline_spans(label, false).style(|| {
             style()
-                .color(tokens().colors.text_accent)
+                .color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_accent,
+                )
                 .text_decoration(TextDecorationLine::UNDERLINE)
         });
         if let Some(action) = self.options.on_link {
@@ -770,7 +774,7 @@ impl Renderer<'_> {
 }
 
 fn inline_spans(source: &str, strong: bool) -> Node {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let mut spans = Vec::new();
     marked(
         source,

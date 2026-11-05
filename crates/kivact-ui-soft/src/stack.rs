@@ -2,7 +2,6 @@
 use kivact::state::IntoValue;
 use kivact::state::Value;
 
-use crate::tokens;
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::ScrollAxes;
@@ -40,7 +39,7 @@ pub enum Space {
 impl Space {
     /// Resolve this spacing step against the current theme.
     pub fn px(self) -> f64 {
-        let s = tokens().spacing;
+        let s = kivact::style::use_tokens::<crate::Tokens>().spacing;
         match self {
             Self::S0 => s.s0,
             Self::S0_5 => s.s0_5,

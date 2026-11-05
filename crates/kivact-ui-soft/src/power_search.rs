@@ -1,5 +1,5 @@
 //! Role: Compose named search filters with an explicit editor and remove controls.
-use crate::theme_access::tokens;
+
 use kivact::i18n::message;
 use kivact::interaction::DialogMode;
 use kivact::interaction::ListItem;
@@ -155,7 +155,7 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
                         }
                     });
                 row((edit, remove)).style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .height(28)
                         .align_items(Align::Center)

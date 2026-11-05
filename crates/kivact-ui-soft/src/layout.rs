@@ -30,7 +30,7 @@ impl LayoutInset {
 
 use crate::resizable::{ResizableState, ResizeHandle};
 use crate::stack::{Space, rtl};
-use crate::tokens;
+
 use kivact::view::Node;
 use kivact::view::NodeBuilder;
 use kivact::view::column;
@@ -380,7 +380,7 @@ impl IntoView for LayoutRegion {
             let inset = try_use_context::<LayoutInset>()
                 .map(|value| value.get())
                 .unwrap_or_default();
-            let fallback = tokens().spacing.s4;
+            let fallback = kivact::style::use_tokens::<crate::Tokens>().spacing.s4;
             let (outer_x, outer_y) = (
                 inset.own_outer_x.or(inset.outer_x).unwrap_or(fallback),
                 inset.own_outer_y.or(inset.outer_y).unwrap_or(fallback),
@@ -457,7 +457,7 @@ impl IntoView for LayoutRegion {
             });
             let root = root.with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let mut base = style().direction(Direction::Column).shrink(0).min_width(0);
                     if kind == Region::Content {
                         base = base.grow(1).shrink(1).min_height(0).clip(true);

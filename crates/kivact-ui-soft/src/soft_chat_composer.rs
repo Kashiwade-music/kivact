@@ -5,7 +5,7 @@ use kivact::state::IntoBinding;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::{ChatDensity, tokens};
+use crate::ChatDensity;
 use kivact::custom::EditState;
 use kivact::i18n::message;
 use kivact::state::Binding;
@@ -48,7 +48,7 @@ pub fn chat_composer_input(label: impl IntoText, value: impl IntoBinding<String>
         .rows(1..=8)
         .placeholder(composer_placeholder())
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .padding(4)
                 .border(0, p.colors.border)
@@ -169,7 +169,7 @@ impl IntoView for ChatSendButton {
             })
             .with_node(move |node| {
                 node.base_style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(Direction::Row)
                         .size(side, side)
@@ -427,7 +427,7 @@ impl IntoView for ChatComposer {
         let compact = density.get() == ChatDensity::Compact;
         let surface = node()
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let mut surface = style()
                     .direction(Direction::Column)
                     .min_width(0)
@@ -457,7 +457,7 @@ impl IntoView for ChatComposer {
                 })
                 .with_node(move |node| node.role(Role::Status))
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().font_size(12).padding_x(8).color(
                         if status.with(|status| matches!(status, Some(ComposerStatus::Error(_)))) {
                             p.colors.text_error
@@ -572,7 +572,7 @@ impl IntoView for ChatComposerDrawer {
         } = self;
         let root = root.with_node(move |node| {
             node.base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .direction(Direction::Column)
                     .padding_x(16)
@@ -600,7 +600,7 @@ impl IntoView for ChatComposerDrawer {
             .on_press(move || collapsed.set(!collapsed.get_untracked()))
             .with_node(move |node| {
                 node.base_style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(Direction::Row)
                         .align_items(Align::Center)
@@ -693,7 +693,7 @@ impl IntoView for ChatDictationButton {
         let bars = (0..5)
             .map(|index| {
                 node().style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let (band, volume) = state.with(|state| {
                         (state.bands.get(index).copied().unwrap_or(0.0), state.volume)
                     });
@@ -727,7 +727,7 @@ impl IntoView for ChatDictationButton {
             .hidden(move || hide_when_unsupported.get() && !state.with(|state| state.supported))
             .with_node(move |node| {
                 node.base_style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(Direction::Row)
                         .size(side, side)

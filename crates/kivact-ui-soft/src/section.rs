@@ -1,7 +1,7 @@
 //! Role: Draw a full-bleed Neutral section and propagate content spacing.
 use crate::layout::LayoutInset;
 use crate::stack::{ContainerInset, Padding, Space, padding_options, rtl};
-use crate::tokens;
+
 use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::view::Node;
@@ -118,7 +118,12 @@ impl IntoView for Section {
             let (left, right) = parent.sides();
             let inherited = try_use_context::<SectionPadding>()
                 .map(|value| value.get())
-                .map_or(tokens().spacing.section_padding, |padding| padding.0);
+                .map_or(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .spacing
+                        .section_padding,
+                    |padding| padding.0,
+                );
             let inset = padding.resolve(inherited);
             let layout_inset = LayoutInset::from_padding(inset);
             let content = provide(inset, move || provide(layout_inset, move || content));
@@ -128,7 +133,7 @@ impl IntoView for Section {
             };
             root.with_node(move |node| {
                 node.base_style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let color = match variant.get() {
                         SectionVariant::Section => t.colors.bg_surface,
                         SectionVariant::Transparent => Color::TRANSPARENT,

@@ -1,6 +1,6 @@
 //! Role: Lay out Soft dialog and drawer headings.
 use crate::recipes_dialog::motion;
-use crate::theme_access::tokens;
+
 use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
@@ -41,7 +41,7 @@ pub fn dialog_header(title: impl IntoText) -> DialogHeader {
         title: text(title)
             .with_node(move |node| node.role(Role::Heading))
             .style(|| {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .font_size(20)
                     .line_height(1.4)
@@ -70,10 +70,11 @@ impl DialogHeader {
         self.subtitle = Some(
             text(subtitle)
                 .style(|| {
-                    style()
-                        .font_size(12)
-                        .line_height(20.0 / 14.0)
-                        .color(tokens().colors.text_secondary)
+                    style().font_size(12).line_height(20.0 / 14.0).color(
+                        kivact::style::use_tokens::<crate::Tokens>()
+                            .colors
+                            .text_secondary,
+                    )
                 })
                 .into_view(),
         );
@@ -114,7 +115,7 @@ impl DialogHeader {
                 .name(label)
                 .child(icon("x").style(style().size(16, 16)))
                 .style(|| {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     motion(style().size(32, 32).padding(0).radius(10), &p, 125)
                 })
                 .on_press(move || close())
@@ -151,7 +152,10 @@ impl DialogHeader {
         row((start, title, end)).style(move || {
             let base = style().gap(12).align_items(Align::Start);
             if self.divider.get() {
-                base.border_bottom(1, tokens().colors.border)
+                base.border_bottom(
+                    1,
+                    kivact::style::use_tokens::<crate::Tokens>().colors.border,
+                )
             } else {
                 base
             }

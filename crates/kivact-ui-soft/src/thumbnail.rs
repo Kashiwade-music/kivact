@@ -1,5 +1,5 @@
 //! Role: Preview an image attachment with upload, open, and remove affordances.
-use crate::{IconSize, icon, tokens, visually_hidden};
+use crate::{IconSize, icon, visually_hidden};
 use kivact::i18n::{message, message_with};
 use kivact::motion::Animated;
 use kivact::motion::Easing;
@@ -174,7 +174,7 @@ impl IntoView for Thumbnail {
                 .disabled(move || loading.get() || disabled.get())
                 .on_press(action)
                 .style(|| {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().size(SIDE, SIDE).cursor(Cursor::Pointer).transition(
                         TransitionProp::Paint,
                         Transition::tween(p.motion.fast as f64, p.motion.ease_standard),
@@ -182,7 +182,7 @@ impl IntoView for Thumbnail {
                 })
                 .child(media)
                 .child(node().hit_testable(false).style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let input = state.get();
                     let color = if input.pressed {
                         p.colors.overlay_pressed
@@ -205,7 +205,7 @@ impl IntoView for Thumbnail {
             });
             node()
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     let look = style()
                         .position(Position::Absolute)
                         .top(p.spacing.s1)
@@ -238,7 +238,7 @@ impl IntoView for Thumbnail {
                         .disabled(disabled)
                         .on_press(remove)
                         .style(|| {
-                            let p = tokens();
+                            let p = kivact::style::use_tokens::<crate::Tokens>();
                             style()
                                 .size(p.sizes.icon_md, p.sizes.icon_md)
                                 .min_width(p.sizes.icon_md)
@@ -262,7 +262,7 @@ impl IntoView for Thumbnail {
         let frame = node()
             .node_ref(reference)
             .style(|| {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style()
                     .position(Position::Relative)
                     .size(SIDE, SIDE)
@@ -281,7 +281,9 @@ impl IntoView for Thumbnail {
                         .width(SIDE)
                         .shrink(0)
                         .opacity(if disabled.get() {
-                            tokens().sizes.disabled_opacity
+                            kivact::style::use_tokens::<crate::Tokens>()
+                                .sizes
+                                .disabled_opacity
                         } else {
                             1.0
                         })
@@ -319,7 +321,7 @@ fn thumbnail_media(
                 .direction(Direction::Row),
         )
         .child(image(Asset::from(PLACEHOLDER)).monochrome(true).style(|| {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .size(p.sizes.icon_lg, p.sizes.icon_lg)
                 .color(p.colors.icon_secondary)
@@ -337,7 +339,7 @@ fn thumbnail_media(
         media = media
             .child(photo)
             .child(node().hit_testable(false).style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 fill()
                     .radius(p.radius.element)
                     .border(p.sizes.border_width, p.colors.border)
@@ -345,7 +347,7 @@ fn thumbnail_media(
             .child(show(loading, upload_overlay));
     } else {
         media = media.child(show(loading, || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let pulse = Animated::from(
                 0.25f64,
                 0.925f64,
@@ -357,7 +359,7 @@ fn thumbnail_media(
             node()
                 .hit_testable(false)
                 .style(move || {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     fill()
                         .background(p.colors.bg_surface)
                         .color(p.colors.skeleton)
@@ -367,13 +369,13 @@ fn thumbnail_media(
                         .align_items(Align::Stretch)
                 })
                 .child(node().style(move || {
-                    fill().background(tokens().colors.skeleton).opacity(
-                        if kivact::platform::is_motion_reduced().get() {
+                    fill()
+                        .background(kivact::style::use_tokens::<crate::Tokens>().colors.skeleton)
+                        .opacity(if kivact::platform::is_motion_reduced().get() {
                             0.25
                         } else {
                             0.25 + ((pulse.get() - 0.25) / 0.075).floor() * 0.075
-                        },
-                    )
+                        })
                 }))
         }));
     }
@@ -384,7 +386,7 @@ fn upload_overlay() -> Node {
     let duration = if kivact::platform::is_motion_reduced().get() {
         3000
     } else {
-        tokens().motion.slow_min
+        kivact::style::use_tokens::<crate::Tokens>().motion.slow_min
     };
     let turn = Animated::from(
         0.0f64,
@@ -397,7 +399,11 @@ fn upload_overlay() -> Node {
         .hit_testable(false)
         .style(|| {
             fill()
-                .background(tokens().colors.overlay_scrim)
+                .background(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .overlay_scrim,
+                )
                 .direction(Direction::Row)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)

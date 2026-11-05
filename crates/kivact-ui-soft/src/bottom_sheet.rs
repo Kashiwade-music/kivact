@@ -1,6 +1,6 @@
 //! Role: Present a bottom-aligned sheet with draggable detents.
 use crate::recipes_dialog::{body_text, motion, shadows};
-use crate::theme_access::tokens;
+
 use kivact::custom::clock_now;
 use kivact::interaction::DialogMode;
 use kivact::interaction::DismissOn;
@@ -267,7 +267,7 @@ impl IntoView for BottomSheet {
             let handle = node()
                 .with_node(move |node| node.part(drag.source(())))
                 .child(node().style(|| {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().size(36, 4).radius(2).background(p.colors.border)
                 }))
                 .style(
@@ -288,7 +288,7 @@ impl IntoView for BottomSheet {
                 .style(style().grow(1).min_height(0));
             let position_points = self.snap_points.clone();
             let panel = column((body, handle)).style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let viewport = kivact::platform::window_size().get().height;
                 let full =
                     sheet_height(height, viewport, body_rect.get().map_or(0.0, |r| r.height));
@@ -323,7 +323,7 @@ impl IntoView for BottomSheet {
                 node()
                     .with_node(move |node| node.role(Role::Generic))
                     .style(move || {
-                        let p = tokens();
+                        let p = kivact::style::use_tokens::<crate::Tokens>();
                         let (full, detents) = scrim_detents();
                         let offset = dragged
                             .get()

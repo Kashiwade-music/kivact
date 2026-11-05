@@ -1,6 +1,6 @@
 //! Role: Draw the Neutral separator and its optional label.
 use crate::stack::ContainerInset;
-use crate::tokens;
+
 use kivact::state::IntoValue;
 use kivact::state::Value;
 use kivact::view::Node;
@@ -114,7 +114,7 @@ impl IntoView for Divider {
             });
             let rule = || {
                 node().style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     let color = match variant.get() {
                         DividerVariant::Subtle => t.colors.border,
                         DividerVariant::Strong => t.colors.border_emphasized,
@@ -136,7 +136,7 @@ impl IntoView for Divider {
                         node()
                             .node_ref(label_ref)
                             .style(move || {
-                                let t = tokens();
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
                                 let label = style()
                                     .shrink(0)
                                     .font_size(t.typography.supporting.size_px)

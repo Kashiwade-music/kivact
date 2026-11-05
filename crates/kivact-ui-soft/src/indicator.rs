@@ -3,7 +3,7 @@
 use crate::recipes_controls_choice::{
     checkbox_check, checkbox_indicator as checkbox_surface, checkbox_mixed,
 };
-use crate::tokens;
+
 use kivact::custom::PartState;
 use kivact::state::IntoValue;
 use kivact::state::Value;
@@ -135,7 +135,7 @@ impl IntoView for Indicator {
                 self.root
                     .with_node(move |node| {
                         node.base_style(move || {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             let state = look();
                             let side = if custom || state.checked.is_checked() {
                                 16
@@ -169,7 +169,7 @@ impl IntoView for Indicator {
                         move || checked.get().is_checked(),
                         move || {
                             node().style(move || {
-                                let t = tokens();
+                                let t = kivact::style::use_tokens::<crate::Tokens>();
                                 let side =
                                     if matches!(size, ControlSize::Small | ControlSize::ExtraSmall)
                                     {
@@ -190,7 +190,7 @@ impl IntoView for Indicator {
                 self.root
                     .with_node(move |node| {
                         node.base_style(move || {
-                            let t = tokens();
+                            let t = kivact::style::use_tokens::<crate::Tokens>();
                             let look = look();
                             let mut base = checkbox_surface(&use_theme().get(), &look)
                                 .position(Position::Relative)

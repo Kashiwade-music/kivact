@@ -1,6 +1,6 @@
 //! Role: Resize and optionally collapse a Neutral layout panel.
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::motion::Transition;
@@ -378,7 +378,7 @@ impl IntoView for ResizeHandle {
                 })
                 .with_node(move |node| {
                     node.base_style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let base = style()
                             .direction(Direction::Column)
                             .align_items(Align::Center)
@@ -417,7 +417,7 @@ impl IntoView for ResizeHandle {
                     })
                 });
             let rule = node().style(move || {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 let dragging = visual.get().dragging;
                 let color = if dragging {
                     t.colors.border_emphasized
@@ -440,7 +440,7 @@ impl IntoView for ResizeHandle {
             let pill = grip.unwrap_or_else(|| {
                 node()
                     .style(move || {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         let state_now = visual.get();
                         let visible = always_visible.get()
                             || state_now.dragging

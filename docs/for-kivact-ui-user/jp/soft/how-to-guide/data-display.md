@@ -16,7 +16,7 @@ fn build_details() -> impl IntoView {
             soft::metadata_item("Revision", soft::code("ae72f04")),
         ]),
     ))
-    .style(|| style().gap(soft::tokens().spacing.s3))
+    .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
 }
 ```
 

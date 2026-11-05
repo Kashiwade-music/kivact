@@ -1,7 +1,7 @@
 //! Role: Track visible document headings and navigate their outline.
 use crate::side_navigation::items::logical_row;
 use crate::stack::rtl;
-use crate::tokens;
+
 use kivact::geometry::Point;
 use kivact::motion::Transition;
 use kivact::motion::animated;
@@ -370,7 +370,7 @@ fn outline_list(
         let list = list.rect().get()?;
         Some((item.y - list.y, item.height))
     });
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard);
     let height = animated(
         move || indicator_rect.get().map_or(0.0, |(_, height)| height),
@@ -378,7 +378,7 @@ fn outline_list(
     );
     let track = node()
         .style(|| {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .position(Position::Relative)
                 .width(t.spacing.s0_5)
@@ -388,7 +388,7 @@ fn outline_list(
                 .radius(t.radius.full)
         })
         .child(node().style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             let offset = indicator_rect.get().map_or(0.0, |(y, _)| y);
             style()
                 .position(Position::Absolute)
@@ -454,18 +454,23 @@ fn outline_list(
         column(rows)
             .node_ref(list)
             .with_node(move |node| node.role(Role::List))
-            .style(|| style().gap(tokens().spacing.s0_5).grow(1).min_width(0)),
+            .style(|| {
+                style()
+                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
+                    .grow(1)
+                    .min_width(0)
+            }),
     ))
     .style(|| {
         style()
             .direction(logical_row())
-            .gap(tokens().spacing.s0_5)
+            .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
             .align_items(Align::Stretch)
     })
 }
 
 fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.body;
     let indent = match level {
         3 => t.spacing.s7,
