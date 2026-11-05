@@ -145,3 +145,12 @@ mod tooltip_policy;
 
 mod copy_feedback;
 pub use copy_feedback::{CopyFeedbackApi, use_copy_feedback};
+
+mod disclosure_group;
+pub use disclosure_group::{DisclosureGroupApi, use_disclosure_group};
+
+mod surface_policy;
+pub use surface_policy::{DrawerPolicy, DrawerSwipe, HoverCardTiming};
+
+mod hover_card;
+pub use hover_card::{HoverCardApi, HoverCardState, OpenedBy, use_hover_card};

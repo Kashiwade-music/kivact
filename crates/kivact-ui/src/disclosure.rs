@@ -16,6 +16,7 @@ use kivact_core::view::{IntoView, Orientation, View, show};
 use kivact_core::view::{Node, NodeBuilder, icon, node, text};
 use kivact_interaction::use_disclosure;
 
+// xtask-allow(state-fields): Setup-only builder options; structural presentation and binding inputs are independent.
 /// A trigger and the content it opens, created by [`disclosure`].
 pub struct Disclosure {
     root: Node,
@@ -24,6 +25,9 @@ pub struct Disclosure {
     content: kivact_core::view::ViewFn,
     motion: DisclosureMotion,
     variants: Variants,
+    always_open: bool,
+    heading_level: Option<u32>,
+    animation: Option<Value<bool>>,
 }
 
 /// A section titled `title` that `open` opens and closes, showing what
@@ -83,10 +87,56 @@ pub fn disclosure(
             .motion
             .clone(),
         variants: Variants::default(),
+        always_open: false,
+        heading_level: None,
+        animation: None,
     }
 }
 
 impl Disclosure {
+    pub(crate) fn group_variants(mut self, variants: Variants) -> Self {
+        self.variants = variants;
+        self
+    }
+
+    pub(crate) fn heading(mut self, level: u32) -> Self {
+        self.heading_level = Some(level);
+        self
+    }
+
+    /// Keep the content expanded and prevent the trigger from collapsing it.
+    /// This structural choice is fixed before mounting.
+    pub fn always_open(mut self) -> Self {
+        self.always_open = true;
+        self
+    }
+
+    /// Attach disclosure behavior to a caller-owned trigger.
+    pub fn attach<T: NodeBuilder + IntoView>(
+        mut self,
+        trigger: T,
+    ) -> impl kivact_core::view::Component {
+        let open = if self.always_open {
+            kivact_core::state::binding(|| true, |_| ())
+        } else {
+            self.open
+        };
+        let mut details = use_disclosure(open);
+        if let Some(disabled) = self.root.accessible_disabled() {
+            details = details.disabled(disabled);
+        }
+        let trigger = trigger.with_node(|root| root.part(details.trigger()));
+        let content = self.content;
+        self.root
+            .style(style().direction(kivact_core::style::Direction::Column))
+            .child((
+                trigger,
+                show(details.is_open(), move || {
+                    node().part(details.content()).child(content.call(()))
+                }),
+            ))
+    }
+
     /// Build this section each time it opens.
     pub fn content<V: IntoView>(mut self, content: impl kivact_core::view::IntoViewFn<V>) -> Self {
         self.content = content.into_view_fn();
@@ -95,8 +145,8 @@ impl Disclosure {
     /// Open and close by moving the content's height over 200 ms, a
     /// decorative motion that reduced motion skips (default: the content
     /// appears and disappears at once). A constant.
-    pub fn animated(mut self, animated: bool) -> Self {
-        self.motion.animate = animated;
+    pub fn animated(mut self, animated: impl kivact_core::state::IntoValue<bool>) -> Self {
+        self.animation = Some(animated.into_value());
         self
     }
 
@@ -125,13 +175,19 @@ impl NodeBuilder for Disclosure {
 
 impl IntoView for Disclosure {
     fn into_view(mut self) -> View {
-        let mut details = use_disclosure(self.open);
+        let open = if self.always_open {
+            kivact_core::state::binding(|| true, |_| ())
+        } else {
+            self.open
+        };
+        let mut details = use_disclosure(open);
         // `.disabled(..)` ignores input and assistive technology.
         if let Some(disabled) = self.root.accessible_disabled() {
             details = details.disabled(move || disabled.get());
         }
         let shown = details.is_open();
         let motion = self.motion;
+        let animation = self.animation;
         let variants = self.variants;
         let part = details.trigger();
         let state = part.state();
@@ -152,6 +208,14 @@ impl IntoView for Disclosure {
             text(title).style(super::helpers::label_style().grow(1)),
             indicator,
         ));
+        let trigger = match self.heading_level {
+            Some(level) => node()
+                .role(kivact_core::view::Role::Heading)
+                .level(level)
+                .child(trigger)
+                .into_view(),
+            None => trigger.into_view(),
+        };
         let build = self.content;
         let region = {
             let variants = variants.clone();
@@ -164,8 +228,8 @@ impl IntoView for Disclosure {
                     &variants,
                     move || content_state.get(),
                 );
-                let region = if motion.animate {
-                    region.style(
+                let region = region.style(move || {
+                    if animation.map_or(motion.animate, |value| value.get()) {
                         style()
                             .enter_size(Orientation::Vertical)
                             .exit_size(Orientation::Vertical)
@@ -175,11 +239,11 @@ impl IntoView for Disclosure {
                                     motion.duration.as_secs_f64() * 1000.0,
                                     Easing::EaseOut,
                                 ),
-                            ),
-                    )
-                } else {
-                    region
-                };
+                            )
+                    } else {
+                        style()
+                    }
+                });
                 region.child(build.call(()))
             }
         };

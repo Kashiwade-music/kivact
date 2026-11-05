@@ -278,6 +278,7 @@ impl Dialog {
             kind,
             media: self.media.is_some(),
         };
+        let requested = self.open;
         let open = self.open.into_value();
         let title = self.title;
         let hidden = self.title_hidden;
@@ -368,16 +369,30 @@ impl Dialog {
                         r.dialog_recipes().footer_recipe()
                     })
                 });
+            let panel_ref = node_ref();
+            let swipe = if let DialogMode::Drawer(edge) = kind {
+                Some(crate::drawer_swipe::handle(edge, panel_ref, requested))
+            } else {
+                None
+            };
+            let (handle, pulled) = match swipe {
+                Some((handle, pulled)) => (Some(handle), Some(pulled)),
+                None => (None, None),
+            };
             let surface = behavior.content();
             let surface_state = surface.state();
             let mut panel = with_recipe_style(
-                column((header, content, footer, close)),
+                column((handle, header, content, footer, close)).node_ref(panel_ref),
                 |r| r.dialog_recipes().surface_recipe(),
                 variants,
                 move || shape.state(surface_state.get()),
             );
             if let DialogMode::Drawer(side) = kind {
                 panel = panel.style(edge(side));
+                if let Some(pulled) = pulled {
+                    panel =
+                        panel.style(move || crate::drawer_swipe::translation(side, pulled.get()));
+                }
             }
             if let Some(width) = self.width {
                 panel = panel.style(move || style().width(width.get()));

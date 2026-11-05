@@ -329,3 +329,27 @@ pub(super) fn progress_fill(_: &Theme, state: &ProgressState) -> Style {
             );
         })
 }
+
+/// Pointer target for pulling a drawer toward its edge.
+pub(super) fn drawer_handle(_: &Theme, state: &DialogState) -> Style {
+    if matches!(
+        state.kind,
+        kivact_interaction::DialogMode::Drawer(
+            kivact_core::geometry::Edge::Left | kivact_core::geometry::Edge::Right
+        )
+    ) {
+        style().width(24).height(48).shrink(0)
+    } else {
+        style().height(24).width(48).shrink(0)
+    }
+}
+
+pub(super) fn hover_card(t: &Theme, _: &crate::HoverCardSurfaceState) -> Style {
+    tooltip(
+        t,
+        &PopupState {
+            input: Default::default(),
+            open: true,
+        },
+    )
+}

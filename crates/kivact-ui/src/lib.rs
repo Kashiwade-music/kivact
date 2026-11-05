@@ -222,3 +222,13 @@ mod data_table_tokens;
 
 mod async_view;
 pub use async_view::{AsyncView, async_view};
+
+mod disclosure_group;
+pub use disclosure_group::{DisclosureGroup, disclosure_group};
+
+mod hover_card;
+pub use hover_card::{FocusTrigger, HoverCard, HoverCardSurfaceState, HoverCardTokens, hover_card};
+
+pub use recipes::HoverCardRecipes;
+
+mod drawer_swipe;
