@@ -846,7 +846,8 @@ recipe_table! {
     /// Breadcrumb landmark, item and decorative separator recipes.
     BreadcrumbRecipes {
         root(root_recipe): () = crate::look_navigation::breadcrumb_root,
-        item(item_recipe): bool = crate::look_navigation::current,
+        list(list_recipe): () = crate::look_navigation::breadcrumb_list,
+        item(item_recipe): bool = crate::look_navigation::breadcrumb_item,
         separator(separator_recipe): () = crate::look_navigation::part,
     }
 }
@@ -869,6 +870,11 @@ recipe_table! {
     NavigationMenuRecipes {
         root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::navigation_root,
         trigger(trigger_recipe): kivact_interaction::NavOpen = crate::look_navigation::part,
+        action(action_recipe): kivact_interaction::NavOpen = crate::look_navigation::action,
         panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
+        link(link_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link,
+        link_title(link_title_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_title,
+        link_description(link_description_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_description,
+        link_icon(link_icon_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_icon,
     }
 }

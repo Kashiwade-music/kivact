@@ -133,3 +133,29 @@ fn pagination_input_commits_and_clamps_the_one_based_draft() {
     assert_eq!(field.value().as_deref(), Some("4"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn navigation_actions_and_rich_panel_links_share_the_existing_close_owner() {
+    let (screen, clicks) = mount(|| {
+        let clicks = signal(0usize);
+        (
+            clicks,
+            navigation_menu("Site")
+                .link("resources", "Resources", move || {
+                    kivact::ui::navigation_menu_link("Guide")
+                        .description("Read the guide")
+                        .icon(icon("book"))
+                        .on_press(move || clicks.update(|n| *n += 1))
+                })
+                .action("home", "Home", move || clicks.update(|n| *n += 10)),
+        )
+    });
+    screen.get_by_role(Role::Button, "Resources").click();
+    screen.get_by_role(Role::Link, "Guide").click();
+    assert_eq!(clicks.get_untracked(), 1);
+    assert!(screen.query_by_role(Role::Link, "Guide").is_none());
+    screen.get_by_role(Role::Link, "Home").press_key(Key::Enter);
+    assert_eq!(clicks.get_untracked(), 11);
+    assert!(screen.query_by_role(Role::Link, "Guide").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
