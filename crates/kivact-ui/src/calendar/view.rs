@@ -121,6 +121,18 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 }
 
 impl Calendar {
+    pub(crate) fn sheet_month(&self, fallback: CalendarMonth) -> Binding<CalendarMonth> {
+        self.displayed_month.unwrap_or_else(|| {
+            let mut month = self.month.unwrap_or(fallback);
+            if let Some(min) = self.min.get_untracked() {
+                month = month.max(min.month_of());
+            }
+            if let Some(max) = self.max.get_untracked() {
+                month = month.min(max.month_of());
+            }
+            signal(month).into_binding()
+        })
+    }
     pub(crate) fn touch(mut self) -> Self {
         let size = self.cell_size;
         self.cell_size = kivact_core::state::memo(move || size.get().max(44.0));
@@ -321,7 +333,7 @@ impl IntoView for Calendar {
             on_commit: self.on_commit,
             on_activate: self.on_activate,
         };
-        let body = calendar_body(&self, month, rules, focus_day, autofocus);
+        let body = calendar_body(&self, month, rules, focus_day, autofocus, swipe);
         let status = kivact_core::view::node()
             .name(kivact_core::i18n::message_with(
                 "calendar.showing_month",
@@ -510,12 +522,13 @@ fn calendar_body(
     rules: CalendarRules,
     focus_day: CalendarDate,
     autofocus: kivact_core::state::MachineHandle<super::navigation::FocusSnapshot>,
+    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
 ) -> View {
     let count = calendar.count;
     let cell_size = calendar.cell_size;
     let caption = calendar.caption;
     let week_start = calendar.week_start;
-    let selection = calendar.selection;
+    let selection = guarded_selection(calendar.selection, swipe);
     let outside = calendar.outside;
     let today = calendar.today;
     let variable_rows = calendar.variable_rows;
@@ -539,6 +552,7 @@ fn calendar_body(
             let policy = calendar_policy(&rules, count, week_start, focus_day);
             let grid = use_calendar_grid(month, selection, policy);
             let shared = Rc::new(Shared {
+                swipe,
                 cell_size,
                 variants: variants.clone(),
                 grid,
@@ -567,4 +581,26 @@ fn calendar_body(
         },
     )
     .into_view()
+}
+
+fn guarded_selection(
+    selection: CalendarSelection,
+    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
+) -> CalendarSelection {
+    match selection {
+        CalendarSelection::Single(value) => {
+            CalendarSelection::Single(kivact_core::state::binding(value, move |next| {
+                if !matches!(swipe.get(), super::navigation::Swipe::Released) {
+                    value.set(next);
+                }
+            }))
+        }
+        CalendarSelection::Range(value) => {
+            CalendarSelection::Range(kivact_core::state::binding(value, move |next| {
+                if !matches!(swipe.get(), super::navigation::Swipe::Released) {
+                    value.set(next);
+                }
+            }))
+        }
+    }
 }

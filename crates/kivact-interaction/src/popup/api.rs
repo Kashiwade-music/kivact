@@ -139,7 +139,13 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
     let own_anchor = node_ref();
     let machine = machine(
         State::Closed,
-        || Machine,
+        move || Machine {
+            focused: focused_node(),
+            focus_inside: disclosure
+                .content
+                .mounted_node()
+                .is_some_and(|panel| disclosure.content.focus_was_in(panel)),
+        },
         move |cx, effect| match effect {
             machine::Effect::Misuse => raise(
                 ErrorKind::Message,

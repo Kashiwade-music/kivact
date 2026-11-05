@@ -55,41 +55,7 @@ pub(super) fn create(
     let registry = roving.clone();
     let selection_status = signal(String::new());
     let chosen = kivact_core::i18n::message("calendar.chosen", "Date selected");
-    let range_chosen = kivact_core::i18n::message("calendar.range_chosen", "Date range selected");
-    let started = kivact_core::i18n::message("calendar.range_started", "Start date selected");
-    let cancelled =
-        kivact_core::i18n::message("calendar.range_cancelled", "Range selection cancelled");
-    let choice = match selection {
-        CalendarSelection::Single(value) => Choice::Single(value),
-        CalendarSelection::Range(value) => {
-            let pick = machine(
-                RangePick::Idle,
-                || machine::Machine,
-                move |_, effect| match effect {
-                    machine::Effect::Commit(range) => {
-                        value.set(Some(range));
-                        if value.get_untracked() == Some(range) {
-                            selection_status.set(format!(
-                                "{}: {} - {}",
-                                range_chosen.get_untracked(),
-                                range.start(),
-                                range.end()
-                            ));
-                        }
-                    }
-                    machine::Effect::Started(day) => {
-                        selection_status.set(format!("{}: {day}", started.get_untracked()))
-                    }
-                    machine::Effect::Cancelled => selection_status.set(cancelled.get_untracked()),
-                },
-            );
-            effect(move || {
-                value.get();
-                pick.send(machine::Event::ExternalValueChanged)
-            });
-            Choice::Range { value, pick }
-        }
-    };
+    let choice = selection_choice(selection, selection_status);
     let count = policy.months;
     let disabled = policy.disabled.clone();
     let initial = policy.initial_focus;
@@ -278,7 +244,8 @@ impl State {
             && let RangePick::Picking { .. } = pick.get()
         {
             pick.send(machine::Event::Cancel);
-            return Handled::Yes;
+            // Cancel the stage while allowing an enclosing picker to dismiss.
+            return Handled::No;
         }
         let column = day.weekday().days_since(self.first_day.get_untracked()) as i32;
         let months = if modifiers.shift { 12 } else { 1 };
@@ -302,5 +269,44 @@ impl State {
             }
         }
         Handled::Yes
+    }
+}
+
+/// Keep staged range transitions and accepted-selection announcements in one owner.
+fn selection_choice(selection: CalendarSelection, selection_status: Signal<String>) -> Choice {
+    let range_chosen = kivact_core::i18n::message("calendar.range_chosen", "Date range selected");
+    let started = kivact_core::i18n::message("calendar.range_started", "Start date selected");
+    let cancelled =
+        kivact_core::i18n::message("calendar.range_cancelled", "Range selection cancelled");
+    match selection {
+        CalendarSelection::Single(value) => Choice::Single(value),
+        CalendarSelection::Range(value) => {
+            let pick = machine(
+                RangePick::Idle,
+                || machine::Machine,
+                move |_, effect| match effect {
+                    machine::Effect::Commit(range) => {
+                        value.set(Some(range));
+                        if value.get_untracked() == Some(range) {
+                            selection_status.set(format!(
+                                "{}: {} - {}",
+                                range_chosen.get_untracked(),
+                                range.start(),
+                                range.end()
+                            ));
+                        }
+                    }
+                    machine::Effect::Started(day) => {
+                        selection_status.set(format!("{}: {day}", started.get_untracked()))
+                    }
+                    machine::Effect::Cancelled => selection_status.set(cancelled.get_untracked()),
+                },
+            );
+            effect(move || {
+                value.get();
+                pick.send(machine::Event::ExternalValueChanged)
+            });
+            Choice::Range { value, pick }
+        }
     }
 }

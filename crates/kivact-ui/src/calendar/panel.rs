@@ -123,6 +123,7 @@ fn day_cell(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Vie
 }
 
 fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Node {
+    let swipe = shared.swipe;
     let cell = shared.grid.cell(month, day);
     let observed = cell.state();
     let range = shared.range;
@@ -152,7 +153,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let marks = shared.marks.clone();
     let weekend = shared.weekend.clone();
     let button = with_recipe_style(
-        node()
+        interactive_day(swipe)
             .with_node(|root| root.part(cell))
             .selected(move || marked.get().selected)
             .child(text(day.day().to_string()))
@@ -293,4 +294,37 @@ fn month_caption(
         &shared.variants,
         PartState::default,
     )
+}
+
+fn interactive_day(
+    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
+) -> Node {
+    node()
+        .on_pointer(move |event: kivact_core::view::PointerEvent| {
+            let dragging = matches!(swipe.get(), super::navigation::Swipe::Dragging { .. });
+            swipe.send(super::navigation::Event::Pointer(event));
+            if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
+                event.capture();
+                kivact_core::view::Handled::Yes
+            } else if dragging {
+                kivact_core::view::Handled::Yes
+            } else {
+                kivact_core::view::Handled::No
+            }
+        })
+        .on_key(move |_| {
+            swipe.send(super::navigation::Event::IndependentActivation);
+            kivact_core::view::Handled::No
+        })
+        .a11y_action(kivact_core::view::A11yAction::Activate, move |_| {
+            swipe.send(super::navigation::Event::IndependentActivation);
+            kivact_core::view::Handled::No
+        })
+        .on_press(move || {
+            if matches!(swipe.get(), super::navigation::Swipe::Released) {
+                kivact_core::view::Handled::Yes
+            } else {
+                kivact_core::view::Handled::No
+            }
+        })
 }

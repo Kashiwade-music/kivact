@@ -168,8 +168,7 @@ impl IntoView for DateTimeInput {
         } = self;
         let DateTimeFields { date, time } = field_bindings(value, min, max);
         let editors = desktop_editors(
-            date,
-            time,
+            DateTimeFields { date, time },
             (format, seconds),
             min,
             max,
@@ -182,8 +181,7 @@ impl IntoView for DateTimeInput {
             picker_label.unwrap_or_else(|| message("date_time.open", "Choose date and time")),
         );
         let content = desktop_content(
-            date,
-            time,
+            DateTimeFields { date, time },
             min,
             max,
             week_start,
@@ -289,8 +287,7 @@ fn picker_tabs(state: kivact_core::state::MachineHandle<Controller>) -> Node {
 }
 
 fn desktop_editors(
-    date: Binding<Option<CalendarDate>>,
-    time: Binding<Option<TimeOfDay>>,
+    fields: DateTimeFields,
     formats: (Value<DateStyle>, Value<bool>),
     min: Value<Option<DateTime>>,
     max: Value<Option<DateTime>>,
@@ -298,6 +295,7 @@ fn desktop_editors(
     presentation: DatePresentation,
     variants: &crate::variants::Variants,
 ) -> Node {
+    let DateTimeFields { date, time } = fields;
     let (format, seconds) = formats;
     let mut date_field = date_input(message("date_time.date", "Date"), date)
         .format(format)
@@ -318,8 +316,7 @@ fn desktop_editors(
 }
 
 fn desktop_content(
-    date: Binding<Option<CalendarDate>>,
-    time: Binding<Option<TimeOfDay>>,
+    fields: DateTimeFields,
     min: Value<Option<DateTime>>,
     max: Value<Option<DateTime>>,
     week_start: Option<Value<Weekday>>,
@@ -327,6 +324,7 @@ fn desktop_content(
     seconds: Value<bool>,
     state: kivact_core::state::MachineHandle<Controller>,
 ) -> kivact_core::view::ViewFn {
+    let DateTimeFields { date, time } = fields;
     kivact_core::view::ViewFn::from(move |()| {
         let tabs = picker_tabs(state);
         let body = kivact_core::view::dynamic(

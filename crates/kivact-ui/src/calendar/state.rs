@@ -17,6 +17,7 @@ pub enum CalendarCaption {
 /// Everything the month panels and their day cells share.
 // xtask-allow(state-fields): Immutable setup configuration, independent slots and reactive presentation values.
 pub(super) struct Shared {
+    pub(super) swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
     pub(super) cell_size: f64,
     pub(super) variants: crate::variants::Variants,
     /// The keyboard, selection and paging behavior.
