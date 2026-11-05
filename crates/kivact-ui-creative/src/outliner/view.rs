@@ -26,16 +26,9 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// The active row waits only until its ancestor expansion mounts it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum OutlinerReveal {
-    Idle,
-    AwaitingRow { target: u64 },
-}
-
 type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 
-// xtask-allow(state-fields): Builder inputs, callbacks and row options are independent construction settings; use_tree owns navigation and OutlinerReveal owns pending reveal.
+// xtask-allow(state-fields): Builder inputs, callbacks and row options are independent construction settings; use_tree owns navigation and the reveal machine owns pending reveal.
 /// A searchable hierarchy on [`Tree`](kivact::interaction::TreeApi).
 /// It retains expansion, rename, restriction flags and drag and drop,
 /// and hosts the application's cells.
@@ -250,47 +243,14 @@ impl IntoView for Outliner {
         // The row that a primary press is on, from its press to its release.
         let pressed = Rc::new(Cell::new(None::<u64>));
         let plan = signal(None::<Plan>);
-        // An item to scroll to when its row appears (its ancestors opened).
-        let pending = signal(OutlinerReveal::Idle);
-        // The effect keeps its own handles on the rows and the press.
-        {
-            let mounted = mounted.clone();
-            let pressed = pressed.clone();
-            kivact::state::effect_on(active, move |&target| {
-                if !reveal_active.get_untracked() {
-                    return;
-                }
-                pending.set(OutlinerReveal::Idle);
-                let picked = pressed.get();
-                let Some(id) = target.filter(|id| picked != Some(*id)) else {
-                    return;
-                };
-                let next = data.get_untracked();
-                let mut open = expanded.get_untracked();
-                let mut closed = Vec::new();
-                let mut parent = next.iter().find(|n| n.id == id).and_then(|n| n.parent);
-                for _ in 0..next.len() {
-                    let Some(ancestor) = parent.and_then(|p| next.iter().find(|n| n.id == p))
-                    else {
-                        break;
-                    };
-                    if !open.contains(&ancestor.id) {
-                        closed.push(ancestor.id);
-                    }
-                    parent = ancestor.parent;
-                }
-                if !closed.is_empty() {
-                    open.extend(closed);
-                    expanded.set(open);
-                }
-                // A row that is not there yet scrolls when it mounts.
-                let node = mounted.borrow().get(&id).map(|row| row.node);
-                match node {
-                    Some(node) => node.scroll_into_view(),
-                    None => pending.set(OutlinerReveal::AwaitingRow { target: id }),
-                }
-            });
-        }
+        let reveal = super::reveal::observe(
+            active,
+            reveal_active,
+            data,
+            expanded,
+            mounted.clone(),
+            pressed.clone(),
+        );
         let painter = super::controls::Painter::new(crate::editors::shared::model::observed(
             EditSession::new(|()| {}),
             on_restriction.map(|observer| {
@@ -344,10 +304,10 @@ impl IntoView for Outliner {
                     }
                 });
                 kivact::state::on_mount(move || {
-                    if pending.get() == (OutlinerReveal::AwaitingRow { target: id }) {
-                        pending.set(OutlinerReveal::Idle);
-                        reference.scroll_into_view();
-                    }
+                    reveal.send(super::reveal::Event::Mounted {
+                        id,
+                        node: reference,
+                    });
                 });
                 let start_rename = move || rename_edit.open(id);
                 let label = show(

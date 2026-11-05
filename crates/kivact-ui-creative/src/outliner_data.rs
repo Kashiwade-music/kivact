@@ -3,6 +3,7 @@
 use crate::tokens::LabelTone;
 use kivact::style::Icon;
 
+// xtask-allow(state-fields): Immutable application hierarchy data; visibility, selectability and rendering flags describe independent domain restrictions.
 /// Consumer-owned hierarchy node. Identities must be unique; parents may be absent.
 ///
 /// Siblings are shown in the order of the items that name the same parent.
@@ -54,6 +55,7 @@ impl TreeItem {
     }
 }
 
+// xtask-allow(state-fields): Immutable emitted hierarchy placement: target parent and preceding sibling jointly describe a valid insertion, not lifecycle state.
 /// Where a dragged item was dropped, as the place it takes in the hierarchy.
 ///
 /// The pointer over a row decides it: the upper third of a row is before it

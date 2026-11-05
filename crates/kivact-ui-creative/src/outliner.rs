@@ -2,6 +2,7 @@
 
 mod controls;
 mod drop_plan;
+mod reveal;
 mod view;
 pub(crate) mod view_state;
 

@@ -21,6 +21,7 @@ pub(super) struct TabDrag<K> {
 /// Registered tab rectangles with the token of their registering row.
 pub(super) type TabRects<K> = RefCell<HashMap<K, (u64, Value<Option<Rect>>)>>;
 
+// xtask-allow(state-fields): Retained row-rectangle registry and immutable callbacks/texts; the counter is only a registration generation, not interaction phase.
 pub(super) struct Shared<K: kivact::state::ItemKey> {
     pub(super) rects: TabRects<K>,
     pub(super) next_rect: Cell<u64>,
@@ -50,6 +51,7 @@ pub(super) struct Texts {
     pub(super) side: [Value<String>; 4],
 }
 
+// xtask-allow(state-fields): Copy handles for independent application layout, drag, inline editing and mounted geometry; each owner retains its own lifecycle.
 /// Copy handles shared by every row of one dock.
 pub(super) struct DockCx<K: kivact::state::ItemKey> {
     pub(super) layout: Binding<DockLayout<K>>,
