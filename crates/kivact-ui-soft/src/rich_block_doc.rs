@@ -249,35 +249,6 @@ fn is_table(lines: &[Line<'_>], index: usize) -> bool {
             .is_some_and(|line| table_separator(line.text).is_some())
 }
 
-#[cfg(test)]
-mod tests {
-    //! Role: Verify unedited bytes survive block edits and movement.
-    use super::*;
-
-    #[test]
-    fn replacing_and_toggling_preserve_neighboring_source() {
-        let source =
-            "  ## Heading ##  \r\n\r\n> quote\r\n- [X] task  \r\n\r\n```rs\r\nx();\r\n```\r\n";
-        let mut doc = Document::parse(source, 0);
-        assert_eq!(doc.markdown(), source);
-        doc.replace(0, "Changed".into());
-        doc.task(2, false);
-        assert_eq!(
-            doc.markdown(),
-            source.replace("Heading", "Changed").replace("[X]", "[ ]")
-        );
-    }
-
-    #[test]
-    fn split_and_merge_keep_markdown_boundaries_and_byte_carets() {
-        let mut doc = Document::parse("Oneé two\r\n\r\n# unchanged\r\n", 0);
-        let id = doc.split(0, 5..5).unwrap();
-        assert_eq!(doc.markdown(), "Oneé\r\n\r\n two\r\n\r\n# unchanged\r\n");
-        assert_eq!(doc.merge(id), Some((0, 5)));
-        assert_eq!(doc.markdown(), "Oneé two\r\n\r\n# unchanged\r\n");
-    }
-}
-
 fn source_lines(source: &str) -> Vec<Line<'_>> {
     let mut start = 0;
     source
@@ -353,5 +324,34 @@ fn block_span(lines: &[Line<'_>], index: usize) -> (Kind, usize, usize, usize) {
             last += 1;
         }
         (Kind::Paragraph, line.start, lines[last].end, last)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Verify unedited bytes survive block edits and movement.
+    use super::*;
+
+    #[test]
+    fn replacing_and_toggling_preserve_neighboring_source() {
+        let source =
+            "  ## Heading ##  \r\n\r\n> quote\r\n- [X] task  \r\n\r\n```rs\r\nx();\r\n```\r\n";
+        let mut doc = Document::parse(source, 0);
+        assert_eq!(doc.markdown(), source);
+        doc.replace(0, "Changed".into());
+        doc.task(2, false);
+        assert_eq!(
+            doc.markdown(),
+            source.replace("Heading", "Changed").replace("[X]", "[ ]")
+        );
+    }
+
+    #[test]
+    fn split_and_merge_keep_markdown_boundaries_and_byte_carets() {
+        let mut doc = Document::parse("Oneé two\r\n\r\n# unchanged\r\n", 0);
+        let id = doc.split(0, 5..5).unwrap();
+        assert_eq!(doc.markdown(), "Oneé\r\n\r\n two\r\n\r\n# unchanged\r\n");
+        assert_eq!(doc.merge(id), Some((0, 5)));
+        assert_eq!(doc.markdown(), "Oneé two\r\n\r\n# unchanged\r\n");
     }
 }
