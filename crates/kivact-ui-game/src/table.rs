@@ -49,10 +49,7 @@ impl IntoView for GameCellVariant {
             } => row((
                 kivact::ui::avatar(initials.clone())
                     .fallback_content(move || text(initials.clone()))
-                    .variant(crate::AvatarVariant {
-                        side: 24.,
-                        color: color,
-                    }),
+                    .variant(crate::AvatarVariant { side: 24., color }),
                 text(name).style(style().font_size(12.5)),
             ))
             .style(style().gap(10).align_items(Align::Center))
