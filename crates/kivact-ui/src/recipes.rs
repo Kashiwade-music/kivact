@@ -871,6 +871,7 @@ recipe_table! {
         root(root_recipe): () = crate::look_navigation::root,
         item(item_recipe): crate::navigation_values::PaginationItemState = crate::look_navigation::pagination_item,
         ellipsis(ellipsis_recipe): () = crate::look_navigation::part,
+        summary(summary_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::part,
     }
 }
 recipe_table! {

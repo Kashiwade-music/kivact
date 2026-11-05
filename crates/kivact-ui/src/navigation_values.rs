@@ -65,6 +65,7 @@ pub enum PageItem {
 pub struct PaginationItemState {
     pub current: bool,
     pub item: PageItem,
+    pub mode: PaginationMode,
 }
 
 // xtask-allow(state-fields): Read-only independent current-page semantics and the actual entry part input; no stored interaction or reconciliation flags.
@@ -90,4 +91,28 @@ pub enum StepIndicatorKind {
     Number,
     None,
     Custom,
+}
+
+/// Structural pagination presentations, including an editable page number.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PaginationMode {
+    #[default]
+    Pages,
+    Count,
+    Compact,
+    Dots,
+    Input,
+    None,
+}
+
+// xtask-allow(state-fields): Read-only canonical count, item total and pagination configuration in consistent zero-based page units.
+/// Actual inputs for a caller's pagination summary; no duplicate range endpoints are stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PaginationSummary {
+    /// Zero-based actual page index.
+    pub page: usize,
+    pub count: usize,
+    pub total_items: Option<u64>,
+    pub page_size: u32,
+    pub has_more: bool,
 }

@@ -5,18 +5,7 @@ use kivact_core::view::{
 };
 use std::rc::Rc;
 
-use crate::PageItem;
-/// Structural pagination presentations, including an editable page number.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum PaginationMode {
-    #[default]
-    Pages,
-    Count,
-    Compact,
-    Dots,
-    Input,
-    None,
-}
+use crate::{PageItem, PaginationMode, PaginationSummary};
 /// Page controls backed by the application's zero-based page binding.
 pub struct Pagination {
     root: Node,
@@ -36,6 +25,8 @@ pub struct Pagination {
     // xtask-allow(state-fields): Optional caller-provided presentation slot selected only during construction.
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
+    // xtask-allow(state-fields): Immutable optional presentation factory over the canonical derived page facts.
+    summary: Option<SummarySlot>,
     variants: crate::variants::Variants,
 }
 enum PageCount {
@@ -61,6 +52,7 @@ pub fn pagination(count: impl IntoValue<usize>, page: impl IntoBinding<usize>) -
         mode: PaginationMode::Pages,
         item: None,
         format: Rc::new(|n| n.to_string()),
+        summary: None,
         variants: crate::variants::Variants::default(),
     }
 }
@@ -120,6 +112,14 @@ impl Pagination {
         self.format = Rc::new(f);
         self
     }
+    /// Replace summary presentation using actual zero-based page and total inputs.
+    pub fn summary<V: IntoView>(
+        mut self,
+        summary: impl Fn(Value<PaginationSummary>) -> V + 'static,
+    ) -> Self {
+        self.summary = Some(Rc::new(move |facts| summary(facts).into_view()));
+        self
+    }
     /// Add a kit-defined visual variant.
     pub fn variant(self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
@@ -177,11 +177,16 @@ impl IntoView for Pagination {
             mode,
             item,
             format,
+            summary,
             variants,
         } = self;
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
+        let total_items = match &count {
+            PageCount::Items(value) => Some(*value),
+            PageCount::Pages(_) => None,
+        };
         let count = page_count(count, page_size);
         let current = memo(move || {
             if has_more.get() {
@@ -204,11 +209,8 @@ impl IntoView for Pagination {
             |cell| *cell,
             move |cell| page_control(cell.get().1, page, current, count, disabled, &options),
         );
-        let summary = if matches!(mode, PaginationMode::Count | PaginationMode::Compact) {
-            Some(text(move || format!("{} / {}", current.get() + 1, count.get())).into_view())
-        } else {
-            None
-        };
+        let facts = summary_source(total_items, page_size, current, count, has_more);
+        let summary = render_summary(summary, mode, facts, &variants);
         let input = (mode == PaginationMode::Input)
             .then(|| crate::pagination_draft::input(page, count, page_label, disabled));
         let sizes = page_size.map(|size| size_selector(size, size_options, page));
@@ -228,6 +230,7 @@ impl IntoView for Pagination {
 
 /// Application-provided presentation for a pagination cell.
 type PageSlot = Rc<dyn Fn(PageItem) -> View>;
+type SummarySlot = Rc<dyn Fn(Value<PaginationSummary>) -> View>;
 
 /// Immutable presentation and navigation inputs shared by mounted page cells.
 struct PageOptions {
@@ -260,6 +263,7 @@ fn page_control(
     let has_more = options.has_more;
     let step = options.step;
     let selected = memo(move || matches!(cell, PageItem::Page(n) if n == current.get()));
+    let mode = options.mode;
     crate::layer::with_recipe_style(
         crate::button("")
             .name(label)
@@ -294,6 +298,7 @@ fn page_control(
         move || crate::PaginationItemState {
             current: selected.get(),
             item: cell,
+            mode,
         },
     )
     .child(body)
@@ -383,4 +388,43 @@ fn page_content(cell: PageItem, options: &PageOptions) -> (String, View) {
         |slot| slot(cell),
     );
     (label, body)
+}
+
+fn summary_source(
+    total: Option<Value<u64>>,
+    size: Option<Binding<u32>>,
+    page: Value<usize>,
+    count: Value<usize>,
+    has_more: Value<bool>,
+) -> Value<PaginationSummary> {
+    memo(move || PaginationSummary {
+        page: page.get(),
+        count: count.get(),
+        total_items: total.map(|total| total.get()),
+        page_size: size.map_or(1, |size| size.get().max(1)),
+        has_more: has_more.get(),
+    })
+}
+fn render_summary(
+    slot: Option<SummarySlot>,
+    mode: PaginationMode,
+    facts: Value<PaginationSummary>,
+    variants: &crate::variants::Variants,
+) -> Option<View> {
+    let content = if let Some(slot) = slot {
+        slot(facts)
+    } else if matches!(mode, PaginationMode::Count | PaginationMode::Compact) {
+        text(move || format!("{} / {}", facts.get().page + 1, facts.get().count)).into_view()
+    } else {
+        return None;
+    };
+    Some(
+        crate::layer::with_recipe_style(
+            node().child(content),
+            |r| r.pagination_recipes().summary_recipe(),
+            variants,
+            move || facts.get(),
+        )
+        .into_view(),
+    )
 }

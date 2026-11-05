@@ -47,3 +47,5 @@ Breadcrumb の項目レシピは `BreadcrumbItemState { current, input }` を受
 Stepper は実際の装飾パーツ `leading`、`trailing`、`progress`（既定は寸法ゼロ）と、`layout`・`track` コンテナのレシピを公開します。これらには実際の軸・項目数を含む同じ `StepperItemState` が渡されます。`.collapsed_steps(CollapsedSteps::Current)` はコンパクト時に現在の項目だけを表示します（既定）。`All` は選択やレスポンシブ閾値を変更せず全項目を表示します。
 
 各工程のレシピには実際の `StepIndicatorKind` と独立した `interactive` 設定も渡され、メタデータを外観バリアントに複製する必要はありません。コンパクト表示の前後移動は同じ項目ベクトルと現在位置から最も近い有効な項目を導出します。
+
+`pagination(count, page).summary(|facts| view)` は実際の `Value<PaginationSummary>` から要約を構成します。`page` はゼロ始まり、`count` はページ数、`total_items` は省略可能な項目総数、`page_size` はページごとの項目数です。表示する先頭・末尾の項目はコールバック内で導出し、範囲の端点を複製して保存しません。`has_more` は未確定のリモート件数を表します。`PaginationItemState.mode` は実際の構造モードを投影し、点と数字のレシピでバリアントに複製する必要はありません。
