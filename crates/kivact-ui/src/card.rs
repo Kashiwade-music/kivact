@@ -142,12 +142,14 @@ impl IntoView for Card {
                 state,
             )
         });
-        let content = with_recipe_style(
-            node().child(self.content),
-            |r| r.card_recipes().content_recipe(),
-            variants,
-            state,
-        );
+        let content = (!kivact_core::custom::view_is_empty(&self.content)).then(|| {
+            with_recipe_style(
+                node().child(self.content),
+                |r| r.card_recipes().content_recipe(),
+                variants,
+                state,
+            )
+        });
         let footer = self.footer.map(|view| {
             with_recipe_style(
                 node().child(view),
