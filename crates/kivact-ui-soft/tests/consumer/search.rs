@@ -14,32 +14,31 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
-}
-
 #[test]
 fn debounces_and_discards_previous_suggestions() {
     let calls = Rc::new(RefCell::new(Vec::new()));
     let seen = calls.clone();
-    let (screen, selected) = render_with_handle(options(), move || {
-        let selected = signal(None::<String>);
-        (
-            selected,
-            kivact::ui::combobox("Search", Vec::new(), selected)
-                .style(style().width(260))
-                .search(move |query| {
-                    seen.borrow_mut().push(query.clone());
-                    async move {
-                        if query == "a" {
-                            sleep(Duration::from_secs(1)).await;
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        move || {
+            let selected = signal(None::<String>);
+            (
+                selected,
+                kivact::ui::combobox("Search", Vec::new(), selected)
+                    .style(style().width(260))
+                    .search(move |query| {
+                        seen.borrow_mut().push(query.clone());
+                        async move {
+                            if query == "a" {
+                                sleep(Duration::from_secs(1)).await;
+                            }
+                            let label = format!("Result {query}");
+                            Ok::<_, UiError>(vec![ListItem::new(query, label)])
                         }
-                        let label = format!("Result {query}");
-                        Ok::<_, UiError>(vec![ListItem::new(query, label)])
-                    }
-                }),
-        )
-    });
+                    }),
+            )
+        },
+    );
     assert!(calls.borrow().is_empty());
     screen.get_by_role(Role::ComboBox, "Search").click();
     screen.type_text("a");
@@ -66,22 +65,25 @@ fn debounces_and_discards_previous_suggestions() {
 
 #[test]
 fn tokenizer_keeps_remote_labels_and_excludes_selected_keys() {
-    let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(Vec::<&'static str>::new());
-        (
-            selected,
-            kivact::ui::combobox("Members", Vec::new(), selected)
-                .chips()
-                .exclude_selected()
-                .style(style().width(260))
-                .search(|_| async {
-                    Ok::<_, UiError>(vec![
-                        ListItem::new("ada", "Ada"),
-                        ListItem::new("grace", "Grace"),
-                    ])
-                }),
-        )
-    });
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let selected = signal(Vec::<&'static str>::new());
+            (
+                selected,
+                kivact::ui::combobox("Members", Vec::new(), selected)
+                    .chips()
+                    .exclude_selected()
+                    .style(style().width(260))
+                    .search(|_| async {
+                        Ok::<_, UiError>(vec![
+                            ListItem::new("ada", "Ada"),
+                            ListItem::new("grace", "Grace"),
+                        ])
+                    }),
+            )
+        },
+    );
     screen.get_by_role(Role::ComboBox, "Members").click();
     screen.get_by_role(Role::Option, "Ada").click();
     assert_eq!(selected.get_untracked(), vec!["ada"]);

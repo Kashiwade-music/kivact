@@ -9,25 +9,24 @@ use kivact::view::LiveRegion;
 use kivact::view::Modifiers;
 use kivact::view::Role;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
-}
-
 fn date(day: u8) -> CalendarDate {
     CalendarDate::new(2026, 10, day)
 }
 
 #[test]
 fn calendar_keys_move_focus_and_enter_selects() {
-    let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(Some(date(14)));
-        (
-            selected,
-            kivact::ui::calendar(selected)
-                .week_start(Weekday::Monday)
-                .autofocus(true),
-        )
-    });
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let selected = signal(Some(date(14)));
+            (
+                selected,
+                kivact::ui::calendar(selected)
+                    .week_start(Weekday::Monday)
+                    .autofocus(true),
+            )
+        },
+    );
     assert!(
         screen
             .get_by_role(Role::GridCell, "2026-10-14")
@@ -78,15 +77,18 @@ fn calendar_keys_move_focus_and_enter_selects() {
 #[test]
 fn range_stages_anchor_cancels_and_commits_reverse_with_span_constraints() {
     let previous = DateRange::new(date(1), date(4));
-    let (screen, selected) = render_with_handle(options(), move || {
-        let selected = signal(Some(previous));
-        (
-            selected,
-            kivact::ui::calendar(selected)
-                .default_month(CalendarMonth::new(2026, 10))
-                .range_span(3, Some(5)),
-        )
-    });
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        move || {
+            let selected = signal(Some(previous));
+            (
+                selected,
+                kivact::ui::calendar(selected)
+                    .default_month(CalendarMonth::new(2026, 10))
+                    .range_span(3, Some(5)),
+            )
+        },
+    );
     screen.get_by_role(Role::GridCell, "2026-10-12").click();
     assert_eq!(selected.get_untracked(), Some(previous));
     assert!(
@@ -120,14 +122,17 @@ fn range_stages_anchor_cancels_and_commits_reverse_with_span_constraints() {
 
 #[test]
 fn date_input_commits_draft_and_calendar_returns_focus() {
-    let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(None::<CalendarDate>);
-        (
-            selected,
-            kivact::ui::date_input("Due", selected)
-                .presentation(kivact::ui::DatePresentation::Desktop),
-        )
-    });
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let selected = signal(None::<CalendarDate>);
+            (
+                selected,
+                kivact::ui::date_input("Due", selected)
+                    .presentation(kivact::ui::DatePresentation::Desktop),
+            )
+        },
+    );
     screen
         .get_by_role(Role::TextBox, "Due")
         .type_text("2026-10-14");
@@ -157,16 +162,19 @@ fn date_input_commits_draft_and_calendar_returns_focus() {
 
 #[test]
 fn date_range_input_closes_and_returns_focus_after_second_choice() {
-    let (screen, selected) = render_with_handle(options(), || {
-        let selected = signal(None::<DateRange>);
-        (
-            selected,
-            kivact::ui::date_range_input("Window", selected)
-                .picker_label("Window")
-                .presentation(kivact::ui::DatePresentation::Desktop)
-                .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10))),
-        )
-    });
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let selected = signal(None::<DateRange>);
+            (
+                selected,
+                kivact::ui::date_range_input("Window", selected)
+                    .picker_label("Window")
+                    .presentation(kivact::ui::DatePresentation::Desktop)
+                    .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10))),
+            )
+        },
+    );
     screen.get_by_role(Role::Button, "Window").click();
     screen.get_by_role(Role::GridCell, "2026-10-12").click();
     assert!(selected.get_untracked().is_none());
@@ -182,42 +190,45 @@ fn date_range_input_closes_and_returns_focus_after_second_choice() {
 #[test]
 fn range_presets_validate_endpoints_and_publish_only_on_activation() {
     let initial = DateRange::new(date(8), date(12));
-    let (screen, selected) = render_with_handle(options(), move || {
-        let selected = signal(Some(initial));
+    let (screen, selected) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        move || {
+            let selected = signal(Some(initial));
 
-        (
-            selected,
-            kivact::ui::date_range_input("Preset window", selected)
-                .picker_label("Preset window")
-                .presentation(kivact::ui::DatePresentation::Desktop)
-                .min(Some(date(6)))
-                .max(Some(date(24)))
-                .min_range_span(3)
-                .max_range_span(5)
-                .date_constraint(|day| day != date(22))
-                .presets(vec![
-                    kivact::ui::DateRangePreset::new("Current range", move || initial),
-                    kivact::ui::DateRangePreset::new("Before minimum", || {
-                        DateRange::new(date(3), date(7))
-                    }),
-                    kivact::ui::DateRangePreset::new("After maximum", || {
-                        DateRange::new(date(22), date(26))
-                    }),
-                    kivact::ui::DateRangePreset::new("Too short", || {
-                        DateRange::new(date(15), date(16))
-                    }),
-                    kivact::ui::DateRangePreset::new("Too long", || {
-                        DateRange::new(date(15), date(20))
-                    }),
-                    kivact::ui::DateRangePreset::new("Disabled endpoint", || {
-                        DateRange::new(date(19), date(22))
-                    }),
-                    kivact::ui::DateRangePreset::new("New range", || {
-                        DateRange::new(date(16), date(19))
-                    }),
-                ]),
-        )
-    });
+            (
+                selected,
+                kivact::ui::date_range_input("Preset window", selected)
+                    .picker_label("Preset window")
+                    .presentation(kivact::ui::DatePresentation::Desktop)
+                    .min(Some(date(6)))
+                    .max(Some(date(24)))
+                    .min_range_span(3)
+                    .max_range_span(5)
+                    .date_constraint(|day| day != date(22))
+                    .presets(vec![
+                        kivact::ui::DateRangePreset::new("Current range", move || initial),
+                        kivact::ui::DateRangePreset::new("Before minimum", || {
+                            DateRange::new(date(3), date(7))
+                        }),
+                        kivact::ui::DateRangePreset::new("After maximum", || {
+                            DateRange::new(date(22), date(26))
+                        }),
+                        kivact::ui::DateRangePreset::new("Too short", || {
+                            DateRange::new(date(15), date(16))
+                        }),
+                        kivact::ui::DateRangePreset::new("Too long", || {
+                            DateRange::new(date(15), date(20))
+                        }),
+                        kivact::ui::DateRangePreset::new("Disabled endpoint", || {
+                            DateRange::new(date(19), date(22))
+                        }),
+                        kivact::ui::DateRangePreset::new("New range", || {
+                            DateRange::new(date(16), date(19))
+                        }),
+                    ]),
+            )
+        },
+    );
     screen.get_by_role(Role::Button, "Preset window").click();
     let current = screen.get_by_role(Role::Button, "Current range");
     assert!(current.is_focused());

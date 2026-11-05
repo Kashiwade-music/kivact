@@ -15,19 +15,18 @@ use kivact::view::Role;
 use kivact::view::column;
 use kivact_ui_soft as soft;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env().theme(soft::theme(ThemeMode::Light))
-}
-
 #[test]
 fn tree_list_expands_and_collapses_with_arrow_keys() {
-    let screen = render_with(options(), || {
-        let nodes = vec![
-            TreeNode::new(1, None, "Folder"),
-            TreeNode::new(2, Some(1), "Document"),
-        ];
-        kivact::ui::tree("Files", nodes).expanded(signal(Vec::new()))
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        || {
+            let nodes = vec![
+                TreeNode::new(1, None, "Folder"),
+                TreeNode::new(2, Some(1), "Document"),
+            ];
+            kivact::ui::tree("Files", nodes).expanded(signal(Vec::new()))
+        },
+    );
 
     assert_eq!(
         screen.get_by_role(Role::TreeItem, "Folder").is_expanded(),
@@ -53,23 +52,29 @@ fn tree_list_expands_and_collapses_with_arrow_keys() {
 
 #[test]
 fn reactive_list_adds_a_list_item() {
-    let screen = render_with(options(), || {
-        let items = signal(vec![String::from("First")]);
-        let rows =
-            kivact::state::memo(move || items.get().into_iter().enumerate().collect::<Vec<_>>());
-        let count = kivact::state::memo(move || rows.with(Vec::len));
-        column((
-            button("Add second").on_press(move || items.update(|rows| rows.push("Second".into()))),
-            kivact::ui::item_list((kivact::view::for_each(
-                rows,
-                |(_, item)| item.clone(),
-                move |row| {
-                    kivact::ui::item_row(move || row.get().1).position(move || row.get().0, count)
-                },
-            ),))
-            .test_id("reactive-list"),
-        ))
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        || {
+            let items = signal(vec![String::from("First")]);
+            let rows = kivact::state::memo(move || {
+                items.get().into_iter().enumerate().collect::<Vec<_>>()
+            });
+            let count = kivact::state::memo(move || rows.with(Vec::len));
+            column((
+                button("Add second")
+                    .on_press(move || items.update(|rows| rows.push("Second".into()))),
+                kivact::ui::item_list((kivact::view::for_each(
+                    rows,
+                    |(_, item)| item.clone(),
+                    move |row| {
+                        kivact::ui::item_row(move || row.get().1)
+                            .position(move || row.get().0, count)
+                    },
+                ),))
+                .test_id("reactive-list"),
+            ))
+        },
+    );
 
     let list = screen.get_by_test_id("reactive-list");
     assert_eq!(list.role(), Some(Role::List));
@@ -88,11 +93,14 @@ fn reactive_list_adds_a_list_item() {
 fn chat_composer_submits_trimmed_text_and_clears_draft_on_enter() {
     let submitted = Rc::new(RefCell::new(Vec::new()));
     let received = submitted.clone();
-    let screen = render_with(options(), move || {
-        kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
-            received.borrow_mut().push(message);
-        })
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        move || {
+            kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
+                received.borrow_mut().push(message);
+            })
+        },
+    );
 
     let input = screen.get_by_role(Role::TextBox, "Message input");
     input.type_text("  Hello  ");

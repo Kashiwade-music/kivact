@@ -23,9 +23,7 @@ struct Person {
 #[test]
 fn group_disclosure_preserves_selection_and_pages_and_skips_collapsed_rows() {
     let (screen, (collapsed, selected, page, filter)) = render_with_handle(
-        RenderOptions::default()
-            .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .mirror(MirrorMode::Off),
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
         || {
             let people = vec![
                 Person {
@@ -127,9 +125,7 @@ fn group_disclosure_preserves_selection_and_pages_and_skips_collapsed_rows() {
 #[test]
 fn remote_pages_group_the_supplied_rows_without_slicing_them_again() {
     let (screen, page) = render_with_handle(
-        RenderOptions::default()
-            .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .mirror(MirrorMode::Off),
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
         || {
             let page = signal(7);
             let collapsed = signal(Vec::<String>::new());

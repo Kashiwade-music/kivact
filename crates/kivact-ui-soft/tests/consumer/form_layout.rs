@@ -14,9 +14,8 @@ use kivact_ui_soft::{FormDirection, form_layout, form_row, theme};
 #[test]
 fn horizontal_labels_share_a_track_and_stack_at_480_pixels() {
     let screen = render_with(
-        RenderOptions::from_env()
+        RenderOptions::with_theme(theme(ThemeMode::Light))
             .window_size(620.0, 400.0)
-            .theme(theme(ThemeMode::Light))
             .mirror(MirrorMode::Off),
         || {
             form_layout((

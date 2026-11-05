@@ -8,23 +8,20 @@ use kivact::view::Key;
 use kivact::view::Role;
 use kivact_ui_soft::rich_text_editor;
 
-fn options() -> RenderOptions {
-    RenderOptions::default()
-        .theme(kivact_ui_soft::theme(ThemeMode::Light))
-        .mirror(MirrorMode::Off)
-}
-
 #[test]
 fn block_editor_edits_heading_and_task_without_rewriting_neighboring_markdown() {
     let original =
         "## Title  \r\n\r\n> Quoted text\r\n- [X] Task\r\n\r\n| A | B |\r\n|---|---|\r\n";
-    let (screen, source) = render_with_handle(options(), move || {
-        let source = signal(original.to_owned());
-        (
-            source,
-            rich_text_editor("Article", source).block_editing(true),
-        )
-    });
+    let (screen, source) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        move || {
+            let source = signal(original.to_owned());
+            (
+                source,
+                rich_text_editor("Article", source).block_editing(true),
+            )
+        },
+    );
     assert_eq!(source.get_untracked(), original);
     let title = screen.get_by_role(Role::TextBox, "Article, block 1");
     assert_eq!(title.value().as_deref(), Some("Title"));
@@ -58,13 +55,16 @@ fn block_editor_edits_heading_and_task_without_rewriting_neighboring_markdown() 
 
 #[test]
 fn enter_splits_and_backspace_at_block_start_rejoins_without_losing_caret() {
-    let (screen, source) = render_with_handle(options(), || {
-        let source = signal("Alpha Beta\r\n\r\n# untouched\r\n".to_owned());
-        (
-            source,
-            rich_text_editor("Article", source).block_editing(true),
-        )
-    });
+    let (screen, source) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        || {
+            let source = signal("Alpha Beta\r\n\r\n# untouched\r\n".to_owned());
+            (
+                source,
+                rich_text_editor("Article", source).block_editing(true),
+            )
+        },
+    );
     screen
         .get_by_role(Role::TextBox, "Article, block 1")
         .focus();

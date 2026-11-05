@@ -13,26 +13,19 @@ use kivact::view::PointerKind;
 use kivact::view::Role;
 use std::time::Duration;
 
-fn options(reduced_motion: bool) -> RenderOptions {
-    if reduced_motion {
-        RenderOptions::from_env()
-            .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .reduced_motion()
-    } else {
-        RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light))
-    }
-}
-
 #[test]
 fn touch_slop_and_relative_tracking_keep_one_edit_through_release_coast() {
-    let (screen, (value, phases)) = render_with_handle(options(false), || {
-        let value = signal(50.0);
-        let phases = signal(Vec::new());
-        let slider = slider("Amount", value)
-            .on_edit(move |phase| phases.update(|events| events.push(phase)))
-            .style(style().width(200));
-        ((value, phases), slider)
-    });
+    let (screen, (value, phases)) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let value = signal(50.0);
+            let phases = signal(Vec::new());
+            let slider = slider("Amount", value)
+                .on_edit(move |phase| phases.update(|events| events.push(phase)))
+                .style(style().width(200));
+            ((value, phases), slider)
+        },
+    );
     let thumb = screen.get_by_role(Role::Slider, "Amount").rect().unwrap();
     let x = thumb.x + thumb.width / 2.0;
     let y = thumb.y + thumb.height / 2.0;
@@ -56,10 +49,13 @@ fn touch_slop_and_relative_tracking_keep_one_edit_through_release_coast() {
 
 #[test]
 fn track_touch_only_changes_on_tap_release_and_mouse_still_jumps_on_press() {
-    let (screen, value) = render_with_handle(options(false), || {
-        let value = signal(50.0);
-        (value, slider("Amount", value).style(style().width(200)))
-    });
+    let (screen, value) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let value = signal(50.0);
+            (value, slider("Amount", value).style(style().width(200)))
+        },
+    );
     let thumb = screen.get_by_role(Role::Slider, "Amount").rect().unwrap();
     let y = thumb.y + thumb.height / 2.0;
     let x = thumb.x + thumb.width / 2.0 + 50.0;
@@ -82,10 +78,17 @@ fn track_touch_only_changes_on_tap_release_and_mouse_still_jumps_on_press() {
 #[test]
 fn touch_thumb_lifts_and_drops_except_under_reduced_motion() {
     for reduced in [false, true] {
-        let (screen, value) = render_with_handle(options(reduced), || {
-            let value = signal(50.0);
-            (value, slider("Amount", value).style(style().width(200)))
-        });
+        let (screen, value) = render_with_handle(
+            if reduced {
+                RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).reduced_motion()
+            } else {
+                RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            },
+            || {
+                let value = signal(50.0);
+                (value, slider("Amount", value).style(style().width(200)))
+            },
+        );
         let slider = screen.get_by_role(Role::Slider, "Amount");
         let thumb = slider.accessibility_bounds().unwrap();
         let x = thumb.x + thumb.width / 2.0;

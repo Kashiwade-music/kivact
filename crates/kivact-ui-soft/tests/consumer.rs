@@ -1,16 +1,12 @@
 //! Role: Verify Soft components through one public consumer test binary.
 #[path = "consumer/button_busy.rs"]
 mod button_busy;
-#[path = "consumer/foundation.rs"]
-mod foundation;
 #[path = "consumer/chat_keyboard.rs"]
 mod chat_keyboard;
 #[path = "consumer/chat_scroll.rs"]
 mod chat_scroll;
 #[path = "consumer/collections.rs"]
 mod collections;
-#[path = "consumer/navigation.rs"]
-mod navigation;
 #[path = "consumer/date_controls.rs"]
 mod date_controls;
 #[path = "consumer/date_touch.rs"]
@@ -21,12 +17,16 @@ mod disabled_menu;
 mod empty_state_announcement;
 #[path = "consumer/form_layout.rs"]
 mod form_layout;
+#[path = "consumer/foundation.rs"]
+mod foundation;
 #[path = "consumer/grouped_table.rs"]
 mod grouped_table;
 #[path = "consumer/menu_press.rs"]
 mod menu_press;
 #[path = "consumer/metrics.rs"]
 mod metrics;
+#[path = "consumer/navigation.rs"]
+mod navigation;
 #[path = "consumer/overlay_interaction.rs"]
 mod overlay_interaction;
 #[path = "consumer/progress_motion.rs"]

@@ -15,12 +15,6 @@ use std::collections::HashMap;
 
 type Score = (&'static str, u8);
 
-fn options() -> RenderOptions {
-    RenderOptions::default()
-        .theme(kivact_ui_soft::theme(ThemeMode::Light))
-        .mirror(MirrorMode::Off)
-}
-
 fn column() -> DataColumn<Score> {
     DataColumn::new("Score", |row: &Score| row.0.to_owned())
         .compare(|a, b| a.1.cmp(&b.1))
@@ -35,20 +29,23 @@ fn column() -> DataColumn<Score> {
 
 #[test]
 fn filter_popover_discards_unapplied_values_and_can_reset_a_typed_query() {
-    let (screen, (filters, sort)) = render_with_handle(options(), || {
-        let filters = signal(HashMap::new());
-        let sort = signal(None);
-        (
-            (filters, sort),
-            data_table(
-                vec![("Ten", 10), ("Thirty", 30)],
-                |row| row.1,
-                vec![column()],
+    let (screen, (filters, sort)) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        || {
+            let filters = signal(HashMap::new());
+            let sort = signal(None);
+            (
+                (filters, sort),
+                data_table(
+                    vec![("Ten", 10), ("Thirty", 30)],
+                    |row| row.1,
+                    vec![column()],
+                )
+                .typed_column_filters(filters)
+                .sort(sort),
             )
-            .typed_column_filters(filters)
-            .sort(sort),
-        )
-    });
+        },
+    );
     let trigger = screen.get_by_role(Role::Button, "Filter Score");
     trigger.focus();
     screen.press_key(Key::Enter);
@@ -91,19 +88,22 @@ fn filter_popover_discards_unapplied_values_and_can_reset_a_typed_query() {
 
 #[test]
 fn compact_inline_filter_commits_valid_values_without_a_popup() {
-    let (screen, filters) = render_with_handle(options(), || {
-        let filters = signal(HashMap::new());
-        (
-            filters,
-            data_table(
-                vec![("Ten", 10), ("Thirty", 30)],
-                |row| row.1,
-                vec![column()],
+    let (screen, filters) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        || {
+            let filters = signal(HashMap::new());
+            (
+                filters,
+                data_table(
+                    vec![("Ten", 10), ("Thirty", 30)],
+                    |row| row.1,
+                    vec![column()],
+                )
+                .typed_column_filters(filters)
+                .filter_ui(FilterUi::InlineCompact),
             )
-            .typed_column_filters(filters)
-            .filter_ui(FilterUi::InlineCompact),
-        )
-    });
+        },
+    );
     assert!(screen.query_by_role(Role::Button, "Filter Score").is_none());
     screen
         .get_by_role(Role::TextBox, "Filter Score")

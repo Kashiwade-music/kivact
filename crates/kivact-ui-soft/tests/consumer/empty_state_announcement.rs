@@ -11,31 +11,28 @@ use kivact::view::LiveRegion;
 use kivact::view::Role;
 use kivact::view::show;
 
-fn options() -> RenderOptions {
-    RenderOptions::default()
-        .theme(kivact_ui_soft::theme(ThemeMode::Light))
-        .mirror(MirrorMode::Off)
-}
-
 #[test]
 fn initial_empty_state_is_silent_but_late_mount_and_text_changes_announce() {
-    let (screen, (initial, late)) = render_with_handle(options(), || {
-        let initial = signal("Initial");
-        let late = signal(false);
-        (
-            (initial, late),
-            column((
-                empty_state(move || initial.get())
-                    .announce_changes()
-                    .description("Initial help"),
-                show(late, || {
-                    empty_state("No results")
+    let (screen, (initial, late)) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        || {
+            let initial = signal("Initial");
+            let late = signal(false);
+            (
+                (initial, late),
+                column((
+                    empty_state(move || initial.get())
                         .announce_changes()
-                        .description("Try again")
-                }),
-            )),
-        )
-    });
+                        .description("Initial help"),
+                    show(late, || {
+                        empty_state("No results")
+                            .announce_changes()
+                            .description("Try again")
+                    }),
+                )),
+            )
+        },
+    );
     assert!(
         screen
             .query_by_role(Role::Text, "Initial. Initial help")
@@ -60,34 +57,37 @@ fn initial_empty_state_is_silent_but_late_mount_and_text_changes_announce() {
 
 #[test]
 fn hidden_empty_state_rearms_and_live_ancestors_handle_their_own_text() {
-    let (screen, (hidden, live, title)) = render_with_handle(options(), || {
-        let hidden = signal(true);
-        let live = signal(LiveRegion::Polite);
-        let title = signal("No results");
-        (
-            (hidden, live, title),
-            column((
-                column(
-                    empty_state(move || title.get())
-                        .announce_changes()
-                        .description("Try again"),
-                )
-                .hidden(hidden),
-                column(
-                    empty_state("Embedded")
-                        .announce_changes()
-                        .description("Own region"),
-                )
-                .live_region(live),
-                column(
-                    empty_state("Status")
-                        .announce_changes()
-                        .description("Own role"),
-                )
-                .role(Role::Status),
-            )),
-        )
-    });
+    let (screen, (hidden, live, title)) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        || {
+            let hidden = signal(true);
+            let live = signal(LiveRegion::Polite);
+            let title = signal("No results");
+            (
+                (hidden, live, title),
+                column((
+                    column(
+                        empty_state(move || title.get())
+                            .announce_changes()
+                            .description("Try again"),
+                    )
+                    .hidden(hidden),
+                    column(
+                        empty_state("Embedded")
+                            .announce_changes()
+                            .description("Own region"),
+                    )
+                    .live_region(live),
+                    column(
+                        empty_state("Status")
+                            .announce_changes()
+                            .description("Own role"),
+                    )
+                    .role(Role::Status),
+                )),
+            )
+        },
+    );
     title.set("Still hidden");
     screen.run_until_idle();
     assert!(

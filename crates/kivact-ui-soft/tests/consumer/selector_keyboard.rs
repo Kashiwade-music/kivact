@@ -9,10 +9,6 @@ use kivact::view::Key;
 use kivact::view::Role;
 use kivact_ui_soft::theme;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env().theme(theme(ThemeMode::Light))
-}
-
 fn choices() -> Vec<ListItem<&'static str>> {
     vec![
         ListItem::new("first", "First"),
@@ -23,13 +19,14 @@ fn choices() -> Vec<ListItem<&'static str>> {
 
 #[test]
 fn soft_selector_arrows_open_at_the_edges_without_committing() {
-    let (screen, value) = render_with_handle(options(), || {
-        let value = signal(Some("middle"));
-        (
-            value,
-            kivact::ui::select("Choice", choices(), value).open_on_arrow(true),
-        )
-    });
+    let (screen, value) =
+        render_with_handle(RenderOptions::with_theme(theme(ThemeMode::Light)), || {
+            let value = signal(Some("middle"));
+            (
+                value,
+                kivact::ui::select("Choice", choices(), value).open_on_arrow(true),
+            )
+        });
     let trigger = screen.get_by_role(Role::ComboBox, "Choice");
     screen.press_key(Key::Tab);
     assert!(trigger.is_focused());
@@ -60,10 +57,11 @@ fn soft_selector_arrows_open_at_the_edges_without_committing() {
 
 #[test]
 fn standard_select_keeps_its_closed_arrow_selection() {
-    let (screen, value) = render_with_handle(options(), || {
-        let value = signal(Some("middle"));
-        (value, select("Standard choice", choices(), value))
-    });
+    let (screen, value) =
+        render_with_handle(RenderOptions::with_theme(theme(ThemeMode::Light)), || {
+            let value = signal(Some("middle"));
+            (value, select("Standard choice", choices(), value))
+        });
     screen.press_key(Key::Tab);
     screen.press_key(Key::ArrowDown);
     assert_eq!(value.get_untracked(), Some("last"));

@@ -14,9 +14,7 @@ use kivact::view::column;
 #[test]
 fn selector_highlights_without_moving_focus_or_committing_until_activation() {
     let (screen, selected) = render_with_handle(
-        RenderOptions::default()
-            .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .mirror(MirrorMode::Off),
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
         || {
             let selected = signal(None);
             (
@@ -95,9 +93,7 @@ fn selector_highlights_without_moving_focus_or_committing_until_activation() {
 #[test]
 fn selector_does_not_toggle_closed_on_open_enter_when_no_option_is_enabled() {
     let (screen, selected) = render_with_handle(
-        RenderOptions::default()
-            .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .mirror(MirrorMode::Off),
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
         || {
             let selected = signal(None);
             (

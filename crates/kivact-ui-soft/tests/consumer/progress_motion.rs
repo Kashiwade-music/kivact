@@ -25,7 +25,7 @@ fn soft_progress_starts_at_its_value_and_animates_updates() {
         Theme::light().ext::<kivact::ui::UiTokens>().progress.motion,
         ProgressMotion::default()
     );
-    let (screen, value) = render_with_handle(RenderOptions::from_env().theme(theme), || {
+    let (screen, value) = render_with_handle(RenderOptions::with_theme(theme), || {
         let value = signal(Some(0.5));
         (
             value,
@@ -51,9 +51,7 @@ fn soft_progress_starts_at_its_value_and_animates_updates() {
 #[test]
 fn reduced_motion_progress_pulses_in_place() {
     let screen = render_with(
-        RenderOptions::from_env()
-            .theme(kivact_ui_soft::theme(ThemeMode::Light))
-            .reduced_motion(),
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).reduced_motion(),
         || {
             progress(None::<f64>)
                 .name("Preparing")

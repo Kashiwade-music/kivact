@@ -24,25 +24,23 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-fn options() -> RenderOptions {
-    RenderOptions::from_env()
-        .window_size(800.0, 600.0)
-        .theme(kivact_ui_soft::theme(ThemeMode::Light))
-}
-
 #[test]
 fn modal_centers_on_the_window_and_sheet_stays_at_the_bottom() {
-    let screen = render_with(options(), || {
-        let modal = signal(false);
-        let sheet = signal(false);
-        column((
-            dialog("Window modal", modal).attach(button("Open modal")),
-            button("Open sheet").on_press(move || sheet.set(true)),
-            bottom_sheet("Window sheet", sheet)
-                .height(SheetHeight::Px(160.0))
-                .content(|| button("Inside sheet")),
-        ))
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(800.0, 600.0),
+        || {
+            let modal = signal(false);
+            let sheet = signal(false);
+            column((
+                dialog("Window modal", modal).attach(button("Open modal")),
+                button("Open sheet").on_press(move || sheet.set(true)),
+                bottom_sheet("Window sheet", sheet)
+                    .height(SheetHeight::Px(160.0))
+                    .content(|| button("Inside sheet")),
+            ))
+        },
+    );
     screen.get_by_role(Role::Button, "Open modal").click();
     screen.advance(Duration::from_millis(450));
     let modal = screen
@@ -67,20 +65,24 @@ fn modal_centers_on_the_window_and_sheet_stays_at_the_bottom() {
 #[test]
 fn lightbox_exposes_zoom_and_replaces_a_failed_image_with_status() {
     static PHOTO: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"><rect width="32" height="16"/></svg>"#;
-    let screen = render_with(options(), || {
-        let open = signal(false);
-        column((
-            button("Open gallery").on_press(move || open.set(true)),
-            lightbox(
-                open,
-                vec![
-                    LightboxMedia::image(PHOTO, "Example photo"),
-                    LightboxMedia::image("missing-soft-gallery-image.png", "Missing photo"),
-                ],
-            )
-            .zoom(true),
-        ))
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(800.0, 600.0),
+        || {
+            let open = signal(false);
+            column((
+                button("Open gallery").on_press(move || open.set(true)),
+                lightbox(
+                    open,
+                    vec![
+                        LightboxMedia::image(PHOTO, "Example photo"),
+                        LightboxMedia::image("missing-soft-gallery-image.png", "Missing photo"),
+                    ],
+                )
+                .zoom(true),
+            ))
+        },
+    );
     screen.get_by_role(Role::Button, "Open gallery").click();
     screen.get_by_role(Role::Image, "Example photo");
     let zoom = screen.get_by_role(Role::Button, "Zoom");
@@ -96,16 +98,20 @@ fn lightbox_exposes_zoom_and_replaces_a_failed_image_with_status() {
 
 #[test]
 fn soft_submenus_delay_opening_and_remain_open_briefly_over_a_sibling() {
-    let screen = render_with(options(), || {
-        menu(
-            "Actions",
-            vec![
-                MenuEntry::submenu("export", "Export", vec![MenuEntry::item("pdf", "PDF")]),
-                MenuEntry::item("rename", "Rename"),
-            ],
-        )
-        .on_activate(|_| {})
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(800.0, 600.0),
+        || {
+            menu(
+                "Actions",
+                vec![
+                    MenuEntry::submenu("export", "Export", vec![MenuEntry::item("pdf", "PDF")]),
+                    MenuEntry::item("rename", "Rename"),
+                ],
+            )
+            .on_activate(|_| {})
+        },
+    );
     screen
         .get_by_role(Role::Button, "Actions")
         .press_key(Key::ArrowDown);
@@ -125,26 +131,30 @@ fn soft_submenus_delay_opening_and_remain_open_briefly_over_a_sibling() {
 
 #[test]
 fn a_diagonal_path_over_a_sibling_keeps_the_open_submenu() {
-    let screen = render_with(options(), || {
-        menu(
-            "Actions",
-            vec![
-                MenuEntry::submenu(
-                    "export",
-                    "Export",
-                    vec![
-                        MenuEntry::item("pdf", "PDF"),
-                        MenuEntry::item("png", "PNG"),
-                        MenuEntry::item("svg", "SVG"),
-                        MenuEntry::item("csv", "CSV"),
-                        MenuEntry::item("txt", "Text file"),
-                    ],
-                ),
-                MenuEntry::item("rename", "Rename"),
-            ],
-        )
-        .on_activate(|_| {})
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(800.0, 600.0),
+        || {
+            menu(
+                "Actions",
+                vec![
+                    MenuEntry::submenu(
+                        "export",
+                        "Export",
+                        vec![
+                            MenuEntry::item("pdf", "PDF"),
+                            MenuEntry::item("png", "PNG"),
+                            MenuEntry::item("svg", "SVG"),
+                            MenuEntry::item("csv", "CSV"),
+                            MenuEntry::item("txt", "Text file"),
+                        ],
+                    ),
+                    MenuEntry::item("rename", "Rename"),
+                ],
+            )
+            .on_activate(|_| {})
+        },
+    );
     screen
         .get_by_role(Role::Button, "Actions")
         .press_key(Key::ArrowDown);
@@ -179,40 +189,44 @@ fn a_diagonal_path_over_a_sibling_keeps_the_open_submenu() {
 
 #[test]
 fn hover_surface_renews_its_close_delay_across_a_diagonal_gap() {
-    let screen = render_with(options(), || {
-        let anchor = node_ref();
-        let surface = node_ref();
-        let delayed = use_hover_surface(
-            anchor,
-            surface,
-            true,
-            Delays {
-                open: Duration::ZERO,
-                close: Duration::from_millis(200),
-            },
-        );
-        let shown = delayed.is_open();
-        column((
-            button("Trigger").node_ref(anchor).style(
-                style()
-                    .position(Position::Absolute)
-                    .left(110)
-                    .top(20)
-                    .size(180, 48),
-            ),
-            button("Flyout")
-                .node_ref(surface)
-                .hidden(move || !shown.get())
-                .style(
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(800.0, 600.0),
+        || {
+            let anchor = node_ref();
+            let surface = node_ref();
+            let delayed = use_hover_surface(
+                anchor,
+                surface,
+                true,
+                Delays {
+                    open: Duration::ZERO,
+                    close: Duration::from_millis(200),
+                },
+            );
+            let shown = delayed.is_open();
+            column((
+                button("Trigger").node_ref(anchor).style(
                     style()
                         .position(Position::Absolute)
-                        .left(140)
-                        .top(160)
-                        .size(240, 70),
+                        .left(110)
+                        .top(20)
+                        .size(180, 48),
                 ),
-        ))
-        .style(style().position(Position::Relative).size(450, 320))
-    });
+                button("Flyout")
+                    .node_ref(surface)
+                    .hidden(move || !shown.get())
+                    .style(
+                        style()
+                            .position(Position::Absolute)
+                            .left(140)
+                            .top(160)
+                            .size(240, 70),
+                    ),
+            ))
+            .style(style().position(Position::Relative).size(450, 320))
+        },
+    );
     let trigger = screen.get_by_role(Role::Button, "Trigger");
     trigger.hover();
     let flyout = screen.get_by_role(Role::Button, "Flyout");
@@ -238,17 +252,21 @@ fn hover_surface_renews_its_close_delay_across_a_diagonal_gap() {
 fn closed_media_overlay_passes_pointer_and_keyboard_to_base() {
     let presses = Rc::new(Cell::new(0));
     let base_presses = presses.clone();
-    let screen = render_with(options(), move || {
-        media_overlay(|| button("Overlay action"))
-            .open(false)
-            .attach(
-                button("Base")
-                    .style(style().size(120, 60))
-                    .on_press(move || {
-                        base_presses.set(base_presses.get() + 1);
-                    }),
-            )
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(800.0, 600.0),
+        move || {
+            media_overlay(|| button("Overlay action"))
+                .open(false)
+                .attach(
+                    button("Base")
+                        .style(style().size(120, 60))
+                        .on_press(move || {
+                            base_presses.set(base_presses.get() + 1);
+                        }),
+                )
+        },
+    );
     assert!(
         screen
             .query_by_role(Role::Button, "Overlay action")
@@ -262,11 +280,15 @@ fn closed_media_overlay_passes_pointer_and_keyboard_to_base() {
 
 #[test]
 fn focus_mode_reveals_the_overlay_even_with_a_noninteractive_base() {
-    let screen = render_with(options(), || {
-        media_overlay(|| button("Overlay action"))
-            .show_on(ShowOn::Focus)
-            .attach(kivact::view::node().style(style().size(120, 60)))
-    });
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(800.0, 600.0),
+        || {
+            media_overlay(|| button("Overlay action"))
+                .show_on(ShowOn::Focus)
+                .attach(kivact::view::node().style(style().size(120, 60)))
+        },
+    );
     assert!(
         screen
             .query_by_role(Role::Button, "Overlay action")
@@ -289,22 +311,26 @@ fn sheet_escape_honors_purpose_and_programmatic_close_restores_final_focus() {
         DialogPurpose::Form,
         DialogPurpose::Required,
     ] {
-        let screen = render_with(options(), move || {
-            let open = signal(false);
-            let final_focus = node_ref();
-            column((
-                row((
-                    button("Open sheet").on_press(move || open.set(true)),
-                    button("Final focus").node_ref(final_focus),
-                )),
-                bottom_sheet("Sheet", open)
-                    .purpose(purpose)
-                    .final_focus(final_focus)
-                    .content(move || {
-                        button("Programmatic close").on_press(move || open.set(false))
-                    }),
-            ))
-        });
+        let screen = render_with(
+            RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+                .window_size(800.0, 600.0),
+            move || {
+                let open = signal(false);
+                let final_focus = node_ref();
+                column((
+                    row((
+                        button("Open sheet").on_press(move || open.set(true)),
+                        button("Final focus").node_ref(final_focus),
+                    )),
+                    bottom_sheet("Sheet", open)
+                        .purpose(purpose)
+                        .final_focus(final_focus)
+                        .content(move || {
+                            button("Programmatic close").on_press(move || open.set(false))
+                        }),
+                ))
+            },
+        );
         screen.get_by_role(Role::Button, "Open sheet").click();
         let role = if purpose == DialogPurpose::Required {
             Role::AlertDialog
