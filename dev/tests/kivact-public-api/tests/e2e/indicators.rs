@@ -69,6 +69,7 @@ fn kbd_uses_the_platform_command_key() {
                 meta: true,
                 ..Modifiers::default()
             }),
+            ui::kbd("mod+shift+enter"),
             text(move || {
                 if platform::capabilities().get().command_key == CommandKey::Command {
                     "command-platform"
@@ -90,5 +91,15 @@ fn kbd_uses_the_platform_command_key() {
         "Ctrl"
     });
     screen.get_by_text("K");
+    screen.get_by_role(
+        Role::Image,
+        if name == "Command + K" {
+            "Command + Shift + Enter"
+        } else {
+            "Control + Shift + Enter"
+        },
+    );
+    screen.get_by_text("⇧");
+    screen.get_by_text("↵");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

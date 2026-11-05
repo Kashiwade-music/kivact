@@ -15,6 +15,8 @@ pub(super) fn recipes() -> UiRecipes {
                 .select(crate::recipes_select::select)
                 .combobox(crate::recipes_combobox::combobox)
                 .spinner(|_| crate::spinner::spinner)
+                .kbd(|_| crate::kbd::root)
+                .kbd_key(|_| crate::kbd::key)
                 .button_group(crate::recipes_groups::button_group)
                 .toggle_group(crate::recipes_groups::toggle_group)
                 .menu(crate::recipes_menu::menu)

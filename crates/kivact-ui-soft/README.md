@@ -65,7 +65,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
 | Icon | `icon`, `ICON_NAMES` |
 | Indicator | `checkbox_indicator`, `check_indicator`, `radio_indicator` |
-| Item / Kbd | `item`, `kbd` |
+| Item / Kbd | `item`, standard parsed `kbd` and typed `kbd_combo` |
 | Layout | `center`, `form_layout`, `grid`, `grid_span`, `hstack`, `layout`, `layout_content`, `layout_footer`, `layout_header`, `layout_panel`, `section`, `stack`, `stack_item`, `vstack` |
 | Lightbox / Link | `lightbox`, `use_lightbox`, `link` |
 | List | `list`, `list_items`, `list_item` |
@@ -181,22 +181,22 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.file_input.clear` | Clear files |
 | `soft.file_input.invalid_file` | One or more files are not allowed. |
 | `soft.file_input.too_large` | One or more files exceed the size limit or could not be read. |
-| `soft.kbd.key.alt` | Alt |
-| `soft.kbd.key.backspace` | Backspace |
-| `soft.kbd.key.command` | Command |
-| `soft.kbd.key.control` | Control |
-| `soft.kbd.key.control_short` | Ctrl |
-| `soft.kbd.key.down` | Down arrow |
-| `soft.kbd.key.enter` | Enter |
-| `soft.kbd.key.escape` | Escape |
-| `soft.kbd.key.escape_short` | Esc |
-| `soft.kbd.key.left` | Left arrow |
-| `soft.kbd.key.plus` | Plus |
-| `soft.kbd.key.right` | Right arrow |
-| `soft.kbd.key.shift` | Shift |
-| `soft.kbd.key.tab` | Tab |
-| `soft.kbd.key.up` | Up arrow |
-| `soft.kbd.shortcut` | {shortcut} + {key} |
+| `kbd.key.alt` | Alt |
+| `kbd.key.backspace` | Backspace |
+| `kbd.key.command` | Command |
+| `kbd.key.control` | Control |
+| `kbd.key.control_short` | Ctrl |
+| `kbd.key.down` | Down arrow |
+| `kbd.key.enter` | Enter |
+| `kbd.key.escape` | Escape |
+| `kbd.key.escape_short` | Esc |
+| `kbd.key.left` | Left arrow |
+| `kbd.key.plus` | Plus |
+| `kbd.key.right` | Right arrow |
+| `kbd.key.shift` | Shift |
+| `kbd.key.tab` | Tab |
+| `kbd.key.up` | Up arrow |
+| `kbd.separator` | + |
 | `soft.keyboard_hint.to_navigate` | to navigate |
 | `soft.lightbox.image_unavailable` | Image unavailable |
 | `soft.lightbox.media_viewer` | Media viewer |
@@ -376,6 +376,8 @@ Number, date, and time filter fields validate values entered as text.
 - `slider`
 - `progress`
 - `spinner`
+- `kbd`
+- `kbd_key`
 - `text_input`
 - `text_area`
 - `field`
