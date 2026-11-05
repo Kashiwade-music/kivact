@@ -44,7 +44,9 @@ pub(crate) fn page() -> Page {
 // example: single
 fn single() -> impl IntoView {
     let date = signal(Some(CalendarDate::new(2026, 10, 14)));
-    kivact::ui::calendar(date).variable_rows(true).default_month(CalendarMonth::new(2026, 10))
+    kivact::ui::calendar(date)
+        .variable_rows(true)
+        .default_month(CalendarMonth::new(2026, 10))
 }
 // end example
 
@@ -54,7 +56,8 @@ fn range() -> impl IntoView {
         CalendarDate::new(2026, 10, 5),
         CalendarDate::new(2026, 10, 9),
     )));
-    kivact::ui::calendar(value).variable_rows(true)
+    kivact::ui::calendar(value)
+        .variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
         .number_of_months(2)
 }
@@ -62,7 +65,8 @@ fn range() -> impl IntoView {
 
 // example: disabled
 fn disabled_dates() -> impl IntoView {
-    kivact::ui::calendar(signal(None::<CalendarDate>)).variable_rows(true)
+    kivact::ui::calendar(signal(None::<CalendarDate>))
+        .variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
         .week_start(Weekday::Monday)
         .disabled_dates(|d| matches!(d.weekday(), Weekday::Saturday | Weekday::Sunday))
@@ -71,7 +75,8 @@ fn disabled_dates() -> impl IntoView {
 
 // example: dropdown
 fn dropdown() -> impl IntoView {
-    kivact::ui::calendar(signal(None::<CalendarDate>)).variable_rows(true)
+    kivact::ui::calendar(signal(None::<CalendarDate>))
+        .variable_rows(true)
         .default_month(CalendarMonth::new(2026, 10))
         .caption(kivact::ui::CalendarCaption::Dropdown)
         .show_outside_days(false)
