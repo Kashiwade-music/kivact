@@ -156,6 +156,7 @@ impl IntoView for Carousel {
         let shown = memo(move || api.index().get().min(last.get()));
         let refs: Vec<_> = (0..count).map(|_| node_ref()).collect();
         let refs = std::rc::Rc::new(refs);
+        let edges = (refs.first().copied(), refs.last().copied());
         let navigation_refs = refs.clone();
         let go = move |delta: isize| {
             if disabled.get_untracked() {
@@ -373,16 +374,9 @@ impl IntoView for Carousel {
             }
             let t = kivact_core::style::use_theme().get();
             let fade = crate::look_files::carousel_fade_width(&t);
-            let offset = viewport.scroll_offset().get();
-            let overflow = match (viewport.rect().get(), track.rect().get()) {
-                (Some(v), Some(t)) => {
-                    if vertical.get() {
-                        (offset.y, (t.height - v.height).max(0.0))
-                    } else {
-                        (offset.x, (t.width - v.width).max(0.0))
-                    }
-                }
-                _ => return style(),
+            let Some(overflow) = crate::carousel_geometry::bounds(viewport, edges, vertical.get())
+            else {
+                return style();
             };
             if overflow.1 <= 1.0 {
                 return style();
@@ -417,7 +411,7 @@ impl IntoView for Carousel {
                 && event.modifiers().shift
                 && event.delta().x == 0.0
                 && event.delta().y != 0.0
-                && (crate::carousel_geometry::can_scroll(viewport, track, false, false, true, true))
+                && (crate::carousel_geometry::can_scroll(viewport, edges, false, false, true, true))
             {
                 viewport.scroll_by(
                     Point {
@@ -441,7 +435,7 @@ impl IntoView for Carousel {
                     || if mode == CarouselMode::Scroll {
                         !crate::carousel_geometry::can_scroll(
                             viewport,
-                            track,
+                            edges,
                             vertical.get(),
                             rtl.get() == ReadingDirection::Rtl,
                             false,
@@ -459,7 +453,7 @@ impl IntoView for Carousel {
                     || if mode == CarouselMode::Scroll {
                         !crate::carousel_geometry::can_scroll(
                             viewport,
-                            track,
+                            edges,
                             vertical.get(),
                             rtl.get() == ReadingDirection::Rtl,
                             true,
