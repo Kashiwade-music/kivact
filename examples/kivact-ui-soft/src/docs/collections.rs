@@ -9,7 +9,7 @@ use kivact::view::{Node, NodeBuilder, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, grid, hstack, item,
-    layout, layout_content, layout_header, list, list_item, nav_icon, overflow_list, pagination,
+    layout, layout_content, layout_header, list, list_item, nav_icon, overflow_list,
     scrollable_area, section, stack_item,
 };
 
@@ -169,8 +169,11 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "pagination" => specimen(
             "Navigate result pages",
-            pagination(signal(1)).total_pages(12).first_last(true),
-            "pagination(page).total_pages(12).first_last(true)",
+            kivact::ui::pagination(12usize, signal(0usize))
+                .window(kivact::ui::PaginationWindow::Buffered)
+                .first_last(true)
+                .summary(kivact_ui_soft::pagination_status),
+            "pagination(12usize, page).window(PaginationWindow::Buffered).first_last(true).summary(soft::pagination_status)",
         ),
         "metadata-list" | "metadata-list-item" => specimen(
             "Document properties",

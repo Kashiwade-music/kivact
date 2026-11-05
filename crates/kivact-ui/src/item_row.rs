@@ -140,7 +140,7 @@ impl RowRender {
     fn wrap(
         &self,
         view: impl IntoView,
-        pick: fn(&crate::UiRecipes) -> &crate::Recipe<ItemRowState>,
+        pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<ItemRowState>,
     ) -> Node {
         let state = self.state;
         with_base_recipe_style(node().child(view), pick, &self.variants, move || {

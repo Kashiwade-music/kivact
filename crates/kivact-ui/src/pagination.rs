@@ -770,7 +770,7 @@ fn presentation_part(
     content: impl IntoView,
     variants: &crate::variants::Variants,
     facts: Value<PaginationSummary>,
-    recipe: fn(&crate::UiRecipes) -> &crate::Recipe<PaginationSummary>,
+    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<PaginationSummary>,
 ) -> Node {
     crate::layer::with_recipe_style(node().child(content), recipe, variants, move || facts.get())
 }

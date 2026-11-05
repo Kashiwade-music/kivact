@@ -47,7 +47,6 @@ mod more_menu;
 mod nav_heading;
 mod nav_icon;
 mod outline;
-mod pagination;
 mod power_search;
 mod recipe_style;
 mod recipes;
@@ -67,6 +66,7 @@ mod recipes_field;
 mod recipes_groups;
 mod recipes_menu;
 mod recipes_metrics;
+mod recipes_pagination;
 mod recipes_popup;
 mod recipes_popup_command;
 mod recipes_select;
@@ -167,7 +167,6 @@ pub use nav_heading::{
 };
 pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
-pub use pagination::{Pagination, PaginationVariant, pagination};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use recipes_badge::BadgeVariant;
 pub use recipes_code::{CodeAppearance, CodeBlockContainer, CodeBlockSize, CodeBlockWidth};
@@ -175,6 +174,9 @@ pub use recipes_dropzone::DropzoneVariant;
 pub use recipes_groups::{ButtonGroupVariant, ToolbarVariant};
 pub use recipes_metrics::HeadingDisplay;
 pub use recipes_metrics::{LabelPosition, MetadataColumns, MetadataLook};
+pub use recipes_pagination::{
+    PaginationAppearance, pagination_count, pagination_page_summary, pagination_status,
+};
 pub use recipes_skeleton::SkeletonRadius;
 pub use recipes_table::{TableCellAppearance, TableRowAppearance};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};

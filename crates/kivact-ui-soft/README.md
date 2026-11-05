@@ -156,22 +156,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.mobile_nav.open` | Open navigation |
 | `soft.more_menu.label` | More options |
 | `soft.outline.label` | Table of contents |
-| `soft.pagination.count` | {from}–{to} of {total} |
-| `soft.pagination.first` | Go to first page |
-| `soft.pagination.go_to_page` | Go to page {page} |
-| `soft.pagination.go_to_page_input` | Go to page |
-| `soft.pagination.items_per_page` | Items per page |
-| `soft.pagination.label` | Pagination |
-| `soft.pagination.last` | Go to last page |
-| `soft.pagination.next` | Go to next page |
-| `soft.pagination.next_by` | Go forward {step} pages |
-| `soft.pagination.of_total_pages` | / {total} |
-| `soft.pagination.page_announce` | Page {current} |
-| `soft.pagination.page_indicators` | Page indicators |
-| `soft.pagination.page_label` | Page |
-| `soft.pagination.page_of_total` | Page {current} of {total} |
-| `soft.pagination.previous` | Go to previous page |
-| `soft.pagination.previous_by` | Go back {step} pages |
 | `soft.power_search.add` | Add filter |
 | `soft.power_search.apply` | Apply |
 | `soft.power_search.contains` | Contains |
@@ -366,4 +350,7 @@ Number, date, and time filter fields validate values entered as text.
 - `avatar_group_overflow`
 - `stepper`
 - `alert`
+- `pagination`
 <!-- /kivact-recipes -->
+
+Pagination presentation helpers: `PaginationAppearance`, `pagination_count`, `pagination_page_summary`, and `pagination_status` use actual canonical summary facts.

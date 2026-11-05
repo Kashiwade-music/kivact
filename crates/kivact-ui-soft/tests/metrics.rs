@@ -1,5 +1,5 @@
 //! Role: Verify canonical metrics and Soft typography and metadata layouts.
-use kivact::prelude::*;
+use kivact::prelude::{NodeBuilder, Role, ThemeMode, column, signal, text};
 use kivact::test::{RenderOptions, render_with, render_with_handle};
 use kivact::ui;
 use kivact_ui_soft::{HeadingDisplay, MetadataColumns, MetadataLook};

@@ -85,11 +85,7 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
         if let Event::Popup(false) = event {
             return Step::to(State::Closed).with(Effect::Closed);
         }
-        let event = if matches!(event, Event::Popup(true)) && matches!(state, State::Closed) {
-            Event::Open(Opened::Button)
-        } else {
-            event
-        };
+        let event = accepted_opening(state, event);
         if let Event::Open(opened_by) = event {
             match &mut next {
                 State::Closed => {
@@ -230,4 +226,13 @@ fn update_level_event<K: kivact_core::state::ItemKey>(
             _ => {}
         }
     timer
+}
+
+/// Interpret an accepted external open as a menu opening without a focus request.
+fn accepted_opening<K>(state: &State<K>, event: Event<K>) -> Event<K> {
+    if matches!(event, Event::Popup(true)) && matches!(state, State::Closed) {
+        Event::Open(Opened::Button)
+    } else {
+        event
+    }
 }
