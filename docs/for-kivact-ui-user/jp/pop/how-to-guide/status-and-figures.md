@@ -140,3 +140,20 @@ fn person() -> impl IntoView {
         .status_content(look.decorations())
 }
 ```
+
+パンくずはキーを持つ標準の `kivact::ui::breadcrumb` と `.separator(|| icon("chevron-right"))` を使います。各工程の注記は `StepperItem::description` に渡します。`pop::DiamondSteps` は菱形の見た目を保ち、`.min_step_width(0)` はすべての工程を表示します。しきい値を有効にすると標準のレスポンシブな折り畳み表示を使えます。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn progress() -> impl IntoView {
+    let current = signal(1usize);
+    let labels = signal(vec!["Received".to_owned(), "Working".to_owned(), "Reported".to_owned()]);
+    let notes = signal(vec!["10/01".to_owned(), "In progress".to_owned()]);
+    kivact::ui::stepper(move || labels.get().into_iter().enumerate().map(|(index,label)| {
+        kivact::ui::StepperItem::new(label).description(notes.with(|notes|notes.get(index).cloned().unwrap_or_default()))
+    }).collect::<Vec<_>>(), current)
+        .variant(pop::DiamondSteps)
+        .min_step_width(0)
+}
+```

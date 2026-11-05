@@ -172,3 +172,20 @@ fn person() -> impl IntoView {
         .status_content(look.decorations())
 }
 ```
+
+Use canonical keyed `kivact::ui::breadcrumb` items and `.separator(|| icon("chevron-right"))` for the Pop trail. Progress steps use `StepperItem::description` for per-phase notes. `pop::DiamondSteps` preserves the diamond appearance; `.min_step_width(0)` keeps every step visible. Leave the threshold enabled for the standard responsive collapsed layout.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn progress() -> impl IntoView {
+    let current = signal(1usize);
+    let labels = signal(vec!["Received".to_owned(), "Working".to_owned(), "Reported".to_owned()]);
+    let notes = signal(vec!["10/01".to_owned(), "In progress".to_owned()]);
+    kivact::ui::stepper(move || labels.get().into_iter().enumerate().map(|(index,label)| {
+        kivact::ui::StepperItem::new(label).description(notes.with(|notes|notes.get(index).cloned().unwrap_or_default()))
+    }).collect::<Vec<_>>(), current)
+        .variant(pop::DiamondSteps)
+        .min_step_width(0)
+}
+```

@@ -387,10 +387,11 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
         },
     ]);
     let topbar = row((
-        ui::breadcrumb(
+        kivact::ui::breadcrumb(
             ["Pop UI".to_string()]
                 .into_iter()
-                .map(|item| item.to_string())
+                .enumerate()
+                .map(|(key, item)| kivact::interaction::ListItem::new(key, item))
                 .collect::<Vec<_>>(),
         ),
         kivact::view::icon("chevron-right").style(style().color(ColorToken::TextMuted)),

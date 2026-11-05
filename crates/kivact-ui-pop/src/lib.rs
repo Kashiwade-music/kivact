@@ -41,6 +41,7 @@ mod recipes_groups;
 mod recipes_indicators;
 mod recipes_input;
 mod recipes_items;
+mod recipes_navigation;
 mod recipes_palette;
 mod recipes_small;
 mod resize;
@@ -61,12 +62,13 @@ pub use messaging::{
     Message, MessageGroup, Thread, message, message_group, thread, typing_message,
 };
 pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
-pub use patterns::{AgendaItem, Stepper, agenda_item, breadcrumb, stepper};
+pub use patterns::{AgendaItem, agenda_item};
 pub use recipes_avatar::AvatarLook;
 pub use recipes_badge::{BadgeHue, BadgeVariant};
 pub use recipes_calendar::WeekendHue;
 pub use recipes_indicators::SpinnerLook;
 pub use recipes_items::ItemHue;
+pub use recipes_navigation::DiamondSteps;
 pub use recipes_small::{Segments, Striped};
 pub use resize::resizable_text_area;
 pub use tabs::tab_label;
