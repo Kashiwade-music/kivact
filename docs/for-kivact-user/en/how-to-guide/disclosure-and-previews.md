@@ -41,3 +41,5 @@ sets gesture thresholds; `hover_card` sets preview timing.
 call `copy.copy(text)` from a handler and read `copy.is_copied()` for display.
 Each successful copy restarts the duration. Clipboard failures reach the owner
 error handler without starting feedback; owner disposal cancels pending work.
+
+Disclosure recipes read `DisclosureRecipeState`: actual input and open state plus an optional fixed `group` panel position (`index`, `count`). This permits separators without storing group lifecycle state. Group variants merge with panel variants, with a panel-specific type taking precedence. `UiTokens::disclosure.motion.transition` can supply a theme transition; an absent value retains the duration-based ease-out tween.
