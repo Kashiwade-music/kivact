@@ -12,6 +12,7 @@ use std::rc::Rc;
 pub struct Dropzone {
     root: Node,
     variants: crate::variants::Variants,
+    icon: Option<View>,
     label: Value<String>,
     hint: Value<String>,
     filters: Value<Vec<(String, Vec<String>)>>,
@@ -25,6 +26,7 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
     Dropzone {
         variants: crate::variants::Variants::default(),
         root: node(),
+        icon: None,
         label: label.into_text_value(),
         hint: String::new().into_value(),
         filters: Vec::new().into_value(),
@@ -35,6 +37,12 @@ pub fn dropzone(label: impl IntoText) -> Dropzone {
     }
 }
 impl Dropzone {
+    /// Add decorative content above the label, mounted once.
+    pub fn icon(mut self, icon: impl IntoView) -> Self {
+        self.icon = Some(icon.into_view());
+        self
+    }
+
     /// Add a setup-only visual variant for every component recipe.
     pub fn variant(self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
@@ -83,6 +91,7 @@ impl IntoView for Dropzone {
             mut root,
             variants,
             label,
+            icon,
             hint,
             filters,
             multiple,
@@ -170,6 +179,12 @@ impl IntoView for Dropzone {
             });
         })
         .child((
+            icon.map(|icon| crate::layer::with_recipe_style(
+                node().child(icon),
+                |r| r.dropzone_recipes().icon_recipe(),
+                &variants,
+                move || state.get(),
+            )),
             label_view,
             hint_view,
             crate::layer::with_recipe_style(

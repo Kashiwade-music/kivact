@@ -737,6 +737,7 @@ recipe_table! {
     /// Styles for a file drop target and its feedback.
     DropzoneRecipes {
         root(root_recipe): DropzoneState = look_files::dropzone_root,
+        icon(icon_recipe): DropzoneState = look_files::dropzone_icon,
         label(label_recipe): DropzoneState = look_files::dropzone_label,
         hint(hint_recipe): DropzoneState = look_files::dropzone_hint,
         status(status_recipe): DropzoneState = look_files::dropzone_status,

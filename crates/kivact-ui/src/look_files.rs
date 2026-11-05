@@ -57,3 +57,7 @@ pub(super) fn dropzone_hint(_: &Theme, _: &DropzoneState) -> Style {
 pub(super) fn dropzone_status(_: &Theme, _: &DropzoneState) -> Style {
     style().font_size(12).color(ColorToken::Danger)
 }
+
+pub(super) fn dropzone_icon(_: &Theme, _: &DropzoneState) -> Style {
+    style()
+}
