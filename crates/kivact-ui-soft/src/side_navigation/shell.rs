@@ -124,18 +124,22 @@ pub fn side_nav(children: impl IntoView) -> SideNav {
 }
 
 impl SideNav {
+    /// Mount header content once in the sidebar context.
     pub fn header(mut self, header: impl IntoView) -> Self {
         self.header = Some(header.into_view());
         self
     }
+    /// Mount content above the scrollable navigation entries.
     pub fn top_content(mut self, content: impl IntoView) -> Self {
         self.top = Some(content.into_view());
         self
     }
+    /// Mount footer content outside the scrollable entries.
     pub fn footer(mut self, footer: impl IntoView) -> Self {
         self.footer = Some(footer.into_view());
         self
     }
+    /// Mount compact actions that remain available in the collapsed rail.
     pub fn footer_icons(mut self, icons: impl IntoView) -> Self {
         self.icons = Some(icons.into_view());
         self
