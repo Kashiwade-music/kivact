@@ -41,7 +41,7 @@ pub fn messages() -> Messages {
             "またはクリックして選択 · PNG、PDF 最大 10MB",
         ),
         ("pop.dropzone.picker", "ファイルを選択"),
-        ("pop.loader.label", "読み込み中"),
+        ("spinner.loading", "読み込み中"),
         ("mission.open", "開く"),
         ("mission.progress", "進捗"),
         ("pop.notifications.mark_read", "すべて既読"),
