@@ -199,172 +199,20 @@ impl IntoView for Stepper {
             variants,
         } = self;
         let reference = node_ref();
-        let rect = reference.rect();
-        let layout = memo(move || {
-            let count = items.with(Vec::len);
-            let minimum = min_step_width.map_or_else(
-                || {
-                    kivact_core::style::use_theme()
-                        .get()
-                        .ext::<crate::UiTokens>()
-                        .stepper
-                        .min_step_width
-                },
-                |width| width.get(),
-            );
-            StepperState {
-                current: current.get(),
-                count,
-                orientation: orientation.get(),
-                collapsed: orientation.get() == Orientation::Horizontal
-                    && count > 0
-                    && rect
-                        .get()
-                        .is_some_and(|rect| rect.width / (count as f64) < minimum),
-            }
-        });
-        let previous_variants = variants.clone();
-        let next_variants = variants.clone();
-        let previous = activate.clone().map(|activate| {
-            show(
-                move || layout.get().collapsed,
-                move || {
-                    let activate = activate.clone();
-                    crate::layer::with_recipe_style(
-                        crate::button(kivact_core::i18n::message(
-                            "stepper.previous",
-                            "Previous step",
-                        ))
-                        .disabled(move || current.get() == 0)
-                        .on_press(move || activate(current.get_untracked().saturating_sub(1))),
-                        |r| r.stepper_recipes().previous_recipe(),
-                        &previous_variants,
-                        move || layout.get(),
-                    )
-                },
-            )
-            .into_view()
-        });
-        let next = activate.clone().map(|activate| {
-            show(
-                move || layout.get().collapsed,
-                move || {
-                    let activate = activate.clone();
-                    crate::layer::with_recipe_style(
-                        crate::button(kivact_core::i18n::message("stepper.next", "Next step"))
-                            .disabled(move || current.get().saturating_add(1) >= layout.get().count)
-                            .on_press(move || activate(current.get_untracked().saturating_add(1))),
-                        |r| r.stepper_recipes().next_recipe(),
-                        &next_variants,
-                        move || layout.get(),
-                    )
-                },
-            )
-            .into_view()
-        });
+        let layout = responsive_layout(items, current, orientation, min_step_width, reference);
+        let previous =
+            collapsed_navigation(activate.clone(), current, layout, variants.clone(), true);
+        let next = collapsed_navigation(activate.clone(), current, layout, variants.clone(), false);
         let child_variants = variants.clone();
         let children = for_index(items, move |index, item| {
-            let state = move || {
-                item.with(|item| StepperItemState {
-                    index,
-                    current: current.get(),
-                    status: item.status,
-                    collapsed: layout.get().collapsed,
-                    disabled: item.disabled.get(),
-                    optional: item.optional.get(),
-                })
-            };
-            let part_variants = child_variants.clone();
-            let contents = kivact_core::view::dynamic(item, move |item| {
-                let indicator = match item.indicator {
-                    StepIndicator::None => None,
-                    StepIndicator::Custom(content) => Some((content.0)()),
-                    StepIndicator::Auto => Some(
-                        text(move || {
-                            if index < current.get() {
-                                "✓".to_owned()
-                            } else {
-                                (index + 1).to_string()
-                            }
-                        })
-                        .into_view(),
-                    ),
-                    _ => Some(text((index + 1).to_string()).into_view()),
-                };
-                let indicator = indicator.map(|indicator| {
-                    crate::layer::with_recipe_style(
-                        node(),
-                        |r| r.stepper_recipes().indicator_recipe(),
-                        &part_variants,
-                        state,
-                    )
-                    .child(indicator)
-                });
-                let label = crate::layer::with_recipe_style(
-                    text(item.label),
-                    |r| r.stepper_recipes().label_recipe(),
-                    &part_variants,
-                    state,
-                );
-                let description = item.description.map(|description| {
-                    crate::layer::with_recipe_style(
-                        text(description),
-                        |r| r.stepper_recipes().description_recipe(),
-                        &part_variants,
-                        state,
-                    )
-                });
-                let extra = item.content.map(|content| {
-                    crate::layer::with_recipe_style(
-                        node(),
-                        |r| r.stepper_recipes().content_recipe(),
-                        &part_variants,
-                        state,
-                    )
-                    .child((content.0)())
-                });
-                let end = item.end_content.map(|content| {
-                    crate::layer::with_recipe_style(
-                        node(),
-                        |r| r.stepper_recipes().end_content_recipe(),
-                        &part_variants,
-                        state,
-                    )
-                    .child((content.0)())
-                });
-                let optional = kivact_core::view::show(
-                    move || state().optional,
-                    || text(kivact_core::i18n::message("stepper.optional", "Optional")),
-                );
-                let body = column((label, description, optional, extra));
-                node()
-                    .style(style().direction(Direction::Row))
-                    .child(indicator)
-                    .child(body)
-                    .child(end)
-            });
-            let row = node()
-                .role(Role::ListItem)
-                .hidden(move || layout.get().collapsed && index != current.get())
-                .name(move || item.with(StepperItem::label))
-                .current_item(move || (index == current.get()).then_some(CurrentItem::Step));
-            let row = if let Some(activate) = &activate {
-                let activate = activate.clone();
-                row.focusable(move || !state().disabled).on_press(move || {
-                    if !state().disabled {
-                        activate(index);
-                    }
-                })
-            } else {
-                row
-            };
-            crate::layer::with_recipe_style(
-                row,
-                |r| r.stepper_recipes().item_recipe(),
-                &child_variants,
-                state,
+            step_row(
+                index,
+                item,
+                current,
+                layout,
+                activate.clone(),
+                child_variants.clone(),
             )
-            .child(contents)
         });
         crate::layer::with_base_recipe_style(
             root.node_ref(reference),
@@ -384,4 +232,214 @@ impl IntoView for Stepper {
         .child(next)
         .into_view()
     }
+}
+
+fn responsive_layout(
+    items: Value<Vec<StepperItem>>,
+    current: Value<usize>,
+    orientation: Value<Orientation>,
+    min_step_width: Option<Value<f64>>,
+    reference: kivact_core::view::NodeRef,
+) -> Value<StepperState> {
+    let rect = reference.rect();
+    memo(move || {
+        let count = items.with(Vec::len);
+        let minimum = min_step_width.map_or_else(
+            || {
+                kivact_core::style::use_theme()
+                    .get()
+                    .ext::<crate::UiTokens>()
+                    .stepper
+                    .min_step_width
+            },
+            |width| width.get(),
+        );
+        StepperState {
+            current: current.get(),
+            count,
+            orientation: orientation.get(),
+            collapsed: orientation.get() == Orientation::Horizontal
+                && count > 0
+                && rect
+                    .get()
+                    .is_some_and(|rect| rect.width / (count as f64) < minimum),
+        }
+    })
+}
+fn collapsed_navigation(
+    activate: Option<Rc<dyn Fn(usize)>>,
+    current: Value<usize>,
+    layout: Value<StepperState>,
+    variants: crate::variants::Variants,
+    previous: bool,
+) -> Option<View> {
+    activate.map(|activate| {
+        show(
+            move || layout.get().collapsed,
+            move || {
+                let activate = activate.clone();
+                let label = if previous {
+                    kivact_core::i18n::message("stepper.previous", "Previous step")
+                } else {
+                    kivact_core::i18n::message("stepper.next", "Next step")
+                };
+                crate::layer::with_recipe_style(
+                    crate::button(label)
+                        .disabled(move || {
+                            if previous {
+                                current.get() == 0
+                            } else {
+                                current.get().saturating_add(1) >= layout.get().count
+                            }
+                        })
+                        .on_press(move || {
+                            activate(if previous {
+                                current.get_untracked().saturating_sub(1)
+                            } else {
+                                current.get_untracked().saturating_add(1)
+                            })
+                        }),
+                    move |r| {
+                        if previous {
+                            r.stepper_recipes().previous_recipe()
+                        } else {
+                            r.stepper_recipes().next_recipe()
+                        }
+                    },
+                    &variants,
+                    move || layout.get(),
+                )
+            },
+        )
+        .into_view()
+    })
+}
+fn step_row(
+    index: usize,
+    item: Value<StepperItem>,
+    current: Value<usize>,
+    layout: Value<StepperState>,
+    activate: Option<Rc<dyn Fn(usize)>>,
+    variants: crate::variants::Variants,
+) -> impl IntoView {
+    let state = move || {
+        item.with(|item| StepperItemState {
+            index,
+            current: current.get(),
+            status: item.status,
+            collapsed: layout.get().collapsed,
+            disabled: item.disabled.get(),
+            optional: item.optional.get(),
+        })
+    };
+    let part_variants = variants.clone();
+    let contents = kivact_core::view::dynamic(item, move |item| {
+        step_contents(item, index, current, state, &part_variants)
+    });
+    let row = node()
+        .role(Role::ListItem)
+        .hidden(move || layout.get().collapsed && index != current.get())
+        .name(move || item.with(StepperItem::label))
+        .current_item(move || (index == current.get()).then_some(CurrentItem::Step));
+    let row = if let Some(activate) = &activate {
+        let activate = activate.clone();
+        row.focusable(move || !state().disabled).on_press(move || {
+            if !state().disabled {
+                activate(index);
+            }
+        })
+    } else {
+        row
+    };
+    crate::layer::with_recipe_style(row, |r| r.stepper_recipes().item_recipe(), &variants, state)
+        .child(contents)
+}
+fn step_contents(
+    item: StepperItem,
+    index: usize,
+    current: Value<usize>,
+    state: impl Fn() -> StepperItemState + Copy + 'static,
+    variants: &crate::variants::Variants,
+) -> Node {
+    let indicator = step_indicator(item.indicator.clone(), index, current);
+    let indicator = indicator.map(|indicator| {
+        crate::layer::with_recipe_style(
+            node(),
+            |r| r.stepper_recipes().indicator_recipe(),
+            variants,
+            state,
+        )
+        .child(indicator)
+    });
+    let label = crate::layer::with_recipe_style(
+        text(item.label.clone()),
+        |r| r.stepper_recipes().label_recipe(),
+        variants,
+        state,
+    );
+    let (description, extra, end) = step_details(item, state, variants);
+    let optional = kivact_core::view::show(
+        move || state().optional,
+        || text(kivact_core::i18n::message("stepper.optional", "Optional")),
+    );
+    let body = column((label, description, optional, extra));
+    node()
+        .style(style().direction(Direction::Row))
+        .child(indicator)
+        .child(body)
+        .child(end)
+}
+fn step_indicator(indicator: StepIndicator, index: usize, current: Value<usize>) -> Option<View> {
+    match indicator {
+        StepIndicator::None => None,
+        StepIndicator::Custom(content) => Some((content.0)()),
+        StepIndicator::Auto => Some(
+            text(move || {
+                if index < current.get() {
+                    "✓".to_owned()
+                } else {
+                    (index + 1).to_string()
+                }
+            })
+            .into_view(),
+        ),
+        _ => Some(text((index + 1).to_string()).into_view()),
+    }
+}
+fn step_details(
+    item: StepperItem,
+    state: impl Fn() -> StepperItemState + Copy + 'static,
+    variants: &crate::variants::Variants,
+) -> (Option<View>, Option<View>, Option<View>) {
+    let description = item.description.map(|description| {
+        crate::layer::with_recipe_style(
+            text(description),
+            |r| r.stepper_recipes().description_recipe(),
+            variants,
+            state,
+        )
+        .into_view()
+    });
+    let extra = item.content.map(|content| {
+        crate::layer::with_recipe_style(
+            node(),
+            |r| r.stepper_recipes().content_recipe(),
+            variants,
+            state,
+        )
+        .child((content.0)())
+        .into_view()
+    });
+    let end = item.end_content.map(|content| {
+        crate::layer::with_recipe_style(
+            node(),
+            |r| r.stepper_recipes().end_content_recipe(),
+            variants,
+            state,
+        )
+        .child((content.0)())
+        .into_view()
+    });
+
+    (description, extra, end)
 }

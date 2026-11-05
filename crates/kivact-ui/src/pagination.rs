@@ -43,7 +43,7 @@ pub struct Pagination {
     page_label: Value<String>,
     mode: PaginationMode,
     // xtask-allow(state-fields): Optional caller-provided presentation slot selected only during construction.
-    item: Option<Rc<dyn Fn(PageItem) -> View>>,
+    item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
     variants: crate::variants::Variants,
 }
@@ -191,13 +191,7 @@ impl IntoView for Pagination {
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
-        let count = memo(move || match &count {
-            PageCount::Items(total) => total
-                .get()
-                .div_ceil(u64::from(page_size.map_or(1, |size| size.get().max(1))))
-                .min(usize::MAX as u64) as usize,
-            PageCount::Pages(count) => count.get(),
-        });
+        let count = page_count(count, page_size);
         let current = memo(move || {
             if has_more.get() {
                 page.get()
@@ -205,101 +199,19 @@ impl IntoView for Pagination {
                 page.get().min(count.get().saturating_sub(1))
             }
         });
-        let child_variants = variants.clone();
-        let items = memo(move || {
-            let mut cells = cells(current.get(), count.get(), siblings.get(), first_last.get());
-            if mode != PaginationMode::Pages && mode != PaginationMode::Dots {
-                cells.retain(|(_, c)| !matches!(c, PageItem::Page(_) | PageItem::Ellipsis));
-            }
-            if mode == PaginationMode::None {
-                cells.clear();
-            }
-            cells
-        });
+        let items = visible_cells(current, count, siblings, first_last, mode);
+        let options = PageOptions {
+            step,
+            has_more,
+            item,
+            format,
+            mode,
+            variants: variants.clone(),
+        };
         let controls = for_each(
             items,
             |cell| *cell,
-            move |cell| {
-                let (_, cell) = cell.get();
-                let label = match cell {
-                    PageItem::First => "First page".to_owned(),
-                    PageItem::Previous => "Previous page".to_owned(),
-                    PageItem::Next => "Next page".to_owned(),
-                    PageItem::Last => "Last page".to_owned(),
-                    PageItem::Page(n) => format(n + 1),
-                    PageItem::Ellipsis => "More pages".to_owned(),
-                };
-                let body = item.as_ref().map_or_else(
-                    || {
-                        text(
-                            if mode == PaginationMode::Dots && matches!(cell, PageItem::Page(_)) {
-                                "•".to_owned()
-                            } else {
-                                label.clone()
-                            },
-                        )
-                        .into_view()
-                    },
-                    |slot| slot(cell),
-                );
-                if matches!(cell, PageItem::Ellipsis) {
-                    return crate::layer::with_recipe_style(
-                        node().name(label),
-                        |r| r.pagination_recipes().ellipsis_recipe(),
-                        &child_variants,
-                        || (),
-                    )
-                    .child(body)
-                    .into_view();
-                }
-                let selected =
-                    memo(move || matches!(cell, PageItem::Page(n) if n == current.get()));
-                crate::layer::with_recipe_style(
-                    crate::button("")
-                        .name(label)
-                        .with_node(|n| n.role(Role::Button))
-                        .with_node(|n| n.selected(selected))
-                        .with_node(|n| {
-                            n.current_item(move || selected.get().then_some(CurrentItem::Page))
-                        })
-                        .disabled(move || {
-                            disabled.get()
-                                || match cell {
-                                    PageItem::First | PageItem::Previous => {
-                                        current.get() == 0 || count.get() == 0
-                                    }
-                                    PageItem::Next | PageItem::Last => {
-                                        !has_more.get()
-                                            && current.get().saturating_add(1) >= count.get()
-                                    }
-                                    _ => false,
-                                }
-                        })
-                        .on_press(move || {
-                            let at = current.get_untracked();
-                            let last = count.get_untracked().saturating_sub(1);
-                            let delta = step.get_untracked().max(1);
-                            let next = match cell {
-                                PageItem::First => 0,
-                                PageItem::Previous => at.saturating_sub(delta),
-                                PageItem::Next => at.saturating_add(delta),
-                                PageItem::Last => last,
-                                PageItem::Page(n) => n,
-                                PageItem::Ellipsis => at,
-                            };
-                            page.set(if has_more.get_untracked() {
-                                next
-                            } else {
-                                next.min(last)
-                            });
-                        }),
-                    |r| r.pagination_recipes().item_recipe(),
-                    &child_variants,
-                    move || selected.get(),
-                )
-                .child(body)
-                .into_view()
-            },
+            move |cell| page_control(cell.get().1, page, current, count, disabled, &options),
         );
         let summary = if matches!(mode, PaginationMode::Count | PaginationMode::Compact) {
             Some(text(move || format!("{} / {}", current.get() + 1, count.get())).into_view())
@@ -308,29 +220,7 @@ impl IntoView for Pagination {
         };
         let input = (mode == PaginationMode::Input)
             .then(|| crate::pagination_draft::input(page, count, page_label, disabled));
-        let sizes = page_size.map(|size| {
-            crate::select(
-                "Items per page",
-                move || {
-                    size_options
-                        .get()
-                        .into_iter()
-                        .filter(|n| *n > 0)
-                        .map(|n| kivact_interaction::ListItem::new(n, n.to_string()))
-                        .collect::<Vec<_>>()
-                },
-                kivact_core::state::binding(
-                    move || Some(size.get()),
-                    move |next| {
-                        if let Some(next) = next {
-                            size.set(next);
-                            page.set(0);
-                        }
-                    },
-                ),
-            )
-            .into_view()
-        });
+        let sizes = page_size.map(|size| size_selector(size, size_options, page));
         crate::layer::with_base_recipe_style(
             root.roving_focus(Orientation::Horizontal),
             |r| r.pagination_recipes().root_recipe(),
@@ -343,4 +233,160 @@ impl IntoView for Pagination {
         .child(sizes)
         .into_view()
     }
+}
+
+/// Application-provided presentation for a pagination cell.
+type PageSlot = Rc<dyn Fn(PageItem) -> View>;
+
+/// Immutable presentation and navigation inputs shared by mounted page cells.
+struct PageOptions {
+    step: Value<usize>,
+    has_more: Value<bool>,
+    item: Option<PageSlot>,
+    format: Rc<dyn Fn(usize) -> String>,
+    mode: PaginationMode,
+    variants: crate::variants::Variants,
+}
+fn page_control(
+    cell: PageItem,
+    page: Binding<usize>,
+    current: Value<usize>,
+    count: Value<usize>,
+    disabled: Value<bool>,
+    options: &PageOptions,
+) -> View {
+    let (label, body) = page_content(cell, options);
+    if matches!(cell, PageItem::Ellipsis) {
+        return crate::layer::with_recipe_style(
+            node().name(label),
+            |r| r.pagination_recipes().ellipsis_recipe(),
+            &options.variants,
+            || (),
+        )
+        .child(body)
+        .into_view();
+    }
+    let has_more = options.has_more;
+    let step = options.step;
+    let selected = memo(move || matches!(cell, PageItem::Page(n) if n == current.get()));
+    crate::layer::with_recipe_style(
+        crate::button("")
+            .name(label)
+            .with_node(|n| n.role(Role::Button))
+            .with_node(|n| n.selected(selected))
+            .with_node(|n| n.current_item(move || selected.get().then_some(CurrentItem::Page)))
+            .disabled(move || {
+                disabled.get()
+                    || match cell {
+                        PageItem::First | PageItem::Previous => {
+                            current.get() == 0 || count.get() == 0
+                        }
+                        PageItem::Next | PageItem::Last => {
+                            !has_more.get() && current.get().saturating_add(1) >= count.get()
+                        }
+                        _ => false,
+                    }
+            })
+            .on_press(move || {
+                let at = current.get_untracked();
+                let last = count.get_untracked().saturating_sub(1);
+                let delta = step.get_untracked().max(1);
+                let next = target_page(cell, at, last, delta);
+                page.set(if has_more.get_untracked() {
+                    next
+                } else {
+                    next.min(last)
+                });
+            }),
+        |r| r.pagination_recipes().item_recipe(),
+        &options.variants,
+        move || selected.get(),
+    )
+    .child(body)
+    .into_view()
+}
+fn target_page(cell: PageItem, at: usize, last: usize, delta: usize) -> usize {
+    match cell {
+        PageItem::First => 0,
+        PageItem::Previous => at.saturating_sub(delta),
+        PageItem::Next => at.saturating_add(delta),
+        PageItem::Last => last,
+        PageItem::Page(n) => n,
+        PageItem::Ellipsis => at,
+    }
+}
+fn visible_cells(
+    current: Value<usize>,
+    count: Value<usize>,
+    siblings: Value<usize>,
+    first_last: Value<bool>,
+    mode: PaginationMode,
+) -> Value<Vec<(usize, PageItem)>> {
+    memo(move || {
+        let mut cells = cells(current.get(), count.get(), siblings.get(), first_last.get());
+        if mode != PaginationMode::Pages && mode != PaginationMode::Dots {
+            cells.retain(|(_, c)| !matches!(c, PageItem::Page(_) | PageItem::Ellipsis));
+        }
+        if mode == PaginationMode::None {
+            cells.clear();
+        }
+        cells
+    })
+}
+fn page_count(count: PageCount, page_size: Option<Binding<u32>>) -> Value<usize> {
+    memo(move || match &count {
+        PageCount::Items(total) => total
+            .get()
+            .div_ceil(u64::from(page_size.map_or(1, |size| size.get().max(1))))
+            .min(usize::MAX as u64) as usize,
+        PageCount::Pages(count) => count.get(),
+    })
+}
+fn size_selector(size: Binding<u32>, size_options: Value<Vec<u32>>, page: Binding<usize>) -> View {
+    crate::select(
+        "Items per page",
+        move || {
+            size_options
+                .get()
+                .into_iter()
+                .filter(|n| *n > 0)
+                .map(|n| kivact_interaction::ListItem::new(n, n.to_string()))
+                .collect::<Vec<_>>()
+        },
+        kivact_core::state::binding(
+            move || Some(size.get()),
+            move |next| {
+                if let Some(next) = next {
+                    size.set(next);
+                    page.set(0);
+                }
+            },
+        ),
+    )
+    .into_view()
+}
+
+fn page_content(cell: PageItem, options: &PageOptions) -> (String, View) {
+    let label = match cell {
+        PageItem::First => "First page".to_owned(),
+        PageItem::Previous => "Previous page".to_owned(),
+        PageItem::Next => "Next page".to_owned(),
+        PageItem::Last => "Last page".to_owned(),
+        PageItem::Page(n) => (options.format)(n + 1),
+        PageItem::Ellipsis => "More pages".to_owned(),
+    };
+    let body = options.item.as_ref().map_or_else(
+        || {
+            text(
+                if options.mode == PaginationMode::Dots && matches!(cell, PageItem::Page(_)) {
+                    "•".to_owned()
+                } else {
+                    label.clone()
+                },
+            )
+            .into_view()
+        },
+        |slot| slot(cell),
+    );
+    (label, body)
 }
