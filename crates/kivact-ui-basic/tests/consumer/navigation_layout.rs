@@ -1,7 +1,7 @@
 //! Role: Layout and navigation tests: resizable, carousel, tabs, scroller and sidebar.
 
 use super::navigation::{light, options, page};
-use crate::support::{assert_clean, distance, pixel};
+use crate::support::{distance, pixel};
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::ui::ButtonVariant;
@@ -123,7 +123,8 @@ fn split_drags_and_keys_move_the_boundary_within_min_sizes() {
     drag_by(&first, 5000.0);
     let after = sizes.get_untracked();
     assert!(near(after[1], 0.1, 0.01), "{after:?}");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 fn mount_carousel(
@@ -201,7 +202,9 @@ fn carousel_steps_with_buttons_and_keys_and_stops_at_the_ends() {
     index.set(40);
     screen.run_until_idle();
     assert!(next.is_disabled());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    // Off-viewport slides are intentionally clipped, as in the catalog layout check.
+    screen.assert_layout_with(&kivact::test::LayoutCheck::default().ignore_test_id("carousel"));
 }
 
 #[test]
@@ -265,7 +268,8 @@ fn line_tabs_select_move_and_mark_the_selected_tab_with_an_underline() {
     assert_eq!(current.get_untracked(), "settings");
     screen.press_key(Key::ArrowLeft);
     assert_eq!(current.get_untracked(), "analytics");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 fn app_sidebar(
@@ -394,5 +398,6 @@ fn sidebar_toggles_by_trigger_shortcut_and_rail_between_256_and_48() {
     assert!(!open.get_untracked());
     rail.click();
     assert!(open.get_untracked());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

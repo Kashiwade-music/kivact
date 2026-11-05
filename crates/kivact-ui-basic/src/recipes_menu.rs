@@ -42,7 +42,7 @@ const BAR: MenuLook = MenuLook {
 /// The kind of a kit menu, which the menu recipes read from the menu's
 /// `.variant(..)`: a menu without one is a dropdown or a use_context menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum MenuVariant {
+pub enum MenuVariant {
     /// menubar.tsx: wider levels and check marks at the start.
     Bar,
 }

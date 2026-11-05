@@ -49,7 +49,7 @@ fn default() -> impl IntoView {
 // example: destructive
 fn destructive() -> impl IntoView {
     kivact::ui::alert("Unable to process your payment.")
-        .variant(basic::AlertVariant::Destructive)
+        .variant(basic::AlertLook::Destructive)
         .icon(icon("circle-alert"))
         .description("Please verify your billing information and try again.")
         .style(style().width(420))

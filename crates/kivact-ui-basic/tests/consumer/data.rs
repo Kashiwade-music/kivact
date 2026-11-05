@@ -1,6 +1,6 @@
 //! Role: Chart and data table tests: colors, tooltips, filtering, sorting, paging.
 
-use crate::support::{assert_clean, distance};
+use crate::support::distance;
 use kivact::interaction::SortOrder;
 use kivact::prelude::*;
 use kivact::style::Align;
@@ -191,7 +191,8 @@ fn data_table_filters_rows_and_returns_to_the_first_page() {
     assert!(screen.query_by_text("ken99@example.com").is_none());
     screen.get_by_text("0 of 1 row(s) selected.");
     screen.assert_layout();
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 #[test]
@@ -227,7 +228,8 @@ fn data_table_sorts_with_the_header_buttons() {
         Some((2, SortOrder::Ascending))
     );
     screen.get_by_text("$15.00");
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }
 
 /// How many pixels of `screen` inside `rect` are near `color`.
@@ -290,7 +292,8 @@ fn every_chart_kind_draws_its_series_in_their_colors_in_both_themes() {
                     "{kind:?} draws the {name} series in {mode:?}"
                 );
             }
-            assert_clean(&screen);
+            assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+            screen.assert_layout_clean();
             screen.assert_layout();
         }
     }
@@ -328,5 +331,6 @@ fn hovering_a_chart_shows_the_tooltip_card_with_the_values() {
     screen.mouse_leave();
     screen.run_until_idle();
     assert!(screen.query_by_text("February").is_none());
-    assert_clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    screen.assert_layout_clean();
 }

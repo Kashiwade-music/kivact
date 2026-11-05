@@ -363,3 +363,6 @@ pub fn attachment_group(children: impl IntoView) -> Scroll {
 }
 
 kivact::state::constant_value!(AttachmentSize);
+
+impl kivact::ui::Variant for AttachmentSize {}
+impl kivact::ui::Variant for AttachmentMediaVariant {}

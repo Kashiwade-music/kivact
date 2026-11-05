@@ -218,3 +218,5 @@ fn pager() -> impl IntoView {
 - [Overlays](overlays.md): menus, popovers and dialogs.
 - [Data display](data-display.md): tables with sorting and paging.
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the sidebar parts and the navigation components.
+
+`basic::MenuVariant::Bar` is the public compact appearance of the standard menu used by the Basic menubar. Pass it through `.variant(..)` when composing the same appearance directly.
