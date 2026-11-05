@@ -65,6 +65,7 @@ mod layout_check;
 mod layout_scroll;
 mod layout_units;
 mod lifecycle;
+mod metrics_and_description;
 mod motion;
 mod node_ref;
 mod offscreen;
