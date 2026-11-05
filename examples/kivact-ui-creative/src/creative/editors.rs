@@ -832,5 +832,5 @@ fn apply_time(keys: &mut Vec<ui::Keyframe>, request: &ui::TimeRequest) {
 }
 
 fn empty_pixels() -> kivact::draw::Pixels {
-    kivact::draw::Pixels::new(1, 1, vec![0; 4].into())
+    kivact::draw::Pixels::new(1, 1, vec![0; 4])
 }

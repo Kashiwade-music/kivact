@@ -33,98 +33,9 @@ pub(super) fn menus(
         MenuEntry::item("apply", "Apply Transform").disabled(true),
     ];
     specs((
-        spec(
-            "Context Menu",
-            "right click",
-            kivact::ui::menu("Object", entries)
-                .on_activate(move |key: &'static str| status.set(format!("Context · {key}")))
-                .attach_context(
-                    node()
-                        .role(Role::Group)
-                        .name("Context menu target")
-                        .focusable(true)
-                        .style(
-                            style()
-                                .height(156)
-                                .padding(14)
-                                .radius(8)
-                                .align_items(Align::Center)
-                                .justify_content(Justify::Center),
-                        )
-                        .style(
-                            style()
-                                .background(ui::ColorName::Canvas)
-                                .border(1, ui::ColorName::Hair),
-                        )
-                        .child(note("Right click here · G Move / R Rotate / S Scale")),
-                ),
-        ),
-        spec(
-            "Pie Menu",
-            "eight directions",
-            kivact::ui::button("Hover here and hold Z — release to choose")
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .with_node(|node| node.node_ref(pie_zone))
-                .test_id("creative-pie-zone")
-                .on_pointer(move |event| {
-                    pointer.set(event.window_pos());
-                    Handled::No
-                })
-                .style(style().height(156).width(pct(100)))
-                .on_press(move || pie.set(ui::PieState::open_at(pointer.get(), false))),
-        ),
-        spec(
-            "Dropdown / Search",
-            "ドロップダウン・検索",
-            col((
-                note(
-                    "F3 または右上の検索アイコンから、全 22 章をコマンドとして検索。↑↓ 選択 / Enter 実行 / Esc 閉じる。",
-                ),
-                line((
-                    kivact::ui::menu(
-                        "Add",
-                        vec![
-                            MenuEntry::submenu(
-                                "mesh",
-                                "Mesh",
-                                vec![
-                                    MenuEntry::item("plane", "Plane"),
-                                    MenuEntry::item("cube", "Cube"),
-                                ],
-                            ),
-                            MenuEntry::item("camera", "Camera"),
-                        ],
-                    )
-                    .on_activate(move |key: &'static str| status.set(format!("Add · {key}")))
-                    .offset(0.0)
-                    .attach(
-                        kivact::ui::button("Add")
-                            .variant(kivact::ui::ButtonVariant::Secondary)
-                            .trailing(kivact::view::icon("chevron-down")),
-                    ),
-                    kivact::ui::menu(
-                        "Select",
-                        vec![
-                            MenuEntry::item("all", "All"),
-                            MenuEntry::item("none", "None"),
-                            MenuEntry::item("invert", "Invert"),
-                        ],
-                    )
-                    .on_activate(move |key: &'static str| status.set(format!("Select · {key}")))
-                    .offset(0.0)
-                    .attach(
-                        kivact::ui::button("Select")
-                            .variant(kivact::ui::ButtonVariant::Secondary)
-                            .trailing(kivact::view::icon("chevron-down")),
-                    ),
-                    kivact::ui::button("Operator Search")
-                        .variant(kivact::ui::ButtonVariant::Secondary)
-                        .icon(kivact::view::icon("search"))
-                        .test_id("creative-section-operator-search")
-                        .on_press(move || search.set(true)),
-                )),
-            )),
-        ),
+        menus_context_menu(status, entries.clone()),
+        menus_pie_menu(pie, pointer, pie_zone),
+        menus_dropdown_search(status, search),
     ))
 }
 
@@ -140,65 +51,11 @@ fn glass(t: &Theme) -> Style {
 
 pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
     specs((
-        spec("Metrics and descriptions", "進捗・指標・表示用の説明", col((
-            kivact::ui::heading("Render overview", 3),
-            line((kivact::ui::progress(Some(0.7)).variant(kivact::ui::ProgressVariant::Ring).name("Render progress"),
-                kivact::ui::stat("Rendered", "70 / 100").delta("30 remaining").trend(kivact::ui::Trend::Up))),
-            kivact::ui::progress(Some(0.7)).variant(kivact::ui::ProgressVariant::Gauge).name("Render gauge"),
-            kivact::ui::description_list((kivact::ui::description("Engine", text("Cycles")),
-                kivact::ui::description("Device", text("GPU")))),
-        ))),
-        spec(
-            "Dialog",
-            "modal · focus trap",
-            col((
-                line((
-                    render_settings(status),
-                    close_project(status),
-                )),
-                note("モーダルは背景入力を遮断し、Escape と Close でフォーカスが戻ります。"),
-            )),
-        ),
-        spec(
-            "Popover",
-            "anchored · nonmodal",
-            ui::popup_button("Viewport Options", move || {
-                col((
-                    text("Overlays").style(style().weight(600)),
-                    kivact::ui::checkbox("Grid Floor", signal(true)),
-                    kivact::ui::checkbox("Axes X", signal(true)),
-                    kivact::ui::checkbox("Axes Y", signal(true)),
-                    kivact::ui::checkbox("Relationship Lines", signal(true)),
-                    ui::property_row("Opacity", slide("", 1.0)),
-                    ui::property_row("Scale", num("", 1.0, 0.1, 10.0, 2, "")),
-                )).role(kivact::view::Role::List)
-            }),
-        ),
-        spec(
-            "Tooltip",
-            "hover · anchor",
-            col((line((
-                kivact::ui::tooltip("Camera View").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Camera View").style(style().weight(600)),text("Align viewport to the active camera").style(style().font_size(11)),text("Numpad 0").style(move || { let theme=kivact::style::use_theme().get(); style().font_family(theme.ext::<ui::Tokens>().mono_font.as_str()).font_size(10).color(theme.ext::<ui::Tokens>().dim) }),))).attach(kivact::ui::button("Hover me").variant(kivact::ui::ButtonVariant::Secondary)),
-                kivact::ui::tooltip("Scale").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Scale").style(style().weight(600)),text("Scale the selection").style(style().font_size(11)),text("S").style(move || { let theme=kivact::style::use_theme().get(); style().font_family(theme.ext::<ui::Tokens>().mono_font.as_str()).font_size(10).color(theme.ext::<ui::Tokens>().dim) }),))).attach(kivact::ui::button("S").variant(kivact::ui::ButtonVariant::Secondary)),
-                kivact::ui::tooltip("Tool information").placement(kivact::view::Placement::Below).align(kivact::view::OverlayAlign::Center).offset(6.0).content(move || column((text("Tool information").style(style().weight(600)),text("Public Kivact view and modifier API").style(style().font_size(11)),))).attach(kivact::ui::button("API tooltip").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("info"))),
-            )),note("0.5 秒ホバーで表示。タイトル・説明・ショートカット・API パスの4要素。"))),
-        ),
-        spec(
-            "Banner",
-            "インラインバナー",
-            col((
-                kivact::ui::alert("Media Offline").tone(kivact::interaction::Tone::Warning).with_node(|node| node.role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite)).description("3 clips could not be found at D:/Footage/Day02/").variant(ui::NoticeVariant)
-                    .dismiss_content(kivact::view::icon("x"))
-                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning"))
-                .dismissible(true),
-                kivact::ui::alert("Shader compile error").tone(kivact::interaction::Tone::Danger).description("Metal.002 · line 42 · undeclared identifier rm").variant(ui::NoticeVariant)
-                    .dismiss_content(kivact::view::icon("x"))
-                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning")).dismissible(true),
-                kivact::ui::alert("Proxy media").tone(kivact::interaction::Tone::Info).with_node(|node| node.role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite)).description("Proxy media is being used for playback. Final render uses full-resolution sources.").variant(ui::NoticeVariant)
-                    .dismiss_content(kivact::view::icon("x"))
-                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("info")).dismissible(true),
-            )),
-        ).style(style().grid_column(GridPlacement::span(2)).min_height(250)),
+        dialogs_metrics_and_descriptions(),
+        dialogs_dialog(status),
+        dialogs_popover(),
+        dialogs_tooltip(),
+        dialogs_banner().style(style().grid_column(GridPlacement::span(2)).min_height(250)),
     ))
 }
 
@@ -507,4 +364,255 @@ pub(super) fn operator_search(
             Handled::Yes
         })
     })
+}
+
+fn menus_context_menu(
+    status: Signal<String>,
+    entries: Vec<MenuEntry<&'static str>>,
+) -> kivact::view::Node {
+    spec(
+        "Context Menu",
+        "right click",
+        kivact::ui::menu("Object", entries)
+            .on_activate(move |key: &'static str| status.set(format!("Context · {key}")))
+            .attach_context(
+                node()
+                    .role(Role::Group)
+                    .name("Context menu target")
+                    .focusable(true)
+                    .style(
+                        style()
+                            .height(156)
+                            .padding(14)
+                            .radius(8)
+                            .align_items(Align::Center)
+                            .justify_content(Justify::Center),
+                    )
+                    .style(
+                        style()
+                            .background(ui::ColorName::Canvas)
+                            .border(1, ui::ColorName::Hair),
+                    )
+                    .child(note("Right click here · G Move / R Rotate / S Scale")),
+            ),
+    )
+}
+
+fn menus_pie_menu(
+    pie: Signal<ui::PieState>,
+    pointer: Signal<Point>,
+    pie_zone: NodeRef,
+) -> kivact::view::Node {
+    spec(
+        "Pie Menu",
+        "eight directions",
+        kivact::ui::button("Hover here and hold Z — release to choose")
+            .variant(kivact::ui::ButtonVariant::Secondary)
+            .with_node(|node| node.node_ref(pie_zone))
+            .test_id("creative-pie-zone")
+            .on_pointer(move |event| {
+                pointer.set(event.window_pos());
+                Handled::No
+            })
+            .style(style().height(156).width(pct(100)))
+            .on_press(move || pie.set(ui::PieState::open_at(pointer.get(), false))),
+    )
+}
+
+fn menus_dropdown_search(status: Signal<String>, search: Signal<bool>) -> kivact::view::Node {
+    spec(
+        "Dropdown / Search",
+        "ドロップダウン・検索",
+        col((
+            note(
+                "F3 または右上の検索アイコンから、全 22 章をコマンドとして検索。↑↓ 選択 / Enter 実行 / Esc 閉じる。",
+            ),
+            line((
+                kivact::ui::menu(
+                    "Add",
+                    vec![
+                        MenuEntry::submenu(
+                            "mesh",
+                            "Mesh",
+                            vec![
+                                MenuEntry::item("plane", "Plane"),
+                                MenuEntry::item("cube", "Cube"),
+                            ],
+                        ),
+                        MenuEntry::item("camera", "Camera"),
+                    ],
+                )
+                .on_activate(move |key: &'static str| status.set(format!("Add · {key}")))
+                .offset(0.0)
+                .attach(
+                    kivact::ui::button("Add")
+                        .variant(kivact::ui::ButtonVariant::Secondary)
+                        .trailing(kivact::view::icon("chevron-down")),
+                ),
+                kivact::ui::menu(
+                    "Select",
+                    vec![
+                        MenuEntry::item("all", "All"),
+                        MenuEntry::item("none", "None"),
+                        MenuEntry::item("invert", "Invert"),
+                    ],
+                )
+                .on_activate(move |key: &'static str| status.set(format!("Select · {key}")))
+                .offset(0.0)
+                .attach(
+                    kivact::ui::button("Select")
+                        .variant(kivact::ui::ButtonVariant::Secondary)
+                        .trailing(kivact::view::icon("chevron-down")),
+                ),
+                kivact::ui::button("Operator Search")
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .icon(kivact::view::icon("search"))
+                    .test_id("creative-section-operator-search")
+                    .on_press(move || search.set(true)),
+            )),
+        )),
+    )
+}
+
+fn dialogs_metrics_and_descriptions() -> kivact::view::Node {
+    spec(
+        "Metrics and descriptions",
+        "進捗・指標・表示用の説明",
+        col((
+            kivact::ui::heading("Render overview", 3),
+            line((
+                kivact::ui::progress(Some(0.7))
+                    .variant(kivact::ui::ProgressVariant::Ring)
+                    .name("Render progress"),
+                kivact::ui::stat("Rendered", "70 / 100")
+                    .delta("30 remaining")
+                    .trend(kivact::ui::Trend::Up),
+            )),
+            kivact::ui::progress(Some(0.7))
+                .variant(kivact::ui::ProgressVariant::Gauge)
+                .name("Render gauge"),
+            kivact::ui::description_list((
+                kivact::ui::description("Engine", text("Cycles")),
+                kivact::ui::description("Device", text("GPU")),
+            )),
+        )),
+    )
+}
+
+fn dialogs_dialog(status: Signal<String>) -> kivact::view::Node {
+    spec(
+        "Dialog",
+        "modal · focus trap",
+        col((
+            line((render_settings(status), close_project(status))),
+            note("モーダルは背景入力を遮断し、Escape と Close でフォーカスが戻ります。"),
+        )),
+    )
+}
+
+fn dialogs_popover() -> kivact::view::Node {
+    spec(
+        "Popover",
+        "anchored · nonmodal",
+        ui::popup_button("Viewport Options", move || {
+            col((
+                text("Overlays").style(style().weight(600)),
+                kivact::ui::checkbox("Grid Floor", signal(true)),
+                kivact::ui::checkbox("Axes X", signal(true)),
+                kivact::ui::checkbox("Axes Y", signal(true)),
+                kivact::ui::checkbox("Relationship Lines", signal(true)),
+                ui::property_row("Opacity", slide("", 1.0)),
+                ui::property_row("Scale", num("", 1.0, 0.1, 10.0, 2, "")),
+            ))
+            .role(kivact::view::Role::List)
+        }),
+    )
+}
+
+fn dialogs_tooltip() -> kivact::view::Node {
+    spec(
+        "Tooltip",
+        "hover · anchor",
+        col((
+            line((
+                kivact::ui::tooltip("Camera View")
+                    .placement(kivact::view::Placement::Below)
+                    .align(kivact::view::OverlayAlign::Center)
+                    .offset(6.0)
+                    .content(move || {
+                        column((
+                            text("Camera View").style(style().weight(600)),
+                            text("Align viewport to the active camera")
+                                .style(style().font_size(11)),
+                            text("Numpad 0").style(move || {
+                                let theme = kivact::style::use_theme().get();
+                                style()
+                                    .font_family(theme.ext::<ui::Tokens>().mono_font.as_str())
+                                    .font_size(10)
+                                    .color(theme.ext::<ui::Tokens>().dim)
+                            }),
+                        ))
+                    })
+                    .attach(
+                        kivact::ui::button("Hover me")
+                            .variant(kivact::ui::ButtonVariant::Secondary),
+                    ),
+                kivact::ui::tooltip("Scale")
+                    .placement(kivact::view::Placement::Below)
+                    .align(kivact::view::OverlayAlign::Center)
+                    .offset(6.0)
+                    .content(move || {
+                        column((
+                            text("Scale").style(style().weight(600)),
+                            text("Scale the selection").style(style().font_size(11)),
+                            text("S").style(move || {
+                                let theme = kivact::style::use_theme().get();
+                                style()
+                                    .font_family(theme.ext::<ui::Tokens>().mono_font.as_str())
+                                    .font_size(10)
+                                    .color(theme.ext::<ui::Tokens>().dim)
+                            }),
+                        ))
+                    })
+                    .attach(kivact::ui::button("S").variant(kivact::ui::ButtonVariant::Secondary)),
+                kivact::ui::tooltip("Tool information")
+                    .placement(kivact::view::Placement::Below)
+                    .align(kivact::view::OverlayAlign::Center)
+                    .offset(6.0)
+                    .content(move || {
+                        column((
+                            text("Tool information").style(style().weight(600)),
+                            text("Public Kivact view and modifier API")
+                                .style(style().font_size(11)),
+                        ))
+                    })
+                    .attach(
+                        kivact::ui::button("API tooltip")
+                            .variant(kivact::ui::ButtonVariant::Secondary)
+                            .hide_label(true)
+                            .icon(kivact::view::icon("info")),
+                    ),
+            )),
+            note("0.5 秒ホバーで表示。タイトル・説明・ショートカット・API パスの4要素。"),
+        )),
+    )
+}
+
+fn dialogs_banner() -> kivact::view::Node {
+    spec(
+            "Banner",
+            "インラインバナー",
+            col((
+                kivact::ui::alert("Media Offline").tone(kivact::interaction::Tone::Warning).with_node(|node| node.role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite)).description("3 clips could not be found at D:/Footage/Day02/").variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning"))
+                .dismissible(true),
+                kivact::ui::alert("Shader compile error").tone(kivact::interaction::Tone::Danger).description("Metal.002 · line 42 · undeclared identifier rm").variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("warning")).dismissible(true),
+                kivact::ui::alert("Proxy media").tone(kivact::interaction::Tone::Info).with_node(|node| node.role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite)).description("Proxy media is being used for playback. Final render uses full-resolution sources.").variant(ui::NoticeVariant)
+                    .dismiss_content(kivact::view::icon("x"))
+                    .dismiss_label(kivact::i18n::message("creative.notice.dismiss", "Dismiss notification")).icon(kivact::view::icon("info")).dismissible(true),
+            )),
+        )
 }

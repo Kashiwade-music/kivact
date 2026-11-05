@@ -2,7 +2,6 @@
 use kivact::draw::Pixels;
 use kivact::prelude::{Signal, signal};
 use kivact::style::Color;
-use std::sync::Arc;
 
 pub(super) fn gradient(width: u32, height: u32, mode: usize, grid: bool) -> Pixels {
     let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);
@@ -22,7 +21,7 @@ pub(super) fn gradient(width: u32, height: u32, mode: usize, grid: bool) -> Pixe
             rgba.push(255);
         }
     }
-    Pixels::new(width, height, Arc::from(rgba))
+    Pixels::new(width, height, rgba)
 }
 /// A bounded channel transports owned pixels; the UI task belongs to this view.
 /// Closing the view drops the receiver and causes any later send to fail.
@@ -68,5 +67,5 @@ pub(super) fn histogram(samples: &[Color], mode: &str) -> Pixels {
             }
         }
     }
-    Pixels::new(width, height, Arc::from(rgba))
+    Pixels::new(width, height, rgba)
 }
