@@ -36,7 +36,7 @@ fn main() -> kivact::Result<()> {
   to choose the density.
   The kit's tokens are `Tokens`; icons are the bundled Tabler set, drawn with
   `kivact::view::icon("name")`.
-- **Looks of standard components.** `radio_group(..).variant(Segmented)` or
+- **Looks of standard components.** `radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)` or
   `.variant(ChoiceCard)`, `tabs(..).variant(Boxed)` and
   `tabs(..).variant(Navigation)` give the kit's other looks.
 - **State.** Components take their values as signals or bindings owned by the
@@ -66,6 +66,14 @@ MIT OR Apache-2.0. The bundled Tabler icons are MIT
 ## Filled recipes
 
 <!-- kivact-recipes -->
+- `pagination`
+- `breadcrumb`
+- `stepper`
+- `navigation_menu`
+- `toolbar`
+- `toggle_group`
+- `button_group`
+- `input_group`
 - `dropzone`
 - `field`
 - `button`

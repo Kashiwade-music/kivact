@@ -13,7 +13,7 @@ use kivact::prelude::{
 use kivact::state::IntoValue;
 use kivact::state::binding;
 use kivact::style::use_theme;
-use kivact::style::{Align, auto, style};
+use kivact::style::{Align, auto, pct, style};
 use kivact::task::spawn;
 use kivact_ui_game as g;
 use std::time::Duration;
@@ -181,7 +181,7 @@ pub(super) fn buttons(scene: Demo) -> Node {
                 "BTN-05",
                 "ツールバー",
                 line((
-                    g::toolbar((
+                    kivact::ui::toolbar("Console tools").start((
                         kivact::ui::tooltip("元に戻す Ctrl+Z")
                             .placement(kivact::view::Placement::Below)
                             .align(kivact::view::OverlayAlign::Center)
@@ -323,34 +323,51 @@ pub(super) fn inputs(search: NodeRef) -> Node {
                 list((
                     kivact::ui::field(
                         "検索",
-                        g::input_adorned(
-                            kivact::view::icon("search"),
-                            kivact::ui::text_input("検索", kivact::state::signal(String::new()))
+                        kivact::ui::input_group(
+                            "",
+                            (
+                                kivact::ui::text_input(
+                                    "検索",
+                                    kivact::state::signal(String::new()),
+                                )
                                 .with_node(|node| node.node_ref(search))
                                 .test_id("game-search-input")
-                                .placeholder("ID・件名・担当者"),
-                            g::mono("/"),
-                        ),
+                                .placeholder("ID・件名・担当者")
+                                .style(style().width(pct(100)).padding_left(34).padding_right(52)),
+                            ),
+                        )
+                        .variant(g::GameInputGroupVariant::Adorned)
+                        .start(kivact::view::icon("search"))
+                        .end(g::mono("/")),
                     ),
                     kivact::ui::field(
                         "Webhook URL",
-                        g::input_group(
-                            "https://",
-                            kivact::ui::text_input(
+                        kivact::ui::input_group(
+                            "",
+                            (kivact::ui::text_input(
                                 "Webhook URL",
                                 kivact::state::signal(String::new()),
                             )
-                            .placeholder("hooks.example.com/ops"),
-                            "POST",
-                        ),
+                            .placeholder("hooks.example.com/ops"),),
+                        )
+                        .variant(g::GameInputGroupVariant::Inline)
+                        .start(g::mono("https://"))
+                        .end(g::mono("POST")),
                     ),
                     kivact::ui::field(
                         "月次予算",
-                        g::input_adorned(
-                            kivact::view::icon("database"),
-                            kivact::ui::text_input("月次予算", signal("1,200,000".to_owned())),
-                            g::mono("JPY"),
-                        ),
+                        kivact::ui::input_group(
+                            "",
+                            (
+                                kivact::ui::text_input("月次予算", signal("1,200,000".to_owned()))
+                                    .style(
+                                        style().width(pct(100)).padding_left(34).padding_right(52),
+                                    ),
+                            ),
+                        )
+                        .variant(g::GameInputGroupVariant::Adorned)
+                        .start(kivact::view::icon("database"))
+                        .end(g::mono("JPY")),
                     ),
                     kivact::ui::field(
                         "API キー ID",
@@ -720,8 +737,24 @@ pub(super) fn navigation() -> Node {
                 "NAV-03",
                 "ステッパー（ウィザード）",
                 list((
-                    g::stepper(
-                        strings(&["基本情報", "権限設定", "連携", "確認", "完了"]),
+                    kivact::ui::stepper(
+                        strings(&["基本情報", "権限設定", "連携", "確認", "完了"])
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, label)| {
+                                kivact::ui::StepperItem::new(label).indicator(
+                                    kivact::ui::StepIndicator::custom(move || {
+                                        text(move || {
+                                            if index < step.get() {
+                                                "✓".to_owned()
+                                            } else {
+                                                format!("{:02}", index + 1)
+                                            }
+                                        })
+                                    }),
+                                )
+                            })
+                            .collect::<Vec<_>>(),
                         step,
                     ),
                     row((
@@ -764,14 +797,24 @@ pub(super) fn navigation() -> Node {
                 "NAV-04",
                 "パンくず / ページネーション",
                 list((
-                    g::breadcrumb(strings(&[
-                        "組織",
-                        "プロジェクト",
-                        "環境: production",
-                        "OPS-2041",
-                    ])),
+                    kivact::ui::breadcrumb(
+                        strings(&["組織", "プロジェクト", "環境: production", "OPS-2041"])
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, label)| ListItem::new(index, label))
+                            .collect::<Vec<_>>(),
+                    ),
                     row((
-                        g::pagination(page, 12),
+                        kivact::ui::pagination(12, page).item(|item| {
+                            text(match item {
+                                kivact::ui::PageItem::First => "«".to_owned(),
+                                kivact::ui::PageItem::Previous => "‹".to_owned(),
+                                kivact::ui::PageItem::Next => "›".to_owned(),
+                                kivact::ui::PageItem::Last => "»".to_owned(),
+                                kivact::ui::PageItem::Ellipsis => "…".to_owned(),
+                                kivact::ui::PageItem::Page(page) => (page + 1).to_string(),
+                            })
+                        }),
                         spacer(),
                         g::mono(move || {
                             format!(

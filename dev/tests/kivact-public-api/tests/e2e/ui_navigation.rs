@@ -11,16 +11,16 @@ fn pagination_moves_pages_and_keeps_focus() {
         let page = signal(0usize);
         (page, pagination(20usize, page))
     });
-    let next = screen.get_by_role(Role::Link, "Next page");
+    let next = screen.get_by_role(Role::Button, "Next page");
     next.click();
     assert_eq!(page.get_untracked(), 1);
     assert!(next.is_focused());
     next.press_key(Key::Enter);
     assert_eq!(page.get_untracked(), 2);
-    screen.get_by_role(Role::Link, "4").click();
+    screen.get_by_role(Role::Button, "4").click();
     assert_eq!(page.get_untracked(), 3);
     assert_eq!(
-        screen.get_by_role(Role::Link, "4").current_item(),
+        screen.get_by_role(Role::Button, "4").current_item(),
         Some(CurrentItem::Page)
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
