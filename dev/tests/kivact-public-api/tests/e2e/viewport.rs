@@ -7,7 +7,7 @@ use kivact::prelude::*;
 use kivact::view::{ImageFit, viewport};
 
 fn pixels() -> Pixels {
-    Pixels::new(2, 1, vec![230, 30, 20, 255, 230, 30, 20, 255].into())
+    Pixels::new(2, 1, vec![230, 30, 20, 255, 230, 30, 20, 255])
 }
 
 #[test]

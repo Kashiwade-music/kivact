@@ -304,11 +304,7 @@ fn snapshot_returns_the_node_pixels() {
                     .node_ref(target)
                     .child(
                         canvas(|draw, _| {
-                            let pixels = kivact::draw::Pixels::new(
-                                1,
-                                1,
-                                std::sync::Arc::from([255, 0, 0, 255]),
-                            );
+                            let pixels = kivact::draw::Pixels::new(1, 1, vec![255, 0, 0, 255]);
                             draw.pixels(
                                 &pixels,
                                 Rect::new(0., 0., 30., 20.),
