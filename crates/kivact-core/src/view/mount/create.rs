@@ -17,7 +17,7 @@ pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
     pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
     pub(super) focusable_when_disabled: Option<InputProp<bool>>,
-    pub(super) roving_focus: Option<kivact_engine::contract::RovingFocus>,
+    pub(super) roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
     pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
     /// The final handlers (routed through the parts' defaults when the node has parts).
@@ -57,9 +57,6 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
             n.exit_complete = exit_complete;
             n.handlers = Some(Box::new(handlers));
         }
-        if let Some(roving_focus) = roving_focus {
-            tree.update(id, PropValue::RovingFocus(roving_focus), writer);
-        }
         if listen_file {
             tree.update(id, PropValue::ListenFile(true), writer);
         }
@@ -75,6 +72,9 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         if observe_layout {
             tree.set_observe(id, true);
         }
+    }
+    if let Some(f) = roving_focus {
+        cx.bind(id, f, PropValue::RovingFocus, at);
     }
     if let Some(f) = hit_testable {
         cx.bind(id, f, PropValue::HitTestable, at);
