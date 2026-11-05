@@ -148,9 +148,9 @@ pub fn effect(f: impl Fn() + 'static) {
 #[track_caller]
 pub fn effect_on<T: Clone + 'static>(source: impl IntoValue<T>, f: impl Fn(&T) + 'static) {
     let at = Location::caller();
-    setup_scope("effect_on", at);
+    let (rt, owner) = setup_scope("effect_on", at);
     let source = source.into_prop();
-    crate::reactive::watch(move || source.get(), EffectKind::User, f);
+    rt.watch(owner, EffectKind::User, move || source.get(), f, at);
 }
 
 /// Register a cleanup (Solid `onCleanup`): during setup it runs when the

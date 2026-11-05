@@ -33,6 +33,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
         state: owner.signal(LoopState::Stopped, at),
         frames: Cell::new(0),
         gate: Cell::new(LoopGate::Always),
+        rate: Cell::new(None),
     });
     MotionState::of(&rt).register_loop(&cell);
     FrameLoop {
@@ -45,7 +46,7 @@ impl FrameLoop {
     #[doc(hidden)]
     #[track_caller]
     pub fn with_presence_gate(self, gate: Value<bool>) -> Self {
-        crate::require_setup("FrameLoop::while_present");
+        crate::require_setup("FrameLoop::with_presence_gate");
         let (rt, cell) = self.cell(Location::caller());
         cell.gate.set(LoopGate::While(gate));
         let app = rt.id();
@@ -60,8 +61,8 @@ impl FrameLoop {
         self
     }
 
-    fn cell(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<LoopCell>) {
-        let c = self.handle.get();
+    fn cell(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<LoopCell>) {
+        let c = self.handle.get_at(at);
         (c.owner.runtime(), c)
     }
 
@@ -117,15 +118,18 @@ impl FrameLoop {
     /// Current rate (`None` when stopped).
     #[track_caller]
     pub fn rate(&self) -> Value<Option<FrameRate>> {
-        {
-            let cell = self.cell(Location::caller()).1;
-            let state = cell.state;
-            cell.owner.with_setup(|| {
-                crate::memo(move || match state.get() {
-                    LoopState::Stopped => None,
-                    LoopState::Running(run) => Some(run.rate),
-                })
-            })
+        let cell = self.cell(Location::caller()).1;
+        if let Some(rate) = cell.rate.get() {
+            return rate;
         }
+        let state = cell.state;
+        let rate = cell.owner.with_setup(|| {
+            crate::memo(move || match state.get() {
+                LoopState::Stopped => None,
+                LoopState::Running(run) => Some(run.rate),
+            })
+        });
+        cell.rate.set(Some(rate));
+        rate
     }
 }
