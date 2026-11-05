@@ -39,10 +39,10 @@
 //!
 //! # Texts
 //!
-//! The texts the components show themselves (Loading, Close, Copy,
-//! Copied, ...) are English and read through `kivact::i18n::message` under
-//! three-part `basic.*.*` keys that the README lists; an App replaces them with
-//! `App::messages`.
+//! Kit-owned texts, such as questionnaire actions and the sidebar toggle,
+//! use three-part `basic.*.*` keys through `kivact::i18n::message`. Standard
+//! Core components keep their standard keys. The README lists both; an App
+//! replaces messages with `App::messages`.
 
 mod alert;
 mod alert_dialog;
