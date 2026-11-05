@@ -89,10 +89,31 @@ fn split_drags_and_keys_move_the_boundary_within_min_sizes() {
         "the next panel keeps its minimum: {now:?}"
     );
 
-    // A drag moves by the pointer's travel.
+    let expanded = sizes.get_untracked();
     first.press_key(Key::Enter);
+    let collapsed = sizes.get_untracked();
+    assert!(
+        near(collapsed[0], 0.1, 0.002),
+        "Enter keeps the leading minimum"
+    );
+    assert!(near(collapsed[0] + collapsed[1], 0.5, 0.002));
+    assert!(near(collapsed[2], expanded[2], 0.002));
+    first.press_key(Key::Enter);
+    let restored = sizes.get_untracked();
+    for (actual, expected) in restored.iter().zip(&expanded) {
+        assert!(
+            near(*actual, *expected, 0.002),
+            "Enter restores the previous sizes"
+        );
+    }
+
+    // Double click equalizes; a drag moves by the pointer's travel.
+    first.double_click();
     let now = sizes.get_untracked();
-    assert!(near(now[0], now[1], 0.002), "Enter shares the pair equally");
+    assert!(
+        near(now[0], now[1], 0.002),
+        "double click shares the pair equally"
+    );
     let total = screen.get_by_test_id("one").rect().expect("laid out").width / now[0];
     drag_by(&first, 60.0);
     let after = sizes.get_untracked();

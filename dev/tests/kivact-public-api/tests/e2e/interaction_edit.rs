@@ -108,7 +108,8 @@ fn each_key_and_assistive_technology_write_is_its_own_edit() {
         (Key::ArrowLeft, 50.0),
         (Key::Home, 0.0),
         (Key::End, 100.0),
-        (Key::Enter, 20.0),
+        (Key::Enter, 0.0),
+        (Key::Enter, 100.0),
     ] {
         let before = value.get_untracked();
         log.borrow_mut().clear();
@@ -120,6 +121,19 @@ fn each_key_and_assistive_technology_write_is_its_own_edit() {
             "{key:?}"
         );
     }
+    // The reset option still belongs to double click, independently of Enter.
+    log.borrow_mut().clear();
+    split.double_click();
+    assert_eq!(value.get_untracked(), 20.0);
+    assert_eq!(
+        *log.borrow(),
+        [
+            (Begin, 100.0),
+            (Commit, 100.0),
+            (Begin, 100.0),
+            (Commit, 20.0)
+        ]
+    );
     log.borrow_mut().clear();
 
     split.a11y(A11yAction::Increment);
