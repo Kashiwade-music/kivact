@@ -4,7 +4,7 @@
 
 This guide shows how to put something above the page: a dialog, a confirmation, a side sheet, a bottom drawer, a popover, a hover card, a menu and a toast. It assumes you have done the [tutorial](../getting-started/README.md) and that the app uses `basic::theme`.
 
-Most of these are not kit components. Dialogs, alert dialogs, sheets and popovers are the standard `dialog(title, open)` with a different `.kind(..)`, menus are the standard `menu(..)`, and toasts are the standard `toast_region`/`toaster`. The theme draws them in the Lyra look. The kit adds `basic::drawer` and `basic::hover_card`.
+Most of these are not kit components. Dialogs, alert dialogs, sheets and popovers are the standard `dialog(title, open)` with a different `.kind(..)`, menus are the standard `menu(..)`, and toasts are the standard `toast_region`/`toaster`. The theme draws them in the Lyra look. Swipe drawers also use this standard dialog; hover previews use standard `kivact::ui::hover_card` with the Basic surface recipe.
 
 Two rules hold for all of them:
 
@@ -102,7 +102,7 @@ fn notifications() -> impl IntoView {
 }
 ```
 
-`Side` is `Left`, `Right`, `Top` or `Bottom`. For a bottom panel that the user can swipe away, use the kit's `basic::drawer(open, title)` instead. It takes the same `.description(..)`, `.content(..)` and `.footer(..)` and `.side(Edge::..)` (bottom by default):
+`Side` is `Left`, `Right`, `Top` or `Bottom`. For a bottom panel that the user can swipe away, use the kit's `kivact::ui::dialog(title, open).mode(DialogMode::Drawer(Edge::Bottom))` instead. It takes the same `.description(..)`, `.content(..)` and `.footer(..)` and `.mode(DialogMode::Drawer(Edge::..))` (bottom by default):
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -115,7 +115,10 @@ fn move_goal() -> impl IntoView {
         button("Open drawer")
             .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
-        basic::drawer(open, "Move goal")
+        kivact::ui::dialog("Move goal", open)
+            .mode(kivact::interaction::DialogMode::Drawer(kivact::geometry::Edge::Bottom))
+            .variant(basic::DrawerVariant::Drawer)
+            .closable(false)
             .description("Set your daily activity goal.")
             .content(move || text(move || format!("{} calories/day", goal.get())))
             .footer(move || {
@@ -130,7 +133,7 @@ fn move_goal() -> impl IntoView {
 }
 ```
 
-`basic::drawer` and `basic::hover_card` are not `NodeBuilder`s: they draw nothing where you place them, so `.style(..)` and `.test_id(..)` do not apply to them.
+`kivact::ui::dialog` and `kivact::ui::hover_card` are not `NodeBuilder`s: they draw nothing where you place them, so `.style(..)` and `.test_id(..)` do not apply to them.
 
 ## Anchor a popover to a button
 
@@ -161,14 +164,14 @@ fn dimensions() -> impl IntoView {
 
 ## Preview something on hover
 
-`basic::hover_card` opens when the pointer rests on its trigger. It opens after 600 ms and closes 300 ms after the pointer leaves; change those with `.open_delay(..)` and `.close_delay(..)`:
+`kivact::ui::hover_card` opens when the pointer rests on its trigger. It opens after 600 ms and closes 300 ms after the pointer leaves; change those with `.open_delay(..)` and `.close_delay(..)`:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn mention() -> impl IntoView {
-    basic::hover_card(|| {
+    kivact::ui::hover_card(|| {
         column((
             text("@kivact").style(style().weight(600)),
             basic::muted("A native GUI framework for Rust."),

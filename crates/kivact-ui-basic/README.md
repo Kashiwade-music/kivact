@@ -61,7 +61,7 @@ through Kivact's public font API and set the `family` of `theme.text()` with `Th
 State lives in caller-owned signals and bindings. Collections are read-only
 `impl IntoValue<Vec<T>>` inputs, and requests such as a code block's copy
 press are reported through callbacks; writing to the clipboard, persistence
-and business rules remain application concerns. `basic::direction` provides a
+and business rules remain application concerns. `kivact::view::provide_direction` provides a
 reading direction that the kit's direction-aware components honor; the
 standard `kivact::ui` components do not mirror.
 
@@ -87,12 +87,12 @@ alert-dialog.tsx (its width class is `.variant(basic::AlertDialogSize::Sm)`,
 its cancel and action buttons are the footer, and `.closable(false)` leaves
 out the close button it does not have), sheet.tsx and popover.tsx. A
 use_context menu is the standard `kivact::ui::menu(..).attach_context(target)`,
-drawn with use_context-menu.tsx's wider top level. The kit's own overlays
-(`drawer`, which a swipe dismisses, and `hover_card`, which opens on a
-delay) show their content in a fresh branch each time they open, so they
-take their slots (`.content(..)`, `.footer(..)`) as functions and do not
-implement `NodeBuilder`; `hover_card` attaches to a caller trigger with
-`.attach(trigger)`, and the trigger takes the modifiers. Mount the standard
+drawn with use_context-menu.tsx's wider top level. Standard dialogs build their content in a fresh branch whenever they open,
+so `.content(..)` and `.footer(..)` take functions. Swipe drawers use
+`dialog(title, open).mode(DialogMode::Drawer(edge)).variant(basic::DrawerVariant::Drawer)`;
+`.closable(false)` preserves the drawer without a close button. The default
+edge dialog recipe is the sheet look. Standard `kivact::ui::hover_card` attaches
+with `.attach(trigger)`; the trigger takes its own modifiers. Mount the standard
 `kivact::ui::toast_region(toaster()).hold_all_on_hover(true)` once near
 the root to show the toasts pushed with
 `toaster().push(Toast::new(title).tone(..))`: the core `kivact::interaction::Toast`
@@ -121,10 +121,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.calendar.next` | Next month |
 | `basic.calendar.previous` | Previous month |
 | `basic.calendar.year` | Year |
-| `basic.carousel.label` | Carousel |
-| `basic.carousel.next` | Next slide |
-| `basic.carousel.previous` | Previous slide |
-| `basic.carousel.slide` | Slide |
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
@@ -139,7 +135,6 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.date_picker.format` | {month} {day}, {year} |
 | `basic.date_picker.placeholder` | Pick a date |
 | `basic.date_picker.range` | {start} - {end} |
-| `basic.hover_card.label` | Preview |
 | `basic.message_scroller.end` | Scroll to end |
 | `basic.navigation_menu.label` | Navigation |
 | `basic.pagination.label` | Pagination |
@@ -230,4 +225,11 @@ The theme overrides these `UiRecipes` entries; other entries keep the standard d
 - `progress`
 - `disclosure`
 - `command_palette`
+- `hover_card`
+- `carousel`
 <!-- /kivact-recipes -->
+
+`kivact::ui::carousel(index, slides)` uses this theme's Lyra recipes. Orientation,
+items per view and looping keep their behavior; previous and next controls remain
+square outline buttons outside the viewport. `kivact::ui::hover_card(content)`
+uses the same 256 px preview surface, alignment, placement and 600/300 ms delays.

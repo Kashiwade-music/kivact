@@ -480,7 +480,10 @@ fn disclosure_indicator(t: &Theme, state: &Look<DisclosureState>) -> Style {
         .rotate(if state.open { 180 } else { 0 })
 }
 
-fn disclosure_content(t: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_content(t: &Theme, state: &Look<DisclosureState>) -> Style {
+    if state.variant::<crate::DisclosureVariant>().is_some() {
+        return style();
+    }
     style()
         .enter_size(kivact::view::Orientation::Vertical)
         .exit_size(kivact::view::Orientation::Vertical)

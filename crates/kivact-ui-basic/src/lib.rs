@@ -10,9 +10,9 @@
 //! `kivact::ui::dialog` of the kinds `Modal`, `AlertModal` (its width class
 //! is [`AlertDialogSize`]), `Drawer(side)` and `Popover`, and a dropdown or
 //! context menu is the standard `kivact::ui::menu` (`.attach(trigger)` or
-//! `.attach_context(target)`), all in this look. The kit's own overlays
-//! ([`hover_card`], [`drawer`]) draw nothing at the place they are used; a
-//! hover card is attached to the caller's own trigger with
+//! `.attach_context(target)`), all in this look. Standard dialogs draw
+//! their overlay away from the place they are used; a
+//! standard `kivact::ui::hover_card` is attached to the caller's own trigger with
 //! `.attach(trigger)`, which returns the trigger and the overlay.
 //!
 //! A slot method that places content in a component (`content`, `header`,
@@ -54,7 +54,6 @@ mod button;
 mod button_group;
 mod calendar;
 mod card;
-mod carousel;
 mod chart;
 mod chat;
 mod choice;
@@ -66,7 +65,6 @@ mod disclosure;
 mod drawer;
 mod empty;
 mod field;
-mod hover_card;
 mod icons;
 mod input_group;
 mod input_otp;
@@ -113,7 +111,6 @@ pub use breadcrumb::{
 };
 pub use button_group::{ButtonGroup, button_group, button_group_separator, button_group_text};
 pub use card::{Card, CardHeader, CardSize, card, card_header};
-pub use carousel::{Carousel, carousel};
 pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
 pub use chat::{
     Bubble, BubbleAlign, BubbleReactionsSide, BubbleVariant, Message, MessageAlign, bubble,
@@ -152,13 +149,12 @@ pub use code_block::{
 pub use color::ColorName;
 pub use combobox::{Combobox, combobox};
 pub use date_picker::{DatePicker, DateRangePicker, date_picker, date_range_picker};
-pub use disclosure::{Collapsible, collapsible};
-pub use drawer::{Drawer, drawer};
+pub use disclosure::DisclosureVariant;
+pub use drawer::DrawerVariant;
 pub use field::{
     FieldLegendVariant, FieldSeparator, FieldSet, field_content, field_group, field_separator,
     field_set,
 };
-pub use hover_card::{HoverCard, hover_card};
 pub use icons::ICON_NAMES;
 pub use input_group::{
     InputGroup, InputGroupButton, InputGroupButtonSize, input_group, input_group_button,
