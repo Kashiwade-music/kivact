@@ -118,7 +118,16 @@ fn command_search_rebuilds_rows_and_executes_the_filtered_action() {
 
 #[test]
 fn menu_skips_disabled_items_and_restores_the_custom_trigger() {
-    let (screen, chosen) = kivact::test::render_with_handle(crate::support::options(), || {
+    let policy = kivact::interaction::InteractionPolicy {
+        menu: kivact::interaction::MenuPolicy {
+            disabled_focus: kivact::interaction::DisabledMenuFocus::Skip,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let options = crate::support::options()
+        .theme(kivact_ui_pop::theme(kivact::style::ThemeMode::Light).with(policy));
+    let (screen, chosen) = kivact::test::render_with_handle(options, || {
         let chosen = signal(0usize);
         (
             chosen,
