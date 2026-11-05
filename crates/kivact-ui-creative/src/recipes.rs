@@ -22,6 +22,10 @@ use crate::tokens::Tokens;
 /// compare their recipes by identity and installing the kit's theme again
 /// never restyles.
 pub(crate) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Process-wide immutable recipe table, initialized once so theme equality retains recipe identity."
+    )]
     static RECIPES: std::sync::OnceLock<UiRecipes> = std::sync::OnceLock::new();
     RECIPES.get_or_init(build).clone()
 }
@@ -127,7 +131,7 @@ fn build() -> UiRecipes {
         .toggle_group(|group| {
             group.item(|_| {
                 |t: &Theme, s: &Look<kivact::ui::ToggleGroupItemState>| {
-                    toggle_button(t, &Look::new(s.toggle.clone()))
+                    toggle_button(t, &Look::new(s.toggle))
                 }
             })
         })

@@ -307,6 +307,10 @@ fn svg(body: &str) -> Vec<u8> {
 /// The set is built once and shared, so two themes of the kit compare their
 /// icons by identity instead of name by name.
 pub(crate) fn set() -> IconSet {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Process-wide immutable icon registry, initialized once to preserve identity across themes."
+    )]
     static SET: std::sync::OnceLock<IconSet> = std::sync::OnceLock::new();
     SET.get_or_init(|| {
         let mut set = IconSet::standard();
