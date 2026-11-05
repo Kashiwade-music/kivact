@@ -278,165 +278,12 @@ impl Dialog {
             }
             .into_view()
         });
-        let kind = self.kind;
         let shape = Shape {
-            kind,
+            kind: self.kind,
             media: self.media.is_some(),
         };
-        let requested = self.open;
-        let open = self.open.into_value();
-        let title = self.title;
-        let hidden = self.title_hidden;
-        let variants = self.variants.clone();
         let dialog = kivact_core::view::show(behavior.is_open(), move || {
-            let variants = &variants;
-            let heading = {
-                let variants = variants.clone();
-                move || {
-                    themed(text(title), behavior.title(), shape, &variants, |r| {
-                        r.dialog_recipes().title_recipe()
-                    })
-                }
-            };
-            let closable = self.closable;
-            let close = (kind != DialogMode::Popover).then(|| {
-                let variants = variants.clone();
-                kivact_core::view::show(closable, move || {
-                    themed(
-                        node()
-                            .name(kivact_core::i18n::message("dialog.close", "Close"))
-                            .child(kivact_core::view::icon("x")),
-                        behavior.close_trigger(),
-                        shape,
-                        &variants,
-                        |r| r.dialog_recipes().close_recipe(),
-                    )
-                })
-            });
-            let description = self.description.map(|label| {
-                themed(text(label), behavior.description(), shape, variants, |r| {
-                    r.dialog_recipes().description_recipe()
-                })
-            });
-            let media = self.media.as_ref().map(|media| {
-                wrapper(node().child(media.call(())), open, shape, variants, |r| {
-                    r.dialog_recipes().media_recipe()
-                })
-            });
-            // The media, the title and the description form the header; the
-            // close button comes last, so the content's first control takes
-            // the initial focus and the close button is the last tab stop
-            // (its recipe places it, usually at the top right). A header of
-            // the title alone goes with a hidden title.
-            let header = if description.is_some() || media.is_some() {
-                let heading = kivact_core::view::show(move || !hidden.get(), heading);
-                wrapper(
-                    column((media, heading, description)),
-                    open,
-                    shape,
-                    variants,
-                    |r| r.dialog_recipes().header_recipe(),
-                )
-                .into_view()
-            } else {
-                let variants = variants.clone();
-                kivact_core::view::show(
-                    move || !hidden.get(),
-                    move || {
-                        wrapper(column(heading()), open, shape, &variants, |r| {
-                            r.dialog_recipes().header_recipe()
-                        })
-                    },
-                )
-                .into_view()
-            };
-            // A dialog without content has no body, so the surface's gap
-            // does not open twice between the header and the footer.
-            let content = self.content.as_ref().map(|body| {
-                let content = wrapper(node().child(body.call(())), open, shape, variants, |r| {
-                    r.dialog_recipes().body_recipe()
-                });
-                if matches!(kind, DialogMode::Drawer(_)) {
-                    scroll(content)
-                        .style(style().grow(1).min_height(0))
-                        .into_view()
-                } else {
-                    content.into_view()
-                }
-            });
-            let footer = self
-                .footer
-                .as_ref()
-                .map(|footer| footer.call(()))
-                .filter(|footer| !kivact_core::custom::view_is_empty(footer))
-                .map(|footer| {
-                    wrapper(row(footer), open, shape, variants, |r| {
-                        r.dialog_recipes().footer_recipe()
-                    })
-                });
-            let panel_ref = node_ref();
-            let swipe = if let DialogMode::Drawer(edge) = kind {
-                Some(crate::drawer_swipe::handle(
-                    edge, panel_ref, requested, variants,
-                ))
-            } else {
-                None
-            };
-            let (handle, pulled) = match swipe {
-                Some((handle, pulled)) => (Some(handle), Some(pulled)),
-                None => (None, None),
-            };
-            let surface = behavior.content();
-            let surface_state = surface.state();
-            let mut panel = with_recipe_style(
-                column((handle, header, content, footer, close)).node_ref(panel_ref),
-                |r| r.dialog_recipes().surface_recipe(),
-                variants,
-                move || shape.state(surface_state.get()),
-            );
-            if let DialogMode::Drawer(side) = kind {
-                panel = panel.style(edge(side));
-                if let Some(pulled) = pulled {
-                    panel =
-                        panel.style(move || crate::drawer_swipe::translation(side, pulled.get()));
-                }
-            }
-            if let Some(width) = self.width {
-                panel = panel.style(move || style().width(width.get()));
-            }
-            let popover = kind == DialogMode::Popover;
-            let position_anchor = if matches!(kind, DialogMode::Modal | DialogMode::AlertModal)
-                && use_theme().get().ext::<crate::UiTokens>().dialog.center == DialogCenter::Window
-            {
-                node_ref()
-            } else {
-                anchor
-            };
-            let layer = overlay(
-                position_anchor,
-                if popover {
-                    self.placement
-                } else {
-                    Placement::Center
-                },
-                panel,
-            )
-            .with_node(|node| node.part(surface))
-            .name(title);
-            if popover {
-                let layer = match self.align {
-                    Some(align) => layer.align(align),
-                    None => layer,
-                };
-                return layer.offset(4.0).into_view();
-            }
-            (
-                wrapper(node(), open, shape, variants, |r| {
-                    r.dialog_recipes().scrim_recipe()
-                }),
-                layer,
-            )
-                .into_view()
+            self.surface(behavior, shape, anchor)
         })
         .into_view();
         (trigger, dialog).into_view()
@@ -456,3 +303,200 @@ fn edge(side: Edge) -> kivact_core::style::Style {
 }
 
 pub use crate::dialog_tokens::{DialogCenter, DialogTokens};
+
+impl Dialog {
+    /// Render media and semantic headings in the dialog header.
+    fn header(&self, behavior: kivact_interaction::DialogApi, shape: Shape) -> View {
+        let title = self.title;
+        let hidden = self.title_hidden;
+        let open = self.open.into_value();
+        let variants = &self.variants;
+        let heading = {
+            let variants = variants.clone();
+            move || {
+                themed(text(title), behavior.title(), shape, &variants, |r| {
+                    r.dialog_recipes().title_recipe()
+                })
+            }
+        };
+        let description = self.description.map(|label| {
+            themed(text(label), behavior.description(), shape, variants, |r| {
+                r.dialog_recipes().description_recipe()
+            })
+        });
+        let media = self.media.as_ref().map(|media| {
+            wrapper(node().child(media.call(())), open, shape, variants, |r| {
+                r.dialog_recipes().media_recipe()
+            })
+        });
+        // The media, the title and the description form the header; the
+        // close button comes last, so the content's first control takes
+        // the initial focus and the close button is the last tab stop
+        // (its recipe places it, usually at the top right). A header of
+        // the title alone goes with a hidden title.
+        if description.is_some() || media.is_some() {
+            let heading = kivact_core::view::show(move || !hidden.get(), heading);
+            wrapper(
+                column((media, heading, description)),
+                open,
+                shape,
+                variants,
+                |r| r.dialog_recipes().header_recipe(),
+            )
+            .into_view()
+        } else {
+            let variants = variants.clone();
+            kivact_core::view::show(
+                move || !hidden.get(),
+                move || {
+                    wrapper(column(heading()), open, shape, &variants, |r| {
+                        r.dialog_recipes().header_recipe()
+                    })
+                },
+            )
+            .into_view()
+        }
+    }
+    /// Render the dismiss control for dialog modes which provide it.
+    fn close_button(&self, behavior: kivact_interaction::DialogApi, shape: Shape) -> Option<View> {
+        let kind = self.kind;
+        let variants = &self.variants;
+        let closable = self.closable;
+        (kind != DialogMode::Popover).then(|| {
+            let variants = variants.clone();
+            kivact_core::view::show(closable, move || {
+                themed(
+                    node()
+                        .name(kivact_core::i18n::message("dialog.close", "Close"))
+                        .child(kivact_core::view::icon("x")),
+                    behavior.close_trigger(),
+                    shape,
+                    &variants,
+                    |r| r.dialog_recipes().close_recipe(),
+                )
+            })
+            .into_view()
+        })
+    }
+    /// Render the independently optional body and footer slots.
+    fn contents(&self, shape: Shape) -> (Option<View>, Option<Node>) {
+        let kind = self.kind;
+        let open = self.open.into_value();
+        let variants = &self.variants;
+        // A dialog without content has no body, so the surface's gap
+        // does not open twice between the header and the footer.
+        let content = self.content.as_ref().map(|body| {
+            let content = wrapper(node().child(body.call(())), open, shape, variants, |r| {
+                r.dialog_recipes().body_recipe()
+            });
+            if matches!(kind, DialogMode::Drawer(_)) {
+                scroll(content)
+                    .style(style().grow(1).min_height(0))
+                    .into_view()
+            } else {
+                content.into_view()
+            }
+        });
+        let footer = self
+            .footer
+            .as_ref()
+            .map(|footer| footer.call(()))
+            .filter(|footer| !kivact_core::custom::view_is_empty(footer))
+            .map(|footer| {
+                wrapper(row(footer), open, shape, variants, |r| {
+                    r.dialog_recipes().footer_recipe()
+                })
+            });
+        (content, footer)
+    }
+    /// Compose the panel surface and its optional drawer manipulation handle.
+    fn surface(
+        &self,
+        behavior: kivact_interaction::DialogApi,
+        shape: Shape,
+        anchor: NodeRef,
+    ) -> View {
+        let kind = self.kind;
+        let variants = &self.variants;
+        let requested = self.open;
+        let header = self.header(behavior, shape);
+        let close = self.close_button(behavior, shape);
+        let (content, footer) = self.contents(shape);
+        let panel_ref = node_ref();
+        let swipe = if let DialogMode::Drawer(edge) = kind {
+            Some(crate::drawer_swipe::handle(
+                edge, panel_ref, requested, variants,
+            ))
+        } else {
+            None
+        };
+        let (handle, pulled) = match swipe {
+            Some((handle, pulled)) => (Some(handle), Some(pulled)),
+            None => (None, None),
+        };
+        let surface = behavior.content();
+        let surface_state = surface.state();
+        let mut panel = with_recipe_style(
+            column((handle, header, content, footer, close)).node_ref(panel_ref),
+            |r| r.dialog_recipes().surface_recipe(),
+            variants,
+            move || shape.state(surface_state.get()),
+        );
+        if let DialogMode::Drawer(side) = kind {
+            panel = panel.style(edge(side));
+            if let Some(pulled) = pulled {
+                panel = panel.style(move || crate::drawer_swipe::translation(side, pulled.get()));
+            }
+        }
+        if let Some(width) = self.width {
+            panel = panel.style(move || style().width(width.get()));
+        }
+        self.place_panel(surface, shape, anchor, panel)
+    }
+    /// Position the actual dialog surface and include the modal scrim when needed.
+    fn place_panel(
+        &self,
+        surface: Part<PopupState>,
+        shape: Shape,
+        anchor: NodeRef,
+        panel: Node,
+    ) -> View {
+        let kind = self.kind;
+        let open = self.open.into_value();
+        let variants = &self.variants;
+        let title = self.title;
+        let popover = kind == DialogMode::Popover;
+        let position_anchor = if matches!(kind, DialogMode::Modal | DialogMode::AlertModal)
+            && use_theme().get().ext::<crate::UiTokens>().dialog.center == DialogCenter::Window
+        {
+            node_ref()
+        } else {
+            anchor
+        };
+        let layer = overlay(
+            position_anchor,
+            if popover {
+                self.placement
+            } else {
+                Placement::Center
+            },
+            panel,
+        )
+        .with_node(|node| node.part(surface))
+        .name(title);
+        if popover {
+            let layer = match self.align {
+                Some(align) => layer.align(align),
+                None => layer,
+            };
+            return layer.offset(4.0).into_view();
+        }
+        (
+            wrapper(node(), open, shape, variants, |r| {
+                r.dialog_recipes().scrim_recipe()
+            }),
+            layer,
+        )
+            .into_view()
+    }
+}
