@@ -43,12 +43,12 @@ mod tests {
     #[test]
     fn next_and_previous_load_and_user_zero_fails() {
         let screen = kivact::test::render(app);
-        screen.get_by_text("Loading…");
+        screen.get_by_role(Role::Status, "Loading");
         screen.advance(LOAD);
         screen.get_by_text("User #1");
 
         screen.get_by_role(Role::Button, "Next").click();
-        screen.get_by_text("Loading…");
+        screen.get_by_role(Role::Status, "Loading");
         screen.advance(LOAD);
         screen.get_by_text("User #2");
 

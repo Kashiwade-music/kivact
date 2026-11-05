@@ -220,7 +220,7 @@ fn async_view_fallback_retries() {
         ))
     });
     assert!(
-        screen.query_by_text("Loading…").is_none(),
+        screen.query_by_role(Role::Status, "Loading").is_none(),
         "an idle action has no loading view"
     );
     screen.get_by_role(Role::Button, "Load").click();
@@ -247,7 +247,7 @@ fn on_tokio_future_resolves_and_wakes_the_ui() {
         });
         async_view(value, text)
     });
-    screen.get_by_text("Loading…");
+    screen.get_by_role(Role::Status, "Loading");
     send.send_blocking(String::from("Worker result"))
         .expect("receiver lives");
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
