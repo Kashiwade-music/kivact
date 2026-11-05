@@ -355,3 +355,10 @@
 |---|---|---|---|---|
 | 2026-11-05 | F3 | 拡張時の変更箇所 | text styleの公開語彙は所有するstyle crateの明示facade一覧で一元化し、Coreはその限定した一覧だけを転送する。virtualは既知serviceを処理し未知requestはUnsupported、capabilityは構築時の値と実GPU/native事実から投影する。 | 新しい型やserviceごとにCoreの重複一覧やvirtualの網羅matchを修正する第四のcrateを不要にし、型付きAPIと正直な未対応の契約を維持するため |
 | 2026-11-05 | F3 Windows mirror | 並列native試験の異常終了 | required mirrorのpublic API e2e binaryでSTATUS_ACCESS_VIOLATIONが発生したため、そのbinaryはtest-threads=1で再実行する | 実窓を伴う失敗binaryだけを直列化し、他の試験とCargo jobsは既定並列を保つため |
+
+## ADR: snapshotの取得境界
+
+- 日付: 2026-11-05
+- 問い: 同じasync処理でframeやPixelsが更新された直後のNodeRef::snapshotが何を取得するか。
+- 決定: 既存Hostのrequest/reply経路でlayoutとpaintがsettleした後のCPU描画を取得する。poll時のNodeIdを束縛し、応答時に寿命を再確認する。追加のFrameTickや実時間待ちを要求しない。
+- 理由: Render再計算前のsceneを同期的に読むと、GPU256x128が利用可能でも直前の正方形CPU画像をContainした128x128の描画を取得する。実測では半分の16384pxが透明だった。状態更新と描画確定の順序を既存host境界で守り、表示とsnapshotに別のgeometryモデルを作らない。

@@ -62,6 +62,8 @@ UI の試験は `kivact::test` による App 全体の E2E です。`arvane-virt
 
 アプリを起動する試験と実 window を開くコマンドは、`KIVACT_TEST_MIRROR=off` でも `dev/tools/window-lock.sh -- <command>` を通し、すべての worktree で同時に一つの process だけがウィンドウを開くようにします。実 window の focus 競合と backend の同時利用を避けるためです。通常の試験は Cargo の既定の並列数で実行します。`gpu-interop-producer` と `kivact-docs` の doctest は別に `--test-threads=1` で直列にします。後者は多数の例の同時 compile/link による実際のメモリ不足を避けるためです。lock は時間の上限（既定 900 秒、`--timeout` で変更）も掛け、時間切れは終了コード 124 です。
 
+native 試験が並列実行中に異常終了した場合は、失敗した binary だけ `--test-threads=1` で再検証し、実行条件を[設計判断](docs/for-kivact-developer/decisions.md)に記録します。
+
 ## merge 前の検査
 
 ```text

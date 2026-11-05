@@ -55,6 +55,8 @@ GPU の表示や native host 固有の試験は実環境が必要です。`cargo
 二つの root README にある例だけを検査します。実行する Rust の例が App を起動する場合は、
 doctest も `dev/tools/window-lock.sh` を通します。
 
+native 試験が並列実行中に異常終了した場合は、失敗した binary だけ `--test-threads=1` で再検証し、実行条件を[設計判断](../docs/for-kivact-developer/decisions.md)に記録します。
+
 ## feature の確認
 
 ```text

@@ -229,3 +229,7 @@ Integration: `refactor/kashiwade/foundation-v3`。記録の書き方は作業手
 - F3静的最終: 76b299caの全static40package/108graph 0、architecture再生成。Clippy0、facade rustdoc0、prelude144名一致、ローカル文書リンク切れ0、全skip空。WSL Clippy73deab7aも0。
 
 - G-final runtime: Windows required mirrorのdocs583/12ignoredとGPU6件は0。公開APIは並列native異常終了後に直列470pass/1snapshot失敗で修正中。WSL Wayland workspace全体0、GPU3件0、docs実行中。
+
+- WSL Wayland76b299ca: workspace/GPU3/docs583+12ignoredすべてexit0。snapshot診断は実色208/96/32が16384px、透明が16384pxで、GPU256x128に対し旧CPU128x128の描画を取得していた。既存Hostのsettle境界で応答する修正中。
+
+- F3最終source93268f13: 全体Clippy0、fullstatic40package/108graph0、feature20/20。WindowsGPU失敗1件とsnapshot4件はbd37771fで全通過。X11 workspace/GPU3/docsも全exit0。純粋contractへ整理した応答型の最終named確認を残す。

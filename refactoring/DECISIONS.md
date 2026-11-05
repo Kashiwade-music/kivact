@@ -188,3 +188,5 @@
 | 2026-11-05 | F3 | 拡張時の変更箇所 | text styleの公開語彙は所有するstyle crateの明示facade一覧で一元化し、Coreはその限定した一覧だけを転送する。virtualは既知serviceを処理し未知requestはUnsupported、capabilityは構築時の値と実GPU/native事実から投影する。 | 新しい型やserviceごとにCoreの重複一覧やvirtualの網羅matchを修正する第四のcrateを不要にし、型付きAPIと正直な未対応の契約を維持するため |
 
 | 2026-11-05 | F3 Windows mirror | 並列native試験の実行単位 | required mirrorのpublic API e2e binaryが並列実行中にSTATUS_ACCESS_VIOLATIONで終了した。0.6節の失敗crate例外に従い、そのbinaryだけtest-threads=1で再実行する。他crateとCargo jobsは既定並列を維持する。 |
+
+| 2026-11-05 | F3 snapshot | 非同期snapshotの取得境界 | 同じasync batchで変わったframeとPixelsを、Render再計算前の古いsceneから取得していた。snapshotは既存Host request/reply経路へ送り、hostのlayout/paint settle後に応答する。NodeIdの寿命を再確認し、追加のFrameTickや時間待ちを要求しない。 |

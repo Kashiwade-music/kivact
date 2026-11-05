@@ -252,6 +252,8 @@ behavior の保存は既存 E2E の契約で確認する。trace は失敗診断
 
 変更後の意味情報も実 node から検証する。AsyncViewの既定pendingはStatus Loading、pickerエラーはAlert、Contentsはlayoutの透明性とa11y Group/論理階層を両立する。Desktop操作を検証するdate fixtureは明示Desktop、一般のAdaptive fixtureはtouchのSaveを保つ。iconは実install済みglyphで確かめ、timeoutやdescription relation欠落を期待値の緩和で隠さない。
 
+NodeRef::snapshotはpoll時のnodeをHostのrequest/replyへ送り、layout/paintとgeometry reportがsettleしてからCPU描画を取得する。ownerの寿命を応答時にも確認する。古いsceneの同期readや、別のgeometryモデル、追加のFrameTick待ちで取得順序を代用しない。
+
 ## 追加・変更するときのチェックリスト
 
 共通して、実際の要求を確認し、一つの事実の持ち主を決め、型・builder・変換の重複を作らず、公開契約の E2E と必要な英日ガイドを更新する。境界の増設だけで配管を増やさない。
