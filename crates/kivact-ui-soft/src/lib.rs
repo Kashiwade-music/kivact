@@ -77,6 +77,7 @@ mod recipes_skeleton;
 mod rich_block_doc;
 mod rich_blocks;
 mod rich_text;
+mod scroll_observer;
 mod scrollable_area;
 mod section;
 mod segmented_control;
@@ -186,6 +187,10 @@ pub use recipes_pagination::{
 pub use recipes_skeleton::SkeletonRadius;
 pub use recipes_table::{TableCellAppearance, TableRowAppearance};
 pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor, rich_text_toolbar, rich_text_view};
+pub use scroll_observer::{
+    AxisScroll, OverflowOptions, ScrollOverflow, ScrollState, use_overflow, use_scroll_overflow,
+    use_scroll_state,
+};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Edges, Section, SectionVariant, section};
 pub use segmented_control::{SegmentedLayout, SegmentedLook};
@@ -200,7 +205,8 @@ pub use soft_chat_tools::{
 };
 pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{
-    RowStatusDot, RowStatusTone, TableSelectionToolbar, table_row_status, table_selection_toolbar,
+    RowStatusDot, RowStatusTone, TableSelectionToolbar, table_row_index, table_row_status,
+    table_selection_toolbar,
 };
 pub use soft_tree::TreeLook;
 pub use spinner::{SpinnerShade, SpinnerVariant};

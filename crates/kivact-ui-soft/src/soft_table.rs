@@ -115,6 +115,22 @@ kivact::state::constant_value!(RowStatusTone);
 pub struct RowStatusDot;
 impl kivact::ui::Variant for RowStatusDot {}
 
+/// Show a 1-based row number for a table's index lane, end-aligned in the
+/// secondary text color. Constant or reactive.
+pub fn table_row_index(index: impl IntoValue<usize>) -> Node {
+    let index = index.into_value();
+    text(move || index.get().to_string()).base_style(move || {
+        style()
+            .font_size(12)
+            .text_align(kivact::style::TextAlign::End)
+            .color(
+                kivact::style::use_tokens::<crate::Tokens>()
+                    .colors
+                    .text_secondary,
+            )
+    })
+}
+
 /// Show a named semantic status marker without adding another status owner.
 pub fn table_row_status(
     label: impl IntoText,

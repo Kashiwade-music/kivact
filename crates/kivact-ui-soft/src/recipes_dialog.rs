@@ -154,7 +154,7 @@ fn drawer(base: Style, p: &Tokens, side: Edge) -> Style {
             style().translate_y(pct(100)),
         ),
     };
-    // The drawer slides out through the standard dialog exit lifecycle (C-07).
+    // The drawer slides out through the standard dialog exit lifecycle.
     motion(base, p, p.motion.medium)
         .enter(hidden.clone())
         .exit(hidden)
@@ -222,7 +222,8 @@ pub(crate) fn motion(base: Style, p: &Tokens, duration: u64) -> Style {
 }
 
 pub(crate) fn anchored(base: Style, p: &Tokens, x: f64, y: f64) -> Style {
-    // TODO(soft-core: C-21): Add the coarse-pointer reduced-motion fade.
+    // Anchored layers scale in from their anchor; under reduced motion the
+    // decorative transition completes at once, also for coarse pointers.
     motion(base, p, p.motion.fast_max).enter(
         style()
             .opacity(0.0)
