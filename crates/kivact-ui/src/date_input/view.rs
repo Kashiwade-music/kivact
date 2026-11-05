@@ -45,6 +45,9 @@ pub struct DateInput {
     label: Value<String>,
     value: Binding<Option<CalendarDate>>,
     format: Value<DateStyle>,
+    custom_format: Option<Rc<dyn Fn(CalendarDate) -> String>>,
+    placeholder: Value<String>,
+    valid: Option<Binding<bool>>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
     week_start: Option<Value<Weekday>>,
@@ -61,6 +64,9 @@ pub fn date_input(
         label: label.into_text_value(),
         value: value.into_binding(),
         format: DateStyle::Iso.into_value(),
+        custom_format: None,
+        placeholder: "YYYY-MM-DD".into_text_value(),
+        valid: None,
         min: None.into_value(),
         max: None.into_value(),
         week_start: None,
@@ -72,6 +78,22 @@ impl DateInput {
     /// Date text format, read reactively.
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
+        self.custom_format = None;
+        self
+    }
+    /// Custom application presentation for an existing date.
+    pub fn format_with(mut self, format: impl Fn(CalendarDate) -> String + 'static) -> Self {
+        self.custom_format = Some(Rc::new(format));
+        self
+    }
+    /// Text displayed while the optional value is empty.
+    pub fn placeholder(mut self, text: impl IntoText) -> Self {
+        self.placeholder = text.into_text_value();
+        self
+    }
+    /// Publish whether the current typed draft is a valid optional date.
+    pub fn valid(mut self, valid: impl IntoBinding<bool>) -> Self {
+        self.valid = Some(valid.into_binding());
         self
     }
     /// Earliest accepted date.
@@ -112,6 +134,9 @@ impl IntoView for DateInput {
             label,
             value,
             format,
+            custom_format,
+            placeholder,
+            valid,
             min,
             max,
             week_start,
@@ -127,7 +152,12 @@ impl IntoView for DateInput {
                 min: min.get(),
                 max: max.get(),
             },
-            move |_, next| value.set(next),
+            move |_, next| {
+                value.set(next);
+                if let Some(valid) = valid {
+                    valid.set(true);
+                }
+            },
         );
         let open = binding(
             move || state.get().is_open(),
@@ -152,37 +182,43 @@ impl IntoView for DateInput {
                 min: min.get(),
                 max: max.get(),
             },
-            move |_, text| state.send(Event::Commit(text)),
+            move |_, effect| match effect {
+                super::machine::TypedEffect::Commit(text) => state.send(Event::Commit(text)),
+                super::machine::TypedEffect::Validity(next) => {
+                    if let Some(valid) = valid {
+                        valid.set(next);
+                    }
+                }
+            },
         );
         kivact_core::state::effect(move || {
             let value = value.get();
             typed.send(TypedEvent::External(value));
             state.send(Event::External(value));
         });
+        let display = custom_format.clone();
         let draft = binding(
             move || match typed.get() {
-                TypedDate::Following(date) => locale.get().format_date(date, format.get()),
+                TypedDate::Following(date) => display.as_ref().map_or_else(
+                    || locale.get().format_date(date, format.get()),
+                    |format| format(date),
+                ),
                 TypedDate::Editing { text, .. } => text,
             },
             move |text: String| typed.send(TypedEvent::Edit(text)),
         );
         let field = text_input(label, draft)
-            .placeholder("YYYY-MM-DD")
+            .placeholder(placeholder)
             .invalid(move || matches!(typed.get(), TypedDate::Editing { ref text, validation: DateValidation::Checked } if !text.trim().is_empty() || matches!(state.get().draft(), Draft::Invalid(_))))
             .forward_keys(vec![Key::ArrowDown])
             .on_key(move |event: KeyEvent| { if event.key() == Key::ArrowDown { state.send(Event::Open(OpenedBy::Input)); Handled::Yes } else { Handled::No } })
-            .on_draft_commit(move |text| typed.send(TypedEvent::Commit(text)));
+             .on_draft_commit(move |text| {
+                if let Some(date) = value.get_untracked().filter(|date| custom_format.as_ref().is_some_and(|format| format(*date) == text)) { state.send(Event::Pick(date)); } else { typed.send(TypedEvent::Commit(text)); }
+            });
         let toggle = button(message("date.open", "Choose date"))
             .variant(ButtonVariant::Ghost)
             .hide_label(true)
-            .icon(icon("calendar"))
-            .on_press(move || state.send(Event::Open(OpenedBy::Button)));
-        let trigger = with_recipe_style(
-            row((field, toggle)),
-            |r| r.date_input_recipes().root_recipe(),
-            &Variants::default(),
-            PartState::default,
-        );
+            .icon(icon("calendar"));
         let content = move || {
             let selected = binding(value, move |next| match next {
                 Some(date) => state.send(Event::Pick(date)),
@@ -201,13 +237,19 @@ impl IntoView for DateInput {
                 picker.into_view()
             }
         };
-        root.child(
-            dialog(label, open)
-                .mode(presentation.mode())
-                .hide_title(true)
-                .content(content)
-                .attach(trigger),
-        )
+        root.child(with_recipe_style(
+            row((
+                field,
+                dialog(label, open)
+                    .mode(presentation.mode())
+                    .hide_title(true)
+                    .content(content)
+                    .attach(toggle),
+            )),
+            |r| r.date_input_recipes().root_recipe(),
+            &Variants::default(),
+            PartState::default,
+        ))
         .into_view()
     }
 }

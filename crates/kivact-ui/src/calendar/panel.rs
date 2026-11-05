@@ -102,10 +102,17 @@ pub(super) fn month_panel(
             .height(cell_size())
             .width(pct(100)),
     );
+    let locale = kivact_core::i18n::use_locale();
     let headers = row((0..7)
         .map(|c| {
-            text(names.weekday(first.days_after(c)))
+            node()
+                .child(text(names.weekday(first.days_after(c))))
                 .with_node(|root| root.role(Role::ColumnHeader))
+                .name(move || {
+                    locale
+                        .get()
+                        .weekday_name(first.days_after(c), kivact_core::i18n::NameWidth::Long)
+                })
                 .style(
                     style()
                         .width(cell_size())

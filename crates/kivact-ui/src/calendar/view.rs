@@ -21,11 +21,9 @@ use std::rc::Rc;
 /// can be neither focused nor chosen. The shown month is the calendar's own
 /// (it starts at [`default_month`](Calendar::default_month), the month of
 /// the selection or this month) and its arrows, captions and keys move it.
-/// The weekday and navigation texts are
-/// messages: `calendar.sun` to `calendar.sat`, `calendar.previous` and
-/// `calendar.next`, `calendar.month` and `calendar.year`, and the month names
-/// `calendar.month_1` to `calendar.month_12` with their short forms
-/// `calendar.short_1` to `calendar.short_12`.
+/// Month and weekday names come from the current locale; navigation labels
+/// use the `calendar.previous`, `calendar.next`, `calendar.month` and
+/// `calendar.year` messages.
 // xtask-allow(state-fields): Setup builder options are independent bindings, callbacks and display capabilities.
 pub struct Calendar {
     root: Node,
@@ -112,6 +110,20 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 }
 
 impl Calendar {
+    pub(crate) fn range_validator(&self) -> impl Fn(DateRange) -> bool + use<> {
+        let (min, max, min_span, max_span) = (self.min, self.max, self.min_span, self.max_span);
+        let disabled = self.disabled.clone();
+        move |range| {
+            let (start, end) = (range.start(), range.end());
+            let span = start.to_days().abs_diff(end.to_days()) + 1;
+            min.get().is_none_or(|min| start >= min)
+                && max.get().is_none_or(|max| end <= max)
+                && !disabled(start)
+                && !disabled(end)
+                && span >= u64::from(min_span.get().max(1))
+                && max_span.get().is_none_or(|max| span <= u64::from(max))
+        }
+    }
     /// Up to three event dots for each date.
     pub fn events(mut self, events: impl IntoValue<Vec<super::state::CalendarEvent>>) -> Self {
         self.events = events.into_value();
@@ -329,7 +341,15 @@ impl IntoView for Calendar {
                 }
             },
         );
-        let autofocus = Rc::new(std::cell::Cell::new(autofocus.get_untracked()));
+        let autofocus = kivact_core::state::machine(
+            super::navigation::InitialFocus::Pending,
+            move || super::navigation::FocusSnapshot {
+                requested: autofocus.get(),
+            },
+            |_, grid| {
+                grid.focus_active();
+            },
+        );
         let body = dynamic(
             move || {
                 (
@@ -380,7 +400,6 @@ impl IntoView for Calendar {
                     range,
                 });
                 let names = Rc::new(super::caption::Names::new());
-                let autofocus = autofocus.clone();
                 dynamic(
                     move || (month.get(), first.get()),
                     move |(month, first)| {
@@ -395,11 +414,7 @@ impl IntoView for Calendar {
                                 )
                             })
                             .collect::<Vec<_>>();
-                        if autofocus.replace(false) {
-                            on_mount(move || {
-                                grid.focus_active();
-                            });
-                        }
+                        on_mount(move || autofocus.send(grid));
                         row(panels).style(style().gap(16))
                     },
                 )

@@ -107,3 +107,5 @@ mod apg_menu_button;
 mod apg_menubar;
 
 mod ui_calendar;
+
+mod apg_date_picker;
