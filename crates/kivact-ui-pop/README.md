@@ -51,6 +51,9 @@ fn main() -> kivact::Result<()> {
 The theme fills these entries in `UiRecipes`:
 
 <!-- kivact-recipes -->
+- `item_list`
+- `table`
+- `tree`
 - `calendar`
 - `date_input`
 - `date_range_input`

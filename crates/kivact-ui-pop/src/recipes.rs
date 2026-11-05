@@ -40,6 +40,9 @@ pub(crate) fn recipes() -> UiRecipes {
 
 fn build() -> UiRecipes {
     UiRecipes::default()
+        .item_list(crate::recipes_items::item_list)
+        .table(crate::recipes_items::table)
+        .tree(crate::recipes_items::tree)
         .calendar(crate::recipes_calendar::calendar)
         .date_input(crate::recipes_calendar::date_input)
         .date_range_input(crate::recipes_calendar::date_range_input)

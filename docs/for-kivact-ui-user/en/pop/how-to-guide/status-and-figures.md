@@ -58,7 +58,7 @@ for a screen with several sections. Put a `panel` around each section.
 
 ## List records with a status
 
-`pop::list_item(title)` is a row for a record: an optional round icon, a title
+`kivact::ui::item_row(title)` is a row for a record: an optional round icon, a title
 with a subtitle, and a trailing view. `kivact::ui::badge(label)` is the status chip.
 
 ```rust,no_run
@@ -76,16 +76,15 @@ struct Customer {
 fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
     kivact::ui::card((
         pop::section_heading("01", "Customers", "Last 7 days"),
-        for_each(
+        kivact::ui::item_list((for_each(
             rows,
             |customer: &Customer| customer.name,
             |customer| {
                 let customer = customer.get_untracked();
-                pop::list_item(customer.name)
-                    .subtitle(customer.plan)
-                    .icon(Icon::named("user"))
-                    .tone(pop::Hue::Blue)
-                    .trailing({
+                kivact::ui::item_row(customer.name)
+                    .description(customer.plan)
+                    .media(kivact::view::icon(Icon::named("user"))).variant(pop::ItemHue::new(pop::Hue::Blue))
+                    .actions({
                         if customer.active {
                             kivact::ui::badge("Active").variant(pop::BadgeHue::new(pop::Hue::Mint))
                         } else {
@@ -93,7 +92,7 @@ fn customers(rows: Signal<Vec<Customer>>) -> impl IntoView {
                         }
                     })
             },
-        ),
+        ),)),
     ))
     .style(style().width(420).margin(24).gap(8))
 }

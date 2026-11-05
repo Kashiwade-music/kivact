@@ -40,6 +40,7 @@ mod recipes_files;
 mod recipes_groups;
 mod recipes_indicators;
 mod recipes_input;
+mod recipes_items;
 mod recipes_palette;
 mod recipes_small;
 mod resize;
@@ -54,8 +55,7 @@ pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
 pub use color::ColorName;
 
 pub use display::{
-    ListItem, StatCard, empty_illustration, key_value, list_item, progress_ring, section_heading,
-    sparkline, stat_card,
+    StatCard, empty_illustration, key_value, progress_ring, section_heading, sparkline, stat_card,
 };
 pub use messaging::{
     Message, MessageGroup, Thread, message, message_group, thread, typing_message,
@@ -66,6 +66,7 @@ pub use recipes_avatar::AvatarLook;
 pub use recipes_badge::{BadgeHue, BadgeVariant};
 pub use recipes_calendar::WeekendHue;
 pub use recipes_indicators::SpinnerLook;
+pub use recipes_items::ItemHue;
 pub use recipes_small::{Segments, Striped};
 pub use resize::resizable_text_area;
 pub use tabs::tab_label;
