@@ -132,22 +132,7 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
         None,
         "no tree yet"
     );
-    let mut tree = tree();
-    tree.nodes.push({
-        let base = node(6, Role::CheckBox, &[]);
-        SemanticsNode {
-            semantics: kivact_types::Semantics {
-                actions: Some(vec![
-                    A11yAction::Toggle,
-                    A11yAction::SetValue,
-                    A11yAction::Dismiss,
-                ]),
-                ..base.semantics
-            },
-            ..base
-        }
-    });
-    tree.nodes[0].children.push(SemanticsId(6));
+    let tree = action_tree();
     window
         .with({
             let tree = tree.clone();
@@ -184,6 +169,60 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
     assert_eq!(request(&mut window, 5, A11yRequest::Focus), None);
     assert_eq!(request(&mut window, 6, A11yRequest::Focus), None);
     assert_eq!(request(&mut window, 42, A11yRequest::Activate), None);
+    check_ancestor_requests(&mut window, &tree);
+    // So does a disabled node itself.
+    let original = tree.nodes[5].clone();
+    window
+        .with(move |w| {
+            w.update_accessibility(&SemanticsUpdate {
+                root: SemanticsId(1),
+                focus: None,
+                nodes: vec![{
+                    let base = original;
+                    SemanticsNode {
+                        semantics: kivact_types::Semantics {
+                            disabled: true,
+                            ..base.semantics
+                        },
+                        ..base
+                    }
+                }],
+            })
+        })
+        .expect("a valid update");
+    assert_eq!(request(&mut window, 6, A11yRequest::Toggle), None);
+}
+
+fn request(
+    window: &mut crate::support::Harness,
+    node: u64,
+    request: A11yRequest,
+) -> Option<ShellEvent> {
+    window.script().accessibility_action(node, request);
+    window.events().into_iter().next()
+}
+
+fn action_tree() -> SemanticsTree {
+    let mut tree = tree();
+    tree.nodes.push({
+        let base = node(6, Role::CheckBox, &[]);
+        SemanticsNode {
+            semantics: kivact_types::Semantics {
+                actions: Some(vec![
+                    A11yAction::Toggle,
+                    A11yAction::SetValue,
+                    A11yAction::Dismiss,
+                ]),
+                ..base.semantics
+            },
+            ..base
+        }
+    });
+    tree.nodes[0].children.push(SemanticsId(6));
+    tree
+}
+
+fn check_ancestor_requests(window: &mut crate::support::Harness, tree: &SemanticsTree) {
     // A disabled or hidden ancestor drops the request.
     for change in [
         {
@@ -222,38 +261,8 @@ fn requests_of_assistive_technology_are_checked_against_the_tree() {
                 })
             })
             .expect("a valid update");
-        assert_eq!(request(&mut window, 3, A11yRequest::Activate), None);
-        assert_eq!(request(&mut window, 4, A11yRequest::Focus), None);
-        assert!(request(&mut window, 6, A11yRequest::Toggle).is_some());
+        assert_eq!(request(window, 3, A11yRequest::Activate), None);
+        assert_eq!(request(window, 4, A11yRequest::Focus), None);
+        assert!(request(window, 6, A11yRequest::Toggle).is_some());
     }
-    // So does a disabled node itself.
-    let original = tree.nodes[5].clone();
-    window
-        .with(move |w| {
-            w.update_accessibility(&SemanticsUpdate {
-                root: SemanticsId(1),
-                focus: None,
-                nodes: vec![{
-                    let base = original;
-                    SemanticsNode {
-                        semantics: kivact_types::Semantics {
-                            disabled: true,
-                            ..base.semantics
-                        },
-                        ..base
-                    }
-                }],
-            })
-        })
-        .expect("a valid update");
-    assert_eq!(request(&mut window, 6, A11yRequest::Toggle), None);
-}
-
-fn request(
-    window: &mut crate::support::Harness,
-    node: u64,
-    request: A11yRequest,
-) -> Option<ShellEvent> {
-    window.script().accessibility_action(node, request);
-    window.events().into_iter().next()
 }
