@@ -112,8 +112,13 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                     );
                 }
                 let current = current.as_ref() == Some(entry.key());
-                let entry_node =
-                    breadcrumb_entry(entry, current, &activate, item.as_ref(), &child_variants);
+                let entry_node = breadcrumb_entry(
+                    entry,
+                    current,
+                    activate.as_ref(),
+                    item.as_ref(),
+                    &child_variants,
+                );
                 children.push(node().role(Role::ListItem).child(entry_node).into_view());
             }
             children
@@ -141,7 +146,7 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
 fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
     entry: ListItem<K>,
     current: bool,
-    activate: &Option<Rc<dyn Fn(K)>>,
+    activate: Option<&Rc<dyn Fn(K)>>,
     item: Option<&ItemSlot<K>>,
     variants: &crate::variants::Variants,
 ) -> View {
@@ -178,7 +183,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
             .into_view()
         }
     } else {
-        let f = activate.clone();
+        let f = activate.cloned();
         let key = entry.key().clone();
         let part = kivact_interaction::use_button()
             .disabled(entry.is_disabled())

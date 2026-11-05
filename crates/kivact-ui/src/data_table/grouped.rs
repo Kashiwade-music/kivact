@@ -1,8 +1,8 @@
 //! Role: Group already sorted and paged data without adding synthetic data keys.
-use super::group_state::DataTableGroupState;
 use super::rows::{self, Grid};
 use super::types::Grouping;
 use crate::layer::with_recipe_style;
+use crate::table_values::DataTableGroupState;
 use crate::{ButtonVariant, button};
 use kivact_core::i18n::message_with;
 use kivact_core::motion::{Easing, Transition};

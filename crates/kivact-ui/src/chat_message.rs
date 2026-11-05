@@ -297,7 +297,7 @@ impl ChatMessage {
 }
 fn message_slot(
     view: Option<View>,
-    recipe: fn(&crate::UiRecipes) -> &crate::Recipe<ChatMessageState>,
+    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<ChatMessageState>,
     variants: &Variants,
     state: impl Fn() -> ChatMessageState + Copy + 'static,
 ) -> Option<Node> {

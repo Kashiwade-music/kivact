@@ -304,7 +304,7 @@ impl ChatComposer {
 }
 fn composer_slot(
     view: Option<View>,
-    recipe: fn(&crate::UiRecipes) -> &crate::Recipe<ChatComposerState>,
+    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<ChatComposerState>,
     variants: &Variants,
     state: impl Fn() -> ChatComposerState + Copy + 'static,
 ) -> Option<Node> {

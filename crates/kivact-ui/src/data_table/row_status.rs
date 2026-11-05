@@ -2,44 +2,12 @@
 use crate::tooltip;
 use kivact_core::i18n::message;
 use kivact_core::state::Value;
-use kivact_core::style::{Align, Color, Icon, Justify, style, use_theme};
+use kivact_core::style::{Align, Icon, Justify, style, use_theme};
 use kivact_core::view::{IntoView, Role, View, dynamic};
 use kivact_core::view::{Node, icon, node};
 use kivact_interaction::Tone;
 
-// xtask-allow(state-fields): Immutable presentation descriptor; optional icon and color are independent overrides.
-/// A status announced by name and shown in the table's leading lane.
-#[derive(Clone, Debug, PartialEq)]
-pub struct RowStatus {
-    label: String,
-    tone: Tone,
-    icon: Option<Icon>,
-    color: Option<Color>,
-}
-
-impl RowStatus {
-    /// Create a marker in the theme's color for this tone.
-    pub fn new(label: impl Into<String>, tone: Tone) -> Self {
-        Self {
-            label: label.into(),
-            tone,
-            icon: None,
-            color: None,
-        }
-    }
-
-    /// Use an explicit color instead of the theme's tone.
-    pub fn color(mut self, color: impl Into<Color>) -> Self {
-        self.color = Some(color.into());
-        self
-    }
-
-    /// Display a named or custom icon instead of the default mark.
-    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
-        self.icon = Some(icon.into());
-        self
-    }
-}
+use crate::table_values::RowStatus;
 
 fn lane() -> Node {
     node().style(

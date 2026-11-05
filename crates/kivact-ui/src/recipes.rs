@@ -56,7 +56,7 @@ use crate::component_values::{
     AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
     StatState,
 };
-use crate::data_table::group_state::DataTableGroupState;
+use crate::table_values::DataTableGroupState;
 use crate::{look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
@@ -211,8 +211,8 @@ recipe_table! {
         month(month_recipe): PartState = super::look_calendar::month,
         caption(caption_recipe): PartState = super::look_calendar::month,
         events(events_recipe): PartState = super::look_calendar::events,
-        event(event_recipe): super::CalendarEventVisual = super::look_calendar::event,
-        day(day_recipe): super::CalendarDayVisual = super::look_calendar::day,
+        event(event_recipe): crate::calendar_tokens::CalendarEventVisual = super::look_calendar::event,
+        day(day_recipe): crate::calendar_values::CalendarDayVisual = super::look_calendar::day,
         range(range_recipe): kivact_interaction::CalendarDayState = super::look_calendar::range,
     }
 }
