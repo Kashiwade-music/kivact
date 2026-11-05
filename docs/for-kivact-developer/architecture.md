@@ -286,3 +286,54 @@ behavior の保存は既存 E2E の契約で確認する。trace は失敗診断
 | 標準部品 | interaction の該当behavior、ui の該当部品と `tokens.rs`・`recipes.rs`、公開API試験の `tests/e2e/`、英日guideとkitの実recipe一覧 |
 
 APG は公式の keyboard interaction と roles/states/properties を基準にする。作者の platform context menu、閉じた Select の矢印/Alt+Down、Tooltip の遅延の決定は優先する。規定されていない時間は InteractionPolicy に残す。検証の手順とコマンドは [CONTRIBUTING](../../CONTRIBUTING.md)、背景は[設計判断](decisions.md)を参照する。
+
+
+### 具体的な追加経路の机上確認
+
+以下は機能を実装せず、現行ソースから必要な変更箇所を列挙した確認である。新規と記した file は追加先の案であり、まだ存在しない。件数は同じ file を重複せず数え、runtime 実装、再公開だけの変更、試験、ガイドを区別する。既存の共通 transport を通るだけの crate は変更件数に含めない。これらの機能が実装済みであることは意味しない。
+
+#### key_shortcuts: 意味情報の性質
+
+| file | 変更する理由 |
+|---|---|
+| `crates/kivact-types/src/semantics/node.rs` | Semanticsに省略可能なshortcut文字列とDefaultを追加し、map_relationsで非relation値としてそのまま移す。relationのgenericな写像と順序は変更しない |
+| `crates/kivact-core/src/view/node_modifiers.rs` | Nodeの固有setterから既存Common.semanticへreactive text patchを登録する。builderはwith_nodeを使え、NodeBuilderへ同じsetterを複製しない |
+| `crates/arvane-native/src/a11y/conversion.rs` | 確定したSemanticsの値をAccessKitのshortcut属性へ写す |
+
+**3 runtime crate、3 file。** engineとshellは同じSemanticsを運ぶため変更不要。新しいSemanticInput/source getterはこの性質をbehaviorが読む要求がない限り足さない。Common.semanticとmountのpatch foldも既存のまま使う。
+
+#### background_blend_mode: 背景だけのpaint性質
+
+ここでは既存BlendModeを一つ指定し、背景のlayer間だけで合成する性質を仮定する。box全体と外部backdropのmix-blend-modeとは区別する。
+
+| file | 変更する理由 |
+|---|---|
+| `crates/kivact-types/src/paint.rs` | PaintPropsと必要なpaint差分にbackgroundのblend値を追加し、既定Normalを定める |
+| `crates/kivact-style/src/sheet.rs` | authoredな背景blend入力、setter、style mergeを追加する |
+| `crates/kivact-style/src/resolve.rs` | state styleを含む背景groupの解決と差分判定でこの値を運ぶ |
+| `crates/kivact-engine/src/paint/frame_scene.rs` | paint_boxが背景を描く箇所で確定値を背景専用lower helperへ渡す |
+| `crates/kivact-engine/src/lower/fill.rs` | 背景を隔離したgroup内で下から上へ合成し、既存RenderCmdのPushLayer/PopLayerとLayer.blendへ下ろす。Normalの既存fast pathを保つ |
+
+**3 runtime crate、5 file。** BlendModeは既にkivact::drawから名前を書け、render命令とCPU/GPU backendは既にlayer blendingを扱う。arvaneやarvane-renderにproperty名のadapterを足さない。一般のfillを呼ぶtextやcanvasへ背景のpolicyを流さないため、既存fillの署名を一律に変更しない。
+
+#### Rating: previewを持つ標準部品
+
+pointer/focusによるpreviewとcaller bindingの確定値を区別する小さいratingを仮定する。既存role、keyboard、pointer、a11y actionを使い、engineへrating固有の意味を追加しない。
+
+| file | 変更する理由 |
+|---|---|
+| `crates/kivact-interaction/src/rating.rs`（新規） | use_rating、Api、previewのState/Event/遷移とPartを定義。callerの確定bindingと実previewの単一ownerを持ち、選択値のmirrorを作らない |
+| `crates/kivact-interaction/src/lib.rs` | 新しいbehaviorのmodule宣言と正準再公開 |
+| `crates/kivact-ui/src/rating.rs`（新規） | label/bindingを取る具体Rating builder、NodeBuilder/IntoView、slotと既存behaviorの配線 |
+| `crates/kivact-ui/src/rating_values.rs`（新規） | 実behaviorからのreadonly recipe stateと部品固有Tokensを定義 |
+| `crates/kivact-ui/src/look_rating.rs`（新規） | root/itemの既定recipeをthemeと実stateから作る。viewや選択controllerは作らない |
+| `crates/kivact-ui/src/recipes.rs` | RatingRecipesの表、既定、override/read getterとUiRecipesへの登録 |
+| `crates/kivact-ui/src/tokens.rs` | UiTokens.ratingを登録。themeに依存する寸法等だけを扱い、behavior policyを入れない |
+| `crates/kivact-ui/src/lib.rs` | 新しいleafの宣言とconstructor/builder/state/recipes/tokensの正準再公開 |
+| `dev/tests/kivact-public-api/tests/e2e/ui_rating.rs`（新規） | keyboard/pointer/a11y、preview取消と確定binding、disabled、focusを一つの公開E2Eの契約として確認 |
+| `dev/tests/kivact-public-api/tests/e2e/main.rs` | 同じE2E binaryへ新topicを登録 |
+| `dev/tests/kivact-public-api/tests/e2e/theme_conformance.rs` | 新しいrecipeの実getterとdefault/overrideの適用を照合。未overrideのkitは中核既定を使う |
+| `docs/for-kivact-user/en/how-to-guide/rating.md`（新規） | 公開APIの利用とpreview/確定の説明 |
+| `docs/for-kivact-user/jp/how-to-guide/rating.md`（新規） | 同じ利用契約の日本語ガイド |
+
+**runtimeは2 crate・8 file。公開E2Eを含め3 package・11 Rust file、英日ガイドを含め13 file。** facadeはinteraction/uiのcrateをそのまま公開しているためfacade fileの変更は不要。例は正準ui moduleからimportし、新しいprelude入口や同義wrapperは追加しない。kitごとの別behavior、新しいengine role、backend adapterも不要である。
