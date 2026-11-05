@@ -33,8 +33,8 @@ use kivact::draw::radial_gradient;
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
 use kivact::prelude::{
-    ColorToken, IntoView, Key, Node, NodeBuilder, NodeRef, Role, Signal, Value, column, node, rgb,
-    row, scroll, signal, spacer, text,
+    ColorToken, IntoView, Key, Node, NodeBuilder, NodeRef, Role, Signal, Value, column, node, row,
+    scroll, signal, spacer, text,
 };
 use kivact::style::use_theme;
 use kivact::style::{Align, Justify, pct, rgba, style};
