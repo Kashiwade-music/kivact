@@ -34,7 +34,8 @@ impl RangeDraft {
     }
     pub(super) fn order_invalid(self) -> bool {
         let (start, end) = self.endpoints();
-        matches!((start,end),(Some(start),Some(end)) if start>end)
+        self.fields() == FieldValidity::Valid
+            && matches!((start,end),(Some(start),Some(end)) if start>end)
     }
     fn candidate(self) -> Option<Option<DateRange>> {
         if self.fields() != FieldValidity::Valid {

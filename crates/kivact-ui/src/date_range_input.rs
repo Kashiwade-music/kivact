@@ -299,14 +299,12 @@ impl DateRangeInput {
             },
         );
         kivact_core::state::effect(move || draft.send(DraftEvent::External(value.get())));
-        let start = binding(
-            move || draft.get().endpoints().0,
-            move |value| draft.send(DraftEvent::Start(value)),
-        );
-        let end = binding(
-            move || draft.get().endpoints().1,
-            move |value| draft.send(DraftEvent::End(value)),
-        );
+        let start_value = kivact_core::state::memo(move || draft.get().endpoints().0);
+        let end_value = kivact_core::state::memo(move || draft.get().endpoints().1);
+        let start = binding(start_value, move |value| {
+            draft.send(DraftEvent::Start(value))
+        });
+        let end = binding(end_value, move |value| draft.send(DraftEvent::End(value)));
         let start_valid = binding(
             move || {
                 matches!(
