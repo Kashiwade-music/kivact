@@ -60,68 +60,7 @@ pub(crate) fn expect(shot: &Screenshot, x: u32, y: u32, want: u32, tolerance: u3
 
 #[test]
 fn gradients_place_their_stops_as_css_does() {
-    let screen = render(|| {
-        canvas_of((
-            node().style(
-                at(0, 0, 200, 20).background(linear_gradient(90).colors([rgb(RED), rgb(BLUE)])),
-            ),
-            // A hard stop: two stops at the same position.
-            node().style(
-                at(0, 30, 200, 20).background(
-                    linear_gradient(90)
-                        .stop(rgb(RED), pct(50))
-                        .stop(rgb(BLUE), pct(50)),
-                ),
-            ),
-            // CSS `repeating-linear-gradient(90deg, black 0 2px, white 2px 6px)`;
-            // a stop before an earlier one moves up to it.
-            node().style(
-                at(0, 60, 60, 10).background(
-                    linear_gradient(90)
-                        .repeating()
-                        .stop(rgb(BLACK), 0)
-                        .stop(rgb(BLACK), 2)
-                        .stop(rgb(WHITE), 0)
-                        .stop(rgb(WHITE), 6),
-                ),
-            ),
-            // CSS `linear-gradient(red, blue)` runs to bottom (180).
-            node().style(
-                at(300, 0, 20, 100).background(linear_gradient(180).colors([rgb(RED), rgb(BLUE)])),
-            ),
-            // CSS `radial-gradient(circle 20px, red 10px, white 10px)`.
-            node().style(
-                at(0, 100, 60, 60).background(
-                    radial_gradient()
-                        .radius(20)
-                        .stop(rgb(RED), 10)
-                        .stop(rgb(WHITE), 10),
-                ),
-            ),
-            // CSS `conic-gradient(red 0 90deg, blue 90deg)`.
-            node().style(
-                at(100, 100, 60, 60).background(
-                    conic_gradient(0)
-                        .stop(rgb(RED), 0)
-                        .stop(rgb(RED), 90)
-                        .stop(rgb(BLUE), 90)
-                        .stop(rgb(BLUE), 360),
-                ),
-            ),
-            // A repeating radial gradient: rings 4 px wide.
-            node().style(
-                at(200, 100, 60, 60).background(
-                    radial_gradient()
-                        .circle()
-                        .repeating()
-                        .stop(rgb(BLACK), 0)
-                        .stop(rgb(BLACK), 4)
-                        .stop(rgb(WHITE), 4)
-                        .stop(rgb(WHITE), 8),
-                ),
-            ),
-        ))
-    });
+    let screen = gradient_fixture();
     let shot = screen.screenshot();
     expect(&shot, 0, 10, RED, 4, "linear start");
     expect(&shot, 199, 10, BLUE, 4, "linear end");
@@ -274,4 +213,69 @@ fn shadows_inset_negative_spread_stacked_and_shaped() {
         edge < middle && middle > 240,
         "a blurred inset shadow darkens the edge ({edge}) and fades inwards ({middle})"
     );
+}
+
+fn gradient_fixture() -> kivact::test::Screen {
+    render(|| {
+        canvas_of((
+            node().style(
+                at(0, 0, 200, 20).background(linear_gradient(90).colors([rgb(RED), rgb(BLUE)])),
+            ),
+            // A hard stop: two stops at the same position.
+            node().style(
+                at(0, 30, 200, 20).background(
+                    linear_gradient(90)
+                        .stop(rgb(RED), pct(50))
+                        .stop(rgb(BLUE), pct(50)),
+                ),
+            ),
+            // CSS `repeating-linear-gradient(90deg, black 0 2px, white 2px 6px)`;
+            // a stop before an earlier one moves up to it.
+            node().style(
+                at(0, 60, 60, 10).background(
+                    linear_gradient(90)
+                        .repeating()
+                        .stop(rgb(BLACK), 0)
+                        .stop(rgb(BLACK), 2)
+                        .stop(rgb(WHITE), 0)
+                        .stop(rgb(WHITE), 6),
+                ),
+            ),
+            // CSS `linear-gradient(red, blue)` runs to bottom (180).
+            node().style(
+                at(300, 0, 20, 100).background(linear_gradient(180).colors([rgb(RED), rgb(BLUE)])),
+            ),
+            // CSS `radial-gradient(circle 20px, red 10px, white 10px)`.
+            node().style(
+                at(0, 100, 60, 60).background(
+                    radial_gradient()
+                        .radius(20)
+                        .stop(rgb(RED), 10)
+                        .stop(rgb(WHITE), 10),
+                ),
+            ),
+            // CSS `conic-gradient(red 0 90deg, blue 90deg)`.
+            node().style(
+                at(100, 100, 60, 60).background(
+                    conic_gradient(0)
+                        .stop(rgb(RED), 0)
+                        .stop(rgb(RED), 90)
+                        .stop(rgb(BLUE), 90)
+                        .stop(rgb(BLUE), 360),
+                ),
+            ),
+            // A repeating radial gradient: rings 4 px wide.
+            node().style(
+                at(200, 100, 60, 60).background(
+                    radial_gradient()
+                        .circle()
+                        .repeating()
+                        .stop(rgb(BLACK), 0)
+                        .stop(rgb(BLACK), 4)
+                        .stop(rgb(WHITE), 4)
+                        .stop(rgb(WHITE), 8),
+                ),
+            ),
+        ))
+    })
 }

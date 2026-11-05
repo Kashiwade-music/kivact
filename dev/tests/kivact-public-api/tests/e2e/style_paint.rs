@@ -58,13 +58,6 @@ fn paint_only_style_tracks_size_signals_theme_and_removal() {
     width.set(80.0);
     screen.run_until_idle();
     expect(&screen.screenshot(), 60, 10, RED, 0, "resized paint");
-    let accent_theme = |accent| {
-        let colors = kivact::style::theme::Palette {
-            accent,
-            ..Theme::light().colors().clone()
-        };
-        Theme::light().with_colors(colors)
-    };
     theme.set(accent_theme(rgb(BLUE)));
     screen.run_until_idle();
     let before = evaluations.get();
@@ -279,46 +272,7 @@ fn text_decoration_style_draws_wavy_lines() {
 
 #[test]
 fn visibility_hidden_keeps_layout_but_hides_the_node() {
-    use kivact::style::Visibility;
-    let (screen, (hidden, presses)) = mount(|| {
-        let hidden = signal(false);
-        let presses = signal(0);
-        let target = node()
-            .test_id("hidden-target")
-            .name("target")
-            .role(Role::Button)
-            .focusable(true)
-            .on_press(move || presses.update(|n| *n += 1))
-            .style(style().size(90, 40).background(rgb(RED)))
-            .child(
-                text("child")
-                    .role(Role::Button)
-                    .name("child")
-                    .focusable(true),
-            );
-        (
-            (hidden, presses),
-            row((
-                node()
-                    .style(move || {
-                        style()
-                            .display(kivact::style::Display::Contents)
-                            .visibility(if hidden.get() {
-                                Visibility::Hidden
-                            } else {
-                                Visibility::Visible
-                            })
-                    })
-                    .child(target),
-                node()
-                    .test_id("after")
-                    .role(Role::Button)
-                    .name("after")
-                    .focusable(true)
-                    .style(style().size(40, 40)),
-            )),
-        )
-    });
+    let (screen, (hidden, presses)) = visibility_fixture();
     let target = screen.get_by_test_id("hidden-target");
     let before = target.rect().unwrap();
     let after = screen.get_by_test_id("after");
@@ -385,4 +339,54 @@ fn visibility_hidden_keeps_layout_but_hides_the_node() {
     target.click();
     assert!(presses.get() > initial_presses);
     assert!(screen.errors().is_empty());
+}
+
+fn accent_theme(accent: kivact::style::Color) -> Theme {
+    let colors = kivact::style::theme::Palette {
+        accent,
+        ..Theme::light().colors().clone()
+    };
+    Theme::light().with_colors(colors)
+}
+
+fn visibility_fixture() -> (kivact::test::Screen, (Signal<bool>, Signal<i32>)) {
+    mount(|| {
+        let hidden = signal(false);
+        let presses = signal(0);
+        let target = node()
+            .test_id("hidden-target")
+            .name("target")
+            .role(Role::Button)
+            .focusable(true)
+            .on_press(move || presses.update(|n| *n += 1))
+            .style(style().size(90, 40).background(rgb(RED)))
+            .child(
+                text("child")
+                    .role(Role::Button)
+                    .name("child")
+                    .focusable(true),
+            );
+        (
+            (hidden, presses),
+            row((
+                node()
+                    .style(move || {
+                        style()
+                            .display(kivact::style::Display::Contents)
+                            .visibility(if hidden.get() {
+                                kivact::style::Visibility::Hidden
+                            } else {
+                                kivact::style::Visibility::Visible
+                            })
+                    })
+                    .child(target),
+                node()
+                    .test_id("after")
+                    .role(Role::Button)
+                    .name("after")
+                    .focusable(true)
+                    .style(style().size(40, 40)),
+            )),
+        )
+    })
 }

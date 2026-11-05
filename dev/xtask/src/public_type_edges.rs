@@ -70,38 +70,7 @@ pub(crate) fn collect(
             };
             let mut visitor = Types::new(source, &resolve, generics);
             visitor.visit_generics(generics);
-            match item {
-                syn::Item::Struct(i) => {
-                    for field in &i.fields {
-                        if public(&field.vis) {
-                            visitor.visit_type(&field.ty);
-                        }
-                    }
-                }
-                syn::Item::Enum(i) => {
-                    for variant in &i.variants {
-                        for field in &variant.fields {
-                            visitor.visit_type(&field.ty);
-                        }
-                    }
-                }
-                syn::Item::Type(i) => visitor.visit_type(&i.ty),
-                syn::Item::Const(i) => visitor.visit_type(&i.ty),
-                syn::Item::Fn(i) => visitor.signature(&i.sig),
-                syn::Item::Trait(i) => {
-                    for bound in &i.supertraits {
-                        visitor.visit_type_param_bound(bound);
-                    }
-                    for member in &i.items {
-                        if let syn::TraitItem::Fn(method) = member
-                            && !source.internal_contract(&method.attrs, method.sig.span())
-                        {
-                            visitor.signature(&method.sig);
-                        }
-                    }
-                }
-                _ => {}
-            }
+            exposed_types(item, source, &mut visitor);
             edges.entry(owner).or_default().extend(visitor.found);
         }
     }
@@ -174,5 +143,44 @@ pub(crate) fn extend(reachable: &mut BTreeSet<String>, edges: Edges) {
                 }
             }
         }
+    }
+}
+
+fn exposed_types<F: Fn(&Source, &syn::Type) -> Option<String>>(
+    item: &syn::Item,
+    source: &Source,
+    visitor: &mut Types<'_, F>,
+) {
+    match item {
+        syn::Item::Struct(i) => {
+            for field in &i.fields {
+                if public(&field.vis) {
+                    visitor.visit_type(&field.ty);
+                }
+            }
+        }
+        syn::Item::Enum(i) => {
+            for variant in &i.variants {
+                for field in &variant.fields {
+                    visitor.visit_type(&field.ty);
+                }
+            }
+        }
+        syn::Item::Type(i) => visitor.visit_type(&i.ty),
+        syn::Item::Const(i) => visitor.visit_type(&i.ty),
+        syn::Item::Fn(i) => visitor.signature(&i.sig),
+        syn::Item::Trait(i) => {
+            for bound in &i.supertraits {
+                visitor.visit_type_param_bound(bound);
+            }
+            for member in &i.items {
+                if let syn::TraitItem::Fn(method) = member
+                    && !source.internal_contract(&method.attrs, method.sig.span())
+                {
+                    visitor.signature(&method.sig);
+                }
+            }
+        }
+        _ => {}
     }
 }

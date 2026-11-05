@@ -7,33 +7,7 @@ use std::path::Path;
 pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec<String>, String> {
     let text = std::fs::read_to_string(policy).map_err(|e| format!("{}: {e}", policy.display()))?;
     let policy: toml::Table = text.parse().map_err(|e| format!("{e}"))?;
-    for rule in RULES {
-        if let Some(value) = policy.get(&rule.replace('-', "_")) {
-            let table = value
-                .as_table()
-                .ok_or_else(|| format!("{rule}: expected a table"))?;
-            for (key, value) in table {
-                if !matches!(
-                    key.as_str(),
-                    "skip"
-                        | "role_suffixes"
-                        | "record_types"
-                        | "value_modules"
-                        | "allowed_files"
-                        | "allowed_paths"
-                        | "list"
-                ) {
-                    return Err(format!("{rule}: unknown setting {key}"));
-                }
-                if !value
-                    .as_array()
-                    .is_some_and(|items| items.iter().all(toml::Value::is_str))
-                {
-                    return Err(format!("{rule}.{key}: expected an array of strings"));
-                }
-            }
-        }
-    }
+    validate_policy(&policy)?;
     let sources = crate::check_source::load(root)?;
     if let Some(package) = &options.package
         && !sources.iter().any(|s| s.package == *package)
@@ -73,6 +47,74 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
     .iter()
     .any(|rule| active(rule));
     let surface = crate::public_surface::build_for(&sources, public_needed);
+    let (builders, enums) = model_types(&sources, &surface);
+    let empty = toml::Table::new();
+    let mut errors = Vec::new();
+    for rule in RULES {
+        if !options.selected(rule) {
+            continue;
+        }
+        let key = rule.replace('-', "_");
+        let settings = policy
+            .get(&key)
+            .and_then(toml::Value::as_table)
+            .unwrap_or(&empty);
+        let skip = strings(settings, "skip");
+        for source in &sources {
+            if !selected_source(source, options, &skip) {
+                continue;
+            }
+            run_rule(
+                rule,
+                source,
+                settings,
+                &builders,
+                &enums,
+                &surface,
+                &mut errors,
+            );
+        }
+    }
+    errors.sort();
+    errors.dedup();
+    Ok(errors)
+}
+
+fn validate_policy(policy: &toml::Table) -> Result<(), String> {
+    for rule in RULES {
+        if let Some(value) = policy.get(&rule.replace('-', "_")) {
+            let table = value
+                .as_table()
+                .ok_or_else(|| format!("{rule}: expected a table"))?;
+            for (key, value) in table {
+                if !matches!(
+                    key.as_str(),
+                    "skip"
+                        | "role_suffixes"
+                        | "record_types"
+                        | "value_modules"
+                        | "allowed_files"
+                        | "allowed_paths"
+                        | "list"
+                ) {
+                    return Err(format!("{rule}: unknown setting {key}"));
+                }
+                if !value
+                    .as_array()
+                    .is_some_and(|items| items.iter().all(toml::Value::is_str))
+                {
+                    return Err(format!("{rule}.{key}: expected an array of strings"));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn model_types(
+    sources: &[crate::check_source::Source],
+    surface: &crate::public_surface::Surface,
+) -> (BTreeSet<String>, BTreeSet<String>) {
     let mut builders = BTreeSet::new();
     let enums: BTreeSet<String> = sources
         .iter()
@@ -89,7 +131,7 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
             })
         })
         .collect();
-    for source in &sources {
+    for source in sources {
         for item in &source.items {
             if let syn::Item::Impl(item) = item
                 && item.trait_.as_ref().is_some_and(|(_, path, _)| {
@@ -103,65 +145,56 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
             }
         }
     }
-    let empty = toml::Table::new();
-    let mut errors = Vec::new();
-    for rule in RULES {
-        if !options.selected(rule) {
-            continue;
+    (builders, enums)
+}
+
+fn run_rule(
+    rule: &str,
+    source: &crate::check_source::Source,
+    settings: &toml::Table,
+    builders: &BTreeSet<String>,
+    enums: &BTreeSet<String>,
+    surface: &crate::public_surface::Surface,
+    errors: &mut Vec<String>,
+) {
+    match rule {
+        "state-fields" => {
+            crate::state_fields::check(source, settings, builders, enums, surface, errors)
         }
-        let key = rule.replace('-', "_");
-        let settings = policy
-            .get(&key)
-            .and_then(toml::Value::as_table)
-            .unwrap_or(&empty);
-        let skip = strings(settings, "skip");
-        for source in &sources {
-            if let Some(package) = &options.package {
-                if *package != source.package {
-                    continue;
-                }
-            } else if skip.contains(&source.package) {
-                continue;
-            }
-            if let Some(module) = &options.module {
-                let module = module
-                    .strip_prefix("crate::")
-                    .or_else(|| module.strip_prefix(&format!("{}::", source.package)))
-                    .or_else(|| {
-                        module.strip_prefix(&format!("{}::", source.package.replace('-', "_")))
-                    })
-                    .unwrap_or(module);
-                if source.module != module && !source.module.starts_with(&format!("{module}::")) {
-                    continue;
-                }
-            }
-            match rule {
-                "state-fields" => crate::state_fields::check(
-                    source,
-                    settings,
-                    &builders,
-                    &enums,
-                    &surface,
-                    &mut errors,
-                ),
-                "effect-writes" => crate::effect_writes::check(source, &mut errors),
-                "api-shape" => crate::api_shape::check(source, &surface, &mut errors),
-                "canonical-path" => crate::canonical_path::check(source, &surface, &mut errors),
-                "name-collision" => crate::name_collision::check(source, &surface, &mut errors),
-                "kit-literal-color" => {
-                    crate::kit_literal_color::check(source, settings, &mut errors)
-                }
-                "os-branch" => crate::os_branch::check(source, settings, &mut errors),
-                "structural-options" => {
-                    crate::structural_options::check(source, settings, &surface, &mut errors)
-                }
-                _ => unreachable!("invariant: RULES contains only implemented checks"),
-            }
+        "effect-writes" => crate::effect_writes::check(source, errors),
+        "api-shape" => crate::api_shape::check(source, surface, errors),
+        "canonical-path" => crate::canonical_path::check(source, surface, errors),
+        "name-collision" => crate::name_collision::check(source, surface, errors),
+        "kit-literal-color" => crate::kit_literal_color::check(source, settings, errors),
+        "os-branch" => crate::os_branch::check(source, settings, errors),
+        "structural-options" => crate::structural_options::check(source, settings, surface, errors),
+        _ => unreachable!("invariant: RULES contains only implemented checks"),
+    }
+}
+
+fn selected_source(
+    source: &crate::check_source::Source,
+    options: &Options,
+    skip: &[String],
+) -> bool {
+    if let Some(package) = &options.package {
+        if *package != source.package {
+            return false;
+        }
+    } else if skip.contains(&source.package) {
+        return false;
+    }
+    if let Some(module) = &options.module {
+        let module = module
+            .strip_prefix("crate::")
+            .or_else(|| module.strip_prefix(&format!("{}::", source.package)))
+            .or_else(|| module.strip_prefix(&format!("{}::", source.package.replace('-', "_"))))
+            .unwrap_or(module);
+        if source.module != module && !source.module.starts_with(&format!("{module}::")) {
+            return false;
         }
     }
-    errors.sort();
-    errors.dedup();
-    Ok(errors)
+    true
 }
 
 #[cfg(test)]

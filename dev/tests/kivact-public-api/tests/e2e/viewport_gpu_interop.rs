@@ -22,7 +22,7 @@
     reason = "report unavailable optional hardware explicitly"
 )]
 
-use std::sync::{Arc, mpsc};
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use gpu_interop_producer::{Producer, pattern};
@@ -156,7 +156,7 @@ fn solid() -> Pixels {
     Pixels::new(
         SIDE,
         SIDE,
-        Arc::from([0xd0, 0x60, 0x20, 0xff].repeat((SIDE * SIDE) as usize)),
+        [0xd0, 0x60, 0x20, 0xff].repeat((SIDE * SIDE) as usize),
     )
 }
 
@@ -263,5 +263,5 @@ fn the_surface_shows_the_gpu_frame() {
 }
 
 fn empty_pixels() -> Pixels {
-    Pixels::new(1, 1, vec![0, 0, 0, 0].into())
+    Pixels::new(1, 1, vec![0, 0, 0, 0])
 }

@@ -176,3 +176,4 @@
 | 2026-11-05 | H-G5 | Soft FocusTrack の分類 | 唯一の可変事実は roving cursor。focused_within は実 NodeRef、selected/disabled は既存 owner の読み取り専用投影であるため、独立した複数状態ではない。型ごとの理由付き目印で分類し、第二の Tabs 状態機械を作らない。 |
 
 | 2026-11-05 | H-G6 | 検査の適用先 | KIT規則の対象は公式5kitの正確なpackage名とし、同prefixのcatalogアプリを誤認しない。Generation/Rgba/Insetsは状態機械/色/幾何の値操作で構造optionではない。Transition::alternateは構築時の再生方向として明示登録する。全skipは空にする。 |
+| 2026-11-05 | H-G6 | Creative jobs の running | 単独のrun/stop要求は18.14の独立bool事実。progress/amountは数値測定であり、effectは実FrameLoopのstart/stopのみを行う。別Signalの補正をしないため、bool置換だけのMachineは追加せず既存のapp所有値を保持する。 |

@@ -101,7 +101,7 @@ fn item_list_positions_and_delegation_use_the_actual_children() {
     let labels = list.labelled_by();
     assert_eq!(labels.len(), 1);
     screen
-        .within(labels[0].clone())
+        .within(labels[0])
         .get_by_role(Role::Text, "Documents");
     let first = screen.get_by_role(Role::ListItem, "Delegate");
     assert_eq!(first.pos_in_set(), Some(1));

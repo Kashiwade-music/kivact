@@ -266,66 +266,7 @@ fn focused_name(screen: &Screen) -> Option<String> {
 
 #[test]
 fn closing_a_modal_gives_the_focus_back_to_the_opener() {
-    let (screen, (open, presses)) = mount(|| {
-        let open = signal(false);
-        let presses = signal(0);
-        let anchor = node_ref();
-        let view = column((
-            {
-                let label = ("open").into_value();
-                node()
-                    .role(Role::Button)
-                    .focusable(true)
-                    .name(label)
-                    .child(text(label))
-            }
-            .node_ref(anchor)
-            .on_press(move || open.set(true)),
-            {
-                let label = ("behind").into_value();
-                node()
-                    .role(Role::Button)
-                    .focusable(true)
-                    .name(label)
-                    .child(text(label))
-            }
-            .on_press(move || presses.update(|n| *n += 1)),
-            show(open, move || {
-                overlay(
-                    anchor,
-                    Placement::Below,
-                    column((
-                        kivact::view::node().name("name").part(
-                            kivact::interaction::use_text_edit(
-                                kivact::state::signal(String::new()),
-                            )
-                            .control(),
-                        ),
-                        {
-                            let label = ("close").into_value();
-                            node()
-                                .role(Role::Button)
-                                .focusable(true)
-                                .name(label)
-                                .child(text(label))
-                        }
-                        .on_press(move || open.set(false)),
-                    )),
-                )
-                .modal()
-            }),
-            // Where the host itself would move the focus on removal.
-            {
-                let label = ("after").into_value();
-                node()
-                    .role(Role::Button)
-                    .focusable(true)
-                    .name(label)
-                    .child(text(label))
-            },
-        ));
-        ((open, presses), view)
-    });
+    let (screen, (open, presses)) = modal_restore_fixture();
     screen.get_by_role(Role::Button, "open").click();
     assert!(open.get_untracked());
     assert_eq!(
@@ -397,4 +338,67 @@ fn explicit_focus_reveals_a_scroll_clipped_button() {
     assert!(!inside(), "scrolling can hide the focused button");
     target.focus();
     assert!(inside(), "requesting the same focus reveals it again");
+}
+
+fn modal_restore_fixture() -> (Screen, (Signal<bool>, Signal<i32>)) {
+    mount(|| {
+        let open = signal(false);
+        let presses = signal(0);
+        let anchor = node_ref();
+        let view = column((
+            {
+                let label = ("open").into_value();
+                node()
+                    .role(Role::Button)
+                    .focusable(true)
+                    .name(label)
+                    .child(text(label))
+            }
+            .node_ref(anchor)
+            .on_press(move || open.set(true)),
+            {
+                let label = ("behind").into_value();
+                node()
+                    .role(Role::Button)
+                    .focusable(true)
+                    .name(label)
+                    .child(text(label))
+            }
+            .on_press(move || presses.update(|n| *n += 1)),
+            show(open, move || {
+                overlay(
+                    anchor,
+                    Placement::Below,
+                    column((
+                        kivact::view::node().name("name").part(
+                            kivact::interaction::use_text_edit(
+                                kivact::state::signal(String::new()),
+                            )
+                            .control(),
+                        ),
+                        {
+                            let label = ("close").into_value();
+                            node()
+                                .role(Role::Button)
+                                .focusable(true)
+                                .name(label)
+                                .child(text(label))
+                        }
+                        .on_press(move || open.set(false)),
+                    )),
+                )
+                .modal()
+            }),
+            // Where the host itself would move the focus on removal.
+            {
+                let label = ("after").into_value();
+                node()
+                    .role(Role::Button)
+                    .focusable(true)
+                    .name(label)
+                    .child(text(label))
+            },
+        ));
+        ((open, presses), view)
+    })
 }

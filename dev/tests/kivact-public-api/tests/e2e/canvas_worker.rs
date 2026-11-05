@@ -1,6 +1,6 @@
 //! Role: Worker frames wake canvas tasks and stop at the view owner's lifetime.
 
-use std::sync::{Arc, mpsc};
+use std::sync::mpsc;
 use std::time::Duration;
 
 use kivact::draw::{ImageOptions, Pixels};
@@ -13,7 +13,7 @@ use super::paint::pixel;
 use super::support::mount;
 
 fn frame(red: u8) -> Pixels {
-    Pixels::new(1, 1, Arc::from([red, 0, 0, 255]))
+    Pixels::new(1, 1, vec![red, 0, 0, 255])
 }
 
 #[test]

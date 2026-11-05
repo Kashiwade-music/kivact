@@ -191,27 +191,7 @@ fn splitters_set_value_step_reset_and_drag_between_two_neighbors() {
         "Enter restores both neighbors"
     );
 
-    // Double click equalizes; a drag moves by the pointer's travel.
-    splitter.a11y_set_value("30");
-    splitter.double_click();
-    let row = top_row(&probe.layout.get_untracked());
-    assert!(near(row[0], row[1], 1e-9));
-    let start = splitter.rect().expect("splitter").center();
-    screen.mouse_move(start.x, start.y);
-    screen.mouse_down(MouseButton::Primary);
-    screen.mouse_move(start.x + 50.0, start.y);
-    assert!((splitter.rect().unwrap().center().x - start.x - 50.0).abs() < 1.5);
-    screen.mouse_up(MouseButton::Primary);
-    let moved = probe.layout.get_untracked();
-    assert!(top_row(&moved)[0] > top_row(&moved)[1]);
-    // Escape restores the weights of the drag's start.
-    let start = splitter.rect().expect("splitter").center();
-    screen.mouse_move(start.x, start.y);
-    screen.mouse_down(MouseButton::Primary);
-    screen.mouse_move(start.x - 80.0, start.y);
-    screen.press_key(Key::Escape);
-    screen.mouse_up(MouseButton::Primary);
-    assert_eq!(probe.layout.get_untracked(), moved);
+    assert_splitter_pointer_changes(&screen, &probe, &splitter);
     // A stacked splitter uses the vertical arrows.
     let stacked = screen.get_by_role(Role::Splitter, "Project 1 and Timeline 1");
     assert_eq!(stacked.orientation(), kivact::view::Orientation::Horizontal);
@@ -353,4 +333,38 @@ fn close_buttons_and_commands_remove_closable_tabs_and_report_each() {
     choose(&screen, &["Close Container"]);
     assert_eq!(probe.closed.get_untracked(), ["project", "text"]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn assert_splitter_pointer_changes(screen: &Screen, probe: &Probe, splitter: &Element<'_>) {
+    // Double click equalizes; a drag moves by the pointer's travel.
+    splitter.a11y_set_value("30");
+    splitter.double_click();
+    let row = top_row(&probe.layout.get_untracked());
+    assert!(near(row[0], row[1], 1e-9));
+    let start = splitter.rect().expect("splitter").center();
+    screen.mouse_move(start.x, start.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(start.x + 50.0, start.y);
+    assert!(
+        (splitter
+            .rect()
+            .expect("splitter stays laid out during drag")
+            .center()
+            .x
+            - start.x
+            - 50.0)
+            .abs()
+            < 1.5
+    );
+    screen.mouse_up(MouseButton::Primary);
+    let moved = probe.layout.get_untracked();
+    assert!(top_row(&moved)[0] > top_row(&moved)[1]);
+    // Escape restores the weights of the drag's start.
+    let start = splitter.rect().expect("splitter").center();
+    screen.mouse_move(start.x, start.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(start.x - 80.0, start.y);
+    screen.press_key(Key::Escape);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(probe.layout.get_untracked(), moved);
 }

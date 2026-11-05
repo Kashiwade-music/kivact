@@ -45,85 +45,10 @@ fn code_editor(initial: &str) -> (Editor, Node) {
         inline_presses: signal(0),
         node: node_ref(),
     };
-    let shadow = Rc::new(RefCell::new(initial.to_owned()));
-    let changes = editor.clone();
-    let sessions = editor.session.clone();
-    let committed_session = Rc::new(RefCell::new(TextSession::caret_at(initial.len())));
-    let selection_before_edit = committed_session.clone();
-    let phases = editor.clone();
-    let syntax = editor.styled.clone();
-    let editing = TextEditing::new(initial.to_owned())
-        .multiline()
-        .behavior(text_edit_policy)
-        .on_text_change(move |event| {
-            let mut text = shadow.borrow_mut();
-            assert!(
-                event.apply(&mut text),
-                "range edits apply to the application's document"
-            );
-            if event.composition().is_none() {
-                changes.committed.set(text.clone());
-            }
-        })
-        .on_selection_change(move |session| {
-            if !session.is_composing() {
-                *committed_session.borrow_mut() = session.clone();
-            }
-            *sessions.borrow_mut() = session;
-        })
-        .on_edit(move |phase| {
-            let text = phases.committed.get_untracked();
-            phases.phases.borrow_mut().push((phase, text.clone()));
-            let mut history = phases.history.borrow_mut();
-            match phase {
-                EditPhase::Begin if !history.restoring => {
-                    history.pending = Some((text, selection_before_edit.borrow().clone()));
-                }
-                EditPhase::Commit if history.restoring => history.restoring = false,
-                EditPhase::Commit => {
-                    if let Some(before) = history.pending.take()
-                        && before.0 != text
-                    {
-                        history.steps.push(before);
-                    }
-                }
-                EditPhase::Cancel => history.pending = None,
-                EditPhase::Begin => {}
-            }
-        })
-        .line_styles((), move |_, line, inside: &bool| {
-            syntax.borrow_mut().push((line.to_owned(), *inside));
-            let comment = *inside || line.contains("/*");
-            let ranges = if comment {
-                vec![StyledRange {
-                    range: 0..line.len(),
-                    color: Some(rgb(0x16803a)),
-                    background: None,
-                    decoration: None,
-                }]
-            } else {
-                line.char_indices()
-                    .filter_map(|(offset, character)| {
-                        character.is_ascii_digit().then_some(StyledRange {
-                            range: offset..offset + 1,
-                            color: Some(rgb(0x2040d0)),
-                            background: None,
-                            decoration: None,
-                        })
-                    })
-                    .collect()
-            };
-            (ranges, comment && !line.contains("*/"))
-        });
+    let editing = editor_behavior(initial, &editor);
     let undo = editor.clone();
     let numbers = editor.numbers.clone();
-    let inline_presses = editor.inline_presses;
-    let inline = node()
-        .role(Role::Button)
-        .name("Inspect value")
-        .focusable(true)
-        .style(style().size(30, 22).background(rgb(0xe0e8ff)))
-        .on_press(move || inline_presses.update(|count| *count += 1));
+    let inline = inline_inspector(editor.inline_presses);
     let view = node()
         .node_ref(editor.node)
         .role(Role::TextBox)
@@ -391,4 +316,86 @@ fn custom_text_field_draws_line_numbers_syntax_and_an_inline_control() {
         "/* open\ncomment */\nlet x = 2;"
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn editor_behavior(initial: &str, editor: &Editor) -> TextEditing {
+    let shadow = Rc::new(RefCell::new(initial.to_owned()));
+    let changes = editor.clone();
+    let sessions = editor.session.clone();
+    let committed_session = Rc::new(RefCell::new(TextSession::caret_at(initial.len())));
+    let selection_before_edit = committed_session.clone();
+    let phases = editor.clone();
+    let syntax = editor.styled.clone();
+    TextEditing::new(initial.to_owned())
+        .multiline()
+        .behavior(text_edit_policy)
+        .on_text_change(move |event| {
+            let mut text = shadow.borrow_mut();
+            assert!(
+                event.apply(&mut text),
+                "range edits apply to the application's document"
+            );
+            if event.composition().is_none() {
+                changes.committed.set(text.clone());
+            }
+        })
+        .on_selection_change(move |session| {
+            if !session.is_composing() {
+                *committed_session.borrow_mut() = session.clone();
+            }
+            *sessions.borrow_mut() = session;
+        })
+        .on_edit(move |phase| {
+            let text = phases.committed.get_untracked();
+            phases.phases.borrow_mut().push((phase, text.clone()));
+            let mut history = phases.history.borrow_mut();
+            match phase {
+                EditPhase::Begin if !history.restoring => {
+                    history.pending = Some((text, selection_before_edit.borrow().clone()));
+                }
+                EditPhase::Commit if history.restoring => history.restoring = false,
+                EditPhase::Commit => {
+                    if let Some(before) = history.pending.take()
+                        && before.0 != text
+                    {
+                        history.steps.push(before);
+                    }
+                }
+                EditPhase::Cancel => history.pending = None,
+                EditPhase::Begin => {}
+            }
+        })
+        .line_styles((), move |_, line, inside: &bool| {
+            syntax.borrow_mut().push((line.to_owned(), *inside));
+            let comment = *inside || line.contains("/*");
+            let ranges = if comment {
+                vec![StyledRange {
+                    range: 0..line.len(),
+                    color: Some(rgb(0x16803a)),
+                    background: None,
+                    decoration: None,
+                }]
+            } else {
+                line.char_indices()
+                    .filter_map(|(offset, character)| {
+                        character.is_ascii_digit().then_some(StyledRange {
+                            range: offset..offset + 1,
+                            color: Some(rgb(0x2040d0)),
+                            background: None,
+                            decoration: None,
+                        })
+                    })
+                    .collect()
+            };
+            (ranges, comment && !line.contains("*/"))
+        })
+}
+
+fn inline_inspector(inline_presses: Signal<usize>) -> Node {
+    node()
+        .role(Role::Button)
+        .name("Inspect value")
+        .focusable(true)
+        .style(style().size(30, 22).background(rgb(0xe0e8ff)))
+        .on_press(move || inline_presses.update(|count| *count += 1))
 }

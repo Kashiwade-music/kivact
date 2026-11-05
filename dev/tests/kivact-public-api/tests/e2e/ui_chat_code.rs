@@ -184,17 +184,7 @@ fn chat_composer_preserves_newlines_history_stop_and_ime() {
 #[test]
 fn code_block_numbers_follow_native_wrapped_rows_and_recipe_line_height() {
     use kivact::style::LineHeight;
-    use kivact::test::{Element, RenderOptions};
-    fn gutter(root: Element<'_>) -> Element<'_> {
-        let mut pending = vec![root];
-        while let Some(element) = pending.pop() {
-            if element.text().starts_with("1\n") {
-                return element;
-            }
-            pending.extend(element.children());
-        }
-        panic!("numbered gutter is mounted");
-    }
+    use kivact::test::RenderOptions;
     let (screen, (source, width)) = crate::support::mount_with(
         RenderOptions::from_env().theme(Theme::light().with(
             kivact::ui::UiRecipes::default().code_block(|r| {
@@ -264,4 +254,15 @@ fn code_block_numbers_follow_native_wrapped_rows_and_recipe_line_height() {
     screen.get_by_role(Role::Button, "Copy").click();
     assert_eq!(screen.clipboard(), Some(source.get_untracked()));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn gutter(root: kivact::test::Element<'_>) -> kivact::test::Element<'_> {
+    let mut pending = vec![root];
+    while let Some(element) = pending.pop() {
+        if element.text().starts_with("1\n") {
+            return element;
+        }
+        pending.extend(element.children());
+    }
+    panic!("numbered gutter is mounted");
 }

@@ -230,66 +230,7 @@ fn correction_inside_accepting_resize_callback_remains_authoritative() {
     drop(held.lock().expect("test state lock").take());
     wait(&parent, || parent.capture().is_err());
 
-    // A resize callback may close its editor. Its platform result must not
-    // start another reactive turn and resume the task that requested it.
-    let slot = Arc::new(Mutex::new(None::<Embedded>));
-    let callback_slot = slot.clone();
-    let returned = Arc::new(AtomicBool::new(false));
-    let callback_returned = returned.clone();
-    let resumed = Arc::new(AtomicBool::new(false));
-    let continuation = resumed.clone();
-    let cleaned = Arc::new(AtomicBool::new(false));
-    let cleanup = cleaned.clone();
-    let app = App::new("Resize callback close")
-        .window_size(160, 100)
-        .embed(
-            parent.parent().scale(1.0).on_resize_request(move |_, _| {
-                let app = callback_slot
-                    .lock()
-                    .expect("test state lock")
-                    .take()
-                    .expect("editor stored");
-                assert!(app.error().is_none());
-                drop(app);
-                callback_returned.store(true, Ordering::SeqCst);
-                true
-            }),
-            move || {
-                on_cleanup(move || {
-                    cleanup.store(true, Ordering::SeqCst);
-                });
-                node()
-                    .style(style().size(160, 100).background(Color::WHITE))
-                    .on_press(move || {
-                        let future = platform::request_window_size(200, 120);
-                        let continuation = continuation.clone();
-                        spawn(async move {
-                            let _ = future.await;
-                            continuation.store(true, Ordering::SeqCst);
-                        });
-                    })
-            },
-        )
-        .expect("editor opens");
-    // Start the request only after the public handle has been stored.
-    *slot.lock().expect("test state lock") = Some(app);
-    wait(&parent, || {
-        parent
-            .capture()
-            .is_ok_and(|shot| shot.pixel(20, 20) == Some(0xffffff))
-    });
-    parent.click(20.0, 20.0).expect("click delivered");
-    wait(&parent, || {
-        returned.load(Ordering::SeqCst)
-            && cleaned.load(Ordering::SeqCst)
-            && parent.capture().is_err()
-    });
-    parent.pump(Duration::from_millis(50));
-    assert!(
-        !resumed.load(Ordering::SeqCst),
-        "a new task turn ran after the resize callback closed its editor"
-    );
-    assert!(slot.lock().expect("test state lock").is_none());
+    close_during_resize_callback(&parent);
 }
 
 fn clipboard_requests_complete_through_the_host_pump() {
@@ -433,4 +374,67 @@ fn external_drop_joins_cleanup_after_parent_destruction() {
     drop(app);
     assert_eq!(cleaned.load(Ordering::SeqCst), 1);
     assert!(parent.capture().is_err());
+}
+
+fn close_during_resize_callback(parent: &TestParent) {
+    // A resize callback may close its editor. Its platform result must not
+    // start another reactive turn and resume the task that requested it.
+    let slot = Arc::new(Mutex::new(None::<Embedded>));
+    let callback_slot = slot.clone();
+    let returned = Arc::new(AtomicBool::new(false));
+    let callback_returned = returned.clone();
+    let resumed = Arc::new(AtomicBool::new(false));
+    let continuation = resumed.clone();
+    let cleaned = Arc::new(AtomicBool::new(false));
+    let cleanup = cleaned.clone();
+    let app = App::new("Resize callback close")
+        .window_size(160, 100)
+        .embed(
+            parent.parent().scale(1.0).on_resize_request(move |_, _| {
+                let app = callback_slot
+                    .lock()
+                    .expect("test state lock")
+                    .take()
+                    .expect("editor stored");
+                assert!(app.error().is_none());
+                drop(app);
+                callback_returned.store(true, Ordering::SeqCst);
+                true
+            }),
+            move || {
+                on_cleanup(move || {
+                    cleanup.store(true, Ordering::SeqCst);
+                });
+                node()
+                    .style(style().size(160, 100).background(Color::WHITE))
+                    .on_press(move || {
+                        let future = platform::request_window_size(200, 120);
+                        let continuation = continuation.clone();
+                        spawn(async move {
+                            let _ = future.await;
+                            continuation.store(true, Ordering::SeqCst);
+                        });
+                    })
+            },
+        )
+        .expect("editor opens");
+    // Start the request only after the public handle has been stored.
+    *slot.lock().expect("test state lock") = Some(app);
+    wait(parent, || {
+        parent
+            .capture()
+            .is_ok_and(|shot| shot.pixel(20, 20) == Some(0xffffff))
+    });
+    parent.click(20.0, 20.0).expect("click delivered");
+    wait(parent, || {
+        returned.load(Ordering::SeqCst)
+            && cleaned.load(Ordering::SeqCst)
+            && parent.capture().is_err()
+    });
+    parent.pump(Duration::from_millis(50));
+    assert!(
+        !resumed.load(Ordering::SeqCst),
+        "a new task turn ran after the resize callback closed its editor"
+    );
+    assert!(slot.lock().expect("test state lock").is_none());
 }

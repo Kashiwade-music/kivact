@@ -46,6 +46,39 @@ fn vocabulary() -> Vec<RenderCmd> {
             ][..],
         ),
     };
+    commands.extend(transformed_scene());
+    commands.extend(layer_scene(black));
+    commands.extend(stroke_scene(checker.clone()));
+    commands.extend(shadow_scene(checker.clone()));
+    commands.extend(filtered_scene(checker));
+    commands
+}
+
+/// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at
+/// other device sizes.
+fn scaled_vocabulary() -> Vec<RenderCmd> {
+    let mut commands = vec![RenderCmd::PushTransform(
+        Transform::scale(0.75).about(pt(120.0, 100.0)),
+    )];
+    commands.extend(vocabulary());
+    commands.push(RenderCmd::PopTransform);
+    commands
+}
+
+#[test]
+fn the_gpu_draws_the_whole_vocabulary_as_the_cpu_does() {
+    if let Some(reason) = arvane::gpu_unavailable() {
+        eprintln!("SKIPPED the_gpu_draws_the_whole_vocabulary_as_the_cpu_does: {reason}");
+        return;
+    }
+    let frames = [vocabulary(), vocabulary(), scaled_vocabulary()];
+    for (frame, diff) in gpu_against_cpu((240.0, 200.0), &frames).iter().enumerate() {
+        diff.assert_within_tolerance(&format!("frame {frame}"));
+    }
+}
+
+fn transformed_scene() -> Vec<RenderCmd> {
+    let mut commands = Vec::new();
     commands.extend([
         RenderCmd::PushTransform(Transform::rotate_deg(20.0).about(pt(40.0, 30.0))),
         RenderCmd::BoxShadow(BoxShadow {
@@ -85,7 +118,11 @@ fn vocabulary() -> Vec<RenderCmd> {
     ));
     commands.extend(text_runs("Skew", 14.0, pt(90.0, 20.0)));
     commands.push(RenderCmd::PopTransform);
-    commands.extend([
+    commands
+}
+
+fn layer_scene(black: kivact_types::Rgba) -> Vec<RenderCmd> {
+    vec![
         RenderCmd::PushLayer(Layer {
             clip: Some(Shape::Polygon {
                 points: vec![
@@ -136,6 +173,11 @@ fn vocabulary() -> Vec<RenderCmd> {
         }),
         fill(80.0, 80.0, 30.0, 30.0, 0x8020a0),
         RenderCmd::PopLayer,
+    ]
+}
+
+fn stroke_scene(checker: Pixels) -> Vec<RenderCmd> {
+    vec![
         RenderCmd::FillShape {
             shape: Shape::Rect(rect(120.0, 80.0, 50.0, 30.0)),
             paint: Paint::Pattern(Pattern {
@@ -180,6 +222,11 @@ fn vocabulary() -> Vec<RenderCmd> {
             },
             paint: solid(0x000000),
         },
+    ]
+}
+
+fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
+    vec![
         RenderCmd::BoxShadow(BoxShadow {
             shape: RoundedRect::new(rect(90.0, 130.0, 50.0, 40.0), 10.0),
             offset: pt(2.0, 2.0),
@@ -244,6 +291,11 @@ fn vocabulary() -> Vec<RenderCmd> {
             inset: false,
             knockout: true,
         }),
+    ]
+}
+
+fn filtered_scene(checker: Pixels) -> Vec<RenderCmd> {
+    vec![
         RenderCmd::Backdrop(Backdrop {
             shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
             std_dev: 4.0,
@@ -271,29 +323,5 @@ fn vocabulary() -> Vec<RenderCmd> {
                 repeat_y: true,
             }),
         },
-    ]);
-    commands
-}
-
-/// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at
-/// other device sizes.
-fn scaled_vocabulary() -> Vec<RenderCmd> {
-    let mut commands = vec![RenderCmd::PushTransform(
-        Transform::scale(0.75).about(pt(120.0, 100.0)),
-    )];
-    commands.extend(vocabulary());
-    commands.push(RenderCmd::PopTransform);
-    commands
-}
-
-#[test]
-fn the_gpu_draws_the_whole_vocabulary_as_the_cpu_does() {
-    if let Some(reason) = arvane::gpu_unavailable() {
-        eprintln!("SKIPPED the_gpu_draws_the_whole_vocabulary_as_the_cpu_does: {reason}");
-        return;
-    }
-    let frames = [vocabulary(), vocabulary(), scaled_vocabulary()];
-    for (frame, diff) in gpu_against_cpu((240.0, 200.0), &frames).iter().enumerate() {
-        diff.assert_within_tolerance(&format!("frame {frame}"));
-    }
+    ]
 }

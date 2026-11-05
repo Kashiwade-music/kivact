@@ -1,4 +1,5 @@
 //! Role: Expose the Soft component catalog, its pages and embedded fonts.
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 mod docs;
 mod fonts;
 mod look;

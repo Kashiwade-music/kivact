@@ -16,74 +16,33 @@ fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
             let expanded = signal(vec!["docs".to_owned()]);
             (
                 selected,
-                kivact::ui::tree(
-                    "Files",
-                    vec![
-                        kivact::interaction::TreeNode::new("docs".to_owned(), None, "docs"),
-                        kivact::interaction::TreeNode::new(
-                            "a.md".to_owned(),
-                            Some("docs".to_owned()),
-                            "a.md",
-                        ),
-                        kivact::interaction::TreeNode::new(
-                            "b.md".to_owned(),
-                            Some("docs".to_owned()),
-                            "b.md",
-                        ),
-                        kivact::interaction::TreeNode::new("src".to_owned(), None, "src"),
-                        kivact::interaction::TreeNode::new(
-                            "lib.rs".to_owned(),
-                            Some("src".to_owned()),
-                            "lib.rs",
-                        ),
-                    ],
-                )
-                .expanded(expanded)
-                .selection(binding(selected, move |key: Option<String>| {
-                    if key
-                        .as_deref()
-                        .is_none_or(|id| !["docs", "src"].contains(&id))
-                    {
-                        selected.set(key);
-                    }
-                }))
-                .on_activate(move |key| {
-                    if ["docs", "src"].contains(&key.as_str()) {
-                        expanded.update(|keys| {
-                            if keys.contains(&key) {
-                                keys.retain(|k| k != &key);
-                            } else {
-                                keys.push(key);
-                            }
-                        });
-                    }
-                })
-                .item(|item, _| {
-                    let key = item.get_untracked().key;
-                    let folder = ["docs", "src"].contains(&key.as_str());
-                    row((
-                        icon(if folder { "folder" } else { "file-text" }).style(
-                            style().size(14, 14).color(if folder {
-                                ColorToken::Warning
-                            } else {
-                                ColorToken::TextMuted
-                            }),
-                        ),
-                        text(key.clone()).style(style().grow(1).font_size(12.5)),
-                        g::mono(if key == "b.md" { "M" } else { "" }),
-                    ))
-                    .style(style().grow(1).gap(6).align_items(Align::Center))
-                }),
+                kivact::ui::tree("Files", file_tree_nodes())
+                    .expanded(expanded)
+                    .selection(binding(selected, move |key: Option<String>| {
+                        if key
+                            .as_deref()
+                            .is_none_or(|id| !["docs", "src"].contains(&id))
+                        {
+                            selected.set(key);
+                        }
+                    }))
+                    .on_activate(move |key| {
+                        if ["docs", "src"].contains(&key.as_str()) {
+                            expanded.update(|keys| {
+                                if keys.contains(&key) {
+                                    keys.retain(|k| k != &key);
+                                } else {
+                                    keys.push(key);
+                                }
+                            });
+                        }
+                    })
+                    .item(|item, _| file_tree_label(item.get_untracked().key)),
             )
         },
     );
     let item = |name: &str| screen.get_by_role(Role::TreeItem, name);
-    assert!(screen.get_by_role(Role::Tree, "Files").exists());
-    assert!(!screen.get_by_role(Role::Tree, "Files").is_multiselectable());
-    assert!(item("b.md").is_selected());
-    assert_eq!(item("a.md").level(), Some(2));
-    assert_eq!(item("src").is_expanded(), Some(false));
-    assert!(screen.query_by_role(Role::TreeItem, "lib.rs").is_none());
+    assert_tree_initial_state(&screen);
 
     screen.press_tab(false);
     assert!(
@@ -230,37 +189,7 @@ fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
             let tags = signal(vec!["infra".to_owned()]);
             let number = signal(4.0_f64);
             let files = signal(Vec::new());
-            (
-                (tags, number, files),
-                column((
-                    kivact::ui::tag_input("Tags", tags)
-                        .on_add(move |tag| tags.update(|items| items.push(tag)))
-                        .on_remove(move |index| {
-                            tags.update(|items| {
-                                items.remove(index);
-                            })
-                        }),
-                    kivact::ui::number_input(
-                        "Workers",
-                        number,
-                        kivact::interaction::ScalarRange::new(1.0, 8.0)
-                            .and_then(|range| range.with_step(1.0))
-                            .expect("invariant: the bounds and the step are finite"),
-                    ),
-                    kivact::ui::dropzone(kivact::i18n::message(
-                        "game.dropzone.label",
-                        "Upload files",
-                    ))
-                    .multiple()
-                    .pick_on_press()
-                    .icon(kivact::view::icon("cloud-upload"))
-                    .on_files(move |paths| {
-                        files.set(paths.into_iter().map(|file| file.path).collect())
-                    })
-                    .style(style().width(350)),
-                ))
-                .style(style().padding(20).gap(20)),
-            )
+            ((tags, number, files), editing_controls(tags, number, files))
         },
     );
     let edit = screen.get_by_role(Role::TextBox, "Tags");
@@ -319,6 +248,78 @@ fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
     }
     field.a11y(A11yAction::Increment);
     assert_eq!(number.get_untracked(), 5.0);
+    assert_native_file_selection(&screen, files);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn file_tree_nodes() -> Vec<kivact::interaction::TreeNode<String>> {
+    vec![
+        kivact::interaction::TreeNode::new("docs".to_owned(), None, "docs"),
+        kivact::interaction::TreeNode::new("a.md".to_owned(), Some("docs".to_owned()), "a.md"),
+        kivact::interaction::TreeNode::new("b.md".to_owned(), Some("docs".to_owned()), "b.md"),
+        kivact::interaction::TreeNode::new("src".to_owned(), None, "src"),
+        kivact::interaction::TreeNode::new("lib.rs".to_owned(), Some("src".to_owned()), "lib.rs"),
+    ]
+}
+fn file_tree_label(key: String) -> Node {
+    let folder = ["docs", "src"].contains(&key.as_str());
+    row((
+        icon(if folder { "folder" } else { "file-text" }).style(style().size(14, 14).color(
+            if folder {
+                ColorToken::Warning
+            } else {
+                ColorToken::TextMuted
+            },
+        )),
+        text(key.clone()).style(style().grow(1).font_size(12.5)),
+        g::mono(if key == "b.md" { "M" } else { "" }),
+    ))
+    .style(style().grow(1).gap(6).align_items(Align::Center))
+}
+fn editing_controls(
+    tags: Signal<Vec<String>>,
+    number: Signal<f64>,
+    files: Signal<Vec<std::path::PathBuf>>,
+) -> impl IntoView {
+    column((
+        kivact::ui::tag_input("Tags", tags)
+            .on_add(move |tag| tags.update(|items| items.push(tag)))
+            .on_remove(move |index| {
+                tags.update(|items| {
+                    items.remove(index);
+                })
+            }),
+        kivact::ui::number_input(
+            "Workers",
+            number,
+            kivact::interaction::ScalarRange::new(1.0, 8.0)
+                .and_then(|range| range.with_step(1.0))
+                .expect("invariant: the bounds and the step are finite"),
+        ),
+        kivact::ui::dropzone(kivact::i18n::message("game.dropzone.label", "Upload files"))
+            .multiple()
+            .pick_on_press()
+            .icon(kivact::view::icon("cloud-upload"))
+            .on_files(move |paths| files.set(paths.into_iter().map(|file| file.path).collect()))
+            .style(style().width(350)),
+    ))
+    .style(style().padding(20).gap(20))
+}
+
+fn assert_tree_initial_state(screen: &kivact::test::Screen) {
+    let item = |name: &str| screen.get_by_role(Role::TreeItem, name);
+    assert!(screen.get_by_role(Role::Tree, "Files").exists());
+    assert!(!screen.get_by_role(Role::Tree, "Files").is_multiselectable());
+    assert!(item("b.md").is_selected());
+    assert_eq!(item("a.md").level(), Some(2));
+    assert_eq!(item("src").is_expanded(), Some(false));
+    assert!(screen.query_by_role(Role::TreeItem, "lib.rs").is_none());
+}
+
+fn assert_native_file_selection(
+    screen: &kivact::test::Screen,
+    files: Signal<Vec<std::path::PathBuf>>,
+) {
     screen.respond_files_dialog(Some(vec![
         std::path::PathBuf::from("inventory.csv"),
         std::path::PathBuf::from("records.json"),
@@ -332,5 +333,4 @@ fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
             std::path::PathBuf::from("records.json")
         ]
     );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

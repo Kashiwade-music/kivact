@@ -35,81 +35,8 @@ pub(crate) fn build(sources: &[Source]) -> Surface {
 }
 
 pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
-    let mut bindings = Vec::new();
-    let mut globs = Vec::new();
-    let mut modules = BTreeSet::new();
-    for source in sources {
-        let scope = definition(source, "").trim_end_matches("::").to_owned();
-        modules.insert(scope.clone());
-        for item in &source.items {
-            if let syn::Item::Use(item) = item {
-                let mut entries = Vec::new();
-                flatten(&item.tree, "", &mut entries);
-                for (alias, target) in entries {
-                    let target = absolutize(&scope, &target);
-                    if alias == "*" {
-                        globs.push((
-                            scope.clone(),
-                            target,
-                            matches!(item.vis, syn::Visibility::Public(_)),
-                        ));
-                    } else {
-                        bindings.push(Binding {
-                            path: format!("{scope}::{alias}"),
-                            target,
-                            public: matches!(item.vis, syn::Visibility::Public(_)),
-                            origin: (source.package.clone(), source.module.clone(), item.span()),
-                        });
-                    }
-                }
-                continue;
-            }
-            if let Some((name, public)) = item_name(item) {
-                let path = format!("{scope}::{name}");
-                bindings.push(Binding {
-                    target: path.clone(),
-                    path,
-                    public: public && !internal_item(source, item),
-                    origin: (source.package.clone(), source.module.clone(), item.span()),
-                });
-            }
-        }
-    }
-    // Glob expansion is a fixed point because a glob may itself reexport a glob.
-    for _ in 0..=sources.len() {
-        let aliases: BTreeMap<_, _> = bindings
-            .iter()
-            .map(|b| (b.path.clone(), b.target.clone()))
-            .collect();
-        let mut additions = Vec::new();
-        let mut known: BTreeSet<String> = bindings.iter().map(|b| b.path.clone()).collect();
-        for (scope, target, public) in &globs {
-            let target = resolve(target, &aliases);
-            for binding in &bindings {
-                if binding.public
-                    && binding
-                        .path
-                        .rsplit_once("::")
-                        .is_some_and(|(parent, _)| parent == target)
-                {
-                    let name = binding.path.rsplit("::").next().unwrap_or("");
-                    let path = format!("{scope}::{name}");
-                    if known.insert(path.clone()) {
-                        additions.push(Binding {
-                            path,
-                            target: binding.target.clone(),
-                            public: *public,
-                            origin: binding.origin.clone(),
-                        });
-                    }
-                }
-            }
-        }
-        if additions.is_empty() {
-            break;
-        }
-        bindings.extend(additions);
-    }
+    let (mut bindings, globs, modules) = source_bindings(sources);
+    expand_globs(sources.len(), &mut bindings, &globs);
     let aliases: BTreeMap<_, _> = bindings
         .iter()
         .map(|b| (b.path.clone(), b.target.clone()))
@@ -305,6 +232,89 @@ impl Surface {
             &absolutize(scope.trim_end_matches("::"), &name),
             &self.aliases,
         ))
+    }
+}
+
+type Globs = Vec<(String, String, bool)>;
+fn source_bindings(sources: &[Source]) -> (Vec<Binding>, Globs, BTreeSet<String>) {
+    let mut bindings = Vec::new();
+    let mut globs = Vec::new();
+    let mut modules = BTreeSet::new();
+    for source in sources {
+        let scope = definition(source, "").trim_end_matches("::").to_owned();
+        modules.insert(scope.clone());
+        for item in &source.items {
+            if let syn::Item::Use(item) = item {
+                let mut entries = Vec::new();
+                flatten(&item.tree, "", &mut entries);
+                for (alias, target) in entries {
+                    let target = absolutize(&scope, &target);
+                    if alias == "*" {
+                        globs.push((
+                            scope.clone(),
+                            target,
+                            matches!(item.vis, syn::Visibility::Public(_)),
+                        ));
+                    } else {
+                        bindings.push(Binding {
+                            path: format!("{scope}::{alias}"),
+                            target,
+                            public: matches!(item.vis, syn::Visibility::Public(_)),
+                            origin: (source.package.clone(), source.module.clone(), item.span()),
+                        });
+                    }
+                }
+                continue;
+            }
+            if let Some((name, public)) = item_name(item) {
+                let path = format!("{scope}::{name}");
+                bindings.push(Binding {
+                    target: path.clone(),
+                    path,
+                    public: public && !internal_item(source, item),
+                    origin: (source.package.clone(), source.module.clone(), item.span()),
+                });
+            }
+        }
+    }
+    (bindings, globs, modules)
+}
+
+fn expand_globs(source_count: usize, bindings: &mut Vec<Binding>, globs: &Globs) {
+    // Glob expansion is a fixed point because a glob may itself reexport a glob.
+    for _ in 0..=source_count {
+        let aliases: BTreeMap<_, _> = bindings
+            .iter()
+            .map(|b| (b.path.clone(), b.target.clone()))
+            .collect();
+        let mut additions = Vec::new();
+        let mut known: BTreeSet<String> = bindings.iter().map(|b| b.path.clone()).collect();
+        for (scope, target, public) in globs {
+            let target = resolve(target, &aliases);
+            for binding in bindings.iter() {
+                if binding.public
+                    && binding
+                        .path
+                        .rsplit_once("::")
+                        .is_some_and(|(parent, _)| parent == target)
+                {
+                    let name = binding.path.rsplit("::").next().unwrap_or("");
+                    let path = format!("{scope}::{name}");
+                    if known.insert(path.clone()) {
+                        additions.push(Binding {
+                            path,
+                            target: binding.target.clone(),
+                            public: *public,
+                            origin: binding.origin.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        if additions.is_empty() {
+            break;
+        }
+        bindings.extend(additions);
     }
 }
 

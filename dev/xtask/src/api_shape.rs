@@ -81,20 +81,7 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
                 check_type(source, &item.ty, false, errors)
             }
             syn::Item::Impl(item) => {
-                if !surface
-                    .resolve_type(source, &item.self_ty)
-                    .is_some_and(|name| surface.reachable.contains(&name))
-                {
-                    continue;
-                }
-                for member in &item.items {
-                    if let syn::ImplItem::Fn(method) = member
-                        && matches!(method.vis, syn::Visibility::Public(_))
-                        && !source.internal_contract(&method.attrs, method.sig.span())
-                    {
-                        check_signature(source, &method.sig, true, errors);
-                    }
-                }
+                check_impl(source, surface, item, errors);
             }
             _ => {}
         }
@@ -198,6 +185,23 @@ fn callback_type(ty: &syn::Type, sig: &syn::Signature) -> bool {
         _ => false,
     }
 }
+fn check_impl(source: &Source, surface: &Surface, item: &syn::ItemImpl, errors: &mut Vec<String>) {
+    if !surface
+        .resolve_type(source, &item.self_ty)
+        .is_some_and(|name| surface.reachable.contains(&name))
+    {
+        return;
+    }
+    for member in &item.items {
+        if let syn::ImplItem::Fn(method) = member
+            && matches!(method.vis, syn::Visibility::Public(_))
+            && !source.internal_contract(&method.attrs, method.sig.span())
+        {
+            check_signature(source, &method.sig, true, errors);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! Role: Check public fields, callbacks and ownership only on reachable items.

@@ -298,24 +298,7 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             focus_pixels(&screen, &theme);
             screen.press_key(Key::Enter);
             assert_eq!(count.get_untracked(), 1, "{kit} {mode:?}");
-            let check = screen.get_by_role(Role::CheckBox, "Check");
-            assert_eq!(check.checked(), Some(CheckedState::Checked));
-            check.click();
-            assert!(!checked.get_untracked());
-            assert_eq!(
-                screen.get_by_role(Role::Switch, "Switch").checked(),
-                Some(CheckedState::Unchecked)
-            );
-            assert!(screen.get_by_role(Role::Switch, "Locked").is_disabled());
-            assert_eq!(
-                screen.get_by_role(Role::Switch, "Locked").checked(),
-                Some(CheckedState::Checked)
-            );
-            assert_eq!(
-                screen.get_by_role(Role::RadioButton, "Alpha").checked(),
-                Some(CheckedState::Checked)
-            );
-            assert!(screen.get_by_role(Role::RadioButton, "Beta").is_disabled());
+            check_theme_toggles(&screen, checked);
             let combo = screen.get_by_role(Role::ComboBox, "Choice");
             combo.click();
             screen
@@ -328,48 +311,7 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             screen.press_key(Key::Escape);
             assert_eq!(combo.is_expanded(), Some(false));
             assert!(combo.is_focused());
-            let first = screen.get_by_role(Role::Tab, "First");
-            let panel = screen.get_by_role(Role::TabPanel, "First");
-            assert_eq!(
-                first
-                    .controls()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["First"]
-            );
-            assert_eq!(
-                panel
-                    .labelled_by()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["First"]
-            );
-            panel.get_by_text("Content a");
-            first.press_key(Key::ArrowRight);
-            assert_eq!(tab.get_untracked(), "c");
-            let second = screen.get_by_role(Role::Tab, "Second");
-            assert!(second.is_selected());
-            assert_eq!(
-                second
-                    .controls()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["Second"]
-            );
-            let panel = screen.get_by_role(Role::TabPanel, "Second");
-            assert_eq!(
-                panel
-                    .labelled_by()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["Second"]
-            );
-            panel.get_by_text("Content c");
-            assert!(screen.query_by_text("Content a").is_none());
+            check_theme_tabs(&screen, tab);
             assert_eq!(
                 screen
                     .get_by_role(Role::TextBox, "Editor")
@@ -404,22 +346,7 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             screen.get_by_text("Disclosed content");
             let list = screen.get_by_role(Role::ListBox, "Items");
             assert!(list.get_by_role(Role::Option, "Alpha").is_selected());
-            for (role, name) in components() {
-                let rect = screen
-                    .get_by_role(role, name)
-                    .rect()
-                    .expect("visible recipe geometry");
-                assert!(
-                    rect.width > 0.0 && rect.height > 0.0,
-                    "{kit} {mode:?} {name}"
-                );
-            }
-            screen.assert_layout();
-            assert!(
-                screen.errors().is_empty(),
-                "{kit} {mode:?}: {:?}",
-                screen.errors()
-            );
+            check_theme_layout(&screen, kit, mode);
         }
     }
 }
@@ -715,4 +642,89 @@ fn kit_readme_lists_the_filled_recipes() {
             );
         }
     }
+}
+
+fn check_theme_tabs(screen: &Screen, tab: Signal<&'static str>) {
+    let first = screen.get_by_role(Role::Tab, "First");
+    let panel = screen.get_by_role(Role::TabPanel, "First");
+    assert_eq!(
+        first
+            .controls()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["First"]
+    );
+    assert_eq!(
+        panel
+            .labelled_by()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["First"]
+    );
+    panel.get_by_text("Content a");
+    first.press_key(Key::ArrowRight);
+    assert_eq!(tab.get_untracked(), "c");
+    let second = screen.get_by_role(Role::Tab, "Second");
+    assert!(second.is_selected());
+    assert_eq!(
+        second
+            .controls()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["Second"]
+    );
+    let panel = screen.get_by_role(Role::TabPanel, "Second");
+    assert_eq!(
+        panel
+            .labelled_by()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["Second"]
+    );
+    panel.get_by_text("Content c");
+    assert!(screen.query_by_text("Content a").is_none());
+}
+
+fn check_theme_toggles(screen: &Screen, checked: Signal<bool>) {
+    let check = screen.get_by_role(Role::CheckBox, "Check");
+    assert_eq!(check.checked(), Some(CheckedState::Checked));
+    check.click();
+    assert!(!checked.get_untracked());
+    assert_eq!(
+        screen.get_by_role(Role::Switch, "Switch").checked(),
+        Some(CheckedState::Unchecked)
+    );
+    assert!(screen.get_by_role(Role::Switch, "Locked").is_disabled());
+    assert_eq!(
+        screen.get_by_role(Role::Switch, "Locked").checked(),
+        Some(CheckedState::Checked)
+    );
+    assert_eq!(
+        screen.get_by_role(Role::RadioButton, "Alpha").checked(),
+        Some(CheckedState::Checked)
+    );
+    assert!(screen.get_by_role(Role::RadioButton, "Beta").is_disabled());
+}
+
+fn check_theme_layout(screen: &Screen, kit: &str, mode: ThemeMode) {
+    for (role, name) in components() {
+        let rect = screen
+            .get_by_role(role, name)
+            .rect()
+            .expect("visible recipe geometry");
+        assert!(
+            rect.width > 0.0 && rect.height > 0.0,
+            "{kit} {mode:?} {name}"
+        );
+    }
+    screen.assert_layout();
+    assert!(
+        screen.errors().is_empty(),
+        "{kit} {mode:?}: {:?}",
+        screen.errors()
+    );
 }

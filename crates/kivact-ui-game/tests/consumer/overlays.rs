@@ -100,32 +100,7 @@ fn consumer_toast_expiry_and_hover_pause() {
                                         .duration(Some(Duration::from_millis(400))),
                                 );
                             }),
-                        kivact::ui::alert("NOTICE")
-                            .variant(kivact::ui::AlertVariant::Banner)
-                            .tone(kivact::interaction::Tone::Warning)
-                            .icon(kivact::view::icon("alert-triangle"))
-                            .actions(())
-                            .icon(
-                                g::mono("NOTICE").style(
-                                    style()
-                                        .font_size(10)
-                                        .weight(800)
-                                        .padding_x(6)
-                                        .padding_y(4)
-                                        .background(g::ColorName::Yellow),
-                                ),
-                            )
-                            .with_node(|node| {
-                                node.role(Role::Status)
-                                    .live_region(kivact::view::LiveRegion::Polite)
-                            })
-                            .content(move || {
-                                rich_text(vec![
-                                    span("Maintenance:").weight(700).color(rgb(0xffc928)),
-                                    span(" read only"),
-                                ])
-                            })
-                            .name("Service notice"),
+                        service_notice(),
                         g::activity(vec![g::ActivityEntry::new(
                             "09:40",
                             rich_text(vec![span("Review").weight(700), span(" passed")]),
@@ -277,4 +252,33 @@ fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technolog
     screen.get_by_role(Role::Button, "Close").click();
     assert!(!modal.get_untracked(), "the close button closes the dialog");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn service_notice() -> impl IntoView {
+    kivact::ui::alert("NOTICE")
+        .variant(kivact::ui::AlertVariant::Banner)
+        .tone(kivact::interaction::Tone::Warning)
+        .icon(kivact::view::icon("alert-triangle"))
+        .actions(())
+        .icon(
+            g::mono("NOTICE").style(
+                style()
+                    .font_size(10)
+                    .weight(800)
+                    .padding_x(6)
+                    .padding_y(4)
+                    .background(g::ColorName::Yellow),
+            ),
+        )
+        .with_node(|node| {
+            node.role(Role::Status)
+                .live_region(kivact::view::LiveRegion::Polite)
+        })
+        .content(move || {
+            rich_text(vec![
+                span("Maintenance:").weight(700).color(rgb(0xffc928)),
+                span(" read only"),
+            ])
+        })
+        .name("Service notice")
 }

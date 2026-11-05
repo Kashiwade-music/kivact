@@ -16,26 +16,7 @@ fn inputs_and_tag_editor_commit_native_edits() {
             let draft = signal(String::new());
             let tags = signal(vec!["one".into()]);
             let memo = signal(String::new());
-            (
-                (draft, tags, memo),
-                column((
-                    kivact::ui::text_input("Name", draft).placeholder("Enter name"),
-                    ui::resizable_text_area(
-                        kivact::ui::text_area("Resizable note", memo),
-                        80.0,
-                        72.0,
-                    ),
-                    kivact::ui::text_area("Fixed note", kivact::state::signal(String::new())),
-                    kivact::ui::tag_input("Add tag", tags)
-                        .on_add(move |tag| tags.update(|items| items.push(tag)))
-                        .on_remove(move |index| {
-                            tags.update(|items| {
-                                items.remove(index);
-                            })
-                        }),
-                ))
-                .style(style().width(360).gap(8)),
-            )
+            ((draft, tags, memo), input_controls(draft, tags, memo))
         },
     );
     screen
@@ -156,4 +137,24 @@ fn dropzone_reports_public_file_events_and_platform_picker_results() {
         ]
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn input_controls(
+    draft: Signal<String>,
+    tags: Signal<Vec<String>>,
+    memo: Signal<String>,
+) -> impl IntoView {
+    column((
+        kivact::ui::text_input("Name", draft).placeholder("Enter name"),
+        ui::resizable_text_area(kivact::ui::text_area("Resizable note", memo), 80.0, 72.0),
+        kivact::ui::text_area("Fixed note", kivact::state::signal(String::new())),
+        kivact::ui::tag_input("Add tag", tags)
+            .on_add(move |tag| tags.update(|items| items.push(tag)))
+            .on_remove(move |index| {
+                tags.update(|items| {
+                    items.remove(index);
+                })
+            }),
+    ))
+    .style(style().width(360).gap(8))
 }
