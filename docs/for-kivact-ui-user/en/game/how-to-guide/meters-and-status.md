@@ -24,7 +24,8 @@ fn meters() -> impl IntoView {
         })).name("Hull").variant(ProgressVariant::Gauge)
             .variant(game::GaugeSegments(total.into_value())).variant(Tone::Danger),
         ui::progress(move || Some(percent.get() / 100.0)).name("Shield")
-            .variant(ProgressVariant::Ring).variant(Tone::Info)
+            .variant(ProgressVariant::Ring)
+            .variant(ui::ProgressMotion { determinate_ms:900, determinate_easing:kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.), ..Default::default() }).variant(Tone::Info)
             .with_node(|node| node.child(game::mono("SHIELD").style(style().font_size(9)))),
         ui::progress(move || Some(percent.get() / 100.0)).name("Upload")
             .moving(true).variant(game::Striped),

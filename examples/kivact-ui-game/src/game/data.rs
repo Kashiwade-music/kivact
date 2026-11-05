@@ -168,7 +168,8 @@ pub(super) fn display(scene: Demo) -> Node {
                         )),
                         { let value: kivact::state::Value<f64> = kivact::state::IntoValue::into_value(76.);
     kivact::ui::progress(move || Some(value.get()/100.0)).name("SLA")
-        .variant(kivact::ui::ProgressVariant::Ring).variant(kivact::interaction::Tone::Info)
+        .variant(kivact::ui::ProgressVariant::Ring)
+        .variant(kivact::ui::ProgressMotion { determinate_ms:900, determinate_easing:kivact::motion::Easing::CubicBezier(0.2,0.7,0.2,1.), ..Default::default() }).variant(kivact::interaction::Tone::Info)
         .with_node(|node| node.child(g::mono("SLA").style(style().font_size(9).color(ColorToken::TextMuted)))) },
                     ))
                     .style(
