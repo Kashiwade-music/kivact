@@ -1,3 +1,4 @@
+#![deny(clippy::too_many_lines, clippy::disallowed_types)]
 //! Role: Public Kivact facade that re-exports core, interaction and the standard UI.
 //!
 //! Components are plain functions that take arguments, return a view and

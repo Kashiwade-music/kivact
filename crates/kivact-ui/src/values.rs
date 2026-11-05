@@ -106,6 +106,7 @@ pub(super) fn default_control_size() -> ControlSize {
 /// What a button's recipes know of it: its root, its content row, its
 /// icon boxes and its busy indicator get the same state.
 #[derive(Clone, Debug, PartialEq)]
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 pub struct ButtonState {
     /// The root's actual input state. Hover, press and focus looks are
     /// `style().hover(..)`, `.pressed(..)` and `.focus_visible(..)` in the
@@ -154,6 +155,7 @@ impl ButtonState {
 
 /// The state of a [`toggle_button`](super::toggle) for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 pub struct ToggleButtonState {
     /// The actual input state of the toggle.
     pub input: PartState,
@@ -234,6 +236,7 @@ pub struct FieldState {
 
 /// The visual position of a switch thumb during an opt-in gesture.
 #[derive(Clone, Copy, Debug, PartialEq)]
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 pub struct SwitchDragState {
     /// Physical translation along the writing direction, in logical pixels.
     pub offset: Option<f64>,
@@ -247,6 +250,7 @@ pub struct SwitchDragState {
 
 /// The state of a check box, a switch or a radio item for its recipe.
 #[derive(Clone, Copy, Debug)]
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 pub struct CheckableState {
     /// The actual input state of the control.
     pub input: PartState,
@@ -278,6 +282,7 @@ impl PartialEq for CheckableState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 pub struct DialogState {
     pub input: PartState,
     pub open: bool,
@@ -303,6 +308,7 @@ pub struct TooltipArrowState {
 
 /// The state of a select's trigger for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 pub struct SelectTriggerState {
     /// The actual input state of the trigger.
     pub input: PartState,
@@ -350,6 +356,7 @@ pub struct ToastGroupState {
 /// The state of a main row of a [`data_table`](super::data_table) for its
 /// recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 pub struct DataTableRowState {
     /// The actual state of the row's attached table part: its input state,
     /// whether it is selected and whether it holds the tab stop.

@@ -12,9 +12,9 @@ pub struct UiTokens {
     pub chat: crate::ChatTokens,
     pub code_block: crate::CodeBlockTokens,
     pub indicators: crate::IndicatorTokens,
-    pub tree: crate::TreeTokens,
-    pub table: crate::TableTokens,
-    pub item_list: crate::ItemListTokens,
+    pub tree: crate::collection_values::TreeTokens,
+    pub table: crate::collection_values::TableTokens,
+    pub item_list: crate::collection_values::ItemListTokens,
     pub pagination: crate::NavigationTokens,
     pub breadcrumb: crate::NavigationTokens,
     pub stepper: crate::StepperTokens,
@@ -25,7 +25,7 @@ pub struct UiTokens {
     pub carousel: crate::CarouselTokens,
     pub dropzone: crate::DropzoneTokens,
     pub combobox: crate::ComboboxTokens,
-    pub toolbar: crate::ToolbarTokens,
+    pub toolbar: crate::collection_values::ToolbarTokens,
     pub toggle_group: crate::ToggleGroupTokens,
     pub button_group: crate::ButtonGroupTokens,
     pub button: ButtonTokens,
@@ -35,7 +35,7 @@ pub struct UiTokens {
     pub dialog: DialogTokens,
     pub disclosure: DisclosureTokens,
     pub data_table: DataTableTokens,
-    pub hover_card: crate::HoverCardTokens,
+    pub hover_card: crate::hover_card_values::HoverCardTokens,
 }
 impl ThemeExtension for UiTokens {
     fn fallback(_: &Theme) -> Self {

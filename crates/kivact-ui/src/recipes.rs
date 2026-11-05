@@ -45,17 +45,19 @@
 //! `check` for a select, and `x` for the close of a dialog and a toast. A
 //! look without a mark makes the recipe's box zero-sized.
 use super::DataTableGroupState;
+use super::look_feedback;
 use super::values::{
     AxisState, ButtonState, CheckableState, DataTableCellState, DataTableCheckState,
     DataTablePageState, DataTableRowState, DialogState, FieldState, ProgressState,
     SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState,
 };
 use super::variants::Look;
-use super::{
-    AlertState, CardState, EmptyStateState, InputGroupMemberState, InputGroupState, look_feedback,
-};
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use crate::{HeadingState, StatState, look_files, look_metrics, look_static_collections};
+use crate::component_values::{
+    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
+    StatState,
+};
+use crate::{look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
@@ -64,7 +66,7 @@ use kivact_interaction::{
     DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
     TableHeaderState, ToastState, TreeItemState,
 };
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 /// A style derived from the theme and the actual state of a component's
 /// part with the component's kit-defined variants ([`Look`]): what a
@@ -128,7 +130,8 @@ macro_rules! recipe_table {
 
         impl $name {
             fn default_table() -> &'static Self {
-                static DEFAULT: OnceLock<$name> = OnceLock::new();
+                #[expect(clippy::disallowed_types, reason = "Immutable global recipe defaults are initialized once and share stable recipe identities.")]
+                static DEFAULT: std::sync::OnceLock<$name> = std::sync::OnceLock::new();
                 DEFAULT.get_or_init(|| Self {
                     $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
                     $( $( $table: Default::default(), )* )?
@@ -327,7 +330,7 @@ recipe_table! {
 recipe_table! {
     /// Theme surface of a hover preview.
     HoverCardRecipes {
-        surface(surface_recipe): crate::HoverCardSurfaceState = look_extra::hover_card,
+        surface(surface_recipe): crate::hover_card_values::HoverCardSurfaceState = look_extra::hover_card,
     }
 }
 
@@ -757,7 +760,7 @@ recipe_table! {
 recipe_table! {
     /// Toolbar surface recipes.
     ToolbarRecipes {
-        root(root_recipe): crate::ToolbarState = crate::toolbar::root_style,
+        root(root_recipe): crate::collection_values::ToolbarState = crate::toolbar::root_style,
     }
 }
 recipe_table! {

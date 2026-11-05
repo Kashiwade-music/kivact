@@ -4,12 +4,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoText;
 use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, text};
 
-/// Semantic heading level passed to its recipe.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct HeadingState {
-    /// Heading level, clamped to 1 through 6.
-    pub level: u8,
-}
+use crate::component_values::HeadingState;
 /// A semantic heading whose typography comes from the theme.
 pub struct Heading {
     root: Node,

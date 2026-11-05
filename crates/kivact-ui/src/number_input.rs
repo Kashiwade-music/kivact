@@ -305,33 +305,35 @@ impl IntoView for NumberInput {
         for reference in described_by {
             field = field.with_node(|node| node.described_by(reference));
         }
-        let step = move |steps: f64| {
-            move || {
-                number.once(|| number.step_by(steps));
-            }
-        };
-        let decrease = button(message("stepper.decrease", "Decrease"))
-            .with_node(|node| {
-                node.base_style(style().grid_row(1).grid_column(1))
-                    .focusable(false)
-                    .focus_on_press(input_ref)
-            })
-            .disabled(disabled)
-            .variant(ButtonVariant::Ghost)
-            .hide_label(true)
-            .icon(icon("minus"))
-            .on_press(step(-1.0));
-        let increase = button(message("stepper.increase", "Increase"))
-            .with_node(|node| {
-                node.base_style(style().grid_row(1).grid_column(3))
-                    .focusable(false)
-                    .focus_on_press(input_ref)
-            })
-            .disabled(disabled)
-            .variant(ButtonVariant::Ghost)
-            .hide_label(true)
-            .icon(icon("plus"))
-            .on_press(step(1.0));
+        let decrease = step_button(number, input_ref, disabled, false);
+        let increase = step_button(number, input_ref, disabled, true);
         root.child((field, decrease, increase)).into_view()
     }
+}
+
+/// Render a spinbutton step action while keeping focus in its editor.
+fn step_button(
+    number: kivact_interaction::ScalarApi,
+    input_ref: kivact_core::view::NodeRef,
+    disabled: Value<bool>,
+    increase: bool,
+) -> impl IntoView {
+    let (label, glyph, column, steps) = if increase {
+        (message("stepper.increase", "Increase"), "plus", 3, 1.0)
+    } else {
+        (message("stepper.decrease", "Decrease"), "minus", 1, -1.0)
+    };
+    button(label)
+        .with_node(|node| {
+            node.base_style(style().grid_row(1).grid_column(column))
+                .focusable(false)
+                .focus_on_press(input_ref)
+        })
+        .disabled(disabled)
+        .variant(ButtonVariant::Ghost)
+        .hide_label(true)
+        .icon(icon(glyph))
+        .on_press(move || {
+            number.once(|| number.step_by(steps));
+        })
 }

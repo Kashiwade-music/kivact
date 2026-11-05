@@ -24,14 +24,7 @@ enum BannerState {
     Shown,
     Dismissed,
 }
-// xtask-allow(state-fields): Read-only recipe projection of tone, disclosure binding and independent dismiss-control availability.
-/// Alert meaning and disclosure state supplied to recipes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct AlertState {
-    pub tone: Tone,
-    pub expanded: Option<bool>,
-    pub dismissible: bool,
-}
+use crate::component_values::AlertState;
 
 // xtask-allow(state-fields): Independent builder slots and inputs; persistent dismissal uses BannerState.
 /// An urgent, persistent message with optional actions and details.

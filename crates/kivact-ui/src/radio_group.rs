@@ -20,6 +20,7 @@ type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<Che
 
 /// A set of mutually exclusive choices (`Role::RadioGroup`), created by
 /// [`radio_group`].
+// xtask-allow(state-fields): Optional item content and label placement configure a radio group; checked state belongs to the caller binding and shared selection authority.
 pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,

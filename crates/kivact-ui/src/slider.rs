@@ -23,6 +23,7 @@ enum Values {
 }
 
 /// A themed slider, created by [`slider`] or [`range_slider`].
+// xtask-allow(state-fields): Independent construction constraints, labels and optional edit callback; scalar interaction is owned by ScalarApi.
 pub struct Slider {
     root: Node,
     label: Value<String>,
@@ -171,6 +172,7 @@ impl NodeBuilder for Slider {
 
 /// Where the thumbs and the filled range go along the track, in the
 /// track's own pixels, once both are laid out.
+// xtask-allow(state-fields): Read-only measured track/thumb geometry and axis direction project actual layout, with no lifecycle state.
 struct Geometry {
     track: Value<Option<Rect>>,
     thumb: Value<Option<Rect>>,
