@@ -202,3 +202,46 @@ fn key_hint_observes_actual_focus_and_uses_a_single_timed_visit() {
     assert!(screen.query_by_text("to navigate").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn segmented_hint_attaches_to_the_canonical_radio_target() {
+    use kivact::interaction::ListItem;
+    use kivact::test::render_with_handle;
+    use kivact::ui::{RadioGroupVariant, radio_group};
+    use kivact::view::Orientation;
+    let (screen, selected) = render_with_handle(options(800.0), || {
+        let selected = signal(Some("summary"));
+        (
+            selected,
+            soft::with_key_hints(Orientation::Horizontal, move || {
+                radio_group(
+                    "Views",
+                    vec![
+                        ListItem::new("summary", "Summary"),
+                        ListItem::new("activity", "Activity"),
+                    ],
+                    selected,
+                )
+                .variant(RadioGroupVariant::Segmented)
+                .item_node(|target, _, _| soft::keyboard_hint(target))
+            }),
+        )
+    });
+    screen.press_tab(false);
+    assert!(
+        screen
+            .get_by_role(Role::RadioButton, "Summary")
+            .is_focused()
+    );
+    screen.get_by_text("to navigate");
+    screen.press_key(Key::ArrowRight);
+    assert!(
+        screen
+            .get_by_role(Role::RadioButton, "Activity")
+            .is_focused()
+    );
+    assert_eq!(selected.get_untracked(), Some("activity"));
+    screen.advance(std::time::Duration::from_millis(200));
+    assert!(screen.query_by_text("to navigate").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

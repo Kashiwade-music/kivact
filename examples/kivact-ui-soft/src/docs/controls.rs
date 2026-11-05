@@ -34,12 +34,15 @@ pub(super) fn examples(slug: &str) -> Option<Node> {
         ),
         "segmented-control" => specimen(
             "Choose a view",
-            radio_group(
-                "View",
-                vec![ListItem::new("list", "List"), ListItem::new("grid", "Grid")],
-                signal(Some("list")),
-            )
-            .variant(RadioGroupVariant::Segmented),
+            with_key_hints(Orientation::Horizontal, || {
+                radio_group(
+                    "View",
+                    vec![ListItem::new("list", "List"), ListItem::new("grid", "Grid")],
+                    signal(Some("list")),
+                )
+                .variant(RadioGroupVariant::Segmented)
+                .item_node(|target, _, _| keyboard_hint(target))
+            }),
             "radio_group(\"View\", items, selection).variant(RadioGroupVariant::Segmented)",
         ),
         "toolbar" => specimen(
