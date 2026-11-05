@@ -151,9 +151,12 @@ impl RowRender {
         pick: fn(&crate::UiRecipes) -> &crate::Recipe<ItemRowState>,
     ) -> Node {
         let state = self.state;
-        with_base_recipe_style(node().child(children), pick, &self.variants, move || {
-            state.get()
-        })
+        with_base_recipe_style(
+            node().child(children.into_views()),
+            pick,
+            &self.variants,
+            move || state.get(),
+        )
     }
 }
 impl RowContents {
