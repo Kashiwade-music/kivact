@@ -31,14 +31,20 @@ pub enum EdgeCompensation {
 }
 
 /// Dialog heading with optional subtitle, side content and close action.
-// xtask-allow(state-fields): Independent once-mounted title/subtitle/start/end slots and optional close callback plus construction compensation/divider input; no dialog visibility or close phase is stored.
+// Independent once-mounted title/subtitle/start/end slots and optional close callback plus construction compensation/divider input; no dialog visibility or close phase is stored.
 pub struct DialogHeader {
     title: View,
+    // xtask-allow(state-fields): Optional once-mounted subtitle slot, not dialog lifecycle.
     subtitle: Option<View>,
+    // xtask-allow(state-fields): Optional once-mounted leading slot, independent of other content slots.
     start: Option<View>,
+    // xtask-allow(state-fields): Optional once-mounted trailing slot, independent of other content slots.
     end: Option<View>,
+    // xtask-allow(state-fields): Optional application action callback; this header owns no close phase.
     close: Option<Rc<dyn Fn()>>,
+    // xtask-allow(state-fields): Immutable optional edge-compensation geometry policy.
     compensation: Option<EdgeCompensation>,
+    // xtask-allow(state-fields): Independent caller visual-divider input, not dialog state.
     divider: kivact::state::Value<bool>,
 }
 

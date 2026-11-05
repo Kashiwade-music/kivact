@@ -16,7 +16,7 @@ use kivact::state::Value;
 use kivact::state::callback;
 use kivact::state::effect_on;
 use kivact::state::memo;
-use kivact::state::{Machine, Step, machine};
+use kivact::state::{Machine, MachineHandle, Step, machine};
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Overflow;
@@ -251,6 +251,177 @@ fn fits(widths: impl IntoIterator<Item = f64>, available: f64, gap: f64, max_row
     true
 }
 
+// Immutable fitting inputs and the one measurement-owner handle; no cached fit, selection, lifecycle or duplicated source is stored.
+struct FitInput<T: PropValue, K: ItemKey> {
+    items: Value<Vec<T>>,
+    key: Rc<dyn Fn(&T) -> K>,
+    item_width: Option<ItemWidth<T>>,
+    indicator_width: Box<dyn Fn(usize) -> f64>,
+    rect: Value<Option<kivact::geometry::Rect>>,
+    widths: MachineHandle<WidthMeasurements<K>>,
+    min: Value<usize>,
+    max: Value<usize>,
+    gap: Value<f64>,
+    rows: Value<usize>,
+    edge: Value<CollapseFrom>,
+}
+impl<T: PropValue, K: ItemKey> FitInput<T, K> {
+    fn fit(&self) -> OverflowFit {
+        self.items.with(|items| {
+            let floor = self.min.get().min(items.len());
+            let ceiling = self.max.get().max(floor).min(items.len());
+            let Some(rect) = self.rect.get() else {
+                return OverflowFit::Measuring;
+            };
+            let widths: Vec<_> = match &self.item_width {
+                Some(width) => items.iter().map(width).collect(),
+                None => {
+                    let cache = self.widths.get();
+                    items
+                        .iter()
+                        .map(|item| cache.get(&(self.key)(item)).copied().unwrap_or(80.0))
+                        .collect()
+                }
+            };
+            for count in (floor..=ceiling).rev() {
+                let hidden = items.len() - count;
+                let marker = (hidden > 0).then(|| (self.indicator_width)(hidden));
+                let fit = match self.edge.get() {
+                    CollapseFrom::Start => fits(
+                        marker.into_iter().chain(widths[hidden..].iter().copied()),
+                        rect.width,
+                        self.gap.get(),
+                        self.rows.get(),
+                    ),
+                    CollapseFrom::End => fits(
+                        widths[..count].iter().copied().chain(marker),
+                        rect.width,
+                        self.gap.get(),
+                        self.rows.get(),
+                    ),
+                };
+                if fit {
+                    return OverflowFit::Fitted { visible: count };
+                }
+            }
+            OverflowFit::Fitted { visible: floor }
+        })
+    }
+}
+fn partition<T: PropValue>(
+    items: Value<Vec<T>>,
+    split: Value<OverflowFit>,
+    min: Value<usize>,
+    max: Value<usize>,
+    edge: Value<CollapseFrom>,
+) -> Value<(Vec<T>, Vec<T>)> {
+    memo(move || {
+        items.with(|items| {
+            let count = match split.get() {
+                OverflowFit::Measuring => max.get().max(min.get()).min(items.len()),
+                OverflowFit::Fitted { visible } => visible.min(items.len()),
+            };
+            match edge.get() {
+                CollapseFrom::Start => (
+                    items[items.len() - count..].to_vec(),
+                    items[..items.len() - count].to_vec(),
+                ),
+                CollapseFrom::End => (items[..count].to_vec(), items[count..].to_vec()),
+            }
+        })
+    })
+}
+fn observe_hidden<T: PropValue, K: ItemKey>(
+    hidden: Value<Vec<T>>,
+    rect: Value<Option<kivact::geometry::Rect>>,
+    key: Rc<dyn Fn(&T) -> K>,
+    notify: Callback<Vec<K>>,
+) {
+    let hidden_keys = memo(move || {
+        rect.get()?;
+        Some(hidden.with(|items| items.iter().map(|item| key(item)).collect()))
+    });
+    effect_on(hidden_keys, move |keys: &Option<Vec<K>>| {
+        if let Some(keys) = keys {
+            notify.call(keys.clone());
+        }
+    });
+}
+fn observe_items<T: PropValue, K: ItemKey>(
+    items: Value<Vec<T>>,
+    key: Rc<dyn Fn(&T) -> K>,
+    widths: MachineHandle<WidthMeasurements<K>>,
+) {
+    effect_on(items, move |items| {
+        widths.send(Measurement::Retain(
+            items.iter().map(|item| key(item)).collect(),
+        ));
+    });
+}
+fn measured_row<T: PropValue, K: ItemKey>(
+    item: Value<T>,
+    key: K,
+    render: ItemRenderer<T>,
+    widths: MachineHandle<WidthMeasurements<K>>,
+) -> Node {
+    let reference = node_ref();
+    let rect = reference.rect();
+    let width = memo(move || rect.get().map(|rect| rect.width));
+    effect_on(width, move |width| {
+        if let Some(width) = *width {
+            widths.send(Measurement::Measured(key.clone(), width));
+        }
+    });
+    node()
+        .node_ref(reference)
+        .style(style().shrink(0))
+        .child(render.call(item))
+}
+fn item_rows<T: PropValue, K: ItemKey>(
+    visible: Value<Vec<T>>,
+    key: Rc<dyn Fn(&T) -> K>,
+    render: ItemRenderer<T>,
+    widths: MachineHandle<WidthMeasurements<K>>,
+    measure: bool,
+) -> View {
+    let row_key = key.clone();
+    for_each(
+        visible,
+        move |item| key(item),
+        move |item| {
+            if measure {
+                let key = item.with_untracked(|item| row_key(item));
+                measured_row(item, key, render.clone(), widths)
+            } else {
+                node().style(style().shrink(0)).child(render.call(item))
+            }
+        },
+    )
+}
+fn overflow_marker<T: PropValue>(hidden: Value<Vec<T>>, indicator: OverflowRenderer<T>) -> View {
+    show(
+        move || hidden.with(|items| !items.is_empty()),
+        move || {
+            node()
+                .style(style().shrink(0))
+                .child(indicator.call(hidden))
+        },
+    )
+    .into_view()
+}
+fn overflow_root(root: Node, own: NodeRef, gap: Value<f64>, rows: Value<usize>) -> Node {
+    root.node_ref(own).with_node(move |node| {
+        node.base_style(move || {
+            style()
+                .direction(Direction::Row)
+                .gap(gap.get())
+                .wrap(rows.get() > 1)
+                .align_items(Align::Center)
+                .min_width(0)
+                .overflow(Overflow::Hidden)
+        })
+    })
+}
 impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
     fn into_view(self) -> View {
         let Self {
@@ -275,144 +446,37 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
             OverflowMeasure::ParentWidth(parent) => parent.rect(),
         };
         let measure_items = item_width.is_none();
-        let widths_cache = machine(
-            HashMap::<K, f64>::new(),
+        let widths = machine(
+            HashMap::new(),
             || WidthMeasurements(PhantomData),
             |_, ()| {},
         );
-        let widths_key = key.clone();
-        let split = memo(move || {
-            items.with(|items| {
-                let floor = min_visible.get().min(items.len());
-                let ceiling = max_visible.get().max(floor).min(items.len());
-                let Some(rect) = rect.get() else {
-                    return OverflowFit::Measuring;
-                };
-                let widths: Vec<_> = match &item_width {
-                    Some(width) => items.iter().map(width).collect(),
-                    None => {
-                        let cache = widths_cache.get();
-                        {
-                            items
-                                .iter()
-                                .map(|item| cache.get(&widths_key(item)).copied().unwrap_or(80.0))
-                                .collect()
-                        }
-                    }
-                };
-                for count in (floor..=ceiling).rev() {
-                    let hidden = items.len() - count;
-                    let marker = (hidden > 0).then(|| indicator_width(hidden));
-                    let fit = match collapse_from.get() {
-                        CollapseFrom::Start => fits(
-                            marker.into_iter().chain(widths[hidden..].iter().copied()),
-                            rect.width,
-                            gap.get(),
-                            max_rows.get(),
-                        ),
-                        CollapseFrom::End => fits(
-                            widths[..count].iter().copied().chain(marker),
-                            rect.width,
-                            gap.get(),
-                            max_rows.get(),
-                        ),
-                    };
-                    if fit {
-                        return OverflowFit::Fitted { visible: count };
-                    }
-                }
-                OverflowFit::Fitted { visible: floor }
-            })
-        });
-        let visible = memo(move || {
-            items.with(|items| {
-                let count = match split.get() {
-                    OverflowFit::Measuring => {
-                        max_visible.get().max(min_visible.get()).min(items.len())
-                    }
-                    OverflowFit::Fitted { visible } => visible.min(items.len()),
-                };
-                match collapse_from.get() {
-                    CollapseFrom::Start => items[items.len() - count..].to_vec(),
-                    CollapseFrom::End => items[..count].to_vec(),
-                }
-            })
-        });
-        let hidden = memo(move || {
-            items.with(|items| {
-                let count = match split.get() {
-                    OverflowFit::Measuring => {
-                        max_visible.get().max(min_visible.get()).min(items.len())
-                    }
-                    OverflowFit::Fitted { visible } => visible.min(items.len()),
-                };
-                match collapse_from.get() {
-                    CollapseFrom::Start => items[..items.len() - count].to_vec(),
-                    CollapseFrom::End => items[count..].to_vec(),
-                }
-            })
-        });
+        let fitting = FitInput {
+            items,
+            key: key.clone(),
+            item_width,
+            indicator_width,
+            rect,
+            widths,
+            min: min_visible,
+            max: max_visible,
+            gap,
+            rows: max_rows,
+            edge: collapse_from,
+        };
+        let split = memo(move || fitting.fit());
+        let parts = partition(items, split, min_visible, max_visible, collapse_from);
+        let visible = memo(move || parts.get().0);
+        let hidden = memo(move || parts.get().1);
         if let Some(notify) = on_overflow_change {
-            let key = key.clone();
-            let hidden_keys = memo(move || {
-                rect.get()?;
-                Some(hidden.with(|items| items.iter().map(|item| key(item)).collect()))
-            });
-            effect_on(hidden_keys, move |keys: &Option<Vec<K>>| {
-                if let Some(keys) = keys {
-                    notify.call(keys.clone());
-                }
-            });
+            observe_hidden(hidden, rect, key.clone(), notify);
         }
         if measure_items {
-            let active_key = key.clone();
-            effect_on(items, move |items| {
-                let active: std::collections::HashSet<_> =
-                    items.iter().map(|item| active_key(item)).collect();
-                widths_cache.send(Measurement::Retain(active));
-            });
+            observe_items(items, key.clone(), widths);
         }
-        let row_key = key.clone();
-        let rows = for_each(
-            visible,
-            move |item| key(item),
-            move |item| {
-                let key = item.with_untracked(|item| row_key(item));
-                let root = node().style(style().shrink(0)).child(render.call(item));
-                if measure_items {
-                    let item_ref = node_ref();
-                    let rect = item_ref.rect();
-                    let width = memo(move || rect.get().map(|rect| rect.width));
-                    effect_on(width, move |width| {
-                        if let Some(width) = *width {
-                            widths_cache.send(Measurement::Measured(key.clone(), width));
-                        }
-                    });
-                    root.node_ref(item_ref)
-                } else {
-                    root
-                }
-            },
-        );
-        let marker = show(
-            move || hidden.with(|items| !items.is_empty()),
-            move || {
-                node()
-                    .style(style().shrink(0))
-                    .child(indicator.call(hidden))
-            },
-        );
-        let root = root.node_ref(own).with_node(move |node| {
-            node.base_style(move || {
-                style()
-                    .direction(Direction::Row)
-                    .gap(gap.get())
-                    .wrap(max_rows.get() > 1)
-                    .align_items(Align::Center)
-                    .min_width(0)
-                    .overflow(Overflow::Hidden)
-            })
-        });
+        let rows = item_rows(visible, key, render, widths, measure_items);
+        let marker = overflow_marker(hidden, indicator);
+        let root = overflow_root(root, own, gap, max_rows);
         match collapse_from.get() {
             CollapseFrom::Start => root.child((marker, rows)),
             CollapseFrom::End => root.child((rows, marker)),

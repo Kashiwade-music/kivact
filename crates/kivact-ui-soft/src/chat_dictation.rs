@@ -13,11 +13,13 @@ fn control_side(size: ControlSize) -> i32 {
     }
 }
 /// Read-only microphone capability and audio samples supplied by the application.
-// xtask-allow(state-fields): Read-only application-owned microphone capability and sampled audio facts; the control owns no recording transitions.
+// Read-only application-owned microphone capability and sampled audio facts; the control owns no recording transitions.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DictationState {
+    // xtask-allow(state-fields): Read-only application microphone capability fact; the control owns no recording state.
     /// Whether the application can offer dictation.
     pub supported: bool,
+    // xtask-allow(state-fields): Read-only application recording snapshot; transitions remain in the application owner.
     /// Whether the application is currently listening.
     pub listening: bool,
     /// Current normalized input amplitude used when band samples are absent.
