@@ -380,6 +380,7 @@ mod chat_values;
 mod code_block;
 mod code_editing;
 mod code_gutter;
+mod code_values;
 mod composer_history;
 mod look_chat;
 mod typing_indicator;
@@ -392,7 +393,8 @@ pub use chat_values::{
     ChatMessageVariant, ChatReactionsSide, ChatSender, ChatThreadState, ComposerStatus,
     ComposerStatusPosition, TypingIndicatorState,
 };
-pub use code_block::{CodeBlock, CodeBlockState, code_block};
+pub use code_block::{CodeBlock, code_block};
+pub use code_values::CodeBlockState;
 pub use recipes::{
     ChatComposerRecipes, ChatMessageRecipes, ChatThreadRecipes, CodeBlockRecipes,
     TypingIndicatorRecipes,

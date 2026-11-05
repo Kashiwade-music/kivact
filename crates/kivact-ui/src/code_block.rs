@@ -1,4 +1,5 @@
 //! Role: Display selectable source code with themed syntax, numbering and clipboard feedback.
+use crate::CodeBlockState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
@@ -11,15 +12,6 @@ use kivact_core::view::{
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
-// xtask-allow(state-fields): Read-only recipe projection of independent builder inputs, the shared disclosure owner and clipboard feedback owner.
-/// Rendered source facts supplied to code-block recipes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct CodeBlockState {
-    pub numbered: bool,
-    pub wrapped: bool,
-    pub expanded: bool,
-    pub copied: bool,
-}
 // xtask-allow(state-fields): Independent builder inputs and slots; native editing, use_disclosure and use_copy_feedback own interaction state.
 /// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {
@@ -223,11 +215,23 @@ impl CodeBlock {
         let copied = feedback.is_copied();
         let numbered = self.line_numbers;
         let wrapped = self.wrap;
+        let has_title = self.title.is_some();
+        let has_language = self.language.is_some();
+        let language_label = self.language_label;
+        let copy_button = self.copy_button;
+        let has_end = self.end_content.is_some();
+        let has_footer = self.footer.is_some();
         let state = memo(move || CodeBlockState {
             numbered: numbered.get(),
             wrapped: wrapped.get(),
             expanded: open.get(),
             copied: copied.get(),
+            has_header: has_title
+                || (has_language && language_label.get())
+                || copy_button.get()
+                || has_end
+                || can_collapse.get(),
+            has_footer,
         });
         let name = self
             .title
@@ -309,7 +313,9 @@ impl CodeBlock {
             )
         });
         with_recipe_style(
-            node().child((label, trigger, language, end, copy)),
+            node()
+                .child((label, trigger, language, end, copy))
+                .hidden(move || !state.get().has_header),
             |r| r.code_block_recipes().header_recipe(),
             &self.variants,
             move || state.get(),
