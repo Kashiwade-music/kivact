@@ -144,7 +144,7 @@ fn navigation_actions_and_rich_panel_links_share_the_existing_close_owner() {
                 .link("resources", "Resources", move || {
                     kivact::ui::navigation_menu_link("Guide")
                         .description("Read the guide")
-                        .icon(icon("book"))
+                        .icon(icon("chevron-right"))
                         .on_press(move || clicks.update(|n| *n += 1))
                 })
                 .action("home", "Home", move || clicks.update(|n| *n += 10)),

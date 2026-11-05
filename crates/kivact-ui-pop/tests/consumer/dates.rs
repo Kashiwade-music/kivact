@@ -44,6 +44,7 @@ fn the_date_range_writes_only_a_complete_range() {
                     move || format!("{} – {}", start_label.get(), end_label.get()),
                     range,
                 )
+                .presentation(kivact::ui::DatePresentation::Desktop)
                 .start_label(start_label)
                 .end_label(end_label)
                 .calendar(move |calendar| {
@@ -97,11 +98,13 @@ fn the_date_picker_writes_the_binding_and_closes() {
                         }
                     },
                 );
-                kivact::ui::date_input("Date", value).calendar(move |calendar| {
-                    calendar
-                        .today(date(2026, 10, 3))
-                        .month_title(|date| format!("{}-{:02}", date.year(), date.month()))
-                })
+                kivact::ui::date_input("Date", value)
+                    .presentation(kivact::ui::DatePresentation::Desktop)
+                    .calendar(move |calendar| {
+                        calendar
+                            .today(date(2026, 10, 3))
+                            .month_title(|date| format!("{}-{:02}", date.year(), date.month()))
+                    })
             })
         },
     );
