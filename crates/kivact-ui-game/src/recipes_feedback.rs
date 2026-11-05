@@ -236,6 +236,7 @@ fn alert_icon(t: &Theme, s: &Look<AlertState>) -> Style {
         .color(s.tone.color(t))
 }
 fn banner_tape(t: &Theme, s: &Look<AlertState>) -> Style {
+    let stripe = t.ext::<Tokens>().tape_stripe;
     let color = if s.tone == kivact::interaction::Tone::Warning {
         t.ext::<Tokens>().yellow
     } else {
@@ -261,7 +262,7 @@ fn banner_tape(t: &Theme, s: &Look<AlertState>) -> Style {
                             .line_to(Point::new(x + s.height + 8., 0.))
                             .line_to(Point::new(x + 8., s.height))
                             .close(),
-                        kivact::style::rgb(0x1a1a1a),
+                        stripe,
                     );
                     x += 16.;
                 }
