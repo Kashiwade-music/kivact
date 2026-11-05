@@ -124,44 +124,7 @@ impl IntoView for Avatar {
         let shape = self.shape;
         let src = self.src;
         let fallback = self.fallback;
-        let labels = [
-            kivact_core::i18n::message("avatar.status.neutral", "Neutral"),
-            kivact_core::i18n::message("avatar.status.info", "Information"),
-            kivact_core::i18n::message("avatar.status.success", "Available"),
-            kivact_core::i18n::message("avatar.status.warning", "Away"),
-            kivact_core::i18n::message("avatar.status.danger", "Busy"),
-            kivact_core::i18n::message("avatar.status.accent", "Active"),
-        ];
-        let status_label = (move || {
-            status.get().map(|tone| {
-                labels[match tone {
-                    Tone::Neutral => 0,
-                    Tone::Info => 1,
-                    Tone::Success => 2,
-                    Tone::Warning => 3,
-                    Tone::Danger => 4,
-                    Tone::Accent => 5,
-                }]
-                .get()
-            })
-        })
-        .into_value();
-        let source = move || {
-            if status_label.get().is_some() {
-                AvatarStatusSource::Mounted {
-                    label: status_label,
-                }
-            } else {
-                AvatarStatusSource::None
-            }
-        };
-        let label = move || match source() {
-            AvatarStatusSource::None => accessible_name.get(),
-            AvatarStatusSource::Mounted { label } => label.get().map_or_else(
-                || accessible_name.get(),
-                |label| format!("{}, {label}", accessible_name.get()),
-            ),
-        };
+        let label = accessible_label(accessible_name, status);
         let content = dynamic(
             move || (src.get(), fallback.get()),
             move |(asset, fallback)| match asset.or_else(|| fallback.clone()) {
@@ -169,34 +132,95 @@ impl IntoView for Avatar {
                 None => text(move || initials(&name.get())).into_view(),
             },
         );
+        let state = move || AvatarState {
+            size: size.get(),
+            shape: shape.get(),
+            status: status.get(),
+        };
+        let image = crate::layer::with_recipe_style(
+            node().child(content),
+            |r| r.avatar_image_recipe(),
+            &self.variants,
+            state,
+        );
+        let status_badge = status_badge(size, shape, status, &self.variants);
         crate::layer::with_base_recipe_style(
             self.root.name(label),
             |r| r.avatar_recipe(),
             &self.variants,
-            move || AvatarState {
-                size: size.get(),
-                shape: shape.get(),
-                status: status.get(),
-            },
+            state,
         )
         .base_style(style().position(Position::Relative))
-        .child(content)
+        .child(image)
         .child(self.status_content)
-        .child(kivact_core::view::show(
-            move || status.get().is_some(),
-            move || {
-                crate::layer::with_base_recipe_style(
-                    node(),
-                    |r| r.avatar_status_recipe(),
-                    &crate::variants::Variants::default(),
-                    move || AvatarState {
-                        size: size.get(),
-                        shape: shape.get(),
-                        status: status.get(),
-                    },
-                )
-            },
-        ))
+        .child(status_badge)
         .into_view()
     }
+}
+
+fn accessible_label(accessible_name: Value<String>, status: Value<Option<Tone>>) -> Value<String> {
+    let labels = [
+        kivact_core::i18n::message("avatar.status.neutral", "Neutral"),
+        kivact_core::i18n::message("avatar.status.info", "Information"),
+        kivact_core::i18n::message("avatar.status.success", "Available"),
+        kivact_core::i18n::message("avatar.status.warning", "Away"),
+        kivact_core::i18n::message("avatar.status.danger", "Busy"),
+        kivact_core::i18n::message("avatar.status.accent", "Active"),
+    ];
+    let status_label = (move || {
+        status.get().map(|tone| {
+            labels[match tone {
+                Tone::Neutral => 0,
+                Tone::Info => 1,
+                Tone::Success => 2,
+                Tone::Warning => 3,
+                Tone::Danger => 4,
+                Tone::Accent => 5,
+            }]
+            .get()
+        })
+    })
+    .into_value();
+    let source = move || {
+        if status_label.get().is_some() {
+            AvatarStatusSource::Mounted {
+                label: status_label,
+            }
+        } else {
+            AvatarStatusSource::None
+        }
+    };
+    (move || match source() {
+        AvatarStatusSource::None => accessible_name.get(),
+        AvatarStatusSource::Mounted { label } => label.get().map_or_else(
+            || accessible_name.get(),
+            |label| format!("{}, {label}", accessible_name.get()),
+        ),
+    })
+    .into_value()
+}
+
+fn status_badge(
+    size: Value<ControlSize>,
+    shape: Value<AvatarShape>,
+    status: Value<Option<Tone>>,
+    variants: &Variants,
+) -> View {
+    let variants = variants.clone();
+    kivact_core::view::show(
+        move || status.get().is_some(),
+        move || {
+            crate::layer::with_base_recipe_style(
+                node(),
+                |r| r.avatar_status_recipe(),
+                &variants,
+                move || AvatarState {
+                    size: size.get(),
+                    shape: shape.get(),
+                    status: status.get(),
+                },
+            )
+        },
+    )
+    .into_view()
 }

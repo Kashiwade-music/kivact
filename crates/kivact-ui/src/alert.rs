@@ -1,4 +1,5 @@
 //! Role: Present persistent alerts and dismissible feedback banners.
+use crate::component_values::AlertState;
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::custom::Owner;
@@ -24,15 +25,6 @@ enum BannerState {
     Shown,
     Dismissed,
 }
-// xtask-allow(state-fields): Read-only recipe projection of tone, disclosure binding and independent dismiss-control availability.
-/// Alert meaning and disclosure state supplied to recipes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct AlertState {
-    pub tone: Tone,
-    pub expanded: Option<bool>,
-    pub dismissible: bool,
-}
-
 // xtask-allow(state-fields): Independent builder slots and inputs; persistent dismissal uses BannerState.
 /// An urgent, persistent message with optional actions and details.
 pub struct Alert {
@@ -149,10 +141,16 @@ impl IntoView for Alert {
         let collapsible = self.collapsible;
         let has_details = self.content.is_some();
         let open = self.open.unwrap_or_else(|| signal(false).into_binding());
+        let has_icon = self.icon.is_some();
+        let has_actions = self.actions.is_some();
+        let has_description = self.description.is_some();
         let state = move || AlertState {
             tone: tone.get(),
             expanded: (has_details && collapsible.get()).then(|| open.get()),
             dismissible: dismissible.get(),
+            has_icon,
+            has_actions,
+            has_description,
         };
         let variants = &self.variants;
         let icon = self.icon.map(|view| {

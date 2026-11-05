@@ -297,9 +297,9 @@ mod empty_state;
 mod empty_state_changes;
 mod input_group;
 mod look_feedback;
-pub use alert::{Alert, AlertState, AlertVariant, alert};
+pub use alert::{Alert, AlertVariant, alert};
 pub use card::{Card, card};
-pub use component_values::CardState;
+pub use component_values::{AlertState, CardState};
 pub use empty_state::{EmptyState, EmptyStateState, empty_state};
 pub use input_group::{
     InputGroup, InputGroupMemberState, InputGroupState, input_addon, input_group, input_group_with,
