@@ -427,87 +427,26 @@ fn all_kit_themes_preserve_standard_component_contracts() {
 /// README coverage follows the public recipe getters, including unchanged defaults.
 fn filled_recipe_keys(kit: &UiRecipes) -> Vec<&'static str> {
     let defaults = UiRecipes::default();
+    macro_rules! changed {
+        ($getter:ident) => {
+            !std::ptr::eq(&**kit.$getter(), &**defaults.$getter())
+        };
+    }
     let mut keys: Vec<_> = [
-        (
-            "button",
-            !std::ptr::eq(&**kit.button_recipe(), &**defaults.button_recipe()),
-        ),
-        (
-            "button_content",
-            !std::ptr::eq(
-                &**kit.button_content_recipe(),
-                &**defaults.button_content_recipe(),
-            ),
-        ),
-        (
-            "button_busy",
-            !std::ptr::eq(
-                &**kit.button_busy_recipe(),
-                &**defaults.button_busy_recipe(),
-            ),
-        ),
-        (
-            "button_icon",
-            !std::ptr::eq(
-                &**kit.button_icon_recipe(),
-                &**defaults.button_icon_recipe(),
-            ),
-        ),
-        (
-            "checkbox",
-            !std::ptr::eq(&**kit.checkbox_recipe(), &**defaults.checkbox_recipe()),
-        ),
-        (
-            "checkbox_indicator",
-            !std::ptr::eq(
-                &**kit.checkbox_indicator_recipe(),
-                &**defaults.checkbox_indicator_recipe(),
-            ),
-        ),
-        (
-            "checkbox_check",
-            !std::ptr::eq(
-                &**kit.checkbox_check_recipe(),
-                &**defaults.checkbox_check_recipe(),
-            ),
-        ),
-        (
-            "checkbox_mixed",
-            !std::ptr::eq(
-                &**kit.checkbox_mixed_recipe(),
-                &**defaults.checkbox_mixed_recipe(),
-            ),
-        ),
-        (
-            "switch",
-            !std::ptr::eq(&**kit.switch_recipe(), &**defaults.switch_recipe()),
-        ),
-        (
-            "switch_track",
-            !std::ptr::eq(
-                &**kit.switch_track_recipe(),
-                &**defaults.switch_track_recipe(),
-            ),
-        ),
-        (
-            "switch_thumb",
-            !std::ptr::eq(
-                &**kit.switch_thumb_recipe(),
-                &**defaults.switch_thumb_recipe(),
-            ),
-        ),
-        (
-            "toggle",
-            !std::ptr::eq(&**kit.toggle_recipe(), &**defaults.toggle_recipe()),
-        ),
-        (
-            "text_input",
-            !std::ptr::eq(&**kit.text_input_recipe(), &**defaults.text_input_recipe()),
-        ),
-        (
-            "text_area",
-            !std::ptr::eq(&**kit.text_area_recipe(), &**defaults.text_area_recipe()),
-        ),
+        ("button", changed!(button_recipe)),
+        ("button_content", changed!(button_content_recipe)),
+        ("button_busy", changed!(button_busy_recipe)),
+        ("button_icon", changed!(button_icon_recipe)),
+        ("checkbox", changed!(checkbox_recipe)),
+        ("checkbox_indicator", changed!(checkbox_indicator_recipe)),
+        ("checkbox_check", changed!(checkbox_check_recipe)),
+        ("checkbox_mixed", changed!(checkbox_mixed_recipe)),
+        ("switch", changed!(switch_recipe)),
+        ("switch_track", changed!(switch_track_recipe)),
+        ("switch_thumb", changed!(switch_thumb_recipe)),
+        ("toggle", changed!(toggle_recipe)),
+        ("text_input", changed!(text_input_recipe)),
+        ("text_area", changed!(text_area_recipe)),
         ("select", kit.select_recipes() != defaults.select_recipes()),
         ("menu", kit.menu_recipes() != defaults.menu_recipes()),
         ("dialog", kit.dialog_recipes() != defaults.dialog_recipes()),
