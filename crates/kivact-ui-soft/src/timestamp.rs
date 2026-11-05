@@ -157,6 +157,7 @@ pub enum InstantFormat {
     UnixSeconds,
 }
 
+// xtask-allow(state-fields): Immutable detail formatting choices; zone, label and copy permission are independent presentation inputs.
 /// A row in the timestamp details.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TimestampEntry {
@@ -200,6 +201,7 @@ pub enum TimestampFormat {
     UnixSeconds,
 }
 
+// xtask-allow(state-fields): Independent construction inputs and shared clock handle; the existing TimestampTick machine owns refresh scheduling.
 /// A date or relative timestamp with optional details.
 pub struct Timestamp {
     text: StyledText,
@@ -375,49 +377,9 @@ impl IntoView for Timestamp {
         });
         {
             // Standard tooltip fallback until Soft's interactive hover card is integrated.
-            tooltip(move || {
-                let entries = entries.get();
-                if entries.is_empty() {
-                    return calendar_text(
-                        value.get(),
-                        TimestampFormat::DateTime,
-                        &zone.get(),
-                        true,
-                        true,
-                    );
-                }
-                entries
-                    .iter()
-                    .map(|entry| {
-                        let (format, full) = match entry.format {
-                            InstantFormat::Full => (TimestampFormat::DateTime, true),
-                            InstantFormat::Date => (TimestampFormat::Date, false),
-                            InstantFormat::DateTime => (TimestampFormat::DateTime, false),
-                            InstantFormat::Time => (TimestampFormat::Time, false),
-                            InstantFormat::SystemDate => (TimestampFormat::SystemDate, false),
-                            InstantFormat::SystemDateTime => {
-                                (TimestampFormat::SystemDateTime, false)
-                            }
-                            InstantFormat::SystemTime => (TimestampFormat::SystemTime, false),
-                            InstantFormat::UnixSeconds => (TimestampFormat::UnixSeconds, false),
-                        };
-                        let value = calendar_text(
-                            value.get(),
-                            format,
-                            entry.zone.as_ref().unwrap_or(&zone.get()),
-                            entry.zone.is_some() || full,
-                            full,
-                        );
-                        entry
-                            .label
-                            .as_ref()
-                            .map_or_else(|| value.clone(), |label| format!("{label}  {value}"))
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            })
-            .enabled(enabled)
-            .attach(text.focusable(enabled))
+            tooltip(move || timestamp_details(value, zone, entries))
+                .enabled(enabled)
+                .attach(text.focusable(enabled))
         }
     }
 }
@@ -619,3 +581,47 @@ fn timestamp_presentation(
 }
 
 kivact::state::constant_value!(TimestampValue, TimestampFormat, TimeZone);
+
+fn timestamp_details(
+    value: Value<TimestampValue>,
+    zone: Value<TimeZone>,
+    entries: Value<Vec<TimestampEntry>>,
+) -> String {
+    let entries = entries.get();
+    if entries.is_empty() {
+        return calendar_text(
+            value.get(),
+            TimestampFormat::DateTime,
+            &zone.get(),
+            true,
+            true,
+        );
+    }
+    entries
+        .iter()
+        .map(|entry| {
+            let (format, full) = match entry.format {
+                InstantFormat::Full => (TimestampFormat::DateTime, true),
+                InstantFormat::Date => (TimestampFormat::Date, false),
+                InstantFormat::DateTime => (TimestampFormat::DateTime, false),
+                InstantFormat::Time => (TimestampFormat::Time, false),
+                InstantFormat::SystemDate => (TimestampFormat::SystemDate, false),
+                InstantFormat::SystemDateTime => (TimestampFormat::SystemDateTime, false),
+                InstantFormat::SystemTime => (TimestampFormat::SystemTime, false),
+                InstantFormat::UnixSeconds => (TimestampFormat::UnixSeconds, false),
+            };
+            let value = calendar_text(
+                value.get(),
+                format,
+                entry.zone.as_ref().unwrap_or(&zone.get()),
+                entry.zone.is_some() || full,
+                full,
+            );
+            entry
+                .label
+                .as_ref()
+                .map_or_else(|| value.clone(), |label| format!("{label}  {value}"))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
